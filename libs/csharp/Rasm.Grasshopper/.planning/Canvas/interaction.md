@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_CANVAS_INTERACTION]
 
-The canvas interaction spine of the Grasshopper boundary — responsive dispatch, focus capture, object dragging, context-menu population, and interactive edge resizing. One `ResponderSpec` declares a hit-testable input target as data, and one contained `Responses` adapter projects it onto the host dispatch contract. `InteractionMount` is the single lease resource for registration, focus, drag capture, and synchronous event attachment; it marshals teardown, records callback or release faults, and prevents a released registration from remaining on the focus stack. Host-bound interaction acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only an owned mount or gesture capsule. Dwell writes settle through the injected `MonotonicTimeline`, while reads cross the closed `CanvasQuery.StateCase` → `CanvasProjection.StateCase` projection.
+`InteractionMount` owns the canvas interaction spine — responsive dispatch, focus capture, object dragging, context-menu population, and interactive edge resizing — as the single lease resource for registration, focus, drag capture, and synchronous event attachment; it marshals teardown, records callback or release faults, and never leaves a released registration on the focus stack.
+
+One `ResponderSpec` declares a hit-testable input target as data, and one contained `Responses` adapter projects it onto the host dispatch contract. Host-bound acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only an owned mount or gesture capsule. Dwell writes settle through the injected `MonotonicTimeline`, and reads cross the closed `CanvasQuery.StateCase` → `CanvasProjection.StateCase` projection.
 
 ## [01]-[INDEX]
 
@@ -24,10 +26,10 @@ The canvas interaction spine of the Grasshopper boundary — responsive dispatch
 - Owner: `InteractionMount` sealed class — the single idempotent `IDisposable` resource for responder registration, focus capture, drag capture, and menu attachment. `Target` and `PriorFocus` preserve lifecycle evidence; `LastFault` exposes the latest contained callback or release failure; disposal marshals through the release closure and remains retryable after a failed teardown.
 - Entry: `Dispatch.Mount(FlexControl surface, ResponderSpec spec, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Hold(FlexControl surface, IResponsive target, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Roster(IFlexControl surface, Op? key = null)` → `Fin<Seq<IResponsive>>`.
 - Law: the flex control arrives resolved — canvas callers acquire it inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, while a chrome flex pane arrives from its own owner. Registration/focus mounts require the concrete `FlexControl` owner because the focus stack is absent from `IFlexControl`; roster projection remains interface-shaped. No mount exposes a live canvas.
-- Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it. `Mount` pops its target before unregistering, `Hold` refuses to claim an already focused target, and failed register or push acquisition rolls back before returning its fault. The host focus stack remains unique by target and restores its previous head when the owned frame leaves.
+- Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it. `Mount` pops its target before unregistering, `Hold` refuses to claim an already focused target, and failed register or push acquisition rolls back before returning its fault. Host focus stack stays unique by target and restores its previous head when the owned frame leaves.
 - Boundary: window-selection lifecycle verbs are `Canvas/canvas.md` marquee cases; `WindowSelection` and `MouseDwell` facts are `Shell/events.md` rows. `ObjectDragInteraction` neither registers nor focuses itself, so `[04]` acquires `Dispatch.Hold` and owns that lease through gesture teardown.
 - Packages: Grasshopper2 (`FlexControl.RegisterIResponsive`/`UnregisterIResponsive`/`PushFocus`/`PopFocus`/`FocusObject`, `IFlexControl.ResponsivesForwards`, `IResponsive`, `Responses` and its virtual handler family, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new host handler virtual is one spec slot plus one contained adapter override; every new attachment modality reuses `InteractionMount`.
+- Growth: a new host handler virtual is one spec slot with one contained adapter override; every new attachment modality reuses `InteractionMount`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -53,8 +55,7 @@ public sealed partial class Verdict {
         Response.Release => Release,
         Response.Handled => Handled,
         Response.Capture => Capture,
-        Response.Ignored => Ignored,
-        var other => Ignored,
+        _ => Ignored,
     };
 }
 
@@ -294,9 +295,9 @@ public static class Dispatch {
 
 ## [04]-[SESSIONS]
 
-- Owner: `DragSession` sealed class `[BoundaryAdapter]` — the owned object-drag capsule over `ObjectDragInteraction`. `Begin(Document graph, PointF anchor, Op? key = null)` → `Fin<Lease<DragSession>>` admits a finite anchor, constructs the host interaction inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, rejects an empty dragged set, and acquires its responder through `Dispatch.Hold` before the marshal returns. The session owns the focus lease; pointer release may pop it through the host `Release` verdict, while disposal remains the cancellation path and idempotently pops any surviving frame. `Poll` returns accepted count and anchor evidence; the private host `LastPoint` remains unavailable.
-- Owner: `EdgeResize` sealed class `[BoundaryAdapter]` — the interactive resize capsule over `ResizingFrame`. `Of` admits finite nonnegative frame and size bounds with `min ≤ max`, then mints the host frame inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only the capsule. `Begin` admits the pointer and opens an edge grab; `Track` requires an active grip; `End` closes the gesture and clears both host snap-guide axes through the same session seam; `CursorAt` resolves admitted hover feedback; `Grip` projects the engaged edges. The integer-mask host overload remains absorbed by the `Padding` arm.
-- Law: both capsules are gesture-scoped and never cached across gestures. Every acquired drag lease is disposed after pointer release or cancellation; host `Release` and lease disposal are both safe because `PopFocus` removes only the named target. The drag capsule's undo record remains the host's own.
+- Owner: `DragSession` sealed class `[BoundaryAdapter]` — the owned object-drag capsule over `ObjectDragInteraction`. `Begin(Document graph, PointF anchor, Op? key = null)` → `Fin<Lease<DragSession>>` admits a finite anchor, constructs the host interaction inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, rejects an empty dragged set, and acquires its responder through `Dispatch.Hold` before the marshal returns. This session owns the focus lease; pointer release may pop it through the host `Release` verdict, while disposal remains the cancellation path and idempotently pops any surviving frame. `Poll` returns accepted count and anchor evidence; the private host `LastPoint` remains unavailable.
+- Owner: `EdgeResize` sealed class `[BoundaryAdapter]` — the interactive resize capsule over `ResizingFrame`. `Of` admits finite nonnegative frame and size bounds with `min ≤ max`, then mints the host frame inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only the capsule. `Begin` admits the pointer and opens an edge grab; `Track` requires an active grip; `End` closes the gesture and clears both host snap-guide axes through the same session seam; `CursorAt` resolves admitted hover feedback; `Grip` projects the engaged edges. Its `Padding` arm absorbs the integer-mask host overload.
+- Law: both capsules are gesture-scoped and never cached across gestures. Every acquired drag lease is disposed after pointer release or cancellation; host `Release` and lease disposal are both safe because `PopFocus` removes only the named target. Drag-capsule undo records remain the host's own.
 - Boundary: the component-attribute resize policy capsule (`Components/attributes.md`'s `ResizeSession`) composes the same host `ResizingFrame` under its snap-restoration window; this owner is the canvas-general capsule — a chrome or plugin surface resizing any frame — and carries no component policy.
 - Packages: Grasshopper2 (`ObjectDragInteraction` ctor/`Control`/`Document`/`Count`/`FirstPoint`/`Responder`, `ResizingFrame` ctor/`Begin`/`Continue`/`CursorAt`/`Original`/`Resized`/`MinimumSize`/`MaximumSize`/`ResizeTopEdge`/`ResizeLeftEdge`/`ResizeRightEdge`/`ResizeBottomEdge`, `Canvas.SnapXAction`/`SnapYAction`, `SnappingConstraints`, `SnappingSettings`), Eto.Drawing (`PointF`, `RectangleF`, `SizeF`, `Padding`), Eto.Forms (`Cursor`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`).
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
@@ -449,11 +450,11 @@ public sealed class EdgeResize {
 ## [05]-[MOMENTS]
 
 - Composition: dwell timing writes call `CanvasOperator.Apply(op: new CanvasOp.DwellCase(Delay: delay), timeline: timeline, key: op)` and consume the resulting `CanvasReceipt`; `timeline` is the caller's shared `MonotonicTimeline`, never minted here. Reads call `CanvasOperator.Read(query: new CanvasQuery.StateCase(), key: op)` and accept only `CanvasProjection.StateCase { Value: var state }` before projecting `state.DwellDelay`. Zero or negative delay preserves the host disable convention. Dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`.
-- Owner: `MenuMount` — the synchronous population seam over `PopulateContextMenu`: `Mount(Action<MenuMoment> fill, Op? key = null)` → `Fin<Lease<InteractionMount>>`. The handler runs inside the host raise because the live menu must be filled before return; the filler runs through `Op.Catch`, and any fault records on `InteractionMount.LastFault` without escaping into the host event chain.
+- Owner: `MenuMount` — the synchronous population seam over `PopulateContextMenu`: `Mount(Action<MenuMoment> fill, Op? key = null)` → `Fin<Lease<InteractionMount>>`. Its handler runs inside the host raise because the live menu must be filled before return; the filler runs through `Op.Catch`, and any fault records on `InteractionMount.LastFault` without escaping into the host event chain.
 - Law: a filler adds items and returns — presenting, styling, and command wiring for menu items are `Eto`-tier and chrome concerns; a filler that opens its own menu beside the host's is the double-menu defect.
 - Law: whether ANY context menu opens is `Canvas/canvas.md`'s `ActionGate` rows (`WireMenu`/`ObjectMenu`/`CanvasMenu`) — the fill seam runs only when the gate admitted the raise.
 - Packages: Grasshopper2 (`FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs.Control`/`MouseEvent`/`Menu`/`IsMenu`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`), `Canvas/canvas.md` (`CanvasOp.DwellCase`, `CanvasQuery.StateCase`, `CanvasProjection.StateCase`, `CanvasState.DwellDelay`, `CanvasReceipt`).
-- Growth: a new synchronous host moment (a populate-shaped event whose args demand in-raise mutation) is one moment record plus one mount; observation-shaped events stay `Shell/events.md` rows.
+- Growth: a new synchronous host moment (a populate-shaped event whose args demand in-raise mutation) is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -585,4 +586,4 @@ flowchart LR
 |  [05]   | edge resize     | `EdgeResize` + `EdgeGrip`         | one admitted host gesture capsule       |
 |  [06]   | context moments | `MenuMount`                       | one synchronous contained attachment    |
 
-`EtoDispatch`, `CanvasOperator`, `Lease<T>`, `Op`, `ValidityClaim`, and the host `Responses` virtual family are composed upstream owners. Parallel chrome families, false Canvas-namespace focus spellings, ungated native paths, parallel dwell mutation, and tooltip reflection have no successor shape here.
+`EtoDispatch`, `CanvasOperator`, `Lease<T>`, `Op`, `ValidityClaim`, and the host `Responses` virtual family are composed upstream owners.

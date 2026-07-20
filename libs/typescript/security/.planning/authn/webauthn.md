@@ -1,6 +1,6 @@
 # [SECURITY_WEBAUTHN]
 
-Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. The whole surface is one options→verify pattern across registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. The ceremony position is type-witnessed data: `CeremonyPhase` is a `Schema.Class` carrying the intent (`enroll`/`assert`), the challenge, and its expiry, sealed into the `ChallengeStore` single-use port at start and consumed exactly once at finish — an intent mismatch, a stale phase, and a missing phase are each a typed `challenge` fault, so an enroll challenge can never complete an assert and the protocol order is enforced by data, not by convention. Policy is pinned, not defaulted: the COSE allow-list is the `[-8, -7]` (EdDSA, ES256) roster mirroring the `Jwt` `algorithms` pin, `authenticatorSelection` demands discoverable credentials and user verification as config rows, and the challenge mints through `crypt/sign`'s `Crypto.token` so the folder holds one RNG owner. Attestation trust is exploited end to end: `SettingsService` pins the root certificates, `MetadataService` loads the FIDO MDS blob, and `enrollFinish` projects `getStatement(aaguid)` onto the `Passkey` as the authenticator `model` — trust anchors that are read, not merely initialized; the trust anchors are process-wide simplewebauthn singletons, so one attestation policy governs a process and a divergent-policy tenant is a deployment split, never a Layer split. The non-increasing-counter check is the clone/replay defense and it is loud — `security_webauthn_clone` increments and the error log lands before the `breached`-class fault surfaces — and `assertFinish` runs under a per-subject store-backed `RateLimiter`. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
+Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-side verifier over `@simplewebauthn/server` (node `./server`) mints ceremony options and verifies the signed response into a typed verdict, and the browser-safe invocation over `@simplewebauthn/browser` (`./browser`) wraps `navigator.credentials` into an `Effect` gated on a capability probe — the exports map keeps the node verifier physically unreachable from browser resolution. One options→verify pattern spans registration and authentication; the attestation-format dispatch is internal, parameterized by policy, never a hand switch. Ceremony position is type-witnessed data: `CeremonyPhase` is a `Schema.Class` carrying the intent (`enroll`/`assert`), the challenge, and its expiry, sealed into the `ChallengeStore` single-use port at start and consumed exactly once at finish — an intent mismatch, a stale phase, and a missing phase are each a typed `challenge` fault, so an enroll challenge can never complete an assert and the protocol order is enforced by data, not by convention. Policy is pinned, not defaulted: the COSE allow-list is the `[-8, -7]` (EdDSA, ES256) roster mirroring the `Jwt` `algorithms` pin, `authenticatorSelection` demands discoverable credentials and user verification as config rows, and the challenge mints through `crypt/sign`'s `Crypto.token` so the folder holds one RNG owner. Attestation trust is exploited end to end: `SettingsService` pins the root certificates, `MetadataService` loads the FIDO MDS blob, and `enrollFinish` projects `getStatement(aaguid)` onto the `Passkey` as the authenticator `model` — trust anchors that are read, not merely initialized; the trust anchors are process-wide simplewebauthn singletons, so one attestation policy governs a process and a divergent-policy tenant is a deployment split, never a Layer split. A non-increasing-counter check is the clone/replay defense and it is loud — the `clone` row lands on the folder reject stream and the error log lands before the `breached`-class fault surfaces — every consumed-challenge refusal lands the `ceremony` row beside it, and `assertFinish` runs under a per-subject store-backed `RateLimiter`. A successful assertion establishes a session through `authn/session`; the verdict is a discriminated rail, never a boolean-plus-throw.
 
 ## [01]-[CLUSTERS]
 
@@ -17,7 +17,7 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 - Law: attestation policy is a config row — `none` accepts any authenticator, `direct`/`enterprise` demand a validated cert chain; `WebAuthnTrust` sets the per-format root certs (`SettingsService.setRootCertificates`) and initializes MDS with a `strict`/`permissive` unregistered-AAGUID policy once at layer construction, so the format verifier validates provenance and the attestation type is a policy value the verify legs read, never a per-ceremony switch; the simplewebauthn trust services are process-global, so exactly one attestation policy exists per process — the folder law a multi-policy deployment answers with separate workloads.
 - Law: `CeremonyPhase` is the transition payload — start seals `{ intent, challenge, expiresAt }` under the ceremony TTL, finish consumes it single-use and gates intent and freshness, so `*Finish` before `*Start`, cross-ceremony completion, and challenge replay are all unspellable at the store contract; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract.
 - Law: passkey material is public-key crypto — the credential and challenge are typed boundary values, not `Redacted` secrets; the fault rows carry the core `FaultClass` kind so status and blame derive from the branch table.
-- Growth: a new authenticator vendor is one root-cert entry plus its MDS metadata; a new attestation posture is one config row; a cross-restart multi-factor enrollment flow is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same single-use store.
+- Growth: a new authenticator vendor is one root-cert entry with its MDS metadata; a new attestation posture is one config row; a cross-restart multi-factor enrollment flow is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same single-use store.
 - Boundary: `@simplewebauthn/server` dispatches the format verifier internally; the browser half collects the response; `authn/session` establishes the session; the trust anchors are config/fetch-sourced at boot.
 - Packages: `@simplewebauthn/server` (`SettingsService`, `MetadataService`); `effect` (`Config`, `Context`, `Effect`, `Layer`, `Option`, `Schema`); `@rasm/ts/core` (`FaultClass`); `crypt/sign` (`SingleUse`); `authn/session` (`Subject`).
 
@@ -30,8 +30,9 @@ import {
   type PublicKeyCredentialRequestOptionsJSON, type RegistrationResponseJSON, type VerifiedRegistrationResponse, type WebAuthnCredential,
 } from "@simplewebauthn/server"
 import { FaultClass } from "@rasm/ts/core"
-import { Config, Context, DateTime, Duration, Effect, Layer, Metric, Option, Redacted, Schema } from "effect"
+import { Config, Context, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Crypto, type SingleUse } from "../crypt/sign.ts"
+import { Reject } from "../crypt/verify.ts"
 import { CredentialRef, type SessionFault, type Subject, Token, type TokenPair } from "./session.ts"
 
 const _reasons = ["ceremony", "challenge", "verification", "counter", "attestation", "throttled"] as const
@@ -116,21 +117,19 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
 ## [03]-[RP_VERIFICATION]
 
 [RP_VERIFICATION]:
-- Owner: `WebAuthn.enrollStart`/`enrollFinish` register a passkey, `WebAuthn.assertStart`/`assertFinish` authenticate one. The `verified` discriminant is matched so the credential is extracted only on the true arm, `newCounter` is the replay defense, and `enrollFinish` enriches the stored `Passkey` with the MDS `getStatement` projection when an attestation policy is active.
-- Law: the challenge is minted server-side through `Crypto.token` — one RNG owner across the folder — sealed as a `CeremonyPhase` under the ceremony TTL, and consumed single-use on the rail at finish with intent and freshness gated; the response is `Schema`-decoded before verify; the resolved passkey belongs to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
+- Owner: `WebAuthn.enrollStart`/`enrollFinish` register a passkey, `WebAuthn.assertStart`/`assertFinish` authenticate one. Its `verified` discriminant is matched so the credential is extracted only on the true arm, `newCounter` is the replay defense, and `enrollFinish` enriches the stored `Passkey` with the MDS `getStatement` projection when an attestation policy is active.
+- Law: the challenge is minted server-side through `Crypto.token` — one RNG owner across the folder — sealed as a `CeremonyPhase` under the ceremony TTL, and consumed single-use on the rail at finish with intent and freshness gated, every refusal landing `Reject.mark("ceremony")` so challenge replay is counted with the same weight as the oauth state replay; the response is `Schema`-decoded before verify; the resolved passkey belongs to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
 - Law: policy is pinned at the options mint — `supportedAlgorithmIDs` spreads the `_ALGORITHMS` `[-8, -7]` roster on both registration and verification so an algorithm-confusion downgrade is unspellable, and `authenticatorSelection` carries the trust row's discoverable-credential and user-verification demands; the caller never writes the format switch — attestation dispatches inside the verifier keyed by the decoded `fmt`, parameterized by `WebAuthnTrust.attestationType` and the pinned root certs.
-- Law: a non-increasing counter is a cloned authenticator — `security_webauthn_clone` increments and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the per-subject token-bucket budget and an exhausted budget is `throttled`.
+- Law: a non-increasing counter is a cloned authenticator — `Reject.mark("clone")` lands on the folder reject stream and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the per-subject token-bucket budget and an exhausted budget is `throttled`.
 - Receipt: `Passkey` on registration, `TokenPair` on assertion — never a raw `VerifiedRegistrationResponse` past the seam.
 - Growth: a new transport hint is one `_transports` entry; a new ceremony option is one options-bag field.
 - Boundary: `WebAuthnTrust` supplies the attestation and selection policy; the browser half collects the response; `authn/session` `Token.establish` mints the session; the ports carry state; the `RateLimiter` store is data-wave-satisfied.
-- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`); `@effect/experimental` (`RateLimiter`); `crypt/sign` (`Crypto.token`); `authn/session` (`Token.establish`, `CredentialRef`).
+- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`); `@effect/experimental` (`RateLimiter`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`); `authn/session` (`Token.establish`, `CredentialRef`).
 
 ```typescript
 const _ALGORITHMS: ReadonlyArray<number> = [-8, -7]
 const _CHALLENGE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 const _utf8 = new TextEncoder()
-
-const _clone = Metric.counter("security_webauthn_clone")
 
 class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
   effect: Effect.gen(function* () {
@@ -161,7 +160,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           Effect.filterOrFail((held) => DateTime.lessThanOrEqualTo(now, held.expiresAt), () => new WebAuthnFault({ reason: "challenge", detail: "ceremony expired" })),
           Effect.map((held) => held.challenge),
         )
-      })
+      }).pipe(Effect.tapError(() => Reject.mark("ceremony"))) // replay, intent mismatch, and staleness all count; the detail stays log material
     const _challenge = cipher.token(_CHALLENGE_ALPHABET, 43).pipe(
       Effect.mapBoth({
         onFailure: (cause) => new WebAuthnFault({ reason: "ceremony", detail: cause.detail }),
@@ -247,7 +246,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           const next = verified.authenticationInfo.newCounter
           yield* next > passkey.counter || (next === 0 && passkey.counter === 0)
             ? Effect.void
-            : Metric.increment(_clone).pipe(
+            : Reject.mark("clone").pipe(
                 Effect.zipRight(Effect.logError("webauthn counter regression — cloned authenticator")),
                 Effect.annotateLogs("passkey", passkey.id),
                 Effect.zipRight(Effect.fail(new WebAuthnFault({ reason: "counter", detail: passkey.id }))),
@@ -273,9 +272,9 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
 
 [BROWSER_CEREMONY]:
 - Owner: `Passkeys.register`/`Passkeys.authenticate` — the `./browser` runtime module wrapping `navigator.credentials` into an `Effect` gated on a capability probe; `Passkeys.autofill` runs the conditional-UI assertion; `Passkeys.probe` reports platform-authenticator and autofill availability. `PasskeyFault` folds the pre-classified `WebAuthnError` `code`.
-- Law: the ceremony is gated before the call — `browserSupportsWebAuthn` short-circuits an unsupported browser to a typed capability fault, and `autofill` additionally checks `browserSupportsWebAuthnAutofill`; a ceremony entry is never called without its probe.
+- Law: the ceremony is gated before the call — `browserSupportsWebAuthn` short-circuits an unsupported browser to a typed capability fault, and `autofill` demands `browserSupportsWebAuthnAutofill` as its second gate; a ceremony entry is never called without its probe.
 - Law: `WebAuthnAbortService` enforces the single-live-ceremony law — each ceremony auto-arms a fresh `AbortSignal` and a new call cancels the prior, and `Passkeys.cancel` fires on a client-route change; the v13 `{ optionsJSON }` object form is the only call shape, never the pre-12 positional form; `register` carries the `useAutoRegister` conversion affordance so a just-signed-in password upgrades to a passkey without a second ceremony surface.
-- Law: the browser never verifies — it invokes the authenticator and returns the response JSON; a `Schema` per JSON shape decodes both the inbound options and the outbound response at the fetch seam the ui folder owns; conditional-UI autofill (`useBrowserAutofill: true`) is a browser-only affordance the ui edge offers on a login field.
+- Law: the browser never verifies — it invokes the authenticator and returns the response JSON; a `Schema` per JSON shape decodes both the inbound options and the outbound response at the fetch seam the ui folder owns; conditional-UI autofill (`useBrowserAutofill: true`) is a browser-only affordance the ui edge mounts on a login field.
 - Receipt: the `RegistrationResponseJSON`/`AuthenticationResponseJSON` the caller POSTs back to `WebAuthn.*Finish`; the browser collects the signed response, never a verdict.
 - Growth: a new probe (`platformAuthenticatorIsAvailable` variants) is one `probe` field; a new ceremony affordance is one options field.
 - Boundary: this module is `runtime:browser` and imports no node code — the RP verification is the `./server` module; `@simplewebauthn/server` verifies.

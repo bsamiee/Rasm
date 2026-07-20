@@ -10,7 +10,6 @@
 - owner: `runtime`
 - rail: validation
 - namespaces: `pydantic_settings`, `pydantic_settings.sources`, `pydantic_settings.sources.providers`
-- installed: `2.14.2`
 - capability: layered settings model, source-priority customisation, env/dotenv/file/secret/nested-secret sources, cloud secret managers, a full CLI source with argparse-grade flag/subcommand/positional annotations and a `CliApp` runner
 
 ## [02]-[PUBLIC_TYPES]

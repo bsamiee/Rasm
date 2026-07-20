@@ -689,7 +689,7 @@ public static class CarbonEstimate {
     public static Fin<CarbonRollup> Rollup(ElementGraph graph, ElementSet scope, Func<Node.Object, Option<GeometryMeasures>> measures, Op key) =>
         scope.Objects
             .TraverseM(obj => measures(obj).Match(
-                None: () => FinSucc((Lines: Seq<CarbonLine>(), Gaps: Seq1(new CarbonGap(obj.Id, None, "geometry-unresolved")))),
+                None: () => FinSucc((Lines: Seq<CarbonLine>(), Gaps: Seq(new CarbonGap(obj.Id, None, "geometry-unresolved")))),
                 Some: geometry => graph.Bake(obj.Id, key).Bind(element =>
                     QuantityDerivation.Decompose(geometry, element.Materials, element.Section, key)
                         .Map(shares => toSeq(shares).Fold(

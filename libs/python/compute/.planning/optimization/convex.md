@@ -14,7 +14,7 @@ Dual-certificate proof of global optimality the first-order design loop and the 
 - Cases: `Problem.is_dcp()` adjudicates curvature BEFORE the solve, and a genuinely indefinite quadratic form fails it — never a silent `cp.psd_wrap` coercion that forces a PSD lift; the semidefinite case carries PSD membership as an explicit `X >> 0` cone row because a `PSD=True` leaf attribute hides the matrix dual `Z` behind the variable domain where `Constraint.dual_value` cannot reach it; the one `cp.Parameter` leaf sits on the inequality `rhs` — the sole DPP-legal parametrizable buffer, a `Parameter` in the form matrix or constraint matrix breaks the DPP ruleset — so a sweep warm-re-solves the one compiled `Problem`, never a rebuild.
 - Entry: a missing backend or a DCP-rejected model folds one uncertified receipt per `ParamBind` row, so the tuple cardinality always matches the bind table; the certificate folds exactly the catalogued cvxpy quantities — `Constraint.dual_value` and the per-cone primal read off `Constraint.args` — never a backend-internal residual the `solve` path does not surface.
 - Packages: `clarabel` is admitted only through the `solver=cp.CLARABEL` selector, never a direct `DefaultSolver`/`get_problem_data` assembly this owner re-derives; `gc=False` rides only the scalar-leaf carriers (`ConvexEvidence`, `ConvexReceipt`) while the container/closure carriers (`Policy`, `Fields`, `ConeRow`, `ConeKKT`) stay GC-tracked; problem data admits as `numerics/array.md#PAYLOAD` payloads keying through the same `ContentIdentity` seed.
-- Growth: a new cone family is one `ConvexProgram` case plus one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve-policy axis is one `Policy` field rather than a sixth positional slot threaded through five factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
+- Growth: a new cone family is one `ConvexProgram` case with one `_CONE_ROWS` row, one `_CONE_KKT` row, and one `_cone` arm; a new solve-policy axis is one `Policy` field rather than a sixth positional slot threaded through five factories; a new diagnostic is one `ConvexEvidence` slot reaching the facts map with no second edit; a new cvxpy status constant is one `_CONVEX_STATUS` row.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -114,7 +114,7 @@ class ConvexReceipt(Struct, frozen=True, gc=False):
             "key": self.content_key.hex,
             **self.evidence.facts(),
         }
-        return (Receipt.of("compute.convex", ("emitted", self.program, facts)),)
+        return (Receipt.of(EvidenceScope.CONVEX.value, ("emitted", self.program, facts)),)
 
 
 @tagged_union(frozen=True)
@@ -191,7 +191,8 @@ async def solve(program: ConvexProgram, lane: LanePolicy) -> "RuntimeRail[tuple[
     async def dispatch() -> "RuntimeRail[tuple[ConvexReceipt, ...]]":
         return (await lane.offload(Kernel.of(_sweep, KernelTrait.RELEASING), program)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch)
+    facts = {"program": program.tag, "binds": len(program.policy.binds)}
+    return await evidence_run(EvidenceScope.CONVEX, f"convex.{program.tag}", dispatch, facts=facts)
 
 
 def graduates(receipt: ConvexReceipt) -> "RuntimeRail[GraduationReceipt]":
@@ -201,7 +202,9 @@ def graduates(receipt: ConvexReceipt) -> "RuntimeRail[GraduationReceipt]":
         "primal_infeasibility": receipt.evidence.primal_infeasibility,
         "dual_infeasibility": receipt.evidence.dual_infeasibility,
     }
-    return GraduationReceipt.graduates("compute.convex", HandoffAxis(convex_program=receipt.program), receipt.content_key, ledger, dict(_CEILING.items()))
+    return GraduationReceipt.graduates(
+        EvidenceScope.CONVEX.value, HandoffAxis(convex_program=receipt.program), receipt.content_key, ledger, dict(_CEILING.items())
+    )
 
 
 # --- [COMPOSITION] -------------------------------------------------------------------------

@@ -22,7 +22,7 @@ The analytical lane: columnar vectorized throughput as a guarantee distinct from
 - Law: `pgDuckdb` is the analytics-in-OLTP row — the spine's `analytics` grant embeds the same engine inside live Postgres for workloads adjacent to transactional data; no second system, PG durability, bounded by the single PG host; the grant is `lane/postgres.md`'s row and this lane only names the boundary.
 - Law: `clickhouse` is admitted ONLY past the trigger — concurrent high-throughput ingestion, multi-node scale, or high-cardinality real-time serving; below it the embedded rows own the workload, and admitting the cluster early is the named operational waste.
 
-```typescript
+```typescript signature
 const _engines = {
   duckdbNode: {
     guarantee: "vectorized single-node analytics, out-of-core spill",
@@ -76,7 +76,7 @@ declare namespace Olap {
 - Law: bundles self-host beside the app shell — `selectBundle` over owned artifact coordinates; a CDN bundle load is rejected by the deployment's content policy.
 - Boundary: `_try` and `_wasm` are the marked promise kernels — typed `DuckDBValue` bind values cross without a cast, and the ambient `Worker` construction lives inside `_wasm`; its thrown missing-worker guard is caught by its own `tryPromise` and folds to the `bundle` reason.
 
-```typescript
+```typescript signature
 import { Data, Duration, Effect, Schedule, type Scope, Stream } from "effect"
 import { DuckDBInstance, quotedIdentifier, quotedString, type DuckDBConnection, type DuckDBValue } from "@duckdb/node-api"
 import * as wasm from "@duckdb/duckdb-wasm"
@@ -207,7 +207,7 @@ function _read(session: Olap.Session, op: OlapRead): Effect.Effect<ReadonlyArray
 - Law: the lake is ACID over object storage with a SQL catalog — multi-table transactions, time travel, and schema evolution ride the catalog database; the object plane holds immutable Parquet, exactly the content-addressed posture the folder's object rows already enforce.
 - Law: range-read Parquet is the browser's only remote source — `Olap.lakeSource` mints the presigned grant through `ObjectStore.grant` and registers it via `registerFileURL(name, url, DuckDBDataProtocol.HTTP, false)`, so the browser-analytics loop is one wired seam bounded by the grant's TTL; no service proxy re-streams rows.
 
-```typescript
+```typescript signature
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import { ContentKey } from "@rasm/ts/core"
 import { ObjectStore } from "../object/store.ts"
@@ -250,7 +250,7 @@ const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
 - Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and a durable `RateLimiterStore` composes at a multi-replica root; `layerStoreMemory` is admitted only for a single-process topology and never described as distributed.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
-```typescript
+```typescript signature
 import { Config, type ConfigError, type Layer } from "effect"
 import { ClickhouseClient } from "@effect/sql-clickhouse"
 import { RateLimiter } from "@effect/experimental"
@@ -288,7 +288,7 @@ const _ingest = (intent: Olap.Ingest) =>
 - Law: streams stay bounded — large interchange rides `RecordBatchReader` batch iteration lifted to `Stream`, and the wasm side pulls lazily through `conn.send` so a browser result larger than memory never materializes as one Table.
 - Law: ingest is ONE entry discriminating on the source value — a live `Table` rides `insertArrowTable`, IPC bytes ride `insertArrowFromIPCStream`; a per-format sibling pair is the deleted spelling.
 
-```typescript
+```typescript signature
 import { RecordBatchReader, Table, tableFromIPC, tableToIPC } from "apache-arrow"
 
 const _wire = {

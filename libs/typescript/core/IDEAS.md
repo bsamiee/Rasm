@@ -1,6 +1,6 @@
 # [TS_CORE_IDEAS]
 
-The forward pool of higher-order folder concepts grounded in the branch-law domain and the monorepo purpose. `[1]-[OPEN]` carries the active ideas as cards; each card names the capability, what it unlocks, and the gap or modern technique it draws on. `[2]-[CLOSED]` carries the finished or dropped ideas with a one-line disposition so the same idea is never re-litigated. An idea drives one or more `TASKLOG.md` tasks.
+Forward pool of higher-order folder concepts grounded in the branch-law domain and the monorepo purpose. `[1]-[OPEN]` carries the active ideas as cards; each card names the capability, what it unlocks, and the gap or technique it draws on. `[2]-[CLOSED]` carries the finished or dropped ideas with a one-line disposition so the same idea is never re-litigated. An idea drives one or more `TASKLOG.md` tasks.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -15,6 +15,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
+
+[C2]-[QUEUED]: Object-plane signal rows complete the Convention vocabulary.
+- Capability: `rasm.object.*` metric and instrument rows — dedup-write ratio, bytes written, GC reclaim, resumable-upload throughput — with UCUM units and tag axes drawn from the object receipts.
+- Shape: `_metric`/`_instrument`/`_rasm` rows on `observe/convention.md` under the growth law, and the board consumer rows keeping every new instrument pack-projected.
+- Unlocks: object-plane health on the estate boards; the data object owners emit through Convention rows in the same instrument-row idiom the journal and read pages carry.
+- Anchors: `observe/convention.md` growth law; `observe/board.md` `_PACKS` every-instrument-a-consumer discipline; data `object/store.md` and `object/stream.md` receipt families.
+- Ripple: `data` `[OBJECT_PLANE_INSTRUMENT_PROJECTION]`.
 
 [C1]-[QUEUED]: One generative vocabulary-table owner for the value floor.
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.

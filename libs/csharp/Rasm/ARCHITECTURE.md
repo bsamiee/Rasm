@@ -81,7 +81,7 @@ Rasm/
 
 ## [02]-[STRATA]
 
-Four strata order the nine sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
+Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
 
 - S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, and `CurveForm` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
 - S1 `Spatial` + `Meshing` — co-recursive lattice composing the floor alone: `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField` beside `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`; intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
@@ -91,33 +91,14 @@ Four strata order the nine sub-domains; a co-recursive pair co-seats one stratum
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm kernel interior strata
-    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Four stacked strata from the terminal parametric, drawing, and analysis producers through the processing and solving rails onto the spatial-meshing lattice and the domain-numerics floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge marked.
     subgraph L3["S3 TERMINAL PRODUCERS"]
         Analysis[Analysis]
         Parametric[Parametric]
@@ -151,14 +132,6 @@ flowchart TB
     Meshing e14@-->|"[IMPORT]: SparseMatrix"| Numerics
     Spatial e15@-->|"[IMPORT]: Context"| Domain
     Domain f1@-->|"forbidden: floor upward"| L3
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Parametric,Drawing,Analysis,Processing,Solving,Spatial,Meshing primary
-    class Domain,Numerics recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -166,33 +139,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Kernel content-key and compute-plane seams
-    accDescr: Kernel sub-domain owners federating content keys and exchanging compute wires with the element, persistence, compute, app-host, app-shell, and the Python and TypeScript peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Kernel sub-domain owners federating content keys and exchanging compute wires with the element, persistence, compute, app-host, app-shell, and the Python and TypeScript peers, one edge per contract family labeled by kind.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -217,56 +171,26 @@ flowchart LR
     Spatial e7@<-->|"[CONTENT_KEY]: XxHash128"| Runtime
     Spatial e8@<-->|"[CONTENT_KEY]: XxHash128"| Core
     Numerics e9@<-->|"[SHAPE]: DiscreteCalculus"| Compute
+    Numerics e16@-->|"[SHAPE]: Predicate"| Compute
     Meshing e10@-->|"[SHAPE]: MeshAdjointSnapshot"| Compute
     Meshing e11@-->|"[WIRE]: SliceStack"| Compute
     Spatial e12@-->|"[WIRE]: SpatialIndex"| Compute
     Processing e13@-->|"[SHAPE]: RemeshOp"| Compute
-    Drawing e14@-->|"[WIRE]: EncodedTensor"| Compute
+    Drawing e14@-->|"[WIRE]: EncodedGeometry"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Domain,Numerics,Spatial,Meshing,Processing,Drawing primary
-    class Element,Compute,Runtime,Core external
-    class Persistence data
-    class AppHost,AppUi annotation
-    class e1,e2,e3,e4,e5,e6,e7,e8,e11,e12,e14,e15 edgeData
-    class e9,e10,e13 edgeControl
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Kernel fabrication seams
-    accDescr: Kernel sub-domain owners projecting index, predicate, slice, skeleton, parametric-op, atlas, and drawing shapes to the fabrication peer, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Kernel sub-domain owners projecting index, predicate, slice, skeleton, parametric-op, atlas, and drawing shapes to the fabrication peer, one edge per contract family labeled by kind.
     subgraph rasm[RASM KERNEL]
         Spatial[Spatial fields]
         Numerics[Numerics floor]
@@ -283,48 +207,19 @@ flowchart LR
     Parametric e5@-->|"[WIRE]: ParametricOp"| Fabrication
     Processing e6@-->|"[PROJECTION]: ChartAtlas"| Fabrication
     Drawing e7@-->|"[PROJECTION]: DrawingProjection"| Fabrication
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    class Spatial,Numerics,Meshing,Parametric,Processing,Drawing primary
-    class Fabrication external
-    class e3,e4,e5 edgeData
-    class e1,e2 edgeControl
-    class e6,e7 edgeExternal
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Kernel host-UI boundary seams
-    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts to the Rhino and Grasshopper host packages, every rail one-way down from the kernel, nodes classed by seam direction.
+    accDescr: Kernel sub-domain owners handing frozen-name boundary contracts to the Rhino and Grasshopper host packages, every rail one-way down from the kernel.
     subgraph rasm[RASM KERNEL]
         Domain[Domain floor]
         Numerics[Numerics floor]
@@ -336,18 +231,14 @@ flowchart LR
     Grasshopper([Rasm.Grasshopper])
     Numerics e8@-->|"[BOUNDARY]: PerceptualColor"| Rhino
     Numerics e9@-->|"[BOUNDARY]: PerceptualColor"| Grasshopper
+    Domain e16@-->|"[BOUNDARY]: Context"| Rhino
+    Domain e17@-->|"[BOUNDARY]: ContentHash"| Rhino
     Parametric e10@-->|"[BOUNDARY]: MonotonicTimeline"| Rhino
     Parametric e11@-->|"[BOUNDARY]: MonotonicTimeline"| Grasshopper
     Processing e12@-->|"[BOUNDARY]: VectorIntent"| Rhino
     Analysis e13@-->|"[BOUNDARY]: AnalysisQuery"| Rhino
     Domain e14@-->|"[BOUNDARY]: ModelUnit"| Rhino
     Numerics e15@-->|"[BOUNDARY]: VectorFrame"| Rhino
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Domain,Numerics,Parametric,Processing,Analysis primary
-    class Rhino,Grasshopper annotation
-    class e8,e9,e10,e11,e12,e13,e14,e15 edgeControl
 ```
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
@@ -358,6 +249,6 @@ Each partner edge carries its load-bearing shape on the graph; the owning sub-do
 
 Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm/<Folder>/` declares `namespace Rasm.<Folder>;`, one root namespace per sub-domain folder.
 
-Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; the root-homed `GeometryFault` union composing upper-tier discriminants (`Numerics/Faults.cs`) is the recorded exception to strata direction under that one-assembly law.
+Kernel compiles as ONE assembly — the single `Rasm.csproj` — so internal members cross the sub-domain namespaces with no build edge; two recorded exceptions to strata direction ride that one-assembly law: the root-homed `GeometryFault` union composing upper-tier discriminants (`Numerics/Faults.cs`), and `TensorField.Curvature` (`Spatial/Fields.cs`) carrying the `Parametric` `SurfaceSpace` capsule so the one shape-operator owner stays `Parametric/Projections.cs`.
 
 `Rasm.Domain.Fault` and the band-2400 `GeometryFault` family (`Numerics/Faults.cs`) are two families by explicit decision — kernel-substrate faults and robust-core geometry faults; `Numerics/Faults.cs` and `Domain/Rails.cs` each state the seam, and neither absorbs the other.

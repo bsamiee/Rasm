@@ -8,7 +8,7 @@ This planning corpus widens by scope: a folder owns one package's planning, a br
 
 - Cross-`libs/` core (`libs/.planning/`): `architecture.md`, `campaign-method.md`, `README.md`, `planning-targets.md`, `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`.
-- Folder (`<pkg>/`): the branch index-doc set at the package root, plus design pages under one `<pkg>/.planning/<sub-domain>/<page>.md`.
+- Folder (`<pkg>/`): the branch index-doc set at the package root and design pages under one `<pkg>/.planning/<sub-domain>/<page>.md`.
 - A folder `.api/` carries generated catalogues for folder-specific libraries and overlays; no `FEATURES.md`, no `.planning/README.md`.
 - Branch `.api/` (`libs/<lang>/.api/`): one catalogue per language-wide substrate package.
 - A folder consuming a substrate package reads the branch catalogue and lists it in its README `## [3]-[SUBSTRATE_PACKAGES]` section.
@@ -25,7 +25,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - Domain packages: the folder-specific libraries it uses, planned or implemented, grouped into `[CONCERN]` cards under `## [2]-[DOMAIN_PACKAGES]`.
 - A card carries no version pin and no `.api/` link; versions centralize in the owning manifest, and coupling the README to the catalogue is fragile.
 - New admissions land here from the folder's ideas and tasks.
-- Package-card row form: `- ` plus the backticked package id, optionally one concise dash-led line of prose — never parentheses — within 150 columns.
+- Package-card row form: `- ` with the backticked package id, optionally one concise dash-led line of prose — never parentheses — within 150 columns.
 - Depth beyond the one line belongs to the package's `.api/` catalogue, never the card.
 - Substrate packages: a `## [3]-[SUBSTRATE_PACKAGES]` section after the domain list names the language substrate the folder consumes.
 - That section points to the branch registry and the branch `libs/<lang>/.api/` catalogue.
@@ -37,19 +37,19 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - A codemap node is named by its real domain concept, never a generic file-naming scheme.
 - Each codemap node renders the eventual source file in the language's own folder and file casing; the `.planning/` scaffold is never shown.
 - No prose sits between the `[1]` heading and the tree fence.
-- `[2]-[SEAMS]` is the curated file-level record of every cross-folder and cross-language alignment, one ` ```text seams ` fence, aligned columns.
-- Row form: `<SourceFile> <glyph> <lang:pkg/subdomain> # [<KIND>]: <shared shape>`.
-- Glyphs: `→` produces/projects, `←` consumes/reads, `⇄` shared shape.
+- `[2]-[SEAMS]` is the curated record of every cross-folder and cross-language alignment, rendered as one or two Mermaid seam-registry diagrams (`flowchart LR`): the folder's sub-domain owners as interior nodes, counterpart packages as exterior nodes, one edge per contract family.
+- Edge label form: `[<KIND>]: <shared shape>`; `-->` produces/projects toward the consumer, `<-->` a shared shape.
 - `[KIND]` is a closed vocabulary; a row outside it retags to the nearest canonical kind, and a new kind amends this standard.
 - Kinds: `[WIRE]` `[SHAPE]` `[PROJECTION]` `[PORT]` `[BOUNDARY]` `[RECEIPT]` `[CONTENT_KEY]` `[TRANSPORT]` `[TESSELLATION]` `[GRADUATION]` `[FAULT]`.
-- A codemap or seams fence line never exceeds 150 columns; the `#` comment carries the high-signal what/why an agent needs, never code-body detail.
-- Every edge appears on both endpoint folders with mirrored glyph and identical `[KIND]`; an in-package relation stays in the codemap, never a seam.
+- A codemap fence line never exceeds 150 columns; its `#` comment carries the high-signal what/why an agent needs, never code-body detail.
+- Every edge appears on both endpoint folders with mirrored direction and identical `[KIND]`; an in-package relation stays in the codemap, never a seam.
 - A domain map fuels ideas and tasks: a planned-but-empty sub-domain is a visible gap.
 - Dependency direction is stated once in the branch `ARCHITECTURE.md` and never restated per folder; there is no owner-state registry.
+- Branch-tier `ARCHITECTURE.md` (`libs/<lang>/.planning/`) carries the branch strata map, the once-stated dependency direction, the cross-folder seam registry at branch grain, and the folder roster with one-line charters; folder maps compose it and never restate it.
 - Transient build-order detail stays on the task that builds a seam; the settled alignment is recorded in `[2]-[SEAMS]`.
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
-- Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`; each idea is a card — a bracketed slug leader plus a few bullets.
+- Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`; each idea is a card — a bracketed slug leader and a few bullets.
 - Card bullets carry the capability, what it unlocks, and the gap or technique it draws on.
 - A folder idea is a bigger concept — a new file, sub-domain, or capability — grounded in the folder's domain, never speculation.
 - An idea drives one or more tasks. A resolved idea moves to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
@@ -98,7 +98,7 @@ One integration-point notation, scope-qualified by distance: `page#CLUSTER` insi
 
 ## [06]-[REVIEW]
 
-Review is judgment against this standard and the route-owned code doctrine, not checklist pedantry. A reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the three form standards, then grades cold: doc-set placement, card and page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, the absence of fragile duplication or an owner-state ledger, and integration points carried on tasks rather than a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
+Review is judgment against this standard and the route-owned code doctrine, not checklist pedantry. A reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the three form standards, then grades cold: doc-set placement, card and page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, no fragile duplication or owner-state ledger, and integration points on tasks, never a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
 
 A signature fence transcribes an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member outside the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
 

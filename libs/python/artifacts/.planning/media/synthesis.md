@@ -1,8 +1,8 @@
 # [PY_ARTIFACTS_MEDIA_SYNTHESIS]
 
-`Synthesis` owns media generation through one closed `SynthOp`: harmonic oscillators, duty-cycle pulse, periodic wavetable, spectral-color noise, additive/FM/AM, sweep, unit impulse, and calibration video. Video cases cover SMPTE-style `75%` bars with PLUGE bands, ramp, grid, countdown, checker, standalone PLUGE, and radial zone plate. Audio cases produce `float32` mono `Pcm` blocks through `_encode_audio`; video cases produce `rgb24` frames through `_encode_video`; tone-bearing bars compose both streams through `_mux_av`. Encode policy and evidence remain owned by `MediaProfile`, `MediaEvidence`, and `MediaFault`.
+`Synthesis` owns media generation through one closed `SynthOp`: harmonic oscillators, duty-cycle pulse, periodic wavetable, spectral-color noise, additive/FM/AM, sweep, unit impulse, and calibration video. Video cases cover SMPTE-style `75%` bars with PLUGE bands, ramp, grid, countdown, checker, standalone PLUGE, and radial zone plate. Audio produces `float32` mono `Pcm` blocks through `_encode_audio`, video produces `rgb24` frames through `_encode_video`, tone-bearing bars compose both through `_mux_av`, and `MediaProfile`, `MediaEvidence`, and `MediaFault` keep encode policy and evidence.
 
-`_admitted` validates only the selected mode's profile fields: rates, finite nonnegative ADSR times, sustain, harmonic limit, duration, Nyquist bounds, modulation deviation, amplitude/depth/duty ranges, wavetable samples, partials, frame geometry, pattern density, and tone/video container agreement. `_phase` gives every periodic generator the same zero-origin cumulative phase; `_TINT` generates noise colors from one spectral-exponent table; `_framed` generates test patterns from typed per-mode payloads. ADSR shapes continuous audio, while `Impulse` preserves its unit sample. Every generation projects its full mode parameters into `ArtifactReceipt.Media.facts` and enters `ArtifactPipeline` as one root `ArtifactWork` keyed by `SynthOp` plus only its relevant `SynthProfile` policy.
+`_admitted` validates only the selected mode's profile and payload fields — each arm carries its own bounds. `_phase` gives every periodic generator one zero-origin cumulative phase, `_TINT` derives noise colors from one spectral-exponent table, `_framed` paints test patterns from typed per-mode payloads, and ADSR shapes continuous audio while `Impulse` preserves its unit sample. Every generation projects its full mode parameters into `ArtifactReceipt.Media.facts` and enters `ArtifactPipeline` as one root `ArtifactWork` keyed by `SynthOp` with only its relevant `SynthProfile` policy.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@
 - Cases: `_phase` is polymorphic over scalar or per-sample frequency and starts at zero. `_oscillator` sums only Nyquist-safe harmonics and normalizes the band-limited series; `_wavetable` interpolates a periodic table; `Pulse` derives duty from phase; `Sweep` selects linear or geometric frequency data. Video painters cover bars/PLUGE, ramp, grid, countdown, checker, and zone-plate calibration families.
 - Entry: `Synthesis.of` binds one `SynthOp` and `SynthProfile` under the composition-root `lane`, so every factory-built owner is fully initialized. `_synthesize` admits once, `_encoded` dispatches by derived `domain`, and the container `_worker` aspect maps call-contract violations to `MediaFault.contract`. `LanePolicy.offload` maps outer `BoundaryFault` through `_lapsed` and flattens the worker `Result`.
 - Auto: `_HARMONICS[waveform]`, `_TINT[color]`, scalar-or-track `_phase`, and `_framed` per-mode payloads drive generation. `_blocks` reflects the current eager `tuple[Pcm, ...]` audio contract; still-video tuples share one frame array, while countdown frames retain their distinct raster payloads.
-- Receipt: pre-run identity hashes `SynthOp` with `_identity_policy`, so irrelevant audio, video, seed, envelope, and harmonic fields never perturb another mode. `_keyed` threads that pre-run key as the receipt slot — the `core/receipt#RECEIPT` elision law — and lands the `ContentIdentity.key(container, bytes)` product address as the `address` band fact. `_audio_band` carries only active shaping/rate/duration facts plus each mode's payload, while `_framed` carries pattern geometry and policy values.
+- Receipt: pre-run identity hashes `SynthOp` with `_identity_policy`, so irrelevant audio, video, seed, envelope, and harmonic fields never perturb another mode. `_keyed` threads that pre-run key as the receipt slot — the `core/receipt#RECEIPT` elision law — and lands the `ContentIdentity.key(container, bytes)` product address as the `address` band fact. `_audio_band` carries only active shaping/rate/duration facts with each mode's payload, while `_framed` carries pattern geometry and policy values.
 - Packages: `numpy` owns oscillator, noise FFT, interpolation, and test-pattern kernels; `_encode_audio`, `_encode_video`, and `_mux_av` own egress.
 - Growth: a harmonic waveform is one `Waveform` and `_HARMONICS` row; a noise color is one `NoiseColor` and `_TINT` row; a distinct payload modality is one `SynthOp` case with admission, kernel, and evidence arms.
 
@@ -30,8 +30,8 @@ from builtins import frozendict
 from expression import Error, Ok, Result, case, tag, tagged_union
 from msgspec import Struct
 
-from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -283,7 +283,7 @@ class Synthesis(Struct, frozen=True):
         )
 
     async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:
-        # a segmented egress row writes a manifest plus segment set through the container sink — a worker-death replay must
+        # a segmented egress row writes a manifest and segment set through the container sink — a worker-death replay must
         # never repeat it — so idempotency derives from the profile's own media rows, never a per-call convention.
         replayable = not any(row.container.segmented and row.segment is not None for row in (self.profile.media, self.profile.video))
         railed = await self.lane.offload(Kernel.of(_synthesize, KernelTrait.HOSTILE, idempotent=replayable), self.op, self.profile)
@@ -540,8 +540,8 @@ def _countdown_frames(seconds: float, size: tuple[int, int], rate: int, /) -> "F
         frame[theta < ((index % rate) / rate) * 2.0 * np.pi] = 96
         digits = str(max(0, ceil(seconds - index / rate)))
         dw, dh = max(w // (4 * len(digits)), 1), h // 2
-        # the digit run clamps to the frame width: dw floors at 1, so a narrow frame under 4*len(digits) columns would
-        # otherwise mint mw > w and a negative slice start that wraps the paint onto the wrong edge.
+        # _countdown_frames clamps the digit run to the frame width: dw floors at 1 and the [:, :w] slice caps mw at w,
+        # so a narrow frame under 4*len(digits) columns never mints a negative slice start wrapping paint onto the wrong edge.
         mask = np.concatenate(tuple(_digit_mask(digit, (dw, dh)) for digit in digits), axis=1)[:, :w]
         mw = mask.shape[1]
         frame[(h - dh) // 2 : (h + dh) // 2, (w - mw) // 2 : (w + mw) // 2][mask] = 255

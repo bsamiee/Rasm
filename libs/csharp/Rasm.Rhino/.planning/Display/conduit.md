@@ -6,10 +6,10 @@
 
 ## [01]-[INDEX]
 
-- [01]-[PROGRAM]: `ConduitStep`, `ConduitCriterion`, and `RenderAspect` close phase, filter, and state policy.
-- [02]-[MOUNT]: `ConduitLease` owns binding, callback faults, disablement, and unbinding.
-- [03]-[MODE_TABLE]: `ModeOp` owns the display-mode table operation family.
-- [04]-[OVERLAYS]: `AnalysisMode` and `RetainedOverlay` own registered and retained overlay lifetimes.
+- [02]-[PROGRAM]: `ConduitStep`, `ConduitCriterion`, and `RenderAspect` close phase, filter, and state policy.
+- [03]-[MOUNT]: `ConduitLease` owns binding, callback faults, disablement, and unbinding.
+- [04]-[MODE_TABLE]: `ModeOp` owns the display-mode table operation family.
+- [05]-[OVERLAYS]: `AnalysisMode` and `RetainedOverlay` own registered and retained overlay lifetimes.
 
 ## [02]-[PROGRAM]
 
@@ -23,8 +23,9 @@
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Domain;
+using Rasm.Numerics;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.HostUi;
+using Rasm.Rhino.Objects;
 using Rasm.Rhino.Viewport;
 
 namespace Rasm.Rhino.Display;
@@ -317,6 +318,7 @@ public sealed record ConduitProgram {
 
 - Owner: `ConduitLease` owns the adapter and its callback-fault cell until deterministic release.
 - Entry: `ConduitProgram.Of` admits steps, binding, and keyed criteria; `Conduits.Mount` applies the admitted program and arms participation.
+- Law: every fault the cell records also publishes through `ObjectsTelemetry` under `FaultSite.Conduit` — the cell is the lease's readable receipt, the publish the process egress, and a second logger sink beside them is the fork.
 - Law: release runs every step in order — disable, `UnbindAll`, sprite disposal — a thrown step never skips the rest, the combined failure lands on the fault cell, and a failed release re-arms `Dispose` for retry; callback faults remain readable after release as detached `Seq<Error>` evidence.
 - Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
 
@@ -384,7 +386,9 @@ internal sealed class ConduitAdapter : DisplayConduit {
     private void Invoke(Func<Fin<Unit>> callback) => Observe(key.Catch(callback));
 
     private void Observe<T>(Fin<T> outcome) =>
-        outcome.IfFail(error => ignore(faults.Swap(seen => seen.Add(error))));
+        outcome.IfFail(error => ignore((
+            faults.Swap(seen => seen.Add(error)),
+            ObjectsTelemetry.Publish(site: FaultSite.Conduit, error: error))));
 
     internal Fin<Unit> Release() {
         Seq<Error> trouble = Seq(

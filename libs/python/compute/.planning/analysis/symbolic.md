@@ -1,8 +1,8 @@
 # [PY_COMPUTE_SYMBOLIC]
 
-The one classical computer-algebra owner. A derivation is a `Block[SymbolicOp]` left-folded over an `ExprForm` to one typed `SymbolicReceipt`: every non-terminal op rewrites the carried expression and the terminal op produces the artifact, so a `Refine -> simplify -> diff -> Lower(numpy)` derivation is one fold, never a `pre`/`terminal` split. The terminal artifact is one discriminated `Outcome` the receipt carries whole, and the input is parameterized as tightly as the output — `ExprForm` discriminates a `str` spelling, a `MatrixForm`, or a constructed `Expr` through one `derive` entry. No learned or generative symbolic search enters this owner.
+`SymbolicDerivation` is the one classical computer-algebra owner. A derivation is a `Block[SymbolicOp]` left-folded over an `ExprForm` to one typed `SymbolicReceipt`: every non-terminal op rewrites the carried expression and the terminal op produces the artifact, so a `Refine -> simplify -> diff -> Lower(numpy)` derivation is one fold, never a `pre`/`terminal` split. Its terminal artifact is one discriminated `Outcome` the receipt carries whole, and the input is parameterized as tightly as the output — `ExprForm` discriminates a `str` spelling, a `MatrixForm`, or a constructed `Expr` through one `derive` entry. No learned or generative symbolic search enters this owner.
 
-This is the core solver route with a gating law per backend: `sympy` is pure-Python and imports on the runtime, so calculus, rewrite, solve, matrix algebra, assumption logic, number theory, heuristic numeric evaluation, and the source-printer family run as live core; `python-flint`'s exact kernels and the certified-ball `Evaluate` precision row gate on the worker lane; `Lower(jax)` reads `jax` at usage on the jaxlib floor; `Lower(native)`'s `autowrap`/`ufuncify` rows gate on a host C/Fortran toolchain. The derivation keys through the runtime `ContentIdentity` over the canonical `SymbolicPayload`, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference; a `source` derivation graduates outward on the symbolic `HandoffAxis` case once stable and reproducible.
+This is the core solver route with a gating law per backend: `sympy` is pure-Python and imports on the runtime, so calculus, rewrite, solve, matrix algebra, assumption logic, number theory, heuristic numeric evaluation, and the source-printer family run as live core; `python-flint`'s exact kernels and the certified-ball `Evaluate` precision row gate on the worker lane; `Lower(jax)` reads `jax` at usage on the jaxlib floor; `Lower(native)`'s `autowrap`/`ufuncify` rows gate on a host C/Fortran toolchain. Derivations key through the runtime `ContentIdentity` over the canonical `SymbolicPayload`, so a repeated derivation at identical `(form, spec, ops)` is a cache hit by reference; a `source` derivation graduates outward on the symbolic `HandoffAxis` case once stable and reproducible.
 
 ## [01]-[INDEX]
 
@@ -26,24 +26,24 @@ This is the core solver route with a gating law per backend: `sympy` is pure-Pyt
 |  [09]   | `Lower`        | terminal | `LowerBackend`                            | `lambdify(numpy\|jax)`/`ufuncify`/`autowrap`                 |
 |  [10]   | `Codegen`      | terminal | `(CodeTarget, str)`                       | per-`CodeTarget` printer `ccode`/`fcode`/`rust_code`         |
 
-- `Calculus`: the unevaluated `Derivative`/`Integral`/`Sum` node forces through `.doit()` and `series` trims its `Order` term in the same row, never a second method.
+- `Calculus`: unevaluated `Derivative`/`Integral`/`Sum` nodes force through `.doit()`, and `series` trims its `Order` term in the same row, never a second method.
 - `Substitute`: map keys and values are spellings resolved against the live `SymbolSpec`, never raw strings escaping the boundary.
 - `Refine`: assumptions are derivation inputs the `SymbolSpec` declares, never a post-hoc filter.
 - `Solve`: every polynomial route carries a real `metric` — discriminant magnitude, resultant magnitude, or `nsolve` residual — never a dead `0.0`.
 - `LinAlg`: `GroundDomain.FLINT` accelerates only the `_FLINT_MATRIX_ROUTES` exact-over-rationals subset, and `MINPOLY` is FLINT-only — sympy `Matrix` owns no minimal-polynomial kernel, so the sympy ground rails a fenced typed fault.
 - `NumberTheory`: GCD/LCM reinterpret unary by operand shape — a polynomial reads `gcd(p, p')`, a leaf integer its genuine divisor-lattice structure, never the vacuous `gcd(n, n) == n` tautology.
 - `Evaluate`: `CERTIFIED` re-evaluates through a `python-flint` `arb` ball whose `rad()` is the certified error bound `HEURISTIC` lacks.
-- `Codegen`: a new target is one `CodeTarget` value plus one `_CODE_PRINTER` row, never a parallel emitter.
+- `Codegen`: a new target is one `CodeTarget` value and one `_CODE_PRINTER` row, never a parallel emitter.
 
 ## [03]-[DERIVATION]
 
 `SymbolicDerivation` threads an assumption-carrying `SymbolSpec` over an `ExprForm` and left-folds a `Block[SymbolicOp]` pipeline to one typed `SymbolicReceipt` from one shared `cse` lowering, never parallel entries per artifact.
 
-- Entry: `derive(form, spec, *ops)` is the one railed entrypoint — there is no second un-railed constructor; the graduation gate reads the `source` evidence through the symbolic `HandoffAxis` case.
+- Entry: `derive(form, spec, *ops)` is the one railed entrypoint riding the hub weave as `evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=...)` — the span carries terminal, op-count, and symbol discriminants, the weave harvest emits the receipt on the clean exit, and no second un-railed constructor exists; the graduation gate reads the `source` evidence through the symbolic `HandoffAxis` case.
 - Cases: `ExprForm` is the polymorphic input — a `str` spelling, a `MatrixForm` of cell spellings, or a constructed `Expr` — discriminated by one `derive` entry rather than `derive`/`derive_matrix`/`derive_expr` siblings.
 - Auto: the runtime content owner mints the derivation key over the canonical `SymbolicPayload`, never a hand-rolled canonical encode; two derivations differing in assumption context, op pipeline, or terminal route key distinctly.
 - Receipt: `outcome` is the terminal `Outcome` case owning its `facts()` projection, and the carried `LoweredSpec` is a VALUE consumers project off the outcome, never a receipt fact; a derivation graduates through the self-wired `graduates` producer — `Precision.CERTIFIED` ships its arb radius, a reproducibly `HEURISTIC` run ships zero instability — against the `_CEILING` family row.
-- Growth: a new calculus transform is one `CalculusKind` row plus one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row plus one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row plus one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case plus its `facts()` arm and one terminal `apply` arm.
+- Growth: a new calculus transform is one `CalculusKind` row and one `_CALCULUS` entry; a new rewrite pass is one `RewritePass` row; a new solve route, matrix extraction, or number-theoretic query is one row on its existing case; a new lowering backend is one `LowerBackend` row and one `_LOWER_ROUTE` row; a new code target is one `CodeTarget` row and one `_CODE_PRINTER` entry; a new artifact shape is one `Outcome` case with its `facts()` arm and one terminal `apply` arm.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -154,7 +154,7 @@ class NumberRoute(StrEnum):
     LCM = "lcm"
 
 
-# the exact-arithmetic axis: SYMPY runs the pure-Python `Poly`/`Matrix` kernel, FLINT lowers the carried polynomial/matrix to an
+# exact-arithmetic axis: SYMPY runs the pure-Python `Poly`/`Matrix` kernel, FLINT lowers the carried polynomial/matrix to an
 # `fmpq_poly`/`fmpq_mat` C-level exact kernel — one row on the solve/linalg/number case, never a parallel FLINT surface.
 class GroundDomain(StrEnum):
     SYMPY = "sympy"
@@ -175,7 +175,7 @@ class LowerBackend(StrEnum):
     NATIVE = "native"  # autowrap compiled extension, host-toolchain gated
 
 
-# the recommended jit route per backend: numpy/ufunc/native lowerings are already vectorized or compiled (Passthrough), jax
+# recommended jit route per backend: numpy/ufunc/native lowerings are already vectorized or compiled (Passthrough), jax
 # recommends the XLA route — consumers compile through `JitBackend.compile`, never by importing this page.
 _LOWER_ROUTE: Final[Map[LowerBackend, JitBackend]] = Map.of_seq([
     (LowerBackend.NUMPY, JitBackend.Passthrough()),
@@ -217,7 +217,7 @@ class SymbolSpec(Struct, frozen=True):
 
 
 class SymbolicPayload(Struct, frozen=True, gc=False):
-    # the form repr, sorted assumption pairs, and ordered op signature feed the one cached deterministic encoder; `gc=False` drops
+    # form repr, sorted assumption pairs, and ordered op signature feed the one cached deterministic encoder; `gc=False` drops
     # this container-free leaf from the tracked GC set on the high-allocation derivation path.
     form: str
     assume: tuple[tuple[str, str], ...]
@@ -274,15 +274,16 @@ class Outcome:
         return Outcome(source=(target, name, source))
 
     def facts(self) -> dict[str, object]:
+        # native scalars only — a `str()`/`f""` coerce erases comparability at the receipt layer; rendering is the export layer's.
         match self:
             case Outcome(tag="solution", solution=(route, cardinality, metric)):
-                return {"route": route.value, "cardinality": cardinality, "metric": f"{metric:.6g}"}
+                return {"route": route.value, "cardinality": cardinality, "metric": metric}
             case Outcome(tag="spectrum", spectrum=(route, dimension, invariant)):
-                return {"route": route.value, "dimension": dimension, "invariant": f"{invariant:.6g}"}
+                return {"route": route.value, "dimension": dimension, "invariant": invariant}
             case Outcome(tag="arithmetic", arithmetic=(route, cardinality, magnitude)):
-                return {"route": route.value, "cardinality": cardinality, "magnitude": f"{magnitude:.6g}"}
+                return {"route": route.value, "cardinality": cardinality, "magnitude": magnitude}
             case Outcome(tag="numeric", numeric=(digits, magnitude, radius)):
-                return {"digits": digits, "magnitude": f"{magnitude:.6g}", "radius": f"{radius:.3e}"}
+                return {"digits": digits, "magnitude": magnitude, "radius": radius}
             case Outcome(tag="callable_", callable_=(backend, arity, _spec)):
                 return {"backend": backend.value, "arity": arity}
             case Outcome(tag="source", source=(target, name, source)):
@@ -307,7 +308,7 @@ class SymbolicReceipt(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         facts = {"op": self.op, "symbols": ",".join(self.symbols), "content_key": self.content_key.project("hex"), **self.outcome.facts()}
-        yield Receipt.of("compute.symbolic", ("emitted", self.op, facts))
+        yield Receipt.of(EvidenceScope.SYMBOLIC.value, ("emitted", self.op, facts))
 
 
 @tagged_union(frozen=True)
@@ -367,7 +368,7 @@ class SymbolicOp:
         return SymbolicOp(codegen=(target, name))
 
     def signature(self) -> str:
-        # the case-data spelling the canonical key folds; the substitution map renders its sorted items rather than its identity
+        # case-data spelling the canonical key folds; the substitution map renders its sorted items rather than its identity
         # so identical maps key identically.
         match self:
             case SymbolicOp(tag="calculus", calculus=(kind, order)):
@@ -383,13 +384,13 @@ class SymbolicOp:
             case SymbolicOp(tag="codegen", codegen=(target, name)):
                 return f"{target.value}/{name}"
             case SymbolicOp(tag="rewrite", rewrite=value) | SymbolicOp(tag="refine", refine=value) | SymbolicOp(tag="lower", lower=value):
-                # the or-pattern binds the lone `StrEnum` payload, never a `getattr` reflection escaping the exhaustive match.
+                # or-pattern binds the lone `StrEnum` payload, never a `getattr` reflection escaping the exhaustive match.
                 return value.value
             case _ as unreachable:
                 assert_never(unreachable)
 
     def apply(self, sym: object, expr: "Expr", free: tuple["Expr", ...]) -> Outcome:
-        # the free-symbol read is lazy per arm: a symbol-free `NumberTheory`/numeric-`Evaluate` derivation declares no symbols, so
+        # free-symbol read is lazy per arm: a symbol-free `NumberTheory`/numeric-`Evaluate` derivation declares no symbols, so
         # an eager `free[0]` here IndexErrors before its arm runs; `_primary` faults a symbol-needing op on an empty `SymbolSpec`.
         match self:
             case SymbolicOp(tag="calculus", calculus=(kind, order)):
@@ -417,7 +418,7 @@ class SymbolicOp:
             case SymbolicOp(tag="evaluate", evaluate=(digits, precision)):
                 return _evaluate(sym, expr, free, digits, precision)
             case SymbolicOp(tag="lower", lower=backend):
-                # the materialized callable rides the jit-minted `LoweredSpec` VALUE consumers compile through `JitBackend.compile`
+                # materialized callable rides the jit-minted `LoweredSpec` VALUE consumers compile through `JitBackend.compile`
                 # — the callable is never discarded.
                 fn = _lower(sym, expr, free, backend)
                 spec = LoweredSpec(
@@ -446,8 +447,8 @@ _CALCULUS: Final[Map[CalculusKind, Callable[[object, "Expr", "Expr", int], "Expr
     (CalculusKind.SUMMATION, lambda s, e, x, n: s.summation(e, (x, 0, n)).doit()),
 ])
 
-# the `MatrixRoute` subset `fmpq_mat` owns an exact-over-ℚ kernel for; the routes outside it have no exact rational analogue and
-# stay on the symbolic kernel.
+# `fmpq_mat` owns an exact-over-ℚ kernel for exactly this `MatrixRoute` subset; routes outside it have no exact rational
+# analogue and stay on the symbolic kernel.
 _FLINT_MATRIX_ROUTES: Final[frozenset[MatrixRoute]] = frozenset({
     MatrixRoute.DETERMINANT,
     MatrixRoute.RANK,
@@ -483,8 +484,8 @@ def _solve(sym: object, expr: "Expr", free: tuple["Expr", ...], route: SolveRout
         case SolveRoute.LINSOLVE | SolveRoute.NONLINSOLVE:
             return Outcome.Solution(route, _cardinality(getattr(sym, route.value)((expr,), *free)))
         case SolveRoute.NSOLVE:
-            # the `metric` is the substituted residual `|f(root)|` — the convergence witness the closed-form routes lack — keyed by
-            # the assumption-carrying `primary` Symbol object, never its name.
+            # `metric` is the substituted residual `|f(root)|` — the convergence witness the closed-form routes lack — keyed by the
+            # assumption-carrying `primary` Symbol object, never its name.
             primary = _primary(free, route.value)
             root = sym.nsolve(expr, primary, 0.0)
             return Outcome.Solution(route, 1, abs(float(sym.N(expr.subs(primary, root)))))
@@ -516,8 +517,8 @@ def _flint_poly(sym: object, poly: object, route: SolveRoute) -> Outcome:
     from flint import fmpq_poly
 
     # `fmpq_poly` (not `fmpz_poly`) so a rational-coefficient poly lowers exactly through `_as_fmpq` rather than an `int(c)` coerce
-    # that TypeErrors on a non-integer. The `metric` is `|res(p, p')|` — the discriminant up to lead-coefficient/sign normalization,
-    # the same squarefree fact the SYMPY ground reads off `Poly.discriminant`; a symbolic-coefficient poly faults at `_as_fmpq`.
+    # that TypeErrors on a non-integer. `metric` is `|res(p, p')|` — the discriminant up to lead-coefficient/sign normalization,
+    # matching the squarefree fact the SYMPY ground reads off `Poly.discriminant`; a symbolic-coefficient poly faults at `_as_fmpq`.
     fp = fmpq_poly([_as_fmpq(sym, c) for c in reversed(poly.all_coeffs())])
     disc = abs(float(fp.resultant(fp.derivative())))
     match route:
@@ -550,7 +551,7 @@ def _linalg(sym: object, expr: "Expr", route: MatrixRoute, ground: GroundDomain)
             radius = max((abs(complex(sym.N(v))) for v in spectral), default=0.0)
             return Outcome.Spectrum(route, len(spectral), radius)
         case MatrixRoute.SINGULAR:
-            # the spectral 2-norm reads order-independently through `max`, never `values[0]` resting on one method's ordering contract.
+            # spectral 2-norm reads order-independently through `max`, never `values[0]` resting on one method's ordering contract.
             values = matrix.singular_values()
             return Outcome.Spectrum(route, len(values), max((abs(float(sym.N(v))) for v in values), default=0.0))
         case MatrixRoute.CHARPOLY:
@@ -586,7 +587,7 @@ def _flint_matrix(sym: object, matrix: object, route: MatrixRoute) -> Outcome:
         case MatrixRoute.RANK:
             return Outcome.Spectrum(route, fm.rank())
         case MatrixRoute.CHARPOLY | MatrixRoute.MINPOLY:
-            # the monic polynomial's discriminant magnitude — `resultant` against the formal derivative — is the invariant, zero
+            # monic polynomial's discriminant magnitude — `resultant` against the formal derivative — is the invariant, zero
             # exactly on a repeated-root spectrum.
             poly = fm.charpoly() if route is MatrixRoute.CHARPOLY else fm.minpoly()
             return Outcome.Spectrum(route, poly.degree(), abs(float(poly.resultant(poly.derivative()))))
@@ -718,25 +719,34 @@ def _as_fmpq(sym: object, cell: object) -> object:
 class SymbolicDerivation:
     @staticmethod
     def derive(form: ExprForm, spec: SymbolSpec, *ops: SymbolicOp) -> "RuntimeRail[SymbolicReceipt]":
-        # admit-then-bind: the canonical key resolves before the `boundary` fence, so a canonical-encode fault rails first.
-        return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
-            lambda key: boundary(f"symbolic.{ops[-1].tag if ops else 'noop'}", lambda: _derive(form, spec, ops, key))
-        )
+        # admit-then-bind: the canonical key resolves before the `boundary` fence, so a canonical-encode fault rails first; the
+        # whole derivation runs under the `compute.symbolic` span, the weave harvest emitting the receipt on the clean exit.
+        terminal = ops[-1].tag if ops else "noop"
+
+        def rail() -> "RuntimeRail[SymbolicReceipt]":
+            return ContentIdentity.of("symbolic", SymbolicPayload.of(form, spec, ops)).bind(
+                lambda key: boundary(f"symbolic.{terminal}", lambda: _derive(form, spec, ops, key))
+            )
+
+        facts = {"terminal": terminal, "op_count": len(ops), "symbols": ",".join(spec.names)}
+        return evidence_run(EvidenceScope.SYMBOLIC, f"derive.{terminal}", rail, facts=facts)
 
 
-# the symbolic family's DEFAULT graduation ceiling — the stability law as data, caller-overridable.
+# symbolic family's DEFAULT graduation ceiling — the stability law as data, caller-overridable.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("radius", 1e-12), ("unstable", 0.0)])
 
 
 def graduates(receipt: SymbolicReceipt, *, certified: bool, radius: float = 0.0) -> "RuntimeRail[GraduationReceipt]":
     # either the ledger clears the `_CEILING` family row or the hub rejects the crossing.
     ledger = {"radius": radius, "unstable": 0.0 if certified else 1.0}
-    return GraduationReceipt.graduates("compute.symbolic", HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items()))
+    return GraduationReceipt.graduates(
+        EvidenceScope.SYMBOLIC.value, HandoffAxis(symbolic=receipt.op), receipt.content_key, ledger, dict(_CEILING.items())
+    )
 
 
 def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: ContentKey) -> SymbolicReceipt:
-    # the empty-pipeline gate lives inside the fence where `boundary` converts it — an `ops[-1]` read outside the thunk escapes
-    # the rail as a bare `IndexError`.
+    # empty-pipeline gate lives inside the fence where `boundary` converts it — an `ops[-1]` read outside the thunk escapes the
+    # rail as a bare `IndexError`.
     import sympy
 
     if not ops:
@@ -752,7 +762,7 @@ def _derive(form: ExprForm, spec: SymbolSpec, ops: tuple[SymbolicOp, ...], key: 
 
 
 def _form_spelling(form: ExprForm) -> str:
-    # the canonical-key spelling, the inverse of `_sympify_form`; the `srepr` requirement is `SymbolicPayload.of`'s law.
+    # canonical-key spelling, the inverse of `_sympify_form`; the `srepr` requirement is `SymbolicPayload.of`'s law.
     match form:
         case str() as source:
             return source

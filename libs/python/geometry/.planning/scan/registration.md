@@ -15,8 +15,8 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 - Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span.
 - Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
-- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# noqa: PLC0415`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine plus runtime rails per the fence imports.
-- Growth: a new registration engine is one `RegistrationMode` row plus one kernel arm; a new bootstrap backend is one `BootstrapEngine` member plus one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
+- Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# noqa: PLC0415`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine and runtime rails per the fence imports.
+- Growth: a new registration engine is one `RegistrationMode` row and one kernel arm; a new bootstrap backend is one `BootstrapEngine` member and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion.md#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation.md#DEVIATION`; surface reconstruction is `scan/reconstruction.md#RECONSTRUCTION`. No mesh repair, tessellation, or durable store here.
 
 ```python signature
@@ -136,7 +136,7 @@ class RegistrationResult(Struct, frozen=True, gc=False):
         } | {f"t.{stage}": seconds for stage, seconds in self.timings.items()}
 
     def contribute(self) -> tuple[Receipt, ...]:
-        return (Receipt.of("geometry.scan.registration", ("emitted", self.mode.value, self.facts())),)
+        return (Receipt.of("rasm.geometry.scan.registration", ("emitted", self.mode.value, self.facts())),)
 
     def graduates(self, evidence_key: ContentKey, policy: RegistrationPolicy) -> GeometryHandoff:
         return GeometryHandoff.of(
@@ -344,8 +344,8 @@ class ScanRegistration(Struct, frozen=True):
 
     async def register(self, session: RegistrationSession, mode: RegistrationMode) -> "RuntimeRail[RegistrationResult]":
         async def dispatch() -> "RuntimeRail[RegistrationResult]":
-            # the PEP-646 arity is static evidence only, so the two-cloud minimum re-proves HERE at runtime — INSIDE
-            # the evidence span, so a short session lands on the SCAN_REGISTRATION receipt as this typed refusal
+            # PEP-646 arity is static evidence only, so the two-cloud minimum re-proves HERE at runtime — INSIDE the
+            # evidence span, so a short session lands on the SCAN_REGISTRATION receipt as this typed refusal
             # instead of an unwitnessed early return or a worker-side IndexError.
             if len(session) < 2:
                 return Error(BoundaryFault(config=(f"scan.registration.{mode}", f"session-arity:{len(session)}<2")))

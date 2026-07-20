@@ -1,10 +1,12 @@
 # [RASM_GRASSHOPPER_OBJECTS]
 
-`NativeObject` is the native document-object catalog: the interactive `Grasshopper2.Parameters.Special` family, the `Shout`/`Listen`/`Relay` routing pins, the public `Cluster`/`Chain` composite family, and the `Grasshopper2.SpecialObjects.ScribbleObject` annotation land as rows of one `NativeKind` catalog. `PersistedValue` closes the values the public host surface can read or assign, and each catalog row carries an executable public-constructor factory. One polymorphic owner mints, reads, assigns, reconciles timer targets, and resolves cluster maps on the rail; GH1 interop remains one explicit live-host boundary returning a typed receipt beside the host component. GH2's loop driver, looping iterations, repeat discriminants, bitmap sampler kernel, and incomplete chain ordering and validation kernels do not enter the package contract.
+`NativeObject` is the native document-object catalog: the interactive `Grasshopper2.Parameters.Special` family, the `Shout`/`Listen`/`Relay` routing pins, the public `Cluster`/`Chain` composite family, and the `Grasshopper2.SpecialObjects.ScribbleObject` annotation land as rows of one `NativeKind` catalog. `PersistedValue` closes the values the public host surface can read or assign, and each catalog row carries an executable public-constructor factory.
+
+One polymorphic owner mints, reads, assigns, reconciles timer targets, and resolves cluster maps on the rail; GH1 interop remains one explicit live-host boundary returning a typed receipt beside the host component. GH2's loop driver, looping iterations, repeat discriminants, bitmap sampler kernel, and incomplete chain ordering and validation kernels stay outside the package contract.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTROL_VOCABULARY]: the object families plus the public boundary and accumulation vocabularies
+- [02]-[CONTROL_VOCABULARY]: the object families with the public boundary and accumulation vocabularies
 - [03]-[VALUE_AND_CATALOG]: the `PersistedValue` union and the `NativeKind` object-row catalog
 - [04]-[OBJECT_OPERATIONS]: the one owner over mint, value, timer targets, and cluster maps
 - [05]-[GH1_BOUNDARY]: the live GH1 host admission and its receipt
@@ -61,7 +63,7 @@ public sealed partial class BoundaryRole {
 - Owner: `PersistedValue` is the one union over empty construction and publicly readable or writable object state; `NativeKind` carries family, exact host type, and an executable public parameterless-constructor factory per row.
 - Entry: `NativeKind.ForHost(Type)` is the `Items`-derived frozen index dispatching a live document object onto its row.
 - Packages: every host type column is a verified `Grasshopper2.Parameters.Special` or `Grasshopper2.Components.Standard` type; canvas control state stays each object's own `CreateAttributes` projection.
-- Growth: a new interactive object is one catalog row with its public factory plus, where its value shape is new, one `PersistedValue` case.
+- Growth: a new interactive object is one catalog row with its public factory and, where its value shape is new, one `PersistedValue` case.
 - Boundary: `Empty` selects the row's public parameterless constructor; a non-empty seed enters only through an exact public constructor or writable host member arm.
 
 ```csharp signature
@@ -176,7 +178,7 @@ public sealed partial class NativeKind {
 - Receipt: `Clustered` names the constructor's first `out Guid[][]` as the input mapping and the second as the output mapping; `Boundary` calls the public `void EnsureMaps(out Listen[], out Shout[])` and returns the resulting pin rosters without inventing a success probe.
 - Auto: `Retarget` rejects the timer's own instance id before mutation, compares `TimerObject.TargetIds` with the distinct desired set, and admits each `AddTarget`/`RemoveTarget` only when its public boolean result confirms the mutation.
 - Growth: a public parameterless constructor is one `[UseDelegateFromConstructor]` `NativeKind.Create()` row; a seeded public constructor or writable value correspondence is one `Mint` or `ValueOf`/`Assign` arm.
-- Boundary: `NumberSliderObject.InternalNumber` and `NumberPickerObject.InternalNumber` are read-only and seed only through their public constructors; the slider preserves its complete non-null `UiNumber`, while the picker carries its public `decimal` read through the host's lossy `double` constructor boundary. `PresetPickerObject.UserNames`, including its `null` state, owns persisted selection; assignment expires and restarts a solution only when that state changes. `Boundary` rejects null pins from the oblivious host arrays. The host's incomplete chain ordering and validation members, the internal loop driver, and private `ImageSamplerObject.SampleContinuous` never appear in this package's operation surface.
+- Boundary: `NumberSliderObject.InternalNumber` and `NumberPickerObject.InternalNumber` are read-only and seed only through their public constructors; the slider preserves its complete non-null `UiNumber`, while the picker carries its public `decimal` read through the host's lossy `double` constructor boundary. `PresetPickerObject.UserNames`, including its `null` state, owns persisted selection; assignment expires and restarts a solution only when that state changes. `DataRecorderObject.Paused` is the recorder's writable state, and its `IsEmpty` answers true when recorded buckets exist — the member name and XML summary invert the installed behavior — so a presence probe reads a true `IsEmpty` as data-present evidence. `Boundary` rejects null pins from the oblivious host arrays. Incomplete host chain ordering and validation members, the internal loop driver, and private `ImageSamplerObject.SampleContinuous` never enter this operation surface.
 
 ```csharp signature
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -243,6 +245,8 @@ public static class NativeObject {
                     key.OrDefault()),
             Grasshopper2.Parameters.Special.TimerObject timer =>
                 Hosted.Bound(() => (PersistedValue)new PersistedValue.Targets(toSeq(timer.TargetIds)), key.OrDefault()),
+            Grasshopper2.Parameters.Special.DataRecorderObject recorder =>
+                Hosted.Bound(() => (PersistedValue)new PersistedValue.Flag(recorder.Paused), key.OrDefault()),
             Grasshopper2.Parameters.Special.Relay relay =>
                 Hosted.Bound(() => (PersistedValue)new PersistedValue.Flag(relay.Frozen), key.OrDefault()),
             Grasshopper2.Components.Standard.Cluster cluster =>
@@ -268,6 +272,8 @@ public static class NativeObject {
             (Grasshopper2.Parameters.Special.PresetPickerObject picker, PersistedValue.Selection names) =>
                 Select(picker, names.UserNames, key.OrDefault()),
             (Grasshopper2.Parameters.Special.TimerObject timer, PersistedValue.Targets targets) => Retarget(timer, targets.Ids, key.OrDefault()),
+            (Grasshopper2.Parameters.Special.DataRecorderObject recorder, PersistedValue.Flag flag) =>
+                Hosted.Bound(() => { recorder.Paused = flag.Value; }, key.OrDefault()),
             (Grasshopper2.Parameters.Special.Relay relay, PersistedValue.Flag flag) =>
                 Hosted.Bound(() => { relay.Frozen = flag.Value; }, key.OrDefault()),
             (Grasshopper2.Components.Standard.Cluster cluster, PersistedValue.Flag flag) =>
@@ -352,7 +358,7 @@ public static class NativeObject {
 
 - Owner: `Gh1Host` is the one legacy admission — a non-null `Grasshopper2.Interop.IGH_Component` wraps into the runtime-backed host component and returns beside a typed receipt carrying the source identity and XML, so provenance survives the crossing.
 - Receipt: `Gh1Receipt` holds the legacy id, name, and source XML for round-trip evidence.
-- Boundary: the host requires a loadable GH1 runtime during processing. The wrapper conversion allocates the ETO bitmap retained by `GH1InteropComponent`; the receipt neither exposes nor disposes that component-retained icon.
+- Boundary: the host requires a loadable GH1 runtime during processing. Wrapper conversion allocates the ETO bitmap retained by `GH1InteropComponent`; the receipt neither exposes nor disposes that component-retained icon.
 
 ```csharp signature
 // --- [BOUNDARIES] ------------------------------------------------------------------------

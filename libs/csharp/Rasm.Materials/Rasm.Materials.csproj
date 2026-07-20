@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the ten-family ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the ComputedSection receipt), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, the cutting-stock nesting owner, and the ComponentProjector onto the Rasm.Element seam.</Description>
+        <Description>Host-neutral AEC-domain materials: the polymorphic Component owner over the closed ComponentFamily axis (one SectionSolver over the closed SectionProfile algebra, the ComputedSection receipt), the measured appearance engine (node graph, closed BSDF lobe family, material library, procedural texture/photometric admission), the typed engineering-property and sustainability catalogues, and the ComponentProjector onto the Rasm.Element seam.</Description>
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
@@ -10,10 +10,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Section Capacity">
-        <PackageReference Include="VividOrange.Profiles.Catalogue" />
-        <PackageReference Include="VividOrange.Sections.SectionProperties" />
-        <PackageReference Include="VividOrange.Sections" />
         <PackageReference Include="VividOrange.InteractionDiagram" />
+        <PackageReference Include="VividOrange.Profiles.Catalogue" />
+        <PackageReference Include="VividOrange.Sections" />
+        <PackageReference Include="VividOrange.Sections.SectionProperties" />
     </ItemGroup>
 
     <ItemGroup Label="Material Standards">
@@ -27,9 +27,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Appearance">
-        <PackageReference Include="Wacton.Unicolour.Datasets" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
     <ItemGroup Label="Functional Core">
@@ -38,14 +38,14 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric">
-        <PackageReference Include="UnitsNet" />
-        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup Label="Mapping Graph">
-        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Color Science">

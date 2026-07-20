@@ -6,23 +6,23 @@
 
 ## [01]-[INDEX]
 
-- [01]-[EXPORT]: host-free static-and-interactive export over the typed `ChartRenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables, minting `ArtifactReceipt.Chart` across the runtime offload bound inside one span, plus the `layered()` semantic-layer hand-off to `export/layered#LAYERED`.
-- [02]-[PREPASS]: in-page `VegaTransform` pre-pass over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` by transform presence and interactivity, each returning the self-contained spec plus its `PrePassEvidence`.
+- [01]-[EXPORT]: host-free static-and-interactive export over the typed `ChartRenderPolicy` and the per-engine `VL_RENDER`/`LP_RENDER` format tables, minting `ArtifactReceipt.Chart` across the runtime offload bound inside one span, with the `layered()` semantic-layer hand-off to `export/layered#LAYERED`.
+- [02]-[PREPASS]: in-page `VegaTransform` pre-pass over the gated vegafusion runtime — `Passthrough`/`Inline`/`State` by transform presence and interactivity, each returning the self-contained spec with its `PrePassEvidence`.
 
 ## [02]-[EXPORT]
 
 - Owner: `ChartExport` dispatches over the chart case, the typed `ChartRenderPolicy`, and `ExportFormat` resolving the `VlRow` converter pair; `VL_RENDER` rows the per-format axis as one `frozendict` table, never a per-format arm, and each row calls its provider with explicit typed keywords — no string field-name tuple, dynamic spread, or erased callable. `_rendered` is the engine selection over the three chart cases, each engine's format axis one table total over `ExportFormat`. No parallel engine enum, no Chrome path, no plotly/kaleido.
-- Entry: `emit()` returns one `ArtifactWork` — `key` minted PRE-RUN through `ContentIdentity.key` over the length-framed canonical preimage (`docs/laws/patterns` rows [05]/[06]): engine tag, the case's canonical bytes (the deterministic-encoded spec dict; protocol-5 pickle for a live figure, the picklability the matplotlib `PROCESS` offload already demands), the encoded `(fmt, policy, resolved transform, retention)` bundle, and each inline dataset's name plus `hash_rows` digest. Vega's case lowers `Admission(keyed=None)` so keyed admission probes the warm seed; the lets-plot/matplotlib cases lower `Admission(bare=None)` — pickle bytes identify the node but are not cross-host canonical, so a live figure is forced-live rather than trusted to elide. `_emit` computes once inside the span, folds any pre-pass evidence onto the span and one structlog event, and mints `ArtifactReceipt.Chart(key, engine, format, scale, theme, byte_len)` as flat scalars, `receipt.slot == node.key`.
-- Auto: `_resolved` pins the pre-pass `local_tz` to `vlc.get_local_tz()` when unset — vl-convert exposes no `local_tz=` render override, so the pin makes a time-axis chart's content key host-stable and one resolution feeds key plus render; `_vl_render` registers every `ChartRenderPolicy.fonts` directory through `register_font_directory`, resolves `vl_version` against `get_vegalite_versions()`, and selects a converter whose typed row omits the Vega-Lite-only `theme`/`vl_version` knobs from the full-Vega twin; `_dialect` reads the admitted spec's `$schema` once.
-- Layers: `layered()` is the editorial hand-off — the Vega case renders ONE SVG, `_split_layers` partitions the root graphics group's children by their Vega `role-*` class token through `lxml`, and each semantic group (axes, gridlines, legends, mark groups, titles) becomes one `export/layered#LAYERED` `Layer(name, svg_bytes, bbox, intent=OcgIntent.FIGURE, group="chart")` sharing the chart's viewBox, so a designer restyles axes and marks as separate named layers without re-plotting; the live-figure cases rail `<vega-only>` — their engines own no semantic scenegraph to split.
-- Growth: a new export format is one `ExportFormat` member plus one `VL_RENDER` and one `LP_RENDER` row; a new render knob is one `ChartRenderPolicy` field read by the exact converter rows that admit it; a new pre-pass mode is one `VegaTransform` case plus an `apply` arm plus an `of` branch; a new host-free engine is one `ChartSpec` case plus one `_rendered` arm carrying its format table.
+- Entry: `emit()` returns one `ArtifactWork` — `key` minted PRE-RUN through `ContentIdentity.key` over the length-framed canonical preimage: engine tag, the case's canonical bytes (the deterministic-encoded spec dict; protocol-5 pickle for a live figure, the picklability the matplotlib `PROCESS` offload already demands), the encoded `(fmt, policy, resolved transform, retention)` bundle, and each inline dataset's name and `hash_rows` digest. Vega's case lowers `Admission(keyed=None)` so keyed admission probes the warm seed; the lets-plot/matplotlib cases lower `Admission(bare=None)` — pickle bytes identify the node but are not cross-host canonical, so a live figure is forced-live rather than trusted to elide. `_emit` computes once inside the span — pre-pass evidence lands as one `chart.prepass` span event at the stage boundary and rides the structlog event — and mints `ArtifactReceipt.Chart(key, engine, format, scale, theme, byte_len)` as flat scalars, `receipt.slot == node.key`.
+- Auto: `_resolved` pins the pre-pass `local_tz` to `vlc.get_local_tz()` when unset — vl-convert exposes no `local_tz=` render override, so the pin makes a time-axis chart's content key host-stable and one resolution feeds key and render; `_vl_render` registers every `ChartRenderPolicy.fonts` directory through `register_font_directory`, resolves `vl_version` against `get_vegalite_versions()`, and selects a converter whose typed row omits the Vega-Lite-only `theme`/`vl_version` knobs from the full-Vega twin; `_dialect` reads the admitted spec's `$schema` once.
+- Layers: `layered()` is the editorial hand-off — the Vega case renders ONE SVG, `_split_layers` partitions the root graphics group's children by their Vega `role-*` class token through `lxml`, and each semantic group (axes, gridlines, legends, mark groups, titles) becomes one `export/layered#LAYERED` `Layer(name, svg_bytes, bbox, intent=OcgIntent.FIGURE, group="chart")` sharing the chart's viewBox, so a designer restyles axes and marks as separate named layers without re-plotting; its pre-pass and split crossings run inside one `chart.layers` span carrying the `chart.prepass` stage event and the charter Error fold; the live-figure cases rail `<vega-only>` — their engines own no semantic scenegraph to split.
+- Growth: a new export format is one `ExportFormat` member, one `VL_RENDER` row, and one `LP_RENDER` row; a new render knob is one `ChartRenderPolicy` field read by the exact converter rows that admit it; a new pre-pass mode is one `VegaTransform` case, an `apply` arm, and an `of` branch; a new host-free engine is one `ChartSpec` case and one `_rendered` arm carrying its format table.
 - Boundary: no chart authoring (`visualization/chart/spec#CHART` owns the grammar); no palette derivation (`graphic/color/derive#DERIVE` owns `Palette`/`hex_ramp`); no figure placement (`composition/compose#COMPOSE` consumes bytes as DATA parents); no Arrow-IPC extract side channel — vl-convert accepts no external dataset, so the reduction crosses inside the spec, and `get_column_usage`/`pre_transform_extract` stay the `data/tabular/columnar#COLUMNAR` egress owner's (the runtime already prunes inline frames internally through `get_inline_column_usage` on every call, so no chart-side column read exists); no folder-minted limiter or retry — the offload rides the owned `lane: LanePolicy`. A Chrome/kaleido path, a hand-written Vega-Lite dict downstream of the grammar, a per-format render variant, a string-keyed policy spread, and a raise standing in for a typed rail fault are the rejected forms.
 
 ## [03]-[PREPASS]
 
 - Cases: `VegaTransform` cases — `Passthrough()` (no transform, or a full-Vega dialect whose transforms the embedded Vega runtime evaluates at render; spec passes through with empty evidence), `Inline(policy, retention)` (folds `pre_transform_spec` to one self-contained spec with transforms executed and the reduced result inlined, binding the `PreTransformWarning` tail as evidence), `State(policy)` (the interactive HTML row via `new_chart_state` then `get_transformed_spec`, reading `get_warnings`/`get_comm_plan` as dataset-dependency evidence). No Arrow-IPC extract case — server-side aggregation is the size reduction and inlines into the spec.
 - Auto: `VegaTransform.of` discriminates once — `_has_transform` recurses the composition operators so a transform nested under a facet/repeat sub-view is never misread as `Passthrough`, and the full-Vega dialect short-circuits to `Passthrough`; `apply` never discards the warnings tail (`RowLimitExceeded`/`BrokenInteractivity`/`Unsupported` each on its own explicit data-loss flag); a malformed spec crosses `catch(ValueError)` to `<malformed-spec>`. `planned` prices the client/server split via `build_pre_transform_spec_plan` without executing. `_tuned` resolves EVERY cap from the policy or the once-captured pristine defaults and assigns the singleton reset-on-change — a None field never inherits worker history; `_occupancy` reads `size`/`total_memory` onto the evidence. `TransformPolicy.inline_datasets` is typed `frozendict[str, pl.DataFrame]` — the estate frame wire, each frame's `hash_rows` digest joining the content preimage so a changed input frame misses the cache.
-- Growth: a new pre-pass mode is one case plus one `apply` arm plus one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
+- Growth: a new pre-pass mode is one case, one `apply` arm, and one `of` branch; a new runtime knob is one `TransformPolicy` field threaded into `_tuned`; a new retention rule is one `Retention` field; a new evidence fact is one `PrePassEvidence` field the arm fills.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -30,7 +30,7 @@ import copy
 import pickle
 from collections.abc import Callable
 from enum import StrEnum
-from functools import cache
+from functools import cache, partial
 from io import BytesIO
 from typing import Final, Literal, assert_never, cast
 
@@ -41,6 +41,7 @@ from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.extra.result import catch
 from msgspec import Struct, json, structs
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from pydantic import JsonValue
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
@@ -247,9 +248,9 @@ _COMPOSITIONS: Final[tuple[str, ...]] = ("layer", "concat", "hconcat", "vconcat"
 
 
 def _dialect(spec: Spec) -> VegaDialect:
-    # the spec admission owner proves a supported canonical $schema at the boundary; this read stays total for a
-    # direct caller by classing an absent or foreign $schema as full Vega — the passthrough arm whose transforms
-    # the embedded runtime evaluates at render — never a KeyError mid-discrimination.
+    # spec admission proves a supported canonical $schema at the boundary; this read stays total for a direct
+    # caller by classing an absent or foreign $schema as full Vega — the passthrough arm whose transforms the
+    # embedded runtime evaluates at render — never a KeyError mid-discrimination.
     schema = spec.get("$schema")
     return "vega-lite" if isinstance(schema, str) and "/vega-lite/" in schema else "vega"
 
@@ -435,6 +436,12 @@ def _evidence_attrs(evidence: PrePassEvidence) -> dict[str, object]:
     }
 
 
+def _faulted(span: trace.Span, event: str, fault: BoundaryFault, /, **fields: object) -> BoundaryFault:
+    span.set_status(Status(StatusCode.ERROR, fault.tag))
+    _LOG.error(event, **fields, **fault.facts())
+    return fault
+
+
 def _matplotlib_savefig(figure: Figure, palette: Palette, fmt: str, ppi: float) -> bytes:
     matplotlib.use("Agg")
     ramp = hex_ramp(palette)
@@ -459,7 +466,7 @@ def _role(element: etree._Element) -> str:
 def _split_layers(spec: Spec, policy: ChartRenderPolicy) -> tuple[Layer, ...]:
     # ONE SVG render partitioned into semantic layers: Vega emits `class="mark-group role-*"` groups under one root
     # graphics group. Each layer is INDEPENDENTLY RENDERABLE: the shell carries the root `<defs>` closure (clip
-    # paths, gradients) plus the root/frame presentation attributes and transforms the detached child inherited,
+    # paths, gradients) with the root/frame presentation attributes and transforms the detached child inherited,
     # so a recomposed layer stack is visually equivalent to the single source SVG.
     root = etree.fromstring(_vl_render(spec, ExportFormat.SVG, policy))
     view_box = root.get("viewBox") or f"0 0 {root.get('width', '0')} {root.get('height', '0')}"
@@ -545,8 +552,8 @@ VL_RENDER: Final[frozendict[ExportFormat, VlRow]] = frozendict({
         ),
         False,
     ),
-    # `*_to_html` accepts no `allowed_base_urls` — the browser renders the embedded spec, so the fence cannot ride
-    # the call; `_rendered` refuses a fenced HTML export before this row is reached.
+    # `*_to_html` accepts no `allowed_base_urls` — the browser renders the embedded spec, so the fence cannot
+    # ride the call; `_rendered` refuses a fenced HTML export before this row is reached.
     ExportFormat.HTML: VlRow(
         lambda spec, p: vlc.vegalite_to_html(
             spec,
@@ -652,14 +659,18 @@ class ChartExport(Struct, frozen=True):
     async def layered(self) -> RuntimeRail[tuple[Layer, ...]]:
         match self.chart:
             case ChartSpec(tag="vega", vega=spec):
-                staged = await self._prepared(spec, ExportFormat.SVG)
-                match staged:
-                    case Result(tag="ok", ok=prepass):
-                        return await self.lane.offload(Kernel.of(_split_layers, KernelTrait.RELEASING), prepass.spec, self.policy)
-                    case Result(tag="error", error=fault):
-                        return Error(fault)
-                    case _ as unreachable:
-                        assert_never(unreachable)
+                with _TRACER.start_as_current_span("chart.layers") as span:
+                    span.set_attributes({"engine": self.chart.tag, "format": ExportFormat.SVG.value})
+                    staged = await self._prepared(spec, ExportFormat.SVG)
+                    match staged:
+                        case Result(tag="ok", ok=prepass):
+                            span.add_event("chart.prepass", _evidence_attrs(prepass.evidence))
+                            split = await self.lane.offload(Kernel.of(_split_layers, KernelTrait.RELEASING), prepass.spec, self.policy)
+                            return split.map_error(partial(_faulted, span, "chart.layers", engine=self.chart.tag))
+                        case Result(tag="error", error=fault):
+                            return Error(_faulted(span, "chart.layers", fault, engine=self.chart.tag))
+                        case _ as unreachable:
+                            assert_never(unreachable)
             case _:
                 return Error(BoundaryFault(boundary=("chart.layers", "<vega-only>")))
 
@@ -673,6 +684,8 @@ class ChartExport(Struct, frozen=True):
                 staged = await self._prepared(spec, self.fmt)
                 match staged:
                     case Result(tag="ok", ok=prepass):
+                        # pre-pass -> render is the one two-crossing stage boundary; the event timestamps it with its evidence.
+                        trace.get_current_span().add_event("chart.prepass", _evidence_attrs(prepass.evidence))
                         drawn = await self.lane.offload(Kernel.of(_vl_render, KernelTrait.RELEASING), prepass.spec, self.fmt, self.policy)
                         return drawn.map(lambda data: (data, prepass.evidence))
                     case Result(tag="error", error=fault):
@@ -701,8 +714,6 @@ class ChartExport(Struct, frozen=True):
             outcome = await self._rendered()
             match outcome:
                 case Result(tag="ok", ok=(data, evidence)):
-                    if evidence is not None:
-                        span.set_attributes(_evidence_attrs(evidence))
                     _LOG.info(
                         "chart.export",
                         engine=self.chart.tag,
@@ -712,7 +723,7 @@ class ChartExport(Struct, frozen=True):
                     )
                     return Ok(ArtifactReceipt.Chart(self._key, self.chart.tag, self.fmt.value, self.policy.scale, self.policy.theme or "default", len(data)))
                 case Result(tag="error", error=fault):
-                    return Error(fault)
+                    return Error(_faulted(span, "chart.export", fault, engine=self.chart.tag, format=self.fmt.value))
                 case _ as unreachable:
                     assert_never(unreachable)
 ```

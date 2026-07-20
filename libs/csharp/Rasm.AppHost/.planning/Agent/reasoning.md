@@ -17,7 +17,7 @@ The in-process reasoning surface for the runtime spine — the third agent front
 - Cases: `ReasoningTurn` = Thinking | ToolCalled | Message | Completed | Faulted — the disposition a streamed reasoning turn folds to as the chat client surfaces text, reasoning content, function calls, and the finish reason.
 - Entry: `Reason(ReasoningRuntime runtime, ReasoningPolicy policy, Seq<ChatMessage> conversation)` returns `IO<ReasoningTranscript>` — the loop streams `IChatClient.GetStreamingResponseAsync` with `ChatOptions.Tools` set to the brokered `CommandAIFunction` set, accumulates the `ChatResponseUpdate` stream into one `ChatResponse`, records each `FunctionCallContent`/`FunctionResultContent` pair as a transcript row, and terminates on the `ChatFinishReason` with the projected `ReasoningTranscript`.
 - Auto: the `ChatOptions.Tools` list is the exact brokered `CommandAIFunction` set the `Agent/mcp#METHOD_AXIS` `ToolProjection.Adopt` mints — the loop reuses the one tool-adoption seam and never news up a second projection, so a model tool call and an MCP tool call route through the identical brokered invoker over `CommandAlgebra.Run`; the function-invocation iteration is the `MODEL_GOVERNANCE` `FunctionInvokingChatClient` decorator, not a hand-rolled call-and-feed loop — `ReasoningSession` supplies the tool set and the conversation, the decorator runs the tool-call cycle, and the session folds the resulting stream into turns; `ChatOptions.ToolMode` is the policy's `AutoChatToolMode`/`RequiredChatToolMode`/`NoneChatToolMode` row so a session forces, permits, or forbids tool use without a parallel flag; the streaming accumulation uses the `ChatResponseUpdate` stream so a long reasoning turn surfaces incrementally and the host fans interim `Thinking`/`Message` turns to the session reporter exactly as `STREAM_PROGRESS` fans MCP progress; `ChatOptions.Seed` binds to the `DeterminismContext` RNG seed so a recorded reasoning turn replays under the same sampling seed, and `MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest` trace to the policy's `DeadlineClass`-derived loop bound, never a literal.
-- Receipt: each completed reasoning run mints one `ReasoningTranscript` (REPLAYABLE_TRANSCRIPT) whose rows are the `CommandReceipt`s the tool calls minted; the per-turn fan is the streamed turn itself, not a separate receipt; the session-open transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
+- Receipt: each completed reasoning run mints one `ReasoningTranscript` (REPLAYABLE_TRANSCRIPT) whose rows are the `CommandReceipt`s the tool calls minted, fanned under `InstrumentFan.ModelKind` so the GenAI token and duration instruments project off the one reasoning envelope; the per-turn fan is the streamed turn itself, not a separate receipt; the session-open transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
 - Packages: Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one turn disposition is one `ReasoningTurn` case breaking every fold arm; a new loop-policy column is one field on `ReasoningPolicy`; a new tool front door is the SAME `CommandAIFunction` set adopted by a new caller, never a new projection; zero new surface.
 - Boundary: the reasoning loop is the in-process model-driven command owner — it never executes an op itself, it routes every tool call through the brokered `CommandAIFunction` onto the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the loop is the model-driven dispatch over them; a tool set divorced from the `Agent/mcp#METHOD_AXIS` adoption seam is the deleted form, so the in-process loop and the MCP server share one tool catalog; the `IChatClient` the loop drives is the `MODEL_GOVERNANCE`-wrapped client, never a raw provider client, so an unmetered un-ledgered model draw cannot reach the loop; the loop owns the turn vocabulary and the session-scoped conversation buffer, while `MODEL_GOVERNANCE` owns the metering, caching, tracing, and content-addressing — the two never merge, so the loop stays the orchestration and the middleware stays the policy; a model call that bypasses the function-invocation decorator to invoke a tool directly is the deleted form, because the decorator is the one seam where `ChatOptions.Tools` becomes executed calls.
@@ -73,7 +73,7 @@ public static class ReasoningSession {
         from elapsed in IO.lift(() => runtime.Clocks.Now - started)
         let rows = TranscriptRows(response)
         from transcript in IO.lift(() => ReasoningTranscript.Of(response, rows, started, elapsed))
-        from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, nameof(ReasoningSession), JsonSerializer.SerializeToElement(transcript, runtime.Wire))
+        from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.ModelKind, JsonSerializer.SerializeToElement(transcript, runtime.Wire))
         select transcript;
 
     static Seq<AITool> AdoptedTools(ReasoningRuntime runtime) =>
@@ -206,6 +206,8 @@ public sealed record ReasoningTranscript(
     Seq<ReasoningTurn> Turns,
     string ResponseDigest,
     CostVector ModelCost,
+    long InputTokens,
+    long OutputTokens,
     Instant Started,
     Duration Elapsed) {
     public static ReasoningTranscript Of(ChatResponse response, Seq<ReasoningTurn> turns, Instant started, Duration elapsed) {
@@ -218,6 +220,8 @@ public sealed record ReasoningTranscript(
             Turns: turns,
             ResponseDigest: responseDigest,
             ModelCost: ModelGovernance.Tokens(response.Usage),
+            InputTokens: response.Usage?.InputTokenCount ?? 0L,
+            OutputTokens: response.Usage?.OutputTokenCount ?? 0L,
             Started: started,
             Elapsed: elapsed);
     }
@@ -499,6 +503,8 @@ interface ReasoningTranscriptWire {
   readonly turns: ReadonlyArray<ReasoningTurnWire>;
   readonly responseDigest: string;
   readonly modelCost: Readonly<Record<CostUnitKey, number>>;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
   readonly started: string;
   readonly elapsed: string;
 }

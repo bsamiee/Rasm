@@ -9,7 +9,6 @@
 - import: `httpx`
 - owner: `runtime`
 - rail: transport
-- version: `0.28.1`
 - license: `BSD-3-Clause`
 - namespaces: `httpx`
 - capability: pooled async/sync HTTP/releaseHTTP/2 client, `Auth` flow protocol, request/response streaming, per-phase timeouts and pool limits, event hooks, transport/proxy injection, `codes` status enum, full request/transport error taxonomy

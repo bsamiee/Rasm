@@ -2,7 +2,7 @@
 
 One study-spine owner spans design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history.md#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package seam. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
 
-Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, `@receipted` harvest. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate and the `columnar.arrow_bytes` render fold — the published surfaces only, no data interior; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
+Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, fenced contributor harvest. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate and the `columnar.arrow_bytes` render fold — the published surfaces only, no data interior; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype g
 - Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`, never a hardcoded arm beside the table.
 - Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry.
 - Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic.
-- Growth: a new input marginal is one `AxisDist` member plus one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case plus one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member plus one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold.
+- Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold.
 
 ```python signature
 import time
@@ -78,7 +78,7 @@ class Objective(Struct, frozen=True):
         return np.stack([np.asarray(scorer(point), dtype=float) for point in design])
 
     def identity(self) -> tuple[object, ...]:
-        # the complete yield-affecting identity `Study.spec_key` folds: row scorer, batch lane, and the jit route
+        # complete yield-affecting identity `Study.spec_key` folds: row scorer, batch lane, and the jit route
         # row — a batch or jit configuration change re-keys exactly as a scorer change does.
         route = self.jit.map(lambda held: (held.tag, getattr(held, held.tag))).default_value(())
         return (_scorer_identity(self.row), self.batch.map(_scorer_identity).default_value(()), route)
@@ -361,8 +361,6 @@ class StudyMethod:
         return float(cross_val_score(pipeline, design, responses, cv=5, scoring="r2").mean())
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
 # --- [TABLES] ---------------------------------------------------------------------------
 
 # one route row per tag drives one sampler body and one analyzer body; `result_key` selects the per-method scalar over the `ResultDict`.
@@ -436,7 +434,12 @@ class StudyReceipt(Struct, frozen=True):
 
         columns = {axis.name: pa.array(np.asarray(design[:, i], dtype=float)) for i, axis in enumerate(axes)}
         columns |= {f"response_{j}": pa.array(np.asarray(responses).reshape(len(design), -1)[:, j]) for j in range(self.response_width)}
-        metadata = {b"source": b"compute.study", b"identifier": self.method.encode(), b"unit": b"dimensionless", b"content_key": self.content_key.hex.encode()}
+        metadata = {
+            b"source": EvidenceScope.STUDY.value.encode(),
+            b"identifier": self.method.encode(),
+            b"unit": b"dimensionless",
+            b"content_key": self.content_key.hex.encode(),
+        }
         return bytes(arrow_bytes(pa.table(columns).replace_schema_metadata(metadata)))
 
     def contribute(self) -> Iterable[Receipt]:
@@ -450,7 +453,7 @@ class StudyReceipt(Struct, frozen=True):
             "speedup": self.speedup.to_optional(),
             **{f"S[{k}]": v for k, v in self.indices.items()},
         }
-        return (Receipt.of("compute.study", ("emitted", self.method, facts)),)
+        return (Receipt.of(EvidenceScope.STUDY.value, ("emitted", self.method, facts)),)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -465,7 +468,7 @@ class Study(Struct, frozen=True):
 
     async def run(self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0) -> RuntimeRail[StudyReceipt]:
         # an Objective crosses as an argument of one HOSTILE-trait Kernel — sampler natives hold process-global state — while a
-        # pre-measured frame decodes inline; the weave owns span, fence, and the `@receipted` receipt harvest. Only the RESULT
+        # pre-measured frame decodes inline; the weave owns span, fence, and the fenced contributor harvest. Only the RESULT
         # mode declares idempotent: a worker-death re-run under WALLCLOCK/SPEEDUP would report a post-crash retry as the measurement.
         async def dispatch() -> RuntimeRail[StudyReceipt]:
             match source:
@@ -477,13 +480,15 @@ class Study(Struct, frozen=True):
                         lambda decoded: boundary(f"study.{self.method.tag}", lambda: self._graded_frame(*decoded))
                     )
 
-        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch)
+        facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes)}
+        return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
         # gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response
         # vector cross the boundary as numpy buffers — the published data surfaces only.
         shapes = tuple(FieldShape(field=axis.name, logical_type="Float64", nullable=False) for axis in self.axes)
-        gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, FieldShape(field="response", logical_type="Float64", nullable=False)))
+        response = FieldShape(field="response", logical_type="Float64", nullable=False)
+        gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, response))
         return gate.admit(frame).bind(
             lambda admitted: gate.enforce(admitted).map(
                 lambda _claim: (
@@ -509,8 +514,8 @@ class Study(Struct, frozen=True):
         return ContentIdentity.of("study", _SPEC.encode((self.axes, self.method.tag, self.mode, spec)) + packed(design) + tail)
 
     def _graded_frame(self, design: np.ndarray, responses: np.ndarray) -> StudyReceipt:
-        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the response bytes join
-        # the key — two frames sharing one design matrix but carrying different measurements are different studies.
+        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the response bytes join the
+        # key — two frames sharing one design matrix but carrying different measurements are different studies.
         measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
         match self.spec_key(design, responses=Some(responses)):
             case Result(tag="ok", ok=key):

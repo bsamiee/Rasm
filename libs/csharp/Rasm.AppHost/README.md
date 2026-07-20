@@ -1,6 +1,6 @@
 # [APPHOST]
 
-`Rasm.AppHost` is the federation's runtime spine — the host-neutral backbone every app root folds. It owns the composition-root doctrine, the reproducibility kernel — pinned RNG and float mode, the hash-chained command log, replay and bisect — the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface — a self-describing op catalog, commit-or-rollback command algebra, fenced grant and cost broker, MCP projection with external-server federation, governed model reasoning — the industrial external-binding studio, fleet provisioning and supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: a crash-durable claim covers node death, not just process reboot; delivery honesty is stated per sink; a dead holder's in-flight work reclaims under a fresh fenced lease; a replay claim survives process restarts against the durable store.
+`Rasm.AppHost` is the federation's runtime spine — the host-neutral backbone every app root folds. It owns the composition-root doctrine, the reproducibility kernel with its hash-chained command log, the crash-durable workflow engine over one `CommandDispatch`, the agentic capability surface, the industrial external-binding studio, fleet provisioning with supply-chain admission, and the four-signal observability plane. Its bar is distributed honesty: crash-durable claims cover node death, delivery honesty states per sink, and a replay claim survives process restarts against the durable store.
 
 `Compute`, `Persistence`, and `AppUi` adapt to the spine and never reverse it; it mints one owner per runtime axis across the Runtime, Agent, Wire, Sandbox, and Observability folders, holds no AEC-domain reference, and contributes only the `ProjectionContext` ingredients the app composition root assembles.
 
@@ -46,6 +46,9 @@
 - [29]-[TELEMETRY](.planning/Observability/telemetry.md): Unified four-signal telemetry through minted identities and egress redaction.
 - [30]-[HEALTH](.planning/Observability/health.md): Resource-pressure health fold and degradation/alert rails over one atomic reading cell.
 - [31]-[BUNDLES](.planning/Observability/bundles.md): Bounded redacted support capture.
+- [32]-[INSTRUMENTS](.planning/Observability/instruments.md): Domain-instrument catalog projecting the receipt fan into metrics.
+- [33]-[HOOKS](.planning/Observability/hooks.md): Typed hook registry over the bus, lifecycle, and receipt seams.
+- [34]-[BENCHMARKS](.planning/Observability/benchmarks.md): Benchmark receipt family, the corpus gate, and profile-linked capture rows.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -84,14 +87,23 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `AspNetCore.HealthChecks.Kafka`
 - `AspNetCore.HealthChecks.Nats` — probes the NATS broker anchor over the pooled connection.
 - `Microsoft.Extensions.Compliance.Redaction`
+- `Microsoft.Extensions.Http.Diagnostics` — outbound-request latency breakdown and redaction-aware extended client logging.
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry`
 - `Microsoft.Extensions.Telemetry.Abstractions`
 - `OpenTelemetry`
 - `OpenTelemetry.Extensions.Hosting`
+- `OpenTelemetry.Instrumentation.AspNetCore` — service-root inbound request spans and the built-in hosting meters.
+- `OpenTelemetry.Instrumentation.GrpcNetClient` — client-span semconv over the `Grpc.Net.Client` hops.
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
 - `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
+- `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity seam.
+- `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity seam.
+- `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity seam.
+- `OpenTelemetry.Resources.Process` — `process.owner`/`process.pid`/`process.creation.time` resource detector.
+- `OpenTelemetry.Resources.ProcessRuntime` — `process.runtime.*` resource detector at the identity seam.
+- `Pyroscope` — native continuous-profiler agent; `Profiler.Instance` singleton the span processor writes profile ids into.
 - `Pyroscope.OpenTelemetry`
 - `Serilog`
 - `Serilog.Extensions.Hosting`

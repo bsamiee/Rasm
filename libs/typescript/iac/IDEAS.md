@@ -1,6 +1,6 @@
 # [TS_IAC_IDEAS]
 
-The forward pool of higher-order folder concepts grounded in the deploy-plane domain and the monorepo purpose. `[1]-[OPEN]` carries the active ideas as cards; each card names the capability, what it unlocks, and the gap or modern technique it draws on. `[2]-[CLOSED]` carries the finished or dropped ideas with a one-line disposition so the same idea is never re-litigated. An idea drives one or more `TASKLOG.md` tasks.
+Deploy-plane idea pool: higher-order concepts grounded in spec-total realization, the arm roster, and the operate/kube tiers; an idea drives one or more `TASKLOG.md` tasks, and a resolved idea closes with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -24,4 +24,4 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+- [0001]-[COMPLETE]: metrics-store row family + typed board compile — realized on `operate/observe.md`: `_stores` (`prometheus | mimir | victoriametrics`), Pyroscope row, pg-ingest arm pair, dev row, Foundation-SDK compile leg.

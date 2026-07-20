@@ -2,7 +2,7 @@
 
 `Weld.Plan` consumes one admitted `WeldRequest` and derives fill-complete bead deposits, side-correct transported torch frames, preparation actions, qualification demands, and one content-keyed `WeldPlan`. Boundary-resolved preparation profiles carry the full section and cavity demand; planning never recreates `Rasm.Materials` groove geometry from a key or a nominal leg.
 
-`WeldProcessLaw` converts `ProcessBudget.Joining` into deposited volume through one `ArcMode` per transfer mode. Joint process keys gate admission and select efficiency, travel, heat-input, and t8/5 envelopes. `BeadProgram` derives role and oscillation from fraction bands; fill roles close the groove, while butter and temper overlays deposit outside it. `Waveform` evaluates oscillation at every waypoint; named weaves never replace paths.
+`WeldProcessLaw` converts `ProcessBudget.Joining` into deposited volume through one `TransferMode` per transfer mode. Joint process keys gate admission and select efficiency, travel, heat-input, and t8/5 envelopes. `BeadProgram` derives role and oscillation from fraction bands; fill roles close the groove, while butter and temper overlays deposit outside it. `Waveform` evaluates oscillation at every waypoint; named weaves never replace paths.
 
 Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile` resolves the trapezoidal section at the current fill height and `BeadProgram.Lattice` seats as many overlapped beads across that width as it admits, so `WeldPass.LateralOffsetMm` and `WeldPass.HeightOffsetMm` carry a real position inside the groove. `ArcProgram` places run-in, backstep, run-out, and crater dwell on the emitted path and arc clock, so `WeldPass.HeatInputKjMm`, `BeadEvidence.EnergyJ`, and the EN 1011-2 `BeadEvidence.CoolingTimeS` read every burning move.
 
@@ -14,9 +14,9 @@ Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile`
 
 ## [02]-[WELD_PLAN]
 
-- Owner: `FillProfile` owns boundary-resolved fill geometry and its trapezoidal section algebra; `RootProgram` owns preparation behavior and the side schedule; `CavityKind` and `FlareKind` own bounded preparation sub-kinds; `JointPrep` owns preparation modality and the EN 1011-2 shape factors; `WeldJoint` owns one admitted joint; `WeldRequest` owns census correspondence and the fill ledger; `DepositionSource`, `ArcMode`, `WeldProcessLaw`, `Waveform`, `WeavePattern`, `PassRole`, `RoleBand`, and `BeadProgram` own deposition policy; `WeldStandard` owns canonical policy rows; `IWeldAccess.Admit` mints internal `WeldAccess` strategies; `WeldDemandBinding` generates profile-defined procedure values; `WeldPolicySource` owns policy admission modality; `WeldPolicy` owns aggregate planning policy; `JointAction`, `TorchFrame`, `BeadEvidence`, `WeldPass`, `WeldDemand`, and `WeldPlan` own execution and evidence; `Weld` owns `Plan` and `HeatInput`.
+- Owner: `FillProfile` owns boundary-resolved fill geometry and its trapezoidal section algebra; `RootProgram` owns preparation behavior and the side schedule; `CavityKind` and `FlareKind` own bounded preparation sub-kinds; `JointPrep` owns preparation modality and the EN 1011-2 shape factors; `WeldJoint` owns one admitted joint; `WeldRequest` owns census correspondence and the fill ledger; `DepositionSource`, `TransferMode`, `WeldProcessLaw`, `Waveform`, `WeavePattern`, `PassRole`, `RoleBand`, and `BeadProgram` own deposition policy; `WeldStandard` owns canonical policy rows; `IWeldAccess.Admit` mints internal `WeldAccess` strategies; `WeldDemandBinding` generates profile-defined procedure values; `WeldPolicySource` owns policy admission modality; `WeldPolicy` owns aggregate planning policy; `JointAction`, `TorchFrame`, `BeadEvidence`, `WeldPass`, `WeldDemand`, and `WeldPlan` own execution and evidence; `Weld` owns `Plan` and `HeatInput`.
 - Cases: `JointPrep.Groove`, `JointPrep.Fillet`, `JointPrep.Cavity`, and `JointPrep.Flare` carry fill demand without local geometry formulae; the groove case preserves geometry and penetration keys independently. `DepositionSource.SolidWire` and `DepositionSource.CoredWire` parameterize multi-electrode count and spacing, while `DepositionSource.Rod`, `DepositionSource.Strip`, `DepositionSource.Powder`, `DepositionSource.Volumetric`, and `DepositionSource.Autogenous` cover the remaining deposition carriers. `Waveform.Harmonic` carries a phase-shifted sine series and `Waveform.Piecewise` a knot interpolation, so between them any mean-zero periodic oscillation generates. `RootProgram` covers no treatment, backing, backgouging, combined backing and backgouging, and seal deposition. `WeldPolicySource.Defined` and `WeldPolicySource.Canonical` collapse explicit and standard admission onto `WeldPolicy.Admit`, the canonical arm reading one `WeldStandard` row rather than inline constants. `JointAction.Preheat` and `JointAction.PostWeldHeatTreat` carry the thermal shop actions the joint's `PreheatC`, `PwhtC`, and `PwhtMinutes` demand. `WeldDemandBinding.Quantity`, `WeldDemandBinding.Categorical`, `WeldDemandBinding.Boolean`, and `WeldDemandBinding.Temporal` cover the procedure value modalities. `PassLineage.Planned`, `PassLineage.Repair`, and `PassLineage.Temper` preserve derivation evidence.
-- Entry: `public static Fin<WeldPlan> Plan(WeldRequest request)` normalizes the census by joint identity, accumulates every joint's planning failure before reporting, resolves each process law and its admitted `ArcMode`, accumulates all access constraints, derives pass count from required volume and realized deposition, generates every pass from the role bands and the bead lattice, verifies heat, cooling, and fill conservation, emits procedure demand maps, and mints `ContentKey.Of(EgressKind.WeldPlan, ...)`.
+- Entry: `public static Fin<WeldPlan> Plan(WeldRequest request)` normalizes the census by joint identity, accumulates every joint's planning failure before reporting, resolves each process law and its admitted `TransferMode`, accumulates all access constraints, derives pass count from required volume and realized deposition, generates every pass from the role bands and the bead lattice, verifies heat, cooling, and fill conservation, emits procedure demand maps, and mints `ContentKey.Of(EgressKind.WeldPlan, ...)`.
 - Admission: `WeldJoint.Admit` converts `UnitsNet` length, angle, temperature, and duration quantities once into canonical millimetre, degree, Celsius, and minute fields before `WeldJoint.Validate`. `WeldPolicy.Admit` validates process keys, role-band coverage, deposition laws, pass bounds, access constraints, and the procedure profile's `WeldDemandBinding` rows once. `WeldRequest.Validate` closes census identity and `ProcessBudget.Joining` invariants before planning. Interior operations consume only admitted owners.
 - Derivation: `FillProfile.VolumeMm3` is the complete boundary-resolved deposit demand, including unequal fillet legs, contour, reinforcement, root opening and face, backing displacement, groove radii, variable section, plug or slot cavity, flare throat, side split, and repair excavation. `SectionStation.AreaMm2` derives from root width, face width, and height. `BeadProgram.Resolve` generates role and oscillation from deposited fraction, and `BeadProgram.Lattice` seats each bead across the layer width `FillProfile.WidthAtHeight` resolves at `FillProfile.HeightAtFill`. `Transport` carries the seam frame — tangent, lateral, normal — offsets its origin by admitted standoff, and resamples every `DepositSpan` boundary. `Weave` places the bead before work and travel rotation, so oscillation never bleeds into travel.
 - Receipt: `WeldPass` retains the frozen scheduling fields and adds lattice placement, `CommandedFeedMmMin` scaled to hold seam progression through oscillation, `BeadEvidence`, `ArcProgram`, and `PassLineage`. `TorchFrame.StandoffMm` and its offset pose preserve setup geometry. `BeadEvidence` carries arc time, EN 1011-2 t8/5 cooling time, and deposit length beside bead geometry. `WeldPlan` retains passes, actions, demands, maximum heat input, bead count, and key. `WeldPlan.Project` returns execution, qualification, or receipt evidence through one closed egress family.
@@ -603,7 +603,7 @@ public abstract partial record DepositionSource {
 }
 
 [ComplexValueObject]
-public sealed partial class ArcMode {
+public sealed partial class TransferMode {
     public double Efficiency { get; }
     public double TravelLowMmMin { get; }
     public double TravelHighMmMin { get; }
@@ -669,21 +669,21 @@ public sealed partial class ArcMode {
 public sealed partial class WeldProcessLaw {
     public DepositionSource Deposition { get; }
     public string DefaultModeKey { get; }
-    public Map<string, ArcMode> Modes { get; }
+    public Map<string, TransferMode> Modes { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DepositionSource deposition,
         ref string defaultModeKey,
-        ref Map<string, ArcMode> modes) =>
+        ref Map<string, TransferMode> modes) =>
         validationError = deposition is null || !deposition.Admitted || string.IsNullOrWhiteSpace(defaultModeKey)
             || modes.IsEmpty || modes.Keys.Exists(string.IsNullOrWhiteSpace)
             || modes.Values.Exists(static value => value is null) || !modes.ContainsKey(defaultModeKey)
             ? new ValidationError(message: "weld-process-law")
             : null;
 
-    public Fin<ArcMode> Mode(WeldJoint joint) => joint.TransferModeKey
+    public Fin<TransferMode> Mode(WeldJoint joint) => joint.TransferModeKey
         .Match(
             Some: key => Modes.Find(key)
                 .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:transfer-mode:{joint.Joint}:{key}").ToError()),
@@ -1408,7 +1408,7 @@ public static class Weld {
         WeldPolicy policy,
         ProcessBudget.Joining budget,
         WeldProcessLaw law,
-        ArcMode mode,
+        TransferMode mode,
         Seq<TorchFrame> baseFrames) {
         double requestedTravel = Math.Min(
             (mode.Efficiency * 60.0 * budget.CurrentA * budget.VoltageV) / (1000.0 * policy.TargetHeatInputKjMm),
@@ -1441,7 +1441,7 @@ public static class Weld {
         WeldJoint joint,
         WeldPolicy policy,
         WeldProcessLaw law,
-        ArcMode mode,
+        TransferMode mode,
         ProcessBudget.Joining budget,
         Seq<TorchFrame> baseFrames,
         RoleBand band,

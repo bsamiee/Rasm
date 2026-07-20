@@ -59,7 +59,7 @@ public static class SupportTriggerOps {
 - Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as `SupportManifest.Entry` rows.
 - Packages: Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one `SupportArtifact` factory row lands a new contributor; a new dump completeness is one `DumpPolicy` value (`Triage` routine, `WithHeap`/`Full` escalation-only); a new fault is one `SupportFault` case; zero new surface.
-- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, `ServerNotAvailableException`/IO faults mapping to the typed `SupportFault.DumpRejected` — and the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, decode faults mapping to `SupportFault.DecodeFaulted` and landing `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has NO reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` TOOL boundary — deleting the column is capability deletion, the forbidden form.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, `ServerNotAvailableException`/IO faults mapping to the typed `SupportFault.DumpRejected` — and the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, decode faults mapping to `SupportFault.DecodeFaulted` and landing `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has NO reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` TOOL boundary — deleting the column is capability deletion, the forbidden form; `PerfMapLease` brackets perf-map emission around a profiled window — `EnablePerfMap(PerfMapType)` at open, `DisablePerfMap()` at disposal — so the continuous-profiling and benchmark flame graphs resolve jitted native frames, the kind row a caller policy value the bench and profiler roots pass.
 
 ```csharp signature
 public sealed record SupportArtifact(
@@ -119,6 +119,18 @@ public sealed record DumpPolicy(DumpType Kind, WriteDumpFlags Flags, long Estima
     public static readonly DumpPolicy Escalated = new(DumpType.WithHeap, WriteDumpFlags.None, 512L << 20);
 }
 
+// Native-symbol lease: perf-map emission spans exactly the profiled window so sample and eBPF
+// profilers resolve jitted frames; the kind row is caller policy, disposal always disables.
+public sealed record PerfMapLease(DiagnosticsClient Client) : IDisposable {
+    public static PerfMapLease Open(PerfMapType kind) {
+        var client = new DiagnosticsClient(Environment.ProcessId);
+        client.EnablePerfMap(kind);
+        return new(client);
+    }
+
+    public void Dispose() => Client.DisablePerfMap();
+}
+
 [Union]
 public abstract partial record SupportFault : Expected, IValidationError<SupportFault> {
     private SupportFault(string detail, int code) : base(detail, code, None) { }
@@ -171,12 +183,20 @@ public static class SupportCapture {
         let closed = at + runtime.Policy.Settle
         let window = new Interval(opened, closed)
         from _ in IO.lift(fun(runtime.Buffer.Flush))
+        // Per-row recovery is the partial-receipt fold: a faulting contributor lands a zero-byte
+        // ContributorFaulted entry and the bundle exports partial — one row never aborts the capture.
         from produced in runtime.Contributors
-            .TraverseM(row => row.Produce(window).Map(payload => Written(row, payload, runtime.Policy)))
+            .TraverseM(row => (row.Produce(window).Map(payload => Written(row, payload, runtime.Policy))
+                | @catch<IO, (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes)>(static _ => true,
+                    error => IO.pure(Faulted(row, new SupportFault.ContributorFaulted(row.Name, error.Message))))).As())
             .As()
         let rows = Capped(produced, runtime.Policy)
         from receipt in SupportLedger.Bundle(runtime, SupportManifest.From(facts, opened, closed, rows, runtime), rows, mark)
         select receipt;
+
+    static (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes) Faulted(SupportArtifact row, SupportFault fault) =>
+        (new SupportManifest.Entry(row.Name, row.Classification.ToString(), Bytes: 0L, TruncatedBytes: 0L, Redactions: 0, Fault: Some(fault.Message)),
+         ReadOnlyMemory<byte>.Empty);
 
     static (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes) Written(
         SupportArtifact row,
@@ -246,7 +266,7 @@ public sealed record SupportManifest(
     HostProfile Profile,
     ImmutableArray<Entry> Entries,
     ImmutableDictionary<string, string> PackageVersions) {
-    public sealed record Entry(string Name, string Classification, long Bytes, long TruncatedBytes, int Redactions);
+    public sealed record Entry(string Name, string Classification, long Bytes, long TruncatedBytes, int Redactions, Option<string> Fault = default);
 
     public int Redactions => Entries.Sum(static entry => entry.Redactions);
 
@@ -341,6 +361,7 @@ interface SupportManifestEntry {
   readonly bytes: number;
   readonly truncatedBytes: number;
   readonly redactions: number;
+  readonly fault: string | null;
 }
 
 interface SupportManifest {
@@ -363,4 +384,4 @@ type SupportReceipt =
 
 ## [06]-[RESEARCH]
 
-- [DUMP_ADMISSION]: RESOLVED — the process-dump row composes `Microsoft.Diagnostics.NETCore.Client` (`DiagnosticsClient(int)`, `WriteDump(DumpType, string, WriteDumpFlags)`, `StartEventPipeSession`, `EventPipeSession.EventStream`) and the event-trace row decodes through `Microsoft.Diagnostics.Tracing.TraceEvent` (`EventPipeEventSource(Stream)`, `TraceEventDispatcher.Process()`), both inside the capture fan's caps/redaction/truncation law; the `.gcdump` heap-graph read has no owner in the admitted 3.2.4 assembly (`DotNetHeapDumpGraphReader`/`GCHeapDump`/`MemoryGraph` absent — the recorded REJECT in `api-traceevent.md`), so the gcdump column binds the `dotnet-gcdump` tool boundary.
+- [PERFMAP_CASES]-[OPEN]: the `PerfMapType` enum case spellings the lease kind row passes; verify against the admitted `Microsoft.Diagnostics.NETCore.Client` assembly via `tools.assay` before the bench and profiler roots pin the row.

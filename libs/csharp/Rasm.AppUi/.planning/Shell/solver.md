@@ -547,11 +547,22 @@ public sealed class LayoutSolver : Panel {
               select new Rect(left, top, width, height);
     }
 
-    public const string SolveInstrument = "rasm.appui.layout.solve-elapsed";
+    public const string SolveInstrument = "rasm.appui.layout.solve.elapsed";
     public const string UnsatisfiableInstrument = "rasm.appui.layout.unsatisfiable";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, SolveInstrument, UnsatisfiableInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(SolveInstrument, InstrumentKind.Distribution, "s", "constraint solve wall duration per panel", UiBuckets.InteractionSeconds),
+            new(UnsatisfiableInstrument, InstrumentKind.Count, "{solve}", "solves relaxed on an unsatisfiable fold"));
+
+    // Composition binds this projection onto the same screen evidence stream that carries the receipt,
+    // so solve metrics derive from the sealed evidence and no measure/arrange pass touches the meter.
+    public static Unit Observe(InstrumentSet set, LayoutReceipt receipt) =>
+        (ignore(set.Record(SolveInstrument, receipt.Elapsed.TotalSeconds,
+             new KeyValuePair<string, object?>("panel", receipt.Panel))),
+         receipt.Relaxed
+            ? ignore(set.Count(UnsatisfiableInstrument, 1L, new KeyValuePair<string, object?>("panel", receipt.Panel)))
+            : unit).Item2;
 }
 ```
 

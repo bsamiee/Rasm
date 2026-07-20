@@ -1,6 +1,6 @@
 # [RUNTIME_CHANNEL]
 
-Framed stream transport is the second half of the branch net plane: where `client` owns request/response egress, this page owns the long-lived byte channels — socket duplex under a closed frame vocabulary, and the server-sent event feed — both backpressured by construction, both typed at the seam. A socket is capability: construction rides `Socket.makeWebSocket` against the `Socket.WebSocketConstructor` Tag the runtime binding satisfies, so one framed transport definition serves every runtime lane, and the frame is a row swap under an unchanged schema seam. The SSE feed owns the full `Sse` codec: `Sse.makeChannel` decodes the `data:`/`event:`/`id:`/`retry:` line protocol as package capability — the `retry:` directive is absorbed in-channel, the parser sleeping the hinted delay in place — the reattach cursor advances as a fold and stamps `last-event-id` on every re-dial, a cleanly completed response reconnects exactly like a faulted one, silence folds through the core degradation ladder to pick probe cadence, and `Sse.encoder` is the mirror the serving edge composes so both directions of the dialect have one codec owner. A raw socket listener, a hand `data:`-line parser, a reconnect that observes only transport faults, and `JSON.stringify` written to a wire are the named defects. The module is `runtime/src/net/channel.ts`.
+Framed stream transport is the second half of the branch net plane: where `client` owns request/response egress, this page owns the long-lived byte channels — socket duplex under a closed frame vocabulary, and the server-sent event feed — both backpressured by construction, both typed at the seam. A socket is capability: construction rides `Socket.makeWebSocket` against the `Socket.WebSocketConstructor` Tag the runtime binding satisfies, so one framed transport definition serves every runtime lane, and the frame is a row swap under an unchanged schema seam. Its SSE feed owns the full `Sse` codec: `Sse.makeChannel` decodes the `data:`/`event:`/`id:`/`retry:` line protocol as package capability — the `retry:` directive is absorbed in-channel, the parser sleeping the hinted delay in place — the reattach cursor advances as a fold and stamps `last-event-id` on every re-dial, a cleanly completed response reconnects exactly like a faulted one, silence folds through the core degradation ladder to pick probe cadence, and `Sse.encoder` is the mirror the serving edge composes so both directions of the dialect have one codec owner. A raw socket listener, a hand `data:`-line parser, a reconnect that observes only transport faults, and `JSON.stringify` written to a wire are the named defects. Its module is `runtime/src/net/channel.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -25,7 +25,7 @@ Framed stream transport is the second half of the branch net plane: where `clien
 import { Sse } from '@effect/experimental';
 import { type HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from '@effect/platform';
 import { type Channel, type Chunk, Context, Data, Duration, Effect, Layer, Option, type ParseResult, Ref, type Schema, Stream, pipe } from 'effect';
-import { Budget, Degrade, type FaultClass } from '@rasm/ts/core';
+import { Budget, type FaultClass } from '@rasm/ts/core';
 import { Client } from './client.ts';
 
 const _frames = { msgpack: MsgPack.duplexSchema, ndjson: Ndjson.duplexSchema } as const;
@@ -66,11 +66,11 @@ const Duplex = { framed: _framed } as const;
 - Law: the `retry:` directive is package-absorbed pacing — `Sse.makeChannel` never emits `Sse.Retry` downstream: on a `retry:` frame the channel sleeps the hinted `duration` in place and resumes the same response, so server-driven pacing within a live connection is the codec's own behavior and no session cell shadows it.
 - Law: reconnection covers every ending — the session is one `Stream.forever` over the dial, so a cleanly completed response re-dials after `session.redial` (a server that closes immediately cannot hot-loop), and a faulted response re-dials under `Budget.schedule("feed")` — the ledger owner's gate-modal compile, attempts, reset, jitter, and elapsed window intact, its `FaultClass.retryable` default gate passing because every retry-channel error is `FeedFault`, classed `unavailable` — with exhaustion minting `FeedFault` carrying the origin as evidence, the one fault consumers see.
 - Law: the reattach cursor is a fold, not a cell convention — every `Sse.Event` carrying an `id` advances the cursor, and every re-dial — clean or faulted — stamps it as the `last-event-id` request header, so an outage backfills by event id; the cursor lives in the session's own `Ref`, invisible to consumers and surviving every re-dial.
-- Law: silence is laddered, never polled — `Feed.cadence` is the one-hop `Degrade.cadence` fold from an observed quiet span to the rung's probe cadence a long-lived consumer schedules; the ladder folds the span it is handed, the consumer owns the measurement, and no consumer indexes a degradation row to reconstruct cadence.
+- Law: silence is laddered, never polled — a long-lived consumer folds its observed quiet span through the core `Degrade.cadence` ladder to pick the rung's probe cadence; the ladder folds the span it is handed, the consumer owns the measurement, and no consumer indexes a degradation row to reconstruct cadence.
 - Law: the feed is transport only — it emits decoded `Sse.Event` frames and owns no payload vocabulary; the consumer's own Schema decodes `event.data` at its seam, so one feed serves every event dialect.
 - Boundary: the serving mirror — `Sse.encoder` framing an outbound event stream over an HTTP response — is the edge wave's mount; this page owns the codec direction law so the dialect has one owner.
 - Entry: `yield* Feed` then `feed.open(origin)`; `Feed.live` is the shipped Layer over the client lane.
-- Packages: `@effect/experimental` (`Sse`), `@effect/platform` (`HttpClientRequest`), `effect` (`Context`, `Data`, `Duration`, `Option`, `Ref`, `Stream`), `./client.ts` (`Client`), `@rasm/ts/core` (`Budget`, `Degrade`).
+- Packages: `@effect/experimental` (`Sse`), `@effect/platform` (`HttpClientRequest`), `effect` (`Context`, `Data`, `Duration`, `Option`, `Ref`, `Stream`), `./client.ts` (`Client`), `@rasm/ts/core` (`Budget`).
 
 ```typescript signature
 class FeedFault extends Data.TaggedError('FeedFault')<{
@@ -103,7 +103,6 @@ class Feed extends Context.Tag('runtime/Feed')<
             open: (session) => Stream.provideContext(_session(session instanceof URL ? new _Session({ origin: session }) : session), context),
         })),
     );
-    static readonly cadence = (silence: Duration.DurationInput): Duration.Duration => Degrade.cadence(silence);
     static readonly Session = _Session;
 }
 

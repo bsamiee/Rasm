@@ -1,12 +1,12 @@
 # [RASM_GRASSHOPPER_SHELL_SESSION]
 
-The Grasshopper session boundary owns live editor, canvas, and document acquisition; UI-thread command execution; monotonic command acknowledgements; form release; and document-tagged `HybridCache` access. `GhSession.Apply` closes command-shaped host work over one `SessionOp` union, while `Run<TOut>` bounds value projections to one UI marshal. Generated case operations identify commands, queued receipts prove admission only, blocking receipts prove settlement, and every live scope is reacquired inside the marshal that consumes it.
+`GhSession` owns the Grasshopper session boundary — live editor, canvas, and document acquisition; UI-thread command execution; monotonic command acknowledgements; form release; and document-tagged `HybridCache` access. `GhSession.Apply` closes command-shaped host work over one `SessionOp` union, while `Run<TOut>` bounds value projections to one UI marshal. Generated case operations identify commands, queued receipts prove admission only, blocking receipts prove settlement, and every live scope is reacquired inside the marshal that consumes it.
 
 ## [01]-[INDEX]
 
 - [02]-[SCOPE]: acquisition rows over the live editor, canvas, and document chain
 - [03]-[OPERATOR]: generated session commands, repaint policy, monotonic acknowledgements, and bounded projections
-- [04]-[CACHE]: weak document identity and typed document-tagged cache slots
+- [04]-[CACHE]: weak document identity, typed document-tagged cache slots, and entry-policy rows
 
 ## [02]-[SCOPE]
 
@@ -16,7 +16,7 @@ The Grasshopper session boundary owns live editor, canvas, and document acquisit
 - Law: `DocumentToken.Of(document)` mints identity from the exact acquired instance. GH2 `Document.Hash` is a content digest recomputed after modification, so it never substitutes for instance identity or cache lifetime.
 - Boundary: shell chrome remains `Shell/editor.md`; reveal uses the public `Editor.ShowEditor(bool, string)` surface, which creates the editor when absent and makes an existing hidden editor visible.
 - Packages: Grasshopper2 (`Editor.Instance`, `Editor.Canvas`, `Editor.ShowEditor`, `Canvas.Document`), LanguageExt.Core, `Rasm.Domain`.
-- Growth: a new host anchor (a hosted panel root, a floating canvas) is one `ScopeTarget` row plus one `GhScope` case; the acquisition column and gates never widen.
+- Growth: a new host anchor (a hosted panel root, a floating canvas) is one `ScopeTarget` row with one `GhScope` case; the acquisition column and gates never widen.
 
 ## [03]-[OPERATOR]
 
@@ -210,14 +210,16 @@ public static class GhSession {
 
 ## [04]-[CACHE]
 
-- Owner: `DocumentToken` assigns one stable `Guid` to each live `Document` instance through `ConditionalWeakTable`. The association disappears with the document; `Document.Hash` remains content identity and never enters cache addressing.
+- Owner: `DocumentToken` assigns one stable `Guid` to each live `Document` instance through `ConditionalWeakTable`. That association disappears with the document; `Document.Hash` remains content identity and never enters cache addressing.
 - Owner: `CacheSlot` admits one trimmed, nonblank concern identity. `SessionCache` keys entries as `gh:{documentId:N}:{slot}` and applies the exact `gh-doc:{documentId:N}` tag to every value minted for that document.
-- Entry: `Remember<TState, T>(Guid, CacheSlot, TState, Func<TState, CancellationToken, ValueTask<T>>, HybridCacheEntryOptions?, CancellationToken)` composes the stateful `HybridCache.GetOrCreateAsync` overload without factory capture; `Evict(Guid, CancellationToken)` calls the singular `RemoveByTagAsync` overload.
-- Law: tag invalidation makes every matching entry stale for subsequent reads; it does not promise physical deletion from L1 or L2. The substrate retains stampede control, configured default entry policy, serializer selection, maximum-key and maximum-payload bypass behavior, and storage topology.
-- Law: cache payloads are detached serializable values such as encoded raster bytes, layout measurements, or parse receipts. A `GhScope`, live host object, Eto bitmap, lease, or delegate never becomes a cache value.
-- Law: every `document.state` fact invalidates its document tag. The current fact shape carries document identity but no before/after state, so this boundary does not invent a closing-only distinction.
-- Boundary: the composition root supplies `HybridCache`; `ValueTask` remains the package carrier, and a kernel consumer bridges at its own seam.
-- Growth: a new cached concern is one `CacheSlot` value at the call site; a new invalidation axis is one exact tag value.
+- Owner: `SlotPolicy` carries the entry policy as data — `Shared` defers to the substrate `DefaultEntryOptions`, `Resident` pins process-local Eto-affine payloads L1-only through `HybridCacheEntryFlags.DisableDistributedCache`, and `Recency` splits the short `LocalCacheExpiration` horizon from absolute `Expiration` so a hot key re-reads L2 without re-minting. A raw `HybridCacheEntryOptions` argument at a call site is the deleted knob this row family replaces.
+- Entry: `Remember<TState, T>(Guid, CacheSlot, TState, Func<TState, CancellationToken, ValueTask<T>>, Option<SlotPolicy>, CancellationToken)` composes the stateful `HybridCache.GetOrCreateAsync` overload without factory capture; `Evict(Guid, CancellationToken)` calls the singular `RemoveByTagAsync` overload.
+- Law: tag invalidation makes every matching entry stale for subsequent reads; it never promises physical deletion from L1 or L2. Substrate behavior — stampede control, configured default entry policy, serializer selection, maximum-key and maximum-payload bypass, and storage topology — stays in force under the read-through.
+- Law: cache payloads are detached serializable values such as encoded raster bytes, layout measurements, or parse receipts. A `GhScope`, live host object, Eto bitmap, lease, or delegate never becomes a cache value; a raster past the substrate payload bound returns uncached silently, so oversized canvas captures select `Resident` and never rely on L2.
+- Law: `gh-doc:{documentId:N}` is the cache-observability dimension — `HybridCacheOptions.ReportTagMetrics` surfaces per-tag hit/miss on the `HybridCache` EventSource keyed by exactly this tag, wired at the composition root; this boundary mints the tag and emits nothing itself.
+- Law: every `document.state` fact invalidates its document tag. Its fact shape carries document identity but no before/after state, so this boundary invents no closing-only distinction.
+- Boundary: the composition root supplies `HybridCache` and owns the serializer, payload-bound, and tag-metric registrations the overlay records; `ValueTask` remains the package carrier, and a kernel consumer bridges at its own seam.
+- Growth: a new cached concern is one `CacheSlot` value at the call site; a new invalidation axis is one exact tag value; a new residency posture is one `SlotPolicy` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -236,6 +238,20 @@ public readonly partial struct CacheSlot {
     }
 }
 
+[SmartEnum<int>]
+public sealed partial class SlotPolicy {
+    public static readonly SlotPolicy Shared = new(key: 0, options: null);
+    public static readonly SlotPolicy Resident = new(key: 1, options: new() {
+        Flags = HybridCacheEntryFlags.DisableDistributedCache,               // Eto-affine payloads (raster bytes, layout measures) never reach L2
+    });
+    public static readonly SlotPolicy Recency = new(key: 2, options: new() {
+        Expiration = TimeSpan.FromMinutes(5),
+        LocalCacheExpiration = TimeSpan.FromSeconds(1),                      // per-render L1 horizon; a hot key re-reads L2 without re-minting
+    });
+
+    public HybridCacheEntryOptions? Options { get; }
+}
+
 // --- [SERVICES] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class DocumentToken {
@@ -247,12 +263,12 @@ public static class DocumentToken {
 public sealed class SessionCache(HybridCache cache) {
     public ValueTask<T> Remember<TState, T>(
         Guid documentId, CacheSlot slot, TState state, Func<TState, CancellationToken, ValueTask<T>> mint,
-        HybridCacheEntryOptions? options = null, CancellationToken cancel = default) =>
+        Option<SlotPolicy> policy = default, CancellationToken cancel = default) =>
         cache.GetOrCreateAsync(
             key: $"gh:{documentId:N}:{slot}",
             state: (State: state, Mint: mint),
             factory: static (seam, token) => seam.Mint(arg1: seam.State, arg2: token),
-            options: options,
+            options: policy.IfNone(SlotPolicy.Shared).Options,
             tags: [Tag(documentId: documentId)],
             cancellationToken: cancel);
 

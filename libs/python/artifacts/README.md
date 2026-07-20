@@ -1,6 +1,8 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is a publication and print-production engine that is simultaneously the foundation of a high-end AEC documentation engine — one body. Its pub/print plane — color-managed, separations-aware, PDF/X-correct, typographically complete, layered-export-clean, provenance-sealed — is necessary but not sufficient; the AEC documentation plane — sheet sets, drawing standards, dimensions, annotation, schedules, specifications, ISO 19650 delivery — sits on top and composes it, and every owner grades against both planes at once. Its output bar is art-directed generation: editorial documents and forms at the InDesign-native grade, AEC sheet sets that read sharp and contemporary rather than CAD-vendor default, and architectural diagrams — massing, sun-path, circulation, stacking, program, site — at the grade top offices and schools publish. Artistic style is a graded axis of every visual owner, carried as theme data and never left to library defaults, and hand-off files are organized the way a professional builds them — named, meaningfully grouped layers, never thousands of loose elements.
+`artifacts` is one body: a publication and print-production engine carrying a high-end AEC documentation engine on top. Its pub/print plane — color-managed, separations-aware, PDF/X-correct, typographically complete, layered-export-clean, provenance-sealed — composes under the AEC plane — sheet sets, drawing standards, dimensions, annotation, schedules, specifications, ISO 19650 delivery — and every owner grades against both planes at once.
+
+Output bar is art-directed generation: editorial documents and forms at the InDesign-native grade, AEC sheet sets sharp and contemporary over CAD-vendor default, and architectural diagrams — massing, sun-path, circulation, stacking, program, site — at the grade top offices and schools publish. Artistic style is a graded axis of every visual owner, carried as theme data and never left to library defaults; hand-off files organize as a professional builds them — named, meaningfully grouped layers, never thousands of loose elements.
 
 It folds data, compute, and geometry outputs — and any structured payload — into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It owns no UI, no durable store, no IFC/GLB geometry, and no columnar or mesh interchange — those cross at the content-keyed wire, never by reference.
 
@@ -9,7 +11,7 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 [DOCUMENT]:
 - [01]-[MODEL](.planning/document/model.md): `DocumentNode` tagged-union tree and its content-keyed diff/merge algebra.
 - [02]-[EMIT](.planning/document/emit.md): Emission axis every PDF/Office/text backend lowers from the `DocumentNode` tree.
-- [03]-[LENS](.planning/document/lens.md): `DocumentLens` recover-to inverse from emitted container to node tree, plus the examination ops.
+- [03]-[LENS](.planning/document/lens.md): `DocumentLens` recover-to inverse from emitted container to node tree and the examination ops.
 - [04]-[EGRESS](.planning/document/egress.md): `DocumentEgress` encryption, outline, watermark, and redaction finishing over an emitted container.
 - [05]-[TAGGED](.planning/document/tagged.md): `Access` PDF/UA marked-content owner authoring and auditing the structure tree.
 - [06]-[REPORT](.planning/document/report.md): `ReportPlan` reproducible-report composition into the node tree from sections and notebooks.
@@ -50,7 +52,7 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 - [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over typed motif-aware lowerings.
 - [32]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
 - [33]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark owner composing generation with decode and verify inverses.
-- [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `scan` decode substrate the generation arms cannot express, composed by the mark rail.
+- [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `DecodeScope.scan` decode substrate the generation arms cannot express, mark-rail-composed.
 - [35]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color source — CIE/CAM16/spectral, gamut, CVD, harmony, WCAG.
 - [36]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` downstream ICC/LUT/CCTF color-managed raster egress.
 - [37]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-data owner carrying type, stroke, palette, ground, and sheet-family rows.
@@ -64,7 +66,7 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 
 [COMPOSITION]:
 - [43]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure and section placement owner emitting flat SVG.
-- [44]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the multi-sheet register.
+- [44]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the `SheetSet` register-ready set owner.
 - [45]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up, booklet, and signature press-imposition owner.
 
 [EXPORT]:
@@ -88,9 +90,9 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 - [59]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` generated audio and video test-signal producer feeding the encode arms.
 
 [SCENE]:
-- [60]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor seam vocabulary and the `WORKER_MODULE` floor anchor the runtime kernel crossing resolves against.
+- [60]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor seam vocabulary and the `WORKER_MODULE` floor anchor.
 - [61]-[RENDER](.planning/scene/render.md): `Scene3d` offscreen 3D render producer and rgb24 frame-egress owner on the worker lane.
-- [62]-[RENDER_WORKER](.planning/scene/render_worker.md): `render_plotter` and the shipped kernel bodies executing on the worker floor after the process seam.
+- [62]-[RENDER_WORKER](.planning/scene/render_worker.md): `_KERNELS` shipped worker kernel bodies the process lane resolves on the worker floor.
 - [63]-[EXPORT](.planning/scene/export.md): `ExportRow` correspondence over every scene export target with deterministic capture.
 - [64]-[STAGE](.planning/scene/stage.md): `StageOp` usd-core USD/USDZ stage-authoring owner.
 
@@ -238,6 +240,10 @@ Cross-cutting substrate consumed from the branch registry; the branch `libs/pyth
 
 [CONCURRENCY]:
 - `anyio`
+
+[OBSERVABILITY]:
+- `opentelemetry-api`
+- `structlog`
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`

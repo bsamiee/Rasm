@@ -39,7 +39,6 @@ public sealed partial class KeyPhase {
     public static readonly KeyPhase Up = new();
 }
 
-[SmartEnum]
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChromeEvent {
     private ChromeEvent() { }
@@ -80,7 +79,7 @@ public readonly record struct ChromeDecision(
 
 ## [03]-[CHROME_POLICY]
 
-- Owner: `ComponentChrome` carries one response fold plus optional size limits. `ChromeTrace` stores a strictly increasing per-instance ordinal, event kind, and projected decision.
+- Owner: `ComponentChrome` carries one response fold with optional size limits. `ChromeTrace` stores a strictly increasing per-instance ordinal, event kind, and projected decision.
 - Entry: `ChromeDispatch.Decide` is the one spine both host bases call — respond, record, return.
 - Receipt: the bounded stream drops its oldest row past `Window`; `LatestByKind` derives from that one stream.
 - Growth: a new projection is one fold over the same stream; a new policy slot is one `ComponentChrome` member.
@@ -130,7 +129,7 @@ public static class ChromeDispatch {
 
 ## [04]-[HOST_PROJECTION]
 
-- Owner: `ChromeHost` and `ResizableChromeHost` are thin projections over the one dispatch spine. The resizable shell delegates the entire interaction protocol to `ResizableAttributes<T>` and observes committed size changes through `InvalidateLayout`.
+- Owner: `ChromeHost` and `ResizableChromeHost` are thin projections over the one dispatch spine. Its resizable shell delegates the entire interaction protocol to `ResizableAttributes<T>` and observes committed size changes through `InvalidateLayout`.
 - Entry: every host callback body is one dispatch expression over the verified base member — `LayoutBounds(Shape)`, `PivotMoved(PointF, PointF)`, `DrawForegroundDecorations(Context, Skin, Capsule, Shade)`, `ShowTooltipAt(PointF)` — with the base behavior preserved before the policy observes; pointer, wheel, key, text, and focus wire once through `ChromeWiring` onto the verified `Responses` hook events.
 - Auto: an unanswered decision falls back to `Response.Ignored`, the base tooltip verdict, or the default cursor. `ResizeAction(IDocumentObject)` snapshots pre-resize `IResizableAttributes.Size` and `Pivot`; the host responder constructs it before drag, commits it through document undo on release, and owns snap toggling through `CanvasSnapToObjects`.
 - Growth: a new host callback is one override on each shell dispatching an existing or new event case.

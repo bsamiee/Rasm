@@ -16,24 +16,24 @@
 [PUBLIC_TYPE_SCOPE]: instrumentation + config
 - rail: observability/rum
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                  |
-| :-----: | :--------------------------------------- | :-------------- | :----------------------------------------------------- |
-|  [01]   | `UserInteractionInstrumentation`          | instrumentation | one row in the root's registered instrumentation set   |
-|  [02]   | `UserInteractionInstrumentationConfig`    | config          | event roster + admission predicate at construction     |
-|  [03]   | `EventName`                               | event union     | the admissible DOM event-name vocabulary               |
-|  [04]   | `ShouldPreventSpanCreation`               | predicate shape | per-event span admission — the cardinality gate        |
-|  [05]   | `AttributeNames`                          | attribute rows  | the row's own span-attribute vocabulary                |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `UserInteractionInstrumentation`       | instrumentation | one row in the root's registered instrumentation set |
+|  [02]   | `UserInteractionInstrumentationConfig` | config          | event roster + admission predicate at construction   |
+|  [03]   | `EventName`                            | event union     | the admissible DOM event-name vocabulary             |
+|  [04]   | `ShouldPreventSpanCreation`            | predicate shape | per-event span admission — the cardinality gate      |
+|  [05]   | `AttributeNames`                       | attribute rows  | the row's own span-attribute vocabulary              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction policy
 - rail: observability/rum
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :--------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `new UserInteractionInstrumentation(config?)`   | ctor           | one construction at the browser root                  |
-|  [02]   | `eventNames` config field                       | config field   | the admitted event roster (click-only default)        |
-|  [03]   | `shouldPreventSpanCreation` config field        | config field   | refuse spans for noise targets before they exist      |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
+| :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `new UserInteractionInstrumentation(config?)` | ctor           | one construction at the browser root             |
+|  [02]   | `eventNames` config field                     | config field   | the admitted event roster (click-only default)   |
+|  [03]   | `shouldPreventSpanCreation` config field      | config field   | refuse spans for noise targets before they exist |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

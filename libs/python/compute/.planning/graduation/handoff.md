@@ -2,7 +2,7 @@
 
 Multi-domain graduation HUB of the Python branch — the tier-0 page every evidence producer composes and no compute page precedes. Two crossings meet here in one direction each: compute-own evidence EGRESSES outward across the graduation-evidence wire to the C# managed owner, and geometry-minted evidence ARRIVES as `GeometryHandoff` wire data this hub DECODES — compute authors no geometry vocabulary, imports no `rasm.geometry` symbol, and re-shapes nothing without a geometry ripple. Graduation is a Python-branch-only concept: the receipt names the wire axis it crosses on and never a C# interior owner row, a C# receipt mint, or a product-runtime authorization — the concrete C# owner consuming each axis is confirmed on the graduation task, never a routing literal that drifts.
 
-`GraduationReceipt.graduates` is the one admission gate: the sibling rejection clauses every evidence owner declares collapse to one residual-over-ceiling fold parameterized by the axis owner's ledger, never inlined per-site comparisons. `evidence_run` is this hub's binding of the runtime `measured` weave — the compute `EvidenceScope` vocabulary and the hub `REDACTION` row applied once — so span, fault fence, rail flatten, and fenced harvest stay the `observability/receipts.md#RECEIPT` owner's mechanics and compute authors no second instrumentation shape.
+`GraduationReceipt.graduates` is the one admission gate: the sibling rejection clauses every evidence owner declares collapse to one residual-over-ceiling fold parameterized by the axis owner's ledger, never inlined per-site comparisons. `evidence_run` is this hub's binding of the runtime `measured` weave — the compute `EvidenceScope` vocabulary and the hub `REDACTION` row applied once — so span, fault fence, rail flatten, and fenced harvest stay the `runtime/observability/receipts#RECEIPT` owner's mechanics and compute authors no second instrumentation shape.
 
 ## [01]-[INDEX]
 
@@ -14,11 +14,11 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 
 - Owner: `GraduationReceipt` — the source-package, axis, evidence-key, and residual-ledger carrier. Its axis case IS the subject — no parallel `subject: str` field races the discriminant; the `geometry` case carries its subject as DECODED WIRE DATA typed against the inherited `GEOMETRY_SUBJECTS` contract block, never a compute-authored type racing the geometry mint and never a `rasm.geometry` import — a geometry union change is a geometry ripple landing here as one row. No `bool` admitted flag rides the receipt because its existence IS the admission: a rejected handoff is an `Error` that never reaches `contribute`.
 - Cases: the `HandoffAxis` roster extends by sibling campaign, never by silent admit; the `convex_program` case carries the dual-certificate optimality proof distinct from the `solver` case's first-order convergence verdict; the `unit_law`/`uncertainty_law` cases cross as policy evidence only.
-- Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a rail. `solver`: the `solvers/receipt.md#RECEIPT` `graduate` projection every solve owner feeds with its own `(ledger, ceiling, key)` triple; `convex_program`: `optimization/convex.md#CONVEX`; `symbolic`: `analysis/symbolic.md#DERIVATION` under its own stability law; `array_layout`: `numerics/array.md#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity.md#QUANTITY`; `uncertainty_law`: `experiments/inference.md#BAYESIAN`; `model_asset`: `experiments/model.md#ASSET`; `artifact`: artifacts `core/receipt.md` (sibling-owned); `geometry`: decode-only. `numerics/statistics.md#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity.md#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
+- Producers: one self-wired `graduates()` producer per live case, each importing this hub downward — a case with no producer is dead vocabulary wearing a rail. `solver`: the `solvers/receipt.md#RECEIPT` `graduate` projection every solve owner feeds with its receipt or prepared ledger, its family ceiling row, and its key; `convex_program`: `optimization/convex.md#CONVEX`; `symbolic`: `analysis/symbolic.md#DERIVATION` under its own stability law; `array_layout`: `numerics/array.md#PAYLOAD` over the cross-backend bit-identity proof; `unit_law`: `numerics/quantity.md#QUANTITY`; `uncertainty_law`: `experiments/inference.md#BAYESIAN`; `model_asset`: `experiments/model.md#ASSET`; `artifact`: artifacts `core/receipt.md` (sibling-owned); `geometry`: decode-only. `numerics/statistics.md#STATISTICS` stays deliberately graduation-free by its own charter and `solvers/sensitivity.md#SENSITIVITY` stays disjoint from study DGSM — preserved boundaries, never gaps; composing the evidence weave is an observability import that breaches neither.
 - Auto: every graduating family's DEFAULT ceiling is a governed policy row on that family's own carrier beside its route table, the hub's caller-supplied tighter row the override — an ad-hoc ceiling literal at a `graduates()` call site has no owner. Three failure concerns stay distinct on three fences: a refinement breach is an exception the `_admit` fence converts, a ceiling rejection is a pure domain `Error` and never a raise, and an emit-time raise is the weave's emit fence to convert.
-- Receipt: an admitted handoff is a `planned` wire proposal, never an emitted product receipt. Its fact floor is FENCE-PINNED SELF-DESCRIBING as the C# graduation gate's decode vocabulary — `FACT_FLOOR` plus the residual ledger namespaced under `residual.`, so a ledger metric can never shadow a floor name — and the gate attributes and dedupes every crossing without free-form-map guessing; the evidence key renders through the canonical `ContentKey.hex` form the C# `InterchangeIdentity.Key` contract reads.
-- Growth: a new handoff kind is one `HandoffAxis` case plus one `_subject` match arm plus its sibling-campaign producer; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row.
-- Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the C# owner planning. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer plus a compute-owned axis case, never the geometry case.
+- Receipt: an admitted handoff is a `planned` wire proposal, never an emitted product receipt. Its fact floor is FENCE-PINNED SELF-DESCRIBING as the C# graduation gate's decode vocabulary — `FACT_FLOOR` and the residual ledger namespaced under `residual.`, so a ledger metric can never shadow a floor name — and the gate attributes and dedupes every crossing without free-form-map guessing; the evidence key renders through the canonical `ContentKey.hex` form the C# `InterchangeIdentity.Key` contract reads.
+- Growth: a new handoff kind is one `HandoffAxis` case, one `_subject` match arm, and its sibling-campaign producer; a new geometry subject is a geometry ripple landing one `GEOMETRY_SUBJECTS` row; a stricter admission bar is one tighter ceiling row the caller supplies; a new evidence owner is one `EvidenceScope` row.
+- Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the C# owner planning. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -42,8 +42,8 @@ from rasm.runtime.receipts import Receipt, Redaction, measured
 
 
 class EvidenceScope(StrEnum):
-    # tracer-scope seed table: one member per compute module leaf, the value `compute.<leaf>`; a scope spelling disagreeing
-    # with its owning module name has no owner.
+    # scope seed table: one member per compute module leaf, value `compute.<leaf>`, owning BOTH the tracer scope and the receipt
+    # `source_package` spelling — producers compose `EvidenceScope.<X>.value`, never a bare literal, so a drifted spelling has no owner.
     ARRAY = "compute.array"
     CODEGEN = "compute.codegen"
     CONVEX = "compute.convex"
@@ -76,6 +76,7 @@ class EvidenceScope(StrEnum):
 # is unconstrained so a negated-floor deficit (`neg_min_ess_bulk = -min(ess)`) admits.
 type Ledger = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v in m.values())]]
 type Ceiling = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v in m.values())]]
+type SpanFacts = Mapping[str, str | int | float | bool]
 
 
 @tagged_union(frozen=True)
@@ -152,7 +153,8 @@ class GraduationReceipt(Struct, frozen=True):
                 lambda validated: GraduationReceipt._clear(source_package, axis, evidence_key, validated)
             )
 
-        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail)
+        floor: SpanFacts = {"axis": axis.tag, "evidence_key": evidence_key.hex, "residual_count": len(measured)}
+        return evidence_run(EvidenceScope.HANDOFF, f"graduate.{axis.tag}", rail, facts=floor)
 
     @staticmethod
     def geometry(source_package: str, payload: bytes | Mapping[str, object]) -> RuntimeRail[GraduationReceipt]:
@@ -245,22 +247,24 @@ def _key(render: str) -> RuntimeRail[ContentKey]:
 
 
 def evidence_run[T](
-    scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]]
+    scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: SpanFacts = Map.empty()
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
-    # hub's one policy binding of the runtime measured weave: compute's scope vocabulary plus the hub REDACTION row.
-    return measured(scope.value, subject, REDACTION, dispatch)
+    # hub's one policy binding of the runtime measured weave: compute's scope vocabulary, the hub REDACTION row, and the caller's
+    # call-time discriminating facts stamped on the recording span beside {scope, subject} — span and receipt carry parallel evidence.
+    return measured(scope.value, subject, REDACTION, dispatch, facts)
 ```
 
 ## [03]-[EVIDENCE_WEAVE]
 
-- Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope, `REDACTION` the emit policy — and every producer composes this binding, so a page-local tracer mint, a page-local redaction declaration, or an inline span open beside it has no owner. Span, fence, rail flatten, fenced harvest, and OK close are the `observability/receipts.md#RECEIPT` owner's mechanics, composed here, never re-authored.
-- Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; emission binds through its own fence at the runtime owner — the no-escape guarantee the hub's admission rail demands, granted to every producer.
+- Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope, `REDACTION` the emit policy — and every producer composes this binding, so a page-local tracer mint, a page-local redaction declaration, or an inline span open beside it has no owner. Span, fence, rail flatten, fenced harvest, and OK close are the `runtime/observability/receipts#RECEIPT` owner's mechanics, composed here, never re-authored.
+- Cases: every `EvidenceScope` member holds at least one composed consumer — a span emitter through this weave, a receipt `source_package` spelling through `.value`, or both; a member with neither is deleted, so the seed table can never carry dead vocabulary.
+- Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span, so a trace filters on the same evidence the receipt carries; emission binds through its own fence at the runtime owner — the no-escape guarantee the hub's admission rail demands, granted to every producer.
 
 ## [04]-[CROSS_OWNER]
 
 Each axis crosses under the one admission gate, and no `planned` receipt is emitted for a crossing that did not clear its ceiling. C# crossing stays outward-only: compute graduates `→` `csharp:Rasm.Compute`; C# never imports back.
 
-- `solver`: rides the ONE `solvers/receipt.md#RECEIPT` `graduate` projection — the design/program optima and interval certificates feed the same projection with their own triples; a stationary-point or `OptimizeResult` verdict is a convergence verdict, never a separate case.
+- `solver`: rides the ONE `solvers/receipt.md#RECEIPT` `graduate` projection — the solve routes' receipts, the design/program optima through the shared `OutcomeReceipt.graduates`, and the interval certificates feed it with their own ledgers and family ceiling rows; a stationary-point or `OptimizeResult` verdict is a convergence verdict, never a separate case.
 - `convex_program`: carries the `optimization/convex.md#CONVEX` KKT-gap certificate — a global-optimality proof distinct from the `solver` convergence verdict, so a returned point whose gap exceeds tolerance is an admission rejection.
 - `symbolic`: `analysis/symbolic.md#DERIVATION` under its own stability law, that bar the admission ceiling.
 - `model_asset`: crosses only after the `experiments/model.md#ASSET` manifest validation passes.

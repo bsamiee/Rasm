@@ -20,7 +20,7 @@ The latency lane, correctness-neutral by law: a cache node vanishing costs a col
 - Law: the escalation trigger is a process boundary — shared coherence across replicas or pub/sub invalidation fan-out; in-process needs are already covered, so reaching for an external engine below the trigger is refused by the table.
 - Law: `writeBehind` is banned — it smuggles a durability obligation into a may-lose-data lane; a buffered durable write is the journal's outbox, full stop. `redisClient` is banned — the runtime natively supplies single-flight, TTL, and dedup, so the client footprint buys nothing below the escalation trigger; when the trigger fires, the engine row is Valkey behind the existing port.
 
-```typescript
+```typescript signature
 const _tiers = {
   memo: { row: "CacheLane.memo — Effect.cached/cachedWithTTL/cachedFunction", boundary: "in-process", trigger: "pure recompute avoidance" },
   keyed: { row: "Cache.make", boundary: "in-process, capacity-bounded", trigger: "keyed lookups with stampede risk" },
@@ -50,7 +50,7 @@ declare namespace CacheLane {
 - Law: capacity is a hard bound and eviction is the cache's own policy — an unbounded memo over unbounded keys is unspellable because `capacity` is a required field of the spec; `memo` over a function is bounded by its argument space and admits only where that space is provably small.
 - Law: TTL is recompute cadence, not freshness truth — a consumer needing read-your-writes composes the reactive invalidation keys the journal stamps, never a shorter TTL.
 
-```typescript
+```typescript signature
 import { Cache, Duration, Effect, Layer, Request } from "effect"
 
 function _memo<B, E, R>(input: Effect.Effect<B, E, R>, ttl?: Duration.DurationInput): Effect.Effect<Effect.Effect<B, E, R>>
@@ -76,7 +76,7 @@ const _dedup = (options: { readonly capacity: number; readonly timeToLive: Durat
 - Law: the persisted cache is an overlay, never a record of truth — nothing reads it as authority, and dropping the backing store costs warm-up latency only; the journal boundary law of the folder applies unchanged.
 - Law: keys are schema-typed persistables — the request schema owns identity and serialization (`Schema.TaggedRequest` under `PrimaryKey`), success and failure both encode through the key's own result schemas so a persisted failure replays typed, and `timeToLive(request, exit)` folds both dispositions so hits and misses age separately; a cache key is never a hand-built string, and a shape change invalidates structurally.
 
-```typescript
+```typescript signature
 import { Persistence, PersistedCache } from "@effect/experimental"
 import { KeyValueStore } from "@effect/platform"
 import type { Schema } from "effect"
@@ -122,7 +122,7 @@ const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
 - Law: lifetime is reference-counted or pool-owned, never manual — the resource releases when the last scope closes plus the idle window, so a leak is unspellable and a hot handle survives bursts without churn.
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
 
-```typescript
+```typescript signature
 import { Data, KeyedPool, type Scope } from "effect"
 
 const _ORIGIN_POOL = { min: 0, max: 4, ttl: Duration.minutes(5) } as const

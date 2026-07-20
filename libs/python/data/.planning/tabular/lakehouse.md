@@ -42,6 +42,7 @@ from deltalake.schema import Field
 from expression import Error, Ok, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct, field
+from opentelemetry import trace
 from sqlglot import exp
 
 from rasm.data.tabular.columnar import DatasetKind, DatasetRef, DuckDbExtension, DuckDbSession
@@ -55,6 +56,8 @@ if TYPE_CHECKING:
     from pyiceberg.table import Table
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+_TRACER: Final = trace.get_tracer("rasm.data.tabular.lakehouse")
 
 type WriteMode = Literal["error", "append", "overwrite", "ignore"]
 type LanceMode = Literal["create", "overwrite", "append"]
@@ -226,14 +229,16 @@ class Lakehouse(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     def run(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeReceipt]":
-        # both branches self-flatten the nested `_apply` rail through `.bind(lambda rail: rail)`.
+        # both branches self-flatten the nested `_apply` rail through `.bind(lambda rail: rail)`; the commit span is the
+        # transactional leg's trace surface — table format and op ride as dimensions, the fence marks a failed leg's span.
         subject = f"lake.{self.table_format}.{op.tag}"
-        fenced = (
-            guarded_sync(RetryClass.LAKE_COMMIT, self._apply, op, data, subject=subject)
-            if op.mutating
-            else boundary(subject, lambda: self._apply(op, data))
-        )
-        return fenced.bind(lambda rail: rail)
+        with _TRACER.start_as_current_span(subject, attributes={"rasm.lake.format": self.table_format.value, "rasm.lake.op": op.tag}):
+            fenced = (
+                guarded_sync(RetryClass.LAKE_COMMIT, self._apply, op, data, subject=subject)
+                if op.mutating
+                else boundary(subject, lambda: self._apply(op, data))
+            )
+            return fenced.bind(lambda rail: rail)
 
     def _reject(self, op: LakeOp) -> "RuntimeRail[LakeReceipt]":
         reach = "no portable" if op.tag not in _PORTABLE[self.table_format] else "unhandled"

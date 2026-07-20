@@ -24,7 +24,7 @@ The filesystem plane and the derivative codec, both over the one content identit
 - Law: intake watching rides chokidar with the settle guard MANDATORY — `awaitWriteFinish` holds `add`/`change` until size stabilizes so a half-written file is never digested into a wrong content key, `atomic` absorbs editor rename-swap artifacts, selection is `ignored` predicate rows (never glob strings), the `all` listener lifts through `Stream.asyncPush`, and release AWAITS `close()`; `poll` and `depth` ride the options row for network mounts and bounded trees, and platform `FileSystem.watch` survives only for non-intake observation where a raw event suffices.
 - Law: direct `node:fs` imports are banned on this plane — capability rides the Tag, the tracing and error rail come with it; chokidar and the platform binding are the only places a filesystem module name exists.
 
-```typescript
+```typescript signature
 import { Effect, Either, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
@@ -107,7 +107,7 @@ const _egress = (key: ContentKey, path: string) =>
 - Law: governance is process policy — the libvips operation cache, the threadpool width, and the SIMD toggle are service-construction facts from configuration, because the derivative plane shares its process with the serving plane and unbounded native concurrency starves it; a roster row whose format the build cannot emit (buffer terminal, or file terminal for tile rows) fails construction as a `gate` fault, never a request.
 - Law: sharp is server-plane native — no browser or wasm path imports it; the browser consumes grants, never the codec.
 
-```typescript
+```typescript signature
 import sharp, { type SharpOptions } from "sharp"
 
 const _GATE = {
@@ -152,7 +152,7 @@ const _governed = (
 - Law: `metadata()` and `stats()` are the decision reads and each lifts ONCE per fan-out — `metadata()` feeds every row's `admit` vote (an SVG source never reaches a raster row unless its row admits it), `stats()` runs once when any admitted row asks for a placeholder and its `dominant` serves every asking row — a per-row pixel analysis is the named waste.
 - Law: `composite` is a row-driven step — watermarks and badges are `OverlayOptions` rows on the spec chained before the terminal, so branding is roster data, never a second pipeline.
 
-```typescript
+```typescript signature
 import type { FormatEnum, Metadata, OutputInfo, OutputOptions, OverlayOptions, ResizeOptions, TileOptions } from "sharp"
 import { DateTime, Option } from "effect"
 
@@ -192,7 +192,7 @@ declare namespace Derive {
 - Law: the fold is total over `DeriveFault` — stages `gate | fetch | decode | encode | persist | grant` carry the failing coordinate, and every `ObjectFault` crosses through `DeriveFault.at` at its owning stage; a single row's failure aborts this entrypoint, while an accumulating caller composes `Effect.validate` or `Effect.partition` explicitly.
 - Law: `Derive.pressure` is the plane's saturation read — `sharp.counters()` as one typed effect (`{ queue, process }` in-flight telemetry) the maintenance and doctor surfaces sample, because the derivative fan-out is the process's native-saturation hotspot; its series names ride the core observability convention rows, so the emit plane exports them like every other metric.
 
-```typescript
+```typescript signature
 import { Array, Data } from "effect"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp } from "sharp"

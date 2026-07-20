@@ -173,6 +173,11 @@ public abstract partial record CoordinationFault : Expected, IValidationError<Co
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class Coordinate {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.coordination.debit"), StoreSlot.Create("store.coordination.credit"), StoreSlot.Create("store.coordination.step"),
+        StoreSlot.Create("store.coordination.signal"), StoreSlot.Create("store.coordination.lease"), StoreSlot.Create("store.coordination.member"),
+        StoreSlot.Create("store.coordination.read"), StoreSlot.Create("store.coordination.outbox"));
+
     // The one rail — the generated total `CoordinationOp.Switch` (compile-time exhaustive, no `_` arm): every
     // guarded write composes `Fenced` with its case predicate as SQL row data, every READ composes `Received`
     // with its tenant-guarded filter, and `SaveChangesAsync` commits the write WITH any same-session domain
@@ -215,7 +220,7 @@ public static class Coordinate {
             : IO.liftAsync(async () => {
             await session.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
             await using NpgsqlBatch batch = new((NpgsqlConnection)session.Connection!);
-            batch.BatchCommands.Add(Bound("SELECT pg_advisory_xact_lock(hashtext(@tenant || ':' || @lock))", Seq1(("lock", (object)sql.LockKey)), held, frame));
+            batch.BatchCommands.Add(Bound("SELECT pg_advisory_xact_lock(hashtext(@tenant || ':' || @lock))", Seq(("lock", (object)sql.LockKey)), held, frame));
             batch.BatchCommands.Add(Bound(sql.Guarded, sql.Binds, held, frame));
             batch.BatchCommands.Add(Bound(sql.Truth, sql.Binds, held, frame));
             sql.Wake.IfSome(channel => batch.BatchCommands.Add(Bound("SELECT pg_notify(@channel, @sink)", sql.Binds.Add(("channel", (object)channel)), held, frame)));

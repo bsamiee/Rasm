@@ -9,7 +9,6 @@
 - import: `cyclopts`
 - owner: `runtime`
 - rail: entry
-- version: `4.19.0`
 - license: `Apache-2.0`
 - namespaces: `cyclopts`, `cyclopts.types`
 - capability: the `Entrypoint` command grammar — one `App`, `@app.command` registration, `Parameter` env binding, `result_action`/`resolve_returncode` return-to-exit mapping, async dispatch, and the `cyclopts.types.NonNegativeFloat` constrained grace input

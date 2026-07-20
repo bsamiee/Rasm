@@ -13,7 +13,7 @@ Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` f
 - Cases: `QualityTier` = ultra, high, balanced, conservative, floor — ultra runs the full pass list and full motion complexity, while floor runs the composite-and-overlay pass floor with static performance motion, the tightest residency watermark, and the strongest foveation; each row's `PassMask` column carries the degraded pass disposition as data, and `RenderGraph.Frame` folds it over the pass DAG. `MotionQuality` controls animation complexity only; the user-owned `ReducedMotion` accessibility preference remains an independent hard constraint.
 - Entry: `PerfBudget.Of` admits hysteresis and calm-window policy; `Govern` is the pure transition fold; `Governor.Observe` swaps its composition-scoped cell and returns `QualityDecision.Applied` or `Stale` according to the accepted sample instant.
 - Auto: `PerfSample` folds the viewport `FrameReceipt` frame-elapsed and GPU-elapsed, the residency-evict count, the VRAM watermark, and the layout-elapsed into one observation off the receipt stream the timeline already ingests, so the governor reads the settled evidence and mints no new instrument; samples at or before `GovernorState.LastAt` return `QualityDecision.Stale` without mutating the cell, so delayed telemetry cannot reverse a newer transition; the transition is asymmetric by design — a budget breach steps the tier down one grade immediately and zeroes the calm count, while recovery steps up one rung only after `CalmWindow` consecutive within-hysteresis samples; the verdict carries the degraded pass mask, residency watermark factor, `MotionQuality`, and XR foveation-plus-refresh pair while leaving `ReducedMotion` under the accessibility owner.
-- Receipt: `QualityVerdict` seals through its own `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.Quality` case (`ToEvidence` on the verdict — tier key plus every degrade axis) so a tier transition is timeline-attributable; the verdict folds the tier-transition count onto the governor instrument.
+- Receipt: `QualityVerdict` seals through its own `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.Quality` case (`ToEvidence` on the verdict — tier key plus every degrade axis) so a tier transition is timeline-attributable; the evidence fan's quality arm swaps the shared quality-rank cell, so the `TierInstrument` level gauge reads the active rank with zero governor wiring.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new quality grade is one `QualityTier` row; a new degrade axis is one `QualityTier` column plus one derived `QualityVerdict` projection; zero duplicated verdict storage.
 - Boundary: the governor is the one adaptive-quality owner — absent the governor the per-owner frame/VRAM/layout-elapsed instruments enforce locally with no cross-owner authority, and the `PerfBudget` folds that evidence telemetry back into one quality policy so a second meter, a per-pass ad-hoc throttle, or a caller-maintained tier state is the deleted form; the transition state lives in the one `Governor` cell; the governor consumes the settled `FrameReceipt`, residency instruments, and `HudSample`, then emits one `QualityVerdict` that degrades render passes, residency watermark, performance motion complexity, foveation, and refresh together. `ReducedMotion` remains a user preference composed as the stricter downstream selector, never a lever the performance governor mutates.
@@ -102,10 +102,11 @@ public sealed record PerfBudget {
             ? Fin.Succ(new PerfBudget(budget, hysteresisFraction, calmWindow))
             : Fin.Fail<PerfBudget>(new GovernorFault.Policy($"invalid hysteresis {hysteresisFraction} or calm window {calmWindow}"));
 
-    public const string TierInstrument = "rasm.appui.evidence.quality-tier";
+    public const string TierInstrument = "rasm.appui.governor.tier";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, TierInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(TierInstrument, InstrumentKind.Level, "1", "active quality tier rank", Level: static () => UiLevelCells.Live.QualityRank.Value));
 
     // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes
     // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame.
@@ -266,10 +267,21 @@ public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) 
 
 public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<PipelineStat> Stats) {
     public const string Kind = "gpu-timeline";
-    public const string DivergenceInstrument = "rasm.appui.evidence.gpu-projection-divergence";
+    public const string DivergenceInstrument = "rasm.appui.governor.gpu.divergence";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, DivergenceInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(DivergenceInstrument, InstrumentKind.Distribution, "1", "per-pass projected-to-measured GPU divergence ratio", UiBuckets.DivergenceRatio));
+
+    public Seq<double> DivergenceRatios() =>
+        Passes.Bind(static pass => pass.Measured.Map(gpu => pass.Projected > Duration.Zero
+            ? Math.Abs((gpu - pass.Projected).ToTimeSpan().TotalNanoseconds) / pass.Projected.ToTimeSpan().TotalNanoseconds
+            : 0d).ToSeq());
+
+    // Composition binds this projection at Resolve, so divergence lands per pass on the distribution
+    // while the timeline's own evidence rides the gpu-frame envelope untouched.
+    public Unit Observe(InstrumentSet set) =>
+        ignore(DivergenceRatios().Iter(ratio => ignore(set.Record(DivergenceInstrument, ratio))));
 
     public bool FullyResolved => Passes.ForAll(static pass => pass.Measured.IsSome);
 
@@ -289,3 +301,7 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
             : receipt;
 }
 ```
+
+## [04]-[RESEARCH]
+
+(none)

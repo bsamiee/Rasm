@@ -1,12 +1,12 @@
 # [PY_GEOMETRY_MESH_BREP]
 
-Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-ary Boolean algebra, profile offset/loft generation, feature operations, and watertight tessellation — each operation kind carrying its inner verb as a closed `StrEnum` row bound to the owning OCCT `BRep*API` builder through an `expression.Map` dispatch, so a new primitive, set verb, offset mode, or feature is one row plus one entry, never a new surface. Its `Offset` arm rides both kernels on one rail: `manifold3d.CrossSection` offsets and simplifies the 2D profile, `BRepBuilderAPI_MakeFace.Add` lifts it as a holed planar face, then extrusion/revolution/loft/thickening yields a `TopoDS_Shape`. No durable file persists — a live `TopoDS_Shape` is a pybind11 handle no pickler carries, so every shape crosses the worker seam as sealed STEP octets (`Brep`) through the `sealed`/`unsealed` codec pair, returning as `Brep` plus optional `trimesh.Trimesh`.
+Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-ary Boolean algebra, profile offset/loft generation, feature operations, and watertight tessellation — each operation kind carrying its inner verb as a closed `StrEnum` row bound to the owning OCCT `BRep*API` builder through an `expression.Map` dispatch, so a new primitive, set verb, offset mode, or feature is one row and one entry, never a new surface. Its `Offset` arm rides both kernels on one rail: `manifold3d.CrossSection` offsets and simplifies the 2D profile, `BRepBuilderAPI_MakeFace.Add` lifts it as a holed planar face, then extrusion/revolution/loft/thickening yields a `TopoDS_Shape`. No durable file persists — a live `TopoDS_Shape` is a pybind11 handle no pickler carries, so every shape crosses the worker seam as sealed STEP octets (`Brep`) through the `sealed`/`unsealed` codec pair, returning as `Brep` with optional `trimesh.Trimesh`.
 
-`TessellationPolicy` arrives from `mesh/cad`, minted there and imported downward; an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the OCCT band holds process-global native state and imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes — and the `@receipted(REDACTION)` egress streams the typed receipt on the `Ok` path. Consumers compose downward: the CAD-STEP hop (`mesh/cad.md#BRIDGE`), the mesh-algebra rail (`mesh/repair.md#MESH`), and the `ifc/structural` profile owner folding `Construct`/`Offset` to evaluate an `IfcProfileDef` cross-section into a `TopoDS_Face` before its section integral.
+`TessellationPolicy` arrives from `mesh/cad`, minted there and imported downward; an evaluated solid graduates through the geometry-minted `GeometrySubject.MESH_ALGEBRA` rail. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the OCCT band holds process-global native state and imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes — and `apply` returns through the graduation `evidence_run` weave seeded `EvidenceScope.MESH_BREP`, whose harvest streams the typed receipt on the `Ok` path. Consumers compose downward: the CAD-STEP hop (`mesh/cad.md#BRIDGE`), the mesh-algebra rail (`mesh/repair.md#MESH`), and the `ifc/structural` profile owner folding `Construct`/`Offset` to evaluate an `IfcProfileDef` cross-section into a `TopoDS_Face` before its section integral.
 
 ## [01]-[INDEX]
 
-- [01]-[BREP]: B-rep operation union over OCCT plus `manifold3d.CrossSection`, offloaded to the warm process lane over sealed-brep crossings, returning `RuntimeRail[BrepResult]`.
+- [01]-[BREP]: B-rep operation union over OCCT and `manifold3d.CrossSection`, offloaded to the warm process lane over sealed-brep crossings, returning `RuntimeRail[BrepResult]`.
 
 ## [02]-[BREP]
 
@@ -14,13 +14,14 @@ Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-a
 - Cases: linear extrusion/revolution of a profile is the `Offset` arm's `EXTRUDE`/`REVOLVE` row, never a duplicate `Construct` primitive — `MakePrism`/`MakeRevol` are reached once, through the profile leg; `Boolean.section` yields a wire/edge result the consumer re-feeds as a profile, and no downstream owner re-discriminates the operation past this union.
 - Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; a Boolean operand requires triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
 - Packages: `cadquery-ocp` (the `OCP.*` band — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType`, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair.md#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION` and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
-- Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row plus one `Map` entry; a spine-following `SWEEP` verb is the `BRepOffsetAPI_MakePipeShell` landing site, staged behind a real spine-wire payload field rather than aliased to the linear `EXTRUDE` prism it cannot distinguish without one.
+- Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry; a spine-following `SWEEP` verb is the `BRepOffsetAPI_MakePipeShell` landing site, staged behind a real spine-wire payload field rather than aliased to the linear `EXTRUDE` prism it cannot distinguish without one.
 - Boundary: mesh-file/GLB codec is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`); scene/USD/GLTF/OBJ export is `artifacts` figures/scene; the STEP-read-to-GLB hop is `mesh/cad.md#BRIDGE`'s `StepBridge`, a distinct OCCT consumer meeting this evaluator only at the shared `cadquery-ocp` band, never a shared function; triangle-soup repair and mesh CSG are `mesh/repair.md#MESH`'s — exact OCCT B-rep Boolean here, robust triangle-mesh Boolean there, two kernels on two owners.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
+from functools import partial
 from math import isfinite
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -69,11 +70,11 @@ from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Shape, TopoDS_Wire
 from OCP.TColgp import TColgp_Array1OfPnt
 from OCP.TopTools import TopTools_IndexedMapOfShape, TopTools_ListOfShape
 
-from rasm.geometry.graduation import GeometrySubject
+from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Phase, Receipt, Redaction, receipted
+from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -142,11 +143,6 @@ class BrepFault(Exception):
     unknown_verb: str = case()
     invalid_operands: str = case()
 
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-# keep-all policy: the validity verdict and geometry measures are non-secret, so no field classifies.
-REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -234,7 +230,7 @@ class BrepResult(Struct, frozen=True):
         return unsealed(self.brep)
 
     def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of("mesh.brep", self.receipt.fact())
+        yield Receipt.of("rasm.geometry.mesh.brep", self.receipt.fact())
 
 
 @tagged_union(frozen=True)
@@ -281,15 +277,11 @@ class BrepOp:
 
 
 async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
-    # `Error` paths carry no emit — the lane fence already recorded the fault; HOSTILE is the declared trait because the
-    # OCCT band holds process-global native state, so the kernel rides the warm process pool with the WORKER death retry.
-    return (await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), op)).map(_emit)
-
-
-@receipted(REDACTION)
-def _emit(result: BrepResult) -> BrepResult:
-    # returns the contributor itself, so the mapped `Ok` arm keeps brep/mesh AND the receipt streams once.
-    return result
+    # graduation weave seeded MESH_BREP: span, fence, and receipt harvest in one composition — the weave's harvest
+    # streams the conforming BrepResult once on the cleared Ok, and an Error path carries no emit. HOSTILE is the
+    # declared trait because the OCCT band holds process-global native state, so the kernel rides the warm process
+    # pool with the WORKER death retry.
+    return await evidence_run(EvidenceScope.MESH_BREP, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
 
 
 def sealed(shape: TopoDS_Shape) -> Brep:

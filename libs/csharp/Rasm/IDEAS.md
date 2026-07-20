@@ -1,6 +1,6 @@
 # [RASM_IDEAS]
 
-The forward pool of higher-order kernel concepts, grounded in the robust-geometry domain and the monorepo geometry-flow. Each is a card: a bracketed slug leader plus the capability, what it unlocks, and the gap or modern technique it draws on. `[1]-[OPEN]` carries live ideas; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
+Forward pool of higher-order kernel concepts grounded in the robust-geometry domain and the monorepo geometry-flow. `[1]-[OPEN]` carries live ideas; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 

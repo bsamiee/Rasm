@@ -324,6 +324,12 @@ file sealed class ProjectHeaderGrouper : IAggregateGrouper<Guid> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GraphStore {
+    // The registry-mounted census of every receipt kind this rail emits (`Store/observability#SLOT_REGISTRY`).
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.element.open"), StoreSlot.Create("store.element.commit"), StoreSlot.Create("store.element.commit-exclusive"),
+        StoreSlot.Create("store.element.retire"), StoreSlot.Create("store.element.link"), StoreSlot.Create("store.element.read"),
+        StoreSlot.Create("store.element.identity"), StoreSlot.Create("store.element.project"), StoreSlot.Create("store.element.fault"));
+
     // The one rail — the generated total `GraphStoreOp.Switch` (compile-time exhaustive over the closed
     // family, NO runtime-silent `_` default arm) dispatches each op to its bracket leg; a new op breaks
     // the build here. Open/Commit/Retire share the co-transactional `Stage` write fold (stamp the blame

@@ -1,6 +1,8 @@
 # [RUNTIME_DELIVER]
 
-Outbound delivery as ONE owner: mail and webhook egress are channel rows of one dispatch table, sharing one settlement receipt, one reason-discriminated fault family, and one suppression fold — the formerly twice-owned transport convention spelled once — and the transactional-outbox relay is the cluster singleton that drains every channel under the queue page's verdict vocabulary, so retry, redelivery, parking, and replay never re-appear here as channel-local machinery. A channel owns exactly three things: its payload's admission schema, the destination projection the suppression gate reads, and how its transport's evidence folds into the shared receipt; everything around the transmission — claim admission, claim lease, urgency order, park ceiling, tenant egress quota, backfill replay — arrives settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing rides the security wave: a webhook body is signed byte-identical by the `Crypto` service and the mail plane signs DKIM natively in-transport — two signature domains that never merge. Suppression is evidence on the record of truth: a hard bounce or a gone endpoint appends a fact row, and the relay's lane rows compose the suppression gate between admission and the wire, so a suppressed destination structurally cannot be transmitted to and the ledger stays history, never a mutable blocklist table. The module ships on the `./server` exports subpath as `runtime/src/work/deliver.ts`.
+Outbound delivery is ONE owner: mail and webhook egress are channel rows of one dispatch table sharing one settlement receipt, one reason-discriminated fault family, and one suppression fold, and the transactional-outbox relay is the cluster singleton draining every channel under the queue page's verdict vocabulary — retry, redelivery, parking, and replay never re-appear as channel-local machinery. A channel owns exactly three things: its payload's admission schema, the destination projection the suppression gate reads, and the fold from its transport's evidence into the shared receipt.
+
+Claim admission, lease, urgency order, park ceiling, tenant egress quota, and replay arrive settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing splits into two domains that never merge — the `Crypto` service signs webhook bodies byte-identical, the mail plane signs DKIM in-transport. Suppression is evidence on the record of truth: a bounce or gone endpoint appends a fact row, and the relay's lane rows compose the gate between admission and the wire, so a suppressed destination cannot reach a transport and the ledger stays history, never a mutable blocklist. Its module ships on the `./server` subpath as `runtime/src/work/deliver.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -16,14 +18,14 @@ Outbound delivery as ONE owner: mail and webhook egress are channel rows of one 
 
 [CHANNEL_FAMILY]:
 - Owner: `Deliver` — the channel dispatch table and the shapes every channel speaks. `Deliver.Receipt` is the settlement evidence: channel kind, transmission identity (the SMTP `messageId`, the webhook delivery id), per-recipient acceptance splits, the wire instant, and the transport's timing band — one `Schema.Class` whose fields serve both channels because settlement IS the same concept. `DeliverFault` is the one fault family: a reason row (`dial | refused | bounced | timeout | schema`) carrying its `FaultClass` kind, so the lane's judge fold reads retryability off the class table and a channel never declares a private fault rail.
-- Law: a channel is a row keyed by its kind — `{ payload, targets, transmit }` minted through `Deliver.channel` so the three members correlate on one payload type: the payload `Schema` is the admission authority the lane's `Lane.row` mint decodes against, `targets` projects the destinations the suppression gate answers over, and `transmit` carries the admitted payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the relay dispatches on the claim's stream prefix through keyed lookup — zero `Match` arms — and a new channel (push, SMS, chat) is one table row plus one relay lane row, never a sibling drain.
+- Law: a channel is a row keyed by its kind — `{ payload, targets, transmit }` minted through `Deliver.channel` so the three members correlate on one payload type: the payload `Schema` is the admission authority the lane's `Lane.row` mint decodes against, `targets` projects the destinations the suppression gate answers over, and `transmit` carries the admitted payload to the wire with its transport evidence already folded into `Receipt | DeliverFault` on the rail; the relay dispatches on the claim's stream prefix through keyed lookup — zero `Match` arms — and a new channel (push, SMS, chat) is one table row with one relay lane row, never a sibling drain.
 - Law: partial acceptance is a receipt, not a fault — a send where some recipients accept and some reject settles as a `Receipt` whose rejected band is non-empty; the suppression fold consumes the rejected band, and only a transmission that produced no acceptance at all folds to `DeliverFault`.
 - Law: the payload is decoded once at the lane seam — each channel's `payload` schema rides `Lane.row`, so a decode failure parks `invalid` through the lane's poison short-circuit before any deliver code runs, and a drain-local decoder is unspellable.
 - Growth: a new channel is one `Deliver.channel` row; a new settlement dimension is one `Receipt` field both channels populate; a new gate axis (a per-destination rate class, an allowlist) is a column on the channel row the relay lane reads.
 - Packages: `effect` (`Schema`, `Data`, `DateTime`, `Duration`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
-import { Array, Context, Data, DateTime, Duration, Effect, Option, Redacted, Schema, Stream, Struct } from "effect"
+import { Array, Context, Data, DateTime, Duration, Effect, Option, Redacted, Schema, Stream, Struct, pipe } from "effect"
 import { HttpBody, HttpClientRequest } from "@effect/platform"
 import { Singleton } from "@effect/cluster"
 import { SqlClient } from "@effect/sql"
@@ -34,6 +36,7 @@ import { Fact, Journal } from "@rasm/ts/data"
 import { Crypto } from "@rasm/ts/security"
 import { type AppIdentity, Budget, FaultClass } from "@rasm/ts/core"
 import { Client } from "../net/client.ts"
+import { Pulse } from "../otel/meter.ts"
 import { Setting } from "../proc/config.ts"
 import { WorkClass } from "./entity.ts"
 import { Lane, LaneVerdict, Throttle } from "./queue.ts"
@@ -176,7 +179,7 @@ const _mailReceipt = (info: SMTPPool.SentMessageInfo, at: DateTime.Utc): Effect.
 [HOOK_ROW]:
 - Owner: `Hook` — signed webhook egress under byte identity: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
 - Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Receipt`, 410 folds `bounced` (the endpoint is gone — suppression consumes it), 429/5xx fold `dial` (the lease redelivers), a client timeout folds `timeout`.
-- Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. The security composition supplies the resolver and may rotate the material behind a stable reference without rewriting queued work.
+- Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
 - Boundary: the inbound half — verifying a foreign webhook, resolving a `flow#SIGNAL_GATE` token from a verified callback — is the serving plane's mount; this row is egress only.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
 - Packages: `@effect/platform` (`HttpClientRequest`, `HttpBody`); `@rasm/ts/security` (`Crypto`); `../net/client.ts` (`Client`).
@@ -196,6 +199,7 @@ class _HookSecret extends Context.Tag("runtime/work/Hook/Secret")<_HookSecret, {
 }>() {}
 
 const _signable = (id: string, stamp: string, body: Uint8Array): Uint8Array => {
+  // BOUNDARY ADAPTER: byte-join kernel — the draft detaches immutable at the return
   const prefix = new TextEncoder().encode(`${id}.${stamp}.`)
   const joined = new Uint8Array(prefix.length + body.length)
   joined.set(prefix)
@@ -290,14 +294,14 @@ const _settled = (receipt: Receipt) =>
 ## [06]-[RELAY]
 
 [RELAY]:
-- Owner: `Relay` — the one outbox drain: a `Singleton.make` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, and settles it through `Lane.settle` over the relay's lane rows: each row is `Lane.row(channel.payload, …)` composing the fixed sequence suppression gate → tenant throttle → `channel.transmit` → rejected-band suppression tap, so the drain body is route plus composition and contains zero retry, backoff, decode, or dead-letter machinery of its own.
+- Owner: `Relay` — the one outbox drain: a `Singleton.make` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, and settles it through `Lane.settle` over the relay's lane rows: each row is `Lane.row(channel.payload, …)` composing the fixed sequence suppression gate → tenant throttle → `channel.transmit` → rejected-band suppression tap, so the drain body is route and composition, with zero retry, backoff, decode, or dead-letter machinery of its own.
 - Law: every transmission passes one suppression decision — the gate sits inside the lane row between admission and the wire, so no route reaches `transmit` without it; a refused deliverable parks with the suppressed target as evidence through the lane's poison short-circuit.
-- Law: quota precedes transmission — `Throttle.spend` runs before the wire and its exceeded posture is the durable delay, so a tenant's burst paces the drain inside the lease width instead of converting into provider-side rejections; a lease that expires mid-delay simply redelivers, attempts already incremented, and a quota-store fault (`RateLimiterError`) defers `unavailable`.
+- Law: quota precedes transmission — `Throttle.spend` runs before the wire and its exceeded posture is the durable delay, so a tenant's burst paces the drain inside the lease width instead of converting into provider-side rejections; a lease that expires mid-delay redelivers, attempts already incremented, and a quota-store fault (`RateLimiterError`) defers `unavailable`.
 - Law: pacing composes the mail pool — the mail lane row reads `Mailer.idle` per claim and defers while the pool reports no capacity, so mail never queues inside the transport and webhook claims drain regardless of pool state.
 - Law: the wake source is data-owned — the drain subscribes the journal's wake stream through the scope port; a poll loop or a second LISTEN binding here is unspellable.
-- Receipt: each pass folds `Lane.settle`'s verdict roster into one `deliver.drained` meter fact — claims, settled, deferred, parked — so the relay's health is queryable history beside the lane evidence.
+- Receipt: each pass folds `Lane.settle`'s verdict roster into one `deliver.drained` meter fact — claims, settled, deferred, parked — and marks the settled count onto the `Pulse` throughput counter in the same fold, so the OTel series and the journal fact cannot disagree on a pass.
 - Growth: a second relay concern (a per-region drain, a channel-partitioned drain) is a second singleton row over the same fold with a claim predicate — the drain body never forks.
-- Packages: `@effect/cluster` (`Singleton`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`).
+- Packages: `@effect/cluster` (`Singleton`); `@rasm/ts/data` (`Journal`, `Fact`); `./queue.ts` (`Lane`, `LaneVerdict`, `Throttle`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript
 const MailPayload = Schema.Struct({
@@ -396,18 +400,22 @@ const _sent = <A extends { readonly tenant: string }, I, R, R2>(
   )
 
 const _metered = (claims: number, verdicts: ReadonlyArray<LaneVerdict>) =>
-  Fact.record({
-    action: "deliver.drained",
-    actor: { key: "relay", kind: "service" },
-    change: [
-      { _tag: "Assigned", path: "/claims", next: String(claims) },
-      { _tag: "Assigned", path: "/settled", next: String(Array.filter(verdicts, LaneVerdict.$is("Settled")).length) },
-      { _tag: "Assigned", path: "/deferred", next: String(Array.filter(verdicts, LaneVerdict.$is("Deferred")).length) },
-      { _tag: "Assigned", path: "/parked", next: String(Array.filter(verdicts, LaneVerdict.$is("Parked")).length) },
-    ],
-    retention: "operational",
-    target: { key: "deliver-relay", kind: "relay" },
-  })
+  pipe(Array.filter(verdicts, LaneVerdict.$is("Settled")).length, (settled) =>
+    Effect.zipRight(
+      Pulse.mark("drained", "deliver", settled),
+      Fact.record({
+        action: "deliver.drained",
+        actor: { key: "relay", kind: "service" },
+        change: [
+          { _tag: "Assigned", path: "/claims", next: String(claims) },
+          { _tag: "Assigned", path: "/settled", next: String(settled) },
+          { _tag: "Assigned", path: "/deferred", next: String(Array.filter(verdicts, LaneVerdict.$is("Deferred")).length) },
+          { _tag: "Assigned", path: "/parked", next: String(Array.filter(verdicts, LaneVerdict.$is("Parked")).length) },
+        ],
+        retention: "operational",
+        target: { key: "deliver-relay", kind: "relay" },
+      }),
+    ))
 
 const _drain = <R>(
   app: AppIdentity["app"],

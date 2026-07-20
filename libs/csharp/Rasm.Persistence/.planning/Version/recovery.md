@@ -142,6 +142,9 @@ public readonly record struct RecoveryFact(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RecoveryRoutes {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.recovery.backup"), StoreSlot.Create("store.recovery.objective"));
+
     public static RecoveryObjective Objective(ResolvedProfile profile) => profile.Recovery;
 
     public static IO<RecoveryFact> Backup(RecoveryRoute route, RecoveryContext ctx, RecoveryObjective objective, ProjectionContext frame) =>

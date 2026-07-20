@@ -9,7 +9,6 @@
 - import: `asyncssh`
 - owner: `runtime`
 - rail: transport
-- version: `2.23.1`
 - license: `EPL-2.0 OR GPL-2.0-or-later` (copyleft dual-license; redistribution and link-shape are constrained — a load-bearing flag, not the permissive MIT/BSD band; consumed as an unmodified library dependency, never vendored or modified in-tree)
 - namespaces: `asyncssh`, `asyncssh.connection`, `asyncssh.sftp`, `asyncssh.known_hosts`
 - capability: async SFTP read transport — `connect`/`start_sftp_client`/`SFTPClient.open` read chain, one `SSHClientConnectionOptions` (password + verified host keys + connect-timeout and keepalive policy), `read_known_hosts` host-key-database loading — plus the workers remote-exec crossing: per-session `create_process` over binary streams with `terminate`/`kill` deadline escalation

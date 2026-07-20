@@ -1,8 +1,8 @@
 # [PY_RUNTIME_WIRE]
 
-One wire-codec owner serves the companion transport: it decodes every C#-minted wire shape, mints no wire vocabulary of its own, and owns the `msgspec`-interior-to-`protobuf`-wire projection plus the CRDT op-log decode. Vocabulary and binding table are `transport/shapes#REGISTRY_AND_DRIFT`'s — this page imports the rows and owns only transcode machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
+One wire-codec owner serves the companion transport: it decodes every C#-minted wire shape, mints no wire vocabulary of its own, and owns the `msgspec`-interior-to-`protobuf`-wire projection and the CRDT op-log decode. Vocabulary and binding table are `transport/shapes#REGISTRY_AND_DRIFT`'s — this page imports the rows and owns only transcode machinery, so a registry re-mint here is the deleted `shapes -> wire` back-edge.
 
-Every transcode rides the one `Decode` aspect: a direction-parameterized OTel span plus the `reliability/faults#FAULT` `boundary` fence, the network-fed leg delegating retry to `reliability/resilience#RESILIENCE` `guarded(RetryClass.WIRE)` rather than re-implementing the loop. CRDT op-log bytes cross as MessagePack under a `Lz4BlockArray` envelope distinct from the gRPC proto wire, and `decompress` is a dependency-injected `DecompressFn` seam — never a hardwired `lz4` import, LZ4 being worker-gated with the envelope decode deferred.
+Every transcode rides the one `Decode` aspect — a direction-parameterized OTel span with the `reliability/faults#FAULT` `boundary` fence — and a network fetch stays its transport owner's retry concern, handing this aspect only the acquired bytes. CRDT op-log bytes cross as MessagePack under a `Lz4BlockArray` envelope distinct from the gRPC proto wire, and `decompress` is a dependency-injected `DecompressFn` seam — never a hardwired `lz4` import, LZ4 being worker-gated with the envelope decode deferred.
 
 ## [01]-[INDEX]
 
@@ -12,16 +12,16 @@ Every transcode rides the one `Decode` aspect: a direction-parameterized OTel sp
 
 ## [02]-[WIRE_RAIL]
 
-- Owner: `Decode` is the one cross-cutting wire-boundary aspect every codec on this page composes — retry, telemetry, and fault conversion declared once and reused by the proto transcode and the CRDT decode, never repeated inline per codec and never a CONSUMER-kind span mis-scoping an egress encode.
-- Entry: every current ingress is buffered — the servicer hands `decode` the raw bytes and the durability decode reads the op-log payload — so `railed` is the consumed entry and `acquired` the growth surface a future wire-internal fetch composes. `acquired` retries only the transient fetch under the resilience owner; the terminal decode `ValidationError` rides the `railed` boundary on the first decode, never a retry.
+- Owner: `Decode` is the one cross-cutting wire-boundary aspect every codec on this page composes — telemetry and fault conversion declared once and reused by the proto transcode and the CRDT decode, never repeated inline per codec and never a CONSUMER-kind span mis-scoping an egress encode.
+- Entry: every ingress is buffered — the servicer hands `decode` the raw bytes and the durability decode reads the op-log payload — so `railed` and `routed` are the two entries, and the terminal decode `ValidationError` rides the `railed` boundary on the first decode, never a retry.
 - Auto: `annotated` lowers through `msgspec.structs.asdict` — the field-NAME-keyed projection serving the `array_like` CRDT arms (the positional indices `to_builtins(array_like=True)` returns are meaningless) — keeping raw `bytes` for the fixed-width `.hex()` render, unlike the base64-lowering `to_builtins`.
 - Packages: `msgspec`, `protobuf`, `opentelemetry-api`, and the faults/resilience rails per the fence imports; the `Status`/`record_exception` egress is the faults owner's `_convert`, never re-spelled here.
-- Growth: a new wire boundary composes `Decode.railed`/`routed`/`acquired` and inherits span, retry, and fault with zero new cross-cutting code; a new transport direction is one `(verb, kind, annotate)` row on `_traced`; a new retry geometry is one resilience `Policy` column, never a knob here.
-- Boundary: the buffered leg crosses only the `railed` span/`boundary` fence, the network-fed leg crosses `guarded` then `railed`, and the terminal decode fault converts exactly once — never a bare exception across the servicer and never a second async rail.
+- Growth: a new wire boundary composes `Decode.railed`/`routed` and inherits span and fault with zero new cross-cutting code; a new transport direction is one `(verb, kind, annotate)` row on `_traced`.
+- Boundary: every leg crosses the `railed`/`routed` span-and-`boundary` fence and the terminal decode fault converts exactly once — never a bare exception across the servicer and never a second async rail.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 
 import msgspec
 from expression.collections import Block
@@ -29,7 +29,6 @@ from opentelemetry import trace
 from opentelemetry.trace import Span, SpanKind
 
 from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
-from rasm.runtime.resilience import RetryClass, guarded
 
 _TRACER = trace.get_tracer(SCOPES[Scope.WIRE])
 
@@ -79,10 +78,6 @@ class Decode:
     @classmethod
     def routed[T](cls, subject: str, encode: Callable[[], T]) -> RuntimeRail[T]:
         return cls._traced("encode", SpanKind.PRODUCER, subject, encode, annotate=False)
-
-    @classmethod
-    async def acquired[T](cls, subject: str, fetch: Callable[[], Awaitable[bytes]], decode: Callable[[bytes], T]) -> RuntimeRail[T]:
-        return (await guarded(RetryClass.WIRE, fetch, subject="wire")).bind(lambda payload: cls.railed(subject, lambda: decode(payload)))
 ```
 
 ## [03]-[PROTO_TRANSCODE]
@@ -167,7 +162,7 @@ def codec(name: str) -> RuntimeRail[WireProtoCodec[Struct, Message]]:
 - Owner: the canonical op IS the wire arm — each arm's fields are the producer `[Key(k)]` slots, and the `clock#CLOCK` `Hlc`/`ElementId` reconstructions are derived property views through the field-less `_Stamped`/`_Identified` mixins, so no parallel wire-vs-canonical hierarchy or hand-written lift match survives. Interior code reads `op.cell`/`op.id` while the wire shape stays the flat producer envelope; `CrdtArm` closes the union so callers `match`/`assert_never` over the explicit set.
 - Cases: LWW survives only as the `set` arm reconstructing the `LwwRegister`; `beat`/`leave` carry the `EphemeralMap` presence delta a late-joining companion reconstructs from the op-log prefix; `IncrementOp.delta` stays plain `int` — a signed PN-counter increment.
 - Auto: FLAT is the SOLE realized decode path — the `CRDT_OPLOG_WIRE_AMENDMENT` deprecates the MessagePack-csharp default `[tag, sub-object]` nesting, so no standing nested-envelope machinery survives here. `physical_ticks` is the C# `Instant.ToUnixTimeTicks()` 100-ns count; the `set` arm is the LWW `Adjudicate` survivor and the union the strict superset the C# `Crdt.Merge` join-semilattice converges, so a companion decoding the prefix reconstructs the identical materialized state the producer holds — the companion authors no op kind the wire does not carry, the C# owner being the sole mint.
-- Growth: a new op kind is one tagged-union arm inheriting `_Stamped` or `_Identified` — the producer adds the wire tag first, the companion follows, never ahead of the wire; the deprecated NESTED framing re-enters as one framing member plus one `msgspec.Raw` re-frame row only if a producer publishes it; an `Ext`-typed producer slot enters as one `ext_hook=` seam on the cached decoder, never a parallel decoder.
+- Growth: a new op kind is one tagged-union arm inheriting `_Stamped` or `_Identified` — the producer adds the wire tag first, the companion follows, never ahead of the wire; the deprecated NESTED framing re-enters as one framing member with one `msgspec.Raw` re-frame row only if a producer publishes it; an `Ext`-typed producer slot enters as one `ext_hook=` seam on the cached decoder, never a parallel decoder.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------

@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.instrumentation.asyncio`, `opentelemetry.instrumentation.asyncio.environment_variables`
-- installed: `0.64b0`
 - capability: selective coroutine/future/`to_thread` tracing over `gather`, `create_task`, and TaskGroup creation, env-var-selected coverage, and the `asyncio.process.duration` (s) histogram + `asyncio.process.created` (`{process}`) counter pair
 
 ## [02]-[PUBLIC_TYPES]
@@ -19,7 +18,7 @@
 [PUBLIC_TYPE_SCOPE]: instrumentor
 - rail: observability
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                              |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                               |
 | :-----: | :-------------------- | :------------ | :--------------------------------------------------- |
 |  [01]   | `AsyncioInstrumentor` | instrumentor  | selective asyncio tracing + the two loop instruments |
 
@@ -29,13 +28,13 @@
 - rail: observability
 - selection env vars (module `environment_variables`): `OTEL_PYTHON_ASYNCIO_COROUTINE_NAMES_TO_TRACE` (comma-set of coroutine names), `OTEL_PYTHON_ASYNCIO_FUTURE_TRACE_ENABLED` (bool), `OTEL_PYTHON_ASYNCIO_TO_THREAD_FUNCTION_NAMES_TO_TRACE` (comma-set of function names).
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :------------------------------------------------ | :------------- | :------------------------------------------------------ |
-|  [01]   | `AsyncioInstrumentor().instrument(**kwargs)`      | enable         | patch gather/to_thread/TaskGroup creation                |
-|  [02]   | `AsyncioInstrumentor().uninstrument(**kwargs)`    | disable        | unwrap the patched surfaces                              |
-|  [03]   | `trace_to_thread(func)`                           | wrap           | span one selected `to_thread` function                   |
-|  [04]   | `trace_item(coro_or_future)`                      | wrap           | span one selected coroutine or future                    |
-|  [05]   | `trace_coroutine(coro)` / `trace_future(future)`  | wrap           | the per-kind halves `trace_item` discriminates onto      |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :----------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `AsyncioInstrumentor().instrument(**kwargs)`     | enable         | patch gather/to_thread/TaskGroup creation           |
+|  [02]   | `AsyncioInstrumentor().uninstrument(**kwargs)`   | disable        | unwrap the patched surfaces                         |
+|  [03]   | `trace_to_thread(func)`                          | wrap           | span one selected `to_thread` function              |
+|  [04]   | `trace_item(coro_or_future)`                     | wrap           | span one selected coroutine or future               |
+|  [05]   | `trace_coroutine(coro)` / `trace_future(future)` | wrap           | the per-kind halves `trace_item` discriminates onto |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

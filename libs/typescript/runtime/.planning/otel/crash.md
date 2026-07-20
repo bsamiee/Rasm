@@ -1,6 +1,8 @@
 # [RUNTIME_CRASH]
 
-Crash capture is one total fold from any settled `Cause` to a structured fatal emission: the exception triple (`exception.type`/`message`/`stacktrace`) plus `error.type` land in the capture's attribute band through `FaultCapture.forensic` — the core-owned typed key vocabulary — and forensic enrichment rides the core-declared fault-enricher contract: the `Cause` seeds a `FaultCapture` already carrying its exception evidence, the interchange codec's Layer round-trips it with wire-grade forensics merged into the same band, `FaultEnricher.identity` is the shipped no-interchange pass-through, and this module never imports the interchange — and the recent-history replay ring attaches as breadcrumb evidence redacted at the moment of capture, so raw PII never sits in memory waiting for a crash. The scrub authority is one ambient rule set — `Redaction.Current` — applied at BOTH crash seams: breadcrumbs scrub when recorded, and the enriched forensic band scrubs at the fatal emission, so exception messages and stack material cross into log attributes only through the same fold the export boundary runs. Capture itself is infallible by law: a pass-through enrichment and a full ring degrade, never fail, because the crash path is the last place a fault channel may open. The fiber-external net — `window.onerror`, `unhandledrejection`, process-level hooks — registers as a `Layer` whose hook arrives as a runtime-supplied value, keeping this module runtime-neutral while the `./browser`/`./server` subpaths each contribute a one-line hook row. The module is `runtime/src/otel/crash.ts`.
+Crash capture is one total fold from any settled `Cause` to a structured fatal emission: the exception triple and `error.type` land in the capture's attribute band through `FaultCapture.forensic`, and forensic enrichment rides the core-declared fault-enricher contract — the `Cause` seeds a `FaultCapture` already carrying its exception evidence, `FaultEnricher.identity` is the shipped no-interchange pass-through. Capture is infallible by law: a pass-through enrichment and a full ring degrade, never fail, because the crash path is the last place a fault channel may open.
+
+Breadcrumb history attaches as replay evidence redacted at the moment of capture, so raw PII never sits in memory waiting for a crash; the scrub authority is one ambient rule set — `Redaction.Current` — applied at BOTH crash seams: breadcrumbs scrub when recorded, the enriched forensic band scrubs at the fatal emission. Fiber-external failure sources register as a `Layer` whose hook arrives as a runtime-supplied value, keeping this module runtime-neutral while the `./browser`/`./server` subpaths each contribute a one-line hook row. Its module is `runtime/src/otel/crash.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -52,9 +54,9 @@ const _crumb = (
 
 - Owner: the `Crash` service — a Layer factory over the app's `AppIdentity` (`Crash.Default(identity)`), `scoped` construction holding the ring, the ambient scrub rules read once from `Redaction.Current`, and the core enrichment port; `capture` and `note` are the accessors, and `Crash.net` is the class-carried registration static so the whole crash surface travels one import.
 - Law: the enricher is a requirement, never a branch — `FaultEnricher` rides `R` because the core floor ships `FaultEnricher.identity` as the no-interchange pass-through, so an unwired root is a compile error and forensic absence is a root selection; the port is total by signature, so enrichment can never make a crash worse.
-- Law: the capture value is the core `FaultCapture` — `FaultClass.of` over the WHOLE `Cause` tree folds every failure and defect node through the severity lattice to the bounded class, the shaped exception seeds `tag`/`detail`, `identity.label` is the owning `surface`, and `FaultCapture.forensic` writes the exception evidence into the attribute band BEFORE the enricher round-trips the value — so the capture the enricher observes already carries the forensic triple plus `error.type`, wire-grade forensics merge into the same band, and the emission spreads that band ONLY through the scrub; a new forensic axis is an `Evidence` field or an enricher band row (`Convention.rasm.crashHop` names the hop key), never an edit here.
+- Law: the capture value is the core `FaultCapture` — `FaultClass.of` over the WHOLE `Cause` tree folds every failure and defect node through the severity lattice to the bounded class, the shaped exception seeds `tag`/`detail`, `identity.label` is the owning `surface`, and `FaultCapture.forensic` writes the exception evidence into the attribute band BEFORE the enricher round-trips the value — so the capture the enricher observes already carries the forensic triple and `error.type`, wire-grade forensics merge into the same band, and the emission spreads that band ONLY through the scrub; a new forensic axis is an `Evidence` field or an enricher band row (`Convention.rasm.crashHop` names the hop key), never an edit here.
 - Law: the fatal forensic band is scrubbed material — exception messages, stack text, and enricher-added rows are the highest-PII-risk attributes the process emits, so the emission passes `capture.attributes` through `Redaction.scrub` with the same ambient rules the breadcrumbs consumed; no crash attribute reaches a log annotation outside the shared fold, and the signal-safety ledger (`emit#REDACTION`) names this seam explicitly.
-- Law: the emission is one declaration — `Effect.logFatal` annotated with the scrubbed enriched band and the replay projection, plus `Effect.annotateCurrentSpan` carrying `error.type` so the active span records the failure — the fatal log becomes an OTLP log record on the shared `Resource` through the replaced process logger, and the `Convention.metric.crashCaptured` counter tags by the same bounded class.
+- Law: the emission is one declaration — `Effect.logFatal` annotated with the scrubbed enriched band and the replay projection, and `Effect.annotateCurrentSpan` carrying `error.type` so the active span records the failure — the fatal log becomes an OTLP log record on the shared `Resource` through the replaced process logger, and the `Convention.metric.crashCaptured` counter tags by the same bounded class.
 - Law: classification and exception shaping are two reads of one `Cause` — `FaultClass.of(cause)` folds the tree's failure and defect nodes through the severity lattice so a parallel cause classifies by dominance, never by squash ordering; `Cause.squash` serves ONLY the free-form exception shaping (`Match.instanceOf` triage into name/message/stack), and `Cause.isInterruptedOnly` short-circuits because an interrupted fiber is not a crash; flattening to a message string upstream of the projections is the rejected fold.
 - Law: capture is total — its type is `Effect<void>` with no error channel; the enricher is total by contract and the ring read is infallible, so no interior step can open a fault channel on the crash path.
 - Boundary: the core `FaultEnricher`, `FaultCapture`, and `FaultClass` owners carry the enrichment contract; the serving edge's support-capture verb is this owner's standing consumer, reaching `Crash.capture` through app-root composition.
@@ -103,7 +105,7 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
                 yield* Effect.annotateCurrentSpan(Convention.attr.errorType, capture.class)
                 yield* Effect.logFatal("crash").pipe(
                   Effect.annotateLogs({
-                    // the forensic band passes the same fold the export boundary runs: message and stack text never land raw
+                    // forensic band rides the same fold the export boundary runs: message and stack text never land raw
                     ...Redaction.scrub(rules, capture.attributes),
                     [Convention.event.breadcrumb]: JSON.stringify(Chunk.toReadonlyArray(crumbs)),
                   }),
@@ -128,6 +130,10 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
       }),
     )
 }
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Crash }
 ```
 
 ## [04]-[NET]
@@ -142,7 +148,7 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
 import type { Crash } from "./crash.ts"
 
 const browserHook: Crash.Hook = {
-  // the ./browser subpath module in full
+  // one-row ./browser subpath module in full
   install: (emit) => {
     const onError = (event: ErrorEvent) => emit(event.error ?? event.message)
     const onRejection = (event: PromiseRejectionEvent) => emit(event.reason)
@@ -156,7 +162,7 @@ const browserHook: Crash.Hook = {
 }
 
 const serverHook: Crash.Hook = {
-  // the ./server subpath module in full: capture-and-continue — exit disposition stays runMain's
+  // one-row ./server subpath module in full: capture-and-continue — exit disposition stays runMain's
   install: (emit) => {
     const onException = (fault: Error) => emit(fault)
     const onRejection = (reason: unknown) => emit(reason)
@@ -171,5 +177,9 @@ const serverHook: Crash.Hook = {
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Crash, browserHook, serverHook }
+export { browserHook, serverHook }
 ```
+
+## [05]-[RESEARCH]
+
+(none)

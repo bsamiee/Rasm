@@ -1,10 +1,10 @@
 # [RASM_RHINO_OBJECTS_AUTHORING]
 
-Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
+Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. This page also holds the folder's one structured-log egress: `ObjectsTelemetry` publishes every host-callback fault and the process-wide host exception and cloud-log taps through one guarded sink. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, and the forwarding kernel every adapter shares.
+- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` egress with its host taps, and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
 - [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
@@ -12,19 +12,25 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry.Faulted` is the one generated callback-failure event over `CallbackFault(FaultSite, Error)` for every Objects hook seam — object callbacks, grips, render meshes, and history replay publish through it; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the one guarded sink, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` mounts the host's process-wide exception and cloud-log streams into that same egress; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
+- Law: cloud-log severity is data — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, so one generated event carries every host severity; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
+- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on the compliance classification surface arriving with `Microsoft.Extensions.Telemetry.Abstractions` — so the app-root redactor map resolves them without this folder naming a second taxonomy; `Error` messages and host log messages classify `user-content`, `FaultTags` projects the foreign `Error` as classified tags, and redactor binding stays app-root policy outside the adapters.
+- Law: enrichment splits by cost class — `HostStaticEnricher` stamps process constants once per provider, registered app-root through `AddStaticLogEnricher<HostStaticEnricher>` under `EnableEnrichment` beside `ObjectsTelemetry.Configure`; a per-record enricher reading live host statics is rejected, because `ObjectsTelemetry` publishes from arbitrary host threads and the per-fault context already rides each event's own parameters.
+- Law: `HostTap.Mount` attaches both host delegates with one detacher holding the exact delegate identities, disposal is idempotent, and an app root mounts it exactly once beside `ObjectsTelemetry.Configure`.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
-- Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes the `MeshEdit.Of` arena frozen through `ToSpace(Context)` or `Surfaces.Apply(SurfaceOp.Tessellate)` with UV provenance, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
-- Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `CallbackFault(FaultSite, Error)` event before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
+- Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `Meshes.Build` over the `MeshOp` and `MeshEdit` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
+- Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite` and typed `Error` before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
 - Law: picked objects cross as captures — `PickCandidate` couples a callback-local slot with `PickCapture`; `Pick` returns admitted slots and `OnPicked` stricts the host's picked sequence once before the base call, so a one-shot enumerable feeds base and program alike and neither `ObjRef` nor `PickContext` enters program state.
 - Law: base runs first — every forwarding override invokes the host base before its hook, so standard drawing, transform application, and pick behavior survive an inert program, and a program augments rather than re-implements; suppression of base behavior is a genuinely new adapter, never a program flag.
-- Growth: a new host virtual is one program field plus one forwarding line per adapter.
+- Growth: a new host virtual is one program field with one forwarding line per adapter.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Compliance.Classification;
+using Microsoft.Extensions.Diagnostics.Enrichment;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rasm.Domain;
@@ -35,6 +41,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 using Rhino.Geometry;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino.Objects;
 
@@ -55,35 +62,18 @@ public sealed partial class FaultSite {
     public static readonly FaultSite GripRegistration = new(key: 8);
     public static readonly FaultSite RenderMesh = new(key: 9);
     public static readonly FaultSite Replay = new(key: 10);
+    public static readonly FaultSite Conduit = new(key: 11);
+    public static readonly FaultSite HostException = new(key: 12);
 }
 
-public sealed record CallbackFault(FaultSite Site, Error Error);
-
-public static partial class ObjectsTelemetry {
-    private const int Band = 6400;
-    private static readonly Atom<ILogger<ObjectProgram>> Sink =
-        Atom<ILogger<ObjectProgram>>(NullLogger<ObjectProgram>.Instance);
-
-    public static Unit Configure(ILogger<ObjectProgram> sink) =>
-        ignore(Sink.Swap(_ => sink ?? NullLogger<ObjectProgram>.Instance));
-
-    [LoggerMessage(
-        EventId = Band + 1,
-        EventName = "ObjectCallbackFaulted",
-        Level = LogLevel.Error,
-        Message = "object callback faulted")]
-    private static partial void Faulted(
-        ILogger logger,
-        [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] CallbackFault fault);
-
-    internal static Unit Publish(FaultSite site, Error error) =>
-        Try.lift(() => {
-                Faulted(Sink.Value, new CallbackFault(Site: site, Error: error));
-                return unit;
-            })
-            .Run()
-            .IfFail(static _ => unit);
+public static class HostSensitivity {
+    public static readonly DataClassification UserContent =
+        new(taxonomyName: nameof(DataClassification), value: "user-content");
 }
+
+public sealed class UserContentAttribute() : DataClassificationAttribute(HostSensitivity.UserContent);
+
+public sealed record HostLogFact(string Class, string Description, [property: UserContent] string Message);
 
 public readonly record struct RenderMeshBuild(MeshType Kind, Option<MeshPolicy> Policy, bool IgnoreCustom, int Inherited);
 
@@ -111,6 +101,118 @@ public sealed record ObjectProgram(
     Option<Func<TightExtent, Fin<BoundingBox>>> TightBounds = default,
     Option<RenderMeshProgram> RenderMeshes = default) {
     public static readonly ObjectProgram Inert = new();
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+internal static class FaultTags {
+    public static void Collect(ITagCollector collector, Error? error) {
+        collector.Add(tagName: "code", tagValue: error?.Code);
+        collector.Add(tagName: "message", tagValue: error?.Message, classifications: HostSensitivity.UserContent);
+        collector.Add(tagName: "exceptional", tagValue: error?.IsExceptional);
+    }
+}
+
+public static partial class ObjectsTelemetry {
+    private const int Band = 6400;
+    private static readonly Atom<ILogger<ObjectProgram>> Sink =
+        Atom<ILogger<ObjectProgram>>(NullLogger<ObjectProgram>.Instance);
+
+    public static Unit Configure(ILogger<ObjectProgram> sink) =>
+        ignore(Sink.Swap(_ => sink ?? NullLogger<ObjectProgram>.Instance));
+
+    [LoggerMessage(
+        EventId = Band + 1,
+        EventName = "ObjectCallbackFaulted",
+        Level = LogLevel.Error,
+        Message = "object callback faulted at {Site}")]
+    private static partial void Faulted(
+        ILogger logger,
+        FaultSite site,
+        [TagProvider(typeof(FaultTags), nameof(FaultTags.Collect), OmitReferenceName = true)] Error error);
+
+    [LoggerMessage(
+        EventId = Band + 2,
+        EventName = "HostExceptionReported",
+        Level = LogLevel.Error,
+        Message = "host exception at {Site} from {Source}")]
+    private static partial void Reported(ILogger logger, FaultSite site, string source, Exception cause);
+
+    [LoggerMessage(
+        EventId = Band + 3,
+        EventName = "HostCloudLog",
+        Message = "host cloud log")]
+    private static partial void Streamed(
+        ILogger logger,
+        LogLevel level,
+        [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] HostLogFact fact);
+
+    internal static Unit Publish(FaultSite site, Error error) =>
+        Guarded(() => Faulted(Sink.Value, site: site, error: error));
+
+    internal static Unit Publish(FaultSite site, string source, Exception cause) =>
+        Guarded(() => Reported(Sink.Value, site: site, source: source, cause: cause));
+
+    internal static Unit Publish(HostLogFact fact, LogLevel level) =>
+        Guarded(() => Streamed(Sink.Value, level: level, fact: fact));
+
+    // A logging failure never re-enters host callback flow; the guard swallows after the generated emit.
+    private static Unit Guarded(Action emit) =>
+        Try.lift(() => {
+                emit();
+                return unit;
+            })
+            .Run()
+            .IfFail(static _ => unit);
+}
+
+public sealed class HostStaticEnricher : IStaticLogEnricher {
+    public void Enrich(IEnrichmentTagCollector collector) {
+        HostUtils.GetCurrentProcessInfo(processName: out string process, processVersion: out Version version);
+        collector.Add(tagName: "rasm.rhino.host.process", tagValue: process);
+        collector.Add(tagName: "rasm.rhino.host.version", tagValue: version);
+        collector.Add(tagName: "rasm.rhino.host.prerelease", tagValue: HostUtils.IsPreRelease);
+    }
+}
+
+public sealed class HostTap : IDisposable {
+    private readonly Seq<Action> detachers;
+    private int released;
+
+    private HostTap(Seq<Action> detachers) => this.detachers = detachers;
+
+    public static Fin<IDisposable> Mount(Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => {
+            HostUtils.ExceptionReportDelegate reported = static (source, ex) =>
+                ObjectsTelemetry.Publish(
+                    site: FaultSite.HostException,
+                    source: source ?? nameof(HostUtils),
+                    cause: ex);
+            HostUtils.SendLogMessageToCloudDelegate streamed = static (kind, sClass, sDesc, sMessage) =>
+                ObjectsTelemetry.Publish(
+                    fact: new HostLogFact(Class: sClass, Description: sDesc, Message: sMessage),
+                    level: Severity(kind: kind));
+            HostUtils.OnExceptionReport += reported;
+            HostUtils.OnSendLogMessageToCloud += streamed;
+            return Fin.Succ<IDisposable>(new HostTap(detachers: Seq<Action>(
+                () => HostUtils.OnExceptionReport -= reported,
+                () => HostUtils.OnSendLogMessageToCloud -= streamed)));
+        });
+    }
+
+    // Severity `_` floor covers `unknown` and every future host value; the host enum is open foreign wire.
+    private static LogLevel Severity(HostUtils.LogMessageType kind) => kind switch {
+        HostUtils.LogMessageType.information => LogLevel.Information,
+        HostUtils.LogMessageType.warning => LogLevel.Warning,
+        HostUtils.LogMessageType.error => LogLevel.Error,
+        HostUtils.LogMessageType.assert => LogLevel.Critical,
+        _ => LogLevel.Warning,
+    };
+
+    public void Dispose() {
+        if (Interlocked.CompareExchange(ref released, 1, 0) != 0) { return; }
+        _ = detachers.Iter(static detach => detach());
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -356,7 +458,7 @@ public abstract class RasmPointObject : CustomPointObject {
 ## [04]-[GRIP_PROGRAM]
 
 - Owner: `GripSeed` admits each grip and the complete zero-based roster consumed by regrow. `GripProgram` is one positional record — required seed and regrow functions, every verified location, reset, mesh-update, topology, draw, and disposal hook as optional slots — matching `ObjectProgram`'s form. `RasmGrip` repairs the host weight sentinel and forwards location changes; `RasmGrips` forwards the set program; `GripRig` registers the enabler.
-- Law: `NewGeometry` fires once at drag end — the shim collects each grip's index and current location, hands them to `Regrow`, and a refusal publishes `CallbackFault` then returns the inherited result so the host keeps existing geometry; host `NewLocation`/`GripsMoved` and global `Dragging()` remain the rebuild gates.
+- Law: `NewGeometry` fires once at drag end — the shim collects each grip's index and current location, hands them to `Regrow`, and a refusal publishes through `ObjectsTelemetry` then returns the inherited result so the host keeps existing geometry; host `NewLocation`/`GripsMoved` and global `Dragging()` remain the rebuild gates.
 - Law: `Weight` must be carried by the shim — the custom grip base deliberately stubs the member with a sentinel getter (`-1.234...E+308`) and a no-op setter, so `RasmGrip` overrides both accessors over a real field seeded from `GripSeed.Weight`; an authored grip trusting the base member reads garbage.
 - Law: the enabler keys on the grips type's `[Guid]` — `RegisterGripsEnabler` resolves `typeof(TGrips).GUID`, not `ClassIdAttribute`, re-registration replaces the prior enabler, and the enabler installs through `EnableCustomGrips` only when the mint answers `Some`; a non-`Some` candidate keeps standard host grips. Registration demands the declared `GuidAttribute` because the runtime synthesizes a fallback for an unattributed type, so `Type.GUID` is never empty and only the attribute probe proves a stable key. `Sow` accumulates seed admission, admits exactly the zero-based contiguous index roster, stages every shim before mutation, and disposes the new grip owner when any incremental host addition fails.
 - Law: the grip draw hook runs before base — the base `OnDraw` draws the grips themselves, so a program draws dynamic elements first and the shim calls base after. Reset and mesh-update hooks augment the completed base operation; disposal notifies before base releases the carrier.
@@ -697,3 +799,5 @@ public static class Grips {
 |  [04]   | grip shims       | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding           | `GripRig.Register<TGrips>`      |
 |  [05]   | grip value edits | `GripEdit`             | rig and move over `GripMove` verbs, detached receipts  | `Grips.Touch` / `Census`        |
 |  [06]   | render-mesh cache | `RenderMeshProgram`   | base-first refinement over the five cache virtuals     | adapter mesh overrides          |
+|  [07]   | telemetry egress | `ObjectsTelemetry`     | generated fault and host-stream events over one sink   | `Publish` overloads             |
+|  [08]   | host taps        | `HostTap`              | both host taps behind one idempotent detacher          | `HostTap.Mount`                 |

@@ -9,12 +9,12 @@ The one analytic-visualization owner: three rendering regimes behind one `Chart`
 |  [01]   | `REGIME_LAW`       | the three-regime discriminant, the Arrow columnar bus, the engine boundary table | `Chart`  |
 |  [02]   | `DECLARED_SURFACE` | the Plot grammar bracket and the visx bespoke accessible-SVG lane                | `Chart`  |
 |  [03]   | `SERIES_SURFACE`   | the uplot scoped instance — aligned columns, `setData` streaming, cursor cohorts | `Chart`  |
-|  [04]   | `PIVOT_SURFACE`    | the perspective engine — client/table lifecycle, viewer config fold-echo         | `Chart`  |
+|  [04]   | `PIVOT_SURFACE`    | the perspective engine — client/table lifecycle, config fold-echo, derived feed  | `Chart`  |
 
 ## [02]-[REGIME_LAW]
 
 [REGIME_LAW]:
-- Owner: `Chart` — one owner whose members are the three regime brackets plus the columnar bus fold; regime selection is a decision row, never a component fork: DECLARED (the chart states a statistical claim — distribution, regression, facet, small multiple) renders through `[3]`; STREAMING (a telemetry/sensor/simulation series where point count breaks SVG) renders through `[4]`'s canvas; PIVOT (the USER drives group/split/aggregate/filter over a live feed) renders through `[5]`'s engine.
+- Owner: `Chart` — one owner whose members are the three regime brackets and the columnar bus fold; regime selection is a decision row, never a component fork: DECLARED (the chart states a statistical claim — distribution, regression, facet, small multiple) renders through `[3]`; STREAMING (a telemetry/sensor/simulation series where point count breaks SVG) renders through `[4]`'s canvas; PIVOT (the USER drives group/split/aggregate/filter over a live feed) renders through `[5]`'s engine.
 - Law: Arrow is the inter-engine bus — `Chart.columns(table, x, series)` projects an `apache-arrow` `Table` into uplot's aligned columns through `getChild(...).toArray()` (the zero-copy typed-array view), Plot marks take the `Table` directly with column-name channels, and perspective ingests the SAME frame's IPC bytes with `format: "arrow"`; a JSON re-materialization between Arrow-capable engines is the named defect. A named column absent from the table folds the whole projection to `Option.none` — the consumer renders no chart; a fabricated flat series standing in for a missing column is the named defect.
 - Law: color obeys the token split — series strokes, categorical palettes, and axis inks resolve from `Theme.ramp`/`Theme` rows (canvas engines take resolved values rebuilt on theme flip; SVG takes classes through `cn`); `d3-scale-chromatic` colormaps appear ONLY where the color IS the datum's value (`scaleSequential(interpolateViridis)` density/heat), and a `scheme*` categorical array standing in for the token palette is the split-brain defect.
 - Law: `d3` is substrate, never surface — `rollup`/`bin`/`extent` folds prepare data beside a spec, scale/curve/format vocabularies pass through, and the DOM-coupled modules (`d3-selection`/`d3-zoom`/`d3-axis`) never appear; React owns chart DOM, `system/act` owns gesture.
@@ -81,15 +81,17 @@ const _distribution = (table: Table, field: string, width: number): ReturnType<t
 
 [SERIES_SURFACE]:
 - Owner: `Chart.series(container, options, seed)` — the canvas bracket: `new uPlot(options, seed, container)` acquires, `destroy()` releases, and the ONLY per-tick write is `Chart.feed(chart, next)` — `setData` inside an atom subscription with the fold owning cadence (high-frequency feeds coalesce to animation frames before the call); React never reconciles a point, and rebuilding the instance per data tick is the named defect.
-- Packages: `uplot` (the `uPlot` class, `AlignedData`, the options tree — `series`/`scales`/`axes`/`cursor`/`legend`/`bands` — `uPlot.sync`, `uPlot.paths.{linear,spline,stepped,bars,points}`, the hook-array plugin bus, `setSize`/`batch`); `system/token` (resolved stroke values — canvas reads no custom property).
+- Packages: `uplot` (the `uPlot` class, `AlignedData`, the options tree — `series`/`scales`/`axes`/`cursor`/`legend`/`bands` — `uPlot.sync`, `uPlot.paths.{linear,spline,stepped,bars,points}`, the hook-array plugin bus, `setSize`/`batch`); `system/token` (resolved stroke values — canvas reads no custom property); `apache-arrow` (`tableFromIPC` per-frame decode, `RecordBatchReader.from` for a single continuous IPC body).
 - Law: the data contract is aligned columns — one x column, N y columns, typed arrays first-class, `null` the one gap marker with `spanGaps` per series; `Chart.columns` feeds it from the Arrow bus, and `uPlot.join` outer-joins tables that disagree on x.
+- Law: an unbounded series streams frame by frame — `Chart.stream(x, series)` decodes each incoming Arrow IPC frame through `tableFromIPC`, projects it through `Chart.columns`, and appends the columns to a bounded aligned ring (the `_STREAM.points` cap), handing the next window to `Chart.feed`; the transport chunks the series into frames, so a single continuous body decodes incrementally through `RecordBatchReader.from` instead, and rebuilding a whole `Table` over an unbounded series per frame is the named defect.
 - Law: dashboard cohorts sync by key — `uPlot.sync(key)` + `cursor.sync: { key }` link crosshair, focus, and zoom across a panel cohort; the key is a chart-group value from the owning fold, never a literal per chart.
 - Law: extension is a hook row — annotations, threshold shading, and tooltips ride the closed hook roster (`draw`/`drawSeries`/`setCursor`/…) as plugin hook arrays drawing into `u.ctx` or mounting into `u.over`; a fork of the draw loop is the named defect.
 - Law: the stylesheet imports once — `uPlot.min.css` rides the token stylesheet; theme flips rebuild the options value from `Theme.ramp`-resolved strokes, and the canvas's missing per-point ARIA is compensated by an accessible summary row beside the chart (the consumer's obligation this card names).
 - Growth: a new series is one options row; a new geometry is a `paths` builder swap — never a second time-series engine.
 
 ```typescript
-import { Effect } from "effect"
+import { tableFromIPC } from "apache-arrow"
+import { Array, Effect, Option } from "effect"
 import uPlot from "uplot"
 
 const _series = (container: HTMLElement, options: uPlot.Options, seed: Chart.Aligned) =>
@@ -102,40 +104,62 @@ const _feed = (chart: uPlot, next: Chart.Aligned): void => chart.setData(next)
 
 const _COHORT = { key: "panel-telemetry" } as const
 
-const _telemetry = (width: number, height: number, strokes: ReadonlyArray<string>): uPlot.Options => ({
+const _telemetry = (
+  width: number,
+  height: number,
+  series: ReadonlyArray<{ readonly label: string; readonly stroke: string }>,
+): uPlot.Options => ({
   width,
   height,
   ms: 1,
   cursor: { sync: { key: _COHORT.key } },
   series: [
     {},
-    ...strokes.map((stroke, rank) => ({ label: `s${rank}`, stroke, width: 1, spanGaps: true })),
+    ...Array.map(series, (row) => ({ label: row.label, stroke: row.stroke, width: 1, spanGaps: true })),
   ],
   axes: [{ side: 2 }, { side: 3 }],
 })
+
+const _STREAM = { points: 100_000 } as const
+
+const _tail = (held: Chart.Aligned, next: Chart.Aligned, points: number): Chart.Aligned =>
+  Array.map(held, (col, rank) => {
+    // BOUNDARY ADAPTER: concat the prior window with the frame's column, tail to the point cap
+    const merged = Float64Array.from([...(col as Iterable<number>), ...(next[rank] as Iterable<number>)])
+    return merged.length > points ? merged.subarray(merged.length - points) : merged
+  }) as Chart.Aligned
+
+const _stream = (x: string, series: ReadonlyArray<string>) =>
+  (held: Chart.Aligned, frame: Uint8Array): Chart.Aligned =>
+    Option.match(_columns(tableFromIPC(frame), x, series), {
+      onNone: () => held,
+      onSome: (cols) => _tail(held, cols, _STREAM.points),
+    })
 ```
 
 ## [05]-[PIVOT_SURFACE]
 
 [PIVOT_SURFACE]:
-- Owner: `Chart.pivot(element, frame, options)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread (or `websocket(url)` + `open_table(name)` attaches to a host-published feed — where the data lives is wiring, not an API fork), `client.table(frame, { format: "arrow", index })` ingests the bus frame (`index` makes updates upserts, `limit` ring-buffers a stream — the two table modes every feed chooses between), the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s the table, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.
+- Owner: `Chart.pivot(element, frame, options)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread (or `websocket(url)` + `open_table(name)` attaches to a host-published feed — where the data lives is wiring, not an API fork), `client.table(frame, { format: "arrow", index })` ingests the bus frame (`index` makes updates upserts, `limit` ring-buffers a stream, `page_to_disk` spills a feed past the memory ceiling — the table modes every feed chooses between), the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s the table, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.
 - Packages: `@perspective-dev/client` (`worker`, `websocket`, `Client.table`/`open_table`/`join`, `Table.update`/`view`, `View.to_arrow`/`on_update`); `@perspective-dev/viewer` + `@perspective-dev/viewer-datagrid` + `@perspective-dev/viewer-charts` (registration-by-import — the import IS the API; the plugin pair is closed, `viewer-d3fc`/`viewer-openlayers` rejected); `system/token` (the `./themes/*.css` roster imports once through the token stylesheet).
 - Law: the `ViewerConfig` is the ONE state value — `save()` emits it, `restore(update)` applies any subset, the config atom rides `Atom.kvs` with its schema, a `perspective-config-update` listener writes user-driven changes back through the atom, and atom-driven changes apply via `restore` — the same fold-echo law `Grid` follows for TanStack state; an attribute poke or DOM scrape beside the config value is the named defect.
 - Law: deltas stream, never poll — engine updates land through `table.update(arrowBuffer)` and repaint every dependent view incrementally; `View.on_update({ mode: "row" })` deltas ARE Arrow buffers feeding derived consumers, and a hand-maintained aggregate copy beside a live `View`/`join` is the named defect.
+- Law: a derived feed is a scoped view lane — `Chart.derive(pivot, config)` opens `table.view(config)`, emits the `to_arrow` seed frame then every row-mode delta, and release runs `view.delete()`; each emitted frame is exactly `Chart.stream`'s input, so pivot-derived series feed the streaming regime with no re-materialization.
 - Law: expression columns validate before shipping — `table.validate_expressions(exprs)` gates an ExprTK column; the aggregate vocabulary (`sum`/`distinct count`/`weighted mean`/`min by`/…) is the engine's roster referenced as data in the config value.
 - Law: React reaches the element by ref only — mount runs the bracket in the effect seam, props never flow inside, config does; the element is the boundary.
-- Growth: a new exploration surface is one bracket call with its own config atom; a headless consumer (export, alert, derived feed) holds a `View` directly — never a second engine.
+- Growth: a new exploration surface is one bracket call with its own config atom; a headless consumer (export, alert, derived feed) rides `Chart.derive`'s view lane — never a second engine.
 
 ```typescript
 import perspective from "@perspective-dev/client"
 import "@perspective-dev/viewer"
 import "@perspective-dev/viewer-datagrid"
 import "@perspective-dev/viewer-charts"
+import type { ViewConfigUpdate } from "@perspective-dev/client"
 import type { HTMLPerspectiveViewerElement } from "@perspective-dev/viewer"
-import { Effect } from "effect"
+import { Effect, Stream } from "effect"
 
 declare namespace Chart {
-  type PivotOptions = { readonly name?: string; readonly index?: string; readonly limit?: number }
+  type PivotOptions = { readonly name?: string; readonly index?: string; readonly limit?: number; readonly pageToDisk?: boolean }
   type Pivot = {
     readonly client: Awaited<ReturnType<typeof perspective.worker>>
     readonly table: Awaited<ReturnType<Awaited<ReturnType<typeof perspective.worker>>["table"]>>
@@ -146,7 +170,9 @@ declare namespace Chart {
     readonly plot: typeof _plot
     readonly series: typeof _series
     readonly feed: typeof _feed
+    readonly stream: typeof _stream
     readonly pivot: typeof _pivot
+    readonly derive: typeof _derive
   }
 }
 
@@ -160,6 +186,7 @@ const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, optio
           ...(options.name !== undefined && { name: options.name }),
           ...(options.index !== undefined && { index: options.index }),
           ...(options.limit !== undefined && { limit: options.limit }),
+          ...(options.pageToDisk !== undefined && { page_to_disk: options.pageToDisk }), // OPFS spill for feeds past the memory ceiling
         }))
       yield* Effect.promise(() => element.load(table))
       return {
@@ -176,15 +203,37 @@ const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, optio
       }),
   )
 
+const _derive = (pivot: Chart.Pivot, config: ViewConfigUpdate): Stream.Stream<Uint8Array> =>
+  Stream.asyncScoped<Uint8Array>((emit) =>
+    Effect.acquireRelease(
+      Effect.promise(async () => {
+        // BOUNDARY ADAPTER: on_update is the engine's push seam — the seed frame emits before the delta subscription arms
+        const view = await pivot.table.view(config)
+        void emit.single(new Uint8Array(await view.to_arrow()))
+        await view.on_update(({ delta }) => {
+          if (delta !== undefined) void emit.single(new Uint8Array(delta))
+        }, { mode: "row" })
+        return view
+      }),
+      (view) => Effect.promise(() => view.delete()),
+    ),
+  )
+
 const Chart: Chart.Shape = {
   columns: _columns,
   plot: _plot,
   series: _series,
   feed: _feed,
+  stream: _stream,
   pivot: _pivot,
+  derive: _derive,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Chart }
 ```
+
+## [06]-[RESEARCH]
+
+- [BATCH_COLUMNS]-[OPEN]: which member projects a named column from one `RecordBatch` (the `getChild` spelling on `RecordBatch` versus a `Table` constructed over one batch) for the `RecordBatchReader.from` continuous-body lane; verify against `.api/apache-arrow.md`, then land the per-batch projection through `Chart.columns`.

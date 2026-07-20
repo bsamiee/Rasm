@@ -47,7 +47,7 @@ Rasm.AppUi/
 │   ├── Issues.cs         # openBIM issue board projection over the Bim BCF contract
 │   └── Tour.cs           # Review tour as a camera-track projection with presenter-follow presence
 ├── Diagnostics/          # Evidence, proof, dev loop, and quality governance
-│   ├── Evidence.cs       # Evidence-receipt union, correlation join, and the 6xxx fault registry
+│   ├── Evidence.cs       # Evidence-receipt union, telemetry spine and fan, correlation join, 6xxx fault registry
 │   ├── Proof.cs          # Capture lanes, headless proof matrix, goldens, and a typed proof fault
 │   ├── DevLoop.cs        # Hot-reload knobs, inspector, HUD, flamegraph, solve scrub, and a REPL
 │   └── Governor.cs       # Perf-budget quality governor with timestamp attribution
@@ -59,7 +59,7 @@ Rasm.AppUi/
     └── Locale.cs         # Locale rows over Resx, ICU, and time, a typed locale fault, live captioning
 ```
 
-`Shell` owns the host-mount axis and application spine: the mount precedes the shell, the shell precedes the screens it routes. `Theme` is the pure vocabulary tier every literal traces to. `Render` owns the GPU-viewport and temporal tier, `Document` composes the AppHost recompute graph and owns every paginated output, and `Diagnostics` carries the 6xxx fault registry, the headless proof matrix, and the quality governor. `Collab/sync` holds the one live-merge authority every co-edited surface composes and the single typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
+`Shell` owns the host-mount axis and application spine — the mount precedes the shell, the shell precedes the screens it routes — and `Theme` is the pure vocabulary tier every literal traces to. `Render` owns the GPU-viewport and temporal tier, `Document` the recompute graph and every paginated output, and `Diagnostics` the 6xxx fault registry, the proof matrix, the telemetry spine, and the quality governor. `Collab/sync` holds the one live-merge authority and the typed `EditIntent` union that is durable truth on the Persistence ledger — no Loro byte crosses durable truth.
 
 ## [02]-[STRATA]
 
@@ -73,33 +73,14 @@ Four member-resolved strata order the interior; `Diagnostics/Evidence` is the re
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.AppUi interior strata
-    accDescr: Four member-resolved strata from the control and issue surfaces through the binding, intent, and revert streams and the one-owner spines onto the fault-band and theme substrate, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Four member-resolved strata from the control and issue surfaces through the binding, intent, and revert streams and the one-owner spines onto the fault-band and theme substrate, every consumption edge downward and naming one sourced type.
     subgraph L3["S3 SURFACES"]
         Factory[ControlFactory]
         Board[IssueBoard]
@@ -114,30 +95,23 @@ flowchart TB
         Virtual[VirtualWindowSpec]
         Solver[LayoutSolver]
         Inspect[EditReceipt]
+        Graph[RenderGraph]
     end
     subgraph L0["S0 SUBSTRATE"]
         Fault[AppUiFaultBand]
         Token[TokenRow]
     end
-    Factory e1@-->|"[IMPORT]: VirtualWindowSpec"| Virtual
-    Factory e2@-->|"[IMPORT]: LayoutSolver"| Solver
-    Factory e3@-->|"[IMPORT]: BehaviorRail"| Rail
-    Factory e4@-->|"[IMPORT]: TokenRow"| Token
-    Board e5@-->|"[IMPORT]: EditIntent"| Intent
-    Rail e6@-->|"[IMPORT]: CommandIntent"| Command
-    Revert e7@-->|"[IMPORT]: CommandIntent"| Command
-    Revert e8@-->|"[IMPORT]: EditReceipt"| Inspect
-    Intent e9@-->|"[IMPORT]: CommandIntent"| Command
-    Command e10@-->|"[IMPORT]: AppUiFaultBand"| Fault
-    Fault f1@-->|"forbidden: substrate upward"| L3
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Factory,Board,Rail,Intent,Revert primary
-    class Command,Virtual,Solver,Inspect,Fault,Token recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
-    class f1 edgeError
+    Factory -->|"[IMPORT]: VirtualWindowSpec"| Virtual
+    Factory -->|"[IMPORT]: LayoutSolver"| Solver
+    Factory -->|"[IMPORT]: BehaviorRail"| Rail
+    Factory -->|"[IMPORT]: TokenRow"| Token
+    Board -->|"[IMPORT]: EditIntent"| Intent
+    Rail -->|"[IMPORT]: CommandIntent"| Command
+    Revert -->|"[IMPORT]: CommandIntent"| Command
+    Revert -->|"[IMPORT]: EditReceipt"| Inspect
+    Intent -->|"[IMPORT]: CommandIntent"| Command
+    Command -->|"[IMPORT]: AppUiFaultBand"| Fault
+    Graph -->|"[IMPORT]: AppUiFaultBand"| Fault
 ```
 
 ## [03]-[SEAMS]
@@ -147,33 +121,14 @@ Two fences split the seam map by counterpart role: the first binds the same-bran
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppUi AEC-domain, render-source, and storage seams
-    accDescr: AppUi render, chart, and collaboration owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: AppUi render, chart, and collaboration owners exchanging residency projections, receipts, boundaries, content keys, and shared-device shapes with the AEC peers Compute, Fabrication, Materials, Bim, the kernel, and the Persistence store.
     subgraph appui[RASM.APPUI]
         Render[Render tier]
         Charts[Chart planes]
@@ -185,68 +140,33 @@ flowchart LR
     Bim([Rasm.Bim])
     Rasm([Rasm])
     Persistence[(Rasm.Persistence)]
-    Compute e1@-->|"[PROJECTION]: ResidencyPayload"| Render
-    Render e2@<-->|"[SHAPE]: WgpuDevice"| Compute
-    Compute e3@-->|"[SHAPE]: SolarPosition"| Render
-    Fabrication e4@-->|"[RECEIPT]: HiddenLineResult"| Render
-    Materials e5@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| Render
-    Rasm e6@-->|"[CONTENT_KEY]: ContentHash"| Render
-    Bim e7@-->|"[SHAPE]: GeoTiles"| Charts
-    Bim e8@-->|"[RECEIPT]: CostSchedule"| Charts
-    Bim e9@-->|"[PORT]: IssueBoard"| Collab
-    Collab e10@-->|"[PROJECTION]: ReplayWindow"| Persistence
-    Collab e11@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
-    Bim e12@-->|"[RECEIPT]: ConstructionState"| Render
-    Bim e13@-->|"[BOUNDARY]: BcfViewpoint"| Render
-    Bim e14@-->|"[SHAPE]: GeoReference"| Render
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Render,Charts,Collab primary
-    class Compute external
-    class Persistence data
-    class Fabrication,Materials,Bim,Rasm annotation
-    class e6,e11 edgeData
-    class e4,e8,e12 edgeSuccess
-    class e1,e10 edgeExternal
-    class e2,e3,e5,e7,e9,e13,e14 edgeControl
+    Compute -->|"[PROJECTION]: ResidencyPayload"| Render
+    Render <-->|"[SHAPE]: WgpuDevice"| Compute
+    Compute -->|"[SHAPE]: SolarPosition"| Render
+    Fabrication -->|"[RECEIPT]: HiddenLineResult"| Render
+    Materials -->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| Render
+    Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
+    Bim -->|"[SHAPE]: GeoTiles"| Charts
+    Bim -->|"[RECEIPT]: CostSchedule"| Charts
+    Bim -->|"[PORT]: IssueBoard"| Collab
+    Collab -->|"[PROJECTION]: ReplayWindow"| Persistence
+    Collab -->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
+    Bim -->|"[RECEIPT]: ConstructionState"| Render
+    Bim -->|"[BOUNDARY]: BcfViewpoint"| Render
+    Bim -->|"[SHAPE]: GeoReference"| Render
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppUi platform-host and cross-runtime wire seams
-    accDescr: AppUi shell, render, editing, document, and diagnostics owners exchanging command, residency, and evidence wires, render receipts, determinism ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: AppUi shell, render, editing, document, and diagnostics owners exchanging command, residency, and evidence wires, render receipts, determinism and receipt-hook ports, and the fault-band adjacency with the app host and the TypeScript core and viewer peers.
     subgraph appui[RASM.APPUI]
         Shell[Shell spine]
         Render[Render tier]
@@ -257,42 +177,31 @@ flowchart LR
     AppHost{{Rasm.AppHost}}
     Core([typescript:core])
     Ui([typescript:ui])
-    Shell e1@-->|"[WIRE]: CommandPayloadWire"| Core
-    Render e2@-->|"[WIRE]: GeometryResidencyWire"| Core
-    Diagnostics e3@-->|"[WIRE]: EvidenceFeed"| Core
-    Shell e4@-->|"[WIRE]: ControlIntentWire"| Ui
-    Render e5@-->|"[RECEIPT]: RenderReceipt"| Ui
-    AppHost e7@-->|"[PORT]: DeterminismContext"| Editing
-    AppHost e8@-->|"[PORT]: DeterminismContext"| Document
-    Diagnostics e9@<-->|"[FAULT]: FaultBand"| AppHost
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Shell,Render,Editing,Document,Diagnostics primary
-    class AppHost external
-    class Core,Ui annotation
-    class e1,e2,e3,e4 edgeData
-    class e5 edgeSuccess
-    class e7,e8 edgeControl
-    class e9 edgeError
+    Shell -->|"[WIRE]: CommandPayloadWire"| Core
+    Render -->|"[WIRE]: GeometryResidencyWire"| Core
+    Diagnostics -->|"[WIRE]: EvidenceTimelineWire"| Core
+    Shell -->|"[WIRE]: ControlIntentWire"| Ui
+    Render -->|"[RECEIPT]: RenderReceipt"| Ui
+    AppHost -->|"[PORT]: DeterminismContext"| Document
+    Diagnostics <-->|"[FAULT]: FaultBand"| AppHost
+    AppHost -->|"[PORT]: ReceiptSinkPort + HookRail"| Diagnostics
 ```
 
-`[PORT]` edges into `Editing` and `Document` are the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary. `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only. `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read. `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
+- `[PORT]: DeterminismContext` into `Document` is the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary; `Document/notebook` `CapabilityPin` is its consumer anchor.
+- `[PORT]` into `Diagnostics` is the observability spine: owners seal evidence through `ReceiptSinkPort`, contribute instrument rows through `TelemetryContributorPort` mounted on the `TelemetrySource.AppUi` meter, and the evidence fan subscribes to the `HookRail` receipt point as one observe row — telemetry projects facts, never produces them.
+- `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only.
+- `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read.
+- `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 
 ## [04]-[BOUNDARIES]
 
-- `ChartAtlas` texture UV enters through the Fabrication nesting receipt.
 - Bim `ElementSet` queries enter through Bim-owned receipt rows.
-- `ScheduleNetwork` dashboards consume Bim planning receipts.
+- Cost and schedule dashboards consume the Bim `CostSchedule` and `ScheduleNetwork` planning receipts as `Charts/dashboards` feed values.
 - Whisper.net owns translate-to-English captioning; broader translation binds through a locale service row.
 - Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.
-- `SurfaceHost.RhinoPanel` mounts only when a Rhino lease supplies `EmbedCapsule` and `RenderGraph.Lease`.
+- `SurfaceHost.RhinoPanel` mounts only when a Rhino lease supplies `EmbedCapsule` and the `Render/pipeline` render-graph GPU lease.
 
 ## [05]-[PROHIBITIONS]
 

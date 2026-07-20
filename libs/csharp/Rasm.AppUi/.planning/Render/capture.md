@@ -569,3 +569,7 @@ public static class ClipEncoder {
 ## [08]-[COLOR_BOUNDARY]
 
 - [ICC_TONEMAP]: `ColorPolicy.FromIcc` validates bytes through `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` and stores the immutable profile bytes so `Working` and `Output` mint independently owned color spaces. `ToneMap.Filter` binds `SKColorFilter.CreateTable(byte[])`, and `Reproject` binds `SKImageInfo.WithColorSpace`; borrowed images remain borrowed while every minted projection and color object is disposed by its owner.
+
+## [09]-[RESEARCH]
+
+(none)

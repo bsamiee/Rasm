@@ -260,3 +260,7 @@ public sealed record GraphCoEdit(
 - Packages: NodeEditorAvalonia, Rasm.AppHost (project), SkiaSharp, LanguageExt.Core
 - Growth: a new read projection (Compute solve graph, Fabrication posting chain) is one `From*` fold returning rows; zero new surface.
 - Boundary: the dependency projection READS the AppHost `RecomputeGraph` vocabulary through the declared port (decode-only) — the same `[V11]` law the notebook lands; a projection-local dependency model is the deleted form.
+
+## [06]-[RESEARCH]
+
+(none)

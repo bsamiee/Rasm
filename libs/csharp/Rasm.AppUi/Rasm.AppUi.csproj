@@ -17,58 +17,58 @@
         <PackageReference Include="Avalonia.Fonts.Inter" />
         <PackageReference Include="Avalonia.Headless" />
         <PackageReference Include="Avalonia.Themes.Fluent" />
-        <PackageReference Include="ReactiveUI" />
-        <PackageReference Include="ReactiveUI.Avalonia" />
-        <PackageReference Include="ReactiveUI.Validation" />
-        <PackageReference Include="Xaml.Behaviors.Avalonia" />
-        <PackageReference Include="System.Reactive" />
-        <PackageReference Include="DynamicData" />
+        <PackageReference Include="DialogHost.Avalonia" />
         <PackageReference Include="Dock.Avalonia" />
         <PackageReference Include="Dock.Model.ReactiveUI" />
         <PackageReference Include="Dock.Serializer.SystemTextJson" />
-        <PackageReference Include="DialogHost.Avalonia" />
+        <PackageReference Include="DynamicData" />
         <PackageReference Include="Kiwi" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="ReactiveUI.Avalonia" />
+        <PackageReference Include="ReactiveUI.Validation" />
+        <PackageReference Include="System.Reactive" />
+        <PackageReference Include="Xaml.Behaviors.Avalonia" />
     </ItemGroup>
 
     <ItemGroup Label="Controls Theme">
-        <PackageReference Include="Avalonia.Controls.DataGrid" />
-        <PackageReference Include="Avalonia.Controls.ColorPicker" />
+        <PackageReference Include="AsyncImageLoader.Avalonia" />
         <PackageReference Include="Avalonia.AvaloniaEdit" />
+        <PackageReference Include="Avalonia.Controls.ColorPicker" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" />
         <PackageReference Include="AvaloniaEdit.TextMate" />
         <PackageReference Include="bodong.Avalonia.PropertyGrid" />
         <PackageReference Include="bodong.PropertyModels" />
-        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
-        <PackageReference Include="AsyncImageLoader.Avalonia" />
         <PackageReference Include="FluentIcons.Avalonia" />
         <PackageReference Include="FluentIcons.Common" />
+        <PackageReference Include="Irihi.Ursa" />
+        <PackageReference Include="Irihi.Ursa.ReactiveUIExtension" />
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
         <PackageReference Include="Markdig" />
         <PackageReference Include="PanAndZoom" />
         <PackageReference Include="Semi.Avalonia" />
-        <PackageReference Include="Semi.Avalonia.DataGrid" />
-        <PackageReference Include="Semi.Avalonia.ColorPicker" />
-        <PackageReference Include="Semi.Avalonia.Dock" />
         <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
-        <PackageReference Include="Irihi.Ursa" />
-        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
-        <PackageReference Include="Irihi.Ursa.ReactiveUIExtension" />
+        <PackageReference Include="Semi.Avalonia.ColorPicker" />
+        <PackageReference Include="Semi.Avalonia.DataGrid" />
+        <PackageReference Include="Semi.Avalonia.Dock" />
     </ItemGroup>
 
     <ItemGroup Label="Render GPU">
         <PackageReference Include="Avalonia.Skia" />
-        <PackageReference Include="SkiaSharp" />
-        <PackageReference Include="SkiaSharp.HarfBuzz" />
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
-        <PackageReference Include="Svg.Controls.Skia.Avalonia" />
-        <PackageReference Include="Svg.Skia" />
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
         <PackageReference Include="Silk.NET.OpenXR" />
-        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.FB" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
+        <PackageReference Include="Svg.Controls.Skia.Avalonia" />
+        <PackageReference Include="Svg.Skia" />
     </ItemGroup>
 
     <ItemGroup Label="Media Input">
@@ -76,28 +76,28 @@
         <PackageReference Include="HanumanInstitute.LibMpv" />
         <PackageReference Include="HanumanInstitute.LibMpv.Avalonia" />
         <PackageReference Include="HidSharp" />
+        <PackageReference Include="Melanchall.DryWetMidi" />
         <PackageReference Include="Silk.NET.Input" />
         <PackageReference Include="Silk.NET.SDL" />
-        <PackageReference Include="Melanchall.DryWetMidi" />
     </ItemGroup>
 
     <ItemGroup Label="Exchange Collab">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="DocumentFormat.OpenXml" />
         <PackageReference Include="lcmsNET" />
+        <PackageReference Include="LoroCs" />
+        <PackageReference Include="Mapsui.Avalonia12" />
+        <PackageReference Include="MessageFormat" />
+        <PackageReference Include="NodeEditorAvalonia" />
         <PackageReference Include="PDFsharp" />
         <PackageReference Include="PDFsharp-MigraDoc" />
-        <PackageReference Include="NodeEditorAvalonia" />
-        <PackageReference Include="Mapsui.Avalonia12" />
-        <PackageReference Include="LoroCs" />
-        <PackageReference Include="MessageFormat" />
         <PackageReference Include="Whisper.net" />
     </ItemGroup>
 
     <ItemGroup Label="Dev Loop">
-        <PackageReference Include="ProDiagnostics" PrivateAssets="all" />
-        <PackageReference Include="HotAvalonia" PrivateAssets="all" />
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" PrivateAssets="all" />
+        <PackageReference Include="HotAvalonia" PrivateAssets="all" />
+        <PackageReference Include="ProDiagnostics" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Functional Core">

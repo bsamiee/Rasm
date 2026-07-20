@@ -245,6 +245,10 @@ public readonly record struct RedactionPlan(IRedactorProvider Provider, HashMap<
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class TabularSource {
+    // The registry-mounted census derives from the kind vocabulary; the `store.tabular.` prefix declares once here.
+    public static readonly Seq<StoreSlot> Slots =
+        toSeq(TabularFactKind.Items).Map(static kind => StoreSlot.Create($"store.tabular.{kind.Key}"));
+
     public static IO<Validation<TabularFault, Seq<T>>> Read<T>(TabularSpec spec, ProjectionContext frame, Func<TabularFact, IO<Unit>> sink) =>
         from rows in IO.lift(() => Capture(() => toSeq(spec.Window.Match(
                 Some: w => spec.Source.Read(

@@ -1,6 +1,6 @@
 # [RASM_RHINO]
 
-`Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macos native surface - the full Rhino host captured as typed, Leased capability. Document sessions, geometry custody, table transactions, typed persistence and saved-state presets, live objects and their attributes, commands and acquisition, blocks, drafting annotation, native modeling compute, viewports and capture, display conduits, render content and settings, file exchange and publishing, Eto realization, and host chrome each fold through one owner behind thread-affinity and capability gates, every native resource retained only across its leased extent and every outcome a typed receipt. Its bar is total capture: an app root or an agent composes parameterized host capability without learning RhinoCommon's raw surface, and the rich Rhino-native features - drafting, sheets, native file I0 - stay rich rather than thinned toward a host-neutral floor.
+`Rasm.Rhino` is the single host boundary over RhinoCommon, Rhino UI, Eto, and the macOS native surface — the full Rhino host captured as typed, leased capability. Every host concern folds through one owner behind thread-affinity and capability gates, every native resource is retained only across its leased extent, and every outcome is a typed receipt. Its bar is total capture: an app root or an agent composes parameterized host capability without learning RhinoCommon's raw surface, and Rhino-native drafting, sheets, and file I/O stay rich rather than thinned toward a host-neutral floor.
 
 It references no sibling package — every alignment travels down the one kernel seam, and it enters only at the app roots, never as an interior dependency of a host-neutral package.
 
@@ -28,7 +28,7 @@ It references no sibling package — every alignment travels down the one kernel
 - Route: [OBJECTS_MATERIALS](.planning/Objects/materials.md): `Materials.Ask` resolves materials, mappings, and mesh caches behind one shared-bracket commit.
 - Route: [OBJECTS_LIGHTS](.planning/Objects/lights.md): `Lights.Commit` runs the closed light-kind family under the shared bracket.
 - Route: [OBJECTS_HISTORY](.planning/Objects/history.md): `HistoryScript` and `ReplayProgram` own the record/replay triad, linkage topology, and governance.
-- Route: [OBJECTS_AUTHORING](.planning/Objects/authoring.md): `ObjectProgram` and `GripProgram` quarantine host subclassing behind adapters and widget grants.
+- Route: [OBJECTS_AUTHORING](.planning/Objects/authoring.md): `ObjectProgram` and `GripProgram` quarantine host subclassing behind adapters; `ObjectsTelemetry` is the one structured-log egress.
 
 [COMMANDS]:
 - Route: [COMMANDS_COMMAND](.planning/Commands/command.md): `CommandFlow<TState>.Drive` owns the bounded immutable command algebra behind the host lifecycle.
@@ -37,7 +37,7 @@ It references no sibling package — every alignment travels down the one kernel
 - Route: [COMMANDS_SELECTION](.planning/Commands/selection.md): `Picks` owns eager picked-reference capture, geometry retention, and measured kernel re-entry.
 
 [BLOCKS]:
-- Route: [BLOCKS_MODEL](.planning/Blocks/model.md): `BlockRef` owns instance-definition identity and the whole-state snapshot policy rows.
+- Route: [BLOCKS_MODEL](.planning/Blocks/model.md): `Definitions.Lens` resolves the Document-owned `ResourceRef`; `BlockSnapshot` owns the whole-state policy rows.
 - Route: [BLOCKS_GRAPH](.planning/Blocks/graph.md): `BlockGraph.Ask` folds live and archived definitions into one transient topology and its closure evidence.
 - Route: [BLOCKS_LIFECYCLE](.planning/Blocks/lifecycle.md): `BlockLifecycle` composes ingress, preview vault, deferred refresh, eviction, and native disposal.
 - Route: [BLOCKS_OPERATIONS](.planning/Blocks/operations.md): `Blocks.Commit` runs read and transaction rails through plan grants and additive receipts.
@@ -77,8 +77,8 @@ It references no sibling package — every alignment travels down the one kernel
 - Route: [RENDER_CONTENT](.planning/Render/content.md): `ContentRef` addresses the RDK content graph behind the kind axis, change bracket, and snapshot.
 - Route: [RENDER_KINDS](.planning/Render/kinds.md): `MaterialBridge` borrows baked material and PBR projections per window; mint verbs yield leased content.
 - Route: [RENDER_FIELDS](.planning/Render/fields.md): `FieldValue` owns every typed content parameter through one polymorphic write, recover, and box dispatch.
-- Route: [RENDER_REGISTRY](.planning/Render/registry.md): `Contents.Commit` runs the content rail through factory vocabulary, receipts, and events.
-- Route: [RENDER_SETTINGS](.planning/Render/settings.md): `Settings.Commit` applies total render state across the document, archive, and free-floating duality.
+- Route: [RENDER_REGISTRY](.planning/Render/registry.md): `Registry.Run` and `Registry.Read` run the content rail through factory vocabulary, receipts, and events.
+- Route: [RENDER_SETTINGS](.planning/Render/settings.md): `Settings.Run` applies total render state across the document, archive, and free-floating duality.
 - Route: [RENDER_MAPPING](.planning/Render/mapping.md): `MappingSpec` mints texture mappings; the `Mappings` rail binds and recovers them per object channel.
 
 [EXCHANGE]:
@@ -105,7 +105,7 @@ It references no sibling package — every alignment travels down the one kernel
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Host assemblies admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
+Host assemblies admitted by this folder bind as `Directory.Build.props` host references from the installed Rhino bundle — never manifest package rows — and this folder's `.api/` corroborates each surface.
 
 [RHINO_HOST]:
 - `RhinoCommon` — core Rhino host object model behind every document, command, geometry, and exchange surface.
@@ -119,12 +119,16 @@ Host assemblies admitted by this folder; versions centralize in the C# manifest 
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the contracts, and `libs/csharp/.api/` holds the API evidence.
+Shared substrate consumed from the C# registry; the registry and its charters own the contracts, and `libs/csharp/.api/` holds the API evidence. This folder's observability axis is fault logging alone — `ObjectsTelemetry` on `Objects/authoring.md` is the one structured-log egress, every measured surface mints the typed receipt carrying its own run evidence, and instrument projection over those receipts is app-root altitude, never a second measurement truth inside the boundary.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
+
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions`
+- `Microsoft.Extensions.Telemetry.Abstractions`
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — transient block-graph topology, reachability, and source-first ordering.

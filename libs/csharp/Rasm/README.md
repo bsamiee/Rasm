@@ -1,6 +1,6 @@
 # [RASM]
 
-`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata: the exact-arithmetic computational-geometry floor and the operational geometry plane above it, one body. Its robust tier — adaptive exact predicates, constrained Delaunay, exact arrangement and booleans, the predicate-exact crossing lattice, robust skeleton and medial, predicate-gated heal, decimate, flatten, fit, and solve — is necessary but not sufficient; the consumer tier composes it into the parametric forms behind every generated assembly, the toolpath-grade offsets, slices, and clearances behind every CNC and additive program, the encoded payloads behind every GPU residency lane, and the persistent topological naming behind every persistence diff. Where no admissible package carries the robustness guarantee the kernel authors from first principles; where the ecosystem owns the concern it composes the categorical-best engine; never both for one concern.
+`Rasm` owns the RhinoCommon-aware geometry and numeric kernel below the C# app strata — the exact-arithmetic computational-geometry floor and the operational geometry plane above it, one body. Its robust tier is necessary but not sufficient: the consumer tier composes it into the parametric forms, fabrication toolpaths, GPU residency payloads, and persistence naming every upper stratum consumes. Where no admissible package carries the robustness guarantee the kernel authors from first principles; where the ecosystem owns the concern it composes the categorical-best engine, never both.
 
 `Rasm` references no sibling while every upper stratum composes it, and it is the one C# geometry owner — the host-free peers meet it only at the content-identity and tessellation wire. Pure-numeric floor is host-neutral-shaped without minting a host-free assembly, and `Context.Of(RhinoDoc)` and `Analyze.From(RhinoDoc)` are its only doc-coupled entries.
 
@@ -91,7 +91,6 @@
 Kernel-specific libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
 
 [NUMERIC_FLOOR]:
-- `CSparse` — sparse direct-solve substrate under the matrix owner.
 - `TYoshimura.DoubleDouble` — middle-precision tier of the predicate ladder.
 - `ExtendedNumerics.BigRational` — exact-rational oracle the predicate ladders prove against.
 - `PeterO.Numbers` — directed-rounding interval-filter tier of the predicate ladder.
@@ -102,7 +101,7 @@ Kernel-specific libraries admitted by this folder; versions centralize in the C#
 - `manifoldc` — in-house P/Invoke over `elalish/manifold`, the guaranteed-manifold scale companion.
 
 [HOST_SURFACE]:
-- `RhinoCommon` — host compile surface; the kernel reads geometry values, never `RhinoDoc`/`RhinoApp`/UI.
+- `RhinoCommon` — host compile surface; the kernel reads geometry values, and `RhinoDoc` enters only at the two charter adapters — never `RhinoApp`/UI.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -115,6 +114,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [NUMERIC]:
 - `MathNet.Numerics` — dense linear-algebra and distribution substrate under the matrix owner.
+- `CSparse` — sparse direct-solve substrate under the matrix owner.
 - `System.Numerics.Tensors`
 - `CommunityToolkit.HighPerformance` — 2D spans and pooled owners on the SoA build arenas.
 

@@ -2,7 +2,7 @@
 
 AEC computational and numerical geometry — one `@tagged_union` dispatch surface over `compas`: graph/network adjacency, structural form-finding (dynamic relaxation over `compas_dr`, thrust-network analysis over `compas_tna`), datastructure algebra over the `Mesh`/`VolMesh`/`Assembly`/`NurbsSurface` family, and a parameterized `NumericalOp` table folding best-fit/bbox/hull primitives AND the rigid/affine/similarity/projective transform rows into one keyed catalogue. No separate `graph/transform` owner exists: an affine map is a numerical op on a coordinate set, not a second concern. This owner excludes non-manifold topology (the `nonmanifold` sibling over `topologicpy`) and raw mesh-file exchange, which defers to data `MeshPayload`.
 
-Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICAL_PRIMITIVE` beside `NETWORK_GRAPH`/`FORM_FINDING`/`MESH_ALGEBRA` — and `graduates()` returns the local `GeometryHandoff` whose `wire()` projection is the compute crossing. `@receipted` sits on the pure `_extract` with the `boundary` fence OUTSIDE it — a solve that raises is an `Error(BoundaryFault)`, never a synthetic zero-handle receipt — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
+Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICAL_PRIMITIVE` beside `NETWORK_GRAPH`/`FORM_FINDING`/`MESH_ALGEBRA` — and `graduates()` returns the local `GeometryHandoff` whose `wire()` projection is the compute crossing. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_ALGEBRA` — span, fence, and receipt harvest in one composition, so a solve that raises is an `Error(BoundaryFault)` on the recorded rail, never a synthetic zero-handle receipt — the same wiring the `nonmanifold` sibling carries. Proxy bring-up, teardown, and every RPC wait cross as `RELEASING`-trait runtime `Kernel`s through `lane.offload`, bring-up under `RetryClass.RPC`: the runtime-owned thread band, zero geometry-minted limiters.
 
 ## [01]-[INDEX]
 
@@ -10,13 +10,13 @@ Each case keys its `CASE` row for the `GeometrySubject` it crosses — `NUMERICA
 
 ## [02]-[ALGEBRA]
 
-- Owner: `ComputationalGeometry` discriminates by `AlgebraKind`, and the four per-case data axes — graduation subject, residual-ledger projector, ceiling, and whether the case graduates — are ONE `CASE` table, so a new kind is one row plus one union case, never a `_subject` match racing a parallel ledger fold. `AlgebraResult` is the sole `ReceiptContributor`, its phase data-driven — `emitted` for a converged/clean result, `admitted` for a form-finding pass whose residual exceeds `FormParams.tol` — so an unconverged equilibrium is flagged rather than asserted. Every parameterized case's sub-op is a closed `StrEnum`, never a raw string in the payload.
-- Entry: `run` discriminates a single op or a batch over one fenced rail; `bridged` is the async mirror routing the SAME `_extract` through the `compas.rpc.Proxy`. `Proxy` reaches ONLY the scipy-backed heavy band — the `_dr`/`_tna` solvers and the `rpc`-routed `_numpy` primitives whose scipy cores must not block the companion in-process; the pure-Python transform rows carry `rpc=None`, so the proxy route is a per-row capability, never a blanket re-entry marshaling a matrix multiply across the process wall.
+- Owner: `ComputationalGeometry` discriminates by `AlgebraKind`, and the four per-case data axes — graduation subject, residual-ledger projector, ceiling, and whether the case graduates — are ONE `CASE` table, so a new kind is one row and one union case, never a `_subject` match racing a parallel ledger fold. `AlgebraResult` is the sole `ReceiptContributor`, its phase data-driven — `emitted` for a converged/clean result, `admitted` for a form-finding pass whose residual exceeds `FormParams.tol` — so an unconverged equilibrium is flagged rather than asserted. Every parameterized case's sub-op is a closed `StrEnum`, never a raw string in the payload.
+- Entry: `run` discriminates a single op or a batch, each returning through its own weave rail; `bridged` is the async mirror routing the SAME `_dispatch` through the `compas.rpc.Proxy`. `Proxy` reaches ONLY the scipy-backed heavy band — the `_dr`/`_tna` solvers and the `rpc`-routed `_numpy` primitives whose scipy cores must not block the companion in-process; the pure-Python transform rows carry `rpc=None`, so the proxy route is a per-row capability, never a blanket re-entry marshaling a matrix multiply across the process wall.
 - Law: `Proxy` lifecycle is in-page — `solver_proxy(lane)` is the one async-resource owner: bring-up crosses as a `RELEASING` kernel under `retry=Some(RetryClass.RPC)` (the resilience row exists for this cold-start), teardown crosses the same band inside the scope exit, and a `bridged` fan shares ONE reconnected worker through an enclosing `AsyncExitStack`. Localhost server is per-session material the first proxy spawns and the spawning proxy stops, so no `Supervisor` DAEMON charge is minted at the serve composition root; RPC waits block on the socket, exactly the `RELEASING` trait's syscall arm.
 - Receipt: network/numerical/datastructure cases key an `empty_handle_fraction` against the zero ceiling, so a vacuous result does not graduate; form-finding keys its solver residual against `_RESIDUAL_CEILING`; residual census is the evidence the fold reads, never a re-measured value. `json_dumps` is the one COMPAS serializer for every result handle, never a per-type encoder.
 - Packages: `compas`, `compas_dr`, and `compas_tna` per the fence imports, beside the runtime lane/fault/receipt rails and the graduation spine.
-- Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row; a new numerical primitive or transform is one `NumericalOp` row plus one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row plus one `_FORM` arm; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
-- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the `boundary` fence subject and the `@receipted` aspect, never a second hand-rolled rail.
+- Growth: a new algebra kind is one union case, one `match` arm, and one `CASE` row; a new numerical primitive or transform is one `NumericalOp` row and one `NUMERICAL` entry — its RPC route a row field, never a parallel map; a new datastructure verb is one `DATASTRUCTURE` entry; a new form-finding engine is one `FormEngine` row and one `_FORM` arm; a new geometric constraint is one `NodeConstraint` row — `Constraint.get_constraint_cls` dispatches on the decoded COMPAS-JSON, never a new arm; `compas_cem` admits as a `FormEngine.CEM` row once it ships `compas>=2.0` support.
+- Boundary: non-manifold topology is the `nonmanifold` sibling's; raw mesh-file exchange defers to data `MeshPayload`; retry/telemetry rides the graduation weave's fence and harvest, never a second hand-rolled rail.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,6 +24,7 @@ import contextlib
 import sys
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from enum import StrEnum
+from functools import partial
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
@@ -42,21 +43,20 @@ from compas_tna.diagrams import FormDiagram, ForceDiagram
 from compas_tna.equilibrium import horizontal_numpy, relax_boundary_openings, vertical_from_zmax
 from compas_tna.loads import LoadUpdater
 from expression import Result, Some, case, tag, tagged_union
-from expression.collections import Block, Map
+from expression.collections import Block
 from msgspec import Struct, structs
 
-from rasm.geometry.graduation import GeometryHandoff, GeometrySubject
-from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.resilience import RetryClass
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type AlgebraKind = Literal["network", "form_finding", "numerical", "datastructure"]
-type Phase = Literal["admitted", "emitted"]
 type Coords = list[list[float]]
 type Points = tuple[tuple[float, float, float], ...]
 type Edges = tuple[tuple[int, int], ...]
@@ -87,7 +87,6 @@ class DatastructureOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # algebra facts carry no secret field
 # mirrors the dr_numpy tol1 default and the FormParams.tol verdict, so the receipt and the graduation gate read one bar.
 _RESIDUAL_CEILING: Final[float] = 1e-3
 _HANDLE_CEILING: Final[float] = 0.0
@@ -150,7 +149,7 @@ class AlgebraResult(Struct, frozen=True):
         # Census int/float scalars ride the dict[str, object] slots natively — no str() coerce.
         phase: Phase = "emitted" if self.converged else "admitted"
         facts: dict[str, object] = structs.asdict(self.census)
-        return (Receipt.of("geometry.graph.algebra", (phase, self.graduation_subject, facts)),)
+        return (Receipt.of("rasm.geometry.graph.algebra", (phase, self.graduation_subject, facts)),)
 
     def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
         spec = CASE[self.kind]
@@ -355,27 +354,27 @@ async def solver_proxy(lane: LanePolicy) -> AsyncIterator[Proxy]:
                 pass
 
 
-@receipted(REDACTION)
-def _extract(op: ComputationalGeometry, *, proxy: Proxy | None = None) -> AlgebraResult:
-    return _dispatch(op, proxy=proxy)
-
-
 def run(op: ComputationalGeometry | Sequence[ComputationalGeometry]) -> RuntimeRail[AlgebraResult] | RuntimeRail[Block[AlgebraResult]]:
-    # a batch folds one Block of the SAME fenced rail through traversed(ACCUMULATE); the default `i=item` binds the loop
-    # variable per closure so the comprehension never captures the last item.
+    # each op returns through its own GRAPH_ALGEBRA weave — span, fence, and receipt harvest in one composition — and a
+    # batch folds the weave rails through traversed(ACCUMULATE); the default `i=item` binds the loop variable per closure.
     match op:
         case Sequence() as batch:
-            return traversed(Block.of_seq([boundary(f"algebra.{item.tag}", lambda i=item: _extract(i)) for item in batch]), by=Disposition.ACCUMULATE)
+            return traversed(
+                Block.of_seq([evidence_run(EvidenceScope.GRAPH_ALGEBRA, f"run.{item.tag}", lambda i=item: _dispatch(i)) for item in batch]),
+                by=Disposition.ACCUMULATE,
+            )
         case ComputationalGeometry() as single:
-            return boundary(f"algebra.{single.tag}", lambda: _extract(single))
+            return evidence_run(EvidenceScope.GRAPH_ALGEBRA, f"run.{single.tag}", lambda: _dispatch(single))
         case _ as unreachable:
             assert_never(unreachable)
 
 
 async def bridged(op: ComputationalGeometry, proxy: Proxy, lane: LanePolicy) -> RuntimeRail[AlgebraResult]:
-    # `bridged` is not itself @receipted — the aspect lives on `_extract` for both paths; the proxy is supplied by an
-    # enclosing solver_proxy(lane) scope, never constructed per call.
-    return await lane.offload(Kernel.of(lambda: _extract(op, proxy=proxy), KernelTrait.RELEASING))
+    # weave harvest emits the conforming AlgebraResult loop-side on the cleared Ok for both paths; the proxy is
+    # supplied by an enclosing solver_proxy(lane) scope, never constructed per call.
+    return await evidence_run(
+        EvidenceScope.GRAPH_ALGEBRA, f"bridged.{op.tag}", partial(lane.offload, Kernel.of(lambda: _dispatch(op, proxy=proxy), KernelTrait.RELEASING))
+    )
 ```
 
 ## [03]-[RESEARCH]

@@ -86,6 +86,10 @@ public readonly partial struct GraphQlDocument {
 }
 
 public static class ReadRouter {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.query.route"), StoreSlot.Create("store.query.wait"), StoreSlot.Create("store.query.reflected"),
+        StoreSlot.Create("store.elementset.eval"));
+
     public static QueryLane Route(ReadRequest request) => request.Switch(
         interactive: static _ => QueryLane.Topology,
         graphAnalytic: static _ => QueryLane.Cypher,

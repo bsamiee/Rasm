@@ -129,7 +129,9 @@ public sealed record ShaderAssetCache(
     public const string FailedInstrument = "rasm.appui.shader.failed";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, CompiledInstrument, FailedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(CompiledInstrument, InstrumentKind.Count, "{shader}", "shader compiles by backend"),
+            new(FailedInstrument, InstrumentKind.Count, "{shader}", "shader compile failures by backend"));
 }
 ```
 
@@ -276,3 +278,7 @@ flowchart LR
 
 - [SHADER_COMPILE]: `ShaderProgram` closes native program ownership over exactly one `SKRuntimeEffect` or `WgpuPipelineState`. `ShaderAssetCache` probes before native construction, disposes a concurrent insertion loser, and retains one program for each `(Key, Revision, GpuBackend)` cell.
 - [BSDF_SHADE_SEAM]: `ShadeUniforms.From` projects `LayeredBsdf.Lobes`, `SurfaceShade.BaseColorLinear`, `Roughness`, `Metalness`, and `EmissionLinear` into immutable uniform runs. `ShaderProgram` binds those values through `SKRuntimeEffect.BuildShader` or the composition-bound wgpu bind-group column, and both arms mount through `BoundShade` on the active `RenderTarget`.
+
+## [05]-[RESEARCH]
+
+(none)

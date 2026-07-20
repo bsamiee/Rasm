@@ -1,6 +1,6 @@
 # [PERSISTENCE]
 
-`Rasm.Persistence` is the federation's durable truth — one body: the content-addressed system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, convergent CRDT merge, AS-OF time travel, three-way structural merge that survives re-ingest and re-key, PROV provenance under a tamper-evident attested ledger, classification-driven retention with full-history GC, provably restorable recovery; the consistency-split read lanes from authoritative through analytical, retrieval, and federation; the content-keyed geometry object store; and the coordination substrate of fenced leases, budgets, and membership every AppHost workflow leans on. Its bar is version-control-grade truth at model scale: a Type re-key reads as a rename through the merge engine, never churn; a million-event model scrubs at the cost of its delta, never its history; and every cross-runtime reuse key resolves bit-identically against the one kernel content-hash entry.
+`Rasm.Persistence` is the federation's durable truth: the content-addressed system of record for the `ElementGraph`; the version-control engine over it — commit-DAG, CRDT merge, AS-OF time travel, three-way merge, attested provenance, classification-driven retention, verified recovery; the consistency-split read lanes; the content-keyed geometry object store; and the fenced coordination substrate. Its bar: a Type re-key reads as a rename, a million-event model scrubs at the cost of its delta, and every cross-runtime reuse key resolves bit-identically against the kernel content-hash.
 
 It persists the graph over a Marten append substrate, depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, consumes the AppHost port vocabulary as settled contract, and references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
 
@@ -35,12 +35,13 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [20]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
 - [21]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
 - [22]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
-- [23]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements, with the issue-cycle reconcile.
+- [23]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements.
 
 [STORE]:
 - [24]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
 - [25]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
 - [26]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [27]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat harvest receipts, the receipt-slot registry, and the instrument contributor.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -68,7 +69,7 @@ PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relatio
 - `SQLitePCLRaw.bundle_e_sqlite3`
 
 [SERVER_EXTENSIONS]:
-PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative, supersets this consumer-facing list, and the two agree. Each carries a folder `.api/` catalogue of its SQL surface.
+PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
 - `timescaledb` — hypertable, continuous-aggregate, retention, and columnstore
 - `timescaledb_toolkit` — hyperfunction and time-weighted-aggregate layer over `timescaledb`
 - `pg_duckdb` — in-PG DuckDB analytical bridge, distinct from the in-process `DuckDB.NET` lane
@@ -103,11 +104,13 @@ In-process columnar analytics stack and the serialization, interchange, and comp
 - `DuckDB.NET.Data.Full` — drives the in-process DuckDB columnar lane, distinct from the `pg_duckdb` server bridge
 - `Apache.Arrow`
 - `Apache.Arrow.Flight`
+- `Apache.Arrow.Flight.Sql` — Flight SQL dialect over the Flight transport; `FlightSqlClient` verbs and the `FlightSqlServer` served-node base
 - `Apache.Arrow.Adbc`
 - `Apache.Arrow.Adbc.Drivers.Apache` — pure-managed Thrift+Arrow ADBC over Hive, Impala, and Spark
 - `Apache.Arrow.Adbc.Drivers.BigQuery` — pure-managed BigQuery ADBC cloud-warehouse lane
 - `Apache.Arrow.Compression` — Arrow-IPC `Lz4Frame`/`Zstd` codec factory
 - `ParquetSharp` — native libparquet Parquet read and write
+- `ParquetSharp.Dataset` — partitioned multi-file Parquet lake scanner streaming `Apache.Arrow` batches with predicate and column pushdown
 - `FlowtideDotNet.Substrait` — Substrait portable query-plan IR backing the federation rail
 - `FastCDC.Net`
 - `Ara3D.BimOpenSchema`
@@ -134,6 +137,7 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `Speckle.Objects`
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half
 - `Confluent.Kafka`
+- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters over the Kafka egress sink.
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution
 - `Confluent.SchemaRegistry.Serdes.Avro`
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`
@@ -141,7 +145,7 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `CloudNative.CloudEvents`
 - `CloudNative.CloudEvents.Kafka`
 - `CloudNative.CloudEvents.SystemTextJson`
-- `NATS.Net` — Core pub/sub plus JetStream durable streams; backs `EgressSink.Nats`
+- `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`
 

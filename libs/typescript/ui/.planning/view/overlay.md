@@ -69,7 +69,7 @@ const _middleware = (options: Overlay.Anchor) => [
 [SHEET_HOST]:
 - Owner: the sheet law riding `Overlay` — the vaul host: `Drawer.Root` with `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` atom-bound, `snapPoints` + `fadeFromIndex` as the detent policy row (`Overlay.Detents`), `Drawer.Title` + `Drawer.Description` always present (visually hidden when no heading shows), `handleOnly` for drag-origin discipline with `Drawer.Handle` as the affordance; a nested flow mounts `Drawer.NestedRoot`, and `snapToSequentialPoint` disables velocity skipping where detents are semantic stops.
 - Packages: `vaul` (`Drawer.Root`, `Drawer.NestedRoot`, `Drawer.Trigger`, `Drawer.Portal`, `Drawer.Overlay`, `Drawer.Content`, `Drawer.Handle`, `Drawer.Title`, `Drawer.Description`, `Drawer.Close`).
-- Law: the sheet's drag is vaul's own — no `use-gesture` binding on a sheet surface (`system/act`'s double-bind defect); sheet motion is the drag physics plus `Motion.sheet` for programmatic open/close, never both animating one property.
+- Law: the sheet's drag is vaul's own — no `use-gesture` binding on a sheet surface (`system/act`'s double-bind defect); sheet motion is the drag physics with `Motion.sheet` for programmatic open/close, never both animating one property.
 - Law: `repositionInputs` stays default where a sheet hosts fields — the keyboard-avoidance behavior is the package's; a hand-rolled viewport listener beside it is the named defect.
 - Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Drawer.Root` composition — the detent policy row never forks.
 
@@ -97,8 +97,6 @@ declare namespace Overlay {
     readonly run: () => void
   }
 }
-
-declare const _specs: Record<string, Overlay.Command>
 ```
 
 ## [05]-[PRESENCE_COHORT]

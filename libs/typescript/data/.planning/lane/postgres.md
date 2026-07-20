@@ -25,7 +25,7 @@ The PostgreSQL spine of the guarantee-lane matrix: one sealed vocabulary owner c
 - Law: `asyncIo` is the read-path throughput row — `io_method` is a deployment fact the image projection carries implicitly; no statement composes it, and the row exists so the degradation table answers it honestly.
 - Law: `rls` is the tenancy predicate plane — row-level security policies read the transaction-local GUC; the policy DDL and the pinning transformer are `lane/tenant.md`'s, and this row exists so the grant vocabulary names what the sqlite lanes replace with residency.
 
-```typescript
+```typescript signature
 const _spine = ["uuidv7", "returningOldNew", "virtualGenerated", "temporal", "skipScan", "asyncIo", "rls"] as const
 
 declare namespace Pg {
@@ -46,7 +46,7 @@ declare namespace Pg {
 - Law: `copy` is the maximal-throughput bulk lane under WAL and refuses per-row error routing — batch atomicity is all-or-nothing, so a partial-tolerant ingest splits its batch above the statement.
 - Law: `partition` (declarative partitioning plus replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
 
-```typescript
+```typescript signature
 const _primitives = {
   skipLocked: {
     upholds: "non-blocking competing-consumer claim, one live tx per row",
@@ -101,7 +101,7 @@ declare namespace Pg {
 - Law: `pg_parquet` grants the object-store COPY egress — `COPY TO/FROM` Parquet against the object plane — interchange only, never a query engine; the OLAP lane owns querying what it writes.
 - Law: the standard probe is structural — a row without `probeSql` rides the one batched catalog scan `lane/capability.md` owns; `probeSql` exists ONLY as the exotic per-row override, so probe dispatch reads field presence, never string shape.
 
-```typescript
+```typescript signature
 import { Record } from "effect"
 
 const _flags = ["tsl", "excludesSharding", "preload", "requiresCron"] as const
@@ -163,7 +163,7 @@ declare namespace Pg {
 - Law: the shared-pool row is the tenancy fan-out primitive — one app-owned pool acquired once, adopted by every row-scoped and schema-scoped tenant Layer through `layerFromPool`, so a diamond of N apps on one database costs one pool.
 - Law: construction is resilient at the Layer value — `Layer.retry` under the jittered bounded schedule rides both mints, gated by `Schedule.whileInput` to the `SqlError` tag so a malformed config fails immediately while a transient pool-acquire refusal at boot re-attempts as graph policy; a persistent refusal still fails typed after the budget.
 
-```typescript
+```typescript signature
 import { Array, Config, type ConfigError, Duration, Layer, Option, Record, Schedule } from "effect"
 import type { SqlClient, SqlError } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"

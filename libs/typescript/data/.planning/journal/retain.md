@@ -19,8 +19,9 @@ Lawful data aging without rewriting: the log is append-only forever, so this pag
 - Law: the journal itself never ages by wall clock — partition drop is lawful only at-or-below a frontier the causality owner finalized AND a snapshot at-or-above it exists; `Retain.handoff` records the `Causal.Retention` coordinate into the frontier ledger under a monotonic guard (a stale handoff commits nothing), the drop statement generates from the recorded row, and compaction can never orphan unreplayable history.
 - Law: partitioning is a `pg_partman` image fact — the ensure registers `journal_event` as a partitioned parent only where the `partition` grant holds, and the drop itself is the granted maintenance row `lane/postgres.md` gates; the sqlite profiles never partition (their compaction is the export-snapshot-and-truncate posture `lane/sqlite.md` owns).
 - Law: ledger, outbox, and fact grooming are ordinary deletes on non-truth tables — `Retain.groom(relation, column)` sweeps every finite class window in one pass, the interval arithmetic spelled once per dialect through `sql.onDialectOrElse`, and `permanent` folds to a no-op by `Duration.isFinite`; the `incremental` grant upgrades large grooms to exactly-once checkpointed batch folds where it probes true.
+- RESEARCH: the `pg_partman` retention-apply statement pair — the `part_config` retention update the frontier row keys and the maintenance invocation that drops eligible partitions — is catalogued against the extension surface before the drop fence settles; until then the frontier ledger row is the sole drop input and no partition drops outside the granted maintenance row.
 
-```typescript
+```typescript signature
 import { Duration, Effect, Schema } from "effect"
 import { SqlClient } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
@@ -115,7 +116,7 @@ const _groom = (relation: string, column: string) =>
 - Law: erasure is key destruction ONLY — `UPDATE subject_key SET wrapped = NULL, destroyed_at = …` — no journal row is touched, no payload rewritten; the append-only invariant survives the right to erasure because unreadable IS erased.
 - Law: the envelope travels as `SealedEnvelope` — IV and ciphertext as opaque encoded bytes inside the payload field; the field is `Model.Sensitive`-classed on any projection row so the sealed form never leaks into a JSON variant.
 
-```typescript
+```typescript signature
 import { Effect, Option } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/ts/security"
@@ -218,15 +219,16 @@ const _erase = (key: SubjectKey) =>
 ## [04]-[DSAR_EXPORT]
 
 - Owner: `Retain.dsar` — the one portability fold: every journal event indexed to the tenant-scoped `SubjectKey`, lifted through the journal family's own upcast plan into the live member, joined with the key's object references, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material; plus the subject-index slot this page publishes to the write transaction.
-- Packages: `effect` (`Stream`); `journal/evolve.md` (`Upcast.Plan` — the one read-lift road); `journal/append.md` (the read stream and the `Slot` contract); the object plane's reference rows arrive by relation name.
-- Entry: the subject index is written at publish time — a `Journal.Slot` provided by this page stamps `(subject, sequence)` rows for subject-bearing events, so the DSAR read is an index scan, never a full-log crawl; the caller hands `dsar` the same folded `Upcast.Plan` its journal binding holds, so export and replay lift through one anchor.
+- Packages: `effect` (`Stream`, `Array`); `journal/evolve.md` (`Upcast.Plan` — the one read-lift road); `journal/append.md` (the read stream and the `Slot` contract); `read/live.md` (`Live.merged` — the slot's empty coordinate); the object plane's reference rows arrive by relation name.
+- Entry: the subject index is written at publish time — `Retain.slot(subjects)` mints the `Journal.Slot` an app carries in its publish intent: the caller's `subjects` projection names each event's subject keys, the slot stamps `(subject, sequence)` rows inside the commit, and the DSAR read is therefore an index scan, never a full-log crawl; the caller hands `dsar` the same folded `Upcast.Plan` its journal binding holds, so export and replay lift through one anchor.
 - Growth: a new export surface (object bytes bundled, format variants) is a projection of the same fold — the subject spine never changes.
 - Law: the export and the erasure share one spine — the same `subject_journal` index that finds events to export finds nothing to rewrite on erasure, proving the two rights compose: export reads what remains readable, erasure makes fields unreadable, and both leave the log bytes untouched.
 - Law: the fold is streaming and decoded to the live family — each row admits through the `_EntryRow` schema (`payload` through `Upcast.Column`), then lifts through `plan.decode` so historical event versions upcast and the export carries admitted members, never a raw tag/version/payload envelope; a malformed or unplanned historical row quarantines as `ParseError` on the stream, and the `subject_journal.sequence` join runs engine-side against the BIGINT column, so no sequence value crosses the process untyped.
 - Law: sensitive projection columns never enter the export — the `Model.Sensitive` field class strips them from every JSON variant by construction; sealed payload fields export opened only where the consuming exporter composes `Retain.open` against a live key, and an erased subject's fields export as the redaction marker the `Option.none` fold names.
 
-```typescript
-import { Stream, type ParseResult } from "effect"
+```typescript signature
+import { Array, Stream, type ParseResult } from "effect"
+import { Live } from "../read/live.ts"
 import { Upcast } from "./evolve.ts"
 
 declare namespace Retain {
@@ -254,6 +256,23 @@ const _subjectIndexDdl: Capability.Ensure = {
     app TEXT NOT NULL, tenant TEXT NOT NULL, subject TEXT NOT NULL, sequence INTEGER NOT NULL,
     PRIMARY KEY (app, tenant, subject, sequence));`,
 }
+
+const _slot = <A>(subjects: (event: A) => ReadonlyArray<Retain.Subject>): Journal.Slot<A> => ({
+  keys: () => Live.merged([]), // no reactive reader subscribes the subject index: the empty coordinate stamps nothing
+  project: (stream, events, receipt) =>
+    Effect.flatMap(SqlClient.SqlClient, (sql) => {
+      const rows = Array.flatMap(Array.zip(events, receipt.rows), ([event, row]) =>
+        Array.map(subjects(event), (subject) => ({
+          app: stream.app,
+          tenant: stream.tenant,
+          subject,
+          sequence: row.sequence, // receipt rows align positionally with the batch: the landed global sequence indexes its event's subjects
+        })))
+      return Array.isNonEmptyReadonlyArray(rows)
+        ? Effect.asVoid(sql`INSERT INTO subject_journal ${sql.insert(rows)} ON CONFLICT DO NOTHING`)
+        : Effect.void
+    }),
+})
 
 const _EntryRow = Schema.Struct({
   tag: Schema.String,
@@ -301,6 +320,7 @@ const Retain = {
   seal: _seal,
   open: _open,
   erase: _erase,
+  slot: _slot,
   dsar: _dsar,
   ddl: [_frontierDdl, _subjectDdl, _subjectIndexDdl],
 } as const

@@ -157,6 +157,9 @@ public readonly record struct MergeOutcome(Seq<EditOp> Merged, Seq<MergeConflict
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StructuralMerge {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.diff.structural"), StoreSlot.Create("store.merge.threeway"));
+
     public static Seq<GraphNode> Forest(ElementGraph graph) {
         // Forest topology rides the seam Relationship.Compose containment edges (Whole→Part), siblings ordered
         // by their index among one Whole's Compose edges — never a phantom unified edge kind. ONLY Object nodes

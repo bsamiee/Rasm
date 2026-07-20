@@ -12,6 +12,11 @@
         <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
+    <ItemGroup Label="Observability">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Host Usings">
         <Using Include="Rasm.Domain" />
         <Using Include="Eto.Drawing" />

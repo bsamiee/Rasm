@@ -2,7 +2,7 @@
 
 Non-manifold topological modeling over the stateless `topologicpy` static-method namespace: construction from B-rep/OCCT/JSON/OBJ/IFC bytes, hierarchy decomposition, the non-manifold boolean kernel, cell adjacency, attribute attachment, geometric analysis, and `Graph.ByTopology` dual-graph extraction with the connectivity/centrality/spanning/path analytics the C# `IfcSemanticModel` spatial projection does not perform. Each case folds through one of the `_CONSTRUCT`/`_BOOLEAN`/`_ANALYSIS`/`GRAPH_ANALYTIC` data tables, never parallel arms; the `topology-graph` subject crosses HERE, and `network-graph` stays with the `features`/`algebra` siblings.
 
-`topologicpy` is an opt-in Forge-lane companion excluded from the default server build — its `AGPL-3.0-or-later` network-copyleft terms require an explicit accepting worker lane — so every `topologicpy` and `ifcopenshell` binding stays function-local behind the cached `_topo`/`_graph`/`_cluster`/`_dictionary` facade accessors, never a module-top import loading the AGPL band into every companion start; the owner and fences stay authored, runtime admission binding to the companion-lane provisioning charter. Reducer-return vocabulary imports downward from the tier-0 `graph/analytic` substrate, no page-local twin; the `@receipted` aspect sits on the one pure `_extract` with the fence OUTSIDE, and `bridged` crosses as a `KernelTrait.HOSTILE` kernel onto the warm process pool — the TopologicPy/OCCT core holds process-global native state and imports under no isolated subinterpreter, so a thread or subinterpreter arm is the untruthful trait — while the sibling wiring convention (fence outside, aspect on `_extract`) holds unchanged.
+`topologicpy` is an opt-in Forge-lane companion excluded from the default server build — its `AGPL-3.0-or-later` network-copyleft terms require an explicit accepting worker lane — so every `topologicpy` and `ifcopenshell` binding stays function-local behind the cached `_topo`/`_graph`/`_cluster`/`_dictionary` facade accessors, never a module-top import loading the AGPL band into every companion start; the owner and fences stay authored, runtime admission binding to the companion-lane provisioning charter. Reducer-return vocabulary imports downward from the tier-0 `graph/analytic` substrate, no page-local twin; `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_TOPOLOGY` — span, fence, and receipt harvest in one composition over the pure `_dispatch` — and `bridged` crosses as a `KernelTrait.HOSTILE` kernel onto the warm process pool, because the TopologicPy/OCCT core holds process-global native state and imports under no isolated subinterpreter, so a thread or subinterpreter arm is the untruthful trait; the sibling wiring convention holds unchanged.
 
 ## [01]-[INDEX]
 
@@ -11,18 +11,18 @@ Non-manifold topological modeling over the stateless `topologicpy` static-method
 ## [02]-[TOPOLOGY]
 
 - Owner: `run` is the one module-level entrypoint — no stateful capsule, no mutable receipt accumulator. `TopologyResult` is the sole `ReceiptContributor`, its phase data-driven — `emitted` for a clean extraction, `admitted` for a degenerate result (an empty decomposition, a null boolean, a zero-node dual graph) — so a caveat is flagged rather than asserted. Every parameterized case's sub-kind is a closed `StrEnum`, never a raw string in the payload.
-- Entry: `run` discriminates a single op or a batch over one fenced rail; `bridged` is NOT itself `@receipted` and never collapses an offload fault into a synthetic degenerate result — a failure stays an `Error(BoundaryFault)` on the returned rail.
+- Entry: `run` discriminates a single op or a batch, each returning through its own weave rail; `bridged` never collapses an offload fault into a synthetic degenerate result — a failure stays an `Error(BoundaryFault)` on the returned rail.
 - Auto: every static call returns an opaque `topologic_core` handle the next call consumes, so dispatch threads handles through the chain rather than mutating an object; the topologicpy centralities return vertex-ordered score lists — the Sequence arm of the substrate's one shape-discriminated `ranked` fold, shared with the networkx sibling's dict arm.
 - Receipt: only the dual-graph case graduates — `GeometrySubject.TOPOLOGY_GRAPH`, gating `empty_node_fraction` against the zero ceiling so a degenerate graph breaches rather than crossing clean; the JSON-bytes payload is the evidence the crossing keys; the non-graph ops emit the receipt only.
 - Packages: `topologicpy` and `ifcopenshell` bound ONLY through the cached facade accessors on the AGPL gate; the analytic vocabulary and the graduation spine import downward from their geometry owners.
-- Growth: a new intake format is one `SourceKind` row plus one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row plus one table entry; a new graph analytic is one `GraphAnalytic` row plus one `GRAPH_ANALYTIC` reducer; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
+- Growth: a new intake format is one `SourceKind` row and one `_CONSTRUCT` entry; a new boolean or analysis verb is one enum row and one table entry; a new graph analytic is one `GraphAnalytic` row and one `GRAPH_ANALYTIC` reducer; the bottom-up construction family (`Vertex.ByCoordinates`/`Cell.ByFaces`/`CellComplex.ByCells`), the `Aperture.ByTopologyContext` opening topology, and the `BVH` clash/raycast surface admit as further rows when a consumer demands them — table growth, never a new page.
 - Boundary: `topologicpy` is admitted ONLY for the non-manifold cell/aperture analysis the C# `IfcSemanticModel` does not extract — the BIM space-graph (spatial hierarchy/adjacency) is projected in-process and never re-derived here; numerical/form-finding geometry is the `algebra` sibling's, mesh-feature projection the `features` sibling's, and raw mesh-file exchange stays at the data `MeshPayload` seam — `run` returns handle/JSON-bytes summaries and never writes a topology file.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
-from functools import cache
+from functools import cache, partial
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
@@ -31,18 +31,17 @@ from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct, structs
 
-from rasm.geometry.graduation import GeometryHandoff, GeometrySubject
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked
-from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type OpTag = Literal["construct", "decompose", "adjacency", "boolean", "analysis", "attribute", "dual_graph"]
-type Phase = Literal["admitted", "emitted"]
 # every static call returns a bare `topologic_core` handle (`Topology`/`Graph`/`Dictionary` C++
 # object), opaque with no Python stub, so handles thread the chain typed only as `object`.
 type Handle = object
@@ -95,7 +94,6 @@ class GraphAnalytic(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # topology facts carry no secret field
 # dual-graph residual the graduation carrier gates: a degenerate graph (zero nodes) breaches.
 _GRAPH_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_node_fraction": 0.0})
 
@@ -164,7 +162,7 @@ class TopologyResult(Struct, frozen=True):
     def contribute(self) -> tuple[Receipt, ...]:
         phase: Phase = "admitted" if self.degenerate else "emitted"
         facts: dict[str, object] = {**structs.asdict(self.census), "handle_count": len(self.handles)}
-        return (Receipt.of("geometry.graph.nonmanifold", (phase, self.graduation_subject, facts)),)
+        return (Receipt.of("rasm.geometry.graph.nonmanifold", (phase, self.graduation_subject, facts)),)
 
     def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
         empty = 0.0 if self.census.nodes else 1.0
@@ -352,28 +350,27 @@ def _graph_census(graph: Handle, analytics: Map[GraphAnalytic, AnalyticValue]) -
     )
 
 
-@receipted(REDACTION)
-def _extract(op: TopologyOp) -> TopologyResult:
-    return _dispatch(op)
-
-
 def run(op: TopologyOp | Sequence[TopologyOp]) -> RuntimeRail[TopologyResult] | RuntimeRail[Block[TopologyResult]]:
-    # a batch folds a Block of the same fenced rail through traversed(ACCUMULATE); `i=item` binds the loop variable per closure.
+    # each op returns through its own GRAPH_TOPOLOGY weave — span, fence, and receipt harvest in one composition — and
+    # a batch folds the weave rails through traversed(ACCUMULATE); `i=item` binds the loop variable per closure.
     match op:
         case Sequence() as batch:
             return traversed(
-                Block.of_seq([boundary(f"topology.{item.tag}", lambda i=item: _extract(i)) for item in batch]), by=Disposition.ACCUMULATE
+                Block.of_seq([evidence_run(EvidenceScope.GRAPH_TOPOLOGY, f"run.{item.tag}", lambda i=item: _dispatch(i)) for item in batch]),
+                by=Disposition.ACCUMULATE,
             )
         case TopologyOp() as single:
-            return boundary(f"topology.{single.tag}", lambda: _extract(single))
+            return evidence_run(EvidenceScope.GRAPH_TOPOLOGY, f"run.{single.tag}", lambda: _dispatch(single))
         case _ as unreachable:
             assert_never(unreachable)
 
 
 async def bridged(op: TopologyOp, lane: LanePolicy) -> RuntimeRail[TopologyResult]:
     # HOSTILE: the OCCT-backed topologic core is GIL-hostile native state, so the closure ships VALUE onto the warm
-    # process pool (op payloads are bytes/policy, picklable whole) and the aspect emits on `_extract`'s worker-side exit.
-    return await lane.offload(Kernel.of(lambda: _extract(op), KernelTrait.HOSTILE))
+    # process pool (op payloads are bytes/policy, picklable whole) and the weave's harvest emits loop-side.
+    return await evidence_run(
+        EvidenceScope.GRAPH_TOPOLOGY, f"bridged.{op.tag}", partial(lane.offload, Kernel.of(lambda: _dispatch(op), KernelTrait.HOSTILE))
+    )
 ```
 
 ## [03]-[RESEARCH]

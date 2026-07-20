@@ -1,6 +1,6 @@
 # [RASM_BIM]
 
-`Rasm.Bim` owns host-neutral BIM semantics — the federation's openBIM authority, one body spanning the IFC class, property, classification, and spatial vocabularies; model query, systems, zones, and structural readers; 4D schedule and 5D cost networks; IDS validation, BCF coordination, clash, diff, and content-addressed model versioning with three-way merge; energy-model exchange; and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict — clash, validation, diff — lands as a typed receipt the product issue board and the review planes consume directly.
+`Rasm.Bim` owns host-neutral BIM semantics — the federation's openBIM authority over the IFC vocabularies, model readers, 4D/5D delivery networks, IDS/BCF/clash/diff review, content-addressed versioning, energy-model exchange, and geospatial site context. Its bar is round-trip fidelity at coordination grade: a foreign model lowers onto the seam graph without semantic loss, re-emits as legal IFC through the per-token admission gate, and every review verdict lands as a typed receipt the issue board and review planes consume directly.
 
 It projects GeometryGym models into canonical `ElementGraph` deltas over the `Rasm.Element` seam, re-emits IFC through `SemanticProjector.Emit`, gates legality through `IfcLegality`, and mints the vocabularies every consumer composes. It references no AEC peer — exchange, review, geospatial, energy, cost, and schedule carriers lower foreign formats to seam graph, content-key, or receipt surfaces, simulation stays Compute-owned, and the Python IFC companion meets only at the wire.
 
@@ -40,7 +40,7 @@ It projects GeometryGym models into canonical `ElementGraph` deltas over the `Ra
 [REVIEW]:
 - [22]-[COORDINATION](.planning/Review/coordination.md): Clash rule engine, impact report, and sign-off machine owning the BCF issue board.
 - [23]-[DIFF](.planning/Review/diff.md): `ModelDiff` folding two graph snapshots into typed added, modified, removed, and moved arms.
-- [24]-[ISSUES](.planning/Review/issues.md): BCF topic, comment, and viewpoint family over the `.bcfzip` codec and the REST projection.
+- [24]-[ISSUES](.planning/Review/issues.md): BCF topic, comment, and viewpoint family over the `.bcfzip` codec and the BCF-API request projection.
 - [25]-[VALIDATION](.planning/Review/validation.md): Two-tier model-QA — template-audit baseline beneath the authored IDS facet fold.
 - [26]-[VERSIONING](.planning/Review/versioning.md): Content-addressed model history — commit DAG and three-way merge with typed conflicts.
 
@@ -69,7 +69,7 @@ BIM-domain libraries admitted by this folder; versions centralize in the C# mani
 - `AssimpNetter` — FBX/Collada/3MF scene decode and emit.
 - `geometry3Sharp` — OBJ/STL/OFF text-mesh arm.
 - `Ply.Net` — dedicated PLY decode.
-- `dotbim` — lightweight `.bim` mesh-plus-metadata interchange.
+- `dotbim` — lightweight `.bim` mesh-and-metadata interchange.
 - `Openize.Drako` — Draco mesh compression.
 - `Alimer.Bindings.MeshOptimizer` — meshopt compression.
 - `Themis.Las` — uncompressed LAS point-cloud decode.
@@ -123,7 +123,7 @@ BIM-domain libraries admitted by this folder; versions centralize in the C# mani
 Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [SEAM_CONTRACTS]:
-- `Rasm.Element` — element seam Bim depends UP on: canonical graph plus projection and constraint contracts.
+- `Rasm.Element` — element seam Bim depends UP on: canonical graph with projection and constraint contracts.
 - `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
 - `Generator.Equals` — structural equality and member diff behind the emit change derivation.
 

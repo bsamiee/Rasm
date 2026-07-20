@@ -196,6 +196,7 @@
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring"     Version="10.8.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting"                            Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd"                    Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Extensions.Http.Diagnostics"                   Version="10.8.0" />
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience"                    Version="10.8.0" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="10.0.10" />
@@ -227,9 +228,16 @@
         <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.17.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.17.0" />
+        <!-- Resource detectors ship prerelease-only; each pinned to its sole published channel. -->
+        <PackageVersion Include="OpenTelemetry.Resources.Container"                       Version="1.16.0-beta.1" />
+        <PackageVersion Include="OpenTelemetry.Resources.Host"                            Version="1.16.0-beta.2" />
+        <PackageVersion Include="OpenTelemetry.Resources.OperatingSystem"                 Version="1.16.0-beta.1" />
+        <PackageVersion Include="OpenTelemetry.Resources.Process"                         Version="1.16.0-rc.1" />
+        <PackageVersion Include="OpenTelemetry.Resources.ProcessRuntime"                  Version="1.16.0-beta.1" />
         <PackageVersion Include="Polly.Core"                                              Version="8.7.0" />
         <PackageVersion Include="Polly.Extensions"                                        Version="8.7.0" />
         <PackageVersion Include="Polly.RateLimiting"                                      Version="8.7.0" />
+        <PackageVersion Include="Pyroscope"                                               Version="1.4.0" />
         <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.1" />
         <PackageVersion Include="Scrutor"                                                 Version="7.0.0" />
         <PackageVersion Include="Serilog"                                                 Version="4.3.1" />
@@ -250,6 +258,7 @@
         <PackageVersion Include="Apache.Arrow.Adbc.Drivers.BigQuery"                      Version="0.23.0" />
         <PackageVersion Include="Apache.Arrow.Compression"                                Version="23.0.0" />
         <PackageVersion Include="Apache.Arrow.Flight"                                     Version="23.0.0" />
+        <PackageVersion Include="Apache.Arrow.Flight.Sql"                                 Version="23.0.0" />
         <!-- Held at 1.0.1: BimOpenSchema.IO 1.6.1 regressed its TFM to net8.0-windows7.0, incompatible with the net10.0 targets. -->
         <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="1.0.1" />
         <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="1.0.1" />
@@ -302,6 +311,7 @@
         <!-- ConfluentKafka instrumentation ships alpha-only; the sole OTel-native Kafka client path. -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka"            Version="0.2.0-alpha.2" />
         <PackageVersion Include="ParquetSharp"                                            Version="24.0.0" />
+        <PackageVersion Include="ParquetSharp.Dataset"                                    Version="0.4.0" />
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                            Version="0.3.0" />
         <PackageVersion Include="PollinationSDK"                                          Version="1.10.0" />
@@ -406,6 +416,7 @@
         <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.Retry"                      Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport"                  Version="2.2.3" />
+        <PackageVersion Include="OpenTelemetry.Exporter.InMemory"                         Version="1.17.0" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3"                             Version="0.13.3" />
         <PackageVersion Include="Verify.DiffPlex"                                         Version="3.3.0" />
         <PackageVersion Include="Verify.XunitV3"                                          Version="31.20.0" />

@@ -243,7 +243,7 @@ class Subtitle(Struct, frozen=True):
 
 def _canon(op: SubtitleOp, /) -> tuple[bytes, ...]:
     # burn_in carries rgb24 frame arrays and tuple-keyed faces the deterministic msgpack encoder refuses, so its
-    # preimage frames each field raw per docs/laws/patterns row [05]; every other case is msgpack-encodable whole.
+    # preimage length-frames each field raw; every other case is msgpack-encodable whole.
     match op:
         case SubtitleOp(tag="burn_in", burn_in=(text, dialect, frames, profile, burn)):
             style = _CANON.encode((tuple(sorted(burn.faces.items())), burn.fallback))

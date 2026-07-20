@@ -298,14 +298,6 @@ TOOLS: tuple[Tool, ...] = (
         Claim.DOCS,
     ),
     Tool(
-        "check-canon",
-        DIRECT,
-        ("uv", "run", "--no-project", ".claude/skills/mermaid-diagramming/scripts/check_canon.py", "--json", "{input}"),
-        OWNED,
-        DOCS,
-        Claim.DOCS,
-    ),
-    Tool(
         "prose-gate",
         DIRECT,
         ("uv", "run", "--no-project", ".claude/skills/docgen/scripts/prose_gate.py", "--json", "{input}"),

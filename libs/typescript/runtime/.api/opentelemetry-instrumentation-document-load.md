@@ -16,23 +16,23 @@
 [PUBLIC_TYPE_SCOPE]: instrumentation + config
 - rail: observability/rum
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                |
-| :-----: | :--------------------------------------- | :-------------- | :--------------------------------------------------- |
-|  [01]   | `DocumentLoadInstrumentation`             | instrumentation | one row in the root's registered instrumentation set |
-|  [02]   | `DocumentLoadInstrumentationConfig`       | config          | the hook policy surface at construction              |
-|  [03]   | `DocumentLoadCustomAttributeFunction`     | hook shape      | stamp the `documentLoad` root span                   |
-|  [04]   | `ResourceFetchCustomAttributeFunction`    | hook shape      | stamp each per-resource child span                   |
-|  [05]   | `AttributeNames`                          | attribute rows  | the row's own span-attribute vocabulary              |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `DocumentLoadInstrumentation`          | instrumentation | one row in the root's registered instrumentation set |
+|  [02]   | `DocumentLoadInstrumentationConfig`    | config          | the hook policy surface at construction              |
+|  [03]   | `DocumentLoadCustomAttributeFunction`  | hook shape      | stamp the `documentLoad` root span                   |
+|  [04]   | `ResourceFetchCustomAttributeFunction` | hook shape      | stamp each per-resource child span                   |
+|  [05]   | `AttributeNames`                       | attribute rows  | the row's own span-attribute vocabulary              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 - rail: observability/rum
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
-| :-----: | :-------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `new DocumentLoadInstrumentation(config?)` | ctor        | one construction at the browser root             |
-|  [02]   | `applyCustomAttributesOnSpan` config hooks | config field | bounded stamps on root and resource spans        |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                       |
+| :-----: | :----------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `new DocumentLoadInstrumentation(config?)` | ctor           | one construction at the browser root      |
+|  [02]   | `applyCustomAttributesOnSpan` config hooks | config field   | bounded stamps on root and resource spans |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

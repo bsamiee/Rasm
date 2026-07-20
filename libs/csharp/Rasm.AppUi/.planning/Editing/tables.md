@@ -337,7 +337,9 @@ public static class CommitSurface {
     public const string ExportInstrument = "rasm.appui.table.export";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, CommitInstrument, ExportInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(CommitInstrument, InstrumentKind.Count, "{commit}", "grid commits by outcome"),
+            new(ExportInstrument, InstrumentKind.Count, "{export}", "tabular exports by destination"));
 
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
@@ -441,3 +443,7 @@ flowchart LR
 - Clipboard: `TableExportSpec.Tsv` fixes `Delimiter` at tab with `HeaderRow` true and the folded text rides the input rail's typed clipboard row — a transport policy over the one shaping fold, never a destination case.
 - Delivery: `Export` folds `Delimited` bytes through `ExportDelivery.Deliver`, so file, blob-lane, and bundle delivery share the export.md exhaustiveness obligation and its `RenderReceipt` seal.
 - Export admission: `Admitted` traverses a non-empty `ColumnKeys` sequence in requested order, rejects quote or line-break delimiters and duplicate, unknown, invisible, or classified keys, and the delimited projection is the single text-shaping fold for clipboard and delivered destinations alike.
+
+## [06]-[RESEARCH]
+
+(none)

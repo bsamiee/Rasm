@@ -25,6 +25,7 @@ from expression.collections import Block
 from functools import partial
 from itertools import accumulate, groupby
 from msgspec import Struct
+from opentelemetry import trace
 from typing import Final
 
 from rasm.data.tabular.columnar import arrow_bytes
@@ -33,7 +34,10 @@ from rasm.data.tabular.query import QueryEngine, QuerySpec
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy, on_thread
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
+
+_TRACER: Final = trace.get_tracer("rasm.data.tabular.materialize")
 
 # CDF post-state survivor set: `update_preimage` carries the OLD image beside its postimage twin and a delete carries no
 # surviving row, so only these two change types feed a recompute — a kept preimage doubles every updated row.
@@ -46,6 +50,9 @@ class PartitionBundle(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
+        # merge-side metric: recomputed row volume lands on the metric spine under domain="materialize"; the partition
+        # id stays receipt-only — unbounded cardinality never becomes a metric dimension.
+        Metrics.record({"rasm.materialize.rows": float(self.rows)}, domain="materialize", kind="cdc")
         return (Receipt.of("derived-snapshot", ("emitted", self.partition, {"rows": self.rows})),)
 
 
@@ -65,9 +72,11 @@ class DerivedSnapshot(Struct, frozen=True):
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
         # `QueryEngine.run` is a coroutine, so the fence is `async_boundary`; `.bind(lambda rail: rail)` self-flattens the
-        # nested rail the wrapped thunk returns, never a second fault fence.
-        railed = await async_boundary("derived.refresh", lambda: self._materialize(source, start, end, prior))
-        return railed.bind(lambda rail: rail)
+        # nested rail the wrapped thunk returns, never a second fault fence. The refresh span parents every per-partition
+        # recompute's query span — in-process composition correlates parent-child, so no add_link rides the receipts.
+        with _TRACER.start_as_current_span("derived.refresh", attributes={"rasm.materialize.partitions": len(prior)}):
+            railed = await async_boundary("derived.refresh", lambda: self._materialize(source, start, end, prior))
+            return railed.bind(lambda rail: rail)
 
     async def _materialize(
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...]

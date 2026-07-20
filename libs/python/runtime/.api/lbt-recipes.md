@@ -9,7 +9,6 @@
 - import: `import lbt_recipes`
 - owner: `runtime`
 - rail: recipe-execution
-- installed: `0.26.17`
 - license: `AGPL-3.0` (network copyleft; the binding admission flag for this distribution)
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension), but shells out to native simulation engines (below)
 - depends: `pollination-handlers==0.10.10` (the IO handler chain), `queenbee-local==0.6.7` (the luigi-based `queenbee local run` executor — the subprocess target), `click==8.1.7`; transitively honeybee/honeybee-radiance/honeybee-energy/ladybug for `Model`/config/engine folders

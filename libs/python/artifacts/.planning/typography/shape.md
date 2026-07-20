@@ -11,13 +11,13 @@ Each arm's `KernelTrait` is one row on the frozen `_SHAPE_TABLE` — `RELEASING`
 ## [02]-[SHAPE]
 
 - Owner: `Shaping` folds one `ShapeRequest` through the frozen `_SHAPE_TABLE`, each row a `(ShapeAcceptor, KernelTrait)` pair — the trait is a row property, never a smuggled `if` on the tag. uharfbuzz owns the OpenType layout engine, the `ot_layout_*`/`axis_infos` introspection, the coverage probe, the `GlyphFlags` signal, the CBDT/sbix+SVG color extractors, and the zero-native-dep BGRA32 CPU rasterizer; fonttools owns the binary model, the `SVGPathPen` outline, and the `fontTools.unicodedata.script` itemize fallback; blackrenderer owns the COLRv1 paint-graph rasterizer; python-bidi owns the UAX#9 default; PyICU owns the locale-aware upgrade behind the `SegmentEngine`/`BidiEngine` rows.
-- Cases: seven arms on one `ShapeRequest`, each case payload closed to its arm's inputs — `normalize` carries text plus its `NormalForm` (all four UAX #15 forms, one member selecting `unicodedata.normalize` or the matching `Normalizer2.get*Instance` singleton) and engine, `bidi`/`itemize` carry text plus direction/engine values alone (a `NORMALIZE` key is untouched by font, raster, or fallback state), `fallback` carries a `FallbackSpec` face stack, and `shape`/`rasterize`/`qa` share the one `ShapeRun` shaping-input owner (`rasterize` composing it inside `RasterSpec`) so the shaping knob set has one declaration site. `ITEMIZE` enriches each single-direction/single-script span by `ScriptTags.of` at the seam after folding `Zyyy`/`Zinh` common/inherited code points onto the surrounding strong script, its ICU arm converting `getVisualRun` UTF-16 offsets onto code-point indices before intersecting script spans and its `AUTO` direction riding `UBiDiLevel.DEFAULT_LTR` first-strong autodetect; `FALLBACK` resolves a per-cluster covering face over the whole-cluster probe (`-1` marking tofu); `SHAPE` runs the one `Buffer` pipeline into a `PositionedGlyphRun`; `RASTERIZE` dispatches the `_COLOR_TABLE` row the format probe selects. `WritingDirection`/`ClusterLevel`/`RasterBackend`/`ColorFormat`/`PaletteUsage` drive the buffer and the raster surface.
+- Cases: seven arms on one `ShapeRequest`, each case payload closed to its arm's inputs — `normalize` carries text with its `NormalForm` (all four UAX #15 forms, one member selecting `unicodedata.normalize` or the matching `Normalizer2.get*Instance` singleton) and engine, `bidi`/`itemize` carry text with direction/engine values alone (a `NORMALIZE` key is untouched by font, raster, or fallback state), `fallback` carries a `FallbackSpec` face stack, and `shape`/`rasterize`/`qa` share the one `ShapeRun` shaping-input owner (`rasterize` composing it inside `RasterSpec`) so the shaping knob set has one declaration site. `ITEMIZE` enriches each single-direction/single-script span by `ScriptTags.of` at the seam after folding `Zyyy`/`Zinh` common/inherited code points onto the surrounding strong script, its ICU arm converting `getVisualRun` UTF-16 offsets onto code-point indices before intersecting script spans and its `AUTO` direction riding `UBiDiLevel.DEFAULT_LTR` first-strong autodetect; `FALLBACK` resolves a per-cluster covering face over the whole-cluster probe (`-1` marking tofu); `SHAPE` runs the one `Buffer` pipeline into a `PositionedGlyphRun`; `RASTERIZE` dispatches the `_COLOR_TABLE` row the format probe selects. `WritingDirection`/`ClusterLevel`/`RasterBackend`/`ColorFormat`/`PaletteUsage` drive the buffer and the raster surface.
 - Entry: `emit()` returns the one `ArtifactWork` keyed pre-run over the request value joined with the `_toolchain()` provider generations — resolved lazily at the first key mint, an absent extra-gated provider fingerprinting as absent — so a shaping-stack upgrade re-keys rather than replaying a stale durable-cache hit; `_emit` crosses the arm over `self.lane.offload(Kernel.of(acceptor, row_trait), request)` — the offload rail is the one fallibility carrier, a provider raise converting once at that boundary — and projects the crossed `ShapedPayload` onto the per-tag receipt case.
-- Auto: every arm offloads under the trait row selected by `_SHAPE_TABLE`; `HOSTILE` requests carry no font bytes. `SHAPE` emits an advance-threaded outline plus origin-drawn per-glyph outlines and reads glyph extents, font extents, baseline, and `StyleValues` from one shaped buffer. `FALLBACK` shapes complete extended grapheme clusters, so UVS, combining, regional-indicator, Indic, and ZWJ sequences share one coverage predicate. `RASTERIZE` derives every plane from two-axis HarfBuzz advances, offsets, and bearings, then composites a positioned PNG with measured bounds.
+- Auto: every arm offloads under the trait row selected by `_SHAPE_TABLE`; `HOSTILE` requests carry no font bytes. `SHAPE` emits an advance-threaded outline with origin-drawn per-glyph outlines and reads glyph extents, font extents, baseline, and `StyleValues` from one shaped buffer. `FALLBACK` shapes complete extended grapheme clusters, so UVS, combining, regional-indicator, Indic, and ZWJ sequences share one coverage predicate. `RASTERIZE` derives every plane from two-axis HarfBuzz advances, offsets, and bearings, then composites a positioned PNG with measured bounds.
 - Receipt: `ShapedPayload.encoded` projects to `ArtifactReceipt.Document`; `ShapedPayload.raster` projects to `ArtifactReceipt.Preview` with byte volume and pixel bounds. One closed payload family makes absent raster dimensions unrepresentable and threads the pre-run key captured by `emit()`.
 - Packages: `uharfbuzz` owns layout, shaped-cluster coverage, metrics, color extraction, and CPU paint; `fonttools` owns pens and script resolution; `blackrenderer` owns COLRv1 paint; `python-bidi` and PyICU own UAX#9; `uniseg` owns grapheme boundaries; `vharfbuzz` owns shaping proofs; `resvg-py` rasterizes OT-SVG glyphs; Pillow composites positioned glyph planes into PNG.
 - Exemption: native buffer mutation, glyph drawing, raster compositing, and trace collection are measured provider kernels; their statement loops own mutable provider objects and never escape an operation.
-- Growth: a new shaping feature is one `ShapeRun.features` dict row; a new arm one `ShapeRequest` case plus one `_SHAPE_TABLE` row (the receipt and dispatch `assert_never` tails breaking until both land); a new raster backend one `RasterBackend` row; a new color format one `ColorFormat` member plus one `_COLOR_PROBE` predicate and one `_COLOR_TABLE` row; a new writing direction one `WritingDirection` member plus its `_HB_DIRECTION`/`_BIDI_BASE` rows; a new cluster granularity one `ClusterLevel` member (names mirror `hb.BufferClusterLevel`, so no table row); a new normalization form one `NormalForm` member; a new bidi/segment owner one `BidiEngine`/`SegmentEngine` member plus one arm; a new palette policy one `PaletteUsage` member; a new style read one `StyleValues` field plus one `hb.StyleTag`; a new shaped-run fact one column on the glyph tuple or one per-run field; a new itemization fact one `ItemizedRun` field; a new arm-local knob one field on that arm's case payload, never a shared bag.
+- Growth: a new shaping feature is one `ShapeRun.features` dict row; a new arm one `ShapeRequest` case and one `_SHAPE_TABLE` row (the receipt and dispatch `assert_never` tails breaking until both land); a new raster backend one `RasterBackend` row; a new color format one `ColorFormat` member, one `_COLOR_PROBE` predicate, and one `_COLOR_TABLE` row; a new writing direction one `WritingDirection` member and its `_HB_DIRECTION`/`_BIDI_BASE` rows; a new cluster granularity one `ClusterLevel` member (names mirror `hb.BufferClusterLevel`, so no table row); a new normalization form one `NormalForm` member; a new bidi/segment owner one `BidiEngine`/`SegmentEngine` member and one arm; a new palette policy one `PaletteUsage` member; a new style read one `StyleValues` field and one `hb.StyleTag`; a new shaped-run fact one column on the glyph tuple or one per-run field; a new itemization fact one `ItemizedRun` field; a new arm-local knob one field on that arm's case payload, never a shared bag.
 - Boundary: no font subsetting/instancing (`typography/font#FONT`), no line-break/hyphenation/paragraph layout (`typography/layout#LAYOUT`, which reads the break-safety column), no PDF authoring (`document/emit#DOCUMENT`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner shapes, itemizes, reorders, normalizes, resolves fallback, and renders glyphs, never breaking a paragraph or producing a document. Text-on-path is the landed `graphic/vector/region#REGION` `text_path` entrypoint's `skia-pathops`/`svgelements` algebra: `SHAPE` draws each glyph to its own origin pen and a curved-baseline consumer hands `run.on_path()` to `vector.text_path`, never a `pathops` import here. A uharfbuzz subsetter, a hand-rolled COLRv1 dispatch, the `renderText` one-shot (it hides the palette/glyph-bounds/backend evidence), a hand-rolled UAX#9 reorder, a hand-rolled break-class table, and a hand-coded script→OT-tag map are each rejected against blackrenderer, `bidi.get_display`, `uniseg`, `fontTools.unicodedata.script`, or the `typography/font#FONT` op that owns them; a parallel raster-backend enum, a second buffer construction, an omnibus parameter bag spanning every arm, and a smuggled lane branch collapse into the per-case payload, the `_SHAPE_TABLE` row, and the one `Buffer` pipeline.
 
 ```python signature
@@ -42,10 +42,11 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -166,6 +167,8 @@ def _toolchain() -> tuple[str, ...]:
     # replaying a stale cross-run cache hit off the durable artifact index; resolution defers to the first key mint so
     # module import never pays or trips the metadata walk.
     return tuple(_generation(name) for name in ("uharfbuzz", "fonttools", "blackrenderer", "pillow", "python-bidi", "pyicu"))
+
+
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
 _UNSAFE_TO_BREAK: Final = 0x0001
 _UNSAFE_TO_CONCAT: Final = 0x0002
@@ -347,8 +350,8 @@ class Shaping(Struct, frozen=True):
         with _TRACER.start_as_current_span(f"shape.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})
             crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
-        # egress fold is asymmetric: the Error arm logs once at this boundary, the Ok path stays silent on the span.
-        return crossed.map(partial(self._receipted, key)).map_error(lambda fault: _logged_fault(self.request.tag, fault))
+            # egress fold closes inside the span scope: the Error arm marks ERROR and logs correlated, the Ok path stays silent.
+            return crossed.map(partial(self._receipted, key)).map_error(partial(_faulted, span, self.request.tag))
 
     def _receipted(self, key: ContentKey, payload: ShapedPayload, /) -> ArtifactReceipt:
         match payload:
@@ -361,7 +364,8 @@ class Shaping(Struct, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-def _logged_fault[E](step: str, fault: E, /) -> E:
+def _faulted(span: trace.Span, step: str, fault: BoundaryFault, /) -> BoundaryFault:
+    span.set_status(Status(StatusCode.ERROR, fault.tag))
     _LOG.error("shape.emit", step=step, **fault.facts())
     return fault
 

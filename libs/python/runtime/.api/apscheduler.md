@@ -9,7 +9,6 @@
 - import: `apscheduler`
 - owner: `runtime`
 - rail: scheduling
-- version: `3.11.2`
 - license: `MIT`
 - namespaces: `apscheduler.schedulers`, `apscheduler.triggers`, `apscheduler.jobstores`, `apscheduler.executors`, `apscheduler.events`, `apscheduler.job`
 - capability: in-process scheduled execution with cron/interval/date/calendar/combining triggers, `Job` lifecycle, pluggable persistent job stores and executors, listener event bus, job import/export

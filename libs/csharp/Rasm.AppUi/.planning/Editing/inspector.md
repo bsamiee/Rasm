@@ -70,7 +70,9 @@ public static partial class InspectorSurface {
     public const string RejectedInstrument = "rasm.appui.edit.rejected";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, CommittedInstrument, RejectedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(CommittedInstrument, InstrumentKind.Count, "{edit}", "edits committed by surface"),
+            new(RejectedInstrument, InstrumentKind.Count, "{edit}", "edits rejected by surface"));
 }
 ```
 

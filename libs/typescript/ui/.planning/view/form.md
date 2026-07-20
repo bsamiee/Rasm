@@ -1,6 +1,6 @@
 # [UI_FORM]
 
-The Schema-driven form plane: one kernel `Schema` owns wire decode AND live field validity — projected through `Schema.standardSchemaV1` (the package surface used directly; a forwarding wrapper is the named defect) into the standard-schema validator RAC fields consume — decode failures land in `FormValidationContext` keyed by field path so server faults and live validation share one error shape, and the submit round-trip awaits the store. The field roster is the full RAC family set bound as rows: text/number, date/time over `@internationalized/date`, color over RAC color state, gauges and toggles — each row one schema field bound to one RAC field, with the tw-rac `invalid:`/`required:` variants styling validity with zero JS branching. No form library, no per-field `useState`, no parallel validator. The module is `ui/src/view/form.ts`.
+The Schema-driven form plane: one kernel `Schema` owns wire decode AND live field validity — projected through `Schema.standardSchemaV1` (the package surface used directly; a forwarding wrapper is the named defect) into the standard-schema validator RAC fields consume — decode failures land in `FormValidationContext` keyed by field path so server faults and live validation share one error shape, and the submit round-trip awaits the store. The field roster is the full RAC family set bound as rows: text/number, date/time over `@internationalized/date`, color over RAC color state, gauges and toggles — each row one schema field bound to one RAC field, with the tw-rac `invalid:`/`required:` variants styling validity with zero JS branching. A byte payload past one request rides the resumable upload lane — one tus session per source, offsets proven against the server, interruption pausing for a later resume. No form library, no per-field `useState`, no parallel validator. The module is `ui/src/view/form.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -10,6 +10,7 @@ The Schema-driven form plane: one kernel `Schema` owns wire decode AND live fiel
 |  [02]   | `FIELD_ROSTER`   | the field-family rows and their kernel-scalar commit seams             | —        |
 |  [03]   | `SUBMIT_TRIP`    | the store-awaited action, pending state, reset, refusal reconciliation | `Form`   |
 |  [04]   | `DRAFT_CURSORS`  | field-grain re-render over one draft atom                              | —        |
+|  [05]   | `UPLOAD_LANE`    | the resumable tus session — resume proof, progress taps, typed refusal | `Form`   |
 
 ## [02]-[SCHEMA_BINDING]
 
@@ -18,7 +19,7 @@ The Schema-driven form plane: one kernel `Schema` owns wire decode AND live fiel
 - Packages: `effect` (`Schema.standardSchemaV1`, `Schema.decodeUnknownEither`, `ParseResult.ArrayFormatter`, `Array`, `Either`, `Record`); `react-aria-components` (`Form`, `FieldError`, `FormValidationContext`).
 - Law: one Schema, both duties — the same owner that decodes the wire payload validates the live field; a parallel validator, a regex beside a brand, or a hand `errors` record is the named defect.
 - Law: the error shape is one fold — live per-field validation and server-refusal projection both land as `Readonly<Record<path, ReadonlyArray<string>>>` keyed by the `ParseError` tree's dotted path, so a refusal from the wire and a local decode render through the same `FieldError` rows.
-- Growth: a new form is a schema plus rows; a new constraint is a Schema refinement on the owning field — never a validation prop ladder.
+- Growth: a new form is a schema and its rows; a new constraint is a Schema refinement on the owning field — never a validation prop ladder.
 
 ```typescript
 import { Array, Either, ParseResult, Record, Schema } from "effect"
@@ -112,20 +113,79 @@ const _useField = <K extends keyof typeof _seed>(key: K): AtomRef.AtomRef<(typeo
   useAtomRefProp(_draft, key)
 
 const _useQuery = (): string => useDeferredValue(useAtomRefPropValue(_draft, "title"))
+```
+
+## [06]-[UPLOAD_LANE]
+
+[UPLOAD_LANE]:
+- Owner: `Form.upload(file, policy, progress)` — one resumable session per source: the session constructs over the endpoint policy row, proves prior progress through `findPreviousUploads` and binds the first candidate through `resumeFromPreviousUpload` before `start()`, and completion resolves with the `OnSuccessPayload` receipt; interruption runs `abort()` — the stored URL survives, so the next session resumes at the proven offset — and an explicit cancel escalates `Upload.terminate(url)`.
+- Packages: `tus-js-client` (`Upload`, `UploadOptions`, `PreviousUpload`, `OnSuccessPayload`, `DetailedError`, the event and policy hooks); `effect` (`Data`, `Effect`, `Option`).
+- Law: progress is a tap parameter — `onProgress` folds into the app-composed sink (an atom write the `Meter`/`ProgressBar` gauges read), never component state; `onChunkComplete` rides the same sink where chunk grain matters.
+- Law: refusal classes by status — `DetailedError.originalResponse.getStatus()` and the `onShouldRetry` hook own retry refusal; string-matching an error message is the named defect.
+- Law: the server owns finalization — content-address folding and object-store writes land server-side on the data folder's tus lane; this session is a protocol driver, and the finished object's identity returns on the wire.
+- Growth: a new transfer policy (chunk size, fingerprint store, signing hook) is one options row on the policy shape — never a second session mechanism.
+
+```typescript
+import { Data, Effect, Option } from "effect"
+import { DetailedError, Upload, type OnSuccessPayload, type PreviousUpload } from "tus-js-client"
+
+declare namespace Form {
+  type UploadPolicy = {
+    readonly endpoint: string
+    readonly chunkSize: number
+    readonly metadata: Readonly<Record<string, string>>
+  }
+  type Progress = { readonly sent: number; readonly total: number }
+}
+
+class UploadFault extends Data.TaggedError("UploadFault")<{
+  readonly status: Option.Option<number>
+  readonly detail: string
+}> {}
+
+const _upload = (
+  file: File,
+  policy: Form.UploadPolicy,
+  progress: (step: Form.Progress) => void,
+): Effect.Effect<OnSuccessPayload, UploadFault> =>
+  Effect.async<OnSuccessPayload, UploadFault>((resume) => {
+    // BOUNDARY ADAPTER: tus hooks are the platform's push seam — success and fault resume the effect, interruption aborts
+    const session = new Upload(file, {
+      endpoint: policy.endpoint,
+      chunkSize: policy.chunkSize,
+      metadata: { ...policy.metadata },
+      onProgress: (sent, total) => progress({ sent, total }),
+      onSuccess: (payload) => resume(Effect.succeed(payload)),
+      onError: (fault) =>
+        resume(Effect.fail(
+          fault instanceof DetailedError
+            ? new UploadFault({ status: Option.fromNullable(fault.originalResponse?.getStatus()), detail: fault.message })
+            : new UploadFault({ status: Option.none(), detail: String(fault) }),
+        )),
+    })
+    void session.findPreviousUploads().then((held: ReadonlyArray<PreviousUpload>) => {
+      const prior = held[0]
+      if (prior !== undefined) session.resumeFromPreviousUpload(prior)
+      session.start()
+    })
+    return Effect.promise(() => session.abort())
+  })
 
 declare namespace Form {
   type Shape = {
     readonly standard: typeof _standard
     readonly errors: typeof _errors
+    readonly upload: typeof _upload
   }
 }
 
 const Form: Form.Shape = {
   standard: _standard,
   errors: _errors,
+  upload: _upload,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Form }
+export { Form, UploadFault }
 ```

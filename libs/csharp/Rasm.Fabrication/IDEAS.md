@@ -1,6 +1,6 @@
 # [FABRICATION_IDEAS]
 
-Forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader with a few bullets stating the capability, what it unlocks, and the gap or modern technique it draws on. An idea drives one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
+Forward concept pool for `Rasm.Fabrication`. Each idea is a card — a bracketed slug leader with a few bullets stating the capability, what it unlocks, and the gap or technique it draws on. An idea drives one or more `TASKLOG.md` tasks; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -27,7 +27,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: `MachinePerformance` retains a `PerformanceHorizon` and observed operating evidence.
 - Shape: Decoded telemetry admission and estimation projection close the feedback seam.
 - Unlocks: Evidence-based routing, costing, and reliability decisions.
-- Anchors: `Kinematics/fleet.md`, `Tooling/wear.md`, and `Verify/estimation.md`.
+- Anchors: `Kinematics/fleet.md`, `Tooling/wear.md`, `Verify/estimation.md`, and `Process/telemetry.md`.
+
+[ENGINE_COUNTER_FACTS]-[QUEUED]: Solver-internal counters join the fact rail as engine evidence.
+- Capability: Nest branch-and-bound nodes, ICP iterations, engagement-walk steps, and bend-search expansions land as one engine fact case with solver and phase dimensions.
+- Shape: One `FabricationFact` case over per-solver evidence rows the owning kernels already accumulate; the fan gains one arm and one `rasm.fabrication.engine.*` instrument row.
+- Unlocks: Solver-regression detection and per-engine cost attribution without a profiler attach.
+- Anchors: `Process/telemetry.md`, `Nesting/nfp.md`, `Verify/probing.md`, `Toolpath/skeleton.md`, and `Fixturing/setups.md`.
+- Tension: Kernel folds are allocation-free hot paths, so counter accumulation must ride existing receipt evidence rather than new per-iteration writes.
 
 [HATCH_BOUNDARY_INGRESS]-[BLOCKED]: Admit ACadSharp hatch boundary paths as profile contours.
 - Capability: Each boundary path lowers edge-discriminated lines, circular arcs, elliptic arcs, and polylines into one loop under the OCS frame law.
@@ -152,11 +159,26 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: Customer and notified-body release gating before material advances.
 - Anchors: `Documentation/report.md`, `Joining/procedure.md`, and `Documentation/traveler.md`.
 
+[FABRICATION_SPAN_SPINE]-[QUEUED]: Engine spans make fabrication histograms exemplar-bearing — long solves trace, and every measurement inside them links to its trace.
+- Capability: an `ActivitySource` span family under the minted `TelemetrySource.Fabrication` scope identity wraps the long-running engine boundaries — nest solve, simulation run, scanpath derivation, probe fit — so TraceBased exemplars attach trace ids to the cycle-time, wear, and SPC histograms automatically.
+- Shape: one span per solve at the engine entry folds that already mint `FabricationFact` evidence, phase transitions as span events, `HasListeners()` gating tag cost; per-iteration spans stay the deleted form.
+- Unlocks: click-through from a latency histogram bucket to the exact solve trace; span-profile correlation joins the flame graph to the regressing solve.
+- Anchors: `Process/telemetry.md` fact union and instrument roster, the AppHost exemplar law (`SetExemplarFilter(TraceBased)`), the scope-name law binding tracer and meter to one package identity.
+- Tension: facts are receipts by design — spans complement the fact rail, and admission stays at the AppHost root's source roster, never a folder-local provider.
+
+[SOLVER_BENCHMARK_CORPUS]-[QUEUED]: Solver kernels join the corpus benchmark gate — the claims `ProbeRoute.Measured` consumes finally gain a producer.
+- Capability: gated benchmark cases for the NFP placement, ICP probe-fit, skeleton-offset, and bend-search kernels, each folding to one `BenchmarkReceipt` judged under `BenchmarkGate.Judge` against the durable claim the Persistence benchmark index holds.
+- Shape: bench cases ride the branch benchmark project tier per the Test Stack law — BenchmarkDotNet never enters this package's csproj; `Toolpath/guard.md` `ProbeRoute.Measured` resolves its `BenchmarkKey` against the minted claims, closing the loop the route today references blind.
+- Unlocks: solver-regression detection with host-evidence honesty; benchmark-authorized parallel probing backed by a real claim instead of an unmintable key.
+- Anchors: AppHost `Observability/benchmarks.md` gate fold and `BenchmarkRun.Traced`, Persistence `Query/cache.md#BENCHMARK_INDEX` `BenchmarkRow` and `store.cache.benchmark`, `[ENGINE_COUNTER_FACTS]` counter evidence as the paired live signal.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
+
+[FABRICATION_FACT_RAIL]-[COMPLETE]: `Process/telemetry.md` owns the `FabricationFact` union, the `rasm.fabrication.*` instrument roster with its contributor port, the envelope projection fan, and the suite-taxonomy classification rows; emitting pages carry their kind anchors and classified members their attributes.
 
 [KINEMATICS_CELL_PLACEMENT]-[COMPLETE]: `RobotProgram.Place` ranks batch-solved base placements over one loaded robot system with feasibility, travel, posture, peak-step, and peak-joint evidence.
 

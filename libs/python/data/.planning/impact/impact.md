@@ -14,7 +14,7 @@ Its self-describing eight-column frame crosses to the C# AEC domain as the seam 
 - Cases: the provider is recovered from the payload shape and the arity from the payload value; the `openepd` method selector `""` picks the deterministic minimum of the available `LCIAMethod`s.
 - Entry: `gated(*rules)` composes the `tabular/contract#ADMISSION` gate downward over the eight-column frame and `profiled(profile)` grades the same frame through the `tabular/profile#PROFILE` plan; `wire` composes the consumer-edge crossing over the `tabular/columnar` public Arrow-bytes fold plus the carrier's `ContentKey`.
 - Auto: `premise` supplies the future-year background LCI and never an LCIA of its own — the `premise_background` case scores through the same Brightway solve arm, keyed by its scenario tuple so identical prospective builds dedupe; a demand×method sweep rides the `Block` arity with each solve content-keyed, never a second arm.
-- Receipt: the receipt keys over the source identity — declaration id+version, solve fingerprint, setup identity, scenario tuple — so re-ingestion or recompute of the same declaration dedupes in the `Rasm.Persistence` reuse ledger rather than recomputing; structured evidence on the one runtime rail, never product LCA state.
+- Receipt: the receipt keys over the source identity — declaration id+version, solve fingerprint, setup identity, scenario tuple — so re-ingestion or recompute of the same declaration dedupes in the `Rasm.Persistence` reuse ledger rather than recomputing; structured evidence on the one runtime rail, never product LCA state. `contribute` projects the one fixed-unit measure — the GWP A1A3 score — onto the runtime `Metrics.record` arm under `domain="impact"`, keyed by source; mixed-unit indicators stay receipt evidence, never a metric with an incoherent unit. The `_one` normalize span is the solver's only trace surface — embedded LCA engines carry no scrape surface, the `query`-plane law applied here.
 - Packages: `bw2io`/`bw-processing` are the cluster's ingestion and matrix-datapackage substrate, composed by the graph owners; `pyarrow` binds function-local per the module-level ban.
 - Growth: a new EPD format or compute engine is one `ImpactSource` case plus one `_normalize` arm; a new indicator one `Indicator` member plus one `INDICATOR_UNIT` row, with a provider correspondence row only where its field spelling drifts; a new stage one `Stage` row; a new egress shape one `_lower` arm. Staged rows: the EC3 OMF search stream (`epds.find`) when a consumer names search; `annotated_top_emissions` and the recursive-calculation prints as one contribution-kind row each; the `bw2calc.MultiLCA` shared-factorization batch when a consumer carries sweeps too wide for the per-solve arity; per-stage foreground/background splits beyond the aggregate `A1A3` when a consumer carries staged system boundaries.
 - Boundary: never a per-provider `EpdImpact`/`LcaImpact` carrier split, never a second normalization kernel, never a re-implemented solver or sparse-matrix assembly; a frame missing its `source`/`declared_unit`/`content_key` columns is the rejected form — the C# decoder can neither attribute nor dedupe it.
@@ -29,6 +29,7 @@ from expression import Nothing, Option, Result, Some, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
+from opentelemetry import trace
 
 from rasm.data.tabular.columnar import arrow_bytes
 from rasm.data.tabular.contract import ContractClaim, FrameAdmission, QualityRule
@@ -37,6 +38,7 @@ from rasm.data.tabular.profile import ProfileReceipt, QualityProfile
 from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import on_thread
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import TransportResource
 
@@ -49,6 +51,8 @@ if TYPE_CHECKING:
     from openepd.model.industry_epd import IndustryEpd
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+_TRACER: Final = trace.get_tracer("rasm.data.impact")
 
 
 class Stage(StrEnum):  # EN 15804 life-cycle modules (epdx ImpactCategory / openepd ScopeSet stage axis)
@@ -213,8 +217,12 @@ class ImpactReceipt(Struct, frozen=True):
     cell_count: int
     sampled: int
     content_key: ContentKey
+    gwp_a1a3: float | None = None  # the one fixed-unit (kg CO2 eq) measure the metric spine grades; None when the carrier holds no GWP A1A3 cell
 
     def contribute(self) -> Iterable[Receipt]:
+        # receipts stay truth, instruments stay projections: the GWP score lands on the runtime metric spine under domain="impact".
+        if self.gwp_a1a3 is not None:
+            Metrics.record({"rasm.impact.score": self.gwp_a1a3}, domain="impact", kind=self.source)
         yield Receipt.of("impact", ("emitted", self.source, {"method": self.method, "cells": self.cell_count, "sampled": self.sampled}))
 
 
@@ -269,7 +277,10 @@ class MaterialImpact(Struct, frozen=True):
 
     @classmethod
     def _one(cls, payload: "ImpactSource") -> "RuntimeRail[MaterialImpact]":
-        return boundary(f"impact.normalize.{payload.tag}", lambda: _normalize(payload))
+        # the sparse-matrix solve and declaration folds are heavy in-process legs with no scrape surface — the span IS
+        # the engine observability; the boundary fence inside marks the span ERROR + record_exception on a failed leg.
+        with _TRACER.start_as_current_span(f"impact.normalize.{payload.tag}", attributes={"rasm.impact.source": payload.tag}):
+            return boundary(f"impact.normalize.{payload.tag}", lambda: _normalize(payload))
 
     def frame(self) -> "RuntimeRail[pa.Table]":
         return boundary("impact.frame", lambda: _lower(self))
@@ -299,7 +310,10 @@ class MaterialImpact(Struct, frozen=True):
 
     def receipt(self) -> ImpactReceipt:
         sampled = max((cell.spread.map(lambda s: s.samples).default_value(0) for cell in self.cells), default=0)
-        return ImpactReceipt(source=self.source, method=self.method, cell_count=len(self.cells), sampled=sampled, content_key=self.content_key)
+        gwp = next((cell.amount for cell in self.cells if cell.indicator is Indicator.GWP and cell.stage is Stage.A1A3), None)
+        return ImpactReceipt(
+            source=self.source, method=self.method, cell_count=len(self.cells), sampled=sampled, content_key=self.content_key, gwp_a1a3=gwp
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

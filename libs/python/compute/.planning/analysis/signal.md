@@ -1,19 +1,19 @@
 # [PY_COMPUTE_SIGNAL]
 
-`Signal` is the one classical signal-analysis owner: `SignalOp` discriminates the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — on a single `Signal` surface, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
+`SignalOp` is the one classical signal-analysis operation owner, discriminating the `scipy.signal` stationary rows — zero-phase IIR/FIR filtering, `welch`/`spectrogram` estimation, polyphase resampling, `find_peaks` structure — beside the `pywt` multiresolution rows — decimated/stationary decomposition with optional coefficient-shrink denoise, additive `mra` bands, the CWT scalogram, the frequency-ordered packet tree — folded through the single `apply` entry, so a transient or non-stationary mode the Welch estimate averages away is first-class evidence on the same owner, never a per-transform method family. Output is parameterized as tightly as input: `SignalEvidence` discriminates one carrier per evidence shape and the thin `SignalReceipt` holds the union whole. No learned or neural filter enters this owner.
 
-Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform.md#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. Both paths ride one numpy floor — scipy 1.17 lists this owner's `scipy.signal` entrypoints as out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_buffer` folds op tag, payload rows, sample rate, and operand key into one `ContentIdentity.of` derivation, so distinct operations over one operand carry distinct receipt keys.
+Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; every PSD-bearing op reads its dominant band through the reused `SpectralReadout` axis from `analysis/transform.md#TRANSFORM` under that axis's linear-amplitude contract; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. Both paths ride one numpy floor — `scipy.signal` entrypoints stay out-of-scope or skip-backend for jax/dask/torch and `pywt` carries no Array-API contract — so every body opens on `np.asarray` over the runtime thread band under the `RELEASING` trait. Receipts key the RESULT: `SignalOp.identity_buffer` folds op tag, payload rows, sample rate, and operand key into one `ContentIdentity.of` derivation, so distinct operations over one operand carry distinct receipt keys.
 
 ## [01]-[INDEX]
 
-- [01]-[DSP]: the stationary `scipy.signal` rows beside the `pywt` wavelet rows on one `Signal` owner, evidence discriminated over `SignalEvidence`.
+- [01]-[DSP]: the stationary `scipy.signal` rows beside the `pywt` wavelet rows on one `SignalOp` owner, evidence discriminated over `SignalEvidence`.
 
 ## [02]-[DSP]
 
-- Owner: `Signal` — the one owner over `SignalOp`; the stationary and wavelet families are rows of one dispatch, and `readout` is a row field so each PSD-bearing op carries its own band projection rather than a fixed `argmax`. `Scalogram` reads the dominant frequency off the `(coefs, freqs)` return `pywt.cwt` already carries under `sampling_period`, never a separate `scale2frequency` call.
+- Owner: `SignalOp` — the one operation union `apply` folds; the stationary and wavelet families are rows of one dispatch, `SpectralForm` is the bounded estimation-form axis on the spectral case (never a `time_frequency` boolean), and `readout` is a row field so each PSD-bearing op carries its own band projection rather than a fixed `argmax`. `Scalogram` reads the dominant frequency off the `(coefs, freqs)` return `pywt.cwt` already carries under `sampling_period`, never a separate `scale2frequency` call.
 - Output: `SignalEvidence` gives `peaks` its own case, so a mean prominence never rides the `band_power` slot behind a meaningless `dominant_hz=0.0`; the receipt carries the union whole through each shape's `facts()` projection, one step denser than the sibling projections that flatten evidence into a fixed receipt shape. Wavelet rows report a dominant frequency and leave `band_power` to the spectral evidence.
 - Packages: `scipy.signal`, `pywt`, and `numpy` per the fence imports; `numerics/array.md#PAYLOAD` owns namespace resolution and the finite gate at admission, so this owner threads neither and needs no `array-api-extra` `nan_to_num` — a non-finite operand never reaches a body.
-- Growth: a new transform is one `SignalOp` case plus its `identity_buffer` arm — `assert_never` surfaces the omission at type-check; a new filter family is one `FilterKind` row; a new decomposition mode is one `DecompMode` row plus its `WAVELET_ROUTES` triple; a new shrink rule is one `ThresholdMode` row owning its callable; a new band projection is one `SpectralReadout` row in the transform owner every PSD-bearing op inherits; a new evidence shape is one `SignalEvidence` case plus its `facts()` arm.
+- Growth: a new transform is one `SignalOp` case with its `identity_buffer` arm — `assert_never` surfaces the omission at type-check; a new filter family is one `FilterKind` row; a new decomposition mode is one `DecompMode` row with its `WAVELET_ROUTES` triple; a new shrink rule is one `ThresholdMode` row owning its callable; a new band projection is one `SpectralReadout` row in the transform owner every PSD-bearing op inherits; a new evidence shape is one `SignalEvidence` case with its `facts()` arm.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -28,8 +28,8 @@ from expression.collections import Map
 from msgspec import Struct
 
 from rasm.compute.analysis.transform import SpectralReadout
-from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
@@ -58,6 +58,11 @@ class FilterKind(StrEnum):
     HIGHPASS = "highpass"
     BANDPASS = "bandpass"
     BANDSTOP = "bandstop"
+
+
+class SpectralForm(StrEnum):
+    WELCH = "welch"  # stationary averaged PSD
+    SPECTROGRAM = "spectrogram"  # time-frequency power, time-summed to the comparable stationary view
 
 
 class DecompMode(StrEnum):
@@ -151,14 +156,14 @@ class SignalReceipt(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         facts = {"op": self.op, "length": self.length, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of("compute.signal", ("emitted", self.op, facts))
+        yield Receipt.of(EvidenceScope.SIGNAL.value, ("emitted", self.op, facts))
 
 
 @tagged_union(frozen=True)
 class SignalOp:
     tag: Literal["filter", "spectral", "peaks", "resample", "decompose", "multiresolution", "scalogram", "packet"] = tag()
     filter: tuple[FilterKind, tuple[float, ...], int, SpectralReadout] = case()
-    spectral: tuple[int, bool, SpectralReadout] = case()
+    spectral: tuple[int, SpectralForm, SpectralReadout] = case()
     peaks: tuple[float, int] = case()
     resample: tuple[float, SpectralReadout] = case()
     decompose: tuple[str, int, DecompMode, ThresholdMode] = case()
@@ -171,8 +176,8 @@ class SignalOp:
         return SignalOp(filter=(kind, cutoff, order, readout))
 
     @staticmethod
-    def Spectral(nperseg: int = 256, time_frequency: bool = False, readout: SpectralReadout = SpectralReadout.PEAK) -> "SignalOp":
-        return SignalOp(spectral=(nperseg, time_frequency, readout))
+    def Spectral(nperseg: int = 256, form: SpectralForm = SpectralForm.WELCH, readout: SpectralReadout = SpectralReadout.PEAK) -> "SignalOp":
+        return SignalOp(spectral=(nperseg, form, readout))
 
     @staticmethod
     def Peaks(prominence: float = 0.0, distance: int = 1) -> "SignalOp":
@@ -208,8 +213,8 @@ class SignalOp:
         match self:
             case SignalOp(tag="filter", filter=(kind, cutoff, order, readout)):
                 row = (kind.value, *cutoff, order, readout.value)
-            case SignalOp(tag="spectral", spectral=(nperseg, time_frequency, readout)):
-                row = (nperseg, time_frequency, readout.value)
+            case SignalOp(tag="spectral", spectral=(nperseg, form, readout)):
+                row = (nperseg, form.value, readout.value)
             case SignalOp(tag="peaks", peaks=(prominence, distance)):
                 row = (prominence, distance)
             case SignalOp(tag="resample", resample=(target, readout)):
@@ -293,11 +298,11 @@ def _signal_kernel(samples: object, fs: float, op: SignalOp) -> "RuntimeRail[Sig
 
 
 async def apply(samples: object, fs: float, op: SignalOp, lane: LanePolicy) -> "RuntimeRail[SignalReceipt]":
-    # weave owns span, fence, and the `@receipted(REDACTION)` receipt harvest.
+    # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[SignalReceipt]:
         return (await lane.offload(Kernel.of(_signal_kernel, KernelTrait.RELEASING), samples, fs, op)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch)
+    return await evidence_run(EvidenceScope.SIGNAL, f"signal.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs})
 
 
 def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalReceipt:
@@ -312,8 +317,8 @@ def _apply(samples: object, fs: float, op: SignalOp, key: ContentKey) -> SignalR
             sos = sig.butter(order, wn[0] if len(wn) == 1 else wn, btype=kind.value, output="sos")
             dominant, power = _welch_band(sig, sig.sosfiltfilt(sos, xn), fs, readout)
             return SignalReceipt.of("filter", xn.size, key, SignalEvidence.Spectral(dominant, power))
-        case SignalOp(tag="spectral", spectral=(nperseg, time_frequency, readout)):
-            if time_frequency:
+        case SignalOp(tag="spectral", spectral=(nperseg, form, readout)):
+            if form is SpectralForm.SPECTROGRAM:
                 # time-summed `np.sum(sxx, axis=-1)` POWER spine square-roots to amplitude for the fold — the comparable
                 # stationary view beside `Scalogram`; the band power stays the power.
                 sf, _, sxx = sig.spectrogram(xn, fs=fs, nperseg=min(nperseg, xn.size))

@@ -7,7 +7,7 @@ Discovered collections encode as a `stac-geoparquet` columnar Arrow `RecordBatch
 ## [01]-[INDEX]
 
 - [01]-[CATALOG]: the `StacCatalog` discovery owner over `pystac-client`, the `StacQuery` search axis with the `Surface` discriminant routing item-vs-collection search, emitting one `StacDiscovery`.
-- [02]-[TABLE]: the discovered collection encoded as a `stac-geoparquet` Arrow `RecordBatchReader` plus the re-homed `StacGeoClaim` NDJSON-interchange claim, sinks split across table-in and source-to-disk entrypoints.
+- [02]-[TABLE]: the discovered collection encoded as a `stac-geoparquet` Arrow `RecordBatchReader` with the re-homed `StacGeoClaim` NDJSON-interchange claim, sinks split across table-in and source-to-disk entrypoints.
 - [03]-[ASSETS]: the one awaitable `AssetFold` routing signed hrefs into egress byte-windows, virtual cube chunks, or the `odc-stac` COG datacube.
 
 ## [02]-[CATALOG]
@@ -31,6 +31,8 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct, field
+from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail
@@ -43,6 +45,8 @@ if TYPE_CHECKING:
 
     from pystac import Collection, ItemCollection
     from pystac_client import ItemSearch
+
+_TRACER: Final = trace.get_tracer("rasm.data.spatial.catalog")
 
 type Bound = tuple[float, float, float, float]
 type Geometry = dict[str, object]
@@ -294,9 +298,15 @@ class StacCatalog(Struct, frozen=True):
         params = reduce(lambda acc, q: acc | q.params(), queries, {})
         surface = Surface.of_queries(queries)
         row = surface.row
-        return (
-            await guarded(RetryClass.HTTP, on_thread, lambda: self._discover(row, params, max_items, limit), abandon=True, subject="stac.discover")
-        ).bind(self._shape(surface))
+        # discovery is an outbound network leg — kind=CLIENT per the store-transport law, the guarded child span riding beneath.
+        with _TRACER.start_as_current_span(
+            f"stac.discover.{surface.value}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": f"discover.{surface.value}"}
+        ):
+            return (
+                await guarded(
+                    RetryClass.HTTP, on_thread, lambda: self._discover(row, params, max_items, limit), abandon=True, subject="stac.discover"
+                )
+            ).bind(self._shape(surface))
 
     def _discover(self, row: SurfaceRow, params: SearchParams, max_items: int | None, limit: int | None) -> Materialized:
         from pystac_client import Client  # noqa: PLC0415
@@ -342,6 +352,7 @@ import pyarrow as pa
 from expression import Error, case, tag, tagged_union
 from msgspec import Struct
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary, boundary
@@ -351,8 +362,6 @@ from rasm.runtime.resilience import RetryClass, guarded
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-_TRACER: Final = trace.get_tracer("rasm.data.spatial.catalog")
 
 type SchemaInference = Literal["FullFile", "FirstBatch"]
 
@@ -534,8 +543,9 @@ class StacGeoClaim(Struct, frozen=True):
             return acquired.bind(lambda inner: inner).bind(lambda payload: self._result(payload, op.tag))
 
     async def apply_remote(self, op: StacIngest) -> "RuntimeRail[StacResult]":
-        # abandon frees the band slot when an enclosing deadline trips — a wedged remote read runs out unobserved.
-        with _TRACER.start_as_current_span(f"stac.claim.{op.tag}", attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
+        # abandon frees the band slot when an enclosing deadline trips — a wedged remote read runs out unobserved;
+        # kind=CLIENT marks the outbound network leg per the catalog span-kind law.
+        with _TRACER.start_as_current_span(f"stac.claim.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
             acquired = await guarded(RetryClass.HTTP, on_thread, lambda: self._stac(op), abandon=True, subject=f"stac.claim.{op.tag}")
             # `_stac` is itself railed, so `guarded` yields a doubled `RuntimeRail`; the identity `bind` is the monadic join flattening it.
             return acquired.bind(lambda inner: inner).bind(lambda payload: self._result(payload, op.tag))

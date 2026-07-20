@@ -152,6 +152,9 @@ public sealed class ChangefeedSubscription(Func<Seq<OpLogEntry>, IO<Unit>> drain
 }
 
 public static class OpLog {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.presence.beat"), StoreSlot.Create("store.replication.checkout"));
+
     // The structural changefeed projection of one Marten `GraphEvent`. The body is a `Element/graph#STREAM_GRAIN`
     // `GraphDelta` (the durable graph change), NOT a `CrdtOp` — so the `Payload` is the codec-encoded delta on the
     // STRUCTURAL `geometry` lane (`MergeStance.Lww`, adjudicated by `(Hlc, OriginStoreId)`), never the `crdt`

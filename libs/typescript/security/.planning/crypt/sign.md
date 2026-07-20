@@ -1,6 +1,6 @@
 # [SECURITY_SIGN]
 
-The one crypto authority of the folder: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification, closed in both directions by the guard pair, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
+One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument minted from its core `Convention.instrument` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification, closed in both directions by the guard pair, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
 
 ## [01]-[CLUSTERS]
 
@@ -19,7 +19,7 @@ The one crypto authority of the folder: argon2id credential digest-at-rest under
 - Law: rows carry `class` only — rank, retryability, and blame derive from the branch `FaultClass` table, and the class-to-status projection is the serving edge's governed record; a local `{ rank, retry, status }` triple beside the class column is the split-brain this shape kills.
 - Law: the guard pair closes every vocabulary in both directions — `_Rows` proves every reason has a row, `_Closed` proves every row has a reason, and `_Keys`/`_Kinds` do the same for `KeyAlg`; a dead row or a rowless reason fails at the declaration, and every sibling fault family carries the identical pair.
 - Law: a `false` argon2 verify, a rejected OTP, and a rotated-out token are verdict arms, never faults — `SignFault` fires only when a primitive throws, a key refuses import, a load-shed sheds, or a token fails a trust gate.
-- Growth: a new failure mode is one reason literal plus one class row; a new signature scheme is one `KeyAlg` row that `Material`, `Jwt`, and the external-verify page inherit unchanged.
+- Growth: a new failure mode is one reason literal and one class row; a new signature scheme is one `KeyAlg` row that `Material`, `Jwt`, and the external-verify page inherit unchanged.
 - Packages: `effect` (`Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
@@ -30,7 +30,7 @@ import { SHA1 } from "@oslojs/crypto/sha1"
 import { SHA256, SHA512, sha256 } from "@oslojs/crypto/sha2"
 import { constantTimeEqual } from "@oslojs/crypto/subtle"
 import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
-import { Credential, FaultClass } from "@rasm/ts/core"
+import { Convention, Credential, FaultClass } from "@rasm/ts/core"
 import {
   calculateJwkThumbprint, calculateJwkThumbprintUri, createLocalJWKSet, createRemoteJWKSet, EncryptJWT, exportJWK,
   generateKeyPair, importJWK, importPKCS8, importSPKI, importX509, jwtDecrypt, jwtVerify, SignJWT, customFetch, jwksCache,
@@ -103,13 +103,13 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 ## [03]-[KEY_MATERIAL]
 
 [KEY_MATERIAL]:
-- Owner: `Material` — the assembled key-material owner: `admit` folds one core `Credential` landing into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing credential plus a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the URI form is the stable `cnf.jkt` subject for a key-bound principal. The `Credential` landing arrives sealed from the core interchange decode — `material` is `Redacted` from the wire, `fingerprint` is the only audit identity — and this owner is its terminus: the handle never crosses back to a wire and never reaches a log.
+- Owner: `Material` — the assembled key-material owner: `admit` folds one core `Credential` landing into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing credential and a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the URI form is the stable `cnf.jkt` subject for a key-bound principal. Its `Credential` landing arrives sealed from the core interchange decode — `material` is `Redacted` from the wire, `fingerprint` is the only audit identity — and this owner is its terminus: the handle never crosses back to a wire and never reaches a log.
 - Law: admission is one polymorphic fold — the PEM header sniffs the jose importer (`importPKCS8` private, `importSPKI`/`importX509` public), a JSON body decodes exactly once through the `_Jwk` `Schema.parseJson` owner and routes `importJWK`, the private discriminant is the decoded `d` field — never a re-parse — the private side lands `Signing` and the public side `Verify`, and there is no `admitSigning`/`admitVerify` twin; a symmetric `importJWK` result is `unsupported`.
 - Law: the validity window is enforced at admission — an instant outside `[notBefore, notAfter]` is `SignFault.window`; rotation is re-admission of a fresh `Credential`, and `Credential.rotated` is the sealed compare the custodian already carries.
-- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry to the `security_jwks_quarantined` counter and a warning log, so one rotated-in bad key never collapses the verify set; an empty surviving set is the only `material` failure, and the synthetic verify carrier's horizon is the caller's policy `Duration`, never a buried literal.
+- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.instrument.securityJwksQuarantined` counter and a warning log, so one rotated-in bad key never collapses the verify set; an empty surviving set is the only `material` failure, and the synthetic verify carrier's horizon is the caller's policy `Duration`, never a buried literal.
 - Growth: a new signature scheme is one `KeyAlg` row; a new material source (KMS, HSM) produces the same `Credential` value and terminates through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
 - Boundary: `crypt/secret` constructs `Credential` values from fetched material; the core interchange codec decodes the C#-minted `CredentialPemWire` into the same class; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
-- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`/`calculateJwkThumbprintUri`); `@rasm/ts/core` (`Credential`).
+- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`/`calculateJwkThumbprintUri`); `@rasm/ts/core` (`Convention`, `Credential`).
 
 ```typescript
 type KeyHandle = Data.TaggedEnum<{
@@ -124,7 +124,10 @@ type Ring = {
 
 const _KeyHandle = Data.taggedEnum<KeyHandle>()
 
-const _quarantined = Metric.counter("security_jwks_quarantined")
+const _quarantined = Metric.counter(Convention.instrument.securityJwksQuarantined.name, {
+  description: Convention.instrument.securityJwksQuarantined.description,
+  incremental: true,
+})
 
 const _material = (cause: unknown): SignFault => new SignFault({ reason: "material", detail: String(cause) })
 
@@ -236,13 +239,13 @@ const Material = {
 
 [CRYPTO_PRIMITIVE]:
 - Owner: `Crypto` — `digest`/`verify` own argon2id credential-at-rest with the `CredentialVerdict` receipt, `derive` is the raw-KDF row minting deterministic key bytes from a passphrase, `sign` owns HMAC-SHA256 egress signing rendered hex, `matches` is the one constant-time comparison entrypoint discriminating on the `Probe` case — `Mac` (HMAC-over-body), `Digest` (SHA-256 fingerprint), `Text` (raw string) — `token` mints opaque high-entropy material over the WebCrypto-filled `RandomReader`, `uuid` mints a v4 identifier from the same reader so id minting is test-injectable, `fingerprint` is the SHA-256 hex projection for high-entropy token lookup, and `plugin`/`base32` are the otplib ports over these same primitives.
-- Law: every KDF call runs inside the semaphore bulkhead — `login`/`apiKey` rows take one permit, the `kek` derive takes the whole budget, so a login storm queues at the `CRYPTO_KDF_PERMITS` bound instead of spawning unbounded 19–64MB hashes; each call rides the `security_argon2_ms` timer and its span, and the fiber's interrupt threads the `AbortSignal` so a request-scoped hash cancels with its caller.
+- Law: every KDF call runs inside the semaphore bulkhead — `login`/`apiKey` rows take one permit, the `kek` derive takes the whole budget, so a login storm queues at the `CRYPTO_KDF_PERMITS` bound instead of spawning unbounded 19–64MB hashes; each call rides the `Convention.instrument.securityKdf` timer and its span, and the fiber's interrupt threads the `AbortSignal` so a request-scoped hash cancels with its caller.
 - Law: cost is a named `CryptoCost` row selected by credential class — `login` interactive, `apiKey` machine, `kek` the derive row backing the `Shredder` master key — with `Argon2id`+`V0x13` pinned; the pepper is one `Config.redacted` injected at construction and threaded as `secret`.
 - Law: `verify` reads the PHC-embedded parameters, and a match under stale parameters returns `Matched({ stale: true })` — the rehash signal the caller persists on; `Rejected` is the ordinary auth-fail arm and only a malformed stored digest throws into `SignFault.digest`.
 - Law: every compare routes constant-time through one `matches` — length is the only short-circuit, a length mismatch is `false`, a malformed stored hex is `SignFault.mac`, never an uncaught throw; a stored argon2 digest is checked by argon2's own constant-time `verify` and never re-compared through `constantTimeEqual`; the otplib `hmac` port dispatches the `HashAlgorithm` value off the `_HASHES` row table so a new hash is a row, never a name fork.
 - Growth: a new credential class is one `CryptoCost` row; a cost bump is a row edit the rehash fold detects on the next successful verify; a new comparison shape is one `Probe` case.
 - Boundary: `authn/credential` delegates every digest-at-rest here; `authn/session` consumes `token`/`uuid`/`fingerprint`/`matches`; `crypt/verify` composes `matches` under its dialect grammar; no sibling imports `@node-rs/argon2` or `@oslojs/*` directly.
-- Packages: `@node-rs/argon2` (`hash`/`hashRaw`/`verify`, `Algorithm`, `Version`); `@oslojs/crypto` (`hmac`, `SHA1`/`SHA256`/`SHA512`, `sha256`, `constantTimeEqual`, `generateRandomString`, `RandomReader`); `@oslojs/encoding` (hex + base32 rows); `effect` (`Effect.makeSemaphore`, `Metric`).
+- Packages: `@node-rs/argon2` (`hash`/`hashRaw`/`verify`, `Algorithm`, `Version`); `@oslojs/crypto` (`hmac`, `SHA1`/`SHA256`/`SHA512`, `sha256`, `constantTimeEqual`, `generateRandomString`, `RandomReader`); `@oslojs/encoding` (hex + base32 rows); `effect` (`Effect.makeSemaphore`, `Metric`); `@rasm/ts/core` (`Convention`).
 
 ```typescript
 type CredentialVerdict = Data.TaggedEnum<{
@@ -272,7 +275,7 @@ const _CredentialVerdict = Data.taggedEnum<CredentialVerdict>()
 
 const Probe = Data.taggedEnum<Probe>()
 
-const _argonMs = Metric.timerWithBoundaries("security_argon2_ms", [10, 25, 50, 100, 250, 500, 1000, 2500])
+const _argonMs = Metric.timerWithBoundaries(Convention.instrument.securityKdf.name, [10, 25, 50, 100, 250, 500, 1000, 2500])
 
 const _enc = new TextEncoder()
 
@@ -359,12 +362,12 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
 ## [05]-[SHREDDER]
 
 [SHREDDER]:
-- Owner: `Shredder` — the AES-GCM envelope plus AES-KW key-wrap primitive the data wave's journal imports for per-subject crypto-shredding: `mint` issues a per-subject data key, `seal`/`open` run the envelope under a 96-bit IV drawn from the `Crypto` entropy port, `wrap`/`unwrap` carry the data key under the master KEK, and erasure is the store dropping the `WrappedKey` — `unwrap` then fails, `open` becomes impossible, and the ciphertext journal is never rewritten.
+- Owner: `Shredder` — the AES-GCM envelope and AES-KW key-wrap primitive the data wave's journal imports for per-subject crypto-shredding: `mint` issues a per-subject data key, `seal`/`open` run the envelope under a 96-bit IV drawn from the `Crypto` entropy port, `wrap`/`unwrap` carry the data key under the master KEK, and erasure is the store dropping the `WrappedKey` — `unwrap` then fails, `open` becomes impossible, and the ciphertext journal is never rewritten.
 - Law: the master KEK derives — `Crypto.derive("kek", passphrase, salt)` folds the `Config.redacted` passphrase and a pinned salt into 32 raw bytes imported once as a non-extractable AES-KW key — so KEK custody is one argon2id derivation under the whole-budget bulkhead permit, the passphrase never touches WebCrypto raw, and a KMS provider is a construction-row swap with the seal/open/wrap surface unchanged.
-- Law: the data key never leaves the layer except as a `WrappedKey`; `SealedEnvelope` carries IV and ciphertext as opaque base64 bytes; an `open` failure is `SignFault.open` — tamper or shredded-key evidence, class `breached` — and increments the `security_shred_open_reject` counter before it surfaces.
+- Law: the data key never leaves the layer except as a `WrappedKey`; `SealedEnvelope` carries IV and ciphertext as opaque base64 bytes; an `open` failure is `SignFault.open` — tamper or shredded-key evidence, class `breached` — and increments the `Convention.instrument.securityShredReject` counter before it surfaces; the S0 floor mints its own Convention row because the folder reject stream composes one stratum above.
 - Growth: a second envelope suite (XChaCha via a future WebCrypto row) is one algorithm row on the same four-verb surface.
-- Boundary: which wrapped key belongs to which subject, and its destruction, is the data wave's journal; this owner holds only the envelope algebra. The `@effect/experimental` `EventLogEncryption.layerSubtle` zero-knowledge lane consumes this page's key material at the app root — security is the key provider, never the sync engine.
-- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`).
+- Boundary: which wrapped key belongs to which subject, and its destruction, is the data wave's journal; this owner holds only the envelope algebra. `@effect/experimental`'s `EventLogEncryption.layerSubtle` zero-knowledge lane consumes this page's key material at the app root — security is the key provider, never the sync engine.
+- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`); `@rasm/ts/core` (`Convention`).
 
 ```typescript
 class SealedEnvelope extends Schema.Class<SealedEnvelope>("SealedEnvelope")({
@@ -376,7 +379,10 @@ class WrappedKey extends Schema.Class<WrappedKey>("WrappedKey")({
   wrapped: Schema.Uint8ArrayFromBase64,
 }) {}
 
-const _openReject = Metric.counter("security_shred_open_reject")
+const _openReject = Metric.counter(Convention.instrument.securityShredReject.name, {
+  description: Convention.instrument.securityShredReject.description,
+  incremental: true,
+})
 
 class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
   effect: Effect.gen(function* () {
@@ -433,12 +439,12 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 - Owner: `Jwt` — a scoped Layer factory over a `Keyset`: `mint` stamps `{ alg, kid }` from the active ring key so verifiers route by `kid`; one overloaded `verify` owns both trust roots — `verify(token)` runs `createLocalJWKSet` over every published verify handle with `algorithms` pinned and the declarative claim gates applied, decoding the payload through `AccessClaims`, and `verify(token, issuer)` resolves the per-issuer remote JWKS and returns the verified raw payload for the OAuth page to project from; `seal`/`unseal` are the JWE confidential profile over the keyset's optional symmetric handle. `SingleUse` is the stash contract every two-leg ceremony port in the folder instantiates — stash with a TTL, consume exactly once — so the satisfying layer is an `effect` `Cache` or `@effect/experimental` `PersistedCache`/`Persistence.layerResultKeyValueStore` row, never a hand-rolled map.
 - Law: `algorithms` is always pinned — an unpinned `alg` is accepted-algorithm confusion; the claim gates (`issuer`/`audience`/`clockTolerance`) are library-enforced options, never hand timestamp checks; `decodeJwt` is never verification; `cnf.jkt` carries the `Material.thumbprintUri` binding for a sender-constrained token, and a verifier that receives `cnf` matches it against the presented key's thumbprint URI.
 - Law: the factory form is the rotation seam — the composition root builds the `Keyset` from `crypt/secret` credentials through `Material.ring`, wraps `Jwt.Default(keyset)` in `Reloadable.auto` driven by `Secret.changes`, so a Doppler rotation republishes the ring without a graph teardown, a `kid` retires with zero edits here, and a retired signing key keeps verifying while its handle stays published.
-- Law: the remote resolver is built once per issuer under `Effect.cachedFunction` — the ledger snapshot pre-seeds the jose cache record, a scoped fiber drives `resolver.reload()` on a jittered `Schedule.spaced(cacheAge)` so a provider key roll lands before the first `kid` miss, and every reload and successful verify persists the record back through `JwksLedger`; a cold build increments `security_jwks_cold_miss`.
-- Law: every remote verify is internally resilient — a `deadline` timeout, a jittered exponential retry bounded by `Schedule.recurs` and gated on `FaultClass.retryable`, the `security_jwks_resolve_ms` timer, and its span; the fetch routes through `JwksTransport`, defaulted to the platform fetch and bound by the runtime wave to its instrumented `HttpClient.retryTransient({ schedule }).pipe(HttpClient.withTracerPropagation)` fetch adapter so rotation inherits the shared net policy and W3C trace propagation.
+- Law: the remote resolver is built once per issuer under `Effect.cachedFunction` — the ledger snapshot pre-seeds the jose cache record, a scoped fiber drives `resolver.reload()` on a jittered `Schedule.spaced(cacheAge)` so a provider key roll lands before the first `kid` miss, and every reload and successful verify persists the record back through `JwksLedger`; a cold build increments the `Convention.instrument.securityJwksMiss` counter.
+- Law: every remote verify is internally resilient — a `deadline` timeout, a jittered exponential retry bounded by `Schedule.recurs` and gated on `FaultClass.retryable`, the `Convention.instrument.securityJwksResolve` timer, and its span; the fetch routes through `JwksTransport`, defaulted to the platform fetch and bound by the runtime wave to its instrumented `HttpClient.retryTransient({ schedule }).pipe(HttpClient.withTracerPropagation)` fetch adapter so rotation inherits the shared net policy and W3C trace propagation.
 - Law: the JWE profile is confidentiality, not a second token system — `seal` encrypts the same `AccessClaims` under `{ alg: "dir", enc: "A256GCM" }` and `unseal` reverses it with the same claim gates; a keyset without a seal handle refuses the profile as `unsupported`.
 - Receipt: `mint`/`seal` return the token `Redacted`; `verify`/`unseal` return `AccessClaims`, never a bare `JWTPayload`; the issuer overload returns the verified payload.
 - Growth: a new claim is one `AccessClaims` field; a new JOSE failure code is one `_codeReason` arm; a new external issuer costs nothing — the resolver memoizes per `jwksUri`.
-- Packages: `jose` (`SignJWT`/`jwtVerify`/`EncryptJWT`/`jwtDecrypt`, `createLocalJWKSet`/`createRemoteJWKSet`, `jwksCache`/`customFetch` symbols, `ExportedJWKSCache`); `effect` (`Schedule`, `Metric`, `Effect.cachedFunction`, `Effect.forkScoped`).
+- Packages: `jose` (`SignJWT`/`jwtVerify`/`EncryptJWT`/`jwtDecrypt`, `createLocalJWKSet`/`createRemoteJWKSet`, `jwksCache`/`customFetch` symbols, `ExportedJWKSCache`); `effect` (`Schedule`, `Metric`, `Effect.cachedFunction`, `Effect.forkScoped`); `@rasm/ts/core` (`Convention`).
 
 ```typescript
 class AccessClaims extends Schema.Class<AccessClaims>("AccessClaims")({
@@ -489,8 +495,11 @@ const _codes: Record<string, SignFault.Reason | undefined> = _codeReason
 const _reasonOf = (cause: unknown): SignFault.Reason =>
   Predicate.hasProperty(cause, "code") && Predicate.isString(cause.code) ? (_codes[cause.code] ?? "malformed") : "malformed"
 
-const _jwksMs = Metric.timerWithBoundaries("security_jwks_resolve_ms", [5, 25, 100, 250, 1000, 5000])
-const _jwksMiss = Metric.counter("security_jwks_cold_miss")
+const _jwksMs = Metric.timerWithBoundaries(Convention.instrument.securityJwksResolve.name, [5, 25, 100, 250, 1000, 5000])
+const _jwksMiss = Metric.counter(Convention.instrument.securityJwksMiss.name, {
+  description: Convention.instrument.securityJwksMiss.description,
+  incremental: true,
+})
 
 class JwksLedger extends Context.Tag("security/crypt/JwksLedger")<JwksLedger, {
   readonly load: (issuer: string) => Effect.Effect<Option.Option<ExportedJWKSCache>>

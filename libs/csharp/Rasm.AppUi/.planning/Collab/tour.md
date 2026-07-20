@@ -267,3 +267,7 @@ flowchart LR
     TourFollow -->|Publish: structured playhead| Presence
     Presence -->|ApplyRemote + SampleAt| TourFollow
 ```
+
+## [06]-[RESEARCH]
+
+(none)

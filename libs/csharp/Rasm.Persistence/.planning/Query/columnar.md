@@ -254,6 +254,13 @@ public sealed class ColumnarSession : IDisposable {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class ColumnarLane {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.columnar.open"), StoreSlot.Create("store.columnar.query"), StoreSlot.Create("store.columnar.append"),
+        StoreSlot.Create("store.columnar.mount"), StoreSlot.Create("store.columnar.egress"), StoreSlot.Create("store.columnar.stamp"),
+        StoreSlot.Create("store.columnar.flattable"), StoreSlot.Create("store.columnar.materialize"), StoreSlot.Create("store.columnar.frames"),
+        StoreSlot.Create("store.columnar.parquet"), StoreSlot.Create("store.columnar.fleet"), StoreSlot.Create("store.columnar.series.provision"),
+        StoreSlot.Create("store.columnar.series.ingest"));
+
     // `Open` applies ordered bootstrap policy, then verifies every roster row through `duckdb_extensions()`.
     // Missing linked, core, or community extensions rail `ExtensionGap` before any query.
     public static IO<ColumnarSession> Open(ColumnarProfile profile, StorePath dataSource, ExecutionThreads threads) =>

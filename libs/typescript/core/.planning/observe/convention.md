@@ -1,14 +1,16 @@
 # [CORE_CONVENTION]
 
-The vocabulary spine of the four-signal plane: every attribute key, metric name, event name, bounded value, and instrument measurement any telemetry node stamps is a typed row on the one `Convention` owner — semconv constants imported as literal-typed data, incubating names fenced behind a churn-absorbing alias table spanning the RUM device/session plane, the infra-correlation plane, and the feature-flag evaluation plane, Rasm-owned name families for the audit/meter/vital/slo/crash/invoke/gateway domains minted beside them, and the one `AppIdentity -> Identity` attribute projection that makes the whole plane app-parameterized. The record contract is two-sided: `Convention.Attributes` is the CLOSED stamping record — a partial record over the derived `Convention.Key` union whose per-key `ValueOf` binding holds bounded families to their own value vocabulary, so a typo, an unowned key, or an off-vocabulary bounded value fails at the stamp site — and `Convention.Bag` is the open read-side record the scrub and foreign-span inspection seams consume, because material arriving FROM a telemetry backend or a platform tracer lawfully carries keys this vocabulary never minted. `Convention.keys` is the ordered key census, and `Convention.duration` is the duration-to-instrument-unit projection guarded by the complete duration-metric row table. A string literal or call-site unit conversion at a signal site is the named defect; the row is the instruction, and its literal type flows into every attribute record, `Match` fold, and dashboard query downstream. Cross-language parity with the C# OTLP egress is name-level against the OpenTelemetry spec — the same `service.name`/`http.route`/`exception.type` spellings — so this page is the JS-side name source, never a shared artifact. The module is `core/src/observe/convention.ts`.
+Vocabulary spine of the four-signal plane: every name a telemetry node stamps — attribute key, metric, event, bounded value, instrument row — is a typed row on the one `Convention` owner: semconv constants as literal-typed data, incubating names behind a churn-absorbing alias table, Rasm-owned families minted beside them, and the one `AppIdentity -> Identity` projection parameterizing the plane per app. A new name family is one row in its owning table; a string literal or call-site unit conversion at a signal site is the named defect — the row is the instruction.
+
+Estate wire law rides as rows: dotted `rasm.<domain>.<measure>` metric names under UCUM units, `Convention.scope` as the one instrumentation-scope spelling, and `Convention.wire` pinning `schema_url` and the `NoUTF8EscapingWithSuffixes` translation, so all three runtimes' series stay byte-identical. Cross-language parity with the C# OTLP egress is name-level against the OpenTelemetry spec — this page is the JS-side name source, never a shared artifact. Its module is `core/src/observe/convention.ts`.
 
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]             | [OWNS]                                                                                      |
 | :-----: | :-------------------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban    |
-|  [02]   | `RASM_ROWS`           | the project-owned name families: identity, audit, meter, vital, slo, crash, invoke, gateway |
-|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, closed/open record contract, `AppIdentity -> Identity`     |
+|  [02]   | `RASM_ROWS`           | the project-owned name families spanning the signal, work-plane, and security domains      |
+|  [03]   | `IDENTITY_PROJECTION` | the assembled owner: key census, record contract, identity projection, scope + wire law    |
 
 ## [02]-[SEMCONV_ROWS]
 
@@ -16,9 +18,10 @@ The vocabulary spine of the four-signal plane: every attribute key, metric name,
 - Packages: `@opentelemetry/semantic-conventions` (stable `.` entry) and `@opentelemetry/semantic-conventions/incubating` — pure data, zero peers, unused rows tree-shaken to zero bytes; the one `@opentelemetry/*` admission in `core`, while the SDK and exporter machinery stays fenced to the runtime export owner.
 - Law: stable-tier names are the default import — API-frozen, safe inside durable dashboards, SLO policy rows, and cross-language wire parity; an incubating name enters only through the `_incubating` alias table, whose Rasm-stable keys absorb a minor-release rename at one seam while the constant-valued rows keep the break compile-visible.
 - Law: the incubating table spans the three planes its consumers own — the RUM plane (`browser.*`, `device.*`, `session.*`, `network.connection.type` for the vital and crash signals), the infra-correlation plane (`cloud.*`, `container.*`, `host.*`, `process.runtime.*`, `k8s.*` for the runtime resource and the iac correlation queries), and the flag-evaluation plane (`feature_flag.key`, `feature_flag.provider.name`, `feature_flag.result.reason` the runtime flag service stamps per evaluation) — so an enrichment consumer composes rows, never a second import of the incubating entry.
-- Law: bounded attribute values import as `*_VALUE_*` rows and dispatch as discriminated values — the `_value` table carries the closed nine-method HTTP family (the spec's `_OTHER` residue row included, so a foreign verb folds to a bounded value instead of an open string), the database row, and the nine-value flag-reason family beside them; `Convention.Method` and `Convention.FlagReason` derive their unions by template extraction over the table's own keys, and a `Match` arm or vocabulary lookup keys on the row, never on a free string. The flag-reason family is the TELEMETRY value vocabulary — the codec `FlagVerdict.reason` axis is the C#-minted wire vocabulary, name-level adjacent (`targeting` on the wire, `targeting_match` on the spec), and the runtime flag owner maps wire row to spec row at its stamp site, never here.
-- Law: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling is banned — one vocabulary, one flat-constant form; a row referencing the legacy objects is the drift defect. A member-level `@deprecated` constant (`ATTR_EXCEPTION_ESCAPED`) earns no row on the same ground.
+- Law: bounded attribute values import as `*_VALUE_*` rows and dispatch as discriminated values — the `_value` table carries the closed HTTP-method family (the spec's `_OTHER` residue row included, so a foreign verb folds to a bounded value instead of an open string), the database row, and the flag-reason family beside them; `Convention.Method` and `Convention.FlagReason` derive their unions by template extraction over the table's own keys, and a `Match` arm or vocabulary lookup keys on the row, never on a free string. Flag-reason rows carry the TELEMETRY value vocabulary — the codec `FlagVerdict.reason` axis is the C#-minted wire vocabulary, name-level adjacent (`targeting` on the wire, `targeting_match` on the spec), and the runtime flag owner maps wire row to spec row at its stamp site, never here.
+- Law: every row imports a flat `ATTR_*`/`METRIC_*`/`*_VALUE_*` constant from the current spec surface — one vocabulary, one constant form, so each row keeps its literal type and the census stays greppable.
 - Law: the data stores never reach these rows for emission — `@effect/sql` stamps its own `db.*` spans — so the `db` rows here exist for `board#QUERY` construction only, and an emission-side re-stamp is the duplication defect.
+- Law: admission is consumer-earned — a stable namespace with no consuming signal concept (`otel.*` scope/status, `network.*` transport) stays unrowed, and an unimported constant costs zero bytes under tree-shaking.
 - Growth: a new convention is one row in the owning family table — attribute, metric, event, or value — never a new export, file, or parallel constant.
 
 ```typescript signature
@@ -92,7 +95,7 @@ import {
   FEATURE_FLAG_RESULT_REASON_VALUE_TARGETING_MATCH,
   FEATURE_FLAG_RESULT_REASON_VALUE_UNKNOWN,
 } from "@opentelemetry/semantic-conventions/incubating"
-import { Array, Duration, Option, Record, type Types } from "effect"
+import { Duration, Option, Record, type Types } from "effect"
 import type { AppIdentity } from "../value/identity.ts"
 
 const _attr = {
@@ -171,11 +174,13 @@ const _value = {
 
 ## [03]-[RASM_ROWS]
 
-- Owner: the `_rasm`, `_metric`, `_instrument`, and `_event` anchors — the project's own name space beside the semconv imports; `_instrument` correlates every metric name with its instrument kind and unit, including the derivative queue/active pressure gauges, so SLI admission and dashboard units derive from the declaration instead of accepting any metric in any role.
-- Law: only genuinely-Rasm vocabulary earns a row — the audit actor/action/target/retention axes, the meter resource/surface axes, the vital kind/grade axes, the slo objective/severity/burn axes, the crash hop/fingerprint/kind and breadcrumb names, the deployment `ring` exposure axis the identity projection stamps, and the invoke/gateway plane axes (`lane`, `method`, `service`, `verb`, `outcome`) the capability instruments tag on — and re-declaring an OTel standard name as a Rasm row is the rejected duplication; when semconv later promotes an equivalent stable name, the row's value migrates to the imported constant and every consumer follows through the literal type.
-- Law: metric names are rows exactly like attribute keys — the runtime fact-stream and vital owners declare their instruments against `_metric` rows, `slo#OBJECTIVE` objectives reference the same rows, `invoke#CAPABILITY_BIND` and `invoke#COMMAND_GATEWAY` declare the capability-plane instruments against the invoke/gateway rows, and `board#QUERY` queries build from them, so one rename propagates the whole plane at compile time.
-- Law: outcome and reason tag VALUES stay bounded — the invoke outcome vocabulary is the `Exit`-fold union the emitting page anchors, the fault-reason vocabulary is the codec `Hops` row set — so a Rasm tag key here never carries an identifier-grade value; identifier context rides span attributes and log annotations.
-- Growth: a new metered resource, vital kind, audit axis, or capability-plane dimension lands as one row here plus its consuming row on the owning signal page.
+- Owner: the `_rasm`, `_metric`, `_instrument`, and `_event` anchors — the project's own name space beside the semconv imports; `_instrument` correlates every metric name with its instrument kind, UCUM unit, and description, including the derivative queue/active pressure gauges, so SLI admission, dashboard units, and mint-site metadata derive from the declaration instead of accepting any metric in any role.
+- Law: only genuinely-Rasm vocabulary earns a row — an axis is admitted by the signal, work-plane, or security concept that stamps it, and the `_rasm` fence owns the roster; re-declaring an OTel standard name as a Rasm row is the rejected duplication, and when semconv promotes an equivalent stable name the row's value migrates to the imported constant with every consumer following through the literal type.
+- Law: metric names are rows exactly like attribute keys — the runtime fact-stream, vital, and meter-bridge owners declare their instruments against `_metric` rows, the data lane and batch owners against the lane/batch rows, the security owners against the security instrument family, `slo#OBJECTIVE` objectives reference the same rows, `invoke#CAPABILITY_BIND` and `invoke#COMMAND_GATEWAY` declare the capability-plane instruments against the invoke/gateway rows, and `board#QUERY` queries build from them, so one rename propagates the whole plane at compile time.
+- Law: the outbox/queue/relay rows are the work plane's lossy projection vocabulary — journal fact rows stay the billing and evidence truth, and the runtime meter bridge mints these instruments FROM those facts and census probes, so a dashboard of durable-work health reads OTel series while every dispute settles against the journal.
+- Law: outcome and reason tag VALUES stay bounded — the invoke outcome vocabulary is the `Exit`-fold union the emitting page anchors, the fault-reason vocabulary is the codec `Hops` row set, the security kind/dialect/surface/reason vocabularies are the reject stream's closed tables — so a Rasm tag key here never carries an identifier-grade value; identifier context rides span attributes and log annotations.
+- Law: core's log ownership is the `_event` vocabulary alone — log records mint through `Effect.log*` and reach the wire on the runtime export lane, so an event name is a row here, the record shape stays Effect's, and the decoded-evidence plane (`Receipt`, `FaultCapture`) owns every structured-evidence need; `breadcrumb` names the replay annotations riding the fatal capture, never a standalone record stream, so its consumer is the crash emission, not a board panel.
+- Growth: a new metered resource, vital kind, audit axis, work-plane instrument, security facet, or capability-plane dimension lands as one row here with its consuming row on the owning signal page.
 
 ```typescript signature
 const _rasm = {
@@ -194,18 +199,25 @@ const _rasm = {
   invokeMethod: "rasm.invoke.method",
   invokeOutcome: "rasm.invoke.outcome",
   invokeService: "rasm.invoke.service",
+  laneName: "rasm.lane.name",
   meterResource: "rasm.meter.resource",
   meterSurface: "rasm.meter.surface",
   ring: "rasm.ring",
+  securityDialect: "rasm.security.dialect",
+  securityKind: "rasm.security.kind",
+  securityReason: "rasm.security.reason",
+  securitySurface: "rasm.security.surface",
   sloBurn: "rasm.slo.burn",
   sloObjective: "rasm.slo.objective",
   sloSeverity: "rasm.slo.severity",
   tenant: "rasm.tenant",
   vitalGrade: "rasm.vital.grade",
   vitalKind: "rasm.vital.kind",
+  workChannel: "rasm.work.channel",
 } as const
 
 const _metric = {
+  batchDuration: "rasm.batch.duration",
   crashCaptured: "rasm.crash.captured",
   derivativeActive: "rasm.derivative.active",
   derivativeQueued: "rasm.derivative.queued",
@@ -216,31 +228,65 @@ const _metric = {
   invokeCalls: "rasm.invoke.calls",
   invokeDuration: "rasm.invoke.duration",
   invokeFault: "rasm.invoke.fault",
+  laneCheckpoint: "rasm.lane.checkpoint",
   meterUsage: "rasm.meter.usage",
+  outboxAge: "rasm.outbox.age",
+  outboxDepth: "rasm.outbox.depth",
+  outboxRedelivered: "rasm.outbox.redelivered",
+  queueDepth: "rasm.queue.depth",
+  queueParked: "rasm.queue.parked",
+  relayDrained: "rasm.relay.drained",
+  securityJwksMiss: "rasm.security.jwks.miss",
+  securityJwksQuarantined: "rasm.security.jwks.quarantined",
+  securityJwksResolve: "rasm.security.jwks.resolve",
+  securityKdf: "rasm.security.crypto.kdf",
+  securityPolicyDeny: "rasm.security.policy.deny",
+  securityRejects: "rasm.security.rejects",
+  securitySecretRotation: "rasm.security.secret.rotation",
+  securityShredReject: "rasm.security.shred.reject",
   vitalLevel: "rasm.vital.level",
   vitalObserved: "rasm.vital.observed",
 } as const
 
 const _instrument = {
-  crashCaptured: { kind: "counter", measure: "count", name: _metric.crashCaptured, unit: "1" },
-  derivativeActive: { kind: "gauge", measure: "count", name: _metric.derivativeActive, unit: "1" },
-  derivativeQueued: { kind: "gauge", measure: "count", name: _metric.derivativeQueued, unit: "1" },
-  factDrained: { kind: "counter", measure: "count", name: _metric.factDrained, unit: "1" },
-  gatewayCommands: { kind: "counter", measure: "count", name: _metric.gatewayCommands, unit: "1" },
-  gatewayDuration: { kind: "histogram", measure: "duration", name: _metric.gatewayDuration, unit: "ms" },
-  httpServerDuration: { kind: "histogram", measure: "duration", name: _metric.httpServerDuration, unit: "s" },
-  invokeCalls: { kind: "counter", measure: "count", name: _metric.invokeCalls, unit: "1" },
-  invokeDuration: { kind: "histogram", measure: "duration", name: _metric.invokeDuration, unit: "ms" },
-  invokeFault: { kind: "frequency", measure: "count", name: _metric.invokeFault, unit: "1" },
-  meterUsage: { kind: "counter", measure: "count", name: _metric.meterUsage, unit: "1" },
-  vitalLevel: { kind: "gauge", measure: "level", name: _metric.vitalLevel, unit: "1" },
-  vitalObserved: { kind: "counter", measure: "count", name: _metric.vitalObserved, unit: "1" },
+  batchDuration: { description: "resolver window wall span", kind: "histogram", measure: "duration", name: _metric.batchDuration, unit: "ms" },
+  crashCaptured: { description: "fatal captures by fault class", kind: "counter", measure: "count", name: _metric.crashCaptured, unit: "1" },
+  derivativeActive: { description: "derivative renders in flight", kind: "gauge", measure: "level", name: _metric.derivativeActive, unit: "1" },
+  derivativeQueued: { description: "derivative renders awaiting a worker", kind: "gauge", measure: "level", name: _metric.derivativeQueued, unit: "1" },
+  factDrained: { description: "journal facts drained to the fact table", kind: "counter", measure: "count", name: _metric.factDrained, unit: "1" },
+  gatewayCommands: { description: "gateway dispatches by verb and outcome", kind: "counter", measure: "count", name: _metric.gatewayCommands, unit: "1" },
+  gatewayDuration: { description: "gateway dispatch wall span", kind: "histogram", measure: "duration", name: _metric.gatewayDuration, unit: "ms" },
+  httpServerDuration: { description: "server request wall span", kind: "histogram", measure: "duration", name: _metric.httpServerDuration, unit: "s" },
+  invokeCalls: { description: "capability calls by lane and outcome", kind: "counter", measure: "count", name: _metric.invokeCalls, unit: "1" },
+  invokeDuration: { description: "capability call wall span", kind: "histogram", measure: "duration", name: _metric.invokeDuration, unit: "ms" },
+  invokeFault: { description: "capability fault reasons", kind: "frequency", measure: "count", name: _metric.invokeFault, unit: "1" },
+  laneCheckpoint: { description: "last committed projection drain position", kind: "gauge", measure: "level", name: _metric.laneCheckpoint, unit: "1" },
+  meterUsage: { description: "billable usage by resource and tenant", kind: "counter", measure: "count", name: _metric.meterUsage, unit: "1" },
+  outboxAge: { description: "oldest undelivered outbox row age", kind: "gauge", measure: "level", name: _metric.outboxAge, unit: "s" },
+  outboxDepth: { description: "undelivered outbox rows", kind: "gauge", measure: "level", name: _metric.outboxDepth, unit: "{deliverable}" },
+  outboxRedelivered: { description: "undelivered rows claimed more than once", kind: "gauge", measure: "level", name: _metric.outboxRedelivered, unit: "{deliverable}" },
+  queueDepth: { description: "durable-queue rows awaiting settlement", kind: "gauge", measure: "level", name: _metric.queueDepth, unit: "{deliverable}" },
+  queueParked: { description: "deliverables parked to the dead set", kind: "counter", measure: "count", name: _metric.queueParked, unit: "{deliverable}" },
+  relayDrained: { description: "relay claims settled by channel", kind: "counter", measure: "count", name: _metric.relayDrained, unit: "{deliverable}" },
+  securityJwksMiss: { description: "cold JWKS resolutions missing the cache", kind: "counter", measure: "count", name: _metric.securityJwksMiss, unit: "{miss}" },
+  securityJwksQuarantined: { description: "JWKS keys quarantined by the breaker", kind: "counter", measure: "count", name: _metric.securityJwksQuarantined, unit: "{key}" },
+  securityJwksResolve: { description: "JWKS resolve wall span", kind: "histogram", measure: "duration", name: _metric.securityJwksResolve, unit: "ms" },
+  securityKdf: { description: "key-derivation wall span", kind: "histogram", measure: "duration", name: _metric.securityKdf, unit: "ms" },
+  securityPolicyDeny: { description: "authorization denials by reason", kind: "counter", measure: "count", name: _metric.securityPolicyDeny, unit: "{decision}" },
+  securityRejects: { description: "authenticity rejects by kind", kind: "counter", measure: "count", name: _metric.securityRejects, unit: "{reject}" },
+  securitySecretRotation: { description: "secret rotations by custody path", kind: "counter", measure: "count", name: _metric.securitySecretRotation, unit: "{rotation}" },
+  securityShredReject: { description: "opens rejected on a shredded key", kind: "counter", measure: "count", name: _metric.securityShredReject, unit: "{reject}" },
+  vitalLevel: { description: "current accounted web-vital level", kind: "gauge", measure: "level", name: _metric.vitalLevel, unit: "1" },
+  vitalObserved: { description: "graded web-vital observations", kind: "counter", measure: "count", name: _metric.vitalObserved, unit: "1" },
 } as const
 
 const _durationScale = {
+  [_metric.batchDuration]: 1,
   [_metric.gatewayDuration]: 1,
   [_metric.httpServerDuration]: 1 / 1000,
   [_metric.invokeDuration]: 1,
+  [_metric.securityJwksResolve]: 1,
+  [_metric.securityKdf]: 1,
 } as const
 
 const _event = {
@@ -251,17 +297,24 @@ const _event = {
 
 ## [04]-[IDENTITY_PROJECTION]
 
-- Owner: the assembled `Convention` export — row families as properties, the ordered `keys` census, the `identity` projection, and the duration-to-instrument-unit projection, with companion types on the merged namespace and contract guards riding the hub so a malformed row fails at this declaration with zero widening of the interior anchors.
+- Owner: the assembled `Convention` export — row families as properties, the ordered `keys` census, the `identity` projection, the duration-to-instrument-unit projection, the `scope` instrumentation-scope mint, and the `wire` constant pair — with companion types on the merged namespace and contract guards riding the hub so a malformed row fails at this declaration with zero widening of the interior anchors.
+- Law: `Convention.scope(pkg)` is the one instrumentation-scope spelling — `@rasm/<pkg>`, the emitting package id, used identically for the tracer, meter, and logger of one package and version-stamped at the export seam, so a backend slices all telemetry from one package uniformly regardless of emitting runtime; a free-string scope at any signal site is the same defect as a free-string metric name.
+- Law: `Convention.wire` is the estate wire constant pair — `schemaUrl` pins one semconv schema on every `Resource` all three runtimes emit (the path segment tracks the manifest's semconv pin and bumps with it), and `translation` names the collector/Prometheus strategy (`NoUTF8EscapingWithSuffixes`) that preserves dotted names while appending type and unit suffixes — so the iac store rows and the runtime export lanes read one spelling and the three runtimes' series stay byte-identical.
 - Law: the record contract is two-sided by trust direction — `Convention.Attributes` is the closed stamping record whose `ValueOf` binds method, flag reason, database system, status/pid number, browser-mobile boolean, and the remaining string rows at their own keys; `Convention.Bag` is the open read-side record and admits scalar arrays because foreign OpenTelemetry attributes lawfully carry them. A signal site writing through `Bag`, or a scrub seam demanding `Attributes`, is the inverted-trust defect.
 - Law: `Convention.keys` is the one iteration anchor — the ordered census over every attribute row (`_attr`, `_incubating`, `_rasm` in table order), so a render fold probing a closed record walks the vocabulary and emits pairs in canonical order; an `Object.keys` walk over a stamped record re-imports per-record insertion order and is the deleted spelling.
 - Law: `Convention.duration(metric, span)` is the one duration conversion — `_durationScale` is a mapped record over every duration histogram name, so adding a duration instrument without its canonical millisecond multiplier breaks at the declaration; SLO and rule compilers consume this projection and never assume every histogram is measured in seconds.
-- Law: `Convention.identity` is the single eleven-dimension `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `service.namespace`, `cloud.region`, `cloud.availability_zone`, `k8s.cluster.name`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
+- Law: `Convention.identity` is the one `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `service.namespace`, `cloud.region`, `cloud.availability_zone`, `k8s.cluster.name`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
 - Law: a dimension is projected only once the identity value settles it — the projection line lands in the same edit that adds the identity field, never ahead of it — so the projection reads settled `instance`/`namespace`/`environment`/`ring`/`region`/`zone`/`cluster` values and never re-mints a dimension the floor owns; an absent `Option` dimension is omission, never a sentinel, so a backend filter never matches an empty string.
 - Boundary: `AppIdentity` is `value/identity`'s value — this page projects it into attribute space and owns nothing about its construction; `value/fault` imports `ATTR_EXCEPTION_*`/`ATTR_ERROR_TYPE` directly for its forensic anchors — a shared-import boundary, two owners over one spec vocabulary, never a re-export hop.
-- Entry: `Convention.identity(identity)` — the one operation; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.event.exception`, `Convention.value.methodGet`); `Convention.keys` at every iteration seam.
-- Growth: a new identity dimension is one projection line plus its `_rasm` row; a new bounded-value binding is one `ValueOf` clause beside its `_value` rows.
+- Entry: `Convention.identity(identity)` and `Convention.scope(pkg)` — the two operations; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.event.exception`, `Convention.value.methodGet`, `Convention.wire.schemaUrl`); `Convention.keys` at every iteration seam.
+- Growth: a new identity dimension is one projection line with its `_rasm` row; a new bounded-value binding is one `ValueOf` clause beside its `_value` rows.
 
 ```typescript signature
+const _wire = {
+  schemaUrl: "https://opentelemetry.io/schemas/1.43.0", // path segment tracks the manifest semconv pin; bump together
+  translation: "NoUTF8EscapingWithSuffixes",
+} as const
+
 const _keys: ReadonlyArray<Convention.Key> = [
   ...Record.values(_attr),
   ...Record.values(_incubating),
@@ -327,6 +380,8 @@ declare namespace Convention {
     & { readonly [K in (typeof _attr)["deploymentEnvironment" | "serviceInstance" | "serviceName" | "serviceVersion"] | (typeof _incubating)["hostName"] | (typeof _rasm)["ring"]]: string }
     & { readonly [K in (typeof _attr)["serviceNamespace"] | (typeof _incubating)["cloudRegion" | "cloudZone" | "k8sCluster"] | (typeof _rasm)["tenant"]]?: string }
   >
+  type Scope = `@rasm/${string}`
+  type Wire = typeof _wire
   type Shape = Types.Simplify<{
     readonly attr: typeof _attr
     readonly duration: (metric: DurationMetric, span: Duration.Duration) => number
@@ -337,14 +392,17 @@ declare namespace Convention {
     readonly keys: ReadonlyArray<Key>
     readonly metric: typeof _metric
     readonly rasm: typeof _rasm
+    readonly scope: (pkg: string) => Scope
     readonly value: typeof _value
+    readonly wire: Wire
   }>
   type _Attr<T extends Record<Attr, string> = typeof _attr> = T
   type _InstrumentRows<
-    T extends { readonly [K in keyof typeof _metric]: { readonly kind: "counter" | "frequency" | "gauge" | "histogram"; readonly measure: "count" | "duration" | "level"; readonly name: (typeof _metric)[K]; readonly unit: string } } = typeof _instrument,
+    T extends { readonly [K in keyof typeof _metric]: { readonly description: string; readonly kind: "counter" | "frequency" | "gauge" | "histogram"; readonly measure: "count" | "duration" | "level"; readonly name: (typeof _metric)[K]; readonly unit: string } } = typeof _instrument,
   > = T
   type _DurationRows<T extends Record<MetricName<"histogram">, number> = typeof _durationScale> = T
   type _Rasm<T extends Record<keyof typeof _rasm, `rasm.${string}`> = typeof _rasm> = T
+  type _RasmMetric<T extends Record<Exclude<keyof typeof _metric, "httpServerDuration">, `rasm.${string}.${string}`> = typeof _metric> = T // the dotted rasm.<domain>.<measure> naming law, closed at the anchor
 }
 
 const Convention: Convention.Shape = {
@@ -357,7 +415,9 @@ const Convention: Convention.Shape = {
   keys: _keys,
   metric: _metric,
   rasm: _rasm,
+  scope: (pkg) => `@rasm/${pkg}`,
   value: _value,
+  wire: _wire,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

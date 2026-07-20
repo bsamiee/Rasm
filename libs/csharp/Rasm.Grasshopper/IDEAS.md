@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_IDEAS]
 
-The forward pool of higher-order concepts for the Grasshopper host boundary — Grasshopper2 component/document/canvas capture and native Eto UI composition over the `Rasm` kernel. `[1]-[OPEN]` holds active ideas as cards; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition.
+Forward pool of higher-order concepts for the Grasshopper host boundary — Grasshopper2 component, document, and canvas capture with native Eto UI composition over the `Rasm` kernel.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 

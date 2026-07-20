@@ -311,7 +311,7 @@ public sealed record GeoModel {
             .Map(static pairs => pairs.Fold(
                 HashMap<ulong, Seq<GeoFeature>>(),
                 static (acc, pair) => pair.Cell.Match(
-                    Some: id => acc.AddOrUpdate(id, Some: s => s.Add(pair.Feature), None: () => Seq1(pair.Feature)),
+                    Some: id => acc.AddOrUpdate(id, Some: s => s.Add(pair.Feature), None: () => Seq(pair.Feature)),
                     None: () => acc)));
 
     // A probe region lowered to its compacted H3 cover: Geometry.Fill polyfill at the resolution, GridDiskDistances
@@ -617,7 +617,7 @@ public static class GeoKml {
 
     static Seq<GeoFeature> Walk(KmlDom.Feature feature, Option<ProjectedCrs> crs) => feature switch {
         KmlDom.Container container => container.Features.AsIterable().Bind(child => Walk(child, crs)).ToSeq(),
-        KmlDom.Placemark mark when Lower(mark.Geometry) is { } geometry => Seq1(new GeoFeature(geometry, Attributes(mark), crs)),
+        KmlDom.Placemark mark when Lower(mark.Geometry) is { } geometry => Seq(new GeoFeature(geometry, Attributes(mark), crs)),
         _ => Seq<GeoFeature>(),
     };
 

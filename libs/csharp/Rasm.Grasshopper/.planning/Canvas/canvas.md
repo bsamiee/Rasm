@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_CANVAS_CANVAS]
 
-The Grasshopper canvas boundary owns one command gate and one projection gate over the live GH2 `Canvas`. `CanvasOp` absorbs public mutable canvas behavior behind total generated dispatch, `CanvasQuery` closes read demand over detached `CanvasProjection` values, and `GhSession.Run` bounds every host interaction. Command receipts carry the case-generated `SelfOp` identity plus ordered evidence from one injected `MonotonicTimeline`.
+Grasshopper's canvas boundary owns one command gate and one projection gate over the live GH2 `Canvas`. `CanvasOp` absorbs public mutable canvas behavior behind total generated dispatch, `CanvasQuery` closes read demand over detached `CanvasProjection` values, and `GhSession.Run` bounds every host interaction. Command receipts carry the case-generated `SelfOp` identity with ordered evidence from one injected `MonotonicTimeline`.
 
 ## [01]-[INDEX]
 
@@ -16,9 +16,9 @@ The Grasshopper canvas boundary owns one command gate and one projection gate ov
 - Owner: `RasterPlan` `[Union]` — `FullCase`, `SizedCase`, and `PickMapCase` select the host raster modality. `Sized` admits both dimensions, and every raster leaves as `Lease<Bitmap>.Owned`.
 - Law: `ResolvePick` queries the document and wire cache directly. `DrawPickMap` independently applies the same resolver across the pixel grid for diagnostics, so point picking and diagnostic rendering share policy without sharing lifetime.
 - Law: `Map` is the coordinate authority for host `Screen`/`Control`/`Content` frames; `CanvasQuery` admits the source value and frames, and `CanvasProjection` admits the mapped result.
-- Boundary: `RepaintRow` owns this canvas's repaint policy; `FlexPulse` serves non-canvas flex controls. Canvas paint, wire routing, and responder registration remain separate canvas owners.
+- Boundary: `RepaintRow` owns this canvas's repaint policy; `FlexPulse` serves non-canvas flex controls. Canvas paint, wire routing, and responder registration remain separate canvas owners. Rasters leave as Eto `Bitmap` leases — `BitmapData` pixel locking belongs to the consumer's measured kernel, and `IndexedBitmap` carries no GH2 payload.
 - Packages: Grasshopper2 (`Canvas`, `FlexControl.Map`, `Projection`, canvas bounds, pick and raster surfaces, action and selection policy, snap axes, skins, cursors, ZUI and navigation state, layer durations, `SelectionResult`, `Pick`, `WireEnds`), Eto.Drawing (`PointF`, `RectangleF`, `Bitmap`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Numerics`.
-- Growth: a new read is one `CanvasQuery` case plus its `CanvasProjection` case, a new pick modality is one `PickGates` row, and a new raster modality is one `RasterPlan` case.
+- Growth: a new read is one `CanvasQuery` case with its `CanvasProjection` case, a new pick modality is one `PickGates` row, and a new raster modality is one `RasterPlan` case.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -335,10 +335,10 @@ internal readonly ref struct CanvasLens {
 
 - Owner: `CanvasOp` `[Union]` `[GenerateUnionOps]` — the closed command family over the host's public navigation, projection, dwell, sparkle, marquee, selection, policy, and inline-editing mutations. Each case validates its payload and returns its generated `SelfOp` from the same total dispatch that performs the mutation; logical `CursorMode` remains read-only because its setter is not public.
 - Owner: `NavTarget` `[Union]` — the three `IFlexControl.Navigate` shapes. Its validity fold admits defined host enums, finite points and frames, positive ordered zoom bounds, and positive frame extents before the host call.
-- Owner: `SparkleSpec` `[Union]` — the public host sparkle constructors plus `BespokeCase(ISparkle)`. `BlastCase` carries the host's static `PointF`; edge, face, and notice cases carry the provider delegates their constructors consume. `Mint` projects one admitted case onto `ISparkle`, whose host lifecycle removes settled overlays.
+- Owner: `SparkleSpec` `[Union]` — the public host sparkle constructors and `BespokeCase(ISparkle)`. `BlastCase` carries the host's static `PointF`; edge, face, and notice cases carry the provider delegates their constructors consume. `Mint` projects one admitted case onto `ISparkle`, whose host lifecycle removes settled overlays.
 - Owner: `ActionGate` `[SmartEnum<int>]` — the `CanvasActions` boolean vocabulary over paired `Write` and `Read` delegate columns. `WireFilters` carries both predicate slots, and policy admission rejects duplicate gates or invalid filter payloads.
 - Owner: `InlinePrompt` — the content-frame editor intent with seed, parser, and optional cancellation callback. Its host adapters contain delayed callback exceptions after the opening marshal: parse faults become failed `IResult` values, and cancellation faults cannot escape the UI event. `CanvasReceipt` carries the generated command `Op`, ordered entry/settlement stamps, and elapsed evidence.
-- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline timeline, Op? key = null)` → `Fin<CanvasReceipt>`; `CanvasOperator.Read(CanvasQuery query, Op? key = null)` → `Fin<CanvasProjection>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`. The entries serve command, closed projection, and non-canvas redraw demand.
+- Entry: `CanvasOperator.Apply(CanvasOp op, MonotonicTimeline timeline, Op? key = null)` → `Fin<CanvasReceipt>`; `CanvasOperator.Read(CanvasQuery query, Op? key = null)` → `Fin<CanvasProjection>`; `CanvasOperator.FlexPulse(IFlexControl surface, Option<TimeSpan> delay = default, Op? key = null)` → `Fin<Unit>`.
 - Law: `Apply` admits the complete case, captures entry before the marshal, executes one case inside `GhSession.Run`, and captures settlement after the marshal. `CanvasReceipt.Of` derives order and elapsed time from the same timeline before acceptance.
 - Law: policy mutation is row-driven — `PolicyCase` folds `(ActionGate, bool)` rows through `Write` onto `AllowedActions`, and a `Some` filters payload writes BOTH predicate slots. A `None` slot clears its live filter, while an absent payload leaves both slots untouched. `CanvasState.Policy` reads the same closed rows and both filter slots, so one immutable state projection carries the complete policy.
 - Boundary: `IFlexControl` owns navigation, projection, coordinate mapping, and redraw scheduling; canvas motion, layout, and interaction owners compose those values without adding mutation gates here.

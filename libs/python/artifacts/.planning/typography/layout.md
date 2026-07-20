@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_LAYOUT]
 
-`LineLayout` owns locale-aware paragraph layout over the document rail. One closed `LayoutRequest` family gives each arm only its consumed state, `SegmentEngine` selects uniseg's locale-free UAX #14 table or PyICU's CLDR-tailored dictionary segmentation, and `CollationPolicy` projects the UCA strength, case, normalization, numeric, and alternate-handling axes onto one ICU collator. pyphen contributes every legal soft break plus its realized `(head, tail)` orthographic substitution. A Knuth-Plass total-fit program lowers HarfBuzz cluster groups into one `Item` stream, rejects every `unsafe_to_break` edge, admits `tatweel_points` as elastic kashida, and minimizes total demerits across the paragraph.
+`LineLayout` owns locale-aware paragraph layout over the document rail. One closed `LayoutRequest` family gives each arm only its consumed state, `SegmentEngine` selects uniseg's locale-free UAX #14 table or PyICU's CLDR-tailored dictionary segmentation, and `CollationPolicy` projects the UCA strength, case, normalization, numeric, and alternate-handling axes onto one ICU collator. pyphen contributes every legal soft break with its realized `(head, tail)` orthographic substitution. A Knuth-Plass total-fit program lowers HarfBuzz cluster groups into one `Item` stream, rejects every `unsafe_to_break` edge, admits `tatweel_points` as elastic kashida, and minimizes total demerits across the paragraph.
 
 Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_breaks` converts ICU's UTF-16 offsets before grapheme reconciliation, `_clusters` preserves each contiguous glyph cluster as one indivisible span, RTL reverses cluster groups rather than glyphs, and `_stream` reads break evidence at each group's trailing edge. `LayoutLine` carries both the shaped-run glyph span and source-text span, while `LineEnding.hyphenated` carries the selected pyphen substitution without forcing downstream reconstruction. `broken(spec)` exposes the same total-fit value used by `emit()`. Native ICU4C arms cross the process lane; the pure uniseg/pyphen folds — the input-scaled Knuth-Plass fit included — cross the own-GIL interpreter lane, so no synchronous fold ever runs on the event loop.
 
@@ -35,10 +35,11 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -278,9 +279,8 @@ class LineLayout(Struct, frozen=True):
         with _TRACER.start_as_current_span(f"layout.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})
             crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
-        return crossed.map(lambda data: ArtifactReceipt.Document(key, len(data))).map_error(
-            lambda fault: _logged_fault(self.request.tag, fault)
-        )
+            # egress fold closes inside the span scope: the Error arm marks ERROR and logs correlated, the Ok path stays silent.
+            return crossed.map(lambda data: ArtifactReceipt.Document(key, len(data))).map_error(partial(_faulted, span, self.request.tag))
 
     @property
     def _trait(self) -> KernelTrait:
@@ -323,7 +323,8 @@ class _Cluster(Struct, frozen=True):
 # --- [OPERATIONS] ----------------------------------------------------------------------
 
 
-def _logged_fault[E](step: str, fault: E, /) -> E:
+def _faulted(span: trace.Span, step: str, fault: BoundaryFault, /) -> BoundaryFault:
+    span.set_status(Status(StatusCode.ERROR, fault.tag))
     _LOG.error("layout.emit", step=step, **fault.facts())
     return fault
 

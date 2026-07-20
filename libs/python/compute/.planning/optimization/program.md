@@ -2,7 +2,7 @@
 
 Constrained, global, and discrete counterpart of the gradient-driven design loop — the math-program reaches what the differentiable optimizer in `optimization/design.md#DESIGN` structurally cannot: `ProgramIntent` discriminates a linear program, a mixed-integer program, a derivative-free global minimum, a bounded constrained smooth minimum, and an optimal assignment over `scipy.optimize`. This owner carries no numpy floor — the math-program solve IS `scipy.optimize`, so a run without the package returns `Error(Import)` rather than a degraded estimate, the deliberate floor asymmetry against `design.md` and `solvers/nonlinear.md#NONLINEAR`, mirroring the no-floor Qhull routes of `analysis/spatial.md#SPATIAL`.
 
-Every route folds the host termination verdict, the objective, and the maximum constraint-violation residual into the `program` case of the shared `OutcomeReceipt` on `optimization/design.md#DESIGN`, carrying the `SolveStatus` vocabulary `solvers/receipt.md#RECEIPT` owns — so an infeasible, unbounded, or iteration-limited program is a distinct first-class verdict the C# graduation gate reads, never a boolean collapsing every non-success cause to `False`. Program data admits through `numerics/array.md#PAYLOAD` on the same `ContentIdentity` seed, and the certified optimum graduates on the existing `solver` `HandoffAxis` case through `graduation/handoff.md#GRADUATION`.
+Every route folds the host termination verdict, the objective, and the maximum constraint-violation residual into the `program` case of the shared `OutcomeReceipt` on `optimization/design.md#DESIGN`, carrying the `SolveStatus` vocabulary `solvers/receipt.md#RECEIPT` owns — so an infeasible, unbounded, or iteration-limited program is a distinct first-class verdict the C# graduation gate reads, never a boolean collapsing every non-success cause to `False`. Program data admits through `numerics/array.md#PAYLOAD` on the same `ContentIdentity` seed, and the certified optimum graduates on the existing `solver` `HandoffAxis` case through the shared `OutcomeReceipt.graduates` projection clearing the `program` ceiling row.
 
 ## [01]-[INDEX]
 
@@ -13,9 +13,9 @@ Every route folds the host termination verdict, the objective, and the maximum c
 - Owner: `ProgramIntent` — the discriminant is the program shape, so the gradient loop and the math program are sibling owners on one sub-domain; `Constrained` threads the `LinearConstraint`/`NonlinearConstraint` carriers DIRECTLY, never lowered to the legacy `{"type": "ineq", "fun": ...}` dicts scipy also accepts; a pure-inequality, pure-equality, or mixed LP is one `Linear` shape with each block passed only when non-empty, never a parallel equality-LP owner.
 - Cases: `GlobalMethod` rides the `Global` factory's keyword-only `method` parameter — not the `solve` entry `design.md` carries `descent` on — because it discriminates the ONE stochastic route while `Descent` spans all three design routes, so an engine knob on `program.solve` is `None` for the four routes it cannot reach; `DE` carries its `workers=-1`/`polish=True`/`strategy` advanced surface so the population search runs process-parallel and L-BFGS-B-polished at full catalogued power, never the two-argument subset.
 - Entry: `ProgramSolve` carries ONLY the raw host carrier, and the `iterate` read is LAZY past adjudication — an infeasible `linprog` whose `result.x`/`result.fun` are `None` folds its typed `INFEASIBLE` verdict, never a `float(None)` crash captured as a generic fault; `Termination.adjudicate` dispatches on `self`, so it never names the `TYPE_CHECKING`-only `opt.OptimizeResult` as a runtime class pattern; the violation reduces through one typed carrier `match`, never a `hasattr(con, "A")` reflective probe.
-- Receipt: this owner mints only the `OutcomeReceipt.Program` factory case — the `.facts` projection and `contribute` fold live on the shared owner at `optimization/design.md#DESIGN`, never a program-specific body.
+- Receipt: this owner mints only the `OutcomeReceipt.Program` factory case — the `.facts` projection, the `contribute` fold, and the `graduates` solver-axis crossing live on the shared owner at `optimization/design.md#DESIGN`, never a program-specific body.
 - Packages: exit code `4` diverges between `linprog` ("numerical") and `milp` ("other") and neither is the matrix-conditioning verdict `solvers/receipt.md#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`; `shgo` and `direct` are deterministic and take no `rng` keyword; the scipy carriers annotate under `TYPE_CHECKING` and the gated package never imports at runtime.
-- Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new global solver is one `GlobalMethod` case plus one `solve` arm, never a new `ProgramIntent` tag; a new termination shape is one `Termination` member plus one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` row.
+- Growth: a new route is one `ProgramIntent` case, one `Carried` arm, one `_PROGRAM_ROUTES` row, and one `_project` arm; a new global solver is one `GlobalMethod` case and one `solve` arm, never a new `ProgramIntent` tag; a new termination shape is one `Termination` member and one `adjudicate` arm; a new host code is one `_PROGRAM_STATUS` row.
 
 ```python signature
 from collections.abc import Callable
@@ -181,7 +181,13 @@ _SEED = 0
 # `0/1/2/3` agree across the `linprog` and `milp` exit-code tables; code `4` diverges — `linprog`
 # "numerical difficulties", `milp` "other" — and neither is the matrix-conditioning `conlim` verdict
 # `solvers/receipt.md#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`.
-_PROGRAM_STATUS: Map[int, SolveStatus] = Map.of_seq([(0, SolveStatus.SUCCESS), (1, SolveStatus.MAX_STEPS), (2, SolveStatus.INFEASIBLE), (3, SolveStatus.UNBOUNDED), (4, SolveStatus.OTHER)])
+_PROGRAM_STATUS: Map[int, SolveStatus] = Map.of_seq([
+    (0, SolveStatus.SUCCESS),
+    (1, SolveStatus.MAX_STEPS),
+    (2, SolveStatus.INFEASIBLE),
+    (3, SolveStatus.UNBOUNDED),
+    (4, SolveStatus.OTHER),
+])
 
 
 # --- [MODELS] ------------------------------------------------------------------------------
@@ -213,10 +219,10 @@ async def solve(intent: ProgramIntent, lane: LanePolicy, *, seed: int = _SEED) -
     # `ContentIdentity.of` key threads through `.bind` so a digest fault propagates on the one rail
     # rather than collapsing to a phantom bare `ContentKey`. The scipy global/discrete bodies are
     # native work crossing under the `RELEASING` trait onto the runtime thread band under the hub weave —
-    # span, fence, and the `@receipted(REDACTION)` receipt harvest composed, with the MODULE-LEVEL
+    # span, fence, and the fenced contributor harvest composed, with the MODULE-LEVEL
     # `_program_kernel` crossing the lane; isolation, band, and worker-death retry derive at the runtime Kernel crossing.
-    # The stochastic arm declares TERMINAL: a pathological global search dies at the caller's wall-clock budget —
-    # the pebble kill is the one bound a tight native loop obeys — and the sealed crossing carries a closure objective.
+    # Stochastic arms declare TERMINAL: a pathological global search dies at the caller's wall-clock budget —
+    # pebble kill is the one bound a tight native loop obeys — and the sealed crossing carries a closure objective.
     async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
         kernel = Kernel.of(
             _program_kernel,
@@ -225,7 +231,7 @@ async def solve(intent: ProgramIntent, lane: LanePolicy, *, seed: int = _SEED) -
         )
         return (await lane.offload(kernel, intent, seed)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.PROGRAM, f"program.{intent.tag}", dispatch)
+    return await evidence_run(EvidenceScope.PROGRAM, f"program.{intent.tag}", dispatch, facts={"program": intent.tag, "seed": seed})
 
 
 def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":

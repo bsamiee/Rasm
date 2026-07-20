@@ -125,7 +125,17 @@ public static class ControlFactory {
     public const string RejectedInstrument = "rasm.appui.control.rejected";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, MaterializedInstrument, RejectedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(MaterializedInstrument, InstrumentKind.Count, "{control}", "controls materialized by intent case"),
+            new(RejectedInstrument, InstrumentKind.Count, "{control}", "control intents rejected"));
+
+    // Composition binds this projection beside the context's Evidence column, so both counts derive
+    // from the one materialize fold outcome and no dispatch arm touches the meter.
+    public static Unit Observe(InstrumentSet set, Fin<ControlReceipt> outcome) =>
+        outcome.Match(
+            Succ: receipt => ignore(set.Count(MaterializedInstrument, 1L,
+                new KeyValuePair<string, object?>("intent", receipt.IntentKey))),
+            Fail: _ => ignore(set.Count(RejectedInstrument, 1L)));
 
     // Every successful materialization seals its ControlReceipt through the context's evidence column
     // — the one mint the screen evidence stream consumes; a rejected materialize carries its fault only.

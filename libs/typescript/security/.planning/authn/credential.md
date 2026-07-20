@@ -1,6 +1,6 @@
 # [SECURITY_CREDENTIAL]
 
-The one digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index decoded through one `Schema.TemplateLiteralParser` owner — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option, `Accepted.timeStep` is the next floor the caller persists, `remaining` projects the seconds left in the current window for the ui prompt, and an `OTPHooks` value threads through `verify` so a Steam-Guard-style alphabet is a value, never a fork. Every credential-verify surface is a brute-force target and every one is throttled: `Otp.verify`/`Otp.redeem` run under a per-subject budget and `ApiKey.resolve` under a per-prefix budget on the store-backed `RateLimiter`, an exhausted budget is the `throttled` fault (class `exhausted`), and every reject increments `security_credential_reject` tagged by surface. Record ids mint through the `Crypto` entropy port; every secret is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws — the guard pair closes its table in both directions. `ApiKeyGuard` is the declarative api-key scheme seam the runtime serve wave mounts.
+One digest-at-rest credential owner: second-factor OTP, recovery codes, and machine API keys — three surfaces over one mint-and-resolve idiom the census flagged as byte-for-byte identical. `Digest` is that idiom made a value: mint an opaque secret, store its argon2 digest keyed by a public index, resolve a presented secret by index-scoped candidate scan then constant-time verify. Recovery codes and API keys both compose it — a recovery set is N codes over `Digest`, an API key is `rk_<prefix>.<secret>` over `Digest` with a prefix index decoded through one `Schema.TemplateLiteralParser` owner — so the `findFirst` candidate scan and the `Crypto.digest`/`Crypto.verify` pair exist once. `Otp` owns the TOTP/HOTP rows through `otplib` v13's strategy-discriminated result rail bound to `crypt/sign`'s `Crypto` ports, so second-factor HMAC rides the same primitive the folder owns and the bundled `@noble/hashes` stack is bypassed; the TOTP replay floor rides otplib's own `afterTimeStep` option, `Accepted.timeStep` is the next floor the caller persists, `remaining` projects the seconds left in the current window for the ui prompt, and an `OTPHooks` value threads through `verify` so a Steam-Guard-style alphabet is a value, never a fork. Every credential-verify surface is a brute-force target and every one is throttled: `Otp.verify`/`Otp.redeem` run under a per-subject budget and `ApiKey.resolve` under a per-prefix budget on the store-backed `RateLimiter`, an exhausted budget is the `throttled` fault (class `exhausted`), and every reject lands the `credential` row on the folder reject stream tagged by surface. Record ids mint through the `Crypto` entropy port; every secret is `Redacted` until the QR render or the one-time receipt at the edge; a wrong OTP is the `Rejected` verdict, a recovery or key miss is a typed fault, and `CredentialFault` fires only when a primitive throws — the guard pair closes its table in both directions. `ApiKeyGuard` is the declarative api-key scheme seam the runtime serve wave mounts.
 
 ## [01]-[CLUSTERS]
 
@@ -26,8 +26,9 @@ import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { createGuardrails, generateSecret, generateURI, verify, type OTPGuardrails, type OTPVerifyFunctionalOptions } from "otplib"
 import type { OTPHooks } from "@otplib/core"
 import { FaultClass } from "@rasm/ts/core"
-import { Array, Clock, Config, Context, Data, DateTime, Duration, Effect, Layer, Metric, Option, Redacted, Schema } from "effect"
+import { Array, Clock, Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Crypto } from "../crypt/sign.ts"
+import { Reject } from "../crypt/verify.ts"
 
 const _reasons = ["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const
 
@@ -59,8 +60,6 @@ class CredentialFault extends Schema.TaggedError<CredentialFault>()("CredentialF
   }
 }
 
-const _rejected = Metric.counter("security_credential_reject")
-
 const _digest = (cipher: Context.Tag.Service<Crypto>) => ({
   mint: (alphabet: string, length: number): Effect.Effect<{ readonly secret: Redacted.Redacted<string>; readonly digest: Redacted.Redacted<string> }, CredentialFault> =>
     cipher.token(alphabet, length).pipe(
@@ -81,10 +80,10 @@ const _digest = (cipher: Context.Tag.Service<Crypto>) => ({
 ## [03]-[SECOND_FACTOR]
 
 [SECOND_FACTOR]:
-- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token under the per-subject budget, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code under the same budget, `Otp.remaining` projects the seconds left in the current TOTP window for the ui prompt. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. The otplib `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, `createGuardrails` bounds secret bytes, period, counter, and window per policy, and the optional `OTPHooks` value threads through `verify` so a non-numeric token variant is one hooks row.
+- Owner: `Otp.enroll` mints the base32 secret and the `otpauth://` URI, `Otp.verify` checks a presented token under the per-subject budget, `Otp.mintRecovery` issues N single-use codes over `Digest`, `Otp.redeem` finds the matching unspent code under the same budget, `Otp.remaining` projects the seconds left in the current TOTP window for the ui prompt. `OtpVerdict` is the second-factor result — `Accepted({ delta, timeStep })` or `Rejected` — and `RecoverySet` carries the codes and their digests. otplib's `crypto`/`base32` ports bind to `Crypto.plugin`/`Crypto.base32`, `createGuardrails` bounds secret bytes, period, counter, and window per policy, and the optional `OTPHooks` value threads through `verify` so a non-numeric token variant is one hooks row.
 - Law: verification is result-typed and constant-time inside otplib — a wrong code is `Rejected`, never a throw; TOTP verifies past-only under `_EPOCH_TOLERANCE`, HOTP look-ahead under `_COUNTER_TOLERANCE` when the caller passes a `Some` counter; a valid HOTP match persists `counter + delta + 1` — the `Accepted.delta` resync signal.
 - Law: the TOTP replay floor is library-enforced — the caller's stored floor passes as otplib's `afterTimeStep` option, so a token whose matched `timeStep` is not strictly greater lands `{ valid: false }` inside the constant-time verify; `Accepted.timeStep` carries the RFC-6238 step number the caller persists as the next floor, and HOTP carries no `timeStep` (its counter is the floor).
-- Law: `verify` and `redeem` are keyed brute-force targets — both run under the subject-keyed token-bucket budget, `RateLimitExceeded` folds to `throttled`, and a `Rejected` verdict increments `security_credential_reject` tagged `otp`/`recovery`, so a guessing campaign is visible and bounded across every app sharing the store-backed limiter.
+- Law: `verify` and `redeem` are keyed brute-force targets — both run under the subject-keyed token-bucket budget, `RateLimitExceeded` folds to `throttled`, and a `Rejected` verdict lands `Reject.mark("credential", { surface })` with the `otp`/`recovery` surface facet, so a guessing campaign is visible and bounded across every app sharing the store-backed limiter.
 - Law: recovery codes are `Digest` material, not an otplib feature — `mintRecovery` composes `Digest.mint` per code and `redeem` composes `Digest.resolve` over the digests, returning the matched index so the store marks exactly that code spent.
 - Receipt: `OtpVerdict` on verify, `Option<number>` on redeem (the spent index), `RecoverySet` on mint — never a raw boolean.
 - Growth: a Steam-Guard-style alphabet is one `OTPHooks` value through the threaded option; HOTP is the same call with a `Some` counter — the input value is the strategy discriminant, never a name fork.
@@ -153,7 +152,7 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
               ? _OtpVerdict.Accepted({ delta: result.delta, timeStep: "timeStep" in result ? Option.some(result.timeStep) : Option.none<number>() })
               : _OtpVerdict.Rejected()),
           Effect.tap((verdict) =>
-            verdict._tag === "Rejected" ? Metric.increment(_rejected.pipe(Metric.tagged("surface", "otp"))) : Effect.void),
+            verdict._tag === "Rejected" ? Reject.mark("credential", { surface: "otp" }) : Effect.void),
         ),
       ).pipe(Effect.withSpan("security.otp.verify"))
     const remaining = (): Effect.Effect<number> =>
@@ -168,7 +167,7 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
         Effect.map(
           digest.resolve(presented, Array.map(digests, (held, index) => ({ held, index })), (row) => row.held),
           Option.map((row) => row.index),
-        ).pipe(Effect.tap((hit) => Option.isNone(hit) ? Metric.increment(_rejected.pipe(Metric.tagged("surface", "recovery"))) : Effect.void)),
+        ).pipe(Effect.tap((hit) => Option.isNone(hit) ? Reject.mark("credential", { surface: "recovery" }) : Effect.void)),
       )
     return { enroll, verify: verify_, remaining, mintRecovery, redeem } as const
   }),
@@ -182,11 +181,11 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
 [MACHINE_KEY]:
 - Owner: `ApiKey.mint` issues `rk_<prefix>.<secret>` and stores its digest through `Digest.mint`; `ApiKey.resolve` decodes the wire frame through the `_KeyWire` parser, loads the prefix-indexed candidates under the per-prefix budget, resolves through `Digest.resolve`, gates lifecycle through `filterOrFail`, and touches `lastUsedAt`; `ApiKey.rotate` revokes and re-mints for the same subject; `ApiKey.revoke` timestamps. `ApiKeyRecord` is the stored credential, `MintReceipt` the one-time plaintext, `ApiKeyStore` the prefix-indexed port. `CurrentApiKey`/`ApiKeyGuard` are the declarative scheme seam — the middleware Tag carries `HttpApiSecurity.apiKey` on the `x-api-key` header, its implementation folds `resolve`, and the runtime serve wave mounts it so a machine-keyed endpoint receives the resolved record through the requirement channel. One polymorphic `resolve` dispatches on the presented value, never a `getByKey`/`verifyKey` twin.
 - Law: the plaintext leaves only through `MintReceipt`; the digest is the PHC the `apiKey` cost row governs; a revoked or expired record is a typed fault, never a silent accept; the resolve reuses `Digest.resolve` so the candidate scan is the shared idiom, not a re-implementation.
-- Law: `resolve` amortizes over the public prefix and is throttled by it — the prefix-keyed token-bucket budget bounds a stolen-prefix guessing campaign, `RateLimitExceeded` folds to `throttled`, and a scan miss increments `security_credential_reject` tagged `apikey`.
+- Law: `resolve` amortizes over the public prefix and is throttled by it — the prefix-keyed token-bucket budget bounds a stolen-prefix guessing campaign, `RateLimitExceeded` folds to `throttled`, and a scan miss lands `Reject.mark("credential", { surface: "apikey" })` on the folder reject stream.
 - Receipt: `MintReceipt` on mint/rotate (the subject and scopes the edge lifts into a principal), `ApiKeyRecord` on resolve — never a bare boolean.
 - Growth: a new credential facet (a description, an IP allowlist) is one `ApiKeyRecord` field; a new failure mode is one `CredentialFault` reason.
 - Boundary: the data wave satisfies `ApiKeyStore` and the limiter store; the edge lifts the resolved record's subject and scopes into a request principal; `Digest`/`crypt/sign` own the mint and verify; this page authenticates a machine and hands the subject on — it mints no session.
-- Packages: `Digest` (mint/resolve); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`DateTime`, `Duration`, `Effect`, `Metric`, `Option`, `Redacted`, `Schema`).
+- Packages: `Digest` (mint/resolve); `crypt/verify` (`Reject`); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
 
 ```typescript
 const _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -255,7 +254,7 @@ class ApiKey extends Effect.Service<ApiKey>()("security/authn/ApiKey", {
               Option.match({
                 onNone: () =>
                   Effect.zipRight(
-                    Metric.increment(_rejected.pipe(Metric.tagged("surface", "apikey"))),
+                    Reject.mark("credential", { surface: "apikey" }),
                     Effect.fail(new CredentialFault({ reason: "notFound", detail: prefix }))),
                 onSome: Effect.succeed,
               }),

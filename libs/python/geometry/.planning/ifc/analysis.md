@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_IFC_ANALYSIS]
 
-IFC property, quantity, and relationship analysis plus standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
+IFC property, quantity, and relationship analysis and standards-conformant validation — AEC verbs the tessellation hop drops: quantity takeoff, Pset queries, IDS model-checking, clash detection, space-program validation, and BCF issue authoring over `ifcopenshell.util`, `ifctester`, `ifcclash`, and `bcf`, every provider output folded into one `AnalysisRow` algebra. C# `IfcSemanticModel` projects the spatial hierarchy in-process; this owner adds the analysis verbs and buildingSMART validation output that projection never produces.
 
 Every selecting verb admits its query through `IfcSelector` (`ifc/selector.md#SELECTOR`), so a malformed selector faults typed at the boundary, never a silent empty `filter_elements` match three arms deep. `run` threads the graduation `evidence_run` weave under `EvidenceScope.IFC_ANALYSIS`, `@beartype(conf=FAULT_CONF)` binding the contract fence. OCC clash trees are this owner's one transient-native boundary, riding the runtime-pinned `guarded_sync(RetryClass.OCC_NATIVE)` row, never a bare `stamina.retry` mint; durable `.bcfzip`/IDS-report archive writes stay `python:data/spatial`'s. Evidence graduates under `GeometrySubject.BIM_COMPLIANCE`, the differentiated member the IDS/clash/BCF verdict class owns, distinct from the section-integral and lifecycle members their owners bind.
 
@@ -15,7 +15,7 @@ Every selecting verb admits its query through `IfcSelector` (`ifc/selector.md#SE
 - Auto: IDS reads BOTH verdict depths off one validation pass — per-spec entity ratio and the `Json(ids).report()` roll-up, `percent_checks_pass` on the `Results` ROOT and `total_applicable_*` totals on the `ResultsSpecification` rows, never conflated — excluding a `status is None` not-applicable spec whose `0.0` row poisons the evidence mean; space-program validation excludes spaces absent from the program table — a `0.0`-ratio row reads an out-of-program space as total non-compliance — and scales net area through `calculate_unit_scale` squared before comparison.
 - Receipt: `evidence` ledger is kind-specific, never a row count — IDS keys per-entity AND per-check failing fractions, `SPACE_PROGRAM` the per-space failing fraction, `CLASH` the unresolved-cluster count, takeoff/BCF the empty-result fraction — so a model breaching its ceiling fails the carrier's `admitted` verdict rather than crossing clean.
 - Packages: `ifcopenshell`, `ifctester`, `ifcclash`, and `bcf-client` per the fence imports; `IfcSelector` is the only `filter_elements` caller.
-- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor plus one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
+- Growth: a new verb is one `AnalysisKind` row, one `of_*` constructor and one `facts` arm, one dispatch arm, one `QUERY_SPLIT` row, and one `evidence` key; a new selection axis is one `IfcSelector` grammar alternative, never a local query-parse fold; IDS document AUTHORING (`Ids(...)`/facet family/`to_xml`) is the named next verb once a consumer supplies a rule vocabulary — one row, never a second engine.
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — topic rows are the wire carry, the durable `.bcfzip` write the data seam's; no Rhino/GH mutation; no raw `query` string threaded past admission into `filter_elements`.
 
 ```python signature
@@ -53,7 +53,7 @@ class AnalysisKind(StrEnum):
 
 
 class ClashRow(TypedDict):
-    # `ifcclash.ClashResult` shape plus the derived spatial-cluster index the grouper writes.
+    # `ifcclash.ClashResult` shape and the derived spatial-cluster index the grouper writes.
     a_global_id: str
     b_global_id: str
     distance: float

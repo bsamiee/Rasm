@@ -140,6 +140,10 @@ public sealed partial class IssueFactKind {
 public readonly record struct IssueFact(IssueFactKind Kind, IssueVersion Dialect, int Topics, int Comments, int Viewpoints, int Unresolved, int Foreign, Instant At);
 
 public static class IssueSource {
+    // The registry-mounted census derives from the kind vocabulary, whose keys already carry the full slot spelling.
+    public static readonly Seq<StoreSlot> Slots =
+        toSeq(IssueFactKind.Items).Map(static kind => StoreSlot.Create(kind.Key));
+
     // ONE polymorphic entry; the version gate runs before any topic body decodes, per-topic faults
     // accumulate through the Semigroup, and every arm lands one kind-discriminated fact on the sink.
     public static IO<Validation<IssueFault, IssueYield>> Run(IssueOp op, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>

@@ -16,12 +16,12 @@
 [PUBLIC_TYPE_SCOPE]: instrumentation + config
 - rail: observability/rum
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                  |
-| :-----: | :------------------------------ | :------------- | :---------------------------------------------------- |
-|  [01]   | `FetchInstrumentation`          | instrumentation | one row in the root's registered instrumentation set  |
-|  [02]   | `FetchInstrumentationConfig`    | config          | the whole policy surface, one object at construction  |
-|  [03]   | `FetchCustomAttributeFunction`  | hook shape      | `(span, request, result) => void` post-settle stamp   |
-|  [04]   | `FetchRequestHookFunction`      | hook shape      | `(span, request) => void` pre-dispatch stamp          |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :----------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `FetchInstrumentation`         | instrumentation | one row in the root's registered instrumentation set |
+|  [02]   | `FetchInstrumentationConfig`   | config          | the whole policy surface, one object at construction |
+|  [03]   | `FetchCustomAttributeFunction` | hook shape      | `(span, request, result) => void` post-settle stamp  |
+|  [04]   | `FetchRequestHookFunction`     | hook shape      | `(span, request) => void` pre-dispatch stamp         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -29,15 +29,15 @@
 - rail: observability/rum
 - One config object is the entire knob surface; every row below is a verified `FetchInstrumentationConfig` field.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :---------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `new FetchInstrumentation(config?)`       | ctor           | one construction at the browser root                        |
-|  [02]   | `propagateTraceHeaderCorsUrls`            | config field   | the CORS allow-list `traceparent` injection rides           |
-|  [03]   | `ignoreUrls`                              | config field   | telemetry-egress self-exclusion (the collector origin)      |
-|  [04]   | `applyCustomAttributesOnSpan` / `requestHook` | config field | bounded attribute stamps; identifier-grade context only    |
-|  [05]   | `ignoreNetworkEvents` / `measureRequestSize` | config field | timing-event and request-size toggles                      |
-|  [06]   | `clearTimingResources`                    | config field   | resource-timing buffer hygiene after projection             |
-|  [07]   | `semconvStabilityOptIn`                   | config field   | HTTP semconv selection aligned with the estate schema pin   |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
+| :-----: | :-------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `new FetchInstrumentation(config?)`           | ctor           | one construction at the browser root                      |
+|  [02]   | `propagateTraceHeaderCorsUrls`                | config field   | the CORS allow-list `traceparent` injection rides         |
+|  [03]   | `ignoreUrls`                                  | config field   | telemetry-egress self-exclusion (the collector origin)    |
+|  [04]   | `applyCustomAttributesOnSpan` / `requestHook` | config field   | bounded attribute stamps; identifier-grade context only   |
+|  [05]   | `ignoreNetworkEvents` / `measureRequestSize`  | config field   | timing-event and request-size toggles                     |
+|  [06]   | `clearTimingResources`                        | config field   | resource-timing buffer hygiene after projection           |
+|  [07]   | `semconvStabilityOptIn`                       | config field   | HTTP semconv selection aligned with the estate schema pin |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

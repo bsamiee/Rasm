@@ -109,6 +109,7 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
 - Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows (`otel/emit`'s `Export.Policy` reads its collector origin, sealed headers, cadence, and sampling ratio from `Setting.otel`, keeping structural tuning — temporality, span limits, redaction rules — as its own policy defaults).
+- Law: `Setting.tiers` rides the class as the tier-table static — `otel/meter` projects its `verbose` column into `Logger.minimumLogLevel`, so the tier row governs the process log floor through one consumer and no page carries a level literal.
 - Entry: `Setting.Default` at the composition root; `yield* Setting` everywhere else.
 - Packages: `effect` (`Config`, `Duration`, `Effect`, `Schema`, `Struct`).
 
@@ -253,7 +254,9 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
         Config.unwrap({ cluster: _cluster, fanout: _fanout, flag: _flag, life: _life, mail: _mail, otel: _otel, serve: _serve }),
         'RUNTIME',
     ),
-}) {}
+}) {
+    static readonly tiers = _tiers;
+}
 ```
 
 ## [05]-[ADMISSION_ROWS]

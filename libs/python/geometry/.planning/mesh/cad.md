@@ -14,7 +14,7 @@ One ISO 10303 STEP and IGES tessellation hop — the CAD source formats the `mes
 - Cases: `STEP` binds the full `COLOR`/`NAME`/`LAYER`/`GDT`/`MAT` channel set, `IGES` the `COLOR`/`NAME`/`LAYER` subset its reader admits; the daemon never re-discriminates format past this owner.
 - Auto: the `"glb"` view drops the receipt because a live contributor cannot cross the no-pickle lane hop — the daemon's `@receipted` aspect owns the daemon-level fold; the `"full"` view carries the `CadReceipt` for the in-process harvest.
 - Packages: `cadquery-ocp` (the `OCP.*` XCAF reader/writer band, module-scope `lazy from` so the loop-floor consumers of `TessellationPolicy`/`BridgeFormat` never load OCCT — `TCollection_ExtendedString` is the REQUIRED `TDocStd_Document` storage string, an `AsciiString` or bare `str` raises), `expression`, `msgspec`, and the runtime rails; a malformed STEP stream is a deterministic `BridgeFault`, never a transient the resilience owner retries, so this owner stacks no second retry rail.
-- Growth: a new CAD source is one `BridgeFormat` row plus one `ReaderRow` plus one alias on the daemon `cad` case; a new metadata channel is one `MetadataMode` member plus one `_APPLY` row reaching every reader that admits it; a new output projection is one `BridgeView` member plus one view arm; `RWGltf_CafWriter.Perform(doc, fileInfo, progress)` is the minimal write arity — there is no 2-arg `Perform(doc, progress)` — so glTF asset metadata populates the already-present `fileInfo` map in place, and the 5-arg selective-root overload threads a partial-assembly export.
+- Growth: a new CAD source is one `BridgeFormat` row and one `ReaderRow` and one alias on the daemon `cad` case; a new metadata channel is one `MetadataMode` member and one `_APPLY` row reaching every reader that admits it; a new output projection is one `BridgeView` member and one view arm; `RWGltf_CafWriter.Perform(doc, fileInfo, progress)` is the minimal write arity — there is no 2-arg `Perform(doc, progress)` — so glTF asset metadata populates the already-present `fileInfo` map in place, and the 5-arg selective-root overload threads a partial-assembly export.
 - Boundary: the bridge mints no transport, channel, or content key; evaluating an already-in-memory `TopoDS_Shape` is `mesh/brep.md#BREP`'s (which reuses neither this reader nor this writer), mesh conditioning is `mesh/repair.md#MESH`'s, and mesh-file codec is the data `MeshPayload` owner's; the shape-only `STEPControl_Reader` (it drops the assembly/color/name metadata the XCAF reader preserves) and the conda-only `pythonocc-core` `OCC.Core.*` path never enter.
 
 ```python signature
@@ -123,7 +123,7 @@ class CadReceipt(Struct, frozen=True, gc=False):
 
     # native-scalar facts; the one-row tuple return satisfies the contributor port's iterable.
     def contribute(self) -> Iterable[Receipt]:
-        return (Receipt.of("mesh.cad", ("emitted", self.fmt.subject, {"format": self.fmt, "shapes": self.shape_count, "mass": self.mass})),)
+        return (Receipt.of("rasm.geometry.mesh.cad", ("emitted", self.fmt.subject, {"format": self.fmt, "shapes": self.shape_count, "mass": self.mass})),)
 
 
 class CadTessellation(Struct, frozen=True, gc=False):

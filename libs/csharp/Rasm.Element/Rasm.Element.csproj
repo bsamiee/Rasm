@@ -9,21 +9,21 @@
     </ItemGroup>
 
     <ItemGroup Label="Quantity Graph">
-        <PackageReference Include="UnitsNet" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup Label="Identity Time">
-        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup Label="Wire Transcription">
+        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
         <PackageReference Include="Riok.Mapperly" />
-        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 

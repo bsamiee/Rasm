@@ -2,7 +2,7 @@
 
 `NeighborIndex` and `NeighborKernel` own the neighborhood substrate: ONE index `[Union]` over native `RTree` and static `Supercluster.KDTree.Net` modalities, ONE `Query(NeighborQuery)` dispatch, and every per-point neighborhood fold. Batch kNN/radius graphs, neighborhood PCA, covariance normal estimation with Hoppe-DeRose MST orientation, quadric-fit principal curvature with Koenderink classification, and the rotation-minimizing-frame chain share this substrate. Every proximity consumer routes through these owners; no consumer owns a parallel wrapper or neighborhood fold.
 
-`NeighborIndex` absorbs the retired analysis spatial family as query modalities: box and sphere searches are `NeighborQuery` cases, tree overlap is a case, point-pair probes are a case, and results land as `NeighborHit`/`NeighborPair`. `NeighborKernel.BishopChain` owns RMF generation, while `VectorFrame.Chain` delegates and `Direction.ParallelTransport` applies caller-supplied frames. `Rasm.Spatial.SpatialIndex` remains the distinct predicate-exact primitive broad phase; this substrate owns Rhino-native and static-point neighborhoods.
+`NeighborIndex` absorbs the retired analysis spatial family as query modalities: box and sphere searches are `NeighborQuery` cases, tree overlap is a case, point-pair probes are a case, and results land as `NeighborHit`/`NeighborPair`. `NeighborKernel.BishopChain` owns point-chain RMF generation, while `VectorFrame.Chain` delegates and `Direction.ParallelTransport` applies caller-supplied frames. `Rasm.Spatial.SpatialIndex` remains the distinct predicate-exact primitive broad phase; this substrate owns Rhino-native and static-point neighborhoods.
 
 ## [01]-[INDEX]
 
@@ -216,7 +216,7 @@ public abstract partial record NeighborIndex {
 ## [03]-[NEIGHBORHOOD_FOLDS]
 
 - Owner: `NeighborhoodPolicy` (`NeighborCount: Dimension`, `Radius: Option<PositiveMagnitude>`, `EigenGapTolerance`, `FitResidualTolerance`, `SphereLikenessBand: UnitInterval` — the ONE policy record every neighborhood fold threads; `Default(key)` derives the canonical row: 10 neighbors, no radius, `1e-8` gap, `1e-4` residual, `0.35` band); the `NeighborKernel` static operation surface (the `CloudKernel`/`MeshKernel` family name).
-- Entry: `NeighborKernel.GraphOf(index, needles, policy, key) → Fin<NeighborhoodGraph>` (the batch spine every fold reads; its raw `count`/`radius` overload is the `Query` Nearest/Radius/Pairs altitude — one body, no policy floor); `PcaOf(cluster, policy, key) → Fin<NeighborhoodPcaResult>`; `EstimateNormals(cluster, policy, key) → Fin<Vector3d[]>` (plus the graph-threaded internal overload the orientation fold reuses); `OrientNormals(cluster, policy, key) → Fin<Seq<Vector3d>>`; `PrincipalCurvatures(cluster, policy, key) → Fin<CurvatureResult>`; `Curvedness`/`ShapeIndex` scalar projections; `ReceiptOf(cluster, policy, key) → Fin<NeighborhoodReceipt>`.
+- Entry: `NeighborKernel.GraphOf(index, needles, policy, key) → Fin<NeighborhoodGraph>` (the batch spine every fold reads; its raw `count`/`radius` overload is the `Query` Nearest/Radius/Pairs altitude — one body, no policy floor); `PcaOf(cluster, policy, key) → Fin<NeighborhoodPcaResult>`; `EstimateNormals(cluster, policy, key) → Fin<Vector3d[]>` (with the graph-threaded internal overload the orientation fold reuses); `OrientNormals(cluster, policy, key) → Fin<Seq<Vector3d>>`; `PrincipalCurvatures(cluster, policy, key) → Fin<CurvatureResult>`; `Curvedness`/`ShapeIndex` scalar projections; `ReceiptOf(cluster, policy, key) → Fin<NeighborhoodReceipt>`.
 - Auto: per-point PCA reads the graph row, folds the neighborhood through `CloudKernel.CovarianceOf` → `DecomposeEigen`, clamps eigenvalues to the floor `max(EigenGapTolerance, εₘ½)`, and emits `NeighborhoodPcaSample` (point, neighbor count, reconstituted covariance, normal = third eigenvector, raw/clamped spectra, rank, clamp count) — the GICP precision-field input `register.md` consumes. Normal ESTIMATION is the PCA normal gated on the eigen gap; normal ORIENTATION is Hoppe-DeRose over the kNN graph mined through QuikGraph — build one `UndirectedGraph<int, SEdge<int>>` from the graph rows, take `MinimumSpanningTreePrim(edgeWeights: e => 1.0 − |n[e.Source]·n[e.Target]|)`, and propagate sign by BFS over the MST adjacency flipping any child whose dot against its parent is negative; forest roots (disconnected clusters) each orient independently. QuikGraph's MST replaces a parallel O(n²) Prim scan. PRINCIPAL CURVATURE fits the quadric `n ≈ a·u² + b·uv + c·v² + d·u + e·v + f` in the PCA tangent frame through `matrix.md` `Matrix.LeastSquaresDetailed` (six columns, full-rank + finite-residual gated), reads the shape operator `[[2a, b],[b, 2c]]` through `SymmetricMatrix.DecomposeEigen`, lifts eigenvectors back through the tangent axes, and classifies: per-sample attempts partition into rank-rejected / residual-rejected / accepted; `Curvedness = √((k₁²+k₂²)/2)`; `ShapeIndex = (2/π)·atan2(k₁+k₂, k₁−k₂)` (Koenderink-van Doorn, sign-collapsed at the umbilic floor); the range fold buckets samples plane/sphere/saddle/mixed under the tolerance with the sphere-likeness band as a policy column (default `0.35` of the dominant magnitude), and the whole-cloud `CurvatureRangeKind` is unanimous-or-`Mixed`.
 - Receipt: `NeighborhoodPcaReceipt` (counts, rank/eigen clamp evidence, floor, nested `NeighborhoodReceipt`); `CurvatureReceipt` (counts, rank/residual rejection split, mean/max residual, tolerances, nested neighborhood + range receipts); `CurvatureRangeReceipt` (bucket counts + k₁/k₂/Gaussian/mean/shape-index extents + tolerance); each `IValidityEvidence` with `IsValid` one `ValidityClaim.All` fold declaring its conservation terms (`Accepted + Rejected == Input`, bucket sums, nested-receipt count agreement via `ValidityClaim.Evidence`) once.
 - Packages: QuikGraph (`UndirectedGraph<TVertex,TEdge>`, `SEdge<int>`, `AlgorithmExtensions.MinimumSpanningTreePrim(edgeWeights)`), RhinoCommon, LanguageExt.Core.
@@ -327,7 +327,7 @@ public readonly record struct CurvatureRangeReceipt(
 public readonly record struct CurvatureResult(Seq<CurvatureSample> Samples, CurvatureReceipt Receipt);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-internal static class NeighborKernel {
+internal static partial class NeighborKernel {
     internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, NeighborhoodPolicy policy, Op key) =>
         policy.Admit(key: key).Bind(admitted => GraphOf(index: index, needles: needles,
             count: Some(admitted.NeighborCount.Value), radius: admitted.Radius.Map(static r => r.Value), key: key));
@@ -510,12 +510,90 @@ internal static class NeighborKernel {
 
 ## [04]-[BISHOP_CHAIN]
 
-- Owner: `NeighborKernel.BishopChain` — the ONE rotation-minimizing-frame body (Wang et al. double reflection) in the corpus: `atoms.md` `VectorFrame.Chain` delegates here (the atoms fence binds `NeighborKernel.BishopChain` by name); the `cloud.md` `BishopFrames` metric row names it; `Parametric/projections.md` curve-frame sweeps compose it. `atoms.md` `Direction.ParallelTransport(Seq<Plane>)` transports a direction through frames a CALLER supplies — the application fold, never a second generator.
+- Owner: `NeighborKernel.BishopChain` — the ONE point-chain rotation-minimizing-frame body (Wang et al. double reflection): `atoms.md` `VectorFrame.Chain` delegates here (the atoms fence binds `NeighborKernel.BishopChain` by name) and the `cloud.md` `BishopFrames` metric row names it; parametric-curve RMF sweeps ride the vendored engine's `PerpendicularFrames` surface (`Parametric/curve.md`), never this fold. `atoms.md` `Direction.ParallelTransport(Seq<Plane>)` transports a direction through frames a CALLER supplies — the application fold, never a second generator.
 - Entry: `internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key)` — ring case seeds from the oriented ring normal, polyline case from `VectorFrame.SeedPerpendicular` on the first tangent, cluster case refuses (`Unsupported` — a cluster has no chain order); and the point-form `BishopChain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key)`.
 - Auto: the chain seeds an initial frame (tangent-orthogonalized seed normal), then folds each step through the double reflection — reflect the previous reference and tangent across the chord bisector plane, reflect again across the new tangent's bisector — which is the discretely rotation-minimizing transport; degenerate segments reuse the prior tangent, tiny reflection axes pass the vector through unchanged. Closed chains redistribute the holonomy: the angular defect between the transported final frame and the seed frame spreads as `−residual·i/count` per frame about each local tangent, so the closed chain meets itself with zero twist seam.
 - Receipt: none — the chain is a pure fold; a degenerate chain faults with the step's evidence.
 - Growth: a new transport flavor (e.g. frame interpolation weights) is a policy argument on the fold, never a second chain body.
-- Boundary: this is THE RMF generator — the retired corpus carried the double-reflection body in the cloud kernel while the atoms file re-derived transport frames per call; the generator collapses here, `VectorFrame.Chain` keeps only the delegating member, and `Direction.ParallelTransport` stays the atoms-owned application fold over given frames; per-frame construction admits through `VectorFrame.Of` so every emitted plane is an orthonormal admitted frame, never a raw plane assembly.
+- Boundary: this is THE point-chain RMF generator — the retired corpus carried the double-reflection body in the cloud kernel while the atoms file re-derived transport frames per call; the generator collapses here, `VectorFrame.Chain` keeps only the delegating member, and `Direction.ParallelTransport` stays the atoms-owned application fold over given frames; per-frame construction admits through `VectorFrame.Of` so every emitted plane is an orthonormal admitted frame, never a raw plane assembly.
+
+```csharp signature
+// --- [OPERATIONS] -------------------------------------------------------------------------
+internal static partial class NeighborKernel {
+    internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key) => cloud.Switch(
+        state: key,
+        ringCase: static (k, r) =>
+            from seed in Direction.Of(value: NewellNormal(vertices: r.Vertices), context: r.Tolerance, key: k)
+            from chain in BishopChain(points: r.Vertices, initialNormal: seed, closed: true, context: r.Tolerance, key: k)
+            select chain,
+        polylineCase: static (k, p) =>
+            from _ in guard(p.Vertices.Count >= 2, k.InvalidInput()).ToFin()
+            from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
+            from chain in BishopChain(points: p.Vertices, initialNormal: seed, closed: false, context: p.Tolerance, key: k)
+            select chain,
+        // A cluster has no chain order — the transport fold is undefined over an unordered point set.
+        clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(k.Unsupported(geometryType: typeof(VectorCloud.ClusterCase), outputType: typeof(Seq<Plane>))));
+
+    internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key) =>
+        from _ in guard(points.Count >= 2, key.InvalidInput()).ToFin()
+        from columns in key.Catch(() => {                          // the measured chain kernel — statement fold confined here
+            Point3d[] p = [.. points];
+            double floor = context.Absolute.Value * context.Absolute.Value;
+            var tangents = new Vector3d[p.Length];
+            Vector3d prior = p[1] - p[0];
+            for (int i = 0; i < p.Length; i++) {
+                Vector3d step = i < p.Length - 1 ? p[i + 1] - p[i] : closed ? p[0] - p[i] : prior;
+                tangents[i] = step.IsTiny(context.Absolute.Value) ? prior : step;   // degenerate segment reuses the prior tangent
+                prior = tangents[i];
+                _ = tangents[i].Unitize();
+            }
+            var reference = new Vector3d[p.Length];
+            reference[0] = initialNormal.Value - (tangents[0] * (initialNormal.Value * tangents[0]));
+            if (!reference[0].Unitize()) {
+                reference[0] = VectorFrame.SeedPerpendicular(axis: tangents[0]);
+            }
+            for (int i = 0; i < p.Length - 1; i++) {
+                reference[i + 1] = Transported(reference: reference[i], tangent: tangents[i], next: tangents[i + 1], chord: p[i + 1] - p[i], floor: floor);
+            }
+            if (closed) {                                          // holonomy: spread the closing angular defect as −residual·i/count about each local tangent
+                Vector3d returned = Transported(reference: reference[^1], tangent: tangents[^1], next: tangents[0], chord: p[0] - p[^1], floor: floor);
+                double residual = Math.Atan2(Vector3d.CrossProduct(a: reference[0], b: returned) * tangents[0], reference[0] * returned);
+                for (int i = 1; i < p.Length; i++) {
+                    _ = reference[i].Rotate(angleRadians: -residual * i / p.Length, rotationAxis: tangents[i]);
+                }
+            }
+            return Fin.Succ((Points: p, Tangents: tangents, References: reference));
+        })
+        from frames in toSeq(Enumerable.Range(0, columns.Points.Length))
+            .TraverseM(i => VectorFrame.Of(origin: columns.Points[i], normal: columns.Tangents[i],
+                xHint: Some(columns.References[i]), context: context, key: key).Map(static frame => frame.Value)).As()
+        select frames;
+
+    // Double reflection (Wang et al.): reflect reference and tangent across the chord bisector, then
+    // across the new tangent's bisector — discretely rotation-minimizing; a tiny axis passes the vector through.
+    private static Vector3d Transported(Vector3d reference, Vector3d tangent, Vector3d next, Vector3d chord, double floor) {
+        double c1 = chord * chord;
+        (Vector3d rl, Vector3d tl) = c1 <= floor
+            ? (reference, tangent)
+            : (reference - (2.0 / c1 * (chord * reference) * chord), tangent - (2.0 / c1 * (chord * tangent) * chord));
+        Vector3d axis = tl + next;
+        double c2 = axis * axis;
+        Vector3d transported = c2 <= floor ? rl : rl - (2.0 / c2 * (axis * rl) * axis);
+        _ = transported.Unitize();
+        return transported;
+    }
+
+    // Ring seed: the Newell area-vector fold — orientation-true for any simple planar loop.
+    private static Vector3d NewellNormal(Seq<Point3d> vertices) {
+        Vector3d normal = Vector3d.Zero;
+        for (int i = 0; i < vertices.Count; i++) {
+            (Point3d a, Point3d b) = (vertices[i], vertices[(i + 1) % vertices.Count]);
+            normal += new Vector3d(x: (a.Y - b.Y) * (a.Z + b.Z), y: (a.Z - b.Z) * (a.X + b.X), z: (a.X - b.X) * (a.Y + b.Y));
+        }
+        return normal;
+    }
+}
+```
 
 ## [05]-[DENSITY_BAR]
 

@@ -6,64 +6,69 @@ One root `pyproject.toml` owns interpreter admission and dependency groups; this
 
 ## [01]-[ROUTER]
 
-- [01]-[ARCHITECTURE](ARCHITECTURE.md): Domain map
-- [02]-[IDEAS](IDEAS.md): cross-package Python concert — ideas coupling the packages to each other, distilled from the per-folder ideas.
+- [01]-[ARCHITECTURE](ARCHITECTURE.md): domain map, import strata, and the C# seam registry.
+- [02]-[IDEAS](IDEAS.md): cross-package idea concert.
 - [03]-[TASKLOG](TASKLOG.md): cross-package open work.
-- [04]-[RUNTIME](../runtime/README.md)
-- [05]-[COMPUTE](../compute/README.md)
-- [06]-[DATA](../data/README.md)
-- [07]-[GEOMETRY](../geometry/README.md)
-- [08]-[ARTIFACTS](../artifacts/README.md)
+- [04]-[RUNTIME](../runtime/README.md): shared-rail minting foundation.
+- [05]-[COMPUTE](../compute/README.md): scientific-evidence graduation.
+- [06]-[DATA](../data/README.md): dataset movement and interchange.
+- [07]-[GEOMETRY](../geometry/README.md): geometry and IFC evidence production.
+- [08]-[ARTIFACTS](../artifacts/README.md): publication-grade output.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Every folder composes this cross-domain foundation. One root manifest owns versions; each tier carries one catalogue at the branch `libs/python/.api/<dist>.md`, and folder overlays carry only local admission law.
+Every folder composes this cross-domain foundation. One root manifest owns versions; each runtime-composable package carries one catalogue at the branch `libs/python/.api/<dist>.md`, folder overlays carry only local admission law, and the test tier is manifest-owned with no branch catalogue. Branch tier admits only the vendor-neutral surface every folder imports; composition-root machinery — the `opentelemetry-instrumentation-*` train, the `pyroscope-otel` push — homes folder-local to `runtime`.
 
 [TYPING_RAILS]:
-- `expression`
-- `msgspec`
-- `beartype`
-- `pydantic`
+- `expression` — `Result`/`Option` carriers, do-notation builders, `pipe`/`compose`, and `Block`/`Map` immutable traversal.
+- `msgspec` — `Struct` wire codecs, `Meta` constraints, and the `convert` rename projection.
+- `beartype` — runtime boundary contracts, `vale` refinements, and `door` predicates.
+- `pydantic` — untrusted-ingress admission models and the `TypeAdapter` payload gate.
 
 [CONCURRENCY]:
-- `anyio`
-- `trio` — Structured-concurrency backend `anyio` runs on; a runtime selection, never a code change.
+- `anyio` — Structured-concurrency surface: task groups, cancel scopes, offload arms, memory streams, portal bridge.
+- `trio` — Backend `anyio` runs on and the deterministic test kit (`MockClock`, `Sequencer`, `Instrument`); a runtime selection, never a code change.
 - `cloudpickle` — Ships closures, lambdas, and module-local kernels across the worker process and subinterpreter seams stdlib pickle refuses.
 - `tblib` — Carries worker-side traceback frames across the pickle seam, so a crossed exception re-raises with its true origin.
 - `loky` — Owns the warm reusable crash-respawning process pool behind the worker fabric's `process` kind.
 - `pebble` — Owns terminal deadline enforcement: a wall-clock timeout kills the worker mid-kernel and reclaims the slot.
 
 [OBSERVABILITY]:
-- `structlog`
-- `opentelemetry-api`
-- `opentelemetry-sdk`
-- `opentelemetry-exporter-otlp-proto-http`
-- `psutil`
+- `structlog` — Processor-chain structured logging; the branch's in-process log face.
+- `opentelemetry-api` — Vendor-neutral tracer/meter/propagation surface; the only OTel import a library makes.
+- `opentelemetry-sdk` — Provider, `Resource`, processor, and reader wiring; composition roots alone touch it.
+- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the sole estate export protocol.
+- `psutil` — Whole-process accounting batched through one `Process.oneshot` collection.
 
 [NUMERIC_SUBSTRATE]:
-- `numpy`
+- `numpy` — Dense `float64` array substrate every numeric route factors through.
+- `xarray` — Labelled N-D array algebra over `numpy`; gridded datasets and dimensioned reductions ride it.
+
+[GRAPH_SUBSTRATE]:
+- `networkx` — Graph payload classes, conversion bridges, and algorithm families over directed, undirected, and multi-edge graphs.
 
 [IDENTITY]:
-- `xxhash`
+- `xxhash` — Content-key hashing beneath the runtime `ContentKey` minting.
 
 [TRANSPORT]:
-- `fsspec`
-- `obstore`
+- `fsspec` — Filesystem abstraction every remote and local byte access resolves through.
+- `obstore` — Rust object-store client: S3/GCS/Azure byte-range reads, puts, and listing.
+- `universal-pathlib` — `UPath` path objects over every fsspec backend; one cross-store path currency.
 
 [MESH_INTERCHANGE]:
-- `meshio`
+- `meshio` — Neutral mesh read/write across solver formats.
 
 [COMPRESSION]:
-- `lz4`
+- `lz4` — Frame and block compression for wire and cache payloads.
 
 [WIRE_CODEGEN]:
-- `grpcio`
-- `grpcio-tools`
-- `protobuf`
+- `grpcio` — Channel and server runtime beneath the serve rail.
+- `grpcio-tools` — `protoc` invocation surface minting the generated stubs.
+- `protobuf` — Message runtime beneath the stubs; well-known types and `json_format`.
 
 [TEST_SUBSTRATE]:
-- `pytest` — with its plugin set
-- `hypothesis`
-- `inline-snapshot`
-- `coverage`
-- `mutmut`
+- `pytest` — Spec runner; its plugin roster rides the root manifest.
+- `hypothesis` — Property-based generation and shrinking.
+- `inline-snapshot` — Inline expected-value snapshots updated in place.
+- `coverage` — Branch coverage measurement.
+- `mutmut` — Mutation testing over the spec suite.

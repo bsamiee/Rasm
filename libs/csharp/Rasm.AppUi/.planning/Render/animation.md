@@ -408,3 +408,7 @@ flowchart LR
     class Keyframe,MotionToken data
     class VisualCodec,ClipEncoder,RenderReceipt boundary
 ```
+
+## [06]-[RESEARCH]
+
+(none)

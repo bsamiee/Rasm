@@ -1,8 +1,8 @@
 # [PY_COMPUTE_DESIGN]
 
-`DesignProblem` is the gradient-driven inverse-design apex the autodifferentiable solver chain enables and no other owner closes: a `Field` objective over the `solvers/mesh.md#MESH_FIELD` assembled system, a parametric-`Mesh` objective, and a material-distribution `Density` objective, each driven to a stationary point through `optimistix.minimise`/`least_squares` over the Equinox-partitioned JAX floor. Every Optimistix entry carries the default `optimistix.ImplicitAdjoint`, so the gradient `solvers/sensitivity.md#SENSITIVITY` pulls back is the implicit-function-theorem gradient of the converged solution, never the iteration trace. This owner composes the solver, sensitivity, and assembly owners; it never re-owns a solve, never runs a training loop, and never stands a parallel optimizer surface beside the converged solve.
+`DesignProblem` is the gradient-driven inverse-design apex built on the autodifferentiable solver chain and closed by no other owner: a `Field` objective over the `solvers/mesh.md#MESH_FIELD` assembled system, a parametric-`Mesh` objective, and a material-distribution `Density` objective, each driven to a stationary point through `optimistix.minimise`/`least_squares` over the Equinox-partitioned JAX floor. Every Optimistix entry carries the default `optimistix.ImplicitAdjoint`, so the gradient `solvers/sensitivity.md#SENSITIVITY` pulls back is the implicit-function-theorem gradient of the converged solution, never the iteration trace. This owner composes the solver, sensitivity, and assembly owners; it never re-owns a solve, never runs a training loop, and never stands a parallel optimizer surface beside the converged solve.
 
-`OutcomeReceipt` is the one optimization-outcome owner this page and `optimization/program.md#PROGRAM` share — the `design` convergence verdict and the `program` feasibility verdict are two cases of one union, both carrying the `SolveStatus` vocabulary `solvers/receipt.md#RECEIPT` owns — while `ConvexReceipt` stays distinct because the KKT certificate has no field here. A numpy central-difference floor reports the gradient-norm residual behind the `_backend` import guard, so a run without the jaxlib package never returns `Error(Import)`; the converged design graduates on the existing `solver` axis at `graduation/handoff.md#GRADUATION`.
+`OutcomeReceipt` is the one optimization-outcome owner this page and `optimization/program.md#PROGRAM` share — the `design` convergence verdict and the `program` feasibility verdict are two cases of one union, both carrying the `SolveStatus` vocabulary `solvers/receipt.md#RECEIPT` owns — while `ConvexReceipt` stays distinct because the KKT certificate has no field here. A numpy central-difference floor reports the gradient-norm residual behind the `_backend` import guard, so a run without the jaxlib package never returns `Error(Import)`; the converged design graduates on the existing `solver` axis through `OutcomeReceipt.graduates`, the shared projection clearing each case's numeric facts against its `_OUTCOME_CEILING` row.
 
 ## [01]-[INDEX]
 
@@ -12,10 +12,10 @@
 
 - Owner: `DesignProblem` — the provenance of the objective is the discriminant and the optimizer is one surface; `carried` folds the case to its `Objective` total over `match`/`assert_never`, so a new provenance breaks the extractor rather than spawning a parallel dispatch arm.
 - Cases: `Objective` owns TWO shape-keyed projections of one `fn` because the solver and the receipt consume different reductions — `target` feeds `least_squares` the raw residual VECTOR (a pre-reduced `½‖r‖²` scalar collapses the LM Jacobian to a degenerate 1-element solve) while `cost` folds the `(reduced, reported)` receipt pair as the value-and-grad aux, never a re-traced second pass; `Descent.admits` gates an engine override — `Levenberg` requires the `RESIDUAL` route, the scalar minimisers require `SCALAR` — as a typed `Error(BoundaryFault)` on the rail before the wrong solve entry; the `FirstOrder` chain leads `optax.zero_nans()` before `clip_by_global_norm` because a NaN gradient from a diverged inner solve is not boundable by a clip.
-- Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape plus the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent declares the HOSTILE trait with the module-level `_solve_kernel` crossing by reference, a closure shipping by value at the crossing owner.
-- Receipt: `_OUTCOME_SLOTS` owns the case payloads so `.facts` is one total strict zip — a slot row that drifts from its payload raises rather than truncating evidence, and never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie; the verdict folds through the receipt-owned shared `status_of`/`verdict` folds, never a page-local `RESULTS` inversion.
+- Entry: the solve runs `throw=False` so a non-`successful` `Solution.result` reaches the receipt as its mapped `SolveStatus` rather than raising; `_design_key` folds each leaf's ordinal and shape with the iterate-determining `descent`/`restarts`/`seed` policy, so structurally distinct PyTrees or a re-solve under a different engine never collide on the boundary-erasing flatten; the x64-gated descent declares the HOSTILE trait with the module-level `_solve_kernel` crossing by reference, a closure shipping by value at the crossing owner.
+- Receipt: `_OUTCOME_SLOTS` owns the case payloads so `.facts` is one total strict zip — a slot row that drifts from its payload raises rather than truncating evidence, and never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie; the verdict folds through the receipt-owned shared `status_of`/`verdict` folds, never a page-local `RESULTS` inversion. `graduates` is the one solver-axis crossing on the shared owner — the case's numeric facts project as the ledger, `_OUTCOME_CEILING` supplies the governed default bar a caller's tighter row overrides, and a non-finite failed-solve objective rails at the hub's finiteness admission rather than crossing.
 - Packages: `RESULTS.promote` is deliberately unused — it widens a member across `Enumeration` classes and raises on a same-class member, so the multi-start reduction is the `jnp.max` code fold; the numpy floor runs over real arrays only, never a JAX PyTree, and its one-hot perturbation never materializes a dense `np.eye(x0.size)` basis a realistic SIMP density field cannot afford; the quadrature weak-form assembly enters transitively through `solvers/mesh`, never as a direct dependency here.
-- Growth: a new provenance is one `DesignProblem` case plus one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member plus its `_objective()`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member plus one `_feasible()` row; a new evidence field is one `_OUTCOME_SLOTS` slot plus its case-tuple position with no `contribute` edit; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
+- Growth: a new provenance is one `DesignProblem` case and one `_DEFAULT_DESCENT` row; a new objective shape is one `Shape` member with its `_objective()`/`target`/`cost`/`_floor_cost` arms, all `assert_never`-closed; a new descent engine is one `Descent` case mapping to its constructor in `Descent.solver`; a new feasibility constraint is one `Feasible` member and one `_feasible()` row; a new evidence field is one `_OUTCOME_SLOTS` slot with its case-tuple position and no `contribute` edit; a tighter graduation bar is one `_OUTCOME_CEILING` row; a multi-start ensemble is the seeded `filter_vmap` restart axis already on `solve`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -29,8 +29,8 @@ from expression import Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
-from rasm.compute.solvers.receipt import SolveStatus, status_of, verdict
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, evidence_run
+from rasm.compute.solvers.receipt import SolveStatus, graduate, status_of, verdict
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
@@ -77,6 +77,10 @@ _OUTCOME_SLOTS: Map[str, tuple[str, ...]] = Map.of_seq([
     ("design", ("problem", "objective", "residual", "iterations", "status", "key")),
     ("program", ("program", "objective", "status", "violation", "key")),
 ])
+
+# family DEFAULT graduation ceilings, one row per `OutcomeReceipt` tag beside the slot table; a caller's
+# tighter row overrides at `graduates`. `objective` carries no bar — the ceiling fold checks only its own keys.
+_OUTCOME_CEILING: Map[str, dict[str, float]] = Map.of_seq([("design", {"residual": _TOL}), ("program", {"violation": 0.0})])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -164,8 +168,17 @@ class OutcomeReceipt:
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
+        # owner spelling resolves through the scope vocabulary off the case tag, so the shared union never mints a third spelling.
         facts: dict[str, object] = {"converged": self.converged, **self.facts}
-        return (Receipt.of(f"compute.optimization.{self.tag}", ("emitted", self.tag, facts)),)
+        return (Receipt.of(EvidenceScope(f"compute.{self.tag}").value, ("emitted", self.tag, facts)),)
+
+    def graduates(self, ceiling: dict[str, float] | None = None) -> "RuntimeRail[GraduationReceipt]":
+        # ONE solver-axis crossing for both cases: numeric facts project as the ledger, the `_OUTCOME_CEILING`
+        # tag row is the governed default bar, and the leading slot (problem/program name) is the subject.
+        facts = self.facts
+        ledger = {name: float(value) for name, value in facts.items() if isinstance(value, (int, float))}
+        bar = ceiling if ceiling is not None else _OUTCOME_CEILING[self.tag]
+        return graduate(EvidenceScope(f"compute.{self.tag}").value, str(facts[_OUTCOME_SLOTS[self.tag][0]]), self.content_key, ledger, bar)
 
 
 @tagged_union(frozen=True)
@@ -215,7 +228,11 @@ class Descent:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_DEFAULT_DESCENT: Map[str, Descent] = Map.of_seq([("field", Descent.QuasiNewton()), ("mesh", Descent.Levenberg()), ("density", Descent.FirstOrder(feasible=Feasible.BOX))])
+_DEFAULT_DESCENT: Map[str, Descent] = Map.of_seq([
+    ("field", Descent.QuasiNewton()),
+    ("mesh", Descent.Levenberg()),
+    ("density", Descent.FirstOrder(feasible=Feasible.BOX)),
+])
 
 
 def _projected(projection: "Callable[[PyTree], PyTree]") -> "optax.GradientTransformationExtraArgs":
@@ -251,7 +268,9 @@ def _feasible() -> "Map[Feasible, tuple[optax.GradientTransformation, ...]]":
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def solve(problem: "DesignProblem", lane: LanePolicy, /, *, descent: "Descent | None" = None, restarts: int = 1, seed: int = _SEED) -> "RuntimeRail[OutcomeReceipt]":
+async def solve(
+    problem: "DesignProblem", lane: LanePolicy, /, *, descent: "Descent | None" = None, restarts: int = 1, seed: int = _SEED
+) -> "RuntimeRail[OutcomeReceipt]":
     chosen = descent if descent is not None else _DEFAULT_DESCENT[problem.tag]
 
     async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
@@ -260,7 +279,8 @@ async def solve(problem: "DesignProblem", lane: LanePolicy, /, *, descent: "Desc
             lambda rail: rail
         )
 
-    return await evidence_run(EvidenceScope.DESIGN, f"design.{problem.tag}", dispatch)
+    facts = {"problem": problem.tag, "descent": chosen.tag, "restarts": restarts}
+    return await evidence_run(EvidenceScope.DESIGN, f"design.{problem.tag}", dispatch, facts=facts)
 
 
 def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":

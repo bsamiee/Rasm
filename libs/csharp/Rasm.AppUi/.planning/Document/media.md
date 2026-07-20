@@ -185,7 +185,9 @@ public static class MediaSurfaces {
     public const string FailedInstrument = "rasm.appui.media.failed";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, MountedInstrument, FailedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(MountedInstrument, InstrumentKind.Count, "{mount}", "media surfaces mounted by codec"),
+            new(FailedInstrument, InstrumentKind.Count, "{mount}", "media mounts failed by codec"));
 
     // The one codec dispatch: intake runs ON the rail — a video/audio load failure folds before the
     // control exists, and the receipt seals mounted and failed alike through the composition-bound sink.
@@ -352,3 +354,7 @@ flowchart LR
     MediaSurface --> MediaReceipt
     MediaReceipt --> ReceiptSinkPort
 ```
+
+## [05]-[RESEARCH]
+
+(none)

@@ -17,7 +17,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[ESTATE_OTLP_BACKEND]-[QUEUED]: A live estate backend receives the three runtimes' OTLP egress.
+- Capability: The collector gateway and store set the iac observe page models — Prometheus reference row, log and trace stores, Pyroscope, Grafana — runs as estate infrastructure, so the published OTLP endpoint resolves to a live sink for every runtime.
+- Shape: `typescript:iac/operate/observe.md#_stores` realizes the stack; app roots read the endpoint from stack outputs; the dev loop rides the single all-in-one row with byte-identical SDK export config.
+- Anchors: `typescript:iac/program/spec.md#_Observe`; `typescript:runtime/otel/emit.md`; `python:runtime/observability/telemetry.md`; `csharp:Rasm.AppHost/Observability/telemetry.md` exporter seam.
+- Tension: Container placement lands in the estate host repos, never in libs; the iac package stays host-agnostic and the deployment consumes it.
 
 ## [02]-[CLOSED]
 

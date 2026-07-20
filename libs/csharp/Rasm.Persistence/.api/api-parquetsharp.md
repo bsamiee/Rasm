@@ -2,6 +2,8 @@
 
 `ParquetSharp` is the native libparquet-cpp Parquet read/write codec the managed `Apache.Arrow` C# stack lacks (no Parquet reader/writer in `Apache.Arrow`). It owns three layered surfaces over one Arrow C++ core: the low-level `ParquetFileWriter`/`RowGroupWriter`/`ColumnWriter` column chunk API and its typed `LogicalColumnWriter<TValue>.WriteBatch` mirror, the row-oriented `RowOriented.ParquetFile.CreateRowWriter<TTuple>`/`CreateRowReader<TTuple>` POCO/tuple mapper, and the `ParquetSharp.Arrow.FileReader`/`FileWriter` bridge that produces and consumes `Apache.Arrow` `RecordBatch`/`Table` over the Arrow C Data Interface. The `WriterPropertiesBuilder` carries the full Parquet tuning surface (per-column compression, dictionary, encoding, page index, page checksum, sorting columns, statistics, data-page version), and `ParquetSharp.Encryption.CryptoFactory` carries Parquet Modular Encryption (PME) with an `IKmsClient` factory that stacks onto the admitted KMS catalogs. This is the direct columnar-file lane distinct from the DuckDB SQL `COPY ... TO 'x.parquet'` path (`api-duckdb`): ParquetSharp reads and writes Parquet from a managed `Stream`/Arrow batch without a SQL engine in the loop.
 
+`ParquetSharp.Dataset` layers a partitioned multi-file lake scanner over that same native core: `DatasetReader` walks a Hive-partitioned (`key=value`) directory tree, pushes `Col`/`IFilter` predicates and column projection down to skip partitions and row groups, and streams the survivors back as `Apache.Arrow` `RecordBatch`es (`ToBatches` → `IArrowArrayStream`, `ToTable` → `Table`) — the lake-scan counterpart to the single-file `Arrow.FileReader` read.
+
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ParquetSharp`
@@ -13,6 +15,15 @@
 - native: `runtimes/osx-arm64/native/ParquetSharpNative.dylib` (plus `osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64`); the wrapped Apache Arrow/Parquet C++ core, P/Invoke-loaded by `ParquetFileWriter`/`ParquetFileReader` handle construction — RID-resolved at load, never AnyCPU
 - xml docs: `ParquetSharp.xml` ships beside the assembly; member intent is doc-comment-sourced
 - rail: columnar-file-codec
+
+[PACKAGE_SURFACE]: `ParquetSharp.Dataset`
+- package: `ParquetSharp.Dataset`
+- license: Apache-2.0
+- assembly: `ParquetSharp.Dataset`
+- namespace: `ParquetSharp.Dataset`, `ParquetSharp.Dataset.Filter`, `ParquetSharp.Dataset.Partitioning`
+- target: `net6.0` only; the `net10.0` consumer binds `lib/net6.0`
+- native: none of its own — pure-managed over the `ParquetSharp` native core (its `ParquetSharpNative` handle) and `Apache.Arrow` for the batch model
+- rail: columnar-file-codec (partitioned lake scan)
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -90,6 +101,31 @@ The logical layer maps CLR values to Parquet physical types with repetition/defi
 enum Compression { Uncompressed, Snappy, Gzip, Brotli, Zstd, Lz4, Lz4Frame, Lzo, Bz2, Lz4Hadoop }
 enum Encoding { Plain, PlainDictionary, Rle, DeltaBinaryPacked, DeltaLengthByteArray, DeltaByteArray, RleDictionary, ByteStreamSplit }
 ```
+
+[PUBLIC_TYPE_SCOPE]: dataset scan family (`ParquetSharp.Dataset`)
+- rail: columnar-file-codec (partitioned lake scan)
+- `DatasetReader.ToBatches`/`ToTable` emit `Apache.Arrow` output; the filter DSL roots at `Col.Named(x)` and its `ColExtensions` comparands cover `long`/`string`/`DateOnly`/`DateTime` with `IsInRange`/`IsIn`, folding through `And`/`Or` into an `IFilter` the scan pushes down to partition, row-group statistics, and row grain. Internal scan machinery (`DatasetStreamReader`, `FragmentExpander`, `FragmentEnumerator`, `DirectoryListing`, the concrete filters) is not public surface.
+
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [RAIL]                                                            |
+| :-----: | :-------------------- | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `DatasetReader`       | scan root          | `sealed`; `ToBatches` → `IArrowArrayStream`, `ToTable` → `Table`, `Schema` prop |
+|  [02]   | `DatasetOptions`      | scan policy        | `Default`; `IgnorePrefixes` init skips `.`/`_` hidden files      |
+|  [03]   | `PartitionInformation`| partition values   | `sealed`; `Batch` `RecordBatch` of partition field values, `Empty` |
+|  [04]   | `Col`                 | filter column      | `sealed`; `Col.Named(name)` roots the predicate DSL              |
+|  [05]   | `ColExtensions`       | filter DSL         | typed `IsEqualTo`/`IsGreaterThan`/`IsInRange`/`IsIn` → `IFilter` |
+|  [06]   | `FilterExtensions`    | filter combinators | `And`/`Or` fold two `IFilter`s                                   |
+|  [07]   | `IFilter`             | filter contract    | partition + row-group + row predicate pushed into the scan      |
+
+[PUBLIC_TYPE_SCOPE]: partitioning family (`ParquetSharp.Dataset.Partitioning`)
+- rail: columnar-file-codec (partitioned lake scan)
+- a `DatasetReader` ctor takes either a concrete `IPartitioning` or an `IPartitioningFactory` that infers one from the directory tree; each scheme carries a nested `Factory : IPartitioningFactory`.
+
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                          |
+| :-----: | :---------------------- | :-------------- | :------------------------------------------------------------- |
+|  [01]   | `IPartitioning`         | scheme contract | `Schema`, `Parse`, `SortDirectories` over a directory layout   |
+|  [02]   | `IPartitioningFactory`  | scheme factory  | infers an `IPartitioning` from the directory tree              |
+|  [03]   | `HivePartitioning`      | hive scheme     | `sealed : IPartitioning`; `key=value` dirs; ctor takes `Schema`; nested `Factory` |
+|  [04]   | `NoPartitioning`        | flat scheme     | `sealed : IPartitioning`; single-directory scan; nested `Factory` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -197,10 +233,11 @@ The row-oriented layer maps a `TTuple` (a `ValueTuple`, or a POCO whose columns 
 - KMS encryption: `CryptoFactory(KmsClientFactory)` binds an `IKmsClient` whose `WrapKey`/`UnwrapKey` delegate to the admitted KMS clients — AWS KMS (`api-aws-kms`), Azure Key Vault (`api-azure-keyvault`), or Google Cloud KMS (`api-google-kms`). `KmsConnectionConfig.RefreshKeyAccessToken` rotates the access token in place, mirroring the credential-rotation seam the Kafka/RabbitMQ transports use; the tenant KEK id binds the file to the tenant `Element/identity#KEY_ENVELOPE` row.
 - compression alignment: ParquetSharp's `Compression.Zstd`/`Lz4` are the C++-core codecs; the standalone `ZstdSharp.Port`/`K4os.Compression.LZ4` snapshot codecs are orthogonal (blob compression, not Parquet-internal), so a Parquet extract never double-compresses — the file is Zstd-compressed once by the writer.
 - statistics/page-index push-down: `EnableWritePageIndex` + `SortingColumns` write the column/offset index that lets the DuckDB/Arrow read path skip row groups by predicate — the Parquet extract is written to be predicate-pushdown-friendly for the federation lane, not as an opaque blob.
+- dataset lake scan: `ParquetSharp.Dataset.DatasetReader.ToBatches` yields `Apache.Arrow` `RecordBatch`es as an `IArrowArrayStream`, feeding the same egress lanes as the `ParquetSharp.Arrow` bridge above — a Hive-partitioned directory is the lake-scan counterpart to a single-file `Arrow.FileReader` read, with `Col`/`IFilter` predicates and column projection skipping partitions and the page-index row groups this writer emits.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer whose MANAGED `Parquet.Net` `6.0.3` writer (`WriteToParquetZip`) emits one Brotli-compressed `.parquet` per BIM table inside a zip; this native `ParquetSharp` reader consumes those standard-format files at the file-format boundary (managed writer / native libparquet-cpp reader interoperate at the format, never the assembly) and streams them as `Apache.Arrow` `RecordBatch`es through `Arrow.FileReader` into the columnar query rail.
 
 [RAIL_LAW]:
-- Package: `ParquetSharp`
-- Owns: native Parquet file read/write — low-level column chunks, typed logical batches, row-oriented tuple mapping, the `Apache.Arrow` C-Data bridge, and Parquet Modular Encryption
-- Accept: `ParquetFileWriter`/`ParquetFileReader` over a managed `Stream`, typed `LogicalColumnWriter<TValue>.WriteBatch`/`ParquetRowWriter<TTuple>`, the `Arrow.FileReader`/`FileWriter` `RecordBatch` bridge, and `CryptoFactory` PME over an `IKmsClient` adapter
-- Reject: hand-rolled Parquet byte framing, a per-cell write loop where a typed batch or Arrow `RecordBatch` exists, a managed re-implementation of a codec the native core owns, and re-declaring the `Apache.Arrow` model that `api-arrow` owns
+- Packages: `ParquetSharp`, `ParquetSharp.Dataset`
+- Owns: native Parquet file read/write — low-level column chunks, typed logical batches, row-oriented tuple mapping, the `Apache.Arrow` C-Data bridge, Parquet Modular Encryption, and the partitioned multi-file dataset scan over that native core
+- Accept: `ParquetFileWriter`/`ParquetFileReader` over a managed `Stream`, typed `LogicalColumnWriter<TValue>.WriteBatch`/`ParquetRowWriter<TTuple>`, the `Arrow.FileReader`/`FileWriter` `RecordBatch` bridge, `CryptoFactory` PME over an `IKmsClient` adapter, and `DatasetReader.ToBatches`/`ToTable` with `Col`/`IFilter` pushdown over a partitioned directory
+- Reject: hand-rolled Parquet byte framing, a per-cell write loop where a typed batch or Arrow `RecordBatch` exists, a managed re-implementation of a codec the native core owns, a hand-rolled directory walk where `DatasetReader` owns partitioned scan, and re-declaring the `Apache.Arrow` model that `api-arrow` owns

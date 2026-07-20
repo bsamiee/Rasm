@@ -331,6 +331,11 @@ public abstract partial record ServerFault : Expected, IValidationError<ServerFa
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class ClusterProvision {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.provision.verify"), StoreSlot.Create("store.provision.admit"), StoreSlot.Create("store.provision.reload"),
+        StoreSlot.Create("store.embedded.open"), StoreSlot.Create("store.embedded.checkpoint"), StoreSlot.Create("store.embedded.snapshot"),
+        StoreSlot.Create("store.embedded.backup"), StoreSlot.Create("store.embedded.blob"));
+
     // `floors` is deployment DATA — extension key -> minimum installed version the deployment demands (never a
     // literal in this fence); a created extension whose `pg_extension.extversion` trails its floor threads an
     // `Evidence` receipt, so a stale binary is visible at admission rather than at the first missing function.

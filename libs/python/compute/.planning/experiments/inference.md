@@ -2,7 +2,7 @@
 
 One classical Bayesian-inference owner over an explicit prior/likelihood/posterior graph: `Inference.run` builds a `pymc.Model` from a frozen request, draws the posterior with gradient MCMC across a backend axis, scores convergence and predictive fit with `arviz`, and graduates a typed posterior-evidence receipt through the `uncertainty_law` admission rail. This owner is bounded at conjugate and GLM-class models over scalar latent nodes — a vector group-level latent the per-variable summary fold cannot key by a single name is out of scope, as are variational, normalizing-flow, and neural-posterior estimation. A posterior failing the `ConvergenceBar` is an admission rejection on the graduation rail, never a graduated handoff.
 
-Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. This run rides the `EvidenceScope.INFERENCE` weave — span, `boundary` fence, beartype guard, `@receipted` harvest — the same composed form `experiments/model.md#ASSET` and `graduation/handoff.md#GRADUATION` hold.
+Three polymorphic surfaces carry every variation: `Distribution` over the `pymc` families, read in both the prior and likelihood roles off one vocabulary; `SamplerBackend` over the MCMC engine and its per-engine policy; the `ConvergenceBar` policy row folded against the `_RESIDUALS` dimension table, so a stricter bar is a tighter row, never a new gate. This run rides the `EvidenceScope.INFERENCE` weave — span, `boundary` fence, beartype guard, fenced contributor harvest — the same composed form `experiments/model.md#ASSET` and `graduation/handoff.md#GRADUATION` hold.
 
 ## [01]-[INDEX]
 
@@ -13,8 +13,8 @@ Three polymorphic surfaces carry every variation: `Distribution` over the `pymc`
 - Owner: `Inference` — `InferenceSpec` is the frozen request; `InferenceReceipt.graduates` routes the measured-versus-ceiling ledger through the shared `graduation/handoff.md#GRADUATION` admission rail, the same gate the sibling solver, convex, and array-layout owners feed, never a parallel admission body.
 - Cases: `Distribution` is one union read in both roles, each case carrying its canonical parameters as a typed tuple — never a stringly `dict[str, float]` drifting from the class signature; the union's own keyword constructor is the construction surface, no parallel factory family re-wraps the cases.
 - Auto: PyMC owns the model lowering and the JAX/Numba handoff — this page never re-drives `pymc.sampling.jax`, the `nutpie.compile_pymc_model`/`sample` pair, or the raw `blackjax` kernel algebra, and the accelerated engines install only so PyMC's own dispatch resolves them, never as imports here. Sampling never retries: the posterior draw is the evidence, and worker-death handling stays the lane's.
-- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row plus one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar.
-- Growth: a new distribution is one `Distribution` case plus one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field plus one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field.
+- Output: `ConvergenceBar` folds against the `_RESIDUALS` table, so a new convergence dimension is one `_Residual` row and one bar field; a `metropolis` trace carries no `diverging` sample stat — divergence counting is a gradient-sampler diagnostic — so the membership gate contributes `0` rather than a spurious `KeyError`, and a non-gradient sampler trivially clears the default bar.
+- Growth: a new distribution is one `Distribution` case and one `declare` arm usable in either role; a new sampler engine is one `SamplerBackend` case or one `external_nuts` name; a new convergence dimension is one `ConvergenceBar` field and one `_Residual`; a new per-variable diagnostic is one `PosteriorSummary` field.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -27,6 +27,7 @@ from beartype import beartype
 from expression import Error, Ok, Result, case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
+
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
@@ -270,10 +271,12 @@ class InferenceReceipt(Struct, frozen=True):
             "draws": self.draws,
             **self.measured,
         }
-        return (Receipt.of("compute.inference", ("emitted", self.subject(), facts)),)
+        return (Receipt.of(EvidenceScope.INFERENCE.value, ("emitted", self.subject(), facts)),)
 
     def graduates(self) -> RuntimeRail[GraduationReceipt]:
-        return GraduationReceipt.graduates("compute", HandoffAxis(uncertainty_law=self.subject()), self.model_key, self.measured, self.ceiling)
+        return GraduationReceipt.graduates(
+            EvidenceScope.INFERENCE.value, HandoffAxis(uncertainty_law=self.subject()), self.model_key, self.measured, self.ceiling
+        )
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -300,7 +303,7 @@ def _fit_kernel(spec: "InferenceSpec") -> "RuntimeRail[InferenceReceipt]":
 class Inference:
     @staticmethod
     async def run(spec: InferenceSpec, lane: LanePolicy) -> RuntimeRail[InferenceReceipt]:
-        # weave owns span, fence, and the `@receipted` receipt harvest. Trait keys on the backend tag: the pytensor-C
+        # weave owns span, fence, and the fenced contributor harvest. Trait keys on the backend tag: the pytensor-C
         # native path releases the GIL (thread), an external_nuts engine is JAX-backed whose x64 flag is process-global
         # native state (process) — one fixed trait cannot serve both arms. A seeded draw re-runs identically, so the
         # worker-death retry default stands.
@@ -310,7 +313,8 @@ class Inference:
         async def dispatch() -> RuntimeRail[InferenceReceipt]:
             return (await lane.offload(Kernel.of(_fit_kernel, trait), spec)).bind(lambda rail: rail)
 
-        return await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch)
+        facts = {"engine": engine, "likelihood": spec.likelihood.tag, "draws": spec.plan.draws, "chains": spec.plan.chains}
+        return await evidence_run(EvidenceScope.INFERENCE, f"inference.{engine}", dispatch, facts=facts)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)

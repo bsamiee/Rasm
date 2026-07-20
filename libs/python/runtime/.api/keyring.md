@@ -9,7 +9,6 @@
 - import: `keyring`
 - owner: `runtime`
 - rail: secrets
-- version: `25.7.0`
 - license: `MIT`
 - namespaces: `keyring`, `keyring.core`, `keyring.backend`, `keyring.credentials`, `keyring.errors`, `keyring.backends`
 - capability: priority-ranked platform secret storage, structured credential retrieval, environment/config-file backend selection, chained-backend fallback, pluggable `KeyringBackend` extension, full failure taxonomy

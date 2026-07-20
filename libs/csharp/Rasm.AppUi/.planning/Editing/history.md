@@ -227,7 +227,9 @@ public sealed record EditHistory(CancelableCommandRecorder Recorder, CommandHist
     public const string RedoneInstrument = "rasm.appui.edit.redone";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, RevertedInstrument, RedoneInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(RevertedInstrument, InstrumentKind.Count, "{edit}", "undo reverts by surface"),
+            new(RedoneInstrument, InstrumentKind.Count, "{edit}", "redo replays by surface"));
 }
 ```
 

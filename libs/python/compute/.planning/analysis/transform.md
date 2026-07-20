@@ -1,18 +1,18 @@
 # [PY_COMPUTE_TRANSFORM]
 
-One frequency-domain transform owner rules: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal on a single `Transform` surface, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. Pocketfft's eight entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
+One frequency-domain transform owner rules: `TransformOp` discriminates the pocketfft Fourier family, the trigonometric cosine/sine transforms, the FFTLog fast Hankel transform, and the FFT-backed analytic signal, folded through the single `apply` entry, so a spectrum, an energy-compacted basis, a log-radial coefficient set, and an instantaneous envelope are transform evidence on one owner rather than a per-transform method family. Pocketfft's eight entrypoints collapse to one forward body and one inverse body indexing a `FOURIER_ROUTES` row per `FourierBasis`, and one `SpectralReadout` axis folds every dominant-band read, so output is parameterized as tightly as input. These are in-memory transforms; columnar and gridded statistical aggregation defers to the `data` branch gridded/field owners.
 
-Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the study spine harvests through the `runtime/observability/receipts#RECEIPT` `@receipted` aspect. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped and its Array-API support sits behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload` — the sibling `analysis/signal.md#DSP` crossing — and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel against the band.
+Operands admit through `numerics/array.md#PAYLOAD` for the finite gate and the operand `ContentKey`; the receipt keys the RESULT through the op-owned `identity_buffer` fold, so two different ops over one operand never share a key; the resolved receipt is the `ReceiptContributor` the weave harvest and the study spine consume. `scipy.fft` is Array-API-aware, so the Fourier/Trigonometric/Hankel arms ride the resolved `xp` while the analytic arm stays numpy-resident — `scipy.signal.hilbert` is jax-skipped behind the `SCIPY_ARRAY_API` gate. Every body crosses the runtime thread band under the `RELEASING` trait through `lane.offload`, and the pocketfft worker team binds to `LanePolicy.capacity`, never the unbounded `-1` team that oversubscribes an already-offloaded kernel.
 
 ## [01]-[INDEX]
 
-- [01]-[TRANSFORM]: the `TransformOp` Fourier/trigonometric/Hankel/analytic rows on one `Transform` owner, evidence discriminated over `TransformEvidence`, the dominant-band read folding the `SpectralReadout` axis.
+- [01]-[TRANSFORM]: the `TransformOp` Fourier/trigonometric/Hankel/analytic rows folded through one `apply` entry, evidence discriminated over `TransformEvidence`, the dominant-band read folding the `SpectralReadout` axis.
 
 ## [02]-[TRANSFORM]
 
-- Owner: `Transform` — one owner over `TransformOp`; `FourierBasis` keys the `FOURIER_ROUTES` `(forward, inverse, freqs)` table so the entrypoint family is a row lookup, never an inline ternary ladder; the n-D magnitude marginalizes to the lead-axis spine through one `xp.max` off-axis projection because `readout.fold` is order-invariant, so the grid and spine never co-order through `fftshift`.
-- Output: `TransformEvidence` parameterizes the result per case — `spectrum`, `compaction`, `envelope`, `roundtrip` — and an inverted path folds its residual into the shared `roundtrip` case rather than minting a per-transform outcome shape.
-- Growth: a new transform is one `TransformOp` case plus its `identity_buffer` arm — the `Hankel` row is exactly this, one case folding into the existing `spectrum`/`roundtrip` evidence with zero new outcome shape; a new spectral basis is one `FourierBasis` row plus its `FOURIER_ROUTES` triple; an n-D spectrum is a non-empty `axes` value on the existing row; a new trigonometric variant is one `TrigKind` row or `variant` value; a new band readout is one `SpectralReadout` row; a new outcome is one `TransformEvidence` case plus its `facts()` arm.
+- Owner: `TransformOp` — the one operation union `apply` folds; `FourierBasis` keys the `FOURIER_ROUTES` `(forward, inverse, freqs)` table so the entrypoint family is a row lookup, never an inline ternary ladder; `Trip` is the bounded pass axis on the Fourier and Hankel cases (never an `invert` boolean); the n-D magnitude marginalizes to the lead-axis spine through one `xp.max` off-axis projection because `readout.fold` is order-invariant, so the grid and spine never co-order through `fftshift`.
+- Output: `TransformEvidence` parameterizes the result per case — `spectrum`, `compaction`, `envelope`, `roundtrip` — and the `Trip.ROUNDTRIP` pass folds its residual into the shared `roundtrip` case rather than minting a per-transform outcome shape; every `facts()` slot stays a native scalar so the receipt layer aggregates and compares.
+- Growth: a new transform is one `TransformOp` case with its `identity_buffer` arm — the `Hankel` row is exactly this, one case folding into the existing `spectrum`/`roundtrip` evidence with zero new outcome shape; a new spectral basis is one `FourierBasis` row with its `FOURIER_ROUTES` triple; an n-D spectrum is a non-empty `axes` value on the existing row; a new trigonometric variant is one `TrigKind` row or `variant` value; a new band readout is one `SpectralReadout` row; a new outcome is one `TransformEvidence` case with its `facts()` arm.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -27,8 +27,8 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
+from rasm.compute.numerics.array import ArrayPayload, ArraySource, FiniteGate
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.faults import RuntimeRail, boundary
@@ -65,6 +65,11 @@ class TrigKind(StrEnum):
 class PadPolicy(StrEnum):
     EXACT = "exact"  # transform the operand verbatim
     FAST = "fast"  # zero-pad each transformed axis to its own `next_fast_len` for the pocketfft radix
+
+
+class Trip(StrEnum):
+    FORWARD = "forward"  # spectrum evidence off the forward transform
+    ROUNDTRIP = "roundtrip"  # forward-then-inverse, folding the reconstruction residual
 
 
 class SpectralReadout(StrEnum):
@@ -124,15 +129,16 @@ class TransformEvidence:
         return TransformEvidence(roundtrip=(band_hz, energy, residual))
 
     def facts(self) -> dict[str, object]:
+        # native scalars only — a `str()`/`f""` coerce erases comparability at the receipt layer; rendering is the export layer's.
         match self:
             case TransformEvidence(tag="spectrum", spectrum=(readout, band, energy)):
-                return {"readout": readout.value, "band_hz": f"{band:.3f}", "spectral_energy": f"{energy:.3e}"}
+                return {"readout": readout.value, "band_hz": band, "spectral_energy": energy}
             case TransformEvidence(tag="compaction", compaction=(leading, concentration, energy)):
-                return {"leading": leading, "energy_concentration": f"{concentration:.3f}", "spectral_energy": f"{energy:.3e}"}
+                return {"leading": leading, "energy_concentration": concentration, "spectral_energy": energy}
             case TransformEvidence(tag="envelope", envelope=(mean, inst, band)):
-                return {"mean_envelope": f"{mean:.3e}", "instantaneous_hz": f"{inst:.3f}", "band_hz": f"{band:.3f}"}
+                return {"mean_envelope": mean, "instantaneous_hz": inst, "band_hz": band}
             case TransformEvidence(tag="roundtrip", roundtrip=(band, energy, residual)):
-                return {"band_hz": f"{band:.3f}", "spectral_energy": f"{energy:.3e}", "reconstruction_residual": f"{residual:.3e}"}
+                return {"band_hz": band, "spectral_energy": energy, "reconstruction_residual": residual}
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -149,16 +155,16 @@ class TransformReceipt(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         facts = {"op": self.op, "length": self.length, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of("compute.transform", ("emitted", self.op, facts))
+        yield Receipt.of(EvidenceScope.TRANSFORM.value, ("emitted", self.op, facts))
 
 
 @tagged_union(frozen=True)
 class TransformOp:
     tag: Literal["fourier", "trigonometric", "analytic", "hankel"] = tag()
-    fourier: tuple[FourierBasis, tuple[int, ...], SpectralReadout, PadPolicy, bool] = case()
+    fourier: tuple[FourierBasis, tuple[int, ...], SpectralReadout, PadPolicy, Trip] = case()
     trigonometric: tuple[TrigKind, int, tuple[int, ...], float] = case()  # (kind, variant, axes, keep fraction)
     analytic: SpectralReadout = case()
-    hankel: tuple[float, float, SpectralReadout, bool] = case()  # (dln log-spacing, mu order, readout, invert)
+    hankel: tuple[float, float, SpectralReadout, Trip] = case()  # (dln log-spacing, mu order, readout, trip)
 
     @staticmethod
     def Fourier(
@@ -166,9 +172,9 @@ class TransformOp:
         axes: tuple[int, ...] = (),
         readout: SpectralReadout = SpectralReadout.PEAK,
         pad: PadPolicy = PadPolicy.EXACT,
-        invert: bool = False,
+        trip: Trip = Trip.FORWARD,
     ) -> "TransformOp":
-        return TransformOp(fourier=(basis, axes, readout, pad, invert))
+        return TransformOp(fourier=(basis, axes, readout, pad, trip))
 
     @staticmethod
     def Trigonometric(kind: TrigKind = TrigKind.COSINE, variant: int = 2, axes: tuple[int, ...] = (), keep: float = 0.1) -> "TransformOp":
@@ -180,21 +186,21 @@ class TransformOp:
         return TransformOp(analytic=readout)
 
     @staticmethod
-    def Hankel(dln: float, mu: float = 0.0, readout: SpectralReadout = SpectralReadout.PEAK, invert: bool = False) -> "TransformOp":
-        return TransformOp(hankel=(dln, mu, readout, invert))
+    def Hankel(dln: float, mu: float = 0.0, readout: SpectralReadout = SpectralReadout.PEAK, trip: Trip = Trip.FORWARD) -> "TransformOp":
+        return TransformOp(hankel=(dln, mu, readout, trip))
 
     def identity_buffer(self, fs: float, operand_key: ContentKey) -> bytes:
         # enum rows serialize by value, numeric rows as canonical float64 bytes; length-prefixed parts keep the buffer unambiguous.
         row: tuple[object, ...]
         match self:
-            case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, invert)):
-                row = (basis.value, *axes, readout.value, pad.value, invert)
+            case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, trip)):
+                row = (basis.value, *axes, readout.value, pad.value, trip.value)
             case TransformOp(tag="trigonometric", trigonometric=(kind, variant, axes, keep)):
                 row = (kind.value, variant, *axes, keep)
             case TransformOp(tag="analytic", analytic=readout):
                 row = (readout.value,)
-            case TransformOp(tag="hankel", hankel=(dln, mu, readout, invert)):
-                row = (dln, mu, readout.value, invert)
+            case TransformOp(tag="hankel", hankel=(dln, mu, readout, trip)):
+                row = (dln, mu, readout.value, trip.value)
             case _ as unreachable:
                 assert_never(unreachable)
         parts = (
@@ -236,12 +242,12 @@ def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int)
 
 
 async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy) -> "RuntimeRail[TransformReceipt]":
-    # weave owns span, fence, and the `@receipted` receipt harvest.
+    # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[TransformReceipt]:
         # One flatten from `RuntimeRail[RuntimeRail[TransformReceipt]]` to `RuntimeRail[TransformReceipt]`.
         return (await lane.offload(Kernel.of(_transform_kernel, KernelTrait.RELEASING), samples, fs, op, lane.capacity)).bind(lambda rail: rail)
 
-    return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch)
+    return await evidence_run(EvidenceScope.TRANSFORM, f"transform.{op.tag}", dispatch, facts={"op": op.tag, "fs": fs})
 
 
 def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey, workers: int) -> TransformReceipt:
@@ -255,14 +261,14 @@ def _apply(samples: object, fs: float, op: TransformOp, key: ContentKey, workers
     x = xp.asarray(samples)
     spacing = 1.0 / fs
     match op:
-        case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, invert)):
-            return TransformReceipt.of("fourier", x.size, key, _fourier(xp, fft, x, spacing, basis, axes, readout, pad, invert, workers))
+        case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, trip)):
+            return TransformReceipt.of("fourier", x.size, key, _fourier(xp, fft, x, spacing, basis, axes, readout, pad, trip, workers))
         case TransformOp(tag="trigonometric", trigonometric=(kind, variant, axes, keep)):
             return TransformReceipt.of(kind.value, x.size, key, _trigonometric(xp, fft, x, kind, variant, axes, keep))
         case TransformOp(tag="analytic", analytic=readout):
             return TransformReceipt.of("analytic", x.size, key, _analytic(sig, x, fs, readout))
-        case TransformOp(tag="hankel", hankel=(dln, mu, readout, invert)):
-            return TransformReceipt.of("hankel", x.size, key, _hankel(xp, fft, x, dln, mu, readout, invert))
+        case TransformOp(tag="hankel", hankel=(dln, mu, readout, trip)):
+            return TransformReceipt.of("hankel", x.size, key, _hankel(xp, fft, x, dln, mu, readout, trip))
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -276,7 +282,7 @@ def _fourier(
     axes: tuple[int, ...],
     readout: SpectralReadout,
     pad: PadPolicy,
-    invert: bool,
+    trip: Trip,
     workers: int,
 ) -> TransformEvidence:
     forward, inverse, grid = _fourier_routes()[basis]
@@ -294,7 +300,7 @@ def _fourier(
     # max-project the off-lead axes into the amplitude spine `readout.fold` consumes — a peak track per bin, never a summed blur.
     spine = amplitude if amplitude.ndim == 1 else xp.max(amplitude, axis=tuple(i for i in range(amplitude.ndim) if i != lead))
     band = readout.fold(freqs[: spine.shape[0]], spine)
-    if not invert:
+    if trip is Trip.FORWARD:
         return TransformEvidence.Spectrum(readout, band, energy)
     # inverse pins `s`/`n` to the SOURCE lengths so the residual against `x` is shape-correct under PadPolicy.FAST.
     rebuilt = fft.ifftn(spectrum, s=tuple(x.shape[a] for a in axes), axes=axes) if axes else inverse(spectrum, n=x.shape[lead], axis=lead)
@@ -304,7 +310,7 @@ def _fourier(
     return TransformEvidence.Roundtrip(band, energy, residual)
 
 
-def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: float, readout: SpectralReadout, invert: bool) -> TransformEvidence:
+def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: float, readout: SpectralReadout, trip: Trip) -> TransformEvidence:
     # conjugate log-radial abscissa `exp(dln * (i - n/2))` gives the readout a real radial frequency, never a bare bin index.
     coeffs = xp.asarray(fft.fht(x, dln, mu))
     grid = xp.exp(dln * (xp.arange(coeffs.shape[-1], dtype=xpx.default_dtype(xp, "real floating")) - 0.5 * coeffs.shape[-1]))
@@ -312,7 +318,7 @@ def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: flo
     energy = float(xp.sum(amplitude * amplitude))
     spine = amplitude if amplitude.ndim == 1 else xp.max(amplitude, axis=tuple(range(amplitude.ndim - 1)))
     band = readout.fold(grid[: spine.shape[0]], spine)
-    if not invert:
+    if trip is Trip.FORWARD:
         return TransformEvidence.Spectrum(readout, band, energy)
     rebuilt = xp.asarray(fft.ifht(coeffs, dln, mu))
     residual = float(xp.linalg.norm(xp.reshape(rebuilt - x, (-1,))) / (xp.linalg.norm(xp.reshape(x, (-1,))) + 1e-30))

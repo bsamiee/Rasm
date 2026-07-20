@@ -1,6 +1,6 @@
 # [SECURITY_OAUTH]
 
-The OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as one vocabulary row rather than a method family: each row bundles its own `Config` requirement and the four ceremony legs — `url` builds the redirect, `exchange` swaps the code for `OAuth2Tokens`, `refresh` rotates the provider grant, `revoke` retires it — into a uniform `Ceremony` closure, so per-provider PKCE, constructor arity, and credential shape all vanish behind one dispatch and a new provider is one row carrying exactly the config it needs — the wide all-providers credential bag is dead. The roster is the full arctic surface as data: `google`/`github`/`microsoft`/`apple` (whose row alone demands `teamId`/`keyId`/`pkcs8`) plus the generic `OAuth2Client` fallback for self-hosted Keycloak/Authentik/Okta issuers — all sharing the ceremony shape, anchored by the `_kinds` tuple with the guard pair closed in both directions. The two-leg ceremony is durable data, not an ad-hoc stash: `authorize` seals a `Departed` snapshot — kind, PKCE verifier, expiry — into the `OAuthStateStore` single-use port under a TTL, the browser redirect crosses any process boundary, and `callback` consumes the snapshot exactly once, type-witnessing the leg order; a replayed, foreign, expired, or provider-mismatched state is `OAuthFault.state` and increments `security_oauth_state_reject`. Every fetch leg is internally resilient — a deadline bounds arctic's own `fetch`, and the `transport` arm (`ArcticFetchError`, the only retryable classification) re-drives under a bounded jittered exponential while `OAuth2RequestError` stays terminal. OIDC `id_token`s verify through `crypt/sign`'s issuer-overloaded `Jwt.verify` — arctic's `decodeIdToken` is never trusted — and the verified subject becomes the `CredentialRef` `authn/session` establishes from. The arctic fault family triages by `Match.instanceOf` into `OAuthFault`, and every secret stays `Redacted`.
+OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as one vocabulary row rather than a method family: each row bundles its own `Config` requirement and the four ceremony legs — `url` builds the redirect, `exchange` swaps the code for `OAuth2Tokens`, `refresh` rotates the provider grant, `revoke` retires it — into a uniform `Ceremony` closure, so per-provider PKCE, constructor arity, and credential shape all vanish behind one dispatch and a new provider is one row carrying exactly the config it needs — the wide all-providers credential bag is dead. Its roster is the full arctic surface as data: `google`/`github`/`microsoft`/`apple` (whose row alone demands `teamId`/`keyId`/`pkcs8`) and the generic `OAuth2Client` fallback for self-hosted Keycloak/Authentik/Okta issuers — all sharing the ceremony shape, anchored by the `_kinds` tuple with the guard pair closed in both directions. This two-leg ceremony is durable data, not an ad-hoc stash: `authorize` seals a `Departed` snapshot — kind, PKCE verifier, expiry — into the `OAuthStateStore` single-use port under a TTL, the browser redirect crosses any process boundary, and `callback` consumes the snapshot exactly once, type-witnessing the leg order; a replayed, foreign, expired, or provider-mismatched state is `OAuthFault.state` and lands the `state` row on the folder reject stream. Every fetch leg is internally resilient — a deadline bounds arctic's own `fetch`, and the `transport` arm (`ArcticFetchError`, the only retryable classification) re-drives under a bounded jittered exponential while `OAuth2RequestError` stays terminal. OIDC `id_token`s verify through `crypt/sign`'s issuer-overloaded `Jwt.verify` — arctic's `decodeIdToken` is never trusted — and the verified subject becomes the `CredentialRef` `authn/session` establishes from. Arctic's fault family triages by `Match.instanceOf` into `OAuthFault`, and every secret stays `Redacted`.
 
 ## [01]-[CLUSTERS]
 
@@ -17,7 +17,7 @@ The OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer a
 - Law: the 60-plus arctic provider classes share the ceremony shape, so a row is data over `createAuthorizationURL`/`validateAuthorizationCode`/`refreshAccessToken`/`revokeToken`; the row's `Config` is its whole credential contract — Apple's `teamId`/`keyId`/`pkcs8`, Microsoft's `tenant`, the generic row's `issuer` URL are per-row fields, so an unconfigured provider fails at first use with a precise `ConfigError` and no provider reads another's knobs.
 - Law: `Departed` is a `Schema.Class` so the ceremony snapshot is wire-serializable — the state store persists it across the redirect and any process restart, the single-use consume is the transition witness, and the TTL is stamped as `expiresAt` data checked on land; the satisfying layer is a `Cache`/`PersistedCache` row over the `SingleUse` contract, never a hand-rolled map.
 - Law: the fault rows carry the core `FaultClass` kind with the guard pair closed — `transport` is `unavailable` (the one retryable arm), `provider` is `invalid` (the issuer rejected the request; terminal), `shape` is `invalid`, `state` and `idToken` are `denied`, `lifecycle` is `invalid`.
-- Growth: a new provider is one row plus its `_kinds` entry; a self-hosted issuer reaches the generic `OAuth2Client` in the same row shape; a multi-leg enrollment ceremony (device onboarding across restarts) is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same store.
+- Growth: a new provider is one row and its `_kinds` entry; a self-hosted issuer reaches the generic `OAuth2Client` in the same row shape; a multi-leg enrollment ceremony (device onboarding across restarts) is an `@effect/experimental` `Machine.makeSerializable` actor whose snapshot rides the same store.
 - Boundary: the edge owns the redirect and callback URL params; `authn/session` establishes the session; `crypt/sign` verifies the id_token; `OAuthStateStore` is satisfied by a short-lived data or session band.
 - Packages: `arctic` (`OAuth2Client`, `Google`/`GitHub`/`MicrosoftEntraId`/`Apple`, `generateState`/`generateCodeVerifier`, `OAuth2Tokens`, the fault family); `effect` (`Config`, `Context`, `Match`, `Redacted`, `Schema`); `@rasm/ts/core` (`FaultClass`); `crypt/sign` (`SingleUse`).
 
@@ -27,8 +27,9 @@ import {
   OAuth2Client, type OAuth2Tokens, OAuth2RequestError, UnexpectedErrorResponseBodyError, UnexpectedResponseError,
 } from "arctic"
 import { FaultClass } from "@rasm/ts/core"
-import { Config, Context, DateTime, Duration, Effect, Match, Metric, Option, Redacted, Schedule, Schema } from "effect"
+import { Config, Context, DateTime, Duration, Effect, Match, Option, Redacted, Schedule, Schema } from "effect"
 import { Jwt, type KeyAlg, type SingleUse } from "../crypt/sign.ts"
+import { Reject } from "../crypt/verify.ts"
 import { CredentialRef, type SessionFault, Token, type TokenPair } from "./session.ts"
 
 const _kinds = ["google", "github", "microsoft", "apple", "generic"] as const
@@ -203,18 +204,16 @@ class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAut
 
 [CEREMONY]:
 - Owner: `OAuth.authorize` mints `state`+`verifier`, seals the `Departed` snapshot under the ceremony TTL, and returns the redirect `URL`; `OAuth.callback` consumes the snapshot exactly once, gates kind and expiry, exchanges the code under the resilient leg, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`; the row's `Config` resolves and the arctic client constructs once per kind under `Effect.cachedFunction`.
-- Law: the state is consumed single-use so a replayed or foreign state is `OAuthFault.state`, a stale snapshot is `OAuthFault.state` on the expiry gate, and both increment `security_oauth_state_reject` — the CSRF/replay telemetry of the folder's redirect surface; the verifier is never client-readable.
+- Law: the state is consumed single-use so a replayed or foreign state is `OAuthFault.state`, a stale snapshot is `OAuthFault.state` on the expiry gate, and both land `Reject.mark("state")` on the folder reject stream — the CSRF/replay telemetry of the redirect surface; the verifier is never client-readable.
 - Law: `decodeIdToken` is never verification — `Jwt.verify(token, issuer)` pins issuer/audience/algorithms against the row's `oidc`; the throwing `idToken()` read is `Option`-lifted at the seam, so an OIDC row whose exchange returns no `id_token` is `OAuthFault.idToken`, never a defect; a non-OIDC row resolves its subject through the caller's `resolveSubject`, so every path lands a verified `CredentialRef`; `accessTokenExpiresAt`/`scopes` seed the session so the granted scope, not the requested scope, is authoritative.
 - Law: every provider leg is internally resilient — the `_leg` seam bounds arctic's fetch with the leg deadline and re-drives only the `transport` arm under a bounded jittered exponential; the classified-terminal `provider` arm never retries.
 - Receipt: `URL` on authorize (the edge redirects), `TokenPair` on callback (the edge frames it) — never a raw `OAuth2Tokens`.
 - Growth: a new provider is one row; a new claim projection is one `resolveSubject` composition.
 - Boundary: `authn/session` `Token.establish` mints the session; `crypt/sign` verifies external tokens; the state store is data/session-satisfied.
-- Packages: `arctic` (PKCE mints, the fault family); `crypt/sign` (`Jwt.verify` issuer overload); `authn/session` (`Token.establish`, `CredentialRef`); `effect` (`Schedule`, `Metric`).
+- Packages: `arctic` (PKCE mints, the fault family); `crypt/sign` (`Jwt.verify` issuer overload); `crypt/verify` (`Reject`); `authn/session` (`Token.establish`, `CredentialRef`); `effect` (`Schedule`).
 
 ```typescript
 const _idToken = Option.liftThrowable((tokens: OAuth2Tokens) => tokens.idToken())
-
-const _stateReject = Metric.counter("security_oauth_state_reject")
 
 const _faultOf: (cause: unknown) => OAuthFault = Match.type<unknown>().pipe(
   Match.when(Match.instanceOf(OAuth2RequestError), (error) => new OAuthFault({ reason: "provider", detail: error.code })),
@@ -280,7 +279,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
         return yield* token.establish(ref, scopes, { tenant: Option.none(), verified: true })
       }).pipe(
         Effect.tapError((fault) =>
-          fault._tag === "OAuthFault" && fault.reason === "state" ? Metric.increment(_stateReject) : Effect.void),
+          fault._tag === "OAuthFault" && fault.reason === "state" ? Reject.mark("state") : Effect.void),
         Effect.withSpan("security.oauth.callback", { attributes: { kind } }),
       )
     const refresh = (kind: Provider.Kind, tokens: OAuth2Tokens): Effect.Effect<{ readonly expiresAt: Option.Option<DateTime.Utc>; readonly scopes: ReadonlyArray<string> }, OAuthFault> =>
@@ -305,7 +304,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 - Boundary: the caller composes `refresh` output back into `authn/session`; the provider grant storage is the caller's coordinate; this page owns only the arctic legs.
 - Packages: `arctic` (`OAuth2Tokens.refreshToken`/`hasRefreshToken`/`accessTokenExpiresAt`/`scopes`).
 
-The `_lifecycle` closure is declared above the `OAuth` service (the service delegates its `refresh`/`revoke` members to it over a `_bound` row and the shared `_leg` seam):
+`_lifecycle` is declared above the `OAuth` service (the service delegates its `refresh`/`revoke` members to it over a `_bound` row and the shared `_leg` seam):
 
 ```typescript
 const _expiry = Option.liftThrowable((tokens: OAuth2Tokens) => tokens.accessTokenExpiresAt())

@@ -1,6 +1,10 @@
 # [ELEMENT_ADDRESS]
 
-The content-identity owner: the `ContentAddress` `[ValueObject<UInt128>]` that hashes any seam value's canonical bytes through the kernel seed-zero `XxHash128` — the ONE hasher shared with the geometry `GeometryHash`, the snapshot spine, the `RepresentationContentHash`/`Coverage.RasterKey`/`Assessment.InputKey` content keys, and the cross-runtime Python/TypeScript peers; the seam mints no second hasher and seeds no non-zero — and the `CanonicalWriter` deterministic byte projection it composes: fixed IEEE-754 little-endian, `-0.0`→`0.0`, every `NaN`→one quiet pattern, ±∞ at canonical bits, measures quantized to `Header.Tolerance`, strings and collections count-prefixed, attributes in explicit order, a non-finite scalar NORMALIZED rather than railed (the canon the `Associate` edge's unset-`NaN` `ReferenceExtent` sentinel relies on, so "a non-finite forks the hash" is structurally impossible, not a fault path). Every seam `CanonicalBytes`/`ToCanonicalBytes` contribution writes through this ONE codec, so a value's identity, its content address, and the bytes the `Rasm.Persistence` content-3-way `StructuralMerge` keys an edge or node on are ONE encoding — `Generator.Equals` the ORTHOGONAL field-level `[Equatable]`/`Inequalities` member diff composed ALONGSIDE these content keys, never conflated with the codec. The graph address is order-INDEPENDENT — the SEMANTIC `Header` folded ahead, the `StepHeader`/`Instant` provenance excluded, node addresses and edge bytes sorted — so insertion order and re-export timestamps never fork identity while a schema or CRS change does; the mint's dual is `Verify`, the H7 tamper/corruption gate that re-derives a stored `NodeId` by the SAME identity regime that minted it and rails `Projection/fault#FAULT_BAND` `ElementFault.AddressUnstable` on any mismatch.
+`ContentAddress` hashes canonical seam bytes through kernel seed-zero `XxHash128`, shared by geometry, snapshots, precomputed content keys, and cross-runtime peers. No second hasher or non-zero seed exists.
+
+`CanonicalWriter` owns deterministic little-endian projection, canonical IEEE-754 values, tolerance-quantized measures, count-framed strings and collections, and explicit attribute order. Non-finite scalars normalize; `Associate.ReferenceExtent` depends on the stable unset-`NaN` canon.
+
+Every `CanonicalBytes` contribution composes this codec, so identity, content address, and `StructuralMerge` keys share one encoding. `Generator.Equals` remains an orthogonal field diff. Graph addressing folds semantic `Header`, excludes provenance, sorts nodes and edges, and verifies stored identities through `ElementFault.AddressUnstable`.
 
 ## [01]-[INDEX]
 
@@ -9,12 +13,12 @@ The content-identity owner: the `ContentAddress` `[ValueObject<UInt128>]` that h
 
 ## [02]-[CONTENT_ADDRESS]
 
-- Owner: `ContentAddress` the `[ValueObject<UInt128>]` content key over the kernel seed-zero `XxHash128`; the raw-hash, precomputed-wrap, node, graph, and verification entries; the shared `ByteOrder` edge-bytes comparer the snapshot edge sort and the `Graph/delta#GRAPH_DELTA` `GraphDelta.ToCanonicalBytes` edge sort both compose.
-- Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` is the raw hashing entry the `Graph/element#NODE_MODEL` `NodeId.Content` mint shares; `Of(UInt128)` wraps a PRECOMPUTED content hash (a `RepresentationContentHash` body key, a `Coverage.RasterKey`, an `Assessment.InputKey`) without re-hashing; `Of(Node, tolerance)` is the id-INCLUSIVE node address (the graph-dedup key distinguishing two occurrences with identical content by their ids); `OfGraph(ElementGraph)` the order-INDEPENDENT snapshot address (semantic `Header` + sorted node addresses + sorted edge bytes); `Verify(Node, tolerance, key)` the single-node re-derive gate (`Fin<Unit>`) that re-mints by the node's identity regime (an Occurrence's random Guid vacuous, a Type's deterministic `NodeId.RootedType` over `ToTypeSeedBytes`, every named non-rooted `Node` case's content self-hash) through an exhaustive closed-family switch with no wildcard arm, and `Verify(ElementGraph, key)` the snapshot sweep (`Validation<Error, Unit>`).
-- Auto: `Of(Node)` writes the id then appends `node.ToCanonicalBytes(tolerance)` (the `Graph/element#NODE_MODEL` projection) so two occurrences with identical content stay distinct by id, while `OfGraph` folds the semantic `Header` through the `Graph/element#ELEMENT_GRAPH` `Header.CanonicalBytes` projection (the ONE header-bytes owner the `Graph/delta#GRAPH_DELTA` delta key also composes — schema/view/tolerance/georeference, never re-spelled here) then sorts the node `ContentAddress`es by `UInt128` and the edge canonical bytes lexicographically through `ByteOrder`, the section counts making the node-vs-edge layout self-delimiting; `Verify` re-runs the EXACT mint per regime — the Type arm re-mints `NodeId.RootedType(o.ToTypeSeedBytes(tolerance).Span)`, the non-rooted arm re-projects `node.ToCanonicalBytes` through this owner's `Of` entry and compares through `NodeId.OfContent`, the Occurrence arm passes vacuously (a random Guid-v7 has no content preimage) — the graph overload accumulating every mismatch applicatively.
+- Owner: `ContentAddress` is the `[ValueObject<UInt128>]` content key over kernel seed-zero `XxHash128`; `ByteOrder` is the shared edge-byte comparer for snapshot and `GraphDelta.ToCanonicalBytes` sorting.
+- Entry: `ContentAddress.Of(ReadOnlySpan<byte>)` hashes canonical bytes; `Of(UInt128)` wraps a precomputed hash; `Of(Node, tolerance)` addresses an id-inclusive node; `OfGraph(ElementGraph)` addresses an order-independent snapshot; `Verify(Node, tolerance, key)` re-derives one identity; `Verify(ElementGraph, key)` accumulates snapshot mismatches.
+- Auto: `Of(Node)` writes the id before `node.ToCanonicalBytes(tolerance)`. `OfGraph` writes `Header.CanonicalBytes`, sorted node addresses, and lexicographically sorted edge bytes with section counts. `Verify` re-mints Types through `NodeId.RootedType`, non-rooted nodes through `NodeId.OfContent`, and admits Occurrences vacuously because their random Guid-v7 has no content preimage.
 - Receipt: a `ContentAddress` is the stable cross-runtime content key — a `NodeId.Content` for a non-rooted node, a node's dedup/diff key, a snapshot's identity the `Rasm.Persistence` spine and the `Rasm.Compute` assessment cache key on; the `Verify` `Fin`/`Validation` is the rehydrate integrity verdict a content-keyed store reads before trusting a persisted id.
-- Packages: `Rasm` (the kernel `Domain.ContentHash` seed-zero entry — composed, never a second hasher — plus the `Op` op-key), Thinktecture.Runtime.Extensions (`[ValueObject<UInt128>]` + the generated `Create`/`Value`), LanguageExt.Core (`Fin`/`Validation`/`Error`/`Unit` + the `Seq.Traverse`/`.As()` applicative accumulation the snapshot `Verify` sweep folds every node check through).
-- Growth: a new structural identity (a node, an edge, a snapshot, a verification) is one `Of`/`Verify` overload discriminating on input shape; a new precomputed content key is one `Of(UInt128)` caller; never a per-call-site hash, never a second hasher, and never a parallel content-key scheme — the `XxHash128` seed-zero entry is the one identity rail and the addressing grows by the `Projection/address#CANONICAL_WRITER` writer's vocabulary.
+- Packages: `Rasm` supplies kernel `Domain.ContentHash` and `Op`; Thinktecture.Runtime.Extensions generates `[ValueObject<UInt128>]` members; LanguageExt.Core supplies `Fin`, `Validation`, `Error`, `Unit`, `Seq.Traverse`, and `.As()`.
+- Growth: a new structural identity adds one input-shaped `Of` or `Verify` overload; a precomputed key composes `Of(UInt128)`; canonical vocabulary grows only on `CanonicalWriter`.
 - Boundary: `ContentAddress` composes the KERNEL seed-zero `XxHash128` — a second hasher or a non-zero seed is the named defect, and `GetHashCode` is process-salted and NEVER persisted or wire-compared; the id-INCLUSIVE node address (graph dedup distinguishes nodes by id) and the id-EXCLUSIVE non-rooted `NodeId.Content` mint (the id derives from content) are two distinct projections sharing the one `CanonicalWriter`, never conflated; the graph address folds the SEMANTIC header and EXCLUDES the `StepHeader`/`Instant` provenance — the graph-altitude mirror of the node-level `OwnerHistory` exclusion; the single-node `Verify` is a `Fin` (fail-fast) and the graph sweep a `Validation` (independent node checks accumulate), the carrier selecting the algebra.
 
 ```csharp signature
@@ -34,20 +38,18 @@ using static LanguageExt.Prelude;
 namespace Rasm.Element.Projection;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// KeyMemberName/KeyMemberAccessModifier are EXPLICIT — the established kernel TopoName/TopoSignature
-// [ValueObject<UInt128>] form: the UInt128 Value is read publicly across the seam (this OfGraph node sort reads
-// `Of(n, _).Value`, the Graph/element#NODE_MODEL `NodeId.OfContent(address)` formats `address.Value` X32), so the
-// public-key spelling is pinned at declaration rather than left to a generated default the consumers cannot rely on.
+// KeyMemberName/KeyMemberAccessModifier are EXPLICIT: the UInt128 Value is read publicly across the seam (this OfGraph
+// node sort reads `Of(n, _).Value`, `NodeId.OfContent(address)` formats `address.Value` X32), so the public-key
+// spelling is pinned at declaration rather than left to a generated default the consumers cannot rely on.
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class ContentAddress {
- // The lexicographic byte-sequence ordering for the order-independent edge canon — a cached singleton (zero
- // per-call allocation) over the BCL span comparison, the one byte ordering BOTH this OfGraph edge sort AND the
- // Graph/delta#GRAPH_DELTA GraphDelta.ToCanonicalBytes edge sort share — internal (same-assembly), never private.
+ // Lexicographic byte-sequence ordering is a cached singleton over BCL span comparison, shared by `OfGraph` and
+ // `GraphDelta.ToCanonicalBytes` edge sorts and internal to the assembly.
  internal static readonly IComparer<ReadOnlyMemory<byte>> ByteOrder =
   Comparer<ReadOnlyMemory<byte>>.Create(static (x, y) => x.Span.SequenceCompareTo(y.Span));
 
- // The kernel `ContentHash` seed-zero entry over the canonical bytes — the ONE hasher.
+ // Kernel `ContentHash` is the one seed-zero hasher over canonical bytes.
  public static ContentAddress Of(ReadOnlySpan<byte> canonicalBytes) => Create(ContentHash.Of(canonicalBytes));
 
  // Wrap a PRECOMPUTED content hash (a RepresentationContentHash body key, a Coverage.RasterKey, an
@@ -55,7 +57,7 @@ public sealed partial class ContentAddress {
  // distinct from the hashing entry above.
  public static ContentAddress Of(UInt128 contentHash) => Create(contentHash);
 
- // The id-INCLUSIVE node address (the graph-dedup key): the id then `node.ToCanonicalBytes`, so two occurrences
+ // Id-INCLUSIVE node addressing writes the id then `node.ToCanonicalBytes`, so two occurrences
  // with identical content stay distinct by id. DISTINCT from the id-EXCLUSIVE non-rooted `NodeId.Content` mint,
  // which hashes the content bytes ALONE (the id derives from them) — the two share the one writer, never the one hash.
  public static ContentAddress Of(Node node, double tolerance) {
@@ -64,8 +66,7 @@ public sealed partial class ContentAddress {
   return Of(w.ToBytes().Span);
  }
 
- // The order-INDEPENDENT snapshot address: the semantic Header folded first through its OWN Graph/element#ELEMENT_GRAPH
- // Header.CanonicalBytes projection (the ONE header-bytes owner the Graph/delta#GRAPH_DELTA delta key also composes),
+ // Order-INDEPENDENT snapshot addressing folds semantic `Header.CanonicalBytes` first,
  // then node addresses sorted by UInt128, then edge canonical bytes sorted lexicographically, section counts making the
  // layout self-delimiting — identical content addresses identically regardless of insertion order, while a
  // schema/view/georeference change forks identity.
@@ -73,10 +74,10 @@ public sealed partial class ContentAddress {
   CanonicalWriter w = new(graph.Header.Tolerance);
   graph.Header.CanonicalBytes(w);
   w.Ordinal(graph.Nodes.Count);
-  // The default UInt128 ascending comparer is the canonical node order a cross-runtime peer reproduces byte-for-byte;
+  // Default UInt128 ascending comparison is the canonical cross-runtime node order;
   // node and edge sorts are ONE ordering discipline.
   foreach (UInt128 nodeAddress in toSeq(graph.Nodes.Values).Map(n => Of(n, graph.Header.Tolerance).Value).OrderBy(static a => a)) { w.U128(nodeAddress); }
-  // The SAME Relationship.ToCanonicalBytes(tolerance) projection a content-3-way merge keys an edge on — graph address
+  // SAME `Relationship.ToCanonicalBytes(tolerance)` projection keys merge edges, so graph address
   // and edge merge-key never diverge. Threading Header.Tolerance matters ONLY for the Generic passthrough (its
   // PropertyValue.Measure attributes quantize through w.Measure; the five typed cases carry no Measure and are
   // tolerance-insensitive) — the tolerance-0 hardcode that silently forked a below-tolerance Generic edge is the
@@ -86,7 +87,7 @@ public sealed partial class ContentAddress {
   return Of(w.ToBytes().Span);
  }
 
- // The H7 verification dual of the mint: re-derive a node's stored id from its current content by the SAME identity
+ // H7 verification re-derives a node's stored id from current content through the SAME identity
  // regime that minted it — an OCCURRENCE Object (random Guid-v7 placement identity, no content preimage, H6) verifies
  // vacuously; a TYPE Object re-mints NodeId.RootedType over the Representations-EXCLUDED ToTypeSeedBytes seed (the
  // omitted volatile block keeps a later geometry attach from spuriously failing it; a forged or corrupted Type id is
@@ -94,8 +95,8 @@ public sealed partial class ContentAddress {
  // NodeId.OfContent. Each content arm composes the seam's own mint entries and compares NodeId to NodeId under the
  // declared [KeyMemberEqualityComparer] — the X32 spelling is owned by NodeId, never re-spelled here. The tolerance
  // MUST be the mint-time Header.Tolerance for the content-derived arms, or the quantized re-projection drifts. The
- // single producer on a mismatch is Projection/fault#FAULT_BAND ElementFault.AddressUnstable.
- // The WIRE face ([ObjectFactory<string>] — IObjectFactory<ContentAddress, string, ValidationError> +
+ // single mismatch producer is `ElementFault.AddressUnstable`.
+ // WIRE face ([ObjectFactory<string>] — IObjectFactory<ContentAddress, string, ValidationError> and
  // IConvertible<string>, decompile-verified contracts): a raw UInt128 JSON number loses precision past 2^53 in a
  // JS JSON.parse, so EVERY serializer framework renders/parses the canonical X32 hex through this factory — the
  // TS/Python peers hold the key as the hex string and the ModelDiff wire crosses it losslessly; every consumer
@@ -129,7 +130,7 @@ public sealed partial class ContentAddress {
    ? Fin.Succ(unit)
    : ElementFault.AddressUnstable(key, $"<content-id-mismatch:{node.Id.Value}>");
 
- // The snapshot rehydrate gate: every node re-verified through the single-node Verify, the Validation ACCUMULATING all
+ // Snapshot rehydrate re-verifies every node through the single-node `Verify`, with `Validation` ACCUMULATING all
  // mismatches (independent checks license accumulation — a corrupt snapshot reports every drifted node at once), the
  // caller converting at the boundary so an unstable snapshot never enters the read path as trusted. The carrier-owned
  // `.ToValidation()` re-anchors each `Fin` into the accumulating algebra — never a hand-rolled `Match(Succ, Fail)`
@@ -144,18 +145,18 @@ public sealed partial class ContentAddress {
 
 ## [03]-[CANONICAL_WRITER]
 
-- Owner: `CanonicalWriter` the ONE deterministic byte-projection codec bound to the model tolerance — every seam value's `CanonicalBytes`/`ToCanonicalBytes` writes through it: the `Graph/element#NODE_MODEL` `Node.ToCanonicalBytes`, the `Relations/relation#EDGE_ALGEBRA` `Relationship.ToCanonicalBytes`, and the `Properties/property#PROPERTY_VALUE` `PropertyValue`, `Composition/material#MATERIAL_COMPOSITION` `MaterialComposition`, `Properties/quantity#MEASURE_VALUE` `MeasureValue`, `Geospatial/reference#GEO_REFERENCE` `GeoReference`, and `Geospatial/coverage#COVERAGE_NODE` `CoverageGrid` contributions — so identity, content address, and 3-way-merge key project through one encoding.
-- Entry: `new CanonicalWriter(tolerance)` opens a projection bound to the model tolerance; the `Double`/`String`/`Ordinal`/`I64`/`U128`/`Bool`/`Measure`/`Raw` primitives write canonically and each returns the writer for fluent chaining; `ToBytes()` reads the accumulated `WrittenMemory`; `Tolerance` exposes the bound grid a sibling `CanonicalBytes` fold reads.
-- Auto: `Double` canonicalizes `-0.0`→`0.0` and every `NaN`→one quiet-NaN pattern then writes the IEEE-754 little-endian bits (±∞ keep their already-canonical bits), so a sign-of-zero or a payload-`NaN` never forks the hash and an unset-`NaN` sentinel canonicalizes stably; `Measure` quantizes the SI magnitude to the tolerance grid through `MeasureValue.Quantize` then writes the length-prefixed `QuantityType` discriminator token, the magnitude, and the seven `Dimension` exponents — NOT the display unit string — so a `Torque` and an `Energy` (or a `SectionModulus` and a `Volume`, or a dimension-anonymous `OfSi` and a named `Volume`) that share a `Dimension` stay distinct under the `NodeId.Content` mint, the content-dedup key, and the 3-way merge, while the SI-native `OfSi` and the UnitsNet-coerced `Of` still project one physical measure to one byte sequence and two measures within tolerance address identically; `String` length-prefixes the UTF-8 bytes so a delimiter collision cannot forge equality; `Ordinal`/`I64`/`U128`/`Bool` write fixed-width little-endian (the count prefixes that make a collection layout self-delimiting, `I64` the instant/tick canon a temporal row writes); `ToBytes` reads the accumulated memory without a copy.
-- Receipt: the writer's accumulated bytes ARE the one canonical projection — the non-rooted `Graph/element#NODE_MODEL` `NodeId.Content` mint, the `Projection/address#CONTENT_ADDRESS` `ContentAddress` node/graph address, and the `Rasm.Persistence` `StructuralMerge` edge/node key all read this single encoding, so a value cannot identify one way and hash another; the float-bearing `IfcMaterialLayer`-shaped golden vector is the cross-runtime regression anchor the C#/Python/TypeScript peers reproduce byte-for-byte, and the parity corpus pins the COUNTED layout — a `PropertySet`/`QuantitySet`-bearing content key derives from the count-prefixed bag layout, the recorded wire law the queued `PY_WIRE_ALIGNMENT` mirrors build against, the golden `LayerSet` recipe carrying its own count and unshifted.
-- Packages: System.Buffers (`ArrayBufferWriter` the accumulation buffer), System.Buffers.Binary (`BinaryPrimitives` the fixed-width little-endian writes), System.Text (`Encoding.UTF8` the length-prefixed string bytes), `Properties/quantity#MEASURE_VALUE` (`MeasureValue.Quantize`/`Dimension`/`QuantityType` the `Measure` primitive reads).
+- Owner: `CanonicalWriter` is the one tolerance-bound byte codec composed by `Node`, `Relationship`, `PropertyValue`, `MaterialComposition`, `MeasureValue`, `GeoReference`, and `CoverageGrid` canonical projections, so identity, address, and merge keys share one encoding.
+- Entry: `new CanonicalWriter(tolerance)` opens a projection bound to the model tolerance; the `Double`/`String`/`Ordinal`/`I64`/`U128`/`Bool`/`Measure`/`Raw` primitives write canonically and each returns the writer for fluent chaining; `Frame(IBufferWriter<byte>, string)` exposes the same string/count preimage framing without opening a model projection; `ToBytes()` reads the accumulated `WrittenMemory`; `Tolerance` exposes the bound grid a sibling `CanonicalBytes` fold reads.
+- Auto: `Double` canonicalizes `-0.0`→`0.0` and every `NaN`→one quiet-NaN pattern then writes the IEEE-754 little-endian bits (±∞ keep their already-canonical bits), so a sign-of-zero or a payload-`NaN` never forks the hash and an unset-`NaN` sentinel canonicalizes stably; `Measure` quantizes the SI magnitude to the tolerance grid through `MeasureValue.Quantize` then writes the length-prefixed `QuantityType` discriminator token, the magnitude, and the seven `Dimension` exponents — NOT the display unit string — so a `Torque` and an `Energy` (or a `SectionModulus` and a `Volume`, or a dimension-anonymous `OfSi` and a named `Volume`) that share a `Dimension` stay distinct under the `NodeId.Content` mint, the content-dedup key, and the 3-way merge, while the SI-native `OfSi` and the UnitsNet-coerced `Of` still project one physical measure to one byte sequence and two measures within tolerance address identically; `String` composes `Frame`, which writes the little-endian UTF-8 byte count before the bytes so a delimiter collision cannot forge equality; `Ordinal`/`I64`/`U128`/`Bool` write fixed-width little-endian (the count prefixes that make a collection layout self-delimiting, `I64` the instant/tick canon a temporal row writes); `ToBytes` reads the accumulated memory without a copy.
+- Receipt: accumulated bytes are the shared projection read by `NodeId.Content`, `ContentAddress`, and `StructuralMerge`; cross-runtime vectors pin float canon and counted bag layouts.
+- Packages: System.Buffers supplies `ArrayBufferWriter` and `IBufferWriter<byte>`; System.Buffers.Binary supplies fixed-width writes; System.Text supplies UTF-8; `MeasureValue` supplies quantization, dimensions, and quantity types.
 - Growth: a new primitive encoding is one method on `CanonicalWriter`; a new seam value type contributes one `CanonicalBytes(CanonicalWriter)` method co-located with its owner composing the existing primitives, never a parallel codec and never a per-type ad-hoc serialization.
-- Boundary: `CanonicalWriter` is the ONE canonical codec — a per-call-site or per-type ad-hoc serialization, a `double.GetHashCode`, or a culture-formatted string is the deleted form; the COUNT-PREFIX LAW is named here: every collection run in every `CanonicalBytes`/`ToCanonicalBytes` contribution writes `Ordinal(count)` BEFORE its rows — the injectivity precondition of every raw-append join (`ContentAddress.Of(Node)`'s id+bytes concat, `OfGraph`'s edge run, the `Graph/delta#GRAPH_DELTA` node/edge sections) — and an uncounted trailing run that lets a following segment's bytes parse as extra rows is the named defect, the deleted form (the `Graph/element#NODE_MODEL` bag arms the highest-traffic sites the law binds); the writer NORMALIZES a non-finite scalar (`-0.0`→`0.0`, `NaN`→one quiet pattern, ±∞ at canonical bits) rather than railing — the determinism guarantee AND the canonicalization the `Associate` edge's unset-`NaN` `ReferenceExtent` (`Relations/relation#EDGE_ALGEBRA`) relies on, so a non-finite never forks the hash and the MINT path mints no `Projection/fault#FAULT_BAND` `ElementFault` (a non-finite is rejected at its value-admission gate, never here); it is a reference type (NOT a ref struct) because the sibling `CanonicalBytes` folds capture it in the union `Switch` lambdas (`Graph/element#NODE_MODEL`, `Relations/relation#EDGE_ALGEBRA`) and a ref struct cannot be captured by a closure.
+- Boundary: `CanonicalWriter` is the one canonical codec; ad-hoc serialization, `double.GetHashCode`, and culture-formatted strings are deleted forms. Every collection writes `Ordinal(count)` before its rows, preserving raw-append injectivity. Scalars normalize `-0.0`, `NaN`, and infinities; value admission owns rejection. Reference semantics permit capture in union `Switch` projections.
 
 ```csharp signature
 // --- [SERVICES] ---------------------------------------------------------------------------
-// The ONE canonical value codec every seam value writes through, so identity, address, and 3-way-merge key agree.
-// A reference type (NOT a ref struct): the sibling CanonicalBytes folds capture it in union Switch lambdas.
+// ONE canonical value codec keeps identity, address, and merge keys aligned.
+// Reference semantics permit sibling `CanonicalBytes` folds to capture the writer in union switches.
 public sealed class CanonicalWriter(double tolerance) {
  private readonly ArrayBufferWriter<byte> buffer = new();
  public double Tolerance => tolerance;
@@ -164,18 +165,24 @@ public sealed class CanonicalWriter(double tolerance) {
 
  public CanonicalWriter U128(UInt128 value) { Span<byte> s = stackalloc byte[16]; BinaryPrimitives.WriteUInt128LittleEndian(s, value); buffer.Write(s); return this; }
 
- // The fixed-width 64-bit canon an instant-anchored row writes (a NodaTime Instant's Unix ticks, a tick-count) —
- // the same little-endian discipline Ordinal/U128 hold, so a temporal axis is byte-stable cross-runtime.
+ // Fixed-width 64-bit canon carries instant ticks under the same little-endian discipline as `Ordinal` and `U128`.
  public CanonicalWriter I64(long value) { Span<byte> s = stackalloc byte[8]; BinaryPrimitives.WriteInt64LittleEndian(s, value); buffer.Write(s); return this; }
 
  public CanonicalWriter Bool(bool value) { buffer.Write([(byte)(value ? 1 : 0)]); return this; }
 
  public CanonicalWriter String(string value) {
-  int count = Encoding.UTF8.GetByteCount(value);
-  Ordinal(count);
-  Encoding.UTF8.GetBytes(value, buffer.GetSpan(count));
-  buffer.Advance(count);
+  Frame(buffer, value);
   return this;
+ }
+
+ public static void Frame(IBufferWriter<byte> destination, string value) {
+  ArgumentNullException.ThrowIfNull(destination);
+  ArgumentNullException.ThrowIfNull(value);
+  int count = Encoding.UTF8.GetByteCount(value);
+  Span<byte> prefix = destination.GetSpan(sizeof(int));
+  BinaryPrimitives.WriteInt32LittleEndian(prefix, count);
+  destination.Advance(sizeof(int));
+  destination.Advance(Encoding.UTF8.GetBytes(value, destination.GetSpan(count)));
  }
 
  public CanonicalWriter Double(double value) {
@@ -206,6 +213,4 @@ public sealed class CanonicalWriter(double tolerance) {
 
 ## [04]-[RESEARCH]
 
-- [SHARED_CANONICAL_CODEC]: the id-EXCLUSIVE non-rooted `NodeId.Content` mint, the id-INCLUSIVE `ContentAddress` node address, the order-independent graph address, and the `Node`/`Relationship.ToCanonicalBytes` merge keys are distinct PROJECTIONS of one codec — a value cannot identify one way and hash another — and the `CanonicalWriter` float canon, tolerance quantization, and length/count prefixing make the projection byte-stable across the C#/Python/TypeScript runtimes, the float-bearing `IfcMaterialLayer`-shaped golden vector the regression anchor pinning the COUNTED bag layout (every `PropertySet`/`QuantitySet` content key derives from the count-prefixed rows — the wire law the queued canonical-writer mirrors reproduce, the golden `LayerSet` recipe always counted and its bytes unshifted). `Generator.Equals` (field-level `[Equatable]`/`Inequalities`, NOT a byte projection) is the ORTHOGONAL structural member diff the merge composes ALONGSIDE these content keys to localize a change to a member path.
-- [SINGLE_HASHER]: a second hasher, a non-zero seed, or an alternate algorithm anywhere on the seam is the named defect — every content key composes the one kernel entry. The graph address folds the SEMANTIC `Header` (schema, model view, tolerance, the full `GeoReference` map-conversion tuple) while EXCLUDING the `StepHeader`/`Instant` provenance, so a snapshot's identity depends on its content and schema/CRS — not its insertion order or re-export timestamp — the property the `Rasm.Persistence` content-keyed object store and the 3-way merge depend on.
-- [VERIFICATION_DUAL]: the regime split is load-bearing — the Type arm is the integrity check `NodeId.RootedType`'s determinism admits (an id no longer matching its own `Representations`-excluded type-defining content), so a single vacuous arm over ALL `Node.Object` (treating a deterministic Type id like an uncheckable Occurrence Guid) is the deleted under-check; only the Occurrence's random Guid-v7 (no content preimage, H6) verifies vacuously. The ONLY rail is `Projection/fault#FAULT_BAND` `ElementFault.AddressUnstable`, the verification mismatch its sole producer — the prior "a non-finite measure rails `AddressUnstable`" reading is the deleted form, because the writer NORMALIZES non-finite and the upstream `MeasureValue.Of`/`PropertyValue.Of` admissions reject a non-finite at ingress, so a drifted value surfaces as a re-derive mismatch, never an un-producible byte-projection fault.
+(none)

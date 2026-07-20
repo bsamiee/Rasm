@@ -9,10 +9,8 @@
 - import: `grpc_health.v1`
 - owner: `runtime`
 - rail: transport, serve
-- version: `1.81.1`
 - license: Apache-2.0
 - namespaces: `grpc_health.v1.health`, `grpc_health.v1.health.aio`, `grpc_health.v1.health_pb2`, `grpc_health.v1.health_pb2_grpc`
-- installed: `1.81.1`
 - capability: the standard `grpc.health.v1.Health` servicer (async `aio.HealthServicer` and the threading-backed sync `HealthServicer`), per-service serving-status set/read, `Watch` streaming status observation, single-call graceful-shutdown flip of all services, and the generated `add_HealthServicer_to_server` registration binding into a `grpc.aio` server
 
 ## [02]-[PUBLIC_TYPES]

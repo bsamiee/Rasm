@@ -1,14 +1,14 @@
 # [COMPUTE_CELL]
 
-Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backed `ProgressCell` capsule committing `ProgressMark` structs under rank and terminal-dominance guards, one `SubscriptionPolicy` cadence axis gating observer delivery on interval, fraction, and segment thresholds, and one seam fold projecting the identical family onto AppUi presentation, the wire, and an aggregate parent cell. This owner holds the phase vocabulary, subscription gate, read-side throughput and ETA derivations, aggregate roll-up, observation seams, and progress wire shape.
+Rasm.Compute observation is one monotonic `ProgressPhase` family, one Atom-backed `ProgressCell` capsule committing `ProgressMark` structs under rank and terminal-dominance guards, one `SubscriptionPolicy` cadence axis gating observer delivery on interval, fraction, and segment thresholds, and one seam fold projecting the identical family onto AppUi presentation, the wire, the mounted instrument set, and an aggregate parent cell. This owner holds the phase vocabulary, subscription gate, read-side throughput and ETA derivations, aggregate roll-up, observation seams, and progress wire shape.
 
-Correlation identity, cancellation provenance, `IClock`, the scheduler marshal delegate, and the `PhaseSubscription` LIFO detacher composite arrive settled at composition; the `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option arrive from `Runtime/admission`.
+Correlation identity, cancellation provenance, `IClock`, the scheduler marshal delegate, the mounted `InstrumentSet`, and the `PhaseSubscription` LIFO detacher composite arrive settled at composition; the `ComparerAccessors.StringOrdinal` accessor and the `AdmittedIntent` progress option arrive from `Runtime/admission`.
 
 ## [01]-[INDEX]
 
 - [01]-[PHASE_FAMILY]: monotonic phase rows with rank and terminal columns; the aggregate bottleneck resolver.
 - [02]-[PROGRESS_CELL]: atom-backed capsule; CAS rank guard; cadence-gated delivery; throughput/ETA derivation; child roll-up.
-- [03]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; sink-edge receipt law.
+- [03]-[OBSERVATION_SEAMS]: AppUi marshal seam; wire mirror seam; instrument tap; sink-edge receipt law.
 - [04]-[TS_PROJECTION]: progress wire shape consumed as connect-es server-stream.
 
 ## [02]-[PHASE_FAMILY]
@@ -57,6 +57,8 @@ public sealed partial class ProgressPhase {
 
 ```mermaid
 stateDiagram-v2
+    accTitle: Compute progress phase transitions
+    accDescr: Monotonic phase advance from queued through completed, with the fault and cancel terminals reachable from every live phase.
     [*] --> Queued
     Queued --> Selected
     Selected --> Staged
@@ -231,8 +233,8 @@ public sealed class ProgressCell {
 - Owner: `ProgressSeams` extension fold over `ProgressCell` — one member per observation seam, each binding one cadence row to one observer shape.
 - Entry: `public PhaseSubscription Observe(UiSchedulerPort scheduler, Action<ProgressMark> render)` — the returned detacher composite disposes LIFO.
 - Packages: LanguageExt.Core, BCL inbox
-- Growth: one seam member binding one cadence row to one observer shape; zero new surface.
-- Boundary: AppUi presentation marshals through the port delegate so no Compute type touches a UI thread. `Stream` feeds the ComputeService server-stream at app roots, and both seams return `IO<Unit>` into `ProgressCell.Subscribe`; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge.
+- Growth: one seam member binding a cadence row to one observer shape; zero new surface.
+- Boundary: AppUi presentation marshals through the port delegate so no Compute type touches a UI thread. `Stream` feeds the ComputeService server-stream at app roots, and every seam returns `IO<Unit>` into `ProgressCell.Subscribe`; the proto phase enum generates from `ProgressPhase.Keys`, so a second wire vocabulary is the named defect. Aggregate parents use these identical seams because their rolled value is a `ProgressMark`. Receipts materialize only at the sink edge. `Instrument` writes the two `rasm.compute.progress.*` rows through the `Runtime/receipts` mounted `InstrumentSet` — the marks counter per delivered mark, the cadence histogram per consecutive-mark interval, both tagged by phase — so progress telemetry is one more subscriber under the identical cadence gate and the cell never touches a meter; the prior-mark register reads before it swaps, so no instrument write runs inside the CAS body.
 
 ```csharp signature
 public static class ProgressSeams {
@@ -242,6 +244,20 @@ public static class ProgressSeams {
 
         public PhaseSubscription Stream(Func<ProgressMark, IO<Unit>> write) =>
             cell.Subscribe(SubscriptionPolicy.Wire, write);
+
+        public PhaseSubscription Instrument(InstrumentSet set, SubscriptionPolicy cadence) {
+            Atom<Option<ProgressMark>> prior = Atom(Option<ProgressMark>.None);
+            return cell.Subscribe(cadence, mark => IO.lift(() => Written(set, prior, mark)));
+        }
+    }
+
+    static Unit Written(InstrumentSet set, Atom<Option<ProgressMark>> prior, ProgressMark mark) {
+        Option<ProgressMark> held = prior.Value;
+        ignore(prior.Swap(_ => Some(mark)));
+        ignore(set.Count("rasm.compute.progress.marks", 1L, new KeyValuePair<string, object?>("phase", mark.Phase.Key)));
+        held.Iter(previous => ignore(set.Record("rasm.compute.progress.cadence", (mark.At - previous.At).TotalSeconds,
+            new KeyValuePair<string, object?>("phase", mark.Phase.Key))));
+        return unit;
     }
 }
 ```

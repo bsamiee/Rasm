@@ -2,7 +2,7 @@
 
 Backend-agnostic array admission over the Array API standard: `ArrayPayload.admit(source, axes, finite, mode, bound)` is the one entry parameterized over operand source (`ArraySource`) and output conditioning (`AdmitMode`), so a numpy floor, a JAX array, a Dask graph, or a pydata-`sparse` tensor admits through one body that never re-resolves the namespace, imports a vendor module, or grows a per-source/per-mode classmethod family. This owner is read-only admission — the mutate/copy fork belongs to transforming consumers — and it is the boundary where every downstream compute owner's backend and finiteness assumptions are established once.
 
-`array_namespace(*arrays)` resolves the backend `xp` once at entry, stacking `array-api-compat` as the resolver tier under `array-api-extra` as the extension tier (`xp.<op>` / `xpx.<op>(..., xp=xp)`). The body is one `railed` chain inside the `boundary("array.admit", ...)` fence from `reliability/faults#FAULT`, keying the host buffer through `evidence/identity#IDENTITY` `ContentIdentity.of` so a payload from any backend keys identically to its numpy floor. The `Labelled` arm admits `xarray` carriers as branch-tier co-consumption, never a re-owned data interior. The payload graduates on the `array_layout` `HandoffAxis` case, the cross-backend bit-identity proof riding the runtime `ParityReceipt` against the corpus-admitted `array-layout` fixture.
+`array_namespace(*arrays)` resolves the backend `xp` once at entry, stacking `array-api-compat` as the resolver tier under `array-api-extra` as the extension tier (`xp.<op>` / `xpx.<op>(..., xp=xp)`). Its body is one `railed` chain inside the `boundary("array.admit", ...)` fence from `runtime/reliability/faults#FAULT`, keying the host buffer through `runtime/evidence/identity#IDENTITY` `ContentIdentity.of` so a payload from any backend keys identically to its numpy floor. Its `Labelled` arm admits `xarray` carriers as branch-tier co-consumption, never a re-owned data interior. Payloads graduate on the `array_layout` `HandoffAxis` case, the cross-backend bit-identity proof riding the runtime `ParityReceipt` against the corpus-admitted `array-layout` fixture.
 
 ## [01]-[INDEX]
 
@@ -11,10 +11,10 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 ## [02]-[PAYLOAD]
 
 - Owner: `ArrayPayload` — the input axis (`ArraySource`) and the output axis (`AdmitMode`) are orthogonal columns on one `admit`, never a combinatorial method matrix or a per-mode entrypoint family. `Array` is the one `TYPE_CHECKING` backend union the owner threads so no signature degrades to a bare `object`, and `ArrayNamespace` is the `Protocol` typing the resolved `xp` — the same `object`-to-`Protocol` collapse `numerics/interval.md#ENCLOSURE` holds.
-- Cases: the lazy/eager fork (`is_lazy_array` selecting `xpx.lazy_apply` over eager `xp.any`) is established once here at admission and inherited by every downstream `jax`/`equinox`/`diffrax` consumer, never re-derived per consumer. `FiniteGate` rows name the forbidden class and fold to one masked reduction, never a three-branch ladder or a boolean knob. The `DENSE_GUARD` ceiling is the caller-threaded `DenseBound` policy value, never the library default hardcoded into the fold.
+- Cases: the lazy/eager fork (`is_lazy_array` selecting `xpx.lazy_apply` over eager `xp.any`) is established once here at admission and inherited by every downstream `jax`/`equinox`/`diffrax` consumer, never re-derived per consumer. `FiniteGate` rows name the forbidden class and fold to one masked reduction, never a three-branch ladder or a boolean knob. `DENSE_GUARD`'s ceiling is the caller-threaded `DenseBound` policy value, never the library default hardcoded into the fold.
 - Entry: every fault class — backend transfer, coordinate build, lazy reduction, densification bound, canonical encode — converts to `BoundaryFault` exactly once at this owner; the `boundary(...).bind(lambda rail: rail)` join and the module-level `@railed` generator are the canonical shapes the solver siblings mirror.
 - Packages: `is_writeable_array`/`device`/`size` and `xpx.at`/`isclose`/`default_dtype` are reserved surface for transforming consumers — this read-only owner deliberately reads none of them; `jax` and `dask` are admitted as `array_namespace` backends, never wraps; `xarray` carriers are read structurally under `TYPE_CHECKING`, never a runtime import.
-- Growth: a new operand source is one `ArraySource` case plus its `operand` arm; a new conditioning is one `AdmitMode` row plus its `condition` arm; a new finite class is one `FiniteGate` row plus its forbidden-mask arm; a new sparse format is one `SparseLayout` row; a new backend rides `array_namespace` with zero new surface.
+- Growth: a new operand source is one `ArraySource` case with its `operand` arm; a new conditioning is one `AdmitMode` row with its `condition` arm; a new finite class is one `FiniteGate` row with its forbidden-mask arm; a new sparse format is one `SparseLayout` row; a new backend rides `array_namespace` with zero new surface.
 - Boundary: no production tensor runtime; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner; scipy 2-D sparse-matrix construction stays on `solvers/linear`; the mutate/copy fork (`is_writeable_array` gating `xpx.at`) belongs to transforming consumers of the same resolved `xp`.
 
 ```python signature
@@ -31,7 +31,7 @@ from expression import Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Meta, Struct
 
-from rasm.compute.graduation.handoff import GraduationReceipt, HandoffAxis
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed
 from rasm.runtime.receipts import Receipt
@@ -115,13 +115,13 @@ class SparseLayout(StrEnum):
 
     @staticmethod
     def recover(array: "SparseArray") -> "SparseLayout":
-        # the concrete-class name lowercased IS the `format=` value; there is no `.format` instance attribute to read.
+        # concrete-class name lowercased IS the `format=` value; there is no `.format` instance attribute to read.
         return SparseLayout(type(array).__name__.lower())
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------------
 
-# the `array_layout` family's default graduation ceiling; bit-identity admits zero parity delta.
+# `array_layout` family's default graduation ceiling; bit-identity admits zero parity delta.
 _LAYOUT_CEILING: Final[Map[str, float]] = Map.of_seq([("parity_delta", 0.0)])
 
 # --- [MODELS] ------------------------------------------------------------------------------
@@ -246,7 +246,9 @@ class ArrayPayload(Struct, frozen=True):
     def graduates(self, parity: ParityReceipt) -> "RuntimeRail[GraduationReceipt]":
         # verification folds to the `parity_delta` residual the hub clears against the family ceiling; a caller's tighter row overrides.
         ledger = {"parity_delta": 0.0 if parity.verified else 1.0}
-        return GraduationReceipt.graduates("compute.array", HandoffAxis(array_layout=self.backend), self.content_key, ledger, dict(_LAYOUT_CEILING.items()))
+        return GraduationReceipt.graduates(
+            EvidenceScope.ARRAY.value, HandoffAxis(array_layout=self.backend), self.content_key, ledger, dict(_LAYOUT_CEILING.items())
+        )
 
     def facts(self) -> dict[str, object]:
         base: dict[str, object] = {
@@ -260,7 +262,7 @@ class ArrayPayload(Struct, frozen=True):
         return base | (self.sparse_facts.as_map() if self.sparse_facts is not None else {})
 
     def contribute(self) -> Iterable[Receipt]:
-        return (Receipt.of("compute.array", ("emitted", self.backend, self.facts())),)
+        return (Receipt.of(EvidenceScope.ARRAY.value, ("emitted", self.backend, self.facts())),)
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------

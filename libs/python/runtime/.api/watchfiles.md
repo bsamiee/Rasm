@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `watchfiles`
 - package: `watchfiles`
-- version: `1.2.0`
 - license: MIT
 - import: `watchfiles`
 - owner: `runtime`

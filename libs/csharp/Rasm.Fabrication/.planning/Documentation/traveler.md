@@ -22,7 +22,7 @@
 
 `TravelerAmendment` models execution without mutating the planned document. `Completed`, `Held`, `Released`, `Deviated`, and `Scrapped` cases record predecessor key, admitted step and actor, timestamp, evidence, and case-specific duration or disposition; `Completed.Estimate` retains the `CostReceipt` clock and derives actual-versus-estimated variance. `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
 
-`TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state. `SealAmendments` folds the sequence against the document key and per-step `TravelerStepState`, rejecting broken predecessors, non-monotone time, illegal transitions, and post-terminal events before emitting an immutable content-key chain.
+`TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state. `SealAmendments` folds the sequence against the document key and per-step `TravelerStepState`, rejecting broken predecessors, non-monotone time, illegal transitions, and post-terminal events before emitting an immutable content-key chain. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`, and the amendment `Actor` carries the personal classification row from `Process/telemetry#CLASSIFICATION`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -241,6 +241,7 @@ public abstract partial record TravelerAmendment {
 
     public ContentKey Previous { get; }
     public TravelerStep Step { get; }
+    [PersonalData]
     public TravelerText Actor { get; }
     public Instant At { get; }
     public Seq<ContentKey> Evidence { get; }

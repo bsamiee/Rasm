@@ -15,13 +15,13 @@ The one render-evidence owner: benchmark and receipt are two lanes of a single d
 ## [02]-[METRIC_FOLD]
 
 [METRIC_FOLD]:
-- Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window whose projections run as ONE seed fold — raw sums accumulate in a single `Chunk.reduce` pass and means project at read, so a new statistic (a peak, a p95 seed) is one seed field plus one row, never a second traversal; the frame loop contributes a frame-time row measured inside its own tick (the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `label`/`value`/`unit` derives from `Claim` itself — so comparison is a keyed join, not a shape adaptation.
+- Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window whose projections run as ONE seed fold — raw sums accumulate in a single `Chunk.reduce` pass and means project at read, so a new statistic (a peak, a p95 seed) is one seed field and one row, never a second traversal; the frame loop contributes a frame-time row measured inside its own tick (the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `label`/`value`/`unit` derives from `Claim` itself — so comparison is a keyed join, not a shape adaptation.
 - Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay); `@rasm/ts/core` (`Claim` — the metric row shape IS its vocabulary); `effect` (`Chunk`, `Number`, `pipe`).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: windows are policy rows — sample count and projection kind live in one `as const` record; a per-metric bespoke window is the named defect.
 - Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
 - Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s surplus arrival lane feeds an arrival-rate row and `Glb.Loop.refusals` feeds the refusal-rate row beside it, both in the same trace shape — broadcast taps, never a second port subscription.
-- Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree render cost is app-plane telemetry, not this probe.
+- Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree render cost is app-plane telemetry, not this probe; render-vital emission to the OTel spine is the runtime plane's, fed by an app-composed tap over these local rows, so this probe stays a display surface and mints no instrument.
 
 ```typescript
 import type { DeckMetrics } from "@deck.gl/core"
@@ -36,9 +36,9 @@ declare namespace Probe {
   type Trace = Chunk.Chunk<DeckMetrics>
 }
 
-type _Sums = { readonly count: number; readonly fps: number; readonly gpu: number; readonly cpu: number; readonly pick: number }
+type _Sums = { readonly count: number; readonly fps: number; readonly gpu: number; readonly cpu: number; readonly pick: number; readonly mem: number }
 
-const _SEED: _Sums = { count: 0, fps: 0, gpu: 0, cpu: 0, pick: 0 }
+const _SEED: _Sums = { count: 0, fps: 0, gpu: 0, cpu: 0, pick: 0, mem: 0 }
 
 const _stepped = (acc: _Sums, sample: DeckMetrics): _Sums => ({
   count: acc.count + 1,
@@ -46,6 +46,7 @@ const _stepped = (acc: _Sums, sample: DeckMetrics): _Sums => ({
   gpu: acc.gpu + sample.gpuTime,
   cpu: acc.cpu + sample.cpuTime,
   pick: acc.pick + sample.pickTime,
+  mem: Number.max(acc.mem, sample.gpuMemory), // a gauge windows as its peak, never a mean
 })
 
 const _observe = (trace: Probe.Trace, sample: DeckMetrics): Probe.Trace =>
@@ -53,12 +54,15 @@ const _observe = (trace: Probe.Trace, sample: DeckMetrics): Probe.Trace =>
 
 const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
   pipe(Chunk.reduce(trace, _SEED, _stepped), (sums) =>
-    pipe(Number.max(sums.count, 1), (over) => [
-      { label: "fps", value: sums.fps / over, unit: "1/s" },
-      { label: "gpu-time", value: sums.gpu / over, unit: "ms" },
-      { label: "cpu-time", value: sums.cpu / over, unit: "ms" },
-      { label: "pick-time", value: sums.pick / over, unit: "ms" },
-    ]))
+    sums.count === 0
+      ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
+      : [
+          { label: "fps", value: sums.fps / sums.count, unit: "1/s" },
+          { label: "gpu-time", value: sums.gpu / sums.count, unit: "ms" },
+          { label: "cpu-time", value: sums.cpu / sums.count, unit: "ms" },
+          { label: "pick-time", value: sums.pick / sums.count, unit: "ms" },
+          { label: "gpu-memory", value: sums.mem, unit: "bytes" },
+        ])
 
 const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Float64Array, Float64Array] =>
   pipe(Chunk.toReadonlyArray(trace), (samples) => [
@@ -92,7 +96,7 @@ const _host = (
         print,
         machine: info.vendor,
         arch: info.architecture,
-        cores: Math.max(1, globalThis.navigator.hardwareConcurrency),
+        cores: Number.max(1, globalThis.navigator.hardwareConcurrency),
         runtime: globalThis.navigator.userAgent,
       }),
   )
@@ -191,12 +195,14 @@ const _capture = (
 
 [EVIDENCE_ROWS]:
 - Owner: `Probe.tone` — the verdict and delta presentation vocabulary: matched renders on the success tone, mismatched on the danger tone WITH both keys shown (the `:x32` spelling the kernel brand carries); delta rows tone by sign; the wire receipt's own fields render beside the local verdict; stamps format through `Format.instant`.
-- Law: a mismatch is never a fault — no channel carries it, no retry fires; the verdict row IS the deliverable, and escalation is an operator decision outside this plane. The layout drift reports `panel#LAYOUT_SOLVE` emits land on this same board as evidence rows under the same law.
+- Law: a mismatch is never a fault — no channel carries it, no retry fires; the verdict row IS the deliverable, and escalation is an operator decision outside this plane. Layout drift reports from `panel#LAYOUT_SOLVE` land on this same board as evidence rows under the same law.
 - Law: verdict history is a bounded fold — the last N verdicts per view ride a `Chunk`-backed atom (append, take-right, the `[2]` window policy shape); evidence accumulates without unbounded memory.
-- Law: evidence copies through the port — the copy-evidence affordance serializes the verdict/board row and writes it through the `Clipboard` Tag (`system/primitive#CLIPBOARD_PORT`); `navigator.clipboard` in an evidence row is the named defect.
+- Law: evidence copies through the port — the copy-evidence affordance writes `Probe.line(row)` (one serializer over board row and verdict) through the `Clipboard` Tag (`system/primitive#CLIPBOARD_PORT`); `navigator.clipboard` in an evidence row is the named defect.
 - Boundary: badge and row primitives are `system/primitive` recipes; the claim board renders `view/table` rows while metric timelines render `view/chart` series — evidence picks its surface by shape.
 
 ```typescript
+import { DateTime, Option, Predicate } from "effect"
+
 const _tone = {
   matched: { tone: "success" },
   mismatched: { tone: "danger" },
@@ -204,6 +210,16 @@ const _tone = {
   slower: { tone: "danger" },
   incomparable: { tone: "neutral" },
 } as const
+
+const _line = (row: Probe.BoardRow | Probe.Verdict): string =>
+  Predicate.hasProperty(row, "matched")
+    ? `${row.view} expected=${row.expected} actual=${row.actual} matched=${row.matched} at=${DateTime.formatIso(row.at)}`
+    : [
+        row.label,
+        Option.match(row.claimed, { onNone: () => "claim=-", onSome: (held) => `claim=${held.value}${held.unit}` }),
+        Option.match(row.local, { onNone: () => "local=-", onSome: (held) => `local=${held.value}${held.unit}` }),
+        Option.match(row.delta, { onNone: () => "delta=-", onSome: (delta) => `delta=${delta}` }),
+      ].join(" ")
 
 declare namespace Probe {
   type Shape = {
@@ -216,6 +232,7 @@ declare namespace Probe {
     readonly board: typeof _board
     readonly capture: typeof _capture
     readonly tone: typeof _tone
+    readonly line: typeof _line
   }
 }
 
@@ -229,9 +246,15 @@ const Probe: Probe.Shape = {
   board: _board,
   capture: _capture,
   tone: _tone,
+  line: _line,
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { Probe }
 ```
+
+## [07]-[RESEARCH]
+
+- [DECK_TIMERS]-[OPEN]: which `redraw`/`update` counter member spellings the shipped `@luma.gl/engine` metrics payload carries beyond the fields the `DeckMetrics` type names; decompile the shipped `@deck.gl/core` metrics payload into `.api/deck.gl-core.md`, then fold each verified member as one `_Sums` seed field and one `_rows` entry.
+- [RENDERER_INFO]-[OPEN]: whether `WebGPURenderer` carries the `WebGLRenderer.info` render/memory counter surface (`render.calls`, `render.triangles`, `memory.geometries`, `memory.textures`) under the same spelling; verify against the shipped `three/webgpu` declarations via `.api/three.md`, then land the renderer counter rows beside the deck sink as `_Sums` seed fields and `_rows` entries.

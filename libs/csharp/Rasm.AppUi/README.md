@@ -1,6 +1,8 @@
 # [APPUI]
 
-`Rasm.AppUi` is the federation's product surface — one Avalonia body spanning the shell, the GPU viewport engine — render-graph pass-DAG over one wgpu device, cluster-LOD residency streamed from Compute's content-keyed payloads, path-traced appearance from the Materials BSDF, reality capture, OpenXR — the 2D documentation surface consuming the hidden-line receipt into sheets and DWG/DXF/PDF emit, the chart and dashboard plane, the typed-edit plane with revert algebra and a reactive data spine, the reproducible-notebook document plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to. Its bar is product honesty: every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
+`Rasm.AppUi` is the federation's product surface — one Avalonia body spanning the shell, the GPU viewport engine over one wgpu device with Compute-streamed cluster-LOD residency, path-traced appearance from the Materials BSDF, reality capture and OpenXR review, the sheet-drafting surface emitting DWG/DXF/PDF, the chart plane, the typed-edit plane with revert algebra, the reproducible-notebook plane, live collaboration whose durable truth replays in any runtime, the diagnostics plane, and the theme vocabulary every visual literal traces to.
+
+Its bar is product honesty: every screen windows through one virtualization fabric, every fault crosses one typed envelope, every collaborative surface converges through one merge authority, and every visual export leaves color-managed and print-honest.
 
 Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` axis, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
@@ -53,7 +55,7 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 - [34]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
 
 [DIAGNOSTICS]:
-- [35]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, correlation join, and the 6xxx fault registry.
+- [35]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, telemetry spine, correlation join, and the 6xxx fault registry.
 - [36]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, goldens, and a typed proof fault.
 - [37]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
 - [38]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
@@ -73,7 +75,6 @@ Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, an
 - `Avalonia`
 - `Avalonia.Desktop`
 - `Avalonia.Headless`
-- `Avalonia.Headless.XUnit`
 - `Avalonia.Themes.Fluent`
 - `Avalonia.Fonts.Inter`
 - `ReactiveUI`

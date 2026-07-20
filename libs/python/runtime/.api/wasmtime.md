@@ -9,7 +9,6 @@
 - import: `wasmtime`
 - owner: `runtime`
 - rail: worker fabric
-- version: `46.0.1`
 - license: Apache-2.0 WITH LLVM-exception
 - namespaces: `wasmtime`
 - capability: in-process WASM guest execution — epoch-interruptible `Engine`/`Store`, per-store linear-memory and instance limits, once-per-bytes `Module` compilation, zero-import `Instance` construction, string-indexed exports, direct `Func` calls, and `Memory.read`/`write` byte exchange

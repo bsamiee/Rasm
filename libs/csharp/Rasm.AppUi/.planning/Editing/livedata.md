@@ -365,7 +365,9 @@ public static class LiveDataOps {
     public const string FaultsInstrument = "rasm.appui.live.faults";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ChangesInstrument, FaultsInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ChangesInstrument, InstrumentKind.Count, "{change}", "live change-set operations by slot and change kind"),
+            new(FaultsInstrument, InstrumentKind.Count, "{fault}", "live-data faults by slot"));
 
     extension(BindingCapsule capsule) {
         public IDisposable Tile<TRow, TKey>(

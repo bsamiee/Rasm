@@ -1,6 +1,6 @@
 # [TS_UI_TASKLOG]
 
-The open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
+Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
@@ -17,7 +17,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[0001]-[QUEUED]: `viewer/review.md` — the model-review surface.
+- Capability: decoded `BimDiff` changes and `IdsAudit` verdicts fold into board rows, tone echoes, and selection ops over the one `GlobalId` set; drives from IDEAS `[DIFF_SURFACE]`.
+- Shape: new page `.planning/viewer/review.md` — change-kind tone vocabulary, diff board on `view/table` rows, tint echoes through `mark`'s op fold, camera reveal per changed element.
+- Anchors: `core/interchange/codec` decoded owners; `viewer/mark` `Selection.Op`; `viewer/scene` tint rows.
+- Tension: core's BIM census reconciliation stays blocked on the C# wire owners — this page consumes the spellings that settlement fixes.
 
 ## [02]-[CLOSED]
 

@@ -1,14 +1,14 @@
 # [TS_RUNTIME]
 
-`runtime` is the branch's execution substrate — one body across its altitudes: the process plane where a runtime is a table row, the distributed plane where egress, transport, fanout, coordination, durable work, and the intelligence spine compose one budget ledger and one fault law, and the browser condition, the same package under one build flag, never a sibling. Its bar is structural singularity: one circuit ledger every dial inherits, one ambient redaction scrub at every capture seam, one `WorkClass` economy pricing every durable surface, one assembled front door no lib can hold itself — every capability, whether runtime, lane, provider, channel, cadence, or vital, is a row, and only the boot module reads a concrete one. Faults leave only as self-rendering values, byte-stable renders and embedding fingerprints hold across processes and languages, and degradation is a readable `Layer` choice, never hidden behavior.
+`runtime` is the branch's execution substrate — one body across the process plane, the distributed plane, and the browser condition, one package under one build flag. Its bar is structural singularity: one circuit ledger every dial inherits, one ambient redaction scrub at every capture seam, one `WorkClass` economy pricing every durable surface, one assembled front door no lib can hold itself — every capability is a row, and only the boot module reads a concrete one. Faults leave only as self-rendering values, and degradation is a readable `Layer` choice, never hidden behavior.
 
-It imports core, security, and data and is composed by the interface and deploy planes: security satisfies its guard and intake seams into the front door, data owns the outbox, mailbox, and journal its durable work composes, the deploy plane's outputs arrive only as typed env facts, and the C# host pushes telemetry through its OTLP ingress. It mints no content identity and holds no record of truth of its own.
+It imports core, security, and data and is composed by the interface and deploy planes: security satisfies its guard and intake seams into the front door, data owns the outbox, mailbox, and journal its durable work composes, the deploy plane's outputs arrive only as typed env facts, and the C# host meets its export lanes on the one OTLP collector wire. It mints no content identity and holds no record of truth of its own.
 
 ## [01]-[ROUTER]
 
 - [01]-[PROC](.planning/proc/): Runtime binding, resolve-once config, flags-as-data, lifecycle receipts, and one worker protocol over platform Tags.
 - [02]-[NET](.planning/net/): One HTTP lane table off the core budget, framed byte channels, and engine-blind fanout, replay, and coordination.
-- [03]-[OTEL](.planning/otel/): OTLP wire half under one redaction scrub — egress, ingress continuation, the crash fold, and RUM vitals.
+- [03]-[OTEL](.planning/otel/): OTLP wire half under one redaction scrub — egress, continuation, crash fold, RUM vitals, meter bridge.
 - [04]-[SERVE](.planning/serve/): Libs export route, verb, and group data; the app assembles one `HttpApi` and CLI root; faults leave as `Problem`s.
 - [05]-[WORK](.planning/work/): One `WorkClass` economy — sharded actors, replay workflows, durable queues with the sole DLQ owner, cluster cron.
 - [06]-[AI](.planning/ai/): Provider families on one capability-asymmetry table with ranked fallback, chunk-and-embed, and Schema-typed MCP tools.
@@ -37,17 +37,31 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 - `@modelcontextprotocol/sdk`
 
 [TELEMETRY]:
-- `@opentelemetry/api-logs`
+- `@effect/opentelemetry` — facade bridging Effect `Tracer`/`Metric`/`Logger` signals to OTLP export; both export lanes compose it, only this folder imports it
+- `@opentelemetry/api`
+- `@opentelemetry/api-logs` — peer contract the sdk-logs processors type against; log records mint through `Effect.log*`, never this API
 - `@opentelemetry/core`
 - `@opentelemetry/resources`
+- `@opentelemetry/resource-detector-aws` — aws-arm compute-identity detector rows for the node lane roster
+- `@opentelemetry/resource-detector-container` — cgroup container-identity detector row for the node lane roster
+- `@opentelemetry/resource-detector-gcp` — metadata-server detector row for the gcp arm
+- `@opentelemetry/opentelemetry-browser-detector` — browser identity detector on the web lane
 - `@opentelemetry/sdk-logs`
 - `@opentelemetry/sdk-metrics`
+- `@opentelemetry/host-metrics` — `HostMetrics` sweeps `system.*` and `process.*` series onto the node lane's exposed meter provider
 - `@opentelemetry/sdk-trace-base`
-- `@opentelemetry/sdk-trace-node`
+- `@opentelemetry/sdk-trace-node` — `NodeSdk` facade substrate on the node lane; no direct import
 - `@opentelemetry/sdk-trace-web`
 - `@opentelemetry/exporter-trace-otlp-http`
 - `@opentelemetry/exporter-metrics-otlp-http`
 - `@opentelemetry/exporter-logs-otlp-http`
+- `@opentelemetry/context-zone`
+- `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under the browser rows
+- `@opentelemetry/instrumentation-fetch`
+- `@opentelemetry/instrumentation-document-load`
+- `@opentelemetry/instrumentation-user-interaction`
+- `@opentelemetry/instrumentation-xml-http-request`
+- `@pyroscope/nodejs` — continuous-profiling push over the native pprof sampler; composes only at the node root and drains with the process
 
 [TERMINAL]:
 - `@effect/cli`
@@ -85,6 +99,3 @@ Shared substrate consumed from the TypeScript registry; the registry and its cha
 - `@effect/platform-bun`
 - `@effect/platform-browser`
 - `@effect/experimental`
-
-[OTLP_BRIDGE]:
-- `@effect/opentelemetry`

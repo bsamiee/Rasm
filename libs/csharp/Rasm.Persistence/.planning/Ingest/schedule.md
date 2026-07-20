@@ -378,6 +378,10 @@ public readonly record struct ScheduleFact(ScheduleFactKind Kind, string Dialect
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class ScheduleSource {
+    // The registry-mounted census derives from the kind vocabulary; the `store.schedule.` prefix declares once here.
+    public static readonly Seq<StoreSlot> Slots =
+        toSeq(ScheduleFactKind.Items).Map(static kind => StoreSlot.Create($"store.schedule.{kind.Key}"));
+
     public static IO<Validation<ScheduleFault, ScheduleYield>> Run(ScheduleOp op, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
         op.Switch(
             (frame, sink),

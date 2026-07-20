@@ -10,13 +10,13 @@
 
 ## [02]-[CUT_LINKING]
 
-- Owner: `LinkRun` is the generated ingress owner; `LinkPolicy` and `LinkObjective` are generated policy values; `LinkOp` closes applied edit evidence; `LinkVerdict` carries one baseline-or-applied payload.
+- Owner: `LinkRun` is the generated ingress owner; `CutLinkPolicy` and `CutLinkObjective` are generated policy values; `LinkOp` closes applied edit evidence; `LinkVerdict` carries one baseline-or-applied payload.
 - Cases: `LinkCapability` selects common-line and chain scheduling; `BridgePolicy` and `WastePolicy` derive their own enablement from their payload cases.
 - Entry: `Plan(LinkRun)` admits placement, plane-compatible polygonal profiles, sheet stock, sheet-scoped keep-outs, and policy once before one composed graph fold.
 - Auto: a longest-first conflict fold selects non-overlapping common lines; `ConnectedComponents`, transitive reduction, topological order, Kruskal forest, breadth-first paths, and A-star routes derive chain and rapid topology; `VoronoiPlane` derives bounded point-site waste adjacency and `VoronoiSite.ClockwisePoints` measures each closed cell against the reusable floor; `PolygonAlgebra.Apply` owns line-space offset, Boolean, measure, relation, and open clip.
 - Receipt: `LinkComparison` carries pierce, rapid, cut, shared, bridge, partition, heat, quality, and remnant-loss axes before and after the candidate topology; remnant loss combines partition kerf area with sub-floor cell area as offcut-side costs.
 - Packages: `LanguageExt.Core`, `QuikGraph`, `SharpVoronoiLib`, `Thinktecture.Runtime.Extensions`, `Rasm`, `RhinoCommon`, and the `Geometry2D` owners compose the surface.
-- Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `LinkObjective` weight; a waste decomposition is one `WastePolicy` case; no consumer gains an orchestration step.
+- Growth: a cut edit is one `LinkOp` case; a scoring axis is one `LinkEvidence` member with one `CutLinkObjective` weight; a waste decomposition is one `WastePolicy` case; no consumer gains an orchestration step.
 - Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting seam, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is statement-bearing, and `VoronoiPlane` construction runs through the synchronous `Try` rail.
 
 ```csharp signature
@@ -75,7 +75,7 @@ public abstract partial record WastePolicy {
 }
 
 [ComplexValueObject]
-public sealed partial class LinkObjective {
+public sealed partial class CutLinkObjective {
     public double Pierce { get; }
     public double Rapid { get; }
     public double Cut { get; }
@@ -104,7 +104,7 @@ public sealed partial class LinkObjective {
 }
 
 [ComplexValueObject]
-public sealed partial class LinkPolicy {
+public sealed partial class CutLinkPolicy {
     public Set<LinkCapability> Enabled { get; }
     public double CutWidthMm { get; }
     public double MatchToleranceMm { get; }
@@ -118,7 +118,7 @@ public sealed partial class LinkPolicy {
     public Point3d RapidOrigin { get; }
     public BridgePolicy Bridge { get; }
     public WastePolicy Waste { get; }
-    public LinkObjective Objective { get; }
+    public CutLinkObjective Objective { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -135,7 +135,7 @@ public sealed partial class LinkPolicy {
         ref Point3d rapidOrigin,
         ref BridgePolicy bridge,
         ref WastePolicy waste,
-        ref LinkObjective objective) {
+        ref CutLinkObjective objective) {
         double[] policyScalars = [cutWidthMm, matchToleranceMm, angularToleranceRadians, arcToleranceMm, clearanceMiterLimit, minSharedLengthMm,
             chainBandMm, maxContinuousCutMm];
         bool scalars = policyScalars.All(static value => double.IsFinite(value) && value > 0.0);
@@ -165,7 +165,7 @@ public sealed partial class LinkRun {
     public Arr<Seq<Loop>> Profiles { get; }
     public Map<int, Stock> StockBySheet { get; }
     public Map<int, Seq<Loop>> KeepOutBySheet { get; }
-    public LinkPolicy Policy { get; }
+    public CutLinkPolicy Policy { get; }
 
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -173,7 +173,7 @@ public sealed partial class LinkRun {
         ref Arr<Seq<Loop>> profiles,
         ref Map<int, Stock> stockBySheet,
         ref Map<int, Seq<Loop>> keepOutBySheet,
-        ref LinkPolicy policy) {
+        ref CutLinkPolicy policy) {
         Set<int> occupied = toSet(placement.Parts.Map(static transform => transform.SheetIndex));
         bool census = occupied.Count == stockBySheet.Count && stockBySheet.Keys.ForAll(occupied.Contains);
         bool identities = placement.Parts.Map(static transform => new PartInstance(transform.PartId, transform.Instance))
@@ -363,7 +363,7 @@ public static class Linking {
         Loop right,
         int rightContour,
         int rightEdge,
-        LinkPolicy policy) {
+        CutLinkPolicy policy) {
         if (left.BulgeAt(leftEdge) != 0.0 || right.BulgeAt(rightEdge) != 0.0) return None;
         Point3d a0 = left.At(leftEdge), a1 = left.At(leftEdge + 1), b0 = right.At(rightEdge), b1 = right.At(rightEdge + 1);
         Vector3d da = a1 - a0, db = b1 - b0;
@@ -466,7 +466,7 @@ public static class Linking {
         Seq<LinkOp.Bridge> bridges,
         BidirectionalGraph<PartInstance, SEdge<PartInstance>> precedence,
         bool joinBands,
-        LinkPolicy policy) {
+        CutLinkPolicy policy) {
         UndirectedGraph<PartInstance, SEdge<PartInstance>> islands = new(allowParallelEdges: false);
         islands.AddVertexRange(placed.Map(static row => row.Part));
         shared.Iter(edge => islands.AddEdge(new SEdge<PartInstance>(edge.A.Part, edge.B.Part)));
@@ -489,7 +489,7 @@ public static class Linking {
         Seq<PlacedPart> members,
         Seq<SharedEdge> shared,
         Map<PartInstance, int> rank,
-        LinkPolicy policy) {
+        CutLinkPolicy policy) {
         Set<PartInstance> ids = toSet(members.Map(static row => row.Part));
         UndirectedGraph<PartInstance, TaggedEdge<PartInstance, double>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(ids);
@@ -510,7 +510,7 @@ public static class Linking {
         Seq<PlacedPart> members,
         UndirectedGraph<PartInstance, TaggedEdge<PartInstance, double>> band,
         Map<PartInstance, int> rank,
-        LinkPolicy policy) {
+        CutLinkPolicy policy) {
         Set<PartInstance> ids = toSet(members.Map(static row => row.Part));
         UndirectedGraph<PartInstance, TaggedEdge<PartInstance, double>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(ids);
@@ -768,7 +768,7 @@ public static class Linking {
         return new WasteRow(sheet, usable, cuts, sites, cells, duplicateSites, fragmentAreaMm2, graph, nodes);
     }
 
-    private static Fin<Seq<ChainRow>> Route(Seq<ChainRow> chains, Seq<WasteRow> partitions, LinkPolicy policy) =>
+    private static Fin<Seq<ChainRow>> Route(Seq<ChainRow> chains, Seq<WasteRow> partitions, CutLinkPolicy policy) =>
         chains.GroupBy(static chain => chain.SheetIndex).OrderBy(static group => group.Key)
             .Traverse(group => RouteSheet(
                 group.ToSeq(),

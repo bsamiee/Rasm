@@ -1,6 +1,6 @@
 # [RASM_RHINO_ARCHITECTURE]
 
-`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon document, persistence, object, command, block, annotation, modeling, viewport, display, render, and exchange surfaces, owning the native Eto UI sub-domain and the `Rhino.UI` shell above it and composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace, and project references terminate at the kernel. Host owners compose same-assembly owners at their own or lower stratum. Seam map names only boundary-crossing contracts — each a frozen-name value type consumed down from the kernel — while host-internal wiring stays on the mutation spine.
+`Rasm.Rhino` maps the Rhino 9 host boundary over the RhinoCommon surfaces, the native Eto UI sub-domain, and the `Rhino.UI` shell, composing the `Rasm` kernel for every host-neutral computation. Each sub-domain folder maps to exactly one namespace, and project references terminate at the kernel. Host owners compose same-assembly owners at their own or lower stratum. Seam map names only boundary-crossing contracts — each a frozen-name value type consumed down from the kernel — while host-internal wiring stays on the mutation spine.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -26,14 +26,14 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Materials.cs    # Object materials, mappings, and mesh caches behind one commit
 │   ├── Lights.cs       # Closed world light-kind family: seed, gated edits, and the table commit rail
 │   ├── History.cs      # History record/replay triad, linkage topology, and governance
-│   └── Authoring.cs    # Custom-object, grip, and render-mesh programs behind forwarding adapters
+│   └── Authoring.cs    # Custom-object, grip, and render-mesh programs; ObjectsTelemetry egress and host log/exception taps
 ├── Commands/           # Native command lifecycle, input acquisition, and picked-reference projection
 │   ├── Command.cs      # Staged command algebra over one immutable model and its host adapter
 │   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its receipt
 │   ├── Options.cs      # Command-line option vocabulary and leased native carriers
 │   └── Selection.cs    # Picked-reference projection onto the selection union and re-entry
 ├── Blocks/             # Instance-definition domain over the kernel
-│   ├── Model.cs        # Block-reference address union and whole-state snapshot policy
+│   ├── Model.cs        # Definitions.Lens resolution over the Document-owned ResourceRef and whole-state snapshot policy
 │   ├── Graph.cs        # Definition-graph topology, queries, and archive closure
 │   ├── Lifecycle.cs    # Definition ingress, the preview vault, deferred refresh, and eviction
 │   └── Operations.cs   # Block operation and query rail, geometry intake, and receipts
@@ -94,48 +94,29 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 
 ## [02]-[STRATA]
 
-Five strata order the thirteen sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and two ruled counter-edges stand: the Document session's configured-open source takes Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists, and Modeling's projection frame takes Viewport's `CameraSnapshot`/`CameraPose` value shapes as its typed frame payload — value-only, sampled by the caller, no lease or borrow crossing. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
+Five strata order the sub-domain folders; a folder composes its own owners and lower strata only, `Rasm` kernel namespaces underlie the whole boundary as the host-neutral floor, and two ruled counter-edges stand: Document's configured-open source takes Persistence's `ArchiveMap` as its typed open-options payload, minted before any session exists, and Modeling's projection frame takes Viewport's `CameraSnapshot`/`CameraPose` value shapes — value-only, no lease or borrow crossing. Every other consumption edge points down, so a new folder seats one stratum above its highest composed owner.
 
 - S0 `Document` — spine under everything: the `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`; every sibling composes it.
-- S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap`, `Settings`, and `AppSettings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `GraphFold`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule plus the ruled `CameraSnapshot`/`CameraPose` frame values, and Eto only the event-detach capsule.
+- S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap`, `Settings`, and `AppSettings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `GraphFold`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule and the ruled `CameraSnapshot`/`CameraPose` frame values, and Eto only the event-detach capsule.
 - S2 composite domains — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` custody and Blocks' `GraphFold`/`GraphProjection` evidence; `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
-- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses `HostThread.OnSession` under a `SessionNeed`.
-- S4 terminal composers — `Display` (`ViewportModes`, `Marks`) and `Exchange` (`Exchanges`, `PageFrame`) compose Viewport's camera and capture rails, Display also drawing through the Eto canvas; `Render` (`Contents`, `ContentStream`) borrows only the `Size2i` pixel struct from that surface; no folder composes these three.
+- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses the `HostThread` session rail — `HostThread.Run(HostWork<T>.Session(...))` or `HostThread.OnSession` — under a `SessionNeed`.
+- S4 terminal composers — `Display` (`Modes`, `Marks`) and `Exchange` (`Exchanges`, `Publishing`) compose Viewport's camera and capture rails, Display also drawing through the Eto canvas and publishing conduit callback faults through Objects' `ObjectsTelemetry` egress; `Render` (`Registry`, `ContentStream`) borrows only the `Size2i` pixel struct from that surface; no folder composes these three.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Rhino interior strata
-    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge styled red.
+    accDescr: Five stacked strata from the terminal display, exchange, and render composers through the viewport rail and the composite object and host-UI domains onto the single-seam domains and the document spine, every consumption edge downward and solid naming one sourced type, two dashed ruled counter-edges carrying the ArchiveMap open-options payload upward from the document spine to Persistence and the CameraSnapshot and CameraPose frame values upward from the Modeling gate to the viewport rail, and one forbidden upward edge.
     subgraph L4["S4 TERMINAL COMPOSERS"]
-        Modes[ViewportModes]
+        Modes[Modes]
         Exchanges[Exchanges]
-        Contents[Contents]
+        Registry[Registry]
     end
     subgraph L3["S3 VIEWPORT"]
         Lease[ViewportLease]
@@ -157,24 +138,17 @@ flowchart TB
     end
     Modes e1@-->|"[IMPORT]: ViewportLease"| Lease
     Exchanges e2@-->|"[IMPORT]: CaptureSink"| Capture
-    Contents e3@-->|"[IMPORT]: Size2i"| L3
+    Registry e3@-->|"[IMPORT]: Size2i"| L3
     Lease e4@-->|"[IMPORT]: HostThread"| HostThread
     Capture e5@-->|"[IMPORT]: SessionNeed"| L0
     Objects e6@-->|"[IMPORT]: PickCapture"| Picks
     Objects e7@-->|"[IMPORT]: GraphFold"| Blocks
     HostThread e8@-->|"[IMPORT]: UiThread"| Eto
     Picks e9@-->|"[IMPORT]: DocumentSession"| Session
+    Modes e12@-->|"[IMPORT]: ObjectsTelemetry"| Objects
     Session e10@-.->|"[COUNTER]: ArchiveMap"| Archive
     Model e11@-.->|"[COUNTER]: CameraSnapshot + CameraPose"| Lease
     Session f1@-->|"forbidden: spine upward"| L4
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Modes,Exchanges,Contents,Lease,Capture,Objects,HostThread primary
-    class Picks,Blocks,Eto,Archive,Model,Session recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -182,37 +156,22 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Rasm.Rhino kernel-boundary seams
-    accDescr: Rasm.Rhino host sub-domain owners consuming frozen-name value contracts down from the Rasm kernel, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Rasm.Rhino host sub-domain owners consuming frozen-name value contracts down from the Rasm kernel, one boundary rail per consuming sub-domain.
     subgraph rhino[RASM.RHINO]
         Document[Document substrate]
         Commands[Command lifecycle]
+        Blocks[Block domain]
+        Modeling[Modeling gate]
         Viewport[Viewport rail]
+        Display[Display composers]
+        Render[Render content]
         Eto[Eto UI]
     end
     Rasm([Rasm])
@@ -222,72 +181,42 @@ flowchart LR
     Rasm e4@-->|"[BOUNDARY]: PerceptualColor"| Eto
     Rasm e5@-->|"[BOUNDARY]: MonotonicTimeline"| Viewport
     Rasm e6@-->|"[BOUNDARY]: VectorIntent"| Viewport
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Document,Commands,Viewport,Eto primary
-    class Rasm annotation
-    class e1,e2,e3,e4,e5,e6 edgeControl
+    Rasm e7@-->|"[BOUNDARY]: Context"| Modeling
+    Rasm e8@-->|"[BOUNDARY]: ContentHash"| Blocks
+    Rasm e9@-->|"[BOUNDARY]: PerceptualColor"| Display
+    Rasm e10@-->|"[BOUNDARY]: PerceptualColor"| Render
 ```
 
-Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per sub-domain, each carrying the exact member set its owner consumes. Kernel is host-neutral and mirrors none of these edges downward, so the strata-locked dependency is source-only by construction.
+Every kernel contract is a frozen-name value type the host binds and never re-mints — one `[BOUNDARY]` rail per consuming sub-domain, each carrying the exact member set its owner consumes. Kernel source is host-neutral and consumes nothing back, so the strata-locked dependency is source-only by construction; the kernel seam registry mirrors each edge from its producing side.
 
 ## [04]-[INTERNAL]
 
-Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `DocumentCommit` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the fact receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
+Every host mutation walks one path — no sub-domain opens the document directly. Document-session demand gates capability, the shared `DocumentCommit.Sealed` envelope frames the change over `UndoBracket`, the sub-domain executor runs inside it, and the sealing commit lands the typed receipt with redraw compensation; a denied demand and every mid-stage fault converge on the one rail that still releases the bracket. Exact per-stage wiring lives on the owning implementation pages.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Rasm.Rhino host-mutation spine
-    accDescr: The once-walked host mutation path from a request through the document-session demand and a capability gate into the UndoBracket, the sub-domain executor, and the sealing commit, with every stage fault converging on one red rail that still releases the bracket.
+    accDescr: The once-walked host mutation path from a request through the document-session demand and a capability gate into the UndoBracket, the sub-domain executor, and the sealing commit, with every stage fault converging on one fault rail that still releases the bracket.
     Request([Host request]) e1@--> Session[[DocumentSession demand]]
     Session e2@--> Ready{Capability held?}
     Ready e3@-->|"capability held"| Bracket[[UndoBracket]]
     Ready f1@-->|"demand denied"| Fault[/Fault rail/]
     Bracket e4@--> Executor[[Sub-domain op]]
-    Executor e5@--> Commit[[Tables.Commit]]
+    Executor e5@--> Commit[[DocumentCommit.Sealed]]
     Commit e6@--> Redraw[Redraw compensation]
-    Redraw e7@--> Ledger[(Fact ledger)]
+    Redraw e7@--> Ledger[(Typed receipt)]
     Ledger e8@--> Settle([Settle])
     Session f2@-.->|"demand fault"| Fault
     Executor f3@-.->|"op fault"| Fault
     Commit f4@-.->|"commit fault"| Fault
     Fault f5@-->|"unconditional release"| Settle
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Request,Settle boundary
-    class Fault error
-    class Session,Bracket,Executor,Commit,Redraw primary
-    class Ledger data
-    class e1,e2,e3,e4,e5,e6,e7,e8 edgeControl
-    class f1,f2,f3,f4,f5 edgeError
 ```
 
 ## [05]-[NAMESPACES]
@@ -296,4 +225,4 @@ Namespace mirrors folder path — `.editorconfig` sets `dotnet_style_namespace_m
 
 Boundary compiles as ONE assembly — the single `Rasm.Rhino.csproj` — so internal members cross namespaces with no build edge, and the project references only `Rasm.csproj`. Kernel-neutral value types compose freely from the kernel, while a live host handle, a native carrier, or a `System.Drawing` screen struct never crosses out of the sub-domain that leases it.
 
-Host-name resolution is one law: inside `Rasm.Rhino.*` the first identifier of a partial qualification re-resolves against the boundary's own namespaces (`Rhino.UI.X` binds `Rasm.Rhino` through the member `Rhino` of `Rasm`, `Eto.Forms.X` binds `Rasm.Rhino.Eto`, `Display.X` binds `Rasm.Rhino.Display`), so fences name host members BARE through the project-level global usings. A host type no global using reaches spells `global::` in full (`global::Rhino.UI.MouseCallback`), and a simple-name collision between two host namespaces resolves through one project-level `<Using Include="..." Alias="..." />` row in `Rasm.Rhino.csproj` — never a per-fence `using` alias, never a partial qualification.
+Host-name resolution is one law: inside `Rasm.Rhino.*` a partial qualification re-resolves against the boundary's namespaces (`Rhino.UI.X` binds `Rasm.Rhino`), so fences name host members BARE — each `[RUNTIME_PRELUDE]` imports its host namespaces ahead of the file-scoped namespace declaration, resolving at global scope, and `Rasm.Rhino.csproj` carries the same rows as project-level usings. A host type the prelude cannot reach unshadowed spells `global::` in full; a host simple-name collision resolves through one csproj `<Using Alias="..." />` row, never a per-fence alias.

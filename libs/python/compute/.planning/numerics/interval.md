@@ -13,7 +13,7 @@ One validated-numerics owner producing certified enclosures over a layered floor
 - Owner: `IntervalNumerics` — every certified operation is one `IntervalOp` tag over one `_dispatch` fold, never a parallel rigorous-arithmetic surface or a per-tag evaluator family; `_dispatch` returns the honest `Yield` union its arms produce, and `IntervalReceipt.of` folds that union total, so no phantom output type parameter rides the carrier.
 - Cases: `Refine` carries the real extension so the refined half stays certified by the floor that produced it, never re-rounded through an identity placeholder, and a `Roots`-isolated enclosure feeds straight back as a refine target; `Certify` only narrows — a failed containment refutes the certificate and a refuted Arb enclosure stays first-class evidence of the failed claim.
 - Receipt: a `Roots` tuple reports its widest (loosest-certified) member beside the root count, and an empty isolation is a vacuous certified row rather than a missing receipt; `span_facts` and the receipt facts share one projection so the OTLP attribute set never forks from the receipt.
-- Growth: a new certified operation is one `IntervalOp` case plus one `_dispatch` arm plus its `identity_buffer` arm; a new floor is one `Floor` member plus one `_FLOOR_LADDER` row plus one `Certificate` arm; a new relational op is one `Interval` method.
+- Growth: a new certified operation is one `IntervalOp` case, one `_dispatch` arm, and its `identity_buffer` arm; a new floor is one `Floor` member, one `_FLOOR_LADDER` row, and one `Certificate` arm; a new relational op is one `Interval` method.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -183,7 +183,7 @@ class IntervalReceipt(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         facts: dict[str, object] = {**self.span_facts, "content_key": self.content_key.project("hex")}
-        return (Receipt.of("compute.interval", ("emitted", self.op, facts)),)
+        return (Receipt.of(EvidenceScope.INTERVAL.value, ("emitted", self.op, facts)),)
 
 
 # --- [OPERATIONS] --------------------------------------------------------------------------
@@ -228,7 +228,13 @@ class IntervalOp:
                 parts = (expr.key(), _bounds(box), precision.to_bytes(8, "big"))
             case IntervalOp(tag="certify", certify=(enclosure, target)):
                 cert = enclosure.certificate
-                parts = (_bounds(enclosure.interval), cert.floor.value.encode(), cert.accuracy_bits.to_bytes(8, "big"), bytes([cert.refuted]), _aim(target))
+                parts = (
+                    _bounds(enclosure.interval),
+                    cert.floor.value.encode(),
+                    cert.accuracy_bits.to_bytes(8, "big"),
+                    bytes([cert.refuted]),
+                    _aim(target),
+                )
             case IntervalOp(tag="refine", refine=(expr, enclosure, target, target_width, budget)):
                 parts = (
                     expr.key(),
@@ -370,13 +376,14 @@ _CEILING: Final[Map[str, float]] = Map.of_seq([("refuted", 0.0), ("width", 1e-6)
 class IntervalNumerics:
     @staticmethod
     def run(op: IntervalOp, *, precision: int = 128) -> RuntimeRail[IntervalReceipt]:
-        return evidence_run(EvidenceScope.INTERVAL, f"interval.{op.tag}", lambda: _report(op, precision))
+        facts = {"op": op.tag, "precision": precision}
+        return evidence_run(EvidenceScope.INTERVAL, f"interval.{op.tag}", lambda: _report(op, precision), facts=facts)
 
     @staticmethod
     def graduates(receipt: IntervalReceipt, subject: str = "interval-certificate") -> "RuntimeRail[GraduationReceipt]":
         # family ceiling row governs; a caller's tighter row overrides at the hub.
         ledger = {"refuted": 0.0 if receipt.certified else 1.0, "width": float(receipt.width)}
-        return graduate("compute.interval", subject, receipt.content_key, ledger, dict(_CEILING.items()))
+        return graduate(EvidenceScope.INTERVAL.value, subject, receipt.content_key, ledger, dict(_CEILING.items()))
 ```
 
 ## [03]-[RESEARCH]

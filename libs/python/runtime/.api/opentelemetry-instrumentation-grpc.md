@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.instrumentation.grpc`, `opentelemetry.instrumentation.grpc.filters`, `opentelemetry.instrumentation.grpc.grpcext`
-- installed: `0.64b0`
 - capability: sync/async client + server gRPC span instrumentation, standalone interceptor factories, a parameterized `filters.Condition` predicate algebra for trace selection, the `grpcext` legacy-channel interceptor contracts (`UnaryClientInterceptor`/`StreamClientInterceptor`/`UnaryClientInfo`/`StreamClientInfo`), `grpcext.intercept_channel` for wrapping an existing channel, and `OTEL_PYTHON_GRPC_EXCLUDED_SERVICES` deployment-time service exclusion
 
 ## [02]-[PUBLIC_TYPES]

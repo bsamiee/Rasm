@@ -221,6 +221,10 @@ public readonly record struct GeoFact(GeoFactKind Kind, string Format, long Feat
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
 public static class GeoSource {
+    // The registry-mounted census derives from the kind vocabulary; the `store.geo.` prefix declares once here.
+    public static readonly Seq<StoreSlot> Slots =
+        toSeq(GeoFactKind.Items).Map(static kind => StoreSlot.Create($"store.geo.{kind.Key}"));
+
     public static IO<Validation<GeoIngestFault, GeoYield>> Run(GeoOp op, ProjectionContext frame, Func<GeoFact, IO<Unit>> sink) =>
         op.Switch(
             (frame, sink),

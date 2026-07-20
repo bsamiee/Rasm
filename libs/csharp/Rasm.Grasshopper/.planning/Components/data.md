@@ -11,7 +11,7 @@
 
 ## [02]-[FAULT_AND_NOTICE]
 
-- Owner: `GhFault` is the closed Components boundary-fault family; every case carries its `Op`, detail, and stable code through the kernel `Expected` bridge, while `Aggregate` supplies `Semigroup<GhFault>` accumulation. `Hosted` is the exception funnel for host calls, and `Severity` plus `Notice` project failures onto `IDataAccess`.
+- Owner: `GhFault` is the closed Components boundary-fault family; every case carries its `Op`, detail, and stable code through the kernel `Expected` bridge, while `Aggregate` supplies `Semigroup<GhFault>` accumulation. `Hosted` is the exception funnel for host calls, and `Severity` with `Notice` projects failures onto `IDataAccess`.
 - Cases: `Text`, `Absent`, `Refused`, `Conversion`, `Host`, `Registration`, and the `Aggregate` fold case.
 - Entry: `Hosted.Bound` absorbs value-returning and void host calls by argument shape; every public entry in the sub-domain accepts `Op? key = null` and resolves through the kernel `OrDefault()`, threading the resolved key into every fault it mints; `Notice.Of(Error)` projects any rail failure into a document-visible error notice.
 - Packages: `Rasm.Domain` carries `Expected`, `Op`, `OrDefault()`, and `Fault.Cancelled`; `LanguageExt.Core` carries `Fin`, `Validation`, and `Try`; `Thinktecture.Runtime.Extensions` generates the union and the severity rows.
@@ -100,8 +100,9 @@ public sealed record Notice(Severity Severity, string Title, string Detail, Seq<
 - Entry: `GardenData.Read<T>` discriminates depth by `PinAccess`; `ReadArray` and `ReadAssistant` consume typed ingress rows; `Write<T>` retags pear metadata before emission; `AsTree`, `Zip`, `Amend`, `Evaluate`, and `ConvertTwig` lift the host algebra onto `Fin`.
 - Receipt: every fold lands on `Fin` with a `GhFault` cause — an absent pin is `Absent`, a host raise is `Host` through the funnel.
 - Packages: `Grasshopper2` `Garden`, `Tree<T>`/`Twig<T>`/`Pear<T>`, and `MetaData` are the composed algebra; no local tree walker exists beside them.
-- Growth: a new topology the host admits is one `Transfer<T>` case plus one arm per fold.
-- Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the verified `Pear<T>.Create(T, MetaData)` mint.
+- Growth: a new topology the host admits is one `Transfer<T>` case with one arm per fold.
+- Boundary: presence law remains the pin's declared host `Requirement`; a failed ingress becomes `GhFault.Absent`, and all metadata reconstruction uses the `Pear<T>.Create(T, MetaData)` mint.
+- RESEARCH: whether the dedicated `IDataAccess.GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` reads perform a conversion the generic `GetPear<T>` path skips resolves at decompile — a conversion-bearing pair lands as two `ArrayReads`-style typed ingress rows, a redundant pair stays subsumed by `Read<T>`.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -264,7 +265,7 @@ public static class GardenData {
 - Entry: `Coerce.To<TOut>` is the one typed conversion entry over any raw host object with a null admitted as `GhFault.Absent` before any probe runs; `CurveOf` and `SurfaceOf` are the geometry-family probes under the same null gate.
 - Receipt: every success carries a `ConversionReceipt` naming source, target, route, and the host `Merit` where the server resolved it.
 - Auto: enrolment returns an owned `Lease<BrokerRegistration>`; disposing the lease revokes the row exactly once through the canonical resource rail.
-- Growth: a new conversion route is one broker row; a new geometry family member is one union case plus one probe arm.
+- Growth: a new conversion route is one broker row; a new geometry family member is one union case with one probe arm.
 - Boundary: the `BrokerLedger` swap bodies and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives typed carriers and receipts only.
 
 ```csharp signature

@@ -1,6 +1,6 @@
 # [TS_DATA_IDEAS]
 
-The forward pool of higher-order folder concepts grounded in the durable-data domain and the monorepo purpose. `[1]-[OPEN]` carries the active ideas as cards; each card names the capability, what it unlocks, and the gap or modern technique it draws on. `[2]-[CLOSED]` carries the finished or dropped ideas with a one-line disposition so the same idea is never re-litigated. An idea drives one or more `TASKLOG.md` tasks.
+Forward pool of higher-order `data` concepts grounded in the durable-persistence domain; an idea drives one or more `TASKLOG.md` tasks.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -23,6 +23,22 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `read/query.md` `Model.Class`/`SqlSchema`/`SqlResolver`/`Query.table`; the one `ContentKey` content-identity wire; `README.md` durable-persistence plane and the bit-identical content-identity demand across wire peers.
 - Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the query-store relations carry only detached fact rows, never a host layer handle.
 - Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
+
+[HOST_OPLOG_CRDT_CONSUMER]-[QUEUED]: Host op-log entries decode, replay, and merge against the journal plane — the TypeScript end of the shared op-log CRDT wire owner.
+- Capability: `OperationId`-keyed causal entries decode at the boundary and replay through the journal's one write owner, so cross-runtime sync, collaborative merge, and checkpoint replay land as journal operations keyed by the shared causal identity, with `ContentHash` payloads resolved through the object plane.
+- Shape: A boundary decoder admits the C#-minted op-log wire rows; replay folds entries into `Journal.publish` intents under `Occ` arbitration, merge applies the CRDT commutation policy per mutation kind before append, and a checkpoint snapshot bounds replay windows through the journal's windowed `read`.
+- Unlocks: Multi-runtime document sync into the durable plane, deterministic replay for audit, and the consumer half that arms the producer's wire.
+- Anchors: `journal/append.md` `Journal.publish`/`Occ`/`StreamKey`; `journal/evolve.md` upcast road for entry payload versions; `object/store.md` `ContentKey` payload custody.
+- Tension: C# mints the wire schema and codec — this plane decodes and never re-mints; merge policy settles commutation per mutation kind without conflating operation identity with payload identity.
+- Ripple: `libs/.planning` `[HOST_OPLOG_CRDT_PRODUCER]`.
+
+[OBJECT_PLANE_INSTRUMENT_PROJECTION]-[QUEUED]: Object-plane receipts gain their lossy instrument projections once `Convention` mints the `rasm.object.*` rows.
+- Capability: Dedup rate (`ObjectStore.Receipt.written`), bytes written, GC reclaim, and resumable-upload throughput project from receipts the store and stream pages already mint — receipts stay the truth, instruments the dashboard projection.
+- Shape: `Convention` rows land first under its growth law (metric name with instrument metadata), then the object owners emit through the same instrument-row idiom the journal and read pages carry.
+- Unlocks: Object-plane health on the estate dashboards with zero new evidence surfaces.
+- Anchors: `object/store.md` receipt family; `object/stream.md` `ChunkMark` and Merkle proof receipts; the `journal/fact.md`/`read/fold.md` instrument-row idiom.
+- Tension: `Convention` rows are core's mint — this folder emits only after the vocabulary exists, never through a free-string metric name.
+- Ripple: `libs/.planning` `[UNIFIED_SIGNAL_FABRIC]`.
 
 ## [02]-[CLOSED]
 

@@ -27,9 +27,9 @@
 - Cases: `FabricationPolicy` carries plane-specific intent, `FabricationResult` carries plane-specific evidence, and `DeliveryTarget` carries destination-specific provenance.
 - Entry: `Fabrication.Run` consumes admitted `FabricationInput` and `FabricationRuntime`; `Fabrication.Lineage` consumes the resulting `RunEvidence` receipt.
 - Auto: generated total dispatch routes each policy case; `FabricationPolicy.Egress` declares admissible artifact alternatives and request cardinality once, and `FabricationResult.Evidence` proves the produced keys cover the request while centralizing consumed and produced content projection.
-- Receipt: `RunEvidence` carries requested and produced artifacts, required motion diagnostics, inspection outcomes, verification state, and content keys.
+- Receipt: `RunEvidence` carries requested and produced artifacts, required motion diagnostics, inspection outcomes, verification state, and content keys. `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
 - Growth: a production modality adds one policy case, one result case, and one dispatch arm; an artifact adds one `EgressKind` row, one entry on the owning `FabricationPolicy.Egress` arm, and its enrollment counterpart.
-- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; document codec, clock, and cancellation capabilities enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel.
+- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; document codec, clock, cancellation, and the `FabricationTap` telemetry port enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, and domain kernels stay tap-free — facts fire only where receipts settle on the run spine.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -1684,9 +1684,10 @@ public sealed record RunEvidence {
 public sealed partial class FabricationRuntime {
     public IClock Clock { get; }
     public CancellationToken Cancel { get; }
+    public FabricationTap Telemetry { get; }
 
-    public static Fin<FabricationRuntime> Admit(IClock clock, CancellationToken cancel) =>
-        Validate(clock, cancel, out FabricationRuntime runtime) is { } error
+    public static Fin<FabricationRuntime> Admit(IClock clock, CancellationToken cancel, FabricationTap? telemetry = null) =>
+        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, out FabricationRuntime runtime) is { } error
             ? Fin.Fail<FabricationRuntime>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
             : Fin.Succ(runtime);
 }

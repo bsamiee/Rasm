@@ -1,6 +1,6 @@
 # [TS_SECURITY_TASKLOG]
 
-The open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
+Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
@@ -25,4 +25,5 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+- [0001]-[COMPLETE]: reject-telemetry collapse — `crypt/verify.md` minted `Reject`, the one Convention-named reject stream with a kind discriminant; session/oauth/webauthn/credential re-keyed their reject arms onto it, `BearerGuard` gained the `bearer` row, and webauthn challenge refusals gained the `ceremony` row.
+- [0002]-[COMPLETE]: wire-law instrument fold — seven page-local `security_*` mints (sign x5, secret, claim) converted to `Convention.instrument.*` rows; free-string `tenant`/`reason` tag keys re-keyed to `Convention.rasm.tenant`/`Convention.rasm.securityReason`; the tenant-cardinality obligation recorded as the `access -> runtime` `[PROJECTION]: rasm.tenant` seam.

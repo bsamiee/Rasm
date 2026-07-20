@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_CANVAS_LAYOUT]
 
-The canvas layout owner of the Grasshopper boundary — programmatic arrangement as document mutation with owned undo, and interactive snap solving as typed capsules over the host solver surfaces. The census `LayoutArrangement` — eleven separately-authored mechanisms interleaving pure geometry with document writes, plus the local `SnapAngle`/`ArcLines`/`RepelPair`/`EquidistanceGuides`/`GeometryActions` math — collapses here by host absorption: the `SnappingAction` factory family owns align, gap, ortho, and wire-straighten candidates, `SnappingConstraints` owns document-scoped rectangle and wire snapping, `SnapSpace` owns numeric lattices, and `StretchLayoutSolver` owns min/ideal/max distribution — all decompile-verified — while the residual delta arithmetic is three-line vector composition over `Eto.Drawing` values and every killed local solver's capability lands on a host row. Every arrangement is ONE `Arrangement` case folded to per-object pivot deltas and settled as ONE document mutation: `IAttributes.Move` under pre-captured `PivotAction` undo rows, sealed through `Document/history.md`'s `HistoryLedger.Seal` with the caller's `VerbNoun` — a move without its undo record is unconstructible from this gate. Snap-guide feedback draws inside `Canvas/paint.md`'s window; the live per-axis nudge state (`SnapXAction`/`SnapYAction`) reads through the canvas lens; drag-time snapping is the host's own (`Canvas/interaction.md`'s `DragSession` drives it), and this page owns the deliberate, receipted arrangement.
+`CanvasLayout` owns programmatic arrangement as document mutation with owned undo, and interactive snap solving as typed capsules over the host solver surfaces. Every arrangement is ONE `Arrangement` case folded to per-object pivot deltas and settled as ONE document mutation: `IAttributes.Move` under pre-captured `PivotAction` undo rows, sealed through `Document/history.md`'s `HistoryLedger.Seal` with the caller's `VerbNoun` — a move without its undo record is unconstructible from this gate.
+
+Host absorption owns every solver: the `SnappingAction` factory family owns align, gap, ortho, and wire-straighten candidates, `SnappingConstraints` owns document-scoped rectangle and wire snapping, `SnapSpace` owns numeric lattices, and `StretchLayoutSolver` owns min/ideal/max distribution; residual delta arithmetic stays three-line vector composition over `Eto.Drawing` values. Snap-guide feedback draws inside `Canvas/paint.md`'s window; live per-axis nudge state (`SnapXAction`/`SnapYAction`) reads through the canvas lens; drag-time snapping is the host's own (`Canvas/interaction.md`'s `DragSession` drives it), and this page owns the deliberate, receipted arrangement.
 
 ## [01]-[INDEX]
 
@@ -10,17 +12,17 @@ The canvas layout owner of the Grasshopper boundary — programmatic arrangement
 
 ## [02]-[CANDIDATES]
 
-- Owner: `CandidateRow` `[SmartEnum<int>]` — the snap-candidate vocabulary over the decompile-verified `SnappingAction` factory family, four payload shapes generated through four row folds: five ALIGN rows (`AlignLeft`/`AlignRight`/`AlignTop`/`AlignBottom`/`AlignCentre` — `(RectangleF source, RectangleF target, float delta)`), four GAP rows (`GapRightward`/`GapLeftward`/`GapAbove`/`GapBelow` — `(RectangleF, RectangleF, int gapSize, float delta)`, the census two-factory roster was thin COVERAGE against the four verified gap factories), two ORTHO rows (`OrthoVertical`/`OrthoHorizontal` — `(PointF origin, RectangleF frame)`), and the wire row `StraightenWire` (`(PointF, PointF)` — the visual-route census kill's surviving host capability). Every row answers through one `Mint` gate returning the host `SnappingAction`, and the align rows carry a second `Gauge(source, target)` column — the host factory consumes its `delta` verbatim (`ΔX`/`ΔY` restate it), so the row owns the misalignment arithmetic that fills its own payload and a caller never re-derives edge math.
+- Owner: `CandidateRow` `[SmartEnum<int>]` — the snap-candidate vocabulary over the `SnappingAction` factory family, four payload shapes generated through four row folds: five ALIGN rows (`AlignLeft`/`AlignRight`/`AlignTop`/`AlignBottom`/`AlignCentre` — `(RectangleF source, RectangleF target, float delta)`), four GAP rows (`GapRightward`/`GapLeftward`/`GapAbove`/`GapBelow` — `(RectangleF, RectangleF, int gapSize, float delta)`), two ORTHO rows (`OrthoVertical`/`OrthoHorizontal` — `(PointF origin, RectangleF frame)`), and the wire row `StraightenWire` (`(PointF, PointF)`). Every row answers through one `Mint` gate returning the host `SnappingAction`, and the align rows carry a second `Gauge(source, target)` column — the host factory consumes its `delta` verbatim (`ΔX`/`ΔY` restate it), so the row owns the misalignment arithmetic that fills its own payload and a caller never re-derives edge math.
 - Owner: `NudgeVector` `readonly record struct` — the candidate evidence projected off a resolved `SnappingAction`: `Dx`/`Dy` (the host `ΔX`/`ΔY`), `Magnitude`, the guide `Lines`, and the label triple (`LabelText`/`LabelPoint`/`LabelAnchor`) a feedback painter renders. `Winner(params ReadOnlySpan<SnappingAction>)` folds a candidate set to the shortest nudge through the host's own `SmallerMagnitude`, total over the empty span as `None`.
-- Law: candidate arithmetic is host arithmetic — a local edge-comparison or equidistance derivation beside these rows is the census `GeometryActions`/`EquidistanceGuides` defect, killed by absorption; a candidate the host family cannot mint (a radial ring, a flow-aligned rail) is a NEW row composing kernel `Rasm.Numerics` atoms for its vector math and minting through the public `SnappingAction` constructor `(dx, dy, text, point, anchor, lines)` — the host ctor is the extension seam, so growth is a row, never a solver.
+- Law: candidate arithmetic is host arithmetic — a local edge-comparison or equidistance derivation beside these rows is the deleted form; a candidate the host family cannot mint (a radial ring, a flow-aligned rail) is a NEW row composing kernel `Rasm.Numerics` atoms for its vector math and minting through the public `SnappingAction` constructor `(dx, dy, text, point, anchor, lines)` — the host ctor is the extension seam, so growth is a row, never a solver.
 - Law: guide feedback is paint transport — `SnappingAction.Draw(Context, Color)` and `SnappingConstraints.DrawSnappingBoxes(Graphics)` run inside a `Canvas/paint.md` `MountRaw` window with the colour from `SnappingSettings.Colour`; a feedback stroke outside the paint window is the inline-paint defect.
 - Packages: Grasshopper2 (`SnappingAction.CreateLeftAlignAction`/`CreateRightAlignAction`/`CreateTopAlignAction`/`CreateBottomAlignAction`/`CreateCentreAlignAction`/`CreateVerticalGapActionOnRight`/`CreateVerticalGapActionOnLeft`/`CreateHorizontalGapActionAbove`/`CreateHorizontalGapActionBelow`/`VerticalOrthoAction`/`HorizontalOrthoAction`/`CreateStraightenWireAction`/`SmallerMagnitude`/`ΔX`/`ΔY`/`Magnitude`/`Lines`/`LabelText`/`LabelPoint`/`LabelAnchor`/`Draw`, `TextAnchor`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new candidate is one row through an existing fold or one kernel-composed mint through the public ctor; the fold and the evidence never fork.
 
 ## [03]-[SOLVERS]
 
-- Owner: `SnapField` sealed class `[BoundaryAdapter]` — the document snap capsule over `SnappingConstraints`, admitted through ONE polymorphic `Of` over `SnapScope` `[Union]`: `ExcludingCase(Seq<Guid>)` (the params-filter host overload — a drag excludes its own ids), `SelectionCase(bool IncludeSelected, bool IncludeUnselected, Option<HashSet<Guid>> Filter)` (the four-argument overload), `BoxesCase(RectangleF[] Frames)` (the raw-rectangle constructor for synthetic targets). `Solve(RectangleF target, RectangleF visibleLimit, SnappingSettings, Op)` lifts the `SnapRectangle` out-pair onto `SnapPair` (`Option<SnappingAction>` per axis — a null out is typed absence, never a null nudge), `SolveObject(IDocumentObject, ...)` rides `SnapObject`, and the static `SolveWires(IDocumentObject, Option<RectangleF> boundsOverride, SnappingSettings, Op)` collapses the two verified static `SnapWires` overloads on the presence of the override.
-- Law: settings policy is host-direct — `SnappingSettings.Default` and the user-live `Current` are the two reads, `WithRules`/`WithoutRules`/`WithFeedback` derive variants over the `SnappingRule` flags, and the fourteen decompile-verified axis getters (`AlignLeftEdges`/`AlignRightEdges`/`AlignTopEdges`/`AlignBottomEdges`/`AlignMiddles`/`AlignWires`/`SpaceVerticalGaps`/`SpaceHorizontalGaps`/`VerticalGapSize`/`HorizontalGapSize`/`EdgeRadius`/`WireRadius`/`Feedback`/`Colour`) ARE the evidence row — a local mirror record or read wrapper beside them is the deleted form, and the census policy record was thin COVERAGE against this set. The host settings dialog factory (`SettingsForm`) is chrome territory and stays unwrapped.
+- Owner: `SnapField` sealed class `[BoundaryAdapter]` — the document snap capsule over `SnappingConstraints`, admitted through ONE polymorphic `Of` over `SnapScope` `[Union]`: `ExcludingCase(Seq<Guid>)` (the params-filter host overload — a drag excludes its own ids), `SelectionCase(bool IncludeSelected, bool IncludeUnselected, Option<HashSet<Guid>> Filter)` (the four-argument overload), `BoxesCase(RectangleF[] Frames)` (the raw-rectangle constructor for synthetic targets). `Solve(RectangleF target, RectangleF visibleLimit, SnappingSettings, Op)` lifts the `SnapRectangle` out-pair onto `SnapPair` (`Option<SnappingAction>` per axis — a null out is typed absence, never a null nudge), `SolveObject(IDocumentObject, ...)` rides `SnapObject`, and the static `SolveWires(IDocumentObject, Option<RectangleF> boundsOverride, SnappingSettings, Op)` collapses the two static `SnapWires` overloads on the presence of the override.
+- Law: settings policy is host-direct — `SnappingSettings.Default` and the user-live `Current` are the two reads, `WithRules`/`WithoutRules`/`WithFeedback` derive variants over the `SnappingRule` flags, and the fourteen axis getters (`AlignLeftEdges`/`AlignRightEdges`/`AlignTopEdges`/`AlignBottomEdges`/`AlignMiddles`/`AlignWires`/`SpaceVerticalGaps`/`SpaceHorizontalGaps`/`VerticalGapSize`/`HorizontalGapSize`/`EdgeRadius`/`WireRadius`/`Feedback`/`Colour`) ARE the evidence row — a local mirror record or read wrapper beside them is the deleted form. Host settings dialog factory (`SettingsForm`) is chrome territory and stays unwrapped.
 - Owner: `Lattice` `readonly record struct` — the numeric snap lattice over `SnapSpace`: `Orthogonal(double originX, double originY, double sizeX, Option<double> sizeY, Op?)` collapses the two `CreateOrthogonal` arities on the presence of the second cell size, `Of` discriminates element lattices (`ISnapElement[]`) from per-axis numeric lattices (`Seq<SnapNumeric>` x/y pair) over the host `Create` overloads, `Merge(Lattice)` rides the host merge, `Empty` is the host identity, and `Fix(double x, double y, Option<double> cutoff, Op)` lifts the three-out-parameter `Snap` onto `SnapVerdict(X, Y, Option<string> Rule)` — the rule description is typed evidence, so a consumer never parses feedback text.
 - Owner: `StretchPlan` — the distribution fold over `StretchLayoutSolver`: `Solve(Seq<StretchRow> rows, float target, bool round, Op)` → `Fin<StretchVerdict>` — `Add(min, max, ideal)` per row, one `Solve(target)` (the returned float is the unplaced residual), an optional `Round()` pixel-alignment pass, and the per-segment lengths read back through the indexer; `StretchRow(Min, Max, Ideal)` admits `Min ≤ Ideal ≤ Max` claims.
 - Law: capsule state is gesture-scoped — a `SnapField` is built per drag or per arrangement against the CURRENT graph and never cached across mutations, because constraint boxes are position snapshots.
@@ -58,22 +60,22 @@ public sealed partial class CandidateRow {
     private static CandidateRow Align(int key, Func<RectangleF, RectangleF, float, SnappingAction> mint, Func<RectangleF, RectangleF, float> gauge) =>
         new(key: key, mintRaw: payload => payload switch {
             CandidatePayload.AlignCase c => mint(c.Source, c.Target, c.Delta),
-            var other => null,
+            _ => null,
         }, gauge: gauge);
     private static CandidateRow Gap(int key, Func<RectangleF, RectangleF, int, float, SnappingAction> mint) =>
         new(key: key, mintRaw: payload => payload switch {
             CandidatePayload.GapCase c => mint(c.Source, c.Target, c.GapSize, c.Delta),
-            var other => null,
+            _ => null,
         }, gauge: static (_, _) => 0f);
     private static CandidateRow Ortho(int key, Func<PointF, RectangleF, SnappingAction> mint) =>
         new(key: key, mintRaw: payload => payload switch {
             CandidatePayload.OrthoCase c => mint(c.Origin, c.Frame),
-            var other => null,
+            _ => null,
         }, gauge: static (_, _) => 0f);
     private static CandidateRow Wire(int key, Func<PointF, PointF, SnappingAction> mint) =>
         new(key: key, mintRaw: payload => payload switch {
             CandidatePayload.WireCase c => mint(c.Source, c.Target),
-            var other => null,
+            _ => null,
         }, gauge: static (_, _) => 0f);
 }
 
@@ -242,12 +244,12 @@ public static class StretchPlan {
 ## [04]-[ARRANGE]
 
 - Owner: `Arrangement` `[Union]` — the closed arrangement family, every case resolving to per-object pivot deltas: `AlignCase(CandidateRow Edge, Seq<Guid> Objects)` aligns the set to the anchor's edge or centre line (the anchor is the first object's bounds — the host convention — and each follower's delta is the row's own `Gauge` misalignment, minted through the same factory the interactive solver consumes), `DistributeCase(bool Vertical, int Gap, Seq<Guid> Objects)` orders the set along the axis by pivot and re-spaces to the equal gap, `GridCase(double CellWidth, double CellHeight, PointF Origin, Seq<Guid> Objects)` quantizes every pivot onto a `Lattice.Orthogonal` verdict, `NudgeCase(SizeF Delta, Seq<Guid> Objects)` translates the set by one vector (arrow-key stepping is a policy value at the caller), and `StraightenCase(WireEnds Wire)` resolves the wire's endpoint pair through the `StraightenWire` candidate and moves the SOURCE object by the nudge.
-- Owner: `ArrangeReceipt` — the settlement evidence: raising `Op`, case name, moved-object count, total displacement magnitude, and latency, implementing `IValidityEvidence`.
+- Owner: `ArrangeReceipt` — the settlement evidence: raising `Op`, case name, moved-object count, total displacement magnitude, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline`, implementing `IValidityEvidence`.
 - Entry: `CanvasLayout.Arrange(VerbNoun label, Arrangement plan, Op? key = null)` → `Fin<ArrangeReceipt>` — the ONE gate: acquire the document scope, resolve each id to its `IAttributes` (a missing object is a typed fault, never a silent skip), compute the case's deltas, then per object ADD a `PivotAction(obj)` undo row BEFORE `IAttributes.Move(dx, dy)` — the host action captures the pre-move pivot, and `Extends` dedups consecutive nudges of one object into one record — and seal the filled `ActionList` through `HistoryLedger.Seal(document.Undo, actions, label, op)`. One marshal window covers resolve, move, and seal, so no half-arranged graph is observable.
-- Law: mutation and undo are one act — the census interleave of moves, feedback, and pure solving is dead; a zero-delta object contributes no undo row, and an arrangement whose every delta is zero seals nothing and reports a zero-count receipt.
+- Law: mutation and undo are one act — a zero-delta object contributes no undo row, and an arrangement whose every delta is zero seals nothing and reports a zero-count receipt.
 - Law: `VerbNoun` arrives minted — the label mint spelling is the standing `Document/history.md` RESEARCH item, and this gate never constructs one.
 - Boundary: snapped interactive movement during a drag is the host's own (`ObjectDragInteraction` composes `SnappingConstraints` internally); whole-graph selection sweeps and structural verbs are `Document/document.md`'s transaction; the live `SnapXAction`/`SnapYAction` nudge state is a `Canvas/canvas.md` lens read surfaced as `NudgeVector` evidence.
-- Packages: Grasshopper2 (`IAttributes.Pivot`/`Bounds`/`AggregateBounds`/`Snappable`/`Move`, `IDocumentObject.Attributes`, `Document.Undo`, `ActionList.Add`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`IAttributes.Pivot`/`Bounds`/`AggregateBounds`/`Snappable`/`Move`, `IDocumentObject.Attributes`, `Document.Undo`, `ActionList.Add`, `PivotAction`, `VerbNoun`, `WireEnds`), `Document/history.md` (`HistoryLedger.Seal`), `Shell/session.md` (`GhSession`, `ScopeTarget`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
 - Growth: a new arrangement is one case whose delta fold breaks the gate loudly; a new undo posture is `Document/history.md`'s row, never a fork here.
 
 ```csharp signature
@@ -255,6 +257,7 @@ public static class StretchPlan {
 using Rasm.Csp;
 using Rasm.Grasshopper.Document;
 using Rasm.Grasshopper.Shell;
+using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Canvas;
 
@@ -272,10 +275,14 @@ public abstract partial record Arrangement {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ArrangeReceipt(Op Operation, string Verb, int Moved, double Displacement, TimeSpan Latency) : IValidityEvidence {
+public readonly record struct ArrangeReceipt(
+    Op Operation, string Verb, int Moved, double Displacement,
+    MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: Moved >= 0),
         ValidityClaim.Nonnegative(value: Displacement),
+        ValidityClaim.Evidence(evidence: Entered),
+        ValidityClaim.Evidence(evidence: Settled),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 }
 
@@ -284,9 +291,10 @@ public readonly record struct ArrangeReceipt(Op Operation, string Verb, int Move
 public static class CanvasLayout {
     public static Fin<ArrangeReceipt> Arrange(VerbNoun label, Arrangement plan, Op? key = null) {
         Op op = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return op.Need(value: plan)
-            .Bind(valid => GhSession.Run(ScopeTarget.DocumentHost, scope =>
+        return from valid in op.Need(value: plan)
+               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
+               from entered in timeline.Capture(key: op)
+               from outcome in GhSession.Run(ScopeTarget.DocumentHost, scope =>
                 scope.Document.ToFin(op.MissingContext()).Bind(graph =>
                     Deltas(graph: graph, plan: valid, key: op).Bind(moves => Commit(graph: graph, label: label, moves: moves, key: op)
                         .Map(sealedCount => (Verb: valid.Switch(
@@ -296,10 +304,12 @@ public static class CanvasLayout {
                                 nudgeCase: static _ => nameof(Arrangement.NudgeCase),
                                 straightenCase: static _ => nameof(Arrangement.StraightenCase)),
                             Moved: sealedCount,
-                            Displacement: moves.Fold(0d, static (sum, move) => sum + Math.Abs(move.Dx) + Math.Abs(move.Dy)))))), key: op))
-            .Map(outcome => new ArrangeReceipt(
-                Operation: op, Verb: outcome.Verb, Moved: outcome.Moved, Displacement: outcome.Displacement,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)));
+                            Displacement: moves.Fold(0d, static (sum, move) => sum + Math.Abs(move.Dx) + Math.Abs(move.Dy)))))), key: op)
+               from settled in timeline.Capture(key: op)
+               from latency in timeline.Elapsed(start: entered, end: settled, key: op)
+               select new ArrangeReceipt(
+                   Operation: op, Verb: outcome.Verb, Moved: outcome.Moved, Displacement: outcome.Displacement,
+                   Entered: entered, Settled: settled, Latency: latency);
     }
 
     private static Fin<Seq<(IAttributes Target, float Dx, float Dy)>> Deltas(Document graph, Arrangement plan, Op key) =>
@@ -346,7 +356,7 @@ public static class CanvasLayout {
                 from into in Optional(target.Attributes as IParameterAttributes).ToFin(s.Key.InvalidResult())
                 from action in CandidateRow.StraightenWire.Mint(
                     payload: new CandidatePayload.WireCase(Source: owner.Outlet, Target: into.Inlet), key: s.Key)
-                select Seq1((Target: (IAttributes)owner, Dx: action.ΔX, Dy: action.ΔY)));
+                select Seq((Target: (IAttributes)owner, Dx: action.ΔX, Dy: action.ΔY)));
 
     private static Fin<Seq<IAttributes>> Resolve(Document graph, Seq<Guid> objects, Op key) =>
         objects.Map(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(key.InvalidInput()))
@@ -369,6 +379,8 @@ public static class CanvasLayout {
 
 ```mermaid
 flowchart LR
+    accTitle: Sealed arrangement flow through the layout gate
+    accDescr: Arrangement consumers enter one CanvasLayout gate that acquires document scope, folds candidate and lattice deltas through host solvers, and seals every move into the history ledger, while drag-time snap fields feed interaction and paint windows.
     Consumer["arrangement consumers"] -->|"VerbNoun + Arrangement case"| Gate["CanvasLayout.Arrange → Fin&lt;ArrangeReceipt&gt;"]
     Gate -->|"ScopeTarget.DocumentHost"| Session["Shell/session GhSession.Run"]
     Gate -->|"delta fold per case"| Rows["CandidateRow mints · Lattice.Fix · gap fold"]
@@ -390,4 +402,4 @@ Each concern folds one owner pair through one collapse kind onto a `Fin<T>` rail
 |  [04]   | stretch distribution | `StretchPlan` + `StretchRow`   | claim-gated `StretchLayoutSolver` fold   | `Solve → StretchVerdict`   |    1    |
 |  [05]   | sealed arrangement   | `Arrangement` + `CanvasLayout` | `[GenerateUnionOps]` `[Union]`, one gate | `Arrange → ArrangeReceipt` |    5    |
 
-`GhSession`, `HistoryLedger`, `Lattice`-composed kernel numerics, `Op`, `ValidityClaim`, and the host solver surfaces are composed upstream owners. The census `LayoutArrangement` mechanism roster, `SnapSetting`, `SnapAngle`, `ArcLines`, `RepelPair`, `EquidistanceGuides`, and `GeometryActions` have no successor shape — their solving lands on the host rows above, their arithmetic on the delta folds, and their mutations on the one sealed gate.
+`GhSession`, `HistoryLedger`, `Lattice`-composed kernel numerics, `Op`, `ValidityClaim`, and the host solver surfaces are composed upstream owners; every local solver's capability lands on the host rows above, its arithmetic on the delta folds, and its mutations on the one sealed gate.

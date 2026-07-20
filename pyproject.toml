@@ -19,15 +19,18 @@ dependencies = [
     "lxml",                                    # [ARTIFACTS]: XML processing
     "msgspec",
     "opentelemetry-api",
+    "opentelemetry-exporter-otlp-proto-grpc",  # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-asyncio",   # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker fabric
     "opentelemetry-instrumentation-grpc",      # [RUNTIME]: gRPC server/client span instrumentation for server/serve
     "opentelemetry-instrumentation-httpx",     # [TRANSPORT]: httpx client spans carrying W3C trace context
+    "opentelemetry-instrumentation-jinja2",    # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
     "opentelemetry-instrumentation-psycopg",   # [RUNTIME]: psycopg v3 DBAPI spans, composed by the runtime instrumentor train
     "opentelemetry-instrumentation-sqlite3",   # [RUNTIME]: stdlib sqlite3 DBAPI spans, composed by the runtime instrumentor train
     "opentelemetry-instrumentation-system-metrics", # [RUNTIME]: host and process gauges over psutil
     "opentelemetry-instrumentation-threading", # [RUNTIME]: cross-thread trace-context propagation
     "opentelemetry-processor-baggage",         # [RUNTIME]: baggage-to-span-attribute promotion for the tenant dimension
+    "opentelemetry-resource-detector-containerid", # [RUNTIME]: container.id resource detector for containerized daemon identity
     "opentelemetry-sdk",
     "pebble",                                  # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "psutil",
@@ -169,9 +172,12 @@ dependencies = [
     "compas_tna",                              # [GEOMETRY]: COMPAS thrust-network analysis
     "manifold3d",                              # [GEOMETRY]: robust mesh booleans
     "meshio",                                  # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
+    "open3d; python_version<'3.15'",           # [GEOMETRY]: point-cloud and mesh processing; wheels cap at cp312 (no cp315 wheel)
     "python-fcl; python_version<'3.15'",       # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm
     "rhino3dm",                                # [DATA]: Rhino mesh and 3DM IO
     "rtree",                                   # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
+    "small-gicp",                              # [GEOMETRY]: local GICP fine registration beside the kiss-matcher global arm
+    "topologicpy",                             # [GEOMETRY]: non-manifold topology graph modeling
     "trimesh",
     "usd-core; python_version<'3.15'",         # [ARTIFACTS]: USD/USDZ scene packaging
     # --- [BIM_ENERGY]
@@ -183,6 +189,13 @@ dependencies = [
     "honeybee-energy-standards",               # [GEOMETRY]: large ASHRAE 90.1 / DOE-prototype standards-extension library (constructions/programs/schedules by identifier)
     "honeybee-openstudio",                     # [GEOMETRY]: Honeybee to OpenStudio/EnergyPlus translation companion
     "honeybee-standards",                      # [GEOMETRY]: baseline default construction/program/schedule standards for Honeybee energy models
+    "ifc4d",                                   # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange
+    "ifc5d",                                   # [GEOMETRY]: IFC 5D quantity and cost extraction
+    "ifcclash",                                # [GEOMETRY]: IFC clash-detection sets
+    "ifcdiff",                                 # [GEOMETRY]: IFC revision diff
+    "ifcopenshell",                            # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring
+    "ifcpatch",                                # [GEOMETRY]: IFC patch and migration recipes
+    "ifctester",                               # [GEOMETRY]: IDS validation over IFC models
     "ladybug-comfort",                         # [GEOMETRY]: comfort-model calculations
     "ladybug-core",                            # [GEOMETRY]: Ladybug weather, units, analysis-period, and location primitives
     "ladybug-geometry",                        # [GEOMETRY]: Ladybug planar and solid geometry primitives

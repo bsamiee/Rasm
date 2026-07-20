@@ -1,6 +1,8 @@
 # [RUNTIME_EMIT]
 
-The one OTLP wire owner: egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer — `Export.live(policy)` composes the whole trace/metric/log export plane as a registration node providing `Hooks.Meter`, the lane (native `Otlp` over the shared `HttpClient`, `NodeSdk`, `WebSdk`) selected by one policy row, every lane consuming one identity: the OTLP `Resource` derives from `Convention.identity(policy.identity)` folded with the platform's own resource detectors so the incubating host/pod/pid rows the convention declares have a producer. Ingress is the W3C continuation — `traceparent`/`tracestate`/`baggage` decode from any string-keyed carrier into an `Option`-carried parent, and one total transformer continues it, so extract-and-continue can never be half-applied. `Redaction` is the one shared scrub owner and it is ambient: the rules ride a `Context.Reference` every capture seam reads at zero requirement pressure — export-boundary span scrub here, capture-time and fatal-band rules consumed by `crash`, baggage annotations scrubbed inside the ingress transformer itself — four consumption sites, one rule shape, one override at the root. `Hooks` is the consumer hook plane — taps, processors, exporters, views, detectors, and redaction points contribute through append-only registry rows one SDK drain collects, so a thousand apps extend the pipeline without forking it. The `@opentelemetry` sdk/exporter block behind the SDK lanes is the `[R3]` pin block — it collapses as one unit when native `Otlp` parity (including the span-scrub hook) closes, and only the propagation codecs, `resources`, and `semantic-conventions` survive. The `plane:dev` DevTools row ships as its own `./dev` subpath module. The module is `runtime/src/otel/emit.ts`.
+`Export` owns the OTLP wire — egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer: `Export.live(policy)` composes the whole trace/metric/log export plane as a registration node providing `Hooks.Meter`, the lane selected by one policy row, every lane consuming the one `Resource` derived from `Convention.identity(policy.identity)` folded with the platform detectors. Ingress is the W3C continuation: `traceparent`/`tracestate`/`baggage` decode from any string-keyed carrier into an `Option`-carried parent continued by one total transformer.
+
+`Redaction` is the one ambient scrub owner: rules ride a `Context.Reference` every capture seam reads — export-boundary span scrub here, capture seams in `crash`, baggage annotations inside the ingress transformer — one rule shape, one override at the root. `Hooks` is the consumer hook plane: taps, processors, exporters, views, and detectors contribute through append-only registry rows one SDK drain collects. `Instrument` registers the browser auto-instrumentation rows on the web lane's own tracer provider. `@opentelemetry` sdk/exporter machinery behind the SDK lanes is the `[R3]` pin block, collapsing as one unit when native `Otlp` parity closes — only the propagation codecs, `resources`, and `semantic-conventions` survive; the `plane:dev` DevTools row ships as its own `./dev` subpath module. Its module is `runtime/src/otel/emit.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -10,15 +12,17 @@ The one OTLP wire owner: egress and ingress of the telemetry plane in one module
 |  [02]   | `REDACTION`    | the ambient scrub rules + the per-signal structural-safety ledger                  | `Redaction`   |
 |  [03]   | `HOOKS`        | the contribute-then-collect pipeline registry: taps, processors, readers, views    | `Hooks`       |
 |  [04]   | `LANES`        | the native `Otlp` row, the `NodeSdk`/`WebSdk` rows, detectors, the roster dispatch | `Export`      |
-|  [05]   | `CONTINUATION` | carrier decode + the ingress transformer + the egress stamp                        | `Propagation` |
-|  [06]   | `DEV`          | the `plane:dev`-fenced `./dev` DevTools module                                     | `dev`         |
+|  [05]   | `INSTRUMENT`   | the `./browser` registration node: fetch/document-load/interaction over the zone   | `Instrument`  |
+|  [06]   | `CONTINUATION` | carrier decode + the ingress transformer + the egress stamp                        | `Propagation` |
+|  [07]   | `DEV`          | the `plane:dev`-fenced `./dev` DevTools module                                     | `dev`         |
 
 ## [02]-[POLICY]
 
 [POLICY]:
-- Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity` (whose settled dimensions — instance, namespace, environment — the `Convention.identity` projection stamps on the `Resource`, so no export field re-mints an identity fact), the collector endpoint and sealed headers, the lane and serialization, per-signal cadence as `Duration` rows, the head-sampling ratio, batch tuning, metric temporality, the tenant-cardinality budget, the span structural limits, the shutdown drain window, and the redaction rules. The transport rows — collector origin, sealed headers, cadence, sampling ratio — home in `Setting.otel` (`config#ADMISSION_ROWS`' described group), so the app root assembles the policy from the boot-validated `Setting` plus its own identity value, and no export decision exists outside the one row.
+- Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity` (whose settled dimensions — instance, namespace, environment — the `Convention.identity` projection stamps on the `Resource`, so no export field re-mints an identity fact), the collector endpoint and sealed headers, the lane and serialization, per-signal cadence as `Duration` rows, the head-sampling ratio, batch tuning, metric temporality, the tenant-cardinality budget, the span structural limits, the shutdown drain window, and the redaction rules. Transport rows — collector origin, sealed headers, cadence, sampling ratio — home in `Setting.otel` (`config#ADMISSION_ROWS`' described group), so the app root assembles the policy from the boot-validated `Setting` and its own identity value, and no export decision exists outside the one row.
 - Law: the collector secret rides `Redacted` end-to-end — the policy's `headers` values are `Redacted<string>` sealed at config admission and unwrapped exactly once inside the lane construction, so an exporter credential can never print.
 - Law: cadence, batch width, sampling ratio, temporality, and the span limits are policy values with stated defaults — a lane never hardcodes an interval, and tuning a fleet is a config edit; the OTLP signal paths derive from one base URL by the interior `_signal` projection, so a collector move is one field.
+- Law: the `browser` group is the auto-instrumentation policy — `propagate` names the API origins granted CORS `traceparent` injection, `interaction.events` the admitted DOM event roster, `interaction.prevent` the per-event span-admission predicate — consumed only by `[06]`'s registration node, so a fetch-span origin or event admission is a policy row, never a literal at the browser root; its member types import type-only from the instrumentation packages, erased outside the browser condition.
 - Growth: a new export decision is one policy field consumed by the lane rows; a new backend is a `baseUrl`/`headers` value, never a lane.
 - Packages: `effect` (`Duration`, `Redacted`), `@rasm/ts/core` (`AppIdentity`, `Convention`).
 
@@ -27,7 +31,7 @@ import {
   Array, Chunk, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Redacted, Ref, Scope, type Tracer,
 } from "effect"
 import type { HttpClient } from "@effect/platform"
-import { NodeSdk, Otlp, Tracer as OtelBridge, WebSdk } from "@effect/opentelemetry"
+import { Logger as OtelLogger, Metrics as OtelMetrics, NodeSdk, Otlp, Resource as OtelIdentity, Tracer as OtelBridge, WebSdk } from "@effect/opentelemetry"
 import type { SpanContext } from "@opentelemetry/api"
 import { AggregationTemporalityPreference, OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http"
 import { CompressionAlgorithm, OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
@@ -42,6 +46,7 @@ import {
   detectResources, envDetector, hostDetector, osDetector, processDetector, resourceFromAttributes, type Resource as OtelResource,
   serviceInstanceIdDetector, type ResourceDetector,
 } from "@opentelemetry/resources"
+import type { EventName, ShouldPreventSpanCreation } from "@opentelemetry/instrumentation-user-interaction"
 import { type AppIdentity, Convention } from "@rasm/ts/core"
 import { Life } from "../proc/life.ts"
 
@@ -65,10 +70,20 @@ declare namespace Export {
     readonly limits: { readonly attributeValueLengthLimit: number; readonly attributeCountLimit: number }
     readonly temporality: "cumulative" | "delta"
     readonly cardinality: { readonly tenant: number }
+    readonly browser: {
+      readonly propagate: ReadonlyArray<string | RegExp>
+      readonly interaction: {
+        readonly events: ReadonlyArray<EventName>
+        readonly prevent: ShouldPreventSpanCreation
+      }
+    }
     readonly shutdown: Duration.Duration
     readonly redaction: Redaction.Rules
   }
-  type Live = Layer.Layer<Hooks.Meter, never, HttpClient.HttpClient | Hooks | Life>
+  type Context = HttpClient.HttpClient | Hooks | Life
+  type Live = Layer.Layer<Hooks.Meter, never, Context>
+  type Browser = Layer.Layer<Hooks.Meter | OtelBridge.OtelTracerProvider, never, Context>
+  type Of<P extends Policy> = ReturnType<(typeof _lanes)[P["lane"]]>
 }
 
 const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): string =>
@@ -78,9 +93,9 @@ const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): 
 ## [03]-[REDACTION]
 
 [REDACTION]:
-- Owner: `Redaction` — the one scrub owner of the branch: `Rules` as data (sealed attribute keys plus value patterns), one total `scrub` fold over any open attribute bag, `processor(rules)` materializing the rules as an OTel `SpanProcessor` whose `onEnding` hook overwrites deny-keyed and pattern-matched span attributes with the sealed sentinel before the span freezes for export, and `Redaction.Current` — a `Context.Reference` defaulting to `defaults` — so every capture seam reads the live rule set at zero requirement pressure and the app root overrides once with the policy's own rows.
+- Owner: `Redaction` — the one scrub owner of the branch: `Rules` as data (sealed attribute keys and value patterns), one total `scrub` fold over any open attribute bag, `processor(rules)` materializing the rules as an OTel `SpanProcessor` whose `onEnding` hook overwrites deny-keyed and pattern-matched span attributes with the sealed sentinel before the span freezes for export, and `Redaction.Current` — a `Context.Reference` defaulting to `defaults` — so every capture seam reads the live rule set at zero requirement pressure and the app root overrides once with the policy's own rows.
 - Law: the scrub signature is the open read-side record — `Convention.Bag` in, `Convention.Bag` out — because scrubbed material lawfully carries keys the vocabulary never minted (platform tracer attributes, foreign baggage, crash-context bags); a scrub seam demanding the closed `Convention.Attributes` stamping record is the inverted-trust defect the convention page names.
-- Law: the signals are safe by distinct mechanisms, and the ledger is explicit over four consumption sites — metrics carry only bounded-vocabulary tags, so no metric attribute can hold PII by construction; span attributes scrub structurally through `Redaction.processor` at the export boundary; log annotations scrub at their capture seams — the crash owner's breadcrumb record and fatal forensic band (`crash#REPLAY`, `crash#CAPTURE`) and this module's own baggage ingress (`[06]`) all fold the identical `Rules` value read from `Redaction.Current` — so a new PII class lands as one row every site inherits and no annotation path exists outside the fold.
+- Law: the signals are safe by distinct mechanisms, and the ledger is explicit over four consumption sites — metrics carry only bounded-vocabulary tags, so no metric attribute can hold PII by construction; span attributes scrub structurally through `Redaction.processor` at the export boundary; log annotations scrub at their capture seams — the crash owner's breadcrumb record and fatal forensic band (`crash#REPLAY`, `crash#CAPTURE`) and this module's own baggage ingress (`[07]`) all fold the identical `Rules` value read from `Redaction.Current` — so a new PII class lands as one row every site inherits and no annotation path exists outside the fold.
 - Law: the native `Otlp` lane exposes no span-attribute hook — export-boundary span scrub is therefore an `[R3]` parity criterion: a deployment whose compliance posture mandates boundary scrub selects an SDK lane until the native lane grows the hook, a selection pressure recorded on the lane card, never worked around with a fork.
 - Law: `defaults` seals the identifier-grade semconv keys — `client.address`, `user_agent.original`, `url.full` — and the pattern rows mask bearer tokens and email shapes inside surviving string values — scalar and string-array element alike; app policies extend by row composition, never by a second scrub.
 - Exemption: the `SpanProcessor` hooks are the OTel SDK's own callback contract — the platform-forced statement seam where `setAttribute` writes cross back into the span before it freezes.
@@ -152,27 +167,28 @@ const Redaction: {
 - Owner: `Hooks` — the consumer hook plane of the telemetry pipeline: one accumulating registry of `SpanProcessor` taps, `IMetricReader` rows, `LogRecordProcessor` sinks, `ViewOptions` reshaping rows, and `ResourceDetector` enrichers. A feature, app, or tenant plane contributes through `Hooks.contribute` — a `Layer.effectDiscard` that appends its rows — and exactly one drain exists: the SDK lanes build their `Configuration` inside `NodeSdk.layer(Effect<Configuration>)` / `WebSdk.layer(Effect<Configuration>)`, folding the collected rows behind the policy's own, while `_meter` exposes the scoped raw-OTel `MeterProvider` as `Hooks.Meter` for third-party instruments.
 - Law: contributions are order-independent appends with zero global effects — no `register()`, no global provider, no module side effect; the registry is a service, a proof overrides it wholesale, and an append after the drain is construction-order misuse the root's Layer ordering makes unspellable (`Export.live` composes after every contributor).
 - Law: tenant isolation rides the plane — a baggage-to-`tenant.id` span-attribute bridge is one contributed `onStart` processor row, and a per-tenant metric stream is one contributed reader; identity scopes every stream, so multi-app deployments never tangle.
-- Law: view rows govern cardinality — `ViewOptions` carries the allow-list primary (`attributesProcessors: [createAllowListAttributesProcessor(keys)]`) with `aggregationCardinalityLimit` as the circuit-breaker above it, and the per-reader `cardinalityLimits` ceiling sits above every per-view max. The Effect facade producer keeps the policy and contributed readers; the raw-OTel producer is a scoped `MeterProvider({ resource, views, readers })` under `Hooks.Meter`, so third-party instruments obtain a local meter through the Layer graph and contributed views execute on the SDK surface that owns them without `metrics.setGlobalMeterProvider`.
-- Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one registry slot consumed by the same drain.
+- Law: view rows govern cardinality — `ViewOptions` carries the allow-list primary (`attributesProcessors: [createAllowListAttributesProcessor(keys)]`) with `aggregationCardinalityLimit` as the circuit-breaker above it, and the per-reader `cardinalityLimits` ceiling sits above every per-view max. Effect's facade producer keeps the policy and contributed readers; the raw-OTel producer is a scoped `MeterProvider({ resource, views, readers })` under `Hooks.Meter`, so third-party instruments obtain a local meter through the Layer graph and contributed views execute on the SDK surface that owns them without `metrics.setGlobalMeterProvider`.
+- Growth: a new hook class (an exporter tap, a scrub point, a sampling processor) is one `Rows` slot consumed by the same drain; `add` widens with the slot, never a new verb.
 - Packages: `effect` (`Chunk`, `Effect`, `Layer`, `Ref`), `@opentelemetry/sdk-trace-base` (`SpanProcessor`), `@opentelemetry/sdk-metrics` (`MeterProvider`, `IMetricReader`, `ViewOptions`), `@opentelemetry/sdk-logs` (`LogRecordProcessor`), `@opentelemetry/resources` (`ResourceDetector`).
 
 ```typescript
 declare namespace Hooks {
   type Meter = _Meter
-  type Drained = {
-    readonly detectors: ReadonlyArray<ResourceDetector>
-    readonly logs: ReadonlyArray<LogRecordProcessor>
-    readonly readers: ReadonlyArray<IMetricReader>
-    readonly spans: ReadonlyArray<SpanProcessor>
-    readonly views: ReadonlyArray<ViewOptions>
+  type Rows = {
+    readonly detectors: ResourceDetector
+    readonly logs: LogRecordProcessor
+    readonly readers: IMetricReader
+    readonly spans: SpanProcessor
+    readonly views: ViewOptions
   }
+  type Drained = { readonly [K in keyof Rows]: ReadonlyArray<Rows[K]> }
 }
 
 class _Meter extends Context.Tag("runtime/Hooks/Meter")<_Meter, MeterProvider>() {}
 
 class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
   effect: Effect.gen(function* () {
-    const cells = {
+    const cells: { readonly [K in keyof Hooks.Rows]: Ref.Ref<Chunk.Chunk<Hooks.Rows[K]>> } = {
       detectors: yield* Ref.make(Chunk.empty<ResourceDetector>()),
       logs: yield* Ref.make(Chunk.empty<LogRecordProcessor>()),
       readers: yield* Ref.make(Chunk.empty<IMetricReader>()),
@@ -180,11 +196,9 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
       views: yield* Ref.make(Chunk.empty<ViewOptions>()),
     }
     return {
-      detector: (row: ResourceDetector): Effect.Effect<void> => Ref.update(cells.detectors, Chunk.append(row)),
-      log: (row: LogRecordProcessor): Effect.Effect<void> => Ref.update(cells.logs, Chunk.append(row)),
-      reader: (row: IMetricReader): Effect.Effect<void> => Ref.update(cells.readers, Chunk.append(row)),
-      span: (row: SpanProcessor): Effect.Effect<void> => Ref.update(cells.spans, Chunk.append(row)),
-      view: (row: ViewOptions): Effect.Effect<void> => Ref.update(cells.views, Chunk.append(row)),
+      // one keyed append serves every slot: the mapped cell annotation correlates kind to row type, so the indexed write is cast-free
+      add: <K extends keyof Hooks.Rows>(kind: K, row: Hooks.Rows[K]): Effect.Effect<void> =>
+        Ref.update(cells[kind], (held) => Chunk.append(held, row)),
       drained: Effect.map(
         Effect.all({
           detectors: Ref.get(cells.detectors),
@@ -215,21 +229,25 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
 [LANES]:
 - Owner: the interior `_lanes` roster — `as const satisfies Record<string, (policy) => Layer>` — with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane](policy)`; the lane union derives as `keyof typeof _lanes`, so config admission, the policy type, and the dispatch read one anchor, and a new lane is one row.
 - Law: the native `otlp` row is the default — Effect's own `Tracer`/`Metric`/`Logger` serialize straight to the collector over the `HttpClient.HttpClient` requirement the root satisfies with `client#LANE_ROWS`'s policy client (node/bun) or the browser client, so OTLP egress inherits the branch timeout/retry posture; serialization selects `Otlp.layerJson` versus `Otlp.layerProtobuf`, and the policy's `shutdown` window rides the lane's `shutdownTimeout` so the drain budget is one stated value.
-- Law: identity is detected, awaited, then projected — the node row folds `detectResources` over the platform detector roster (`envDetector`, `hostDetector`, `osDetector`, `processDetector`, `serviceInstanceIdDetector`), crosses `waitForAsyncAttributes()` whenever `asyncAttributesPending` is true, and merges the result beneath the `Convention.identity` base. The incubating `host.name`/`k8s.pod.name`/`process.pid` rows are complete before the first exporter observes them, the identity projection always wins on collision, and a raw `@opentelemetry/resources` value never leaves this module; the native and web rows carry the projection alone — browser detection is the RUM toolkit's concern.
-- Law: the SDK rows exist for SDK-only capability — the boundary span scrub, explicit temporality, structural span limits, the hook plane — and each is one facade `Configuration` built as an `Effect` that drains `Hooks` behind the policy's own rows: the `node` row wires `Redaction.processor` before a `BatchSpanProcessor(new OTLPTraceExporter({ compression: gzip, keepAlive }))` with contributed span taps between, a `PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ temporalityPreference }) })` beside contributed readers, a `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` tracer config carrying the policy's `spanLimits` — the structural attribute caps that complement the scrub; the `web` row is the same shape over `WebSdk` with pagehide auto-flush ON so RUM spans drain before navigation; neither row calls `register()` — the facade owns context wiring through the fiber-backed tracer.
+- Law: identity is detected, awaited, then projected — the node row folds `detectResources` over the platform detector roster (`envDetector`, `hostDetector`, `osDetector`, `processDetector`, `serviceInstanceIdDetector`), crosses `waitForAsyncAttributes()` whenever `asyncAttributesPending` is true, and merges the result beneath the `Convention.identity` base pinned to `Convention.wire.schemaUrl`, so every SDK-lane `Resource` declares its semconv schema. Incubating `host.name`/`k8s.pod.name`/`process.pid` rows are complete before the first exporter observes them, the identity projection always wins on collision, and a raw `@opentelemetry/resources` value never leaves this module; the native and web rows carry the projection alone — browser detection is the RUM toolkit's concern, and the native row's facade resource carries attributes without a schema slot, an `[R3]` parity criterion beside the span-scrub hook. One `_resource` fold feeds both lanes, so `OtlpResource.fromConfig` — the config-sourced facade mint — is the rejected second identity path.
+- Law: the SDK rows exist for SDK-only capability — the boundary span scrub, explicit temporality, structural span limits, the hook plane — and each is one facade `Configuration` built as an `Effect` that drains `Hooks` behind the policy's own rows: the `node` row wires `Redaction.processor` before a `BatchSpanProcessor(new OTLPTraceExporter({ compression: gzip, keepAlive }))` with contributed span taps between, a `PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter({ temporalityPreference }) })` beside contributed readers, a `ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` tracer config carrying the policy's `spanLimits` — the structural attribute caps that complement the scrub; the `web` row assembles the same `_sdk` configuration through the facade's public legs — `WebSdk.layerTracerProvider` under the `Tracer`, `Metrics`, and `Logger` bridge layers over `Resource.layer` — because the graph must expose `OtelBridge.OtelTracerProvider` for `[06]`'s registration node, a Tag `WebSdk.layer` conceals; the browser `BatchSpanProcessor` flushes on pagehide so RUM spans drain before navigation; neither row calls `register()` — the facade owns context wiring through the fiber-backed tracer.
 - Law: the SDK rows carry the full three-signal egress — the log leg is `new BatchLogRecordProcessor(new OTLPLogExporter({ url, headers }))` on `Configuration.logRecordProcessor` beside contributed log sinks, so an SDK-lane deployment exports logs to the same collector under the same batch discipline, and a parallel log sink beside the replaced process logger is the named defect; the offline/air-gapped tier is `PlatformLogger.toFile(path, { batchWindow })` added beside the wire logger at the root — an additive `Logger` row, never a fork.
 - Law: metric temporality is the policy row mapped to `AggregationTemporalityPreference` — `delta` the fact-stream default, `cumulative` the monotonic-totals alternative — and the tenant-cardinality budget rides the reader's `cardinalityLimits`, the governed ceiling the data fact journal's tenant tag operates under.
 - Law: `Export.live` returns one registration node providing `Hooks.Meter` with the native lane's `HttpClient` requirement in `R` — merged once at the composition root; construction observability attaches at the Layer value (`Layer.annotateLogs`), and a boot-time collector outage is Layer construction policy, never a runtime branch. `_managed` builds the selected lane in a child `Scope`, registers `Scope.close(scope, Exit.void)` as the standing rank-90 telemetry row through `Life.register`, and retains an idempotent outer finalizer, so the exporters' real `forceFlush`/`shutdown` finalizers execute inside the ordered drain choreography and remain leak-free if construction unwinds before shutdown.
+- Law: browser auto-instrumentation is `[06]`'s registration node riding the web row's exposed provider — `Export.Of` derives each lane's return type off the `_lanes` roster, so `Export.live` answers `Export.Browser` exactly when `policy.lane` is `"web"` and a native-lane root composing `Instrument.live` dies at the requirement channel; `Vital.enrich` stays the library-side timing projection over the spans those rows open.
 - Entry: `Export.live(policy)` merged beneath `Hooks.Default` and after every `Hooks.contribute` node, so the drain observes the full contribution set.
-- Growth: a new lane (OTLP/gRPC, a vendor exporter) is one `_lanes` row plus any policy field it reads.
-- Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk`), `@opentelemetry/resources` (`detectResources`, the detector roster), the `[R3]` SDK block (`sdk-trace-base`, `sdk-metrics`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http`).
+- Growth: a new lane (OTLP/gRPC, a vendor exporter) is one `_lanes` row with any policy field it reads.
+- Packages: `@effect/opentelemetry` (`Otlp`, `NodeSdk`, `WebSdk`, `Tracer`, `Metrics`, `Logger`, `Resource`), `@opentelemetry/resources` (`detectResources`, the detector roster), the `[R3]` SDK block (`sdk-trace-base`, `sdk-metrics`, `exporter-trace-otlp-http`, `exporter-metrics-otlp-http`).
 
 ```mermaid
 flowchart LR
+  accTitle: Export lane dispatch
+  accDescr: One Export.Policy row selects the otlp, node, or web lane; every lane consumes the Convention identity resource and ships to the collector, and the web lane exposes the tracer provider the browser Instrument node registers on.
   P["Export.Policy"] --> D{"policy.lane"}
   D -->|otlp| N["Otlp.layerJson / layerProtobuf<br/>R: HttpClient"]
   D -->|node| S["NodeSdk.layer<br/>detectors + redactor + batch OTLP"]
-  D -->|web| W["WebSdk.layer<br/>redactor + pagehide-flush RUM"]
+  D -->|web| W["facade legs over WebSdk.layerTracerProvider<br/>redactor + pagehide-flush RUM"]
+  W --> R["Instrument.live<br/>fetch · document-load · interaction"]
   N --> C["collector"]
   S --> C
   W --> C
@@ -258,7 +276,7 @@ type _Resource = {
 const _resource = (policy: Export.Policy, detectors: ReadonlyArray<ResourceDetector> = []): Effect.Effect<_Resource> =>
   Effect.promise(async () => {
     const resource = detectResources({ detectors: [..._DETECTORS, ...detectors] })
-      .merge(resourceFromAttributes(Convention.identity(policy.identity)))
+      .merge(resourceFromAttributes(Convention.identity(policy.identity), { schemaUrl: Convention.wire.schemaUrl }))
     if (resource.asyncAttributesPending) {
       await resource.waitForAsyncAttributes?.()
     }
@@ -365,11 +383,25 @@ const _lanes = {
       ),
       _meter(policy),
     ),
-  web: (policy: Export.Policy): Export.Live =>
-    Layer.merge(Layer.discard(WebSdk.layer(Effect.flatMap(_drained, (adds) => _sdk(policy, adds)))), _meter(policy)),
-} as const satisfies Record<string, (policy: Export.Policy) => Export.Live>
+  web: (policy: Export.Policy): Export.Browser =>
+    Layer.merge(
+      Layer.unwrapEffect(
+        Effect.map(Effect.flatMap(_drained, (adds) => _sdk(policy, adds)), (config) =>
+          Layer.mergeAll(
+            OtelBridge.layer,
+            OtelMetrics.layer(() => [...config.metricReader]),
+            Layer.provide(OtelLogger.layerLoggerAdd, OtelLogger.layerLoggerProvider(config.logRecordProcessor)),
+          ).pipe(
+            // provideMerge keeps OtelTracerProvider public: Instrument registers on the SAME provider, never a second one
+            Layer.provideMerge(WebSdk.layerTracerProvider(config.spanProcessor, config.tracerConfig)),
+            Layer.provideMerge(OtelIdentity.layer(config.resource)),
+          )),
+      ),
+      _meter(policy),
+    ),
+} as const satisfies Record<string, (policy: Export.Policy) => Export.Live | Export.Browser>
 
-const _managed = (policy: Export.Policy, lane: Export.Live): Export.Live =>
+const _managed = <Out>(policy: Export.Policy, lane: Layer.Layer<Out, never, Export.Context>): Layer.Layer<Out, never, Export.Context> =>
   Layer.scopedContext(
     Effect.gen(function* () {
       const scope = yield* Scope.make()
@@ -386,22 +418,85 @@ const _managed = (policy: Export.Policy, lane: Export.Live): Export.Live =>
   )
 
 const Export: {
-  readonly live: (policy: Export.Policy) => Export.Live
+  readonly live: <const P extends Export.Policy>(policy: P) => Export.Of<P>
 } = {
   live: (policy) => Layer.annotateLogs(_managed(policy, _lanes[policy.lane](policy)), { lane: policy.lane }),
 }
 ```
 
-## [06]-[CONTINUATION]
+## [06]-[INSTRUMENT]
+
+[INSTRUMENT]:
+- Owner: `Instrument` — the browser auto-instrumentation registration node on the sibling `otel/instrument` module the `./browser` condition alone resolves (importing `@opentelemetry/context-zone` patches the global `Zone`, so the module split fences the side effect structurally): `_rows(policy)` constructs the three instrumentation rows from the one policy value, and `Instrument.live(policy)` brackets the whole registration — the zone manager enabled and installed as the global context manager, `registerInstrumentations` bound to the web lane's `OtelBridge.OtelTracerProvider`, the returned unload thunk with `ambient.disable()` as the scope teardown.
+- Law: self-exclusion is mandatory policy — `ignoreUrls` carries the collector origin from `policy.collector.baseUrl`, so an export batch never mints its own fetch span and the trace feed cannot feed itself; `propagateTraceHeaderCorsUrls` reads `policy.browser.propagate`, so `traceparent` crosses only to the named API origins.
+- Law: interaction admission is the cardinality gate — `eventNames` and `shouldPreventSpanCreation` read the policy's interaction rows because every admitted event is a span; click-only with an admit-all predicate is the stated default, and a high-frequency row (scroll, pointermove) enters only beside a refusing predicate.
+- Law: `semconvStabilityOptIn: "http"` selects stable-only HTTP semconv on the fetch row, aligned with the estate schema pin.
+- Law: this node is the branch's one sanctioned global-API call — async context is process-global by construction, so exactly this bracket calls `ambient.setGlobalContextManager`; tracer and meter globals stay unregistered, and `registerInstrumentations` receives the provider explicitly because the facade registers none globally — an omitted provider falls back to the no-op global and every instrumentation span dies silently.
+- Exemption: the acquire body is the platform-forced registration seam — global manager install and the composed unload closure are the SDK's own imperative contract.
+- Boundary: registration composes only at the browser composition root beside `Export.live` — a library composing this node double-instruments its host; the fetch row leaves `clearTimingResources` off because `Vital.enrich` reads the same resource-timing buffer.
+- Entry: `Instrument.live(policy)` merged at the browser root under the web lane's `Export.live(policy)`.
+- Growth: a new browser instrumentation is one `_rows` entry with its policy rows.
+- Packages: `@opentelemetry/instrumentation` (`registerInstrumentations`, `Instrumentation`), `@opentelemetry/context-zone` (`ZoneContextManager`), `@opentelemetry/instrumentation-fetch`, `-document-load`, `-user-interaction`, `@opentelemetry/api` (`context`), `@effect/opentelemetry` (`Tracer.OtelTracerProvider`).
+
+```typescript
+import { context as ambient } from "@opentelemetry/api"
+import { ZoneContextManager } from "@opentelemetry/context-zone"
+import { registerInstrumentations, type Instrumentation } from "@opentelemetry/instrumentation"
+import { DocumentLoadInstrumentation } from "@opentelemetry/instrumentation-document-load"
+import { FetchInstrumentation } from "@opentelemetry/instrumentation-fetch"
+import { UserInteractionInstrumentation } from "@opentelemetry/instrumentation-user-interaction"
+import { Tracer as OtelBridge } from "@effect/opentelemetry"
+import { Effect, Layer } from "effect"
+import type { Export } from "./emit.ts"
+
+const _rows = (policy: Export.Policy): ReadonlyArray<Instrumentation> => [
+  new DocumentLoadInstrumentation(),
+  new FetchInstrumentation({
+    ignoreUrls: [policy.collector.baseUrl],
+    propagateTraceHeaderCorsUrls: [...policy.browser.propagate],
+    semconvStabilityOptIn: "http",
+  }),
+  new UserInteractionInstrumentation({
+    eventNames: [...policy.browser.interaction.events],
+    shouldPreventSpanCreation: policy.browser.interaction.prevent,
+  }),
+]
+
+const Instrument: {
+  readonly live: (policy: Export.Policy) => Layer.Layer<never, never, OtelBridge.OtelTracerProvider>
+} = {
+  live: (policy) =>
+    Layer.scopedDiscard(
+      Effect.flatMap(OtelBridge.OtelTracerProvider, (provider) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            const zone = new ZoneContextManager()
+            ambient.setGlobalContextManager(zone.enable())
+            const unload = registerInstrumentations({ instrumentations: [..._rows(policy)], tracerProvider: provider })
+            return () => {
+              unload()
+              ambient.disable()
+            }
+          }),
+          (teardown) => Effect.sync(teardown),
+        ))),
+}
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Instrument }
+```
+
+## [07]-[CONTINUATION]
 
 [CONTINUATION]:
-- Owner: `Propagation` — causal identity crossing every ingress: the interior codec kernel decodes `traceparent` through `parseTraceParent` into an OTel `SpanContext`, lifts `tracestate` through `new TraceState(raw)`, decodes `baggage` through `parseKeyPairsIntoRecord`, header names read from the core constants; the assembled owner carries the extraction members plus the one ingress transformer and the egress stamp, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
+- Owner: `Propagation` — causal identity crossing every ingress: the interior codec kernel decodes `traceparent` through `parseTraceParent` into an OTel `SpanContext`, lifts `tracestate` through `new TraceState(raw)`, decodes `baggage` through `parseKeyPairsIntoRecord`, header names read from the core constants; the assembled owner carries the extraction member and the one ingress transformer, `Function.dual` so the transformer follows a live pipe subject at every entry seam, while the egress stamp rides the transport seams below.
 - Law: the carrier is one shape — `Readonly<Record<string, string | undefined>>` — so platform headers, worker message metadata, queue envelope maps, and plain records all admit through one signature; carrier keys read case-normalized at the seam because HTTP header casing is transport accident.
-- Law: absence is normal, never a fault — `parseTraceParent` returning `null` folds the whole parent to `Option.none`; `TraceState` filters malformed vendor members and preserves a valid `traceparent` with the surviving state, so invalid optional metadata cannot forge or discard valid causal identity. The receipt is `Option<Tracer.ExternalSpan>`, the doctrine interior form for inbound trace identity.
+- Law: absence is normal, never a fault — `parseTraceParent` returning `null` folds the whole parent to `Option.none`; `TraceState` filters malformed vendor members and preserves a valid `traceparent` with the surviving state, so invalid optional metadata cannot forge or discard valid causal identity. Extraction's receipt is `Option<Tracer.ExternalSpan>`, the doctrine interior form for inbound trace identity.
 - Law: `Propagation.ingress` is the entry-seam law — one transformer that continues the inbound parent through the facade's `Tracer.withSpanContext` when present, runs unchanged when absent, and stamps the decoded baggage as log annotations in the same declaration AFTER the shared scrub: the fold reads `Redaction.Current` and passes every baggage record through `Redaction.scrub`, so a foreign baggage value can never carry an identifier or credential into logs and the signal-safety ledger covers this seam by construction; every ingress composes this one member, so extract-and-continue can never be half-applied; baggage is annotation material, never span identity and never a metric tag.
 - Law: transport seams split by owner — the shared HTTP client egress rides `HttpClient.withTracerPropagation` composed on `client#DIAL_SEAM`'s client; outbound stamping onto any record-shaped carrier rides the platform `HttpTraceContext.toHeaders` directly; HTTP-header ingress at the serving edge may equivalently ride `HttpTraceContext.fromHeaders` with its `w3c`/`b3`/`xb3` dialect rows since both produce the same interior form; and a new inbound wire dialect lands as the `CompositePropagator` row over the core propagator family, never a bespoke decode arm.
 - Boundary: span creation, naming, and the `Effect.fn` seam are callers' law — this owner never opens a span, it fixes the parent of whatever span the caller opens next.
-- Entry: `Propagation.ingress(effect, carrier)` or `effect.pipe(Propagation.ingress(carrier))`; `Propagation.extract(carrier)`; `Propagation.baggage(carrier)`.
+- Entry: `Propagation.ingress(effect, carrier)` or `effect.pipe(Propagation.ingress(carrier))`; `Propagation.extract(carrier)` where a seam holds the parent as a value. Baggage never leaves this owner raw — the interior decode feeds `ingress` behind the scrub, so a foreign baggage read outside the fold is unspellable.
 - Growth: a new inbound transport is one call site composing `ingress` — the owner is closed.
 - Packages: `@opentelemetry/core` (`parseTraceParent`, `TraceState`, `parseKeyPairsIntoRecord`, header constants), `@effect/opentelemetry` (`Tracer.makeExternalSpan`, `Tracer.withSpanContext`), `effect` (`Array`, `Effect`, `Function`, `Option`, `Record`).
 
@@ -458,17 +553,19 @@ const _ingress: {
 )
 
 const Propagation: {
-  readonly baggage: (carrier: Propagation.Carrier) => Readonly<Record<string, string>>
   readonly extract: (carrier: Propagation.Carrier) => Option.Option<Tracer.ExternalSpan>
   readonly ingress: typeof _ingress
 } = {
-  baggage: _baggage,
   extract: _extract,
   ingress: _ingress,
 }
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Export, Hooks, Propagation, Redaction }
 ```
 
-## [07]-[DEV]
+## [08]-[DEV]
 
 [DEV]:
 - Owner: the sibling `otel/dev` module the `./dev` exports-map subpath alone resolves — one `DevTools.layer` row wired to the local DevTools WebSocket, `plane:dev` by tag so the architecture gauge fails any runtime import; the physical module split is what makes the fence structural rather than disciplinary.
@@ -484,5 +581,9 @@ const dev: Layer.Layer<never> = DevTools.layer()
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Export, Hooks, Propagation, Redaction, dev }
+export { dev }
 ```
+
+## [09]-[RESEARCH]
+
+- [FETCH_CONFIG]-[OPEN]: exact element types of `FetchInstrumentationConfig.ignoreUrls`/`propagateTraceHeaderCorsUrls` and the `EventName` union shape (`string | RegExp` and `keyof HTMLElementEventMap` assumed); verify against `node_modules/@opentelemetry/instrumentation-{fetch,user-interaction}/build/src/types.d.ts` when the lockfile materializes the pins.

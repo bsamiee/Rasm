@@ -1,6 +1,8 @@
 # [TS_UI]
 
-`ui` is the browser product surface over the Rasm wire — one body: the component-system floor every surface rides, the view plane of dense composite surfaces, and the `viewer` spatial tier as a second Nx project. Its bar is one-truth rendering: every state fact binds through the one atom bridge, so components are projection surfaces that never run effects or mirror domain state; selection is one `GlobalId` set every echo projects from — grid rows, deck highlights, feature states, and viewport reveals simultaneously; color is one OKLCH artifact computed once, gamut-fit and contrast-gated at decode, feeding the CSS plane and the viewer's linear render space as one object; visualization data crosses zero-copy on one Arrow bus with no JSON detour; and every C#-minted vocabulary materializes field-for-field — a clamp, remap, or local default is named cross-language drift. One engine per surface: a table, chart, or element carries exactly one owner, and engine-doubling is the named defect.
+`ui` is the browser product surface over the Rasm wire — the component-system floor, the dense view plane, and the `viewer` spatial tier as a second Nx project. One engine per surface: a table, chart, or element carries exactly one owner.
+
+Its bar is one-truth rendering: every state fact binds through the one atom bridge, so components are projection surfaces that never run effects or mirror domain state; selection is one `GlobalId` set every echo projects from simultaneously; color is one OKLCH artifact, gamut-fit and contrast-gated at decode, feeding the CSS plane and the viewer's linear render space as one object; visualization data crosses zero-copy on one Arrow bus; and every C#-minted vocabulary materializes field-for-field — a clamp, remap, or local default is cross-language drift.
 
 `viewer` parses no geometry byte and authors no BCF value — WKB and wire decode stay behind the core interchange codec, every GPU resource is scope-bracketed, and the folder declares the viewport and host-plane ports the app composition root satisfies. It owns zero geometry and zero IFC semantics; render is the whole charter.
 
@@ -12,7 +14,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-UI-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
+UI-specific libraries admitted by this folder; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`, a typings-only package corroborating through its runtime twin's catalogue.
 
 [REACT_RUNTIME]:
 - `react`
@@ -70,7 +72,7 @@ UI-specific libraries admitted by this folder; versions centralize in `pnpm-work
 - `@visx/responsive`
 - `@visx/scale`
 - `@visx/shape`
-- `tus-js-client`
+- `tus-js-client` — drives `view/form`'s resumable upload lane, one session per source
 
 [SPATIAL]:
 - `three`

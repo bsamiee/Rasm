@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_ETO_BINDING]
 
-The two-way data rail of the Grasshopper boundary — one binding operator (`BindingRail`) fusing an Eto control property to a model value through the host `IndirectBinding<T>`/`BindableBinding<T,TValue>`/`DualBinding<T>` machinery, one model-lens family (`ModelLens<TValue>`) minting the model-side binding, one admission gate (`ValueGate<TRaw,TModel>`) running every control-to-model write through a `Fin`-gated conversion so a `[ValueObject<T>]` or `[SmartEnum<TKey>]` field binds without a stringly round-trip, one data-context owner (`DataScope`) marshalling ambient model assignment onto the UI thread, and one collection-store family (`StoreRow`) filling grid/list/tree views through `IDataStore<T>` carriers. No census source touches this territory — the page is pure host-capability buildout: every future GH2 panel, options dialog, and property editor composes these rows instead of hand-wiring `PropertyChanged` observers, per-control sync handlers, or manual per-row view rebuilds, all three of which are the deleted forms the host binding surface already obsoletes.
+`BindingRail` is the two-way data rail of the Grasshopper boundary, fusing an Eto control property to a model value through the host `IndirectBinding<T>`/`BindableBinding<T,TValue>`/`DualBinding<T>` machinery. `ModelLens<TValue>` mints the model-side binding, `ValueGate<TRaw,TModel>` runs every control-to-model write through a `Fin`-gated conversion so a `[ValueObject<T>]` or `[SmartEnum<TKey>]` field binds without a stringly round-trip, `DataScope` marshals ambient model assignment onto the UI thread, and `StoreRow` fills grid/list/tree views through `IDataStore<T>` carriers. Every GH2 panel, options dialog, and property editor composes these rows; hand-wired `PropertyChanged` observers, per-control sync handlers, and manual per-row view rebuilds are the deleted forms the host binding surface obsoletes.
 
 `BindMode` carries direction as a policy row over the host `DualBindingMode`; `Convert`/`Child`/`CatchException` reshape and guard the projection on the control side; `DataContext` propagation walks the control tree so one `DataScope.Assign` feeds every `BindDataContext`-bound descendant. Faults land on the kernel rail: a refused admission renders through the gate's fallback policy, a conversion exception traps through `CatchException` and re-lands as a typed `Fault`, and every rail entry is `Op`-keyed.
 
@@ -17,11 +17,11 @@ The two-way data rail of the Grasshopper boundary — one binding operator (`Bin
 - Owner: `ModelLens<TValue>` `[Union]` — the model-side binding family: `NamedCase(string Property)` mints the reflected `PropertyBinding<TValue>`; `DelegateCase(Func<object, TValue> Get, Option<Action<object, TValue>> Put, Option<string> Notify)` mints a `DelegateBinding<object, TValue>` — the notify member selects the change-notifying constructor so a `INotifyPropertyChanged` model updates the control without a reflected name; `ChildCase(ModelLens<object> Parent, ModelLens<TValue> Member)` drills a nested model value through the host `IndirectBinding<T>.Child` composition, so no flattening view-model copy exists. `ToBinding()` projects the case onto the host `IndirectBinding<TValue>` in one dispatch.
 - Law: the lens names the model member through `nameof` at every call site — a string literal restating a property the program already knows is the deleted form the `SYMBOLIC_REFERENCE` law kills.
 - Packages: Eto (`PropertyBinding<T>`, `DelegateBinding<T,TValue>`, `IndirectBinding<T>.Child`, `DualBindingMode`), `Rasm.Domain`.
-- Growth: a new model-side access shape is one `ModelLens` case plus one `ToBinding` arm.
+- Growth: a new model-side access shape is one `ModelLens` case with one `ToBinding` arm.
 
 ## [03]-[GATE]
 
-- Owner: `ValueGate<TRaw,TModel>` readonly record struct — the one admission seam between a control primitive and a domain value: `Render` (total, model-to-control) and `Admit` (`Fin`-gated, control-to-model). `GatePolicy<TRaw>` `[Union]` decides the refused-write posture: `HoldCase` re-renders the last admitted model value (the control snaps back), `FallbackCase(TModel)` substitutes a named value. The gate compiles onto the host `Convert(toValue, fromValue)` pair — the `toValue` direction folds `Admit` and the policy into one total function because `Convert` demands totality, and the fault evidence lands on the gate's `LastFault` atom for the owning screen to project.
+- Owner: `ValueGate<TRaw,TModel>` readonly record struct — the one admission seam between a control primitive and a domain value: `Render` (total, model-to-control) and `Admit` (`Fin`-gated, control-to-model). `GatePolicy<TRaw>` `[Union]` decides the refused-write posture: `HoldCase` re-renders the last admitted model value (the control snaps back), `FallbackCase(TModel)` substitutes a named value. This gate compiles onto the host `Convert(toValue, fromValue)` pair — the `toValue` direction folds `Admit` and the policy into one total function because `Convert` demands totality, and the fault evidence lands on the gate's `LastFault` atom for the owning screen to project.
 - Law: the gate is where Thinktecture meets Eto — a `[ValueObject<T>]` binds as `ValueGate.Of(render: static owner => (T)owner, admit: static raw => Owner.Validate(...) …)` through the folder's admission bridge, and a `[SmartEnum<TKey>]` binds its key with the row's `Get`/`TryGet` as the admit arm; hand-rolled parse-on-commit handlers beside the gate are the deleted form.
 - Law: `CatchException<TException>(Func<TException, bool>)` guards the projection for host-thrown conversion faults — the handler records the `Error` on the same atom and answers `true` for handled — so an uncaught cast escaping a binding into the Eto event pump is the defect this trap forecloses.
 - Packages: Eto (`BindableBinding<T,TValue>.Convert`/`CatchException`), LanguageExt.Core (`Fin`, `Atom`), `Rasm.Domain` (`Op`, `Fault`).
@@ -150,13 +150,13 @@ public static class DataScope {
 
 ## [05]-[STORE]
 
-- Owner: `StoreRow<T>` `[Union]` (`T : class`) — the collection-carrier family: `EagerCase(DataStoreCollection<T>)` for fully-materialized observable sources whose mutations refresh the bound view, and `VirtualCase(IDataStore<T>)` for large or lazily-materialized window contracts (`Count` + indexer), adapted at mount through `DataStoreVirtualCollection<T>`. Both project through one `ToStore()` dispatch onto the `IEnumerable<object>` carrier the host `DataStore` properties demand — `IDataStore<T>` never reaches a view directly. The tree carrier is the non-generic `TreeCase` on `StoreSink` because `TreeGridView.DataStore` demands `ITreeGridStore<ITreeGridItem>` — the item contract, not the element type, discriminates it.
+- Owner: `StoreRow<T>` `[Union]` (`T : class`) — the collection-carrier family: `EagerCase(DataStoreCollection<T>)` for fully-materialized observable sources whose mutations refresh the bound view, and `VirtualCase(IDataStore<T>)` for large or lazily-materialized window contracts (`Count` + indexer), adapted at mount through `DataStoreVirtualCollection<T>`. Both project through one `ToStore()` dispatch onto the `IEnumerable<object>` carrier the host `DataStore` properties demand — `IDataStore<T>` never reaches a view directly. Its tree carrier is the non-generic `TreeCase` on `StoreSink` because `TreeGridView.DataStore` demands `ITreeGridStore<ITreeGridItem>` — the item contract, not the element type, discriminates it.
 - Owner: `StoreSink` `[Union]` — where a store mounts: `GridCase(GridView)`, `ListCase(ListControl, Option<StoreItemLens>)`, `TreeCase(TreeGridView, ITreeGridStore<ITreeGridItem>)`. `StoreItemLens` carries the list projections — `ItemTextBinding`/`ItemKeyBinding` as `IIndirectBinding<string>` values minted through `ModelLens` — so display text and key travel as data on the mount, never as per-view subclassing.
 - Entry: `StoreRail.Mount<T>(StoreSink sink, Option<StoreRow<T>> rows, Op? key = null)` → `Fin<Unit>` — one gate; the tree case carries its own store so `rows` is `None` there and the arity stays honest.
 - Law: mutation flows through the mounted `DataStoreCollection<T>` — the view refreshes from collection change, and rebuilding controls per row is the deleted form; a snapshot source that never mutates still mounts as `EagerCase` because the carrier, not the mutation rate, is the contract.
 - Law: mounting marshals through `EtoDispatch.Run`; a background producer feeds the collection only through the same marshal, because the mounted carriers bind UI-affine state.
 - Packages: Eto (`DataStoreCollection<T>`, `DataStoreVirtualCollection<T>`, `IDataStore<T>`, `ITreeGridStore<T>`, `ITreeGridItem`, `GridView.DataStore`, `ListControl.DataStore`/`ItemTextBinding`/`ItemKeyBinding`, `TreeGridView.DataStore`), `Rasm.Domain`, `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new sink kind is one `StoreSink` case plus one mount arm; a new carrier is one `StoreRow` case.
+- Growth: a new sink kind is one `StoreSink` case with one mount arm; a new carrier is one `StoreRow` case.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -211,6 +211,8 @@ public static class StoreRail {
 
 ```mermaid
 flowchart LR
+    accTitle: Binding rail fuses controls, gates, and stores onto Eto
+    accDescr: GH2-hosted panels fuse control bindings through BindingRail onto the Eto dual-binding machinery, value gates admit domain values through the Thinktecture bridge, DataScope marshals context assignment, and store rails mount collection carriers.
     Panel["GH2-hosted panels — Eto/controls rows"] -->|"control *Binding accessors"| Fuse["BindingRail.Fuse / FuseGated"]
     Fuse -->|"Convert + CatchException + BindDataContext"| Host["Eto DualBinding · BindingCollection"]
     Gate["ValueGate — Fin-gated admission"] --> Fuse
@@ -236,4 +238,4 @@ flowchart LR
 - [04]-[FUSE_AND_CONTEXT]: two fuse gates + one marshalled context owner.
 - [05]-[COLLECTION_STORES]: carrier + sink unions, one mount gate.
 
-`Op`, `Fault`, `Atom`, `EtoDispatch`, and the Thinktecture admission bridge are composed upstream owners. Every host binding member on this page — the `DelegateBinding` constructor triple, `Convert(toValue, fromValue)`, `CatchException(Func<TException, bool>)`, `IndirectBinding<T>.Child`, and the `IEnumerable<object>` `DataStore` carriers — is decompile-fixed.
+`Op`, `Fault`, `Atom`, `EtoDispatch`, and the Thinktecture admission bridge are composed upstream owners.

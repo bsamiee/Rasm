@@ -22,7 +22,7 @@ ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and c
 - Law: tenancy verdicts are residency verdicts — file-per-app on the server profiles, origin scope in the browser, database-per-tenant on both edge rows where cheap databases are the platform model; the RLS policy family never runs here.
 - Law: the D1 column additionally refuses the interactive transaction — the atomic-publish path is batch-shaped or routed to the pg spine; the refusal is a row, not a code fork.
 
-```typescript
+```typescript signature
 import type { Pg } from "./postgres.ts"
 
 const _degrades = {
@@ -80,7 +80,7 @@ declare namespace Sqlite {
 - Law: the libSQL row is contract-level compatible, never byte-level — the replica engine is not the C library; its credentials and sync cadence ride `Config.redacted` and `Config` duration facts.
 - Law: the D1 row adopts the platform binding as a value — `env.DB` arrives at the Workers composition root; replication sessions and PITR are platform facts recorded as degradation semantics, never re-modeled.
 
-```typescript
+```typescript signature
 import { Config, type ConfigError, Effect, Layer, type Scope } from "effect"
 import type { SqlClient, SqlError } from "@effect/sql"
 import * as NodeSqlite from "@effect/sql-sqlite-node"
@@ -151,7 +151,7 @@ const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClien
 - Law: seed-then-verify — after `import`, the lane's ensure relations probe exactly like server startup, so a truncated or foreign blob fails closed at seed time, never at first query.
 - Law: `loadExtension` is the degradation table's `loadExtension` verdict realized — its typed client failure aborts the admission effect, and the composition runs that effect before constructing the capability Layer whose registry probe grants the module.
 
-```typescript
+```typescript signature
 import { Data, Option } from "effect"
 
 class SqliteFault extends Data.TaggedError("SqliteFault")<{

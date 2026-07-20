@@ -1,6 +1,6 @@
 # [TYPESCRIPT_BRANCH_IDEAS]
 
-The cross-package concert for the TypeScript branch — the higher-order ideas that couple two or more TS folders, distilled from the folder ideas, not the folder-local concepts. Each open idea is a card: `[ID]-[STATUS]: thesis` plus `Capability`, `Shape`, `Unlocks`, `Anchors`, and optional `Tension`. A cross-language idea lives in `libs/.planning/IDEAS.md`, never here. A finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition.
+Branch-level cross-package concert — higher-order ideas coupling two or more TS folders, distilled from the folder registers, never folder-local concepts. A cross-language idea lives in `libs/.planning/IDEAS.md`; `[1]-[OPEN]` holds the live concert and `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -16,7 +16,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-(none)
+[BRANCH_SIGNAL_PLANE]-[ACTIVE]: One signal plane spans the branch — every folder emits through the core `Convention` vocabulary, runtime alone bridges the OTLP wire, iac compiles the backend.
+- Capability: Folder-blind observability — instruments, spans, and logs minted in owning folders correlate estate-wide, with raw `@opentelemetry/*` imports confined to `runtime` and the core semconv vocabulary.
+- Shape: `core/observe` wire rows (dotted `rasm.*` names, UCUM units, scope = package id, pinned semconv schema, `NoUTF8EscapingWithSuffixes` translation), the `runtime/otel` emit/crash/vital/meter bridge projecting work-plane Facts to `Convention`-keyed instruments, and `iac/operate/observe` realizing stores, dashboards, and alerts from the same `DashboardModel` rows.
+- Unlocks: Dashboards and SLO burn alerts compiled from the vocabulary the emitters use, breaking at type-check instead of drifting; any app inherits the full signal plane by composing the export layer at its root.
+- Anchors: `core/observe/convention.md`; `runtime/otel/emit.md`; `runtime/otel/meter.md`; `iac/operate/observe.md`; the `dataflow-system.md` `AppIdentity` resource law.
+- Ripple: `libs` `[UNIFIED_SIGNAL_FABRIC]`.
 
 ## [02]-[CLOSED]
 
@@ -24,4 +29,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[CONTENT_IDENTITY]-[COMPLETE]: one seed-zero `XxHash128` mint at `core/value/contentKey`, every verifying and keying site delegating; law settled at `dataflow-system.md`.
+[INTERCHANGE_DECODE_ONCE]-[COMPLETE]: one keyed codec census at `core/interchange/codec` decodes every C#-minted family exactly once; law settled at `dataflow-system.md`.
+[JOURNAL_SPINE]-[COMPLETE]: `data/journal/append` owns the one atomic write with ledger and outbox in-commit, the read side folding through `data/read/fold`; law settled at `dataflow-system.md`.
+[TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `AppIdentity`, isolation a scope value never a fork; law settled at `dataflow-system.md`.
+[CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `tests/contracts` corpus assertion; law settled at `dataflow-system.md`.

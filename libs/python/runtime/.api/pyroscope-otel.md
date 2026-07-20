@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python span processor over the native pyroscope push agent
 - namespaces: `pyroscope.otel`, `pyroscope`
-- installed: `1.1.0`
 - capability: root-span profile-id stamping, profiler thread-tag correlation, and the push agent's configure/shutdown/tag lifecycle
 
 ## [02]-[PUBLIC_TYPES]

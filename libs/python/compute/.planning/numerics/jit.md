@@ -1,12 +1,12 @@
 # [PY_COMPUTE_JIT]
 
-The one polymorphic JIT owner collapsing the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler into a single backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure as data, and `JitEvidence` parameterizes the captured lowered-IR output the way `JitBackend` parameterizes the input. Both compilers are admitted as study-kernel accelerators on one owner — distinct from the Array-API dispatch in `numerics/array.md#PAYLOAD`, where jax rides `array_namespace` as a backend rather than a wrap — and the `none` passthrough is the unconditional runtime floor, so a run without the gated packages returns `Host` evidence rather than `Error(Import)`.
+One polymorphic JIT owner collapses the numba LLVM loop-kernel compiler and the jax XLA array-transform compiler into a single backend-discriminated route table: `JitBackend` discriminates the compile route, `_JIT_ROUTES` carries each route's compile-and-capture closure as data, and `JitEvidence` parameterizes the captured lowered-IR output the way `JitBackend` parameterizes the input. Both compilers are admitted as study-kernel accelerators on one owner — distinct from the Array-API dispatch in `numerics/array.md#PAYLOAD`, where jax rides `array_namespace` as a backend rather than a wrap — and the `none` passthrough is the unconditional runtime floor, so a run without the gated packages returns `Host` evidence rather than `Error(Import)`.
 
-This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer lowering chain: `analysis/symbolic.md#DERIVATION` emits it off its `_lower` fold, and `experiments/study.md#STUDY` and `solvers/quadrature.md#QUADRATURE` compile through `JitBackend.compile` — DAG-lawful because a symbolic-derived spec crosses as a value and no consumer imports symbolic. The `Cfunc` row compiles the C-ABI callback the quadax/scipy `LowLevelCallable` consumers bind.
+This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer lowering chain: `analysis/symbolic.md#DERIVATION` emits it off its `_lower` fold, and `experiments/study.md#STUDY` and `solvers/quadrature.md#QUADRATURE` compile through `JitBackend.compile` — DAG-lawful because a symbolic-derived spec crosses as a value and no consumer imports symbolic. Its `Cfunc` row compiles the C-ABI callback the quadax/scipy `LowLevelCallable` consumers bind.
 
 ## [01]-[INDEX]
 
-- [01]-[JIT]: numba and jax compile routes on one `JitBackend` owner over the `_JIT_ROUTES` table, evidence discriminated over `JitEvidence`, plus the jit-minted `LoweredSpec` bridge vocabulary.
+- [01]-[JIT]: numba and jax compile routes on one `JitBackend` owner over the `_JIT_ROUTES` table, evidence discriminated over `JitEvidence`, and the jit-minted `LoweredSpec` bridge vocabulary.
 
 ## [02]-[JIT]
 
@@ -14,7 +14,8 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
 - Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag.
 - Packages: the numba dispatcher and jax trace handles are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves.
-- Growth: a new compiler is one `JitBackend` case plus one `_JIT_ROUTES` row plus its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here.
+- Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
+- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -28,6 +29,7 @@ from expression import Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
+from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
@@ -54,8 +56,8 @@ if TYPE_CHECKING:
 
 type Tag = Literal["njit", "vectorize", "cfunc", "jax_jit", "none"]
 type Kernel = Callable[..., object]  # the study kernel; numba reads numpy arrays, jax reads its own `Array`
-# one route row: (kernel, specimen, backend) -> (compiled callable, captured IR); the bare closure IS
-# the row, so the `_JIT_ROUTES` table keys `Tag -> Capture` with no single-field wrapper struct between.
+# one route row: (kernel, specimen, backend) -> (compiled callable, captured IR); the bare closure IS the
+# row, so the `_JIT_ROUTES` table keys `Tag -> Capture` with no single-field wrapper struct between.
 type Capture = Callable[[Kernel, "Specimen", "JitBackend"], tuple[Kernel, "JitEvidence"]]
 
 
@@ -137,7 +139,7 @@ class Jitted(Struct, frozen=True):  # GC-tracked: carries the `fn` callable and 
 
     def contribute(self) -> Iterable[Receipt]:
         facts = {"backend": self.backend.tag, "content_key": self.content_key.project("hex"), **self.evidence.facts()}
-        yield Receipt.of("compute.jit", ("emitted", self.backend.tag, facts))
+        yield Receipt.of(EvidenceScope.JIT.value, ("emitted", self.backend.tag, facts))
 
 
 @tagged_union(frozen=True)
@@ -170,13 +172,19 @@ class JitBackend:
         return JitBackend(none=())
 
     def compile(self, kernel: Kernel, specimen: "Specimen" = Specimen()) -> "RuntimeRail[Jitted]":
-        # the non-callable guard is a pure domain reject before the gated import — never a thunk that raises purely so `boundary`
-        # can re-catch it; the railed key threads `.bind` so a canonical-encode fault rides the one rail.
+        # non-callable guard is a pure domain reject before the gated import — never a thunk raising purely so `boundary` can
+        # re-catch it; the railed key threads `.bind` so a canonical-encode fault rides the one rail, and the whole compile runs
+        # under the `compute.jit` span with the weave harvest emitting the `Jitted` receipts on the clean exit.
         if not is_bearable(kernel, Kernel):
             return Error(BoundaryFault(boundary=(f"jit.{self.tag}", "kernel-not-callable")))
-        return ContentIdentity.of(f"jit.{self.tag}", self.identity_buffer(kernel, specimen)).bind(
-            lambda key: boundary(f"jit.{self.tag}", lambda: self._compiled(kernel, specimen, key))
-        )
+
+        def rail() -> "RuntimeRail[Jitted]":
+            return ContentIdentity.of(f"jit.{self.tag}", self.identity_buffer(kernel, specimen)).bind(
+                lambda key: boundary(f"jit.{self.tag}", lambda: self._compiled(kernel, specimen, key))
+            )
+
+        facts = {"backend": self.tag, "kernel": getattr(kernel, "__qualname__", repr(kernel)), "armed": specimen.is_armed}
+        return evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=facts)
 
     def identity_buffer(self, kernel: Kernel, specimen: "Specimen") -> bytes:
         # closure source is not byte-stable across runs — tag + qualname + probe signature + option row is the stable buffer, so one
@@ -285,7 +293,7 @@ _JIT_ROUTES: Final[Map[Tag, Capture]] = Map.of_seq([
 
 
 class LoweredSpec(Struct, frozen=True):
-    # the bridge value of the symbolic-to-jit-to-consumer chain: crosses as a VALUE, so no consumer imports symbolic and the DAG
+    # bridge value of the symbolic-to-jit-to-consumer chain: crosses as a VALUE, so no consumer imports symbolic and the DAG
     # carries no back-edge.
     kernel: Kernel
     name: str

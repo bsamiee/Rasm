@@ -21,7 +21,7 @@ Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discr
 - Law: policy is a value, never configuration prose — the app root selects a case per app, and mixed policies coexist as map rows.
 - Boundary: the sqlite profiles replace this family wholesale with file-per-app and database-per-tenant (`lane/sqlite.md`'s degradation rows) — no sqlite arm exists here by design.
 
-```typescript
+```typescript signature
 import { Data } from "effect"
 import type { AppIdentity } from "@rasm/ts/core"
 
@@ -56,7 +56,7 @@ const _locus = (app: AppIdentity.Key, tenancy: Tenancy): _Locus =>
 - Law: `within` is dialect-honest — the pg arm pins the coordinates and search path; the sqlite arm degrades to the bare transaction because file-per-app already isolates, selected through `onDialectOrElse`, never a fork.
 - Boundary: who mints `TenantContext` and how a request carries it is security/edge material arriving through the reference; this page owns the transaction seam and the policy rows.
 
-```typescript
+```typescript signature
 import { Context, Effect, Option, Record, Ref, Schema } from "effect"
 import { SqlClient, type SqlError } from "@effect/sql"
 import { type Principal, SessionCoordinate, TENANT_GUC, TenantScope } from "@rasm/ts/security"
@@ -173,7 +173,7 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 - Law: the key is the whole coordinate — anything changing which physical subgraph serves the scope is a `ScopeKey` field; anything varying per request (the tenant of a call) stays out and rides `Tenant.within`.
 - Law: the roster is required construction input — `Wiring` is a `Context.Tag` carrying the shared-pool Layer and the complete ensure rows; the app root provides it once with `Layer.succeed(Wiring, { shared, ensures })`, the lookup reads it through `Layer.unwrapEffect`, and an unwired root fails the composition proof instead of silently verifying an empty schema roster.
 
-```typescript
+```typescript signature
 import { Context, Duration, Layer, LayerMap } from "effect"
 import type { ConfigError, ParseResult } from "effect"
 import { Capability } from "./capability.ts"
@@ -247,7 +247,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Law: the per-subject `WrappedKey` persistence that drives crypto-shredding rides `journal/retain.md`'s subject ledger — the security `Shredder` mints and wraps, this folder stores and destroys; destruction is the erasure verb.
 - Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`TENANT_GUC`/`Shredder` values only.
 
-```typescript
+```typescript signature
 // --- [EXPORTS] --------------------------------------------------------------------------
 
 export { ScopeKey, Stores, Tenancy, Tenant, Wiring }

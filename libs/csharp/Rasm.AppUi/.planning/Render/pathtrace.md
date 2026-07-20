@@ -708,3 +708,7 @@ flowchart LR
 
 - [VIEWPORT_GPU]: `Bvh`, `Reservoir`, `AccumulationTarget`, `Denoiser`, and `BsdfProjection` form the deterministic CPU oracle. The `RenderPass.PathTrace` delegate admits acceleration only under the existing `GpuBinding` lease and preserves the same raw accumulation hash, guide planes, reset rule, and `FrameReceipt` evidence.
 - [BSDF_SEAM]: `Rasm.Materials.Appearance.Bsdf.LayeredBsdf.Sample(ShadingFrame, Direction, double, double, double, Op)` returns `Fin<LobeSample>`, `Evaluate(ShadingFrame, Direction, Direction)` returns `RgbSpectrum`, and `ShadingFrame.ToWorld(LocalVector, Op)` returns the world `Direction`. `BsdfProjection` binds oracle tuples into those exact types once; `SlabStack.ToLayered` and `MaterialGraph.Evaluate` remain the upstream producers.
+
+## [06]-[RESEARCH]
+
+(none)

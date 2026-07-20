@@ -9,10 +9,8 @@
 - import: `google.cloud.secretmanager`
 - owner: `runtime`
 - rail: secrets
-- version: `2.29.0`
 - license: Apache-2.0
 - namespaces: `google.cloud.secretmanager`, `google.cloud.secretmanager_v1`
-- installed: `2.29.0`
 - capability: versioned secret-payload access over gRPC, secret/version resource-name path builders, ADC and service-account-file credential loading, the `AccessSecretVersionResponse`/`SecretPayload` message graph with `data_crc32c` integrity, and a sync + asyncio client twin
 
 ## [02]-[PUBLIC_TYPES]

@@ -1,6 +1,8 @@
 # [IAC_PROVIDER]
 
-Provider dispatch and the service surface as ONE owner keyed by one union: the `_map` equivalence table and the `_ARMS` handler record both key on `StackSpec.Arm`, so the capability-by-arm data and the arm program that realizes it live on one page and review pressure holds them adjacent — the map is the audit surface capability reads, the record is the construction it describes. Rows are capabilities, columns are arms, cells name the exact resource-family spelling, and a hole is honest absence the reader gets as `Option`. Each arm is a total function from the spec (plus the Effect-resolved host material and deploy-time pins) to a `PulumiFn`: it proves EVERY spec-derived coordinate its tiers require on the rail as typed `DeployFault`s before the `PulumiFn` is entered — `_proven` for connection-plus-key, `_coord` for each coordinate, `_staged` assembling the traffic edge as a tagged case — so no tier ever throws for a value the spec already proves. The `_estate` composition is the single k8s-estate builder: the selfhosted arm feeds it a `Bootstrap` kubeconfig provider, the aws arm's `cluster` compute row feeds it an `eks.Cluster.kubeconfigJson` provider, and the whole workload/data/traffic/observe/tenant roster rides either plane unchanged — promoting a cloud to a k8s estate is a provider-seam swap, never a tier rewrite. `Bootstrap` is the metal row hardened end to end: `cloudinit`-rendered first boot lays the SSH surface before the connection is reachable, host-key pinning and bastion proxy and dial budgets ride the connection, `local.runOutput` host facts join the trigger set, and the control plane installs through one `remote.Command` whose stdout is the kubeconfig. Adding a cloud is one record row plus one map column; finalizing one is a `StackSpec` value, never a lib edit. The module is `iac/src/program/provider.ts`.
+Provider dispatch and the service surface as ONE owner keyed by one union: the `_map` equivalence table and the `_ARMS` handler record both key on `StackSpec.Arm` — the map is the audit surface capability reads, the record is the construction it describes, and review pressure holds them adjacent. Rows are capabilities, columns are arms, cells name the exact resource-family spelling, and a hole is honest absence read as `Option`. Adding a cloud is one record row and one map column; finalizing one is a `StackSpec` value, never a lib edit. `iac/src/program/provider.ts` is the module.
+
+Each arm is a total function from spec, host material, and pins to a `PulumiFn`: `_proven`, `_coord`, and `_staged` prove every spec-derived coordinate as typed `DeployFault`s before the program body is entered, so no tier throws for a value the spec already proves. `_estate` is the single k8s-estate builder — the selfhosted arm feeds it a `Bootstrap` kubeconfig provider, the aws `cluster` row an `eks.Cluster.kubeconfigJson` provider — so the whole tier roster rides either plane and promoting a cloud is a provider-seam swap, never a tier rewrite.
 
 ## [01]-[CLUSTERS]
 
@@ -14,13 +16,13 @@ Provider dispatch and the service surface as ONE owner keyed by one union: the `
 ## [02]-[EQUIVALENCE_MAP]
 
 [EQUIVALENCE_MAP]:
-- Owner: the interior `_capabilities` key tuple anchoring row order, the `_map` table carrying per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the two projections riding the exported owner: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. The reads ride `_cells`, the table widened to `Dispatch.Cell` rows — a declared-key access on the literal union demands the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals.
-- Law: cells are family spellings, not mechanics — a cell names the resource classes (`gcp.container.Cluster + NodePool`) or the owning row (`helm minio-continuation | ceph-rgw`), and the page that constructs them is the mechanics owner; the map is what arm programs, drift reports, and capability audits read.
+- Owner: the interior `_capabilities` key tuple anchoring row order, the `_map` table carrying per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the two projections riding the exported owner: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. Reads ride `_cells`, the table widened to `Dispatch.Cell` rows — a declared-key access on the literal union demands the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals.
+- Law: cells are family spellings, not mechanics — a cell names the resource classes (`gcp.container.Cluster + NodePool`) or the owning row (`helm minio-continuation | ceph-rgw`), and the page that constructs them is the mechanics owner; capability audits and promotion reviews read the map, and the `_ARMS` record is the construction it describes.
 - Law: the object row admits only conditional-put-conforming engines — the self-host cells name the maintained MinIO continuation and Ceph RGW, the managed cells name S3, R2, and GCS; the CRDT-metadata engine that cannot honor `If-None-Match: *` has no cell anywhere, because the data plane's write-once identity algebra is non-negotiable and the refusal is `data`'s engine table read as deployment law.
 - Law: the canonical secret owner spans every column — the `secret` row is Doppler on all five arms, and a cloud secret manager is reachable only as a mirror (`secretssync.<Target>` where the Doppler provider ships the destination, an in-graph write fed by the fan-in read where it does not), so no arm ever grows a second secret source of truth.
 - Law: a prepared column's filled cells are its finalization contract — the `gcp` column names GKE, Cloud SQL, GCS, Cloud DNS, and the Secret Manager mirror against the same capability rows the primary arm realizes, so finalizing means instantiating the named subset with the `StackSpec` value; the dormant remainder of a provider SDK is unreachable by construction.
 - Entry: `Dispatch.column(spec.target)` inside an arm; `Dispatch.cell("data", "aws")` for a point read.
-- Growth: a new capability is one `_capabilities` entry plus one `_map` row; a new arm is one cell per realized row under the new column key.
+- Growth: a new capability is one `_capabilities` entry and one `_map` row; a new arm is one cell per realized row under the new column key.
 - Boundary: kube-row mechanics are `kube/*`; the object/data engine choices are `StackSpec.profile` values; the tenant row's mechanics are `kube/tenant.md`; the in-cluster reconcile row's mechanics are `operate/policy.md`; cross-stack output reads ride `StackReference` inside the tenant seam `kube/tenant.md` owns.
 - Packages: `effect` (`Array`, `Option`, `Record`); `./spec.ts` (`StackSpec`).
 
@@ -110,7 +112,7 @@ const _map = {
     gcp: "gcp.serviceaccount.Account + gcp.projects.IAMMember",
   },
   observe: {
-    "selfhosted-k8s": "helm lgtm + otel collector + grafana apply",
+    "selfhosted-k8s": "store-row backend charts + otel collector + grafana apply",
     "selfhosted-docker": "collector container + grafana apply",
   },
   tenant: {
@@ -143,13 +145,13 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
 - Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
-- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions including the external-dns pin, the extension-image ref, the machine container images the docker cells run — `objectImage`, `natsImage` — the optional `registry` push row (address plus user; the password is the `REGISTRY_PASSWORD` fan-in read), the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the prepared arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite, and the optional `acme` row — directory email plus DNS-01 challenge — that arms the trusted-cert lane); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
+- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions including the external-dns pin, the extension-image ref, the machine container images the docker cells run — `objectImage`, `natsImage`, the `observe.dev` all-in-one image — the optional `registry` push row (address and user; the password is the `REGISTRY_PASSWORD` fan-in read), the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the prepared arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite, and the optional `acme` row — directory email with the DNS-01 challenge — that arms the trusted-cert lane); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
-- Growth: one record row plus one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
+- Growth: one record row and one map column per cloud; a new shared deploy-time fact is one `Pins` field, a new shared secret fact is one `material` field; a new spec coordinate a tier requires is one `_coord` call in its arm's proof.
 - Boundary: the run and receipt are `automation.md`'s; outputs keys are `spec.md`'s contract.
-- Packages: `effect` (`Config`, `Effect`, `Option`, `Redacted`); `./spec.ts` (`StackSpec`); `./automation.ts` (`DeployFault`); `../kube/traffic.ts` (`Traffic.Edge`).
+- Packages: `effect` (`Config`, `Effect`, `Option`, `Redacted`); `./spec.ts` (`StackSpec`); `./automation.ts` (`DeployFault`); `../kube/traffic.ts` (`Traffic.Edge`); `../operate/observe.ts` (`Lgtm.Versions`).
 
 ```typescript
 import type { PulumiFn } from "@pulumi/pulumi/automation"
@@ -174,8 +176,7 @@ declare namespace Dispatch {
     readonly objectImage: string
     readonly nats: string
     readonly natsImage: string
-    readonly lgtm: string
-    readonly collector: string
+    readonly observe: { readonly [K in keyof Lgtm.Versions | "dev"]: string } // the chart roster derives from the observe tier's own vocabulary; dev is the docker arm's all-in-one image
     readonly dns: string
     readonly cloudflared: string
     readonly capsule: string
@@ -193,7 +194,10 @@ declare namespace Dispatch {
     readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
     readonly alerts: ReadonlyArray<Alert.Spec>
     readonly objectives: ReadonlyArray<Slo.Objective>
-    readonly contacts: Partial<Record<"page" | "ticket", { readonly webhook: string }>>
+    readonly contacts: Partial<Record<"page" | "ticket", {
+      readonly webhook: string
+      readonly quiet?: ReadonlyArray<{ readonly days: ReadonlyArray<string>; readonly start: string; readonly end: string }>
+    }>>
   }
 }
 
@@ -247,8 +251,8 @@ const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain:
 
 [CLUSTER_BOOTSTRAP]:
 - Owner: `Bootstrap`, the tier that turns owned metal into a cluster — `Bootstrap.firstBoot(parts, encoding?)` renders the multi-part MIME user-data a host-provisioning resource consumes as its pre-SSH product, staged assets ride `remote.CopyToRemote` (rendered install artifacts as `Asset`/`Archive` values, never checked-in paths), the control plane installs through one `remote.Command` whose CRUD slots own install (`create`) and teardown (`delete`), and `kubeconfig` egresses as the secret-tracked stdout the `@pulumi/kubernetes` `Provider` binds.
-- Law: cloud-init owns first boot, `command` owns steady state — `firstBoot` composes `cloudinit.getConfigOutput` over ordered typed parts (one `text/cloud-config` declarative part plus `text/x-shellscript` steps, `mergeType` on composed cloud-config parts), the rendered body lays the SSH surface (users, keys, packages, daemon) the `Connection` coordinates then reach, and part content carries coordinates and installers only — user-data is metadata-endpoint-readable, so credential material inside a part is the named defect; a first-boot step re-run over SSH, or an SSH step folded into user-data, is the same defect in two directions.
-- Law: the connection is coordinates plus injected material, hardened — `StackSpec.Connection` supplies host/user/port, the PEM key arrives as a `pulumi.Input<string>` already secret-tracked from `Dispatch.material`, `hostKey` pins the host's public key so a MITM re-key fails the dial instead of silently trusting, `proxy` is the bastion hop as one `ProxyConnectionArgs` row on the same connection inheriting the injected key unless the row carries its own (a bastion coordinate with no dial credential is an unreachable hop, not a hardening), `perDialTimeout`/`dialErrorLimit` bound the dial budget as data, and `logging: "none"` gates every credential-bearing step so captured output never echoes key material.
+- Law: cloud-init owns first boot, `command` owns steady state — `firstBoot` composes `cloudinit.getConfigOutput` over ordered typed parts (one `text/cloud-config` declarative part with `text/x-shellscript` steps, `mergeType` on composed cloud-config parts), the rendered body lays the SSH surface (users, keys, packages, daemon) the `Connection` coordinates then reach, and part content carries coordinates and installers only — user-data is metadata-endpoint-readable, so credential material inside a part is the named defect; a first-boot step re-run over SSH, or an SSH step folded into user-data, is the same defect in two directions.
+- Law: the connection is coordinates with injected material, hardened — `StackSpec.Connection` supplies host/user/port, the PEM key arrives as a `pulumi.Input<string>` already secret-tracked from `Dispatch.material`, `hostKey` pins the host's public key so a MITM re-key fails the dial instead of silently trusting, `proxy` is the bastion hop as one `ProxyConnectionArgs` row on the same connection inheriting the injected key unless the row carries its own (a bastion coordinate with no dial credential is an unreachable hop, not a hardening), `perDialTimeout`/`dialErrorLimit` bound the dial budget as data, and `logging: "none"` gates every credential-bearing step so captured output never echoes key material.
 - Law: re-run is trigger-driven and fact-aware — the `triggers` list carries the spec `epoch`, the staged-asset references, and the `local.runOutput` host facts (`facts` rows: kernel version, an existing k3s token, a daemon fingerprint — each an unconditional deploy-host read threading the graph), so a bootstrap re-runs exactly when its real inputs change and never by blind epoch-only replacement.
 - Law: the takeover boundary is absolute — after the kubeconfig exists, every workload is a typed `@pulumi/kubernetes` resource; a shell command that duplicates a typed provider resource is the named defect, and `command` survives only for bare-metal mutation no typed provider owns; an unconditional host fact is `local.runOutput` when it threads the graph, `local.run` for an eager read inside the program body.
 - Entry: `new Bootstrap("plane", { connection, key, epoch, install, facts, hostKey, proxy }, opts)` inside the selfhosted arms; `bootstrap.kubeconfig` feeds `new k8s.Provider(...)`; `Bootstrap.firstBoot(pins.firstBoot)` wherever a host-provisioning resource takes user-data.
@@ -335,12 +339,12 @@ class Bootstrap extends Tier {
 
 [ARM_PROGRAMS]:
 - Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
-- Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates plus the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. The fastcdc wasm artifact is a build-stage product of this same image — a rust stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg — so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` (`Role`/`Database`/`Extension` rows from the profile's extension subset — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting only `DOPPLER_TOKEN` so the baked `doppler run` entrypoint resolves config at start, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unrealized tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `deploy`, and `ingress` under a proven edge.
+- Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. A rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
+- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` (`Role`/`Database`/`Extension` rows from the profile's extension subset — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unrealized tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
 - Law: the gcp arm realizes its finalization contract — the provider binds `credentials` from the `GCP_CREDENTIALS` fan-in read, the GKE anchor stands, the object cell is `gcp.storage.Bucket` (uniform bucket-level access), and the data cell is `gcp.sql.DatabaseInstance` + `Database` + `User` with the engine tag and machine tier arriving as `pins.managedData`; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell and the `PagesProject` static origin against the proven `account`, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain against the proven `zone` — the record targets a project the arm minted, never a dangling coordinate; each returns exactly the planes it realizes.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
-- Growth: promoting a prepared arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row plus one map column.
+- Growth: promoting a prepared arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row and one map column.
 - Boundary: tier mechanics live on the tier pages; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
 - Packages: `@pulumi/kubernetes`, `@pulumi/eks`, `@pulumi/docker`, `@pulumi/docker-build`, `@pulumi/aws`, `@pulumi/awsx`, `@pulumi/gcp`, `@pulumi/cloudflare`, `@pulumi/random` (providers + composed classes); every folder tier.
 
@@ -359,7 +363,7 @@ import { Nats, ObjectStore, Postgres } from "../kube/data.ts"
 import { Tenants } from "../kube/tenant.ts"
 import { Traffic } from "../kube/traffic.ts"
 import { Workload } from "../kube/workload.ts"
-import { Boards, Lgtm } from "../operate/observe.ts"
+import { Boards, Dev, Lgtm } from "../operate/observe.ts"
 import { Certs, Secrets } from "../operate/secret.ts"
 import { StackOutputs } from "./spec.ts"
 
@@ -417,23 +421,26 @@ const _estate = (
   const lgtm = new Lgtm("observe", {
     spec,
     namespace: ns.metadata.name,
-    versions: { lgtm: pins.lgtm, collector: pins.collector },
+    versions: pins.observe,
     auth: secrets.read("GRAFANA_PASSWORD"),
+    // pg-server metrics endpoint: in-graph woven, never a published output
+    dsn: pulumi.interpolate`postgresql://${data.role}:${secrets.read("DB_PASSWORD")}@${data.host}:${data.port}/${data.database}`,
   }, bound)
+  const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
   const boards = new Boards("boards", {
     spec,
-    lgtm,
+    urls: lgtm.urls,
     auth: secrets.read("GRAFANA_PASSWORD"),
     boards: pins.boards,
     alerts: pins.alerts,
     objectives: pins.objectives,
     contacts: pins.contacts,
+    deploy: { id: identity.result },
   })
   secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
   if (spec.profile.tenancy.mode !== "single") {
     new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
   }
-  const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
   const token = Workload.token("doppler-token", { namespace: ns.metadata.name, token: secrets.token }, { provider })
   const outputs = {
     data: { host: data.host, port: data.port, database: data.database, role: data.role },
@@ -547,6 +554,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
             DB_PASSWORD: { generate: {} },
             OBJECT_USER: { generate: { special: false, length: 20 } },
             OBJECT_PASSWORD: { generate: {} },
+            GRAFANA_PASSWORD: { generate: {} },
           },
         })
         const image = new dockerBuild.Image("app", {
@@ -602,6 +610,12 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           networksAdvanced: [{ name: fence.name }],
           volumes: [{ volumeName: store.fanout.volume.name, containerPath: store.fanout.path }],
         }, machine)
+        const observe = new Dev("observe", {
+          image: pins.observe.dev,
+          host: proven.connection.host,
+          network: fence.name,
+          auth: secrets.read("GRAFANA_PASSWORD"),
+        }, machine)
         const sql = new postgresql.Provider("sql", {
           host: proven.connection.host,
           port: 5432,
@@ -620,16 +634,32 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         new docker.Container("app", {
           image: image.ref,
           restart: "unless-stopped",
-          envs: [pulumi.interpolate`DOPPLER_TOKEN=${secrets.token}`],
+          envs: [
+            pulumi.interpolate`DOPPLER_TOKEN=${secrets.token}`,
+            pulumi.interpolate`OTEL_EXPORTER_OTLP_ENDPOINT=${observe.collectorEndpoint}`, // the one SDK export row: byte-identical to the k8s arm's env seam
+          ],
           ports: [{ internal: pins.port, external: pins.port }],
           networksAdvanced: [{ name: fence.name }],
           volumes: [{ volumeName: store.app.volume.name, containerPath: store.app.path }],
         }, { ...machine, dependsOn: [data] })
         const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
+        const boards = new Boards("boards", {
+          spec,
+          urls: observe.urls,
+          auth: secrets.read("GRAFANA_PASSWORD"),
+          boards: pins.boards,
+          alerts: pins.alerts,
+          objectives: pins.objectives,
+          contacts: pins.contacts,
+          deploy: { id: identity.result },
+        }, { dependsOn: [observe] })
+        secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
         return {
           data: { host: proven.connection.host, port: 5432, database: spec.app, role: `${spec.app}_app` },
           object: { endpoint: `http://${proven.connection.host}:9000`, bucket },
           fanout: { origin: `ws://${proven.connection.host}:8080` },
+          otlp: { endpoint: observe.collectorEndpoint },
+          grafana: { url: observe.urls.grafana },
           deploy: { id: identity.result },
           ...Option.match(edge, {
             onNone: () => ({}),

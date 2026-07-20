@@ -93,10 +93,12 @@ public sealed class ShellRoot(
     public Func<string, IO<Unit>> Count { get; } = count; // composition binds the AppHost meter increment for the two declared instruments
 
     public const string NavigateInstrument = "rasm.appui.nav.navigated";
-    public const string RouteMissInstrument = "rasm.appui.nav.route-miss";
+    public const string RouteMissInstrument = "rasm.appui.nav.route.miss";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, NavigateInstrument, RouteMissInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(NavigateInstrument, InstrumentKind.Count, "{navigation}", "navigation dispatches by verb"),
+            new(RouteMissInstrument, InstrumentKind.Count, "{navigation}", "unknown-route aborts"));
 
     // The route index is a projection of the frozen screen roster: keys are row.RouteKey by construction,
     // so deep links, dock rows, palette listings, and screens cannot disagree — an independently authored
@@ -337,7 +339,9 @@ public static class LayoutLedger {
                     (latest.Map(port.Support).IfNone(ReadOnlyMemory<byte>.Empty), 0)))));
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ShellPolicy.FlushInstrument, ShellPolicy.RestoreInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ShellPolicy.FlushInstrument, InstrumentKind.Count, "{flush}", "layout ledger flushes"),
+            new(ShellPolicy.RestoreInstrument, InstrumentKind.Count, "{restore}", "layout ledger restores"));
 }
 ```
 
@@ -424,7 +428,8 @@ public static class AdaptiveLayout {
     public const string BreakpointInstrument = "rasm.appui.layout.breakpoint";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, BreakpointInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(BreakpointInstrument, InstrumentKind.Count, "{transition}", "responsive-tier transitions by row key"));
 }
 ```
 

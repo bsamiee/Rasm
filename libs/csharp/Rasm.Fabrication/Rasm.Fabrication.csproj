@@ -10,8 +10,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Geometry Engines">
-        <PackageReference Include="Clipper2" />
         <PackageReference Include="CavalierContours" />
+        <PackageReference Include="Clipper2" />
         <PackageReference Include="geometry3Sharp" />
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
     </ItemGroup>
@@ -46,24 +46,28 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="CSparse" />
-        <PackageReference Include="UnitsNet" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup Label="Identity Time">
-        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup Label="Mapping Graph">
         <PackageReference Include="Generator.Equals" />
-        <PackageReference Include="Riok.Mapperly" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Riok.Mapperly" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Observability">
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

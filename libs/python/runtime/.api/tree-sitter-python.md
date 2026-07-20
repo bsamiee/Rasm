@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `tree-sitter-python`
 - package: `tree-sitter-python`
-- version: `0.25.0`
 - license: MIT
 - import: `tree_sitter_python`
 - owner: `runtime`

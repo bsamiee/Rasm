@@ -7,8 +7,7 @@
 ```text codemap
 artifacts/
 ├── document/            # paginated structured documents: the DocumentNode tree and its emit/extract inverses
-│   ├── model.py         # DocumentNode semantic tree, the PDF/UA StructureNode family, and every lowering projection
-│   ├── delta.py         # DocumentDelta diff/merge/invert/redline edit algebra keyed by the stable ContentKey
+│   ├── model.py         # DocumentNode semantic tree, DocumentDelta diff/merge algebra, PDF/UA StructureNode family, lowering projections
 │   ├── emit.py          # emission axis: every backend lowers FROM the DocumentNode tree
 │   ├── lens.py          # DocumentLens extraction and recovery half over the reader backends
 │   ├── egress.py        # PDF security and navigation finishing
@@ -50,7 +49,7 @@ artifacts/
 │   │   └── pattern.py   # repeating-fill and hatch generator emitting to ezdxf and drawsvg
 │   ├── marks/
 │   │   ├── mark.py      # shared machine-readable-mark vocabulary both codec halves import
-│   │   ├── encode.py    # Mark operation owner: segno/python-barcode/zxing-cpp generation plus composed decode/verify
+│   │   ├── encode.py    # Mark operation owner: segno/python-barcode/zxing-cpp generation with composed decode/verify
 │   │   └── decode.py    # zxing-cpp scan substrate on the shared MarkFault rail
 │   ├── color/
 │   │   ├── derive.py    # the one upstream color-derivation source: CIE/CAM16/spectral, gamut, CVD, harmony, WCAG
@@ -64,7 +63,7 @@ artifacts/
 │   └── layout.py        # line-break, hyphenation, and Knuth-Plass paragraph layout
 ├── composition/         # assembling placed figures, sheets, and imposition
 │   ├── compose.py       # post-render figure and section placement
-│   ├── sheet.py         # single-sheet title-block/frame owner and the SheetSet multi-sheet register
+│   ├── sheet.py         # single-sheet title-block/frame owner and the SheetSet register-ready set owner
 │   └── imposition.py    # n-up, booklet, and signature imposition
 ├── export/              # editable layered hand-off for Illustrator/InDesign and DXF CAD exchange
 │   ├── layered.py       # named-layer SVG, PDF OCG, PSD/PSB, layered TIFF, and ORA export
@@ -95,7 +94,7 @@ artifacts/
 │   └── receipt.py       # the one ArtifactReceipt union, ConformanceVerdict, and the Metrics.record seam
 └── package/             # content-addressed compression, archive, and delta over one shared bundle vocabulary
     ├── bundle.py        # shared Bundle/CodecProfile/BundleManifest vocabulary and the BundleEvidence projection
-    ├── codec.py         # single-blob compression composing bundle, plus the parallel block-fan band
+    ├── codec.py         # single-blob compression composing bundle, with the parallel block-fan band
     ├── archive.py       # archive containers and the reproducible-ZIP owner
     └── delta.py         # detools binary diff/patch; parent-keyed delta nodes against the base bundle key
 ```
@@ -105,33 +104,14 @@ artifacts/
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Artifacts package seam registry
-    accDescr: Artifacts sub-domain owners exchanging content keys, receipts, wires, and shapes with the Python runtime, data, compute, and geometry peers and the Persistence and Fabrication C# packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Artifacts sub-domain owners exchanging content keys, receipts, wires, and shapes with the Python runtime, data, compute, and geometry peers and the Persistence and Fabrication C# packages, one edge per contract family.
     subgraph artifacts[PY:ARTIFACTS]
         Core[Core spine]
         Document[Document]
@@ -158,27 +138,13 @@ flowchart LR
     Document e7@-->|"[WIRE]: CorpusRow"| Data
     Export e8@-->|"[WIRE]: GeoJSON"| Data
     Data e9@-->|"[SHAPE]: QualityProfile"| Visualization
-    Fabrication e11@-->|"[SHAPE]: Tolerance"| Drawing
+    Fabrication e11@-->|"[WIRE]: IToleranceEncoder bytes"| Drawing
     Geometry e12@-->|"[BOUNDARY]: SceneGrid"| Scene
     Exchange e13@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Runtime e14@-->|"[PORT]: Kernel"| Scene
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Core,Document,Visualization,Drawing,Media,Scene,Export,Exchange,Package primary
-    class Runtime,Data,Geometry external
-    class Persistence data
-    class Compute,Fabrication recessed
-    class e1,e3,e4,e5,e7,e8,e13 edgeData
-    class e2 edgeSuccess
-    class e6,e9,e11,e12,e14 edgeControl
 ```
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `Tolerance` from Rasm.Fabrication, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits into `MeshScene`, and nothing crosses back on that boundary.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits, and nothing crosses back on that boundary.
 
 ## [03]-[INTERNAL]
 
@@ -187,26 +153,10 @@ Nearly all wiring is internal, so the seam map stays thin: one production spine 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Artifacts production spine
@@ -219,52 +169,27 @@ flowchart LR
     Finish --> Fold[(Contribution fold)]
     Fold --> Package[[Package close]]
     Package --> Deliver([Transmittal])
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    class Issue,Deliver boundary
-    class Plan,Engines,Compose,Finish,Package primary
-    class Substrate,Fold data
 ```
 
 Spine order above answers stage sequence; the strata below answer which plane may import which. Every plane composes the A0 floor (`ArtifactWork`, `ArtifactReceipt`) — the fence absorbs that universal rung and draws each plane's discriminating imports, with same-stratum interleaves held to the bullets.
 
-- A0 `core/plan` + `core/receipt` — the spine floor: `PipelinePlan`/`ArtifactWork` and the one `ArtifactReceipt` union import no artifacts sibling; receipt composes runtime plus the compute `HandoffAxis` alone.
+- A0 `core/plan` + `core/receipt` — the spine floor: `PipelinePlan`/`ArtifactWork` and the one `ArtifactReceipt` union import no artifacts sibling; receipt composes runtime and the compute `HandoffAxis` alone.
 - A1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone: `PositionedGlyphRun`, the metadata/credential/conformance boundary, the `Bundle` vocabulary, and the `SceneGrid` parse floor.
 - A2 `graphic` + `drawing` + `visualization` + `export` — one visual band, module-acyclic interleave: `drawing/regime` composes `graphic/color/derive` and `vector/pattern` while `graphic/layer` and `style` compose the regime back; `drawing/schedule` lowers into `visualization/table` while `visualization/chart/export` composes `export/layered` and the DXF owner hops back — no cycle survives at module grain.
-- A3 `document`, `media`, `composition`, `specification` — composer planes over the band; `specification/section` composes the document `BlockKind` tree inside the stratum, and media rides the scene `framed` parse floor plus the raster save hop.
-- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor plus conductor, never one stratum.
+- A3 `document`, `media`, `composition`, `specification` — composer planes over the band; `specification/section` composes the document `BlockKind` tree inside the stratum, and media rides the scene `framed` parse floor and the raster save hop.
+- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor and conductor, never one stratum.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Artifacts interior import strata
-    accDescr: Six import strata — the issue conductor over delivery over the composer planes over the visual band over the substrate onto the plan-receipt floor — each labeled downward edge naming its one sourced type, the universal floor rung absorbed to prose, and one forbidden upward edge styled red.
+    accDescr: Six import strata — the issue conductor over delivery over the composer planes over the visual band over the substrate onto the plan-receipt floor — each labeled downward edge naming its one sourced type, the universal floor rung absorbed to prose, and one edge marking the forbidden upward import.
     subgraph A5["A5 CONDUCTOR"]
         Issue[core/issue]
     end
@@ -318,14 +243,6 @@ flowchart TB
     Plan s23@-->|"[IMPORT]: ArtifactReceipt"| Receipt
     Typography ~~~ Plan
     Receipt f1@-->|"forbidden: upward import"| A5
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Issue,Delivery,Document,Media,Composition,Specification,Graphic,Drawing,Visualization,Export primary
-    class Typography,Exchange,Package,Scene,Plan,Receipt recessed
-    class s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23 edgeControl
-    class f1 edgeError
 ```
 
 ## [04]-[ORGANIZATION]

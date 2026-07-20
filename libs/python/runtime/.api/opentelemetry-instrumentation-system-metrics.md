@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library over `psutil`
 - namespaces: `opentelemetry.instrumentation.system_metrics`
-- installed: `0.64b0`
 - capability: config-selected observable gauges/counters across the `system.*`, `process.*`, and `cpython.gc.*` families, per-metric label selection, and meter registration against the global or supplied `meter_provider`
 
 ## [02]-[PUBLIC_TYPES]
@@ -20,8 +19,8 @@
 - rail: observability
 - construction owns the roster: `SystemMetricsInstrumentor(labels: dict[str, str] | None = None, config: dict[str, list[str] | None] | None = None)` — each config key names one metric family member and its value the label subset (`None` = defaults); an omitted config runs the full default roster.
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                            |
-| :-----: | :-------------------------- | :------------ | :------------------------------------------------- |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                              |
+| :-----: | :-------------------------- | :------------ | :-------------------------------------------------- |
 |  [01]   | `SystemMetricsInstrumentor` | instrumentor  | config-selected system/process/GC observable roster |
 
 ## [03]-[ENTRYPOINTS]
@@ -29,11 +28,11 @@
 [ENTRYPOINT_SCOPE]: instrumentor lifecycle
 - rail: observability
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :------------------------------------------------------------ | :------------- | :------------------------------------------ |
-|  [01]   | `SystemMetricsInstrumentor(labels=None, config=None)`         | construct      | roster + label policy fixed at construction  |
-|  [02]   | `instrument(**kwargs)`                                        | enable         | register observables; forwards `meter_provider` |
-|  [03]   | `uninstrument(**kwargs)`                                      | disable        | deregister the roster                        |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `SystemMetricsInstrumentor(labels=None, config=None)` | construct      | roster + label policy fixed at construction     |
+|  [02]   | `instrument(**kwargs)`                                | enable         | register observables; forwards `meter_provider` |
+|  [03]   | `uninstrument(**kwargs)`                              | disable        | deregister the roster                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

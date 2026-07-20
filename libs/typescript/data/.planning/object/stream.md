@@ -21,7 +21,7 @@ The ONE resumable content-addressed rail: large payloads move in bounded chunks,
 - Law: ingress is pull — the BYOB reader drives `pull()` by `desiredSize`, the Effect stream carries the backpressure plus the typed error channel and `Scope` release, and an eager materialization of a body is the memory defect this rail exists to delete.
 - Law: form-data ingest is typed AND bounded before any byte materializes — `Multipart.schemaPersisted(schema)` proves the whole form as one decoded struct and `Multipart.withLimitsStream` composes the bounds onto the part stream as a value at the seam (never ambient fiber-ref mutation at call sites); `maxParts` and `maxFileSize` are `Option`-shaped by the fiber-ref contract, so an unbounded axis is a spelled `Option.none()`, never an omission; file parts hand into this same lift.
 
-```typescript
+```typescript signature
 import { Effect, Option, Schema, Stream } from "effect"
 import { Multipart } from "@effect/platform"
 import { ObjectFault } from "./store.ts"
@@ -60,7 +60,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
 - Law: the wasm module is capability, not code — instantiation is a scoped acquisition behind the Tag, cuts run through the marked kernel, and no linear-memory view escapes; the stage is a pure `Stream` transform above that seam.
 - Law: cut bounds are policy data — the row travels with the payload class (artifact, snapshot, media), and re-cutting with different bounds mints different sub-keys by construction, so the policy row is part of the dedup contract and never drifts silently.
 
-```typescript
+```typescript signature
 import { Array, Context, Encoding } from "effect"
 import { ContentKey, Digest } from "@rasm/ts/core"
 
@@ -159,7 +159,7 @@ const _prove = (marks: Array.NonEmptyReadonlyArray<Rail.ChunkMark>): Effect.Effe
 - Law: the resume checkpoint is `{ offset, chunks, session }` — `Absorb` advances bytes, chunk census, and digest state atomically on the machine's serialized request plane; `IdentityActor.changes` exposes each acknowledged checkpoint for the durable subscriber to `freeze`, the terminal fold always snapshots its final state, and `Machine.restore` re-admits persisted state through the checkpoint schema before another byte can enter.
 - Law: the saved hasher state is as sensitive as the bytes it absorbed and persists only in the staging band's metadata under the same custody; a checkpoint crossing a hasher build boundary is a defect the caller owns, and a resumed flow starts exactly at `checkpoint.offset`.
 
-```typescript
+```typescript signature
 import { Machine } from "@effect/experimental"
 import { Schema } from "effect"
 
@@ -246,7 +246,7 @@ const _identity = (
 - Boundary: the tus construction is the page's platform-forced kernel — the `Server`/`S3Store` mints, the hook callbacks bridged through `Runtime.runPromise` (a typed rail fault rejects the bridge and surfaces as the tus-conformant error reply), the `Readable.toWeb` node-web interop whose element type the node declarations erase (the `as ReadableStream<Uint8Array>` re-pin), and the `crypto.randomUUID` staging-id mint all live inside this one seam; above it the rail is typed end to end.
 - Growth: a durable snapshot store subscribes to `IdentityActor.changes` and persists `freeze` after acknowledged offsets; cluster placement and replay remain runtime-plane policies over this serializable actor, never a second digest machine.
 
-```mermaid
+```mermaid conceptual
 ---
 config:
   theme: base
@@ -303,7 +303,7 @@ sequenceDiagram
   F-->>C: reply carries { key, bytes, written }
 ```
 
-```typescript
+```typescript signature
 import { Duration, Redacted, Runtime } from "effect"
 import { EVENTS, MemoryLocker, Server } from "@tus/server"
 import { S3Store } from "@tus/s3-store"
@@ -427,7 +427,7 @@ const _rail = (spec: Rail.Spec) =>
 - Law: a range read is a stream, never a buffer — the response body lifts through the same `[2]` geometry, and a consumer that needs the whole object states no range and folds the stream.
 - Boundary: `transformToWebStream` is the one SDK interop seam — the reply body's erased element type re-pins to `Uint8Array` at the lift and nowhere else.
 
-```typescript
+```typescript signature
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 
 const _range = (key: ContentKey, span?: { readonly from: number; readonly to?: number }) =>

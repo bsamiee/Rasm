@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.instrumentation.sqlite3`
-- installed: `0.64b0`
 - capability: global `sqlite3.connect` patching and per-connection instrument/uninstrument over the dbapi span layer
 
 ## [02]-[PUBLIC_TYPES]
@@ -19,7 +18,7 @@
 [PUBLIC_TYPE_SCOPE]: instrumentor
 - rail: observability
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                   |
 | :-----: | :-------------------- | :------------ | :--------------------------------------- |
 |  [01]   | `SQLite3Instrumentor` | instrumentor  | stdlib `sqlite3` connect patching, spans |
 
@@ -29,12 +28,12 @@
 - rail: observability
 - Connection form is static: `instrument_connection(connection, tracer_provider=None) -> SQLite3Connection` returns the instrumented connection the caller keeps using; `uninstrument_connection(connection)` returns it stripped.
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :---------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `SQLite3Instrumentor().instrument(**kwargs)`                      | enable         | patch `sqlite3.connect`          |
-|  [02]   | `SQLite3Instrumentor().uninstrument(**kwargs)`                    | disable        | unwrap `sqlite3.connect`         |
-|  [03]   | `SQLite3Instrumentor.instrument_connection(conn, tracer_provider=None)` | connection | instrument one live connection |
-|  [04]   | `SQLite3Instrumentor.uninstrument_connection(conn)`               | connection     | strip one live connection        |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                         |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :----------------------------- |
+|  [01]   | `SQLite3Instrumentor().instrument(**kwargs)`                            | enable         | patch `sqlite3.connect`        |
+|  [02]   | `SQLite3Instrumentor().uninstrument(**kwargs)`                          | disable        | unwrap `sqlite3.connect`       |
+|  [03]   | `SQLite3Instrumentor.instrument_connection(conn, tracer_provider=None)` | connection     | instrument one live connection |
+|  [04]   | `SQLite3Instrumentor.uninstrument_connection(conn)`                     | connection     | strip one live connection      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

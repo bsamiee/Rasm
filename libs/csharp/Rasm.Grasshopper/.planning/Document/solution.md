@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_DOCUMENT_SOLUTION]
 
-The execution controller of the GH2 document boundary — ONE solution owner (`SolutionControl`) over the host's `SolutionServer`: launching a run in every posture the server admits (fire, bridled by a cancellation source, or awaited to completion), halting, cancelling one in-flight `Solution`, driving the deferred-expiry protocol, and expiring explicit object sets — plus the run-inspection pulse over a live `Solution`, the completion evidence over a `SolutionRecord`, and the phase-timeline fold over the six-event solution family observed through `Shell/events.md`'s rows. The census-flagged ABSENCE closes here: the census document surface published state snapshots with no solution event subscription, so no consumer could correlate a mutation with the run it triggered — `Watch` attaches the whole lifecycle family (`SolutionAboutToStart` → `Started` → `Stopped` → `Cancelled` → `Completed` → `Faulted`) as one leased subscription, and `Trace` folds what a watcher captured into ordered phase evidence. Execution control is command-shaped (one `SolutionCommand` union, one `Drive` gate), inspection is evidence-shaped (typed receipts, never live-object retention), and cancellation is the host's own `CancellationTokenSource` bridle carried as a case payload. Every fallible step rides an `Op`-keyed `Fin<T>` rail inside one UI marshal; every receipt proves itself through `ValidityClaim.All`.
+`SolutionControl` is the execution controller of the GH2 document boundary — ONE solution owner over the host's `SolutionServer`: launching a run in every posture the server admits (fire, bridled by a cancellation source, or awaited to completion), halting, cancelling one in-flight `Solution`, driving the deferred-expiry protocol, expiring explicit object sets, the run-inspection pulse over a live `Solution`, the completion evidence over a `SolutionRecord`, and the phase-timeline fold over the six-event solution family observed through `Shell/events.md`'s rows.
+
+`Watch` attaches the whole lifecycle family (`SolutionAboutToStart` → `Started` → `Stopped` → `Cancelled` → `Completed` → `Faulted`) as one leased subscription, and `Trace` folds what a watcher captured into ordered phase evidence, so a consumer correlates a mutation with the run it triggered. Execution control is command-shaped (one `SolutionCommand` union, one `Drive` gate), inspection is evidence-shaped (typed receipts, never live-object retention), and cancellation is the host's own `CancellationTokenSource` bridle carried as a case payload.
 
 ## [01]-[INDEX]
 
@@ -9,13 +11,13 @@ The execution controller of the GH2 document boundary — ONE solution owner (`S
 
 ## [02]-[CONTROL]
 
-- Owner: `SolutionCommand` `[Union]` `[GenerateUnionOps]` — the closed execution vocabulary. `LaunchCase(SolutionMode, Option<CancellationTokenSource>)` discriminates the two start shapes on payload presence — a bare mode rides `SolutionServer.Start(SolutionMode)`, a bridled launch rides `Start(CancellationTokenSource, SolutionMode)`; `AwaitCase(SolutionMode, CancellationTokenSource)` blocks to completion through `StartWait`; `HaltCase` stops the server; `CancelCase(Solution)` cancels one in-flight run cooperatively through `Solution.Cancel`; `DeferCase(IDocumentObject)` queues deferred expiry through `SolutionServer.DelayedExpire`; `FlushCase` drains the deferred queue through `ExpireDelayedObjects`; `ExpireCase(Seq<IDocumentObject>)` expires an explicit object set through each subject's own `IDocumentObject.Expire`. `SolutionReceipt` is the settlement evidence — the raising `Op`, the settled case name, and the marshal latency — implementing `IValidityEvidence`.
+- Owner: `SolutionCommand` `[Union]` `[GenerateUnionOps]` — the closed execution vocabulary. `LaunchCase(SolutionMode, Option<CancellationTokenSource>)` discriminates the two start shapes on payload presence — a bare mode rides `SolutionServer.Start(SolutionMode)`, a bridled launch rides `Start(CancellationTokenSource, SolutionMode)`; `AwaitCase(SolutionMode, CancellationTokenSource)` blocks to completion through `StartWait`; `HaltCase` stops the server; `CancelCase(Solution)` cancels one in-flight run cooperatively through `Solution.Cancel`; `DeferCase(IDocumentObject)` queues deferred expiry through `SolutionServer.DelayedExpire`; `FlushCase` drains the deferred queue through `ExpireDelayedObjects`; `ExpireCase(Seq<IDocumentObject>)` expires an explicit object set through each subject's own `IDocumentObject.Expire`. `SolutionReceipt` is the settlement evidence — the raising `Op`, the settled case name, and ordered entry/settlement stamps with elapsed latency from one `MonotonicTimeline` — implementing `IValidityEvidence`.
 - Entry: `SolutionControl.Drive(SolutionCommand op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<SolutionReceipt>` — the one execution gate; `SolutionControl.Watch(Action<UiEvent> publish, Option<HostDocument> graph = default, Op? key = null)` → `Fin<Lease<UiSubscription>>` — the whole six-row lifecycle family attached transactionally through `UiEvents.Observe` on the document's `SolutionServer` anchor, the subscription's lifetime the kernel lease.
 - Law: expiry is a three-verb protocol on one owner — `DeferCase` queues, `FlushCase` drains, `ExpireCase` bypasses the queue for an explicit set — and document-wide expiry (`ObjectList.ExpireAll`) is `Document/graph.md`'s membership verb; a fourth expiry spelling anywhere in the folder is the deleted form.
 - Law: cancellation is the bridle, never a flag — a launch that must be cancellable carries its `CancellationTokenSource` as the case payload, `CancelCase` targets one run's own cooperative gate, and a cancelled host call surfaces as the kernel's `Fault.Cancelled` through `Op.Catch`, never as a result failure.
 - Law: `AwaitCase` is the one blocking shape — it exists for headless and scripted drives where the caller owns the thread; a canvas-side consumer launches and correlates completion through `Watch`, because blocking the UI marshal on `StartWait` starves the run it awaits.
 - Boundary: the six lifecycle rows, their signal vocabulary, and the anchor admission are `Shell/events.md`'s algebra — `Watch` composes `UiSource.SolutionAboutToStart`/`SolutionStarted`/`SolutionStopped`/`SolutionCancelled`/`SolutionCompleted`/`SolutionFaulted` and adds no row of its own; per-component solution hooks (`BeforeProcess`/`PreProcess`/`PostProcess`) are `Components/component.md`'s lifecycle.
-- Packages: Grasshopper2 (`SolutionServer.Start`/`StartWait`/`Stop`/`DelayedExpire`/`ExpireDelayedObjects`, `Solution.Cancel`, `SolutionMode`, `IDocumentObject.Expire`), LanguageExt.Core, `Rasm.Domain`, `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`, `UiSubscription`).
+- Packages: Grasshopper2 (`SolutionServer.Start`/`StartWait`/`Stop`/`DelayedExpire`/`ExpireDelayedObjects`, `Solution.Cancel`, `SolutionMode`, `IDocumentObject.Expire`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`, `UiSubscription`).
 - Growth: a new execution posture is one `SolutionCommand` case breaking the gate's total `Switch` loudly; a new lifecycle stream on `Watch` is one composed `UiSource` row — the gate pair never widens.
 
 ```csharp signature
@@ -23,6 +25,7 @@ The execution controller of the GH2 document boundary — ONE solution owner (`S
 using Grasshopper2.Doc;
 using Rasm.Csp;
 using Rasm.Grasshopper.Shell;
+using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -43,9 +46,12 @@ public abstract partial record SolutionCommand {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SolutionReceipt(Op Operation, string Verb, TimeSpan Latency) : IValidityEvidence {
+public readonly record struct SolutionReceipt(
+    Op Operation, string Verb, MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
+        ValidityClaim.Evidence(evidence: Entered),
+        ValidityClaim.Evidence(evidence: Settled),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 }
 
@@ -54,9 +60,10 @@ public readonly record struct SolutionReceipt(Op Operation, string Verb, TimeSpa
 public static partial class SolutionControl {
     public static Fin<SolutionReceipt> Drive(SolutionCommand op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return Optional(op).ToFin(active.InvalidInput())
-            .Bind(valid => DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
+        return from valid in Optional(op).ToFin(active.InvalidInput())
+               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
+               from entered in timeline.Capture(key: active)
+               from verb in DocumentScope.Resolve(graph: graph, key: active, body: document => valid.Switch(
                 state: (Key: active, Server: document.Solution),
                 launchCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ((Op.Side(action: () => c.Bridle.Match(
@@ -73,11 +80,11 @@ public static partial class SolutionControl {
                 flushCase: static (frame, _) => frame.Key.Catch(body: () =>
                     Fin.Succ((Op.Side(action: frame.Server.ExpireDelayedObjects), nameof(SolutionCommand.FlushCase)).Item2)),
                 expireCase: static (frame, c) => frame.Key.Catch(body: () =>
-                    Fin.Succ((c.Subjects.Fold(unit, static (_, subject) => Op.Side(action: subject.Expire)), nameof(SolutionCommand.ExpireCase)).Item2)))))
-            .Map(verb => new SolutionReceipt(
-                Operation: active,
-                Verb: verb,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)));
+                    Fin.Succ((c.Subjects.Fold(unit, static (_, subject) => Op.Side(action: subject.Expire)), nameof(SolutionCommand.ExpireCase)).Item2))))
+               from settled in timeline.Capture(key: active)
+               from latency in timeline.Elapsed(start: entered, end: settled, key: active)
+               select new SolutionReceipt(
+                   Operation: active, Verb: verb, Entered: entered, Settled: settled, Latency: latency);
     }
 
     public static Fin<Lease<UiSubscription>> Watch(Action<UiEvent> publish, Option<HostDocument> graph = default, Op? key = null) {
@@ -190,4 +197,4 @@ public static partial class SolutionControl {
 - [04]-[COMPLETION_AUDIT]: claim-checked counts and progress.
 - [05]-[PHASE_TIMELINE]: pure fold over captured `UiEvent`s, monotone claim.
 
-`DocumentScope.Resolve`, `EtoDispatch`, `UiEvents`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. The census's snapshot-only observation — state published with no solution event subscription — has no successor shape: correlation lands as `Watch` plus `Trace` over the events algebra.
+`DocumentScope.Resolve`, `EtoDispatch`, `UiEvents`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners; mutation-to-run correlation lands as `Watch` and `Trace` over the events algebra.

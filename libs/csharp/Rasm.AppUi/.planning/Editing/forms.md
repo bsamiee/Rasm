@@ -279,7 +279,9 @@ public static class BatchEdit {
     public const string RejectedInstrument = "rasm.appui.batch.rejected";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, AppliedInstrument, RejectedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(AppliedInstrument, InstrumentKind.Count, "{batch}", "batch edits applied"),
+            new(RejectedInstrument, InstrumentKind.Count, "{batch}", "batch edits rejected"));
 
     extension<TItem>(Selection<TItem> selection) where TItem : notnull {
         public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(string verbIntent, CommandDeck deck) =>

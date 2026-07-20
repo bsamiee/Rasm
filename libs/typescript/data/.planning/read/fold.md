@@ -1,6 +1,8 @@
 # [DATA_FOLD]
 
-The projection plane: the durable altitude of the core fold contract. A lane binds one `Fold.Plan` to one keyed relation, and the same binding runs at three staleness budgets — the inline slot executing inside the publish transaction (budget zero, read-your-writes structural), the checkpointed drain actor woken by LISTEN/NOTIFY and claimed under SKIP LOCKED (budget seconds, replicas cooperate with zero coordination), and the maintenance plane where the database itself owns the fold (`pg_ivm` views, `pg_incremental` exactly-once batch pipelines, `pg_cron` grooming) or a shadow-table replay repairs a drifted model under a session advisory lock. Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. Every persisted row carries its full time coordinate — the event's `Hlc` halves beside the journal's global sequence — and leaves this folder only as the core-owned `AsOf` minted through `AsOf.at`, so windowed reads, time-travel reads, and resume tokens upstream coordinate against real durable positions and a bare position tuple is unspellable.
+Projection plane: the durable altitude of the core fold contract. A lane binds one `Fold.Plan` to one keyed relation, and the same binding runs at three staleness budgets — the inline slot executing inside the publish transaction (budget zero, read-your-writes structural), the checkpointed drain actor woken by LISTEN/NOTIFY and claimed under SKIP LOCKED (budget seconds, replicas cooperate with zero coordination), and the maintenance plane where the database itself owns the fold or a shadow-table replay repairs a drifted model under a session advisory lock.
+
+Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. Every persisted row carries its full time coordinate — the event's `Hlc` halves beside the journal's global sequence — and leaves this folder only as the core-owned `AsOf` minted through `AsOf.at`, so upstream reads and resume tokens coordinate against real durable positions and a bare position tuple is unspellable.
 
 ## [01]-[CLUSTERS]
 
@@ -20,7 +22,7 @@ The projection plane: the durable altitude of the core fold contract. A lane bin
 - Growth: a new read model is one `Lane.of`; a new state field is the plan's business (the merge instance widens, the state schema follows); a lane never grows a second table.
 - Law: the keyed upsert realizes the plan's fold durably — insert (`none -> lift`) and update (`some -> combine`) are the two arms of `ON CONFLICT (cell) DO UPDATE`, exactly the `HashMap.modifyAt` shape the core contract states, so the durable altitude and the memory altitude cannot disagree on merge semantics.
 - Law: coordinates are owned values at every position — `relation` is `Query.Relation`, so identifier-breaking text cannot form a lane specification and every DDL and fragment interpolation derives from the same admitted identity; `name` and `cell` are field types embedded by `Live.Keys`, so the fold table, reactive keys, and quarantine rows address one minted vocabulary and the lane cannot be declared without its coordinate evidence.
-- Law: the time coordinate is realized, never described — `stamp: (event) => Hlc` projects the family's event time, the apply persists the batch commit point (max landed `sequence` plus its event's stamp halves), and effectful construction of `Lane.at(spec)` mints one decoded accessor whose calls map `{ sequence, stamp_physical, stamp_logical }` into `AsOf.at(stamp, sequence)`; the core versioned lanes, window reads, and resume tokens consume that value, and a bare position tuple leaving this folder is the defect the mint exists to prevent.
+- Law: the time coordinate is realized, never described — `stamp: (event) => Hlc` projects the family's event time, the apply persists the batch commit point (max landed `sequence` with its event's stamp halves), and effectful construction of `Lane.at(spec)` mints one decoded accessor whose calls map `{ sequence, stamp_physical, stamp_logical }` into `AsOf.at(stamp, sequence)`; the core versioned lanes, window reads, and resume tokens consume that value, and a bare position tuple leaving this folder is the defect the mint exists to prevent.
 
 ```typescript signature
 import { Array, Duration, Effect, Option, type ParseResult, Schema } from "effect"
@@ -103,7 +105,7 @@ const _at = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
 - Entry: the app settles `const slot = yield* Lane.inline(spec)` and passes `slot` in `Journal.Intent.slots` — the slot never imports the publish machinery and the publish machinery never imports the lane; the slot SHAPE is the whole contract, and an inline failure rolls the whole publish back.
 - Growth: a new inline model is one more slot value in the intent; the slot roster per publish stays small by design pressure — the staleness-zero budget is earned by folds cheap enough to ride the write.
 - Law: the fold is current-rows-first — the touched cells' held states load under `FOR UPDATE` on the spine (bare reads on the single-writer profiles), seed the in-memory fold table, absorb the batch through `Fold.step`, and the touched cells upsert — so the inline lane is incremental over the stream without replay, and a torn or reordered apply is unspellable inside the one transaction.
-- Law: the persisted position is the batch commit point — the maximum landed sequence from the receipt's rows plus the last event's stamp halves — so every cell touched by one apply reflects one `AsOf`, and the coordinate a reader mints is the position the journal actually committed.
+- Law: the persisted position is the batch commit point — the maximum landed sequence from the receipt's rows with the last event's stamp halves — so every cell touched by one apply reflects one `AsOf`, and the coordinate a reader mints is the position the journal actually committed.
 - Law: the slot stamps its whole band — `keys` settles before the fold runs (the slot contract computes coordinates from the stream alone), so the inline slot returns `Live.band(spec.name)` and publish composes all slot values through `Live.merged` before lowering at the `Reactivity` boundary; over-invalidation is the honest degradation `read/live.md` already legislates, and member-precise stamping is the drain actor's, whose `Live.mutation` wrap knows its touched cells.
 - Law: state persists through the lane's schema — `Schema.parseJson(spec.state)` encodes at write and every read decodes the same road, so a stale-schema row surfaces as `ParseError` and the repair is `[5]`'s rebuild, never an in-place patch.
 
@@ -174,7 +176,7 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) 
 - Owner: the checkpoint and quarantine ensure rows, the SKIP-LOCKED claim, the wake merge, the bounded drain cycle, `Lane.daemon(spec)` — a `Machine.makeWith` actor booted inside a `Layer<never>` registration node — and `Lane.replay(name, sequence)` as the quarantine re-entry.
 - Packages: `@effect/experimental` (`Machine` — `makeWith`, `procedures.make`, `procedures.add`, `boot`, `retry`; the booted `Actor` is a `Subscribable` of the drain state); `effect` (`Effect`, `Stream`, `Schedule`, `Layer`, `Either`, `Option`, `Request`, `Metric`, `BigInt`); `@effect/sql` (`SqlSchema` — the decoded checkpoint and page reads; `SqlClient.SafeIntegers` — the per-fiber bigint toggle the cycle installs so drivers that carry it return BIGINT columns unlossily); `@effect/sql-pg` (`PgClient.listen` — read as an optional service); `journal/append.md` (`Journal.channel`, `Journal.Sequence`), `journal/evolve.md` (`Snapshot.due`/`Snapshot.hydrate` — the cadence the lane composes after applies).
 - Entry: the app composes `Lane.daemon(spec)` into its root — lifetime is the Layer's, the scope closing interrupts the actor and the wake fiber together; the drain applies through `Lane.inline`'s same upsert shape outside the publish transaction, wrapped in `Live.mutation` so drained folds wake readers.
-- Receipt: `Option<Lane.Mark>` — the schema-owned `{ lane, checkpoint, drained }` receipt per won cycle, `none` when a sibling replica holds the claim; `Lane.State` carries checkpoint and closed phase as the actor's subscribable value, and the won checkpoint writes the `lane_checkpoint` gauge tagged by the bounded lane vocabulary.
+- Receipt: `Option<Lane.Mark>` — the schema-owned `{ lane, checkpoint, drained }` receipt per won cycle, `none` when a sibling replica holds the claim; `Lane.State` carries checkpoint and closed phase as the actor's subscribable value, and the won checkpoint writes the `Convention.instrument.laneCheckpoint` gauge tagged `Convention.rasm.laneName` from the bounded lane vocabulary — instrument name, description, and tag key all read off the Convention rows, so no signal-site literal exists on the drain path.
 - Growth: a new wake source is one more stream merged into the wake; a batch axis is a `spec.batch` field; a second replica of a lane is deployment, not declaration — the claim already arbitrates.
 - Law: the actor is the statechart — one `Machine.makeWith` machine whose state is `{ checkpoint, phase }` and whose `Wake` procedure runs the claim-drain-advance cycle, so drains serialize per process by the actor's own request queue (a wake arriving mid-drain waits, never overlaps), the phase is a `Subscribable` read for lag dashboards, and `Machine.retry` re-initializes a defected actor from its last live state under a bounded policy — recovery is a definition fact, never a blanket catch.
 - Law: fault routing is three disjoint roads and each keeps its evidence — poison (`ParseError` in decode, upcast, or state schema) diverts THAT sequence as `{ lane, sequence, envelope, fault }` through `catchTag` and the cycle continues; transient infrastructure (`SqlError`) retries the whole cycle under the jittered bounded schedule; an exhausted retry escalates through `Effect.orDie` into a machine defect that `Machine.retry` re-initializes from the held checkpoint — logged with its full `Cause` by the tap, distinguishable from quarantine and from interruption, which propagates untouched through the typed arms because no blanket fold exists to absorb it.
@@ -250,7 +252,7 @@ import { BigInt, Either, Layer, Metric, Option, Request, Schedule, Stream } from
 import { Machine, Reactivity } from "@effect/experimental"
 import { PgClient } from "@effect/sql-pg"
 import { SqlClient, SqlSchema } from "@effect/sql"
-import { AppIdentity } from "@rasm/ts/core"
+import { AppIdentity, Convention } from "@rasm/ts/core"
 import { Upcast } from "../journal/evolve.ts"
 
 declare namespace Lane {
@@ -304,7 +306,10 @@ const _RETRY = Schedule.exponential("200 millis").pipe(Schedule.jittered, Schedu
 
 const _REBOOT = Schedule.exponential("1 second").pipe(Schedule.jittered, Schedule.intersect(Schedule.recurs(8)))
 
-const _checkpointGauge = Metric.gauge("lane_checkpoint", { description: "last committed drain position", bigint: true })
+const _checkpointGauge = Metric.gauge(Convention.instrument.laneCheckpoint.name, {
+  description: Convention.instrument.laneCheckpoint.description,
+  bigint: true,
+})
 
 const _Checkpoint = Schema.Struct({ checkpoint: Journal.Sequence })
 
@@ -399,7 +404,9 @@ const _machine = <A extends Journal.Event, K, S, I>(
           Effect.tap((mark) =>
             Option.match(mark, {
               onNone: () => Effect.void,
-              onSome: (won) => Metric.set(_checkpointGauge, won.checkpoint).pipe(Effect.annotateLogs({ lane: spec.name })),
+              onSome: (won) =>
+                Metric.set(Metric.tagged(_checkpointGauge, Convention.rasm.laneName, won.lane), won.checkpoint).pipe(
+                  Effect.annotateLogs({ lane: spec.name })),
             })),
           Effect.tapErrorCause((cause) => Effect.logError("lane drain exhausted retries", cause)),
           Effect.orDie, // exhausted infrastructure recovery is a machine defect: Machine.retry re-initializes from the held state
@@ -458,7 +465,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
 
 ## [05]-[MAINTENANCE]
 
-- Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, plus `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock, the folder's ONE declared carve-out from the DDL-split boundary: an operator verb, session-locked, never scheduled, never reachable from a request path.
+- Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, and `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock, the folder's ONE declared carve-out from the DDL-split boundary: an operator verb, session-locked, never scheduled, never reachable from a request path.
 - Packages: `lane/capability.md` (`Capability.require`/`when`); `journal/retain.md` (`Retain.Policy` — every grooming window); `@effect/sql` (`sql.reserve`, `sql.unsafe` over closed-vocabulary literals).
 - Entry: `Lane.schedule(jobs)` and `Lane.immv(views)` run at scope construction where their grants hold; `Lane.rebuild(spec)` is the operator verb after an evolve-chain fix or a quarantine drain, followed by `Live.invalidate(Live.band(spec.name))` so every reader re-runs against the swapped table.
 - Growth: a maintenance job is one row whose statement is the job; an incremental pipeline is one row where the fold is SQL-expressible; degradation is automatic — a refused grant leaves the app-side actor owning the fold, selected by the same grant read.

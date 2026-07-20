@@ -409,12 +409,24 @@ public sealed record RenderGraph(
     private FrameReceipt Empty(long next, ViewportClock clock, Error fault) =>
         new(next, GpuBackend.Software, Seq<(string Pass, Duration Elapsed)>(), Duration.Zero, 0L, false, clock.Clocks.Now, clock.Correlation, Some(fault));
 
-    public const string FrameInstrument = "rasm.appui.viewport.frame-elapsed";
-    public const string GpuInstrument = "rasm.appui.viewport.gpu-elapsed";
-    public const string OverrunInstrument = "rasm.appui.viewport.budget-overrun";
+    public const string FrameInstrument = "rasm.appui.viewport.frame.elapsed";
+    public const string GpuInstrument = "rasm.appui.viewport.gpu.elapsed";
+    public const string OverrunInstrument = "rasm.appui.viewport.budget.overrun";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, FrameInstrument, GpuInstrument, OverrunInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(FrameInstrument, InstrumentKind.Distribution, "s", "frame wall duration", UiBuckets.FrameSeconds),
+            new(GpuInstrument, InstrumentKind.Distribution, "s", "measured GPU duration per frame", UiBuckets.FrameSeconds),
+            new(OverrunInstrument, InstrumentKind.Count, "{frame}", "frames exceeding the frame budget"));
+
+    // Frame timing rides the direct rail: composition binds this projection at the retire site where
+    // the typed receipt is in hand, so the per-frame path never serializes an envelope; the gpu
+    // instrument stays the evidence fan's gpu-frame arm target off the governor timeline.
+    public static Unit Observe(InstrumentSet set, FrameReceipt receipt) =>
+        (ignore(set.Record(FrameInstrument,
+             receipt.Passes.Fold(Duration.Zero, static (total, pass) => total + pass.Elapsed).TotalSeconds,
+             new KeyValuePair<string, object?>("backend", receipt.Backend))),
+         receipt.WithinBudget ? unit : ignore(set.Count(OverrunInstrument, 1L))).Item2;
 }
 ```
 
@@ -990,3 +1002,7 @@ public partial class ResidencyWireContext : JsonSerializerContext;
 - [VIEWPORT_GPU]: `GpuBackend.Target` absorbs Ganesh, raster, Wgpu, and browser target construction over the closed `GpuBinding` union. `RenderGraph` leases one active target, executes the pass DAG, advances `ResolveState`, and seals measured `WgpuFrameEvidence`; meshlet, path-trace, resolve, and simulation acceleration remain pass delegates under that lease and create no parallel device or target owner.
 - [WGPU_BACKEND]: `WgpuPresentation` discriminates exclusive swapchain presentation from Avalonia compositor import. The composited arm selects keyed mutex, binary semaphore, timeline semaphore, or automatic synchronization from `GetSynchronizationCapabilities`, awaits `ImportCompleted`, rejects every `IsLost` state, and submits through the matched `CompositionDrawingSurface.UpdateWith*Async` member. Timestamp query resolve, buffer map, queue submission, and device polling retire through the one `WgpuFrameEvidence` lane.
 - [WEB_RESIDENCY]: `ResidencyManifest` is the single C# mint of the browser residency wire. `ResidencyMarshal` projects Compute `ResidencyPayload` stream spans, meshlet hierarchy, bounds, content keys, and admitted splat tiles into one content-addressed manifest; the browser consumes that wire and never re-mints payload identity, hierarchy, or blob keys.
+
+## [07]-[RESEARCH]
+
+(none)

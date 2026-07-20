@@ -30,7 +30,7 @@
 
 - Owner: `DatumPolicy` closes assigned transform, best-fit registration, and primitive substitution over the current `DatumReceipt` wire.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
-- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence.
+- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection.
 - Boundary: `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` consumes the residual tranche; no local QIF-shaped record claims a standard contract the package does not admit.
 
 ```csharp signature

@@ -419,6 +419,10 @@ public sealed class PredicateLowering : ExpressionVisitor<SetExpr?, IReadOnlyLis
 }
 
 public static class Federation {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.federation.admit"), StoreSlot.Create("store.federation.execute"), StoreSlot.Create("store.federation.materialize"),
+        StoreSlot.Create("store.federation.flight.describe"), StoreSlot.Create("store.federation.flight.stream"));
+
     // `Execute` resolves absent cuts from head sequence and injected clock, then dispatches plan cadence.
     // Callers cannot sequence cut resolution or materialization beside the plan.
     public static IO<Fin<FederatedResult>> Execute(FederationPlan plan, Option<TimeCut> cut, FederationPorts ports) =>

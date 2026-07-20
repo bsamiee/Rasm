@@ -16,6 +16,35 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
+[UNIFIED_SIGNAL_FABRIC]-[ACTIVE]: One observability fabric spans the three runtimes — shared wire law, receipt-projected instruments, hook rails, and an IaC-compiled backend.
+- Capability: Every runtime emits through its vendor-neutral surface (C# `Meter`/`ActivitySource`/`ILogger`, Python `opentelemetry-api` + structlog, TS Effect `Metric`/`withSpan`/log) under one wire law — the `service.namespace=rasm` resource triple, `rasm.<domain>.<measure>` UCUM metric names, scope = package id, pinned semconv schema, OTLP/HTTP+protobuf egress, W3C composite propagation, trace-based exemplars — so signals from any runtime correlate without coupling.
+- Shape: Receipts stay the truth and instruments/logs/spans are projections — C# `InstrumentFan` over the receipt fan, Python `Metrics.record` folds, TS `Pulse` Fact-to-Metric bridge; per-branch hook registries (`rasm.<pkg>.<domain>.<point>`) make telemetry a tap on domain facts; `core/observe` Convention, SLO, and `DashboardModel` compile through the Foundation-SDK leg into the iac-realized Grafana stack with Prometheus as the exemplar-bearing reference store row.
+- Unlocks: Any future app composes exporters at its root and inherits the full metric/trace/log/profile plane; dashboards and burn-rate alerts derive from the same typed vocabulary the emitters use, breaking at type-check instead of drifting.
+- Anchors: `csharp:Rasm.AppHost/Observability`; `python:runtime/observability`; `typescript:core/observe`, `typescript:runtime/otel`, `typescript:iac/operate/observe.md`; the `OtelExport`/`TraceContext`/`DashboardModel`/`StackOutputs` seams.
+- Tension: The three SDK trains move on split stable/experimental channels, so the wire-law constants are the only shared surface — conformance rides transcription of the same rows in each branch, never a shared library.
+- Ripple: `typescript:data` `[OBJECT_PLANE_INSTRUMENT_PROJECTION]`.
+
+[FLEET_TELEMETRY_SCALE_ROWS]-[QUEUED]: The named fleet-escalation row set flips the estate telemetry plane to fleet scale without new surfaces.
+- Capability: Broker-buffered OTLP transport (Kafka/NATS collector legs), tail-based sampling at the gateway, the Mimir scale-out store row, and per-app agent topology form one closed escalation family — each a row on an axis the corpus already models, armed only when a deployment placement earns it.
+- Shape: Collector pipeline rows and the iac store/topology coordinates carry the family; apps and libraries change nothing — the same OTLP egress and Convention vocabulary serve both scales.
+- Unlocks: Multi-host fleets, tenant isolation at volume, and lossless telemetry under backpressure, all as deploy-time row flips.
+- Anchors: `typescript:iac/operate/observe.md` store arm + collector rows; `csharp:Rasm.AppHost/Observability/telemetry.md` exporter seam; the collector file-storage queue that serves the single-estate scale today.
+- Tension: Every row is currently ruled OFF at estate scale (file-storage queue covers durability, one gateway suffices, Prometheus reference row holds exemplars) — the card exists so fleet pressure re-arms rows instead of re-deriving the design.
+
+[COST_ATTRIBUTION_BAGGAGE]-[QUEUED]: Tenant baggage joined to grant-cost vectors yields per-tenant cost and usage boards from the standing signal fabric.
+- Capability: The W3C baggage tenant dimension, the C# grant/cost spend instruments, and trace-based exemplars compose into per-tenant cost attribution — usage, spend, and burn boards keyed by the same `TenantContext` every runtime already stamps.
+- Shape: C# mints the cost facts (`GrantBroker` vectors projected through the instrument fan), the collector routes tenant baggage onto metric dimensions, and the board models derive tenant cost views compiled through the Foundation-SDK leg.
+- Unlocks: Metered multi-tenant products, per-agent/per-model AI spend governance, and chargeback-grade evidence without a second metering pipeline.
+- Anchors: `csharp:Rasm.AppHost/Agent/capability.md` grant/cost vectors; `csharp:Rasm.AppHost/Observability/instruments.md` spend rows; `typescript:core/observe/board.md`; the `rasm.tenant` baggage law.
+- Tension: Tenant cardinality caps on metric streams bound the attribution grain; above the cap, attribution rides exemplar-sampled traces, not per-tenant series.
+
+[PROFILE_SIGNAL_OTLP]-[QUEUED]: Continuous profiles migrate from vendor push onto the OTLP profiles signal the moment it stabilizes.
+- Capability: The fourth signal rides the same gateway, resource identity, and scope law as traces/metrics/logs — Pyroscope push SDKs in all three runtimes retire into OTLP exporters, and profile-to-span correlation becomes wire-native.
+- Shape: One exporter-row swap per runtime composition root plus a collector pipeline row; the span-profile correlation processors and dashboards survive unchanged.
+- Unlocks: Vendor-neutral profiling, one ingress for all four signals, and profile exemplar links alongside the metric-trace jumps.
+- Anchors: `csharp` Pyroscope span-profile correlation; `python:runtime/observability/profiles.md`; `typescript:iac/operate/observe.md` Pyroscope row; the collector gateway.
+- Tension: The OTLP profiles signal is pre-stable across all three SDKs — the card arms on signal stabilization, never before.
+
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Shared `LayerTopologyFact` wire rows carry host organization into every `ElementGraph` peer.
 - Capability: `LayerTopologyFact` projects `LayerStamp` identity, `LayerPath` nesting, membership, and per-viewport overrides as detached entity and containment facts, so each runtime answers layer organization without a host handle.
 - Shape: C# owns the canonical wire schema and codec; `Rasm.Rhino` `Layers.Ask` emits rows, `Rasm.Element` folds them through `IElementProjection`, `Rasm.Bim` aligns them with IFC spatial structure, Python decodes them into IFC graph projections, and TypeScript decodes them into query-store relations. `ContentHash` identifies referenced geometry and payloads, while the schema's typed layer and relation keys identify graph facts.

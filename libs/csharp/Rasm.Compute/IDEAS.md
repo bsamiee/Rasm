@@ -1,6 +1,6 @@
 # [COMPUTE_IDEAS]
 
-The forward pool of higher-order concepts for measured execution, each grounded in the folder's domain and current platform capability — some deepen a thin owner into a fuller axis, others bind a concrete technique to a settled abstract surface. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
+Measured execution's forward pool of higher-order concepts, each grounded in the folder's domain and current platform capability — some deepen a thin owner into a fuller axis, others bind a concrete technique to a settled abstract surface. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -22,8 +22,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: defensible-by-default classical fits; the C# half of the graduation-evidence contract gains the selection discipline the Python companion carries.
 - Anchors: `Stats/estimator#ESTIMATOR_LANE` `Validate` (k-fold and forward-chain scoring landed), `EstimatorPolicy` admitted ranges, the graduation-evidence axis demanding quantified generalization.
 
+[SOLVER_FARM_SHARDS]-[QUEUED]: Sharded distributed solve — one solve partitioned across farm nodes with shard evidence on the receipt rail.
+- Capability: a solve partitioned into per-node sub-blocks over the remote-grpc farm, each shard a scheduled job whose count, node, and merge evidence land as receipt fields and one shard instrument row.
+- Shape: a shard-partition fold on `Runtime/scheduling` job-graph dispatch feeding per-node `remote-grpc` hops, shard evidence a `Solve`/`Factorization` receipt field the `Runtime/receipts` projection fan folds — never a parallel farm router.
+- Unlocks: building-scale modal and buckling solves exceeding one node; shard-grain observability for farm capacity planning.
+- Anchors: `Runtime/admission#SUBSTRATE_AXIS` warm-affinity and `LoadRank` farm routing, the `Runtime/scheduling` job graph, the `Runtime/receipts` instrument roster absorbing one row per curated aggregate.
+
 [SOLVER_ELEMENT_QUANTIFIED_RULES]-[QUEUED]: Graph-exhaustive rule grounding — `ComplianceRule` templates ground over every `ElementGraph` node-class member with a coverage proof.
-- Capability: a node-class selector deriving `RuleGrounding` populations from the concrete graph plus a population fold proving every matching member instantiated, verdict/witness/unsat-core keyed per element.
+- Capability: a node-class selector deriving `RuleGrounding` populations from the concrete graph with a population fold proving every matching member instantiated, verdict/witness/unsat-core keyed per element.
 - Shape: a grounding derivation on `Solver/satisfy#RULE_SATISFACTION` consuming the graph the assessment spine already routes — the template quantifies, the selector proves exhaustiveness, caller-supplied rows remain the manual lane.
 - Unlocks: satisfy upgrades from caller-assembled populations to a whole-building code audit whose unsat core names the exact failing elements ("every egress door", "each lateral-system member").
 - Anchors: `ComplianceRule`/`RuleGrounding` template quantification with name@element tracking literals (landed), assessment-spine per-node fact routing, `Analysis` runners reading the concrete `Rasm.Element` `ElementGraph`.
@@ -36,6 +42,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [SOLVER_GEOTECHNICAL_CONSTITUTIVE]-[COMPLETE]: pressure-dependent frictional soil laws landed collapsed — `Solver/constitutive` `PlasticPotential` parameterizes `DruckerPrager`/`SmoothedMohrCoulomb`/`ModifiedCamClay` as seed data over one invariant generator, and `MaterialState` carries volumetric hardening, preconsolidation pressure, and pore pressure.
 
-[SOLVER_ARC_LENGTH_CONTINUATION]-[COMPLETE]: `Solver/contract` `SolveMethod.ArcLength` plus `ArcLengthPolicy` enforce the Crisfield displacement/load constraint through predictor-corrector iterations across limit points on the landed Newton internal-force machinery.
+[SOLVER_ARC_LENGTH_CONTINUATION]-[COMPLETE]: `Solver/contract` `SolveMethod.ArcLength` and `ArcLengthPolicy` enforce the Crisfield displacement/load constraint through predictor-corrector iterations across limit points on the landed Newton internal-force machinery.
 
 [ST-FDD]-[COMPLETE]: `Stats/signal` `Transform.Modal` runs the N-channel frequency-domain decomposition over Welch cross-PSD matrices, returning `ModalEstimate`/`MeasuredMode` with the full singular spectrum; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end.

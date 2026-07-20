@@ -341,7 +341,7 @@ POLICY: Final[Map[RetryClass, Policy]] = Map.of_seq([
 # lazy build per the RetryHookFactory contract.
 RetryReceiptHook: Final = RetryHookFactory(hook_factory=_retry_receipt)
 
-# receipt+span, the metrics-owned retry.attempts counter, and the structlog warning — one RetryDetails payload.
+# receipt+span, the metrics-owned rasm.retry.attempts counter, and the structlog warning — one RetryDetails payload.
 RETRY_HOOKS: Final[tuple[RetryHook | RetryHookFactory, ...]] = (RetryReceiptHook, Metrics.retry_hook(), StructlogOnRetryHook)
 ```
 

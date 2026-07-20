@@ -14,9 +14,9 @@ Wire posture: HOST-LOCAL. `CuttingData.Of`, `FeedBasis`, `Feed`, and `Force` rem
 
 - Owner: `MaterialCutSpec` carries ISO group, subgroup, condition, hardness, strength, and Kienzle seed data; `OperationTrait` carries generative operation factors; `CuttingTable` carries exact rows keyed by `CuttingKey` and calibration curves; `CorrectionInputs` carries the measured evidence every Kienzle correction axis derives from; `CuttingData` owns resolved force and regime truth.
 - Cases: `MaterialSource` discriminates family lookup from an exact specification at one entry; `CuttingEvidence` distinguishes exact, calibrated, vendor, production, interpolated, and generated payloads and projects each one's chip-thickness validity domain; `FeedBasis` preserves dimensional feed meaning; `CutDirection` is a policy value; `ModalEvidence` distinguishes tap-test, operational, analytical, and vendor modal provenance; `StabilityEvidence` distinguishes stable, marginal, and unstable bands; `StabilityCrossing` names each solved transition's direction.
-- Entry: `CuttingData.Of(MaterialSource, CutterForm, Operation, CuttingTable, Option<CorrectionInputs>)` is the one resolution entry; `CuttingCalibration.Apply(CalibrationRequest)` is the one calibration entry; `ChatterStability.Apply(StabilityRequest)` is the one dynamic entry; `CutterFormProjection.Of(ToolAssembly, FormPolicy)` is the one form projection and `CutterForm.Fits` the one form-compatibility predicate.
+- Entry: `CuttingData.Of(MaterialSource, CutterForm, Operation, CuttingTable, Option<CorrectionInputs>)` is the one resolution entry; `CuttingCalibration.Apply(CalibrationRequest)` is the one calibration entry; `ChatterStability.Apply(StabilityRequest)` is the one dynamic entry; `CutterFormProjection.Of(ToolAssembly, CutterFormPolicy)` is the one form projection and `CutterForm.Fits` the one form-compatibility predicate.
 - Auto: exact rows resolve by `CuttingKey` lookup, calibration curves interpolate by hardness, and seed-plus-trait generation closes the remaining space. `KienzleCorrection.Of` derives rake, coating, coolant, condition, thermal, abrasion, wear, and runout factors from admitted evidence rather than unit placeholders. Specific force refuses a chip thickness outside its evidence's declared domain. Force evaluation derives the engagement arc from radial depth and diameter before projecting tangential, feed, and passive components, resultant, torque, power, and removal rate.
-- Receipt: `CuttingData` carries resolved source and clamps; `PowerLawReceipt` carries coefficient, exponent, residual, determination, domain, and dispersion; `CalibrationReceipt` narrows that fit to Kienzle terms; `StabilityReceipt` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to.
+- Receipt: `CuttingData` carries resolved source and clamps; `PowerLawReceipt` carries coefficient, exponent, residual, determination, domain, and dispersion; `CalibrationReceipt` narrows that fit to Kienzle terms; `StabilityReceipt` carries contiguous lobe-indexed spindle-depth bands, every solved crossing with its direction, ratio-bounded gaps, modal provenance, and the target depth its margins are relative to. `FabricationFact.CuttingFit.Of` projects `PowerLawReceipt` residual and determination onto `rasm.fabrication.fit.residual` and `rasm.fabrication.fit.quality` through `Process/telemetry#FACT_PROJECTION` as kind `cutting-fit`.
 - Packages: MathNet.Numerics `Fit.Line`, monotone interpolation, and `Brent.TryFindRoot`; `TensorPrimitives` finite/statistical reductions; `UnitsNet`; `NodaTime` modal evidence instants; the Process owners `Coating`, `CoolantDelivery`, `CoolantResponse`, and `CutterForm`; LanguageExt.Core; and Thinktecture.Runtime.Extensions compose directly.
 - Growth: a material is one `MaterialCutSpec`; an operation is one `OperationTrait`; a measured correction is one `CuttingRow`; a hardness series is one `CalibrationCurve`; a measured mode is one `ModalMode` inside `ModalResponse`; a modal provenance is one `ModalEvidence` case.
 - Boundary: repeated class-operation matrices, a second coolant vocabulary beside `CoolantDelivery`, linear scans over a keyed exact table, `Fin.Succ` query shells lifting pure values, unqualified dimensional request scalars, scalar-only force, string evidence labels, correction axes pinned at unity, engagement fraction standing in for the engagement arc, two-point unqualified fits, silent extrapolation past the evidence domain, a single transition where a lobe crosses twice, margins relative to a regime ceiling rather than the requested depth, magic classification tolerances, and chatter-blind speed selection are deleted forms.
@@ -52,14 +52,14 @@ public sealed partial class IsoClass {
 }
 
 [SmartEnum<string>]
-public sealed partial class MaterialCondition {
-    public static readonly MaterialCondition Annealed = new("annealed", 0.90);
-    public static readonly MaterialCondition Normalized = new("normalized", 1.00);
-    public static readonly MaterialCondition Hardened = new("hardened", 1.25);
-    public static readonly MaterialCondition Aged = new("aged", 1.10);
-    public static readonly MaterialCondition Cast = new("cast", 1.15);
-    public static readonly MaterialCondition Wrought = new("wrought", 1.00);
-    public static readonly MaterialCondition Composite = new("composite", 1.30);
+public sealed partial class MaterialState {
+    public static readonly MaterialState Annealed = new("annealed", 0.90);
+    public static readonly MaterialState Normalized = new("normalized", 1.00);
+    public static readonly MaterialState Hardened = new("hardened", 1.25);
+    public static readonly MaterialState Aged = new("aged", 1.10);
+    public static readonly MaterialState Cast = new("cast", 1.15);
+    public static readonly MaterialState Wrought = new("wrought", 1.00);
+    public static readonly MaterialState Composite = new("composite", 1.30);
 
     public double ForceFactor { get; }
 }
@@ -104,7 +104,7 @@ public sealed partial class MaterialCutSpec {
     public Material Material { get; }
     public IsoClass Class { get; }
     public int Subgroup { get; }
-    public MaterialCondition Condition { get; }
+    public MaterialState Condition { get; }
     public Hardness Hardness { get; }
     public Pressure UltimateStrength { get; }
     public Pressure Kc11 { get; }
@@ -113,7 +113,7 @@ public sealed partial class MaterialCutSpec {
     public double AbrasionFactor { get; }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Material material,
-        ref IsoClass @class, ref int subgroup, ref MaterialCondition condition, ref Hardness hardness,
+        ref IsoClass @class, ref int subgroup, ref MaterialState condition, ref Hardness hardness,
         ref Pressure ultimateStrength, ref Pressure kc11, ref double mc, ref double thermalFactor,
         ref double abrasionFactor) =>
         validationError = material is null || @class is null || subgroup is < 1 or > 99 || condition is null
@@ -216,13 +216,13 @@ public readonly partial struct KienzleCorrection {
     public double ToolGeometry { get; }
     public double Coating { get; }
     public double Coolant { get; }
-    public double MaterialCondition { get; }
+    public double MaterialState { get; }
     public double Thermal { get; }
     public double Abrasiveness { get; }
     public double Wear { get; }
     public double Runout { get; }
 
-    public double Factor => ToolGeometry * Coating * Coolant * MaterialCondition * Thermal * Abrasiveness * Wear * Runout;
+    public double Factor => ToolGeometry * Coating * Coolant * MaterialState * Thermal * Abrasiveness * Wear * Runout;
 
     public static KienzleCorrection? Of(MaterialCutSpec material, Option<CorrectionInputs> inputs) =>
         inputs.Map(row => Create(
@@ -236,9 +236,9 @@ public readonly partial struct KienzleCorrection {
                 material.ThermalFactor, material.AbrasionFactor, 1.0, 1.0));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double toolGeometry,
-        ref double coating, ref double coolant, ref double materialCondition, ref double thermal,
+        ref double coating, ref double coolant, ref double materialState, ref double thermal,
         ref double abrasiveness, ref double wear, ref double runout) =>
-        validationError = !Seq(toolGeometry, coating, coolant, materialCondition, thermal, abrasiveness, wear, runout)
+        validationError = !Seq(toolGeometry, coating, coolant, materialState, thermal, abrasiveness, wear, runout)
             .ForAll(static value => double.IsFinite(value) && value > 0.0)
             ? new ValidationError(message: "kienzle-correction") : null;
 }
@@ -623,7 +623,7 @@ public static class CuttingCalibration {
 
 // --- [FORM_PROJECTION] ----------------------------------------------------------------------------------------------------------------------------
 [ComplexValueObject]
-public sealed partial class FormPolicy {
+public sealed partial class CutterFormPolicy {
     public Angle TaperFloor { get; }
     public Length RadiusTolerance { get; }
     public Length ZeroLength { get; }
@@ -637,7 +637,7 @@ public sealed partial class FormPolicy {
 
 public static class CutterFormProjection {
     extension(CutterForm) {
-        public static Fin<CutterForm> Of(ToolAssembly assembly, FormPolicy policy) =>
+        public static Fin<CutterForm> Of(ToolAssembly assembly, CutterFormPolicy policy) =>
             Fin.Succ(Geometry(assembly)).Bind(geometry =>
                 from family in (policy.DeclaredFamily | Infer(assembly, policy, geometry))
                     .ToFin(Error.New(message: $"cutter-form-unclassified:{assembly.Identity}"))
@@ -668,7 +668,7 @@ public static class CutterFormProjection {
                 Some(assembly.Stickout))
             .Choose(static value => value).OrderBy(static value => value).HeadOrNone().IfNone(0.0));
 
-    private static Option<CutterFamily> Infer(ToolAssembly assembly, FormPolicy policy,
+    private static Option<CutterFamily> Infer(ToolAssembly assembly, CutterFormPolicy policy,
         (double Diameter, double Radius, double Taper, double Flute) geometry) =>
         (Point: assembly.Snapshot.Metric(ToolMeasure.PointAngle).IsSome,
             Chamfer: assembly.Snapshot.Metric(ToolMeasure.ChamferWidth).IsSome,

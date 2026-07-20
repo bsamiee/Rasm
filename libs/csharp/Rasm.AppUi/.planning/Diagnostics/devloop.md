@@ -174,3 +174,7 @@ public static class Inspector {
         IO.lift(() => ignore(app.AttachDevTools(row.Options)));
 }
 ```
+
+## [04]-[RESEARCH]
+
+(none)

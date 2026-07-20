@@ -9,7 +9,6 @@
 - import: `import google_crc32c`
 - owner: `runtime`
 - rail: settings-secrets
-- version: `1.8.0`
 - license: `Apache-2.0`
 - asset: C-extension wrapper over the Google CRC32C library (`implementation` reports `"c"`; the pure-Python fallback engages only where the extension is absent)
 - capability: one-shot CRC32C digest proving `SecretPayload.data_crc32c` transport integrity on the admission cloud arm

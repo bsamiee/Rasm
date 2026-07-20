@@ -22,7 +22,7 @@ Schema evolution without migrations and its read accelerator in one owner: every
 - Law: the step transforms the whole encoded member including its `_tag` — a rename across versions is a step that rewrites the tag, and the plan indexes chains by the tag AS WRITTEN, so renamed families keep their history reachable.
 - Boundary: where `Raw` comes from is `journal/append.md`'s row projection; the current family is app material arriving as a `Schema.Union` value.
 
-```typescript
+```typescript signature
 import { Data, Either } from "effect"
 
 declare namespace Upcast {
@@ -64,7 +64,7 @@ const _sized = (tag: string, chain: Upcast.Chain): Either.Either<Upcast.Chain, C
 - Law: totality is proven per chain by the test-estate law combinators over `plan.census` — the `(tag, latest)` roster projection the plan carries — so every `(tag, version)` pair present in the corpus composes to a decodable value and the proof reads its coordinates off the plan value itself.
 - Boundary: snapshot bodies ride `chain` with `snapshot_schema_version` as the coordinate; C#-minted wire shapes arrive already decoded through the interchange codec and never re-enter this fold.
 
-```typescript
+```typescript signature
 import { Array, Effect, Either, Option, ParseResult, Record, Schema, SchemaAST } from "effect"
 
 declare namespace Upcast {
@@ -137,7 +137,7 @@ const Upcast = {
 - Law: a load whose body fails the lift is `ParseError` on the admission rail — the consuming lane discards the snapshot and replays; corruption degrades to cost, never to wrong state.
 - Boundary: the C#-minted snapshot header arrives decoded through the interchange codec and lands here as an ordinary save by its consuming lane — this page never re-decodes wire bytes.
 
-```typescript
+```typescript signature
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal, StreamKey } from "./append.ts"
@@ -223,7 +223,7 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
 - Growth: a new cadence shape (byte budget, elapsed time) is a field on the policy row consumed inside `due` — the call sites never change.
 - Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the modulo fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
 
-```typescript
+```typescript signature
 import { Stream } from "effect"
 
 const _Cadence = Schema.Struct({ every: Schema.Int.pipe(Schema.positive()) })

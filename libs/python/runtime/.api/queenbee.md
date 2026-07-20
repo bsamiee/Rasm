@@ -9,7 +9,6 @@
 - import: `import queenbee`
 - owner: `runtime`
 - rail: recipe (workflow schema contract)
-- installed: `2.0.1`
 - license: `MIT`
 - abi: pure-Python (`py3-none-any`, no native extension); `pydantic>=2.0,<3.0` model floor, `pyyaml>=6.0` + `jsonschema>=4.17.3` runtime deps; the `[cli]` extra (`click` + `click-plugins`) is NOT admitted
 - namespaces: `queenbee.base`, `queenbee.io` (`io.inputs`/`io.outputs`/`io.reference`/`io.artifact_source`/`io.common`), `queenbee.plugin`, `queenbee.recipe`, `queenbee.job`, `queenbee.repository`, `queenbee.config`, `queenbee.env`

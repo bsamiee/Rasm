@@ -41,6 +41,9 @@ Rasm.AppHost/
 └── Observability/       # Four-signal telemetry, health, and redacted support capture
     ├── Telemetry.cs     # Unified four-signal telemetry through minted identities and egress redaction
     ├── Health.cs        # Resource-pressure health fold and degradation/alert rails over one atomic reading cell
+    ├── Instruments.cs   # Domain-instrument catalog projecting the receipt fan into metrics, with per-ALC provider lifetime
+    ├── Hooks.cs         # Typed hook registry over the bus, lifecycle, and receipt seams with modality and isolation law
+    ├── Benchmarks.cs    # Benchmark receipt family, the corpus gate, and profile-linked capture rows
     └── Bundles.cs       # Bounded redacted support capture
 ```
 
@@ -59,33 +62,14 @@ Five strata order the interior, member-resolved where a folder's owners split ac
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: AppHost interior strata
-    accDescr: Five stacked strata from the broker front through wire delivery and the capability catalog onto the observability grade and the runtime substrate, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Five stacked strata from the broker front through wire delivery and the capability catalog onto the observability grade and the runtime substrate, every consumption edge pointing downward and naming one sourced type, and one forbidden upward edge.
     subgraph L4["S4 BROKER FRONT"]
         Isolation[SandboxIsolation]
         Roll[FleetRoll]
@@ -109,24 +93,16 @@ flowchart TB
         Tenant[TenantContext]
         Clock[ClockPolicy]
     end
-    Dispatch e1@-->|"[IMPORT]: EventLog"| Log
-    Isolation e2@-->|"[IMPORT]: GrantBroker"| Broker
-    Isolation e3@-->|"[IMPORT]: OutboundHop"| Outbound
-    Roll e4@-->|"[IMPORT]: MembershipView"| Membership
-    Outbound e5@-->|"[IMPORT]: CapabilityDescriptor"| Capability
-    Membership e6@-->|"[IMPORT]: FencingToken"| Clock
-    LaneGuard e7@-->|"[IMPORT]: DegradationReading"| Reading
-    Capability e8@-->|"[IMPORT]: TenantContext"| Tenant
-    Health e9@-->|"[IMPORT]: ClockPolicy"| Clock
-    Tenant f1@-->|"forbidden: substrate upward"| L4
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Isolation,Roll,Dispatch,Outbound,Membership,Capability,Broker,Log,LaneGuard primary
-    class Health,Reading,Tenant,Clock recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
-    class f1 edgeError
+    Dispatch -->|"[IMPORT]: EventLog"| Log
+    Isolation -->|"[IMPORT]: GrantBroker"| Broker
+    Isolation -->|"[IMPORT]: OutboundHop"| Outbound
+    Roll -->|"[IMPORT]: MembershipView"| Membership
+    Outbound -->|"[IMPORT]: CapabilityDescriptor"| Capability
+    Membership -->|"[IMPORT]: FencingToken"| Clock
+    LaneGuard -->|"[IMPORT]: DegradationReading"| Reading
+    Capability -->|"[IMPORT]: TenantContext"| Tenant
+    Health -->|"[IMPORT]: ClockPolicy"| Clock
+    Tenant -->|"forbidden: substrate upward"| L4
 ```
 
 ## [03]-[SEAMS]
@@ -136,33 +112,14 @@ Cross-boundary seams split by counterpart group — cross-runtime wires to the T
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppHost cross-runtime wire seams
-    accDescr: AppHost sub-domain owners exchanging kinded wires, content keys, and transport with the TypeScript core, ui, and runtime packages and the Python runtime, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: AppHost sub-domain owners exchanging kinded wires, content keys, and transport with the TypeScript core, ui, and runtime packages and the Python runtime, each edge labeled by its kind and each seam directed one-way or bidirectional.
     subgraph apphost[RASM.APPHOST]
         Agent[Agent surface]
         Runtime[Runtime spine]
@@ -173,57 +130,29 @@ flowchart LR
     Ui([typescript:ui])
     TsRuntime([typescript:runtime])
     PyRuntime{{python:runtime}}
-    Agent e1@-->|"[CONTENT_KEY]: CapabilityDescriptor"| Core
-    Runtime e2@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
-    Observability e3@-->|"[WIRE]: DegradationLevel"| Core
-    Wire e4@-->|"[WIRE]: BindingStatusWire"| Core
-    Wire e5@-->|"[WIRE]: BindingStatusWire"| Ui
-    Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
-    Agent e7@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
-    Observability e8@<-->|"[TRANSPORT]: TraceContext"| PyRuntime
-    Runtime e9@<-->|"[WIRE]: HlcStampWire"| PyRuntime
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    class Agent,Runtime,Wire,Observability primary
-    class PyRuntime external
-    class Core,Ui,TsRuntime annotation
-    class e1,e2,e3,e4,e5,e7,e9 edgeData
-    class e6,e8 edgeExternal
+    Agent -->|"[CONTENT_KEY]: CapabilityDescriptor"| Core
+    Runtime -->|"[WIRE]: ReceiptEnvelopeWire"| Core
+    Observability -->|"[WIRE]: DegradationLevel"| Core
+    Wire -->|"[WIRE]: BindingStatusWire"| Core
+    Wire -->|"[WIRE]: BindingStatusWire"| Ui
+    Observability e10@-->|"[WIRE]: BenchmarkClaimWire"| Ui
+    Observability -->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Agent <-->|"[WIRE]: DiscoveryResult"| PyRuntime
+    Observability <-->|"[TRANSPORT]: TraceContext"| PyRuntime
+    Runtime <-->|"[WIRE]: HlcStampWire"| PyRuntime
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, and receipts with the kernel, Element, AppUi, Persistence, and Compute packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, and faults with the kernel, Element, AppUi, Fabrication, Persistence, and Compute packages, one edge per contract family labeled by kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -235,32 +164,27 @@ flowchart LR
     Element([Rasm.Element])
     AppUi{{Rasm.AppUi}}
     Compute{{Rasm.Compute}}
+    Fabrication{{Rasm.Fabrication}}
     Persistence[(Rasm.Persistence)]
-    Kernel e1@-->|"[WIRE]: EncodedGeometry"| Sandbox
-    Runtime e2@-->|"[CONTENT_KEY]: ContentHash"| Kernel
+    Kernel -->|"[WIRE]: EncodedGeometry"| Sandbox
+    Runtime -->|"[CONTENT_KEY]: ContentHash"| Kernel
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
-    Runtime e4@-->|"[PORT]: DeterminismContext"| AppUi
-    Runtime e6@<-->|"[PORT]: TenantContext"| Persistence
-    Wire e8@<-->|"[PORT]: OutboxCursor"| Persistence
-    Observability e9@-->|"[PORT]: HealthContributorRow"| Persistence
-    Runtime e10@-->|"[PORT]: ShedVerdict"| Compute
-    Agent e11@-->|"[PORT]: GoverningChatClient"| Compute
-    Compute e12@-->|"[RECEIPT]: HopReceipt"| Wire
-    Sandbox e13@<-->|"[SHAPE]: EncodingKind"| Compute
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Runtime,Agent,Wire,Sandbox,Observability primary
-    class Kernel,AppUi,Compute external
-    class Persistence data
-    class Element annotation
-    class e1,e2 edgeData
-    class e12 edgeSuccess
-    class e3,e4,e6,e8,e9,e10,e11,e13 edgeControl
+    Runtime -->|"[PORT]: DeterminismContext"| AppUi
+    Runtime e6@<-->|"[PORT]: ProjectionContext"| Persistence
+    Wire e8@<-->|"[PORT]: CoordinationOp"| Persistence
+    Runtime e15@<-->|"[PORT]: Hlc"| Persistence
+    Runtime e16@-->|"[PROJECTION]: ReplayWindow"| Persistence
+    Runtime e17@<-->|"[PORT]: HybridCache"| Persistence
+    Persistence e18@-->|"[RECEIPT]: ProvisionVerdict"| Observability
+    Observability e14@<-->|"[PORT]: TelemetryContributorPort"| Persistence
+    Observability e19@-->|"[PORT]: ReceiptSinkPort + HookRail"| AppUi
+    Runtime e20@<-->|"[FAULT]: FaultBand"| AppUi
+    Fabrication e21@-->|"[RECEIPT]: FabricationFact"| Observability
+    Observability e22@-->|"[PORT]: TelemetryContributorPort"| Fabrication
+    Runtime -->|"[PORT]: ShedVerdict"| Compute
+    Agent -->|"[PORT]: GoverningChatClient"| Compute
+    Compute -->|"[RECEIPT]: HopReceipt"| Wire
+    Sandbox <-->|"[SHAPE]: EncodingKind"| Compute
 ```
 
 ## [04]-[INTERNAL]
@@ -268,26 +192,10 @@ flowchart LR
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppHost boot-to-drain spine
@@ -302,12 +210,6 @@ flowchart LR
     Rails --> Ports[("Runtime ports")]
     Running --> Drain["DrainConductor.Drain"]
     Drain --> Unloaded(["DrainReceipt: Unloaded"])
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    class Resolve,Unloaded boundary
-    class Boot,Compose,Admit,Fold,Ready,Running,Rails,Drain primary
-    class Ports data
 ```
 
 Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `DrainReceipt`. Exact per-stage wiring lives on the owning implementation pages.

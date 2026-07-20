@@ -53,33 +53,14 @@ Four strata order the six sub-domains; `Eto` and `Shell` are one co-recursive UI
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Grasshopper interior strata
-    accDescr: Three stacked strata from the canvas owner through the document and platform composers onto the co-recursive Eto-Shell UI-thread floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Three stacked strata from the canvas owner through the document and platform composers onto the co-recursive Eto-Shell UI-thread floor, every consumption edge downward naming one sourced type, and the one forbidden direction marked at the floor.
     subgraph L2["S2 CANVAS"]
         Operator[CanvasOperator]
         Paint[PaintScene]
@@ -98,25 +79,17 @@ flowchart TB
         Clock[UiClock]
         Events[UiEvents]
     end
-    Operator e1@-->|"[IMPORT]: GhSession"| Session
-    Operator e2@-->|"[IMPORT]: EtoDispatch"| Dispatch
-    Layout e3@-->|"[IMPORT]: HistoryLedger"| Ledger
-    Paint e4@-->|"[IMPORT]: GhSession"| Session
-    Pacer e5@-->|"[IMPORT]: MotionDrive"| Drive
-    Pacer e6@-->|"[IMPORT]: UiClock"| Clock
-    Scope e7@-->|"[IMPORT]: GhSession"| Session
-    Scope e8@-->|"[IMPORT]: EtoDispatch"| Dispatch
-    Solution e9@-->|"[IMPORT]: UiEvents"| Events
-    Drive e10@-->|"[IMPORT]: EtoDispatch"| Dispatch
-    Dispatch f1@-->|"forbidden: floor upward"| L2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Operator,Paint,Layout,Pacer,Scope,Ledger,Solution,Drive primary
-    class Dispatch,Clock,Session,Events recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
-    class f1 edgeError
+    Operator -->|"[IMPORT]: GhSession"| Session
+    Operator -->|"[IMPORT]: EtoDispatch"| Dispatch
+    Layout -->|"[IMPORT]: HistoryLedger"| Ledger
+    Paint -->|"[IMPORT]: GhSession"| Session
+    Pacer -->|"[IMPORT]: MotionDrive"| Drive
+    Pacer -->|"[IMPORT]: UiClock"| Clock
+    Scope -->|"[IMPORT]: GhSession"| Session
+    Scope -->|"[IMPORT]: EtoDispatch"| Dispatch
+    Solution -->|"[IMPORT]: UiEvents"| Events
+    Drive -->|"[IMPORT]: EtoDispatch"| Dispatch
+    Dispatch -->|"forbidden: floor upward"| L2
 ```
 
 ## [03]-[SEAMS]
@@ -126,82 +99,43 @@ Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing auth
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Grasshopper host-boundary kernel seams
-    accDescr: Grasshopper host-boundary sub-domain owners admitting the Rasm kernel's monotonic timing and perceptual-colour authorities as boundary contracts, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Grasshopper host-boundary sub-domain owners admitting the Rasm kernel's monotonic timing and perceptual-colour authorities as boundary contracts, one edge per contract family labeled by kind.
     subgraph grasshopper[RASM.GRASSHOPPER]
         Canvas[Canvas boundary]
+        Document[Document gates]
         Eto[Eto runtime]
         Shell[Shell session]
         Platform[Platform native]
     end
     Rasm([Rasm])
-    Rasm e1@-->|"[BOUNDARY]: MonotonicTimeline"| Canvas
-    Rasm e2@-->|"[BOUNDARY]: PerceptualColor"| Canvas
-    Rasm e3@-->|"[BOUNDARY]: MonotonicTimeline"| Eto
-    Rasm e4@-->|"[BOUNDARY]: MonotonicTimeline"| Shell
-    Rasm e5@-->|"[BOUNDARY]: PerceptualColor"| Shell
-    Rasm e6@-->|"[BOUNDARY]: MonotonicTimeline"| Platform
-    Rasm e7@-->|"[BOUNDARY]: PerceptualColor"| Platform
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Canvas,Eto,Shell,Platform primary
-    class Rasm annotation
-    class e1,e2,e3,e4,e5,e6,e7 edgeControl
+    Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Canvas
+    Rasm -->|"[BOUNDARY]: PerceptualColor"| Canvas
+    Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Document
+    Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Eto
+    Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Shell
+    Rasm -->|"[BOUNDARY]: PerceptualColor"| Shell
+    Rasm -->|"[BOUNDARY]: MonotonicTimeline"| Platform
+    Rasm -->|"[BOUNDARY]: PerceptualColor"| Platform
 ```
 
 ## [04]-[INTERNAL]
 
-UI-thread interior composes around two floors — the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate — that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component-authoring and document-transaction spines carry no UI-thread dependency.
+UI-thread interior composes around two floors — the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate — that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component authoring carries no UI-thread dependency; document gates marshal once through the session floor per settlement.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Grasshopper host-boundary interior wiring
@@ -216,24 +150,18 @@ flowchart LR
     Events[[UI events]]
     Native[[Platform native]]
     Composition[[Layer compositor]]
-    Runtime i1@-->|"dispatch marshal"| Session
-    Runtime i2@-->|"UiClock lease"| Motion
-    Runtime i3@-->|"native marshal"| Native
-    Runtime i4@-->|"clock beat"| Events
-    Session i5@-->|"live canvas"| Interaction
-    Session i6@-->|"live canvas"| Paint
-    Session i7@-->|"DocumentToken"| Events
-    Canvas i8@-->|"typed picks"| Interaction
-    Canvas i9@-->|"typed picks"| Wires
-    Paint i10@-->|"paint scene"| Wires
-    Composition i11@-->|"MotionDrive.Step"| Motion
-    Native i12@-->|"anchor custody"| Composition
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Runtime,Session,Canvas,Interaction,Paint,Wires,Motion,Events,Native,Composition primary
-    class i4,i8,i9,i10 edgeData
-    class i1,i2,i3,i5,i6,i7,i11,i12 edgeControl
+    Runtime -->|"dispatch marshal"| Session
+    Runtime -->|"UiClock lease"| Motion
+    Runtime -->|"native marshal"| Native
+    Runtime -->|"clock beat"| Events
+    Session -->|"live canvas"| Interaction
+    Session -->|"live canvas"| Paint
+    Session -->|"DocumentToken"| Events
+    Canvas -->|"typed picks"| Interaction
+    Canvas -->|"typed picks"| Wires
+    Paint -->|"paint scene"| Wires
+    Composition -->|"MotionDrive.Step"| Motion
+    Native -->|"anchor custody"| Composition
 ```
 
 ## [05]-[NAMESPACES]

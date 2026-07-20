@@ -16,11 +16,11 @@
 [PUBLIC_TYPE_SCOPE]: the zone context manager
 - rail: observability/context
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                    |
-| :-----: | :------------------- | :---------------- | :------------------------------------------------------ |
-|  [01]   | `ZoneContextManager` | `ContextManager`  | the `web` row's SDK context manager                     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :------------------- | :---------------- | :------------------------------------------------------- |
+|  [01]   | `ZoneContextManager` | `ContextManager`  | the `web` row's SDK context manager                      |
 |  [02]   | `TargetWithEvents`   | bind target shape | `addEventListener`/`removeEventListener` bearing targets |
-|  [03]   | `Func`               | callback shape    | the bound-function type the manager wraps               |
+|  [03]   | `Func`               | callback shape    | the bound-function type the manager wraps                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -28,12 +28,12 @@
 - rail: observability/context
 - One construction feeds the web SDK configuration; `enable()`/`disable()` bracket its active window, and `bind(context, target)` attaches a context to a function or event-bearing target — the mechanism the user-interaction row rides.
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
-| :-----: | :--------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `new ZoneContextManager()`   | ctor           | one instance at the browser composition root    |
-|  [02]   | `.enable()` / `.disable()`   | lifecycle      | SDK registration owns the bracket               |
-|  [03]   | `.active()` / `.with(ctx, fn)` | context read | SDK-internal; Rasm code reads context via Effect |
-|  [04]   | `.bind(context, target)`     | bind           | span-to-listener binding under interaction spans |
+| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
+| :-----: | :----------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `new ZoneContextManager()`     | ctor           | one instance at the browser composition root     |
+|  [02]   | `.enable()` / `.disable()`     | lifecycle      | SDK registration owns the bracket                |
+|  [03]   | `.active()` / `.with(ctx, fn)` | context read   | SDK-internal; Rasm code reads context via Effect |
+|  [04]   | `.bind(context, target)`       | bind           | span-to-listener binding under interaction spans |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

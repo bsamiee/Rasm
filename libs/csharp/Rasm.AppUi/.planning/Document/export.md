@@ -592,3 +592,7 @@ public sealed partial class ReportSubscription {
         Rasm.AppHost.Runtime.SchedulePort.Window(registered, lastSuccess, now);
 }
 ```
+
+## [08]-[RESEARCH]
+
+(none)

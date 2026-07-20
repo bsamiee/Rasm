@@ -1,6 +1,6 @@
 # [MATERIALS_ARCHITECTURE]
 
-Domain map of `Rasm.Materials` — host-neutral AEC-DOMAIN materials projector onto the shared `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` sub-domains each collapse to one owner per axis, and the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its single `Project` fold discriminates the pure-substance `ComponentProjectionSpec.Substance` arm from the Type-minting `ComponentProjectionSpec.Type` arm, minting the deterministic-rooted Type `Object` from the `Component`'s canonical content and authoring the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges with every sibling projector. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract, never by sibling reference.
+Domain map of `Rasm.Materials` — host-neutral AEC-domain projector onto the `Rasm.Element` seam. `Component`, `Appearance`, `Properties`, and `Projection` collapse to one owner per axis; the one `ComponentProjector : IElementProjection` lowers every owner into the shared `ElementGraph`. Its `Project` fold splits the `Substance` and Type-minting `Type` arms, mints the deterministic-rooted Type `Object` from canonical content, and authors the content-keyed `Material`/`Appearance` subgraph the seam `Assemble` fold merges. AEC peers depend up on `{Rasm, Rasm.Element}` and align by seam contract.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -36,46 +36,27 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
     └── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
 ```
 
-VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal, and the per-page consumption law lives on the owning implementation pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes; the projector returns the seam `Fin<GraphDelta>` the `Assemble` fold merges with every sibling delta. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both, so a peer re-mint of the OpenPBR algebra or the MaterialX schema is the named cross-language drift.
+VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both.
 
 ## [02]-[STRATA]
 
 Three strata order the four sub-domains; `Component` and `Appearance` are true peers sharing only the seam `MaterialId`, so every consumption edge points down.
 
 - S0 `Component` + `Appearance` — peers consuming no sibling: `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail beside `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint; alignment between the pair travels the seam `MaterialId`, never an import.
-- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows; every dimensional mint passes through the S0 `QuantityRow`.
+- S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows; engineering dimensional mints pass through the S0 `QuantityRow`, and sustainability lowers basis-relative scalars straight to the seam factories.
 - S2 `Projection` — the one `ComponentProjector : IElementProjection` folding `Component`, `Properties`, and `Appearance` owners into `Fin<GraphDelta>`; nothing composes it.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Materials interior strata
-    accDescr: Three stacked strata from the one component projector through the property catalogues onto the peer component and appearance owners, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Three stacked strata from the one component projector through the property catalogues onto the peer component and appearance owners, every consumption edge downward naming one sourced type, and one forbidden upward edge marked.
     subgraph L2["S2 PROJECTION"]
         Projector[ComponentProjector]
     end
@@ -93,16 +74,7 @@ flowchart TB
     Projector e3@-->|"[IMPORT]: Component"| Component
     Projector e4@-->|"[IMPORT]: MaterialLibrary"| Library
     Catalogue e5@-->|"[IMPORT]: QuantityRow"| QuantityRow
-    Sustainability e6@-->|"[IMPORT]: QuantityRow"| QuantityRow
     Component f1@-->|"forbidden: owner upward"| L2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Projector,Catalogue,Sustainability primary
-    class Component,QuantityRow,Library recessed
-    class e1,e2,e3,e4,e5,e6 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -110,33 +82,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Materials AEC-domain projection seams
-    accDescr: Materials sub-domain owners exchanging projections, section handles, and property sets with the AEC peers Element, Bim, and Fabrication, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Materials sub-domain owners exchanging projections, section handles, property sets, and detail bags with the AEC peers Element and Bim, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Projection[Projection contracts]
         Component[Component families]
@@ -145,59 +98,27 @@ flowchart LR
     end
     Element{{Rasm.Element}}
     Bim([Rasm.Bim])
-    Fabrication([Rasm.Fabrication])
     Element e1@-->|"[SHAPE]: IElementProjection"| Projection
     Projection e2@-->|"[PROJECTION]: GraphDelta"| Element
     Projection e3@-->|"[SHAPE]: DetailSchema"| Bim
     Component e4@<-->|"[SHAPE]: ProfileRef"| Element
-    Component e5@-->|"[WIRE]: IIfcTypeReconciler"| Bim
+    Component e5@-->|"[PORT]: IIfcTypeReconciler"| Bim
     Properties e6@<-->|"[SHAPE]: MaterialPropertySet"| Element
-    Properties e7@-->|"[WIRE]: MaterialPropertySet"| Fabrication
-    Appearance e8@-->|"[CONTENT_KEY]: AppearanceSummary"| Element
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Projection,Component,Properties,Appearance primary
-    class Element external
-    class Bim,Fabrication annotation
-    class e2 edgeExternal
-    class e1,e3,e4,e6 edgeControl
-    class e5,e7,e8 edgeData
+    Appearance e7@-->|"[CONTENT_KEY]: AppearanceSummary"| Element
+    Component e8@<-->|"[SHAPE]: DetailSchema"| Element
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, and capture wires with compute, the render host, the Python data peer, and the TypeScript core and viewer peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, and capture wires with compute, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
@@ -211,22 +132,11 @@ flowchart LR
     Host([Host boundary])
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
-    Compute e3@-->|"[SHAPE]: AssemblyAggregator"| Properties
-    DataPeer e4@-->|"[WIRE]: Environmental"| Properties
-    Appearance e5@-->|"[BOUNDARY]: LayeredBsdf"| AppUi
-    Appearance e6@-->|"[WIRE]: MaterialWire"| Core
-    Appearance e7@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
-    Host e8@-->|"[WIRE]: CaptureSource"| Appearance
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Component,Properties,Appearance primary
-    class Compute external
-    class AppUi,DataPeer,Core,Ui,Host annotation
-    class e3,e5 edgeControl
-    class e1,e2,e4,e6,e7,e8 edgeData
+    DataPeer e3@-->|"[WIRE]: Assessment"| Properties
+    Appearance e4@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| AppUi
+    Appearance e5@-->|"[WIRE]: MaterialWire"| Core
+    Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
+    Host e7@-->|"[WIRE]: CaptureSource"| Appearance
 ```
 
 ## [04]-[DOMAIN_LAW]
@@ -246,8 +156,8 @@ Canonical-collapse law the sub-domains share — one owner per axis, one entrypo
 - A model author mints Occurrence `Object`s and `Rasm.Bim` ingests `IfcElementType` into the same Type; the `Bake` inheritance is the seam's.
 - Model is host-neutral: no owner holds a host curve or transform; run and layout geometry lands in `Rasm.Generation` at the app root.
 - Composition over re-mint at every seam: Materials projects onto `Rasm.Element` and re-mints no seam type, color axis, unit owner, or dimension.
-- Color is the admitted perceptual owner consumed directly; units admit UnitsNet at the photometric boundary and ride the seam `MeasureValue`.
-- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise — is hand-authored.
+- Color is the admitted perceptual owner consumed directly; units admit UnitsNet once at each owner's declared edge — the photometric boundary and the dimensional component, capacity, and property mints — and ride the seam `MeasureValue`.
+- Only the documented author-kernel set — RGB-to-SPD, scene-referred tone-map, BSDF microfacet, noise, the capacity hull ray-cast — is hand-authored.
 - An out-of-gamut, non-finite, or degenerate result rails to its banded fault off the `FaultBand` registry, never a propagated NaN or sentinel.
 - Standards data is in-fence C# under `SEED_ROW_LAW`: a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`.
 - Every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance.

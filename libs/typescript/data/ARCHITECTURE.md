@@ -34,7 +34,7 @@ data/
 
 ## [02]-[STRATA]
 
-- S0 floor — five independent mints, none importing a data sibling: `lane/postgres` guarantee rows (`Pg.rows`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
+- S0 floor — independent mints, none importing a data sibling: `lane/postgres` guarantee rows (`Pg.rows`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
 - S1 `lane/tenant` + `lane/sqlite` — `tenant` pins the tenancy write path over `Capability` and `Pg`; `sqlite` degrades the `Pg` contract through a type-only read.
 - S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps; `retain` ages and `fact` meters over `Journal` inside the wave.
 - S3 `object` — every byte plane binds `Journal` custody under the one content identity: `store` roots, `stream`/`file`/`remote` compose it, `remote` alone reaching `CacheLane`.
@@ -43,33 +43,14 @@ data/
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto a five-mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite holding a dashed type-only Pg read beside the tenant write path, and one forbidden upward edge styled red.
+    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto the mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite holding a dashed type-only Pg read beside the tenant write path, and one forbidden upward edge styled red.
     subgraph S4["S4 READ"]
         Olap[olap]
         Read["query · batch · search · fold"]
@@ -109,14 +90,6 @@ flowchart TB
     Olap e15@-->|"[IMPORT]: ObjectStore"| Object
     Sqlite e16@-.->|"[TYPE]: Pg"| Postgres
     S0 f1@-->|"forbidden: upward import"| S4
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Read,Olap,Object,Remote,Journal,Tenant,Sqlite primary
-    class Postgres,Capability,Cache,Evolve,Live recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -124,29 +97,10 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Data package seam registry
@@ -178,16 +132,10 @@ flowchart LR
     Runtime e10@-->|"[PORT]: Embedder"| Search
     Postgres e11@-->|"[SHAPE]: Pg.rows"| Iac
     Tenant e12@-->|"[BOUNDARY]: Tenancy.rls"| Iac
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Fold,Store,Tenant,Retain,Append,Live,Stream,Search,Postgres primary
-    class Core,Security,Runtime external
-    class Iac recessed
-    class e2 edgeData
-    class e1,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12 edgeControl
+    Core e13@-->|"[SHAPE]: Convention"| Append
+    Core e14@-->|"[SHAPE]: Convention"| Fold
+    Append e15@-->|"[PORT]: Journal.census"| Runtime
+    Tenant e16@-->|"[PORT]: ClaimStore"| Security
 ```
 
 ## [04]-[ORGANIZATION]

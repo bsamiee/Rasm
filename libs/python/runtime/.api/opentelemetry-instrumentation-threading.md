@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library over `wrapt`
 - namespaces: `opentelemetry.instrumentation.threading`
-- installed: `0.64b0`
 - capability: context capture at `Thread.start`/`Timer` schedule and `ThreadPoolExecutor` submit, context activation inside the worker body, zero emitted signals
 
 ## [02]-[PUBLIC_TYPES]
@@ -19,7 +18,7 @@
 [PUBLIC_TYPE_SCOPE]: instrumentor
 - rail: observability
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                        |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                         |
 | :-----: | :---------------------- | :------------ | :--------------------------------------------- |
 |  [01]   | `ThreadingInstrumentor` | instrumentor  | cross-thread OTel context capture + activation |
 
@@ -28,10 +27,10 @@
 [ENTRYPOINT_SCOPE]: instrumentor lifecycle
 - rail: observability
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :--------------------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `ThreadingInstrumentor().instrument(**kwargs)` | enable         | wrap thread, timer, and executor submission |
-|  [02]   | `ThreadingInstrumentor().uninstrument(**kwargs)` | disable      | unwrap the patched surfaces                  |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `ThreadingInstrumentor().instrument(**kwargs)`   | enable         | wrap thread, timer, and executor submission |
+|  [02]   | `ThreadingInstrumentor().uninstrument(**kwargs)` | disable        | unwrap the patched surfaces                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

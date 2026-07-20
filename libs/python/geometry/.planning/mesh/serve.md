@@ -11,22 +11,24 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 ## [02]-[SERVE]
 
 - Owner: `GeometryServe` — the composition root holding the daemon and its lane; serve holds NO cache, NO kernel, and NO wire shape of its own.
-- Cases: one servicer row today, plus the `ArtifactSync` frame leg the `sync` producer feeds; a new geometry-served method is one route row binding an existing registry codec pair to a railed handler — a new field floor is the runtime registry's one C#-minted row-pair growth, never a geometry-authored shape.
-- Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows.
+- Cases: one route row per served method — `Tessellate` answers the receipt floor, the `ArtifactSync` `Sync` leg folds a parked GLB back as its framed rows; a new geometry-served method is one route row binding an existing registry codec pair to a railed handler — a new field floor is the runtime registry's one C#-minted row-pair growth, never a geometry-authored shape.
+- Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges.
 - Receipt: serve emits nothing of its own — the `@receipted` harvest reads the daemon's accumulated `contribute` stream once per drive, so the chain carries every tessellation fact exactly once; serve mints no graduation subject, since the daemon's product is wire geometry, not evidence.
-- Packages: the daemon and cad vocabulary from geometry, the wire shapes and serve surface from runtime, `msgspec.to_builtins`, `zlib.crc32`, and `expression` per the fence imports.
-- Growth: a new framed artifact class is the runtime registry's one row pair plus one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold; serve latency/pool metrics are one graduation-weave composition, never a page-local instrument mint.
+- Packages: the daemon, cad, and graduation-weave vocabulary from geometry, the wire shapes and serve surface from runtime, `msgspec.to_builtins`, `zlib.crc32`, and `expression` per the fence imports.
+- Growth: a new framed artifact class is the runtime registry's one row pair and one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold.
 - Boundary: the C# `Rasm.Compute/Runtime` owns the `ComputeService`/`ArtifactSync` proto contract both ends compile; the daemon owns the cache and the kernel.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import zlib
+from functools import partial
 from typing import Final
 
 from expression import Error, Ok, Result, Some
 from expression.collections import Block, Map
 from msgspec import to_builtins
 
+from rasm.geometry.graduation import EvidenceScope, evidence_run
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, TessellationPolicy
 from rasm.geometry.mesh.daemon import TessellationDaemon, TessellationResult, TessellationSource
 from rasm.runtime.admission import RuntimeContext
@@ -34,7 +36,7 @@ from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import Receipt, Redaction, receipted
-from rasm.runtime.serve import Route, ServerHost
+from rasm.runtime.serve import Route, RouteArity, ServerHost
 from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, TessellationRequest
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -104,12 +106,12 @@ class GeometryServe:
     def __init__(self, daemon: TessellationDaemon, lane: LanePolicy) -> None:
         self._daemon = daemon
         self._lane = lane  # the lane a non-canonical policy echo mints its per-request daemon over
-        self._served: Map[str, TessellationResult] = Map.empty()  # wire-hash hex -> served result, the sync leg's source
+        self._served: Map[bytes, TessellationResult] = Map.empty()  # wire-key memory bytes -> served result, the sync leg's source
 
     def mount(self, host: ServerHost) -> "RuntimeRail[int]":
         # rows in, count out; ServerHost resolves both codec names per row under ACCUMULATE, never first-miss.
         return host.register(
-            Block.singleton(
+            Block.of_seq([
                 Route(
                     service="rasm.compute.v1.ComputeService",
                     method="Tessellate",
@@ -117,15 +119,26 @@ class GeometryServe:
                     request="tessellate",
                     response="tessellation_receipt",
                     handler=self._tessellate,
-                )
-            )
+                ),
+                Route(
+                    service="rasm.compute.v1.ArtifactSync",
+                    method="Sync",
+                    descriptor="artifact_sync",
+                    request="artifact_frame",
+                    response="artifact_frame",
+                    handler=self._sync,
+                    arity=RouteArity.BIDI,
+                ),
+            ])
         )
 
     async def _tessellate(self, request: TessellationRequest, context: RuntimeContext) -> "RuntimeRail[TessellationReceipt]":
         # decode -> drive -> harvest -> answer; the head result answers the floor while every result parks for the sync leg.
+        # `evidence_run` seeds MESH_SERVE: the weave span nests INTERNAL under the ServerHost interceptor's SERVER span,
+        # and serve latency lands as the geometry evidence-duration row keyed by scope.
         match _source(request):
             case Result(tag="ok", ok=source):
-                rail = await self._drive(source, _policy(request))
+                rail = await evidence_run(EvidenceScope.MESH_SERVE, "tessellate", partial(self._drive, source, _policy(request)))
                 return rail.bind(
                     lambda results: results.try_head()
                     .map(lambda head: Ok(_receipt(head)))
@@ -149,15 +162,19 @@ class GeometryServe:
 
     def _park(self, results: Block[TessellationResult]) -> Block[TessellationResult]:
         for result in results:  # Exemption: the served-results index is the host's one mutating seam.
-            self._served = self._served.add(_wire_hash(result.glb).hex, result)
+            self._served = self._served.add(_wire_hash(result.glb).memory, result)
         return results
 
-    def sync(self, artifact_hash: str) -> "RuntimeRail[Block[ArtifactFrame]]":
-        # served GLB fetched by its wire hash, never re-tessellated.
+    async def _sync(self, request: ArtifactFrame, context: RuntimeContext) -> "RuntimeRail[Block[ArtifactFrame]]":
+        # bidi leg: each inbound frame names the artifact_id it wants; the parked GLB folds back as its framed rows.
+        return self.sync(request.artifact_id)
+
+    def sync(self, artifact_id: bytes) -> "RuntimeRail[Block[ArtifactFrame]]":
+        # served GLB fetched by its wire-key memory bytes — the exact artifact_id every frame carries — never re-tessellated.
         return (
-            self._served.try_find(artifact_hash)
+            self._served.try_find(artifact_id)
             .map(lambda result: Ok(_frames(_wire_hash(result.glb), result.glb)))
-            .default_value(Error(BoundaryFault(wire=(f"serve.sync.{artifact_hash}", 0))))
+            .default_value(Error(BoundaryFault(wire=(f"serve.sync.{artifact_id.hex()}", 0))))
         )
 ```
 

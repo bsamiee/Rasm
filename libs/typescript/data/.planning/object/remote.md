@@ -24,7 +24,7 @@ The remote-origin filesystem plane: ONE origin-addressed surface owning every no
 - Law: the `s3:` row is a bridge, not a re-implementation — its ops delegate to `object/store.md` and `object/stream.md` owners (`head`/`rekey`/`Rail.range`, the intake fold for ingress), so the object plane's conditional-put and grant law hold unchanged behind the origin address.
 - Law: `RemoteFault` reasons route recovery as a fold — `connect` and `auth` invalidate the pooled session, `op` and `transfer` retry under the engine's policy row, `watch` re-arms the strategy, `exec` carries the exit disposition; a free-string-only fault is the named unroutable defect.
 
-```typescript
+```typescript signature
 import { Data, Either, ParseResult, Schema } from "effect"
 
 const _SCHEME_KEYS = ["file", "sftp", "ssh", "ftp", "ftps", "webdav", "s3"] as const
@@ -110,7 +110,7 @@ class Origin extends Schema.Class<Origin>("Origin")({
 - Law: capability discovery narrows the flag row at acquire — `Remote.probe` reads `getDAVCompliance` on the DAV arm (class `"2"` proves the lock row) and `features()` on the FTP arm (`REST` proves offset resume), folding server truth over the scheme's static flags and carrying the `getQuota` capacity fact as an `Option` — a flag a server refuses therefore narrows by data before any op dispatches, never by a caller branch.
 - Boundary: the ssh2 and basic-ftp surfaces are callback/Promise boundary kernels — every listener registration and promise lives inside these brackets, and above them only `Stream`/`Sink`/typed effects exist.
 
-```typescript
+```typescript signature
 import { Effect, KeyedPool, Option, Redacted, type Scope } from "effect"
 import { Client as SshClient, type SFTPWrapper } from "ssh2"
 import { Client as FtpClient } from "basic-ftp"
@@ -283,7 +283,7 @@ const _probe = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.P
 - Law: every remote byte that becomes durable rides `Remote.intake` — the origin row grows no second addressing vocabulary, dedup and 412-idempotency arrive from the object plane for free, and a remote origin is therefore a first-class artifact source.
 - Boundary: the SFTP callback verbs (`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`) are the page's callback kernels — each wraps one `Effect.async` settle and nothing else; timestamp normalization to ISO text lives inside those kernels.
 
-```typescript
+```typescript signature
 import { Chunk, DateTime, Number, Sink, Stream } from "effect"
 import { FileSystem } from "@effect/platform"
 import { NodeSink, NodeStream } from "@effect/platform-node"
@@ -667,7 +667,7 @@ const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect
 - Law: resume is arithmetic where rsync is absent — `resume: true` probes the target, propagates a missing or unreadable-target fault unchanged, opens the positioned write (`flags: "r+"`, `appendFrom` on ftp), and streams the source from the verified byte; the default restart writes from byte zero without manufacturing absence through `Effect.option`.
 - Law: the mined tuning defaults are policy values — `concurrency: 64`, `chunkSize: 32768` arrived from the wrapper ecosystem's measured defaults and live in `_TUNE`, never inline literals.
 
-```typescript
+```typescript signature
 import { Command } from "@effect/platform"
 
 const _TUNE = { concurrency: 64, chunkSize: 32_768 } as const
@@ -779,7 +779,7 @@ const _transfer = (
 - Law: listings are the resume substrate — an interrupted sync re-runs against persisted `{ path, kind, bytes, modified, etag }` rows and the already-applied transfers land as no-ops; `modified` and `etag` remain `Option` from provider read through SQL re-admission, and checksum comparison falls back to size-plus-modified only when either side lacks an ETag, never to null, empty-string, or zero sentinels.
 - Law: the comparator is a policy row, never a fork — `sizeModtime` reads the census, `checksum` compares content evidence (`etag` where the backend mints one, the content-addressed intake fold's key where it does not), `sizeOnly` serves append-only trees; the row travels on the pair.
 
-```typescript
+```typescript signature
 import { Equal, HashSet } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
@@ -965,7 +965,7 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
 - Law: strategy is capability-derived — `exec` rows push through the notify tool, everything else polls; the consumer subscribes ONE change stream regardless, so strategy is invisible past the dispatch.
 - Law: the poll arm is diff-exact — each cycle's census diffs against the held snapshot by the same comparator rows the sync engine reads, emitting `add`/`change`/`remove` with no phantom events on unchanged trees; a lost push connection re-arms through `Stream.retry` and one full poll cycle reconciles anything missed.
 
-```typescript
+```typescript signature
 import { HashMap, Schedule } from "effect"
 
 declare namespace Remote {
@@ -1038,7 +1038,7 @@ const _watch = (
 - Law: command structure survives every arm — callers cannot inject a `sh -c` program or interpolate a path into command text; only the SSH boundary renders argv into a POSIX command using single-quote isolation, while the local boundary executes `file` plus `args` without a shell. A non-zero exit is data on the result, never an exception; a channel-level failure is the `exec` fault reason.
 - Boundary: the exec callback and the `exit` listener are the channel's boundary kernel — the last statement flow on the page.
 
-```typescript
+```typescript signature
 import { CommandExecutor } from "@effect/platform"
 
 declare namespace Remote {

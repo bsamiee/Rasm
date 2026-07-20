@@ -14,7 +14,7 @@ Mesh-topology conditioning and metrology over an in-memory triangulation: `MeshQ
 - Cases: `Decimate` coarsens mesh topology for a downstream geometry op — render-time decimation for display is the artifacts figures owner's, and an LOD/display-budget arm here trespasses that boundary; `Subdivide` densifies before a curvature-sensitive metric pass; `Smooth` denoises before a deviation pass; `Metrics` is the gate the daemon and the clash/deviation hops read before trusting a surface.
 - Auto: the `MANIFOLD3D` tier is enrichment over the always-available `SPINE` Euler-characteristic default, never the spine itself — one offloaded build yields the exact genus (summed over `decompose()` components), the exact counts, and the kernel mass superseding the `trimesh` measure in a single fold.
 - Packages: `trimesh` (the conditioning filters, cached validity/mass axes, `vertex_defects`), `numpy` (the half-edge incidence fold and per-cell shape statistics), `manifold3d` (the exact tier, reached only through the `QualityBackend` row), `expression`, `msgspec`, and the runtime rails per the fence imports.
-- Growth: a new conditioning op is one `MeshQualityOp` case plus its mirrored `MeshQualityResult` arm and one `Outcome`-producing body; a new smoothing filter is one `SmoothKind` row; a new topology backend is one `QualityBackend` row.
+- Growth: a new conditioning op is one `MeshQualityOp` case and its mirrored `MeshQualityResult` arm and one `Outcome`-producing body; a new smoothing filter is one `SmoothKind` row; a new topology backend is one `QualityBackend` row.
 - Boundary: watertight repair, hole-fill, and boolean CSG are `mesh/repair`'s; proximity, ray, contains, and sampling queries are `mesh/spatial`'s; registration and reconstruction are `scan/registration`+`scan/reconstruction`'s; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
 ```python signature
@@ -161,7 +161,7 @@ class MeshQualityResult:
         return MeshQualityResult(metrics=metrics)
 
 
-class Outcome(Struct, frozen=True):  # one arm's payload plus receipt facts; never a per-arm receipt build
+class Outcome(Struct, frozen=True):  # one arm's payload and receipt facts; never a per-arm receipt build
     result: MeshQualityResult
     faces_before: int
     faces_after: int
@@ -304,7 +304,7 @@ class MeshQuality:  # structural ReceiptContributor conformance — the base add
             "worst_aspect_ratio": r.worst_aspect_ratio, "worst_skewness": r.worst_skewness,
             "genus": r.genus,
         }
-        yield Receipt.of("mesh.quality", (phase, r.op, facts))  # subject is the op tag, never duplicated into a facts slot
+        yield Receipt.of("rasm.geometry.mesh.quality", (phase, r.op, facts))  # subject is the op tag, never duplicated into a facts slot
 
     def _spine(self, op: MeshQualityOp) -> Outcome:  # the in-place conditioning arms only
         before = len(self._mesh.faces)

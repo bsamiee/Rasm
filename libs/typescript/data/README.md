@@ -1,6 +1,8 @@
 # [TS_DATA]
 
-`data` is the branch's durable-persistence plane — one body: the guarantee-lane matrix pricing what each engine promises, the append-only journal as the record of truth, the content-addressed object plane over the one `ContentKey`, and the typed read side. Its bar is trust made structural: no engine boots unproven — every extension and relation demand is proven at `Layer` construction; truth is never rewritten — evolution is read-time upcasting and aging folds behind the causal frontier; atomicity is one commit — outbox rows, projection slots, the idempotency claim, and their events settle together, a replay returning the stored receipt; erasure is cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker. Apps at fleet scale under row, schema, and database isolation share one pool and one code path with tenancy a scope value rather than a deployment, and the wire peers demand bit-identical content identity, so an artifact hashed in any runtime is reusable by every other.
+`data` is the branch's durable-persistence plane — one body: the guarantee-lane matrix pricing what each engine promises, the append-only journal as the record of truth, the content-addressed object plane over the one `ContentKey`, and the typed read side. Fleet-scale apps share one pool and one code path with tenancy a scope value, and wire peers demand bit-identical content identity, so an artifact hashed in any runtime is reusable by every other.
+
+Its bar is trust made structural: no engine boots unproven — every extension and relation demand is proven at `Layer` construction; truth is never rewritten — evolution is read-time upcasting behind the causal frontier; atomicity is one commit — outbox rows, projection slots, the idempotency claim, and their events settle together, a replay returning the stored receipt; erasure is cryptographically total — destroying the sole wrapped key folds every sealed read to a redaction marker.
 
 A backend enters as a semantic-guarantee row on its owning lane, never a sibling shape. This folder stores only wrapped key material — custody stays with security — and enforces the security-declared tenancy contract at every write through the one pinned transaction path; the deploy plane applies schema at provision while data proves it fail-closed at startup and never mutates it.
 
@@ -28,6 +30,7 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 - `@effect/sql-clickhouse`
 - `@duckdb/node-api`
 - `@duckdb/duckdb-wasm`
+- `@qualithm/arrow-flight-client` — Flight SQL wire for remote columnar engines over the `@connectrpc/connect` transport, decoding to Arrow tables.
 - `apache-arrow` — carries the zero-copy columnar format shared with the interface plane.
 
 [OBJECT_TRANSPORT]:

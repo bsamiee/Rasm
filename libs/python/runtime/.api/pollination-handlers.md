@@ -9,7 +9,6 @@
 - import: `import pollination_handlers`
 - owner: `runtime`
 - rail: recipe-execution / io-coercion
-- installed: `0.10.10`
 - license: `AGPL-3.0` (network copyleft; the binding admission flag for this distribution)
 - abi: pure-Python (`py2.py3-none-any`, purelib; no native extension)
 - depends: `lbt-dragonfly (>=0.9.453)` — honeybee/honeybee-energy/honeybee-radiance, ladybug/ladybug-comfort, dragonfly/dragonfly-energy (the domain classes the handlers read and write)

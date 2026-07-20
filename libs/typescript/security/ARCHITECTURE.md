@@ -30,29 +30,10 @@ security/
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Security interior import strata
@@ -79,15 +60,10 @@ flowchart TB
     Ceremony e4@-->|"[IMPORT]: SingleUse"| Sign
     Claim e5@-->|"[IMPORT]: AccessClaims"| Sign
     Claim e6@-->|"[IMPORT]: TenantScope"| TenantRef
+    Session e9@-->|"[IMPORT]: Reject"| Verify
+    Credential e10@-->|"[IMPORT]: Reject"| Verify
+    Ceremony e11@-->|"[IMPORT]: Reject"| Verify
     S0 f1@-->|"forbidden: upward import"| S2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Ceremony,Claim,Verify,Secret,Session,Credential primary
-    class Sign,TenantRef recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -95,33 +71,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Security package seam registry
-    accDescr: Security sub-domain owners exchanging identity, custody, and tenancy contracts with the core, data, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Security sub-domain owners exchanging identity, custody, tenancy, and telemetry contracts with the core, data, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
     subgraph security[SECURITY]
         Crypt[Crypt authority]
         Authn[Authn spine]
@@ -142,21 +99,13 @@ flowchart LR
     Crypt e9@-->|"[BOUNDARY]: Intake"| Runtime
     Crypt e10@-->|"[BOUNDARY]: LeaseSpec"| Iac
     Access e11@-->|"[PORT]: FlagGate"| Runtime
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Crypt,Authn,Access primary
-    class Runtime external
-    class Data data
-    class Core,Iac recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10,e11 edgeControl
+    Core e12@-->|"[SHAPE]: Convention"| Crypt
+    Access e13@-->|"[PROJECTION]: rasm.tenant"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]
 
-`crypt/sign` is the sole mint — every digest, signature, token, and envelope originates there; `crypt/verify` mirrors it inbound over held octets so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the leased surfaces the folder admits. `authn/session` is the identity spine the ceremonies feed: `credential` funnels every second factor through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath. `access` turns verified identity into decisions: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as row-level security.
+`crypt/sign` is the sole mint and `crypt/verify` its inbound mirror over held octets, so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the folder's leased surfaces. `authn/session` is the identity spine the ceremonies feed: `credential` funnels every second factor through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath. `access` turns verified identity into decisions: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as RLS.
 
 ## [05]-[BOUNDARIES]
 

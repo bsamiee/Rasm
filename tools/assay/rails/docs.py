@@ -46,14 +46,13 @@ class DocsParams(BaseParams):
 
 
 class _Finding(msgspec.Struct, frozen=True):
-    """One engine NDJSON row: ``check`` (validate-mermaid, prose-gate) and ``rule`` (check-canon) are the mutually exclusive kind slots."""
+    """One engine NDJSON row: ``check`` names the emitting check (validate-mermaid, prose-gate)."""
 
     file: str
     line: int
     status: str
     detail: str = ""
     check: str = ""
-    rule: str = ""
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -102,7 +101,7 @@ def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
         if (line := raw.strip()).startswith("{")
         for found in (_decode(line),)
         if found is not None and (severity := _SEVERITY.get(found.status)) is not None
-        for kind in (found.check or found.rule or "engine",)
+        for kind in (found.check or "engine",)
     )
 
 
@@ -145,7 +144,7 @@ def _strict(report: Report, *, strict: bool) -> Report:
 def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, executor: Executor) -> Result[Report, Fault]:
     """Gate routed Markdown files through every docs engine, with optional strict EMPTY/SKIP promotion.
 
-    Mermaid validation, canon conformance, and the prose gate fan per (engine, file); NDJSON findings fold
+    Mermaid validation and the prose gate fan per (engine, file); NDJSON findings fold
     into typed result rows with fail as error and warn as warning.
 
     Returns:

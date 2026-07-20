@@ -1,6 +1,6 @@
 # [PY_DATA_MESH]
 
-Mesh-file exchange owner over a `MeshBackend` axis, plus the point-cloud interchange row: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — and `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, and the geometry `pdal` filter-graph stays geometry-owned.
+Mesh-file exchange owner over a `MeshBackend` axis with the point-cloud interchange row: `MeshPayload` carries mesh-file identity, cell-block topology, units, named array arities, the FE time-series rail, and preview export over one `_BACKEND` behavior table — `meshio` for FE volume/cell-block meshes, `trimesh` for surface meshes, `rhino3dm` for `.3dm` exchange — and `PointCloud` is the LAS/LAZ/COPC row over `laspy` alone. This is file exchange and identity: the IFC-to-GLB tessellation rail belongs to the geometry package, never re-derived here, and the geometry `pdal` filter-graph stays geometry-owned.
 
 Every payload keys by runtime `ContentIdentity` over the canonical `float64` point buffer, and the named-array egress rides the shared `tabular/columnar#SCAN` `QueryReceipt.railed` Arrow rail — the same `(table, QueryReceipt)` pair every sibling Arrow producer returns. Source engines load exactly once per operation and threads through the row reader, so `read`/`arrays`/`preview`/`write` never re-open the file. Network-bearing COPC reads route through `guarded(RetryClass.HTTP, on_thread, ...)`, the `THREAD_BAND`-bounded hop — the same retry/span/lift triplet the sibling spatial pages delegate to the runtime resilience owner.
 
@@ -377,6 +377,7 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
@@ -500,7 +501,10 @@ class PointCloud(Struct, frozen=True):
             reader = _open_copc(path, selection)
             return PointRecordTable.of(query.query(reader), crs_wkt=str(reader.header.parse_crs() or ""))
 
-        with _TRACER.start_as_current_span("pointcloud.subset", attributes={"rasm.pointcloud.remote": remote}):
+        # the remote COPC leg is an outbound network read — kind=CLIENT per the catalog span-kind law; a local path stays INTERNAL.
+        with _TRACER.start_as_current_span(
+            "pointcloud.subset", kind=SpanKind.CLIENT if remote else SpanKind.INTERNAL, attributes={"rasm.pointcloud.remote": remote}
+        ):
             railed_rail = (
                 await guarded(RetryClass.HTTP, on_thread, run, abandon=True, subject="pointcloud.subset")
                 if remote

@@ -1,8 +1,8 @@
 # [PY_COMPUTE_QUANTITY]
 
-The one unit-bearing uncertain-quantity owner: `UncertainQuantity` threads a correlated `uncertainties.UFloat` magnitude through the pint unit algebra via the native `pint.Measurement` bridge, so unit conversion, first-order error propagation, content identity, and graduation compose on one value. Linear first-order propagation is the boundary — a large-uncertainty regime routes to the study Monte-Carlo sampler.
+`UncertainQuantity` is the one unit-bearing uncertain-quantity owner, threading a correlated `uncertainties.UFloat` magnitude through the pint unit algebra via the native `pint.Measurement` bridge, so unit conversion, first-order error propagation, content identity, and graduation compose on one value. Linear first-order propagation is the boundary — a large-uncertainty regime routes to the study Monte-Carlo sampler.
 
-The unit vocabulary is one read-only frozen application registry shared through `pint.get_application_registry` — no per-call `UnitRegistry()`, no owner-side `define` — so every minted `Quantity`/`Measurement` stays arithmetically compatible across the folder. The dimensional-consistency claim graduates through the `graduation/handoff.md#GRADUATION` `unit_law` axis — the same residual-over-ceiling gate `experiments/inference.md#BAYESIAN` `uncertainty_law` evidence feeds — and a cohort whose data admits as a `numerics/array.md#PAYLOAD` payload keys under the same `ContentIdentity` seed.
+One read-only frozen application registry owns the unit vocabulary, shared through `pint.get_application_registry` — no per-call `UnitRegistry()`, no owner-side `define` — so every minted `Quantity`/`Measurement` stays arithmetically compatible across the folder. Dimensional-consistency claims graduate through the `graduation/handoff.md#GRADUATION` `unit_law` axis — the same residual-over-ceiling gate `experiments/inference.md#BAYESIAN` `uncertainty_law` evidence feeds — and a cohort whose data admits as a `numerics/array.md#PAYLOAD` payload keys under the same `ContentIdentity` seed.
 
 ## [01]-[INDEX]
 
@@ -12,8 +12,8 @@ The unit vocabulary is one read-only frozen application registry shared through 
 
 - Owner: `UncertainQuantity` — the `Magnitude` structural tag IS the propagation mode, so no parallel mode field shadows it, and no parallel uncertain type stands beside the unit-bearing one.
 - Cases: `Magnitude.join` subsumes the unary map — a scalar with no peers stays scalar — so unary and n-ary propagation are one fold rather than two near-identical rebuild branches; `Umath` members carry their own `arity`, and `propagate` gates the supplied operand count BEFORE the lifted call, so an arity mismatch is a typed reject instead of the opaque `wrap`-call `TypeError`; cohort admission is symmetric with the `CORRELATION` view — a cohort built from a correlation matrix reads back as one.
-- Entry: each cohort member re-keys over the cohort key plus its own unique tag, so two siblings never share a `content_key` — a shared key collides them as cache keys and as propagation-operand bytes, returning a stale propagation for a different operand; a converted or propagated value re-keys because it is a new value, never a source-key cache collision.
-- Growth: a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case plus its `lifted`/`label` arms; a new cohort construction is one `Covariance` case plus its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key; a new provenance view is one `CohortView` row plus its fold arm.
+- Entry: each cohort member re-keys over the cohort key and its own unique tag, so two siblings never share a `content_key` — a shared key collides them as cache keys and as propagation-operand bytes, returning a stale propagation for a different operand; a converted or propagated value re-keys because it is a new value, never a source-key cache collision.
+- Growth: a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key; a new provenance view is one `CohortView` row with its fold arm.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -29,12 +29,13 @@ from msgspec import Struct
 from uncertainties import UFloat, correlated_values, correlated_values_norm, correlation_matrix, covariance_matrix, ufloat, umath, unumpy, wrap
 from uncertainties.unumpy import ulinalg
 
-from rasm.compute.graduation.handoff import GraduationReceipt, HandoffAxis
+from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary, railed, traversed
 from rasm.runtime.receipts import Receipt
 
-pint.set_application_registry(pint.UnitRegistry())
+# read-once handle on the shared application registry; the composition root alone binds a custom registry,
+# so this module runs no import-time `set_application_registry` mutation.
 _UREG: pint.UnitRegistry = pint.get_application_registry()
 
 
@@ -42,7 +43,7 @@ _UREG: pint.UnitRegistry = pint.get_application_registry()
 
 
 class Umath(StrEnum):
-    # the `str` value is the `uncertainties.umath` attribute name and `arity` rides each member, collapsing the parallel arity table.
+    # `str` value is the `uncertainties.umath` attribute name and `arity` rides each member, collapsing the parallel arity table.
     arity: int
 
     def __new__(cls, fn: str, arity: int) -> "Umath":
@@ -120,8 +121,8 @@ class Magnitude:
         return Magnitude.Correlated(cell, self.peers) if self.tag == "correlated" else Magnitude.Scalar(cell)
 
     def join(self, others: "tuple[Magnitude, ...]", apply: Callable[..., UFloat], /) -> "Magnitude":
-        # the applied `UFloat` already carries the joint chain-rule gradient against all inputs, so the result is correlated with
-        # the dedup-stable union of every operand's peers, scalar only when none carries peers.
+        # applied `UFloat` already carries the joint chain-rule gradient against all inputs, so the result is correlated with the
+        # dedup-stable union of every operand's peers, scalar only when none carries peers.
         cohort = (self, *others)
         cell = apply(*(m.cell for m in cohort))
         peers = tuple(dict.fromkeys(p for m in cohort for p in m.peers))
@@ -154,7 +155,7 @@ class Covariance:
                 assert_never(unreachable)
 
     def canonical(self) -> bytes:
-        # the `norm` arm folds BOTH the std-dev vector AND the correlation block, so two cohorts differing only in `std_devs` key distinctly.
+        # `norm` arm folds BOTH the std-dev vector AND the correlation block, so two cohorts differing only in `std_devs` key distinctly.
         match self:
             case Covariance(tag="full", full=matrix):
                 return b"full" + np.ascontiguousarray(matrix, dtype=np.float64).tobytes()
@@ -199,7 +200,7 @@ class Propagation:
 
     @property
     def label(self) -> str:
-        # the stable function identity `_propagated_key` seeds over: the `Umath` value or the callable's qualified name.
+        # stable function identity `_propagated_key` seeds over: the `Umath` value or the callable's qualified name.
         match self:
             case Propagation(tag="named", named=fn):
                 return fn.value
@@ -249,11 +250,11 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     def graduates(self) -> "RuntimeRail[GraduationReceipt]":
-        # the verdict is a `consistency` residual rejected against a `0.0` ceiling, so an inconsistent quantity is the
+        # verdict is a `consistency` residual rejected against a `0.0` ceiling, so an inconsistent quantity is the
         # `Error(BoundaryFault)` the gate returns; the axis case IS the subject, never a parallel `subject: str` field.
         measured = {"consistency": 0.0 if self.consistent else 1.0}
         ceiling = {"consistency": 0.0}
-        return GraduationReceipt.graduates("compute", HandoffAxis(unit_law=self.unit_expr), self.content_key, measured, ceiling)
+        return GraduationReceipt.graduates(EvidenceScope.QUANTITY.value, HandoffAxis(unit_law=self.unit_expr), self.content_key, measured, ceiling)
 
     def contribute(self) -> Iterable[Receipt]:
         facts: dict[str, object] = {
@@ -267,7 +268,7 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
             "components": self.components,
             "content_key": self.content_key,
         }
-        return (Receipt.of("compute.quantity", ("emitted", self.unit_expr, facts)),)
+        return (Receipt.of(EvidenceScope.QUANTITY.value, ("emitted", self.unit_expr, facts)),)
 
 
 class UncertainQuantity(Struct, frozen=True):
@@ -374,7 +375,7 @@ def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /) -> "Run
                 arr = unumpy.uarray([c.nominal_value for c in cells], [c.std_dev for c in cells])
                 return np.stack([unumpy.nominal_values(arr), unumpy.std_devs(arr)])
             case CohortView.INVERSE | CohortView.PSEUDOINVERSE:
-                # the uncertainty-propagating inverse keeps linear-system provenance inside the propagation graph, never a bare numpy
+                # uncertainty-propagating inverse keeps linear-system provenance inside the propagation graph, never a bare numpy
                 # solve; the square side is `isqrt`-guarded — a silent `round` would mis-shape the matrix.
                 side = isqrt(len(cells))
                 if side * side != len(cells):

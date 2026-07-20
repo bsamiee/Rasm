@@ -1,13 +1,13 @@
 # [RASM_GRASSHOPPER_PLATFORM_NATIVE]
 
-The macOS-native boundary owns platform admission, managed-to-AppKit view extraction, rich input monitors, gesture and pressure attachment, workspace accessibility facts, screen-bound pacing evidence, and every inverse native lifecycle. `MacGate` requires both a macOS process and the active valid `Eto.Mac.Platform`; `EtoDispatch` owns UI affinity; `Lease<T>` bounds every retained observer or attachment; and deferred native callbacks record faults instead of throwing through the AppKit pump.
+`MacGate` heads the macOS-native boundary — platform admission, managed-to-AppKit view extraction, rich input monitors, gesture and pressure attachment, workspace accessibility facts, screen-bound pacing evidence, and every inverse native lifecycle. `MacGate` requires both a macOS process and the active valid `Eto.Mac.Platform`; `EtoDispatch` owns UI affinity; `Lease<T>` bounds every retained observer or attachment; and deferred native callbacks record faults instead of throwing through the AppKit pump.
 
 ## [01]-[INDEX]
 
 - [02]-[GATE_AND_ANCHOR]: `MacGate` + `MacViewRole` + `AnchorSource` + `MacAnchor` — dual platform admission and explicit `IMacControlHandler` view-role extraction.
 - [03]-[INPUT]: `NativeInput` + `MonitorPlan` + `NativeMonitor` — ABI-faithful `NSEvent` evidence, absorption policy, callback containment, and leased monitor teardown.
 - [04]-[GESTURE_AND_PRESSURE]: `GestureKind` + `GesturePlan` + `GestureBinding` + `PressureBinding` — typed recognizer minting, callback evidence, configuration, and exact UI-affine inverses.
-- [05]-[WORKSPACE]: `AccessibilityPosture` + `PaceBounds` + `WorkspaceFact` + `WorkspaceWatch` — initial and changing accessibility facts plus anchor-screen retuning evidence.
+- [05]-[WORKSPACE]: `AccessibilityPosture` + `PaceBounds` + `WorkspaceFact` + `WorkspaceWatch` — initial and changing accessibility facts with anchor-screen retuning evidence.
 
 ## [02]-[GATE_AND_ANCHOR]
 
@@ -21,9 +21,9 @@ The macOS-native boundary owns platform admission, managed-to-AppKit view extrac
 
 ## [03]-[INPUT]
 
-- Owner: `NativeInput` preserves the installed `NSEvent` ABI: `NFloat` scroll, magnification, and stage-transition values; `float` rotation, pressure, and tangential pressure; native-width `nint Stage`; `NSEventModifierMask Modifiers`; and `ushort KeyCode`. The native event never escapes its callback.
+- Owner: `NativeInput` preserves the installed `NSEvent` ABI: `NFloat` scroll, magnification, and stage-transition values; `float` rotation, pressure, and tangential pressure; native-width `nint Stage`; `NSEventModifierMask Modifiers`; and `ushort KeyCode`. Native events never escape their callback.
 - Owner: `MonitorPlan` carries mask, publication, and absorption policy. `NativeMonitor.Receive` projects the event and executes both delegates inside `Op.Catch`; a callback fault records in `LastFault` and returns the original event, preserving the responder chain rather than swallowing on uncertainty.
-- Entry: `NativeSeam.Observe(MonitorPlan, Op?)` → `Fin<Lease<NativeMonitor>>` attaches one local monitor. The owned lease marshals its idempotent inverse, calls `NSEvent.RemoveMonitor`, and disposes the returned token even when one inverse step faults.
+- Entry: `NativeSeam.Observe(MonitorPlan, Op?)` → `Fin<Lease<NativeMonitor>>` attaches one local monitor. Its owned lease marshals its idempotent inverse, calls `NSEvent.RemoveMonitor`, and disposes the returned token even when one inverse step faults.
 - Law: monitor publication projects and returns. Downstream host mutation enters through its own owning session or dispatch gate, so the native callback never becomes an unbounded application-work window.
 - Packages: Microsoft.macOS (`NSEvent`, `NSEventMask`, `NSEventType`, `NSEventPhase`, `NSEventModifierMask`, `NFloat`, `NSObject`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new event axis is one ABI-faithful field on `NativeInput`; a new monitor scope is data in `NSEventMask`.

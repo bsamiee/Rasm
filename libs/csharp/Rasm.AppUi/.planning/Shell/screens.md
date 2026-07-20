@@ -128,7 +128,9 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public const string SuspendedInstrument = "rasm.appui.screen.suspended";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ActivatedInstrument, SuspendedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ActivatedInstrument, InstrumentKind.Count, "{activation}", "screen activations by screen id"),
+            new(SuspendedInstrument, InstrumentKind.Count, "{suspension}", "screen suspensions by trigger"));
 
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend()).As().Map(static _ => unit));
@@ -336,3 +338,7 @@ public static class ScreenWire {
     }
 }
 ```
+
+## [08]-[RESEARCH]
+
+(none)

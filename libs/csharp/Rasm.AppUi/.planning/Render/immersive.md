@@ -149,11 +149,13 @@ public sealed record ImmersiveSession(
     public Fin<Unit> Release(XR xr, Option<FBPassthrough> fb, Option<FBFoveation> foveation) =>
         Ledger.Release(xr, fb, foveation);
 
-    public const string ResolvedInstrument = "rasm.appui.immersive.session-resolved";
-    public const string AbsentInstrument = "rasm.appui.immersive.session-absent";
+    public const string ResolvedInstrument = "rasm.appui.immersive.session.resolved";
+    public const string AbsentInstrument = "rasm.appui.immersive.session.absent";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ResolvedInstrument, InstrumentKind.Count, "{session}", "XR sessions resolved by system id"),
+            new(AbsentInstrument, InstrumentKind.Count, "{session}", "XR session creation absences"));
 }
 ```
 
@@ -298,3 +300,7 @@ flowchart LR
 
 - [XR_SESSION_GRAPHICS]: `XrRuntime.Ready` carries the advertised view configurations, blend modes, refresh rates, and extension set consumed by `ImmersiveMode.Bind`. The bound session owns `CreateSession`, swapchain enumeration/acquire/wait, `LocateViews`, and `EndFrame` behind one `WgpuDevice`; `XrHandleLedger` releases every acquired handle in reverse order and accumulates every failed `Result`.
 - [FB_PASSTHROUGH]: the passthrough arm admits only when `XR_FB_passthrough` is advertised, then owns `CreatePassthroughFB`, `CreatePassthroughLayerFB`, `PassthroughStartFB`, `PassthroughLayerSetStyleFB`, and `CompositionLayerPassthroughFB` submission as one `Passthrough` case. An unavailable extension folds to the opaque projection path and cannot create a partial handle graph.
+
+## [06]-[RESEARCH]
+
+(none)

@@ -18,9 +18,12 @@ runtime/
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex and SSE feeds over one frame vocabulary
     │   ├── pubsub.ts          # Fanout — the engine-blind broadcast, replay, and blob port over one Broker
     │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
-    ├── otel/                  # OTLP wire: export/ingest, crash capture, browser RUM
-    │   ├── emit.ts            # One OTLP egress Layer and collector ingress under the redaction scrub
+    ├── otel/                  # OTLP wire: egress, W3C continuation, crash capture, browser RUM
+    │   ├── emit.ts            # One OTLP egress Layer and the W3C continuation ingress under the redaction scrub
+    │   ├── instrument.ts      # Browser auto-instrumentation registration on the web lane's exposed provider
+    │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
+    │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
     │   └── vital.ts           # RUM vital rows over one scoped PerformanceObserver bridge
     ├── serve/                 # One public front door
     │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
@@ -52,46 +55,27 @@ runtime/
 
 - S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport (`Client`, `Feed`) and import no runtime sibling.
 - S1 `proc` substrate — `config` resolves `Setting` once over `Client`, `flag` rides `Feed` channels, `exec`/`life`/`worker` mint their rails floor-free; the worker runner entry (`worker.main.ts`) hands `Report.worker` in as composition-root code, never a stratum import.
-- S2 carriers + work — `net/pubsub` and `net/coordinate` compose `Setting`; `otel` composes `Life`; `browser` composes `Client` and stands parallel to the server plane, importing none of serve, work, or ai; `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol at the same rank.
+- S2 carriers + work — `net/pubsub` and `net/coordinate` compose `Setting`; `otel` composes `Life`; `browser` composes `Client`, folds `Vital.enrich` over its dial spans, and stands parallel to the server plane, importing none of serve, work, or ai; `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol at the same rank and marks its settlement facts through the otel meter bridge — the meter mark and the vital projection are the two lateral edges inside S2.
 - S3 `serve` — the front door composing `Fanout`, `Propagation`, and `Life`; nothing imports serve.
 - `ai` composes no runtime sibling — its edges run outward to core, data, and security alone, standing beside the strata rather than inside them.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Runtime interior import strata
-    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — every import downward, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
+    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — imports downward with two lateral edges inside S2 (the work-to-otel meter mark, the browser-to-otel vital projection), labeled edges naming one sourced type each, and one forbidden upward edge.
     subgraph S3["S3 SERVE"]
         Serve["api · route · live · problem · cli"]
     end
     subgraph S2["S2 CARRIERS + WORK"]
         Fanout["pubsub · coordinate"]
-        Otel["emit · crash · vital"]
+        Otel["emit · crash · dev · instrument · meter · vital"]
         Browser["boot · shell · persist · route · fetch"]
         Work["entity · flow · queue · schedule · deliver · report"]
     end
@@ -104,23 +88,18 @@ flowchart TB
     Proc e1@-->|"[IMPORT]: Client"| NetFloor
     Fanout e2@-->|"[IMPORT]: Setting"| Proc
     Otel e3@-->|"[IMPORT]: Life"| Proc
+    Otel e11@-->|"[IMPORT]: Setting"| Proc
     Browser e4@-->|"[IMPORT]: Client"| NetFloor
     Work e5@-->|"[IMPORT]: Setting"| Proc
     Work e6@-->|"[IMPORT]: Client"| NetFloor
     Work e10@-->|"[IMPORT]: Bench"| Proc
+    Work e12@-->|"[IMPORT]: Pulse"| Otel
+    Browser e13@-->|"[IMPORT]: Vital"| Otel
     Serve e7@-->|"[IMPORT]: Fanout"| Fanout
     Serve e8@-->|"[IMPORT]: Propagation"| Otel
     Serve e9@-->|"[IMPORT]: Life"| Proc
     Serve ~~~ Fanout
     S0 f1@-->|"forbidden: upward import"| S3
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Serve,Work,Fanout,Otel,Browser,Proc primary
-    class NetFloor recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -128,33 +107,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Runtime domain-peer seam registry
-    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, and durable-store shapes with the core, security, and data TypeScript domain peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, durable-store, and tenant-projection shapes with the core, security, and data TypeScript domain peers, one edge per contract family mirrored at each counterpart.
     subgraph runtime[RUNTIME]
         Proc[Proc substrate]
         Net[Net egress]
@@ -181,48 +141,21 @@ flowchart LR
     Data e10@-->|"[SHAPE]: Live.changes"| Serve
     Work e11@<-->|"[BOUNDARY]: Journal.claimBatch"| Data
     Ai e12@-->|"[PORT]: Embedder"| Data
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Proc,Net,Otel,Browser,Serve,Work,Ai primary
-    class Core,Security external
-    class Data data
-    class e4 edgeData
-    class e1,e2,e3,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14 edgeControl
+    Data e15@-->|"[PORT]: Journal.census"| Otel
+    Security e16@-->|"[PROJECTION]: rasm.tenant"| Otel
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Runtime platform and cross-runtime seam registry
-    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, one edge per contract family mirrored at each counterpart.
     subgraph runtime[RUNTIME]
         Otel[Otel wire]
         Proc[Proc substrate]
@@ -240,25 +173,18 @@ flowchart LR
     Serve e5@-->|"[BOUNDARY]: EXT_meshopt_compression"| Ui
     Browser e6@-->|"[PORT]: Atom.subscribable"| Ui
     Browser e7@-->|"[PORT]: GlbViewport"| Ui
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Otel,Proc,Net,Serve,Browser primary
-    class Iac external
-    class AppHost,Ui recessed
-    class e1 edgeExternal
-    class e2,e3,e4,e5,e6,e7 edgeControl
+    Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
 ```
 
 ## [04]-[ORGANIZATION]
 
-`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability; its vocabulary lives in core. `serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so entities, queues, cron, and relay pacing share a single service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane, one byte transport delegating identity to the core mint.
+`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability; its vocabulary lives in core.
+
+`serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so the durable plane shares one service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane.
 
 ## [05]-[BOUNDARIES]
 
 - App root, never this folder, assembles the `HttpApi`, satisfies port `Tag`s, selects runtime rows, and binds the browser composition root.
-- Data owns the record of truth; work composes its outbox and mailbox, never a second store; NATS carries fanout and replay, never truth.
+- Data owns the record of truth; work composes data's outbox and mailbox, never a second store; NATS carries fanout and replay, never truth.
 - Content identity is never minted here; the browser decode worker delegates to the core `Digest` engine.
 - Cluster runs leaderless over `RunnerStorage` advisory locks; the node-bound cluster and rpc-http upstreams are never admitted.

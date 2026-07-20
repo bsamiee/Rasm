@@ -1,6 +1,6 @@
 # [PY_DATA]
 
-`data` is the host-free data-interchange plane of the Python branch: every AEC dataset the platform touches — BIM quantity tables, scan point clouds, simulation tensors, geospatial context, carbon declarations — crosses through it as typed, content-keyed, Arrow-carried claims. One columnar, relational, and lakehouse tabular core carries the `spatial`, `gridded`, `graph`, and `impact` planes, and the bar is interchange trust: an admitted package is mined to fence depth, a claimed provider arm is a realized fold, and a frame that leaves is self-describing — source, unit, identifier, and content key ride the columns, so a consumer decodes by name and never re-derives attribution. Compute schedules studies over its frames, C# Persistence federates its content keys and Substrait plans, and artifacts renders its profiles and quality reports.
+`data` is the Python branch's host-free interchange plane: every AEC dataset — BIM quantities, scan point clouds, simulation tensors, carbon declarations — crosses as typed, content-keyed, Arrow-carried claims. One columnar, relational, and lakehouse tabular core carries the `spatial`, `gridded`, `graph`, and `impact` planes; the bar is interchange trust — a frame that leaves is self-describing, so a consumer decodes by name and never re-derives attribution. Compute schedules studies over its frames, Persistence federates its content keys and Substrait plans, artifacts renders its profiles.
 
 It consumes runtime `ContentIdentity`, `ReceiptContributor`, and `TransportResource` at the boundary and re-mints none, meeting C# only at the content-identity wire and the companion seams.
 
@@ -90,7 +90,6 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 - `cubed`
 - `tensorstore`
 - `awkward`
-- `xarray`
 - `flox`
 - `icechunk`
 - `virtualizarr`
@@ -99,14 +98,13 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 - `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`; rejects the netCDF-C lossy-quantization keys.
 
 [GRAPH_MESH]:
-- `networkx`
 - `rustworkx`
 - `igraph`
 - `trimesh`
 - `rhino3dm`
+- `laspy` — LAS/LAZ/COPC point-cloud interchange owner; `laspy.copc` carries the octree byte-range subset.
 - `lazrs`
 - `laszip`
-- `pdal` — Geometry-side point-cloud filter-graph owner; the data COPC arm rebinds to `laspy.copc` without removing it.
 
 [IMPACT]:
 - `openepd` — OpenEPD/EC3 typed declaration model, EC3 sync client, and offline bundle IO.
@@ -134,9 +132,18 @@ Shared Python substrate consumed from the branch registry; `libs/python/.plannin
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+- `xarray`
+
+[GRAPH_SUBSTRATE]:
+- `networkx`
 
 [MESH_INTERCHANGE]:
 - `meshio`
+
+[OBSERVABILITY]:
+- `opentelemetry-api` — one module tracer per measured leg across every plane; the SDK, exporters, and instrumentor train stay runtime-owned.
+- A failed rail marks the active span inside the runtime `boundary` fence; outbound network legs open `SpanKind.CLIENT`.
+- `rasm.tenant` folds onto measurements inside `Metrics.record`; span-level tenant promotion is the telemetry install's concern, never a page fold.
 
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session.

@@ -26,6 +26,7 @@ from beartype import beartype
 from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
+from opentelemetry import trace
 
 from rasm.data.tabular.interop import ArrowCStream
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -38,6 +39,8 @@ if TYPE_CHECKING:
 
     import numpy as np
 
+
+_TRACER: Final = trace.get_tracer("rasm.data.gridded.ragged")
 
 type Backend = Literal["cpu", "cuda", "jax"]
 type AxisOp = Literal["flatten", "num", "firsts", "local_index", "singletons", "drop", "is_none"]
@@ -245,7 +248,10 @@ class RaggedArray(Struct, frozen=True):
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def admit(source: RaggedSource) -> "RuntimeRail[RaggedArray]":
-        return boundary(f"ragged.admit.{source.tag}", lambda: _admit(_ingest(source)))
+        # admission and egress are the two I/O legs — spanned for trace parity with the gridded plane; the fence
+        # inside marks the span ERROR + record_exception on a failed leg.
+        with _TRACER.start_as_current_span(f"ragged.admit.{source.tag}", attributes={"rasm.ragged.source": source.tag}):
+            return boundary(f"ragged.admit.{source.tag}", lambda: _admit(_ingest(source)))
 
     def transform(self, op: RaggedOp) -> "RuntimeRail[RaggedArray]":
         return boundary(f"ragged.transform.{op.tag}", lambda: _admit(_apply(self.array, op)))
@@ -263,9 +269,10 @@ class RaggedArray(Struct, frozen=True):
         return boundary("ragged.to_layout", lambda: _to_buffers(self.array))
 
     def egress(self, sink: RaggedSink) -> "RuntimeRail[RaggedReceipt]":
-        return boundary(f"ragged.egress.{sink.tag}", lambda: _serialize(self.array, sink)).bind(
-            lambda payload: ContentIdentity.of(f"ragged.{sink.tag}", payload).map(lambda key: _receipt(self, key))
-        )
+        with _TRACER.start_as_current_span(f"ragged.egress.{sink.tag}", attributes={"rasm.ragged.rows": len(self.array)}):
+            return boundary(f"ragged.egress.{sink.tag}", lambda: _serialize(self.array, sink)).bind(
+                lambda payload: ContentIdentity.of(f"ragged.{sink.tag}", payload).map(lambda key: _receipt(self, key))
+            )
 
     @staticmethod
     def metadata(ref: ResourceRef) -> "RuntimeRail[dict[str, object]]":

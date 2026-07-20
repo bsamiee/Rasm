@@ -1,6 +1,6 @@
 # [PY_GEOMETRY]
 
-`geometry` is the host-free geometry and IFC/BIM evaluation companion of the Python branch — an independent peer producer, never a Rasm consumer. It owns the IfcOpenShell GLB tessellation daemon, scan verification from ingest through registration, deviation, and watertight reconstruction, IFC analysis, authoring, costing, and structural evaluation, exact mesh algebra and non-manifold topology, graph analytics, and the out-of-process Ladybug Tools building-physics band. Its bar is evaluation-grade evidence: every result is content-keyed, receipted, graded, and produced off the event loop — the C# Bim/Compute rail and the TypeScript viewer consume the tessellation stream, construction-verification and energy evidence feed artifacts reports, and the scan plane verifies as-built buildings against the content-keyed reference model.
+`geometry` is the host-free geometry and IFC/BIM evaluation companion of the Python branch — an independent peer producer, never a Rasm consumer. It owns the IfcOpenShell GLB tessellation daemon, scan verification from ingest to watertight reconstruction, IFC analysis, authoring, costing, and structural evaluation, exact mesh algebra and non-manifold topology, graph analytics, and the Ladybug Tools building-physics band. Every crossing is content-keyed and receipted, produced off the event loop for the C# Bim/Compute rail, the TypeScript viewer, and the artifacts report plane.
 
 It meets C# only at the wire through content identity and the GLB tessellation rail over the `ComputeService`/`ArtifactSync` gRPC contract, and graduates evidence through the geometry-minted `rasm.geometry.graduation` spine, never an import.
 
@@ -45,7 +45,7 @@ It meets C# only at the wire through content identity and the GLB tessellation r
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES]`. Admission is per-group, never one manifest — worker rows carry a root `pyproject.toml` entry, the AGPL companion band carries no manifest row and provisions through the Forge scientific-environment companion lane, and the recipe schema binding is `[RUNTIME]`-owned. Every admitted package carries either a manifest row or a companion-lane home; a `Deferred` tag marks a library a forward task draws on that no admission yet backs.
+Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES]`. Every admitted package — the AGPL Ladybug band included — carries a root `pyproject.toml` row, and the recipe schema binding is `[RUNTIME]`-owned. A `Deferred` tag marks a library a forward task draws on that no admission yet backs.
 
 [IFC_BIM]:
 - `ifcopenshell` — IFC model, geometry, and tessellation spine
@@ -110,6 +110,12 @@ Branch-wide substrate this folder consumes; the canonical registry and API evide
 
 [NUMERIC_SUBSTRATE]:
 - `numpy`
+
+[GRAPH_SUBSTRATE]:
+- `networkx`
+
+[OBSERVABILITY]:
+- `opentelemetry-api` — graduation-spine tracer surface; SDK and exporters stay runtime-owned.
 
 [WIRE_CODEGEN]:
 - `grpcio`

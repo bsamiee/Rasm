@@ -24,7 +24,7 @@ Branch-level pages beside this router: [component-system.md](component-system.md
 
 ## [02]-[SUBSTRATE_PACKAGES]
 
-Cross-folder substrate every C# package composes; each folder README names the rows it consumes and its own domain additions, and `libs/csharp/.api/` holds the shared API evidence.
+Cross-folder substrate every C# package composes; each folder README names the rows it consumes and its own domain additions, and `libs/csharp/.api/` holds the shared API evidence. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogs without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -62,6 +62,12 @@ Cross-folder substrate every C# package composes; each folder README names the r
 [DATA_CLASSIFICATION]:
 - `Microsoft.Extensions.Compliance.Redaction` — classified-data redaction at the logging and persistence boundary.
 
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` emission contract and the `[LoggerMessage]` generator every instrumented library references.
+- `Microsoft.Extensions.Telemetry` — log sampling, buffering, enrichment rows, and the latency-context ledger.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `[LogProperties]`/`[TagProvider]` emission grammar and enricher contracts instrumented libraries reference.
+- `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — process and container utilization source behind the health fold.
+
 [AI_CONTRACTS]:
 - `Microsoft.Extensions.AI` — provider-neutral chat, embedding, and tool-call contracts; runtime `Microsoft.Extensions.AI.Abstractions`.
 
@@ -74,11 +80,24 @@ Cross-folder substrate every C# package composes; each folder README names the r
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — RFC 6902 document mutation over the STJ wire.
 - `Riok.Mapperly` — compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`.
 
+[RUNTIME_INBOX]:
+- `System.Diagnostics.Metrics` — in-box `Meter`/`Instrument` emission surface behind every minted meter.
+- `System.Threading.Channels` — bounded producer-consumer transport behind host callbacks and work lanes.
+- `System.Security.Cryptography` — PEM, X.509, and ECDSA custody with zeroization at credential and receipt boundaries.
+- `System.Runtime.InteropServices` — POSIX signal registration behind drain traps and reload.
+- `System.Xml` — LINQ-to-XML, streaming reader/writer, schema, and XSLT behind MaterialX, BCF, and SVG payloads.
+- `System.Text.Json.Schema` — schema exporter behind contract self-description.
+
+[DEPENDENCY_FLOORS]:
+- `System.Configuration.ConfigurationManager` — transitive XML-configuration floor under log4net and PerformanceCounter, never a direct reference.
+- `System.Drawing.Common` — compile-only GDI+ surface at the Rhino/Eto host seam.
+
 [TEST_SUBSTRATE]:
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.
 - `CsCheck`
 - `coverlet.MTP`
 - `Microsoft.Extensions.TimeProvider.Testing` — `FakeTimeProvider` deterministic clock for the proof gauges.
+- `Microsoft.Extensions.Diagnostics.Testing` — `MetricCollector<T>` measurement-assertion rail over any instrument.
 - `Microsoft.Testing.Platform` stack.
 - `BenchmarkDotNet` — drives the benchmark session over the hot paths.
 - `Verify.XunitV3` + `Verify.DiffPlex` — architecture and generator snapshot laws.

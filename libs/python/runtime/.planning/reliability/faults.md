@@ -1,6 +1,6 @@
 # [PY_RUNTIME_FAULTS]
 
-One fault family and one `Result`/`Option` rail span the whole branch: `BoundaryFault` is the one tagged union every package returns through — seven ingress classes plus an `aggregate` case that keeps every member structurally addressable — and `RuntimeRail` is the one `Result[T, BoundaryFault]` carrier every fallible function returns. Domain logic returns `Result`/`Option` and never raises; exceptions convert exactly once at the owning boundary, and interior code receives only the rail. Absence rides the `expression` `Option` directly — no fault-bound alias, since `Option` carries no error slot to bind.
+One fault family and one `Result`/`Option` rail span the whole branch: `BoundaryFault` is the one tagged union every package returns through — its ingress classes and the `aggregate` case keep every member structurally addressable — and `RuntimeRail` is the one `Result[T, BoundaryFault]` carrier every fallible function returns. Domain logic returns `Result`/`Option` and never raises; exceptions convert exactly once at the owning boundary, and interior code receives only the rail. Absence rides the `expression` `Option` directly — no fault-bound alias, since `Option` carries no error slot to bind.
 
 One fault-lift core backs every application shape — the explicit-thunk `boundary`, the awaitable `async_boundary`, and the `@trapped` decorator — so the sync/async split is one coroutine-detection branch, never a parallel rail. Classification is the ordered data-driven `CLASSIFY` table, and the same conversion is the trace-egress seam: each caught exception is recorded on the active OTel span inside the one fold, the owner never minting, naming, or ending a span — span lifecycle stays with the measured operation. `latched`, the branch's one-shot install latch, and `Scope`/`SCOPES`, the one instrumentation-scope vocabulary every tracer, meter, and service literal mints from, live here because faults is the one tier below every consumer.
 
@@ -15,7 +15,7 @@ One fault-lift core backs every application shape — the explicit-thunk `bounda
 - Entry: the three lift shapes share one `_convert`; `catch` admits a class tuple so an engine boundary narrows over its real multi-class raise surface instead of the `Exception` catch-all, and it never widens past `Exception` — converting the `anyio` cancellation exception into a fault is the forbidden widening, cancellation being scope-owned flow control rather than an ingress class.
 - Auto: `facts` is the one structured egress projection the `observability/receipts#RECEIPT` `rejected` projection spreads whole, so every leaf case carries its own `subject` inline and the receipts owner re-derives nothing.
 - Packages: `expression`, `beartype`, `msgspec`, `anyio`, and `opentelemetry-api` per the fence imports; the OTel dependency is `-api` only — the owner reads the active span and never touches the SDK or a tracer mint.
-- Growth: a new fault class is one `case()` plus one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member plus one fold arm; a new instrumentation scope is one `Scope` member plus one `SCOPES` row; a new one-shot install owner is one `@latched(...)` application.
+- Growth: a new fault class is one `case()` with one recovery-membership row; a new exception family is one ordered `CLASSIFY` row reaching every lift shape and the trace weave; a new egress slot is one `facts` arm; a new traversal output shape is one `Disposition` member with one fold arm; a new instrumentation scope is one `Scope` member with one `SCOPES` row; a new one-shot install owner is one `@latched(...)` application.
 - Boundary: no C# `Expected` clone and no exception taxonomy copied from a C# owner. Recovery keys on the fault's own `FaultTag` and never imports `reliability/resilience#RESILIENCE` `RetryClass` — resilience depends on faults, never the reverse; the rail maps exceptions to fault classes, the policy table maps retry classes to exception sets, and the two meet only through the rail outcome.
 
 ```python signature
@@ -179,7 +179,7 @@ FAULT_CONF: Final[BeartypeConf] = BeartypeConf(violation_type=BeartypeCallHintVi
 SCOPES: Final[Map[Scope, str]] = Map.of_seq([
     (Scope.WIRE, "rasm.wire"),
     (Scope.METER, "rasm.runtime"),
-    (Scope.SERVICE, "rasm-companion"),
+    (Scope.SERVICE, "rasm.companion"),
     (Scope.RESILIENCE, "rasm.runtime.resilience"),
     (Scope.IDENTITY, "rasm.runtime.identity"),
     (Scope.EVIDENCE, "rasm.runtime.evidence"),
@@ -195,7 +195,7 @@ def _hits(marker: ClassifyMarker, cause: BaseException) -> bool:
         case frozenset() as names:
             # module-qualified qualname over the MRO — isinstance semantics for a provider class this tier never
             # imports, the defining-module anchor rejecting an unrelated class that re-uses a provider's bare name;
-            # the resilience `_transient` retry predicate carries the same dotted-spelling convention.
+            # resilience's `_transient` retry predicate carries the same dotted-spelling convention.
             return any(f"{klass.__module__}.{klass.__qualname__}" in names for klass in type(cause).__mro__)
         case classes:
             return isinstance(cause, classes)

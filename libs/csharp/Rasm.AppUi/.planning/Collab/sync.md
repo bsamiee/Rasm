@@ -427,7 +427,7 @@ public static class IntentApply {
 - Owner: `LiveWire` the in-session sync path; `SnapshotAccelerator` the content-keyed cold-start accelerator.
 - Entry: `public IDisposable Broadcast(Func<ReadOnlyMemory<byte>, IO<Unit>> sink)` — subscribes to each local op-log delta and pushes the bytes to the composition-bound transport sink; `public IO<Fin<CollabSyncReceipt>> Merge(params ReadOnlyMemory<byte>[] deltas)` — imports one remote session delta through `Import` or a reconnect burst through `ImportBatch`, arity discriminated by the input shape, never a batch flag.
 - Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; the live delta rides the AppHost bus/topics law — the document topic carries data deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
-- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the pending-span count, and the import success — sealed through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case; `TelemetryRow` contributes the merge-applied and merge-rejected instruments through the AppHost `TelemetryContributorPort`.
+- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the pending-span count, and the import success — sealed through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case; `TelemetryRow` contributes the merge, delta, byte, and pending instruments through the AppHost `TelemetryContributorPort`, every write fan-fed off this receipt's envelope.
 - Packages: LoroCs, Rasm (project), Rasm.Persistence (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one sync instrument is one `InstrumentRow` on `LiveWire.TelemetryRow`; zero new surface.
 - Boundary:
@@ -446,11 +446,22 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
 public readonly record struct CollabSyncReceipt(string Key, int Deltas, long Bytes, int Pending, bool Applied, Instant At, CorrelationId Correlation);
 
 public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolicy Clocks, CorrelationId Correlation, Func<CollabSyncReceipt, IO<Unit>> Sink, Func<Error, IO<Unit>> Faults) {
-    public const string AppliedInstrument = "rasm.appui.collab.merge-applied";
-    public const string RejectedInstrument = "rasm.appui.collab.merge-rejected";
+    public const string AppliedInstrument = "rasm.appui.collab.merge.applied";
+    public const string RejectedInstrument = "rasm.appui.collab.merge.rejected";
+    public const string DeltasInstrument = "rasm.appui.collab.sync.deltas";
+    public const string BytesInstrument = "rasm.appui.collab.sync.bytes";
+    public const string PendingInstrument = "rasm.appui.collab.pending";
 
+    // Merge, delta, and byte counts ride the evidence fan's collab-sync arm; the pending level reads
+    // the fan-swapped cell, so a stalled peer surfaces as a standing gauge, never a stale count.
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, AppliedInstrument, RejectedInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(AppliedInstrument, InstrumentKind.Count, "{merge}", "collab merges applied by document"),
+            new(RejectedInstrument, InstrumentKind.Count, "{merge}", "collab merges rejected by document"),
+            new(DeltasInstrument, InstrumentKind.Count, "{delta}", "collab deltas imported by document"),
+            new(BytesInstrument, InstrumentKind.Count, "By", "collab delta bytes imported by document"),
+            new(PendingInstrument, InstrumentKind.Level, "{span}", "pending collab spans awaiting merge",
+                Level: static () => UiLevelCells.Live.CollabPending.Value));
 
     public IDisposable Broadcast(Func<ReadOnlyMemory<byte>, IO<Unit>> sink) =>
         Document.Doc.SubscribeLocalUpdate(new LocalSink(sink, Faults));
@@ -695,3 +706,7 @@ flowchart LR
     TimeTravel --> CollabUndo
     CollabUndo -->|origin-exclude| UndoManager
 ```
+
+## [07]-[RESEARCH]
+
+(none)

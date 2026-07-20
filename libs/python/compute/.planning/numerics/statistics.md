@@ -2,11 +2,11 @@
 
 One in-memory classical-statistics owner producing hypothesis-test and distribution-fit evidence over `scipy.stats`: every route is one `_STAT_ROUTES` row folding one `StatReport` on the one `TestIntent` owner. This owner carries no numpy floor — the hypothesis test IS `scipy.stats`, so a run without the package returns `Error(Import)` rather than a degraded estimate — and columnar or gridded statistical aggregation stays in the `data` branch gridded/field owner, never re-catalogued here.
 
-`test` rides the hub `evidence_run` weave under the `compute.statistics` scope row, and the owner is graduation-free by charter: a frequentist reject/retain verdict is none of the graduation axes, so a `StatReport` streams onto the receipt rail and stops — the same egress boundary `experiments/study.md#STUDY` holds, and composing the weave is an observability import, never a graduation admission. Sample arrays admit as `numerics/array.md#PAYLOAD` payloads keying through the same `ContentIdentity` seed; the report key is intent-owned over the sample bytes plus every active discriminant, so the key names the report, never merely the operand.
+`test` rides the hub `evidence_run` weave under the `compute.statistics` scope row, and the owner is graduation-free by charter: a frequentist reject/retain verdict is none of the graduation axes, so a `StatReport` streams onto the receipt rail and stops — the same egress boundary `experiments/study.md#STUDY` holds, and composing the weave is an observability import, never a graduation admission. Sample arrays admit as `numerics/array.md#PAYLOAD` payloads keying through the same `ContentIdentity` seed; the report key is intent-owned over the sample bytes and every active discriminant, so the key names the report, never merely the operand.
 
 ## [01]-[INDEX]
 
-- [01]-[STATISTICS]: hypothesis tests plus MLE distribution fit over `scipy.stats`, one `_STAT_ROUTES` row per route folding one `StatReport` on the `TestIntent` owner.
+- [01]-[STATISTICS]: hypothesis tests and MLE distribution fit over `scipy.stats`, one `_STAT_ROUTES` row per route folding one `StatReport` on the `TestIntent` owner.
 
 ## [02]-[STATISTICS]
 
@@ -130,7 +130,7 @@ class StatReport(Struct, frozen=True):
             "parameters": self.parameters,
             "moments": default_arg(self.moments, ()),
         }
-        return (Receipt.of("compute.statistics", ("emitted", self.test, facts)),)
+        return (Receipt.of(EvidenceScope.STATISTICS.value, ("emitted", self.test, facts)),)
 
     @property
     def span_facts(self) -> dict[str, str | int | float]:
@@ -210,7 +210,8 @@ class StatRoute(Struct, frozen=True):
 
 def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096) -> "RuntimeRail[StatReport]":
     # a `scipy.stats` raise, the gated `ImportError`, a contract violation, or an in-body digest `Error` all fold onto the ONE rail.
-    return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample))
+    facts = {"test": intent.tag, "alpha": alpha}
+    return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample), facts=facts)
 
 
 

@@ -1,6 +1,6 @@
 # [RASM_BIM_ARCHITECTURE]
 
-Domain map of `Rasm.Bim` — the host-neutral BIM/IFC owner and the IFC arm of the `Rasm.Element` seam, depending up on `{Rasm, Rasm.Element}`. Each sub-domain folder maps to exactly one namespace, the `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph` while `IfcLegality : IGraphConstraint` owns IFC-semantic legality, and every sub-domain lowers its rejection onto the one `BimFault` band. Consumer-facing element is the seam `Bake(objectNode)` fold over the `ElementGraph`, never a parallel `BimModel` surface. Bim stays the sole GeometryGym/IFC owner and references no AEC peer — alignment travels through the shared seam graph and the content-keyed wire, with simulation Compute-owned and the Python IFC companion meeting only at the wire.
+Domain map of `Rasm.Bim`, the host-neutral BIM/IFC owner and IFC arm of the `Rasm.Element` seam. `Projection/Semantic` `SemanticProjector : IElementProjection` lowers GeometryGym `DatabaseIfc` into the canonical `ElementGraph`, `IfcLegality : IGraphConstraint` owns IFC-semantic legality, and every sub-domain rejects onto the one `BimFault` band. Consumer-facing element is the seam `Bake(objectNode)` fold, never a parallel `BimModel`; Bim stays the sole GeometryGym/IFC owner, references no AEC peer, and aligns through the shared seam graph and content-keyed wire with simulation Compute-owned.
 
 ## [01]-[DOMAIN_MAP]
 
@@ -39,11 +39,11 @@ Rasm.Bim/
 ├── Review/                # Model-checking and coordination
 │   ├── Validation.cs      # Two-tier QA owner — template-audit baseline beneath the IDS facet fold
 │   ├── Issues.cs          # BCF issue exchange with .bcfzip codec and REST projection
-│   ├── Diff.cs            # GlobalId-plus-content-key federation change-set
+│   ├── Diff.cs            # GlobalId-and-content-key federation change-set
 │   ├── Coordination.cs    # Clash rule engine, impact report, and sign-off vocabulary
 │   └── Versioning.cs      # Content-addressed commit DAG and three-way merge
 └── Projection/            # IFC arm of the Rasm.Element seam
-    ├── Semantic.cs        # GeometryGym ingress fold plus IFC-legality graph constraint
+    ├── Semantic.cs        # GeometryGym ingress fold with IFC-legality graph constraint
     ├── Relations.cs       # Full IfcRel* roster and neutral-edge lowering
     └── Egress.cs          # IFC re-author with railed release and admission gates
 ```
@@ -52,44 +52,25 @@ Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads 
 
 ## [02]-[STRATA]
 
-Five strata order the seven sub-domains; `Review` and `Planning` co-seat because coordination reads the estimate and the schedule while both read the model diff, so every cross-stratum consumption edge points down.
+Strata order the sub-domains under the acyclic law — every cross-stratum consumption edge points down; `Review` and `Planning` co-seat on the delivery stratum, coordination reading the estimate and the schedule as same-stratum input, never a return edge.
 
 - S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, and the `IfcRepresentation` content key.
 - S1 `Semantics` — element-bound enrichment over the vocabulary: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, and the `GeoModel` geospatial algebra.
-- S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, and the `IIfcTypeReconciler` port.
+- S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, the Materials-implemented `IIfcTypeReconciler` port, and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
 - S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, and the `TessellationRequest`/`TessellationOutcome` bridge.
-- S4 `Energy` + `Review` + `Planning` — delivery tier over everything below: `EnergyProjector` and `EnergyArtifact`; `IdsSpecification`, `ModelDiff`, and `IssueBoard`; `ScheduleNetwork` and `CostSchedule` — the Review-Planning mutual read is same-stratum fact.
+- S4 `Energy` + `Review` + `Planning` — delivery tier over everything below: `EnergyProjector` and `EnergyArtifact`; `IdsSpecification`, `ModelDiff`, and `IssueBoard`; `ScheduleNetwork` and `CostSchedule` — coordination reads the estimate and the schedule as same-stratum input with no return edge.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Bim interior strata
-    accDescr: Five stacked strata from the energy, review, and planning delivery tier through the interchange codec and the projection arm onto the semantic enrichment and the model vocabulary, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Stacked strata from the energy, review, and planning delivery tier through the interchange codec and the projection arm onto the semantic enrichment and the model vocabulary, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge named as such.
     subgraph L4["S4 DELIVERY"]
         EnergyProjector[EnergyProjector]
         Ids[IdsSpecification]
@@ -114,24 +95,16 @@ flowchart TB
         Predicate[ElementPredicate]
         Class[IfcClass]
     end
-    EnergyProjector e1@-->|"[IMPORT]: InterchangeFormat"| Format
-    Ids e2@-->|"[IMPORT]: ElementPredicate"| Predicate
-    Cost e3@-->|"[IMPORT]: QuantityDerivation"| Quantity
-    Board e4@-->|"[IMPORT]: BimFault"| Fault
-    Wire e5@-->|"[IMPORT]: SemanticProjector"| Projector
-    Wire e6@-->|"[IMPORT]: IfcLegality"| Legality
-    Projector e7@-->|"[IMPORT]: MaterialProjection"| Material
-    Projector e8@-->|"[IMPORT]: IfcClass"| Class
-    Axis e9@-->|"[IMPORT]: IfcClass"| Class
-    Fault f1@-->|"forbidden: vocabulary upward"| L4
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class EnergyProjector,Ids,Cost,Board,Format,Wire,Projector,Legality primary
-    class Material,Quantity,Axis,Fault,Predicate,Class recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
-    class f1 edgeError
+    EnergyProjector -->|"[IMPORT]: InterchangeFormat"| Format
+    Ids -->|"[IMPORT]: ElementPredicate"| Predicate
+    Cost -->|"[IMPORT]: QuantityDerivation"| Quantity
+    Board -->|"[IMPORT]: BimFault"| Fault
+    Wire -->|"[IMPORT]: SemanticProjector"| Projector
+    Wire -->|"[IMPORT]: IfcLegality"| Legality
+    Projector -->|"[IMPORT]: MaterialProjection"| Material
+    Projector -->|"[IMPORT]: IfcClass"| Class
+    Axis -->|"[IMPORT]: IfcClass"| Class
+    Fault -->|"forbidden: vocabulary upward"| L4
 ```
 
 ## [03]-[SEAMS]
@@ -139,33 +112,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Bim same-branch domain and storage seams
-    accDescr: Bim sub-domain owners exchanging projections, content keys, and tessellation with the AEC peers Element, Materials, Fabrication, the kernel, Compute, and Persistence, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Bim sub-domain owners exchanging projections, content keys, and tessellation with the AEC peers Element, Materials, Fabrication, the kernel, Compute, and Persistence — one edge per contract family labeled by kind, bidirectional peers as hexagons, the store as a cylinder, one-way partners as stadiums.
     subgraph bim[RASM.BIM]
         Projection[Projection arm]
         Model[Object model]
@@ -181,69 +135,38 @@ flowchart LR
     Materials([Rasm.Materials])
     Fabrication([Rasm.Fabrication])
     Rasm([Rasm])
-    Projection e1@<-->|"[PROJECTION]: GraphDelta"| Element
-    Model e2@-->|"[PROJECTION]: Object"| Element
-    Semantics e3@<-->|"[PROJECTION]: PropertyValue"| Element
-    Materials e4@-->|"[WIRE]: IIfcTypeReconciler"| Projection
-    Materials e5@-->|"[SHAPE]: DetailSchema"| Semantics
-    Exchange e6@-->|"[SHAPE]: AcadReader"| Fabrication
-    Rasm e7@-->|"[SHAPE]: GeometryMeasures"| Semantics
-    Model e8@-->|"[CONTENT_KEY]: IfcRepresentation"| Compute
-    Exchange e10@<-->|"[TESSELLATION]: TessellationOutcome"| Compute
-    Review e11@-->|"[TRANSPORT]: IdsAudit"| Compute
-    Projection e13@-->|"[PROJECTION]: EnergyGraphReads"| Compute
-    Planning e14@-->|"[CONTENT_KEY]: CostSchedule"| Compute
-    Model e15@-->|"[PROJECTION]: FlatTableProjection"| Persistence
-    Exchange e16@<-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
-    Review e17@<-->|"[CONTENT_KEY]: CommitKey"| Persistence
-    Energy e18@-->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
-    Planning e20@<-->|"[WIRE]: TaskRelation"| Persistence
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Projection,Model,Semantics,Exchange,Review,Energy,Planning primary
-    class Element,Compute external
-    class Persistence data
-    class Materials,Fabrication,Rasm annotation
-    class e4,e8,e10,e14,e16,e17,e18,e20 edgeData
-    class e1,e2,e3,e11,e13,e15 edgeExternal
-    class e5,e6,e7 edgeControl
+    Projection -->|"[PROJECTION]: GraphDelta"| Element
+    Projection -->|"[PORT]: IGraphConstraint"| Element
+    Semantics <-->|"[SHAPE]: DetailSchema"| Element
+    Semantics <-->|"[SHAPE]: MaterialComposition"| Element
+    Semantics -->|"[PROJECTION]: GeoReference"| Element
+    Materials -->|"[PORT]: IIfcTypeReconciler"| Projection
+    Materials -->|"[SHAPE]: DetailSchema"| Semantics
+    Exchange -->|"[SHAPE]: AcadReader"| Fabrication
+    Rasm -->|"[SHAPE]: GeometryMeasures"| Semantics
+    Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
+    Exchange <-->|"[TESSELLATION]: TessellationOutcome"| Compute
+    Review <-->|"[TRANSPORT]: IdsVerdict"| Compute
+    Planning -->|"[CONTENT_KEY]: CostSchedule"| Compute
+    Model -->|"[PROJECTION]: BimOpenSchema"| Persistence
+    Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Persistence
+    Exchange <-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
+    Review <-->|"[CONTENT_KEY]: CommitKey"| Persistence
+    Energy -->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
+    Planning <-->|"[WIRE]: TaskRelation"| Persistence
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Bim cross-runtime, presentation, and host seams
-    accDescr: Bim sub-domain owners exchanging wires, receipts, and boundaries with the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Bim sub-domain owners exchanging wires, receipts, and boundaries with the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary — one edge per contract family labeled by kind, bidirectional peers as hexagons, one-way partners as stadiums.
     subgraph bim[RASM.BIM]
         Model[Object model]
         Semantics[Semantic enrichment]
@@ -258,37 +181,28 @@ flowchart LR
     Data([python:data])
     Core([typescript:core])
     Ui([typescript:ui])
-    Exchange e1@<-->|"[WIRE]: IfcWire"| Geometry
-    Model e2@-->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
-    Geometry e3@-->|"[BOUNDARY]: IdsVerdict"| Review
-    Energy e4@<-->|"[WIRE]: Hbjson"| Geometry
-    Semantics e5@-->|"[SHAPE]: GeoTiles"| AppUi
-    Planning e6@-->|"[RECEIPT]: CostSchedule"| AppUi
-    Review e7@-->|"[PORT]: IssueBoard"| AppUi
-    Host e8@-->|"[BOUNDARY]: GlobalId"| Exchange
-    Semantics e9@-->|"[WIRE]: GeoWire"| Data
-    Review e10@-->|"[WIRE]: BcfTopicWire"| Core
-    Exchange e11@-->|"[WIRE]: IfcWire"| Core
-    Semantics e12@-->|"[WIRE]: GeoWire"| Core
-    Review e13@-->|"[WIRE]: BcfViewpointWire"| Ui
-    Model e14@-->|"[WIRE]: GlobalIdSet"| Ui
-    Exchange e15@-->|"[WIRE]: ModelDiff"| Ui
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Model,Semantics,Exchange,Review,Energy,Planning primary
-    class Geometry external
-    class AppUi,Host,Data,Core,Ui annotation
-    class e1,e2,e4,e9,e10,e11,e12,e13,e14,e15 edgeData
-    class e3,e5,e7,e8 edgeControl
-    class e6 edgeSuccess
+    Exchange <-->|"[WIRE]: IfcWire"| Geometry
+    Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Geometry
+    Geometry -->|"[BOUNDARY]: IdsVerdict"| Review
+    Energy <-->|"[WIRE]: Hbjson"| Geometry
+    Semantics -->|"[SHAPE]: GeoTiles"| AppUi
+    Planning -->|"[RECEIPT]: CostSchedule"| AppUi
+    Review -->|"[PORT]: IssueBoard"| AppUi
+    Host -->|"[BOUNDARY]: GlobalId"| Exchange
+    Semantics <-->|"[WIRE]: GeoFeatureWkb"| Data
+    Review -->|"[WIRE]: BcfTopicWire"| Core
+    Exchange -->|"[WIRE]: IfcWire"| Core
+    Semantics -->|"[WIRE]: GeoFeatureWire"| Core
+    Review -->|"[WIRE]: BcfTopicWire"| Ui
+    Review -->|"[WIRE]: BcfViewpointWire"| Ui
+    Semantics -->|"[WIRE]: GeoFeatureWire"| Ui
+    Model <-->|"[WIRE]: PredicateWire"| Ui
+    Model -->|"[WIRE]: GlobalIdSet"| Ui
+    Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 
-Two fences partition by counterpart role: the same-branch AEC peers plus Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest.
+Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoFeatureWkb` is the frozen wire spelling of the `GeoFeature`-row WKB crossing the `GeoWkb` bridge encodes toward the Python data peer, and `GeoFeatureWire` the frozen spelling of the `GeoFeature` crossing the TypeScript peers decode; `GeoWire` stays the interior projection owner behind both.
 
-`[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page that joins the federation, solver, cache, or diff lane derives a typed `UInt128` key through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a second identity scheme and never a downward `InterchangeIdentity` reference from Bim. A page deriving a new content key inherits this idiom and mints through the one kernel seed-zero `XxHash128` owner; a second identity scheme, a per-page hash function, or a `Guid`-keyed federation join is the named cross-folder drift defect. Per-page key tuples, and the pages that carry no parallel key, live on the owning implementation pages.
+`[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page joining the federation, solver, cache, or diff lane derives a typed `UInt128` through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a downward `InterchangeIdentity` reference from Bim. A second scheme, a per-page hash, or a `Guid`-keyed join is the named cross-folder drift defect. Per-page key tuples and the pages carrying no parallel key live on the owning implementation pages.
 
-[HOST_BOUNDARY_EDGE]: the `Host boundary → Exchange` edge is single-sided, not an interior dependency. `Rasm.Rhino/Exchange` is strata-locked — every format dispatches through RhinoCommon `Rhino.FileIO.*`, references only the kernel `Rasm`, and composes exclusively at the app root; `Rasm.Bim` never names `Rasm.Rhino`. Edge resolves only where the app root binds the live host, projecting a `RhinoDoc` import to a host-neutral mesh plus `GlobalId` the `Exchange/import` fold admits as a wire payload — Bim owns the payload, Rhino owns the host-side production and adapter. Because the Rhino FileIO and the managed reader engines decode the same OBJ/STL/PLY/3MF/glTF/STEP bytes to divergent meshes, the app root declares per path which reader is authoritative; the two coexist and neither is gutted to feed the other.
+[HOST_BOUNDARY_EDGE]: `Host boundary → Exchange` is single-sided, not an interior dependency — `Rasm.Bim` never names `Rasm.Rhino`, and the edge resolves only where the app root binds the live host, projecting a `RhinoDoc` import to a host-neutral mesh with `GlobalId` the `Exchange/import` fold admits as a wire payload. Bim owns the payload, Rhino the host-side production. Because Rhino FileIO and the managed readers decode the same OBJ/STL/PLY/3MF/glTF/STEP bytes to divergent meshes, the app root declares per path the authoritative reader; the two coexist, neither gutted for the other.

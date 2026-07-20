@@ -6,8 +6,8 @@
 
     <ItemGroup Label="Project References">
         <ProjectReference Include="../Rasm/Rasm.csproj" />
-        <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+        <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
 

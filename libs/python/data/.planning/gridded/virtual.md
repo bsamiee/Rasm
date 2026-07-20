@@ -20,13 +20,14 @@ Every content key is canonical bytes per the folder key-law — sorted per-varia
 - Boundary: this page is the one virtualizarr home — no manifest owner survives on `gridded/field`; composes the `gridded/field#EGRESS` `FieldReceipt` family downward and the `data:gridded/store#STORE` Zarr egress, never re-minting either; a data-copying ingest where virtual reference applies is the rejected form.
 
 ```python signature
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import virtualizarr as vz
 from beartype import beartype
 from expression import Ok, case, tag, tagged_union
 from icechunk import VirtualChunkSpec
 from msgspec import Struct, structs
+from opentelemetry import trace
 
 from rasm.data.gridded.field import FieldReceipt
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
@@ -50,7 +51,10 @@ if TYPE_CHECKING:
     from icechunk import Session
 
 
+_TRACER: Final = trace.get_tracer("rasm.data.gridded.virtual")
+
 type Combine = Literal["by_coords", "nested"]
+type Coordinates = tuple[int, ...]
 type KerchunkFormat = Literal["dict", "json", "parquet"]
 type MfParallel = Literal[False, "dask", "lithops"]
 type MaxShape = tuple[int | None, ...]
@@ -245,11 +249,15 @@ class FieldVirtual(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     def aggregate(self) -> "RuntimeRail[FieldReceipt]":
-        return boundary("virtual.manifest", lambda: _aggregate(self)).bind(lambda railed: railed)
+        # manifest construction walks archival headers over the object store — a spanned I/O leg, trace parity with the
+        # sibling gridded/spatial legs; the fence inside marks the span ERROR + record_exception on a failed leg.
+        with _TRACER.start_as_current_span("virtual.manifest", attributes={"rasm.virtual.sources": len(self.sources)}):
+            return boundary("virtual.manifest", lambda: _aggregate(self)).bind(lambda railed: railed)
 
     @beartype(conf=FAULT_CONF)
     def tree(self, group: str | None = None) -> "RuntimeRail[FieldReceipt]":
-        return boundary("virtual.manifest.tree", lambda: _tree(self, group)).bind(lambda railed: railed)
+        with _TRACER.start_as_current_span("virtual.manifest.tree", attributes={"rasm.virtual.sources": len(self.sources)}):
+            return boundary("virtual.manifest.tree", lambda: _tree(self, group)).bind(lambda railed: railed)
 
     @staticmethod
     @beartype(conf=FAULT_CONF)
@@ -366,7 +374,6 @@ if TYPE_CHECKING:
     from icechunk import AnyCredential, ConflictSolver, Diff, GCSummary, Repository, Session, Storage
 
 
-type Coordinates = tuple[int, ...]
 type CommitMeta = dict[str, str]
 type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
 type VirtualEngine = Literal["virtual", "native"]
@@ -551,7 +558,11 @@ class VirtualReference(Struct, frozen=True):
     containers: ContainerAuth = ()
 
     def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
-        return boundary(f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers), self)).bind(lambda rail: rail)
+        # snapshot commit/diff/reclaim run store I/O against the icechunk repository — spanned per verb, the branch a dimension.
+        with _TRACER.start_as_current_span(f"virtual.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
+            return boundary(f"virtual.{op.tag}", lambda: op.run(IceStorage.for_ref(self.ref).repository(self.containers), self)).bind(
+                lambda rail: rail
+            )
 ```
 
 ```mermaid

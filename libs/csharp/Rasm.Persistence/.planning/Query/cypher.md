@@ -167,6 +167,11 @@ public abstract partial record CypherFault : Expected, IValidationError<CypherFa
 ```csharp signature
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static class GraphSession {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.graph.provision"), StoreSlot.Create("store.graph.rebuild"), StoreSlot.Create("store.graph.define"),
+        StoreSlot.Create("store.graph.match"), StoreSlot.Create("store.graph.mutate"), StoreSlot.Create("store.graph.route"),
+        StoreSlot.Create("store.graph.flow"), StoreSlot.Create("store.graph.cleave"));
+
     // Each self-hosted physical connection loads AGE and sets its search path once.
     // Disabled deployments skip initialization; pgRouting needs no session load.
     public static NpgsqlDataSourceBuilder Provision(NpgsqlDataSourceBuilder builder, CypherEnablement gate) =>

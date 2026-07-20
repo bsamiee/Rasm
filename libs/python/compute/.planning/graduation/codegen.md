@@ -1,8 +1,8 @@
 # [PY_COMPUTE_CODEGEN]
 
-The typed-stub projector: `StubCodegen` decodes the C# graduation-evidence bundle once, polymorphically over the wire format the seam chose, and folds each owner descriptor into `msgspec.Struct` stub source and a JSON Schema `$defs` projection through the stdlib `ast` builder — downstream compute composes against the C# owner row by import rather than by re-typing it. The bundle is consumed at the boundary and never re-minted: this owner emits type stubs and schema only, never runtime behavior, and imports nothing from a C# interior.
+`StubCodegen` is the typed-stub projector: it decodes the C# graduation-evidence bundle once, polymorphically over the wire format the seam chose, and folds each owner descriptor into `msgspec.Struct` stub source and a JSON Schema `$defs` projection through the stdlib `ast` builder — downstream compute composes against the C# owner row by import rather than by re-typing it. Bundles are consumed at the boundary and never re-minted: this owner emits type stubs and schema only, never runtime behavior, and imports nothing from a C# interior.
 
-The descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` interpreters — `_NODE` annotation nodes, `_TYPES` scalar-type collection, `_REFS` nested-edge collection — and the `defstruct` field type IS `ast.unparse(_fold(field, _NODE))`, so the stub annotation and the schema field type cannot diverge on shape. `emit` rides the hub `evidence_run` weave from `graduation/handoff.md#EVIDENCE_WEAVE`; the `EvidenceBundle` wire is OFFLINE — msgspec json/msgpack bytes at rest, never the UDS gRPC leg — so it stays compute-owned and enters no runtime `transport/shapes` registry row until the crossing moves onto the gRPC channel.
+Descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebra` interpreters — `_NODE` annotation nodes, `_TYPES` scalar-type collection, `_REFS` nested-edge collection — and the `defstruct` field type IS `ast.unparse(_fold(field, _NODE))`, so the stub annotation and the schema field type cannot diverge on shape. `emit` rides the hub `evidence_run` weave from `graduation/handoff.md#EVIDENCE_WEAVE`; the `EvidenceBundle` wire is OFFLINE — msgspec json/msgpack bytes at rest, never the UDS gRPC leg — so it stays compute-owned and enters no runtime `transport/shapes` registry row until the crossing moves onto the gRPC channel.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ The descriptor descent is ONE `_fold` recursion schema run by three `FieldAlgebr
 - Cases: the shape kind lives in the case the discriminant selects — parallel `element`/`nested` optionals racing the kind have no owner — and the decoder targets the closed `FieldNode` leaf union, never the open base. `schema_hook` stays reserved for a genuinely custom-typed field: the `key` scalar's `ContentKey` is itself a `Struct` and renders as a struct `$ref` without a hook.
 - Entry: `emit(raw, *, wire, target)` is polymorphic over the inbound wire format AND the outbound `EmitTarget` — a consumer wanting only the wire-contract schema or only the importable stub selects a target, never a second generator; both projections descend the same fold over the same decoded descriptors, so they can never disagree on the field set.
 - Auto: a `schema_version` the decoder does not carry rails on the typed `("codegen.decode", "schema-version:...")` band, never a best-effort decode off a drifted wire shape; `drift` proves decode AND emit round-trip byte-stability against the C#-minted `evidence-bundle` `CorpusFixture` in the runtime reproduction corpus, a byte drift railing typed.
-- Growth: a new wire primitive is one `FieldScalar` member plus one `_SCALAR` row the three interpreters absorb with zero extra surface; a new composite shape is one `FieldDescriptor` case plus one `FieldNode` union member plus one `_fold` arm plus one constructor field on each interpreter; a new inbound wire format is one `WireFormat` member plus one decoder row; a new output artifact is one `EmitTarget` member plus one fold arm.
+- Growth: a new wire primitive is one `FieldScalar` member and one `_SCALAR` row the three interpreters absorb with zero extra surface; a new composite shape is one `FieldDescriptor` case, one `FieldNode` union member, one `_fold` arm, and one constructor field on each interpreter; a new inbound wire format is one `WireFormat` member and one decoder row; a new output artifact is one `EmitTarget` member and one fold arm.
 
 ```python signature
 import ast
@@ -41,7 +41,7 @@ from rasm.runtime.receipts import Receipt
 
 type WireFormat = Literal["json", "msgpack"]
 type EmitTarget = Literal["stub", "schema", "both"]
-# the boundary-input refinement the `@beartype(conf=FAULT_CONF)` fence on `_decode` checks in O(1); an empty
+# boundary-input refinement the `@beartype(conf=FAULT_CONF)` fence on `_decode` checks in O(1); an empty
 # payload raises `BeartypeCallHintViolation` the `CLASSIFY` `api` row folds onto the rail.
 type RawBundle = Annotated[bytes, Is[lambda b: len(b) > 0]]
 
@@ -59,7 +59,7 @@ class FieldScalar(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the one scalar->runtime-type table the `_NODE` and `_TYPES` interpreters read, so a new wire primitive is
+# one scalar->runtime-type table the `_NODE` and `_TYPES` interpreters read, so a new wire primitive is
 # exactly one row and never a second parallel scalar table; `Map` is the folder's one dispatch-table rail.
 _SCALAR: Final[Map[FieldScalar, type]] = Map.of_seq([
     (FieldScalar.I32, int),
@@ -72,7 +72,7 @@ _SCALAR: Final[Map[FieldScalar, type]] = Map.of_seq([
     (FieldScalar.DECIMAL, decimal.Decimal),
 ])
 
-# the schema versions this decoder CARRIES; a decoded bundle outside the set rails on the
+# schema versions this decoder CARRIES; a decoded bundle outside the set rails on the
 # `("codegen.decode", "schema-version:...")` typed fault band, never a best-effort decode.
 _SCHEMA_VERSIONS: Final[frozenset[str]] = frozenset({"1"})
 
@@ -111,7 +111,7 @@ class UnionField(FieldDescriptor, frozen=True, tag="union"):
     members: Annotated[tuple["FieldNode", ...], msgspec.Meta(min_length=1)]
 
 
-# the leaf union the decoder targets — never the open base — so `kind` selects exactly one case.
+# leaf union the decoder targets — never the open base — so `kind` selects exactly one case.
 type FieldNode = ScalarField | ArrayField | NestedField | MappingField | OptionalField | UnionField
 
 
@@ -147,7 +147,7 @@ class GeneratedModule(Struct, frozen=True):
     def contribute(self) -> Iterable[Receipt]:
         # native scalars only — no `str()` coerce where the deterministic renderer keeps types.
         facts: dict[str, object] = dict(self.span_facts)
-        return (Receipt.of("compute.codegen", ("emitted", self.bundle_key.hex, facts)),)
+        return (Receipt.of(EvidenceScope.CODEGEN.value, ("emitted", self.bundle_key.hex, facts)),)
 
 
 class FieldAlgebra[T](Struct, frozen=True):
@@ -175,18 +175,18 @@ def _bitor(left: ast.expr, right: ast.expr) -> ast.expr:
     return ast.BinOp(left=left, op=ast.BitOr(), right=right)
 
 
-# the modules the stub imports bare; every other scalar renders dotted. The one row both `_qual` (rendering) and `_imports`
+# modules the stub imports bare; every other scalar renders dotted — one row both `_qual` (rendering) and `_imports`
 # (preamble) read, so a rendered name and its import never disagree.
 _BARE: Final[frozenset[str]] = frozenset({"builtins", "rasm.runtime.identity"})
 
 
-# the scalar leaf renders to its `ast` node by module+qualname — never a string re-parsed through `ast.parse`.
+# scalar leaves render to their `ast` node by module+qualname — never a string re-parsed through `ast.parse`.
 def _qual(tp: type) -> ast.expr:
     parts = (tp.__qualname__ if tp.__module__ in _BARE else f"{tp.__module__}.{tp.__qualname__}").split(".")
     return reduce(lambda node, attr: ast.Attribute(value=node, attr=attr, ctx=ast.Load()), parts[1:], ast.Name(id=parts[0], ctx=ast.Load()))
 
 
-# the one annotation interpreter: its `ast.expr` is the single source for BOTH the stub line and the `defstruct` field type — the
+# one annotation interpreter: its `ast.expr` is the single source for BOTH the stub line and the `defstruct` field type — the
 # `ast.BinOp(ast.BitOr())` node never evaluates `|`, so a forward ref stays an unbound name `defstruct(namespace=)` resolves at
 # class creation rather than the fold-time `TypeError` an eager `str | None` interpreter raises on a nested owner-name.
 _NODE: Final[FieldAlgebra[ast.expr]] = FieldAlgebra(
@@ -198,7 +198,7 @@ _NODE: Final[FieldAlgebra[ast.expr]] = FieldAlgebra(
     nested=lambda ref: ast.Name(id=ref, ctx=ast.Load()),
 )
 
-# the scalar runtime types each descriptor references, feeding both the stub preamble and the `defstruct` namespace seed —
+# scalar runtime types each descriptor references, feeding both the stub preamble and the `defstruct` namespace seed —
 # one fold, so the annotation, the import statement, and the namespace binding cannot disagree.
 _TYPES: Final[FieldAlgebra[frozenset[type]]] = FieldAlgebra(
     scalar=lambda s: frozenset({_SCALAR[s]}),
@@ -209,7 +209,7 @@ _TYPES: Final[FieldAlgebra[frozenset[type]]] = FieldAlgebra(
     nested=lambda ref: frozenset(),
 )
 
-# the `nested` owner-name edges feeding the `_ordered` topological build, so every forward ref resolves regardless of seam order.
+# `nested` owner-name edges feed the `_ordered` topological build, so every forward ref resolves regardless of seam order.
 _REFS: Final[FieldAlgebra[frozenset[str]]] = FieldAlgebra(
     scalar=lambda s: frozenset(),
     array=lambda e: e,
@@ -243,7 +243,7 @@ def _fold[T](node: FieldNode, alg: FieldAlgebra[T]) -> T:
 class StubCodegen:
     @staticmethod
     def emit(raw: bytes, *, wire: WireFormat = "json", target: EmitTarget = "both") -> RuntimeRail[GeneratedModule]:
-        # the weave owns span, fence, and the `@receipted` receipt harvest.
+        # weave owns span, fence, and the contributor harvest on the clean exit.
         def rail() -> RuntimeRail[GeneratedModule]:
             return (
                 boundary("codegen.decode", lambda: StubCodegen._decode(raw, wire))
@@ -251,11 +251,11 @@ class StubCodegen:
                 .bind(lambda bundle: boundary("codegen.render", lambda: StubCodegen._render(bundle, target)))
             )
 
-        return evidence_run(EvidenceScope.CODEGEN, f"emit.{wire}.{target}", rail)
+        return evidence_run(EvidenceScope.CODEGEN, f"emit.{wire}.{target}", rail, facts={"wire": wire, "target": target, "byte_count": len(raw)})
 
     @staticmethod
     def drift(golden: bytes, expected: GeneratedModule, *, wire: WireFormat = "json") -> RuntimeRail[GeneratedModule]:
-        # the golden bundle re-emits and the projection must equal the pinned expected byte-for-byte under the deterministic encoder.
+        # golden bundle re-emits and the projection must equal the pinned expected byte-for-byte under the deterministic encoder.
         pinned = msgspec.json.Encoder(order="deterministic")
 
         def check(module: GeneratedModule) -> RuntimeRail[GeneratedModule]:
@@ -274,7 +274,7 @@ class StubCodegen:
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _decode(raw: RawBundle, wire: WireFormat) -> EvidenceBundle:
-        # the beartype fence sits on the thunk the `boundary` wraps, NOT on `emit`, so a `RawBundle` breach and a `DecodeError`
+        # beartype fence sits on the thunk the `boundary` wraps, NOT on `emit`, so a `RawBundle` breach and a `DecodeError`
         # both land INSIDE the fence and fold onto the rail.
         return _DECODER[wire].decode(raw)
 
@@ -348,7 +348,7 @@ class StubCodegen:
 
     @staticmethod
     def _ordered(owners: tuple[OwnerDescriptor, ...]) -> tuple[OwnerDescriptor, ...]:
-        # the owner graph is a DAG by contract — a mid-construction name is unresolvable to `defstruct` — so the `visiting` gray
+        # owner graph is a DAG by contract — a mid-construction name is unresolvable to `defstruct` — so the `visiting` gray
         # set turns a back-edge or self-ref into a deterministic `ValueError` the fence folds, never an unbounded `RecursionError`;
         # a ref absent from the bundle is left to `defstruct` to surface as the unbound-name fault.
         by_name = {owner.name: owner for owner in owners}

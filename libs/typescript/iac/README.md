@@ -1,6 +1,8 @@
 # [TS_IAC]
 
-`iac` is the estate's deploy plane: one decoded `StackSpec` an app supplies becomes a fully realized multi-cloud deployment through typed Pulumi programs driven by the Automation API, with no `Pulumi.yaml` anywhere. Its bar is spec-total realization: every coordinate proves on a typed fault rail before a program is entered, so no tier constructor meets an unproven value; every cloud, capability, credential, tenancy tier, and injected env fact is a row on its owning surface — promoting a metal cluster to a managed estate is one provider seam swap with zero tier rewrites, and finalizing a cloud is a spec value, never a lib edit; coordinates are publishable and material never is — the output gate refuses any secret-flagged value, and the one secret source of truth reaches external stores only as mirrors; deploy evidence and drift evidence share one receipt vocabulary by construction, so drift is pure projection and cannot fork.
+`iac` is the estate's deploy plane: one decoded `StackSpec` becomes a fully realized multi-cloud deployment through typed Pulumi programs driven by the Automation API, with no `Pulumi.yaml` anywhere. Every coordinate proves on a typed fault rail before a program is entered, so no tier constructor meets an unproven value.
+
+Every cloud, capability, credential, tenancy tier, and injected env fact is a row on its owning surface — promoting a metal cluster to a managed estate is one provider seam swap, and finalizing a cloud is a spec value, never a lib edit. Coordinates are publishable and material never is: the output gate refuses any secret-flagged value, and the one secret source of truth reaches external stores only as mirrors. Deploy and drift evidence share one receipt vocabulary, so drift is pure projection and cannot fork.
 
 Nothing depends on this plane at runtime; its outputs cross back only as typed env facts read at boot. It applies schema and extension rosters at provision while the data wave verifies fail-closed at startup, and board content, probe grading, and retention semantics belong to their owning planes, arriving here only as encoded data.
 
@@ -41,6 +43,7 @@ Deploy-plane libraries admitted by this folder; `pnpm-workspace.yaml` centralize
 
 [REALIZATION]:
 - `@pulumiverse/grafana`
+- `@grafana/grafana-foundation-sdk` — typed dashboard builders compiling the core board model into the JSON the provider applies
 - `@pulumi/postgresql`
 - `@pulumi/github`
 

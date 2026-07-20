@@ -25,7 +25,7 @@
 - Cases: the swept envelope derives from `CutterFamily`'s own `CornerRadius` seat and `TaperFrom` body law, so every admitted family generates its silhouette and a new row needs no arm here.
 - Entry: setup and move arity collapse into immutable sequences consumed by `FoldM`, while resource custody stays inside the native boundary capsule.
 - Auto: arc admission proves one radius before station generation; the shank and holder rings sample once per program as `Obstruction` rows and test as non-cutting prisms, so a body that crashes never reads as material removed.
-- Receipt: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch.
+- Receipt: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch. `Removal.Verify` mints `FabricationFact.Removal.Of` over the settled `FabricationResult.VerificationResult`, projecting gouge counts, uncut/overcut volume, and the air-cut ratio onto `rasm.fabrication.removal.defects`, `rasm.fabrication.removal.residual`, and `rasm.fabrication.removal.aircut` through `Process/telemetry#FACT_PROJECTION` as kind `removal`.
 - Growth: a cutter geometry is one `CutterFamily` row on the existing rule columns; a new non-cutting body is one `Obstruction` row.
 
 ## [04]-[SURFACE_TRUTH]

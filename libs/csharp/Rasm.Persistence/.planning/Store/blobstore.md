@@ -579,6 +579,10 @@ file readonly record struct PartCursor(long Start, long Bytes, int Chunks) {
 // `*Leg` constructors fill the `ObjectLeg` delegates over the typed SDK client — the ONLY per-provider code; every
 // SDK exception inside a leg lifts once to `RemoteStoreFault` at the `Bound` boundary, so the engine sees only rails.
 public static class ObjectIo {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.blob.part"), StoreSlot.Create("store.blob.resume"), StoreSlot.Create("store.blob.abort"),
+        StoreSlot.Create("store.blob.write"));
+
     public static ObjectLeg For(ObjectClient client) => client.Map(
         s3: static r => S3Leg(r), azure: static r => AzureLeg(r), gcs: static r => GcsLeg(r), minio: static r => MinioLeg(r), presigned: static r => PresignedLeg(r));
 

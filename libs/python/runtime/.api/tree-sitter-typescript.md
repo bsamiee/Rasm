@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `tree-sitter-typescript`
 - package: `tree-sitter-typescript`
-- version: `0.23.2`
 - license: MIT
 - import: `tree_sitter_typescript`
 - owner: `runtime`

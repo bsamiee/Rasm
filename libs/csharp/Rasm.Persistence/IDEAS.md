@@ -1,6 +1,6 @@
 # [PERSISTENCE_IDEAS]
 
-The forward pool of higher-order concepts for the durable-state spine, each grounded in the folder's domain and current platform capability. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
+Forward pool of higher-order concepts for the durable-state spine, each grounded in the folder's domain and current platform capability. Open ideas drive the tasks in `TASKLOG.md`; a finished or dropped idea moves to `[2]-[CLOSED]` with a one-line disposition so it is never re-litigated.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -23,6 +23,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `Element/graph` `ModelLink`/`LinkKind`/`ProjectGraph`/`ProjectRollup` (landed), the length-framed content-addressed preimage discipline, the one-stream-per-model law.
 - Tension: the frozen `elementset` parity vector (`ContentParityCorpus` `ParitySlot.ElementSet`) binds the `NodeId`-only preimage — widening membership re-cuts that parity contract in the same pass.
 
+[PERS-V4]-[QUEUED]: Inbound CDC consume leg — an ingress owner draining foreign broker topics onto the durable rail.
+- Capability: the ingest half of the CDC boundary — foreign Kafka events admitted, deduped by content key, and folded onto the op-log with W3C context continued off message headers.
+- Shape: one ingress owner beside `Version/egress` (the sink family stays egress-only), consuming through `InstrumentedConsumerBuilder` with `TryExtractPropagationContext` and `ConsumeAndProcessMessageAsync`, consumer registration riding the AppHost root.
+- Unlocks: cross-estate ingestion — a sibling deployment's egress stream replays into this store as a first-class source.
+- Anchors: the `api-otel-instrumentation-confluentkafka` consumer twins, the `Version/egress#EGRESS_SINK` dedup-honesty column, the content-key envelope `id`.
+
 [PERS-I3]-[BLOCKED]: Reality-capture codec — E57/LAS/LAZ point-cloud ingest into chunked residence with H3 spatial bucketing.
 - Capability: the as-built half of the model lifecycle — scan header/metadata rows, registration transform, chunked blob residence, per-region cells — feeding compare-to-design compute without owning scan semantics.
 - Shape: one new Ingest codec page under the [A.4] growth row, bytes through Store/blobstore#MULTIPART_TRANSFER + Element/codec#CONTENT_CHUNKING, region cells through Element/identity H3Cell.
@@ -36,4 +42,4 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+- [0001]-[COMPLETE]: Engine-stat observability and the receipt-slot registry — landed as `.planning/Store/observability.md` with the `store.<domain>.<verb>` slot grammar, the composition-time registry, and the pg/DuckDB/SQLite harvest receipts.

@@ -28,10 +28,10 @@ _SKIP = Ok(Completed(("engine",), 0, status=RailStatus.SKIP))
 _FAULT_A = Fault(("engine",), RailStatus.FAULTED, "first fault")
 _FAULT_B = Fault(("engine",), RailStatus.UNSUPPORTED, "second fault")
 
-# One NDJSON row per finding: ``check`` carries validate-mermaid and prose-gate findings, ``rule`` carries check-canon findings.
+# One NDJSON row per finding: ``check`` names the emitting check; a checkless row folds under the ``engine`` kind.
 _NDJSON = (
     b'{"file":"docs/diagram.md","line":7,"status":"fail","detail":"broken edge","check":"graph-logic"}\n'
-    b'{"file":"docs/diagram.md","line":2,"status":"warn","detail":"weak label","rule":"canon-x"}\n'
+    b'{"file":"docs/diagram.md","line":2,"status":"warn","detail":"weak label"}\n'
     b'{"file":"docs/diagram.md","line":4,"status":"fail","detail":"probably","check":"hedge"}\n'
     b'{"file":"docs/diagram.md","line":1,"status":"ok","check":"render"}\n'
     b"engine banner, never a finding row\n"
@@ -103,16 +103,16 @@ def test_check_builds_one_check_per_engine_per_file_and_threads_dependencies(ass
 
     assert_ok(check(assay_root.settings, scope, DocsParams(paths=files), executor))
 
-    assert len(captured) == 8, "the docs claim fans every skill engine over every routed file it owns"
+    assert len(captured) == 5, "the docs claim fans every skill engine over every routed file it owns"
     pairs = {(chk.tool.name, chk.args.input) for chk in captured}
-    expected = {(engine, f) for engine in ("validate-mermaid", "check-canon") for f in files} | {("prose-gate", f) for f in markdown}
+    expected = {("validate-mermaid", f) for f in files} | {("prose-gate", f) for f in markdown}
     assert pairs == expected, f"engine x owned-file product broke: {pairs}"
-    scripts = {"validate-mermaid": "validate_mermaid.py", "check-canon": "check_canon.py", "prose-gate": "prose_gate.py"}
+    scripts = {"validate-mermaid": "validate_mermaid.py", "prose-gate": "prose_gate.py"}
     for chk in captured:
         cmd = chk.args.fill(chk.tool.command)
         assert cmd[:3] == ("uv", "run", "--no-project"), "engines launch through the project-free uv runner"
         assert cmd[3].endswith(scripts[chk.tool.name]), f"{chk.tool.name} argv resolves the wrong engine script: {cmd[3]}"
-        assert cmd[-2:] == ("--json", chk.args.input), "argv terminates at --json plus the input file; assay never places a sink"
+        assert cmd[-2:] == ("--json", chk.args.input), "argv terminates at --json and the input file; assay never places a sink"
     assert seen["settings"] is assay_root.settings
     assert seen["scope"] is scope
     assert set(seen) >= {"checks", "settings", "scope", "routed"}, "no fan_out keyword is dropped"
@@ -127,7 +127,7 @@ def test_check_parses_ndjson_findings_and_keeps_crash_tails(assay_root: AssayHar
     parsed = assert_ok(_check(assay_root, (Ok(receipt(("engine",), 0, stdout=_NDJSON)),), paths=("docs/diagram.md",)))
     assert [(m.id, m.severity, m.line, m.path, m.message) for m in parsed.results] == [
         ("docs:graph-logic", "error", 7, "docs/diagram.md", "broken edge"),
-        ("docs:canon-x", "warning", 2, "docs/diagram.md", "weak label"),
+        ("docs:engine", "warning", 2, "docs/diagram.md", "weak label"),
         ("docs:hedge", "error", 4, "docs/diagram.md", "probably"),
     ], f"NDJSON rows misfolded: {parsed.results}"
     assert parsed.status is RailStatus.OK, "finding rows ride the report; status follows the process fold"

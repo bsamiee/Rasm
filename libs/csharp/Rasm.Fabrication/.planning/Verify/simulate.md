@@ -2,7 +2,7 @@
 
 `Simulate.Execute` admits one landed `CutProgram`, evaluates its controller semantics without replanning, and emits the authoritative `SimulationReceipt` clock. `GCommand.Grammar` owns syntactic admission; simulation owns relational motion admission, modal execution, machine-limit evidence, coordinated timing, energy, and terminal state.
 
-`GNode.Switch` derives executable leaves without a second AST. `CommandEffect` is the one admission table keyed by `GCommand`, so a command with a distinct physical effect is one row and every other command inherits its `ModalGroup` behavior. `SimulationSlice` is the sole ledger family, and every `SimulationReceipt` projection folds that ledger.
+`GNode.Switch` derives executable leaves without a second AST. `CommandEffect` is the one admission table keyed by `GCommand`, so a command with a distinct physical effect is one row and every other command inherits its `ModalGroup` behavior. `SimulationSlice` is the sole ledger family, and every `SimulationReceipt` projection folds that ledger. `ProgramLocus` and `ProgramPathStep` arrive from `Posting/program`, so a ledger row and a program event address one execution locus in one spelling.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@
 - Cases: `CommandEffect` reduces a word to motion, dwell, tool change, halt, constant-surface-speed, spindle, auxiliary, thermal, frame, or modal admission. `SimulationSlice` distinguishes motion, controller delay, additive deposition, specialized toolpath evidence, and state evidence. Specialized envelopes retain their typed rows; a direct specialized program contributes envelope duration and machine energy, while evidence attached to realized motion contributes no duplicate clock.
 - Entry: `public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy)` admits the aggregate program once, consumes the generated policy admission, folds executable `GNode` leaves through one `ControllerState`, and fails before ledger mutation on malformed inverse-time feed, inconsistent offset- or radius-defined arcs, unbanded motion role, missing rotary truth, envelope breach, nesting beyond the admitted depth, or execution after terminal stop.
 - Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. `ArcEvidence.Validate` admits start/end radius consistency and derives machine-axis extrema after the active work transform. `AxisMotion` supplies bounded or cyclic rotary truth, per-axis velocity, acceleration, and jerk in radians. `MotionDynamics` supplies rapid, linear, arc, and rotary feed ceilings with acceleration and jerk already stamped by `Posting/program`.
-- Receipt: `SimulationReceipt.Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands` and `Delays` are folds keyed by `ClockBand` and `DelayKind`, so a new band or delay row reports without a receipt edit.
+- Receipt: `SimulationReceipt.Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands` and `Delays` are folds keyed by `ClockBand` and `DelayKind`, so a new band or delay row reports without a receipt edit. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source.
 - Packages: `Posting/program` (`CutProgram`, `GNode`, `GCommand`, `GParam`, `ModalGroup`, `MotionRole`, `FeedMode`); `Kinematics/machine` (`MotionDynamics`, `AxisMotion`, `AxisPeriodicity`); `Kinematics/fleet` (`MachineMatch.PowerKw`, `MachineInstance.Envelope`, `MachineInstance.IdlePowerKw`); `Process/faults` (`FabricationFault.EnvelopeExceeded`, `FabricationFault.SimulatedOvertravel`); `NodaTime` (`Duration`); `UnitsNet` (`Angle`, `Power`, `Duration`, `Energy`); `Rhino.Geometry`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: controller latency is one `DelayKind` policy row; a command with a distinct physical effect is one `CommandEffect` row and one `Effects` entry; a coordinate-transform command is one `FrameEffect` row; a new AST case extends the generated `GNode.Switch`; a new machine axis is one `AxisMotion` row.
 - Boundary: simulation evaluates posted intent and never rewrites feeds, geometry, or sequence. `Posting/program` owns parse, expansion, and look-ahead. `Kinematics/machine` owns dynamics and axis limits. `ArcEvidence.Witnesses`, `ArcEvidence.SweepFor`, `RadiusDefinition`, and `ProfileSeconds` are the numeric-kernel statement exemptions. Machine-less simulation omits envelope and machine-energy gates but retains program, arc, feed, and rotary admission. Every successful ledger sums exactly to the receipt.
@@ -179,8 +179,6 @@ public sealed partial class SimulatePolicy {
             validationError = new ValidationError(message: "simulation policy requires coherent dynamics, axes, power-on defaults, offsets, tools, timing, nesting, margins, and power factor");
     }
 }
-
-public sealed record ProgramLocus(int Block, Seq<int> Path);
 
 [ComplexValueObject]
 public sealed partial class ArcEvidence {
@@ -485,12 +483,12 @@ public static class Simulate {
         Optional(program).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:program-missing").ToError()).Bind(value =>
             value.Nodes.IsEmpty
                 ? Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:empty-program").ToError())
-                : Flatten(value.Nodes, Seq<int>(), policy));
+                : Flatten(value.Nodes, Seq<ProgramPathStep>(), policy));
 
-    private static Fin<Seq<(ProgramLocus Locus, GNode Node)>> Flatten(Seq<GNode> nodes, Seq<int> path, SimulatePolicy policy) =>
+    private static Fin<Seq<(ProgramLocus Locus, GNode Node)>> Flatten(Seq<GNode> nodes, Seq<ProgramPathStep> path, SimulatePolicy policy) =>
         path.Count > policy.MaximumNesting
             ? Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:nesting-depth").ToError())
-            : nodes.Map((node, block) => (node, locus: new ProgramLocus(block, path.Add(block))))
+            : nodes.Map((node, block) => (node, locus: new ProgramLocus(block, path.Add(new ProgramPathStep(block, None)))))
                 .TraverseM(item => AdmitNode(item.locus, item.node, policy)).As()
                 .Map(static groups => groups.Fold(Seq<(ProgramLocus, GNode)>(), static (all, group) => all.Concat(group)));
 
@@ -505,7 +503,9 @@ public static class Simulate {
         coordinateFrame: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))),
         macro: static (at, value) => Flatten(value.Body.ToSeq(), at.Locus.Path, at.Policy),
         subprogram: static (at, value) => value.Repeats > 0
-            ? Range(0, value.Repeats).Map(index => Flatten(value.Body.ToSeq(), at.Locus.Path.Add(index), at.Policy)).TraverseM(identity).As()
+            ? Range(0, value.Repeats)
+                .Map(index => Flatten(value.Body.ToSeq(), at.Locus.Path.Init.Add(new ProgramPathStep(at.Locus.Block, Some(index))), at.Policy))
+                .TraverseM(identity).As()
                 .Map(static groups => groups.Fold(Seq<(ProgramLocus, GNode)>(), static (all, group) => all.Concat(group)))
             : Fin.Fail<Seq<(ProgramLocus, GNode)>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:subprogram-repeats").ToError()),
         additiveLayer: static (at, value) => Fin.Succ(Seq((at.Locus, (GNode)value))),

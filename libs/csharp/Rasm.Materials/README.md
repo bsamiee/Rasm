@@ -1,8 +1,8 @@
 # [MATERIALS]
 
-`Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family, masonry through fastener, as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row, never a sibling class, and every standards value traces to its published source or the vendor factory that mints it. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade rather than viewport-preview grade. Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced product viewports and MaterialX interchange.
+`Rasm.Materials` owns architectural substance, appearance, and buildable component type — what a building is made of, how it performs, and how it renders. One polymorphic `Component` carries every standardized family as policy rows over one section-profile algebra and one capacity rail, so a new family, section shape, or unit is a data row and every standards value traces to its published source or vendor factory. Its appearance plane is physically based end to end — BSDF lobes, OpenPBR lowering, spectral and perceptual color science, Kubelka-Munk finishes — held at render grade.
 
-It projects material property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, composing the kernel, `Rasm.Element`, and the admitted color, unit, and section packages without reminting vector, color, unit, or seam types. It references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
+Component rows feed generated assemblies and fabrication physics, capacity receipts feed structural assessment, and appearance feeds path-traced viewports and MaterialX interchange. It projects property catalogues, the component-family axis, section profiles, and capacity receipts onto the `Rasm.Element` seam through the one `ComponentProjector`, reminting no vector, color, unit, or seam type; it references no AEC peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[ROUTER]
 
@@ -53,8 +53,8 @@ Domain packages admitted by this folder; versions centralize in the one C# manif
 - `VividOrange.Standards` — cited Eurocode standard rows over inline literals.
 
 [PROPERTY_UNCERTAINTY]:
-- `VividOrange.Uncertainties` — scalar uncertainty arithmetic riding the property rows.
-- `VividOrange.Uncertainties.Quantities` — UnitsNet quantity uncertainty over the property surfaces.
+- `VividOrange.Uncertainties` — scalar uncertainty arithmetic riding the published measurement rows.
+- `VividOrange.Uncertainties.Quantities` — UnitsNet quantity uncertainty over the published measurement surfaces.
 
 [APPEARANCE]:
 - `Wacton.Unicolour.Datasets` — reference observers, illuminants, and named datasets over the `Wacton.Unicolour` owner.
@@ -78,7 +78,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [NUMERIC]:
 - `UnitsNet`
-- `MathNet.Numerics` — capacity distribution fits and interaction-surface regression.
+- `MathNet.Numerics` — overdetermined least-squares rail for the measured-BRDF GGX fit.
 - `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
 
 [MAPPING_GRAPH]:

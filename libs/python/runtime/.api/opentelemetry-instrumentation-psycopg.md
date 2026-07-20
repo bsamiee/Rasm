@@ -11,7 +11,6 @@
 - rail: observability
 - asset: pure-Python runtime library
 - namespaces: `opentelemetry.instrumentation.psycopg`
-- installed: `0.64b0`
 - capability: global sync + async psycopg connect patching, per-connection instrumentation, SQLCommenter key opt-out via `commenter_options`, span-attribute SQL comment via `enable_attribute_commenter`, and query-parameter capture via `capture_parameters`
 
 ## [02]-[PUBLIC_TYPES]
@@ -21,7 +20,7 @@
 - span mechanics delegate to `opentelemetry-instrumentation-dbapi`: the instrumentor supplies the psycopg connection classes and `DatabaseApiIntegration`/`DatabaseApiAsyncIntegration` factories; span names and `db.*` attributes are the dbapi layer's.
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :-------------------- | :------------ | :----------------------------------------------- |
+| :-----: | :-------------------- | :------------ | :---------------------------------------------- |
 |  [01]   | `PsycopgInstrumentor` | instrumentor  | sync + async psycopg connect patching, db spans |
 
 ## [03]-[ENTRYPOINTS]
@@ -30,12 +29,12 @@
 - rail: observability
 - `instrument` kwargs: `tracer_provider`, `enable_commenter`, `commenter_options`, `enable_attribute_commenter`, `capture_parameters`.
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                    |
-| :-----: | :------------------------------------------------ | :------------- | :---------------------------------------------------------- |
-|  [01]   | `instrument(**kwargs)`                             | enable         | patch `psycopg.connect` + `Connection`/`AsyncConnection`     |
-|  [02]   | `uninstrument(**kwargs)`                           | disable        | unwrap every patched connect                                 |
-|  [03]   | `instrument_connection(conn, tracer_provider=None)` | connection    | instrument one live connection (static)                      |
-|  [04]   | `uninstrument_connection(conn)`                    | connection     | strip one live connection (static)                           |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `instrument(**kwargs)`                              | enable         | patch `psycopg.connect` + `Connection`/`AsyncConnection` |
+|  [02]   | `uninstrument(**kwargs)`                            | disable        | unwrap every patched connect                             |
+|  [03]   | `instrument_connection(conn, tracer_provider=None)` | connection     | instrument one live connection (static)                  |
+|  [04]   | `uninstrument_connection(conn)`                     | connection     | strip one live connection (static)                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

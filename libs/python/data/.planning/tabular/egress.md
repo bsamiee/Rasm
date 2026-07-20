@@ -21,7 +21,7 @@ Content keys derive from operation bytes through one `ContentIdentity.of`, schem
   - `list`'s `read` counts the `return_arrow=True` listing into the byte-length slot; the `reader`/`writer`/`sign` `read`s carry the obstore handle or URL batch on the receipt `payload` slot, so no tag escapes the `_ROUTE` fold.
 - Entry: `ObjectEgress.of` constructs both `ObjectStore` handles exactly once through `from_url` — the retried store plus its `max_retries: 0` `direct` twin the `retry=None` rows cross, so a copy/rename is invoked exactly once end to end with the provider's Rust-core replay disabled beside the rail's — which dispatches the backend off the `ref.root` scheme internally, no inline scheme split, no `parse_scheme`, and freezes them on the owner so no per-operation re-mint. `run`/`run_async` open the `_TRACER` egress span then delegate `_apply`/`_apply_async` wholesale under the row's `retry` disposition — the `guarded_sync`/`guarded` fused envelope over `RetryClass.OBJECT_STORE` where the row retries, the bare `boundary`/`async_boundary` fence where it crosses once — self-flattened `.bind(lambda rail: rail)` so `_receipt`'s identity-failure rail shares the one carrier the obstore-failure path returns.
 - Auto: the put short-circuits to a by-reference no-op when the payload's `ContentKey` — derived from the payload `bytes`, never the path — matches the prior egress reconciled against the remote `Head` `e_tag`, so an unchanged bundle never re-uploads. Both legs read the same `_ROUTE` row for `op.tag` under the identical kwargs plan, never a per-leg keyword allowlist. Every `obstore.exceptions` leaf lands on the `boundary` catch-all (none is a `CLASSIFY` row), so recovery keys on `fault.recoverable({"boundary"})` and a conditional write-once/copy-once collision surfaces as a terminal `boundary` fault read off the lifted message, never a retry-suppressing per-arm catch.
-- Receipt: `EgressReceipt.contribute` yields one emitted-phase `Receipt.of("object-egress", ("emitted", path, facts))` — the two-argument `(owner, evidence)` form over the `(phase, subject, facts)` tuple, never a four-positional call — satisfying the `ReceiptContributor` `Iterable[Receipt]` Protocol. A byte-bearing op is keyed by its operation-bytes `ContentKey`; a control-plane op (`list`/`head`/`delete`/`copy`/`rename`/`reader`/`writer`/`sign`) carries `content_key=None` because it moves no operation bytes, so the receipt never digests a path string or a server-opaque `e_tag` to manufacture a key. `Head` reads its `e_tag`/`version`/`size` off the typed slots, so the no-op put confirms against that typed `e_tag` rather than a redundant key over `str(e_tag)`.
+- Receipt: `EgressReceipt.contribute` yields one emitted-phase `Receipt.of("object-egress", ("emitted", path, facts))` — the two-argument `(owner, evidence)` form over the `(phase, subject, facts)` tuple, never a four-positional call — satisfying the `ReceiptContributor` `Iterable[Receipt]` Protocol. A byte-bearing op is keyed by its operation-bytes `ContentKey`; a control-plane op (`list`/`head`/`delete`/`copy`/`rename`/`reader`/`writer`/`sign`) carries `content_key=None` because it moves no operation bytes, so the receipt never digests a path string or a server-opaque `e_tag` to manufacture a key. `Head` reads its `e_tag`/`version`/`size` off the typed slots, so the no-op put confirms against that typed `e_tag` rather than a redundant key over `str(e_tag)`. A byte-bearing `contribute` projects `rasm.egress.byte_volume` onto the runtime `Metrics.record` arm under `domain="egress"` keyed by operation — the canonical object-store throughput instrument, data-owned beside the runtime's artifact byte-volume row; the egress spans open `kind=SpanKind.CLIENT` per the store-transport law.
 - Packages: `obstore` is the sole store provider; `SignCapableStore`/`HTTP_METHOD` are stub-only typing references (`obstore._sign.pyi` `TypeAlias`), so `Method` inlines the nine members rather than a runtime import and `parse_scheme` stays unbound because `from_url` dispatches the scheme, while `GetResult.stream`'s `BytesStream` is a typing-only chunk-iterator growth value the same `Get` row carries. `obstore.exceptions`' leaf taxonomy (`BaseError` root plus the eleven leaves) and the `config`/`client_options`/`retry_config` `TypedDict` shapes are `data/.api/obstore.md` catalog facts. `arro3.core` counts the listing rows; `beartype(conf=FAULT_CONF)` is the public admission contract on `of` the sibling `interop`/`store`/`ragged` factories share.
 - Growth: a new store operation is one `StoreOp` case plus one `_ROUTE` row; a new cloud backend one `from_url` URL scheme; a new precondition one `PutMode` on `Put` or one `overwrite` value on `Copy`/`Rename`; a new conditional-get axis one `GetOptions` key on `Get`; a new get-response evidence field one more `GetResult` member on the `Get` `read`'s `payload` tuple, never a second receipt; a new streaming or signing surface one `StoreOp` case whose `read` carries its non-byte value on the `payload` slot and emits a `None` `Source`, never a parallel `_HANDLE` table.
 - Boundary: this is the data-tier bundle-I/O owner — the full write/mutation direction (`put`/`copy`/`rename`/`delete`/`writer`) plus the bundle-byte reads (`get`/`get_range`/`get_ranges`/`head`/`reader`/`sign`) its `columnar`/`geospatial`/`tensor`/`gridded/virtual`/`spatial/catalog` consumers need over Arrow/Parquet/GeoParquet/zarr bundles keyed by `ContentIdentity`. Runtime's `transport/roots#RESOURCE` owner holds the orthogonal generic-transport lane (the concurrent-small-object/large-artifact-stream read and generic survey/presign); the two share the `obstore` provider and `RetryClass.OBJECT_STORE` envelope but split by tier, so egress consumes `TransportResource`/`ResourceRef` only for credentials and never re-derives roots' read/survey lane. Composes — never re-mints — the `reliability/resilience#RESILIENCE` `guarded`/`guarded_sync` envelopes, the `reliability/faults#FAULT` `BoundaryFault` those lift, the `ContentIdentity` keyer, and the `opentelemetry` tracer; consumes the bundles rather than re-minting them. Rejected: a bare `guard`/`guard_sync` caller inside a hand-opened `boundary` and span (the doubled-span/doubled-lift form, where `guarded`/`guarded_sync` fuse the retry/child-span/terminal-lift once); a sync leg dropping a retried row's `OBJECT_STORE` outer envelope to lean on the `obstore` Rust-core `RetryConfig` where the async leg carries it; a blanket retry envelope re-driving the non-idempotent `copy`/`rename` whose ambiguously-succeeded first attempt a blind replay corrupts or mis-reports; a narrowed `catch=obstore.exceptions.BaseError` letting a row-projection `KeyError`/`AttributeError` escape rather than convert at the `CLASSIFY` `Exception` seam; a path-string `ContentIdentity.of` key against the identity owner's no-path law; a per-operation `from_url` re-mint; a parallel `S3Egress`/`AsyncObjectEgress` family.
@@ -38,9 +38,11 @@ from expression.collections import Map
 from msgspec import Struct
 from obstore.store import ObjectStore, from_url
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, async_boundary, boundary
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded, guarded_sync
 from rasm.runtime.roots import ResourceRef
@@ -343,7 +345,10 @@ class EgressReceipt(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         # `byte_length` rides as a native `int`: the receipts `Encoder(enc_hook=repr)` serializes
-        # scalars without a `str()` coerce.
+        # scalars without a `str()` coerce. Byte-bearing ops project throughput onto the metric spine
+        # under domain="egress" keyed by operation; control-plane ops (byte_length 0) record nothing.
+        if self.byte_length:
+            Metrics.record({"rasm.egress.byte_volume": float(self.byte_length)}, domain="egress", kind=self.operation)
         yield Receipt.of(
             "object-egress",
             (
@@ -390,8 +395,9 @@ class ObjectEgress(Struct, frozen=True):
         )
 
     def run(self, op: StoreOp, path: str = "") -> RuntimeRail[EgressReceipt]:
+        # kind=CLIENT: the store transport is the outbound network leg, a local/memory scheme its degenerate client.
         retry, target = _ROUTE[op.tag].retry, path or self.ref.relative
-        with _TRACER.start_as_current_span(f"egress.{op.tag}", attributes={"rasm.egress.scheme": self.ref.scheme}):
+        with _TRACER.start_as_current_span(f"egress.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.egress.scheme": self.ref.scheme}):
             fenced = (
                 guarded_sync(retry, self._apply, op, target, subject=f"egress.{op.tag}")
                 if retry is not None
@@ -401,7 +407,7 @@ class ObjectEgress(Struct, frozen=True):
 
     async def run_async(self, op: StoreOp, path: str = "") -> RuntimeRail[EgressReceipt]:
         retry, target = _ROUTE[op.tag].retry, path or self.ref.relative
-        with _TRACER.start_as_current_span(f"egress.{op.tag}", attributes={"rasm.egress.scheme": self.ref.scheme}):
+        with _TRACER.start_as_current_span(f"egress.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.egress.scheme": self.ref.scheme}):
             fenced = (
                 await guarded(retry, self._apply_async, op, target, subject=f"egress.{op.tag}")
                 if retry is not None

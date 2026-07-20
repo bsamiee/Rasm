@@ -1,6 +1,6 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the federation's measured-execution engine: the discipline-assessment authority over the concrete `ElementGraph` — a farm of solvers whose failure semantics are engineered as rigorously as their success semantics, every verdict cached by content key and every failure a typed cached fact with a retry policy — over a numeric substrate sized for building-scale modal, buckling, and meshing work, an optimization, uncertainty, and design-of-experiments spine over one evaluate oracle, a symbolic lane with real CAS depth, and the ONNX model plane. Its bar is throughput law, not solver hygiene: generated-design screening loops re-solve thousands of variants, so failure caching, content-keyed reuse, and dispatchable sweeps are load-bearing capability, and a discipline the seam declares that Compute cannot answer is a coverage defect.
+`Rasm.Compute` is the federation's measured-execution engine: the discipline-assessment authority over the `ElementGraph` — a solver farm engineering failure as rigorously as success, every verdict and failure a content-keyed fact with retry policy — over a building-scale numeric substrate, an optimization and uncertainty spine over one evaluate oracle, a symbolic CAS lane, and the ONNX model plane. Screening loops re-solve thousands of variants, so failure caching, keyed reuse, and dispatchable sweeps are load-bearing, and a declared discipline Compute cannot answer is a coverage defect.
 
 One intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary and never reverses the dependency onto the AEC-domain peers.
 
@@ -24,7 +24,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [13]-[UNITS](.planning/Symbolic/units.md): Units boundary admitting every unit-bearing input.
 
 [MODEL]:
-- [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity, the acquisition union, the kind-discriminated schema snapshot, and the graduation drift sentinel.
+- [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity with acquisition, schema-snapshot, and drift-sentinel evidence.
 - [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start.
 - [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery and quantization posture.
 - [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold, cross-request batching gate, and result cache.
@@ -50,7 +50,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [31]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
 - [32]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
 - [33]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
-- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union and benchmark-claim table.
+- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union, its instrument projection, and the benchmark-claim table.
 - [35]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
 - [36]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
 - [37]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.
@@ -73,7 +73,6 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 [NUMERIC_ACCELERATION]:
 - `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
 - `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
-- `CSparse` — managed sparse direct-factor terminal.
 - `cslsqp` — source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
 - `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
 - `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
@@ -94,14 +93,13 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `Microsoft.ML.OnnxRuntime` — ONNX inference session core.
 - `Microsoft.ML.OnnxRuntime.Extensions` — custom-op and string-tensor extension surface.
 - `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
-- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
 - `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
 
 [SIMULATION_CARBON]:
 - `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
 - `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
 - `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
-- `EC3` — openEPD REST consumed hand-thin over `HttpClient` for the EN 15978 carbon lane.
+- `EC3` — openEPD REST service, no NuGet row: consumed hand-thin over `HttpClient`; the adjacent `.api` catalog is the integration contract.
 
 [INTERCHANGE_TRANSPORT]:
 - `SharpGLTF.Core` — glTF core read and write.
@@ -111,7 +109,6 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
-- `Microsoft.AspNetCore.TestHost` — test-only: in-memory server the `RemoteTransport.InProcess` row injects, binding in the transport test harness.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -125,6 +122,7 @@ Shared substrate Compute consumes from the C# registry; the registry and its cha
 
 [NUMERIC]:
 - `CommunityToolkit.HighPerformance`
+- `CSparse` — managed sparse direct-factor terminal.
 - `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
 - `System.Numerics.Tensors`
 - `UnitsNet`
@@ -138,6 +136,9 @@ Shared substrate Compute consumes from the C# registry; the registry and its cha
 - `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
 - `Clipper2` — corridor-clearance offset algebra at the same boundary.
 
+[MODEL_ABSTRACTION]:
+- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
+
 [MAPPING_WIRE]:
 - `Riok.Mapperly` — per-case proto↔domain transcription at the `Runtime/wire` boundary.
 - `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record equality.
@@ -148,5 +149,6 @@ Shared substrate Compute consumes from the C# registry; the registry and its cha
 - `NodaTime.Serialization.Protobuf`
 
 [TEST]:
-Rows bind in the branch benchmark project, never the package csproj.
+Rows bind in branch test and benchmark projects, never the package csproj.
 - `BenchmarkDotNet`
+- `Microsoft.AspNetCore.TestHost` — in-memory server the `RemoteTransport.InProcess` row injects in the transport test harness.

@@ -74,7 +74,7 @@ public sealed record ElementScene(Map<UInt128, ImportedGeometry> Pool, Seq<Eleme
     // vertex-bytes hash, one identity placement, the untyped-proxy classification.
     public static ElementScene Of(ImportedGeometry soup) {
         UInt128 key = XxHash128.HashToUInt128(MemoryMarshal.AsBytes(soup.Vertices.Span));
-        return new ElementScene(Map((key, soup)), Seq1(new ElementInstance("soup", "soup", "IfcBuildingElementProxy", key, Matrix4x4.Identity)));
+        return new ElementScene(Map((key, soup)), Seq(new ElementInstance("soup", "soup", "IfcBuildingElementProxy", key, Matrix4x4.Identity)));
     }
 
     public ImportedGeometry Soup() => Pooled().Bake();
@@ -712,7 +712,7 @@ public static class RoundTrip {
     // keeps .Graph and Compare witnesses fidelity by the seam member diff. The egress projector's ctor db is unused by Emit
     // (it builds its own target from the graph header), so an empty DatabaseIfc seeds it.
     public static Fin<RoundTripReport> Verify(ElementGraph source, InterchangeFormat format, ProjectionContext ctx, IClock clock, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
-        BimExport.ExportIfc(format, source, new SemanticProjector(new DatabaseIfc(), reconciler, profiles), InterchangePolicy.Canonical, clocks, Option<ElementGraph>.None, ctx.Key)
+        BimExport.ExportIfc(format, source, new SemanticProjector(new DatabaseIfc(), reconciler, profiles), InterchangePolicy.Canonical, clock, Option<EmitContext>.None, ctx.Key)
             .Bind(artifact => BimIo.ImportIfc(format, artifact.Bytes, ctx.Key))
             .Bind(db => ProjectionAssembly.Assemble(
                 ProjectionSuite.Of(
@@ -723,7 +723,7 @@ public static class RoundTrip {
             .Map(reimported => Compare(format.Key, source, reimported, ctx.Key));
 
     public static Fin<Map<string, RoundTripReport>> Matrix(ElementGraph source, ProjectionContext ctx, IClock clock, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
-        IfcTriad.TraverseM(format => Verify(source, format, ctx, clocks, reconciler, profiles).Map(report => (format.Key, report))).As()
+        IfcTriad.TraverseM(format => Verify(source, format, ctx, clock, reconciler, profiles).Map(report => (format.Key, report))).As()
             .Map(static rows => rows.ToMap());
 
     static RoundTripReport Compare(string formatKey, ElementGraph source, ElementGraph reimported, Op key) {

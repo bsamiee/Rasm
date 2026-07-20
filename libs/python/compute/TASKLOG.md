@@ -1,6 +1,6 @@
 # [PY_COMPUTE_TASKLOG]
 
-The open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
+Open and closed work distilled from `IDEAS.md`. `[1]-[OPEN]` carries task cards whose leader holds a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` — and three to four scoped bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries or wires, and the key considerations. `[2]-[CLOSED]` carries `[COMPLETE]` and `[DROPPED]` items. One idea spawns one or more tasks; each task names the exact sub-domain or file it lands in.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with. `Atomic` flags a minor-scope task so a later session sizes its turn correctly and does not overscope a batch of small items.
 
@@ -17,7 +17,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[STUDY_BENCH_FOLD]-[QUEUED]: land the `Measured`-to-bench projection on `experiments/study.md`.
+- Capability: one fold from `Measured` wallclock and speedup to the runtime bench contribution, subject-keyed per objective.
+- Anchors: `experiments/study#STUDY`; runtime `observability/profiles#BENCH`; the `rasm.bench.*` rows.
+- Tension: observability evidence only — no graduation verdict rides it; `RESULT` mode suppresses the contribution with its zero elapsed.
+- Atomic: one projection fold and its card fields.
 
 ## [02]-[CLOSED]
 

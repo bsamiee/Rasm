@@ -36,46 +36,28 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 └── Store/                   # Durable-home and coordination substrate
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
     ├── Provisioning.cs      # Verification-first extension tier and provider-binding rows
-    └── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
+    ├── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
+    └── Observability.cs     # Engine-stat harvests, the receipt-slot registry, and the store instrument contributor
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and wall clock, elapsed marks, correlation, and tenant ride the injected `ProjectionContext` frame — a `ClockPolicy`/`CorrelationId`/`TenantContext` parameter on any Persistence signature is the named strata inversion. Marten owns the durable append and the rebuildable views; the version-control engine projects from its events; provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects — and clock, correlation, and tenant ride the injected `ProjectionContext` frame. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[STRATA]
 
-Four strata order the five sub-domains; `Version` and `Store` co-seat as a coupled pair — retention classes flow down into blob GC while storage tiers flow back into retention facts — and the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload; every other consumption edge points down.
+S0–S3 order the sub-domains; `Version` and `Store` co-seat as a coupled pair — retention classes flow down into blob GC while storage tiers flow back into retention facts — and the one ruled counter-edge is `Element/Graph`'s `GraphStoreOp.ReadAsOf` taking the Version `TimeCut` as its typed as-of payload; every other consumption edge points down.
 
 - S0 `Element` — the system-of-record spine consuming no sibling: `ModelId`, `GraphStoreOp`, the `SnapshotCodec` content-address codec, the `IdentityStore` one-transaction identity owner, and the `GrantSet` ACL algebra.
-- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, and the durable `TaskRelation` DAG.
+- S1 `Ingest` — file-codec ingress over the spine alone: `TabularSource`, `GeoFeatureRow`, `ScheduleSpec`, and the durable `TaskRelation` rows the Bim sequencing DAG orders.
 - S2 `Version` + `Store` — the coupled durable tier: `OpLogEntry`, `Hlc`, `TimeCut`, and `RetentionClass` beside `ObjectStore`, `StorageTier`, `LeaseToken`, and `OutboxCursor`; their mutual retention-tier exchange is same-stratum fact.
 - S3 `Query` — read lanes nothing composes: `FederationPlan`, `TopologyView`, `VectorCodebook`, and the `ArtifactIndexRow` reuse index pinning reads at the Version `TimeCut`.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Persistence interior strata
@@ -101,14 +83,6 @@ flowchart TB
     Ingest e6@-->|"[IMPORT]: ProjectionContext"| Element
     Element e7@-.->|"[COUNTER]: TimeCut"| Version
     Element f1@-->|"forbidden: spine upward"| L3
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Query,Version,Store,Ingest primary
-    class Element recessed
-    class e1,e2,e3,e4,e5,e6,e7 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -118,29 +92,10 @@ Seams split into two fences by counterpart group. First fence binds the AEC-doma
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Persistence domain and kernel content seams
@@ -157,6 +112,8 @@ flowchart LR
     Bim{{Rasm.Bim}}
     Compute{{Rasm.Compute}}
     RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
+    RasmElement e12@-->|"[SHAPE]: GraphDelta"| Element
+    RasmElement e13@-->|"[CONTENT_KEY]: ContentAddress"| Element
     Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
     Rasm e3@-->|"[CONTENT_KEY]: ContentHash"| Element
     Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
@@ -167,46 +124,15 @@ flowchart LR
     Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
     Compute e10@-->|"[PROJECTION]: ArtifactIndexRow"| Query
     Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    class Element,Version,Query,Ingest,Store primary
-    class RasmElement,Bim,Compute external
-    class Rasm annotation
-    class e2,e3,e4,e6,e7,e8,e9,e11 edgeData
-    class e1 edgeControl
-    class e5,e10 edgeExternal
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Persistence platform and cross-runtime seams
@@ -227,33 +153,19 @@ flowchart LR
     Version e2@-->|"[WIRE]: CrdtOpWire"| Core
     Version e3@<-->|"[WIRE]: OpLogEntry"| Runtime
     Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
-    Data e5@-->|"[CONTENT_KEY]: IcechunkKey"| Version
+    Data e5@-->|"[CONTENT_KEY]: ContentKey"| Version
     Query e6@<-->|"[WIRE]: SubstraitPlan"| Data
     Query e16@-->|"[WIRE]: FlightTicket"| Data
     Data e17@<-->|"[CONTENT_KEY]: ContentKey"| Query
     Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
     Version e8@<-->|"[PORT]: Hlc"| AppHost
     AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
-    AppHost e10@-->|"[TRANSPORT]: PeerRoster"| Version
     Query e11@<-->|"[PORT]: HybridCache"| AppHost
     Store e12@<-->|"[PORT]: CoordinationOp"| AppHost
-    AppHost e13@-->|"[RECEIPT]: ProvisionVerdict"| Store
+    Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
+    Store e13@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
     AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    class Element,Version,Query,Store primary
-    class AppHost,Runtime,Data external
-    class AppUi,Core,Artifacts annotation
-    class e1,e2,e3,e4,e5,e6,e15,e16,e17 edgeData
-    class e7,e8,e11,e12 edgeControl
-    class e9,e10,e14 edgeExternal
-    class e13 edgeSuccess
 ```
 
 ## [04]-[INTERNAL]
@@ -261,26 +173,10 @@ flowchart LR
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: ElementGraph persistence flow
@@ -297,12 +193,6 @@ flowchart LR
     Blob -.reference hash.-> Session
     Engine --> Retention[[retention GC]]
     Retention --> Blob
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    class Op boundary
-    class Inline,Changefeed,Topology,Engine,Async,Pump,Retention primary
-    class Session,Cursor,Blob data
 ```
 
 One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Geometry blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
@@ -310,9 +200,9 @@ One `IDocumentSession` commits the `GraphDelta` event and the identity row toget
 ## [05]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free.
-- It depends up on the `Rasm.Element` seam plus the `Rasm` kernel and never references a sibling AEC-domain peer.
+- It depends up on the `Rasm.Element` seam and the `Rasm` kernel and never references a sibling AEC-domain peer.
 - Marten owns the durable append and the rebuildable read views; the version engine PROJECTS from its events, never a bespoke op-log store beneath it.
-- One transaction owner for identity plus event is the `IDocumentSession` — identity lands as the one compiled-model-derived upsert `IdentityStore.Stamp` queues on the session, never a Marten document and never a second ORM write.
+- One transaction owner for identity and event is the `IDocumentSession` — identity lands as the one compiled-model-derived upsert `IdentityStore.Stamp` queues on the session, never a Marten document and never a second ORM write.
 - Geometry blobs are write-first and reference-after, with no free two-ORM atomicity.
 - Authoritative topology reads bind the inline projection and the in-process QuikGraph view; analytical lanes are async under a watermark.
 - Typed projection records and the seam `ElementGraph` are the only egress; provider failure converts once per rail.

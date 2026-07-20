@@ -2,7 +2,7 @@
 
 `Differentiation` is the one automatic-differentiation and sensitivity owner: the `@tagged_union` whose `DiffModeTag` tag discriminates the full derivative algebra — scalar gradient, forward- and reverse-mode Jacobian, Hessian, Jacobian-vector product, vector-Jacobian product, Hessian-vector product, and the finite-difference floor. Every differentiation a study, optimizer, or graduation gate needs is one mode value on this owner, entered through `differentiate` on the union itself, never a `grad`/`jacfwd`/`jacrev`/`hessian`/`jvp`/`vjp`/`hvp` method family and never a second autodiff surface beside it. This owner never trains a model, fits a network, or carries a gradient-descent loop.
 
-All eight modes resolve through one engine stacking `jax`, `equinox`, and `findiff` as a single rail: the `_SPEC` table keyed on `(DiffTarget, DiffModeTag)` folds each cell to its transform-or-applicator and admissible keyword set, and the gated `DiffEngine` carrier promotes float64 once per solve. Reverse mode reads the implicit-function-theorem adjoint through the autodifferentiable Lineax/Optimistix/Diffrax solves the solver routes expose at float64 — `solvers/linear.md#LINEAR`, `solvers/nonlinear.md#NONLINEAR`, and `solvers/differential.md#DIFFERENTIAL` carry those adjoints, so a sensitivity through a solved system differentiates the converged solution, not the iteration trace. Differentiated sensitivity graduates on the existing `solver` `HandoffAxis` at `graduation/handoff.md#GRADUATION` without a parallel evidence rail, the weave's receipt harvest streaming the `DiffReceipt` on exit.
+Every mode resolves through one engine stacking `jax`, `equinox`, and `findiff`: the `_SPEC` table keyed on `(DiffTarget, DiffModeTag)` folds each cell to its transform-or-applicator and admissible keyword set, and the gated `DiffEngine` carrier promotes float64 once per solve. Reverse mode reads the implicit-function-theorem adjoint through the autodifferentiable solves `solvers/linear.md#LINEAR`, `solvers/nonlinear.md#NONLINEAR`, and `solvers/differential.md#DIFFERENTIAL` expose, so a sensitivity through a solved system differentiates the converged solution, not the iteration trace. Sensitivity evidence stays on the receipt rail — the weave harvest streams `DiffReceipt` on exit, no sensitivity `HandoffAxis` case exists, and a crossing that needs derivative evidence rides the solve routes' own graduation.
 
 ## [01]-[INDEX]
 
@@ -14,9 +14,9 @@ All eight modes resolve through one engine stacking `jax`, `equinox`, and `findi
 - Cases: the `_SPEC` table keyed on `(DiffTarget, DiffModeTag)` is the single dispatch owner — `ARRAY` selects the bare `jax.*` transform, `PYTREE` the `equinox.filter_*` peer over an Equinox `Module`, two columns on one table rather than parallel owners. Keyword projection is data: each `DiffSpec.keywords` names exactly the `DiffPolicy` fields the cell's transform admits — `holomorphic` rides `jacfwd` alone, `allow_int` rides `jacrev` alone, and the `filter_*` peers carry `("has_aux",)` alone (they differentiate the first argument's inexact-array leaves and reject integer `argnums`), so no transform receives a keyword it raises on. Directional `jvp`/`vjp`/`hvp` cells are three applicator rows: the `Jvp` tangent and `Hvp` vector live in the input space, the `Vjp` cotangent in the output space, all three carried as one `Pytree` payload the `ARRAY` cells lift through `jnp.asarray` and the `PYTREE` cells thread whole — an `asarray` over a PyTree leaf flattens it, the forbidden form. `has_aux=True` shifts the transform return, peeled by the `_split` fold onto the receipt's `value`/`aux` witnesses. Finite-difference floor and HVP are `ARRAY`-only, so the `(PYTREE, finite_difference)` and `(PYTREE, hvp)` cells are absent — that one membership miss IS the `DiffStatus.UNSUPPORTED` verdict, carried on the receipt rather than raised.
 - Entry: `mode.differentiate(lane, fn, x)` is `async`, offloading `_dispatch` under the `HOSTILE` trait (the `jax_enable_x64` mutation is process-global), isolation, band, and worker-death retry deriving at the runtime `Kernel` crossing owner, the hub `evidence_run` weave owning span, fence, and the receipt harvest. `_dispatch` resolves the `_SPEC[(target, mode.tag)]` row first — an absent cell is the sole UNSUPPORTED verdict — then a total mode-tag `match` routes the finite-difference short-circuit (before any `gated()` carrier build), the directional rail, or the transform rail, each reading the product back through `DiffEngine.flatten`. Finite-difference floor contracts the `findiff` `coefficients(deriv=1, acc=acc)` `center` stencil over an accuracy-width grid and records the realized order — never a fixed three-point stencil, never an `acc` capped. `boundary` converts an unexpected host fault to the fault rail; the UNSUPPORTED pairing rides inside the success receipt, so a fault and an unsupported mode stay distinct notions.
 - Output: `DiffProduct` is the output-shape discriminant — `SCALAR` (gradient/directional vector), `JACOBIAN` (2-D), `HESSIAN` (square, carrying the symmetry residual). `_PRODUCT` table keys each mode to its class and `_summary` reads it to resolve the `(rows, cols)` extent and the Hessian `‖H − Hᵀ‖_∞` residual, so the product is parameterized over output shape rather than erased to one norm pair; `_summary` reads it for every mode including the UNSUPPORTED pairing that carries no `_SPEC` row.
-- Receipt: `DiffReceipt` is the typed AD receipt carrying the mode, shape, the `argnums` differentiated-argument witness (the intrinsic `∂y/∂xᵢ` provenance a reader recovers without the call site, `0` on the single-argument `PYTREE` filter default), the objective `value`, the `aux` flag, the flat product, the `(rows, cols)` extent, the `max_magnitude`/`frobenius` norms, the Hessian `symmetry` residual (`0.0` off the Hessian mode), the `DiffStatus` verdict, the realized `accuracy`, and the `implicit_adjoint` flag — parameterized over both input argument and output shape. `DiffStatus` is a value object with behavior: its `exact` predicate tests the `_EXACT` frozenset, mirroring the sibling `SolveStatus.converged`. Facts ride as native scalars so the verdict, extent, residual, accuracy, and step reach the C# graduation gate as numeric evidence over the existing `solver` `HandoffAxis` — no new axis.
-- Packages: `jax` (the transforms plus the rail-wide `config.update("jax_enable_x64", True)` float64 promotion the gated carrier runs so the implicit adjoint pulls back at double precision), `equinox` (the `filter_*` peers, `partition`/`is_inexact_array` splitting the differentiated inexact-array leaves), `findiff` (`coefficients(deriv, acc=)` — the raw central-difference surface whose `center` entry carries the accuracy-scaled weights, offsets, and realized order the floor reads onto the receipt), `numpy`, `expression`, `dataclasses`, and `msgspec` per the fence imports; `optimistix`/`lineax`/`diffrax` supply the implicit adjoints transitively through the solver routes, never imported here.
-- Growth: a new analytic mode is one `Differentiation` case plus one `_SPEC` row plus one `_PRODUCT` row; a new directional mode is one case plus one `_SPEC` applicator plus one `_PRODUCT` row; a new objective shape is one `DiffTarget` member plus its `_SPEC` column; a new differentiation argument is one `DiffPolicy` field plus its membership on the affected `keywords` tuples; a new product geometry is one `DiffProduct` member plus its `_summary` arm.
+- Receipt: `DiffReceipt` is the typed AD receipt carrying the mode, shape, the `argnums` differentiated-argument witness (the intrinsic `∂y/∂xᵢ` provenance a reader recovers without the call site, `0` on the single-argument `PYTREE` filter default), the objective `value`, the `aux` flag, the flat product, the `(rows, cols)` extent, the `max_magnitude`/`frobenius` norms, the Hessian `symmetry` residual (`0.0` off the Hessian mode), the `DiffStatus` verdict, the realized `accuracy`, and the `implicit_adjoint` flag — parameterized over both input argument and output shape. `DiffStatus` is a value object with behavior: its `exact` predicate tests the `_EXACT` frozenset, mirroring the sibling `SolveStatus.converged`. Facts ride as native scalars — verdict, extent, residual, accuracy, step — so the receipt rail carries the full numeric evidence and no sensitivity `HandoffAxis` case exists.
+- Packages: `jax` (the transforms and the rail-wide `config.update("jax_enable_x64", True)` float64 promotion the gated carrier runs so the implicit adjoint pulls back at double precision), `equinox` (the `filter_*` peers, `partition`/`is_inexact_array` splitting the differentiated inexact-array leaves), `findiff` (`coefficients(deriv, acc=)` — the raw central-difference surface whose `center` entry carries the accuracy-scaled weights, offsets, and realized order the floor reads onto the receipt), `numpy`, `expression`, `dataclasses`, and `msgspec` per the fence imports; `optimistix`/`lineax`/`diffrax` supply the implicit adjoints transitively through the solver routes, never imported here.
+- Growth: a new analytic mode is one `Differentiation` case, one `_SPEC` row, and one `_PRODUCT` row; a new directional mode is one case, one `_SPEC` applicator, and one `_PRODUCT` row; a new objective shape is one `DiffTarget` member with its `_SPEC` column; a new differentiation argument is one `DiffPolicy` field with its membership on the affected `keywords` tuples; a new product geometry is one `DiffProduct` member with its `_summary` arm.
 - Boundary: the implicit-adjoint solves are the solver routes' — `solvers/linear.md#LINEAR`, `solvers/nonlinear.md#NONLINEAR`, and `solvers/differential.md#DIFFERENTIAL` carry the autodifferentiable adjoints (each `optimistix` solve `ImplicitAdjoint` by default, one `lineax` solve per backward pass) this owner consumes, so reverse mode over a function that solves pulls back through the converged solution. `optimization/design.md#DESIGN` reads this owner's `Gradient`/reverse-mode gradient over an inner-solve objective for inverse design (its `filter_value_and_grad` pass is the `(PYTREE, gradient)` cell). `experiments/study.md#STUDY` owns a DISJOINT sampled-DGSM rail over `SALib.analyze.dgsm` and never calls this owner — the shared concept is the `∂y/∂x` field, not a wire (the `[DGSM_SEAM]` row carries the boundary).
 
 ```python signature
@@ -104,9 +104,9 @@ _PRODUCT: Map[DiffModeTag, DiffProduct] = Map.of_seq([
 
 @dataclass(frozen=True, slots=True)
 class DiffPolicy:
-    argnums: int | tuple[int, ...] = (
-        0  # positional argument(s); the bare-jax contract — `int` one product, `tuple[int, ...]` the per-argument tuple `_summary` concatenates. Bare-jax transforms only; the `filter_*` peers reject it
-    )
+    # `argnums` is bare-jax only (`filter_*` peers reject it): `int` yields one product, and `tuple[int, ...]`
+    # yields the per-argument tuple `_summary` concatenates.
+    argnums: int | tuple[int, ...] = 0
     holomorphic: bool = False  # complex-holomorphic differentiation; jax.grad/jacfwd alone carry it
     allow_int: bool = False  # integer-input differentiation; jax.jacrev/grad alone carry it
     has_aux: bool = False  # objective returns (value, aux); _split peels the shifted return, aux flag rides the receipt
@@ -183,7 +183,8 @@ class Differentiation:
             # through the pickle wire unchanged, so the upgrade costs the structured case nothing.
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY), fn, x, self, target, policy)
 
-        return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch)
+        facts = {"mode": self.tag, "target": target.value, "aux": policy.has_aux}
+        return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch, facts=facts)
 
 
 # Gated jax/equinox modules built ONCE per solve, so the import and float64 promotion fire once. `gated()`
@@ -225,9 +226,9 @@ class DiffReceipt(Struct, frozen=True):
     mode: DiffModeTag
     target: DiffTarget
     shape: DiffProduct
-    argnums: (
-        int | tuple[int, ...]
-    )  # the differentiated positional argument(s) — intrinsic product provenance, not a demultiplex key (`PYTREE` filter modes report `0`, the first-arg leaf)
+    # differentiated positional argument(s) — intrinsic product provenance, never a demultiplex key;
+    # `PYTREE` filter modes report `0`, the first-arg leaf.
+    argnums: int | tuple[int, ...]
     value: float | None
     aux: bool
     product: tuple[float, ...]
@@ -258,7 +259,7 @@ class DiffReceipt(Struct, frozen=True):
             "status": self.status,
             "implicit_adjoint": self.implicit_adjoint,
         }
-        return (Receipt.of("compute.differentiation", ("emitted", self.mode, facts)),)
+        return (Receipt.of(EvidenceScope.SENSITIVITY.value, ("emitted", self.mode, facts)),)
 
 
 # --- [TABLES] ------------------------------------------------------------------------------
@@ -277,11 +278,20 @@ _SPEC: Map[tuple[DiffTarget, DiffModeTag], DiffSpec] = Map.of_seq([
     ((DiffTarget.PYTREE, "forward_jacobian"), DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacfwd)),
     ((DiffTarget.PYTREE, "reverse_jacobian"), DiffSpec(("has_aux",), lambda e: e.eqx.filter_jacrev)),
     ((DiffTarget.PYTREE, "hessian"), DiffSpec(("has_aux",), lambda e: e.eqx.filter_hessian)),
-    ((DiffTarget.ARRAY, "jvp"), DiffSpec( (), lambda e, fn, v, kw: _read_array_jvp(e.jax.jvp(fn, (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))) )),
+    (
+        (DiffTarget.ARRAY, "jvp"),
+        DiffSpec((), lambda e, fn, v, kw: _read_array_jvp(e.jax.jvp(fn, (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),)))),
+    ),
     ((DiffTarget.PYTREE, "jvp"), DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_jvp(fn, (v[0],), (v[1],))[1]))),
     ((DiffTarget.ARRAY, "vjp"), DiffSpec((), lambda e, fn, v, kw: (None, e.jax.vjp(fn, e.jax.numpy.asarray(v[0]))[1](e.jax.numpy.asarray(v[1]))[0]))),
     ((DiffTarget.PYTREE, "vjp"), DiffSpec((), lambda e, fn, v, kw: (None, e.eqx.filter_vjp(fn, v[0])[1](v[1])[0]))),
-    ((DiffTarget.ARRAY, "hvp"), DiffSpec( ("argnums", "holomorphic", "allow_int"), lambda e, fn, v, kw: (None, e.jax.jvp(e.jax.grad(fn, **kw), (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))[1]), )),
+    (
+        (DiffTarget.ARRAY, "hvp"),
+        DiffSpec(
+            ("argnums", "holomorphic", "allow_int"),
+            lambda e, fn, v, kw: (None, e.jax.jvp(e.jax.grad(fn, **kw), (e.jax.numpy.asarray(v[0]),), (e.jax.numpy.asarray(v[1]),))[1]),
+        ),
+    ),
     ((DiffTarget.ARRAY, "finite_difference"), DiffSpec((), None)),
 ])
 

@@ -2,7 +2,7 @@
 
 Mesh-feature detection projected onto the `networkx` analytic graph: sharp-edge, planar, curvature, and boundary detection are rows of one `FEATURE_OPS` detect/project table, never sibling functions, and the `ANALYTICS` table closes the connectivity/centrality/spanning/cycle/community families over that one projection, `mode_guard` skipping a directed-only or undirected-only algorithm by data rather than an inline graph-kind branch. `Features` is the mesh-feature-projection producer of `network-graph`; the `algebra` sibling is the compas-adjacency producer of the same literal, never folded into one file.
 
-Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate, no local twin. `@receipted` sits on the one pure module-level `_extracted` both paths share, fence OUTSIDE — `run`'s `boundary` on the sync arm, the lane's `async_boundary` on the bridged arm — matching the sibling wiring, and `bridged` ships that module-qualified body `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with only the mesh and request as crossing payload and zero geometry-minted limiters, because the `trimesh`/`numpy` detector band imports under no isolated subinterpreter. Each feature graph graduates under `GeometrySubject.NETWORK_GRAPH`; the compute crossing is the carrier's `wire()` data, never an import.
+Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) imports downward from the tier-0 `graph/analytic` substrate, no local twin. `run` and `bridged` return through the graduation `evidence_run` weave seeded `EvidenceScope.GRAPH_FEATURES` — span, fence, and receipt harvest in one composition over the one pure module-level `_extracted` both paths share, matching the sibling wiring — and `bridged` ships that module-qualified body `REFERENCE` as a `KernelTrait.HOSTILE` kernel onto the warm process pool with only the mesh and request as crossing payload and zero geometry-minted limiters, because the `trimesh`/`numpy` detector band imports under no isolated subinterpreter. Each feature graph graduates under `GeometrySubject.NETWORK_GRAPH`; the compute crossing is the carrier's `wire()` data, never an import.
 
 ## [01]-[INDEX]
 
@@ -10,17 +10,18 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 
 ## [02]-[FEATURES]
 
-- Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms plus one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
-- Entry: `run` discriminates a single request or a batch; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the fence. `bridged` is NOT itself `@receipted` and never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
+- Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
+- Entry: `run` discriminates a single request or a batch, each returning through its own weave rail; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
 - Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
-- Growth: a new feature kind is one `FeatureKind` row plus one `FEATURE_OPS` row and one `CASE` row; a new mark space is one `MarkSpace` member plus one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row plus one `ANALYTICS` row — plus `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
+- Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row and one `CASE` row; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
 - Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import StrEnum
+from functools import partial
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
@@ -33,17 +34,16 @@ from expression.collections import Block, Map
 from msgspec import Struct, structs
 from numpy.typing import NDArray
 
-from rasm.geometry.graduation import GeometryHandoff, GeometrySubject
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
-from rasm.runtime.faults import Disposition, RuntimeRail, boundary, traversed
+from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Phase = Literal["admitted", "emitted"]
 type Marks = NDArray[np.int64]
 type EdgeArray = NDArray[np.int64]
 type GraphFamily = type[nx.Graph] | type[nx.DiGraph] | type[nx.MultiGraph] | type[nx.MultiDiGraph]
@@ -122,7 +122,6 @@ _HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.EIGENVECTOR,
     AnalyticOp.PAGERANK,
 })
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # feature facts carry no secret field
 _EMPTY_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_graph_fraction": 0.0})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -189,7 +188,7 @@ class FeatureResult(Struct, frozen=True):
 
     def contribute(self) -> Iterable[Receipt]:
         phase: Phase = "emitted" if self.census.nodes else "admitted"
-        return (Receipt.of("geometry.graph.features", (phase, self.graduation_subject, self.census.facts())),)
+        return (Receipt.of("rasm.geometry.graph.features", (phase, self.graduation_subject, self.census.facts())),)
 
     def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
         spec = CASE[self.kind]
@@ -393,11 +392,10 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
     )
 
 
-@receipted(_REDACTION)
 def _extracted(mesh: trimesh.Trimesh, request: FeatureRequest) -> FeatureResult:
-    # the one pure extraction body both arms share, module-qualified so the bridged kernel ships REFERENCE and
-    # only the numpy-backed mesh plus the frozen request pickle — never an owner closure whose lane drags
-    # loop-side runtime state across the process seam; the aspect emits on worker-side exit.
+    # one pure extraction body both arms share, module-qualified so the bridged kernel ships REFERENCE and
+    # only the numpy-backed mesh and the frozen request pickle — never an owner closure whose lane drags
+    # loop-side runtime state across the process seam; the weave's harvest emits the result loop-side.
     graph, marks = _project(mesh, request.kind, request.policy)
     return _assemble(graph, marks, request.kind, request.policy, _analyse(graph, request.policy, ops=request.policy.ops))
 
@@ -410,23 +408,30 @@ class Features(Struct, frozen=True):
     lane: LanePolicy
 
     def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeRail[FeatureResult] | RuntimeRail[Block[FeatureResult]]:
-        # a batch folds a Block of the same fenced rail through traversed(ACCUMULATE); `i=item` binds the loop variable per closure.
+        # each request returns through its own GRAPH_FEATURES weave; a batch folds the weave rails through
+        # traversed(ACCUMULATE) — `i=item` binds the loop variable per closure.
         match request:
             case Sequence() as batch:
                 return traversed(
-                    Block.of_seq([boundary(f"features.{item.kind}", lambda i=item: _extracted(self.mesh, i)) for item in batch]),
+                    Block.of_seq([
+                        evidence_run(EvidenceScope.GRAPH_FEATURES, f"run.{item.kind}", lambda i=item: _extracted(self.mesh, i)) for item in batch
+                    ]),
                     by=Disposition.ACCUMULATE,
                 )
             case FeatureRequest() as single:
-                return boundary(f"features.{single.kind}", lambda: _extracted(self.mesh, single))
+                return evidence_run(EvidenceScope.GRAPH_FEATURES, f"run.{single.kind}", lambda: _extracted(self.mesh, single))
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def bridged(self, request: FeatureRequest) -> RuntimeRail[FeatureResult]:
         # HOSTILE: the trimesh detector band is native and the all-pairs/enumeration cores (betweenness/pagerank/
         # simple_cycles) are CPU-bound; the module-qualified `_extracted` resolves by name on the warm process pool
-        # and its arguments carry the whole crossing payload.
-        return await self.lane.offload(Kernel.of(_extracted, KernelTrait.HOSTILE), self.mesh, request)
+        # and its arguments carry the whole crossing payload, the weave's harvest emitting loop-side.
+        return await evidence_run(
+            EvidenceScope.GRAPH_FEATURES,
+            f"bridged.{request.kind}",
+            partial(self.lane.offload, Kernel.of(_extracted, KernelTrait.HOSTILE), self.mesh, request),
+        )
 ```
 
 ## [03]-[RESEARCH]

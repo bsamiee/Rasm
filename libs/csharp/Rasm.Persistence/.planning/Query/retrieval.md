@@ -4,7 +4,7 @@ Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane
 
 ## [01]-[INDEX]
 
-- [01]-[SEARCH_PROVISIONING_PROBE]: the `EmbeddingArity`/`VectorMetric` store-binding axes, the `VectorRoute` residence cases, the server-side LINQ `ORDER BY` leg, and the `search.vector.route` fact.
+- [01]-[SEARCH_PROVISIONING_PROBE]: the `EmbeddingArity`/`VectorMetric` store-binding axes, the `VectorRoute` residence cases, the server-side LINQ `ORDER BY` leg, and the `store.vector.route` fact.
 - [02]-[LEXICAL_ALGEBRA]: the `Bm25Predicate` typed builder/operator/cast union, the `SearchProjection` score/snippet surface, and the `LexicalRank` ts_rank fallback arm.
 - [03]-[VECTOR_CODEBOOK]: the `ProductCodebook` Compute encodes against, the per-subspace k-means training, the coarse→fine fine-form resolve, the amortized asymmetric-distance corpus scan, and the `RetrievalFault` band.
 - [04]-[FUSION_AND_REUSE]: the typed `RetrievalBranch` axis, the n-ary reciprocal-rank fusion with per-hit lineage, the receipt-keyed read-through reuse, and the one `RetrievalOp` entry.
@@ -15,7 +15,7 @@ Rasm.Persistence owns the coupled ANN retrieval subsystem behind the `Query/lane
 - Cases: `VectorRoute` is `ExactScan | Hnsw | IvfFlat | DiskAnn | PqAdc | QdrantScaleout`; each indexed case carries only its own settings. `EmbeddingArity` is `Dense | Half | Sparse | Bit`; `VectorMetric` is `L2 | InnerProduct | Cosine | L1 | Hamming | Jaccard`.
 - Entry: `SetLocal(VectorRoute)` derives only the settings admitted by the active route case, railing `RetrievalFault.Mismatched` on a `strict_order` request against the `IvfFlat` row (`ivfflat.iterative_scan` admits `off|relaxed_order` only) rather than silently demoting it; `VectorMetric.Order` admits the metric/arity pair before building the EF-translated distance expression with the arity-owned probe type; `ScaleoutRoute.Query` executes the external route.
 - Auto: absent setting values emit no `SET LOCAL` row; the active `VectorRoute` case selects the only legal GUC vocabulary, and index construction remains owned by provisioning.
-- Receipt: a routed vector scan rides `search.vector.route` carrying the `VectorRoute` case and bound GUC set.
+- Receipt: a routed vector scan rides `store.vector.route` carrying the `VectorRoute` case and bound GUC set.
 - Packages: Pgvector.EntityFrameworkCore (`VectorDbFunctionsExtensions` six distance members), Pgvector (`Vector`), Qdrant.Client (`QdrantClient.QueryAsync`/`PrefetchQuery`/`Fusion`/`Formula`/`QuantizationConfig`/`ShardKey` — the scale-out row's provider surface), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`System.Linq.Expressions`).
 - Growth: a new residence is one `VectorRoute` case carrying its legal settings; a new arity or distance is one smart-enum row.
 - Boundary: this owner is QUERY-TIME only — index DDL (`HasMethod("hnsw")`/`HasOperators`/`HasStorageParameter` on the EF builder, the `diskann`/`bm25` raw `MigrationBuilder.Sql` rows) belongs to `Element/identity#SCHEMA_VERDICT` and `Store/provisioning#SERVER_EXTENSIONS`, and the `DiskAnnOps` ops-class vocabulary stays the provisioning owner's — this page reads the same operator through `VectorMetric`, never a second ops-class enum; the exact brute-force scan is the correctness baseline every ANN claim measures against (recall@k vs exact, latency), so `ExactScan` is a first-class row, not an error path; `PqAdc` is the hot-set lane whose codebook, fine-form residence, and scan live in `#VECTOR_CODEBOOK` — corpus-scale ANN belongs to the pgvector/pgvectorscale indexes while the PQ/ADC row keeps the hot set, so the server-side LINQ row and the in-process row are complementary residences on one axis, neither redundant beside the other; `QdrantScaleout` is deployment DATA — the in-PG tier stays the default residence and the external store enters only where ANN cardinality or recall tuning exceeds what a pgvector HNSW index serves, its `VectorRow.ContentKey` identity staying the one content key so a hit resolves through the same fine-form residence regardless of which backend ranked it.
@@ -123,6 +123,11 @@ public abstract partial record VectorRoute {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class SearchRoute {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.vector.route"), StoreSlot.Create("store.vector.train"), StoreSlot.Create("store.vector.adc"),
+        StoreSlot.Create("store.vector.resolve"), StoreSlot.Create("store.fusion.rank"), StoreSlot.Create("store.cache.hit"),
+        StoreSlot.Create("store.cache.produce"));
+
     // A scan order the backing index cannot honor rails typed at derivation — silently demoting
     // `strict_order` to `relaxed_order` is the deleted coercion (the `Math.Max` clamp class).
     public static Fin<Seq<string>> SetLocal(VectorRoute route) => route.Switch(
@@ -170,7 +175,7 @@ public static class ScaleoutRoute {
 | :-----: | :------------------ | :------------------------------------- | :------------------------------------------------------------ |
 |  [01]   | residence           | `VectorRoute` case                     | residence and legal settings share one discriminant          |
 |  [02]   | scan tuning         | `SET LOCAL` GUC binder per row         | query-time only; the `WITH` build map stays provisioning's    |
-|  [03]   | route observability | `search.vector.route` fact             | a degradation is evidence, never a silent slowdown            |
+|  [03]   | route observability | `store.vector.route` fact             | a degradation is evidence, never a silent slowdown            |
 |  [04]   | server-side ANN     | `VectorMetric.Order` `Expression.Call` | probe constant per `EmbeddingArity.Probe`; never dense-only  |
 |  [05]   | scale-out ceiling   | `ScaleoutRoute.Query` → `QueryAsync`   | prefetch fused server-side; tenant `ShardKeySelector`        |
 
@@ -544,7 +549,7 @@ public sealed record VectorIndex(
 - Cases: `RetrievalOp` is `Fuse | Train | AdcScan`; `RetrievalResult` is `Fused | Trained | Scanned`; `RetrievalBranch` is `Vector | Spatial | Lexical`, each carrying its index identity.
 - Entry: `Run` dispatches the closed op family; `FusionRank.Fuse` applies the single `RrfConstant` policy and preserves typed lineage; `ResultCache.Cached` read-through-caches the derived retrieval under the subject receipt.
 - Auto: fusion applies `Score(e) = Σ_b 1 / (RrfConstant + rank_b(e))` and preserves typed lineage. `VectorRoute` selects vector residence, and spatial and lexical branches retain their index identities.
-- Receipt: a fusion rides `store.fusion.rank` carrying the branch count and the fused cardinality; a cache hit rides `store.cache.hit`, a miss `store.cache.produce`; the routed vector branch's backend rides the `#SEARCH_PROVISIONING_PROBE` `search.vector.route` fact.
+- Receipt: a fusion rides `store.fusion.rank` carrying the branch count and the fused cardinality; a cache hit rides `store.cache.hit`, a miss `store.cache.produce`; the routed vector branch's backend rides the `#SEARCH_PROVISIONING_PROBE` `store.vector.route` fact.
 - Packages: Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync`/`HybridCacheEntryOptions`/`RemoveByTagAsync`), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new retrieval branch is one `RetrievalBranch` row carrying its index name plus one ranked list into the same `Fuse` fold; a new retrieval modality is one `RetrievalOp` case whose arm breaks `Run` loudly at compile time; zero new surface — a per-branch-pair fusion, a bespoke score blend, a positional `branch-{b}` string lineage, a free-string cache tag, or a sibling `FuseMany`/`TrainAndScan` entrypoint is the deleted form because the RRF is one n-ary fold over the typed branch axis and the op union owns modality.
 - Boundary: this owner is the search-lane binding the pgvector/pg_search/pgvectorscale/qdrant `.api` catalogs compose against — a catalogue's `VectorMetric`/`EmbeddingArity`/`Bm25Predicate`/RRF reference resolves here, never a parallel saved-search owner; the fusion is the one n-ary RRF fold over the typed `RetrievalBranch` axis so a hit's lineage names the index that ranked it — a bespoke per-pair blend or a positional string branch label is the deleted form; the cache is the AppHost `HybridCache` port keyed on the content-addressed `ElementSet.Receipt` (minted by `Query/lane#ELEMENT_SET_ALGEBRA`, a lane-owned identity this page never re-derives) with a receipt-derived tag, so a free-string tag rejects at admission because it is uninvalidatable by construction, and this SELECTION-RESULT cache is a DIFFERENT owner from `Query/cache`'s compute-result reuse index (`ArtifactIndexRow`/`ModelResultIndex`) — the fusion result seam feeds cache's index rows, never merges with them; spatial→PG GiST and ANN→pgvector are the index owners (DuckDB spatial/vss being the columnar aggregator only, not the transactional index), so the fusion branches read the federated row's GiST/HNSW/tsvector columns and never duplicate the index, the vector branch resolving through the `#VECTOR_CODEBOOK` `VectorRow.Subject`-mapped ranked rows.

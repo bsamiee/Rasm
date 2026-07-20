@@ -246,6 +246,7 @@ public sealed record ComponentSpec {
 - Receipt: `RunReceipt` is atomically accumulated across host-parallel iterations and persisted after the post stage; a fault never erases process evidence already emitted.
 - Growth: a host virtual adds one declaration projection; declaration, ledger, and rail ownership stay in the generic base.
 - Boundary: constructor-time declaration failures and initial maintenance failures throw at composition; runtime failures enter the run ledger and report through `IDataAccess` where that channel exists.
+- RESEARCH: the `Connectivity`/`ConnectivityComplete` component virtuals and `ComputeInternal(Solution, CallStack)` carry catalog rows without stated override semantics — whether each is a lifecycle stage the declaration projects (one `Lifecycle` slot each) or host plumbing the base owns resolves at decompile, landing as declaration slots only where the override is consumer-meaningful.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -410,7 +411,7 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 ## [05]-[PLUGIN]
 
 - Owner: `PluginSpec` is the registration declaration; `PluginSource` closes public path and assembly loading under one `Catalogue.Load`; `SpecPlugin` projects metadata and audits exported component types at the host load edge.
-- Entry: `Catalogue.Load` lifts the host `bool` plus `FailureInfo` contract into `Fin<PluginReceipt>`; `OwnerOf` resolves a live document object through the same server.
+- Entry: `Catalogue.Load` lifts the host `bool`-and-`FailureInfo` contract into `Fin<PluginReceipt>`; `OwnerOf` resolves a live document object through the same server.
 - Receipt: a successful load returns location and assembly identity; a refusal preserves the host failure detail in `GhFault.Registration`.
 - Growth: a public plugin ingress is one `PluginSource` case and one load arm; plugin metadata is one `PluginSpec` member and one host override.
 - Boundary: assembly harvesting remains inside `PluginServer`; local reflection is limited to exported-type declaration and persistent-id admission.

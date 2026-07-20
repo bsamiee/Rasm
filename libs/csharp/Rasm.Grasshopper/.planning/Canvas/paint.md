@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_CANVAS_PAINT]
 
-The declarative paint owner of the Grasshopper boundary — one `Mark` algebra for geometry, text, borrowed images, icons, capsules, wire previews, clips, and transforms; one plan-scoped `PaintStock` lifetime for cached Eto resources; one `PaintPhase` event vocabulary; and one monotonic execution receipt. `PaintAnchor` owns attachment, callback containment, last fault, last receipt, and UI-affine release; `PaintPlan` owns stock creation and release inside the measured execution. `PaintScene` is an event-scoped disposable capability whose live host references clear when the raise returns, while declarative planners receive only `PaintFrame` snapshot data. Every minted path, temporary round-rectangle path, formatted-text layout, icon bitmap, pen, brush, and font has one disposal owner. Culling uses stroke inflation, measured text, image dimensions, clip bounds, and conservative transform fallback before drawing. Perceptual colour reaches Eto only through the kernel's chroma-reduction gamut-mapped sRGB egress.
+Declarative painting for the Grasshopper boundary folds through one owner set — one `Mark` algebra for geometry, text, borrowed images, icons, capsules, wire previews, clips, and transforms; one plan-scoped `PaintStock` lifetime for cached Eto resources; one `PaintPhase` event vocabulary; and one monotonic execution receipt. `PaintAnchor` owns attachment, callback containment, last fault, last receipt, and UI-affine release; `PaintPlan` owns stock creation and release inside the measured execution.
+
+`PaintScene` is an event-scoped disposable capability whose live host references clear when the raise returns, while declarative planners receive only `PaintFrame` snapshot data. Every minted path, temporary round-rectangle path, formatted-text layout, icon bitmap, pen, brush, and font has one disposal owner. Culling uses stroke inflation, measured text, image dimensions, clip bounds, and conservative transform fallback before drawing. Perceptual colour reaches Eto only through the kernel's chroma-reduction gamut-mapped sRGB egress.
 
 ## [01]-[INDEX]
 
@@ -970,4 +972,4 @@ flowchart LR
 |  [05]   | resource lifetime | `PaintLifetime` + `PaintStock` | one acquired lease or spec-to-resource mint    |
 |  [06]   | colour crossing   | `Pigment`                      | one mapped kernel egress or blend-policy value |
 
-`GhSession`, `EtoDispatch`, `Lease<T>`, `Op`, `ValidityClaim`, `MonotonicTimeline`, the host skin algebra, and the kernel colour owner are composed upstream. Parallel phase, clip, font, native-brush, subscription, colour-conversion, and timing owners have no successor shape here.
+`GhSession`, `EtoDispatch`, `Lease<T>`, `Op`, `ValidityClaim`, `MonotonicTimeline`, the host skin algebra, and the kernel colour owner are composed upstream.

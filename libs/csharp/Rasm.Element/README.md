@@ -1,8 +1,8 @@
 # [RASM_ELEMENT]
 
-`Rasm.Element` owns the canonical property-graph element model at the lowest AEC-DOMAIN seam — the federation's neutral thing-model. One authoritative `ElementGraph` folds header, neutral node-and-relationship vocabulary, and a built-once incidence index; the consumer element is a memoized `Bake` over the reachable subgraph rather than a second stored record; and the typed payload vocabularies — property, quantity, material, acoustic, assessment, coverage, classification, georeference — are the one currency every discipline's data lands in. Its bar is federation-grade neutrality: every AEC peer projects its foreign source onto this graph through `IElementProjection`, Persistence persists it as the system of record, and the peer runtimes decode its wire bit-identically, so a new discipline, payload, or relationship lands as a case on the neutral vocabulary, never a provider type.
+`Rasm.Element` owns the canonical property-graph element model at the lowest AEC-DOMAIN seam — the federation's neutral thing-model. One authoritative `ElementGraph` folds header, neutral node-and-relationship vocabulary, and a built-once incidence index; the consumer element is a memoized `Bake` over the reachable subgraph, never a second stored record; and the typed payload vocabularies are the one currency every discipline's data lands in, so a new discipline, payload, or relationship lands as a case on the neutral vocabulary, never a provider type.
 
-AEC peers project onto this graph and never reference each other — alignment travels through the cross-stratum contracts and the content-keyed wire. This seam references the kernel alone, carries no host geometry and no IFC stack, and re-mints no identity the kernel owns.
+Every AEC peer projects its foreign source through `IElementProjection` and never references another peer; alignment travels through the cross-stratum contracts and the content-keyed wire, Persistence holds the system of record, and the peer runtimes decode the wire bit-identically. This seam references the kernel alone, carries no host geometry and no IFC stack, and re-mints no identity the kernel owns.
 
 ## [01]-[ROUTER]
 

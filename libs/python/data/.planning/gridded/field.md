@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Final, Literal, assert_never
 from beartype import beartype
 from msgspec import Struct
 from msgspec.structs import asdict
+from opentelemetry import trace
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
@@ -34,6 +35,8 @@ if TYPE_CHECKING:
 
     import xarray as xr
 
+
+_TRACER: Final = trace.get_tracer("rasm.data.gridded.field")
 
 type FieldDims = tuple[str, ...]
 type FieldCoords = tuple[str, ...]
@@ -111,13 +114,17 @@ class FieldDataset(Struct, frozen=True):
     @classmethod
     @beartype(conf=FAULT_CONF)
     def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldDataset]":
-        return boundary("field.open", lambda: _open(ref, FieldEngine.from_ref(ref)))
+        # CF cube I/O carries a span per leg — trace parity with the gridded plane; the fence inside marks a failed leg's span.
+        with _TRACER.start_as_current_span("field.open", attributes={"rasm.field.engine": FieldEngine.from_ref(ref).value}):
+            return boundary("field.open", lambda: _open(ref, FieldEngine.from_ref(ref)))
 
     def read(self) -> "RuntimeRail[xr.Dataset]":
-        return boundary("field.read", self.engine.open(str(self.ref.path)))
+        with _TRACER.start_as_current_span("field.read", attributes={"rasm.field.engine": self.engine.value}):
+            return boundary("field.read", self.engine.open(str(self.ref.path)))
 
     def write(self, dataset: "xr.Dataset", target: ResourceRef, encoding: FieldEncoding = FieldEncoding()) -> "RuntimeRail[FieldReceipt]":
-        return boundary("field.write", lambda: _write(self, dataset, target, encoding)).bind(lambda railed: railed)
+        with _TRACER.start_as_current_span("field.write", attributes={"rasm.field.engine": self.engine.value}):
+            return boundary("field.write", lambda: _write(self, dataset, target, encoding)).bind(lambda railed: railed)
 
 
 def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:

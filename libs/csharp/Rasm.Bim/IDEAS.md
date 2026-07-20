@@ -1,6 +1,6 @@
 # [RASM_BIM_IDEAS]
 
-The forward pool of higher-order concepts for the host-neutral BIM-and-exchange engine. `[1]-[OPEN]` holds active ideas as cards; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition.
+Forward pool of higher-order concepts for the host-neutral BIM-and-exchange engine. `[1]-[OPEN]` holds active ideas as cards; `[2]-[CLOSED]` records a finished or dropped idea with a one-line disposition.
 
 OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOCKED` keeps open but non-actionable work; `CLOSED` separates finished `COMPLETE` items from unimplemented `DROPPED` items. `Ripple` names the origin or counterpart card a cross-folder entry pairs with.
 
@@ -16,17 +16,9 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-[UNIT_SCHEME_BIM_COUNTERPART]-[BLOCKED]: Carry the model-unit presentation scheme across the cross-runtime wire.
-- Capability: a peer runtime decoding `HeaderWire` reads the model's declared display units without re-sniffing the IFC bytes.
-- Shape: the seam `Graph/wire` `HeaderWire` gains the additive `Units` map field at the wire unfreeze; the Bim ingest (`UnitsOf` on `Projection/semantic`) and egress (the `EmitContext` declared-regime raise on `Projection/egress`) ends are landed and read the field with zero further edits.
-- Unlocks: schedules and UI on the TypeScript peers render project units off one wire read.
-- Anchors: the landed `Header.Units` `UnitScheme` policy both Bim ends compose; `api-geometrygym-ifc` catalogs `IfcUnitAssignment.ScaleSI`.
-- Tension: the `HeaderWire` field is gated on the wire unfreeze window — the frozen wire never widens outside it.
-- Ripple: `Rasm.Element` `[UNIT_SCHEME_BIM_COUNTERPART]`.
-
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Land the Bim lowering and re-materialization for the seam-landed `Connect.Interface` content key.
 - Capability: `IfcConnectionGeometry` and `IfcRelSpaceBoundary2ndLevel` interface surfaces ride the graph as content-keyed typed geometry instead of stranding in `Generic` attributes.
-- Shape: the `Projection/relations` projector hashes the interface surface into the blob store and stamps the key on the `Connect` edge (`IfcRelConnectsElements.ConnectionGeometry` and the 2nd-level space-boundary route off `Generic`); the `Projection/egress` re-materializes it; the seam `Graph/element` `GeometrySource` gains the typed decode leg (curve interface → `AxisCurve`, surface → `FootprintPolygon`).
+- Shape: the `Projection/relations` projector hashes the interface surface into the blob store and stamps the key on the `Connect` edge (`IfcRelConnectsElements.ConnectionGeometry` and the 2nd-level space-boundary route off `Generic`); the `Projection/egress` re-materializes it; the landed seam decodes the interface key through the one `GeometrySource.ResolveFootprint` leg — never a third port.
 - Unlocks: Compute reads connection-interface geometry one-hop by content key; re-exported analysis models keep their boundary surfaces.
 - Anchors: `Connect.Interface` landed seam-side (presence-delimited canonical bytes, additive `ConnectWire` field); the egress eccentricity path already reconstitutes `IfcConnectionGeometry` STEP fragments from the ctor-held profiles store — the same lane.
 - Ripple: `Rasm.Element` `[CONNECTION_INTERFACE_GEOMETRY_DECODE]`.
@@ -39,6 +31,20 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: the seam column ripples the counted-bag canonical-bytes injectivity law, the frozen wire, and the `Bake` merge — the seam owner lands first.
 - Ripple: `Rasm.Element` `[QUANTITY_BAG_GROUP_AXIS]`.
 
+[BCF_API_RESPONSE_ADMISSION]-[QUEUED]: Close the BCF-API round-trip with the response half of the REST projection.
+- Capability: a BCF-API response admits back into the archive-domain family — status/header fold, pagination cursor, and the response-body lowering onto `BcfTopic`/`BcfComment`/`BcfViewpoint` — so a CDE round-trip reads one owner.
+- Shape: `Review/issues` gains the response peer of `BcfResource` → `BcfApiRequest`: one response carrier discriminated by resource, the snake-case body admission reusing `BcfApiContext`, the paged-collection fold; execution stays on the Compute transport.
+- Unlocks: live CDE topic sync onto `IssueBoard`, server-authored viewpoints landing beside `.bcfzip` imports, conflict-aware `ReviseTopic` round-trips.
+- Anchors: `BcfResource`/`BcfApiRequest`/`BcfApiContext` landed; `BcfWireMapper` owns the archive↔wire correspondence the response admission reuses.
+- Tension: the transport port and retry/auth policy are Compute's — the response admission consumes returned bytes and never mints a second transport owner.
+
+[BRICK_SYSTEMS_OPERATIONS_OVERLAY]-[BLOCKED]: Compose the admitted `BrickSchema.Net` ontology as the building-systems-operations overlay on `Model/systems`, once the app-platform live-binding leg lands.
+- Capability: a Brick `Point`/`Equipment`/`Location` graph overlays the static `SystemTrace` connectivity, mapping IFC `MonitoringSystem` occurrences onto Brick `Fedby`/`PointOf`/`PartOf`/`LocationOf` relations so operations consumers read one semantic systems model.
+- Shape: `Model/systems` gains a Brick projector lowering the `DistributionSystem` reach set onto Brick classes; the live-point binding (`BACnetReference`/`BACnetDevice`/`ModbusDevice`) stays a reference the app-platform resolves, never a transport minted here.
+- Unlocks: BMS-aware clash and coordination, live-versus-design systems reconciliation, operations-phase handover beyond COBie.
+- Anchors: `BrickSchema.Net` admitted (README `[DOMAIN_VOCABULARY]`, `.api/api-brickschema-net.md`); `Model/systems` owns the static `SystemTrace` connectivity the overlay reads.
+- Tension: the live-binding transport (OPC UA / MQTT / Modbus) is app-platform by strata law — Bim owns only the static ontology projection, and the overlay reads `SystemTrace`, never re-minting a second connectivity store beside it.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
@@ -46,3 +52,5 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 -->
 
 [TEMPLATE_AUDIT_VALIDATION_TIER]-[COMPLETE]: Ruled — `Review/validation` widened to the two-tier QA owner: `ModelHealth`/`ModelFinding` compose the `TemplateFinding` stream as the baseline tier beneath authored IDS, the case the tier discriminant, one verdict surface for `Rasm.AppUi` and the review pipeline.
+
+[UNIT_SCHEME_BIM_COUNTERPART]-[COMPLETE]: `HeaderWire.unit_scheme = 7` is landed on the seam `Graph/wire` with both Mapper legs, and the Bim ingest (`UnitsOf`) and egress (`DeclareUnits`) ends read the field — the `Rasm.Element` counterpart card closed with it.

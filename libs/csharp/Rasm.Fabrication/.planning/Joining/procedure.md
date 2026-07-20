@@ -16,7 +16,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Cases: `QualificationValue` distinguishes demanded evidence, context exclusion, and permitted nonessential omission; `QualificationValue.Qualify` is the one total pairing over that family, so `Qualification` admits no rule-shape fallback arm.
 - Dimension: a quantity variable carries its `QuantityInfo`, and admission proves demand, range low, and range high share it, so evaluation compares scalars that are already dimensionally paired.
 - Requirement: `VariableRequirement` distinguishes evidence-bearing and nonessential variables; `ApplicabilityLaw` carries conditional essentiality, and `ContextExcluded` remains distinct from permitted `EvidenceOmitted` receipt rows.
-- Evidence: `PqrEvidence` owns specimen-specific procedure tests; `WelderRegistry` resolves assigned `WelderQualification` ranges, test evidence, status, and activity-derived continuity.
+- Evidence: `PqrEvidence` owns specimen-specific procedure tests; `WelderRegistry` resolves assigned `WelderQualification` ranges, test evidence, status, and activity-derived continuity. `WelderQualification` carries the personal classification row from `Process/telemetry#CLASSIFICATION`, so welder identity redacts at every log and export seam while WPS/PQR artifacts keep their attested content.
 - Entry: `Procedure.Assess` accepts only `ProcedureRequest`; `Wps`, `WeldDemand`, assignments, inspection context, and assessment time enter through that generated aggregate gate.
 - Packages: `Thinktecture.Runtime.Extensions` owns admitted values and closed dispatch; `UnitsNet` owns physical dimensions and registry identity; `NodaTime` owns validity; `LanguageExt.Core` owns accumulated assessment; `Generator.Equals` owns ordered receipt equality and member diffs.
 - Growth: governing-code breadth is profile data, so one variable row or inspection rule extends a regime without a checker method, named field, or new public surface.
@@ -442,6 +442,7 @@ public sealed partial class QualificationStatus {
 
 [ComplexValueObject]
 public sealed partial class WelderQualification {
+    [PersonalData]
     public string Welder { get; }
     public string Record { get; }
     public Instant QualifiedAt { get; }

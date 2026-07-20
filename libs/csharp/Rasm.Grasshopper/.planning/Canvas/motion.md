@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_CANVAS_MOTION]
 
-The GH2 motion boundary composes host `Animated<T>` tweens, flex-frame sampling, animated glyphs, and lease-owned canvas pacing. Kernel `Easing`, `CyclePlan`, `SpringShape`, `PerceptualColor`, and `BlendPath` remain the sole motion and colour math; `MotionDrive.Step` is the shared sampling fold consumed by both the display-link attachment and the `UiClock` pacer. `CanvasPacer` owns one clock, stops it on terminal settlement, schedules one repaint only after a sampled write set, and releases every timer edge through its returned lease.
+GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, animated glyphs, and lease-owned canvas pacing. Kernel `Easing`, `CyclePlan`, `SpringShape`, `PerceptualColor`, and `BlendPath` remain the sole motion and colour math; `MotionDrive.Step` is the shared sampling fold consumed by both the display-link attachment and the `UiClock` pacer. `CanvasPacer` owns one clock, stops it on terminal settlement, schedules one repaint only after a sampled write set, and releases every timer edge through its returned lease.
 
 ## [01]-[INDEX]
 
@@ -20,7 +20,7 @@ The GH2 motion boundary composes host `Animated<T>` tweens, flex-frame sampling,
 ## [03]-[TWEENS]
 
 - Owner: `Lerps` carries linear Eto interpolators, kernel-shaped easing, and perceptual colour mixing. `Perceptual` holds the source before a rejected intermediate sample and returns the exact target at the terminal sample.
-- Owner: `Tween` binds the verified signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. `Chain` returns the existing carrier when the target already equals `Value1`; otherwise it samples the current value before retargeting.
+- Owner: `Tween` binds the host signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. `Chain` returns the existing carrier when the target already equals `Value1`; otherwise it samples the current value before retargeting.
 - Owner: `FlexDrive` — the per-frame drive: `Run<T>(IFlexControl surface, Animated<T> tween, Op?)` → `Fin<T>` rides `IFlexControl.Animate<T>` (the host samples on its draw clock and keeps redrawing while `Busy`); `Window(IFlexControl, Op?)` → `Fin<FrameWindow>` projects `DrawStartTime`/`DrawEndTime` — the per-frame timing evidence a cost-aware animator folds with `Canvas/canvas.md`'s `FramePulse`; `ZoomGate(IFlexControl, ZoomThreshold, Op?)` → `Fin<float>` resolves the motion-gated ZUI factor (`Detailed`/`Standard` — the host's own appearance thresholds).
 - Law: one tween owns one visual; chaining retargets the existing carrier without resetting motion from a stale endpoint.
 - Boundary: viewport navigation animation is the host's own (`Navigate` consumes `Duration` directly — `Canvas/canvas.md`'s `NavTarget` carries it); skin blending is `Skin.Interpolate` under `Canvas/paint.md`'s lens; sparkle lifecycles are host-owned on `Canvas/canvas.md`'s `SparkleSpec`.
@@ -258,11 +258,11 @@ public static class GlyphPath {
 
 ## [05]-[PACER]
 
-- Owner: `CanvasPacer` is the lease-owned GH2 clock pacer. `Mount` admits a non-empty drive set, creates one inert owned `UiClock`, attaches it exactly once, and starts it only after ownership is installed. The clock callback holds weak references to both pacer and clock, so the clock never roots its owner; an abandoned pacer disposes the orphaned clock on the next tick.
+- Owner: `CanvasPacer` is the lease-owned GH2 clock pacer. `Mount` admits a non-empty drive set, creates one inert owned `UiClock`, attaches it exactly once, and starts it only after ownership is installed. Its clock callback holds weak references to both pacer and clock, so the clock never roots its owner; an abandoned pacer disposes the orphaned clock on the next tick.
 - Entry: `Mount(UiCadence, Seq<DriveSpec>, AccessibilityPosture, Op?)` returns `Fin<Lease<CanvasPacer>>`. Disposal stops and releases the owned clock idempotently; terminal settlement stops but retains the clock resource until the lease ends.
 - Law: `MotionDrive.Step` is the shared sampling rail for this `UiClock` pacer and the platform display-link pacer. Each successful beat applies every sampled `DriveFrame`, retains only continuing drives, schedules one repaint for that write set, and stops the clock after the terminal repaint request.
 - Law: an empty live set produces no repaint and stops defensively. A sampling or write fault returns on the beat rail, and `FaultPosture.Halt` stops the clock while preserving the fault on both owners.
-- Boundary: drive writes update consumer state; `GhSession.Apply(RepaintCase(Scheduled))` renders that state in the next paint window. The pacer never writes host visuals directly.
+- Boundary: drive writes update consumer state; `GhSession.Apply(RepaintCase(Scheduled))` renders that state in the next paint window. This pacer never writes host visuals directly.
 - Packages: `UiClock`, `UiCadence`, `ClockBeat`, `DriveSpec`, `DriveFrame`, `MotionDrive`, `AccessibilityPosture`, `GhSession`, `SessionOp`, `RepaintRow`, `Lease<T>`, and `Op`.
 - Growth: a new drive shape extends `MotionDrive.Step`; neither pacer gains a parallel sampling arm.
 

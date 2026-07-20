@@ -4,8 +4,8 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
 
 ## [01]-[INDEX]
 
-- [01]-[SKIA_KINDS]: Fourteen custom-visual cases; layout folds; render-hash twins.
-- [02]-[COLOR_SPACE]: Four wide-gamut rows; working-space factory; encode-format tag.
+- [02]-[SKIA_KINDS]: Fourteen custom-visual cases; layout folds; render-hash twins.
+- [03]-[COLOR_SPACE]: Four wide-gamut rows; working-space factory; encode-format tag.
 
 ## [02]-[SKIA_KINDS]
 
@@ -163,11 +163,16 @@ public sealed partial class CustomVisual {
 
 public static class CustomVisuals {
     public const string Kind = "custom-visual";
+    public const string Kind = "custom-visual";
     public const string RenderedInstrument = "rasm.appui.customvisual.rendered";
-    public const string LayoutInstrument = "rasm.appui.customvisual.layout-elapsed";
+    public const string LayoutInstrument = "rasm.appui.customvisual.layout.elapsed";
 
+    // Rendered counts ride the evidence fan's render arm on the Kind slot; layout duration records
+    // direct around Layout, where the measured fold value is in hand.
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, RenderedInstrument, LayoutInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(RenderedInstrument, InstrumentKind.Count, "{render}", "custom-visual tiles rendered"),
+            new(LayoutInstrument, InstrumentKind.Distribution, "s", "custom-visual layout-fold duration", UiBuckets.InteractionSeconds));
 
     // The one payload gate: every fold narrows to its own case or rejects with the typed mismatch fault,
     // so the kind vocabulary stays the sole owner of payload discrimination.
@@ -758,3 +763,7 @@ public sealed partial class ColorSpaceAxis {
 |  [02]   | display-p3  | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.DisplayP3` | `Rgba8888` |
 |  [03]   | rec2020     | `SKColorSpaceTransferFn.Srgb`   | `SKColorSpaceXyz.Rec2020`   | `Rgba8888` |
 |  [04]   | scrgb-float | `SKColorSpaceTransferFn.Linear` | `SKColorSpaceXyz.Srgb`      | `RgbaF16`  |
+
+## [04]-[RESEARCH]
+
+(none)

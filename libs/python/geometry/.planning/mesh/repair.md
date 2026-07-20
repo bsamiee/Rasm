@@ -2,7 +2,7 @@
 
 Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean kernel and the `trimesh.repair` watertight-conditioning pass — the shared downstream primitive the tessellation, scan-reconstruction, clash-volume, and STEP hops compose. `MeshRepairOp` discriminates two kinds: `Condition` folds a selected `RepairStep` step-set over the supplied `trimesh.Trimesh`, and `Boolean` runs n-ary CSG through `manifold3d.Manifold.batch_boolean`. This owner conditions and combines triangulations in memory and never opens or writes a mesh file — decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`) across the `mesh ← data/spatial` seam.
 
-`to_manifold` is this owner's PUBLIC kernel: repair is the chartered `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build. A conditioned reconstruction graduates on the `reconstructed-mesh` subject and an n-ary CSG result on the `mesh-algebra` subject — geometry-minted `GeometrySubject` members. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the `trimesh`/`manifold3d`/`numpy` band imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes and the `trimesh.Trimesh` operands cross the pickle seam whole (numpy-backed, picklable) — and the `@receipted(REDACTION)` egress streams the typed receipt on the `Ok` path.
+`to_manifold` is this owner's PUBLIC kernel: repair is the chartered `manifold3d` owner, so the one uint32-ceiling `Mesh`/`Mesh64` build lives here and the `mesh/spatial` and `mesh/quality` consumers compose it downward, never a re-spelled per-page build. A conditioned reconstruction graduates on the `reconstructed-mesh` subject and an n-ary CSG result on the `mesh-algebra` subject — geometry-minted `GeometrySubject` members. Its CPU-bound kernel rides `LanePolicy.offload` on the `HOSTILE` trait — the `trimesh`/`manifold3d`/`numpy` band imports under no isolated subinterpreter, so the warm process pool is the one substrate that composes and the `trimesh.Trimesh` operands cross the pickle seam whole (numpy-backed, picklable) — and `apply` returns through the graduation `evidence_run` weave seeded `EvidenceScope.MESH_REPAIR`, whose harvest streams the typed receipt on the `Ok` path.
 
 ## [01]-[INDEX]
 
@@ -14,13 +14,14 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 - Cases: `Condition(mesh, steps)` is the one reconstruction-hop entry the `scan/reconstruction.md#RECONSTRUCTION` consumer reads, selecting `STEPS_WATERTIGHT` (re-weld) or `STEPS_ORIENT` (orientation-only) as a named `Steps` value, so a new reconstruction surface composes a step tuple rather than racing a second factory; `Boolean(meshes, op)` cross-checks the exact kernel `volume()` against the re-wrapped `Trimesh.volume` as the `closure_gap` agreement, a kernel-vs-mesh verdict rather than a single-source claim.
 - Auto: `batch_boolean(manifolds, op)` is the single n-ary CSG owner (empty folds to the identity `Manifold`, a singleton is a no-op) — the deprecated `Manifold.compose`, the `trimesh.boolean` facade, and a manual `+`/`-`/`^` left-fold rebuilding the kernel N-1 times never enter.
 - Packages: `trimesh` (the `repair` verbs and cached validity/mass axes), `manifold3d` (the robust CSG kernel, reached directly), `numpy`, `expression`, `msgspec`, and the runtime rails per the fence imports.
-- Growth: a new conditioning pass is one `RepairStep` row plus one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row plus one `_OPTYPES` entry — never a parallel per-operation class.
+- Growth: a new conditioning pass is one `RepairStep` row and one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row and one `_OPTYPES` entry — never a parallel per-operation class.
 - Boundary: point-cloud registration is `scan/registration.md#REGISTRATION`'s; IFC tessellation is `mesh/daemon.md#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep.md#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality.md#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial.md#SPATIAL`'s; the compas half-edge algebra is `graph/algebra.md#ALGEBRA`'s.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
+from functools import partial
 from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 
 import numpy as np
@@ -29,10 +30,10 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 
-from rasm.geometry.graduation import GeometrySubject
+from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Phase, Receipt, Redaction, receipted
+from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:
@@ -67,9 +68,6 @@ STEPS_WATERTIGHT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS
 
 # orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
 STEPS_ORIENT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES)
-
-# keep-all policy: the verdicts and geometry measures are non-secret, so no field classifies.
-REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -122,7 +120,7 @@ class MeshResult(Struct, frozen=True):
     receipt: MeshRepairReceipt
 
     def contribute(self) -> Iterable[Receipt]:
-        yield Receipt.of("mesh.repair", self.receipt.fact())
+        yield Receipt.of("rasm.geometry.mesh.repair", self.receipt.fact())
 
 
 @tagged_union(frozen=True)
@@ -164,15 +162,11 @@ _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
 
 
 async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]":
-    # HOSTILE is the declared trait: a bare callable would silently lift PURE onto a subinterpreter the native band
-    # never imports under, so the kernel names the warm process pool and its trait-default WORKER death retry.
-    return (await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), op)).map(_emit)
-
-
-@receipted(REDACTION)
-def _emit(result: MeshResult) -> MeshResult:
-    # returns the contributor itself, so the mapped `Ok` arm keeps the mesh AND the receipt streams once.
-    return result
+    # graduation weave seeded MESH_REPAIR: span, fence, and receipt harvest in one composition — the weave's harvest
+    # streams the conforming MeshResult once on the cleared Ok. HOSTILE is the declared trait: a bare callable would
+    # silently lift PURE onto a subinterpreter the native band never imports under, so the kernel names the warm
+    # process pool and its trait-default WORKER death retry.
+    return await evidence_run(EvidenceScope.MESH_REPAIR, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
 
 
 # keeps the table-miss folds and the status-gate rail one-expression thunks; converts on the lane boundary.

@@ -314,6 +314,9 @@ public abstract partial record CrdtField {
 }
 
 public static class Crdt {
+    public static readonly Seq<StoreSlot> Slots = Seq(
+        StoreSlot.Create("store.crdt.merge"), StoreSlot.Create("store.crdt.decode"));
+
     // The cell-type-stability genesis: a fresh (NodeId, Field) cell materializes its CrdtField arm from its
     // FIRST op through the generated total Switch — a new op case breaks the build here, and every later op
     // for that cell hits the fixed diagonal arm in Apply.

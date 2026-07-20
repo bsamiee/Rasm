@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_DOCUMENT_DOCUMENT]
 
-The document spine of the GH2 graph boundary — ONE scope operator (`DocumentScope`) owning document minting across the inert/inactive/active tiers, lifecycle and persistence settlement, typed keyed-value shelves, marshalled facet reads, and THE one graph transaction gate absorbing the whole `DocumentMethods` verb surface. The census-era roster — `ObjectScope`, `VisibilityChange`, `SelectionOp`, `ClipboardOp`, `DocumentLinkKind`, `ComposeOp`, `GripKind`, `FindStrategy`, `DocumentQuery`, `GroupOp`, `WirelessOp`, `DocumentMark`, `ObjectSpec`, `DropCue`, `DocumentTargetOp`, `DocumentMutation`, `DocumentOp` — collapses here: every mutation verb is a case of one `GraphTransact` union settled by one `Transact` gate that pairs the host verb with its `Document/history.md` undo seal in a single act, and the census-flagged ABSENCE closes — the transaction window observes the document's own `Shell/events.md` rows so every receipt carries the causal `UiEvent` deltas the mutation raised. Whole-graph selection state is a `SelectionSweep` row family, clipboard and compose intent are case payloads, and the delete family is one case discriminating selection-versus-explicit on the shape of its payload. Every fallible step rides an `Op`-keyed `Fin<T>` rail; every command executes inside one `Eto/runtime.md` marshal window; every receipt proves itself through `ValidityClaim.All`. Graph query and wire mutation are `Document/graph.md`'s operator, undo branching is `Document/history.md`'s ledger, and solution execution is `Document/solution.md`'s controller — this page owns the document they all address.
+`DocumentScope` is the document spine of the GH2 graph boundary — ONE scope operator owning document minting across the inert/inactive/active tiers, lifecycle and persistence settlement, typed keyed-value shelves, marshalled facet reads, and THE one graph transaction gate absorbing the whole `DocumentMethods` verb surface.
+
+Every mutation verb is a case of one `GraphTransact` union settled by one `Transact` gate pairing the host verb with its `Document/history.md` undo seal; the transaction window observes the document's own `Shell/events.md` rows, so every receipt carries the causal `UiEvent` deltas the mutation raised. Whole-graph selection state is a `SelectionSweep` row family, clipboard and compose intent are case payloads, and the delete family is one case discriminating selection-versus-explicit on the shape of its payload. Graph query and wire mutation are `Document/graph.md`'s operator, undo branching is `Document/history.md`'s ledger, and solution execution is `Document/solution.md`'s controller.
 
 ## [01]-[INDEX]
 
@@ -9,14 +11,14 @@ The document spine of the GH2 graph boundary — ONE scope operator (`DocumentSc
 
 ## [02]-[LIFECYCLE]
 
-- Owner: `DocumentTier` `[SmartEnum<int>]` — 3 mint rows over one `[UseDelegateFromConstructor]` `Mint()` column: `Inert` (key 0, `Document.NewInertDocument`), `Inactive` (key 1, `Document.NewInactiveDocument`), `Active` (key 2, `Document.NewActiveDocument`). The tier is data, so headless pipelines, background parsing, and canvas-bound editing mint through one gate. `ValueShelf` `[SmartEnum<int>]` — the keyed-value facet vocabulary over one `Select(HostDocument)` column onto `KeyedValues`: `Custom` (key 0, `Document.CustomValues`). `DocumentGate` `[Union]` `[GenerateUnionOps]` closes the lifecycle command family: `CloseCase` (`Document.Close`), `StoreCase(IWriter, FileContents)` (`Document.Store` through the `GrasshopperIO` writer), `MarkCase(bool)` (`Modify`/`Unmodify` as one polarity case), `StashCase(ValueShelf, string, IStorable)` (`KeyedValues.Set`), `ForgetCase(ValueShelf, string)` (`KeyedValues.Delete`).
+- Owner: `DocumentTier` `[SmartEnum<int>]` — 3 mint rows over one `[UseDelegateFromConstructor]` `Mint()` column: `Inert` (key 0, `Document.NewInertDocument`), `Inactive` (key 1, `Document.NewInactiveDocument`), `Active` (key 2, `Document.NewActiveDocument`). Tier is data, so headless pipelines, background parsing, and canvas-bound editing mint through one gate. `ValueShelf` `[SmartEnum<int>]` — the keyed-value facet vocabulary over one `Select(HostDocument)` column onto `KeyedValues`: `Custom` (key 0, `Document.CustomValues`). `DocumentGate` `[Union]` `[GenerateUnionOps]` closes the lifecycle command family: `CloseCase` (`Document.Close`), `StoreCase(IWriter, FileContents)` (`Document.Store` through the `GrasshopperIO` writer), `MarkCase(bool)` (`Modify`/`Unmodify` as one polarity case), `StashCase(ValueShelf, string, IStorable)` (`KeyedValues.Set`), `ForgetCase(ValueShelf, string)` (`KeyedValues.Delete`).
 - Entry: `DocumentScope.Mint(DocumentTier tier, Op? key = null)` → `Fin<HostDocument>` — the value gate for new documents; `DocumentScope.Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<DocumentReceipt>` — the command gate; `DocumentScope.Read<TOut>(Func<HostDocument, TOut> facet, Option<HostDocument> graph = default, Op? key = null)` → `Fin<TOut>` — the marshalled facet projection over `File`, `Display`, `Dependencies`, `Notes`, `Hash`, `NamedViews`, `Parent`, `Modified`, and `Objects`; `DocumentScope.Recall<T>(ValueShelf shelf, string name, T fallback, ...)` → `Fin<T>` — the typed keyed read over `KeyedValues.Get<T>`; `DocumentScope.Roster(Op? key = null)` → `Fin<Seq<HostDocument>>` — the live `Document.AllDocuments` sweep.
 - Law: absence of a target document is a modality, never an overload — `Option<HostDocument>` discriminates the supplied graph (a nested `Parent` child, an inactive mint) from the session-active document, and the absent branch resolves through `GhSession.Run(ScopeTarget.DocumentHost, ...)` so scope acquisition, marshalling, and null-gating stay the session page's one law.
 - Law: every gate settles inside one UI marshal — a supplied document rides `EtoDispatch.Run`, an acquired one rides the session gate; a `HostDocument` reference never crosses back out of `Apply`, and `Read` hands the caller the projected value only, so a facet whose host type the catalog leaves unstated stays typed by the consumer's own projection instead of an asserted spelling.
-- Law: keyed state is shelf-addressed — a consumer names a `ValueShelf` row plus a string key, and the same three verbs (`Recall`/`StashCase`/`ForgetCase`) serve every shelf; a second keyed-storage entry family per facet is the deleted form.
+- Law: keyed state is shelf-addressed — a consumer names a `ValueShelf` row with a string key, and the same three verbs (`Recall`/`StashCase`/`ForgetCase`) serve every shelf; a second keyed-storage entry family per facet is the deleted form.
 - RESEARCH: the `Document.Globals` facet is catalog-verified as a property but its member shape is unstated — the `Global` shelf row lands as one `ValueShelf` row when the decompile confirms `KeyedValues`; `Document.State`'s type vocabulary and `Document.AllDocuments`' element carrier re-verify at the same pass; the document-load spelling (a `GrasshopperIO` reader seam versus a `Document` static) is catalog-unstated — the load posture lands as one `DocumentGate` case or `Mint` axis when the decompile fixes it, closing the store/load asymmetry.
 - Boundary: autosave requests are per-object (`IDocumentObject.RequestAutoSave`) and ride `Document/history.md`'s ledger commands; document file-compare and editor reveal are `Shell/editor.md`'s shell surface; document-scoped caching keys off `Shell/session.md`'s `SessionCache` and evicts on the `Shell/events.md` close row.
-- Packages: Grasshopper2 (`Document.New*Document`, `Close`, `Store`, `Modify`, `Unmodify`, `CustomValues`, `AllDocuments`, `KeyedValues.Get<T>`/`Set`/`Delete`), GrasshopperIO (`IWriter`, `IStorable`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`Document.New*Document`, `Close`, `Store`, `Modify`, `Unmodify`, `CustomValues`, `AllDocuments`, `KeyedValues.Get<T>`/`Set`/`Delete`), GrasshopperIO (`IWriter`, `IStorable`), LanguageExt.Core, `Rasm.Domain`, `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
 - Growth: a new mint posture is one `DocumentTier` row; a new keyed facet is one `ValueShelf` row; a new lifecycle verb is one `DocumentGate` case breaking the gate's total `Switch` loudly — zero new entrypoints on any axis.
 
 ```csharp signature
@@ -26,6 +28,7 @@ using GrasshopperIO;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Shell;
+using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -58,9 +61,12 @@ public abstract partial record DocumentGate {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentReceipt(Op Operation, string Verb, TimeSpan Latency) : IValidityEvidence {
+public readonly record struct DocumentReceipt(
+    Op Operation, string Verb, MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
+        ValidityClaim.Evidence(evidence: Entered),
+        ValidityClaim.Evidence(evidence: Settled),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 }
 
@@ -95,9 +101,10 @@ public static partial class DocumentScope {
 
     public static Fin<DocumentReceipt> Apply(DocumentGate op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return Optional(op).ToFin(active.InvalidInput())
-            .Bind(valid => Resolve(graph: graph, key: active, body: document => valid.Switch(
+        return from valid in Optional(op).ToFin(active.InvalidInput())
+               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
+               from entered in timeline.Capture(key: active)
+               from verb in Resolve(graph: graph, key: active, body: document => valid.Switch(
                 state: (Key: active, Graph: document),
                 closeCase: static (frame, _) => frame.Key.Catch(body: () =>
                     Fin.Succ((Op.Side(action: frame.Graph.Close), nameof(DocumentGate.CloseCase)).Item2)),
@@ -112,11 +119,11 @@ public static partial class DocumentScope {
                               nameof(DocumentGate.StashCase)).Item2)),
                 forgetCase: static (frame, c) => frame.Key.Catch(body: () =>
                     Fin.Succ((Op.Side(action: () => c.Shelf.Select(document: frame.Graph).Delete(c.Name)),
-                              nameof(DocumentGate.ForgetCase)).Item2)))))
-            .Map(verb => new DocumentReceipt(
-                Operation: active,
-                Verb: verb,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)));
+                              nameof(DocumentGate.ForgetCase)).Item2))))
+               from settled in timeline.Capture(key: active)
+               from latency in timeline.Elapsed(start: entered, end: settled, key: active)
+               select new DocumentReceipt(
+                   Operation: active, Verb: verb, Entered: entered, Settled: settled, Latency: latency);
     }
 
     internal static Fin<TOut> Resolve<TOut>(Option<HostDocument> graph, Op key, Func<HostDocument, Fin<TOut>> body) =>
@@ -131,14 +138,14 @@ public static partial class DocumentScope {
 
 ## [03]-[TRANSACT]
 
-- Owner: `GraphTransact` `[Union]` `[GenerateUnionOps]` — THE one graph mutation vocabulary over the `DocumentMethods` verb surface. `SweepCase(SelectionSweep)` carries whole-graph selection state through a 3-row `[SmartEnum<int>]` (`All` → `SelectAll`, `None` → `DeselectAll`, `Invert` → `InvertSelection`); `CopyCase(ClipboardKind)`/`CutCase(ClipboardKind)`/`PasteCase(ClipboardKind, PasteBehaviour)`/`PasteLegacyCase` own the clipboard round-trip including the GH1 XML ingest; `GroupCase(string, Option<OpenColor.Family>)`/`ChainCase`/`ClusterCase` compose the selection into its three wrapper species; `DeleteCase(Seq<IDocumentObject>, Seq<WireEnds>)` discriminates on payload shape — both spans empty is `DeleteSelection`, anything explicit is `DeleteObjects` — so the census's parallel delete verbs are one case; `DropCase(IDocumentObject, PointF)`/`SnippetCase(Snippet, PointF)` place new material; `ActivityCase(bool)`/`DisplayCase(bool)`/`DressCase(Colour)` flip enablement, visibility, and the colour override on the selection as polarity payloads; `IsolateCase(IDocumentObject, bool, bool, bool)` isolates one object's reach; `MigrateCase(Seq<IDocumentObject>, PointF)` relocates a transferred set; `DependencyCase(PointF)`/`RevealDependenciesCase` add and reveal document dependencies. Host discriminants — `ClipboardKind`, `PasteBehaviour`, `Colour`, `OpenColor.Family` — ride case payloads unchanged because this package IS the seam; a wrapper vocabulary per host enum is the census's parallel-owner defect re-minted.
+- Owner: `GraphTransact` `[Union]` `[GenerateUnionOps]` — THE one graph mutation vocabulary over the `DocumentMethods` verb surface. `SweepCase(SelectionSweep)` carries whole-graph selection state through a 3-row `[SmartEnum<int>]` (`All` → `SelectAll`, `None` → `DeselectAll`, `Invert` → `InvertSelection`); `CopyCase(ClipboardKind)`/`CutCase(ClipboardKind)`/`PasteCase(ClipboardKind, PasteBehaviour)`/`PasteLegacyCase` own the clipboard round-trip including the GH1 XML ingest; `GroupCase(string, Option<OpenColor.Family>)`/`ChainCase`/`ClusterCase` compose the selection into its three wrapper species; `DeleteCase(Seq<IDocumentObject>, Seq<WireEnds>)` discriminates on payload shape — both spans empty is `DeleteSelection`, anything explicit is `DeleteObjects` — so parallel delete verbs collapse to one case; `DropCase(IDocumentObject, PointF)`/`SnippetCase(Snippet, PointF)` place new material; `ActivityCase(bool)`/`DisplayCase(bool)`/`DressCase(Colour)` flip enablement, visibility, and the colour override on the selection as polarity payloads; `IsolateCase(IDocumentObject, bool, bool, bool)` isolates one object's reach; `MigrateCase(Seq<IDocumentObject>, PointF)` relocates a transferred set; `DependencyCase(PointF)`/`RevealDependenciesCase` add and reveal document dependencies. Host discriminants — `ClipboardKind`, `PasteBehaviour`, `Colour`, `OpenColor.Family` — ride case payloads unchanged because this package IS the seam; a wrapper vocabulary per host enum is the parallel-owner defect re-minted.
 - Entry: `DocumentScope.Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null)` → `Fin<TransactReceipt>` — the one mutation gate. One verb and eighteen are the same call shape; the case is the discriminant, never a mode flag or a sibling method.
 - Law: mutation and undo are one act — every mutating arm mints one `ActionList`, runs its host verb into it, and seals through `Document/history.md`'s `HistoryLedger.Seal(History, ActionList, VerbNoun, Op)` under the caller's `VerbNoun`; the non-mutating arms (`SweepCase`, `CopyCase`, `RevealDependenciesCase`) settle without a seal and stamp `Sealed: false`. A `DocumentMethods` call outside this gate is the deleted form.
-- Law: the receipt is causal — the transaction window attaches the document's own event rows (`UiSource.GraphObjectAdded`, `GraphObjectRemoved`, `GraphSelection`, `DocumentModified`) through `UiEvents.Observe` before the verb runs and folds every published `UiEvent` into `TransactReceipt.Deltas`, so a consumer reads what the mutation actually did — objects added, removed, reselected, the modified flip — as typed evidence, never by re-diffing the graph. The subscription lease dies inside the window; deltas are `UiEvent` values, and a second delta vocabulary re-projecting `UiFact` is the deleted form.
+- Law: the receipt is causal — the transaction window attaches the document's own event rows (`UiSource.GraphObjectAdded`, `GraphObjectRemoved`, `GraphSelection`, `DocumentModified`) through `UiEvents.Observe` before the verb runs and folds every published `UiEvent` into `TransactReceipt.Deltas`, so a consumer reads what the mutation actually did — objects added, removed, reselected, the modified flip — as typed evidence, never by re-diffing the graph. Its subscription lease dies inside the window; deltas are `UiEvent` values, and a second delta vocabulary re-projecting `UiFact` is the deleted form.
 - Law: the window is atomic on the UI thread — observation attach, verb, seal, and delta fold share one marshal, so no delta from a concurrent mutation can interleave into this receipt.
 - RESEARCH: `ActionList`'s mint spelling (parameterless construction assumed), `IsolateObject`'s three flag semantics, and `CopySelection`'s trailing shape (bare `ClipboardKind` versus a trailing `ActionList` — the copy arm stays unsealed either way because copying mutates nothing) re-verify at decompile; `VerbNoun` minting is unowned here — the gate accepts an already-minted label, and the factory question rides `Document/history.md`'s card.
 - Boundary: wire mutation (`Connections`), object transfer, id remapping, pins, and window selection are `Document/graph.md`'s operator — `SplitWire` rides there with the wire family it belongs to; repaint intent after a transaction is `Shell/session.md`'s `RepaintCase`, composed by the consumer, never auto-fired here.
-- Packages: Grasshopper2 (`DocumentMethods` verb surface, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `Colour`, `OpenColor.Family`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`), `Document/history.md` (`HistoryLedger.Seal`).
+- Packages: Grasshopper2 (`DocumentMethods` verb surface, `ClipboardKind`, `PasteBehaviour`, `Snippet`, `WireEnds`, `Colour`, `OpenColor.Family`), Eto (`PointF`), LanguageExt.Core, `Rasm.Domain`, `Shell/events.md` (`UiEvents`, `UiSource`, `EventAnchor`, `UiEvent`), `Document/history.md` (`HistoryLedger.Seal`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`).
 - Growth: a new document verb is one `GraphTransact` case whose `Switch` arm breaks the gate loudly; a new sweep posture is one `SelectionSweep` row; a new causal stream on the receipt is one `UiSource` row added to the observation set.
 
 ```csharp signature
@@ -151,6 +158,7 @@ using Grasshopper2.Undo;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Shell;
+using Rasm.Parametric;
 using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
@@ -190,9 +198,13 @@ public abstract partial record GraphTransact {
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TransactReceipt(Op Operation, string Verb, bool Sealed, Seq<UiEvent> Deltas, TimeSpan Latency) : IValidityEvidence {
+public readonly record struct TransactReceipt(
+    Op Operation, string Verb, bool Sealed, Seq<UiEvent> Deltas,
+    MonotonicStamp Entered, MonotonicStamp Settled, TimeSpan Latency) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
+        ValidityClaim.Evidence(evidence: Entered),
+        ValidityClaim.Evidence(evidence: Settled),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
 }
 
@@ -200,15 +212,15 @@ public readonly record struct TransactReceipt(Op Operation, string Verb, bool Se
 public static partial class DocumentScope {
     public static Fin<TransactReceipt> Transact(VerbNoun label, GraphTransact op, Option<HostDocument> graph = default, Op? key = null) {
         Op active = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return Optional(op).ToFin(active.InvalidInput())
-            .Bind(valid => Resolve(graph: graph, key: active, body: document => Settle(document: document, op: valid, label: label, key: active)))
-            .Map(settled => new TransactReceipt(
-                Operation: active,
-                Verb: settled.Verb,
-                Sealed: settled.Sealed,
-                Deltas: settled.Deltas,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)));
+        return from valid in Optional(op).ToFin(active.InvalidInput())
+               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
+               from entered in timeline.Capture(key: active)
+               from outcome in Resolve(graph: graph, key: active, body: document => Settle(document: document, op: valid, label: label, key: active))
+               from settled in timeline.Capture(key: active)
+               from latency in timeline.Elapsed(start: entered, end: settled, key: active)
+               select new TransactReceipt(
+                   Operation: active, Verb: outcome.Verb, Sealed: outcome.Sealed, Deltas: outcome.Deltas,
+                   Entered: entered, Settled: settled, Latency: latency);
     }
 
     private static Fin<(string Verb, bool Sealed, Seq<UiEvent> Deltas)> Settle(HostDocument document, GraphTransact op, VerbNoun label, Op key) {
@@ -267,6 +279,8 @@ public static partial class DocumentScope {
 
 ```mermaid
 flowchart LR
+    accTitle: One transaction gate pairs verb, seal, and causal deltas
+    accDescr: Boundary consumers enter DocumentScope through the Transact and Apply gates; Transact attaches document event observation, runs the host verb into an ActionList, seals through the history ledger, and folds published UiEvent deltas into the receipt.
     Consumer["boundary consumers"] -->|"VerbNoun + GraphTransact case"| Gate["DocumentScope.Transact → Fin&lt;TransactReceipt&gt;"]
     Consumer -->|DocumentGate cases| Apply["DocumentScope.Apply → Fin&lt;DocumentReceipt&gt;"]
     Gate -->|one marshal window| Observe["UiEvents.Observe document rows"]
@@ -294,4 +308,4 @@ flowchart LR
 - [05]-[SELECTION_SWEEP]: `[SmartEnum<int>]` delegate rows.
 - [06]-[GRAPH_TRANSACTION]: `[GenerateUnionOps]` `[Union]` + causal-delta receipt.
 
-`GhSession`, `EtoDispatch`, `UiEvents`, `HistoryLedger.Seal`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. The census `ObjectScope`/`VisibilityChange`/`SelectionOp`/`ClipboardOp`/`ComposeOp`/`GroupOp`/`DocumentMark`/`DocumentTargetOp`/`DocumentMutation`/`DocumentOp` roster has no successor shape — its capabilities land as the cases and rows above.
+`GhSession`, `EtoDispatch`, `UiEvents`, `HistoryLedger.Seal`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners; every retired verb-roster capability lands as the cases and rows above.

@@ -17,7 +17,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-(none)
+[KERNEL_BENCH_LANE]-[QUEUED]: land the kernel bench lane on the mesh pages.
+- Capability: runtime `Bench.run` subjects for the tessellate, repair, and boolean kernels with latency and throughput rows.
+- Anchors: runtime `observability/profiles#BENCH`; `mesh/serve#SYNC` tessellation entry; the graduation `EvidenceScope` vocabulary.
+- Tension: bench at the entry seam only; a process-terminal run rides the runtime job envelope.
+- Atomic: bench subjects and card fields, zero new instrument rows.
 
 ## [02]-[CLOSED]
 

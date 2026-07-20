@@ -175,10 +175,16 @@ public static class Surfaces {
     public const string MountInstrument = "rasm.appui.surface.mounted";
     public const string ScaleInstrument = "rasm.appui.surface.scaled";
     public const string FactInstrument = "rasm.appui.surface.fact";
-    public const string AffinityInstrument = "rasm.appui.surface.affinity-violation";
+    public const string AffinityInstrument = "rasm.appui.surface.affinity.violation";
 
+    // Mount counts ride the evidence fan's surface arm; scale flips, host facts, and affinity
+    // assertions count direct where the seam delegate holds the typed fact in hand.
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, MountInstrument, ScaleInstrument, FactInstrument, AffinityInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(MountInstrument, InstrumentKind.Count, "{mount}", "surface mounts by host case"),
+            new(ScaleInstrument, InstrumentKind.Count, "{flip}", "backing-scale flips by host case"),
+            new(FactInstrument, InstrumentKind.Count, "{fact}", "host facts by fact case"),
+            new(AffinityInstrument, InstrumentKind.Count, "{violation}", "off-thread access assertions"));
 }
 ```
 
@@ -323,7 +329,9 @@ public static class NativeAssets {
     public const string AbsentInstrument = "rasm.appui.nativeasset.absent";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ResolvedInstrument, InstrumentKind.Count, "{asset}", "native assets resolved by library and RID"),
+            new(AbsentInstrument, InstrumentKind.Count, "{asset}", "native assets absent at load probe"));
 
     private static Fin<NativeAssetReceipt> Probe(NativeAssetRow row, string library) =>
         Process.GetCurrentProcess().Modules.Cast<ProcessModule>()

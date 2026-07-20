@@ -11,7 +11,7 @@
 
 ## [02]-[PIN_VOCABULARY]
 
-- Owner: the generated vocabularies own host side, access, presence, and visibility plus semantic carrier families; `PortAxes` states whether a row consumes access, presence, appearance, hidden registration, and one side-scoped trim family.
+- Owner: the generated vocabularies own host side, access, presence, and visibility with semantic carrier families; `PortAxes` states whether a row consumes access, presence, appearance, hidden registration, and one side-scoped trim family.
 - Cases: `PinSide` mirrors `Side`, `PinAccess` mirrors `Access`, `PinPresence` mirrors `Requirement`, `PortSides` closes the side-capability set including the `Neither` row hidden-capability columns demand, and `PinVisibility` closes shown/hidden.
 - Entry: `PinSide.Of(Side, Op?)` is the one reverse projection; unknown host values fail typed.
 - Growth: a new host discriminant value is one row on the owning vocabulary.
@@ -270,11 +270,11 @@ public sealed record PinPlan {
 
 ## [04]-[PORT_CATALOG]
 
-- Owner: `PortRow` is the `[SmartEnum<string>]` catalogue; every row carries its verified value carrier, semantic `PortFamily`, `PortAxes`, and one package-minted `PortBinding`. The internal binding union owns both-sided, input-only, and output-only adder invocation without sentinel delegates or a public delegate-construction surface.
+- Owner: `PortRow` is the `[SmartEnum<string>]` catalogue; every row carries its verified value carrier, semantic `PortFamily`, `PortAxes`, and one package-minted `PortBinding`. Its internal binding union owns both-sided, input-only, and output-only adder invocation without sentinel delegates or a public delegate-construction surface.
 - Cases: modular rows consume appearance and hidden policy; regular rows consume access and input presence; mixed rows state their consumed axes per side; topology consumes only its input-side connection trim.
 - Entry: `Candidates(Type, PortFamily)` performs assignable carrier matching inside one semantic family, and `Admit` requires that match to resolve exactly one row.
 - Auto: `Accepts` rejects unsupported side, hidden, access, presence, appearance, trim, and persistent carrier policy before any adder call.
-- Packages: `Thinktecture.Runtime.Extensions` generates the row vocabulary; carriers are `Rhino.Geometry` value and geometry types plus the verified `Grasshopper2` data types.
+- Packages: `Thinktecture.Runtime.Extensions` generates the row vocabulary; carriers are `Rhino.Geometry` value and geometry types and the `Grasshopper2` data types.
 - Growth: a new host pin kind is one row carrying its exact value type, family, axes, and binding case.
 - Boundary: `AddTopological` carries identity text only; `Numeric`, `Generic`, `Index`, `TextPattern`, and connection semantics remain distinct families even where their CLR carrier overlaps another row.
 

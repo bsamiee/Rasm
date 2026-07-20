@@ -10,8 +10,9 @@ Rasm.Fabrication/
 │   ├── Owner.cs             # Fabrication entry owner and atoms vocabulary
 │   ├── Family.cs            # ProcessKind and Machine axis families
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
-│   ├── Faults.cs            # FabricationFault band-2700 registry entrypoint
-│   └── Derivation.cs        # RunDerive plan orchestrator
+│   ├── Faults.cs            # FabricationFault registry over the FaultBand.Fabrication band
+│   ├── Derivation.cs        # Derivation.Apply plan orchestrator
+│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, classification rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, and cutter-form projection on typed evidence rails
@@ -48,7 +49,7 @@ Rasm.Fabrication/
 ├── Nesting/                 # Layout, yield, offcut lifecycle, and cut linking
 │   ├── Nfp.cs               # NFP-feasibility true-shape nesting over stock inventory
 │   ├── Stock.cs             # Rectangular cutting-stock yield engine
-│   ├── Remnant.cs           # Offcut lifecycle partial
+│   ├── Remnant.cs           # Offcut lifecycle: reconcile, lease, transition, retire, and yield
 │   └── Linking.cs           # Cut-linking union: common-line, chain-cut, bridge, skeleton
 ├── Fixturing/               # Keep-out, setup, and assembly planning
 │   ├── Workholding.cs       # Clamp and exclusion-zone keep-out family and the conditioning fold
@@ -82,7 +83,7 @@ Rasm.Fabrication/
     └── Procedure.cs         # WPS/PQR essential-variable rows and the heat-input compliance gate
 ```
 
-Sub-domain dependencies are acyclic. Split packages declare ledger nodes without splitting pages: `Process` places atoms at S0 and terminal derivation at S4; `Kinematics` places motion at S1 and its consuming fleet at S3, and motion never reads fleet policy. Shared discriminants mint on atoms, while residual and verdict state flow forward as policy-case input. Per-flagship pipelines live on owning implementation pages.
+Sub-domain dependencies are acyclic. Split packages declare ledger nodes without splitting pages: `Process` places atoms at S0, terminal derivation at S4, and the telemetry fact fan at S5; `Kinematics` places motion at S1 and its consuming fleet at S3, and motion never reads fleet policy. Shared discriminants mint on atoms, while residual and verdict state flow forward as policy-case input. Per-flagship pipelines live on owning implementation pages.
 
 ## [02]-[STRATA]
 
@@ -93,44 +94,26 @@ Six strata order the sub-domains; split-package ledger nodes preserve one direct
 - S2 `Tooling` + `Nesting` + `Additive` — capability owners over the 2D algebra: `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`; `Nest`, `StockNest`, and `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, and `Audit`.
 - S3 `Fixturing` + `Forming` + `Joining` + `Spec` + `Kinematics` fleet — planning owners: `Workholding`, `ExclusionZone`, and `SetupSchedule`; `FlatPattern` and `TubeProgram`; `Weld`, `JointPrep`, `Sequence`, and `Procedure`; `Tolerance`, `Capability`, and `Manufacturability`; `MachineInstance`, `ProcessEnvelope`, and `Fleet`.
 - S4 `Toolpath` + `Process/Derivation` — the CAM plane composing tools, kinematics, and keep-outs (`Cam`, `MotionRun`, `Guard`, `BevelPass`) beside the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
-- S5 `Posting` + `Verify` + `Documentation` — emission and truth: the `CutProgram` AST and `Dialect` emit, the `Removal`/`Probe`/`Simulate` verifiers, and the `Hlr`/`Traveler`/`QualityReport` shop documents.
+- S5 `Posting` + `Verify` + `Documentation` + `Process` telemetry — emission and truth: the `CutProgram` AST and `Dialect` emit, the `Removal`/`Probe`/`Simulate` verifiers, the `Hlr`/`Traveler`/`QualityReport` shop documents, and the `FabricationFact` fan projecting settled receipts onto the `rasm.fabrication.*` instruments.
 
 Same-stratum policy exchange among `Fixturing`, `Joining`, `Spec`, and the kinematics fleet carries no dependency-order edge; only their downstream consumers enter the stratum graph.
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Fabrication interior strata
-    accDescr: Six stacked strata from the posting, verify, and documentation truth tier through the CAM plane and derivation aggregator, the planning owners, the capability owners, and the substrate lanes onto the process atoms floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Six stacked strata from the posting, verify, and documentation truth tier through the CAM plane and derivation aggregator, the planning owners, the capability owners, and the substrate lanes onto the process atoms floor, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge labeled as such.
     subgraph L5["S5 EMISSION + TRUTH"]
         Posting[Posting]
         Verify[Verify]
         Documentation[Documentation]
+        Telemetry[Process telemetry]
     end
     subgraph L4["S4 CAM + DERIVATION"]
         Toolpath[Toolpath]
@@ -176,15 +159,11 @@ flowchart TB
     Documentation e22@-->|"[IMPORT]: ProcedureReceipt"| Joining
     Posting e23@-->|"[IMPORT]: WcsSlot"| Fixturing
     Posting e24@-->|"[IMPORT]: MotionDynamics"| Motion
+    Telemetry e25@-->|"[IMPORT]: WearReceipt"| Tooling
+    Telemetry e26@-->|"[IMPORT]: MachineMatch"| Fleet
+    Telemetry e27@-->|"[IMPORT]: CapabilityReport"| Spec
+    Telemetry e28@-->|"[IMPORT]: RunEvidence"| Atoms
     Atoms f1@-->|"forbidden: atoms upward"| L5
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Posting,Verify,Documentation,Toolpath,Derivation,Fixturing,Forming,Joining,Spec,Fleet,Tooling,Nesting,Additive primary
-    class Geometry2D,Ingress,Motion,Atoms recessed
-    class e2,e3,e4,e5,e6,e7,e8,e9,e10,e11,e12,e13,e14,e15,e16,e17,e18,e22,e23,e24 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -202,86 +181,42 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Fabrication AEC-domain peer seams
-    accDescr: Fabrication exchanges its registered projector and admitted graph wire with Element, then publishes the tolerance wire to the Python artifacts plane; peer implementation shapes never cross either seam.
+    accDescr: Fabrication exchanges its registered projector and admitted graph shape with Element, publishes the tolerance wire to the Python artifacts plane, and sends its telemetry fact envelopes to the AppHost receipt rail; peer implementation shapes never cross any seam.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
+        Telemetry[Process telemetry]
         Ingress[Ingress admission]
         Joining[Joining engineering]
         Spec[Spec tolerances]
     end
     Element{{Rasm.Element}}
     Artifacts{{python:artifacts}}
+    AppHost{{Rasm.AppHost}}
     Process e1@-->|"[PROJECTION]: FabricationProjector"| Element
-    Element e2@-->|"[WIRE]: ElementGraph"| Ingress
+    Element e2@-->|"[SHAPE]: ElementGraph"| Ingress
     Spec e8@-->|"[WIRE]: IToleranceEncoder bytes"| Artifacts
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Process,Ingress,Joining,Spec primary
-    class Element,Artifacts external
-    class e1 edgeExternal
-    class e2,e8 edgeData
+    Telemetry e9@-->|"[RECEIPT]: FabricationFact"| AppHost
+    AppHost e10@-->|"[PORT]: TelemetryContributorPort"| Telemetry
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Fabrication kernel and platform seams
-    accDescr: Fabrication sub-domain owners consuming kernel geometry from Rasm, publishing the toolpath pack back into it, and delivering the hidden-line receipt to the app shell, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Fabrication sub-domain owners consuming kernel geometry from Rasm, publishing the toolpath pack back into it, and delivering the hidden-line receipt to the app shell, one labeled edge per contract family.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Ingress[Ingress admission]
@@ -311,20 +246,6 @@ flowchart LR
     Rasm e12@-->|"[WIRE]: DrawingProjection"| Documentation
     Posting e13@-->|"[WIRE]: ToolpathPath"| Rasm
     Documentation e14@-->|"[RECEIPT]: ProjectionReceipt"| App
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Process,Ingress,Geometry2D,Toolpath,Additive,Forming,Kinematics,Nesting,Spec,Verify,Documentation,Posting primary
-    class Rasm external
-    class App annotation
-    class e2,e3,e4,e5,e6,e7,e10,e11,e12,e13 edgeData
-    class e1 edgeControl
-    class e9 edgeExternal
-    class e14 edgeSuccess
 ```
 
 ## [04]-[FAULT_REGISTRY]
@@ -341,3 +262,4 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
 - An absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
 - Machine telemetry enters through the AppHost decode lane, never a direct transport reference; every telemetry read consumes the one decoded slice.
+- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes; the `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition, and classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.

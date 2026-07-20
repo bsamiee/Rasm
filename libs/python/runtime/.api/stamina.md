@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `stamina`
 - package: `stamina`
-- version: `26.1.0`
 - license: MIT
 - import: `stamina`
 - owner: `runtime`

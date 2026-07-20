@@ -386,11 +386,13 @@ public abstract partial record DeviceDriver {
 }
 
 public static class InputDrivers {
-    public const string ResolvedInstrument = "rasm.appui.input.device-resolved";
-    public const string AbsentInstrument = "rasm.appui.input.device-absent";
+    public const string ResolvedInstrument = "rasm.appui.input.device.resolved";
+    public const string AbsentInstrument = "rasm.appui.input.device.absent";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
+        AppUiTelemetry.Contribute(version,
+            new(ResolvedInstrument, InstrumentKind.Count, "{device}", "input devices resolved by driver case"),
+            new(AbsentInstrument, InstrumentKind.Count, "{device}", "input devices absent at open"));
 
     public static Fin<DeviceSession> Open(DeviceDriver driver) => driver.Switch(
         hid: static source => toSeq(source.Devices.GetHidDevices(source.VendorId, source.ProductId))

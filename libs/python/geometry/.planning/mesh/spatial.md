@@ -2,7 +2,7 @@
 
 Spatial query over an in-memory triangulation: the proximity, ray, containment, bounds, clearance, and sampling primitive the deviation, clash, and reconstruction hops compose against a built mesh. `SpatialQuery` discriminates the kind on one polymorphic entrypoint, `SpatialResult` mirrors the query case, and every kind flows through one work-class-aware `_route` over a single `_dispatch` body — an index-cached kind runs synchronously under `boundary` against the capsule mesh's own lazily-cached indices, a batch-heavy kind offloads the SAME body as a `KernelTrait.HOSTILE` kernel onto the warm process pool, so the offload-vs-sync choice never forks the geometry dispatch. Offload membership is declared by work class, never derived from module presence: a process-pool worker shares the one venv, so a native module absent in-process is equally absent on the worker floor, and a missing admission is an import fault at the seam, never a routing signal. This owner indexes an in-memory `trimesh.Trimesh` and returns numpy arrays across the wire; mesh-file decode/encode is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`).
 
-The spine is `trimesh` plus `numpy` — never a phantom `scipy` spine, since no geometry fence imports a scipy member — with the admitted `rtree`/`python-fcl` native band composed at the DIRECT surface, not a one-call trimesh veneer. `SpatialBackend` resolves once per capsule off the `find_spec` capability probe: the exact `manifold3d.Manifold.min_gap` clearance supersedes the conservative FCL separation when the richer package is admitted, both operands built through repair's public `to_manifold` (repair is the chartered `manifold3d` owner). The `Contains`/`Clearance` arms gate `is_watertight` BEFORE the query, so an off-solid test is an admitted caveat rather than a meaningless mask.
+Spine is `trimesh` and `numpy` — never a phantom `scipy` spine, since no geometry fence imports a scipy member — with the admitted `rtree`/`python-fcl` native band composed at the DIRECT surface, not a one-call trimesh veneer. `SpatialBackend` resolves once per capsule off the `find_spec` capability probe: the exact `manifold3d.Manifold.min_gap` clearance supersedes the conservative FCL separation when the richer package is admitted, both operands built through repair's public `to_manifold` (repair is the chartered `manifold3d` owner). `Contains`/`Clearance` arms gate `is_watertight` BEFORE the query, so an off-solid test is an admitted caveat rather than a meaningless mask.
 
 ## [01]-[INDEX]
 
@@ -10,11 +10,11 @@ The spine is `trimesh` plus `numpy` — never a phantom `scipy` spine, since no 
 
 ## [02]-[SPATIAL]
 
-- Owner: `MeshSpatial` — the boundary capsule over the one module-level `_dispatch`; the `_OFFLOAD` membership is declared work-class data — the batch-heavy kinds ride the process kernel, the index-cached kinds stay in-process — never a hardcoded per-case branch and never a module-presence probe, and the `_fold` cross-cut turns every `Outcome` into the one held receipt, so a new kind writes only its `_dispatch` arm plus its membership row.
-- Cases: `Ray` reduces the all-hits return to the nearest hit per ray in one vectorized pass, never a per-ray cast; `Bounds`/`Nearest` run ONE vectorized `intersection_v`/`nearest_v` call for the whole box set, never a per-box loop; `Clearance` carries a backend-shaped payload — the FCL arm returns the signed gap plus the `nearest_points` witness pair, the exact `manifold3d` gap carries no witness.
+- Owner: `MeshSpatial` — the boundary capsule over the one module-level `_dispatch`; the `_OFFLOAD` membership is declared work-class data — the batch-heavy kinds ride the process kernel, the index-cached kinds stay in-process — never a hardcoded per-case branch and never a module-presence probe, and the `_fold` cross-cut turns every `Outcome` into the one held receipt, so a new kind writes only its `_dispatch` arm and its membership row.
+- Cases: `Ray` reduces the all-hits return to the nearest hit per ray in one vectorized pass, never a per-ray cast; `Bounds`/`Nearest` run ONE vectorized `intersection_v`/`nearest_v` call for the whole box set, never a per-box loop; `Clearance` carries a backend-shaped payload — the FCL arm returns the signed gap and the `nearest_points` witness pair, the exact `manifold3d` gap carries no witness.
 - Auto: an offloaded kind rebuilds whatever index its hop needs inside the worker process — a live R-tree, FCL model, or `Manifold` is a native handle no pickler carries, so only the numpy-backed `Trimesh` crosses the seam and the capsule caches no native handle — while the in-process kinds read the lazily-cached `triangles_tree`/`kdtree` indices the capsule `Trimesh` owns and amortizes across calls.
 - Packages: `trimesh` (proximity/ray/contains/sample and the cached indices), `numpy`, `rtree` (the `triangles_tree` R-tree), `python-fcl` (the direct narrow-phase `fcl.distance`), `manifold3d` (through repair's `to_manifold`), `expression`, `msgspec`, and the runtime rails per the fence imports.
-- Growth: a new query kind is one `SpatialQuery` case plus its mirrored `SpatialResult` arm plus one `_dispatch` arm — `assert_never` forces the closure; a new native backend is one `SpatialBackend` row plus its probe module.
+- Growth: a new query kind is one `SpatialQuery` case and its mirrored `SpatialResult` arm and one `_dispatch` arm — `assert_never` forces the closure; a new native backend is one `SpatialBackend` row and its probe module.
 - Boundary: vertex-KNN acceleration (`open3d.geometry.KDTreeFlann`, `small_gicp.KdTree.batch_knn_search`) is NOT this owner's backend — a vertex nearest-neighbor is a coarser, distinct result from `closest_point`'s exact on-surface projection, so that acceleration belongs to the `scan/deviation`+`scan/registration` consumers that own the cloud-to-vertex correspondence; conditioning is `mesh/repair.md#MESH`'s, metrology is `mesh/quality.md#QUALITY`'s.
 
 ```python signature
@@ -128,7 +128,7 @@ class SpatialResult:
 
     @staticmethod
     def Clearance(gap: float, witness: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None) -> "SpatialResult":
-        # the witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact
+        # witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact
         # manifold3d gap carries no witness — one case, backend-shaped payload.
         return SpatialResult(clearance=(gap, witness))
 
@@ -139,16 +139,16 @@ class SpatialResult:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# declared work-class membership: the batch-heavy kinds (surface projection, ray casting, containment, sampling, and
-# the native narrow-phase gap) offload as HOSTILE process kernels, while `bounds`/`nearest` stay in-process to reuse
-# the capsule mesh's cached `triangles_tree` R-tree a per-hop worker rebuild would forfeit.
+# declared work-class membership: batch-heavy kinds — surface projection, ray casting, containment, sampling, the
+# native narrow-phase gap — offload as HOSTILE process kernels, while `bounds`/`nearest` stay in-process to reuse the
+# capsule mesh's cached `triangles_tree` R-tree a per-hop worker rebuild would forfeit.
 _OFFLOAD: Final[frozenset[QueryKind]] = frozenset(("proximity", "ray", "contains", "clearance", "sample"))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Outcome(Struct, frozen=True):  # one arm's payload plus receipt facts; GC-tracked since `result` nests numpy arrays
+class Outcome(Struct, frozen=True):  # one arm's payload and receipt facts; GC-tracked since `result` nests numpy arrays
     result: SpatialResult
     query_count: int
     hit_count: int
@@ -195,7 +195,7 @@ def _nearest_hits(
     return face, pos, dist
 
 
-# the one exhaustive dispatch, module-level and arg-only so REFERENCE shipping resolves it on the worker floor;
+# one exhaustive dispatch, module-level and arg-only so REFERENCE shipping resolves it on the worker floor;
 # `backend` selects the clearance kernel, and `_route` decides sync-vs-offload — never a second dispatch body.
 def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, backend: SpatialBackend) -> Outcome:
     match q:
@@ -256,7 +256,7 @@ def _bvh(mesh: trimesh.Trimesh) -> "fcl.CollisionObject":
 def _fcl_gap(
     mesh: trimesh.Trimesh, other: trimesh.Trimesh
 ) -> tuple[float, tuple[tuple[float, float, float], tuple[float, float, float]]]:
-    # the DIRECT narrow-phase read: signed separation plus the witness pair — richer than the unsigned
+    # DIRECT narrow-phase read: signed separation and the witness pair — richer than the unsigned
     # CollisionManager.min_distance_single float veneer.
     import fcl  # noqa: PLC0415
 
@@ -282,7 +282,7 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
     @overload
     async def query(self, q: Sequence[SpatialQuery]) -> "RuntimeRail[Block[SpatialResult]]": ...
     async def query(self, q: SpatialQuery | Sequence[SpatialQuery]) -> "RuntimeRail[SpatialResult] | RuntimeRail[Block[SpatialResult]]":
-        # the lane's own CapacityLimiter bounds the concurrent hops, so the batch needs no second pool.
+        # lane-owned CapacityLimiter bounds the concurrent hops, so the batch needs no second pool.
         match q:
             case SpatialQuery() as one:
                 return await self._route(one)
@@ -291,8 +291,8 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
                 return traversed(rails, by=Disposition.ACCUMULATE)  # a faulted query stays addressable in the aggregate
 
     async def _route(self, q: SpatialQuery) -> "RuntimeRail[SpatialResult]":
-        # index-cached kinds run under `boundary`; batch-heavy kinds offload the SAME `_dispatch` as a HOSTILE kernel —
-        # the native band imports under no isolated subinterpreter — both paths producing the one `Outcome` the
+        # index-cached kinds run under `boundary`; batch-heavy kinds offload the SAME `_dispatch` as a HOSTILE kernel — the
+        # native band imports under no isolated subinterpreter — both paths producing the one `Outcome` the
         # `_fold` cross-cut consumes.
         offloaded = q.tag in _OFFLOAD
         if offloaded:
@@ -314,7 +314,7 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
             "hits": r.hit_count,
             "indexed": r.indexed,
         }
-        yield Receipt.of("mesh.spatial", (phase, r.kind, facts))  # subject is the query kind
+        yield Receipt.of("rasm.geometry.mesh.spatial", (phase, r.kind, facts))  # subject is the query kind
 ```
 
 ## [03]-[RESEARCH]

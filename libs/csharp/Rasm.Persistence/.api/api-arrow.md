@@ -8,12 +8,12 @@ provides the Arrow Database Connectivity abstraction: `AdbcConnection`, `AdbcSta
 including the partitioned-result, Substrait-plan, and transaction surfaces. `Apache.Arrow.Flight`
 supplies the Flight RPC data-transfer protocol: descriptor, ticket, endpoint, and info
 messages plus the client-side `FlightClient` for reading and writing `RecordBatch` streams
-over gRPC. `Apache.Arrow.Compression` supplies the concrete `Apache.Arrow.Ipc.ICompressionCodecFactory`
+over gRPC. `Apache.Arrow.Flight.Sql` layers the Flight SQL dialect over that transport via `FlightSqlClient` SQL/metadata/transaction verbs and the `FlightSqlServer` (`: FlightServer`) served-node base. `Apache.Arrow.Compression` supplies the concrete `Apache.Arrow.Ipc.ICompressionCodecFactory`
 (`CompressionCodecFactory`) that backs IPC-stream compression for the `Lz4Frame` and `Zstd` codecs.
 
-ABI floor (consumer `net10.0`): `Apache.Arrow`, `Apache.Arrow.Flight`, and `Apache.Arrow.Compression`
-ride one release line; `Apache.Arrow.Adbc` versions independently as a pre-1.0 contract. The bound
-asset is `lib/net8.0`, the highest TFM shipped, and all four packages are Apache-2.0. The
+ABI floor (consumer `net10.0`): `Apache.Arrow`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Sql`, and
+`Apache.Arrow.Compression` ride one release line; `Apache.Arrow.Adbc` versions independently as a pre-1.0
+contract. The bound asset is `lib/net8.0`, the highest TFM shipped, and every one of these packages is Apache-2.0. The
 `Apache.Arrow.Compression` closure is pure-managed AnyCPU with no native RID asset: its transitives
 `K4os.Compression.LZ4.Streams` (over `K4os.Compression.LZ4` + `K4os.Hash.xxHash`) and `ZstdSharp.Port`
 (a managed Zstandard port) carry the codec bodies. The `ICompressionCodecFactory` interface ships in
@@ -44,6 +44,13 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 - assembly: `Apache.Arrow.Flight`
 - namespace: `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Client`
 - asset: runtime library
+- rail: analytical-egress
+
+[PACKAGE_SURFACE]: `Apache.Arrow.Flight.Sql`
+- package: `Apache.Arrow.Flight.Sql`
+- assembly: `Apache.Arrow.Flight.Sql`
+- namespace: `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Flight.Sql.Client`
+- asset: runtime library over `Apache.Arrow.Flight`
 - rail: analytical-egress
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Compression`
@@ -168,6 +175,20 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 |  [05]   | `FlightRecordBatchStreamReader`       | reader base   | `abstract : IAsyncStreamReader<RecordBatch>` — the reader base ([03] members)  |
 |  [06]   | `FlightLocation`                      | location      | `FlightLocation(string uri)`; `string Uri` — the `FlightEndpoint` address      |
 
+[PUBLIC_TYPE_SCOPE]: Flight SQL family (`Apache.Arrow.Flight.Sql`, `Apache.Arrow.Flight.Sql.Client`)
+- rail: analytical-egress
+- every `FlightSqlClient` verb takes a trailing `FlightCallOptions?` + `CancellationToken`, and each metadata verb pairs with a `*SchemaAsync` sibling returning the result `Schema`; the verbs enumerate in the entrypoint scope below.
+
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                             |
+| :-----: | :------------------ | :----------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `FlightSqlClient`   | client root        | SQL query/update/prepare, `DoGet`/`DoPut` stream, metadata, and transaction verbs        |
+|  [02]   | `FlightSqlServer`   | server base        | `abstract : FlightServer`; decodes the SQL command protobufs and routes `DoGet`          |
+|  [03]   | `PreparedStatement` | prepared handle    | `: IDisposable, IAsyncDisposable`; binds a parameter `RecordBatch` and executes          |
+|  [04]   | `Transaction`       | transaction handle | `readonly struct : IEquatable<Transaction>`; `NoTransaction`, `IsValid`, `TransactionId` |
+|  [05]   | `TableRef`          | table reference    | `Catalog?`/`DbSchema`/`Table` key the key-discovery verbs take                           |
+|  [06]   | `FlightCallOptions` | call options       | per-call `Metadata Headers` + `TimeSpan Timeout`                                         |
+|  [07]   | `DoPutResult`       | put result         | `Writer` + `Reader`; `ReadMetadataAsync`/`CompleteAsync` finalize an ingest              |
+
 [PUBLIC_TYPE_SCOPE]: IPC compression family (`Apache.Arrow.Compression`)
 - rail: analytical-egress (IPC compression)
 
@@ -180,23 +201,23 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 [ENTRYPOINT_SCOPE]: RecordBatch and Schema construction
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                                 |
-| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [00]   | `StringArray.Builder().Append(string)/.AppendRange(IEnumerable<string>)/.Build()` | array builder | builds a UTF-8 `StringArray` column (null appends as validity-bitmap null) |
-|  [01]   | `RecordBatch.Builder(allocator?)`                     | ctor           | creates batch builder with allocator         |
-|  [02]   | `RecordBatch.Builder.Append(name, nullable, array)`   | builder        | adds typed column to batch                   |
-|  [03]   | `RecordBatch.Builder.Append(name, nullable, builder)` | builder        | adds built column                            |
-|  [04]   | `RecordBatch.Builder.Append(batch)`                   | builder        | merges schema and arrays from a batch        |
-|  [05]   | `RecordBatch.Builder.Build()`                         | factory call   | yields immutable `RecordBatch`               |
-|  [06]   | `RecordBatch.Builder.Clear()`                         | reset          | resets schema and arrays                     |
-|  [07]   | `Schema.Builder.Field(field)`                         | builder        | adds field to schema                         |
-|  [08]   | `Schema.Builder.Build()`                              | factory call   | yields immutable `Schema`                    |
-|  [09]   | `Field.Builder.Name(name)`                            | builder        | sets field name                              |
-|  [10]   | `Field.Builder.DataType(type)`                        | builder        | sets Arrow type                              |
-|  [11]   | `Field.Builder.Nullable(nullable)`                    | builder        | sets nullability                             |
-|  [12]   | `Field.Builder.Build()`                               | factory call   | yields immutable `Field`                     |
-|  [13]   | `RecordBatch.Slice(offset, length)` / `SliceShared`   | zero-copy view | windows a batch without copying buffers      |
-|  [14]   | `RecordBatch.Column(name)` / `Column(int)`            | column access  | reads one `IArrowArray` column by name/index |
+| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                                               |
+| :-----: | :-------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
+|  [00]   | `StringArray.Builder().Append(string)/.AppendRange(IEnumerable<string>)/.Build()` | array builder  | builds a UTF-8 `StringArray` column (null appends as validity-bitmap null) |
+|  [01]   | `RecordBatch.Builder(allocator?)`                                                 | ctor           | creates batch builder with allocator                                       |
+|  [02]   | `RecordBatch.Builder.Append(name, nullable, array)`                               | builder        | adds typed column to batch                                                 |
+|  [03]   | `RecordBatch.Builder.Append(name, nullable, builder)`                             | builder        | adds built column                                                          |
+|  [04]   | `RecordBatch.Builder.Append(batch)`                                               | builder        | merges schema and arrays from a batch                                      |
+|  [05]   | `RecordBatch.Builder.Build()`                                                     | factory call   | yields immutable `RecordBatch`                                             |
+|  [06]   | `RecordBatch.Builder.Clear()`                                                     | reset          | resets schema and arrays                                                   |
+|  [07]   | `Schema.Builder.Field(field)`                                                     | builder        | adds field to schema                                                       |
+|  [08]   | `Schema.Builder.Build()`                                                          | factory call   | yields immutable `Schema`                                                  |
+|  [09]   | `Field.Builder.Name(name)`                                                        | builder        | sets field name                                                            |
+|  [10]   | `Field.Builder.DataType(type)`                                                    | builder        | sets Arrow type                                                            |
+|  [11]   | `Field.Builder.Nullable(nullable)`                                                | builder        | sets nullability                                                           |
+|  [12]   | `Field.Builder.Build()`                                                           | factory call   | yields immutable `Field`                                                   |
+|  [13]   | `RecordBatch.Slice(offset, length)` / `SliceShared`                               | zero-copy view | windows a batch without copying buffers                                    |
+|  [14]   | `RecordBatch.Column(name)` / `Column(int)`                                        | column access  | reads one `IArrowArray` column by name/index                               |
 
 [ENTRYPOINT_SCOPE]: IPC read and write
 - rail: analytical-egress
@@ -296,6 +317,27 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 |  [03]   | `new FlightTicket(string)` / `(ByteString)` / `(byte[])`; `ByteString Ticket` | the opaque `DoGet` redemption token                  |
 |  [04]   | `FlightDescriptor.Command` / `Paths` / `Type`                                 | command bytes, paths, `FlightDescriptorType`         |
 
+[ENTRYPOINT_SCOPE]: Flight SQL client operations (`Apache.Arrow.Flight.Sql.Client`)
+- rail: analytical-egress
+- `new FlightSqlClient(FlightClient)` wraps a constructed `FlightClient`; `PreparedStatement` carries `SetParameters(RecordBatch)`/`ExecuteAsync`/`ExecuteUpdateAsync(RecordBatch)`/`CloseAsync`, and the served `FlightSqlServer` overrides `GetFlightInfo`/`DoGet`/`DoAction`/`DoPut`/`ListActions` with static `GetCommand`/`GetTableSchema`/`SupportsAction` decoders.
+
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `ExecuteAsync(query, Transaction)`                                | query          | `Task<FlightInfo>` for a SQL query         |
+|  [02]   | `ExecuteUpdateAsync(query, Transaction)`                          | update         | `Task<long>` affected-row count            |
+|  [03]   | `PrepareAsync(query, Transaction)`                                | prepare        | `Task<PreparedStatement>` server handle    |
+|  [04]   | `DoGetAsync(FlightTicket)`                                        | stream read    | `IAsyncEnumerable<RecordBatch>` per ticket |
+|  [05]   | `DoPutAsync(FlightDescriptor, RecordBatch)`                       | stream write   | `Task<FlightPutResult>` ingest             |
+|  [06]   | `GetCatalogsAsync()` / `GetDbSchemasAsync(catalog?, pat?)`        | metadata       | catalog and schema discovery               |
+|  [07]   | `GetTablesAsync(catalog?, dbSchemaPat?, tablePat?)`               | metadata       | table discovery                            |
+|  [08]   | `GetPrimaryKeysAsync` / exported / imported keys                  | metadata       | key discovery over a `TableRef`            |
+|  [09]   | `GetCrossReferenceAsync(TableRef pk, TableRef fk)`                | metadata       | cross-reference discovery                  |
+|  [10]   | `GetTableTypesAsync` / `GetXdbcTypeInfoAsync` / `GetSqlInfoAsync` | metadata       | type and driver-info discovery             |
+|  [11]   | `BeginTransactionAsync()`                                         | transaction    | `Task<Transaction>` opens a unit           |
+|  [12]   | `CommitAsync(Transaction)` / `RollbackAsync(Transaction)`         | transaction    | `AsyncServerStreamingCall<FlightResult>`   |
+|  [13]   | `CancelFlightInfoAsync` / `CancelQueryAsync`                      | cancel         | `Task<FlightInfoCancelResult>`             |
+|  [14]   | `DoActionAsync(FlightAction)` / `GetExecuteSchemaAsync`           | action/schema  | action stream and result-schema probe      |
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ARROW_TOPOLOGY]:
@@ -306,6 +348,7 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 - ADBC namespace: `Apache.Arrow.Adbc` — `AdbcDriver`, `AdbcDatabase`, `AdbcConnection`, `AdbcStatement`, `QueryResult`/`UpdateResult`/`PartitionedResult`
 - Flight namespace: `Apache.Arrow.Flight` — messages, tickets, `FlightClient` (the client lives in this assembly; `Apache.Arrow.Flight.Client` is the namespace not a separate package)
 - Flight server namespace: `Apache.Arrow.Flight.Server` (same assembly) — `FlightServer` (the abstract serve base whose `virtual` verbs throw until overridden), `FlightServerRecordBatchStreamWriter`/`FlightServerRecordBatchStreamReader` (the server response/request streams over the `FlightRecordBatchStreamWriter`/`FlightRecordBatchStreamReader` bases carrying `WriteAsync`/`SetupStream` and `MoveNextAsync`/`Schema`), and `FlightLocation` (the endpoint serving URI). A served node subclasses `FlightServer` and overrides `GetFlightInfo`/`GetSchema`/`DoGet`/`DoExchange`; the gRPC service binding enters at the app root that hosts the listener (`ServerCallContext` is the gRPC per-call context), never an interior dependency
+- Flight SQL namespace: `Apache.Arrow.Flight.Sql` (client in `Apache.Arrow.Flight.Sql.Client`) — `FlightSqlClient` over a `FlightClient`, `FlightSqlServer` (`abstract : FlightServer`) decoding the SQL command protobufs, `PreparedStatement` (`: IDisposable, IAsyncDisposable`), and the `Transaction`/`TableRef`/`FlightCallOptions`/`DoPutResult` value types. Flight SQL layers over the Flight transport, never a separate listener
 - `RecordBatch` implements both `IArrowRecord` and `IArrowArray`, and is `IDisposable`; `Slice`/`SliceShared` window a batch with zero buffer copy
 - `IArrowArrayStream` is the async-enumerable contract across IPC, ADBC, and Flight — `Schema` plus `ReadNextRecordBatchAsync`; it is the one egress boundary every analytical surface meets at
 - `IpcOptions.CompressionCodec` is `CompressionCodecType?` (`Lz4Frame` \| `Zstd`); the codec is a no-op unless `CompressionCodecFactory` (`ICompressionCodecFactory`) is also set. The concrete factory is NOT in core Arrow — it is `Apache.Arrow.Compression.CompressionCodecFactory` (admitted), which the writer/reader invokes per batch to obtain the per-codec `ICompressionCodec`
@@ -317,12 +360,13 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 - IPC compression rides the admitted `Apache.Arrow.Compression` package: set `IpcOptions.CompressionCodec = CompressionCodecType.Lz4Frame` (or `Zstd`) AND `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`, optionally with `IpcOptions.CompressionLevel`. The package-owned `CompressionCodecFactory` is the concrete `ICompressionCodecFactory` for both codecs — LZ4-frame over the transitive `K4os.Compression.LZ4.Streams` and Zstandard over the transitive `ZstdSharp.Port` — so the egress owner NEVER hand-rolls a custom `ICompressionCodecFactory`; the codec enum alone is inert. This Arrow-IPC buffer codec is DISTINCT from the snapshot-codec LZ4 rail (`#api-lz4`), which drives `LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` directly for standalone snapshot/blob frames.
 - ADBC drivers load via `AdbcDriver.Open(parameters)` then `AdbcDatabase.Connect(options)`; direct `AdbcConnection` construction is not the public path. The DuckDB ADBC driver (`#api-duckdb`) is the in-process analytical engine reached through this same `AdbcConnection`/`AdbcStatement` surface, so a federated query rail dispatches SQL or a `SubstraitPlan` and reads back one `IArrowArrayStream` — `ExecutePartitioned` + `ReadPartition` fan a large scan, `BulkIngest` lands a `RecordBatch` stream.
 - Flight `FlightClient` is constructed from a gRPC `ChannelBase`/`CallInvoker` (no static factory); connection lifetime, TLS, and credentials are caller-owned. The `Query/federation#FLIGHT_RESULT_PLANE` `FederationFlight` producer is the served node (AppHost binds the gRPC service) — a Flight read is `GetInfo` → pick a `FlightEndpoint` → `GetStream(endpoint.Ticket)`; a Flight write is `StartPut(descriptor, schema)` then push batches on the duplex `RequestStream`.
+- Flight SQL rides that same served node: `FlightSqlServer` (`: FlightServer`) decodes the SQL command protobufs and reuses the existing `DoGet` ticket redemption, so an ADBC FlightSQL consumer — the Python data branch's `adbc-driver-flightsql` — issues `FlightSqlClient` verbs and redeems `FlightTicket`s over one gRPC listener, never a second transport. `PreparedStatement` binds a parameter `RecordBatch`; a `Transaction` bounds a commit/rollback unit.
 - Temporal columns map through NodaTime (`#api-nodatime`): an `Instant`/`ZonedDateTime` projects to `TimestampArray` (epoch-nanosecond) at the builder edge so the Arrow wire carries the same clock-seam the relational store uses, never a bare `DateTime`.
 - Schema projection (field names, type ids) stays inside the egress owner; downstream reads one typed column via `RecordBatch.Column(name)` returning `IArrowArray` (cast to the concrete `Int64Array`/`DoubleArray`/… or visit), never a `PrimitiveArray<T>` accessor on the batch.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`#api-ara3d-bimopenschema`) is the BIM analytics-frame producer whose managed `Parquet.Net` Brotli `.parquet`-zip (eleven columnar BIM tables) is read into `RecordBatch` streams through `ParquetSharp.Arrow` (`#api-parquetsharp`) and queried over the same `AdbcConnection`/`AdbcStatement` DuckDB-ADBC path (`#api-duckdb`), so the BIM star schema enters this Arrow egress as one `IArrowArrayStream` without re-encoding.
 
 [RAIL_LAW]:
-- Packages: `Apache.Arrow`, `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Compression`
-- Owns: columnar in-memory format, IPC serialisation (incl. LZ4-frame/Zstandard buffer compression via the package factory), ADBC query execution (incl. partitioned/transactional/Substrait), and Flight stream transport
+- Packages: `Apache.Arrow`, `Apache.Arrow.Adbc`, `Apache.Arrow.Flight`, `Apache.Arrow.Flight.Sql`, `Apache.Arrow.Compression`
+- Owns: columnar in-memory format, IPC serialisation (incl. LZ4-frame/Zstandard buffer compression via the package factory), ADBC query execution (incl. partitioned/transactional/Substrait), Flight stream transport, and the Flight SQL dialect over that transport
 - Accept: `RecordBatch`/`Schema` construction for egress, IPC stream/file IO with `CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`, ADBC driver-level queries and bulk ingest, Flight `GetStream`/`StartPut`/`DoExchange`
 - Reject: hand-rolled columnar byte layout; a hand-rolled custom `ICompressionCodecFactory` where the admitted `Apache.Arrow.Compression.CompressionCodecFactory` owns LZ4-frame + Zstandard; `IpcOptions.CompressionCodec` set without a `CompressionCodecFactory`; raw gRPC Flight Protobuf without the `FlightClient` wrapper; a per-transport reader where `IArrowArrayStream` already unifies IPC, ADBC, and Flight; a bare `DateTime` column where the NodaTime clock seam owns the instant; conflating the Arrow-IPC compression rail with the `#api-lz4` snapshot-codec rail

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `tree-sitter`
 - package: `tree-sitter`
-- version: `0.25.2`
 - license: MIT
 - import: `tree_sitter`
 - owner: `runtime`

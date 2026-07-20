@@ -143,6 +143,9 @@ public sealed record TimeLog(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TimeTravel {
+    // The registry-mounted census of the one receipt kind this rail emits (`Store/observability#SLOT_REGISTRY`).
+    public static readonly Seq<StoreSlot> Slots = Seq(StoreSlot.Create("store.timetravel.asof"));
+
     public static IO<TimeTravelReceipt> Reconstruct(AsOfQuery query, TimeLog log) => Folded(query, log).Map(static fold => fold.Receipt);
 
     public static IO<ElementGraph> Graph(AsOfQuery query, TimeLog log) => log.Reconstruct(query).Map(static r => r.Graph);

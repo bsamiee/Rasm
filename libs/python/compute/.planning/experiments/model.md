@@ -2,7 +2,7 @@
 
 Classical-ML model-asset export, validation, and graduation owner: `ModelAsset` exports a fitted scikit-learn estimator graph to ONNX through `skl2onnx.to_onnx`, structurally checks it through `onnx`, runs it through an `onnxruntime.InferenceSession`, and folds every check into a typed evidence ledger that graduates on the `model_asset` `HandoffAxis` case. Authoring or training a neural model is out of charter.
 
-Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, `@receipted` harvest of the manifest contributor.
+Input and output are both parameterized: `ExportSource` discriminates the `to_onnx` source shapes and `ValidationCheck.run` folds each case to a `ValidationEvidence` carrier holding only the slots its kind names. `onnx` is core; `onnxruntime`, `skl2onnx`, and `scikit-learn` gate on the worker lane. This run rides the `EvidenceScope.MODEL` weave — span, `boundary` fence, beartype guard, fenced harvest of the manifest contributor.
 
 ## [01]-[INDEX]
 
@@ -13,7 +13,7 @@ Input and output are both parameterized: `ExportSource` discriminates the `to_on
 - Owner: `ModelAsset` — `ModelAssetManifest` is the io-names, op-types, providers, model-card, and per-check verdict value object backing the graduation seam; a failed check is a residual `1.0` above the default `0.0` ceiling on the shared `graduation/handoff.md#GRADUATION` fold, never a second admission body here, and the manifest crosses outward only through `graduates`.
 - Cases: `ExportSource` — the sample drives `initial_types` inference, so a categorical or mixed-dtype source is the `columns` case, never a hand-built `FloatTensorType`; `OperatorGate` bounds the emitted operators, so a quantized or opset-restricted graph is a tighter row, never a converter fork.
 - Output: the `ValidationEvidence` case IS the verdict row — its `tag` names the check and `passed` reads the outcome, no separate `CheckVerdict` carrier re-stamping the discriminant; a malformed graph and an unpropagated shape both land as one failed `structural` verdict on the domain rail, never an infrastructure `BoundaryFault`.
-- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, and one `run` arm; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal plus one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter ceiling row the caller supplies.
+- Growth: a new validation check is one `ValidationCheck` case, one `ValidationEvidence` case, and one `run` arm; a new export source is one `ExportSource` case and one `convert` arm; a new parity probe verb is one `ProbeAttr` literal and one `PROBE_RANK` row; a stricter operator gate is one `OperatorGate` row; a stricter graduation bar is a tighter ceiling row the caller supplies.
 
 ```python signature
 from collections.abc import Callable, Iterable
@@ -226,7 +226,7 @@ class ModelAssetManifest(Struct, frozen=True):
     def graduates(self, ceiling: dict[str, float] | None = None) -> RuntimeRail[GraduationReceipt]:
         residuals = self.residuals
         return GraduationReceipt.graduates(
-            "compute", HandoffAxis(model_asset=self.subject()), self.checksum, residuals, ceiling or dict.fromkeys(residuals, 0.0)
+            EvidenceScope.MODEL.value, HandoffAxis(model_asset=self.subject()), self.checksum, residuals, ceiling or dict.fromkeys(residuals, 0.0)
         )
 
     def contribute(self) -> Iterable[Receipt]:
@@ -240,7 +240,7 @@ class ModelAssetManifest(Struct, frozen=True):
             **{f"check[{v.tag}]": v.facts() for v in self.verdicts},
             **self.model_card,
         }
-        return (Receipt.of("compute.model", ("emitted", self.subject(), facts)),)
+        return (Receipt.of(EvidenceScope.MODEL.value, ("emitted", self.subject(), facts)),)
 
 
 def _validate_kernel(asset: "ModelAsset") -> "RuntimeRail[ModelAssetManifest]":
@@ -252,7 +252,7 @@ def _export_kernel(asset: "ModelAsset", source: "ExportSource", gating: "Operato
     return boundary(f"model.export.{source.tag}", lambda: asset._export(source, gating))
 
 
-class ModelAsset(Struct, frozen=True, gc=False):
+class ModelAsset(Struct, frozen=True):  # holds a `ResourceRef` and a providers tuple — container fields keep it GC-tracked
     ref: ResourceRef
     providers: tuple[str, ...] = ()
 
@@ -265,11 +265,11 @@ class ModelAsset(Struct, frozen=True, gc=False):
     async def _traced(
         self, lane: LanePolicy, op: str, kernel: Callable[..., "RuntimeRail[ModelAssetManifest]"], *args: object
     ) -> RuntimeRail[ModelAssetManifest]:
-        # weave owns span, fence, and the `@receipted` receipt harvest.
+        # weave owns span, fence, and the fenced contributor harvest.
         async def dispatch() -> RuntimeRail[ModelAssetManifest]:
             return (await lane.offload(Kernel.of(kernel, KernelTrait.RELEASING), *args)).bind(lambda rail: rail)
 
-        return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch)
+        return await evidence_run(EvidenceScope.MODEL, f"model.{op}", dispatch, facts={"op": op, "providers": ",".join(self.providers)})
 
     @beartype(conf=FAULT_CONF)
     def _load_and_run(self, path: UPath, source: ExportSource | None) -> ModelAssetManifest:

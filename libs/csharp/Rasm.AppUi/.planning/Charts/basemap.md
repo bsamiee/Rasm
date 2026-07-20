@@ -92,6 +92,16 @@ public sealed record BasemapSurface(MapControl Control) {
         tile: static (m, t) => Fin.Succ(fun(() => { m.Layers.Add(t.Source()); return m; })()),
         overlay: static (m, o) => GeoOverlay.Layer(o).Map(layer => { m.Layers.Add(layer); return m; }),
         widget: static (m, w) => Fin.Succ(fun(() => { m.Widgets.Add(w.Source()); return m; })()));
+
+    public const string LayersInstrument = "rasm.appui.basemap.layers";
+    public const string NavigatedInstrument = "rasm.appui.basemap.navigated";
+
+    // Both count direct: Build folds one observation per successful swap, Navigate one per verb
+    // dispatch tagged by verb case — the composition-bound Count delegate, never a map-local meter.
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            new(LayersInstrument, InstrumentKind.Count, "{rebuild}", "layer-set rebuilds swapped onto the mounted map"),
+            new(NavigatedInstrument, InstrumentKind.Count, "{navigation}", "camera moves by verb case"));
 }
 ```
 
@@ -312,6 +322,14 @@ public sealed record RedlineSurface(
             ? Fin.Succ(vertices)
             : Fin.Fail<Seq<(double Lon, double Lat)>>(new ChartFault.VisualDegenerate($"redline: {kind} vertices are invalid"));
     }
+
+    public const string CommitInstrument = "rasm.appui.redline.commit";
+
+    // Commit and Discard each fold one observation tagged by disposition through the composition-bound
+    // Count delegate at Drive.
+    public static TelemetryContributorPort TelemetryRow(string version) =>
+        AppUiTelemetry.Contribute(version,
+            new(CommitInstrument, InstrumentKind.Count, "{commit}", "redline commits and discards by disposition"));
 }
 ```
 

@@ -1,6 +1,8 @@
 # [RASM_GRASSHOPPER_ETO_WINDOWS]
 
-The window, dialog, menu, and command spine of the Grasshopper boundary — one command row family (`CommandSpec` over `CommandRole` push/toggle/radio rows) minted into a receipted `CommandDeck`, one recursive menu union (`MenuNode`) folding onto lease-owned native `ContextMenu` graphs through the minted deck, one window family (`WindowSpec` over `WindowRole` shell/float rows with the full `WindowChrome` posture and the marshalled `WindowVerb` live-mutation gate), and one dialog family — the typed-result `DialogSpec<TResult>` absorbing the census `FormPlan`, plus the `PickerSpec` union collapsing file, folder, colour, font, message, and Rhino edit/number prompts into cases of one `Present` gate. Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the session operator's one styling seam (`SessionOp.StyleCase`) and its `SessionReceipt` rides the window receipt, so every raise and present projection composes `GhSession` dispatch receipts — content trees are `Eto/controls.md` `ControlSpec` values realized and harvested inside this page's one marshal window. Every context menu and raised window crosses as a `Lease<T>` whose aggregate owner releases recursively minted resources through `EtoDispatch`; modal dialogs and native pickers settle entirely inside `Lease<T>.Use` windows; every fallible step rides an `Op`-keyed `Fin<T>` rail.
+`CommandDeck` heads the window, dialog, menu, and command spine of the Grasshopper boundary — one command row family (`CommandSpec` over `CommandRole` push/toggle/radio rows) minted into a receipted deck, one recursive menu union (`MenuNode`) folding onto lease-owned native `ContextMenu` graphs through the minted deck, one window family (`WindowSpec` over `WindowRole` shell/float rows with the full `WindowChrome` posture and the marshalled `WindowVerb` live-mutation gate), and one dialog family — the typed-result `DialogSpec<TResult>` with the `PickerSpec` union collapsing file, folder, colour, font, message, and Rhino edit/number prompts into cases of one `Present` gate.
+
+Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the session operator's one styling seam (`SessionOp.StyleCase`) and its `SessionReceipt` rides the window receipt, so every raise and present projection composes `GhSession` dispatch receipts — content trees are `Eto/controls.md` `ControlSpec` values realized and harvested inside this page's one marshal window. Every context menu and raised window crosses as a `Lease<T>` whose aggregate owner releases recursively minted resources through `EtoDispatch`; modal dialogs and native pickers settle entirely inside `Lease<T>.Use` windows.
 
 ## [01]-[INDEX]
 
@@ -12,17 +14,18 @@ The window, dialog, menu, and command spine of the Grasshopper boundary — one 
 ## [02]-[COMMANDS]
 
 - Owner: `CommandSpec` — one row per reusable action: `CommandTag` `[ValueObject<string>]` intent identity, menu text, optional bar text and tooltip, optional `Keys` chord, the enablement seed, the `CommandRole` row, the radio group tag, the toggle seed, and the `Fin`-railed effect. `CommandRole` `[SmartEnum<int>]` — `Push` (`Command`), `Toggle` (`CheckCommand` with seeded `Checked`), `Radio` (`RadioCommand` wired to its group head's `Controller`) — carries construction as one `[UseDelegateFromConstructor]` column, so a stateful or grouped verb is a row value, never a sibling spec family.
-- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the sealed result — the tag-keyed command map plus the journal — and duplicate tags refuse at the seal.
+- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the sealed result — the tag-keyed command map with the journal — and duplicate tags refuse at the seal.
 - Entry: `CommandForge.Mint(Seq<CommandSpec> specs, Op? key = null)` → `Fin<CommandDeck>`; `CommandDeck.Verb(CommandTag)` → `Option<Command>`.
 - Law: an effect never throws into the host event pump — the `Executed` handler is the one exception funnel, a faulted effect stamps an unsettled echo and the fault rides the journal, so palette ranking, usage attribution, and failure surfacing are folds over one echo stream.
 - Law: the tag is triple-duty — menu identity, journal identity, and the key every menu node and toolbar row resolves against — so a literal command name at a consuming surface is a bypassed row field.
 - Boundary: chord conflict folding, availability streams, and per-placement policy are the shell chrome owner's concerns over this deck; `Command.Execute()` remains the programmatic raise and enters the same journal.
-- Packages: Eto (`Command`, `CheckCommand.Checked`, `RadioCommand.Controller`, `Command.MenuText`/`ToolBarText`/`ToolTip`/`Shortcut`/`Enabled`/`Execute`/`Executed`, `Keys`), LanguageExt.Core (`Fin`, `HashMap`, `Atom`), `Rasm.Domain` (`Op`, `ValidityClaim`, `IValidityEvidence`).
+- Packages: Eto (`Command`, `CheckCommand.Checked`, `RadioCommand.Controller`, `Command.MenuText`/`ToolBarText`/`ToolTip`/`Shortcut`/`Enabled`/`Execute`/`Executed`, `Keys`), LanguageExt.Core (`Fin`, `HashMap`, `Atom`), `Rasm.Domain` (`Op`, `ValidityClaim`, `IValidityEvidence`), `Rasm.Parametric` (`MonotonicTimeline`).
 - Growth: a new verb posture is one `CommandRole` row; a new journal fact is one `CommandEcho` field; the mint gate never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -89,7 +92,7 @@ public static class CommandForge {
                                 select elapsed).IfFail(TimeSpan.Zero);
                             ignore(journal.Swap(held => held.Add(new CommandEcho(
                                 Tag: spec.Tag, Settled: settled,
-                                Latency: latency)));
+                                Latency: latency))));
                         };
                         return Fin.Succ((
                             state.Verbs.Add(spec.Tag, verb),
@@ -104,13 +107,13 @@ public static class CommandForge {
 
 ## [03]-[MENUS]
 
-- Owner: `MenuNode` `[Union]` — the recursive menu vocabulary: `VerbCase(CommandTag)` resolves through the deck onto `Command.CreateMenuItem()`, `StubCase(string, Seq<MenuNode>)` folds children into a `SubMenuItem`, `RuleCase` mints the `SeparatorMenuItem`. One tree value describes any context or nested menu; the census parallel toolbar/menu/panel projection families collapse onto this node algebra plus the deck.
+- Owner: `MenuNode` `[Union]` — the recursive menu vocabulary: `VerbCase(CommandTag)` resolves through the deck onto `Command.CreateMenuItem()`, `StubCase(string, Seq<MenuNode>)` folds children into a `SubMenuItem`, `RuleCase` mints the `SeparatorMenuItem`. One tree value describes any context or nested menu; parallel toolbar/menu/panel projection families collapse onto this node algebra with the deck.
 - Owner: `MenuForge` — three gates: `Context` recursively acquires the full menu forest inside one marshal and returns `Lease<ContextMenu>.Owned`; the concrete `OwnedContextMenu` retains a lease for every minted `MenuItem`, recursively detaches every submenu, and releases all widgets on the UI thread. `Attach` mounts the live leased menu as a control's `ContextMenu`, and `Popup` shows it at a canvas point. An unresolvable verb tag or later branch fault unwinds every earlier branch before returning the typed failure.
 - Entry: `MenuForge.Context(Seq<MenuNode> nodes, CommandDeck deck, Op? key = null)` → `Fin<Lease<ContextMenu>>`; `Attach(Control host, Lease<ContextMenu> menu, Op? key = null)` → `Fin<Unit>`; `Popup(Lease<ContextMenu> menu, Control anchor, PointF at, Op? key = null)` → `Fin<Unit>`.
 - Law: menu items are projections of deck rows — checked state, enablement, and shortcut display all ride the native command the item was created from, so a menu never carries state beside its command and a toggle flip needs zero menu code.
-- Boundary: menu lifecycle observation (`Opening`/`Closing`/`Closed`) is `Shell/events.md`'s fact algebra inside the menu lease window; `NoticeSurface.Tray` consumes the same lease evidence when a tray retains the menu. The GH2 toolbar and input-panel chrome project the deck through the shell chrome owner, never a second command registry.
+- Boundary: menu lifecycle observation (`Opening`/`Closing`/`Closed`) is `Shell/events.md`'s fact algebra inside the menu lease window; `NoticeSurface.Tray` consumes the same lease evidence when a tray retains the menu. GH2 toolbar and input-panel chrome project the deck through the shell chrome owner, never a second command registry.
 - Packages: Eto (`ContextMenu.Items`/`Show`, `Command.CreateMenuItem`, `SubMenuItem`, `SeparatorMenuItem`, `MenuItem.Text`, `Control.ContextMenu`), `Rasm.Domain`, `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new entry kind is one `MenuNode` case plus one build arm; the three gates never widen.
+- Growth: a new entry kind is one `MenuNode` case with one build arm; the three gates never widen.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -219,12 +222,12 @@ public static class MenuForge {
         verbCase: static (s, c) => s.Deck.Verb(c.Tag).ToFin(s.Key.MissingContext())
             .Bind(verb => s.Key.Catch(body: () => {
                 MenuItem item = verb.CreateMenuItem();
-                return Fin.Succ(new MenuBranch(Root: item, Owned: Seq1((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
+                return Fin.Succ(new MenuBranch(Root: item, Owned: Seq((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
             })),
         stubCase: static (s, c) => Build(nodes: c.Items, deck: s.Deck, op: s.Key).Bind(children => Stub(text: c.Text, children: children, op: s.Key)),
         ruleCase: static (s, _) => s.Key.Catch(body: () => {
             MenuItem item = new SeparatorMenuItem();
-            return Fin.Succ(new MenuBranch(Root: item, Owned: Seq1((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
+            return Fin.Succ(new MenuBranch(Root: item, Owned: Seq((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
         }));
 
     private static Fin<MenuBranch> Stub(string text, Seq<MenuBranch> children, Op op) {
@@ -241,7 +244,7 @@ public static class MenuForge {
             Seq<Lease<MenuItem>> owned = children.Bind(static child => child.Owned);
             if (stub is null) ignore(Release(branches: children, op: op));
             else ignore(Release(
-                branches: Seq1(new MenuBranch(
+                branches: Seq(new MenuBranch(
                     Root: stub,
                     Owned: owned.Add((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: stub)))),
                 op: op));
@@ -279,13 +282,14 @@ public static class MenuForge {
 - Law: the whole raise settles inside ONE `EtoDispatch` marshal — realize, dress, skin, and show share the window; the nested session marshal short-circuits on-thread, so composing `GhSession` inside the raise costs no second hop.
 - Law: ownership transfers only after the complete raise settles. A failure during realization, role minting, dressing, styling, assignment, or showing releases every acquired form/root before the fault returns; a successful receipt transfers the mount lease, whose inverse feeds the form lease through `SessionOp.ReleaseCase`. `Form.Close`/`Dispose` and content disposal never appear at a consumer.
 - Boundary: window lifecycle facts (`Closing`/`Closed`/`WindowStateChanged`/`LogicalPixelSizeChanged`) are `Shell/events.md` source rows on the raised form; per-display placement math reads `Eto/runtime.md`'s `Display.Resolve` facts; `Window.SetOwner` on the chrome pins z-order to a host window.
-- Packages: Eto (`Form.Show`/`ShowActivated`, `FloatingForm`, `Window.Title`/`Location`/`Opacity`/`Resizable`/`Minimizable`/`Maximizable`/`Topmost`/`ShowInTaskbar`/`WindowState`/`WindowStyle`/`Icon`/`SetOwner`/`BringToFront`, `Control.Size`, `Panel.Content`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Shell/session.md` (`GhSession`, `SessionOp`, `SessionReceipt`), `Eto/controls.md` (`ControlForge`, `ControlSpec`, `ControlPlant`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new window modality is one `WindowRole` row; a new posture fact is one `WindowChrome` field; a new live verb is one `WindowVerb` case plus one `Steer` arm; the two gates never widen.
+- Packages: Eto (`Form.Show`/`ShowActivated`, `FloatingForm`, `Window.Title`/`Location`/`Opacity`/`Resizable`/`Minimizable`/`Maximizable`/`Topmost`/`ShowInTaskbar`/`WindowState`/`WindowStyle`/`Icon`/`SetOwner`/`BringToFront`, `Control.Size`, `Panel.Content`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Shell/session.md` (`GhSession`, `SessionOp`, `SessionReceipt`), `Eto/controls.md` (`ControlForge`, `ControlSpec`, `ControlPlant`), `Eto/runtime.md` (`EtoDispatch`).
+- Growth: a new window modality is one `WindowRole` row; a new posture fact is one `WindowChrome` field; a new live verb is one `WindowVerb` case with one `Steer` arm; the two gates never widen.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
 using Rasm.Grasshopper.Shell;
+using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -460,14 +464,14 @@ public static partial class WindowHost {
 
 ## [05]-[DIALOGS]
 
-- Owner: `DialogSpec<TResult>` — the typed-result modal row absorbing the census `FormPlan`: title, `ControlSpec` content, accept/cancel captions, `ChromeRow` skin, and the `Settle` fold from the harvested `FieldReport` to the typed result. The modal fold realizes the content, then nests the realized root, accept/cancel buttons, layout, and `Dialog<Option<TResult>>` inside owned `Lease<T>.Use` windows. Harvest-then-settle runs inside the callback's `Op.Catch`; an admission refusal renders as a host warning and keeps the dialog open. Dismissal and settlement are one `Option`, never a sentinel.
-- Owner: `PickerSpec` `[Union]` — the native prompt family as cases of one gate: `OpenCase`/`SaveCase` (file dialogs with `FilterPlan` rows onto `FileFilter`), `FolderCase`, `ShadeCase` (`ColorDialog` honoring `SupportsAllowAlpha`), `GlyphCase` (`FontDialog`), `AskCase` (`MessageBox` verdict prompts), and the Rhino-styled fast lane `EditCase`/`NumberCase` over `Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`. `PickerResult` `[Union]` mirrors the family — paths, path, colour, font, verdict, text, number, dismissed — so every prompt settles typed through one `Present` gate and the census per-picker method family is deleted.
+- Owner: `DialogSpec<TResult>` — the typed-result modal row: title, `ControlSpec` content, accept/cancel captions, `ChromeRow` skin, and the `Settle` fold from the harvested `FieldReport` to the typed result. Its modal fold realizes the content, then nests the realized root, accept/cancel buttons, layout, and `Dialog<Option<TResult>>` inside owned `Lease<T>.Use` windows. Harvest-then-settle runs inside the callback's `Op.Catch`; an admission refusal renders as a host warning and keeps the dialog open. Dismissal and settlement are one `Option`, never a sentinel.
+- Owner: `PickerSpec` `[Union]` — the native prompt family as cases of one gate: `OpenCase`/`SaveCase` (file dialogs with `FilterPlan` rows onto `FileFilter`), `FolderCase`, `ShadeCase` (`ColorDialog` honoring `SupportsAllowAlpha`), `GlyphCase` (`FontDialog`), `AskCase` (`MessageBox` verdict prompts), and the Rhino-styled fast lane `EditCase`/`NumberCase` over `Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`. `PickerResult` `[Union]` mirrors the family — paths, path, colour, font, verdict, text, number, dismissed — so every prompt settles typed through one `Present` gate — a per-picker method family never exists.
 - Entry: `WindowHost.Run<TResult>(DialogSpec<TResult> spec, Option<Control> anchor, Op? key = null)` → `Fin<Option<TResult>>`; `WindowHost.Present(PickerSpec spec, Option<Control> anchor, Op? key = null)` → `Fin<PickerResult>`.
 - Law: each gate is ONE marshal — construction, styling, the modal loop, result capture, and reverse-order lease release share the window. Every `CommonDialog`, modal widget, and page-owned control disposes before the marshal returns on success, dismissal, or failure; a dialog handle never escapes, so the typed result is the only egress.
 - Law: dismissal is data — `DialogResult.Ok` discriminates settlement, every non-`Ok` path folds to `DismissedCase`/`None`, and a thrown host dialog lands as a typed `Fault` through `Op.Catch`, never an exception into the modal pump.
 - Boundary: `Dialog.DisplayMode` and the positive/negative button collections stay host knobs a spec growth field claims when a consumer demands attached-sheet presentation; the presentation gate that queues or suppresses prompts by application phase is a shell concern composed over these gates.
 - Packages: Eto (`Dialog<T>.ShowModal`/`Result`/`DefaultButton`/`AbortButton`, `MessageBox.Show`, `MessageBoxButtons`, `MessageBoxType`, `OpenFileDialog.MultiSelect`/`Filenames`, `SaveFileDialog`, `FileDialog.FileName`/`Directory`/`Filters`/`CheckFileExists`, `FileFilter`, `SelectFolderDialog.Directory`/`Title`, `ColorDialog.Color`/`AllowAlpha`/`SupportsAllowAlpha`, `FontDialog.Font`, `DialogResult`, `Button.Click`, `DynamicLayout`), RhinoCommon (`Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`), `Rasm.Domain`, `Eto/controls.md` (`ControlForge`, `FieldReport`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new native prompt is one `PickerSpec` case plus one `Present` arm plus its `PickerResult` mirror; the two gates never widen.
+- Growth: a new native prompt is one `PickerSpec` case with one `Present` arm and its `PickerResult` mirror; the two gates never widen.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -724,4 +728,4 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [06]   | typed modals       | `DialogSpec<TResult>`                        | `Run → Fin<Option<TResult>>`        |    1    |
 |  [07]   | native prompts     | `PickerSpec` + `PickerResult`                | `Present → Fin<PickerResult>`       |   8+8   |
 
-`Op`, `Fault`, `Lease<T>`, `EtoDispatch`, `ControlForge`, `GhSession`, and `SessionOp.StyleCase` are composed upstream owners; every named host member is source-verified against the installed Eto surface or the census-era compiled source. `Dialog.DisplayMode` and the positive/negative button collections are the page's declared growth fields.
+`Op`, `Fault`, `Lease<T>`, `EtoDispatch`, `ControlForge`, `GhSession`, and `SessionOp.StyleCase` are composed upstream owners; `Dialog.DisplayMode` and the positive/negative button collections are the page's declared growth fields.

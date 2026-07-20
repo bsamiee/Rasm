@@ -26,6 +26,7 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 
 from rasm.data.tabular.columnar import QueryReceipt
 from rasm.runtime.faults import RuntimeRail, async_boundary, boundary
@@ -451,8 +452,9 @@ class RasterGeoClaim(Struct, frozen=True):
             return railed.bind(self._result)
 
     async def apply_remote(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeRail[CoverageResult]":
-        # abandon frees the band slot when an enclosing deadline trips — a wedged /vsicurl read runs out unobserved.
-        with _TRACER.start_as_current_span(f"geo.raster.{op.tag}", attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
+        # abandon frees the band slot when an enclosing deadline trips — a wedged /vsicurl read runs out unobserved;
+        # kind=CLIENT marks the outbound network leg per the catalog span-kind law.
+        with _TRACER.start_as_current_span(f"geo.raster.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag}):
             acquired = await guarded(RetryClass.HTTP, on_thread, lambda: self._remote_read(op, source), abandon=True, subject=f"geo.raster.{op.tag}")
             return acquired.bind(self._result)
 

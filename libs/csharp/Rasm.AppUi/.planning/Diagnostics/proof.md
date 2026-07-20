@@ -6,7 +6,7 @@ Rasm.AppUi proof is one derivation engine: host-agnostic capture rows prove pixe
 
 - [02]-[CAPTURE_LANES]: Host-agnostic frame capture rows; render-hash regression proof.
 - [03]-[HEADLESS_DERIVATION]: Catalog-derived proof matrix; deterministic command-journal replay.
-- [04]-[PROOF_LAW]: The law-matrix fence — FrameHash equality, deterministic capture, replay determinism.
+- [04]-[PROOF_LAW]: The law-matrix fence — FrameHash equality, deterministic capture, replay determinism, the instrument fold.
 
 ## [02]-[CAPTURE_LANES]
 
@@ -129,10 +129,10 @@ public static class ProofEngine {
 
 ## [04]-[PROOF_LAW]
 
-- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
+- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, the `MetricCollector<T>` instrument lane, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
 - Entry: `public static IO<Seq<EvidenceReceipt>> ProofMatrix(...)` — the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form.
-- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly.
-- Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, LanguageExt.Core
+- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly; `ProofLaw.InstrumentFold` mounts the contributed rows on a test-scoped factory, projects sealed envelopes through the evidence fan, and folds the collector snapshot — one collector per asserted instrument on the sibling `InstrumentAssert` rail, so every `rasm.appui.*` count row proves its fan arm end to end.
+- Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, Microsoft.Extensions.Diagnostics.Testing, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; zero new surface.
 - Boundary: the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed kernel-hasher-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge with the CATALOG-TRUE collapse law — `IO<A>.Run()` returns `A` and `RunAsync()` returns `ValueTask<A>`, both THROWING the typed `Error` on failure (only `Eff.Run` lands `Fin`) — so a failing disposition composes BEFORE the terminal: the awaited `RunAsync` throw carries the registry-coded `ProofFault` the runner reports loudly, a property that must survive failure composes `| @catch` to its verdict value before its one `Run()`, and a `ThrowIfFail`/`IfFail` shim applied to the terminal result is the phantom spelling that does not compile.
 
@@ -201,6 +201,17 @@ public static class ProofLaw {
         await Verifier.Verify(digests);
     }
 
+    // Instrument lane: the collector precedes the mount so instrument publish is observed, and the
+    // factory scope isolates parallel proof cells; level rows assert through their cell value instead.
+    public static long InstrumentFold(
+        IMeterFactory factory, string version, CorrelationId root,
+        Seq<TelemetryContributorPort> contributions, string instrument, Seq<ReceiptEnvelope> envelopes) {
+        using MetricCollector<long> collector = InstrumentAssert.Collect<long>(factory, TelemetrySource.AppUi, instrument);
+        InstrumentSet set = AppUiTelemetry.Mount(factory, version, root, contributions);
+        ignore(envelopes.Iter(envelope => EvidenceFan.Project(set, UiLevelCells.Live, envelope)));
+        return InstrumentAssert.Total(collector);
+    }
+
     // Cost lane: baseline pass durations compare variance-aware, and every pass stays under the frame
     // budget — a pass past either bound folds its typed fault; a missing baseline is an admission fault.
     public static Fin<Seq<(string Pass, Duration Elapsed)>> FrameCost(
@@ -213,3 +224,7 @@ public static class ProofLaw {
                 None: () => Fin.Fail<(string, Duration)>(new ProofFault.BaselineAbsent(pass.Pass)))).As();
 }
 ```
+
+## [05]-[RESEARCH]
+
+- [COLLECTOR_LATE_PUBLISH]-[OPEN]: `MetricCollector<T>` constructed on a factory scope before `Mount` publishes the instrument — confirm the collector observes an instrument created after collector construction; verification route `tests/csharp/.api/diagnostics-testing.md`.

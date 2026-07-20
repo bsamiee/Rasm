@@ -1,6 +1,6 @@
 # [PY_GEOMETRY_MESH_DAEMON]
 
-One persistent IfcOpenShell tessellation daemon drives source bytes plus the geometry-owned `TessellationPolicy` (minted on `mesh/cad`, imported downward) into per-element GLB and a typed semantic header. `TessellationSource` discriminates the modality: the `ifc` arm drives `ifcopenshell.geom.iterator` over the native `serializers.gltf`, the `cad` arm delegates the OCCT B-rep-to-GLB hop to the `mesh/cad#BRIDGE` `StepBridge` — one ADT, never parallel daemons, and the daemon never feeds an OCCT shape through the IFC iterator.
+One persistent IfcOpenShell tessellation daemon drives source bytes and the geometry-owned `TessellationPolicy` (minted on `mesh/cad`, imported downward) into per-element GLB and a typed semantic header. `TessellationSource` discriminates the modality: the `ifc` arm drives `ifcopenshell.geom.iterator` over the native `serializers.gltf`, the `cad` arm delegates the OCCT B-rep-to-GLB hop to the `mesh/cad#BRIDGE` `StepBridge` — one ADT, never parallel daemons, and the daemon never feeds an OCCT shape through the IFC iterator.
 
 Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentKey` folds `TessellationPolicy.spec` into the canonical seed, so a re-tessellation at identical input and settings replays by reference and only a miss offloads the kernel. Two-key discipline is law: the policy-folded re-tessellation CACHE key stays distinct from the seed-zero (`Some(0)`) `XxHash128` GLB WIRE key equal to the C# `RepresentationContentHash` byte-for-byte — the `rasm.runtime.reproduction` `name="glb-by-key"` pin this daemon graduates into a graded sample — and a policy-folded seed on the wire key is the named drift defect. Daemon/serve boundary is equally law: the daemon tessellates, caches, and keys, never opening a channel, framing bytes, or naming a wire shape; `mesh/serve` registers, frames, and streams, never tessellating, re-keying, or reaching past the returned results.
 
@@ -15,7 +15,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 - Auto: `num_threads` binds from `LanePolicy.capacity` so the iterator's intra-kernel parallelism and the lane's slot allocator share one capacity, never a hardcoded literal.
 - Receipt: the daemon mints no `GeometrySubject` — the C# `IfcSemanticModel` projects the IFC graph in-process, and the downstream `mesh/repair#MESH`/`scan/reconstruction#RECONSTRUCTION` owners graduate the conditioned solid.
 - Packages: `ifcopenshell` (`file.from_string`, `geom.settings`/`iterator`/`serializers.gltf`/`serializer_settings`), the `mesh/cad#BRIDGE` bridge surface, and the runtime identity/lane/fault/receipt rails per the fence imports; the kernel crosses as `Kernel.of(kernel, KernelTrait.HOSTILE)` — the native OCCT body rides the warm process pool, its trait row supplying the `WORKER` worker-death retry at the offload leg.
-- Growth: a new tessellation knob is one `TessellationPolicy` field folded into both the `geom.settings()` bind and the cache seed; a new CAD source is one `BridgeFormat` row reached through the existing `cad` case; a new source modality is one `TessellationSource` case plus one `_dispatch` arm plus its module-level kernel; a new semantic field is one `SemanticHeader` field.
+- Growth: a new tessellation knob is one `TessellationPolicy` field folded into both the `geom.settings()` bind and the cache seed; a new CAD source is one `BridgeFormat` row reached through the existing `cad` case; a new source modality is one `TessellationSource` case and one `_dispatch` arm and its module-level kernel; a new semantic field is one `SemanticHeader` field.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -78,7 +78,8 @@ class TessellationResult(Struct, frozen=True, gc=False):
 
     def fact(self, source: SourceTag) -> Receipt:
         return Receipt.of(
-            "mesh.daemon", (self.replay, source, {"content_key": self.content_key.hex, "elements": self.element_count, "triangles": self.triangle_count})
+            "rasm.geometry.mesh.daemon",
+            (self.replay, source, {"content_key": self.content_key.hex, "elements": self.element_count, "triangles": self.triangle_count}),
         )
 
 
@@ -136,7 +137,7 @@ def _tessellate_cad(source_bytes: bytes, fmt: BridgeFormat, mesher: Tessellation
 
 # kernel, cache-key seed bytes, and plain `*args` per case — the `cad` arm frames its `BridgeFormat` into the seed
 # (identical bytes declared as two formats are two tessellations, never one cache slot) and threads it positionally;
-# the `:` separator keeps the closed format vocabulary prefix-unambiguous against the body bytes.
+# one `:` separator keeps the closed format vocabulary prefix-unambiguous against the body bytes.
 def _dispatch(source: TessellationSource) -> tuple[TessellateKernel, bytes, tuple[object, ...]]:
     match source:
         case TessellationSource(tag="ifc", ifc=body):
@@ -200,7 +201,7 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         facts = admitted.choose(
             lambda a: self._cache.try_find(a[0]).map(lambda r: replace(r, replay="admitted" if a[0] in warm else "emitted").fact(a[1]))
         )
-        self._receipts = self._receipts.append(facts).append(faults.map(lambda f: Receipt.of("mesh.daemon", f)))
+        self._receipts = self._receipts.append(facts).append(faults.map(lambda f: Receipt.of("rasm.geometry.mesh.daemon", f)))
 
     def contribute(self) -> Iterable[Receipt]:
         # drain-on-harvest: the snapshot-and-clear swap keeps a re-harvest from re-sending historical evidence.

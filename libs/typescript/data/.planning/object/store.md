@@ -24,7 +24,7 @@ The content-addressed object plane: the object key IS the core `ContentKey` — 
 - Law: checksums are transport integrity, `ContentKey` is identity — `requestChecksumCalculation`/`responseChecksumValidation` pin `"WHEN_SUPPORTED"` against AWS-grade engines and `"WHEN_REQUIRED"` against S3-compatibles that predate default checksums, a `Config` fact per provider; identity verification is the core mint re-run at read, and the two never substitute.
 - Law: the conformance table is the admission gate — an engine hosts this plane only with `conditional: "yes"`: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation) conform; the CRDT-metadata engine and the B2 row cannot CAS and are refused rows, kept as data so the argument is never re-had; the pending row waits on its concurrency fix.
 
-```typescript
+```typescript signature
 import { Config, Data, Duration, Effect, Match, Redacted, Schedule } from "effect"
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3"
 import { ContentKey } from "@rasm/ts/core"
@@ -127,13 +127,13 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault => {
 - Growth: a write posture (storage class, SSE) is a field threaded into the command mints, arriving as one policy row on the service construction; a read shape (range, part, attributes) is a command field, never a sibling get.
 - Law: the conditional rides every leg — `IfNoneMatch: "*"` on the plain put, on the hand-composed `CompleteMultipartUpload`, and on the `Upload` params whose spread carries it onto both its paths; first-writer-wins lands at the moment the object materializes, and a 409 concurrent race retries into the 412 noop under the `io` policy row.
 - Law: body shape selects the leg — bounded bytes below the threshold ride the plain put, bounded bytes above it ride the hand-composed part fold under `Effect.acquireRelease` with `AbortMultipartUpload` on failure, and a streaming or unknown-length body rides `Upload` with the abort bridged to fiber interruption; the caller sees one `put`.
-- Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Presence`/`Descriptor` request families through one `HeadObjectCommand` send as the typed `ObjectStore.Stat` — `etag`, `contentType`, and `modified` are `Option`-carried and a reply without `ContentLength` is the `io` fault, never a sentinel-zero forgery — so the batch engine's HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
+- Law: `get` verifies identity — the returned bytes re-mint through `Digest.mint("content", bytes)` and disagreement is `integrity`; `ChecksumMode: "ENABLED"` rides the read so the provider's transport verification runs too; `head` answers the `Descriptor` request family through one `HeadObjectCommand` send as `ObjectStore.Stat` — the schema-owned evidence row whose `etag`, `contentType`, and `modified` fields are `Option`-carried with encodable twins, so the batch engine's durable band persists the same row `head` mints, a reply without `ContentLength` is the `io` fault, never a sentinel-zero forgery, and the HEAD windows and a singular probe share one member; `attributes` is the deep-evidence twin — `GetObjectAttributesCommand` yields `ObjectParts` and `Checksum` for multipart integrity audits a plain HEAD cannot carry.
 - Law: every receipt is honest — `putKeyed` takes the proven span from the caller's identity fold, while `rekey(source, target)` probes the source once and carries its `Stat.bytes` into either copy outcome; the server-side copy derives `CopySourceIfMatch` from the same typed probe, so neither caller-provided ETags nor zero-byte receipt guesses are spellable.
 - Boundary: `_putStreaming` is the one lib-storage seam — the `Upload` construction and the abort-signal listener are statement flow inside the `tryPromise` lambda, and fiber interruption reaches the in-flight multipart through `upload.abort()`.
 - Law: consistency after a sweep race is a waiter, never a sleep — `settled(key)` runs `waitUntilObjectExists({ client, maxWaitTime: setting.settleSeconds, abortSignal }, { Bucket, Key })` to close the write-then-serve window where an engine's read-after-write posture demands it; the budget is construction policy shared with delete settlement, never a call-site knob.
 
-```typescript
-import { Array, DateTime, Exit, Option, Stream } from "effect"
+```typescript signature
+import { Array, DateTime, Exit, Option, Schema, Stream } from "effect"
 import {
   AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CopyObjectCommand, CreateMultipartUploadCommand,
   GetObjectAttributesCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartCommand,
@@ -142,15 +142,18 @@ import {
 import { Upload } from "@aws-sdk/lib-storage"
 import { Digest } from "@rasm/ts/core"
 
+class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
+  // encodable option fields: the batch engine's durable band persists this row through its own schema, so OptionFromSelf has no spelling here
+  key: ContentKey,
+  bytes: Schema.NonNegativeInt,
+  etag: Schema.OptionFromNullOr(Schema.String),
+  contentType: Schema.OptionFromNullOr(Schema.String),
+  modified: Schema.OptionFromNullOr(Schema.DateTimeUtc),
+}) {}
+
 declare namespace ObjectStore {
   type Receipt = { readonly key: ContentKey; readonly bytes: number; readonly written: boolean }
-  type Stat = {
-    readonly key: ContentKey
-    readonly bytes: number
-    readonly etag: Option.Option<string>
-    readonly contentType: Option.Option<string>
-    readonly modified: Option.Option<DateTime.Utc>
-  }
+  type Stat = _Stat
 }
 
 const _putPlain = (client: S3Client, bucket: string, key: ContentKey, bytes: Uint8Array) =>
@@ -309,13 +312,13 @@ const _headed = (client: S3Client, bucket: string, key: ContentKey) =>
       // absence is Option, never a sentinel: a headless reply is the io fault, not a zero-byte forgery
       reply.ContentLength === undefined
         ? Effect.fail(new ObjectFault({ reason: "io", key, detail: "<headless>" }))
-        : Effect.succeed<ObjectStore.Stat>({
+        : Effect.succeed(new _Stat({
             key,
             bytes: reply.ContentLength,
             etag: Option.fromNullable(reply.ETag),
             contentType: Option.fromNullable(reply.ContentType),
             modified: Option.flatMap(Option.fromNullable(reply.LastModified), DateTime.make),
-          }),
+          })),
   )
 
 const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime: number) =>
@@ -339,7 +342,7 @@ const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime
 - Law: derivative references are owned rows — a derivative's ledger row names its source key as `owner`, so sweeping a source cascades through ordinary reference release, never a prefix guess.
 - Law: retention classes gate the sweep — a `permanent` reference never sweeps, windowed classes sweep past `Retain.Policy[class].window`, and subject-sealed payload objects fall to crypto-shredding upstream (key destruction makes the bytes unreadable; the sweep merely reclaims them).
 
-```typescript
+```typescript signature
 import {
   AbortMultipartUploadCommand, DeleteObjectCommand, ListMultipartUploadsCommand, paginateListObjectsV2,
   PutBucketLifecycleConfigurationCommand, PutObjectTaggingCommand, waitUntilObjectNotExists,
@@ -526,7 +529,7 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
 - Law: `expiresIn` derives from `Duration.min(ttl, setting.presignTtl)` — a grant narrows policy and an unbounded or widened grant is unrepresentable at this surface.
 - Law: the mint rides the `_shielded` bracket like every operation — bounded flight, budget, policy-gated retry; caller-keyed grant QUOTA composes the store-backed `RateLimiter` at the serving seam, because per-principal identity exists there and this page mints capability, never authorization.
 
-```typescript
+```typescript signature
 import { DateTime } from "effect"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import type { GetObjectCommand, HeadObjectCommand, PutObjectCommand, UploadPartCommand } from "@aws-sdk/client-s3"
@@ -623,7 +626,9 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         Effect.zipRight(_release(key, owner), retag(key)),
     }
   }),
-}) {}
+}) {
+  static readonly Stat = _Stat
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

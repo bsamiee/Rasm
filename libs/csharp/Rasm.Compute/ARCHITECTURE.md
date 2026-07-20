@@ -9,17 +9,17 @@ Rasm.Compute/
 ├── Tensor/                # CPU tensor vocabulary and BLAS-class numeric core
 │   ├── Vocabulary.cs      # Tensor shape, factory, dtype, and op-family vocabulary
 │   ├── Layout.cs          # Layout forms and the shape-edit request union
-│   ├── Dispatch.cs        # Arity kernel-delegate tables and the differentiable-adjoint law
+│   ├── Dispatch.cs        # Arity kernel-delegate tables, the differentiable-adjoint law, and WGSL device-kernel dispatch
 │   ├── Residency.cs       # OrtValue C-data residency lattice and geometry-to-tensor encoding
 │   ├── Memory.cs          # Bounded staging memory and the zero-copy stream pool
-│   ├── Blas.cs            # Dense BLAS, factorization, and spectral core
+│   ├── Blas.cs            # Dense BLAS, factorization, spectral core, and damped nonlinear least squares
 │   ├── Factor.cs          # Sparse ingestion and criterion-stack iterative solve
 │   ├── Quadrature.cs      # Accuracy-routed adaptive quadrature and the spectral operator
 │   └── Sampling.cs        # Sobol/Halton sampling and radial-basis scatter reconstruction
 ├── Symbolic/              # Closed symbolic-expression CAS and unit boundary
 │   ├── Expression.cs      # Symbolic-expression algebra over the CAS Entity
 │   ├── Dimensional.cs     # ℚ⁷ SI base-dimension proof
-│   ├── Lowering.cs        # Content-keyed compiled-expression cache and the analytic-Jacobian arm
+│   ├── Lowering.cs        # Compiled-expression cache, analytic-Jacobian arm, interval enclosure, and column programs
 │   └── Units.cs           # Units boundary admitting unit-bearing input
 ├── Model/                 # ONNX model identity, sessions, inference, and generative runs
 │   ├── Identity.cs        # Checksum identity, acquisition union, schema snapshot, and drift sentinel
@@ -31,7 +31,7 @@ Rasm.Compute/
 │   └── Extension.cs       # Custom-op registration at the string-tensor boundary
 ├── Solver/                # Discretize-solve-optimize-sweep solve spine
 │   ├── Discretization.cs  # Volumetric meshing with adaptive refinement and exact-predicate gates
-│   ├── Contract.cs        # Physics-by-BC solve fold with adaptive recovery
+│   ├── Contract.cs        # Physics-by-BC solve fold with adaptive recovery and the coupled-solve lane
 │   ├── Constitutive.cs    # Per-Gauss-point stress-update axis and contact enforcement
 │   ├── Optimizer.cs       # Design-space search axis with surrogate duality
 │   ├── Sweep.cs           # N-dim DOE sweep grid and sensitivity analysis
@@ -45,7 +45,7 @@ Rasm.Compute/
 │   ├── Admission.cs       # Typed intent admission with substrate axis and total dispatch
 │   ├── Scheduling.cs      # Bounded work-lanes and the dependency job-graph scheduler
 │   ├── Progress.cs        # Monotonic phase family and the progress capsule
-│   ├── Receipts.cs        # One ComputeReceipt fact union and benchmark-claim table
+│   ├── Receipts.cs        # ComputeReceipt fact union, instrument projection and traces, replay folds, wire stamps, claim table
 │   ├── Wire.cs            # Wire contract: proto vocabulary, evolution, and fault projection
 │   ├── Transport.cs       # Channel mechanics: transport rows, tuning, and the artifact frame law
 │   ├── Codecs.cs          # Field, result, and geometry-delta codecs and the tessellation bridge
@@ -61,7 +61,9 @@ Rasm.Compute/
     └── Daylight.cs        # Solar-position kernel and sky-model daylight rows
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type — `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Expected` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence. `ComputeFault` projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant`/`Duration`, and AppHost `ClockPolicy` owns both clocks.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail is named in the return type — `Fin<T>` aborts at admission, `Validation<Error,T>` accumulates (the monoidal `Error` carrier; typed `ComputeFault` arms lift onto it through their `Expected` base, since `ComputeFault` is not itself a monoid), `IO<T>` carries effects, `Option<T>` carries absence.
+
+`ComputeFault` projects through `FaultDetail` at the wire edge; receipts stamp NodaTime `Instant`/`Duration`, and AppHost `ClockPolicy` owns both clocks.
 
 ## [02]-[STRATA]
 
@@ -76,33 +78,14 @@ Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabular
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
     accTitle: Rasm.Compute interior strata
-    accDescr: Five stacked strata from the analysis rail through the solve spine, the model and stats tier, and the tensor-symbolic peers onto the runtime substrate, every consumption edge downward and solid naming one sourced type, and one forbidden upward edge styled red.
+    accDescr: Five stacked strata from the analysis rail through the solve spine, the model and stats tier, and the tensor-symbolic peers onto the runtime substrate, every consumption edge downward and solid naming one sourced type, and one labeled forbidden upward edge.
     subgraph L4["S4 ANALYSIS"]
         Assessment[AssessmentRoute]
         Daylight[SolarPosition]
@@ -137,14 +120,6 @@ flowchart TB
     Mesh e8@--> Ops
     Sweep e9@-->|"[IMPORT]: WorkLane"| Lane
     Receipt f1@-->|"forbidden: substrate upward"| L4
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Assessment,Daylight,Mesh,Optimizer,Sweep,Clash,Identity,Envelope,Estimator primary
-    class Ops,Sampling,Compiled,Receipt,Lane recessed
-    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeControl
-    class f1 edgeError
 ```
 
 ## [03]-[SEAMS]
@@ -152,33 +127,14 @@ flowchart TB
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Compute AEC-domain and storage seams
-    accDescr: Compute sub-domain owners exchanging content keys, neutral shapes, projections, and tessellation with the kernel, the Element/Materials/Bim/Fabrication AEC peers, and the persistence store, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Compute sub-domain owners exchanging content keys, neutral shapes, wires, projections, transport, and tessellation with the kernel, the Element/Materials/Bim/Fabrication AEC peers, and the persistence store, one edge per contract family labeled by kind and shared shape.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
         Tensor[Tensor core]
@@ -195,8 +151,12 @@ flowchart LR
     Bim[Rasm.Bim]
     Rasm e1@-->|"[CONTENT_KEY]: ContentHash"| Model
     Rasm e2@-->|"[SHAPE]: Predicate"| Solver
-    Tensor e3@<-->|"[SHAPE]: OperatorRow"| Rasm
+    Tensor e3@<-->|"[SHAPE]: DiscreteCalculus"| Rasm
     Rasm e4@-->|"[WIRE]: SliceStack"| Analysis
+    Rasm e18@-->|"[SHAPE]: MeshAdjointSnapshot"| Tensor
+    Rasm e19@-->|"[WIRE]: SpatialIndex"| Solver
+    Rasm e20@-->|"[SHAPE]: RemeshOp"| Solver
+    Rasm e21@-->|"[WIRE]: EncodedGeometry"| Tensor
     Model e15@<-->|"[CONTENT_KEY]: ArtifactIndexRow"| Persistence
     Tensor e16@-->|"[CONTENT_KEY]: ShardPlan"| Persistence
     Symbolic e14@-->|"[CONTENT_KEY]: CompiledExpr"| Persistence
@@ -204,58 +164,30 @@ flowchart LR
     Runtime e17@<-->|"[CONTENT_KEY]: InterchangeIdentity"| Persistence
     Solver e8@<-->|"[SHAPE]: MaterialPropertySet"| Element
     Symbolic e7@<-->|"[SHAPE]: DimensionMonomial"| Element
-    Analysis e5@<-->|"[SHAPE]: ElementGraph"| Element
+    Element e5@-->|"[SHAPE]: ElementGraph"| Analysis
+    Element e22@-->|"[SHAPE]: AssessmentPayload"| Analysis
     Runtime e6@<-->|"[CONTENT_KEY]: RepresentationContentHash"| Element
     Element e10@-->|"[SHAPE]: AssemblyAggregator"| Analysis
     Materials e9@-->|"[WIRE]: MaterialPropertySet"| Analysis
+    Materials e23@-->|"[WIRE]: SectionCapacity"| Analysis
     Fabrication e12@-->|"[PROJECTION]: NestYield"| Analysis
     Bim e11@<-->|"[TESSELLATION]: TessellationOutcome"| Runtime
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Runtime,Analysis,Symbolic,Model,Tensor,Solver primary
-    class Rasm,Element external
-    class Materials,Bim,Fabrication annotation
-    class Persistence data
-    class e1,e4,e6,e11,e13,e14,e15,e16,e17 edgeData
-    class e12 edgeExternal
-    class e2,e3,e5,e7,e8,e9,e10 edgeControl
+    Bim e24@<-->|"[TRANSPORT]: IdsVerdict"| Runtime
+    Bim e25@-->|"[CONTENT_KEY]: RepresentationContentHash"| Runtime
+    Bim e26@-->|"[CONTENT_KEY]: CostSchedule"| Analysis
 ```
 
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-    titleColor: "#D6BCFA"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Compute platform and cross-runtime seams
-    accDescr: Compute sub-domain owners exchanging ports, receipts, projections, wires, and graduation evidence with the AppHost and AppUi platform peers and the Python and TypeScript cross-runtime peers, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Compute sub-domain owners exchanging ports, receipts, projections, wires, and graduation evidence with the AppHost and AppUi platform peers and the Python and TypeScript cross-runtime peers, one edge per contract family labeled by kind and shared shape.
     subgraph compute[RASM.COMPUTE]
         Model[Model runtime]
         Tensor[Tensor core]
@@ -280,25 +212,12 @@ flowchart LR
     Analysis e7@-->|"[SHAPE]: SolarPosition"| AppUi
     Runtime e8@<-->|"[WIRE]: ComputeService"| Geometry
     Runtime e9@<-->|"[WIRE]: ProtoVocabulary"| PyRuntime
-    Runtime e10@<-->|"[GRADUATION]: GraduationEvidence"| Compute
+    Compute e10@-->|"[GRADUATION]: HandoffAxis"| Runtime
+    Runtime e11@-->|"[WIRE]: GraduationEvidence"| Compute
     Symbolic e12@<-->|"[WIRE]: QuantityFamily"| Compute
-    Data e13@-->|"[SHAPE]: DoeDataset"| Solver
+    Solver e13@-->|"[SHAPE]: DoeDataset"| Data
     Runtime e14@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
     Symbolic e15@<-->|"[WIRE]: QuantityFamily"| Core
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class Runtime,Analysis,Symbolic,Model,Tensor,Solver primary
-    class AppHost,AppUi,Geometry,PyRuntime,Compute,Core external
-    class Data annotation
-    class e8,e9,e10,e12,e14,e15 edgeData
-    class e3 edgeSuccess
-    class e5 edgeExternal
-    class e1,e2,e4,e6,e7,e13 edgeControl
 ```
 
 ## [04]-[INTERNAL]
@@ -306,30 +225,14 @@ flowchart LR
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Rasm.Compute measured execution spine
-    accDescr: Typed intent admits once at the boundary, substrate selection folds over row data and lands a receipt, bounded lanes enqueue work, total dispatch routes to the tensor, model, or remote lane, every outcome materializes as a compute receipt at the sink port, and progress cells deliver cadence-gated marks to observers.
+    accDescr: Typed intent admits once at the boundary, substrate selection folds over row data and lands a receipt, bounded lanes enqueue work, total dispatch routes to the tensor, model, or remote lane, every outcome materializes as a compute receipt the sink-bound surface projects and emits, and progress cells deliver cadence-gated marks to observers.
     ComputeIntent(["ComputeIntent"]) e1@-->|Admit| AdmittedIntent["AdmittedIntent.Admit"]
     AdmittedIntent e3@-.->|Fin fail| ComputeFault["ComputeFault"]
     AdmittedIntent e4@-->|Plan| SubstrateSelection["SubstrateSelection"]
@@ -344,21 +247,10 @@ flowchart LR
     TensorOps e13@--> ComputeReceipt["ComputeReceipt"]
     ModelSessions e14@--> ComputeReceipt
     WireChannels e15@--> ComputeReceipt
-    ComputeReceipt e16@-->|Emit| ReceiptSinkPort["ReceiptSinkPort"]
+    ComputeReceipt e16@-->|Emit| ReceiptSurface["ReceiptSurface"]
+    ReceiptSurface e19@-->|Send| ReceiptSinkPort(["ReceiptSinkPort"])
     LaneRuntime e17@-->|Advance| ProgressCell["ProgressCell"]
-    ProgressCell e18@-->|Observe / Stream| Observers(["UiSchedulerPort / wire stream"])
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
-    class ComputeIntent,Observers boundary
-    class ComputeFault error
-    class AdmittedIntent,SubstrateSelection,SelectionReceipt,LaneRuntime,DispatchTable,TensorOps,ModelSessions,WireChannels,ComputeReceipt,ReceiptSinkPort primary
-    class e3,e6 edgeError
-    class e5,e13,e14,e15,e16 edgeSuccess
-    class e1,e4,e7,e8,e9,e10,e11,e12,e17,e18 edgeControl
+    ProgressCell e18@-->|Observe / Stream / Instrument| Observers(["UiSchedulerPort / wire / InstrumentSet"])
 ```
 
 Spine admits once, selects substrate over row data, enqueues on bounded lanes, dispatches to the tensor, model, or remote lane, and lands every outcome on a `ComputeReceipt` case at the sink while admission and selection failures fall to `ComputeFault` and `ProgressCell` streams cadence-gated marks. Per-stage guards, conditioning, and rails each lane composes live on the owning implementation pages.
@@ -372,7 +264,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Compute owns the channel and companion-rpc orchestration; `Rasm.Bim` owns every semantic read, and neither crosses the seam.
 - Strata run one direction: the AEC peers admit `UnitsNet` in-folder rather than reference the app-platform unit and solve owners downward.
 - `Analysis` reads the concrete `ElementGraph` upward and writes a content-keyed assessment `GraphDelta` the caller applies; it mutates nothing.
-- C# owns inference plus classical fit; every offline-learned model is the Python companion's, decoded by content key over the graduation evidence.
+- C# owns inference and classical fit; every offline-learned model is the Python companion's, decoded by content key over the graduation evidence.
 - `EnergyToolchain` resolves EnergyPlus by env var, configured path, or bundle; no hardcoded path or token column enters the policy.
 - `EnergyRoute` converges local and cloud runs on the one `SqlFile` fold.
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
@@ -381,6 +273,10 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 
 ## [06]-[OWNER_LAW]
 
-Every device, sparse, autodiff, estimator, optimizer, UQ, or constitutive capability is a row or case on its existing owner — a `Substrate` row, a `SparseTensorOpFamily` row, a `DifferentiableOp`+`Forward` pair, an `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row, or a `ConstitutiveModel` case — never a sibling owner or a second admission spine. `System.Numerics.Tensors` `Tensor<T>` is the tensor, device-ness the `OrtResidency.DeviceResident` discriminant, and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; `LinearProvider`/`DenseOps`/`LevenbergMarquardt` and `SparseOps`/`SparseTensorOps` own the dense and sparse math. Solver, optimizer, UQ, and constitutive oracle couples only through the `Func<DesignPoint, Fin<Seq<double>>>` contract, an OR-Tools `CpModel` builds through the typed model-builder API, one `HybridCache` binds per lane, and one session binds per model identity. Assessment outcome is the one `ComputeReceipt.Assessment` case declared as a `Runtime/receipts` partial by `Analysis/assessment`, every discipline runner returns the uniform `AssessmentResult` fact stream, and design codes ride the `DesignCode`×`LimitState` capacity table.
+Every device, sparse, autodiff, estimator, optimizer, UQ, or constitutive capability is a row or case on its existing owner — a `Substrate` row, a `SparseTensorOpFamily` row, a `DifferentiableOp`+`Forward` pair, an `EstimatorKind`/`OptimizerKind`/`UncertaintyMethod` row, or a `ConstitutiveModel` case — never a sibling owner or a second admission spine.
+
+`System.Numerics.Tensors` `Tensor<T>` is the tensor, device-ness the `OrtResidency.DeviceResident` discriminant, and `TensorBridge` the sole `OrtValue` C-data factory feeding the single `BoundFlow` capsule; `LinearProvider`/`DenseOps`/`LevenbergMarquardt` and `SparseOps`/`SparseTensorOps` own the dense and sparse math. Solver, optimizer, UQ, and constitutive oracle couples only through the `Func<DesignPoint, Fin<Seq<double>>>` contract, an OR-Tools `CpModel` builds through the typed model-builder API, one `HybridCache` binds per lane, and one session binds per model identity.
+
+Assessment outcome is the one `ComputeReceipt.Assessment` case declared as a `Runtime/receipts` partial by `Analysis/assessment`, every discipline runner returns the uniform `AssessmentResult` fact stream, and design codes ride the `DesignCode`×`LimitState` capacity table.
 
 `ComputeFault` is one 2200-band union `Runtime/admission` custodies across partial lanes owned by `Symbolic/expression`, `Symbolic/dimensional`, `Analysis/assessment`, and `Runtime/scheduling`; each lane appends its arm at the band's free frontier, the EC3 boundary reuses the transport `EndpointUnreachable` arm rather than minting a carbon code, and every fault crosses the wire through the one `FaultDetail` family whose `Bands` registry mirrors the custody map. Compute's second custody is the Remote `WireFault` sub-band pinned reciprocally in the AppHost/AppUi/Persistence registries.

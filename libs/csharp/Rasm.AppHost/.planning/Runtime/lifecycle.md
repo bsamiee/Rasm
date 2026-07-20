@@ -319,6 +319,8 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Federation       = new(4800,   10, BandKind.Fault, "Agent/federation#FEDERATION_AXIS", mirror: false);
     public static readonly FaultBand Support          = new(4810,   10, BandKind.Fault, "Observability/bundles#CAPTURE_PIPELINE", mirror: false);
     public static readonly FaultBand Drain            = new(4820,   10, BandKind.Fault, "Runtime/resources#DRAIN_QUEUES", mirror: false);
+    public static readonly FaultBand Hook             = new(4830,   10, BandKind.Fault, "Observability/hooks#HOOK_REGISTRY", mirror: false);
+    public static readonly FaultBand Benchmark        = new(4840,   10, BandKind.Fault, "Observability/benchmarks#BENCHMARK_RECEIPT", mirror: false);
     // Mirror rows — foreign neighborhoods reserved; source of truth is the sibling registry.
     public static readonly FaultBand ComputeCore      = new(2200,   24, BandKind.Fault, "Rasm.Compute/Runtime/admission", mirror: true);
     public static readonly FaultBand AecLow           = new(2300,  100, BandKind.Fault, "RASM-COMPONENT-PARADIGM 23xx", mirror: true);

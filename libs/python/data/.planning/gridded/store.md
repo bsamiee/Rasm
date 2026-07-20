@@ -11,7 +11,7 @@ Its backend is recovered from the store URL scheme through the `runtime/roots#RE
 
 ## [02]-[STORE]
 
-- Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal.
+- Owner: `TensorStore` — one frozen store; one `create`/`write_region`/`read_region` entrypoint family owns all modalities by the recovered backend and the `Indexing`/arity axes the value carries, never a per-engine reader family and never a per-arm sync portal. Every I/O leg opens its `_TRACER` span — trace parity with the sibling spatial and egress I/O legs, the runtime fence marking a failed leg's span.
 - Growth: a new filter is one `_FILTER` row plus one `TensorFilter` case; a new compressor one `_COMPRESSOR` row under the existing `compress` case; a new selection mode one `Indexing` literal plus one `_ZARR_WRITE`/`_ZARR_READ` row; a new engine one `TensorBackend` member plus one delegate row; a new cloud backend one `_KVSTORE_DRIVER` scheme row; a stored-domain resize one `TensorStore.resize` entry over the catalogued `tensorstore` `resize`/`zarr` `Array.resize`; zero new surface.
 - Boundary: no compute-package numeric trio (labelled-array compute is `compute`), no production tensor session, no durable product store, and no `xarray` re-derivation of the dense store — `data` emits a portable content-addressed chunked store. `zarr.codecs.numcodecs` is the absorbed live home for the numcodecs-named rows; `numcodecs.zarr3` is the deprecated spelling emitting a `DeprecationWarning`, a rejected import.
 
@@ -27,6 +27,7 @@ from beartype import beartype
 from expression import Error, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct
+from opentelemetry import trace
 from zarr import codecs as zc
 
 from rasm.runtime.identity import ContentIdentity, ContentKey
@@ -38,6 +39,8 @@ if TYPE_CHECKING:
     import numpy as np
     from zarr.abc.codec import ArrayArrayCodec, ArrayBytesCodec, BytesBytesCodec
 
+
+_TRACER: Final = trace.get_tracer("rasm.data.gridded.store")
 
 type Shape = tuple[int, ...]
 type ChunkGrid = tuple[int, ...]
@@ -268,7 +271,10 @@ class TensorStore(Struct, frozen=True):
             await backend.create(ref, shape, dtype, chunking, codec)
             return TensorStore(backend, ref, shape, chunking, dtype, codec)
 
-        return await async_boundary("tensor.create", _open)
+        # object-store tensor I/O carries a span per leg — the trace-parity law with the sibling spatial/egress I/O legs;
+        # the fence inside marks the span ERROR + record_exception on a failed leg.
+        with _TRACER.start_as_current_span("tensor.create", attributes={"rasm.tensor.backend": backend.value}):
+            return await async_boundary("tensor.create", _open)
 
     async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[TensorReceipt]":
         # `(TensorRegion(), _)` keeps a lone pair whole before the `Iterable` arm can shatter it; an empty snapshot
@@ -289,12 +295,18 @@ class TensorStore(Struct, frozen=True):
 
         # content key folds the `stream` modality over every written region in write order, so a plural snapshot never
         # collapses onto the last block; the atomic-vs-sequential disposition is the normalized count, never a flag.
-        return (await async_boundary("tensor.write_region", _write)).bind(
-            lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(lambda key: _receipt(self, stored, key))
-        )
+        with _TRACER.start_as_current_span(
+            "tensor.write_region", attributes={"rasm.tensor.backend": self.backend.value, "rasm.tensor.regions": len(staged)}
+        ):
+            return (await async_boundary("tensor.write_region", _write)).bind(
+                lambda stored: ContentIdentity.of("tensor", tuple(block.tobytes() for _, block in staged)).map(
+                    lambda key: _receipt(self, stored, key)
+                )
+            )
 
     async def read_region(self, region: TensorRegion) -> "RuntimeRail[np.ndarray]":
-        return await async_boundary("tensor.read_region", lambda: self.backend.read(self.ref, region))
+        with _TRACER.start_as_current_span("tensor.read_region", attributes={"rasm.tensor.backend": self.backend.value}):
+            return await async_boundary("tensor.read_region", lambda: self.backend.read(self.ref, region))
 
 
 _ZARR_WRITE: "Final[Map[Indexing, str]]" = Map.of_seq([("orthogonal", "set_orthogonal_selection"), ("vectorized", "set_coordinate_selection")])
@@ -460,7 +472,7 @@ flowchart LR
 
 - Owner: the bounded-memory `cubed` plan over the same `TensorStore` module — the out-of-core dimension of the store, not a fifth backend tag; one owner module carries the dense store and its plan, never a parallel `CubedStore` class.
 - Cases: the `linalg` arm's factor tuple persists whole at materialization, so a `svd`/`qr` never drops a factor.
-- Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`.
+- Receipt: the plan emits no receipt while lazy — it builds a graph; materialization folds one `PlanReceipt` as budget-vs-peak evidence, and the materialized store re-enters through `[02]-[STORE]` as a fresh content-keyed `TensorReceipt`. The materialize span carries the whole flat receipt as attributes through the `to_builtins` projection — one lowering serving wire and span alike.
 - Growth: a new reduction is one `Reduction` literal the Array API namespace answers; a new factorization one `_LINALG` row; a new executor one `Executor` literal; a new execution dimension (`executor_options`, `zarr_compressor`) is one `PlanBudget` field with `plan`'s signature untouched; a new measured fact is one field off the `Callback` lifecycle; zero new surface and never a `cubed` backend tag on `TensorBackend`.
 - Boundary: cubed execution is offline study evidence — production substrate selection stays in the C# `csharp:Rasm.Compute` owner; `data` emits a bounded-memory plan plus its typed peak-memory receipt, never a runtime compute graph.
 
@@ -473,7 +485,7 @@ from beartype import beartype
 from cubed.array_api import linalg as cla
 from expression import case, tag, tagged_union
 from expression.collections import Map
-from msgspec import Struct
+from msgspec import Struct, to_builtins
 
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
@@ -615,7 +627,7 @@ def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "Run
         probe = MemoryProbe()
         targets = [f"{target.path}/{op.tag}.{index}" for index in range(len(outputs))]
         cubed.store(list(outputs), targets, callbacks=[probe])
-        return PlanReceipt(
+        receipt = PlanReceipt(
             op=op.tag,
             executor=spec.executor_name,
             allowed_mem=int(spec.allowed_mem),
@@ -627,8 +639,13 @@ def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "Run
             peak_mem=probe.peak_mem,
             target=str(target.path),
         )
+        # PlanReceipt is flat int/str, so the msgspec lowering IS the span-attribute mapping — budget-vs-peak
+        # evidence lands on the span with zero manual flattening, the catalog struct-to-attributes projection.
+        trace.get_current_span().set_attributes(to_builtins(receipt, str_keys=True))
+        return receipt
 
-    return boundary("tensor.materialize", _run)
+    with _TRACER.start_as_current_span(f"tensor.materialize.{op.tag}"):
+        return boundary("tensor.materialize", _run)
 ```
 
 ```mermaid

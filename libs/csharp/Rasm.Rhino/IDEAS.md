@@ -30,10 +30,17 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `RhinoCore` constructors/`Run`/`DoIdle`/`DoEvents`/`InvokeInHostContext`, `Interop.StartupInProcess`/`LaunchInProcess`/`RunMessageLoop`/`ShutdownInProcess`, `WindowStyle`, and `StartupOrigin`; `DocumentSession` as the capability floor a boot shell feeds.
 - Tension: App-stratum by ruling — an `apps/` shell composes headless Rhino while this package owns only the boundary, so the card stays blocked until an `apps/` composition root exists; macOS WIP in-process hosting constraints (bridge-only launch custody) are unresolved boot-environment facts.
 
+[COMPUTE_ENDPOINT_ROWS]-[BLOCKED]: `HostUtils` compute-endpoint registration becomes shell runtime rows beside the named-callback rail.
+- Capability: Typed REST-endpoint exposure for a compute-hosted Rhino process — registration, endpoint census, and entitlement gating as shell runtime rows, so no consumer touches `HostUtils` statics.
+- Shape: A `HostUi/shell.md` named-callback-cluster extension — `HostUtils.RegisterComputeEndpoint` admitted behind one typed row, `GetCustomComputeEndpoints` folded into the shell capability census, `CloudHostUtils.IsEntitled`/`DenyReason` riding the same `HostProbe` capability row the accounts card names.
+- Unlocks: Rasm geometry, exchange, and render capability served over rhino.compute from the same boundary the interactive host composes.
+- Anchors: `HostUtils.RegisterComputeEndpoint`/`GetCustomComputeEndpoints` and `CloudHostUtils` on `api-rhinocommon-runtime.md`; the shell named-callback rail precedent.
+- Tension: Meaningful only under a compute-server boot — the same app-stratum dependency that blocks `INPROCESS_HEADLESS_BOOT`; blocked until that composition shell exists.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
 [ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+- [HOST_TAP_EGRESS]-[COMPLETE]: host process-wide exception and cloud-log streams capture as `HostTap` through the `ObjectsTelemetry` egress on `Objects/authoring.md`.

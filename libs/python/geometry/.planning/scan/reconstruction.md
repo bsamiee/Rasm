@@ -14,7 +14,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 - Cases: `POISSON` is watertight by construction and the default; `BALL_PIVOTING` preserves detail over the oriented samples yet never closes; `ALPHA_SHAPE` is the concave-hull surface for sparse or open scans. Each resolves as one `_CONSTRUCT[method].build(cloud, policy)` row read binding the STATIC open3d constructor, never a `match` over three near-identical arms.
 - Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately.
 - Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and `.export(file_type="glb")`, the only GLB encode path — open3d `io` writes PLY/OBJ/STL/OFF only), `numpy` (the density trim and cluster split), `beartype` + `vale.Is` (the `DensityField` finiteness refinement), `expression` (`Block.fold` cluster merge, `Map` table and redaction), `msgspec` carriers, the geometry graduation spine (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`, `closure_fold`/`QualityMetrics`), and the runtime rails per the fence imports.
-- Growth: a new reconstruction algorithm is one `ReconstructionMethod` member plus one `_CONSTRUCT` row; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
+- Growth: a new reconstruction algorithm is one `ReconstructionMethod` member and one `_CONSTRUCT` row; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
 - Boundary: raw-scan ingestion and decimation route `scan/ingestion.md#INGESTION`; watertight repair and hole-fill route the `mesh/repair.md#MESH` `MeshRepairOp.Condition` arm, the only path from a non-watertight ball-pivoting or alpha surface to a valid solid; scan-vs-model deviation routes `scan/deviation.md#DEVIATION`; the closure algebra is `mesh/quality.closure_fold`'s. No IFC tessellation, no durable store, no Rhino/GH mutation.
 
 ```python signature
@@ -130,7 +130,7 @@ class ReconReceipt(Struct, frozen=True):
         }
 
     def contribute(self) -> tuple[Receipt, ...]:
-        return (Receipt.of("geometry.scan.reconstruction", ("emitted", self.method.value, self.facts())),)
+        return (Receipt.of("rasm.geometry.scan.reconstruction", ("emitted", self.method.value, self.facts())),)
 
     def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
         return GeometryHandoff.of(GeometrySubject.RECONSTRUCTED_MESH, evidence_key, self.residuals, _CEILING)

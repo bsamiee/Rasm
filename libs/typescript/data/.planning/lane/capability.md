@@ -19,7 +19,7 @@ The fail-closed capability rail of the folder: one closed row/ensure vocabulary,
 - Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
 - Fault: one `CapabilityFault` family, reason-discriminated — `absent` (extension not installed), `floor` (installed below floor), `schema` (declared relation missing), `requires` (dependency grant refused); all four route identically (fail or shrink at startup, repair provision), so one class carries them and no policy table is earned.
 
-```typescript
+```typescript signature
 import { Data, Order, String, pipe } from "effect"
 
 declare namespace Capability {
@@ -66,7 +66,7 @@ const _meets = (installed: string, floor: string): boolean =>
 - Law: a statement failure is NOT absence — the window settles every request with the `SqlError` itself, so a broken connection fails Layer construction typed instead of silently shrinking the granted set; fail-closed refuses capabilities on evidence, never on transport accident.
 - Law: `sql.unsafe` never meets the batch — the batched form is fully parameterized through `sql.in` and decodes through the one `SqlSchema` scan (the folder's typed-read law holds even on catalog tables); the unsafe escape exists only for sealed per-row overrides, its `{ version }` result still decodes through `SqlSchema`, and the override text is a row of the sealed matrix, never caller input.
 
-```typescript
+```typescript signature
 import { Effect, HashMap, Option, Request, RequestResolver, Schema } from "effect"
 import type { ParseResult } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
@@ -116,7 +116,7 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 - Law: probing runs once per Layer construction and the report is immutable thereafter — a live re-probe is scope invalidation on the owning `Stores` map, never a poll.
 - Boundary: which rows exist is `lane/postgres.md`'s; where the Layer composes and which ensures collect is `lane/tenant.md`'s; the image that makes `"image"` rows probe true is the deployment plane's.
 
-```typescript
+```typescript signature
 import { Array, Either, HashSet } from "effect"
 
 class Capability extends Effect.Service<Capability>()("data/Capability", {

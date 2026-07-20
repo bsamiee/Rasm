@@ -14,7 +14,7 @@ Payload identity is the railed `ContentIdentity` fingerprint over the canonical 
 - Cases: payload splits follow real provider arity — `all_pairs_distance` carries the `null_value` its `distance_matrix` substrate declares while `floyd_warshall` carries only its `WeightSelector` (`floyd_warshall_numpy` takes `weight_fn`, no null-value parameter); the connectivity polarity is recovered from `kind.directed`, never a caller flag; every weighted member carries a `WeightSelector` slot defaulting `WEIGHT_IDENTITY`, so a non-float edge payload is weightable by one policy value.
 - Entry: `analyze` absorbs a lone `GraphAlgorithm` or a `Block` over one `match` at the head — the arity is the value's shape, the `Disposition` selects the batch output shape through the `@overload` ladder and is inert for a lone algorithm, so the input shape and the disposition together carry the output type. A non-node-keyed result case carries no per-node row, so `frame` names the case as non-node-keyed rather than minting a degenerate frame; `write` routes the `_EGRESS` codec directly on the source backend, never through the analysis-coercion path.
 - Auto: the bare-name rustworkx members dispatch on graph subtype, so the owner never names the `graph_*`/`digraph_*` typed forms; the dense matrices stay `npt.NDArray[np.float64]` so they fold straight into the tensor carriers.
-- Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state.
+- Receipt: the content key derives once at admission from the canonical node-link wire and the receipt reuses it — an unchanged graph keys byte-stable, an added edge re-admits to a new key; the algorithm receipt is typed rail evidence, never product graph-database state. `contribute` projects node/edge counts onto the runtime `Metrics.record` arm under `domain="graph"` keyed by algorithm, and `_one` opens the kernel span — the no-scrape analysis engine's whole observability surface, the runtime fence marking the span on a failed leg.
 - Packages: `pyarrow` binds function-local, so the codec-only graph path never loads Arrow.
 - Growth: a new algorithm is one `GraphAlgorithm` case plus one `_run_rx` arm; a new community algorithm one `IG_COMMUNITY` row; a new centrality metric one `RX_CENTRALITY` row; a new egress one `GraphFormat` row plus one `_EGRESS` codec row; a new layout one `LayoutKind` row. A networkx `@_dispatchable` accelerator lands as one `backend=`/`nx.config.backend_priority` policy on the codec lane when such a backend enters the manifest roster, never a second analysis kernel — a phantom accelerator axis claimed but unwired is the rejected form. Deferred rustworkx residue is the named set — VF2 isomorphism (`vf2_mapping`/`is_isomorphic`), the `rustworkx.generators` builders, the DOT/Matrix-Market IO codecs, group centrality, edge coloring — each one case plus one arm when a consumer names it.
 - Boundary: the graph plane produces the node-keyed enrichment frame; the relational join belongs to the tabular plane, never a graph-database node table re-minted here. `NodeId` is never widened to `Hashable` to admit a networkx analysis kernel — conversion keeps it the rx `int`. No product collaboration store, no bridge lifecycle, no compute numeric trio.
@@ -34,9 +34,11 @@ import rustworkx as rx
 from expression import case, tag, tagged_union
 from expression.collections import Block, Map
 from msgspec import Struct
+from opentelemetry import trace
 
 from rasm.runtime.faults import BoundaryFault, Disposition, RuntimeRail, boundary, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
+from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import Receipt
 
 if TYPE_CHECKING:
@@ -48,6 +50,8 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+_TRACER: Final = trace.get_tracer("rasm.data.graph")
 
 type NodeId = int
 type RxGraph = rx.PyGraph | rx.PyDiGraph
@@ -200,6 +204,11 @@ class GraphReceipt(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
+        # receipts stay truth, instruments stay projections: every kernel run lands its structure sizes on the metric
+        # spine under domain="graph", keyed by algorithm tag — the no-scrape rustworkx kernel's only metric surface.
+        Metrics.record(
+            {"rasm.graph.nodes": float(self.node_count), "rasm.graph.edges": float(self.edge_count)}, domain="graph", kind=self.algorithm
+        )
         yield Receipt.of(
             "graph",
             (
@@ -251,7 +260,12 @@ class GraphPayload(Struct, frozen=True, gc=False):
                 return self._one(lone)
 
     def _one(self, algo: "GraphAlgorithm") -> "RuntimeRail[GraphResult]":
-        return boundary(f"graph.analyze.{algo.tag}", lambda: _run_rx(_as_rx(self.graph), algo, self.kind))
+        # the kernel span is the run's trace surface; the boundary fence inside marks it ERROR + record_exception on a raise.
+        with _TRACER.start_as_current_span(
+            f"graph.analyze.{algo.tag}",
+            attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": self.backend, "rasm.graph.nodes": self.node_count},
+        ):
+            return boundary(f"graph.analyze.{algo.tag}", lambda: _run_rx(_as_rx(self.graph), algo, self.kind))
 
     def write(self, fmt: GraphFormat) -> "RuntimeRail[bytes]":
         return boundary(f"graph.egress.{fmt}", lambda: _EGRESS[self.backend][fmt](self.graph))

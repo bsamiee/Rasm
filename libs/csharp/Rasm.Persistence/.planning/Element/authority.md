@@ -214,8 +214,8 @@ public static class Authority {
     public static Seq<AclShift> Shift(GrantSet before, GrantSet after) =>
         toSeq(GrantSet.EqualityComparer.Default.Inequalities(before, after))
             .Bind(static delta => delta.Path.Segments[^1].Kind switch {
-                MemberPathSegmentKind.Added => Seq1(new AclShift((Grant)(delta.Right ?? delta.Left)!, Granted: true)),
-                MemberPathSegmentKind.Removed => Seq1(new AclShift((Grant)(delta.Left ?? delta.Right)!, Granted: false)),
+                MemberPathSegmentKind.Added => Seq(new AclShift((Grant)(delta.Right ?? delta.Left)!, Granted: true)),
+                MemberPathSegmentKind.Removed => Seq(new AclShift((Grant)(delta.Left ?? delta.Right)!, Granted: false)),
                 _ => Seq<AclShift>.Empty,
             });
 }

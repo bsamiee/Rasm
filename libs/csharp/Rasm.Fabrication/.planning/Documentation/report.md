@@ -29,8 +29,8 @@ Canonical JSON uses shared Thinktecture and NodaTime converters. `Attest<TBody>`
 - Fold: `QualityObservation.Outcome` projects every evidence atom to one `EvidenceOutcome` policy value; `EvidenceCensus.Of` folds them into one owner whose admission proves the traced, conforming, accepted-nonconforming, rejected, incomplete, and contradictory buckets partition the row count exactly, and whose `Severity` carries the worst outcome seen.
 - Refusal: `RecordRefusal` rows name every distinguishable rejection and lower onto `Op.InvalidResult(detail:)`, so the accumulating `Validation` gates report distinct causes rather than repeating one opaque code.
 - Identity: `QualityReport.Canonical` serializes declaration-owned fields through one frozen converter profile. Field growth changes canonical bytes automatically; no field census, interpolation mirror, hash-code projection, or secondary codec exists.
-- Attestation: `AttestationRequirement` binds role-only or named-signer obligations. `RecordAttestation` signs and verifies `AttestationPayload(Body, Signer, Role, Credential, SignedAt)` with `ECDsa`, `HashAlgorithmName.SHA384`, and `DSASignatureFormat.Rfc3279DerSequence`; receipts carry credential identity, certificate PEM, and signature bytes without private-key material.
-- Passport: `PassportEvidence` carries product identity, connected acyclic genealogy whose sole terminal is that product, material and compliance links, declarations, service and repair history, manufacture and retirement instants, and typed energy, carbon, waste, recycled-content, water, renewable-energy, recyclable-mass, hazardous-substance, repairability, and durability evidence. `Attested<DigitalProductPassport>` binds that payload to the report key, canonical bytes, its own attestations, and `EgressKind.DigitalProductPassport`.
+- Attestation: `AttestationRequirement` binds role-only or named-signer obligations. `RecordAttestation` signs and verifies `AttestationPayload(Body, Signer, Role, Credential, SignedAt)` with `ECDsa`, `HashAlgorithmName.SHA384`, and `DSASignatureFormat.Rfc3279DerSequence`; receipts carry credential identity, certificate PEM, and signature bytes without private-key material. Classification rides definition-time attribute rows from `Process/telemetry#CLASSIFICATION` — `Signer` and `Examiner` personal, `HeatNumber` confidential, `Credential` credential — so a log or export seam redacts these members while the sealed canonical bytes stay domain truth.
+- Passport: `PassportEvidence` carries product identity, connected acyclic genealogy whose sole terminal is that product, material and compliance links, declarations, service and repair history, manufacture and retirement instants, and typed energy, carbon, waste, recycled-content, water, renewable-energy, recyclable-mass, hazardous-substance, repairability, and durability evidence. `Attested<DigitalProductPassport>` binds that payload to the report key, canonical bytes, its own attestations, and `EgressKind.DigitalProductPassport`. `FabricationFact.QualitySeal.Of` projects the sealed sustainability evidence onto `rasm.fabrication.sustainability.energy`, `.carbon`, `.waste`, and `.water` through `Process/telemetry#FACT_PROJECTION` as kind `quality-seal`.
 - Seams: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `TravelerReceiptCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
 - Packages: owner atoms (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `MaterialSpec`), `Joining/procedure` (`ProcedureReceipt`, `InspectionRequirement`, `InspectionFamily`), `Spec/capability` (`CapabilityReport`), `Rasm.Analysis` (`ResidualSample`), `UnitsNet` (`IQuantity`, `Length`, `Ratio`, `Temperature`, `Energy`, `Mass`, `Volume`), `NodaTime` (`Instant`, `Interval`, `Duration`), `QuikGraph` (`AdjacencyGraph`, `Edge`, `IsDirectedAcyclicGraph`, `WeaklyConnectedComponents`, `Sinks`), `NodaTime.Serialization.SystemTextJson`, `Thinktecture.Runtime.Extensions`, `Thinktecture.Runtime.Extensions.Json`, `LanguageExt.Core`, `System.Security.Cryptography`, and `System.Text.Json`.
 - Growth: a source is one `QualitySource` case; a record is one `QualityRecord` case; an observation is one `QualityObservation` case; a declaration is one `QualityDeclaration` case; a sustainability metric is one `SustainabilityEvidence` case; a refusal is one `RecordRefusal` row; a signed artifact class is one `Attested<TBody>` instantiation; an egress modality is one `ReportScope` case. Public operation count remains fixed.
@@ -341,6 +341,7 @@ public sealed partial class EvidenceOutcome {
 
 // --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
 [ValueObject<string>]
+[ConfidentialData]
 public readonly partial struct HeatNumber {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
@@ -1472,9 +1473,9 @@ public sealed record AttestationCredential(
 
 public sealed record AttestationPayload(
     ReadOnlyMemory<byte> Body,
-    EvidenceRef.Personnel Signer,
+    [property: PersonalData] EvidenceRef.Personnel Signer,
     AttestationRole Role,
-    EvidenceRef.Certificate Credential,
+    [property: CredentialData] EvidenceRef.Certificate Credential,
     Instant SignedAt);
 
 public sealed record RecordAttestation(
