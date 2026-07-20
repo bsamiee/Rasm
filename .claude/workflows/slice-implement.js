@@ -16,7 +16,10 @@ export const meta = {
             title: 'Tests',
             detail: 'tests-estate build-out per language with its own recon legs: _testkits, harness rails, root spine, gate to green',
         },
-        { title: 'Audit', detail: 'slice-closure proof over theme-selected cards: zero open selected cards; leftovers + research counted, never failures' },
+        {
+            title: 'Audit',
+            detail: 'slice-closure proof over theme-selected cards: zero open selected cards; leftovers + research counted, never failures',
+        },
     ],
 };
 
@@ -376,7 +379,8 @@ const CARD_LAW =
     'citing the landed fence; a refuted card closes [DROPPED] with the refuting citation; genuinely-future work re-cards in place to ' +
     '[BLOCKED] with an explicit arming trigger (the condition that activates it). An [ACTIVE] or [QUEUED] card may not survive your pass ' +
     'unchanged. Both ends of a Ripple pair move together only when both folders are yours — a foreign end is a crossFolderRows row. A ' +
-    'cross-libs card closes at the cross tier only when every folder ripple is landed on disk.';
+    'cross-libs card closes at the cross tier only when every folder ripple is landed on disk. A non-theme open card sharing a card file ' +
+    'with unit cards stays byte-untouched — an expected leftover for a future slice, never dispositioned, never reworded.';
 
 const ROW_LAW =
     'Cross-folder needs are DATA, never foreign edits: a change any file outside your write territory needs lands as a crossFolderRows row ' +
@@ -386,10 +390,13 @@ const ROW_LAW =
     'language (csharp|python|typescript), never cross.';
 
 const RESEARCH_LAW =
-    'Drain research debt on every page you own this pass: the map [RESEARCH] census is the queue, plus your own sweep of each unit page ' +
-    'terminal [RESEARCH] section. Verify each row via its stated route — member truth through tools.assay api, the .api catalogs, or the ' +
-    'named live doc; a confirmed spelling bakes into the owning fence and the row DELETES whole (no tombstones, no resolved notes); a ' +
-    'refuted assumption corrects at its root; a genuinely unresolvable row SHARPENS in place with a better question and exact route. One ' +
+    'Research debt on unit pages and every file you touch — the map [RESEARCH] census is the queue, plus your own sweep of each unit page ' +
+    'terminal [RESEARCH] section: (a) a row PERTINENT to the theme resolves fully via its stated route — member truth through tools.assay ' +
+    'api, the .api catalogs, or the named live doc; a confirmed spelling bakes into the owning fence and the row DELETES whole (no ' +
+    'tombstones, no resolved notes); a refuted assumption corrects at its root; a genuinely unresolvable row SHARPENS in place with a ' +
+    'better question and exact route. (b) an EASY row in ANY file you touch — answerable by one verified read (an .api catalog row, a ' +
+    'signature check, one assay probe) — resolves the same way regardless of theme; never leave an easy row standing in a touched file. ' +
+    '(c) a HARD non-pertinent row stays byte-untouched and counts as left in your receipt. One ' +
     'carve-out: a row about python version floors or package support gates DELETES as resolved by standing ruling — py315 fully supports ' +
     'every admitted package; never emit python-version gating, markers, or prose anywhere — that is context poison, not a resolution.';
 
@@ -487,11 +494,14 @@ const IMPL_LAW =
     'carries [COMPLETE] with a one-line disposition naming the landed owner.\n2. Each card proven already realized by current disk carries ' +
     '[COMPLETE] with a one-line disposition citing the landed fence.\n3. Each card refuted by current disk carries [DROPPED] with a ' +
     'one-line disposition citing the refuting file and anchor.\n4. Each genuinely future card carries [BLOCKED] with a one-line disposition ' +
-    'stating the explicit condition that arms it.\n5. Each unit-page [RESEARCH] row reaches one task-defined outcome: a confirmed spelling ' +
-    'lands in the owning fence and the row is removed; a refuted assumption is corrected at its owner and the obsolete row is removed; a ' +
+    'stating the explicit condition that arms it.\n5. Each unit-page [RESEARCH] row reaches one task-defined outcome: a theme-pertinent ' +
+    'row resolves via its route — a confirmed spelling lands in the owning fence and the row is removed, a refuted assumption is corrected ' +
+    'at its owner and the obsolete row is removed, an unresolvable row is sharpened in place with a better question and exact verification ' +
+    'route; an easy row in any touched file — answerable by one verified read — resolves the same way regardless of theme, never left ' +
+    'standing in a touched file; a hard non-pertinent row stays untouched and is counted as left; a ' +
     'python version-floor or package-support-gate row is removed as resolved by standing ruling (py315 supports every admitted package; ' +
-    'emit no python-version gating, marker, or prose anywhere); an unresolvable row is sharpened in place with a better question and exact ' +
-    'verification route.\n6. The receipt document exists at the exact absolute path the task names and reports the landed files, card ' +
+    'emit no python-version gating, marker, or prose anywhere).\n6. The receipt document exists at the exact absolute path the task names ' +
+    'and reports the landed files, card ' +
     'dispositions, research outcomes, routed work, missing packages, and residuals.\n\nImplement exactly and only the task cards. Resolve ' +
     'ambiguity through the simplest interpretation consistent with current disk, the doctrine, and the owning page charter; do not ask ' +
     'questions. Do not land a partial edit for a deliverable that lacks enough evidence for a coherent landing; record one residuals row ' +
@@ -526,7 +536,8 @@ const IMPL_LAW =
     'edit, re-open every dispositioned card and its cited owner region. Confirm that each marker belongs to [COMPLETE], [DROPPED], or ' +
     '[BLOCKED], that its one-line disposition matches the landed fence, refuting evidence, or arming trigger, and that no task card remains ' +
     'without one terminal disposition. Re-open each unit page terminal [RESEARCH] section and confirm that every original row is removed, ' +
-    'corrected at its owner, or sharpened with an exact route. Reconcile filesTouched against the design-page and card-file edits, ' +
+    'corrected at its owner, sharpened with an exact route, or counted as left (hard non-pertinent rows only, byte-untouched). Reconcile ' +
+    'filesTouched against the design-page and card-file edits, ' +
     'cardsClosed against the task-card roster, researchResolved against the final research outcomes, and every routing, package, and ' +
     'residual row against current disk before writing the receipt.\n</verification>\n\n' +
     '<output_contract>\nWrite the receipt document to the exact absolute path the task names as the final filesystem action before the ' +
@@ -535,7 +546,7 @@ const IMPL_LAW =
     'the actual design-page and card-file edit roster as absolute paths. crossFolderRows is [{targetFile, language, change, origin}]. ' +
     'cardsClosed is [{file, card, disposition}], with disposition using only [COMPLETE], [DROPPED], or [BLOCKED] and carrying the same ' +
     'citation or arming trigger recorded in the card file. packagesMissing is [{package, language, reason}]. researchResolved is {resolved, ' +
-    'sharpened}, with nonnegative counts matching the final research outcomes. residuals is [{claim, files, owner}]. summary is one ' +
+    'sharpened, left}, with nonnegative counts matching the final research outcomes. residuals is [{claim, files, owner}]. summary is one ' +
     'evidence-grounded account of the landed outcome. Every path value is absolute. Use [] for an empty list; do not guess.\n\nYour final ' +
     'message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
 
@@ -681,7 +692,7 @@ const receiptDoc = (id, stage) =>
     stage +
     '.json (Write tool, absolute path): {folder, stage, filesTouched: [absolute paths], crossFolderRows: [{targetFile, language, change, ' +
     'origin}], cardsClosed: [{file, card, disposition}], packagesMissing: [{package, language, reason}], researchResolved: {resolved, ' +
-    'sharpened}, residuals: [{claim, files, owner}], summary}.';
+    'sharpened, left}, residuals: [{claim, files, owner}], summary}.';
 const thinReceipt = (f, stage) =>
     ' Then return the thin receipt: folder ' +
     f.path +
@@ -835,7 +846,9 @@ const implPrompt = (f, u, mapR, guideR) =>
     u.title +
     '" of ' +
     f.path +
-    ' at the campaign bar. Write territory: ' +
+    ' at the campaign bar. ' +
+    THEME_LAW +
+    ' Write territory: ' +
     territoryOf(f) +
     '. ' +
     PATH_LAW +
@@ -880,7 +893,11 @@ const codexImplTask = (f, u, mapR, guideR) =>
     u.title +
     '" of ' +
     f.path +
-    ' — every card below into transcription-complete fences, every card to a terminal disposition, every unit-page [RESEARCH] row drained.\n' +
+    ' — every card below into transcription-complete fences, every card to a terminal disposition, every unit-page [RESEARCH] row to its ' +
+    'outcome.\n' +
+    'Theme: ' +
+    THEME_LAW +
+    '\n' +
     'Context: write territory ' +
     territoryOf(f) +
     '; doctrine root files ' +
@@ -906,10 +923,12 @@ const codexImplTask = (f, u, mapR, guideR) =>
                 ' (decision inputs, never design; an EXTERNALLY-BLOCKED verdict closes its card back to [BLOCKED] with a sharpened arming condition citing the dossier)'
               : 'failed — run its routes yourself')
         : '') +
-    '.\nResearch step: verify each [RESEARCH] row via its stated route (tools.assay api, .api catalogs, named docs); bake confirmed ' +
-    'spellings into the owning fence and DELETE the row whole; correct refuted assumptions at the root; delete python version-floor and ' +
+    '.\nResearch step: a theme-pertinent row verifies via its stated route (tools.assay api, .api catalogs, named docs) — bake confirmed ' +
+    'spellings into the owning fence and DELETE the row whole, correct refuted assumptions at the root, sharpen unresolvable rows in ' +
+    'place; an easy row in any touched file (one verified read answers it) resolves the same way regardless of theme; a hard ' +
+    'non-pertinent row stays untouched, counted as left; delete python version-floor and ' +
     'package-support-gate rows as resolved by standing ruling (py315 supports every admitted package — emit no version gating, marker, or ' +
-    'prose anywhere); sharpen unresolvable rows in place.\n' +
+    'prose anywhere).\n' +
     'Constraints: absolute paths everywhere; no source files; no manifest edits; no package installs.\n' +
     'Done when: every listed card dispositioned, fences landed, research drained, and the receipt document written to ' +
     OUT +
@@ -976,7 +995,8 @@ const critPrompt = (f, u, impl, mapR, admitted) =>
     '" of ' +
     f.path +
     ' — the clause-by-clause doctrinal-conformance and capability-completeness audit, repaired IN PLACE with the writer full authority. ' +
-    'Write territory: ' +
+    THEME_LAW +
+    ' A non-theme open card stays byte-untouched — an expected leftover for a future slice. Write territory: ' +
     territoryOf(f) +
     '. ' +
     STANCE +
@@ -994,7 +1014,8 @@ const critPrompt = (f, u, impl, mapR, admitted) =>
     'modernity; capability + illusion (a name promising capability the fence omits); fence transcription-completeness; member truth against ' +
     'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); card-closure truth (a ' +
     'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); research-row discipline (a ' +
-    'resolved row deleted whole; a sharpened row carrying question and route; any emitted python-version gating is a defect you remove — ' +
+    'resolved row deleted whole; a sharpened row carrying question and route; a hard non-pertinent row left byte-untouched, never ' +
+    'dispositioned; any emitted python-version gating is a defect you remove — ' +
     'py315 supports every admitted package); .api ultra-stacking (both tiers — ' +
     apiTiersOf(f) +
     ' — enumerated for the unit packages; an unexploited admitted capability the concept admits is a defect you compose in); fresh-page ' +
@@ -1067,7 +1088,10 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows) =>
     L.root +
     ' — the whole language tree, the campaign last adversarial stage. Write territory: that tree, plus the ' +
     L.key +
-    ' central manifest for closure repairs only. ' +
+    ' central manifest for closure repairs only. THEME SLICE "' +
+    THEME.title +
+    '": this run realized one functionality set; non-theme open cards are expected leftovers — never close, edit, or attack them; ' +
+    'card-closure truth applies to the cards the stage receipts disposition. ' +
     STANCE +
     ' Pre-mortem that REBUILDS rather than annotates, every fix landed in place: (1) COUNTERFACTUAL on core owners the campaign touched — ' +
     'remove the chosen owner kind, hand-enumerated space, call-site dispatch, or hand-rolled kernel; derive the form without it; build the ' +
@@ -1222,14 +1246,19 @@ const testsImplPrompt = (L, mapR) =>
     L.key +
     ': reason" plus genuinely blocked items), headline, failure.';
 
-const auditPrompt = (roots) =>
-    'POOL-CLOSURE AUDIT — count, fix nothing, edit nothing. Sweep every IDEAS.md and TASKLOG.md under these roots (folder, branch, and ' +
-    'cross-libs tiers alike): ' +
+const auditPrompt = (roots, selected) =>
+    'SLICE-CLOSURE AUDIT for theme "' +
+    THEME.title +
+    '" — count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
+    JSON.stringify(selected) +
+    '. Verify each selected card CURRENT leader marker in its named card file: roster every one still [ACTIVE] or [QUEUED] as openCards ' +
+    '{file (absolute), card}; roster every selected [BLOCKED] card whose body states no arming trigger or condition as blockedNoTrigger; ' +
+    'count all remaining selected [BLOCKED] cards as blockedCards. Non-selected open cards are OUT of scope — expected leftovers for ' +
+    'future slices, never a failure, never rostered. Then count live "- " rows under terminal [RESEARCH] sections across every design ' +
+    'page under these roots: ' +
     JSON.stringify(roots) +
-    '. Roster every card still [ACTIVE] or [QUEUED] as {file (absolute), card}; roster every [BLOCKED] card whose body states no arming ' +
-    'trigger or condition as blockedNoTrigger; count all remaining [BLOCKED] cards. Then count live "- " rows under terminal [RESEARCH] ' +
-    'sections across every design page under the same roots, total and per language as "language: N". Counts only — no edits, no verdicts ' +
-    'beyond the rosters.';
+    ' — remaining rows are expected (future slices own non-pertinent debt); report total and per language as "language: N". Counts only — ' +
+    'no edits, no verdicts beyond the rosters.';
 
 // --- [COMPOSITION] -------------------------------------------------------------------
 
@@ -1309,7 +1338,7 @@ const runFolderChain = async (f, plan) => {
         .map((u, i) => ({ ...u, id: uid(f, i) }));
     if (!units.length) {
         log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path);
-        return { folder: f.path, language: f.language, planOk: !!plan, units: [] };
+        return { folder: f.path, language: f.language, planOk: !!plan, units: [], leftovers: plan?.leftovers ?? [] };
     }
     const out = [];
     for (const u of units) {
@@ -1377,6 +1406,7 @@ const runFolderChain = async (f, plan) => {
         const admittedComp = await runAdmissions(comp, f.path);
         out.push({
             unit: u.id,
+            cards: u.cards,
             blockers: u.blockers.length,
             mapR,
             guideR,
@@ -1386,7 +1416,7 @@ const runFolderChain = async (f, plan) => {
             admissions: admittedImpl.concat(admittedCrit, admittedComp),
         });
     }
-    return { folder: f.path, language: f.language, planOk: true, units: out };
+    return { folder: f.path, language: f.language, planOk: true, units: out, leftovers: plan?.leftovers ?? [] };
 };
 
 const planLane = (f) =>
@@ -1494,19 +1524,45 @@ const tests = testsRaw.filter(Boolean);
 
 // --- [AUDIT]
 
+const selectedCards = unitRecs.flatMap((x) => x.cards || []);
 const audit = await guard(
-    slot(() => agent(auditPrompt(folders.map((f) => f.path)), { label: 'audit', phase: 'Audit', model: 'opus', effort: 'low', schema: AUDITR })),
+    slot(() =>
+        agent(
+            auditPrompt(
+                folders.map((f) => f.path),
+                selectedCards,
+            ),
+            {
+                label: 'audit',
+                phase: 'Audit',
+                model: 'opus',
+                effort: 'low',
+                schema: AUDITR,
+            },
+        ),
+    ),
 );
-const leftovers = audit ? audit.openCards.concat(audit.blockedNoTrigger) : [];
-const poolClosed = !!audit && leftovers.length === 0;
-if (!poolClosed) log('POOL NOT CLOSED: ' + (audit ? leftovers.length + ' card(s) without a terminal disposition' : 'audit lane failed'));
+const unclosed = audit ? audit.openCards.concat(audit.blockedNoTrigger) : [];
+const plansFailed = allChains.filter((c) => !c.planOk).map((c) => c.folder);
+const sliceClosed = !!audit && unclosed.length === 0 && !plansFailed.length;
+if (!sliceClosed)
+    log(
+        'SLICE NOT CLOSED: ' +
+            (audit
+                ? unclosed.length +
+                  ' selected card(s) without a terminal disposition' +
+                  (plansFailed.length ? '; ' + plansFailed.length + ' plan lane(s) failed' : '')
+                : 'audit lane failed'),
+    );
 
 // --- [CLOSE]
 
 return {
+    theme: THEME.title,
     folders: allChains.length,
-    plansFailed: allChains.filter((c) => !c.planOk).map((c) => c.folder),
+    plansFailed,
     units: unitRecs.length,
+    selectedCards: selectedCards.length,
     implemented: unitRecs.filter((x) => x.impl && x.impl.ok).length,
     critiqued: unitRecs.filter((x) => x.crit && x.crit.ok).length,
     composed: unitRecs.filter((x) => x.comp && x.comp.ok).length,
@@ -1551,15 +1607,21 @@ return {
                 .filter((a) => !(a.ok && a.admitted))
                 .map((a) => 'admission failed or rejected: ' + a.package + '@' + a.language + ' :: ' + (a.failure || a.headline || '')),
         ),
-    poolClosed,
-    leftovers,
+    sliceClosed,
+    unclosed,
+    futureSlices: allChains.flatMap((c) => (c.leftovers || []).map((l) => ({ folder: c.folder, item: l.item, hint: l.hint }))),
     blockedCards: audit ? audit.blockedCards : -1,
     reports: receiptPaths
         .concat(unitRecs.flatMap((x) => [x.mapR && x.mapR.ok && x.mapR.report, x.guideR && x.guideR.ok && x.guideR.report].filter(Boolean)))
         .concat(admissions.map((a) => a.report).filter(Boolean))
         .concat(sealed.flatMap((s) => [s.drain && s.drain.report, s.redteam && s.redteam.report].filter(Boolean)))
         .concat(tests.map((t) => t.report).filter(Boolean)),
-    failure: poolClosed
+    failure: sliceClosed
         ? ''
-        : 'POOL NOT CLOSED: ' + (audit ? leftovers.length + ' card(s) left without a terminal disposition' : 'audit lane failed'),
+        : 'SLICE NOT CLOSED: ' +
+          (audit
+              ? unclosed.length +
+                ' selected card(s) left without a terminal disposition' +
+                (plansFailed.length ? '; ' + plansFailed.length + ' plan lane(s) failed' : '')
+              : 'audit lane failed'),
 };

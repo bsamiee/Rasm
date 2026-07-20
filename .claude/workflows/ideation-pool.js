@@ -1,14 +1,14 @@
 export const meta = {
     name: 'ideation-pool',
     description:
-        'Build the four-altitude IDEAS/TASKLOG card estate to the depth observability-implement.js ingests: a disk-derived folder roster plus a ' +
+        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a ' +
         'git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off ' +
         'its own dossier (typed per-axis verdicts make thin output a visible lane failure), a per-language fable landing same-branch ripple ' +
         'counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, ' +
         'streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder ' +
         'verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; ' +
         'products land under camp/ideation/.',
-    whenToUse: 'After an implementation campaign empties the OPEN pools, to rebuild card depth before the next observability-implement run',
+    whenToUse: 'After an implementation campaign empties the OPEN pools, to rebuild card depth before the next slice-implement run',
     phases: [
         { title: 'Roster', detail: 'folder roster with open-card counts from disk; git-history admitted-package roster via a read-only sol lane' },
         {
@@ -341,7 +341,7 @@ const MANDATE_LAW =
     ' sections [01] and [02] for the campaign laws the mandate presumes.';
 
 const POOL_LAW =
-    'Pool depth IS the deliverable: open cards are the feed observability-implement.js ingests, and an empty or thin OPEN pool is a defect ' +
+    'Pool depth IS the deliverable: open cards are the feed slice-implement.js ingests, and an empty or thin OPEN pool is a defect ' +
     'unless page-level evidence proves folder-completeness. Answer the mandate [03] goal template axis by axis against this folder own domain: ' +
     'a missing plausible axis is a card; a covered axis is an evidence row, never a filler card. Return exactly one axes row per key in ' +
     JSON.stringify(AXES) +
