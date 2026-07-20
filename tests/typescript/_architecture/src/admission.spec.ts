@@ -62,8 +62,10 @@ const _REVIEW_ONLY = [
 // `libs/typescript/**` form never matches and silently disarms the whole promotion layer.
 const _PLUGIN_SCOPE = ['**/libs/typescript/**', '!**/*.spec.*', '!**/*.test.*', '!**/*.bench.*'] as const;
 
-// The type-aware, import-graph, and test domains stay armed at recommended.
-const _DOMAINS = ['project', 'test', 'types'] as const;
+// Domain arming is a closed ruling row set, drift-fenced in both directions: `test` runs
+// recommended; `project` and `types` stay disarmed — their whole-graph type inference belongs to
+// the dual compiler floor, not the lint rail. A silent flip either way is a violation.
+const _DOMAINS = { project: 'none', test: 'recommended', types: 'none' } as const;
 
 // A rule file is armed only when it registers an error diagnostic and carries both proof spans.
 const _ARMED = [
@@ -98,16 +100,24 @@ const _Biome = Schema.Struct({
             suspicious: Schema.Struct({ noExplicitAny: Schema.String }),
         }),
     }),
-    // Shipped-rule promotions ride overrides: a rule Biome ships needs no GritQL twin, only its armed row.
+    // Shipped-rule promotions ride overrides: a rule Biome ships needs no GritQL twin, only its armed
+    // row. Foreign overrides (panic exclusions, skill-script relaxations) decode to empty rule records;
+    // the estate promotion override is found among the rows, never assumed to be the only one.
     overrides: Schema.Array(
         Schema.Struct({
             includes: Schema.Array(Schema.String),
-            linter: Schema.Struct({
-                rules: Schema.Struct({
-                    style: Schema.Record({ key: Schema.String, value: Schema.String }),
-                    suspicious: Schema.Record({ key: Schema.String, value: Schema.String }),
+            linter: Schema.optionalWith(
+                Schema.Struct({
+                    rules: Schema.optionalWith(
+                        Schema.Struct({
+                            style: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { default: () => ({}) }),
+                            suspicious: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { default: () => ({}) }),
+                        }),
+                        { default: () => ({ style: {}, suspicious: {} }) },
+                    ),
                 }),
-            }),
+                { default: () => ({ rules: { style: {}, suspicious: {} } }) },
+            ),
         }),
     ),
 });
@@ -129,8 +139,8 @@ const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
     Array.flatten([
         config.linter.rules.preset === 'recommended' ? [] : ['linter.rules.preset must hold the recommended preset'],
         config.linter.rules.suspicious.noExplicitAny === 'error' ? [] : ['suspicious.noExplicitAny must be legislated at error, never inherited'],
-        Array.filterMap(_DOMAINS, (domain) =>
-            config.linter.domains[domain] === 'recommended' ? Option.none() : Option.some(`linter.domains.${domain} must be recommended`),
+        Array.filterMap(Record.toEntries(_DOMAINS), ([domain, arming]) =>
+            config.linter.domains[domain] === arming ? Option.none() : Option.some(`linter.domains.${domain} must be ${arming}`),
         ),
         Array.filterMap(_PROMOTED, (rule) =>
             Array.some(config.plugins, (plugin) => plugin.path === `./tools/biome/${rule}.grit`)
@@ -358,7 +368,7 @@ describe('admission predicates', () => {
         const lawful = {
             plugins: Array.map(_PROMOTED, (rule) => ({ path: `./tools/biome/${rule}.grit`, includes: [..._PLUGIN_SCOPE] })),
             linter: {
-                domains: { project: 'recommended', test: 'recommended', types: 'recommended' },
+                domains: { ..._DOMAINS },
                 rules: { preset: 'recommended', suspicious: { noExplicitAny: 'error' } },
             },
             overrides: [

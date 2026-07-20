@@ -1,4 +1,4 @@
-# [testcontainers] — one parameterized container builder; the pg-18.4-with-extensions row and the S3-compatible object-store row are DATA on it
+# [testcontainers] — one parameterized container builder; the pg server-extension row and the S3-compatible object-store row are DATA on it
 
 [PACKAGE_SURFACE]:
 - package: `testcontainers` · version `12.0.4` · license `MIT`
@@ -8,7 +8,7 @@
 - plane: `plane:dev` — the `_testkit` container lane (real server); the fast in-process counterpart is `electric-sql-pglite.md` (WASM pg, no server extensions).
 - rail: persistence-verification / real-server harness.
 
-`testcontainers` is the real-server half of the `_testkit` harness (`tests/typescript/_testkit`) — the lane for what the pglite WASM unit lane cannot serve: SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) and a real S3-compatible object store for presign/round-trip verification. The whole package is ONE parameterized builder: `GenericContainer(image)` carries a fluent `with*` chain and yields a `StartedTestContainer` handle exposing the container's mapped host port. The `_testkit` container-lane "rows" — pg-18.4-with-extensions and the S3-compatible object store — are NOT two container classes; they are two DATA rows (image + exposed ports + environment + wait-strategy) feeding the same builder. A new lane is a row, never a new mechanism. Every started handle is `AsyncDisposable`, which is the exact seam onto `Effect.acquireRelease` — the container becomes a scoped Effect `Layer` shared across a spec block via `@effect/vitest` `layer(...)`, identical in shape to the pglite unit Layer but bound to a real engine.
+`testcontainers` is the real-server half of the `_testkit` harness (`tests/typescript/_testkit`) — the lane for what the pglite WASM unit lane cannot serve: SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) and a real S3-compatible object store for presign/round-trip verification. Both images pin in `tests/containers.json` — the kit's typed pin reader resolves the `pg` and `store` rows, and no suite or catalog carries a literal image string. The whole package is ONE parameterized builder: `GenericContainer(image)` carries a fluent `with*` chain and yields a `StartedTestContainer` handle exposing the container's mapped host port. The `_testkit` container-lane "rows" — the pinned pg server-extension image and the S3-compatible object store — are NOT two container classes; they are two DATA rows (image + exposed ports + environment + wait-strategy) feeding the same builder. A new lane is a row, never a new mechanism. Every started handle is `AsyncDisposable`, which is the exact seam onto `Effect.acquireRelease` — the container becomes a scoped Effect `Layer` shared across a spec block via `@effect/vitest` `layer(...)`, identical in shape to the pglite unit Layer but bound to a real engine.
 
 ## [01]-[CONTAINER_BUILDER]
 
@@ -137,14 +137,14 @@ declare class DockerComposeEnvironment {
 
 [STACK: `GenericContainer` + `Effect.acquireRelease` + `@effect/vitest` `layer`] — a container is a scoped Effect `Layer`, never a per-spec `beforeAll`. `Layer.scoped(PgContainer, Effect.acquireRelease(Effect.promise(() => pgRow.start()), c => Effect.promise(() => c.stop())))` builds one real pg once; `layer(PgContainer)("suite", (it) => …)` (`fast-check.md` [05]) shares it across the block, and `Effect.tryPromise({ try: () => c.exec([...]), catch: … })` folds `exec`/`getMappedPort` into the folder's typed error rail. `StartedTestContainer` is `AsyncDisposable`, so `Effect.acquireRelease` (or `Effect.scoped` over `[Symbol.asyncDispose]`) reclaims the container on scope close — success, failure, or interrupt.
 
-[STACK: both harness rows as data on the one builder] — the pg-18.4 row and the S3 store row differ only in their `with*` data, not in mechanism:
+[STACK: both harness rows as data on the one builder] — the pg row and the S3 store row differ only in their `with*` data, not in mechanism:
 
 ```ts signature
 // TWO ROWS, ONE BUILDER — image + ports + env + wait are the parameterization; a third lane is a third row.
-const pgRow    = new GenericContainer("postgres:18.4-<ext-image>")   // pgvector/postgis server-extension image
+const pgRow    = new GenericContainer(Containers.pin("pg"))         // server-extension image, resolved from tests/containers.json
   .withExposedPorts(5432).withEnvironment({ POSTGRES_PASSWORD: "…" })
   .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))
-const storeRow = new GenericContainer("<s3-compatible-image>")       // MinIO / localstack S3 lane
+const storeRow = new GenericContainer(Containers.pin("store"))      // S3-compatible lane, resolved from tests/containers.json
   .withExposedPorts(9000).withEnvironment({ /* root creds */ })
   .withWaitStrategy(Wait.forHttp("/minio/health/live", 9000).forStatusCode(200))
 ```

@@ -1,7 +1,7 @@
 # [@vitest/coverage-v8] — V8 coverage provider feeding the gauge coverage thresholds
 
 [PACKAGE_SURFACE]:
-- package: `@vitest/coverage-v8` · version `4.1.9` · license `MIT`
+- package: `@vitest/coverage-v8` · version `4.1.10` · license `MIT`
 - module: ESM (`type: module`); subpaths `.` (the default `CoverageProviderModule`), `./provider` (the `V8CoverageProvider` class), `./browser` (the browser-lane instrumenter). Peers: `vitest 4.1.9` (required), `@vitest/browser 4.1.9` (optional — browser-mode coverage).
 - asset: `dist/index.d.ts` (`declare const mod: CoverageProviderModule; export default mod`) · `dist/provider.d.ts` (`V8CoverageProvider`); the coverage CONFIG vocabulary is vitest's (`CoverageOptions` on `vitest/node`), keyed by `provider: 'v8'`.
 - runtime: Node V8 native coverage via `node:inspector` `Profiler.ScriptCoverage`; v4 remaps to source through AST (`ast-v8-to-istanbul`), NOT source-map guesswork; reports via `istanbul-lib-coverage`; `thresholds.autoUpdate` rewrites the config file through `magicast`.

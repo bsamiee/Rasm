@@ -1,7 +1,7 @@
 # [@vitest/browser-playwright] — vitest browser-mode driver running browser-runtime specs over playwright
 
 [PACKAGE_SURFACE]:
-- package: `@vitest/browser-playwright` · version `4.1.9` · license `MIT`
+- package: `@vitest/browser-playwright` · version `4.1.10` · license `MIT`
 - module: ESM (`type: module`); subpaths `.` (the `playwright()` provider + `PlaywrightBrowserProvider`) and `./context`. Peers: `playwright *` (required — the real browser driver), `vitest 4.1.9`.
 - asset: `dist/index.d.ts`. The test-side browser context (`page`/`userEvent`/locators) is `@vitest/browser` (reached via `vitest/browser`), which THIS provider augments with Playwright's real option and `_BrowserNames` shapes.
 - runtime: drives a real Chromium/Firefox/WebKit through Playwright's `Browser`/`BrowserContext`/`Page`/`CDPSession`; specs execute IN the browser page, not in Node.

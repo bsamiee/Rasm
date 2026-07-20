@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-- package: `Microsoft.Extensions.TimeProvider.Testing` `10.7.0`
+- package: `Microsoft.Extensions.TimeProvider.Testing` `10.8.0`
 - license: `MIT`
 - namespace: `Microsoft.Extensions.Time.Testing`
 - asset: `lib/net10.0/Microsoft.Extensions.TimeProvider.Testing.dll`

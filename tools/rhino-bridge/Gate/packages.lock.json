@@ -81,7 +81,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm.Bridge.Contract": "[1.0.0, )",
           "StreamJsonRpc": "[2.25.29, )",
-          "System.IO.Hashing": "[10.0.9, )",
+          "System.IO.Hashing": "[10.0.10, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )"
         }
       },
@@ -171,9 +171,9 @@
       },
       "System.IO.Hashing": {
         "type": "CentralTransitive",
-        "requested": "[10.0.9, )",
-        "resolved": "10.0.9",
-        "contentHash": "vixglGnKEexAJDeIRhyayZYzxyrgK1K9GU3K/zRZVwDbaDcMkSqj4WDHoVmQMNfsdUtLALfNSJw6mBIpdxie4A=="
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "eE839zyWZD/UBZYzP2lu9fhHX6RWe63/jz3Jxf+JumzO/db+Vc2s7CMiDwxk9ti2NTUft2tdRx31Rw2OjKbecA=="
       },
       "Thinktecture.Runtime.Extensions.Json": {
         "type": "CentralTransitive",

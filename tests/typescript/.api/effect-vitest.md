@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/vitest`
-- package: `@effect/vitest` (`0.29.0`, MIT, © Effectful Technologies)
+- package: `@effect/vitest` (`0.30.0`, MIT, © Effectful Technologies)
 - module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; exports `.` (the binding + `export * from "vitest"`) and `./utils` (Effect-aware assertions)
 - runtime target: dev/test only — a `devDependency`; the `tests/typescript/_architecture` suite asserts it never leaks into a runtime subpath or shipped bundle
 - peer: `vitest@^3.2.0` (both hard; `peerDependenciesMeta` is null), `effect@^3.21.0`; no runtime dependencies of its own. The admitted runner is `vitest@4.1.9` — one major ahead of the declared range; pnpm resolves the binding against it and the collector API (`test`/`expect`/`TestContext`) is stable across v3→v4, so the binding runs unmodified until a newer `@effect/vitest` widens the peer to `vitest@^4`
@@ -226,7 +226,7 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 - `@effect/platform` + `@effect/platform-node` (`.api/effect-platform.md`, `.api/effect-platform-node.md`): the standalone `layer(NodeContext.layer)(…)` opener runs an integration spec against the real filesystem/command bindings; `layer(HttpServer.layerTestClient)(…)` serves a declarative `HttpApi` in-process and exercises it with the derived `HttpApiClient` — the same Tags production uses, bound to test Layers; a per-suite child extends the block via `it.layer`.
 - `fast-check` (catalogued at `tests/typescript/.api/`): `it.prop` accepts raw `FC.Arbitrary`s beside `Schema`s, and the `@rasm/ts-testkit` law source (`tests/typescript/_testkit`) composes reusable law combinators (fold identity, merge commutativity, upcast totality) over them; the `fastCheck` option forwards `FC.Parameters` for shrink and seed control.
 - `testcontainers` + `@electric-sql/pglite` (catalogued at `tests/typescript/.api/`): each is wrapped as an Effect `Layer` (a scoped container / an in-memory Postgres) and shared through the standalone `layer(containerLayer, { timeout })("suite", (it) => …)` opener across a `describe` block — the testkit harness layers (`tests/typescript/_testkit`) own these Layers, binding the combinator exactly as `testcontainers.md` / `electric-sql-pglite.md` [04] document (`layer(PgContainer)` / `layer(PgLiteTest)`).
-- `vitest` + `@vitest/coverage-v8` + `@stryker-mutator/*` (catalogued at `tests/typescript/.api/`): `@effect/vitest` re-exports the `vitest` surface (`expect`/`describe`/`vi`/lifecycle); coverage and mutation run the same specs under coverage-v8 and the `.config/stryker.config.json` thresholds-as-data (the assay-gated mutation rail).
+- `vitest` + `@vitest/coverage-v8` + `@stryker-mutator/*` (catalogued at `tests/typescript/.api/`): `@effect/vitest` re-exports the `vitest` surface (`expect`/`describe`/`vi`/lifecycle); coverage and mutation run the same specs under coverage-v8 and the root `stryker.config.json` thresholds-as-data (the assay-gated mutation rail).
 
 [LOCAL_ADMISSION]:
 - Use `it.effect` for every spec whose body is an `Effect`; never `it(async () => { await Effect.runPromise(...) })` — that loses `TestServices`, the typed `Exit` fold, and virtual time.

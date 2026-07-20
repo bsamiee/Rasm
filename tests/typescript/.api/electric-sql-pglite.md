@@ -1,11 +1,11 @@
 # [@electric-sql/pglite] — in-process pg for the fast unit lane, no server extensions
 
 [PACKAGE_SURFACE]:
-- package: `@electric-sql/pglite` · version `0.5.3` · license `Apache-2.0`
+- package: `@electric-sql/pglite` · version `0.5.4` · license `Apache-2.0`
 - module: ESM (`type: module`) with a CJS mirror (`.cjs` + `.d.cts` under every export); subpath map is real — `.`, `./live`, `./worker`, `./template`, and `./contrib/*` per-extension entries.
 - asset: `dist/index.d.ts` (barrel over the hashed type bundle `dist/pglite-*.d.ts`); WASM binary + fs bundle ship inside the package (`fsBundle` / `pgliteWasmModule` overridable).
 - runtime: WebAssembly PGlite (a single Postgres build compiled to WASM) — single-connection, in-process, no socket, no Docker; runs identically in node, bun, browser, and worker.
-- plane: `plane:dev` — the `_testkit` fast unit lane; the container lane's counterpart is `testcontainers.md` (real pg-18.4-with-server-extensions).
+- plane: `plane:dev` — the `_testkit` fast unit lane; the container lane's counterpart is `testcontainers.md` (the real server-extension pg image `tests/containers.json` pins as the `pg` row).
 - rail: persistence-verification / in-process-sql.
 
 `@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds. The `_testkit` unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface. It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane. The `tests/typescript/_architecture` suite bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.

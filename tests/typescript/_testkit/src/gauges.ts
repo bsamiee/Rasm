@@ -1,6 +1,6 @@
 import { FileSystem, Path } from '@effect/platform';
-import { Array, Data, Effect, HashSet, Option, pipe } from 'effect';
-import ts from 'typescript';
+import { parseSync } from '@swc/core';
+import { Array, Data, Effect, HashSet, Option, Predicate, pipe } from 'effect';
 
 // --- [TYPES] -----------------------------------------------------------------------------
 
@@ -59,24 +59,39 @@ const _walked = (root: string): Effect.Effect<ReadonlyArray<string>, GaugeFault,
     );
 
 const _specifiers = (path: string, text: string): ReadonlyArray<Imports.Specifier> => {
-    // BOUNDARY ADAPTER: the compiler walk is a platform callback seam; the accumulator detaches immutable at the return.
-    // The walk is recursive so a dynamic `import("<specifier>")` buried in a body cannot evade a banned-module verdict.
-    const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false);
+    // BOUNDARY ADAPTER: the swc parse walk is a native callback seam; the accumulator detaches immutable at the return.
+    // The walk is recursive over every AST value so a dynamic `import("<specifier>")` buried in a body cannot evade a
+    // banned-module verdict, and an unparseable source throws loud — a span that fails to parse proves nothing.
     const found: Array<Imports.Specifier> = [];
-    const visit = (node: ts.Node): void => {
-        if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-            found.push({ specifier: node.moduleSpecifier.text, typeOnly: node.importClause?.isTypeOnly === true });
-        } else if (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined && ts.isStringLiteral(node.moduleSpecifier)) {
-            found.push({ specifier: node.moduleSpecifier.text, typeOnly: node.isTypeOnly });
-        } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-            const head = node.arguments[0];
-            if (head !== undefined && ts.isStringLiteral(head)) {
-                found.push({ specifier: head.text, typeOnly: false });
+    const visit = (node: unknown): void => {
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                visit(item);
+            }
+            return;
+        }
+        if (!Predicate.isRecord(node)) {
+            return;
+        }
+        const { source, type } = node;
+        if (
+            (type === 'ImportDeclaration' || type === 'ExportAllDeclaration' || type === 'ExportNamedDeclaration') &&
+            Predicate.isRecord(source) &&
+            Predicate.isString(source['value'])
+        ) {
+            found.push({ specifier: source['value'], typeOnly: node['typeOnly'] === true });
+        } else if (type === 'CallExpression' && Predicate.isRecord(node['callee']) && node['callee']['type'] === 'Import') {
+            const head = Array.isArray(node['arguments']) ? node['arguments'][0] : undefined;
+            const expression = Predicate.isRecord(head) ? head['expression'] : undefined;
+            if (Predicate.isRecord(expression) && expression['type'] === 'StringLiteral' && Predicate.isString(expression['value'])) {
+                found.push({ specifier: expression['value'], typeOnly: false });
             }
         }
-        ts.forEachChild(node, visit);
+        for (const value of Object.values(node)) {
+            visit(value);
+        }
     };
-    visit(source);
+    visit(parseSync(text, { syntax: 'typescript', tsx: path.endsWith('.tsx'), decorators: true }));
     return found;
 };
 

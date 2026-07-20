@@ -1,10 +1,10 @@
 # [vitest] — the dev-plane spec runner core the harness lanes and gauges drive
 
 [PACKAGE_SURFACE]:
-- package: `vitest` · version `4.1.9` · license `MIT`
+- package: `vitest` · version `4.1.10` · license `MIT`
 - module: ESM (`type: module`); one barrel per concern — `.` (test API), `./config` (config builders), `./node` (programmatic runner + every config-option type), `./reporters`, `./runners`, `./snapshot`, `./browser`, `./environments`, `./worker`, `./globals` (ambient `types`). No deep-`dist` reach; the config-option interfaces re-export from `./node`.
 - asset: `dist/index.d.ts` (test API) · `dist/config.d.ts` (`defineConfig`/`defineProject`) · `dist/node.d.ts` (programmatic `Vitest` + `CoverageOptions`/`BrowserConfigOptions`/reporters); bin `vitest`.
-- runtime: Node `^20 || ^22 || >=24`; executes on Vite — `vite ^6 || ^7 || ^8` is the one REQUIRED peer (the runner IS a Vite plugin graph). Every other peer is optional and admitted à la carte: `@vitest/{browser-playwright,coverage-v8,ui}` `4.1.9`, `happy-dom`, `jsdom`, `@opentelemetry/api ^1.9`, `@edge-runtime/vm`.
+- runtime: Node `^20 || ^22 || >=24`; executes on Vite — `vite ^6 || ^7 || ^8` is the one REQUIRED peer (the runner IS a Vite plugin graph). Every other peer is optional and admitted à la carte: `@vitest/{browser-playwright,coverage-v8,ui}` `4.1.10`, `happy-dom`, `jsdom`, `@opentelemetry/api ^1.9`, `@edge-runtime/vm`.
 - plane: `plane:dev` — the SPEC_RUNNER core; the `tests/typescript/_architecture` suite asserts no `plane:runtime` graph imports it.
 - rail: spec execution — the runner every folder's specs and every gauge terminate in.
 

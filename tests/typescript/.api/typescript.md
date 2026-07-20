@@ -1,38 +1,35 @@
-# [typescript] — the compiler package: the tsc gate binary and the syntactic scanner the gauge kit composes
+# [typescript] — the native compiler package: the tsc gate binary and the server-backed API surface
 
 [PACKAGE_SURFACE]:
-- package: `typescript` · version `6.0.3` · license `Apache-2.0`
-- module: CJS bundle (`lib/typescript.js`) with one flat namespace export — `import ts from 'typescript'` is the one binding; `lib/tsc.js` behind the `tsc`/`tsserver` bins.
-- asset: the full compiler — scanner, parser, binder, checker, emitter, language service — plus the bundled `lib.*.d.ts` standard-library declarations.
-- runtime: node; the parser lane is pure and synchronous (no filesystem, no program, no checker).
-- plane: `plane:dev` — the `tsc` half of the dual compiler floor (`@effect/tsgo` is the native twin; `tsc` is the conformance authority whose diagnostic codes doctrine cites), the `@stryker-mutator/typescript-checker` engine, and the syntactic scanner `@rasm/ts-testkit/gauges` composes.
-- rail: type gate binary / syntactic import scan.
+- package: `typescript` · version `7.0.2` · license `Apache-2.0`
+- module: ESM exports map — `.` resolves `lib/version.cjs` (version identity only); the API lives behind `typescript/unstable/{sync,async,fs,proto,ast,ast/*}` subpaths; `lib/tsc.js` behind the `tsc`/`tsserver` bins wraps the bundled native executable.
+- asset: the native (Go) compiler binary plus a thin JS client — AST type declarations, `is*` guards, scanner, node factory, and an IPC `API`/`Snapshot`/`Project` client that spawns the native server.
+- runtime: node; every parse and semantic question rides the native server over IPC — the package ships no in-process text-to-AST parser.
+- plane: `plane:dev` — the `tsc` half of the dual compiler floor (`@effect/tsgo` is the sibling launcher; `tsc` is the conformance authority whose diagnostic codes doctrine cites) and the `@stryker-mutator/typescript-checker` engine.
+- rail: type gate binary.
 
-The workspace consumes this package on two disjoint lanes. The GATE lane is process-level: `tsc -p tsconfig.json` runs beside `tsgo` as the dual floor, and the Stryker checker boots it per mutant — no repo code imports the checker. The SCANNER lane is the one programmatic composition: the kit's import-graph gauge parses each source with `ts.createSourceFile` (no program, no types, parents off) and walks `ts.forEachChild` with the `ts.is*` predicates to harvest every import/export/dynamic-import specifier — a full-fidelity AST at parse cost, immune to the regex evasions (multiline imports, template noise, comments) a text scan invites. The checker API stays out of the estate: a semantic question is the gate's job, never a gauge's.
+The workspace consumes this package on the GATE lane only: `tsc -p tsconfig.json` runs beside `tsgo` as the dual floor, and the Stryker checker boots it per mutant — no repo code imports this package. Program-free syntactic parsing moved to `@swc/core` (`swc-core.md`) the day the flat `lib/typescript.js` namespace stopped shipping: `import ts from 'typescript'` now binds version identity alone, and text-to-AST work in-process is not this package's capability.
 
-## [01]-[SCANNER_SURFACE]
+## [01]-[UNSTABLE_API_SURFACE]
 
-[PUBLIC_SCOPE]: the parse-and-walk lane the gauge engine composes — pure, synchronous, program-free. Every `ts.is*` row is a `(node) => node is <T>` type guard; the full `createSourceFile`/`forEachChild` signatures live in the fence below.
+[PUBLIC_SCOPE]: the server-backed subpaths, catalogued as boundary knowledge — no kit member or suite composes them; a semantic question routes to the gate run.
 
-| [INDEX] | [SYMBOL]                            | [TYPE]                         | [CAPABILITY]                                                   |
-| :-----: | :---------------------------------- | :----------------------------- | :------------------------------------------------------------- |
-|  [01]   | `ts.createSourceFile`               | `→ SourceFile`                 | one file parsed standalone; `ScriptTarget.Latest`, parents off |
-|  [02]   | `ts.forEachChild<T>`                | `→ T \| undefined`             | the one AST walk; recursion is the caller's visit fn           |
-|  [03]   | `ts.isImportDeclaration`            | `node is ImportDeclaration`    | static import; `.importClause?.isTypeOnly` splits the plane    |
-|  [04]   | `ts.isExportDeclaration`            | `node is ExportDeclaration`    | re-export; `.isTypeOnly` + optional `.moduleSpecifier`         |
-|  [05]   | `ts.isCallExpression`               | `node is CallExpression`       | `expression.kind === SyntaxKind.ImportKeyword`: dynamic import |
-|  [06]   | `ts.isStringLiteral`                | `node is StringLiteral`        | the specifier text; a non-literal specifier errors             |
-|  [07]   | `ts.ScriptTarget` / `ts.SyntaxKind` | const enums on the namespace   | `ScriptTarget.Latest = 99`; `SyntaxKind.ImportKeyword = 102`   |
-|  [08]   | `ts.version` / `ts.transpileModule` | `string` / `→ TranspileOutput` | engine identity; single-file erase without a program           |
+| [INDEX] | [SYMBOL]                                  | [TYPE]                           | [CAPABILITY]                                                     |
+| :-----: | :---------------------------------------- | :------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `unstable/sync` `API`                     | `new (options?) => API`          | spawns the native server; `parseConfigFile`, `updateSnapshot`    |
+|  [02]   | `unstable/sync` `Snapshot`                | `updateSnapshot() => Snapshot`   | `getProjects()`, `getDefaultProjectForFile`, disposable          |
+|  [03]   | `unstable/sync` `Project.getSourceFile`   | `(file) => SourceFile \| undef`  | server-parsed AST for a file inside a real project               |
+|  [04]   | `unstable/ast`                            | types + enums + guards           | `Node`, `SyntaxKind`, `ScriptTarget`, `Node.forEachChild` method |
+|  [05]   | `unstable/ast/is`                         | `(node) => node is <T>` guards   | `isImportDeclaration`, `isStringLiteral`, `isCallExpression`, …  |
+|  [06]   | `unstable/ast/scanner` / `ast/factory`    | lexer / node constructors        | token stream and synthetic-node minting, parse-free              |
+|  [07]   | `unstable/fs` / `unstable/proto`          | host fs seam / wire types        | server transport contracts                                       |
 
 ```ts signature
-// lib/typescript.d.ts — the composed scanner lane.
-function createSourceFile(fileName: string, sourceText: string, languageVersionOrOptions: ScriptTarget | CreateSourceFileOptions, setParentNodes?: boolean, scriptKind?: ScriptKind): SourceFile
-function forEachChild<T>(node: Node, cbNode: (node: Node) => T | undefined, cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined
-interface SourceFile extends Declaration, LocalsContainer { readonly statements: NodeArray<Statement>; fileName: string; text: string }
-interface ImportDeclaration extends Statement { readonly importClause?: ImportClause; readonly moduleSpecifier: Expression }
-interface ExportDeclaration extends DeclarationStatement, JSDocContainer { readonly isTypeOnly: boolean; readonly exportClause?: NamedExportBindings; readonly moduleSpecifier?: Expression }
-interface CallExpression extends LeftHandSideExpression, Declaration { readonly expression: LeftHandSideExpression; readonly arguments: NodeArray<Expression> }
+// dist/api/sync/api.d.ts — the server-backed lane; every call is IPC to the spawned native compiler.
+class API<FromLSP extends boolean = false> { constructor(options?: APIOptions | LSPConnectionOptions); parseConfigFile(file: DocumentIdentifier): ConfigResponse; updateSnapshot(params?: UpdateSnapshotParams): Snapshot; close(): void }
+class Snapshot { getProjects(): readonly Project[]; getDefaultProjectForFile(file: DocumentIdentifier): Project | undefined; dispose(): void }
+// dist/ast/ast.d.ts — the walk is a Node METHOD now, not a free function.
+interface Node { forEachChild<T>(visitor: (node: Node) => T, visitArray?: (nodes: NodeArray<Node>) => T): T | undefined }
 ```
 
 ## [02]-[GATE_SURFACE]
@@ -41,15 +38,15 @@ The binary is the gate, and configuration is the whole contract: `tsc -p <tsconf
 
 ## [03]-[INTEGRATION]
 
-[STACK: `typescript` + `@rasm/ts-testkit/gauges`] — `Imports.scan` parses each supplied source once (`createSourceFile(path, text, ScriptTarget.Latest, false)`) and one recursive `forEachChild` visit harvests three specifier forms — static import, re-export with specifier, `import(...)` call — each carrying its `typeOnly` fact so the architecture suite can rule on type-plane traffic separately. The walk is the sanctioned boundary-adapter kernel: a platform callback seam whose accumulator detaches immutable at the return.
-
 [STACK: `typescript` + `@stryker-mutator/typescript-checker`] — the checker boots this compiler against `tsconfig.base.json` to discard mutants that no longer type-check, keeping the mutation score a behavioral signal instead of a compile-error census (`stryker-mutator-typescript-checker.md`).
 
-[BOUNDARY vs `@effect/tsgo`] — the native port runs first and fast; `tsc` decides conformance. Neither lane loads the other's API, and no gauge asks a checker question — semantic truth belongs to the gate run, syntactic structure to the scanner.
+[BOUNDARY vs `@effect/tsgo`] — both bins launch the same native compiler generation; `tsc` decides conformance. Neither lane loads the other's API.
+
+[BOUNDARY vs `@swc/core`] — syntactic import harvesting is swc's lane (`swc-core.md`): in-process, synchronous, program-free. Spawning the native server to answer a structural question is the rejected shape.
 
 ## [04]-[RAIL_LAW]
 
-- Owns: the type gate binary and program-free syntactic parsing over single files.
-- Accept: `createSourceFile` + `forEachChild` + `ts.is*` predicates for structural harvests; `ScriptTarget.Latest` with parents off for scan work; `transpileModule` where a scratch fixture needs erased output without a program.
-- Reject: regex import scanning beside the AST lane; `ts.createProgram`/checker composition inside a gauge — a semantic audit routes to the gate; a second parser admission (babel, swc AST) for work this parser already owns; reading `.kind` numerals where a `ts.is*` predicate names the shape.
-- Boundary: the scanner sees one file at a time and proves nothing about resolution — exports-map and edge-ledger truth stays with the architecture suite's own rules over the harvested specifiers.
+- Owns: the type gate binary; conformance diagnostics; the server-backed semantic API.
+- Accept: `tsc -p` as a process gate; `unstable/ast` type declarations and `is*` guards where a consumer already holds a server-minted `Node`.
+- Reject: importing `typescript` for in-process parsing — the `.` export is version identity, and the AST arrives only from the native server; spawning `API` inside a gauge for a syntactic question `@swc/core` answers in-process; reading `.kind` numerals where an `is*` predicate names the shape.
+- Boundary: semantic truth belongs to the gate run; syntactic structure to the swc scanner; exports-map and edge-ledger truth to the architecture suite's own rules.

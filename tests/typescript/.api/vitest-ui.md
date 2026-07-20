@@ -1,7 +1,7 @@
 # [@vitest/ui] — interactive spec-run inspection surface over the vitest runner
 
 [PACKAGE_SURFACE]:
-- package: `@vitest/ui` · version `4.1.9` · license `MIT`
+- package: `@vitest/ui` · version `4.1.10` · license `MIT`
 - module: ESM (`type: module`); subpaths `.` (the dashboard Vite-plugin factory `(ctx: Vitest) => Vite.Plugin`) and `./reporter` (the `html` reporter — a `Reporter`). Peer: `vitest 4.1.9`.
 - asset: `dist/index.d.ts` (`declare const _default: (ctx: Vitest) => Vite.Plugin`) · `reporter.d.ts` (`declare const reporter: Reporter`).
 - runtime: the dashboard is a Vite-served browser app over the runner's WebSocket RPC; the `html` reporter emits a self-contained static bundle (no server) openable offline.

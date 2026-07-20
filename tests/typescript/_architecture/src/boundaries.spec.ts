@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Audit, Imports } from '@rasm/ts-testkit/gauges';
-import { Array, Effect, HashMap, HashSet, Number, Option, pipe, Record, Schema } from 'effect';
+import { Array, Effect, HashMap, HashSet, Number, Option, Order, pipe, Record, Schema } from 'effect';
 
 // --- [TYPES] -----------------------------------------------------------------------------
 
@@ -147,48 +147,91 @@ const _resolved = (from: string, specifier: string): ReadonlyArray<string> =>
         part === '..' ? Array.dropRight(stack, 1) : Array.append(stack, part),
     );
 
-const _ticked = (cell: string): ReadonlyArray<string> =>
-    Array.filterMap(Array.fromIterable(cell.matchAll(/`([^`]+)`/g)), (hit) => Option.fromNullable(hit[1]));
+// The permitted-edge ledger parses live from the owning page's strata flowchart — the page is the
+// law's single source, never a transcribed copy. `subgraph W<n>` clusters carry the wave marks, a
+// single-word cluster title names the cluster's own folder, bracket nodes name the rest.
+const _CLUSTER = /^\s*subgraph (W(\d))\["W\d ([A-Z][A-Z +]*)"\]\s*$/;
+const _NODE = /^\s*(\w+)\[([a-z]+)\]\s*$/;
 
-// The wave marks parse from the dependency-direction prose: each `W<n>` names its ticked folder run.
-const _waveMarks = (page: string): ReadonlyArray<readonly [folder: string, wave: number]> =>
-    Array.flatMap(Array.fromIterable(page.matchAll(/\bW(\d)((?:\s*`[a-z]+`\/?)+)/g)), (mark) =>
-        Option.match(Option.flatMap(Option.fromNullable(mark[1]), Number.parse), {
-            onNone: (): ReadonlyArray<readonly [string, number]> => [],
-            onSome: (wave) => Array.map(_ticked(mark[2] ?? ''), (folder) => [folder, wave] as const),
-        }),
-    );
+// Only solid `[IMPORT]`-labeled edges join the ledger: port bindings, the forbidden exemplar,
+// layout links, and core-interior member edges are other grammars and never mint a permitted row.
+const _IMPORT_EDGE = /^[ \t]*(\w+) e\d+@-->\|"\[IMPORT\]: [^"]*"\| (\w+)[ \t]*$/gm;
 
-// The permitted-edge table parses live from its owning page: the [FROM]/[MAY_IMPORT] rows join the
-// prose wave marks, and a row missing its mark voids the whole parse — a reshaped or vanished table
-// fails the gauge loudly, because the page is the law's single source, never a transcribed copy.
-const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
-    pipe(
-        _waveMarks(page),
-        (marks) =>
-            Option.all(
-                Array.map(
-                    Array.filterMap(Array.fromIterable(page.matchAll(/^\|\s*\[\d+\]\s*\|\s*`([a-z]+)`\s*\|([^|]*)\|/gm)), (row) =>
-                        Option.map(Option.fromNullable(row[1]), (folder) => ({ folder, tokens: _ticked(row[2] ?? '') })),
+const _declared = (page: string): HashMap.HashMap<string, readonly [folder: string, wave: number]> =>
+    Array.reduce(
+        page.split('\n'),
+        { names: HashMap.empty<string, readonly [folder: string, wave: number]>(), wave: Option.none<number>() },
+        (state, line) => {
+            const cluster = _CLUSTER.exec(line);
+            const node = _NODE.exec(line);
+            if (cluster !== null) {
+                const opened = Option.flatMap(Option.fromNullable(cluster[2]), Number.parse);
+                return {
+                    names: Option.match(
+                        Option.all([
+                            Option.fromNullable(cluster[1]),
+                            Option.filter(Option.fromNullable(cluster[3]), (title) => /^[A-Z]+$/.test(title)),
+                            opened,
+                        ]),
+                        {
+                            onNone: () => state.names,
+                            onSome: ([id, title, wave]) => HashMap.set(state.names, id, [title.toLowerCase(), wave] as const),
+                        },
                     ),
-                    (row) =>
-                        Option.map(
-                            Array.findFirst(marks, ([folder]) => folder === row.folder),
-                            ([, wave]) => ({ ...row, wave }),
-                        ),
+                    wave: opened,
+                };
+            }
+            return /^\s*end\s*$/.test(line)
+                ? { names: state.names, wave: Option.none<number>() }
+                : node !== null
+                  ? Option.match(Option.all([Option.fromNullable(node[1]), Option.fromNullable(node[2]), state.wave]), {
+                        onNone: () => state,
+                        onSome: ([id, folder, wave]) => ({ names: HashMap.set(state.names, id, [folder, wave] as const), wave: state.wave }),
+                    })
+                  : state;
+        },
+    ).names;
+
+// An edge endpoint no cluster declared voids the whole parse — a reshaped or vanished strata fence
+// fails the gauge loudly instead of shrinking the law to the rows that still happen to parse.
+const _parsedLedger = (page: string): ReadonlyArray<LedgerRow> =>
+    pipe(_declared(page), (names) =>
+        Option.match(
+            Option.all(
+                Array.map(Array.fromIterable(page.matchAll(_IMPORT_EDGE)), (hit) =>
+                    Option.all([
+                        Option.flatMap(Option.fromNullable(hit[1]), (id) => HashMap.get(names, id)),
+                        Option.flatMap(Option.fromNullable(hit[2]), (id) => HashMap.get(names, id)),
+                    ]),
                 ),
             ),
-        Option.match({
-            onNone: (): ReadonlyArray<LedgerRow> => [],
-            onSome: (raw) =>
-                pipe(HashSet.fromIterable(Array.map(raw, (row) => row.folder)), (folders) =>
-                    Array.map(raw, (row) => ({
-                        folder: row.folder,
-                        edges: Array.filter(row.tokens, (token) => HashSet.has(folders, token) && token !== row.folder),
-                        wave: row.wave,
-                    })),
-                ),
-        }),
+            {
+                onNone: (): ReadonlyArray<LedgerRow> => [],
+                onSome: (edges) =>
+                    pipe(
+                        Array.dedupeWith(
+                            Array.flatMap(edges, ([from, to]) => [from, to]),
+                            (a: readonly [folder: string, wave: number], b: readonly [folder: string, wave: number]) => a[0] === b[0],
+                        ),
+                        Array.sortBy(
+                            Order.mapInput(Order.number, (endpoint: readonly [folder: string, wave: number]) => endpoint[1]),
+                            Order.mapInput(Order.string, (endpoint: readonly [folder: string, wave: number]) => endpoint[0]),
+                        ),
+                        Array.map(([folder, wave]) => ({
+                            folder,
+                            edges: Array.sort(
+                                Array.dedupe(
+                                    Array.filterMap(edges, ([from, to]) =>
+                                        from[0] === folder && to[0] !== folder ? Option.some(to[0]) : Option.none(),
+                                    ),
+                                ),
+                                Order.string,
+                            ),
+                            wave,
+                        })),
+                    ),
+            },
+        ),
     );
 
 // Acyclicity by expression fixpoint: peel nodes whose every edge points outside the live set; a
@@ -464,21 +507,34 @@ layer(NodeContext.layer)('edge ledger', (it) => {
 describe('gauge falsification', () => {
     const rows = _parsedLedger(
         [
-            'Dependency flows downward — W0 `core`, W1 `security`, W2 `data`.',
-            '| [01] | `core` | (nothing) | law |',
-            '| [02] | `security` | `core` | law |',
-            '| [03] | `data` | `core`, `security` | law |',
+            'flowchart TB',
+            '    subgraph W2["W2 DATA"]',
+            '        Data[data]',
+            '    end',
+            '    subgraph W1["W1 SECURITY"]',
+            '        Security[security]',
+            '    end',
+            '    subgraph W0["W0 CORE"]',
+            '        Value[value]',
+            '    end',
+            '    Data e1@-->|"[IMPORT]: TenantScope"| Security',
+            '    Data e2@-->|"[IMPORT]: ContentKey"| W0',
+            '    Security e3@-->|"[IMPORT]: TenantContext"| W0',
+            '    Security p1@-.->|"[PORT]: Shredder"| Data',
+            '    W0 f1@-->|"forbidden: upward import"| W2',
+            '    Value i1@--> Value',
+            '    Data ~~~ Security',
         ].join('\n'),
     );
 
-    it('the ledger parser reads rows and refuses malformed tables', () => {
+    it('the ledger parser reads the strata fence and refuses undeclared endpoints', () => {
         expect(rows).toEqual([
             { folder: 'core', edges: [], wave: 0 },
             { folder: 'security', edges: ['core'], wave: 1 },
             { folder: 'data', edges: ['core', 'security'], wave: 2 },
         ]);
         expect(_parsedLedger('| [FROM] | [MAY_IMPORT] | [NOTES] |')).toEqual([]);
-        expect(_parsedLedger('| [01] | `core` | (nothing) | law |')).toEqual([]);
+        expect(_parsedLedger('flowchart TB\n    Data e1@-->|"[IMPORT]: ContentKey"| Ghost')).toEqual([]);
     });
 
     it('the acyclicity gauge refutes a cyclic table', () => {

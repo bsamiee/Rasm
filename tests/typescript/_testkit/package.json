@@ -22,10 +22,10 @@
         "@effect/sql-pg": "catalog:",
         "@effect/vitest": "catalog:",
         "@electric-sql/pglite": "catalog:",
+        "@swc/core": "catalog:",
         "effect": "catalog:",
         "hash-wasm": "catalog:",
         "testcontainers": "catalog:",
-        "typescript": "catalog:",
         "vitest": "catalog:"
     }
 }
