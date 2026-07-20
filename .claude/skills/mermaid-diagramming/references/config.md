@@ -1,6 +1,6 @@
 # [CONFIG]
 
-Frontmatter is the only live channel a fence configures itself through: the block on line 1 selects the layout engine, look, per-type config, and accessibility directives the diagram type admits, while the host owns everything a fence can only request.
+Frontmatter is the only live channel a fence configures itself through: the block on line 1 selects the layout engine, per-type config, and accessibility directives the diagram type admits, while the host owns everything a fence can only request.
 
 ## [01]-[FRONTMATTER]
 
@@ -10,8 +10,6 @@ An opening `---` on line 1 of the fence body carries `title:` and `config:`, clo
 ---
 title: Render contract
 config:
-  theme: base
-  look: classic
   layout: elk
   htmlLabels: true
   markdownAutoWrap: false
@@ -23,40 +21,21 @@ config:
     curve: linear
     defaultRenderer: elk
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Frontmatter contract demo
   accDescr: A three-stage flow with a dotted store trace, its whole render contract carried in fence frontmatter.
   In([In]) --> Work[Work] --> Out([Out])
   Work -.-> Store[(Store)]
-  linkStyle 2 stroke:#FFB86C,color:#F8F8F2
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-  classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-  class Work primary
-  class In,Out boundary
-  class Store data
 ```
 
 - Keys are case-sensitive; a misspelled key silently no-ops, and malformed YAML kills the whole diagram.
 - Fence delimiters stay at column one.
 - Precedence runs Mermaid defaults, then site `initialize()`, then diagram frontmatter.
-- `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so the fence always owns its own appearance.
-- Root keys with render impact: `htmlLabels`, `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`, `themeCSS`; `fontFamily` lives in `themeVariables`, never at config root.
+- `secure`, `securityLevel`, `startOnLoad`, `maxTextSize`, `suppressErrorRendering`, and `maxEdges` are blocked from frontmatter by the secure config model — they resolve through `initialize()` alone; `look`, `theme`, `themeVariables`, and `themeCSS` are not on that list, so a fence that chooses an appearance owns it outright.
+- Root keys with render impact: `htmlLabels`, `markdownAutoWrap`, `deterministicIds`/`deterministicIDSeed`, `handDrawnSeed`.
 - Root `htmlLabels: false` renders labels as native SVG `<text>` for flowchart, class, and state — the machine-parseable form a pure-SVG consumer needs; per-diagram `flowchart.htmlLabels` is deprecated, and the root key wins over it.
-- Config block holds one key order on every fence: `theme`, `look`, `layout`, root render keys, per-type blocks, `themeVariables` (opening `darkMode`, `fontFamily`, `useGradient`, `dropShadow`, then colors), `themeCSS` last.
+- Config block holds one key order on every fence: `layout`, root render keys, then per-type blocks.
 - Diagram padding is `25` universally — `flowchart.padding: 25` and every family's equivalent breathing-room knob take the same value, so no fence crowds its viewport edge.
 - Every diagram type nests its own block — `flowchart:`, `sequence:`, `er:`, `architecture:`, `kanban:`, `treemap:` with `showValues` and `valueFormat`, and the rest — carrying that type's own keys.
 
@@ -77,24 +56,12 @@ ELK is the standing layout engine: every ELK-capable diagram declares `layout: e
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   elk:
     nodePlacementStrategy: BRANDES_KOEPF
     cycleBreakingStrategy: GREEDY
   flowchart:
     curve: linear
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TD
   accTitle: ELK layout demo
@@ -102,12 +69,6 @@ flowchart TD
   Gate{Gate} --> Run[Run]
   Run --> Done([Done])
   Gate --> Done
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-  classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
-  class Gate recessed
-  class Run primary
-  class Done boundary
 ```
 
 - A flowchart takes ELK through `layout: elk` or `flowchart.defaultRenderer: elk`; swimlane consumes only the `flowchart.defaultRenderer: elk` route into its own layout.
@@ -127,30 +88,24 @@ ELK tuning nests under `elk:`:
 
 ELK engine facts, each carrying its authoring rule:
 
-- `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — railed edges into one target can lose their own colors and their `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
+- `mergeEdges: true` fuses edges sharing a routing corridor into a common trunk — merged edges lose their own `--x`/`--o` end markers, so only a mono-rail diagram may declare it.
 - `nodeSpacing` and `rankSpacing` are inert under ELK — density tunes through `nodePlacementStrategy` and the split move, never those keys.
-- An edge may target a subgraph id, landing its arrowhead on the cluster boundary — the styling reference owns the fan-to-foundation recipe built on it.
+- An edge may target a subgraph id, landing its arrowhead on the cluster boundary — the grammar reference owns the fan-to-foundation recipe built on it.
 - A cluster-target skip edge can make ELK's cycle breaking re-rank the top stratum to the bottom, and `cycleBreakingStrategy: MODEL_ORDER` never rescues a cluster-edge cycle — the repair is declaration order and an invisible `~~~` rank pin between a top-stratum member and a lower-stratum member.
 - A nested subgraph title wider than its content overflows the parent — a subgraph title stays shorter than its member row.
 - `subGraphTitleMargin` displaces edge labels — the key stays out of ELK diagrams.
-- An inner subgraph `direction` holds while the block is closed and drops the moment any member links outside it — the containers rule owned by the styling reference.
+- An inner subgraph `direction` holds while the block is closed and drops the moment any member links outside it — the containers rule owned by the grammar reference.
 - An invisible `~~~` link renders visible and an open link grows a phantom arrowhead — rank control under ELK rides `considerModelOrder` and `forceNodeModelOrder`, and every edge declares its ends.
 - A self-referential edge lands misplaced — a self-loop routes through an explicit intermediate node.
 - Interactive link tooltips are dead under ELK — the label carries the fact.
 
 Architecture layout is fcose, tuned under `architecture:` — `nodeSeparation`, `idealEdgeLengthMultiplier`, `edgeElasticity`, `numIter` — with `seed` as the deterministic lock and `align row|column {ids}` as the placement constraint; `randomize: false` alone never guarantees identical renders.
 
-## [03]-[LOOK]
-
-`look` selects `classic`, `handDrawn`, or `neo`; `handDrawnSeed` pins hand-drawn jitter. Every themed fence declares `look: classic`: neo stamps `data-look="neo"` on nodes and clusters with a gradient-URL stroke and full-opacity drop shadow via `useGradient` and `dropShadow` — the halo a neo-default host paints onto an undeclared fence. Frontmatter `look` outranks any host `initialize` look, `useGradient: false` and `dropShadow: "none"` disarm both under any look, and the family `themeCSS` `filter:none!important` belt closes the cascade; the theming border canon owns the four-layer lock.
-
-Schema themes are `default`, `base`, `dark`, `forest`, `neutral`, `neo`, `neo-dark`, `redux`, `redux-dark`, `redux-color`, and `redux-dark-color`; theme selection and `themeVariables` palette work ride the same frontmatter `config:` block, owned by the theming reference — only `base` accepts `themeVariables`.
-
-## [04]-[ACCESSIBILITY]
+## [03]-[ACCESSIBILITY]
 
 `accTitle:` (one line) and `accDescr:` (one line, or `accDescr { ... }` for a block) follow the diagram header and generate the SVG `<title>`/`<desc>` with aria attributes. `accDescr` states the relation the diagram encodes, not a roster of its nodes. Several families mis-serve the directives — `block`, `sankey`, `venn`, and `mindmap` reject them at parse, `kanban` mis-handles them as columns and `ishikawa` as spurious head nodes, and `timeline` and `eventmodeling` parse both while emitting neither — so there the relation sentence sits beside the fence.
 
-## [05]-[RENDER_ENVIRONMENT]
+## [04]-[RENDER_ENVIRONMENT]
 
 `mmdc` renders a fence to a file, deriving format from the output extension:
 

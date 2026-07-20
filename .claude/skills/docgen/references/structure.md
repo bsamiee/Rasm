@@ -31,6 +31,8 @@ Routing is the one job that licenses linking and naming siblings; every other pa
 
 - Each example owns one demonstration region no sibling example repeats, and shows the form at real composed scale — admission, dispatch, and policy in one body with the growth axis visible — never an isolated minimum.
 - Diagram fences — question admission, type selection, construction, render validation — ride the mermaid-diagramming skill; a doc admits one only as a declared regenerable representation.
+- A mermaid fence in a durable doc carries structural payload only: type declaration, nodes, edges, labels, subgraphs, `accTitle`/`accDescr`, and functional layout keys — `layout`, `elk` placement, `flowchart.curve`, geometry knobs — that change routing legibility; the reader's renderer owns appearance.
+- Theme and look keys, `themeVariables`, `themeCSS`, `classDef`/`class`/`style`/`linkStyle` rows, `:::` class tails, animate edge metadata, and `%%{init:...}%%` directives are styling the gate flags and the fixer strips; a grouping form whose grammar embeds a color (`rect rgb(...)`) stays.
 
 ## [04]-[LEADS]
 
