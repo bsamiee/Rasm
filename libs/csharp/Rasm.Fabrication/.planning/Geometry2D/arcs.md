@@ -1,21 +1,21 @@
 # [RASM_FABRICATION_ARCS]
 
-`ArcAlgebra` owns bulged planar profiles over `CavalierContours`. It offsets profiles and shape forests, evaluates set operations without losing holes, resolves exact arc containment, emits tangent leads and adaptive engagement motion, measures raw winding, cleans profile noise, and lowers arcs to witnessed line approximations. `Loop` remains the package boundary, and every `CavalierContours` carrier stays private to this owner.
+`ArcAlgebra` owns admitted planar arc forests, exact arc set operations, material-side offsets, topology inspection, cutter-center engagement motion, and witnessed chord projection. `Loop` remains the package boundary, and native `CavalierContours` and `geometry3Sharp` carriers terminate inside this owner.
 
 ## [01]-[INDEX]
 
-- [01]-[ARC_ALGEBRA]: `BoolKind`, `KerfSide`, `LeadKind`, `AdaptiveSense`, `ArcRelation`, `LeadPolicy`, `AdaptivePolicy`, `DensifyReceipt`, and the single `ArcAlgebra` operation owner.
+- [02]-[ARC_ALGEBRA]: `ArcForest`, `ArcOp`, `ArcProjection`, `ArcTrace`, `ArcAlgebra.Apply`, and the frozen `ArcAlgebra.Densify` projection seam.
 
 ## [02]-[ARC_ALGEBRA]
 
-- Owner: `BoolKind` is the local Boolean vocabulary; the private generated `Native` Map alone projects it to `BooleanOp`, and set execution rides the same generated total dispatch, so a new row breaks both seams at compile time instead of inheriting a default arm. `KerfSide` carries the signed compensation direction. `LeadKind` derives circle side, start posture, and handedness from one `Direction`. `AdaptiveSense` derives orbit side and handedness from one `Scale`. `ArcRelation` translates `PlineContainsResult` without leaking the foreign enum.
-- Cases: `BoolKind` has `or`, `and`, `not`, and `xor`; `KerfSide` has `outside` and `inside`; `LeadKind` has `in` and `out`; `AdaptiveSense` has `climb` and `conventional`; `ArcRelation` has `disjoint`, `first-inside-second`, `second-inside-first`, and `intersected`.
-- Entry: `KerfArc` compensates a non-empty, single-context closed region set and returns typed `Vanished` or `Overlapped` witnesses. `LeadArc` consumes an admitted `LeadPolicy`. `AdaptiveArc` consumes a point spine and an admitted `AdaptivePolicy`. `ArcBoolean` is one arity-polymorphic operation whose input shape discriminates the exact 1x1 pair from set folding. `ArcOffset`, `ShapeOffset`, `ArcContains`, `ArcClean`, `ArcLength`, `ArcArea`, `ArcWinding`, `SampleAtLength`, and `Densify` share the same `Loop` boundary.
-- Auto: `KerfArc` preserves source ordinals through offset fan-out, detects empty and tolerance-degenerate results, and then checks every survivor relation. A 1x1 `ArcBoolean` request reads both `PosPlines` and `NegPlines`, so outer and hole winding survives. Larger sets admit simple positive regions and fail typed if an intermediate result requires forest-level hole semantics the pairwise engine cannot preserve. `ShapeOffset` alone consumes complete winding forests through `Shape<double>`. `ArcClean` composes `RemoveRepeatPos` and `RemoveRedundant`; `AdaptiveArc` places one engagement orbit at every `StepOver` station through every spine edge.
-- Receipt: `DensifyReceipt` carries the lowered `Loop`, the requested error bound, and the source/output span census. `FabricationFault.KerfCollision` carries region ordinals rather than an invented collision point. `ArcRelation` carries exact pair containment, and `Seq<Loop>` preserves outer and hole winding.
-- Packages: `CavalierContours.Polyline` supplies `Polyline<double>`, `PlineVertex<double>`, `PlineOffset.ParallelOffset`, `PlineBoolean.PolylineBoolean`, `PlineContains.PolylineContains`, `FindPointAtPathLength`, `ArcsToApproxLines`, `RemoveRepeatPos`, and `RemoveRedundant`; `CavalierContours.Shape` supplies `Shape<double>.FromPlines`, `ParallelOffset`, and `OffsetLoop.IndexedPline.Polyline`; `CavalierContours.Spatial` supplies `StaticAABB2DIndex<double>` and `CreateAabbIndex()`; `Loop`, `Move`, `ArcCenter`, `Context`, `FabricationFault`, and `KerfWitness` remain package vocabulary.
-- Growth: a new Boolean modality is one `BoolKind` row plus its `Native` Map arm and set-dispatch arm — both generated-total, so the row cannot compile with borrowed semantics; a new lead or engagement posture is one policy value over the existing kind; a new arc-to-line consumer composes `DensifyReceipt` without minting another bridge.
-- Boundary: all foreign curve, shape, index, Boolean-result, and containment carriers terminate inside `ArcAlgebra`. Measurement preserves raw winding, offset and Boolean operations reject mixed tolerance contexts and cross-plane inputs, every emitted profile re-enters through `Loop.Admit`, and every result re-emits on the admitted `Loop.Plane` elevation rather than `Z = 0`.
+- Owner: generated `ArcForest.Validate` is the sole coplanar, single-context winding admission and preserves its context when a valid set operation produces the empty forest. `ArcOffsetSource` survives on forest-versus-open-path admission and result identity. `LeadShape` and `ArcProbe` survive on variant arity and payload timing. `ArcOp` closes offset, Boolean, compensation, lead, engagement, inspection, and cleanup under one generated case family. `ArcProjection` survives on its projection consumer and makes chord lowering and residual biarc recovery inverse modalities of the frozen `ArcAlgebra.Densify` seam.
+- Cases: `BoolKind` carries `or`, `and`, `not`, and `xor`; `MaterialSide` carries `outside` and `inside`; `CutSense` carries `climb` and `conventional` with the traversal winding each demands; `LeadRole` carries entry and exit; `ArcRelation` carries every provider verdict, including invalid input, and owns the one correspondence both provider enums project through; `LeadShape` carries linear, tangent-arc, and loop forms; `ArcProbe` carries station, point, nearest-point, pair, measure, bounds, and self-intersection queries.
+- Entry: `ArcAlgebra.Apply(ArcOp)` dispatches every manufacturing modality. `ArcAlgebra.Densify(ArcProjection)` alone crosses exact arcs and witnessed chords in either direction. `ArcOp` never wraps `ArcProjection`, so each concern has one entrypoint. Both ingress families carry tolerance, plane, requested error, and policy values in their admitted input.
+- Auto: Boolean execution evaluates every subject-clip pair, preserves positive and negative result slices, classifies the complete boundary candidate set against the requested truth function, and rebuilds one winding forest. Offset and engagement execution retain `OffsetLoop.ParentLoopIdx`, `IndexedPolyline.SpatialIndex`, raw-offset segment counts, and valid-slice counts. Every loop materializes one `Polyline<double>` and one `StaticAABB2DIndex<double>` that every offset, Boolean, containment, and self-intersection query on that loop reuses. `CutSense` decides traversal: a path whose winding disagrees inverts through `InvertDirection` before emission, so climb and conventional differ in the emitted order and not only in the arc-center sense. `LeadRole.Exit` reverses the lead's arc sense and drops the approach rapid. Chord recovery recursively splits at the largest sampled residual until every accepted `BiArcFit2` span satisfies the requested probe policy.
+- Receipt: `ArcReceipt` discriminates offset, Boolean, compensation, and cleanup evidence without empty pair fields or a stage tag. `MotionReceipt` discriminates lead paths from engagement paths without default counters. `DensifyReceipt` retains the provider-enforced error bound, source/output span census, and bounds; `RecoverReceipt` retains requested and sampled achieved error, source/output span census, fit census, and bounds. `ArcInspection` returns exact native measurements without flattening distinct query results: arc-exact area, path length, and winding from the admitted loops, `ClosestPointResult` projection carrying its owning loop, and per-loop self-intersection census beside the total.
+- Packages: `CavalierContours.Polyline` supplies raw offset stages, Boolean result metadata and subslices, containment, self-intersection visitors, exact arc queries, bounds, and error-bounded arc lowering; `CavalierContours.Shape` supplies winding-forest construction, offset, parent lineage, and spatial indexes; `geometry3Sharp.BiArcFit2` supplies residual-driven chord recovery; `Clipper2Lib` supplies bounds; `LanguageExt` supplies `Validation`, `Traverse`, immutable collections, and typed `Fin` rails; `Thinktecture` generates every closed case, policy vocabulary, and admitted value owner.
+- Growth: a new Boolean posture is one smart-enum row carrying native and truth behavior; a new material posture is one row carrying sign and rotation; a new provider verdict is one `ArcRelation` row carrying its native codes, and both projections derive from it with no arm to add. A new operation, query, lead, or projection modality is one union case and one generated-total dispatch arm. New provider evidence enriches the existing receipts.
+- Boundary: Boolean orientation, raw-offset extraction, and residual biarc subdivision are the statement-bearing native and numeric kernels. Mutable lists and indexed native loops exist only while materializing provider input and output. Every probe re-enters the forest's context — a loop proves tolerance and plane through `Compatible`, a query point proves coplanarity — so no cross-context value answers a forest question. Every provider result re-enters through `Loop.Admit` or `ArcForest.Admit`; no provider enum, shape, index, result, or biarc object crosses the owner.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -25,11 +25,13 @@ using CavalierContours.Core;
 using CavalierContours.Polyline;
 using CavalierContours.Shape;
 using CavalierContours.Spatial;
+using Clipper2Lib;
+using Foundation.CSharp.Analyzers.Contracts;
+using g3;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Fabrication.Process;
-using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
@@ -37,413 +39,895 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Geometry2D;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BoolKind {
-    public static readonly BoolKind Or = new("or");
-    public static readonly BoolKind And = new("and");
-    public static readonly BoolKind Not = new("not");
-    public static readonly BoolKind Xor = new("xor");
+    public static readonly BoolKind Or = new("or", BooleanOp.Or, static (subject, clip) => subject || clip);
+    public static readonly BoolKind And = new("and", BooleanOp.And, static (subject, clip) => subject && clip);
+    public static readonly BoolKind Not = new("not", BooleanOp.Not, static (subject, clip) => subject && !clip);
+    public static readonly BoolKind Xor = new("xor", BooleanOp.Xor, static (subject, clip) => subject ^ clip);
+
+    internal BooleanOp Native { get; }
+    private Func<bool, bool, bool> Rule { get; }
+
+    internal bool Includes(bool subject, bool clip) => Rule(subject, clip);
 }
 
 [SmartEnum<string>]
-public sealed partial class KerfSide {
-    public static readonly KerfSide Outside = new("outside", 1.0);
-    public static readonly KerfSide Inside = new("inside", -1.0);
+public sealed partial class MaterialSide {
+    public static readonly MaterialSide Outside = new("outside", 1.0, RotationSense.Counterclockwise);
+    public static readonly MaterialSide Inside = new("inside", -1.0, RotationSense.Clockwise);
 
-    public double Scale { get; }
-    public double Signed(double kerf) => Scale * Math.Abs(kerf);
+    private double Scale { get; }
+    internal RotationSense Rotation { get; }
+
+    internal double Signed(double distance) => Scale * distance;
 }
 
 [SmartEnum<string>]
-public sealed partial class LeadKind {
-    public static readonly LeadKind In = new("in", direction: -1.0);
-    public static readonly LeadKind Out = new("out", direction: 1.0);
+public sealed partial class CutSense {
+    public static readonly CutSense Climb = new("climb", RotationSense.Counterclockwise, Sign.Positive);
+    public static readonly CutSense Conventional = new("conventional", RotationSense.Clockwise, Sign.Negative);
 
-    public double Direction { get; }
-    public bool StartsOffProfile => Direction < 0.0;
-    public RotationSense Sense => Direction < 0.0 ? RotationSense.Clockwise : RotationSense.Counterclockwise;
+    internal RotationSense Rotation { get; }
+    internal Sign Winding { get; }
 }
 
 [SmartEnum<string>]
-public sealed partial class AdaptiveSense {
-    public static readonly AdaptiveSense Climb = new("climb", scale: 1.0);
-    public static readonly AdaptiveSense Conventional = new("conventional", scale: -1.0);
+public sealed partial class LeadRole {
+    public static readonly LeadRole Entry = new("entry", false);
+    public static readonly LeadRole Exit = new("exit", true);
 
-    public double Scale { get; }
-    public RotationSense Sense => Scale > 0.0 ? RotationSense.Clockwise : RotationSense.Counterclockwise;
+    private bool Departs { get; }
+
+    // Entry rapids to the outboard point then cuts inward; exit resumes at the cut point and
+    // sweeps outward, so a reversed arc lead traverses its center the opposite way.
+    internal Seq<Move> Emit(Point3d outboard, Point3d cut, double feed, Option<ArcCenter> arc) => Departs
+        ? Seq(Cut(outboard, feed, arc.Map(static center => center with { Sense = Opposite(center.Sense) })))
+        : Seq<Move>(new Move.Rapid(outboard), Cut(cut, feed, arc));
+
+    private static Move Cut(Point3d target, double feed, Option<ArcCenter> arc) => arc.Match(
+        Some: center => new Move.Circular(target, feed, center),
+        None: () => (Move)new Move.Linear(target, feed));
+
+    private static RotationSense Opposite(RotationSense sense) => sense == RotationSense.Clockwise
+        ? RotationSense.Counterclockwise
+        : RotationSense.Clockwise;
 }
 
-// The containment verdict vocabulary the PlineContainsResult boundary translates onto — the foreign enum never escapes.
 [SmartEnum<string>]
 public sealed partial class ArcRelation {
-    public static readonly ArcRelation Disjoint = new("disjoint");
-    public static readonly ArcRelation FirstInsideSecond = new("first-inside-second");
-    public static readonly ArcRelation SecondInsideFirst = new("second-inside-first");
-    public static readonly ArcRelation Intersected = new("intersected");
+    public static readonly ArcRelation InvalidInput =
+        new("invalid-input", BooleanResultInfo.InvalidInput, PlineContainsResult.InvalidInput);
+    public static readonly ArcRelation FirstInsideSecond =
+        new("first-inside-second", BooleanResultInfo.Pline1InsidePline2, PlineContainsResult.Pline1InsidePline2);
+    public static readonly ArcRelation SecondInsideFirst =
+        new("second-inside-first", BooleanResultInfo.Pline2InsidePline1, PlineContainsResult.Pline2InsidePline1);
+    public static readonly ArcRelation Disjoint =
+        new("disjoint", BooleanResultInfo.Disjoint, PlineContainsResult.Disjoint);
+    public static readonly ArcRelation Overlapping = new("overlapping", BooleanResultInfo.Overlapping, null);
+    public static readonly ArcRelation Intersected =
+        new("intersected", BooleanResultInfo.Intersected, PlineContainsResult.Intersected);
+
+    private BooleanResultInfo BooleanCode { get; }
+    private PlineContainsResult? ContainsCode { get; }
+
+    internal static ArcRelation Of(BooleanResultInfo relation) =>
+        toSeq(Items).Find(row => row.BooleanCode == relation).IfNone(InvalidInput);
+
+    internal static ArcRelation Of(PlineContainsResult relation) =>
+        toSeq(Items).Find(row => row.ContainsCode == relation).IfNone(InvalidInput);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record LeadPolicy {
-    private LeadPolicy(double station, double radius, double feed, LeadKind kind) =>
-        (Station, Radius, Feed, Kind) = (station, radius, feed, kind);
+// --- [OWNERS] -------------------------------------------------------------------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial record ArcForest(Seq<Loop> Loops, Context Tolerance, double Plane) {
+    public static Validation<Error, ArcForest> Admit(Seq<Loop> loops, Context tolerance, double plane) =>
+        Validate(loops, tolerance, plane, out ArcForest? forest) is null
+            ? Validation<Error, ArcForest>.Success(forest!)
+            : Validation<Error, ArcForest>.Fail(
+                new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-forest:structure").ToError());
 
-    public double Station { get; }
-    public double Radius { get; }
-    public double Feed { get; }
-    public LeadKind Kind { get; }
-
-    public static Fin<LeadPolicy> Admit(double station, double radius, double feed, LeadKind kind) =>
-        double.IsFinite(station) && station >= 0.0
-        && double.IsFinite(radius) && radius > 0.0
-        && double.IsFinite(feed) && feed > 0.0
-            ? Fin.Succ(new LeadPolicy(station, radius, feed, kind))
-            : Fin.Fail<LeadPolicy>(GeometryFault.DegenerateInput("lead-policy").ToError());
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<Loop> loops,
+        ref Context tolerance,
+        ref double plane) =>
+        validationError = double.IsFinite(plane)
+            && loops.ForAll(loop => loop.Closed
+                && loop.Tolerance == tolerance
+                && Math.Abs(loop.Plane - plane) <= tolerance.Absolute.Value)
+            ? null
+            : new ValidationError(message: "Arc forests require closed, coplanar loops in one valid context.");
 }
 
-public sealed record AdaptivePolicy {
-    private AdaptivePolicy(double engagementRadius, double stepOver, double feed, AdaptiveSense sense) =>
-        (EngagementRadius, StepOver, Feed, Sense) = (engagementRadius, stepOver, feed, sense);
-
-    public double EngagementRadius { get; }
-    public double StepOver { get; }
-    public double Feed { get; }
-    public AdaptiveSense Sense { get; }
-
-    public static Fin<AdaptivePolicy> Admit(
-        double engagementRadius,
-        double stepOver,
-        double feed,
-        AdaptiveSense sense) =>
-        double.IsFinite(engagementRadius) && engagementRadius > 0.0
-        && double.IsFinite(stepOver) && stepOver > 0.0 && stepOver < engagementRadius * 2.0
-        && double.IsFinite(feed) && feed > 0.0
-            ? Fin.Succ(new AdaptivePolicy(engagementRadius, stepOver, feed, sense))
-            : Fin.Fail<AdaptivePolicy>(GeometryFault.DegenerateInput("adaptive-policy").ToError());
+[Union]
+public abstract partial record LeadShape {
+    public sealed record Linear(double Length) : LeadShape;
+    public sealed record Tangent(double Radius, double Sweep) : LeadShape;
+    public sealed record Loop(double Radius) : LeadShape;
 }
 
-public readonly record struct DensifyReceipt(Loop Result, double ErrorBound, int SourceSpans, int OutputSpans);
+[Union]
+public abstract partial record ArcProbe {
+    public sealed record AtLength(Loop Loop, double Station) : ArcProbe;
+    public sealed record Point(Point3d Point) : ArcProbe;
+    public sealed record Near(Point3d Point) : ArcProbe;
+    public sealed record Pair(Loop First, Loop Second) : ArcProbe;
+    public sealed record Measure : ArcProbe;
+    public sealed record Bounds : ArcProbe;
+    public sealed record Self : ArcProbe;
+}
+
+[Union]
+public abstract partial record ArcProjection {
+    public sealed record Lower(Loop Loop, double Error) : ArcProjection;
+    public sealed record Recover(Loop Chords, double Error, int ProbeFloor) : ArcProjection;
+}
+
+[Union]
+public abstract partial record ArcOffsetSource {
+    public sealed record Forest(ArcForest Value) : ArcOffsetSource;
+    public sealed record Path(Loop Value) : ArcOffsetSource;
+}
+
+[Union]
+public abstract partial record ArcOp {
+    public sealed record Offset(ArcOffsetSource Source, double Distance) : ArcOp;
+    public sealed record Boolean(ArcForest Subject, ArcForest Clip, BoolKind Kind) : ArcOp;
+    public sealed record Kerf(ArcForest Forest, double Width, MaterialSide Side) : ArcOp;
+    public sealed record Lead(
+        Loop Loop,
+        double Station,
+        double Feed,
+        LeadShape Shape,
+        MaterialSide Side,
+        LeadRole Role) : ArcOp;
+    public sealed record Adaptive(
+        ArcForest Stock,
+        Option<Loop> Guide,
+        double CutterRadius,
+        double RadialEngagement,
+        double StepOver,
+        double Feed,
+        CutSense Sense) : ArcOp;
+    public sealed record Inspect(ArcForest Forest, ArcProbe Probe) : ArcOp;
+    public sealed record Clean(ArcForest Forest) : ArcOp;
+}
+
+// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+public readonly record struct ArcLoopEvidence(Loop Output, int Parent, Sign Winding, int IndexItems, int OutputSegments);
+
+public readonly record struct ArcPairEvidence(
+    int Subject,
+    int Clip,
+    ArcRelation Relation,
+    int Positive,
+    int Negative,
+    int SourceSlices);
+
+public readonly record struct ArcSelfEvidence(int Loop, int Intersections);
+
+[Union]
+public abstract partial record ArcReceipt {
+    public sealed record Offset(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
+    public sealed record Boolean(Seq<ArcLoopEvidence> Loops, Seq<ArcPairEvidence> Pairs) : ArcReceipt;
+    public sealed record Kerf(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
+    public sealed record Clean(Seq<ArcLoopEvidence> Loops) : ArcReceipt;
+}
+
+[Union]
+public abstract partial record MotionReceipt {
+    public sealed record Lead(Seq<Move> Path) : MotionReceipt;
+    public sealed record Engagement(
+        Seq<Move> Path,
+        int Levels,
+        int RawSegments,
+        int ValidSlices,
+        int EmittedSpans,
+        double RadialEngagement) : MotionReceipt;
+
+    public Seq<Move> Moves => Switch(
+        lead: static receipt => receipt.Path,
+        engagement: static receipt => receipt.Path);
+}
+
+public sealed record DensifyReceipt(
+    Loop Exact,
+    Loop Result,
+    double ErrorBound,
+    int SourceSpans,
+    int OutputSpans,
+    BoundingBox Bounds);
+
+public sealed record RecoverReceipt(
+    Loop Chords,
+    Loop Result,
+    double ErrorBound,
+    double AchievedError,
+    int SourceSpans,
+    int OutputSpans,
+    int Fits,
+    int ArcSpans,
+    int LinearSpans,
+    BoundingBox Bounds);
+
+[Union]
+public abstract partial record ArcInspection {
+    public sealed record Sample(Point3d Point, double Station, int Span, double Accumulated) : ArcInspection;
+    public sealed record Winding(int WindingNumber, bool Covered) : ArcInspection;
+    public sealed record Near(Point3d Point, double Distance, int Span, int Loop) : ArcInspection;
+    public sealed record Pair(ArcRelation Relation, int BasicIntersections, int Overlaps) : ArcInspection;
+    public sealed record Measure(double Area, double Length, Sign Winding) : ArcInspection;
+    public sealed record Bounds(BoundingBox Value) : ArcInspection;
+    public sealed record Self(Seq<ArcSelfEvidence> Loops, int Intersections) : ArcInspection;
+}
+
+[Union]
+public abstract partial record ArcTrace {
+    public sealed record Forest(ArcForest Result, ArcReceipt Receipt) : ArcTrace;
+    public sealed record Paths(Seq<Loop> Result, ArcReceipt Receipt) : ArcTrace;
+    public sealed record Motion(MotionReceipt Receipt) : ArcTrace;
+    public sealed record Inspection(ArcInspection Result) : ArcTrace;
+    public sealed record Densified(DensifyReceipt Receipt) : ArcTrace;
+    public sealed record Recovered(RecoverReceipt Receipt) : ArcTrace;
+
+    public Option<DensifyReceipt> DensifiedReceipt => this is Densified row ? Some(row.Receipt) : None;
+    public Option<RecoverReceipt> RecoveredReceipt => this is Recovered row ? Some(row.Receipt) : None;
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class ArcAlgebra {
-    public static Fin<Seq<Loop>> KerfArc(Seq<Loop> regionOffsets, double kerf, KerfSide side) =>
-        regionOffsets.IsEmpty || regionOffsets.Exists(static loop => !loop.Closed)
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("kerf-arc:regions").ToError())
-        : regionOffsets.Map(static loop => loop.Tolerance).Distinct().Count > 1
-          || regionOffsets.Exists(loop => Math.Abs(loop.Plane - regionOffsets.Head.Plane) > loop.Tolerance.Absolute.Value)
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("kerf-arc:mixed-context").ToError())
-        : !double.IsFinite(kerf) || kerf <= 0.0
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("kerf-arc:kerf").ToError())
-            : from groups in Range(0, regionOffsets.Count)
-                  .Traverse(source => ArcOffset(regionOffsets[source], side.Signed(kerf))
-                      .Map(offsets => (Source: source, Offsets: offsets)))
-                  .As()
-              let survivors = groups.Bind(static group => group.Offsets.Map(loop => (group.Source, Loop: loop)))
-              from lengths in survivors.Traverse(row => ArcLength(row.Loop)
-                  .Map(length => (row.Source, row.Loop, Length: length)))
-                  .As()
-              let vanished = groups.Find(static group => group.Offsets.IsEmpty)
-                      .Map(static group => (KerfWitness)new KerfWitness.Vanished(group.Source))
-                  | lengths.Find(static row => row.Length <= row.Loop.Tolerance.Absolute.Value)
-                      .Map(static row => (KerfWitness)new KerfWitness.Vanished(row.Source))
-              from admitted in vanished.Match(
-                  Some: witness => KerfFailure(witness, kerf),
-                  None: () => Collision(survivors).Match(
-                      Some: pair => KerfFailure(new KerfWitness.Overlapped(pair.First, pair.Second), kerf),
-                      None: () => Fin.Succ(survivors.Map(static row => row.Loop))))
-              select admitted;
+    public static Fin<ArcTrace> Apply(ArcOp operation) => operation.Switch(
+        offset: static request => request.Source.Switch(
+            forest: source => OffsetForest(
+                source.Value,
+                request.Distance,
+                static loops => new ArcReceipt.Offset(loops)),
+            path: source => OffsetPath(source.Value, request.Distance)),
+        boolean: static request => Boolean(request.Subject, request.Clip, request.Kind),
+        kerf: static request => Positive(request.Width, "arc-kerf:width").Bind(width =>
+            OffsetForest(
+                request.Forest,
+                request.Side.Signed(width / 2.0),
+                static loops => new ArcReceipt.Kerf(loops))),
+        lead: static request => Lead(request),
+        adaptive: static request => Adaptive(request),
+        inspect: static request => Inspect(request.Forest, request.Probe),
+        clean: static request => Clean(request.Forest));
 
-    // The center-normal and endpoint-tangent construction keeps both endpoints radius-true and tangent at the pierce.
-    public static Fin<Seq<Move>> LeadArc(Loop profile, LeadPolicy policy) =>
-        FrameAt(profile, policy.Station).Bind(frame => {
-            Point3d center = frame.Pierce + (frame.Normal * policy.Kind.Direction * policy.Radius);
-            Point3d offProfile = policy.Kind.StartsOffProfile
-                ? center - (frame.Tangent * policy.Radius)
-                : center + (frame.Tangent * policy.Radius);
-            Point3d start = policy.Kind.StartsOffProfile ? offProfile : frame.Pierce;
-            Point3d end = policy.Kind.StartsOffProfile ? frame.Pierce : offProfile;
-            return Seq(
-                policy.Kind.StartsOffProfile
-                    ? (Move)new Move.Rapid(start)
-                    : new Move.Linear(start, policy.Feed),
-                new Move.Circular(end, policy.Feed, new ArcCenter(center, policy.Kind.Sense)))
-                .Traverse(Move.Admit)
+    public static Fin<ArcTrace> Densify(ArcProjection projection) => projection.Switch(
+        lower: static request => Lower(request.Loop, request.Error)
+            .Map<ArcTrace>(static receipt => new ArcTrace.Densified(receipt)),
+        recover: static request => Recover(request.Chords, request.Error, request.ProbeFloor)
+            .Map<ArcTrace>(static receipt => new ArcTrace.Recovered(receipt)));
+
+    private static Fin<ArcTrace> OffsetForest(
+        ArcForest forest,
+        double distance,
+        Func<Seq<ArcLoopEvidence>, ArcReceipt> receipt) =>
+        Finite(distance, "arc-offset:distance").Bind(value => ForestOf(
+            (forest.Loops.IsEmpty
+                ? Shape<double>.Empty()
+                : Shape<double>.FromPlines(forest.Loops.Map(Pline).ToList()))
+                .ParallelOffset(value, ShapeOptions(forest.Tolerance)),
+            forest,
+            receipt));
+
+    private static Fin<ArcTrace> OffsetPath(Loop path, double distance) =>
+        from value in Finite(distance, "arc-offset:distance")
+        let source = NativeOf(path)
+        from paths in toSeq(PlineOffset.ParallelOffset<Polyline<double>, double>(
+                    source.Pline, value, OffsetOptions(path.Tolerance, source.Index)))
+                .Traverse(pline => FromPline(pline, path.Tolerance, path.Plane).Map(loop => (Loop: loop, Pline: pline)))
                 .As()
-                .Map(static moves => moves.ToSeq());
-        });
+        select (ArcTrace)new ArcTrace.Paths(
+            paths.Map(static row => row.Loop).ToSeq(),
+            new ArcReceipt.Offset(paths.MapIndexed(static (index, row) => new ArcLoopEvidence(
+                row.Loop,
+                index,
+                row.Loop.Winding(),
+                row.Pline.CreateAabbIndex().Count,
+                row.Pline.SegmentCount())).ToSeq()));
 
-    public static Fin<Seq<Move>> AdaptiveArc(Seq<Point3d> spine, AdaptivePolicy policy) =>
-        spine.Exists(static point => !point.IsValid)
-            ? Fin.Fail<Seq<Move>>(GeometryFault.DegenerateInput("adaptive-arc:spine").ToError())
-            : Fin.Succ(spine).Bind(admitted => {
-                Arr<Point3d> nodes = admitted.ToArr();
-                return nodes.Count < 2
-                    ? Fin.Fail<Seq<Move>>(GeometryFault.DegenerateInput("adaptive-arc:spine").ToError())
-                    : toSeq(Enumerable.Range(0, nodes.Count - 1))
-                        .Bind(i => Trochoid(nodes[i], nodes[i + 1], policy))
-                        .Traverse(Move.Admit)
-                        .As()
-                        .Map(static moves => moves.ToSeq());
-            });
-
-    public static Fin<Seq<Loop>> ArcOffset(Loop profile, double offset) =>
-        !double.IsFinite(offset)
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("arc-offset:distance").ToError())
-            : Admit(profile, "arc-offset").Bind(pline => {
-                StaticAABB2DIndex<double> index = pline.CreateAabbIndex();
-                List<Polyline<double>> result =
-                    PlineOffset.ParallelOffset<Polyline<double>, double>(pline, offset, OffsetOptions(index, profile.Tolerance));
-                return Loops(result, profile.Tolerance, profile.Plane);
-            });
-
-    // One Boolean entry: a 1x1 request runs the exact pairwise engine whose positive and negative output windings
-    // preserve outer and hole discrimination; larger sets fold pairwise under simple-region admission through the
-    // same total generated BoolKind dispatch.
-    public static Fin<Seq<Loop>> ArcBoolean(Seq<Loop> subjects, Seq<Loop> clips, BoolKind operation) =>
-        subjects.Count == 1 && clips.Count == 1
-            ? PairBoolean(subjects.Head, clips.Head, operation)
-            : operation.Switch(
-                state: (Subjects: subjects, Clips: clips),
-                or: static state => NormalizeUnion(state.Subjects + state.Clips),
-                and: static state => Pairwise(state.Subjects, state.Clips, BoolKind.And).Bind(NormalizeUnion),
-                not: static state => Difference(state.Subjects, state.Clips).Bind(NormalizeUnion),
-                xor: static state => SymmetricDifference(state.Subjects, state.Clips));
-
-    private static Fin<Seq<Loop>> PairBoolean(Loop a, Loop b, BoolKind operation) =>
-        SimpleRegion(a, "arc-boolean:a").Bind(pa =>
-            SimpleRegion(b, "arc-boolean:b").Bind(pb => {
-                if (a.Tolerance != b.Tolerance || Math.Abs(a.Plane - b.Plane) > a.Tolerance.Absolute.Value)
-                    return Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("arc-boolean:mixed-context").ToError());
-                PlineBooleanOptions<double> options = new() {
-                    PosEqualEps = a.Tolerance.Absolute.Value,
-                    Pline1AabbIndex = pa.CreateAabbIndex(),
-                };
-                BooleanResult<Polyline<double>, double> result =
-                    PlineBoolean.PolylineBoolean<Polyline<double>, double>(pa, pb, Native(operation), options);
-                return (toSeq(result.PosPlines).Map(static row => row.Pline)
-                     + toSeq(result.NegPlines).Map(static row => row.Pline))
-                    .Traverse(pline => FromPline(pline, a.Tolerance, a.Plane))
-                    .As()
-                    .Map(static loops => loops.ToSeq());
-            }));
-
-    public static Fin<Seq<Loop>> ShapeOffset(Seq<Loop> loops, double offset) =>
-        loops.IsEmpty || loops.Exists(static loop => !loop.Closed)
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("shape-offset:empty").ToError())
-            : loops.Map(static loop => loop.Tolerance).Distinct().Count > 1
-              || loops.Exists(loop => Math.Abs(loop.Plane - loops.Head.Plane) > loop.Tolerance.Absolute.Value)
-                ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("shape-offset:mixed-context").ToError())
-            : !double.IsFinite(offset)
-                ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("shape-offset:distance").ToError())
-                : loops.Traverse(loop => Admit(loop, "shape-offset:loop")).As().Bind(plines =>
-                    ShapeLoops(
-                        Shape<double>.FromPlines(plines).ParallelOffset(
-                            offset,
-                            new ShapeOffsetOptions<double>(
-                                loops.Head.Tolerance.Absolute.Value,
-                                loops.Head.Tolerance.Absolute.Value,
-                                loops.Head.Tolerance.Absolute.Value)),
-                        loops.Head.Tolerance, loops.Head.Plane));
-
-    // Arc-exact containment translates the engine verdict onto the local closed vocabulary.
-    public static Fin<ArcRelation> ArcContains(Loop first, Loop second) =>
-        !first.Closed || !second.Closed || first.Tolerance != second.Tolerance
-        || Math.Abs(first.Plane - second.Plane) > first.Tolerance.Absolute.Value
-            ? Fin.Fail<ArcRelation>(GeometryFault.DegenerateInput("arc-contains:mixed-context").ToError())
-            : Admit(first, "arc-contains:first").Bind(pa =>
-            Admit(second, "arc-contains:second").Bind(pb =>
-                PlineContains.PolylineContains(pa, pb, new PlineContainsOptions<double> {
-                    PosEqualEps = first.Tolerance.Absolute.Value,
-                }) switch {
-                    PlineContainsResult.Pline1InsidePline2 => Fin.Succ(ArcRelation.FirstInsideSecond),
-                    PlineContainsResult.Pline2InsidePline1 => Fin.Succ(ArcRelation.SecondInsideFirst),
-                    PlineContainsResult.Disjoint => Fin.Succ(ArcRelation.Disjoint),
-                    PlineContainsResult.Intersected => Fin.Succ(ArcRelation.Intersected),
-                    _ => Fin.Fail<ArcRelation>(GeometryFault.DegenerateInput("arc-contains:invalid").ToError()),
-                }));
-
-    public static Fin<Loop> ArcClean(Loop profile) =>
-        Admit(profile, "arc-clean").Bind(pline => FromPline(
-            pline.RemoveRepeatPos(profile.Tolerance.Absolute.Value)
-                .RemoveRedundant(profile.Tolerance.Absolute.Value),
-            profile.Tolerance, profile.Plane));
-
-    public static Fin<double> ArcLength(Loop profile) =>
-        Admit(profile, "arc-length").Map(static pline => pline.PathLength());
-
-    public static Fin<double> ArcArea(Loop profile) =>
-        Region(profile, "arc-area").Map(static pline => pline.Area());
-
-    public static Fin<Sign> ArcWinding(Loop profile) =>
-        Region(profile, "arc-winding").Map(static pline => pline.Orientation() switch {
-            PlineOrientation.CounterClockwise => Sign.Positive,
-            PlineOrientation.Clockwise => Sign.Negative,
-            _ => Sign.Zero,
-        });
-
-    public static Fin<Point3d> SampleAtLength(Loop profile, double pathLength) =>
-        !double.IsFinite(pathLength) || pathLength < 0.0
-            ? Fin.Fail<Point3d>(GeometryFault.DegenerateInput("arc-sample:length").ToError())
-            : Admit(profile, "arc-sample").Bind(pline =>
-                pline.FindPointAtPathLength(pathLength) switch {
-                    (true, _, Vector2<double> point, _) => Fin.Succ(new Point3d(point.X, point.Y, profile.Plane)),
-                    _ => Fin.Fail<Point3d>(GeometryFault.DegenerateInput("arc-sample:outside").ToError()),
+    private static Fin<ArcTrace> Boolean(ArcForest subject, ArcForest clip, BoolKind kind) =>
+        Compatible(subject, clip, "arc-boolean").Bind(_ => {
+            Seq<Native> subjects = subject.Loops.Map(NativeOf);
+            Seq<Native> clips = clip.Loops.Map(NativeOf);
+            Seq<(int Subject, int Clip, BooleanResult<Polyline<double>, double> Result)> pairs =
+                subjects.MapIndexed((si, first) => clips.MapIndexed((ci, second) => (
+                    Subject: si,
+                    Clip: ci,
+                    Result: PlineBoolean.PolylineBoolean<Polyline<double>, double>(
+                        first.Pline, second.Pline, kind.Native,
+                        BooleanOptions(first, subject.Tolerance))))).Bind(static rows => rows);
+            Seq<ArcPairEvidence> evidence = pairs.Map(row => new ArcPairEvidence(
+                row.Subject,
+                row.Clip,
+                ArcRelation.Of(row.Result.ResultInfo),
+                row.Result.PosPlines.Count,
+                row.Result.NegPlines.Count,
+                toSeq(row.Result.PosPlines).Fold(0, static (count, result) => count + result.Subslices.Count)
+                    + toSeq(row.Result.NegPlines).Fold(0, static (count, result) => count + result.Subslices.Count)));
+            Seq<(Polyline<double> Pline, Option<Loop> Admitted)> candidates = pairs
+                .Bind(static row => toSeq(row.Result.PosPlines).Map(static result => result.Pline)
+                    + toSeq(row.Result.NegPlines).Map(static result => result.Pline))
+                .Map(static pline => (Pline: pline, Admitted: Option<Loop>.None))
+                + subject.Loops.Map(static loop => (Pline: Pline(loop), Admitted: Some(loop)))
+                + clip.Loops.Map(static loop => (Pline: Pline(loop), Admitted: Some(loop)));
+            return candidates.Traverse(candidate => Boundary(candidate.Pline, candidate.Admitted, subjects, clips,
+                    subject.Tolerance, subject.Plane, kind)).As()
+                .Bind(classified => {
+                    Seq<Polyline<double>> boundary = classified.Bind(static candidate => candidate.ToSeq())
+                        .Fold(Seq<Polyline<double>>(), (unique, candidate) =>
+                            unique.Exists(item => item.FuzzyEqEps(
+                                candidate, subject.Tolerance.Absolute.Value))
+                                ? unique
+                                : unique.Add(candidate));
+                    return pairs.Exists(static row => row.Result.ResultInfo == BooleanResultInfo.InvalidInput)
+                        ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1,
+                            "arc-boolean:invalid-input").ToError())
+                        : ForestOf(
+                            boundary.IsEmpty
+                                ? Shape<double>.Empty()
+                                : Shape<double>.FromPlines(boundary.ToList()),
+                            subject,
+                            loops => new ArcReceipt.Boolean(loops, evidence));
                 });
+        });
 
-    public static Fin<DensifyReceipt> Densify(Loop profile, double errorDistance) =>
-        !double.IsFinite(errorDistance) || errorDistance <= 0.0
-            ? Fin.Fail<DensifyReceipt>(GeometryFault.DegenerateInput("arc-densify:error").ToError())
-            : Admit(profile, "arc-densify").Bind(pline => {
-                Polyline<double> dense = pline.ArcsToApproxLines(errorDistance);
-                return FromPline(dense, profile.Tolerance, profile.Plane).Map(result =>
-                    new DensifyReceipt(result, errorDistance, profile.Spans, result.Spans));
+    private static Fin<Option<Polyline<double>>> Boundary(
+        Polyline<double> candidate,
+        Option<Loop> admitted,
+        Seq<Native> subjects,
+        Seq<Native> clips,
+        Context tolerance,
+        double plane,
+        BoolKind kind) =>
+        admitted.Match(
+                Some: static loop => Fin.Succ(loop),
+                None: () => FromPline(candidate, tolerance, plane))
+            .Map(Pline)
+            .Bind(native => {
+                PlineVertex<double> first = native.Get(0);
+                PlineVertex<double> second = native.Get(1);
+                Vector2<double> point = PlineSeg.SegMidpoint(first, second);
+                Vector2<double> tangent = PlineSeg.SegTangentVector(first, second, point);
+                double length = Math.Sqrt((tangent.X * tangent.X) + (tangent.Y * tangent.Y));
+                if (!double.IsFinite(length) || length <= tolerance.Absolute.Value)
+                    return Fin.Fail<Option<Polyline<double>>>(
+                        new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-boolean:boundary").ToError());
+                Vector2<double> normal = new(-tangent.Y / length, tangent.X / length);
+                double epsilon = tolerance.Absolute.Value * 2.0;
+                Vector2<double> left = new(point.X + (normal.X * epsilon), point.Y + (normal.Y * epsilon));
+                Vector2<double> right = new(point.X - (normal.X * epsilon), point.Y - (normal.Y * epsilon));
+                bool materialLeft = kind.Includes(Covers(subjects, left), Covers(clips, left));
+                bool materialRight = kind.Includes(Covers(subjects, right), Covers(clips, right));
+                if (materialLeft == materialRight) return Fin.Succ(Option<Polyline<double>>.None);
+                if (materialRight) native.InvertDirection();
+                return Fin.Succ(Some(native));
             });
 
-    private static Option<(int First, int Second)> Collision(Seq<(int Source, Loop Loop)> arcs) =>
-        toSeq(Enumerable.Range(0, arcs.Count))
-            .Bind(first => toSeq(Enumerable.Range(first + 1, arcs.Count - first - 1))
-                .Map(second => (First: first, Second: second)))
-            .Find(pair => PlineContains.PolylineContains(
-                    Pline(arcs[pair.First].Loop),
-                    Pline(arcs[pair.Second].Loop),
-                    new PlineContainsOptions<double> {
-                        PosEqualEps = arcs[pair.First].Loop.Tolerance.Absolute.Value,
-                    }) != PlineContainsResult.Disjoint)
-            .Map(pair => (arcs[pair.First].Source, arcs[pair.Second].Source));
+    private static bool Covers(Seq<Native> natives, Vector2<double> point) =>
+        natives.Fold(0, (winding, native) => winding + native.Pline.WindingNumber(point)) != 0;
 
-    private static Fin<Seq<Loop>> KerfFailure(KerfWitness witness, double kerf) =>
-        Fin.Fail<Seq<Loop>>(FabricationFault.KerfCollision(witness, kerf).ToError());
+    private static Fin<ArcTrace> Lead(ArcOp.Lead request) =>
+        from admitted in (
+                AdmitsMagnitude(request.Feed, "arc-lead:feed"),
+                AdmitsStation(request.Station, "arc-lead:station"))
+            .Apply(static (feed, station) => (Feed: feed, Station: station)).As().ToFin()
+        from frame in Frame(request.Loop, admitted.Station)
+        from path in request.Shape.Switch(
+            linear: shape => LinearLead(frame, shape.Length, admitted.Feed, request.Side, request.Role),
+            tangent: shape => TangentLead(frame, shape.Radius, shape.Sweep, admitted.Feed, request.Side, request.Role),
+            loop: shape => LoopLead(frame, shape.Radius, admitted.Feed, request.Side, request.Role))
+        from moves in path.Traverse(Move.Admit).As()
+        select (ArcTrace)new ArcTrace.Motion(new MotionReceipt.Lead(moves.ToSeq()));
 
-    private static Fin<Polyline<double>> Admit(Loop loop, string locus) =>
-        loop.Count < 2 || loop.Vertices.Exists(static point => !point.IsValid)
-            ? Fin.Fail<Polyline<double>>(GeometryFault.DegenerateInput(locus).ToError())
-            : Fin.Succ(Pline(loop));
+    private static Fin<ArcTrace> Adaptive(ArcOp.Adaptive request) =>
+        request.Stock.Loops.IsEmpty
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:empty-stock").ToError())
+            : (from admitted in (
+                       AdmitsMagnitude(request.CutterRadius, "arc-adaptive:cutter-radius"),
+                       AdmitsMagnitude(request.RadialEngagement, "arc-adaptive:radial-engagement"),
+                       AdmitsMagnitude(request.StepOver, "arc-adaptive:step-over"),
+                       AdmitsMagnitude(request.Feed, "arc-adaptive:feed"))
+                   .Apply(static (radius, engagement, stepOver, feed) =>
+                       (Radius: radius, Engagement: engagement, StepOver: stepOver, Feed: feed))
+                   .As().ToFin()
+               from radial in admitted.Engagement <= admitted.Radius * 2.0
+                   && admitted.StepOver <= admitted.Radius * 2.0
+                   ? Fin.Succ(double.Min(admitted.StepOver, admitted.Engagement))
+                   : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:engagement").ToError())
+               from _ in request.Guide.ToSeq()
+                   .Traverse(guide => Compatible(guide, request.Stock, "arc-adaptive:guide")).As()
+                   .Map(static _ => unit)
+               let extent = request.Stock.Loops.Map(static loop => loop.Bound().Diagonal.Length).Max()
+               from levels in LevelCount(extent, admitted.Radius, radial)
+               let distances = toSeq(Enumerable.Range(0, levels))
+                   .Map(level => (Level: level, Distance: -(admitted.Radius + (level * radial))))
+               let native = request.Stock.Loops.Map(NativeOf)
+               let shape = Shape<double>.FromPlines(native.Map(static row => row.Pline).ToList())
+               let raw = distances.Bind(row => native.Map(loop =>
+                   Raw(loop, request.Stock.Tolerance, row.Distance)))
+               let offsets = distances.Map(row => shape.ParallelOffset(
+                   row.Distance,
+                   ShapeOptions(request.Stock.Tolerance)))
+               from admittedPaths in offsets
+                   .Bind(static offset => toSeq(offset.CcwPlines).Concat(toSeq(offset.CwPlines)))
+                   .Map(static row => row.IndexedPline.Polyline)
+                   .Traverse(pline => FromPline(pline, request.Stock.Tolerance, request.Stock.Plane)).As()
+               let paths = admittedPaths.ToSeq()
+               from pathMoves in request.Guide.ToSeq().Concat(paths)
+                   .Traverse(loop => MovePath(loop, admitted.Feed, request.Sense, request.Stock.Tolerance)).As()
+               from admittedMoves in pathMoves.Bind(static moves => moves).Traverse(Move.Admit).As()
+               let emitted = admittedMoves.ToSeq()
+               from trace in emitted.IsEmpty
+                   ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:no-valid-slices").ToError())
+                   : Fin.Succ<ArcTrace>(new ArcTrace.Motion(new MotionReceipt.Engagement(
+                       emitted,
+                       levels,
+                       raw.Fold(0, static (count, level) => count + level.RawSegments),
+                       raw.Fold(0, static (count, level) => count + level.ValidSlices),
+                       emitted.Count,
+                       radial)))
+               select trace);
 
-    private static Fin<Polyline<double>> Region(Loop loop, string locus) =>
-        !loop.Closed
-            ? Fin.Fail<Polyline<double>>(GeometryFault.DegenerateInput($"{locus}:open").ToError())
-            : Admit(loop, locus);
-
-    private static Fin<Polyline<double>> SimpleRegion(Loop loop, string locus) =>
-        Region(loop, locus).Bind(_ => loop.Winding() == Sign.Negative
-            ? Fin.Fail<Polyline<double>>(GeometryFault.DegenerateInput($"{locus}:hole-input").ToError())
-            : Fin.Succ(Pline(loop.AsCcw())));
-
-    private static Fin<Seq<Loop>> Pairwise(Seq<Loop> left, Seq<Loop> right, BoolKind operation) =>
-        left.Bind(first => right.Map(second => (First: first, Second: second)))
-            .Traverse(pair => PairBoolean(pair.First, pair.Second, operation))
-            .As()
-            .Map(static sets => sets.Bind(static set => set));
-
-    private static Fin<Seq<Loop>> Difference(Seq<Loop> subjects, Seq<Loop> clips) =>
-        clips.Fold(
-            Fin.Succ(subjects),
-            (state, clip) => state.Bind(current => current
-                .Traverse(subject => PairBoolean(subject, clip, BoolKind.Not))
-                .As()
-                .Map(static sets => sets.Bind(static set => set))));
-
-    private static Fin<Seq<Loop>> SymmetricDifference(Seq<Loop> left, Seq<Loop> right) =>
-        from leftOnly in Difference(left, right)
-        from rightOnly in Difference(right, left)
-        from normalized in NormalizeUnion(leftOnly + rightOnly)
-        select normalized;
-
-    private static Fin<Seq<Loop>> NormalizeUnion(Seq<Loop> loops) =>
-        loops.Exists(static loop => loop.Winding() == Sign.Negative)
-            ? Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("arc-boolean:set-hole").ToError())
-            : loops.Count <= 1
-            ? Fin.Succ(loops)
-            : toSeq(Enumerable.Range(0, loops.Count))
-                .Bind(first => toSeq(Enumerable.Range(first + 1, loops.Count - first - 1))
-                    .Map(second => (First: first, Second: second)))
-                .Traverse(pair => ArcContains(loops[pair.First], loops[pair.Second])
-                    .Map(relation => (pair.First, pair.Second, Relation: relation)))
-                .As()
-                .Bind(relations => relations.Find(static row => row.Relation != ArcRelation.Disjoint).Match(
-                    Some: row => PairBoolean(loops[row.First], loops[row.Second], BoolKind.Or).Bind(merged =>
-                        NormalizeUnion(
-                            Range(0, loops.Count)
-                                .Filter(index => index != row.First && index != row.Second)
-                                .Map(index => loops[index])
-                                .ToSeq()
-                                .Concat(merged))),
-                    None: () => Fin.Succ(loops)));
-
-    private static Seq<Move> Trochoid(Point3d origin, Point3d destination, AdaptivePolicy policy) {
-        Vector3d tangent = destination - origin;
-        double length = tangent.Length;
-        if (!tangent.Unitize()) return Seq<Move>();
-        Vector3d normal = new(-tangent.Y, tangent.X, 0.0);
-        int stations = int.Max(1, (int)Math.Ceiling(length / policy.StepOver));
-        double advance = length / stations;
-        return toSeq(Enumerable.Range(1, stations)).Bind(station => {
-            Point3d center = origin
-                + (tangent * station * advance)
-                + (normal * policy.Sense.Scale * policy.EngagementRadius);
-            Point3d start = center - (tangent * policy.EngagementRadius);
-            Point3d opposite = center + (tangent * policy.EngagementRadius);
-            ArcCenter arc = new(center, policy.Sense.Sense);
-            return Seq(
-                (Move)new Move.Linear(start, policy.Feed),
-                new Move.Circular(opposite, policy.Feed, arc),
-                new Move.Circular(start, policy.Feed, arc));
-        });
+    private static RawLevel Raw(Native source, Context tolerance, double distance) {
+        double epsilon = tolerance.Absolute.Value;
+        Polyline<double> raw = PlineOffset.CreateRawOffsetPolyline<Polyline<double>, double>(
+            source.Pline, distance, epsilon);
+        List<RawPlineOffsetSeg<double>> segments = PlineOffset.CreateUntrimmedRawOffsetSegs(source.Pline, distance);
+        List<PlineViewData<double>> slices = PlineOffset.SlicesFromRawOffset(
+            source.Pline, raw, source.Index, distance, OffsetOptions(tolerance, source.Index));
+        return new RawLevel(segments.Count, slices.Count);
     }
 
-    private static Fin<(Point3d Pierce, Vector3d Tangent, Vector3d Normal)> FrameAt(Loop profile, double station) =>
-        from length in ArcLength(profile)
-        from _ in length > profile.Tolerance.Absolute.Value && station <= length
+    private readonly record struct RawLevel(int RawSegments, int ValidSlices);
+
+    private readonly record struct Native(Polyline<double> Pline, StaticAABB2DIndex<double> Index);
+
+    // Every probe re-enters the forest's own context: a loop or point from another tolerance or
+    // plane is admitted material elsewhere, never here.
+    private static Fin<ArcTrace> Inspect(ArcForest forest, ArcProbe probe) => probe.Switch(
+        atLength: request => Compatible(request.Loop, forest, "arc-inspect:station")
+            .Bind(_ => Sample(request.Loop, request.Station)),
+        point: request => Coplanar(request.Point, forest, "arc-inspect:point")
+            .Map(query => forest.Loops.Fold(0, (winding, loop) => winding + Pline(loop).WindingNumber(query)))
+            .Map(static winding => (ArcTrace)new ArcTrace.Inspection(
+                new ArcInspection.Winding(winding, winding != 0))),
+        near: request => Coplanar(request.Point, forest, "arc-inspect:near").Bind(query =>
+            Near(forest, query)),
+        pair: request => Compatible(request.First, forest, "arc-inspect:pair-first")
+            .Bind(_ => Compatible(request.Second, forest, "arc-inspect:pair-second"))
+            .Bind(_ => Pair(request.First, request.Second)),
+        measure: () => Fin.Succ<ArcTrace>(new ArcTrace.Inspection(Measured(forest))),
+        bounds: () => forest.Loops.IsEmpty
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:empty-bounds").ToError())
+            : Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Bounds(Bounds(forest)))),
+        self: () => Self(forest));
+
+    private static ArcInspection Measured(ArcForest forest) {
+        (double Area, double Length) total = forest.Loops.Map(Pline).Fold(
+            (Area: 0.0, Length: 0.0),
+            static (running, loop) => (running.Area + loop.Area(), running.Length + loop.PathLength()));
+        return new ArcInspection.Measure(total.Area, total.Length, Sign.Of(total.Area));
+    }
+
+    private static Fin<ArcTrace> Sample(Loop loop, double station) =>
+        NonNegative(station, "arc-inspect:station").Bind(value =>
+            Pline(loop).FindPointAtPathLength(value) switch {
+                (true, int index, Vector2<double> point, double accumulated) => Fin.Succ<ArcTrace>(
+                    new ArcTrace.Inspection(new ArcInspection.Sample(
+                        new Point3d(point.X, point.Y, loop.Plane), value, index, accumulated))),
+                _ => Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:outside").ToError()),
+            });
+
+    private static Fin<ArcTrace> Near(ArcForest forest, Vector2<double> query) =>
+        forest.Loops
+            .MapIndexed((index, loop) => (Loop: index, Result: Pline(loop)
+                .ClosestPoint(query, forest.Tolerance.Absolute.Value)))
+            .Filter(static row => row.Result is not null)
+            .Fold(Option<(int Loop, ClosestPointResult<double> Result)>.None, static (nearest, row) =>
+                nearest.Filter(best => best.Result.Distance <= row.Result!.Value.Distance).IsSome
+                    ? nearest
+                    : Some((row.Loop, row.Result!.Value)))
+            .Match(
+                Some: row => Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Near(
+                    new Point3d(row.Result.SegPoint.X, row.Result.SegPoint.Y, forest.Plane),
+                    row.Result.Distance,
+                    row.Result.SegStartIndex,
+                    row.Loop))),
+                None: () => Fin.Fail<ArcTrace>(
+                    new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:empty-near").ToError()));
+
+    private static Fin<ArcTrace> Pair(Loop first, Loop second) {
+        Native subject = NativeOf(first);
+        Polyline<double> clip = Pline(second);
+        PlineContainsResult relation = PlineContains.PolylineContains(
+            subject.Pline, clip, ContainsOptions(subject, first.Tolerance));
+        PlineIntersectsCollection<double> intersects = PlineIntersects.FindIntersects(
+            subject.Pline, clip, IntersectOptions(subject, first.Tolerance));
+        ArcRelation projected = ArcRelation.Of(relation);
+        return projected == ArcRelation.InvalidInput
+            ? Fin.Fail<ArcTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-inspect:invalid-pair").ToError())
+            : Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Pair(
+                projected,
+                intersects.BasicIntersects.Count,
+                intersects.OverlappingIntersects.Count)));
+    }
+
+    private static Fin<ArcTrace> Self(ArcForest forest) {
+        Seq<ArcSelfEvidence> rows = forest.Loops.Map(NativeOf).MapIndexed((index, native) =>
+            new ArcSelfEvidence(index, PlineIntersects.AllSelfIntersectsAsBasic(
+                native.Pline, native.Index, true, forest.Tolerance.Absolute.Value).Count));
+        return Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Self(
+            rows,
+            rows.Fold(0, static (count, row) => count + row.Intersections))));
+    }
+
+    private static Fin<ArcTrace> Clean(ArcForest forest) => forest.Loops
+        .Map(loop => Pline(loop).RemoveRepeatPos(forest.Tolerance.Absolute.Value)
+            .RemoveRedundant(forest.Tolerance.Absolute.Value))
+        .Map(static pline => new Native(pline, pline.CreateAabbIndex()))
+        .Traverse(native => RejectSelf(native, forest)
+            .Bind(_ => FromPline(native.Pline, forest.Tolerance, forest.Plane).Map(loop => (Loop: loop, Native: native))))
+        .As()
+        .Bind(rows => ArcForest
+            .Admit(rows.Map(static row => row.Loop).ToSeq(), forest.Tolerance, forest.Plane)
+            .ToFin()
+            .Map(clean => (Clean: clean, Rows: rows)))
+        .Map<ArcTrace>(result => new ArcTrace.Forest(result.Clean, new ArcReceipt.Clean(
+            result.Rows.MapIndexed(static (index, row) => new ArcLoopEvidence(
+                row.Loop,
+                index,
+                row.Loop.Winding(),
+                row.Native.Index.Count,
+                row.Native.Pline.SegmentCount())).ToSeq())));
+
+    private static Fin<Unit> RejectSelf(Native native, ArcForest forest) =>
+        PlineIntersects.AllSelfIntersectsAsBasic(
+            native.Pline, native.Index, true, forest.Tolerance.Absolute.Value).Count == 0
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(GeometryFault.DegenerateInput("lead-arc:station").ToError())
-        let step = Math.Max(profile.Tolerance.Absolute.Value, length * profile.Tolerance.Fractional)
-        from before in SampleAtLength(profile, Math.Max(0.0, station - step))
-        from at in SampleAtLength(profile, station)
-        from after in SampleAtLength(profile, Math.Min(length, station + step))
-        let tangent = after - before
-        from admitted in tangent.Unitize()
-            ? Fin.Succ((Pierce: at, Tangent: tangent, Normal: new Vector3d(-tangent.Y, tangent.X, 0.0)))
-            : Fin.Fail<(Point3d, Vector3d, Vector3d)>(GeometryFault.DegenerateInput("lead-arc:tangent").ToError())
-        select admitted;
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-clean:self-intersection").ToError());
 
-    private static PlineOffsetOptions<double> OffsetOptions(StaticAABB2DIndex<double> index, Context tolerance) =>
-        new() {
-            AabbIndex = index,
-            HandleSelfIntersects = true,
-            OffsetDistEps = tolerance.Absolute.Value,
-            PosEqualEps = tolerance.Absolute.Value,
-            SliceJoinEps = tolerance.Absolute.Value,
-        };
+    private static Fin<DensifyReceipt> Lower(Loop loop, double error) =>
+        Positive(error, "arc-densify:error").Bind(bound => {
+            Polyline<double> dense = Pline(loop).ArcsToApproxLines(bound);
+            PathD source = new(dense.IterVertexes().Select(static vertex => new PointD(vertex.X, vertex.Y)));
+            return FromPath(source, loop.Closed, loop.Tolerance, loop.Plane).Map(result => new DensifyReceipt(
+                loop, result, bound, loop.Spans, result.Spans, Bounds(result)));
+        });
 
-    // Generated Map projection: constant native verdicts, total by construction — a new BoolKind row breaks this seam loudly.
-    private static BooleanOp Native(BoolKind operation) => operation.Map(
-        or: BooleanOp.Or, and: BooleanOp.And, not: BooleanOp.Not, xor: BooleanOp.Xor);
+    private static Fin<RecoverReceipt> Recover(Loop chords, double error, int probeFloor) =>
+        Positive(error, "arc-recover:error").Bind(bound =>
+        probeFloor < 1 || chords.Bulges.Exists(static bulge => bulge != 0.0)
+            ? Fin.Fail<RecoverReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:chords").ToError())
+            : FitPath(chords, bound, probeFloor)
+                .Bind(spans => RecoveredLoop(spans, chords)
+                .Map(result => new RecoverReceipt(
+                    chords,
+                    result,
+                    bound,
+                    spans.Map(static span => span.Error).Max(),
+                    chords.Spans,
+                    result.Spans,
+                    spans.Map(static span => span.Fit).Distinct().Count,
+                    spans.Count(static span => span.Bulge != 0.0),
+                    spans.Count(static span => span.Bulge == 0.0),
+                    Bounds(result)))));
 
-    private static Polyline<double> Pline(Loop loop) {
-        Polyline<double> pline = new(loop.Count, loop.Closed);
-        for (int i = 0; i < loop.Count; i++)
-            pline.AddVertex(PlineVertex<double>.FromVector2(new Vector2<double>(loop.At(i).X, loop.At(i).Y), loop.BulgeAt(i)));
-        return pline;
+    private static Fin<Seq<RecoveredSpan>> FitPath(Loop chords, double error, int probeFloor) {
+        Arr<Point3d> nodes = chords.Closed
+            ? chords.Vertices.ToSeq().Add(chords.At(0)).ToArr()
+            : chords.Vertices;
+        if (!chords.Closed) return Fit(nodes, 0, chords.Count - 1, error, probeFloor, chords.Plane);
+        int split = int.Max(1, chords.Count / 2);
+        return from first in Fit(nodes, 0, split, error, probeFloor, chords.Plane)
+               from second in Fit(nodes, split, chords.Count, error, probeFloor, chords.Plane)
+               select first + second;
     }
 
-    private static Fin<Seq<Loop>> Loops(List<Polyline<double>> plines, Context tolerance, double plane) =>
-        toSeq(plines).Traverse(pline => FromPline(pline, tolerance, plane)).As().Map(static loops => loops.ToSeq());
+    private static Fin<Loop> RecoveredLoop(Seq<RecoveredSpan> spans, Loop source) =>
+        from last in spans.Last.ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:empty-fit").ToError())
+        let vertices = source.Closed
+            ? spans.Map(static span => span.Start)
+            : spans.Map(static span => span.Start).Add(last.End)
+        let bulges = source.Closed
+            ? spans.Map(static span => span.Bulge)
+            : spans.Map(static span => span.Bulge).Add(0.0)
+        from loop in Loop.Admit(vertices.ToArr(), source.Closed, bulges.ToArr(), source.Tolerance)
+        select loop;
 
-    private static Fin<Seq<Loop>> ShapeLoops(Shape<double> shape, Context tolerance, double plane) =>
-        toSeq(shape.CcwPlines).Concat(toSeq(shape.CwPlines))
-            .Traverse(row => FromPline(row.IndexedPline.Polyline, tolerance, plane))
-            .As()
-            .Map(static loops => loops.ToSeq());
+    private static Fin<Seq<RecoveredSpan>> Fit(
+        Arr<Point3d> nodes,
+        int first,
+        int last,
+        double error,
+        int probeFloor,
+        double plane) {
+        int interior = last - first - 1;
+        if (interior == 0)
+            return Fin.Succ(Seq(new RecoveredSpan(nodes[first], nodes[last], 0.0, 0.0, first)));
+        Vector2d start = ToG3(nodes[first]);
+        Vector2d end = ToG3(nodes[last]);
+        Vector2d startTangent = (ToG3(nodes[first + 1]) - start).Normalized;
+        Vector2d endTangent = (end - ToG3(nodes[last - 1])).Normalized;
+        BiArcFit2 fit = new(start, startTangent, end, endTangent);
+        int probes = int.Max(probeFloor, interior);
+        Seq<(int Index, double Error)> residuals = toSeq(Enumerable.Range(1, probes))
+            .Map(probe => {
+                double position = first + ((last - first) * (double)probe / (probes + 1));
+                int segment = int.Min(last - 1, (int)Math.Floor(position));
+                double fraction = position - segment;
+                Vector2d a = ToG3(nodes[segment]);
+                Vector2d b = ToG3(nodes[segment + 1]);
+                Vector2d point = new(a.x + ((b.x - a.x) * fraction), a.y + ((b.y - a.y) * fraction));
+                int split = int.Clamp((int)Math.Round(position), first + 1, last - 1);
+                return (split, fit.Distance(point));
+            });
+        return from valid in residuals
+                   .Traverse(row => Finite(row.Error, "arc-recover:residual").Map(value => (row.Index, Error: value)))
+                   .As()
+               let worst = valid.Fold(
+                   (Index: first + 1, Error: double.MinValue),
+                   static (maximum, row) => row.Error > maximum.Error ? row : maximum)
+               from spans in worst.Error <= error
+                   ? Spans(fit, first, worst.Error, plane)
+                   : from left in Fit(nodes, first, worst.Index, error, probeFloor, plane)
+                     from right in Fit(nodes, worst.Index, last, error, probeFloor, plane)
+                     select left + right
+               select spans;
+    }
+
+    private static Fin<Seq<RecoveredSpan>> Spans(BiArcFit2 fit, int id, double error, double plane) => Seq(
+            fit.Arc1IsSegment
+                ? Line(fit.Segment1.P0, fit.Segment1.P1, plane, error, id)
+                : Arc(fit.Arc1, plane, error, id),
+            fit.Arc2IsSegment
+                ? Line(fit.Segment2.P0, fit.Segment2.P1, plane, error, id)
+                : Arc(fit.Arc2, plane, error, id))
+        .Traverse(span => double.IsFinite(span.Bulge) && span.Start.IsValid && span.End.IsValid
+            ? Fin.Succ(span)
+            : Fin.Fail<RecoveredSpan>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-recover:fit").ToError()))
+        .As();
+
+    private static RecoveredSpan Arc(Arc2d arc, double plane, double error, int id) => new(
+        ToRhino(arc.P0, plane),
+        ToRhino(arc.P1, plane),
+        Math.Tan((arc.ArcLength / arc.Radius) * (arc.IsReversed ? -0.25 : 0.25)),
+        error,
+        id);
+
+    private static RecoveredSpan Line(Vector2d start, Vector2d end, double plane, double error, int id) =>
+        new(ToRhino(start, plane), ToRhino(end, plane), 0.0, error, id);
+
+    private readonly record struct RecoveredSpan(Point3d Start, Point3d End, double Bulge, double Error, int Fit);
+
+    private static Fin<ArcTrace> ForestOf(
+        Shape<double> shape,
+        ArcForest source,
+        Func<Seq<ArcLoopEvidence>, ArcReceipt> receipt) {
+        Seq<OffsetLoop<double>> native = toSeq(shape.CcwPlines).Concat(toSeq(shape.CwPlines));
+        return native.Map(static row => row.IndexedPline.Polyline)
+            .Traverse(pline => FromPline(pline, source.Tolerance, source.Plane)).As()
+            .Bind(loops => ArcForest.Admit(loops.ToSeq(), source.Tolerance, source.Plane).ToFin())
+            .Map<ArcTrace>(forest => new ArcTrace.Forest(forest, receipt(
+                native.Zip(forest.Loops).Map(static pair => new ArcLoopEvidence(
+                    pair.Second,
+                    pair.First.ParentLoopIdx,
+                    pair.Second.Winding(),
+                    pair.First.IndexedPline.SpatialIndex.Count,
+                    pair.First.IndexedPline.Polyline.SegmentCount())))));
+    }
+
+    private static Fin<(Point3d Point, Vector3d Normal)> Frame(Loop loop, double station) {
+        Polyline<double> source = Pline(loop);
+        return source.FindPointAtPathLength(station) switch {
+            (true, int index, Vector2<double> point, _) =>
+                from tangent in Fin.Succ(PlineSeg.SegTangentVector(
+                    source.Get(index),
+                    source.Get(source.NextWrappingIndex(index)),
+                    point))
+                from _ in Positive(
+                    Math.Sqrt((tangent.X * tangent.X) + (tangent.Y * tangent.Y)),
+                    "arc-lead:tangent")
+                select (
+                    new Point3d(point.X, point.Y, loop.Plane),
+                    new Vector3d(-tangent.Y, tangent.X, 0.0)),
+            _ => Fin.Fail<(Point3d, Vector3d)>(
+                new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-lead:station").ToError()),
+        };
+    }
+
+    private static Fin<Seq<Move>> LinearLead(
+        (Point3d Point, Vector3d Normal) frame,
+        double length,
+        double feed,
+        MaterialSide side,
+        LeadRole role) => Positive(length, "arc-lead:length").Map(value => role.Emit(
+            frame.Point + (Unit(frame.Normal) * side.Signed(value)),
+            frame.Point,
+            feed,
+            Option<ArcCenter>.None));
+
+    private static Fin<Seq<Move>> TangentLead(
+        (Point3d Point, Vector3d Normal) frame,
+        double radius,
+        double sweep,
+        double feed,
+        MaterialSide side,
+        LeadRole role) =>
+        from admitted in (AdmitsMagnitude(radius, "arc-lead:radius"), AdmitsMagnitude(sweep, "arc-lead:sweep"))
+            .Apply(static (value, angle) => (Radius: value, Sweep: angle)).As().ToFin()
+        let center = frame.Point + (Unit(frame.Normal) * side.Signed(admitted.Radius))
+        let radial = Rotated(frame.Point - center, -side.Signed(admitted.Sweep))
+        select role.Emit(center + radial, frame.Point, feed, Some(new ArcCenter(center, side.Rotation)));
+
+    // A loop lead closes on its own start, so both roles traverse the same two arcs; only entry rapids in.
+    private static Fin<Seq<Move>> LoopLead(
+        (Point3d Point, Vector3d Normal) frame,
+        double radius,
+        double feed,
+        MaterialSide side,
+        LeadRole role) => Positive(radius, "arc-lead:radius").Map(value => {
+            Point3d center = frame.Point + (Unit(frame.Normal) * side.Signed(value));
+            ArcCenter arc = new(center, side.Rotation);
+            Seq<Move> orbit = Seq<Move>(
+                new Move.Circular(center + (center - frame.Point), feed, arc),
+                new Move.Circular(frame.Point, feed, arc));
+            return role == LeadRole.Entry ? orbit.Insert(0, new Move.Rapid(frame.Point)) : orbit;
+        });
+
+    private static Fin<Seq<Move>> MovePath(Loop loop, double feed, CutSense sense, Context tolerance) =>
+        Oriented(loop, sense, tolerance).Map(oriented => {
+            Polyline<double> source = Pline(oriented);
+            return Seq<Move>(new Move.Rapid(oriented.At(0))).Concat(
+                toSeq(Enumerable.Range(0, source.SegmentCount())).Map(index => {
+                    PlineVertex<double> start = source.Get(index);
+                    PlineVertex<double> end = source.Get(source.NextWrappingIndex(index));
+                    Point3d target = new(end.X, end.Y, oriented.Plane);
+                    if (start.Bulge == 0.0) return (Move)new Move.Linear(target, feed);
+                    Vector2<double> center = PlineSeg.SegArcRadiusAndCenter(start, end).Center;
+                    return new Move.Circular(
+                        target,
+                        feed,
+                        new ArcCenter(new Point3d(center.X, center.Y, oriented.Plane), sense.Rotation));
+                }));
+        });
+
+    // Cut sense is the traversal law, not a label: a path whose winding disagrees reverses before emission.
+    private static Fin<Loop> Oriented(Loop loop, CutSense sense, Context tolerance) {
+        if (!loop.Closed || loop.Winding() == sense.Winding) return Fin.Succ(loop);
+        Polyline<double> source = Pline(loop);
+        source.InvertDirection();
+        return FromPline(source, tolerance, loop.Plane);
+    }
+
+    private static Vector3d Unit(Vector3d value) {
+        Vector3d unit = value;
+        unit.Unitize();
+        return unit;
+    }
+
+    private static Vector3d Rotated(Vector3d value, double angle) {
+        Vector3d rotated = value;
+        rotated.Rotate(angle, Vector3d.ZAxis);
+        return rotated;
+    }
+
+    private static Fin<Unit> Compatible(ArcForest first, ArcForest second, string field) =>
+        first.Tolerance == second.Tolerance
+        && Math.Abs(first.Plane - second.Plane) <= first.Tolerance.Absolute.Value
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:mixed-context").ToError());
+
+    private static Fin<Unit> Compatible(Loop loop, ArcForest forest, string field) =>
+        loop.Tolerance == forest.Tolerance
+        && Math.Abs(loop.Plane - forest.Plane) <= forest.Tolerance.Absolute.Value
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:mixed-context").ToError());
+
+    private static Fin<int> LevelCount(double extent, double radius, double step) {
+        double count = Math.Ceiling(double.Max(0.0, (extent / 2.0) - radius) / step) + 1.0;
+        return double.IsFinite(count) && count is >= 1.0 and <= Array.MaxLength
+            ? Fin.Succ((int)count)
+            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "arc-adaptive:levels").ToError());
+    }
+
+    // K-kinded gates fan independent fields into one tuple Apply and report together;
+    // Fin projections short-circuit single-gate sites.
+    private static K<Validation<Error>, double> AdmitsMagnitude(double value, string field) =>
+        double.IsFinite(value) && value > 0.0
+            ? Validation<Error, double>.Success(value)
+            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+
+    private static K<Validation<Error>, double> AdmitsStation(double value, string field) =>
+        double.IsFinite(value) && value >= 0.0
+            ? Validation<Error, double>.Success(value)
+            : Validation<Error, double>.Fail(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+
+    private static Fin<double> Positive(double value, string field) =>
+        AdmitsMagnitude(value, field).As().ToFin();
+
+    private static Fin<double> NonNegative(double value, string field) =>
+        AdmitsStation(value, field).As().ToFin();
+
+    private static Fin<double> Finite(double value, string field) =>
+        double.IsFinite(value)
+            ? Fin.Succ(value)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, field).ToError());
+
+    // Every offset threads the once-built index and admits self-intersecting profiles; a kerf or
+    // clearing pass over a re-entrant loop is ordinary input, never a rejected one.
+    private static PlineOffsetOptions<double> OffsetOptions(
+        Context context,
+        StaticAABB2DIndex<double> index) => new() {
+        AabbIndex = index,
+        HandleSelfIntersects = true,
+        OffsetDistEps = context.Absolute.Value,
+        PosEqualEps = context.Absolute.Value,
+        SliceJoinEps = context.Absolute.Value,
+    };
+
+    private static ShapeOffsetOptions<double> ShapeOptions(Context context) =>
+        new(context.Absolute.Value, context.Absolute.Value, context.Absolute.Value);
+
+    private static int Precision(Context context) =>
+        int.Clamp((int)Math.Ceiling(-Math.Log10(context.Absolute.Value)), -8, 8);
+
+    private static PlineBooleanOptions<double> BooleanOptions(Native subject, Context context) => new() {
+        CollapsedAreaEps = context.Absolute.Value * context.Absolute.Value,
+        Pline1AabbIndex = subject.Index,
+        PosEqualEps = context.Absolute.Value,
+    };
+
+    private static PlineContainsOptions<double> ContainsOptions(Native source, Context context) => new() {
+        PosEqualEps = context.Absolute.Value,
+        Pline1AabbIndex = source.Index,
+    };
+
+    private static FindIntersectsOptions<double> IntersectOptions(Native source, Context context) => new() {
+        PosEqualEps = context.Absolute.Value,
+        Pline1AabbIndex = source.Index,
+    };
+
+    private static BoundingBox Bounds(ArcForest forest) =>
+        forest.Loops.Fold(BoundingBox.Empty, static (box, loop) => BoundingBox.Union(box, loop.Bound()));
+
+    private static BoundingBox Bounds(Loop loop) => loop.Bound();
+
+    private static Native NativeOf(Loop loop) {
+        Polyline<double> pline = Pline(loop);
+        return new Native(pline, pline.CreateAabbIndex());
+    }
+
+    private static Polyline<double> Pline(Loop loop) => new(
+        loop.Vertices.Zip(loop.Bulges)
+            .Map(static row => new PlineVertex<double>(row.First.X, row.First.Y, row.Second)).ToList(),
+        loop.Closed);
+
+    private static Fin<Vector2<double>> Coplanar(Point3d point, ArcForest forest, string field) =>
+        point.IsValid && Math.Abs(point.Z - forest.Plane) <= forest.Tolerance.Absolute.Value
+            ? Fin.Succ(new Vector2<double>(point.X, point.Y))
+            : Fin.Fail<Vector2<double>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"{field}:off-plane").ToError());
+
+    private static Vector2d ToG3(Point3d point) => new(point.X, point.Y);
+
+    private static Point3d ToRhino(Vector2d point, double plane) => new(point.x, point.y, plane);
+
+    private static Fin<Loop> FromPath(PathD path, bool closed, Context tolerance, double plane) =>
+        Loop.Admit(path.Map(point => new Point3d(point.x, point.y, plane)).ToArr(), closed,
+            toArr(Enumerable.Repeat(0.0, path.Count)), tolerance);
 
     private static Fin<Loop> FromPline(IPlineSource<double> pline, Context tolerance, double plane) {
-        List<Point3d> vertices = new(pline.VertexCount);
-        List<double> bulges = new(pline.VertexCount);
-        for (int i = 0; i < pline.VertexCount; i++) {
-            PlineVertex<double> vertex = pline.Get(i);
-            vertices.Add(new Point3d(vertex.X, vertex.Y, plane));
-            bulges.Add(vertex.Bulge);
-        }
-        return Loop.Admit(toArr(vertices), pline.IsClosed, toArr(bulges), tolerance);
+        Seq<PlineVertex<double>> vertices = toSeq(Enumerable.Range(0, pline.VertexCount)).Map(pline.Get);
+        return Loop.Admit(
+            vertices.Map(vertex => new Point3d(vertex.X, vertex.Y, plane)).ToArr(),
+            pline.IsClosed,
+            vertices.Map(static vertex => vertex.Bulge).ToArr(),
+            tolerance);
     }
 }
 ```

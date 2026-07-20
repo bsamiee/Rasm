@@ -1,25 +1,46 @@
 # [RASM_FABRICATION_PROFILE_IMPORT]
 
-`ProfileImport` owns DXF/DWG profile admission. `ProfileFormat` dispatches `DxfReader.Read`/`DwgReader.Read` from the admitted extension; unknown formats route 2711 before a reader runs. The boundary lowers `NotificationType` into the fabrication-owned `ProfileNoticeKind` axis, preserves every notification on the receipt, and lets each policy row reject an explicit notice set. The drawing's `$INSUNITS` declaration (`CadDocument.Header.InsUnits`) resolves ONCE to a millimetre scale through the UnitsNet-derived `UnitScales` rows covering every terrestrial `UnitsType` row from angstroms through survey feet; the astronomical tail and the UnitsNet-unmapped survey inch/yard/mile fail typed with the offending unit named in the locus rather than admitting unit-ambiguous coordinates. Every admitted loop carries its source provenance as a `ProfileEntry` (`Layer` name + ACI `Color` index — the axes a cut/engrave/fold layer policy discriminates on downstream). Polyline bulges, arcs, and circles land arc-exactly through `Loop.Admit` under the source `Context` on their source elevation — WCS-carrying entities keep their `Z`, and an arc or circle whose extrusion `Normal` leaves world-planar orientation fails typed with the entity named in the locus rather than flattening to world XY. Only a NURBS spline samples through `SplineDensity`, and an unprojectable spline aborts rather than disappearing. `Ingress.Admit` is the folder's one polymorphic fold over profile, solid, steel, and element sources, and every result preserves its source evidence — the profile arm returns the full `ProfileImportReceipt` as `AdmittedGeometry.Profiles` and the steel arm returns the full `SteelImportReceipt` as `AdmittedGeometry.Steel`, never a loop-only reduction of an evidence-bearing part.
+`ProfileImport` owns DXF/DWG census, admission, topology healing, and projection. `ProfileFormat` dispatches admitted paths, and `ProfilePolicy` carries unit, sampling, lane, fill, entity, notification, and closure decisions. Provider entities lower through OCS frames into provenance-bearing contours and markings. `ProfileTopology` partitions source planes, stitches compatible endpoints, composes `ArcAlgebra` and `PolygonAlgebra`, and records each repair. Public entries defer boundary work on `Eff`.
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILE_IMPORT]: `ProfileImport` owns `Read`, `ProfileFormat`, `SplineDensity`, `ProfileReadPolicy`, `ProfileNoticeKind`, `ProfileEntry`/`ProfileImportReceipt`, `$INSUNITS` unit normalization, layer/color provenance, notification capture, rail-preserving entity admission, and the total `Ingress.Admit` fold.
+| [INDEX] | [OWNER]                | [OWNS]                                       |
+| :-----: | :--------------------- | :------------------------------------------- |
+|  [01]   | `ProfileSource`        | admitted path and import policy              |
+|  [02]   | `ProfileLane`          | per-layer fabrication intent and closure duty |
+|  [03]   | `ProfileFormat`        | DXF/DWG read, encoding, and census dispatch  |
+|  [04]   | `ProfileTopology`      | contour stitching, healing, and nesting      |
+|  [05]   | `ProfileImportReceipt` | source, census, repairs, and admitted loops  |
+|  [06]   | `ProfileProjection`    | parameterized profile egress                 |
+|  [07]   | `Ingress`              | total source-to-admitted-geometry dispatch   |
 
-## [02]-[PROFILE_IMPORT]
+## [02]-[RAW_ADMISSION]
 
-- Owner: `ProfileFormat` owns extension dispatch; `SplineDensity` owns NURBS sampling precision; `ProfileReadPolicy` owns reader recovery and the rejected-notice set; `ProfileNoticeKind` severs provider severity from the interior; `ProfileEntry` carries one admitted loop with its `Layer`/`Color` provenance; `ProfileImportReceipt` carries entries (with the derived `Loops` view) and notifications; `UnitScales` owns the `$INSUNITS`-to-millimetre law; `IngressSource` and `AdmittedGeometry` own source and result dispatch.
-- Cases: `IngressSource` closes over `Profile`, policy-bearing `Solid`, policy-bearing `Steel`, and `Element`; `AdmittedGeometry` closes over evidence-bearing profiles, solid receipt, steel receipt, and component — a generated total `Switch`, so a new result genus breaks every consumer loudly. `ProfileReadPolicy` rows are strict, permissive, and unforgiving. Entity admission covers `LwPolyline`, `Polyline2D`, `Line`, `Arc`, `Circle`, `Spline`, and recursive `Insert`; unsupported non-profile entities return `None`, while a recognized spline or nested profile failure remains on `Fin`, and a throwing `Insert.Explode` (missing block record) lowers to the profile fault instead of escaping the rail.
-- Entry: `Fin<ProfileImportReceipt> ProfileImport.Read(string path, SplineDensity density, bool demandClosed, ProfileReadPolicy policy, Context tolerance)` reads a DXF/DWG file and returns bulge-carrying admitted profile loops plus notification rows. `Fin<AdmittedGeometry> Ingress.Admit(IngressSource source)` routes `ProfileImport.Read`, `SolidImport.Read`, `SteelImport.Read`, and `ElementImport.Admit`; every geometric arm carries its source-owned `Context` into the canonical admission boundary.
-- Auto: the format delegate binds its concrete configuration and one notification sink. The boundary list exists only for the synchronous provider callback and freezes to `Seq<ProfileNotification>` before publication. Both polyline genera preserve per-span bulges, an arc carries `tan(Sweep/4)` between its WCS endpoints, a circle carries four quarter-arc bulges of `sqrt(2) − 1` on its source elevation to satisfy the canonical closed-loop cardinality, and a spline composes `TryPolygonalVertexes` with `UpdateFromFitPoints`; arcs and circles first pass the world-planar `Normal` gate, and every emitted span then enters through `Loop.Admit`. `TraverseM` preserves failures across document entities and exploded inserts.
-- Receipt: `ProfileImportReceipt` is the arc-exact, unit-true, provenance-carrying loop library plus ingress-degradation evidence. `AdmittedGeometry.Profiles` carries that complete receipt — `ProfileEntry` layer/color provenance and notifications survive the fold, and `Loops` remains the derived view; `AdmittedGeometry.Steel` carries the complete `SteelImportReceipt` — header, features, bevels, and content key survive the fold.
-- Packages: `ACadSharp` (`DxfReader.Read`/`DwgReader.Read` configured overloads, `DxfReaderConfiguration`/`DwgReaderConfiguration` `Failsafe`, `NotificationEventArgs`, `NotificationType`, `CadDocument.Entities`, `LwPolyline`, `Polyline2D`/`Vertex2D`, `Line`, `Arc` (`Sweep`/`GetEndVertices`), `Circle`, `Spline`, `Insert.Explode`), `Rasm.Fabrication.Process` (`Loop`+`Bulges`, `AdmittedComponent`, `FabricationFault`, `SourceKind`, `SourceLocus`), `Rasm.Meshing` (`MeshSpace`), `Rasm.Element` (`ElementGraph`, `NodeId`), `Rasm.Domain` (`Op`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new profile entity is one `Admit` arm; a stricter reader posture is one `ProfileReadPolicy` row; a new CAD dialect is one `ProfileFormat` row plus its configured delegate; a new drawing unit is one `UnitScales` row; a layer-intent policy (cut/engrave/fold/mark routed by `ProfileEntry.Layer` to `Process/family` strategy admission) is a consumer-side policy table over the provenance this receipt already carries; a new source genus is one `IngressSource` case, one dispatch arm, and one `AdmittedGeometry` case only when the geometry genus is new.
-- Boundary: ACadSharp types stop here. Circular spans never tessellate when `Loop.Bulges` admits them; `Spline.TryPolygonalVertexes` owns NURBS sampling; `Insert.Explode()` owns block placement. An arc or circle admits only on a world-planar extrusion `Normal` — an oblique normal fails typed with the entity named in the locus, never a silent world-XY flattening. Reader throws, explode throws, and spline projection failures lower to profile `IngressTranslation`, never a generic geometry fault or silent omission. `$INSUNITS` resolves through `UnitScales` and an unmapped drawing unit fails typed — a raw-coordinate copy with no unit law is the deleted form. Provenance is `ProfileEntry` rows minted with their loops — a parallel layer array synced by index is the rejected form. Fabrication owns no CAD writer.
+`ProfileSource` is the only raw profile gate. `ProfileUnitPolicy` resolves source units through `UnitsNet.Length`, and `ProfileUnitPolicy.DeclaredOr` falls back on any unresolvable declaration, not on `UnitsType.Unitless` alone. `ProfileReadPolicy` carries a capability set and rejected notice set so `Failsafe`, unknown-entity retention, and DWG CRC checking are declared values, never literals at the reader call. `ProfileEntityPolicy` owns unsupported entities and `ProfileClosure` owns contour completion.
+
+`ProfileImport.Probe` reads DXF headers, tables, and entities through separate `DxfReader` partial-read instances; `ReadTables().Layers` preserves declared layers with zero entities, while DWG uses its configured full reader because no equivalent partial entity surface exists. `ProfileEncoding.Of` discriminates ASCII and binary DXF through `DxfReader.IsBinary` before either read. Census egress returns encoding, declared units, complete per-layer lane assignment, entity counts, and provider notices before contour admission.
+
+`ProfileLane` carries fabrication intent per layer: cut geometry closes, etch/score/bend/mark geometry contributes open runs, and reference geometry is censused and discarded. `ProfileLanePolicy` resolves an entity's layer name to its lane, so `ProfileClosure` demands closure only from lanes that close and a bend line never fails a healed import.
+
+## [03]-[CANONICAL_OWNER]
+
+`ProfileContour` carries one provider-lowered `Loop` with structural provenance, and `ProfileMarking` carries point locations that admit no loop. `ProfileProvenance` preserves the entity handle, so each fault names its entity and `Validation` reports all rejections. `ProfileBlock` preserves nested insert identity and replica indices.
+
+Entity coordinates lower through their owning frame. `Matrix3.ArbitraryAxis` maps OCS vertices into WCS, and mirrored normals invert bulge sense. One hatch emits one contour per `Paths` row: line, circular-arc, and polyline leaves preserve exact endpoints and bulges; ellipse and spline leaves compose their verified provider samplers. `Insert.Explode` resolves one placement, and every row/column instance records replica provenance even when its displacement is zero.
+
+`ProfileTopology` groups contours by provenance, plane, and closure; joins compatible endpoints; cleans and densifies through `ArcAlgebra`; and derives nesting through `PolygonAlgebra`. `ProfileClosure.Exact` admits no endpoint gap, while `Healed` authorizes its positive gap. Region derivation is a fill-rule query because union under one winding absorbs holes. `ProfileRepair` carries join distance, closure gap, cleanup, densification error, and area delta. Indexed endpoint assembly is the bounded statement kernel.
+
+`ProfileImportReceipt` carries the source digest minted from file bytes, format, census, unit evidence, contours, markings, regions, extents, and typed repairs. `ProfileCensus` owns provider notifications once.
+
+## [04]-[PROJECTION_EGRESS]
+
+`ProfileProjection` is one closed egress family over the canonical receipt, and `ProfileView` carries each case's result shape. A new egress is one case and one total `Switch` arm.
+
+## [05]-[IMPLEMENTATION]
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-using System.Collections.Generic;
+using System.Collections.Frozen;
 using System.IO;
 using ACadSharp;
 using ACadSharp.Entities;
@@ -29,43 +50,77 @@ using CSMath;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
-using Rasm.Element.Graph;
+using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
-using Rasm.Meshing;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
 using static LanguageExt.Prelude;
+using CadArc = ACadSharp.Entities.Arc;
+using CadCircle = ACadSharp.Entities.Circle;
+using CadEllipse = ACadSharp.Entities.Ellipse;
+using CadLine = ACadSharp.Entities.Line;
+using CadPoint = ACadSharp.Entities.Point;
+using CadSpline = ACadSharp.Entities.Spline;
+using HatchArc = ACadSharp.Entities.Hatch.BoundaryPath.Arc;
+using HatchEllipse = ACadSharp.Entities.Hatch.BoundaryPath.Ellipse;
+using HatchLine = ACadSharp.Entities.Hatch.BoundaryPath.Line;
+using HatchPolyline = ACadSharp.Entities.Hatch.BoundaryPath.Polyline;
+using HatchSpline = ACadSharp.Entities.Hatch.BoundaryPath.Spline;
 
 namespace Rasm.Fabrication.Ingress;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class ProfileFormat {
-    public static readonly ProfileFormat Dxf = new("dxf", Arr(".dxf"),
-        static (path, failsafe, sink) => DxfReader.Read(path, new DxfReaderConfiguration { Failsafe = failsafe }, sink));
-    public static readonly ProfileFormat Dwg = new("dwg", Arr(".dwg"),
-        static (path, failsafe, sink) => DwgReader.Read(path, new DwgReaderConfiguration { Failsafe = failsafe }, sink));
-
-    public Arr<string> Extensions { get; }
-
-    [UseDelegateFromConstructor]
-    public partial CadDocument Read(string path, bool failsafe, NotificationEventHandler sink);
-
-    public static Fin<ProfileFormat> Of(string path) =>
-        Items.Find(f => f.Extensions.Exists(e => string.Equals(e, Path.GetExtension(path), StringComparison.OrdinalIgnoreCase)))
-            .ToFin(FabricationFault.IngressTranslation(SourceKind.Profile, new SourceLocus.DxfEntity(Path.GetFileName(path))).ToError());
+[ValueObject<string>]
+public readonly partial struct ProfilePath {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
+            validationError = new ValidationError(message: "profile-path:blank");
+            return;
+        }
+        value = Path.GetFullPath(value);
+    }
 }
 
 [ValueObject<int>]
 public readonly partial struct SplineDensity {
+    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value < 2 ? new ValidationError("spline-density: segment count must be >= 2") : null;
+        validationError = value < 2 ? new ValidationError(message: "spline-density:below-two") : null;
+}
 
-    public int Segments => Value;
+[ValueObject<Length>]
+public readonly partial struct ProfileGap {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Length value) =>
+        validationError = double.IsFinite(value.Millimeters) && value.Millimeters > 0d
+            ? null
+            : new ValidationError(message: "profile-gap:non-positive");
+}
 
-    public static readonly SplineDensity Default = Create(24);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileUnitPolicy {
+    private ProfileUnitPolicy() { }
+    public sealed record Declared : ProfileUnitPolicy;
+    public sealed record DeclaredOr(LengthUnit Unit) : ProfileUnitPolicy;
+    public sealed record Override(LengthUnit Unit) : ProfileUnitPolicy;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileClosure {
+    private ProfileClosure() { }
+    public sealed record Open : ProfileClosure;
+    public sealed record Exact : ProfileClosure;
+    public sealed record Healed(ProfileGap MaxGap) : ProfileClosure;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileEntityPolicy {
+    private ProfileEntityPolicy() { }
+    public sealed record Ignore : ProfileEntityPolicy;
+    public sealed record Reject : ProfileEntityPolicy;
 }
 
 [SmartEnum<string>]
@@ -77,265 +132,856 @@ public sealed partial class ProfileNoticeKind {
 }
 
 [SmartEnum<string>]
-public sealed partial class ProfileReadPolicy {
-    public static readonly ProfileReadPolicy Strict = new("strict", failsafe: true,
-        Set(ProfileNoticeKind.Error, ProfileNoticeKind.NotImplemented));
-    public static readonly ProfileReadPolicy Permissive = new("permissive", failsafe: true, Set<ProfileNoticeKind>());
-    public static readonly ProfileReadPolicy Unforgiving = new("unforgiving", failsafe: false,
-        Set(ProfileNoticeKind.Error, ProfileNoticeKind.NotImplemented));
-
-    public bool Failsafe { get; }
-    public Set<ProfileNoticeKind> Rejects { get; }
+public sealed partial class ProfileReadCapability {
+    public static readonly ProfileReadCapability Recover = new("recover");
+    public static readonly ProfileReadCapability UnknownEntities = new("unknown-entities");
+    public static readonly ProfileReadCapability UnknownObjects = new("unknown-objects");
+    public static readonly ProfileReadCapability Crc = new("crc");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public sealed record ProfileNotification(ProfileNoticeKind Kind, string Message, Option<string> ExceptionMessage) {
-    public static ProfileNotification Of(NotificationEventArgs args) =>
-        new(args.NotificationType switch {
-            NotificationType.Warning => ProfileNoticeKind.Warning,
-            NotificationType.Error => ProfileNoticeKind.Error,
-            NotificationType.NotImplemented => ProfileNoticeKind.NotImplemented,
-            _ => ProfileNoticeKind.None,
-        }, args.Message, Optional(args.Exception?.Message));
+[SmartEnum<string>]
+public sealed partial class ProfileEncoding {
+    public static readonly ProfileEncoding Ascii = new("ascii");
+    public static readonly ProfileEncoding Binary = new("binary");
+
+    public static ProfileEncoding Of(ProfileFormat format, ProfilePath path) => format.Switch(
+        state: path,
+        dxf: static value => DxfReader.IsBinary(value.Value) ? Binary : Ascii,
+        dwg: static _ => Binary);
 }
 
-public sealed record ProfileEntry(Loop Loop, string Layer, short Color);
+[SmartEnum<string>]
+public sealed partial class ProfileLane {
+    public static readonly ProfileLane Cut = new("cut", contributes: true, closes: true);
+    public static readonly ProfileLane Etch = new("etch", contributes: true, closes: false);
+    public static readonly ProfileLane Score = new("score", contributes: true, closes: false);
+    public static readonly ProfileLane Bend = new("bend", contributes: true, closes: false);
+    public static readonly ProfileLane Mark = new("mark", contributes: true, closes: false);
+    public static readonly ProfileLane Reference = new("reference", contributes: false, closes: false);
 
-public sealed record ProfileImportReceipt(Arr<ProfileEntry> Entries, Seq<ProfileNotification> Notifications) {
-    public Arr<Loop> Loops => Entries.Map(static entry => entry.Loop);
+    public bool Contributes { get; }
+    public bool Closes { get; }
+}
+
+public sealed record ProfileLanePolicy(Map<string, ProfileLane> Layers, ProfileLane Fallback) {
+    public ProfileLane Resolve(string layer) => Layers
+        .Find(row => string.Equals(row.Key, layer, StringComparison.OrdinalIgnoreCase))
+        .Map(static row => row.Value)
+        .IfNone(Fallback);
+}
+
+public sealed record ProfileReadPolicy(
+    Set<ProfileReadCapability> Capabilities,
+    Set<ProfileNoticeKind> Rejects);
+
+public sealed record ProfilePolicy(
+    SplineDensity Spline,
+    ProfileUnitPolicy Units,
+    ProfileClosure Closure,
+    ProfileEntityPolicy Unsupported,
+    ProfileReadPolicy Reader,
+    ProfileLanePolicy Lanes,
+    PolygonFill Fill,
+    Context Tolerance);
+
+public sealed record ProfileSource(ProfilePath Path, ProfilePolicy Policy);
+
+[SmartEnum<string>]
+public sealed partial class ProfileFormat {
+    public static readonly ProfileFormat Dxf = new("dxf", Arr(".dxf"), ReadDxf);
+    public static readonly ProfileFormat Dwg = new("dwg", Arr(".dwg"), ReadDwg);
+
+    public Arr<string> Extensions { get; }
+
+    [UseDelegateFromConstructor]
+    public partial CadDocument Read(byte[] payload, ProfileReadPolicy policy, NotificationEventHandler sink);
+
+    public static Fin<ProfileFormat> Admit(ProfilePath path) =>
+        Items.Find(format => format.Extensions.Exists(extension =>
+                string.Equals(extension, Path.GetExtension(path.Value), StringComparison.OrdinalIgnoreCase)))
+            .ToFin(ProfileImport.Fault(path));
+
+    static CadDocument ReadDxf(byte[] payload, ProfileReadPolicy policy, NotificationEventHandler sink) =>
+        Snapshot(payload, ".dxf", path => DxfReader.Read(path, new DxfReaderConfiguration {
+            Failsafe = policy.Capabilities.Contains(ProfileReadCapability.Recover),
+            KeepUnknownEntities = policy.Capabilities.Contains(ProfileReadCapability.UnknownEntities),
+            KeepUnknownNonGraphicalObjects = policy.Capabilities.Contains(ProfileReadCapability.UnknownObjects),
+        }, sink));
+
+    static CadDocument ReadDwg(byte[] payload, ProfileReadPolicy policy, NotificationEventHandler sink) =>
+        Snapshot(payload, ".dwg", path => DwgReader.Read(path, new DwgReaderConfiguration {
+            Failsafe = policy.Capabilities.Contains(ProfileReadCapability.Recover),
+            KeepUnknownEntities = policy.Capabilities.Contains(ProfileReadCapability.UnknownEntities),
+            KeepUnknownNonGraphicalObjects = policy.Capabilities.Contains(ProfileReadCapability.UnknownObjects),
+            CrcCheck = policy.Capabilities.Contains(ProfileReadCapability.Crc),
+        }, sink));
+
+    static T Snapshot<T>(byte[] payload, string extension, Func<string, T> read) {
+        string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{extension}");
+        try {
+            File.WriteAllBytes(path, payload);
+            return read(path);
+        }
+        finally {
+            File.Delete(path);
+        }
+    }
+}
+
+public sealed record ProfileNotification(ProfileNoticeKind Kind, string Message, Option<string> Exception);
+
+public sealed record ProfileLayerCensus(string Name, ProfileLane Lane, int Entities);
+
+[SmartEnum<string>]
+public sealed partial class ProfileLayerCoverage {
+    public static readonly ProfileLayerCoverage EntityBearing = new("entity-bearing");
+    public static readonly ProfileLayerCoverage CompleteTable = new("complete-table");
+}
+
+public sealed record ProfileCensus(
+    ProfileEncoding Encoding,
+    UnitsType DeclaredUnits,
+    ProfileLayerCoverage LayerCoverage,
+    Map<string, ProfileLayerCensus> Layers,
+    Map<string, int> Entities,
+    Seq<ProfileNotification> Notifications);
+
+public readonly record struct ProfileBlock(string Name, int Ordinal, int Row, int Column);
+
+public sealed record ProfileProvenance(
+    string Layer,
+    ProfileLane Lane,
+    short Color,
+    ulong Handle,
+    Seq<ProfileBlock> Blocks,
+    double Plane,
+    Set<int> Ordinals);
+
+public sealed record ProfileContour(Loop Loop, ProfileProvenance Provenance);
+
+public sealed record ProfileMarking(Point3d At, double Rotation, ProfileProvenance Provenance);
+
+public sealed record ProfileLowered(Seq<ProfileContour> Contours, Seq<ProfileMarking> Markings) {
+    public static readonly ProfileLowered Empty = new(Seq<ProfileContour>(), Seq<ProfileMarking>());
+
+    public ProfileLowered Concat(ProfileLowered other) => new(
+        Contours.Concat(other.Contours), Markings.Concat(other.Markings));
+
+    public Fin<ProfileLowered> Translate(Vector3d delta, int row, int column) => Contours
+            .Traverse(contour => (delta.IsZero
+                ? Fin.Succ(contour.Loop)
+                : Loop.Admit(
+                    contour.Loop.Vertices.Map(vertex => vertex + delta),
+                    contour.Loop.Closed, contour.Loop.Bulges, contour.Loop.Tolerance))
+                .Map(loop => contour with { Loop = loop, Provenance = Replica(contour.Provenance, row, column) })
+                .ToValidation()).As().ToFin()
+            .Map(contours => new ProfileLowered(
+                contours,
+                Markings.Map(marking => marking with {
+                    At = delta.IsZero ? marking.At : marking.At + delta,
+                    Provenance = Replica(marking.Provenance, row, column),
+                })));
+
+    static ProfileProvenance Replica(ProfileProvenance provenance, int row, int column) => provenance with {
+        Blocks = provenance.Blocks.IsEmpty
+            ? provenance.Blocks
+            : provenance.Blocks.Take(provenance.Blocks.Count - 1)
+                .Add(provenance.Blocks.Last with { Row = row, Column = column }),
+    };
+}
+
+internal readonly record struct HatchSpan(Point3d Start, Point3d End, double Bulge);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileRepair {
+    private ProfileRepair() { }
+    public sealed record Joined(ProfileProvenance Provenance, Length Distance, int Count) : ProfileRepair;
+    public sealed record Closed(ProfileProvenance Provenance, Length Gap) : ProfileRepair;
+    public sealed record Cleaned(ProfileProvenance Provenance, int Before, int After, int Segments) : ProfileRepair;
+    public sealed record Densified(
+        ProfileProvenance Provenance, double ErrorBound, int SourceSpans, int OutputSpans, int Simplified) : ProfileRepair;
+    public sealed record Topology(
+        ProfileProvenance Provenance, int Before, int After, Area BeforeArea, Area AfterArea) : ProfileRepair;
+}
+
+public sealed record ProfileRegion(ProfileProvenance Provenance, TopologyReceipt Topology);
+
+public sealed record ProfileUnitEvidence(
+    UnitsType Declared,
+    ProfileUnitPolicy Resolution,
+    LengthUnit Canonical,
+    double MillimeterScale);
+
+public sealed record ProfileImportReceipt(
+    UInt128 SourceDigest,
+    ProfileFormat Format,
+    ProfileCensus Census,
+    ProfileUnitEvidence Units,
+    Arr<ProfileContour> Contours,
+    Arr<ProfileMarking> Markings,
+    Arr<ProfileRegion> Regions,
+    BoundingBox Extents,
+    Seq<ProfileRepair> Repairs) {
+    public Arr<Loop> Loops => Contours.Map(static contour => contour.Loop);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileProjection {
+    private ProfileProjection() { }
+    public sealed record Loops : ProfileProjection;
+    public sealed record Lanes : ProfileProjection;
+    public sealed record Layers : ProfileProjection;
+    public sealed record Regions : ProfileProjection;
+    public sealed record Markings : ProfileProjection;
+    public sealed record Bounds : ProfileProjection;
+    public sealed record Repairs : ProfileProjection;
+    public sealed record Census : ProfileProjection;
+    public sealed record Receipt : ProfileProjection;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProfileView {
+    private ProfileView() { }
+    public sealed record Loops(Arr<Loop> Value) : ProfileView;
+    public sealed record Lanes(Map<ProfileLane, Arr<ProfileContour>> Value) : ProfileView;
+    public sealed record Layers(Map<string, Arr<ProfileContour>> Value) : ProfileView;
+    public sealed record Regions(Arr<ProfileRegion> Value) : ProfileView;
+    public sealed record Markings(Arr<ProfileMarking> Value) : ProfileView;
+    public sealed record Bounds(BoundingBox Value) : ProfileView;
+    public sealed record Repairs(Seq<ProfileRepair> Value) : ProfileView;
+    public sealed record Census(ProfileCensus Value) : ProfileView;
+    public sealed record Receipt(ProfileImportReceipt Value) : ProfileView;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IngressSource {
     private IngressSource() { }
-
-    public sealed record Profile(string Path, SplineDensity Density, bool DemandClosed, ProfileReadPolicy Policy, Context Tolerance) : IngressSource;
-    public sealed record Solid(string Path, SolidPolicy Policy) : IngressSource;
-    public sealed record Steel(string Path, SteelContourPolicy Policy) : IngressSource;
-    public sealed record Element(ElementGraph Graph, NodeId Id, Op Key, Option<MeshSpace> Body, Arr<Loop> Footprint) : IngressSource;
+    public sealed record Profile(ProfileSource Source) : IngressSource;
+    public sealed record Solid(SolidSource Source) : IngressSource;
+    public sealed record Steel(SteelSource Source, SteelContourPolicy Policy) : IngressSource;
+    public sealed record Element(ElementSource Source) : IngressSource;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdmittedGeometry {
     private AdmittedGeometry() { }
-
     public sealed record Profiles(ProfileImportReceipt Receipt) : AdmittedGeometry;
     public sealed record Mesh(SolidImportReceipt Receipt) : AdmittedGeometry;
     public sealed record Steel(SteelImportReceipt Receipt) : AdmittedGeometry;
-    public sealed record Component(AdmittedComponent Value) : AdmittedGeometry;
+    public sealed record Elements(ElementAdmission Admission) : AdmittedGeometry;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class ProfileImport {
-    static readonly Map<UnitsType, double> UnitScales = Map(
-        (UnitsType.Unitless, 1.0),
-        (UnitsType.Millimeters, 1.0),
-        (UnitsType.Angstroms, Length.From(1.0, LengthUnit.Angstrom).Millimeters),
-        (UnitsType.Nanometers, Length.From(1.0, LengthUnit.Nanometer).Millimeters),
-        (UnitsType.Microns, Length.From(1.0, LengthUnit.Micrometer).Millimeters),
-        (UnitsType.Centimeters, Length.From(1.0, LengthUnit.Centimeter).Millimeters),
-        (UnitsType.Decimeters, Length.From(1.0, LengthUnit.Decimeter).Millimeters),
-        (UnitsType.Meters, Length.From(1.0, LengthUnit.Meter).Millimeters),
-        (UnitsType.Decameters, Length.From(1.0, LengthUnit.Decameter).Millimeters),
-        (UnitsType.Hectometers, Length.From(1.0, LengthUnit.Hectometer).Millimeters),
-        (UnitsType.Kilometers, Length.From(1.0, LengthUnit.Kilometer).Millimeters),
-        (UnitsType.Microinches, Length.From(1.0, LengthUnit.Microinch).Millimeters),
-        (UnitsType.Mils, Length.From(1.0, LengthUnit.Mil).Millimeters),
-        (UnitsType.Inches, Length.From(1.0, LengthUnit.Inch).Millimeters),
-        (UnitsType.Feet, Length.From(1.0, LengthUnit.Foot).Millimeters),
-        (UnitsType.Yards, Length.From(1.0, LengthUnit.Yard).Millimeters),
-        (UnitsType.Miles, Length.From(1.0, LengthUnit.Mile).Millimeters),
-        (UnitsType.USSurveyFeet, Length.From(1.0, LengthUnit.UsSurveyFoot).Millimeters));
+    static readonly FrozenDictionary<UnitsType, LengthUnit> Units = new Dictionary<UnitsType, LengthUnit> {
+        [UnitsType.Angstroms] = LengthUnit.Angstrom,
+        [UnitsType.Nanometers] = LengthUnit.Nanometer,
+        [UnitsType.Microns] = LengthUnit.Micrometer,
+        [UnitsType.Millimeters] = LengthUnit.Millimeter,
+        [UnitsType.Centimeters] = LengthUnit.Centimeter,
+        [UnitsType.Decimeters] = LengthUnit.Decimeter,
+        [UnitsType.Meters] = LengthUnit.Meter,
+        [UnitsType.Decameters] = LengthUnit.Decameter,
+        [UnitsType.Hectometers] = LengthUnit.Hectometer,
+        [UnitsType.Kilometers] = LengthUnit.Kilometer,
+        [UnitsType.Gigameters] = LengthUnit.Gigameter,
+        [UnitsType.Microinches] = LengthUnit.Microinch,
+        [UnitsType.Mils] = LengthUnit.Mil,
+        [UnitsType.Inches] = LengthUnit.Inch,
+        [UnitsType.Feet] = LengthUnit.Foot,
+        [UnitsType.Yards] = LengthUnit.Yard,
+        [UnitsType.Miles] = LengthUnit.Mile,
+        [UnitsType.AstronomicalUnits] = LengthUnit.AstronomicalUnit,
+        [UnitsType.LightYears] = LengthUnit.LightYear,
+        [UnitsType.Parsecs] = LengthUnit.Parsec,
+        [UnitsType.USSurveyFeet] = LengthUnit.UsSurveyFoot,
+    }.ToFrozenDictionary();
 
-    public static Fin<ProfileImportReceipt> Read(
-        string path, SplineDensity density, bool demandClosed, ProfileReadPolicy policy, Context tolerance) {
-        List<ProfileNotification> notifications = new();
-        NotificationEventHandler sink = (_, args) => notifications.Add(ProfileNotification.Of(args));
-        return ProfileFormat.Of(path)
-            .Bind(format => Open(format, path, policy, sink))
-            .Bind(doc => Scale(doc, path).Bind(scale => Fold(doc, density, tolerance, path, scale)))
-            .Bind(entries => demandClosed ? RequireClosed(entries) : Fin.Succ(entries))
-            .Bind(entries => Receipt(entries, toSeq(notifications), policy));
+    public static Eff<ProfileCensus> Probe(ProfileSource source) => Eff.lift(() =>
+        ProfileFormat.Admit(source.Path).Bind(format => Capture(source.Path, notices => format.Switch(
+            state: (Source: source, Format: format, Notices: notices),
+            dxf: static state => ProbeDxf(state.Source, state.Format, state.Notices),
+            dwg: static state => Try.lift(() => File.ReadAllBytes(state.Source.Path.Value)).Run()
+                .MapFail(error => Fault(state.Source.Path, error))
+                .Bind(payload => Open(ProfileFormat.Dwg, state.Source, payload, state.Notices))
+                .Map(document => Census(
+                    state.Format, state.Source, document.Header.InsUnits, LayerNames(document), document.Entities, state.Notices.Value))))))
+        .MapFail(error => error.IsExceptional ? Fault(source.Path, error) : error);
+
+    public static Eff<ProfileImportReceipt> Read(ProfileSource source) => Eff.lift(() =>
+        from raw in Try.lift(() => File.ReadAllBytes(source.Path.Value)).Run()
+            .MapFail(error => Fault(source.Path, error))
+        from format in ProfileFormat.Admit(source.Path)
+        from result in Capture(source.Path, notices =>
+            from document in Open(format, source, raw, notices)
+            from _ in Reject(notices, source.Policy.Reader, source.Path)
+            from scale in Scale(document.Header.InsUnits, source.Policy.Units, source.Path)
+            from lowered in Entities(document.Entities, source.Policy, source.Path, scale.Scale)
+            from repaired in ProfileTopology.Repair(lowered.Contours, source.Policy)
+            let census = Census(format, source, document.Header.InsUnits, LayerNames(document), document.Entities, notices.Value)
+            select new ProfileImportReceipt(
+                ContentHash.Of(raw), format, census,
+                new ProfileUnitEvidence(scale.Evidence, source.Policy.Units, LengthUnit.Millimeter, scale.Scale),
+                repaired.Contours, lowered.Markings.ToArr(), repaired.Regions,
+                Extents(repaired.Contours, lowered.Markings), repaired.Repairs))
+        select result).MapFail(error => error.IsExceptional ? Fault(source.Path, error) : error);
+
+    public static ProfileView Project(ProfileImportReceipt receipt, ProfileProjection projection) => projection.Switch(
+        state: receipt,
+        loops: static value => new ProfileView.Loops(value.Loops),
+        lanes: static value => new ProfileView.Lanes(Group(value.Contours, static row => row.Provenance.Lane)),
+        layers: static value => new ProfileView.Layers(Group(value.Contours, static row => row.Provenance.Layer)),
+        regions: static value => new ProfileView.Regions(value.Regions),
+        markings: static value => new ProfileView.Markings(value.Markings),
+        bounds: static value => new ProfileView.Bounds(value.Extents),
+        repairs: static value => new ProfileView.Repairs(value.Repairs),
+        census: static value => new ProfileView.Census(value.Census),
+        receipt: static value => new ProfileView.Receipt(value));
+
+    static Map<TKey, Arr<ProfileContour>> Group<TKey>(Arr<ProfileContour> rows, Func<ProfileContour, TKey> key)
+        where TKey : notnull =>
+        rows.GroupBy(key).Map(static group => (group.Key, group.ToArr())).ToMap();
+
+    static BoundingBox Extents(Arr<ProfileContour> contours, Seq<ProfileMarking> markings) =>
+        markings.Map(static marking => new BoundingBox(marking.At, marking.At))
+            .Concat(contours.Map(static contour => contour.Loop.Bound()).ToSeq())
+            .Fold(BoundingBox.Empty, static (bounds, next) => BoundingBox.Union(bounds, next));
+
+    static Fin<T> Capture<T>(ProfilePath path, Func<Atom<Seq<ProfileNotification>>, Fin<T>> use) {
+        Atom<Seq<ProfileNotification>> notices = Atom(Seq<ProfileNotification>());
+        return use(notices).MapFail(error => error.IsExceptional ? Fault(path, error) : error);
     }
 
-    static Fin<double> Scale(CadDocument doc, string path) =>
-        UnitScales.Find(doc.Header.InsUnits).ToFin(FabricationFault.IngressTranslation(SourceKind.Profile,
-            new SourceLocus.DxfEntity($"{Path.GetFileName(path)}:insunits:{doc.Header.InsUnits}")).ToError());
+    static Fin<CadDocument> Open(
+        ProfileFormat format,
+        ProfileSource source,
+        byte[] payload,
+        Atom<Seq<ProfileNotification>> notices) =>
+        Try.lift(() => format.Read(payload, source.Policy.Reader,
+            (_, args) => notices.Swap(rows => rows.Add(Notice(args)))))
+        .Run().MapFail(error => Fault(source.Path, error));
 
-    static Fin<ProfileImportReceipt> Receipt(Arr<ProfileEntry> entries, Seq<ProfileNotification> notifications, ProfileReadPolicy policy) =>
-        notifications.Find(notice => policy.Rejects.Contains(notice.Kind)).Match(
-            Some: notice => Fin.Fail<ProfileImportReceipt>(Translation(notice)),
-            None: () => Fin.Succ(new ProfileImportReceipt(entries, notifications)));
+    static Fin<ProfileCensus> ProbeDxf(
+        ProfileSource source, ProfileFormat format, Atom<Seq<ProfileNotification>> notices) =>
+        Try.lift(() => {
+            NotificationEventHandler sink = (_, args) => notices.Swap(rows => rows.Add(Notice(args)));
+            using DxfReader headerReader = new(source.Path.Value, sink);
+            UnitsType units = headerReader.ReadHeader().InsUnits;
+            using DxfReader tableReader = new(source.Path.Value, sink);
+            Seq<string> layers = toSeq(tableReader.ReadTables().Layers).Map(static layer => layer.Name).Strict();
+            using DxfReader entityReader = new(source.Path.Value, sink);
+            return Census(format, source, units, layers, entityReader.ReadEntities(), notices.Value);
+        }).Run().MapFail(error => Fault(source.Path, error));
 
-    static Error Translation(ProfileNotification notice) =>
-        FabricationFault.IngressTranslation(SourceKind.Profile, new SourceLocus.DxfEntity(notice.Message)).ToError();
+    static ProfileCensus Census(
+        ProfileFormat format,
+        ProfileSource source,
+        UnitsType units,
+        Seq<string> layers,
+        IEnumerable<Entity> entities,
+        Seq<ProfileNotification> notifications) {
+        Seq<Entity> rows = toSeq(entities).Strict();
+        Map<string, int> counts = rows.GroupBy(static entity => entity.Layer.Name)
+            .Map(static group => (group.Key, group.Count())).ToMap();
+        return new ProfileCensus(
+            ProfileEncoding.Of(format, source.Path),
+            units,
+            ProfileLayerCoverage.CompleteTable,
+            toSeq(layers.Distinct().OrderBy(static name => name, StringComparer.Ordinal))
+                .Map(name => (name, new ProfileLayerCensus(
+                    name, source.Policy.Lanes.Resolve(name), counts.Find(name).IfNone(0))))
+                .ToMap(),
+            rows.GroupBy(static entity => entity.GetType().Name).Map(static group => (group.Key, group.Count())).ToMap(),
+            notifications);
+    }
 
-    static Fin<Arr<ProfileEntry>> Fold(CadDocument doc, SplineDensity density, Context tolerance, string path, double scale) =>
-        toSeq(doc.Entities).TraverseM(entity => Admit(entity, density, tolerance, path, scale)).As()
-            .Map(static admitted => admitted.Somes().Bind(identity).ToArr())
-            .Bind(entries => entries.IsEmpty
-                ? Fin.Fail<Arr<ProfileEntry>>(PathFault(path))
-                : Fin.Succ(entries));
+    static Seq<string> LayerNames(CadDocument document) =>
+        toSeq(document.Layers).Map(static layer => layer.Name).Strict();
 
-    static Fin<Arr<ProfileEntry>> RequireClosed(Arr<ProfileEntry> entries) =>
-        entries.Find(static entry => !entry.Loop.Closed).Match(
-            Some: static open => Fin.Fail<Arr<ProfileEntry>>(FabricationFault.OpenLoop(FabConcern.Profile, open.Loop.Count).ToError()),
-            None: static () => Fin.Succ(entries));
+    static Fin<(double Scale, UnitsType Evidence)> Scale(UnitsType declared, ProfileUnitPolicy policy, ProfilePath path) =>
+        policy.Switch(
+            state: declared,
+            declared: static unit => Unit(unit).Map(scale => (scale, unit)),
+            declaredOr: static (unit, fallback) => Fin.Succ((
+                Unit(unit).IfFail(_ => Length.From(1d, fallback.Unit).Millimeters), unit)),
+            @override: static (unit, forced) => Fin.Succ((Length.From(1d, forced.Unit).Millimeters, unit)))
+        .MapFail(error => Fault(path, error));
 
-    static Fin<CadDocument> Open(ProfileFormat format, string path, ProfileReadPolicy policy, NotificationEventHandler sink) =>
-        Try.lift(() => format.Read(path, policy.Failsafe, sink)).Run()
-            .MapFail(_ => FabricationFault.IngressTranslation(
-                SourceKind.Profile, new SourceLocus.DxfEntity(Path.GetFileName(path))).ToError());
+    static Fin<double> Unit(UnitsType unit) => unit switch {
+        UnitsType.USSurveyInches => Fin.Succ(Length.From(1d / 12d, LengthUnit.UsSurveyFoot).Millimeters),
+        UnitsType.USSurveyYards => Fin.Succ(Length.From(3d, LengthUnit.UsSurveyFoot).Millimeters),
+        UnitsType.USSurveyMiles => Fin.Succ(Length.From(5280d, LengthUnit.UsSurveyFoot).Millimeters),
+        UnitsType.Unitless => Fin.Fail<double>(Error.New("profile-unit:unitless")),
+        _ => Units.TryGetValue(unit, out LengthUnit mapped)
+            ? Fin.Succ(Length.From(1d, mapped).Millimeters)
+            : Fin.Fail<double>(Error.New($"profile-unit:{unit}")),
+    };
 
-    static Fin<Option<Seq<ProfileEntry>>> Admit(Entity entity, SplineDensity density, Context tolerance, string path, double scale) =>
-        entity switch {
-            LwPolyline poly => ProfileLoop(toSeq(poly.Vertices).Map(v => Pt(v.Location, scale)).ToArr(), poly.IsClosed,
-                    toSeq(poly.Vertices).Map((v, i) => !poly.IsClosed && i == poly.Vertices.Count - 1 ? 0.0 : v.Bulge).ToArr(), tolerance, path)
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Polyline2D poly => ProfileLoop(toSeq(poly.Vertices).Map(v => Pt(v.Location, scale)).ToArr(), poly.IsClosed,
-                    toSeq(poly.Vertices).Map((v, i) => !poly.IsClosed && i == poly.Vertices.Count - 1 ? 0.0 : v.Bulge).ToArr(), tolerance, path)
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Line line => ProfileLoop(Arr(Pt(line.StartPoint, scale), Pt(line.EndPoint, scale)), closed: false, Arr<double>(), tolerance, path)
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Arc arc => Planar(arc, path).Bind(_ => ArcSpan(arc, tolerance, path, scale))
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Circle circle when double.IsFinite(circle.Radius) && circle.Radius > 0.0 => Planar(circle, path).Bind(_ => ProfileLoop(
-                Arr(Quarter(circle, circle.Radius, 0.0, scale), Quarter(circle, 0.0, circle.Radius, scale),
-                    Quarter(circle, -circle.Radius, 0.0, scale), Quarter(circle, 0.0, -circle.Radius, scale)),
-                closed: true, Range(0, 4).Map(static _ => Math.Sqrt(2.0) - 1.0).ToArr(), tolerance, path))
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Circle => Fin.Fail<Option<Seq<ProfileEntry>>>(PathFault(path)),
-            Spline spline => SplineLoop(spline, density, tolerance, path, scale)
-                .Map(loop => (Option<Seq<ProfileEntry>>)Some(Seq(Entry(entity, loop)))),
-            Insert insert => Flatten(insert, density, tolerance, path, scale).Map(rows => (Option<Seq<ProfileEntry>>)Some(rows)),
-            _ => Fin.Succ<Option<Seq<ProfileEntry>>>(None),
-        };
+    static Fin<ProfileLowered> Entities(
+        IEnumerable<Entity> entities, ProfilePolicy policy, ProfilePath path, double scale) =>
+        toSeq(entities).Map((entity, ordinal) => (entity, ordinal))
+            .Traverse(row => Entity(row.entity, row.ordinal, Seq<ProfileBlock>(), Set<ulong>(), policy, path, scale)
+                .ToValidation()).As().ToFin()
+            .Map(static rows => rows.Fold(ProfileLowered.Empty, static (state, row) => state.Concat(row)));
 
-    static ProfileEntry Entry(Entity entity, Loop loop) => new(loop.AsCcw(), entity.Layer.Name, entity.Color.Index);
+    static Fin<ProfileLowered> Entity(
+        Entity entity,
+        int ordinal,
+        Seq<ProfileBlock> blocks,
+        Set<ulong> ancestors,
+        ProfilePolicy policy,
+        ProfilePath path,
+        double scale) =>
+        policy.Lanes.Resolve(entity.Layer.Name) is { Contributes: false }
+            ? Fin.Succ(ProfileLowered.Empty)
+            : entity switch {
+                LwPolyline row => Contour(entity, ordinal, blocks, policy,
+                    row.Vertices.Map(vertex => Ocs(row.Normal, vertex.Location, row.Elevation, scale)).ToArr(),
+                    row.IsClosed, Bulges(row.Vertices.Map(static vertex => vertex.Bulge), row.Normal), path),
+                Polyline2D row => Contour(entity, ordinal, blocks, policy,
+                    row.Vertices.Map(vertex => Point(vertex.Location, scale)).ToArr(),
+                    row.IsClosed, row.Vertices.Map(static vertex => vertex.Bulge).ToArr(), path),
+                CadLine row => Contour(entity, ordinal, blocks, policy,
+                    Arr(Point(row.StartPoint, scale), Point(row.EndPoint, scale)), false, Arr(0d, 0d), path),
+                CadArc row => Planar(row.Normal, policy.Tolerance, entity, path)
+                    .Bind(_ => ArcLoop(row, policy.Tolerance, entity, path, scale))
+                    .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop)),
+                CadCircle row => Planar(row.Normal, policy.Tolerance, entity, path)
+                    .Bind(_ => CircleLoop(row.Normal, row.Center, row.Radius, policy.Tolerance, entity, path, scale))
+                    .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop)),
+                CadEllipse row when row.IsFullEllipse && row.RadiusRatio == 1d =>
+                    Planar(row.Normal, policy.Tolerance, entity, path)
+                        .Bind(_ => CircleLoop(
+                            row.Normal, row.Center, row.MajorAxisEndPoint.GetLength(),
+                            policy.Tolerance, entity, path, scale))
+                        .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop)),
+                CadEllipse row => Planar(row.Normal, policy.Tolerance, entity, path)
+                    .Bind(_ => CurveLoop(
+                        row.PolygonalVertexes(policy.Spline.Value), row.IsFullEllipse, policy.Tolerance, entity, path, scale))
+                    .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop)),
+                CadSpline row => row.TryPolygonalVertexes(policy.Spline.Value, out List<XYZ> points)
+                    || row.UpdateFromFitPoints() && row.TryPolygonalVertexes(policy.Spline.Value, out points)
+                        ? CurveLoop(points, row.IsClosed, policy.Tolerance, entity, path, scale)
+                            .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop))
+                        : Fin.Fail<ProfileLowered>(Fault(path, entity, "profile-spline:untessellated")),
+                Hatch row => HatchContours(row, ordinal, blocks, policy, path, scale),
+                CadPoint row => Fin.Succ(new ProfileLowered(
+                    Seq<ProfileContour>(),
+                    Seq(new ProfileMarking(
+                        Point(row.Location, scale), row.Rotation,
+                        Provenance(entity, ordinal, blocks, policy, row.Location.Z * scale, Set(ordinal)))))),
+                Insert row => Insertion(row, ordinal, blocks, ancestors, policy, path, scale),
+                _ => policy.Unsupported.Switch(
+                    ignore: static _ => Fin.Succ(ProfileLowered.Empty),
+                    reject: _ => Fin.Fail<ProfileLowered>(Fault(path, entity, "profile-entity:unsupported"))),
+            };
 
-    // A world-planar extrusion normal keeps OCS == WCS, so Center/endpoints admit directly; any oblique normal
-    // fails typed here — silent world-XY flattening of a tilted curve is the deleted form.
-    static Fin<Unit> Planar(Circle curve, string path) =>
-        curve.Normal.X == 0.0 && curve.Normal.Y == 0.0 && curve.Normal.Z > 0.0
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(FabricationFault.IngressTranslation(SourceKind.Profile,
-                new SourceLocus.DxfEntity($"{Path.GetFileName(path)}:normal:{curve.Normal}")).ToError());
+    static Fin<ProfileLowered> HatchContours(
+        Hatch row, int ordinal, Seq<ProfileBlock> blocks, ProfilePolicy policy, ProfilePath path, double scale) =>
+        Planar(row.Normal, policy.Tolerance, row, path)
+            .Bind(_ => Try.lift(() => toSeq(row.Paths).Map((boundary, index) => (boundary, index)).Strict())
+                .Run().MapFail(error => Fault(path, row, error.Message)))
+            .Bind(boundaries => boundaries.Traverse(item =>
+                Try.lift(() => item.boundary.Edges.ToSeq()
+                    .Bind(edge => HatchEdge(row, edge, policy.Spline.Value, scale)).Strict()).Run()
+                    .MapFail(error => Fault(path, row, error.Message))
+                    .Bind(spans => spans.IsEmpty
+                        ? Fin.Fail<Loop>(Fault(path, row, $"hatch:{item.index}:empty"))
+                        : Loop.Admit(
+                        spans.Map(static span => span.Start).ToArr(),
+                        closed: true, spans.Map(static span => span.Bulge).ToArr(), policy.Tolerance)
+                        .MapFail(error => Fault(path, row, $"hatch:{item.index}:{error.Message}")))
+                    .Map(loop => new ProfileContour(loop,
+                        Provenance(row, ordinal, blocks, policy, loop.Plane, Set(ordinal))))
+                    .ToValidation()).As().ToFin())
+            .Map(static contours => new ProfileLowered(contours.ToSeq(), Seq<ProfileMarking>()));
 
-    static Point3d Quarter(Circle circle, double dx, double dy, double scale) =>
-        new((circle.Center.X + dx) * scale, (circle.Center.Y + dy) * scale, circle.Center.Z * scale);
+    static Seq<HatchSpan> HatchEdge(Hatch hatch, Hatch.BoundaryPath.Edge edge, int precision, double scale) => edge switch {
+        HatchLine line => Seq(new HatchSpan(
+            Ocs(hatch.Normal, line.Start, hatch.Elevation, scale),
+            Ocs(hatch.Normal, line.End, hatch.Elevation, scale), 0.0)),
+        HatchArc arc => HatchArcSpans(hatch, arc, scale),
+        HatchPolyline polyline => HatchPolylineSpans(hatch, polyline, scale),
+        HatchEllipse ellipse => HatchSampled(hatch, ellipse.PolygonalVertexes(precision), scale),
+        HatchSpline spline => HatchSampled(hatch, spline.PolygonalVertexes(precision), scale),
+        _ => Seq<HatchSpan>(),
+    };
 
-    static Fin<Loop> ArcSpan(Arc arc, Context tolerance, string path, double scale) {
+    static Seq<HatchSpan> HatchArcSpans(Hatch hatch, HatchArc arc, double scale) {
+        double sweep = HatchSweep(arc.StartAngle, arc.EndAngle, arc.CounterClockWise);
+        int parts = Math.Abs(sweep) == Math.PI * 2.0 ? 4 : 1;
+        double step = sweep / parts;
+        return Range(0, parts).Map(index => {
+            double from = arc.StartAngle + index * step;
+            double to = from + step;
+            return new HatchSpan(
+                Ocs(hatch.Normal, new XY(arc.Center.X + Math.Cos(from) * arc.Radius, arc.Center.Y + Math.Sin(from) * arc.Radius), hatch.Elevation, scale),
+                Ocs(hatch.Normal, new XY(arc.Center.X + Math.Cos(to) * arc.Radius, arc.Center.Y + Math.Sin(to) * arc.Radius), hatch.Elevation, scale),
+                Math.Tan(step / 4.0) * Math.Sign(hatch.Normal.Z));
+        });
+    }
+
+    static double HatchSweep(double start, double end, bool counterClockwise) {
+        double turn = Math.PI * 2.0;
+        double magnitude = counterClockwise ? (end - start + turn) % turn : (start - end + turn) % turn;
+        if (magnitude == 0.0) magnitude = turn;
+        return counterClockwise ? magnitude : -magnitude;
+    }
+
+    static Seq<HatchSpan> HatchPolylineSpans(Hatch hatch, HatchPolyline polyline, double scale) {
+        XYZ[] vertices = polyline.Vertices.ToArray();
+        double[] bulges = polyline.Bulges.ToArray();
+        int spans = polyline.IsClosed && vertices.Length > 1
+            ? vertices.Length
+            : Math.Max(0, vertices.Length - 1);
+        if (bulges.Length < spans)
+            throw new System.IO.InvalidDataException($"hatch-polyline:bulges:{bulges.Length}:{spans}");
+        return Range(0, spans).Map(index => new HatchSpan(
+            Ocs(hatch.Normal, new XY(vertices[index].X, vertices[index].Y), hatch.Elevation, scale),
+            Ocs(hatch.Normal, new XY(vertices[(index + 1) % vertices.Length].X, vertices[(index + 1) % vertices.Length].Y), hatch.Elevation, scale),
+            bulges[index] * Math.Sign(hatch.Normal.Z)));
+    }
+
+    static Seq<HatchSpan> HatchSampled(Hatch hatch, IEnumerable<XYZ> source, double scale) {
+        Seq<XYZ> points = toSeq(source);
+        return points.Zip(points.Skip(1)).Map(pair => new HatchSpan(
+            Ocs(hatch.Normal, new XY(pair.First.X, pair.First.Y), hatch.Elevation + pair.First.Z, scale),
+            Ocs(hatch.Normal, new XY(pair.Second.X, pair.Second.Y), hatch.Elevation + pair.Second.Z, scale), 0.0));
+    }
+
+    // `Insert.Explode` resolves ONE placement, so a MINSERT row/column array expands here as translated replicas.
+    static Fin<ProfileLowered> Insertion(
+        Insert row,
+        int ordinal,
+        Seq<ProfileBlock> blocks,
+        Set<ulong> ancestors,
+        ProfilePolicy policy,
+        ProfilePath path,
+        double scale) => ancestors.Contains(row.Block.Handle)
+        ? Fin.Fail<ProfileLowered>(Fault(path, row, "profile-block:cycle"))
+        : Try.lift(() => toSeq(row.Explode()).Strict()).Run().MapFail(error => Fault(path, error))
+            .Bind(children => children.Map((child, index) => (child, index))
+                .Traverse(child => Entity(
+                    child.child, child.index,
+                    blocks.Add(new ProfileBlock(row.Block.Name, ordinal, Row: 0, Column: 0)),
+                    ancestors.Add(row.Block.Handle), policy, path, scale).ToValidation()).As().ToFin())
+            .Map(rows => rows.Fold(ProfileLowered.Empty, static (state, part) => state.Concat(part)))
+            .Bind(placed => Replicas(row, scale)
+                .Traverse(replica => placed
+                    .Translate(replica.Delta, replica.Row, replica.Column).ToValidation()).As().ToFin()
+                .Map(static replicas => replicas.Fold(
+                    ProfileLowered.Empty, static (state, replica) => state.Concat(replica))));
+
+    static Seq<(Vector3d Delta, int Row, int Column)> Replicas(Insert row, double scale) {
+        Matrix3 frame = Matrix3.ArbitraryAxis(row.Normal) * Matrix3.RotationZ(row.Rotation);
+        return Range(0, row.RowCount).Bind(rowIndex => Range(0, row.ColumnCount).Map(columnIndex => {
+            XYZ offset = frame * new XYZ(columnIndex * row.ColumnSpacing, rowIndex * row.RowSpacing, 0d);
+            return (new Vector3d(offset.X * scale, offset.Y * scale, offset.Z * scale), rowIndex, columnIndex);
+        }));
+    }
+
+    static Fin<ProfileLowered> Contour(
+        Entity entity, int ordinal, Seq<ProfileBlock> blocks, ProfilePolicy policy,
+        Arr<Point3d> points, bool closed, Arr<double> bulges, ProfilePath path) =>
+        Loop.Admit(points, closed, bulges, policy.Tolerance).MapFail(error => Fault(path, entity, error.Message))
+            .Bind(loop => Wrapped(entity, ordinal, blocks, policy, loop));
+
+    static Fin<ProfileLowered> Wrapped(
+        Entity entity, int ordinal, Seq<ProfileBlock> blocks, ProfilePolicy policy, Loop loop) =>
+        Fin.Succ(new ProfileLowered(
+            Seq(new ProfileContour(loop, Provenance(entity, ordinal, blocks, policy, loop.Plane, Set(ordinal)))),
+            Seq<ProfileMarking>()));
+
+    static ProfileProvenance Provenance(
+        Entity entity, int ordinal, Seq<ProfileBlock> blocks, ProfilePolicy policy, double plane, Set<int> ordinals) =>
+        new(entity.Layer.Name, policy.Lanes.Resolve(entity.Layer.Name), entity.Color.Index,
+            entity.Handle, blocks, plane, ordinals);
+
+    static Fin<Loop> ArcLoop(CadArc arc, Context tolerance, Entity entity, ProfilePath path, double scale) {
         arc.GetEndVertices(out XYZ start, out XYZ end);
-        double bulge = Math.Tan(arc.Sweep / 4.0);
-        return double.IsFinite(bulge) && bulge != 0.0
-            ? ProfileLoop(Arr(Pt(start, scale), Pt(end, scale)), closed: false, Arr(bulge, 0.0), tolerance, path)
-            : Fin.Fail<Loop>(PathFault(path));
+        return Loop.Admit(
+            Arr(Point(start, scale), Point(end, scale)), false,
+            Arr(Math.Tan(arc.Sweep / 4d) * Math.Sign(arc.Normal.Z), 0d), tolerance)
+            .MapFail(error => Fault(path, entity, error.Message));
     }
 
-    static Fin<Loop> SplineLoop(Spline spline, SplineDensity density, Context tolerance, string path, double scale) {
-        List<XYZ> points;
-        bool sampled = spline.TryPolygonalVertexes(density.Segments, out points)
-            || (spline.UpdateFromFitPoints() && spline.TryPolygonalVertexes(density.Segments, out points));
-        return sampled
-            ? ProfileLoop(toSeq(points).Map(p => Pt(p, scale)).ToArr(), spline.IsClosed, Arr<double>(), tolerance, path)
-            : Fin.Fail<Loop>(FabricationFault.IngressTranslation(
-                SourceKind.Profile, new SourceLocus.DxfEntity(Path.GetFileName(path))).ToError());
+    static Fin<Loop> CircleLoop(
+        XYZ normal, XYZ center, double radius, Context tolerance, Entity entity, ProfilePath path, double scale) {
+        double bulge = (Math.Sqrt(2d) - 1d) * Math.Sign(normal.Z);
+        Matrix3 frame = Matrix3.ArbitraryAxis(normal);
+        return Loop.Admit(
+            Arr(
+                Point(frame * new XYZ(center.X + radius, center.Y, center.Z), scale),
+                Point(frame * new XYZ(center.X, center.Y + radius, center.Z), scale),
+                Point(frame * new XYZ(center.X - radius, center.Y, center.Z), scale),
+                Point(frame * new XYZ(center.X, center.Y - radius, center.Z), scale)),
+            true,
+            Arr(bulge, bulge, bulge, bulge),
+            tolerance).MapFail(error => Fault(path, entity, error.Message));
     }
 
-    static Fin<Seq<ProfileEntry>> Flatten(Insert insert, SplineDensity density, Context tolerance, string path, double scale) =>
-        Try.lift(() => toSeq(insert.Explode()).Strict()).Run().MapFail(_ => PathFault(path))
-            .Bind(children => children.TraverseM(entity => Admit(entity, density, tolerance, path, scale)).As())
-            .Map(static admitted => admitted.Somes().Bind(identity));
+    static Fin<Loop> CurveLoop(
+        IEnumerable<XYZ> points, bool closed, Context tolerance, Entity entity, ProfilePath path, double scale) =>
+        Loop.Admit(toSeq(points).Map(point => Point(point, scale)).ToArr(), closed, Arr<double>(), tolerance)
+            .MapFail(error => Fault(path, entity, error.Message));
 
-    static Point3d Pt(XY xy, double scale) => new(xy.X * scale, xy.Y * scale, 0.0);
+    static Fin<Unit> Planar(XYZ normal, Context tolerance, Entity entity, ProfilePath path) =>
+        Math.Abs(normal.X) <= Math.Sin(tolerance.Angle.Value)
+        && Math.Abs(normal.Y) <= Math.Sin(tolerance.Angle.Value)
+        && Math.Abs(Math.Abs(normal.Z) - 1d) <= 1d - Math.Cos(tolerance.Angle.Value)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(Fault(path, entity, "profile-entity:non-planar"));
 
-    // WCS-carrying entities (Line endpoints, Arc.GetEndVertices, Polyline2D vertices, spline samples) keep their
-    // source elevation; Loop.Admit's one-plane law then rules coplanarity instead of a hardcoded Z = 0 collapse.
-    static Point3d Pt(XYZ xyz, double scale) => new(xyz.X * scale, xyz.Y * scale, xyz.Z * scale);
+    static Arr<double> Bulges(IEnumerable<double> bulges, XYZ normal) =>
+        toSeq(bulges).Map(bulge => bulge * Math.Sign(normal.Z)).ToArr();
 
-    static Fin<Loop> ProfileLoop(Arr<Point3d> vertices, bool closed, Arr<double> bulges, Context tolerance, string path) =>
-        Loop.Admit(vertices, closed, bulges, tolerance).MapFail(_ => PathFault(path));
+    static Point3d Ocs(XYZ normal, XY point, double elevation, double scale) =>
+        Point(Matrix3.ArbitraryAxis(normal) * new XYZ(point.X, point.Y, elevation), scale);
 
-    static Error PathFault(string path) =>
-        FabricationFault.IngressTranslation(SourceKind.Profile, new SourceLocus.DxfEntity(Path.GetFileName(path))).ToError();
+    static Point3d Point(XYZ point, double scale) => new(point.X * scale, point.Y * scale, point.Z * scale);
+
+    static Fin<Unit> Reject(Atom<Seq<ProfileNotification>> notices, ProfileReadPolicy policy, ProfilePath path) =>
+        notices.Value.Find(notice => policy.Rejects.Contains(notice.Kind))
+            .Match(
+                Some: notice => Fin.Fail<Unit>(new FabricationFault.IngressProviderUnavailable(
+                    new SourceLocus.DxfEntity(Path.GetFileName(path.Value)), notice.Message)),
+                None: static () => Fin.Succ(unit));
+
+    static ProfileNotification Notice(NotificationEventArgs args) => new(
+        args.NotificationType switch {
+            NotificationType.Warning => ProfileNoticeKind.Warning,
+            NotificationType.Error => ProfileNoticeKind.Error,
+            NotificationType.NotImplemented => ProfileNoticeKind.NotImplemented,
+            _ => ProfileNoticeKind.None,
+        },
+        args.Message,
+        Optional(args.Exception?.Message));
+
+    internal static Error Fault(ProfilePath path) => new FabricationFault.IngressTranslation(
+        new SourceLocus.DxfEntity(Path.GetFileName(path.Value)));
+
+    static Error Fault(ProfilePath path, Error error) => new FabricationFault.IngressProviderUnavailable(
+        new SourceLocus.DxfEntity(Path.GetFileName(path.Value)), error.Message);
+
+    static Error Fault(ProfilePath path, Entity entity, string detail) =>
+        new FabricationFault.IngressProviderUnavailable(
+            new SourceLocus.DxfEntity($"{Path.GetFileName(path.Value)}#{entity.Handle:x}"), detail);
+}
+
+public static class ProfileTopology {
+    public sealed record Receipt(Arr<ProfileContour> Contours, Arr<ProfileRegion> Regions, Seq<ProfileRepair> Repairs);
+    readonly record struct Stitched(Seq<ProfileContour> Contours, Seq<ProfileRepair> Repairs);
+    readonly record struct Normalized(
+        Seq<ProfileContour> Contours, Option<ProfileRegion> Region, Seq<ProfileRepair> Repairs);
+
+    public static Fin<Receipt> Repair(Seq<ProfileContour> contours, ProfilePolicy policy) => policy.Closure.Switch(
+        state: (Contours: contours, Policy: policy),
+        open: static state => Normalize(state.Contours, state.Policy, demandClosed: false, gap: 0d),
+        exact: static state => state.Contours.IsEmpty
+            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:empty").ToError())
+            : Normalize(state.Contours, state.Policy, demandClosed: true, gap: 0d),
+        healed: static (state, closure) => state.Contours.IsEmpty
+            ? Fin.Fail<Receipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:empty").ToError())
+            : Normalize(state.Contours, state.Policy, demandClosed: true, closure.MaxGap.Value.Millimeters));
+
+    static Fin<Receipt> Normalize(Seq<ProfileContour> contours, ProfilePolicy policy, bool demandClosed, double gap) =>
+        from stitched in Stitch(contours, policy.Tolerance, gap)
+        from closed in stitched.Contours.Find(row => demandClosed && row.Provenance.Lane.Closes && !row.Loop.Closed)
+            .Match(
+                Some: row => Fin.Fail<Seq<ProfileContour>>(
+                    new FabricationFault.OpenLoop(FabConcern.Profile, row.Loop.Count)),
+                None: () => Fin.Succ(stitched.Contours))
+        from groups in closed.GroupBy(static row => (
+                Provenance: row.Provenance with { Ordinals = Set<int>(), Handle = 0ul }, row.Loop.Closed))
+            .Traverse(group => NormalizeGroup(group.ToSeq(), policy).ToValidation()).As().ToFin()
+        select new Receipt(
+            groups.Bind(static group => group.Contours).ToArr(),
+            groups.Map(static group => group.Region).Somes().ToArr(),
+            stitched.Repairs.Concat(groups.Bind(static group => group.Repairs)));
+
+    // A closed provenance group is the region unit: clean and densify through the arc owner, then read nesting
+    // from the fill rule — a boolean union under one winding absorbs every hole into its outer boundary.
+    static Fin<Normalized> NormalizeGroup(Seq<ProfileContour> rows, ProfilePolicy policy) =>
+        rows.Head.Provenance.Lane.Closes && rows.Head.Loop.Closed
+        ? from forest in ArcForest
+              .Admit(rows.Map(static row => row.Loop), policy.Tolerance, rows.Head.Loop.Plane).ToFin()
+          from cleaned in ArcAlgebra.Apply(new ArcOp.Clean(forest))
+          from evidence in cleaned switch {
+              ArcTrace.Forest arm => Fin.Succ(arm),
+              _ => Fin.Fail<ArcTrace.Forest>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:clean").ToError()),
+          }
+          from lowered in evidence.Result.Loops
+              .Traverse(loop => ArcAlgebra
+                  .Densify(new ArcProjection.Lower(loop, policy.Tolerance.Absolute.Value))
+                  .Bind(static trace => trace switch {
+                      ArcTrace.Densified arm => Fin.Succ(arm.Receipt),
+                      _ => Fin.Fail<DensifyReceipt>(
+                          new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:densify").ToError()),
+                  }).ToValidation()).As().ToFin()
+          from trace in PolygonAlgebra.Apply(
+              new PolygonOp.Topology(lowered.Map(static receipt => receipt.Result), policy.Fill))
+          from topology in trace switch {
+              PolygonTrace.Regions arm => Fin.Succ(arm.Result),
+              _ => Fin.Fail<TopologyReceipt>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:projection").ToError()),
+          }
+          let provenance = rows.Head.Provenance
+          let admitted = evidence.Result.Loops
+          select new Normalized(
+              admitted.Map(loop => new ProfileContour(loop, provenance)),
+              Some(new ProfileRegion(provenance, topology)),
+              Cleanup(provenance, rows, evidence.Receipt)
+                  .Concat(lowered.Map(receipt => Densification(provenance, receipt)).Somes())
+                  .Concat(Areas(provenance, rows, admitted)))
+        : Fin.Succ(new Normalized(rows, Option<ProfileRegion>.None, Seq<ProfileRepair>()));
+
+    static Fin<Stitched> Stitch(Seq<ProfileContour> contours, Context tolerance, double gap) =>
+        contours.GroupBy(static contour => (
+                Provenance: contour.Provenance with { Ordinals = Set<int>(), Handle = 0ul }, contour.Loop.Closed))
+            .Traverse(group => StitchLane(group.ToSeq(), tolerance, gap).ToValidation()).As().ToFin()
+            .Map(static groups => new Stitched(
+                groups.Bind(static group => group.Contours),
+                groups.Bind(static group => group.Repairs)));
+
+    static Fin<Stitched> StitchLane(Seq<ProfileContour> group, Context tolerance, double gap) =>
+        group.Head.Provenance.Lane.Closes
+            ? StitchGroup(group, tolerance, gap)
+            : Fin.Succ(new Stitched(group, Seq<ProfileRepair>()));
+
+    static Fin<Stitched> StitchGroup(Seq<ProfileContour> group, Context tolerance, double gap) {
+        List<(Loop Loop, Set<int> Ordinals)> chains = group
+            .Map(static row => (row.Loop, row.Provenance.Ordinals)).ToList();
+        if (Branching(chains.Map(static chain => chain.Loop).ToList(), gap))
+            return Fin.Fail<Stitched>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "profile-topology:branch").ToError());
+        int joins = 0;
+        double joinedDistance = 0d;
+        bool merged;
+        do {
+            Option<(int Left, int Right, Loop Loop, double Distance)> next = Range(0, chains.Count)
+                .Bind(left => Range(left + 1, chains.Count - left - 1).Choose(right =>
+                    Join(chains[left].Loop, chains[right].Loop, tolerance, gap)
+                        .Map(joined => (left, right, joined.Loop, joined.Distance))))
+                .OrderBy(static candidate => candidate.Distance)
+                .Head;
+            merged = next.Match(
+                Some: candidate => {
+                    chains[candidate.Left] = (
+                        candidate.Loop,
+                        chains[candidate.Left].Ordinals.Union(chains[candidate.Right].Ordinals));
+                    chains.RemoveAt(candidate.Right);
+                    joinedDistance += candidate.Distance;
+                    joins++;
+                    return true;
+                },
+                None: static () => false);
+        } while (merged);
+
+        ProfileProvenance provenance = group.Head.Provenance with {
+            Ordinals = group.Bind(static row => row.Provenance.Ordinals).ToSet(),
+        };
+        Seq<(Loop Loop, Set<int> Ordinals, Option<double> Gap)> closures = toSeq(chains)
+            .Map(chain => Seal(chain.Loop, tolerance, gap)
+                .Match(
+                    Some: loop => (loop, chain.Ordinals, Some(Span(chain.Loop))),
+                    None: () => (chain.Loop, chain.Ordinals, Option<double>.None)));
+        return Fin.Succ(new Stitched(
+            closures.Map(chain => new ProfileContour(chain.Loop, provenance with { Ordinals = chain.Ordinals })),
+            (joins == 0
+                ? Seq<ProfileRepair>()
+                : Seq<ProfileRepair>(new ProfileRepair.Joined(
+                    provenance, Length.FromMillimeters(joinedDistance), joins)))
+                .Concat(closures.Map(chain => chain.Gap.Map(value => (ProfileRepair)new ProfileRepair.Closed(
+                    provenance, Length.FromMillimeters(value)))).Somes())));
+    }
+
+    // An open chain whose ends meet within the gap is the canonical drawn profile: close it or the closure demand
+    // rejects a drawing whose only defect is that its perimeter was drawn as separate entities.
+    static Option<Loop> Seal(Loop loop, Context tolerance, double gap) =>
+        !loop.Closed && loop.Count >= 3 && Span(loop) <= gap
+            ? Loop.Admit(
+                loop.Vertices, true,
+                loop.Bulges, tolerance).ToOption()
+            : None;
+
+    static double Span(Loop loop) => loop.Vertices[0].DistanceTo(loop.Vertices[loop.Count - 1]);
+
+    static Option<(Loop Loop, double Distance)> Join(Loop left, Loop right, Context tolerance, double gap) {
+        if (left.Closed || right.Closed || Math.Abs(left.Plane - right.Plane) > tolerance.Absolute.Value)
+            return None;
+        return Seq(false, true).Bind(reverseLeft => Seq(false, true).Map(reverseRight => (
+                Left: Orient(left, reverseLeft),
+                Right: Orient(right, reverseRight))))
+            .Choose(static pair => pair.Left.Bind(l => pair.Right.Map(r => (Left: l, Right: r))))
+            .Map(pair => (
+                pair.Left,
+                pair.Right,
+                Distance: pair.Left.Vertices[pair.Left.Vertices.Count - 1].DistanceTo(pair.Right.Vertices[0])))
+            .Filter(candidate => candidate.Distance <= gap)
+            .OrderBy(static candidate => candidate.Distance)
+            .Head
+            .Bind(candidate => Loop.Admit(
+                candidate.Left.Vertices.ToSeq().Concat(candidate.Right.Vertices.ToSeq().Skip(1)).ToArr(), false,
+                candidate.Left.Bulges.ToSeq().Take(candidate.Left.Bulges.Count - 1)
+                    .Concat(candidate.Right.Bulges).ToArr(), tolerance)
+                .Map(loop => (loop, candidate.Distance)).ToOption());
+    }
+
+    static Option<Loop> Orient(Loop loop, bool reverse) => reverse
+        ? Loop.Admit(
+            loop.Vertices.Rev().ToArr(),
+            false,
+            Range(0, loop.Count).Map(index => index == loop.Count - 1
+                ? 0d
+                : -loop.BulgeAt(loop.Count - 2 - index)).ToArr(),
+            loop.Tolerance).ToOption()
+        : Some(loop);
+
+    static bool Branching(List<Loop> loops, double gap) {
+        Seq<(int Loop, Point3d Point)> endpoints = toSeq(loops).Map((loop, index) => Seq(
+            (index, loop.Vertices[0]),
+            (index, loop.Vertices[loop.Vertices.Count - 1]))).Bind(identity);
+        return endpoints.Exists(endpoint => endpoints.Count(candidate =>
+            candidate.Loop != endpoint.Loop && candidate.Point.DistanceTo(endpoint.Point) <= gap) > 1);
+    }
+
+    static Seq<ProfileRepair> Cleanup(
+        ProfileProvenance provenance, Seq<ProfileContour> before, ArcReceipt receipt) => receipt switch {
+        ArcReceipt.Clean arm when arm.Loops.Count != before.Count
+            || arm.Loops.Fold(0, static (sum, evidence) => sum + evidence.OutputSegments)
+                != before.Fold(0, static (sum, row) => sum + row.Loop.Spans) =>
+            Seq<ProfileRepair>(new ProfileRepair.Cleaned(
+                provenance, before.Count, arm.Loops.Count,
+                arm.Loops.Fold(0, static (sum, evidence) => sum + evidence.OutputSegments))),
+        _ => Seq<ProfileRepair>(),
+    };
+
+    static Option<ProfileRepair> Densification(ProfileProvenance provenance, DensifyReceipt receipt) =>
+        receipt.Simplified == 0 && receipt.SourceSpans == receipt.OutputSpans
+            ? None
+            : Some<ProfileRepair>(new ProfileRepair.Densified(
+                provenance, receipt.ErrorBound, receipt.SourceSpans, receipt.OutputSpans, receipt.Simplified));
+
+    static Seq<ProfileRepair> Areas(ProfileProvenance provenance, Seq<ProfileContour> before, Seq<Loop> after) =>
+        before.Map(static row => row.Loop).Equals(after)
+        ? Seq<ProfileRepair>()
+        : Seq<ProfileRepair>(new ProfileRepair.Topology(
+            provenance, before.Count, after.Count,
+            Area.FromSquareMillimeters(before.Fold(0d, static (sum, row) => sum + Math.Abs(row.Loop.Area()))),
+            Area.FromSquareMillimeters(after.Fold(0d, static (sum, loop) => sum + Math.Abs(loop.Area())))));
 }
 
 public static class Ingress {
-    public static Fin<AdmittedGeometry> Admit(IngressSource source) =>
-        source.Switch(
-            profile: static profile => ProfileImport.Read(profile.Path, profile.Density, profile.DemandClosed, profile.Policy, profile.Tolerance)
-                .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Profiles(receipt)),
-            solid: static solid => SolidImport.Read(solid.Path, solid.Policy)
-                .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Mesh(receipt)),
-            steel: static steel => SteelImport.Read(steel.Path, steel.Policy)
-                .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Steel(receipt)),
-            element: static element => ElementImport.Admit(element.Graph, element.Id, element.Key, element.Body, element.Footprint)
-                .Map(component => (AdmittedGeometry)new AdmittedGeometry.Component(component)));
+    public static Eff<AdmittedGeometry> Admit(IngressSource source) => source.Switch(
+        profile: static arm => ProfileImport.Read(arm.Source)
+            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Profiles(receipt)),
+        solid: static arm => SolidImport.Read(arm.Source)
+            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Mesh(receipt)),
+        steel: static arm => SteelImport.Read(arm.Source, arm.Policy)
+            .Map(receipt => (AdmittedGeometry)new AdmittedGeometry.Steel(receipt)),
+        element: static arm => Eff.lift(() => ElementImport.Admit(arm.Source))
+            .Map(admission => (AdmittedGeometry)new AdmittedGeometry.Elements(admission)));
 }
 ```
 
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Unified fabrication-ingress dispatch
-    accDescr: One policy-bearing source union dispatches to profile, solid, steel, or element admission, profile format and entity lowering preserve provider notifications, strict errors become typed faults, and every successful arm returns evidence-bearing admitted geometry.
-    Source["IngressSource"] --> Dispatch["Ingress.Admit"]
-    Dispatch --> Profile["ProfileImport.Read"]
-    Dispatch --> Solid["SolidImport.Read"]
-    Dispatch --> Steel["SteelImport.Read"]
-    Dispatch --> Element["ElementImport.Admit"]
-    Profile --> Format["ProfileFormat.Of (typed 2711 on unknown extension)"]
-    Format --> Open["DxfReader / DwgReader configured read"]
-    Open --> Notify["NotificationEventHandler"]
-    Notify eReceipt@--> Receipt["ProfileImportReceipt"]
-    Notify eFault@-->|"Strict + Error"| Fault["IngressTranslation 2711"]
-    Open --> Units["Header.InsUnits → UnitScales mm factor"]
-    Open --> Entities["CadDocument.Entities"]
-    Units --> Admit
-    Entities --> Admit["Admit entity · bulge-exact · Layer/Color provenance"]
-    Admit --> Loop["ProfileEntry · Loop + Bulges · AsCcw"]
-    Loop eProfiles@--> Profiles["AdmittedGeometry.Profiles · ProfileImportReceipt"]
-    Solid eMesh@--> Mesh["AdmittedGeometry.Mesh · SolidImportReceipt"]
-    Steel eSteel@--> SteelOut["AdmittedGeometry.Steel · SteelImportReceipt"]
-    Element eComponent@--> Component["AdmittedGeometry.Component"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
-    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    class Source boundary
-    class Dispatch,Profile,Solid,Steel,Element,Format,Admit primary
-    class Open,Notify external
-    class Receipt,Entities,Units,Loop data
-    class Profiles,Mesh,SteelOut,Component success
-    class Fault error
-    class eFault edgeError
-    class eReceipt,eProfiles,eMesh,eSteel,eComponent edgeSuccess
-```
+## [06]-[RESEARCH]
+
+- `Polyline2D` inherits its extrusion direction from the open-generic `Polyline<Vertex2D>` base, which `ilspycmd` cannot resolve by name; until that base decompiles, the `Polyline2D` arm lowers `Vertex2D.Location` as WCS and applies no OCS map or bulge-sense inversion, unlike the verified `LwPolyline.Normal` arm.

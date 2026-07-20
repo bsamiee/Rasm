@@ -1,27 +1,34 @@
 # [RASM_FABRICATION_PROGRAM]
 
-`Post` owns the dialect-neutral cut-program AST, the `Run(Post{Motion, PostDialect})` lowering body, the live placement cut-conditioning rail, the RS274 word-parse ingress, and the `PackKind.Toolpath` publish-back egress. `GNode` is the sole program vocabulary consumed by `Dialect.Emit`; `CutProgram` carries the AST plus its `ContentKey` minted over the full canonical node payload, and `PostedProgram` carries lowered block text plus the `EgressKind.CutProgram` content key. Motion enters already CAM-conditioned; placement-style 2D cutting enters the local cut-conditioning rail exactly once through the `Lower(FabricationResult.Placement, ...)` overload — one `Lower` name, the input type the modality discriminant: placed loops project through the atoms-owner `PartTransform.Apply`, arc-native kerf and lead compose `ArcAlgebra`, unlinked contour order composes `PolygonAlgebra.NestingOrder` under an explicit `PolygonFill`, committed chain topology consumes the `Nesting/linking` `ChainRow` rows — one pierce per chain at its recorded point, never per-loop reconstruction — WCS rows compose `Setup.Schedule` and lower through the `GCommand.Wcs` row (never a `G90 P` fiction), tool swaps compose `Magazine.Schedule`, bevel work renders as coupled `Toolpath/bevel` `BevelPass` sections — each pass's `Blocks` and `ThcSpan` windows lowered together, never a detached span bag — and line-run recovery alone composes `g3.BiArcFit2` — a bulged span emits its arc from its own `Bulges` column and never refits.
+`Post` owns one dialect-neutral `CutProgram` from admitted source through modal interpretation, cut conditioning, grammar lowering, rendered records, and analytic `PackKind.Toolpath` projection. `GNode.Directive` preserves controller directives and specialized toolpath evidence beside motion; `GWord.Render` is the physical-record correspondence consumed by capacity checks and receipts.
+
+`PostSource`, `PostDialect`, `EmitPolicy`, `SetupPlan`, `Fixture`, `ChainRow`, `ToolChange`, and `ContentKey` arrive as settled seams. `ProgramIngress` parameterizes RS274 encoding and checksum admission beside NC1 admission, `PostPolicy` admits dimensioned cut and emission policy once, and `ProgramView` parameterizes geometry egress without a second posting surface.
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_PROGRAM]: owns `GCommand`, the fault-only `GNodeKind` taxonomy, `ModalGroup`, `CoolingPolicy`, `GNode`, `GWord`, `CutProgram`, `PostPolicy`, the `Run(Post)` lowering body, placement cut-conditioning, line-run biarc recovery, `Post.Parse`, and `Post.Publish`.
+- [02]-[PROGRAM]: `GNode`, `GWord`, `CutProgram`, command grammar, modal interpretation, and content identity.
+- [03]-[BOUNDARIES]: `PostPolicy` admission, `Post.Lower`, `Post.Parse`, and `Post.Publish`.
+- [04]-[CONDITIONING]: placement, tooling, setup, workholding, arc conditioning, tab partition, and lookahead folds.
 
-## [02]-[CUT_PROGRAM]
+## [02]-[PROGRAM]
 
-- Owner: `GNode` is the neutral AST consumed by `Dialect.Emit`; `GWord` is the lowered word evidence; `CutProgram` stores nodes, dialect, and the AST content key over the complete canonical node bytes; `OperationBoundary` maps cumulative minutes and parts to operation-owned AST loci; `Post` owns `Lower` (both modalities), `Assemble`, `Parse`, `Publish`, `Lookahead`, and the placement cut-conditioning rail.
-- Cases: `GNodeKind` carries only the six-case unsupported-node fault taxonomy; the `GNode` union itself is the executable discriminant, and macro/subprogram cases carry no duplicate kind field. `ModalGroup` rows 14 add retract and path-control state to motion, plane, distance, units, feed, spindle, coolant, cutter-comp, tool-length, WCS, stop, and non-modal; `LeadStyle` rows `none` · `line` · `arc`; `FeedMode` rows `units-per-minute` · `inverse-time`; `CoolingPolicy` rows `off` · `mist` · `flood`; `GCommand` rows 54 cover the four `G38` probe modes, `G10` WCS assignment, retract/path control, temperature waits, and the machining/additive command families.
-- Entry: `Run(Post{FabricationResult.Motion, PostDialect})` calls `Post.Lower(FabricationResult.Motion, PostDialect, FabricationInput)`; the policy-bearing overload requires `PostPolicy` rather than encoding absence as `null`. `Post.Lower(FabricationResult.Placement, ...)` is the placement overload under the same name; `Post.Parse` is the packed-word/comment-aware invariant-culture ingress; `Post.Publish` realizes the `PackKind.Toolpath` egress.
-- Auto: `Lower` assembles the source, emits `G10 L2 P… X…Y…Z…` datum values from each scheduled `Setup.Frame`, selects its WCS row, places initial tool loads before the first node and every mid-job reload at the first matching cumulative operation boundary, brackets each reload with spindle, coolant, and length-compensation safe state, lowers nodes through `Dialect.Emit`, recursively seals faults and physical-record count, renders `WordRetention` through a stateful modal fold, and mints `ContentKey.Of`. Placement projects each `PartTransform` through the atoms-owner `Apply`, then dispatches on the carried chain topology: empty `Chains` orders loops through `NestingOrder(PolygonFill.NonZero)` with one pierce per loop; committed `ChainRow` rows govern path order and pierce emission directly — one pierce at the chain's recorded point, members threaded torch-live in threaded order. Each `BevelPass` lowers as one coupled section, its own `ThcSpan` windows interleaved at their block boundaries. Cutter compensation binds the fallible Kienzle force result from admitted cut width and a `FeedBasis.PerTooth` chip thickness, then applies dimensionally complete thermal growth `α·L·ΔT`; absent cutting evidence suppresses only the force term. Pierce always energizes the source, while positive dwell adds the cycle. The parser removes parenthesized and semicolon comments, tokenizes packed words, admits multiple commands per block, and routes modal conflicts or malformed parameters typed.
-- Receipt: `CutProgram.Key` identifies the AST payload byte-completely; `FabricationResult.PostedProgram(Seq<string> Blocks, ContentKey Key)` identifies the lowered machine artifact; `ProgramParse` and `BlockCapExceeded` carry typed failure evidence.
-- Packages: `Geometry2D/arcs` (`KerfArc`, `LeadArc`, `SampleAtLength`, `ArcOffset`); `Geometry2D/algebra` (`NestingOrder` with explicit `PolygonFill`); `Nesting/linking` (`ChainRow` — the committed sheet, instance, source, and pierce topology consumed at lowering, never rebuilt); `Tooling/magazine` (`Schedule`, `ToolChange` with `ToolLifeType` trigger basis); `Fixturing/setups` (`Setup.Schedule`, `WcsSlot` ordinal + family); `Fixturing/workholding` (`Condition`); `Toolpath/bevel` (`BevelPass` coupled sections rendered here, decided there — `ThcDirective` words derive from each pass's own spans); `Posting/dialect` (`Dialect.Emit`, `Seal`, `Nc1Canonical`); `Posting/optimization` (`CutProgram` AST consumer); `Process/owner` (`Move`, `PartTransform.Apply`, `EgressKind`, `ContentKey`); `Process/faults` (`ProgramParse`, `BlockCapExceeded`); `Rasm.Numerics` (`GeometryFault`, `Sign`); kernel `Rasm.Spatial`/`Rasm.Drawing` (`VectorCloud.Polyline`, `PackOp.Toolpath`, `Encode.Apply`, `EncodedGeometry`, `PackPolicy` — the publish-back wire); `geometry3Sharp` (`BiArcFit2`, `Arc2d`, `Segment2d`, `Vector2d`) for line-run fitting only.
-- Growth: a controller grammar change lands in `PostDialect` and `Dialect.Emit`; a program syntax construct lands as one `GNode` case and one lowering arm; a parser modal group lands as one `ModalGroup` row with its `GCommand` rows re-grouped in the same edit; a cut-conditioning concern lands as a `PostPolicy` row or an owned page seam, not a second public post fold; every `GCommand` row binds one `Verify/simulate` `Transitions` entry in the same pass — the roster and the transition table are lockstep.
-- Boundary: the former public post fold is dead; the former posting-side contour order is dead; posting renders setup WCS rows and bevel passes rather than assigning or deciding them; raw `XxHash128`/`GenerateHash`, `GetHashCode`-derived content identity, a hash-digest scheduler operation key, raw G-code string synthesis, default WCS selection, a `G90 P` word standing in for a WCS row, a second kerf pass over `Motion`, parse success probes, a silent `Somes()` parameter drop, a g3 refit over arc-native (bulged) spans, a tab bridged with the energy source live, a plane-internal `CutProgram` result payload, a page-local placement transform kernel, a detached policy-level THC span bag, chain topology rebuilt from `PartTransform` rows, and per-loop pierce emission for linked chains are rejected shapes.
+- Owner: `CutProgram` mints the canonical AST and `Post` owns every transform that changes it.
+- Cases: `GNode` carries block framing beside executable node families; `GValue` preserves numeric, variable, expression, and text evidence; `GCommand.Wcs` and `WcsExtended` retain base and extended coordinate forms; `ProgramEvent` carries the canonical interpretation.
+- Entry: `Post.Lower` discriminates on `PostSource`; `Post.Parse` discriminates on `ProgramIngress`; `Post.Publish` projects one `CutProgram` through `ProgramView`.
+- Auto: `GCommand.Admit` composes address shape with row-owned scalar policy before AST construction, `ModalState` threads controller state once, and `Dialect.Emit` derives framed physical records, record capacity, bytes, and content identity together.
+- Law: `GCommand.Requires` and `GCommand.Modalities` declare what a command demands of a controller, and `GCommand.Admits` decides admissibility against `PostDialect.Features` and `PostDialect.Modalities` — no dialect identity is ever tested, and no roster mirrors the vocabulary.
+- Law: `ProgramUnits` carries one millimetre scale in both directions, and `GNode.Word.With` preserves the replaced value's source units or the word's established source-unit row. Every `ProgramEvent` carries one structural `ProgramLocus`; motion also carries every admitted axis, resolved plane, and arc center, so consumers never re-derive modal state, discard rotary or auxiliary axes, or substitute a chord.
+- Receipt: `CutProgram.Key` identifies the length-framed AST; `PostedProgram.Key` identifies rendered records; admitted `ProgramTrace` preserves modal state and the complete node-and-repeat path of every expanded executable leaf.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `UnitsNet` through `PhysicsQuantity`, `geometry3Sharp`, `CavalierContours` through `Loop`, `ArcAlgebra`, and `PlineSeg`, `MTConnect.NET-Common` through `ToolAssembly`, and `DSTV.Net` through `SteelImport.Read`.
+- Growth: a syntax construct is one `GNode` case; a command is one `GCommand` row with its grammar and demanded features; a parse grammar is one `ProgramIngress` case; a projection is one `ProgramView` row.
+- Boundary: dialect byte spelling stays in `Dialect`; AST rewriting stays in `Optimize`; simulation consumes `ProgramTrace`; host file custody stays above this package.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------------------------------------------------------
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using CavalierContours.Polyline;
 using g3;
 using LanguageExt;
 using LanguageExt.Common;
@@ -35,33 +42,39 @@ using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Nesting;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
-using Rasm.Fabrication.Toolpath;
 using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [VOCABULARY] -------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class GNodeKind {
-    public static readonly GNodeKind Word = new("word");
-    public static readonly GNodeKind CannedCycle = new("canned-cycle");
-    public static readonly GNodeKind Macro = new("macro");
-    public static readonly GNodeKind Subprogram = new("subprogram");
-    public static readonly GNodeKind AdditiveLayer = new("additive-layer");
-    public static readonly GNodeKind Nc1 = new("nc1");
+public sealed partial class ProgramUnits {
+    public static readonly ProgramUnits Metric = new("metric", Length.FromMillimeters(1.0).Millimeters);
+    public static readonly ProgramUnits Imperial = new("imperial", new Length(1.0, UnitsNet.Units.LengthUnit.Inch).Millimeters);
+
+    public double MillimetersPerUnit { get; }
+
+    public double Canonical(double native) => native * MillimetersPerUnit;
+    public double Native(double canonical) => canonical / MillimetersPerUnit;
 }
 
-// The 14-group parse census: every GCommand row binds its TRUE group, so a same-block conflict
-// (two words of one modal group in one block) is constructable — the parse law is live, never vacuous.
+[SmartEnum<string>]
+public sealed partial class DistanceMode {
+    public static readonly DistanceMode Absolute = new("absolute");
+    public static readonly DistanceMode Incremental = new("incremental");
+}
+
 [SmartEnum<string>]
 public sealed partial class ModalGroup {
     public static readonly ModalGroup Motion = new("motion");
     public static readonly ModalGroup Plane = new("plane");
     public static readonly ModalGroup Distance = new("distance");
+    public static readonly ModalGroup ArcDistance = new("arc-distance");
     public static readonly ModalGroup Units = new("units");
     public static readonly ModalGroup Feed = new("feed");
     public static readonly ModalGroup Spindle = new("spindle");
@@ -71,18 +84,10 @@ public sealed partial class ModalGroup {
     public static readonly ModalGroup Wcs = new("wcs");
     public static readonly ModalGroup Retract = new("retract");
     public static readonly ModalGroup PathControl = new("path-control");
+    public static readonly ModalGroup Cycle = new("cycle");
+    public static readonly ModalGroup Transform = new("transform");
     public static readonly ModalGroup Stop = new("stop");
     public static readonly ModalGroup NonModal = new("non-modal");
-}
-
-[SmartEnum<string>]
-public sealed partial class LeadStyle {
-    public static readonly LeadStyle None = new("none", static (_, _) => Fin.Succ(Seq<Move>()));
-    public static readonly LeadStyle Line = new("line", Post.LineLead);
-    public static readonly LeadStyle Arc = new("arc", Post.ArcLead);
-
-    [UseDelegateFromConstructor]
-    public partial Fin<Seq<Move>> Enter(Loop loop, PostPolicy policy);
 }
 
 [SmartEnum<string>]
@@ -93,7 +98,6 @@ public sealed partial class FeedMode {
     public string Code { get; }
 }
 
-// Coolant policy rows carry their emission command; ToolSections emits the row's word per section when not Off.
 [SmartEnum<string>]
 public sealed partial class CoolingPolicy {
     public static readonly CoolingPolicy Off = new("off", static () => None);
@@ -105,221 +109,340 @@ public sealed partial class CoolingPolicy {
 }
 
 [SmartEnum<string>]
+public sealed partial class LeadStyle {
+    public static readonly LeadStyle None = new("none", static _ => Option<LeadShape>.None);
+    public static readonly LeadStyle Line = new("line", static radius => Some<LeadShape>(new LeadShape.Linear(radius)));
+    public static readonly LeadStyle Arc = new("arc", static radius => Some<LeadShape>(new LeadShape.Tangent(radius, Math.PI / 2.0)));
+    public static readonly LeadStyle Loop = new("loop", static radius => Some<LeadShape>(new LeadShape.Loop(radius)));
+
+    [UseDelegateFromConstructor]
+    public partial Option<LeadShape> Shape(double radius);
+}
+
+[SmartEnum]
+public sealed partial class WordValuePolicy {
+    public static readonly WordValuePolicy Literal = new(static value => value is GValue.Number or GValue.Integer);
+    public static readonly WordValuePolicy Symbolic = new(static _ => true);
+
+    [UseDelegateFromConstructor]
+    public partial bool Admits(GValue value);
+}
+
+[SmartEnum<string>]
+public sealed partial class MotionRole {
+    public static readonly MotionRole Control = new("control");
+    public static readonly MotionRole Cutting = new("cutting");
+    public static readonly MotionRole Probing = new("probing");
+    public static readonly MotionRole Additive = new("additive");
+    public static readonly MotionRole None = new("none");
+}
+
+public sealed record CommandGrammar(Set<char> Required, Set<char> Allowed, Set<char> Repeatable, WordValuePolicy Values) {
+    public Fin<Arr<GParam>> Admit(int line, Arr<GParam> parameters, ModalGroup group) {
+        Seq<char> addresses = parameters.Map(static parameter => parameter.Address).ToSeq();
+        bool required = Required.ForAll(addresses.Contains);
+        bool allowed = addresses.ForAll(Allowed.Contains);
+        bool unique = addresses.Distinct().ForAll(address => Repeatable.Contains(address) || addresses.Count(value => value == address) == 1);
+        bool values = parameters.ForAll(parameter => Values.Admits(parameter.Value));
+        return required && allowed && unique && values
+            ? Fin.Succ(parameters)
+            : Fin.Fail<Arr<GParam>>(FabricationFault.ProgramParse(line, group).ToError());
+    }
+}
+
+[SmartEnum<string>]
 public sealed partial class GCommand {
-    public static readonly GCommand Rapid = new("rapid", "G0", ModalGroup.Motion);
-    public static readonly GCommand Feed = new("feed", "G1", ModalGroup.Motion);
-    public static readonly GCommand ArcCw = new("arc-cw", "G2", ModalGroup.Motion);
-    public static readonly GCommand ArcCcw = new("arc-ccw", "G3", ModalGroup.Motion);
-    public static readonly GCommand Extrude = new("extrude", "G1", ModalGroup.Motion);
-    public static readonly GCommand ThreadCycle = new("thread-cycle", "G92", ModalGroup.Motion);
-    public static readonly GCommand PlaneXy = new("plane-xy", "G17", ModalGroup.Plane);
-    public static readonly GCommand PlaneZx = new("plane-zx", "G18", ModalGroup.Plane);
-    public static readonly GCommand PlaneYz = new("plane-yz", "G19", ModalGroup.Plane);
-    public static readonly GCommand Absolute = new("absolute", "G90", ModalGroup.Distance);
-    public static readonly GCommand Relative = new("relative", "G91", ModalGroup.Distance);
-    public static readonly GCommand Metric = new("metric", "G21", ModalGroup.Units);
-    public static readonly GCommand Inch = new("inch", "G20", ModalGroup.Units);
-    public static readonly GCommand FeedPerMinute = new("feed-per-minute", "G94", ModalGroup.Feed);
-    public static readonly GCommand FeedInverseTime = new("feed-inverse-time", "G93", ModalGroup.Feed);
-    public static readonly GCommand Spindle = new("spindle", "M3", ModalGroup.Spindle);
-    public static readonly GCommand SpindleCcw = new("spindle-ccw", "M4", ModalGroup.Spindle);
-    public static readonly GCommand SpindleStop = new("spindle-stop", "M5", ModalGroup.Spindle);
-    public static readonly GCommand Css = new("css", "G96", ModalGroup.Spindle);
-    public static readonly GCommand CssCancel = new("css-cancel", "G97", ModalGroup.Spindle);
-    public static readonly GCommand TorchOn = new("torch-on", "M07", ModalGroup.Spindle);
-    public static readonly GCommand Coolant = new("coolant", "M8", ModalGroup.Coolant);
-    public static readonly GCommand CoolantMist = new("coolant-mist", "M7", ModalGroup.Coolant);
-    public static readonly GCommand CoolantOff = new("coolant-off", "M9", ModalGroup.Coolant);
-    public static readonly GCommand AssistGas = new("assist-gas", "M64", ModalGroup.Coolant);
-    public static readonly GCommand DustCollect = new("dust-collect", "M65", ModalGroup.Coolant);
-    public static readonly GCommand CompOff = new("comp-off", "G40", ModalGroup.CutterComp);
-    public static readonly GCommand CompLeft = new("comp-left", "G41", ModalGroup.CutterComp);
-    public static readonly GCommand CompRight = new("comp-right", "G42", ModalGroup.CutterComp);
-    public static readonly GCommand LengthOffset = new("length-offset", "G43", ModalGroup.ToolLength);
-    public static readonly GCommand LengthCancel = new("length-cancel", "G49", ModalGroup.ToolLength);
-    public static readonly GCommand Wcs = new("wcs", "G54", ModalGroup.Wcs);
-    public static readonly GCommand SetWcs = new("set-wcs", "G10", ModalGroup.NonModal);
-    public static readonly GCommand RetractInitial = new("retract-initial", "G98", ModalGroup.Retract);
-    public static readonly GCommand RetractPlane = new("retract-plane", "G99", ModalGroup.Retract);
-    public static readonly GCommand ExactStop = new("exact-stop", "G61", ModalGroup.PathControl);
-    public static readonly GCommand ExactStopCheck = new("exact-stop-check", "G61.1", ModalGroup.PathControl);
-    public static readonly GCommand Continuous = new("continuous", "G64", ModalGroup.PathControl);
-    public static readonly GCommand ProgramEnd = new("program-end", "M30", ModalGroup.Stop);
-    public static readonly GCommand Stop = new("stop", "M0", ModalGroup.Stop);
-    public static readonly GCommand OptionalStop = new("optional-stop", "M1", ModalGroup.Stop);
-    public static readonly GCommand Dwell = new("dwell", "G4", ModalGroup.NonModal);
-    public static readonly GCommand Pierce = new("pierce", "G4", ModalGroup.NonModal);
-    public static readonly GCommand Probe = new("probe", "G31", ModalGroup.NonModal);
-    public static readonly GCommand ProbeTowardStop = new("probe-toward-stop", "G38.2", ModalGroup.NonModal);
-    public static readonly GCommand ProbeTowardOptional = new("probe-toward-optional", "G38.3", ModalGroup.NonModal);
-    public static readonly GCommand ProbeAwayStop = new("probe-away-stop", "G38.4", ModalGroup.NonModal);
-    public static readonly GCommand ProbeAwayOptional = new("probe-away-optional", "G38.5", ModalGroup.NonModal);
-    public static readonly GCommand TorchHeight = new("torch-height", "THC", ModalGroup.NonModal);
-    public static readonly GCommand HotendTemp = new("hotend-temp", "M104", ModalGroup.NonModal);
-    public static readonly GCommand HotendWait = new("hotend-wait", "M109", ModalGroup.NonModal);
-    public static readonly GCommand BedTemp = new("bed-temp", "M140", ModalGroup.NonModal);
-    public static readonly GCommand BedWait = new("bed-wait", "M190", ModalGroup.NonModal);
-    public static readonly GCommand ToolChange = new("tool-change", "M6", ModalGroup.NonModal);
+    internal static readonly Set<char> Axes = Set('X', 'Y', 'Z', 'A', 'B', 'C', 'U', 'V', 'W');
+    private static readonly Set<char> Arc = Axes.Add('I').Add('J').Add('K').Add('R').Add('P').Add('F');
+    private static readonly Set<char> Motion = Axes.Add('F').Add('S');
+    private static readonly Set<char> Extrusion = Motion.Add('E');
+    private static readonly CommandGrammar Empty = new(Set<char>(), Set<char>(), Set<char>(), WordValuePolicy.Literal);
+
+    public static readonly GCommand Rapid = MotionRow("rapid", "G0", MotionRole.Control);
+    public static readonly GCommand Feed = MotionRow("feed", "G1", MotionRole.Cutting);
+    public static readonly GCommand ArcCw = new("arc-cw", "G2", ModalGroup.Motion,
+        new CommandGrammar(Set<char>(), Arc, Set<char>(), WordValuePolicy.Symbolic), MotionRole.Cutting,
+        Set<DialectFeature>(), Set<ProcessModality>(), None);
+    public static readonly GCommand ArcCcw = new("arc-ccw", "G3", ModalGroup.Motion,
+        new CommandGrammar(Set<char>(), Arc, Set<char>(), WordValuePolicy.Symbolic), MotionRole.Cutting,
+        Set<DialectFeature>(), Set<ProcessModality>(), None);
+    public static readonly GCommand Extrude = new("extrude", "G1", ModalGroup.Motion,
+        new CommandGrammar(Set('E'), Extrusion, Set<char>(), WordValuePolicy.Symbolic), MotionRole.Additive,
+        Set<DialectFeature>(), Set(ProcessModality.Additive), None);
+    public static readonly GCommand ThreadCycle = CycleRow("thread-cycle", "G92", Set('X', 'Z', 'F'), DialectFeature.ThreadCycle);
+    public static readonly GCommand Drill = CycleRow("drill", "G81", Set('Z', 'R', 'F'));
+    public static readonly GCommand DrillDwell = CycleRow("drill-dwell", "G82", Set('Z', 'R', 'P', 'F'), DialectFeature.TimeDwell);
+    public static readonly GCommand Peck = CycleRow("peck", "G83", Set('Z', 'R', 'Q', 'F'));
+    public static readonly GCommand Tap = CycleRow("tap", "G84", Set('Z', 'R', 'F'), DialectFeature.RigidTap);
+    public static readonly GCommand Bore = CycleRow("bore", "G85", Set('Z', 'R', 'F'));
+    public static readonly GCommand CycleCancel = StateRow("cycle-cancel", "G80", ModalGroup.Cycle);
+    public static readonly GCommand PlaneXy = StateRow("plane-xy", "G17", ModalGroup.Plane, DialectFeature.PlaneSelection);
+    public static readonly GCommand PlaneZx = StateRow("plane-zx", "G18", ModalGroup.Plane, DialectFeature.PlaneSelection);
+    public static readonly GCommand PlaneYz = StateRow("plane-yz", "G19", ModalGroup.Plane, DialectFeature.PlaneSelection);
+    public static readonly GCommand Absolute = StateRow("absolute", "G90", ModalGroup.Distance, DialectFeature.Absolute);
+    public static readonly GCommand Relative = StateRow("relative", "G91", ModalGroup.Distance, DialectFeature.Incremental);
+    public static readonly GCommand ArcAbsolute = StateRow("arc-absolute", "G90.1", ModalGroup.ArcDistance, DialectFeature.Absolute);
+    public static readonly GCommand ArcRelative = StateRow("arc-relative", "G91.1", ModalGroup.ArcDistance, DialectFeature.Incremental);
+    public static readonly GCommand Metric = StateRow("metric", "G21", ModalGroup.Units, DialectFeature.Metric);
+    public static readonly GCommand Inch = StateRow("inch", "G20", ModalGroup.Units, DialectFeature.Imperial);
+    public static readonly GCommand FeedPerMinute = StateRow("feed-per-minute", "G94", ModalGroup.Feed);
+    public static readonly GCommand FeedInverseTime = StateRow("feed-inverse-time", "G93", ModalGroup.Feed, DialectFeature.InverseTime);
+    public static readonly GCommand Spindle = Aux("spindle", "M3", ModalGroup.Spindle, Set('S'));
+    public static readonly GCommand SpindleCcw = Aux("spindle-ccw", "M4", ModalGroup.Spindle, Set('S'));
+    public static readonly GCommand SpindleStop = StateRow("spindle-stop", "M5", ModalGroup.Spindle);
+    public static readonly GCommand SpindleOrient = Aux("spindle-orient", "M19", ModalGroup.NonModal, Set('R', 'P'));
+    public static readonly GCommand Css = Aux("css", "G96", ModalGroup.Spindle, Set('S', 'D'));
+    public static readonly GCommand CssCancel = StateRow("css-cancel", "G97", ModalGroup.Spindle);
+    public static readonly GCommand Coolant = StateRow("coolant", "M8", ModalGroup.Coolant);
+    // M7 is mist coolant on a contact controller and torch-on on a thermal one; the modality column, never a dialect
+    // identity test, separates the two rows sharing the wire code.
+    public static readonly GCommand CoolantMist = new("coolant-mist", "M7", ModalGroup.Coolant, Empty, MotionRole.None,
+        Set<DialectFeature>(), Set(ProcessModality.Subtractive, ProcessModality.Abrasive, ProcessModality.Erosion), None);
+    public static readonly GCommand TorchOn = new("torch-on", "M07", ModalGroup.Spindle, Empty, MotionRole.None,
+        Set<DialectFeature>(), Set(ProcessModality.Thermal), None);
+    public static readonly GCommand CoolantOff = StateRow("coolant-off", "M9", ModalGroup.Coolant);
+    public static readonly GCommand AssistGas = Aux("assist-gas", "M64", ModalGroup.Coolant, Set('S'));
+    public static readonly GCommand DustCollect = Aux("dust-collect", "M65", ModalGroup.Coolant, Set('S'));
+    public static readonly GCommand CompOff = StateRow("comp-off", "G40", ModalGroup.CutterComp);
+    public static readonly GCommand CompLeft = Aux("comp-left", "G41", ModalGroup.CutterComp, Set('D'));
+    public static readonly GCommand CompRight = Aux("comp-right", "G42", ModalGroup.CutterComp, Set('D'));
+    public static readonly GCommand LengthOffset = Aux("length-offset", "G43", ModalGroup.ToolLength, Set('H', 'Z'));
+    public static readonly GCommand LengthCancel = StateRow("length-cancel", "G49", ModalGroup.ToolLength);
+    public static readonly GCommand Wcs = Aux("wcs", "G54", ModalGroup.Wcs, Set('P', 'A', 'R'));
+    public static readonly GCommand WcsExtended = new("wcs-extended", "G54.1", ModalGroup.Wcs,
+        new CommandGrammar(Set('P'), Set('P', 'A', 'R'), Set<char>(), WordValuePolicy.Symbolic), MotionRole.None,
+        Set<DialectFeature>(), Set<ProcessModality>(), None);
+    public static readonly GCommand SetWcs = Aux("set-wcs", "G10", ModalGroup.NonModal, Set('L', 'P', 'X', 'Y', 'Z', 'R'));
+    public static readonly GCommand LocalShift = Aux("local-shift", "G52", ModalGroup.Transform, Set('X', 'Y', 'Z'));
+    public static readonly GCommand Rotate = Aux("rotate", "G68", ModalGroup.Transform, Set('X', 'Y', 'R'));
+    public static readonly GCommand RotateCancel = StateRow("rotate-cancel", "G69", ModalGroup.Transform);
+    public static readonly GCommand Scale = Aux("scale", "G51", ModalGroup.Transform, Set('X', 'Y', 'Z', 'P'));
+    public static readonly GCommand ScaleCancel = StateRow("scale-cancel", "G50", ModalGroup.Transform);
+    public static readonly GCommand RetractInitial = StateRow("retract-initial", "G98", ModalGroup.Retract);
+    public static readonly GCommand RetractPlane = StateRow("retract-plane", "G99", ModalGroup.Retract);
+    public static readonly GCommand ExactStop = StateRow("exact-stop", "G61", ModalGroup.PathControl);
+    public static readonly GCommand ExactStopCheck = StateRow("exact-stop-check", "G61.1", ModalGroup.PathControl);
+    public static readonly GCommand Continuous = Aux("continuous", "G64", ModalGroup.PathControl, Set('P', 'Q'));
+    public static readonly GCommand ProgramEnd = StateRow("program-end", "M30", ModalGroup.Stop);
+    public static readonly GCommand Stop = StateRow("stop", "M0", ModalGroup.Stop);
+    public static readonly GCommand OptionalStop = StateRow("optional-stop", "M1", ModalGroup.Stop);
+    // One G4 row carries both dwell forms; `P` is the time address every dialect admits and `X`/`U` the revolution
+    // addresses `DialectFeature.RevolutionDwell` gates at emission.
+    public static readonly GCommand Dwell = new("dwell", "G4", ModalGroup.NonModal,
+        new CommandGrammar(Set<char>(), Set('P', 'X', 'U'), Set<char>(), WordValuePolicy.Symbolic), MotionRole.None,
+        Set(DialectFeature.TimeDwell), Set<ProcessModality>(), Some('P'));
+    public static readonly GCommand Probe = MotionRow("probe", "G31", MotionRole.Probing, DialectFeature.Probing);
+    public static readonly GCommand ProbeTowardStop = MotionRow("probe-toward-stop", "G38.2", MotionRole.Probing, DialectFeature.Probing);
+    public static readonly GCommand ProbeTowardOptional = MotionRow("probe-toward-optional", "G38.3", MotionRole.Probing, DialectFeature.Probing);
+    public static readonly GCommand ProbeAwayStop = MotionRow("probe-away-stop", "G38.4", MotionRole.Probing, DialectFeature.Probing);
+    public static readonly GCommand ProbeAwayOptional = MotionRow("probe-away-optional", "G38.5", MotionRole.Probing, DialectFeature.Probing);
+    public static readonly GCommand TorchHeight = Aux("torch-height", "THC", ModalGroup.NonModal, Set('V', 'H', 'R', 'P'));
+    public static readonly GCommand HotendTemp = Aux("hotend-temp", "M104", ModalGroup.NonModal, Set('S', 'T'));
+    public static readonly GCommand HotendWait = Aux("hotend-wait", "M109", ModalGroup.NonModal, Set('S', 'T'));
+    public static readonly GCommand BedTemp = Aux("bed-temp", "M140", ModalGroup.NonModal, Set('S'));
+    public static readonly GCommand BedWait = Aux("bed-wait", "M190", ModalGroup.NonModal, Set('S'));
+    public static readonly GCommand ToolChange = Aux("tool-change", "M6", ModalGroup.NonModal, Set('T'), DialectFeature.ToolChange);
 
     public string Code { get; }
     public ModalGroup Group { get; }
+    public CommandGrammar Grammar { get; }
+    public MotionRole Role { get; }
+    public Set<DialectFeature> Requires { get; }
+    public Set<ProcessModality> Modalities { get; }
+    public Option<char> PositiveScalarAddress { get; }
+
+    public Fin<Arr<GParam>> Admit(int line, Arr<GParam> parameters) =>
+        Grammar.Admit(line, parameters, Group).Bind(admitted => PositiveScalarAddress.ForAll(address =>
+            admitted.Find(parameter => parameter.Address == address)
+                .Bind(static parameter => parameter.Value.Scalar)
+                .ForAll(static value => value > 0.0))
+                ? Fin.Succ(admitted)
+                : Fin.Fail<Arr<GParam>>(FabricationFault.ProgramParse(line, Group).ToError()));
+
+    // Dialect admissibility is the row's own declared demand against the dialect's declared capability, so a new
+    // controller is one `PostDialect` row and a new command one `Requires` set, with no roster on either side.
+    public bool Admits(PostDialect dialect) =>
+        Requires.ForAll(dialect.Features.Contains)
+        && (Modalities.IsEmpty || Modalities.Exists(dialect.Modalities.Contains));
+
+    private static GCommand MotionRow(string key, string code, MotionRole role, params ReadOnlySpan<DialectFeature> requires) =>
+        new(key, code, ModalGroup.Motion, new CommandGrammar(Set<char>(), Motion, Set<char>(), WordValuePolicy.Symbolic),
+            role, Set(requires.ToArray()), Set<ProcessModality>(), None);
+    private static GCommand StateRow(string key, string code, ModalGroup group, params ReadOnlySpan<DialectFeature> requires) =>
+        new(key, code, group, Empty, MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
+    private static GCommand Aux(string key, string code, ModalGroup group, Set<char> allowed, params ReadOnlySpan<DialectFeature> requires) =>
+        new(key, code, group, new CommandGrammar(Set<char>(), allowed, Set<char>(), WordValuePolicy.Symbolic),
+            MotionRole.None, Set(requires.ToArray()), Set<ProcessModality>(), None);
+    private static GCommand CycleRow(string key, string code, Set<char> required, params ReadOnlySpan<DialectFeature> requires) => new(
+        key,
+        code,
+        ModalGroup.Cycle,
+        new CommandGrammar(required, required + Axes + Set('P', 'Q', 'L'), Set<char>(), WordValuePolicy.Symbolic),
+        MotionRole.None,
+        Set(requires.ToArray()),
+        Set<ProcessModality>(),
+        None);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct GParam(char Address, double Value) {
-    public GParam Round(int decimals) => new(Address, Math.Round(Value, decimals));
+[SmartEnum<string>]
+public sealed partial class ProgramView {
+    public static readonly ProgramView AllMotion = new("all-motion", None);
+    public static readonly ProgramView Cutting = new("cutting", Some(MotionRole.Cutting));
+    public static readonly ProgramView Control = new("control", Some(MotionRole.Control));
+    public static readonly ProgramView Probing = new("probing", Some(MotionRole.Probing));
+    public static readonly ProgramView Additive = new("additive", Some(MotionRole.Additive));
+
+    public Option<MotionRole> Role { get; }
+
+    public Fin<Seq<ToolpathPath>> Paths(ProgramTrace trace) {
+        (Seq<ToolpathPath> Paths, ToolpathPath? Current) folded = trace.Events.Fold(
+            (Paths: Seq<ToolpathPath>(), Current: null),
+            (state, item) => item switch {
+                ProgramEvent.Motion motion when Role.ForAll(role => role == motion.Role) =>
+                    (state.Paths, state.Current is null
+                        ? new ToolpathPath(motion.From, Seq(Span(motion)))
+                        : state.Current with { Spans = state.Current.Spans.Add(Span(motion)) }),
+                // A coordinate change re-frames every following point, so it closes the run exactly as an excluded move does.
+                ProgramEvent.Motion or ProgramEvent.Coordinate when state.Current is not null =>
+                    (state.Paths.Add(state.Current), null),
+                _ => state,
+            });
+        return Fin.Succ(folded.Current is null ? folded.Paths : folded.Paths.Add(folded.Current));
+    }
+
+    private static ToolpathSpan Span(ProgramEvent.Motion motion) => motion.Arc.Match<ToolpathSpan>(
+        Some: arc => new ToolpathSpan.Arc(motion.To, arc.Center,
+            arc.Sense == RotationSense.Clockwise ? ToolpathArcSense.Clockwise : ToolpathArcSense.Counterclockwise),
+        None: () => new ToolpathSpan.Line(motion.To));
 }
 
-public readonly record struct MacroSlot(int Index, string Key, double Value);
+// --- [OWNERS] -----------------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GValue {
+    private GValue() { }
 
+    public sealed record Number(double Canonical, string Lexeme, ProgramUnits SourceUnits) : GValue;
+    public sealed record Integer(int Value, string Lexeme) : GValue;
+    public sealed record Variable(int Index, string Lexeme) : GValue;
+    public sealed record Expression(string Lexeme) : GValue;
+    public sealed record Text(string Value) : GValue;
+
+    public Option<double> Scalar => Switch(
+        number: static value => Some(value.Canonical),
+        integer: static value => Some((double)value.Value),
+        variable: static _ => None,
+        expression: static _ => None,
+        text: static _ => None);
+}
+
+public readonly record struct GParam(char Address, GValue Value) {
+    public static GParam Number(char address, double value, ProgramUnits units) =>
+        new(char.ToUpperInvariant(address), new GValue.Number(value, value.ToString("R", CultureInfo.InvariantCulture), units));
+
+    // Rounding is a rendering decision, so it lands in the source units the record emits, never in canonical millimetres.
+    public GParam Round(int decimals) => Value is GValue.Number number
+        ? this with { Value = number with {
+            Canonical = number.SourceUnits.Canonical(Math.Round(number.SourceUnits.Native(number.Canonical), decimals)),
+            Lexeme = Math.Round(number.SourceUnits.Native(number.Canonical), decimals).ToString("R", CultureInfo.InvariantCulture),
+        } }
+        : this;
+}
+
+public readonly record struct MotionArc(Point3d Center, RotationSense Sense);
+public readonly record struct MacroSlot(int Index, string Key, GValue Value);
 public readonly record struct TemperatureSet(double Hotend, double Bed);
-
 public readonly record struct ExtrusionProfile(double Amount, double Feed);
 
-public readonly record struct FeedPolicy(double EdgeDistance, double EdgeFloor) {
-    public static readonly FeedPolicy Canonical = new(EdgeDistance: 2.0, EdgeFloor: 0.5);
-}
-
-public readonly record struct BiarcPolicy(double FitTolerance, double MinRunLength) {
-    public static readonly BiarcPolicy Canonical = new(FitTolerance: 0.02, MinRunLength: 1.0);
-}
-
-public readonly record struct OperationBoundary(Operation Op, int Node, double MinutesConsumed, int PartsConsumed);
-
-public readonly record struct CompPolicy(
-    double ToolDiameter,
-    double CutWidthMm,
-    double Stickout,
-    double Modulus,
-    double ThermalCoefficientPerC,
-    double TemperatureDeltaC) {
-    public static readonly CompPolicy Disabled = new(
-        ToolDiameter: 0.0, CutWidthMm: 0.0, Stickout: 0.0, Modulus: 0.0,
-        ThermalCoefficientPerC: 0.0, TemperatureDeltaC: 0.0);
-
-    public bool Mechanical => ToolDiameter > 0.0 || CutWidthMm > 0.0 || Modulus > 0.0;
-
-    public bool Thermal => ThermalCoefficientPerC != 0.0 || TemperatureDeltaC != 0.0;
-
-    public double Stiffness =>
-        ToolDiameter <= 0.0 || Stickout <= 0.0 || Modulus <= 0.0
-            ? double.PositiveInfinity
-            : 3.0 * Modulus * (Math.PI * Math.Pow(ToolDiameter, 4.0) / 64.0) / Math.Pow(Stickout, 3.0);
-
-    public double Deflection(double radialForce) => double.IsPositiveInfinity(Stiffness) ? 0.0 : radialForce / Stiffness;
-
-    public double ThermalGrowth => ThermalCoefficientPerC * Stickout * TemperatureDeltaC;
-}
-
-public sealed record PostPolicy(
-    double KerfWidth,
-    LeadStyle Lead,
-    double LeadRadius,
-    double TabWidth,
-    double TabSpacing,
-    double PierceTime,
-    double AssistPressure,
-    double MeltTemp,
-    double FeedCeiling,
-    int MaxAxes,
-    double RemovalRate,
-    FeedPolicy Feed,
-    BiarcPolicy Biarc,
-    MotionDynamics Dynamics,
-    Option<CuttingData> Cutting,
-    CompPolicy Comp,
-    CoolingPolicy Cooling,
-    Seq<BevelPass> Bevels,
-    Seq<ChainRow> Chains,
-    Set<OptimizePass> Passes,
-    MrrPolicy Mrr,
-    SmoothPolicy Smooth,
-    CompactPolicy Compact,
-    Arr<Loop> Profiles,
-    Seq<WorkItem> Work,
-    Magazine Magazine,
-    SlotMap Slots,
-    MagazinePolicy MagazinePolicy,
-    Seq<Operation> Operations,
-    Seq<OperationBoundary> OperationBoundaries,
-    SchedulePolicy<Operation> Schedule,
-    Fixture Fixture) {
-    // The owner `Run(Post)` derivation binds everything the input carries; shop context absent from the
-    // input (magazine, work, operations, fixture, bevel passes, chain rows) seeds empty so the arm is TOTAL
-    // and prologue rows degrade to absence — the required policy overload carries richer shop state under the
-    // same entry, and a `LinkPlan`'s baseline chains ride `Chains` unchanged (baseline behavior is explicit).
-    public static PostPolicy From(FabricationInput input, PostDialect dialect) => new(
-        KerfWidth: 0.0, Lead: LeadStyle.None, LeadRadius: 0.0, TabWidth: 0.0, TabSpacing: 0.0,
-        PierceTime: 0.0, AssistPressure: 0.0, MeltTemp: 0.0,
-        FeedCeiling: MotionDynamics.Canonical.CuttingFeed, MaxAxes: input.Machine.AxisCount,
-        RemovalRate: 0.0, Feed: FeedPolicy.Canonical, Biarc: BiarcPolicy.Canonical,
-        Dynamics: MotionDynamics.Canonical, Cutting: None,
-        Comp: CompPolicy.Disabled, Cooling: CoolingPolicy.Off, Bevels: Seq<BevelPass>(), Chains: Seq<ChainRow>(),
-        Passes: Set<OptimizePass>(), Mrr: MrrPolicy.Disabled(MotionDynamics.Canonical.CuttingFeed),
-        Smooth: SmoothPolicy.Canonical, Compact: CompactPolicy.Canonical,
-        Profiles: input.Profiles, Work: Seq<WorkItem>(), Magazine: Magazine.Manual, Slots: SlotMap.Empty,
-        MagazinePolicy: MagazinePolicy.Canonical, Operations: Seq<Operation>(),
-        OperationBoundaries: Seq<OperationBoundary>(),
-        Schedule: SchedulePolicy<Operation>.Direct(input.Machine, dialect, StableOperationKey),
-        Fixture: Fixture.Free);
-
-    // Scheduler identity is the closed Operation roster ordinal — injective by construction over the smart-enum
-    // items, so distinct operations can never alias; the 31-fold string digest was the deleted many-to-one form
-    // that converted key collisions into duplicate-identity refusals inside Setup.Validate.
-    private static readonly Map<string, int> OperationOrdinal =
-        toMap(toSeq(Operation.Items).Map((operation, index) => (operation.Key, index)));
-
-    private static int StableOperationKey(Operation operation) => OperationOrdinal[operation.Key];
-
-    // ONE placement projection body: the atoms-owner PartTransform.Apply — nesting, linking, and posting
-    // observe identical transform and Loop.Admit semantics; a page-local trigonometric kernel is the deleted form.
-    public Fin<Loop> Placed(PartTransform t) =>
-        t.PartId >= Profiles.Count
-            ? Fin.Fail<Loop>(GeometryFault.DegenerateInput($"post:profile:{t.PartId}").ToError())
-            : t.Apply(Profiles[t.PartId]);
-}
+public sealed record BlockFrame(
+    Option<int> Program,
+    Option<int> Sequence,
+    bool Optional,
+    bool Delimiter,
+    Option<int> Checksum,
+    Seq<string> Comments,
+    string Source);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GNode {
     private GNode() { }
 
+    public sealed record Block(BlockFrame Frame, Arr<GNode> Body) : GNode;
     public sealed record Word(GCommand Command, Arr<GParam> Words, Option<FeedMode> Mode) : GNode {
-        public Option<double> P(char address) => Words.Find(p => p.Address == address).Map(static p => p.Value);
-        public Word With(char address, double value) => this with { Words = Words.Filter(p => p.Address != address).Add(new GParam(address, value)) };
-        public Word Without(char address) => this with { Words = Words.Filter(p => p.Address != address) };
+        public Option<double> P(char address) => Words.Find(parameter => parameter.Address == address).Bind(static parameter => parameter.Value.Scalar);
+        public ProgramUnits SourceUnits => Words.Choose(static parameter => parameter.Value is GValue.Number number
+            ? Some(number.SourceUnits) : None).HeadOrNone().IfNone(ProgramUnits.Metric);
+        public Word With(char address, double value) {
+            Option<ProgramUnits> held = Words.Find(parameter => parameter.Address == address)
+                .Bind(static parameter => parameter.Value is GValue.Number number ? Some(number.SourceUnits) : None);
+            ProgramUnits units = held.Match(
+                Some: static source => source,
+                None: () => SourceUnits);
+            return this with {
+                Words = Words.Filter(parameter => parameter.Address != address).Add(GParam.Number(address, value, units)),
+            };
+        }
+        public Word Without(char address) => this with { Words = Words.Filter(parameter => parameter.Address != address) };
     }
     public sealed record CannedCycle(GCommand Command, Arr<GParam> SingleBlockWords, Seq<Move> ExpandedMoves, int Repeats, Option<FeedMode> Mode) : GNode {
-        public double R => SingleBlockWords.Find(static word => word.Address == 'R').Map(static word => word.Value).IfNone(0.0);
-        public double Q => SingleBlockWords.Find(static word => word.Address == 'Q').Map(static word => word.Value).IfNone(0.0);
-        public double P => SingleBlockWords.Find(static word => word.Address == 'P').Map(static word => word.Value).IfNone(0.0);
+        public Option<double> R => SingleBlockWords.Find(static word => word.Address == 'R').Bind(static word => word.Value.Scalar);
+        public Option<double> Q => SingleBlockWords.Find(static word => word.Address == 'Q').Bind(static word => word.Value.Scalar);
+        public Option<double> P => SingleBlockWords.Find(static word => word.Address == 'P').Bind(static word => word.Value.Scalar);
     }
+    public sealed record CoordinateFrame(WcsAssignment Assignment, Plane Frame) : GNode;
     public sealed record Macro(Arr<MacroSlot> Slots, Arr<GNode> Body) : GNode;
     public sealed record Subprogram(int Label, int Repeats, Arr<GNode> Body) : GNode;
     public sealed record AdditiveLayer(int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : GNode;
     public sealed record Nc1(SteelImportReceipt Receipt) : GNode;
+    public sealed record Directive(MotionDirective Value) : GNode;
 
-    // Arc I/J are relative to the arc START (RS274), so the factory demands the predecessor point; the
-    // sequence factory threads the cursor so no call site can hand a wrong start.
-    public static GNode Move(Move move, Point3d from) =>
-        move.Switch(
-            state: from,
-            rapid: static (_, row) => new Word(GCommand.Rapid,
-                Arr(new GParam('X', row.Target.X), new GParam('Y', row.Target.Y), new GParam('Z', row.Target.Z)), None),
-            linear: static (_, row) => new Word(GCommand.Feed,
-                Arr(new GParam('X', row.Target.X), new GParam('Y', row.Target.Y), new GParam('Z', row.Target.Z), new GParam('F', row.Feed)), None),
-            circular: static (start, row) => new Word(
-                row.Arc.Sense == RotationSense.Clockwise ? GCommand.ArcCw : GCommand.ArcCcw,
-                Arr(new GParam('X', row.Target.X), new GParam('Y', row.Target.Y), new GParam('Z', row.Target.Z),
-                    new GParam('I', row.Arc.Center.X - start.X), new GParam('J', row.Arc.Center.Y - start.Y), new GParam('F', row.Feed)), None));
+    public FaultSubject.ProgramNode Subject => new(Switch(
+        block: static _ => "block",
+        word: static value => value.Command.Key,
+        cannedCycle: static value => value.Command.Key,
+        coordinateFrame: static _ => "coordinate-frame",
+        macro: static _ => "macro",
+        subprogram: static _ => "subprogram",
+        additiveLayer: static _ => "additive-layer",
+        nc1: static _ => "nc1",
+        directive: static value => value.Value.Switch(
+            spindle: static _ => "directive-spindle",
+            dwell: static _ => "directive-dwell",
+            synchronize: static _ => "directive-synchronize",
+            orientedStop: static _ => "directive-oriented-stop",
+            channelBarrier: static _ => "directive-channel-barrier",
+            specialized: static value => $"directive-{value.Payload.Kind.Key}")));
+
+    public static GNode Move(Move move, Point3d from) => move.Switch(
+        state: from,
+        rapid: static (_, row) => new Word(GCommand.Rapid, Coordinates(row.Target), None),
+        linear: static (_, row) => new Word(GCommand.Feed, Coordinates(row.Target).Add(GParam.Number('F', row.Feed, ProgramUnits.Metric)), None),
+        circular: static (start, row) => new Word(
+            row.Arc.Sense == RotationSense.Clockwise ? GCommand.ArcCw : GCommand.ArcCcw,
+            Coordinates(row.Target).Add(GParam.Number('I', row.Arc.Center.X - start.X, ProgramUnits.Metric))
+                .Add(GParam.Number('J', row.Arc.Center.Y - start.Y, ProgramUnits.Metric))
+                .Add(GParam.Number('F', row.Feed, ProgramUnits.Metric)), None));
 
     public static Seq<GNode> Moves(Seq<Move> moves, Point3d origin) =>
-        moves.Fold((Nodes: Seq<GNode>(), Cursor: origin), static (acc, move) =>
-            (acc.Nodes.Add(Move(move, acc.Cursor)), Target(move))).Nodes;
+        moves.Fold((Nodes: Seq<GNode>(), Cursor: origin), static (state, move) =>
+            (state.Nodes.Add(Move(move, state.Cursor)), Target(move))).Nodes;
+
+    public static Seq<GNode> Moves(Seq<Move> moves, Seq<MotionDirective> directives, Point3d origin) =>
+        moves.Map((move, index) => (move, index)).Fold(
+            (Nodes: directives.Filter(static row => row.AfterMove < 0).Map(static row => (GNode)new Directive(row)), Cursor: origin),
+            static (state, item) => (
+                state.Nodes.Add(Move(item.move, state.Cursor))
+                    .Concat(directives.Filter(row => row.AfterMove == item.index).Map(static row => (GNode)new Directive(row))),
+                Target(item.move))).Nodes;
 
     public static Point3d Target(Move move) => move.Switch(
         rapid: static row => row.Target,
         linear: static row => row.Target,
         circular: static row => row.Target);
+
+    private static Arr<GParam> Coordinates(Point3d point) => Arr(
+        GParam.Number('X', point.X, ProgramUnits.Metric),
+        GParam.Number('Y', point.Y, ProgramUnits.Metric),
+        GParam.Number('Z', point.Z, ProgramUnits.Metric));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -327,723 +450,1266 @@ public abstract partial record GWord {
     private GWord() { }
 
     public sealed record Address(string Code, ModalGroup Group, Arr<GParam> Words, Option<FeedMode> Mode, WordRetention Retention) : GWord;
-    public sealed record Conversational(string Verb, Arr<GParam> Words, int Decimals, string Tail) : GWord;
+    public sealed record Conversational(Seq<string> Records) : GWord;
     public sealed record Text(Seq<string> Records) : GWord;
-    public sealed record CycleCall(string Dialect, string Code, Arr<GParam> Words, int Repeats) : GWord;
-    public sealed record Macro(MacroGrammar Grammar, Arr<MacroSlot> Slots, Seq<GWord> Body) : GWord;
-    public sealed record Subprogram(SubprogramGrammar Grammar, int Label, int Repeats, Seq<GWord> Body) : GWord;
-    public sealed record Additive(int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures, int Decimals) : GWord;
+    public sealed record CycleCall(Seq<string> Records) : GWord;
+    public sealed record Macro(Seq<string> Open, Seq<GWord> Body, Seq<string> Close) : GWord;
+    public sealed record Subprogram(Seq<string> Open, Seq<GWord> Body, Seq<string> Close) : GWord;
+    public sealed record Additive(Seq<string> Records) : GWord;
     public sealed record Nc1(Seq<string> Records, ContentKey Key) : GWord;
     public sealed record Fault(Error Error) : GWord;
     public sealed record Expanded(Seq<GWord> Words) : GWord;
+
+    public static Fin<RenderReceipt> Render(Seq<GWord> words) =>
+        Render(words, RenderReceipt.Empty);
+
+    private static Fin<RenderReceipt> Render(Seq<GWord> words, RenderReceipt state) =>
+        words.FoldM<Fin, RenderReceipt>(state, static (current, word) => RenderWord(word, current)).As();
+
+    private static Fin<RenderReceipt> RenderWord(GWord word, RenderReceipt state) => word.Switch(
+        state: state,
+        address: static (current, value) => Fin.Succ(AddressRecords(current, value)),
+        conversational: static (current, value) => Fin.Succ(current.Add(value.Records)),
+        text: static (current, value) => Fin.Succ(current.Add(value.Records)),
+        cycleCall: static (current, value) => Fin.Succ(current.Add(value.Records)),
+        macro: static (current, value) => Render(value.Body, current.Add(value.Open)).Map(rendered => rendered.Add(value.Close)),
+        subprogram: static (current, value) => Render(value.Body, current.Add(value.Open)).Map(rendered => rendered.Add(value.Close)),
+        additive: static (current, value) => Fin.Succ(current.Add(value.Records)),
+        nc1: static (current, value) => Fin.Succ(current.Add(value.Records)),
+        fault: static (_, value) => Fin.Fail<RenderReceipt>(value.Error),
+        expanded: static (current, value) => Render(value.Words, current));
+
+    private static RenderReceipt AddressRecords(RenderReceipt state, Address word) {
+        bool emitMode = word.Mode.Exists(mode => word.Retention == WordRetention.Explicit
+            || !state.Active.Find(ModalGroup.Feed).Contains(mode.Code));
+        Map<ModalGroup, string> withMode = word.Mode.Map(mode => state.Active.AddOrUpdate(ModalGroup.Feed, mode.Code)).IfNone(state.Active);
+        bool emitCode = word.Group == ModalGroup.NonModal || word.Retention == WordRetention.Explicit || !withMode.Find(word.Group).Contains(word.Code);
+        string line = string.Join(" ", Seq(emitMode ? word.Mode.Map(static mode => mode.Code).IfNone(string.Empty) : string.Empty,
+                emitCode ? word.Code : string.Empty)
+            .Concat(word.Words.Map(Format)).Filter(static token => token.Length > 0).ToArray());
+        Map<ModalGroup, string> next = word.Group == ModalGroup.NonModal ? withMode : withMode.AddOrUpdate(word.Group, word.Code);
+        return line.Length == 0 ? state with { Active = next } : new RenderReceipt(state.Lines.Add(line), next);
+    }
+
+    private static string Format(GParam parameter) => $"{parameter.Address}{Value(parameter.Value)}";
+    private static string Value(GValue value) => value.Switch(
+        number: static item => item.SourceUnits.Native(item.Canonical).ToString("R", CultureInfo.InvariantCulture),
+        integer: static item => item.Value.ToString(CultureInfo.InvariantCulture),
+        variable: static item => item.Lexeme,
+        expression: static item => item.Lexeme,
+        text: static item => item.Value);
+}
+
+public sealed record RenderReceipt(Seq<string> Lines, Map<ModalGroup, string> Active) {
+    public static readonly RenderReceipt Empty = new(Seq<string>(), Map<ModalGroup, string>());
+    public RenderReceipt Add(string line) => line.Length == 0 ? this : this with { Lines = Lines.Add(line) };
+    public RenderReceipt Add(Seq<string> lines) => this with { Lines = Lines.Concat(lines.Filter(static line => line.Length > 0)) };
+}
+
+public readonly record struct ProgramPathStep(int Node, Option<int> Repeat);
+
+public sealed record ProgramLocus(int Block, Seq<ProgramPathStep> Path) {
+    public static ProgramLocus Root(int block, int node) => new(block, Seq(new ProgramPathStep(node, None)));
+    public ProgramLocus Descend(int node) => this with { Path = Path.Add(new ProgramPathStep(node, None)) };
+    public ProgramLocus Repeated(int node, int repeat) => this with { Path = Path.Add(new ProgramPathStep(node, Some(repeat))) };
+    public Seq<int> Source => Path.Map(static step => step.Node);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProgramEvent(ProgramLocus Locus) {
+
+    public sealed record Motion(
+        ProgramLocus Locus,
+        GNode.Word Word,
+        Point3d From,
+        Point3d To,
+        Map<char, double> FromAxes,
+        Map<char, double> ToAxes,
+        ProgramUnits Units,
+        double Feed,
+        FeedMode Mode,
+        MotionRole Role,
+        GCommand Plane,
+        Option<MotionArc> Arc) : ProgramEvent(Locus) {
+        public bool Cutting => Role == MotionRole.Cutting;
+    }
+    public sealed record State(ProgramLocus Locus, GNode.Word Word) : ProgramEvent(Locus) {
+        public GCommand Command => Word.Command;
+    }
+    public sealed record Boundary(ProgramLocus Locus, BlockFrame Frame) : ProgramEvent(Locus);
+    public sealed record Coordinate(ProgramLocus Locus, WcsAssignment Assignment, Plane Frame) : ProgramEvent(Locus);
+    public sealed record Additive(ProgramLocus Locus, int Layer, ExtrusionProfile Extrusion, TemperatureSet Temperatures) : ProgramEvent(Locus);
+    public sealed record Exchange(ProgramLocus Locus, SteelImportReceipt Receipt) : ProgramEvent(Locus);
+    public sealed record Directive(ProgramLocus Locus, MotionDirective Value) : ProgramEvent(Locus);
+}
+
+public sealed record ProgramTrace {
+    private ProgramTrace(ModalState final) => Final = final;
+
+    public ModalState Final { get; }
+    public Seq<ProgramEvent> Events => Final.Events;
+
+    internal static Fin<ProgramTrace> Admit(CutProgram program) => program.Nodes.IsEmpty
+        ? Fin.Fail<ProgramTrace>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:trace-empty").ToError())
+        : program.Nodes.Map((node, block) => (node, block)).FoldM<Fin, ModalState>(ModalState.Empty,
+            static (state, item) => state.Push(ProgramLocus.Root(item.block, item.block), item.node)).As()
+            .Map(static state => new ProgramTrace(state));
+}
+
+public sealed record ModalState(
+    ProgramUnits Units,
+    DistanceMode Distance,
+    DistanceMode ArcDistance,
+    GCommand Plane,
+    Point3d Position,
+    Map<char, double> Axes,
+    double Feed,
+    FeedMode Mode,
+    Map<ModalGroup, GCommand> Active,
+    Seq<ProgramEvent> Events) {
+    // RS274 defaults arc-center offsets to incremental; the plane and arc-distance rows are modal state every
+    // consumer reads from the trace rather than re-deriving from the event stream.
+    public static readonly ModalState Empty = new(ProgramUnits.Metric, DistanceMode.Absolute, DistanceMode.Incremental,
+        GCommand.PlaneXy, Point3d.Origin, OriginAxes(), 0.0, FeedMode.UnitsPerMinute,
+        Map<ModalGroup, GCommand>(), Seq<ProgramEvent>());
+
+    public Fin<ModalState> Push(ProgramLocus locus, GNode node) => node.Switch(
+        state: (State: this, Locus: locus),
+        block: static (context, value) => PushBlock(context.State, value, context.Locus),
+        word: static (context, value) => PushWord(context.State, value, context.Locus),
+        cannedCycle: static (context, value) => PushCycle(context.State, value, context.Locus),
+        coordinateFrame: static (context, value) => Fin.Succ(context.State with {
+            Events = context.State.Events.Add(new ProgramEvent.Coordinate(context.Locus, value.Assignment, value.Frame)),
+        }),
+        macro: static (context, value) => value.Body.Map((item, index) => (Item: item, Index: index)).ToSeq()
+            .FoldM<Fin, ModalState>(context.State, (state, row) => state.Push(context.Locus.Descend(row.Index), row.Item)).As(),
+        subprogram: static (context, value) =>
+            from _ in value.Label > 0 && value.Repeats > 0
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(FabricationFault.ProgramParse(context.Locus.Block, ModalGroup.NonModal).ToError())
+            from expanded in Range(0, value.Repeats).FoldM<Fin, ModalState>(context.State,
+                (state, repeat) => value.Body.Map((item, index) => (Item: item, Index: index)).ToSeq()
+                    .FoldM<Fin, ModalState>(state, (nested, row) => nested.Push(
+                        context.Locus.Repeated(row.Index, repeat), row.Item)).As()).As()
+            select expanded,
+        additiveLayer: static (context, value) => Fin.Succ(context.State with {
+            Events = context.State.Events.Add(new ProgramEvent.Additive(
+                context.Locus, value.Layer, value.Extrusion, value.Temperatures)),
+        }),
+        nc1: static (context, value) => Fin.Succ(context.State with { Events = context.State.Events.Add(new ProgramEvent.Exchange(context.Locus, value.Receipt)) }),
+        directive: static (context, value) => Fin.Succ(context.State with { Events = context.State.Events.Add(new ProgramEvent.Directive(context.Locus, value.Value)) }));
+
+    private static Fin<ModalState> PushCycle(ModalState state, GNode.CannedCycle value, ProgramLocus locus) =>
+        from _ in value.Repeats > 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(FabricationFault.ProgramParse(locus.Block, ModalGroup.Cycle).ToError())
+        from admitted in value.Command.Admit(locus.Block, value.SingleBlockWords)
+        from expanded in Range(0, value.Repeats).FoldM<Fin, ModalState>(state, (cycle, repeat) =>
+            value.ExpandedMoves.IsEmpty
+                ? Apply(cycle, new GNode.Word(value.Command, admitted, value.Mode), locus.Repeated(0, repeat))
+                : value.ExpandedMoves.Map((move, index) => (Move: move, Index: index))
+                    .FoldM<Fin, ModalState>(cycle, (current, row) => GNode.Move(row.Move, current.Position) is GNode.Word word
+                        ? PushWord(current, word with { Mode = value.Mode }, locus.Repeated(row.Index, repeat))
+                        : Fin.Fail<ModalState>(FabricationFault.ProgramParse(locus.Block, ModalGroup.Cycle).ToError())).As()).As()
+        select expanded;
+
+    private static Fin<ModalState> PushBlock(ModalState state, GNode.Block value, ProgramLocus locus) {
+        return AdmitBlock(locus.Block, value.Body).Bind(_ =>
+            value.Body.Map((item, index) => (Item: item, Index: index)).ToSeq().FoldM<Fin, ModalState>(state with {
+                Events = state.Events.Add(new ProgramEvent.Boundary(locus, value.Frame)),
+            }, (current, item) => current.Push(locus.Descend(item.Index), item.Item)).As());
+    }
+
+    internal static Fin<Unit> AdmitBlock(int block, Arr<GNode> body) {
+        Seq<ModalGroup> groups = body.Choose(static node => node switch {
+            GNode.Word { Command.Group: var group } when group != ModalGroup.NonModal => Some(group),
+            GNode.CannedCycle { Command.Group: var group } when group != ModalGroup.NonModal => Some(group),
+            _ => None,
+        }).ToSeq();
+        return groups.Distinct().Exists(group => groups.Count(candidate => candidate == group) > 1)
+            ? Fin.Fail<Unit>(FabricationFault.ProgramParse(block, groups.Find(group => groups.Count(candidate => candidate == group) > 1).IfNone(ModalGroup.NonModal)).ToError())
+            : Fin.Succ(unit);
+    }
+
+    private static Fin<ModalState> PushWord(ModalState state, GNode.Word word, ProgramLocus locus) =>
+        word.Command.Admit(locus.Block, word.Words).Bind(_ => Apply(state, word, locus));
+
+    private static Fin<ModalState> Apply(ModalState state, GNode.Word word, ProgramLocus locus) {
+        ProgramUnits units = word.Command == GCommand.Metric ? ProgramUnits.Metric
+            : word.Command == GCommand.Inch ? ProgramUnits.Imperial : state.Units;
+        DistanceMode distance = word.Command == GCommand.Absolute ? DistanceMode.Absolute
+            : word.Command == GCommand.Relative ? DistanceMode.Incremental : state.Distance;
+        DistanceMode arcDistance = word.Command == GCommand.ArcAbsolute ? DistanceMode.Absolute
+            : word.Command == GCommand.ArcRelative ? DistanceMode.Incremental : state.ArcDistance;
+        GCommand plane = word.Command.Group == ModalGroup.Plane ? word.Command : state.Plane;
+        double feed = word.P('F').IfNone(state.Feed);
+        FeedMode feedMode = word.Mode.IfNone(state.Mode);
+        Map<char, double> targetAxes = Target(state, word, distance);
+        Point3d target = new(
+            targetAxes.Find('X').IfNone(0.0),
+            targetAxes.Find('Y').IfNone(0.0),
+            targetAxes.Find('Z').IfNone(0.0));
+        bool motion = word.Command.Group == ModalGroup.Motion;
+        Map<ModalGroup, GCommand> active = word.Command.Group == ModalGroup.NonModal
+            ? state.Active : state.Active.AddOrUpdate(word.Command.Group, word.Command);
+        return ArcOf(state.Position, target, word, plane, arcDistance, locus.Block).Map(arc => {
+            Seq<ProgramEvent> events = motion
+                ? state.Events.Add(new ProgramEvent.Motion(locus, word, state.Position, target, state.Axes, targetAxes,
+                    units, feed, feedMode, word.Command.Role, plane, arc))
+                : state.Events.Add(new ProgramEvent.State(locus, word));
+            return new ModalState(units, distance, arcDistance, plane, motion ? target : state.Position,
+                motion ? targetAxes : state.Axes, feed, feedMode, active, events);
+        });
+    }
+
+    private static Map<char, double> Target(ModalState state, GNode.Word word, DistanceMode distance) =>
+        GCommand.Axes.Fold(state.Axes, (axes, address) => {
+            double held = axes.Find(address).IfNone(0.0);
+            double target = word.P(address)
+                .Map(value => distance == DistanceMode.Absolute ? value : held + value)
+                .IfNone(held);
+            return axes.AddOrUpdate(address, target);
+        });
+
+    private static Map<char, double> OriginAxes() => GCommand.Axes.Fold(
+        Map<char, double>(), static (axes, address) => axes.AddOrUpdate(address, 0.0));
+
+    // Arc center resolves once where plane and arc-distance rows are in hand; an event carrying only
+    // endpoints forces every consumer to re-derive it or publish a chord in the arc's place.
+    private static Fin<Option<MotionArc>> ArcOf(
+        Point3d start, Point3d target, GNode.Word word, GCommand plane, DistanceMode arcDistance, int block) {
+        if (word.Command != GCommand.ArcCw && word.Command != GCommand.ArcCcw)
+            return Fin.Succ(Option<MotionArc>.None);
+        RotationSense sense = word.Command == GCommand.ArcCw
+            ? RotationSense.Clockwise
+            : RotationSense.Counterclockwise;
+        bool radius = word.Words.Exists(static parameter => parameter.Address == 'R');
+        bool center = word.Words.Exists(static parameter => parameter.Address is 'I' or 'J' or 'K');
+        if (radius == center)
+            return Fin.Fail<Option<MotionArc>>(FabricationFault.ProgramParse(block, ModalGroup.Motion).ToError());
+        return radius
+            ? word.P('R').ToFin(FabricationFault.ProgramParse(block, ModalGroup.Motion).ToError())
+                .Bind(value => RadiusCenter(start, target, plane, value, sense)
+                    .Map<Option<MotionArc>>(resolved => Some(new MotionArc(resolved, sense))))
+            : word.Words.Filter(static parameter => parameter.Address is 'I' or 'J' or 'K')
+                .ForAll(static parameter => parameter.Value.Scalar.IsSome)
+                ? Fin.Succ(Some(new MotionArc(ArcCenter(start, word, plane, arcDistance), sense)))
+                : Fin.Fail<Option<MotionArc>>(FabricationFault.ProgramParse(block, ModalGroup.Motion).ToError());
+    }
+
+    private static Fin<Point3d> RadiusCenter(
+        Point3d start, Point3d target, GCommand plane, double signedRadius, RotationSense sense) {
+        (double StartU, double StartV, double TargetU, double TargetV) = plane == GCommand.PlaneZx
+            ? (start.Z, start.X, target.Z, target.X)
+            : plane == GCommand.PlaneYz
+                ? (start.Y, start.Z, target.Y, target.Z)
+                : (start.X, start.Y, target.X, target.Y);
+        double deltaU = TargetU - StartU;
+        double deltaV = TargetV - StartV;
+        double chord = Math.Sqrt((deltaU * deltaU) + (deltaV * deltaV));
+        double radius = Math.Abs(signedRadius);
+        if (!double.IsFinite(signedRadius) || signedRadius == 0.0 || !double.IsFinite(chord)
+            || chord == 0.0 || radius < chord / 2.0)
+            return Fin.Fail<Point3d>(Error.New("post:arc-radius"));
+        double height = Math.Sqrt(Math.Max(0.0, (radius * radius) - ((chord * chord) / 4.0)));
+        double side = sense == RotationSense.Counterclockwise ? 1.0 : -1.0;
+        if (signedRadius < 0.0) side = -side;
+        double centerU = (StartU + TargetU) / 2.0 - (side * deltaV * height / chord);
+        double centerV = (StartV + TargetV) / 2.0 + (side * deltaU * height / chord);
+        Point3d center = plane == GCommand.PlaneZx
+            ? new Point3d(centerV, start.Y, centerU)
+            : plane == GCommand.PlaneYz
+                ? new Point3d(start.X, centerU, centerV)
+                : new Point3d(centerU, centerV, start.Z);
+        return Fin.Succ(center);
+    }
+
+    private static Point3d ArcCenter(Point3d start, GNode.Word word, GCommand plane, DistanceMode arcDistance) {
+        double Offset(char address, double held) => word.P(address)
+            .Map(value => arcDistance == DistanceMode.Absolute ? value : held + value).IfNone(held);
+        return plane == GCommand.PlaneZx ? new Point3d(Offset('I', start.X), start.Y, Offset('K', start.Z))
+            : plane == GCommand.PlaneYz ? new Point3d(start.X, Offset('J', start.Y), Offset('K', start.Z))
+            : new Point3d(Offset('I', start.X), Offset('J', start.Y), start.Z);
+    }
 }
 
 public sealed record CutProgram(Seq<GNode> Nodes, PostDialect Dialect, ContentKey Key) {
     public static CutProgram Of(Seq<GNode> nodes, PostDialect dialect) =>
         new(nodes, dialect, ContentKey.Of(EgressKind.CutProgram, Canonical(nodes, dialect)));
 
-    // Content identity serializes EVERY node field — command keys, raw param values, cycle scalars, macro
-    // slots, subprogram labels, additive rows, NC1 keys; a GetHashCode digest is the rejected non-content form.
     public static byte[] Canonical(Seq<GNode> nodes, PostDialect dialect) =>
-        Encoding.UTF8.GetBytes($"{dialect.Key}\n{string.Join("\n", nodes.Map(NodeKey).ToArray())}");
+        Encoding.UTF8.GetBytes(Frame(dialect.Key, Frame(nodes.Map(NodeKey).ToArray())));
 
-    private static string NodeKey(GNode node) =>
-        node.Switch(
-            word:          static w => $"w:{w.Command.Key}:{w.Mode.Map(static m => m.Key).IfNone("")}:{string.Join(",", w.Words.Map(static p => $"{p.Address}={p.Value:R}"))}",
-            cannedCycle:   static c => $"c:{c.Command.Key}:{c.Mode.Map(static m => m.Key).IfNone("")}:{c.Repeats}:{string.Join(",", c.SingleBlockWords.Map(static p => $"{p.Address}={p.Value:R}"))}:{string.Join("|", c.ExpandedMoves.Map(MoveKey))}",
-            macro:         static m => $"m:{m.Slots.Count}:{string.Join(",", m.Slots.Map(static s => $"{s.Index}:{s.Key.Length}:{s.Key}={s.Value:R}"))}:{m.Body.Count}:[{string.Join(";", m.Body.Map(NodeKey))}]",
-            subprogram:    static s => $"s:{s.Label}:{s.Repeats}:{s.Body.Count}:[{string.Join(";", s.Body.Map(NodeKey))}]",
-            additiveLayer: static a => $"a:{a.Layer}:{a.Extrusion.Amount:R}:{a.Extrusion.Feed:R}:{a.Temperatures.Hotend:R}:{a.Temperatures.Bed:R}",
-            nc1:           static n => $"n:{n.Receipt.Key.Kind.Key}:{n.Receipt.Key.Digest}");
+    private static string NodeKey(GNode node) => node.Switch(
+        block: static value => Frame("block", BlockKey(value.Frame), Frame(value.Body.Map(NodeKey).ToArray())),
+        word: static value => Frame("word", value.Command.Key, value.Mode.Map(static mode => mode.Key).IfNone(string.Empty), Frame(value.Words.Map(ParamKey).ToArray())),
+        cannedCycle: static value => Frame("cycle", value.Command.Key, value.Repeats.ToString(CultureInfo.InvariantCulture),
+            value.Mode.Map(static mode => mode.Key).IfNone(string.Empty), Frame(value.SingleBlockWords.Map(ParamKey).ToArray()), Frame(value.ExpandedMoves.Map(MoveKey).ToArray())),
+        coordinateFrame: static value => Frame("coordinate-frame", value.Assignment.Setup.ToString(CultureInfo.InvariantCulture),
+            WcsKey(value.Assignment.Slot), PlaneKey(value.Frame)),
+        macro: static value => Frame("macro", Frame(value.Slots.Map(slot => Frame(slot.Index.ToString(CultureInfo.InvariantCulture), slot.Key, ValueKey(slot.Value))).ToArray()), Frame(value.Body.Map(NodeKey).ToArray())),
+        subprogram: static value => Frame("subprogram", value.Label.ToString(CultureInfo.InvariantCulture), value.Repeats.ToString(CultureInfo.InvariantCulture), Frame(value.Body.Map(NodeKey).ToArray())),
+        additiveLayer: static value => Frame("additive", value.Layer.ToString(CultureInfo.InvariantCulture), Number(value.Extrusion.Amount), Number(value.Extrusion.Feed), Number(value.Temperatures.Hotend), Number(value.Temperatures.Bed)),
+        nc1: static value => Frame("nc1", value.Receipt.Key.Kind.Key, value.Receipt.Key.Digest.ToString("x32", CultureInfo.InvariantCulture)),
+        directive: static value => DirectiveKey(value.Value));
 
+    private static string DirectiveKey(MotionDirective directive) => directive.Switch(
+        spindle: static value => Frame("spindle", value.Control.Key, Number(value.SurfaceMetersPerMinute), Number(value.ResolvedRpm)),
+        dwell: static value => Frame("dwell", value.AfterMove.ToString(CultureInfo.InvariantCulture), Number(value.Revolutions)),
+        synchronize: static value => Frame("synchronize", value.FromMove.ToString(CultureInfo.InvariantCulture), value.ToMove.ToString(CultureInfo.InvariantCulture), Number(value.Rpm), Number(value.Lead), value.Hand.Key),
+        orientedStop: static value => Frame("oriented-stop", value.AfterMove.ToString(CultureInfo.InvariantCulture), VectorKey(value.Retract)),
+        channelBarrier: static value => Frame("channel-barrier", value.Step.ToString(CultureInfo.InvariantCulture), value.Channel, Frame(value.WaitFor.ToArray()), value.Signal.IfNone(string.Empty)),
+        specialized: static value => Frame("specialized", value.AfterMove.ToString(CultureInfo.InvariantCulture),
+            value.Payload.Kind.Key, Number(value.Payload.DurationSeconds), Frame(value.Payload.Rows.Map(SpecializedKey).ToArray())));
+
+    private static string SpecializedKey(SpecializedToolpathRow row) => row.Switch(
+        wire: static value => Frame("wire", value.Pass.ToString(CultureInfo.InvariantCulture), Number(value.Station),
+            Number(value.Progress), Number(value.TraversedMm), PointKey(value.Lower), PointKey(value.Upper), value.Action,
+            Number(value.LagMm), Number(value.UpperCornerRadiusMm), value.RotaryDeg.Map(Number).IfNone(string.Empty)),
+        bevel: static value => Frame("bevel", value.Move.ToString(CultureInfo.InvariantCulture), value.Pass.ToString(CultureInfo.InvariantCulture),
+            Number(value.Station), value.SourceSpan.ToString(CultureInfo.InvariantCulture), Number(value.SourceBulge), PointKey(value.Point),
+            VectorKey(value.ToolAxis), PointKey(value.Pivot), Number(value.AngleDeg), Number(value.CrossTiltDeg),
+            Number(value.FeedMmPerMin), Number(value.CompensationMm)),
+        link: static value => Frame("link", value.From, value.To, value.Transition, Number(value.DistanceMm),
+            Number(value.DurationSeconds), Number(value.LiftMm), Number(value.ThermalExposure), Number(value.RotationPenalty),
+            value.Retracts.ToString(CultureInfo.InvariantCulture), value.Pierces.ToString(CultureInfo.InvariantCulture),
+            value.ToolChanges.ToString(CultureInfo.InvariantCulture), value.SetupChanges.ToString(CultureInfo.InvariantCulture)),
+        inspection: static value => Frame("inspection", value.Pass.ToString(CultureInfo.InvariantCulture),
+            value.FromBlock.ToString(CultureInfo.InvariantCulture), value.ToBlockExclusive.ToString(CultureInfo.InvariantCulture),
+            Number(value.NominalAngleDeg), Number(value.NominalOffsetMm), Number(value.AngleDeviationDeg),
+            Number(value.OffsetDeviationMm), value.Conforming ? "1" : "0"),
+        turningThread: static value => Frame("turning-thread", value.Form, Number(value.LoadFlankDeg),
+            Number(value.ClearanceFlankDeg), Number(value.CrestFlat), Number(value.RootFlat),
+            Number(value.CrestRadius), Number(value.RootRadius), value.Side),
+        turningAxial: static value => Frame("turning-axial", value.FromMove.ToString(CultureInfo.InvariantCulture),
+            value.ToMove.ToString(CultureInfo.InvariantCulture), value.Kind, Number(value.Diameter),
+            Number(value.Depth), Number(value.TipAngleDeg)),
+        turningTap: static value => Frame("turning-tap", value.FromMove.ToString(CultureInfo.InvariantCulture),
+            value.ToMove.ToString(CultureInfo.InvariantCulture), Number(value.Diameter), Number(value.Depth),
+            Number(value.Pitch), value.Form, value.Hand),
+        turningKnurl: static value => Frame("turning-knurl", value.FromMove.ToString(CultureInfo.InvariantCulture),
+            value.ToMove.ToString(CultureInfo.InvariantCulture), value.Pattern, Number(value.Pressure)),
+        turningHandoff: static value => Frame("turning-handoff", value.Kind, value.From, value.To,
+            Number(value.GripPlane), Number(value.GripLength), Number(value.PullDistance)));
+
+    private static string BlockKey(BlockFrame frame) => Frame(
+        frame.Program.Map(static value => value.ToString(CultureInfo.InvariantCulture)).IfNone(string.Empty),
+        frame.Sequence.Map(static value => value.ToString(CultureInfo.InvariantCulture)).IfNone(string.Empty),
+        frame.Optional ? "1" : "0",
+        frame.Delimiter ? "1" : "0",
+        frame.Checksum.Map(static value => value.ToString(CultureInfo.InvariantCulture)).IfNone(string.Empty),
+        Frame(frame.Comments.ToArray()), frame.Source);
+
+    private static string ParamKey(GParam parameter) => Frame(parameter.Address.ToString(), ValueKey(parameter.Value));
+    private static string ValueKey(GValue value) => value.Switch(
+        number: static item => Frame("number", Number(item.Canonical), item.Lexeme, item.SourceUnits.Key),
+        integer: static item => Frame("integer", item.Value.ToString(CultureInfo.InvariantCulture), item.Lexeme),
+        variable: static item => Frame("variable", item.Index.ToString(CultureInfo.InvariantCulture), item.Lexeme),
+        expression: static item => Frame("expression", item.Lexeme),
+        text: static item => Frame("text", item.Value));
     private static string MoveKey(Move move) => move.Switch(
-        rapid: static row => $"r:{row.Target.X:R},{row.Target.Y:R},{row.Target.Z:R}",
-        linear: static row => $"l:{row.Target.X:R},{row.Target.Y:R},{row.Target.Z:R}:{row.Feed:R}",
-        circular: static row => $"c:{row.Target.X:R},{row.Target.Y:R},{row.Target.Z:R}:{row.Feed:R}:{row.Arc.Center.X:R},{row.Arc.Center.Y:R},{row.Arc.Center.Z:R}:{row.Arc.Sense.Key}");
+        rapid: static value => Frame("rapid", PointKey(value.Target)),
+        linear: static value => Frame("linear", PointKey(value.Target), Number(value.Feed)),
+        circular: static value => Frame("circular", PointKey(value.Target), Number(value.Feed), PointKey(value.Arc.Center), value.Arc.Sense.Key));
+    private static string PointKey(Point3d point) => Frame(Number(point.X), Number(point.Y), Number(point.Z));
+    private static string PlaneKey(Plane plane) => Frame(PointKey(plane.Origin), VectorKey(plane.XAxis), VectorKey(plane.YAxis));
+    private static string VectorKey(Vector3d vector) => Frame(Number(vector.X), Number(vector.Y), Number(vector.Z));
+    private static string WcsKey(WcsSlot slot) => slot.Switch(
+        @base: static value => Frame("base", value.Ordinal.ToString(CultureInfo.InvariantCulture)),
+        extended: static value => Frame("extended", value.Ordinal.ToString(CultureInfo.InvariantCulture)),
+        dynamic: static value => Frame("dynamic", value.Ordinal.ToString(CultureInfo.InvariantCulture)),
+        rotary: static value => Frame("rotary", value.Ordinal.ToString(CultureInfo.InvariantCulture), Number(value.Axis)),
+        local: static value => Frame("local", value.Ordinal.ToString(CultureInfo.InvariantCulture), value.Parent.ToString(CultureInfo.InvariantCulture)));
+    private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+    private static string Frame(params string[] fields) => string.Concat(fields.Select(field => $"{Encoding.UTF8.GetByteCount(field).ToString(CultureInfo.InvariantCulture)}:{field}"));
 }
 
-// Modal state tracks the EFFECTIVE command per group across blocks — a cross-block change is a legal state
-// transition; the typed conflict is two words of one modal group inside ONE block.
-public sealed record ModalState(Map<ModalGroup, GCommand> Active, Seq<GNode> Nodes) {
-    public static readonly ModalState Empty = new(Map<ModalGroup, GCommand>(), Seq<GNode>());
+// --- [BOUNDARY_OWNERS] -------------------------------------------------------------------------------------------------------------------------------
+public sealed record CutRaw(
+    string Kerf,
+    LeadStyle Lead,
+    string LeadRadius,
+    string TabWidth,
+    string TabSpacing,
+    string Pierce,
+    Option<string> Assist,
+    string FeedCeiling,
+    double LinkFeedFactor);
+public sealed record FitRaw(string Tolerance, string MinimumRun, string SplitDistance, int ProbeFloor);
+public sealed record CompRaw(string ToolDiameter, string CutWidth, string Stickout, double Modulus, double ThermalCoefficient, double TemperatureDelta);
 
-    public Fin<ModalState> Push(int line, Seq<GNode.Word> block) {
-        Seq<ModalGroup> groups = block.Map(static w => w.Command.Group).Filter(static g => g != ModalGroup.NonModal);
-        return groups.Distinct().Find(g => groups.Count(x => x == g) > 1).Match(
-            Some: g => Fin.Fail<ModalState>(FabricationFault.ProgramParse(line, g).ToError()),
-            None: () => Fin.Succ(new ModalState(
-                block.Fold(Active, static (active, w) => w.Command.Group == ModalGroup.NonModal ? active : active.AddOrUpdate(w.Command.Group, w.Command)),
-                Nodes.Concat(block.Map(static w => (GNode)w)))));
+[ComplexValueObject]
+public sealed partial class CutPolicy {
+    public double KerfMm { get; }
+    public LeadStyle Lead { get; }
+    public double LeadRadiusMm { get; }
+    public double TabWidthMm { get; }
+    public double TabSpacingMm { get; }
+    public double PierceSeconds { get; }
+    public Option<double> AssistBar { get; }
+    public double FeedMmPerMinute { get; }
+    public double LinkFeedFactor { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double kerfMm, ref LeadStyle lead,
+        ref double leadRadiusMm, ref double tabWidthMm, ref double tabSpacingMm, ref double pierceSeconds,
+        ref Option<double> assistBar, ref double feedMmPerMinute, ref double linkFeedFactor) => validationError =
+        !Seq(kerfMm, leadRadiusMm, tabWidthMm, tabSpacingMm, pierceSeconds, feedMmPerMinute, linkFeedFactor).ForAll(double.IsFinite)
+        || assistBar.Exists(static value => !double.IsFinite(value) || value <= 0.0)
+        || kerfMm < 0.0 || pierceSeconds < 0.0 || feedMmPerMinute <= 0.0
+        || linkFeedFactor <= 0.0 || linkFeedFactor > 1.0
+        || (lead != LeadStyle.None && leadRadiusMm <= 0.0)
+        || tabWidthMm < 0.0 || tabSpacingMm < 0.0 || (tabWidthMm > 0.0 && tabSpacingMm <= tabWidthMm)
+            ? new ValidationError(message: "post-cut-policy") : null;
+
+    public static Fin<CutPolicy> Admit(CutRaw raw) {
+        ArgumentNullException.ThrowIfNull(raw);
+
+        return (PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.Kerf)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.LeadRadius)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.TabWidth)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.TabSpacing)),
+         PostPolicy.Slot(PostPolicy.DurationOf(raw.Pierce, "post:pierce")),
+         PostPolicy.Slot(raw.Assist.TraverseM(source => PhysicsQuantity.Pressure.Admit(source)).As()),
+         PostPolicy.Slot(PhysicsQuantity.Feed.Admit(raw.FeedCeiling)))
+        .Apply((kerf, lead, tabWidth, tabSpacing, pierce, assist, feed) =>
+            PostPolicy.Rail(Validate(kerf, raw.Lead, lead, tabWidth, tabSpacing, pierce, assist, feed,
+                raw.LinkFeedFactor, out CutPolicy policy), policy))
+        .As().ToFin().Bind(static value => value);
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class FitPolicy {
+    public double ToleranceMm { get; }
+    public double MinimumRunMm { get; }
+    public double SplitDistanceMm { get; }
+    public int ProbeFloor { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double toleranceMm,
+        ref double minimumRunMm, ref double splitDistanceMm, ref int probeFloor) => validationError =
+        !Seq(toleranceMm, minimumRunMm, splitDistanceMm).ForAll(double.IsFinite)
+        || toleranceMm <= 0.0 || minimumRunMm <= 0.0 || splitDistanceMm <= 0.0 || probeFloor < 3
+            ? new ValidationError(message: "post-fit-policy") : null;
+
+    public static Fin<FitPolicy> Admit(FitRaw raw) {
+        ArgumentNullException.ThrowIfNull(raw);
+
+        return (PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.Tolerance)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.MinimumRun)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.SplitDistance)))
+        .Apply((tolerance, run, split) =>
+            PostPolicy.Rail(Validate(tolerance, run, split, raw.ProbeFloor, out FitPolicy policy), policy))
+        .As().ToFin().Bind(static value => value);
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class CompPolicy {
+    public double ToolDiameterMm { get; }
+    public double CutWidthMm { get; }
+    public double StickoutMm { get; }
+    public double Modulus { get; }
+    public double ThermalCoefficient { get; }
+    public double TemperatureDelta { get; }
+    public double Stiffness => 3.0 * Modulus * (Math.PI * Math.Pow(ToolDiameterMm, 4.0) / 64.0) / Math.Pow(StickoutMm, 3.0);
+    public double Deflection(double radialForce) => radialForce / Stiffness;
+    public double ThermalGrowth => ThermalCoefficient * StickoutMm * TemperatureDelta;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double toolDiameterMm,
+        ref double cutWidthMm, ref double stickoutMm, ref double modulus, ref double thermalCoefficient,
+        ref double temperatureDelta) => validationError =
+        !Seq(toolDiameterMm, cutWidthMm, stickoutMm, modulus, thermalCoefficient, temperatureDelta).ForAll(double.IsFinite)
+        || toolDiameterMm <= 0.0 || cutWidthMm <= 0.0 || stickoutMm <= 0.0 || modulus <= 0.0
+        || thermalCoefficient < 0.0
+            ? new ValidationError(message: "post-comp-policy") : null;
+
+    public static Fin<CompPolicy> Admit(CompRaw raw) {
+        ArgumentNullException.ThrowIfNull(raw);
+
+        return (PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.ToolDiameter)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.CutWidth)),
+         PostPolicy.Slot(PhysicsQuantity.Length.Admit(raw.Stickout)))
+        .Apply((diameter, width, stickout) => PostPolicy.Rail(Validate(diameter, width, stickout, raw.Modulus,
+            raw.ThermalCoefficient, raw.TemperatureDelta, out CompPolicy policy), policy))
+        .As().ToFin().Bind(static value => value);
+    }
+}
+
+public sealed record CutConditioning(
+    Option<CutPolicy> Cut,
+    Option<FitPolicy> Fit,
+    MotionDynamics Dynamics,
+    Option<CuttingData> Cutting,
+    Option<CompPolicy> Compensation,
+    CoolingPolicy Cooling,
+    Seq<ChainRow> Chains,
+    HashMap<int, Loop> Profiles);
+
+public sealed record ProgramTooling(SlotMap Slots, Seq<WorkItem> Work, MagazinePolicy Policy, Seq<OperationBoundary> Boundaries);
+public sealed record WorkholdingPlan(Fixture Fixture, FixtureState State);
+public sealed record ProgramSetup(SetupPlan Schedule, WorkholdingPlan Workholding);
+
+public sealed record PostRaw(CutConditioningRaw Cut, ProgramTooling Tooling, ProgramSetup Setup, EmitPolicy Emit);
+public sealed record CutConditioningRaw(
+    Option<CutRaw> Cut,
+    Option<FitRaw> Fit,
+    MotionDynamics Dynamics,
+    Option<CuttingData> Cutting,
+    Option<CompRaw> Compensation,
+    CoolingPolicy Cooling,
+    Seq<ChainRow> Chains,
+    HashMap<int, Loop> Profiles);
+
+[ComplexValueObject]
+public sealed partial class PostPolicy {
+    public CutConditioning Cut { get; }
+    public ProgramTooling Tooling { get; }
+    public ProgramSetup Setup { get; }
+    public EmitPolicy Emit { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CutConditioning cut,
+        ref ProgramTooling tooling, ref ProgramSetup setup, ref EmitPolicy emit) => validationError =
+        cut is null || cut.Dynamics is null || cut.Cooling is null || tooling is null || tooling.Slots is null
+        || tooling.Policy is null || setup is null || setup.Schedule is null || setup.Workholding is null
+        || setup.Workholding.Fixture is null || setup.Workholding.State is null || emit is null
+        || emit.Limit is not BlockLimit.Enforce
+            ? new ValidationError(message: "post-policy") : null;
+
+    public static Fin<PostPolicy> Admit(PostRaw raw) {
+        ArgumentNullException.ThrowIfNull(raw);
+        ArgumentNullException.ThrowIfNull(raw.Cut);
+
+        return (Slot(raw.Cut.Cut.TraverseM(CutPolicy.Admit).As()), Slot(raw.Cut.Fit.TraverseM(FitPolicy.Admit).As()),
+         Slot(raw.Cut.Compensation.TraverseM(CompPolicy.Admit).As()))
+        .Apply((cut, fit, compensation) => new CutConditioning(cut, fit, raw.Cut.Dynamics, raw.Cut.Cutting,
+            compensation, raw.Cut.Cooling, raw.Cut.Chains, raw.Cut.Profiles))
+        .As().ToFin()
+        .Bind(conditioning => Rail(Validate(conditioning, raw.Tooling, raw.Setup, raw.Emit, out PostPolicy policy), policy));
+    }
+
+    internal static K<Validation<Error>, A> Slot<A>(Fin<A> value) => value.ToValidation();
+
+    // One bridge lifts every generated `Validate` outcome onto the rail, so no admission body re-spells the hop.
+    internal static Fin<A> Rail<A>(ValidationError? error, A admitted) => error is { } rejected
+        ? Fin.Fail<A>(new GeometryFault.DegenerateInput(Kind.Curve, -1, rejected.Message).ToError())
+        : Fin.Succ(admitted);
+
+    // Dwell is the one posting quantity `PhysicsQuantity` carries no row for; every other dimensioned field admits there.
+    internal static Fin<double> DurationOf(string source, string locus) =>
+        Duration.TryParse(source, CultureInfo.InvariantCulture, out Duration value)
+            ? Fin.Succ(value.Seconds)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, locus).ToError());
+}
+
+public readonly record struct OperationBoundary(Operation Op, int Node, HashMap<ToolLifeBasis, double> Consumed);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProgramIngress {
+    private ProgramIngress() { }
+
+    public sealed record Rs274(string Source, PostDialect Dialect, Encoding Codec, Option<ChecksumRule> Checksum) : ProgramIngress;
+    public sealed record Nc1(SteelSource Source, SteelContourPolicy Policy, PostDialect Dialect) : ProgramIngress;
+}
+
+```
+
+## [03]-[BOUNDARIES]
+
+- Owner: `Post` composes admitted policy and settled sibling owners into one result rail.
+- Entry: `Lower`, `Parse`, and `Publish` each discriminate on an input value rather than overload or mode flags.
+- Auto: RS274 token coverage fails closed, NC1 enters through `SteelImport.Read`, and every egress key derives from its complete payload.
+- Boundary: `Eff<CutProgram>` carries source acquisition; reusable transforms retain `Fin<T>`; rendered records collapse only at `PostedProgram`.
+
+```csharp signature
+// --- [OPERATIONS] -------------------------------------------------------------------------------------------------------------------------------------
 public static partial class Post {
     private static readonly Seq<GCommand> Commands = toSeq(GCommand.Items);
 
-    public static Fin<FabricationResult.PostedProgram> Lower(FabricationResult.Motion motion, PostDialect dialect, FabricationInput input) =>
-        Lower(new PostSource.Motion(motion), dialect, input, PostPolicy.From(input, dialect));
+    public static Fin<FabricationResult.PostedProgram> Lower(
+        PostSource source,
+        PostDialect dialect,
+        FabricationInput input,
+        PostPolicy policy) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(dialect);
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(policy);
 
-    public static Fin<FabricationResult.PostedProgram> Lower(FabricationResult.Motion motion, PostDialect dialect, FabricationInput input, PostPolicy policy) =>
-        Lower(new PostSource.Motion(motion), dialect, input, policy);
-
-    // The placement modality — same name, input shape the discriminant; the owner Post case re-points here
-    // when it widens to carry a Placement.
-    public static Fin<FabricationResult.PostedProgram> Lower(FabricationResult.Placement placement, PostDialect dialect, FabricationInput input) =>
-        Lower(new PostSource.Placement(placement), dialect, input, PostPolicy.From(input, dialect));
-
-    public static Fin<FabricationResult.PostedProgram> Lower(FabricationResult.Placement placement, PostDialect dialect, FabricationInput input, PostPolicy policy) =>
-        Lower(new PostSource.Placement(placement), dialect, input, policy);
-
-    private static Fin<FabricationResult.PostedProgram> Lower(PostSource source, PostDialect dialect, FabricationInput input, PostPolicy policy) =>
-        from program in Assemble(source, dialect, input, policy)
-        from words in Dialect.Seal(dialect, program.Nodes.Map(node => Dialect.Emit(dialect, node)))
-        let blocks = Render(words)
-        let key = ContentKey.Of(EgressKind.CutProgram, Encoding.UTF8.GetBytes(string.Join("\n", blocks.ToArray())))
-        select new FabricationResult.PostedProgram(blocks, key);
-
-    public static Fin<CutProgram> Parse(string source, PostDialect dialect) =>
-        Lines(source).Fold(
-            Fin.Succ(ModalState.Empty),
-            (state, row) =>
-                from modal in state
-                from block in ParseBlock(row.Line, row.Text, dialect)
-                from next in modal.Push(row.Line, block)
-                select next)
-        .Map(modal => CutProgram.Of(modal.Nodes, dialect));
-
-    // The branch Posting →[WIRE]: PackKind → Rasm edge: the conditioned motion polyline publishes through
-    // the kernel encoder as content-keyed EncodedGeometry — backplot, storage, and analytics read the wire,
-    // never re-parsed G-code.
-    public static Fin<EncodedGeometry> Publish(FabricationResult.Motion motion, PackPolicy policy) =>
-        from context in Context.Millimeters().ToFin()
-        from cloud in VectorCloud.Polyline(motion.Moves.Map(GNode.Target), context)
-        from encoded in cloud is VectorCloud.PolylineCase poly
-            ? Encode.Apply(new PackOp.Toolpath(poly, policy))
-            : Fin.Fail<EncodedGeometry>(GeometryFault.DegenerateInput("post:publish-cloud").ToError())
-        select encoded;
-
-    internal static Fin<CutProgram> Assemble(PostSource source, PostDialect dialect, FabricationInput input, PostPolicy policy) =>
-        from _ in Admit(policy)
-        from changes in ToolMagazine.Schedule(policy.Magazine, policy.Slots, policy.Work, policy.MagazinePolicy)
-        from schedule in Setup.Schedule(policy.Operations, policy.Schedule)
-        from program in source.Switch(
-            state:     (dialect, input, policy, changes, schedule),
-            motion:    static (s, m) => MotionProgram(m.Value, s.dialect, s.policy, s.changes, s.schedule),
-            placement: static (s, p) => PlacementProgram(p.Value, s.dialect, s.policy, s.changes, s.schedule))
-        select program;
-
-    private static Fin<Unit> Admit(PostPolicy policy) {
-        Seq<Error> errors = Seq<Error>();
-        Seq<double> finite = Seq(
-            policy.KerfWidth, policy.LeadRadius, policy.TabWidth, policy.TabSpacing, policy.PierceTime,
-            policy.AssistPressure, policy.MeltTemp, policy.FeedCeiling, policy.RemovalRate,
-            policy.Feed.EdgeDistance, policy.Feed.EdgeFloor, policy.Biarc.FitTolerance, policy.Biarc.MinRunLength,
-            policy.Dynamics.RapidFeed, policy.Dynamics.CuttingFeed, policy.Dynamics.Acceleration, policy.Dynamics.Jerk,
-            policy.Comp.ToolDiameter, policy.Comp.CutWidthMm, policy.Comp.Stickout, policy.Comp.Modulus,
-            policy.Comp.ThermalCoefficientPerC, policy.Comp.TemperatureDeltaC);
-        if (!finite.ForAll(double.IsFinite))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:non-finite-policy").ToError());
-        if (policy.KerfWidth < 0.0 || policy.PierceTime < 0.0 || policy.AssistPressure < 0.0 || policy.MeltTemp < 0.0
-            || policy.FeedCeiling <= 0.0 || policy.MaxAxes <= 0 || policy.RemovalRate < 0.0)
-            errors = errors.Add(GeometryFault.DegenerateInput("post:process-policy").ToError());
-        if ((policy.Lead != LeadStyle.None && policy.LeadRadius <= 0.0)
-            || policy.TabWidth < 0.0 || policy.TabSpacing < 0.0
-            || ((policy.TabWidth > 0.0 || policy.TabSpacing > 0.0) && (policy.TabWidth <= 0.0 || policy.TabSpacing <= policy.TabWidth)))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:lead-tab-policy").ToError());
-        if (policy.Feed.EdgeDistance < 0.0 || policy.Feed.EdgeFloor is <= 0.0 or > 1.0
-            || policy.Biarc.FitTolerance <= 0.0 || policy.Biarc.MinRunLength <= 0.0
-            || policy.Dynamics.RapidFeed <= 0.0 || policy.Dynamics.CuttingFeed <= 0.0
-            || policy.Dynamics.Acceleration <= 0.0 || policy.Dynamics.Jerk <= 0.0)
-            errors = errors.Add(GeometryFault.DegenerateInput("post:motion-policy").ToError());
-        if (policy.Cutting.Exists(data => !double.IsFinite(data.SurfaceSpeed) || data.SurfaceSpeed <= 0.0 || policy.Comp.ToolDiameter <= 0.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:spindle-policy").ToError());
-        if ((policy.Comp.Mechanical && (policy.Comp.ToolDiameter <= 0.0 || policy.Comp.CutWidthMm <= 0.0
-                || policy.Comp.Stickout <= 0.0 || policy.Comp.Modulus <= 0.0))
-            || (policy.Comp.Thermal && (policy.Comp.ThermalCoefficientPerC <= 0.0
-                || policy.Comp.TemperatureDeltaC == 0.0 || policy.Comp.Stickout <= 0.0)))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:compensation-policy").ToError());
-        if (policy.Bevels.Exists(static pass => pass.Blocks.IsEmpty
-                || pass.Thc.Exists(span => span.FromInclusive < 0 || span.ToExclusive <= span.FromInclusive || span.ToExclusive > pass.Blocks.Count)))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:bevel-pass").ToError());
-        if (policy.Chains.Exists(static chain => chain.SheetIndex < 0 || chain.Instances.IsEmpty
-                || chain.Instances.Count != chain.SourceParts.Count))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:chain-row").ToError());
-        if (policy.OperationBoundaries.Exists(static row => row.Node < 0 || !double.IsFinite(row.MinutesConsumed)
-                || row.MinutesConsumed < 0.0 || row.PartsConsumed < 0)
-            || policy.OperationBoundaries.Map(static row => (row.Op, row.Node)).Distinct().Count != policy.OperationBoundaries.Count
-            || policy.OperationBoundaries.GroupBy(static row => row.Op).Exists(group =>
-                group.OrderBy(static row => row.Node).ToSeq().Zip(group.OrderBy(static row => row.Node).ToSeq().Skip(1))
-                    .Exists(static pair => pair.Item2.MinutesConsumed < pair.Item1.MinutesConsumed
-                        || pair.Item2.PartsConsumed < pair.Item1.PartsConsumed)))
-            errors = errors.Add(GeometryFault.DegenerateInput("post:operation-boundary").ToError());
-        return errors.IsEmpty ? Fin.Succ(unit) : Fin.Fail<Unit>(Error.Many([.. errors]));
+        return from program in Assemble(source, dialect, input, policy)
+        from image in Dialect.Emit(program, policy.Emit)
+        from _ in image.Kind == EgressKind.CutProgram
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:image-kind:{image.Kind.Key}").ToError())
+        select new FabricationResult.PostedProgram(image.Records, image.Key);
     }
 
-    private static Fin<CutProgram> MotionProgram(FabricationResult.Motion motion, PostDialect dialect, PostPolicy policy, Seq<ToolChange> changes, SetupSchedule schedule) =>
-        from conditioned in Workholding.Condition(motion.Moves, policy.Fixture)
-        from body in ToolSections(GNode.Moves(conditioned, Point3d.Origin).Concat(BevelSections(policy.Bevels)), changes, policy)
-        let program = CutProgram.Of(
-            Prologue(schedule).Concat(Lookahead(body, policy)).Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
-        from optimized in OptimizeProgram(program, policy)
-        select optimized;
+    public static Eff<CutProgram> Parse(ProgramIngress ingress) {
+        ArgumentNullException.ThrowIfNull(ingress);
 
-    // Chain topology GOVERNS when present: committed ChainRow rows carry sheet, instance, source, and pierce
-    // truth from Nesting/linking, so the lowering never re-derives what linking already proved; empty Chains is
-    // the explicit unlinked baseline — NestingOrder contour order with one pierce per loop.
-    private static Fin<CutProgram> PlacementProgram(FabricationResult.Placement placement, PostDialect dialect, PostPolicy policy, Seq<ToolChange> changes, SetupSchedule schedule) =>
-        from paths in policy.Chains.IsEmpty
-            ? from profiles in placement.Parts.Map(policy.Placed).TraverseM(identity).As()
-              from ordered in PolygonAlgebra.NestingOrder(profiles.ToArr(), PolygonFill.NonZero)
-              from loops in ordered.Map(loop => Condition(loop, policy)).TraverseM(identity).As()
-              from unlinked in loops.Map(loop => CutPath(loop, policy)).TraverseM(identity).As()
-              select unlinked.Bind(identity)
-            : policy.Chains.Map(chain => ChainPath(placement, chain, policy)).TraverseM(identity).As()
-                .Map(static chains => chains.Bind(identity))
-        from body in ToolSections(paths.Concat(BevelSections(policy.Bevels)), changes, policy)
-        let program = CutProgram.Of(
-            Prologue(schedule).Concat(Lookahead(body, policy)).Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
-        from optimized in OptimizeProgram(program, policy)
-        select optimized;
+        return ingress.Switch(
+            rs274: static source => ParseRs274(source.Source, source.Dialect, source.Codec, source.Checksum).ToEff(),
+            nc1: static source => SteelImport.Read(source.Source, source.Policy)
+                .Map(receipt => CutProgram.Of(Seq<GNode>(new GNode.Nc1(receipt)), source.Dialect)));
+    }
 
-    // The linking seam CONSUMED, never rebuilt: one pierce per chain at its recorded point, members conditioned
-    // and walked in threaded order, torch-live feed transits between members — SheetIndex, Instances, SourceParts,
-    // and Pierce stay coupled on the row through emission.
-    private static Fin<Seq<GNode>> ChainPath(FabricationResult.Placement placement, ChainRow chain, PostPolicy policy) =>
-        from _ in chain.Instances.ForAll(instance => instance >= 0 && instance < placement.Parts.Count)
+    public static Fin<Seq<EncodedGeometry>> Publish(CutProgram program, ProgramView view, PackPolicy policy) {
+        ArgumentNullException.ThrowIfNull(program);
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(policy);
+
+        return from trace in Interpret(program)
+        from paths in view.Paths(trace)
+        from _ in !paths.IsEmpty && paths.ForAll(static path => !path.Spans.IsEmpty)
             ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(GeometryFault.DegenerateInput($"post:chain-instance:{chain.Chain}").ToError())
-        from loops in chain.Instances.Map(instance => policy.Placed(placement.Parts[instance]).Bind(loop => Condition(loop, policy)))
-            .TraverseM(identity).As()
-        from members in loops.Map(loop =>
-                from lead in policy.Lead.Enter(loop, policy)
-                from body in Walk(loop, policy)
-                select (Lead: lead, Body: body))
-            .TraverseM(identity).As()
-        select Seq<GNode>(new GNode.Word(GCommand.Rapid, Arr(new GParam('X', chain.Pierce.X), new GParam('Y', chain.Pierce.Y)), None))
-            .Concat(PierceBlock(policy))
-            .Concat(members.Map((member, index) => {
-                Point3d start = member.Lead.HeadOrNone().Map(GNode.Target).IfNone(chain.Pierce);
-                Seq<GNode> entry = member.Lead.IsEmpty ? Seq<GNode>() : GNode.Moves(member.Lead.Tail, start);
-                Seq<GNode> transit = index == 0
-                    ? Seq<GNode>()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "post:publish-points").ToError())
+        from encoded in paths.TraverseM(path => Encode.Apply(new PackOp.Toolpath(path, policy))).As()
+        select encoded;
+    }
+
+    public static Fin<ProgramTrace> Interpret(CutProgram program) {
+        ArgumentNullException.ThrowIfNull(program);
+
+        return ProgramTrace.Admit(program);
+    }
+}
+```
+
+## [04]-[CONDITIONING]
+
+- Owner: `CutConditioning` composes cut, fit, compensation, dynamics, and committed-chain policy as admitted values.
+- Entry: motion, placement, and specialized envelopes enter one `Post.Lower` fold and diverge only inside `PostSource.Switch`.
+- Auto: `ToolMagazine.Schedule` carries lifecycle and process-range evidence; `SetupSchedule.Apply` supplies WCS assignment; `Workholding.Apply` conditions motion; `ArcAlgebra.Apply` owns kerf, lead, and compensation.
+- Boundary: statement flow is confined to modal, render, and parse boundaries with the `LookaheadKernel`, `Segments`, `Fit`, and `BulgeArc` numeric kernels; joins use `Fold`, `FoldM`, `TraverseM`, generated `Switch`, and query syntax.
+
+```csharp signature
+// --- [CONDITIONING] -----------------------------------------------------------------------------------------------------------------------------------
+public static partial class Post {
+
+    internal static Fin<CutProgram> Assemble(
+        PostSource source,
+        PostDialect dialect,
+        FabricationInput input,
+        PostPolicy policy) =>
+        from _ in dialect.Admits(input.Process.Modality)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:dialect:{dialect.Key}:{input.Process.Modality.Key}").ToError())
+        from changes in ToolMagazine.Schedule(policy.Tooling.Slots, policy.Tooling.Work, policy.Tooling.Policy)
+        from scheduled in SetupSchedule.Apply(new SetupOp.Schedule(policy.Setup.Schedule))
+        from schedule in scheduled is SetupResult.Scheduled value
+            ? Fin.Succ(value.Schedule)
+            : Fin.Fail<SetupSchedule>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:setup-result").ToError())
+        from program in source.Switch(
+            state: (Dialect: dialect, Input: input, Policy: policy, Changes: changes, Schedule: schedule),
+            motion: static (state, value) => MotionProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule),
+            placement: static (state, value) => PlacementProgram(value.Value, state.Dialect, state.Policy, state.Changes, state.Schedule),
+            specialized: static (state, value) => SpecializedProgram(value.Value, state.Dialect, state.Schedule))
+        select program;
+
+    private static Fin<CutProgram> SpecializedProgram(
+        SpecializedToolpathEnvelope payload,
+        PostDialect dialect,
+        SetupSchedule schedule) => payload.IsValid
+            ? Fin.Succ(CutProgram.Of(Prologue(schedule)
+                .Add(new GNode.Directive(new MotionDirective.Specialized(-1, payload)))
+                .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect))
+            : Fin.Fail<CutProgram>(new GeometryFault.DegenerateInput(
+                Kind.Curve, -1, $"post:specialized:{payload.Kind.Key}").ToError());
+
+    private static Fin<CutProgram> MotionProgram(
+        FabricationResult.Motion motion,
+        PostDialect dialect,
+        PostPolicy policy,
+        Seq<ToolChange> changes,
+        SetupSchedule schedule) =>
+        from held in Workholding.Apply(new WorkholdingOp.Condition(
+            policy.Setup.Workholding.Fixture,
+            policy.Setup.Workholding.State,
+            motion.Moves))
+        from moves in held is WorkholdingResult.Conditioned conditioned
+            ? Fin.Succ(conditioned.Moves)
+            : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:workholding-result").ToError())
+        from body in ToolSections(GNode.Moves(moves, motion.Directives, Point3d.Origin), changes, policy)
+        from looked in Lookahead(body, policy.Cut.Dynamics, dialect)
+        let program = CutProgram.Of(Prologue(schedule).Concat(looked)
+            .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
+        select program;
+
+    private static Fin<CutProgram> PlacementProgram(
+        FabricationResult.Placement placement,
+        PostDialect dialect,
+        PostPolicy policy,
+        Seq<ToolChange> changes,
+        SetupSchedule schedule) =>
+        from paths in policy.Cut.Chains.IsEmpty
+            ? Unlinked(placement, dialect, policy)
+            : policy.Cut.Chains.TraverseM(chain => ChainPath(chain, dialect, policy)).As().Map(static rows => rows.Bind(identity))
+        from body in ToolSections(paths, changes, policy)
+        from looked in Lookahead(body, policy.Cut.Dynamics, dialect)
+        let program = CutProgram.Of(Prologue(schedule).Concat(looked)
+            .Add(new GNode.Word(GCommand.ProgramEnd, Arr<GParam>(), None)), dialect)
+        select program;
+
+    private static Fin<Seq<GNode>> Unlinked(FabricationResult.Placement placement, PostDialect dialect, PostPolicy policy) =>
+        from profiles in placement.Parts.Map(transform => policy.Cut.Profiles.Find(transform.PartId)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:profile:{transform.PartId}").ToError())
+            .Bind(transform.Apply)).TraverseM(identity).As()
+        from ordered in PolygonAlgebra.Apply(new PolygonOp.Inspect(profiles.ToSeq(), new PolygonQuery.Topology(PolygonFill.NonZero)))
+        from loops in ordered is PolygonTrace.Regions regions
+            ? Fin.Succ(regions.Result.Nodes.OrderByDescending(static node => node.Depth)
+                .ThenBy(static node => Math.Abs(node.SignedArea)).Map(static node => node.Boundary).ToSeq())
+            : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:placement-topology").ToError())
+        from paths in loops.TraverseM(loop => Condition(loop, policy.Cut).Bind(conditioned => CutPath(conditioned, dialect, policy.Cut))).As()
+        select paths.Bind(identity);
+
+    private static Fin<Seq<GNode>> ChainPath(ChainRow chain, PostDialect dialect, PostPolicy policy) =>
+        from _ in chain.Members.IsEmpty
+            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain:{chain.Chain}").ToError())
+            : Fin.Succ(unit)
+        let contours = chain.Members.Bind(static member => member.Contours)
+        from _ in chain.Shared.IsEmpty && contours.ForAll(static contour => contour.Omitted.IsEmpty)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain-shared:{chain.Chain}").ToError())
+        from _ in contours.Filter(static contour => contour.Pierce).Count == chain.Pierces.Count
+            && chain.RapidPaths.Count == chain.Pierces.Count
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:chain-routing:{chain.Chain}").ToError())
+        from folded in contours.FoldM<Fin, (Seq<GNode> Nodes, int Pierce)>(
+            (Seq<GNode>(), 0),
+            (state, contour) =>
+                from loop in Condition(contour.Path, policy.Cut)
+                from nodes in Walk(loop, dialect, policy.Cut)
+                let prefix = contour.Pierce
+                    ? chain.RapidPaths[state.Pierce].Tail.Map(point => (GNode)new GNode.Word(GCommand.Rapid, XY(point), None)).ToSeq()
+                        .Concat(PierceBlock(policy.Cut.Cut, dialect))
                     : Seq<GNode>(new GNode.Word(GCommand.Feed,
-                        Arr(new GParam('X', start.X), new GParam('Y', start.Y), new GParam('F', policy.FeedCeiling * policy.Feed.EdgeFloor)), None));
-                return transit.Concat(entry).Concat(member.Body);
-            }).Bind(identity));
+                        XY(contour.Entry).Add(GParam.Number('F', FeedFloor(policy.Cut), ProgramUnits.Metric)), None))
+                select (state.Nodes.Concat(prefix).Concat(nodes), state.Pierce + (contour.Pierce ? 1 : 0))).As()
+        select folded.Nodes;
+
+    private static Fin<Loop> Condition(Loop profile, CutConditioning policy) =>
+        !profile.Closed
+            ? Fin.Fail<Loop>(FabricationFault.OpenLoop(FabConcern.Program, 0).ToError())
+            : policy.Cut.Match(
+                Some: cut =>
+                    from forest in ArcForest.Admit(Seq(profile), profile.Tolerance, profile.Plane).ToFin()
+                    from trace in ArcAlgebra.Apply(new ArcOp.Kerf(forest, cut.KerfMm,
+                        profile.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside))
+                    from loop in trace is ArcTrace.Forest result
+                        ? result.Result.Loops.HeadOrNone().ToFin(FabricationFault.KerfCollision(new KerfWitness.Vanished(0), cut.KerfMm).ToError())
+                        : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:kerf-trace").ToError())
+                    from compensated in Compensate(loop, policy)
+                    select compensated,
+                None: () => Compensate(profile, policy));
+
+    private static Fin<Loop> Compensate(Loop loop, CutConditioning policy) => policy.Compensation.Match(
+        Some: compensation =>
+            from mechanical in policy.Cutting.Match(
+                Some: cutting => cutting.FeedBasis == FeedBasis.PerTooth
+                    ? cutting.Force(compensation.CutWidthMm, cutting.Feed).Map(compensation.Deflection)
+                    : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:compensation-feed-basis:{cutting.FeedBasis.Key}").ToError()),
+                None: () => Fin.Succ(0.0))
+            let delta = mechanical + compensation.ThermalGrowth
+            from offset in Math.Abs(delta) <= loop.Tolerance.Absolute.Value
+                ? Fin.Succ(loop)
+                : ArcAlgebra.Apply(new ArcOp.Offset(new ArcOffsetSource.Path(loop),
+                        loop.Winding() == Sign.Negative ? -delta : delta))
+                    .Bind(trace => trace is ArcTrace.Paths paths
+                        ? paths.Result.HeadOrNone().ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:compensation-empty").ToError())
+                        : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:compensation-trace").ToError()))
+            select offset,
+        None: () => Fin.Succ(loop));
+
+    private static Fin<Seq<GNode>> CutPath(Loop loop, PostDialect dialect, CutConditioning policy) =>
+        from pierce in Sample(loop, 0.0)
+        from lead in Lead(loop, policy.Cut)
+        from body in Walk(loop, dialect, policy)
+        select Seq<GNode>(new GNode.Word(GCommand.Rapid,
+                XY(lead.HeadOrNone().Map(GNode.Target).IfNone(pierce)), None))
+            .Concat(PierceBlock(policy.Cut, dialect))
+            .Concat(lead.IsEmpty ? Seq<GNode>() : GNode.Moves(lead, pierce))
+            .Concat(body);
+
+    private static Fin<Seq<Move>> Lead(Loop loop, Option<CutPolicy> policy) => policy.Match(
+        Some: cut => cut.Lead.Shape(cut.LeadRadiusMm).Match(
+            Some: shape => ArcAlgebra.Apply(new ArcOp.Lead(loop, 0.0, cut.FeedMmPerMinute, shape,
+                    loop.Winding() == Sign.Negative ? MaterialSide.Inside : MaterialSide.Outside))
+                .Bind(trace => trace is ArcTrace.Motion motion
+                    ? Fin.Succ(motion.Receipt.Moves)
+                    : Fin.Fail<Seq<Move>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:lead-trace").ToError())),
+            None: () => Fin.Succ(Seq<Move>())),
+        None: () => Fin.Succ(Seq<Move>()));
+
+    private static Fin<Seq<GNode>> Walk(Loop loop, PostDialect dialect, CutConditioning policy) =>
+        from segments in Segments(loop, policy.Cut)
+        from folded in segments.FoldM<Fin, (Seq<GNode> Output, Seq<Point3d> Run)>(
+            (Seq<GNode>(), Seq(loop.At(0))),
+            (state, segment) => segment.Tab
+                ? FlushRun(state.Run, policy.Fit, FeedCeiling(policy)).Map(flushed =>
+                    (state.Output.Concat(flushed).Concat(Bridge(segment.To, policy.Cut, dialect)), Seq(segment.To)))
+                : Math.Abs(segment.Bulge) <= loop.Tolerance.Absolute.Value
+                    ? Fin.Succ((state.Output, state.Run.Add(segment.To)))
+                    : FlushRun(state.Run, policy.Fit, FeedCeiling(policy)).Map(flushed =>
+                        (state.Output.Concat(flushed).Add(BulgeArc(segment.From, segment.To, segment.Bulge,
+                            Feedrate(loop, segment.Span, policy))), Seq(segment.To)))).As()
+        from tail in FlushRun(folded.Run, policy.Fit, FeedCeiling(policy))
+        select folded.Output.Concat(tail);
+
+    private static Fin<Seq<PathSegment>> Segments(Loop loop, Option<CutPolicy> policy) {
+        double total = loop.Length();
+        Seq<TabWindow> tabs = policy.Bind(cut => cut.TabSpacingMm > 0.0 && cut.TabWidthMm > 0.0
+            ? Some(Range(0, (int)Math.Floor(total / cut.TabSpacingMm)).Map(index => cut.TabSpacingMm * (index + 0.5))
+                .Map(center => new TabWindow(center - cut.TabWidthMm / 2.0, center + cut.TabWidthMm / 2.0))
+                .Filter(window => window.Start > loop.Tolerance.Absolute.Value
+                    && window.End < total - loop.Tolerance.Absolute.Value))
+            : None).IfNone(Seq<TabWindow>());
+        Seq<double> stations = Range(0, loop.Spans).Map(index => loop.At(index).DistanceTo(loop.At(index + 1)))
+            .Fold(Seq(0.0), static (state, length) => state.Add(state.Last.IfNone(0.0) + length))
+            .Concat(tabs.Bind(static window => Seq(window.Start, window.End))).Add(total)
+            .Distinct().OrderBy(static value => value).ToSeq();
+        return Range(0, stations.Count - 1).Map(index =>
+            from from in Sampled(loop, stations[index])
+            from to in Sampled(loop, stations[index + 1])
+            let midpoint = (stations[index] + stations[index + 1]) / 2.0
+            let sourceBulge = loop.BulgeAt(from.Segment)
+            let sourceLength = Math.Max(loop.Tolerance.Absolute.Value,
+                loop.At(from.Segment).DistanceTo(loop.At(from.Segment + 1)))
+            let fraction = (stations[index + 1] - stations[index]) / sourceLength
+            let bulge = Math.Abs(sourceBulge) <= loop.Tolerance.Absolute.Value
+                ? 0.0 : Math.Sign(sourceBulge) * Math.Tan(Math.Atan(Math.Abs(sourceBulge)) * fraction)
+            select new PathSegment(from.Segment, from.Point, to.Point, bulge,
+                tabs.Exists(window => midpoint > window.Start && midpoint < window.End)))
+            .TraverseM(identity).As();
+    }
+
+    private static Fin<ProfileResult.Sampled> Sampled(Loop loop, double station) =>
+        loop.Apply(new ProfileOp.Sample(Length.FromMillimeters(station))).Bind(result => result is ProfileResult.Sampled sampled
+            ? Fin.Succ(sampled)
+            : Fin.Fail<ProfileResult.Sampled>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:sample-result").ToError()));
+
+    private static Fin<Point3d> Sample(Loop loop, double station) => Sampled(loop, station).Map(static result => result.Point);
+
+    private static Fin<Seq<GNode>> FlushRun(Seq<Point3d> run, Option<FitPolicy> policy, double feed) => policy.Match(
+        Some: fit => run.Count < fit.ProbeFloor || run.Zip(run.Skip(1)).Sum(static pair => pair.Item1.DistanceTo(pair.Item2)) < fit.MinimumRunMm
+            ? Fin.Succ(Lines(run, feed))
+            : Fit(run, fit, feed),
+        None: () => Fin.Succ(Lines(run, feed)));
+
+    private static Fin<Seq<GNode>> Fit(Seq<Point3d> run, FitPolicy policy, double feed) {
+        Point3d first = run[0];
+        Point3d last = run[run.Count - 1];
+        Vector2d start = new(first.X, first.Y);
+        Vector2d end = new(last.X, last.Y);
+        Vector2d tangentA = new(run[1].X - first.X, run[1].Y - first.Y);
+        Vector2d tangentB = new(last.X - run[run.Count - 2].X, last.Y - run[run.Count - 2].Y);
+        if (tangentA.Length <= policy.ToleranceMm || tangentB.Length <= policy.ToleranceMm)
+            return Fin.Succ(Lines(run, feed));
+        BiArcFit2 fit = new(start, tangentA.Normalized, end, tangentB.Normalized, policy.SplitDistanceMm);
+        double deviation = run.Tail.Init.Fold(0.0, (held, probe) => {
+            Vector2d sample = new(probe.X, probe.Y);
+            Vector2d nearest = fit.NearestPoint(sample);
+            return Math.Max(held, Math.Max(fit.Distance(sample),
+                Math.Sqrt(Math.Pow(nearest.x - sample.x, 2.0) + Math.Pow(nearest.y - sample.y, 2.0))));
+        });
+        bool admitted = fit.FitD1 > 0.0 && fit.FitD2 > 0.0 && deviation <= policy.ToleranceMm;
+        return admitted
+            ? toSeq(fit.Curves).TraverseM(curve => CurveNode(curve, feed)).As()
+            : Fin.Succ(Lines(run, feed));
+    }
+
+    private static Fin<GNode> CurveNode(IParametricCurve2d curve, double feed) => curve switch {
+        Arc2d arc => Fin.Succ<GNode>(ArcNode(arc, feed)),
+        Segment2d segment => Fin.Succ<GNode>(SegmentNode(segment, feed)),
+        _ => Fin.Fail<GNode>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:fit-curve:{curve.GetType().Name}").ToError()),
+    };
+
+    private static GNode SegmentNode(Segment2d segment, double feed) {
+        Vector2d end = segment.SampleArcLength(segment.Length);
+        return new GNode.Word(GCommand.Feed,
+            XY(new Point3d(end.x, end.y, 0.0)).Add(GParam.Number('F', feed, ProgramUnits.Metric)), None);
+    }
+
+    private static GNode ArcNode(Arc2d arc, double feed) {
+        Vector2d start = arc.SampleArcLength(0.0);
+        Vector2d end = arc.SampleArcLength(arc.ArcLength);
+        return new GNode.Word(arc.IsReversed ? GCommand.ArcCw : GCommand.ArcCcw,
+            Arr(GParam.Number('X', end.x, ProgramUnits.Metric), GParam.Number('Y', end.y, ProgramUnits.Metric),
+                GParam.Number('I', arc.Center.x - start.x, ProgramUnits.Metric), GParam.Number('J', arc.Center.y - start.y, ProgramUnits.Metric),
+                GParam.Number('F', feed, ProgramUnits.Metric)), None);
+    }
+
+    private static Seq<GNode> Lines(Seq<Point3d> points, double feed) => points.Tail.Map(point =>
+        (GNode)new GNode.Word(GCommand.Feed, XY(point).Add(GParam.Number('F', feed, ProgramUnits.Metric)), None)).ToSeq();
+
+    private static GNode BulgeArc(Point3d first, Point3d last, double bulge, double feed) {
+        PlineVertex<double> start = new(first.X, first.Y, bulge);
+        PlineVertex<double> end = new(last.X, last.Y, 0.0);
+        var (_, center) = PlineSeg.SegArcRadiusAndCenter(start, end);
+        return new GNode.Word(bulge > 0.0 ? GCommand.ArcCcw : GCommand.ArcCw,
+            XY(last).Add(GParam.Number('I', center.X - first.X, ProgramUnits.Metric))
+                .Add(GParam.Number('J', center.Y - first.Y, ProgramUnits.Metric))
+                .Add(GParam.Number('F', feed, ProgramUnits.Metric)), None);
+    }
+
+    private static Seq<GNode> Bridge(Point3d target, Option<CutPolicy> policy, PostDialect dialect) =>
+        Seq<GNode>(new GNode.Word(GCommand.SpindleStop, Arr<GParam>(), None),
+            new GNode.Word(GCommand.Rapid, XY(target), None)).Concat(PierceBlock(policy, dialect));
+
+    private static Seq<GNode> PierceBlock(Option<CutPolicy> policy, PostDialect dialect) => policy.Match(
+        Some: cut => cut.AssistBar.Map(assist => (GNode)new GNode.Word(
+                GCommand.AssistGas, Arr(GParam.Number('S', assist, ProgramUnits.Metric)), None)).ToSeq()
+            .Add(new GNode.Word(BeamOn(dialect), Arr<GParam>(), None))
+            .Concat(cut.PierceSeconds > 0.0
+                ? Seq<GNode>(new GNode.CannedCycle(GCommand.Dwell,
+                    Arr(GParam.Number('P', cut.PierceSeconds, ProgramUnits.Metric)), Seq<Move>(), 1, None))
+                : Seq<GNode>()),
+        None: () => Seq<GNode>());
+
+    // Only a thermal-only controller spells beam-on as the torch word; a controller carrying a contact modality
+    // spells it as the spindle word, so the declared modality set decides and no dialect identity is tested.
+    private static GCommand BeamOn(PostDialect dialect) =>
+        dialect.Modalities.Contains(ProcessModality.Thermal)
+        && dialect.Modalities.ForAll(static modality => modality == ProcessModality.Thermal)
+            ? GCommand.TorchOn : GCommand.Spindle;
 
     private static Fin<Seq<GNode>> ToolSections(Seq<GNode> nodes, Seq<ToolChange> changes, PostPolicy policy) =>
-        from _ in !changes.IsEmpty && nodes.IsEmpty
-            ? Fin.Fail<Unit>(GeometryFault.DegenerateInput("post:tool-program-empty").ToError())
+        from _ in changes.Exists(static change => change.Previous.IsSome) && policy.Tooling.Boundaries.IsEmpty
+            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "post:tool-boundaries").ToError())
             : Fin.Succ(unit)
-        from __ in changes.Exists(static change => change.MidJob) && policy.Cutting.IsNone
-            ? Fin.Fail<Unit>(GeometryFault.DegenerateInput("post:mid-job-spindle-state").ToError())
-            : Fin.Succ(unit)
-        from placements in changes.TraverseM(change => !change.MidJob
+        from placements in changes.TraverseM(change => change.Previous.IsNone
             ? Fin.Succ((Node: 0, Change: change))
-            : policy.OperationBoundaries
-                .Filter(boundary => boundary.Op == change.Op && boundary.Node < nodes.Count
-                    && (change.TriggerBasis == ToolLifeType.PART_COUNT
-                        ? boundary.PartsConsumed >= Math.Ceiling(change.Trigger)
-                        : boundary.MinutesConsumed >= change.Trigger))
+            : policy.Tooling.Boundaries
+                .Filter(boundary => boundary.Op == change.Op && boundary.Node >= 0 && boundary.Node < nodes.Count
+                    && boundary.Consumed.Find(change.LimitingBasis).Exists(consumed => consumed >= change.Trigger))
                 .OrderBy(static boundary => boundary.Node).HeadOrNone()
-                .ToFin(GeometryFault.DegenerateInput($"post:tool-boundary:{change.Op.Key}:{change.Trigger:R}").ToError())
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"post:tool-boundary:{change.Op.Key}:{change.LimitingBasis.Key}").ToError())
                 .Map(boundary => (boundary.Node, Change: change))).As()
-        select toSeq(Enumerable.Range(0, nodes.Count)).Bind(index => {
-            bool section = index == 0 || placements.Exists(row => row.Node == index);
-            return placements.Filter(row => row.Node == index).Bind(static row => ToolChangeNodes(row.Change))
-                .Concat(section ? SpindleNodes(policy.Cutting, policy.Comp.ToolDiameter) : Seq<GNode>())
-                .Concat(section ? CoolingNodes(policy.Cooling) : Seq<GNode>())
-                .Add(nodes[index]);
-        });
+        select Range(0, nodes.Count).Bind(index => placements.Filter(row => row.Node == index)
+            .Bind(row => ToolChangeNodes(row.Change)
+                .Concat(SpindleNodes(policy.Cut.Cutting, row.Change.Assembly))
+                .Concat(CoolingNodes(policy.Cut.Cooling)))
+            .Add(ClampFeed(nodes[index], placements.Filter(row => row.Node <= index).Last.Map(static row => row.Change.Assembly.Feed))));
 
     private static Seq<GNode> ToolChangeNodes(ToolChange change) =>
         Seq<GNode>(
             new GNode.Word(GCommand.SpindleStop, Arr<GParam>(), None),
             new GNode.Word(GCommand.CoolantOff, Arr<GParam>(), None),
             new GNode.Word(GCommand.LengthCancel, Arr<GParam>(), None),
-            new GNode.Word(GCommand.Rapid, Arr(new GParam('Z', change.Retract)), None))
-            .Concat(change.ManualConfirm
-                ? Seq<GNode>(new GNode.Word(GCommand.OptionalStop, Arr<GParam>(), None))
-                : Seq<GNode>())
-            .Add(new GNode.Word(GCommand.ToolChange, Arr(new GParam('T', change.ProgramTool)), None))
-            .Add(new GNode.Word(GCommand.LengthOffset, Arr(
-                new GParam('H', change.ProgramTool), new GParam('Z', change.LengthOffset)), None));
+            new GNode.Word(GCommand.Rapid, Arr(GParam.Number('Z', change.Retract, ProgramUnits.Metric)), None))
+        .Concat(change.Behaviors.Contains(MagazineBehavior.Confirm)
+            ? Seq<GNode>(new GNode.Word(GCommand.OptionalStop, Arr<GParam>(), None)) : Seq<GNode>())
+        .Add(new GNode.Word(GCommand.ToolChange, Arr(GParam.Number('T', change.ProgramTool, ProgramUnits.Metric)), None))
+        .Add(new GNode.Word(GCommand.LengthOffset,
+            Arr(GParam.Number('H', change.ProgramTool, ProgramUnits.Metric), GParam.Number('Z', change.LengthOffset, ProgramUnits.Metric)), None));
 
-    private static Seq<GNode> CoolingNodes(CoolingPolicy cooling) =>
-        cooling.Word().Match(
-            Some: word => Seq<GNode>(new GNode.Word(word, Arr<GParam>(), None)),
-            None: () => Seq<GNode>());
+    private static Seq<GNode> SpindleNodes(Option<CuttingData> cutting, ToolAssembly assembly) => cutting.Map(data => {
+        double requested = data.SurfaceSpeed * 1_000.0 / (Math.PI * assembly.ShankDiameter);
+        double spindle = Clamp(requested, assembly.Spindle);
+        return (GNode)new GNode.Word(GCommand.Spindle, Arr(GParam.Number('S', spindle, ProgramUnits.Metric)), None);
+    }).ToSeq();
 
-    private static Seq<GNode> SpindleNodes(Option<CuttingData> cutting, double toolDiameter) =>
-        cutting.Map(data => (GNode)new GNode.Word(
-            GCommand.Spindle,
-            Arr(new GParam('S', data.SurfaceSpeed * 1_000.0 / (Math.PI * toolDiameter))),
-            None)).ToSeq();
+    private static Seq<GNode> CoolingNodes(CoolingPolicy cooling) => cooling.Word().Map(command =>
+        (GNode)new GNode.Word(command, Arr<GParam>(), None)).ToSeq();
 
-    private static Fin<CutProgram> OptimizeProgram(CutProgram program, PostPolicy policy) =>
-        policy.Passes.IsEmpty
-            ? Fin.Succ(program)
-            : Optimize.Feeds(program, new OptimizePolicy(policy.Passes, policy.Mrr, policy.Smooth, policy.Compact, policy));
+    private static GNode ClampFeed(GNode node, Option<ProcessRange> range) => node is GNode.Word word && word.P('F').IsSome
+        ? word.With('F', range.Map(value => Clamp(word.P('F').IfNone(0.0), value)).IfNone(word.P('F').IfNone(0.0)))
+        : node;
 
-    private static Fin<Loop> Condition(Loop profile, PostPolicy policy) =>
-        !profile.Closed
-            ? Fin.Fail<Loop>(FabricationFault.OpenLoop(FabConcern.Program, 0).ToError())
-            : from loops in ArcAlgebra.KerfArc(
-                    Seq(profile), policy.KerfWidth, profile.Winding() == Sign.Negative ? KerfSide.Inside : KerfSide.Outside)
-              from loop in loops.Head.ToFin(FabricationFault.KerfCollision(new KerfWitness.Vanished(0), policy.KerfWidth).ToError())
-              from compensated in Compensate(loop, policy)
-              select compensated;
-
-    private static Fin<Seq<GNode>> CutPath(Loop loop, PostPolicy policy) =>
-        from pierce in ArcAlgebra.SampleAtLength(loop, 0.0)
-        from lead in policy.Lead.Enter(loop, policy)
-        from body in Walk(loop, policy)
-        select BuildPath(pierce, lead, body, policy);
-
-    private static Seq<GNode> BuildPath(Point3d pierce, Seq<Move> lead, Seq<GNode> body, PostPolicy policy) {
-        Point3d start = lead.HeadOrNone().Map(GNode.Target).IfNone(pierce);
-        Seq<GNode> entry = lead.IsEmpty ? Seq<GNode>() : GNode.Moves(lead.Tail, start);
-        return Seq<GNode>(new GNode.Word(GCommand.Rapid, Arr(new GParam('X', start.X), new GParam('Y', start.Y)), None))
-            .Concat(PierceBlock(policy))
-            .Concat(entry)
-            .Concat(body);
+    private static double Clamp(double requested, ProcessRange range) {
+        double selected = range.Current.OrElse(range.Nominal).IfNone(requested);
+        double minimum = range.Minimum.IfNone(double.NegativeInfinity);
+        double maximum = range.Maximum.IfNone(double.PositiveInfinity);
+        return Math.Clamp(Math.Min(requested, selected), minimum, maximum);
     }
 
-    internal static Fin<Seq<Move>> ArcLead(Loop loop, PostPolicy policy) =>
-        from admitted in LeadPolicy.Admit(0.0, policy.LeadRadius, policy.FeedCeiling * policy.Feed.EdgeFloor, LeadKind.In)
-        from lead in ArcAlgebra.LeadArc(loop, admitted)
-        select lead;
-
-    internal static Fin<Seq<Move>> LineLead(Loop loop, PostPolicy policy) =>
-        from length in ArcAlgebra.ArcLength(loop)
-        from pierce in ArcAlgebra.SampleAtLength(loop, 0.0)
-        from after in ArcAlgebra.SampleAtLength(loop, Math.Min(length, Math.Max(policy.LeadRadius, loop.Tolerance.Absolute.Value)))
-        let tangent = after - pierce
-        from _ in policy.LeadRadius > 0.0 && tangent.Unitize()
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(GeometryFault.DegenerateInput("post:line-lead").ToError())
-        let start = pierce - tangent * policy.LeadRadius
-        select Seq(
-            (Move)new Move.Rapid(start),
-            new Move.Linear(pierce, policy.FeedCeiling * policy.Feed.EdgeFloor));
-
-    private static Seq<GNode> PierceBlock(PostPolicy policy) =>
-        Seq<GNode>(
-            new GNode.Word(GCommand.AssistGas, Arr(new GParam('S', policy.AssistPressure)), None),
-            new GNode.Word(GCommand.TorchOn, Arr<GParam>(), None))
-        + (policy.PierceTime > 0.0
-            ? Seq<GNode>(new GNode.CannedCycle(GCommand.Pierce, Arr(new GParam('P', policy.PierceTime)), Seq<Move>(), Repeats: 1, Mode: None))
-            : Seq<GNode>());
-
-    // Bevel DECIDES, posting RENDERS: each ThcDirective span lowers to one torch-height word.
-    private static GNode Thc(ThcDirective directive) =>
-        directive.Switch(
-            track:      static t => new GNode.Word(GCommand.TorchHeight, Arr(new GParam('V', t.ArcVoltage)), None),
-            capacitive: static c => new GNode.Word(GCommand.TorchHeight, Arr(new GParam('H', c.HeightMm)), None),
-            plateRide:  static p => new GNode.Word(GCommand.TorchHeight, Arr(new GParam('R', p.HeightMm)), None),
-            hold:       static _ => new GNode.Word(GCommand.TorchHeight, Arr(new GParam('P', 1.0)), None),
-            off:        static _ => new GNode.Word(GCommand.TorchHeight, Arr(new GParam('P', 0.0)), None));
-
-    // Each BevelPass lowers as ONE coupled section: block 0 is the pass's pierce station — its target anchors
-    // the entry rapid and the pass's own PierceDelaySeconds gates the cycle — then the remaining Blocks thread
-    // the cursor with the pass's OWN ThcSpan windows interleaved at their block boundaries. Pass identity,
-    // tool-axis blocks, pierce, feed, and THC evidence stay aligned per pass; no span stream detaches.
-    private static Seq<GNode> BevelSections(Seq<BevelPass> passes) =>
-        passes.Bind(pass => {
-            Point3d entry = pass.Blocks.HeadOrNone().Map(static block => GNode.Target(block.Move)).IfNone(Point3d.Origin);
-            Seq<GNode> pierce = Seq<GNode>(
-                new GNode.Word(GCommand.Rapid, Arr(new GParam('X', entry.X), new GParam('Y', entry.Y)), None),
-                new GNode.Word(GCommand.TorchOn, Arr<GParam>(), None))
-                .Concat(pass.PierceDelaySeconds > 0.0
-                    ? Seq<GNode>(new GNode.CannedCycle(GCommand.Pierce, Arr(new GParam('P', pass.PierceDelaySeconds)), Seq<Move>(), Repeats: 1, Mode: None))
-                    : Seq<GNode>())
-                .Concat(pass.Thc.Filter(static span => span.FromInclusive == 0).Map(span => Thc(span.Directive)));
-            (Seq<GNode> Nodes, Point3d Cursor) walked = toSeq(Enumerable.Range(1, Math.Max(0, pass.Blocks.Count - 1))).Fold(
-                (Nodes: Seq<GNode>(), Cursor: entry),
-                (acc, index) => (acc.Nodes
-                        .Concat(pass.Thc.Filter(span => span.FromInclusive == index).Map(span => Thc(span.Directive)))
-                        .Add(GNode.Move(pass.Blocks[index].Move, acc.Cursor)),
-                    GNode.Target(pass.Blocks[index].Move)));
-            Seq<GNode> closed = pass.Thc.Exists(span => span.ToExclusive >= pass.Blocks.Count && span.Directive is not ThcDirective.Off)
-                ? Seq<GNode>(Thc(new ThcDirective.Off()))
-                : Seq<GNode>();
-            return pierce.Concat(walked.Nodes).Concat(closed);
+    internal static Fin<Seq<GNode>> Lookahead(Seq<GNode> nodes, MotionDynamics dynamics, PostDialect dialect) =>
+        Interpret(CutProgram.Of(nodes, dialect)).Map(trace => {
+            ProgramEvent.Motion[] motions = trace.Events.Choose(static item => item is ProgramEvent.Motion motion
+                ? Some(motion) : None).ToArray();
+            return RewriteLookahead(nodes, Seq<int>(), new LookaheadKernel(motions, dynamics).Run());
         });
 
-    // ONE walk per loop — vertex stations and generated tab boundaries partition arc length before emission.
-    // The fold preserves bulge sub-arcs and straight-run recovery while every tab bridges its exact width;
-    // torch-height words never emit here — THC rides its owning BevelPass section, never a per-loop policy bag.
-    private static Fin<Seq<GNode>> Walk(Loop loop, PostPolicy policy) =>
-        Segments(loop, policy).Map(segments => {
-            (Seq<GNode> Out, Seq<Point3d> Run) state = segments.Fold((Seq<GNode>(), Seq(loop.At(0))), (acc, segment) => {
-                if (segment.Tab)
-                    return (acc.Out.Concat(FlushRun(acc.Run, policy)).Concat(Bridge(segment.To, policy)), Seq(segment.To));
-                if (Math.Abs(segment.Bulge) <= 1e-12)
-                    return (acc.Out, acc.Run.Add(segment.To));
-                return (acc.Out.Concat(FlushRun(acc.Run, policy)).Add(
-                    BulgeArc(segment.From, segment.To, segment.Bulge, Feedrate(loop, segment.Span, policy))), Seq(segment.To));
-            });
-            return state.Out.Concat(FlushRun(state.Run, policy));
-        });
+    private static Seq<GNode> RewriteLookahead(Seq<GNode> nodes, Seq<int> prefix, Seq<LookaheadCap> caps) =>
+        nodes.Map((node, index) => (Node: node, Locus: prefix.Add(index))).Map(row => row.Node.Switch(
+            state: (Locus: row.Locus, Caps: caps),
+            block: static (context, block) => block with {
+                Body = RewriteLookahead(block.Body.ToSeq(), context.Locus, context.Caps).ToArr(),
+            },
+            word: static (context, word) => context.Caps
+                .Filter(cap => cap.Locus.SequenceEqual(context.Locus))
+                .Fold(double.PositiveInfinity, static (held, cap) => Math.Min(held, cap.Feed)) is var feed
+                && double.IsFinite(feed) ? word.With('F', feed) : word,
+            cannedCycle: static (_, cycle) => cycle,
+            coordinateFrame: static (_, frame) => frame,
+            macro: static (context, macro) => macro with {
+                Body = RewriteLookahead(macro.Body.ToSeq(), context.Locus, context.Caps).ToArr(),
+            },
+            subprogram: static (context, subprogram) => subprogram with {
+                Body = RewriteLookahead(subprogram.Body.ToSeq(), context.Locus, context.Caps).ToArr(),
+            },
+            additiveLayer: static (_, layer) => layer,
+            nc1: static (_, nc1) => nc1,
+            directive: static (_, directive) => directive));
 
-    private static Fin<Seq<(int Span, Point3d From, Point3d To, double Bulge, bool Tab)>> Segments(Loop loop, PostPolicy policy) {
-        Seq<double> lengths = toSeq(Enumerable.Range(0, loop.Count)).Map(index => SpanLength(loop, index));
-        Seq<double> vertices = lengths.Fold(Seq(0.0), static (stations, length) => stations.Add(stations.Last + length));
-        double total = vertices.Last;
-        int count = policy.TabSpacing <= 0.0 ? 0 : (int)Math.Floor(total / policy.TabSpacing);
-        Seq<(double Start, double End)> tabs = toSeq(Enumerable.Range(0, count))
-            .Map(index => policy.TabSpacing * (index + 0.5))
-            .Map(center => (Start: center - policy.TabWidth / 2.0, End: center + policy.TabWidth / 2.0))
-            .Filter(tab => tab.Start > loop.Tolerance.Absolute.Value && tab.End < total - loop.Tolerance.Absolute.Value);
-        Seq<double> boundaries = vertices.Concat(tabs.Bind(static tab => Seq(tab.Start, tab.End)))
-            .Distinct().OrderBy(static station => station).ToSeq();
-        return toSeq(Enumerable.Range(0, boundaries.Count - 1)).Map(index => {
-            double fromStation = boundaries[index];
-            double toStation = boundaries[index + 1];
-            double midpoint = (fromStation + toStation) / 2.0;
-            int span = toSeq(Enumerable.Range(0, loop.Count))
-                .Find(i => midpoint >= vertices[i] && midpoint <= vertices[i + 1])
-                .IfNone(loop.Count - 1);
-            double sourceBulge = loop.Bulges.IsEmpty ? 0.0 : loop.Bulges[span % loop.Bulges.Count];
-            double fraction = (toStation - fromStation) / lengths[span];
-            double bulge = Math.Abs(sourceBulge) <= 1e-12
-                ? 0.0
-                : Math.Sign(sourceBulge) * Math.Tan(Math.Atan(Math.Abs(sourceBulge)) * fraction);
-            bool tab = tabs.Exists(window => midpoint > window.Start && midpoint < window.End);
-            return from start in ArcAlgebra.SampleAtLength(loop, fromStation)
-                   from end in ArcAlgebra.SampleAtLength(loop, toStation)
-                   select (Span: span, From: start, To: end, Bulge: bulge, Tab: tab);
-        }).TraverseM(identity).As();
-    }
+    private readonly record struct LookaheadCap(Seq<int> Locus, double Feed);
 
-    private static double SpanLength(Loop loop, int index) {
-        double chord = loop.At(index).DistanceTo(loop.At(index + 1));
-        double bulge = loop.Bulges.IsEmpty ? 0.0 : loop.Bulges[index % loop.Bulges.Count];
-        if (Math.Abs(bulge) <= 1e-12) return chord;
-        double sweep = 4.0 * Math.Atan(Math.Abs(bulge));
-        double radius = chord * (1.0 + bulge * bulge) / (4.0 * Math.Abs(bulge));
-        return radius * sweep;
-    }
+    private ref struct LookaheadKernel {
+        private readonly ProgramEvent.Motion[] motions;
+        private readonly MotionDynamics dynamics;
+        private readonly double[] caps;
+        private readonly double[] distances;
+        private readonly bool[] cutting;
+        private readonly Vector3d[] vectors;
 
-    private static Seq<GNode> Bridge(Point3d to, PostPolicy policy) =>
-        Seq<GNode>(new GNode.Word(GCommand.SpindleStop, Arr<GParam>(), None),
-                   new GNode.Word(GCommand.Rapid, Arr(new GParam('X', to.X), new GParam('Y', to.Y)), None))
-            .Concat(PierceBlock(policy));
+        public LookaheadKernel(ProgramEvent.Motion[] motions, MotionDynamics dynamics) {
+            this.motions = motions;
+            this.dynamics = dynamics;
+            caps = Enumerable.Repeat(double.PositiveInfinity, motions.Length).ToArray();
+            distances = new double[motions.Length];
+            cutting = new bool[motions.Length];
+            vectors = new Vector3d[motions.Length];
+        }
 
-    // Bulge geometry (bulge = tan(theta/4)): radius r = c(1+b^2)/4|b|, sagitta s = |b|c/2, and the center
-    // sits at mid - leftNormal * sign(b) * (r - s) — the arc-native span never refits through g3.
-    private static GNode BulgeArc(Point3d a, Point3d b, double bulge, double feed) {
-        double chord = a.DistanceTo(b);
-        double radius = chord * (1.0 + bulge * bulge) / (4.0 * Math.Abs(bulge));
-        double sagitta = Math.Abs(bulge) * chord / 2.0;
-        Vector3d left = new(-(b.Y - a.Y), b.X - a.X, 0.0);
-        left.Unitize();
-        Point3d mid = new(0.5 * (a.X + b.X), 0.5 * (a.Y + b.Y), a.Z);
-        Point3d center = mid - left * (Math.Sign(bulge) * (radius - sagitta));
-        return new GNode.Word(bulge > 0.0 ? GCommand.ArcCcw : GCommand.ArcCw,
-            Arr(new GParam('X', b.X), new GParam('Y', b.Y), new GParam('I', center.X - a.X), new GParam('J', center.Y - a.Y), new GParam('F', feed)), None);
-    }
-
-    // Straight-run recovery: below MinRunLength the run stays line words; at/above, consecutive point
-    // triples fit through BiArcFit2 stepping TWO spans per fit so no span emits twice; I/J read
-    // Center - SampleT(0.0) per the admitted contract, and a zero tangent routes straight before fitting.
-    private static Seq<GNode> FlushRun(Seq<Point3d> run, PostPolicy policy) {
-        if (run.Count < 2) return Seq<GNode>();
-        double total = toSeq(Enumerable.Range(0, run.Count - 1)).Map(i => run[i].DistanceTo(run[i + 1])).Sum();
-        if (run.Count < 3 || total < policy.Biarc.MinRunLength)
-            return toSeq(Enumerable.Range(1, run.Count - 1)).Map(i =>
-                (GNode)new GNode.Word(GCommand.Feed, Arr(new GParam('X', run[i].X), new GParam('Y', run[i].Y), new GParam('F', policy.FeedCeiling)), None));
-        Seq<GNode> outp = Seq<GNode>();
-        for (int i = 0; i + 2 < run.Count; i += 2) {
-            Vector2d ta = new(run[i + 1].X - run[i].X, run[i + 1].Y - run[i].Y);
-            Vector2d tb = new(run[i + 2].X - run[i + 1].X, run[i + 2].Y - run[i + 1].Y);
-            if (ta.Length < 1e-9 || tb.Length < 1e-9) {
-                outp = outp.Add(new GNode.Word(GCommand.Feed, Arr(new GParam('X', run[i + 2].X), new GParam('Y', run[i + 2].Y), new GParam('F', policy.FeedCeiling)), None));
-                continue;
+        public Seq<LookaheadCap> Run() {
+            for (int index = 0; index < motions.Length; index++) {
+                ProgramEvent.Motion motion = motions[index];
+                vectors[index] = motion.To - motion.From;
+                distances[index] = vectors[index].Length;
+                cutting[index] = motion.Cutting && motion.Word.P('F').IsSome && distances[index] > 0.0;
+                caps[index] = cutting[index] ? motion.Word.P('F').IfNone(dynamics.CuttingFeed) : caps[index];
             }
-            BiArcFit2 fit = new(new Vector2d(run[i].X, run[i].Y), ta.Normalized, new Vector2d(run[i + 2].X, run[i + 2].Y), tb.Normalized);
-            outp = fit.Distance(new Vector2d(run[i + 1].X, run[i + 1].Y)) > policy.Biarc.FitTolerance
-                ? outp.Add(new GNode.Word(GCommand.Feed, Arr(new GParam('X', run[i + 1].X), new GParam('Y', run[i + 1].Y), new GParam('F', policy.FeedCeiling)), None))
-                      .Add(new GNode.Word(GCommand.Feed, Arr(new GParam('X', run[i + 2].X), new GParam('Y', run[i + 2].Y), new GParam('F', policy.FeedCeiling)), None))
-                : outp.Add(ArcNode(fit.Arc1, fit.Arc1IsSegment, fit.Segment1.P1, policy))
-                      .Add(ArcNode(fit.Arc2, fit.Arc2IsSegment, fit.Segment2.P1, policy));
+            for (int index = 0; index < motions.Length; index++)
+                if (cutting[index])
+                    caps[index] = Math.Min(caps[index], Junction(index));
+            Sweep(0, motions.Length, 1);
+            Sweep(motions.Length - 1, -1, -1);
+            return Range(0, motions.Length).Filter(index => cutting[index])
+                .Map(index => new LookaheadCap(motions[index].Locus.Source, caps[index])).ToSeq();
         }
-        if ((run.Count - 1) % 2 == 1)
-            outp = outp.Add(new GNode.Word(GCommand.Feed, Arr(new GParam('X', run[run.Count - 1].X), new GParam('Y', run[run.Count - 1].Y), new GParam('F', policy.FeedCeiling)), None));
-        return outp;
-    }
 
-    private static GNode ArcNode(Arc2d arc, bool isSegment, Vector2d segmentEnd, PostPolicy policy) {
-        if (isSegment)
-            return new GNode.Word(GCommand.Feed, Arr(new GParam('X', segmentEnd.x), new GParam('Y', segmentEnd.y), new GParam('F', policy.FeedCeiling)), None);
-        Vector2d start = arc.SampleT(0.0);
-        Vector2d end = arc.SampleT(1.0);
-        return new GNode.Word(arc.IsReversed ? GCommand.ArcCw : GCommand.ArcCcw,
-            Arr(new GParam('X', end.x), new GParam('Y', end.y),
-                new GParam('I', arc.Center.x - start.x), new GParam('J', arc.Center.y - start.y), new GParam('F', policy.FeedCeiling)), None);
-    }
-
-    private static Fin<Loop> Compensate(Loop loop, PostPolicy policy) =>
-        !policy.Comp.Mechanical
-            ? OffsetCompensation(loop, policy.Comp.ThermalGrowth, policy.KerfWidth)
-            : policy.Cutting.Match(
-                Some: cutting => cutting.FeedBasis == FeedBasis.PerTooth
-                    ? cutting.Force(policy.Comp.CutWidthMm, cutting.Feed)
-                        .Bind(force => OffsetCompensation(loop, policy.Comp.Deflection(force) + policy.Comp.ThermalGrowth, policy.KerfWidth))
-                    : Fin.Fail<Loop>(GeometryFault.DegenerateInput($"post:compensation-feed-basis:{cutting.FeedBasis.Key}").ToError()),
-                None: () => OffsetCompensation(loop, policy.Comp.ThermalGrowth, policy.KerfWidth));
-
-    private static Fin<Loop> OffsetCompensation(Loop loop, double delta, double kerf) =>
-        Math.Abs(delta) <= 1e-9
-            ? Fin.Succ(loop)
-            : ArcAlgebra.ArcOffset(loop, loop.Winding() == Sign.Negative ? -delta : delta)
-                .Bind(loops => loops.Head.ToFin(FabricationFault.KerfCollision(new KerfWitness.Vanished(0), Math.Max(Math.Abs(delta), kerf)).ToError()));
-
-    internal static Seq<GNode> Lookahead(Seq<GNode> nodes, PostPolicy policy) {
-        GNode[] b = nodes.ToArray();
-        double[] caps = Enumerable.Repeat(double.PositiveInfinity, b.Length).ToArray();
-        double[] distances = new double[b.Length];
-        bool[] cutting = new bool[b.Length];
-        bool[] motion = new bool[b.Length];
-        Point3d[] at = new Point3d[b.Length];
-        Point3d cursor = Point3d.Origin;
-        for (int i = 0; i < b.Length; i++) {
-            at[i] = cursor;
-            if (b[i] is not GNode.Word word || !MotionWord(word)) continue;
-            Point3d target = new(
-                word.P('X').IfNone(cursor.X), word.P('Y').IfNone(cursor.Y), word.P('Z').IfNone(cursor.Z));
-            motion[i] = true;
-            at[i] = target;
-            distances[i] = cursor.DistanceTo(target);
-            cutting[i] = Cutting(word) && word.P('F').IsSome && distances[i] > 1e-9;
-            cursor = target;
-        }
-        for (int i = 0; i < b.Length; i++)
-            if (cutting[i] && b[i] is GNode.Word word)
-                caps[i] = Math.Min(word.P('F').IfNone(policy.FeedCeiling), JunctionFeed(at, motion, i, policy.Dynamics));
-        double entering = 0.0;
-        for (int i = 0; i < b.Length; i++) {
-            if (!cutting[i]) {
-                if (b[i] is GNode.Word word && MotionWord(word)) entering = 0.0;
-                continue;
+        private void Sweep(int start, int end, int step) {
+            double held = 0.0;
+            for (int index = start; index != end; index += step) {
+                if (!cutting[index]) {
+                    held = 0.0;
+                    continue;
+                }
+                caps[index] = Math.Min(caps[index], Reachable(held, distances[index], dynamics));
+                held = caps[index] / 60.0;
             }
-            caps[i] = Math.Min(caps[i], Reachable(entering, distances[i], policy.Dynamics));
-            entering = caps[i] / 60.0;
         }
-        double leaving = 0.0;
-        for (int i = b.Length - 1; i >= 0; i--) {
-            if (!cutting[i]) {
-                if (b[i] is GNode.Word word && MotionWord(word)) leaving = 0.0;
-                continue;
+
+        private double Junction(int index) {
+            Vector3d incoming = vectors[index];
+            _ = incoming.Unitize();
+            double turn = 0.0;
+            int inspected = 0;
+            for (int cursor = index + 1; cursor < motions.Length && inspected < dynamics.LookaheadBlocks; cursor++) {
+                if (!cutting[cursor])
+                    continue;
+                Vector3d outgoing = vectors[cursor];
+                _ = outgoing.Unitize();
+                turn = Math.Max(turn, Vector3d.VectorAngle(incoming, outgoing));
+                incoming = outgoing;
+                inspected++;
             }
-            caps[i] = Math.Min(caps[i], Reachable(leaving, distances[i], policy.Dynamics));
-            leaving = caps[i] / 60.0;
+            return turn <= 0.0 ? dynamics.CuttingFeed : Math.Min(dynamics.CuttingFeed, dynamics.JunctionFeed(turn));
         }
-        return toSeq(Enumerable.Range(0, b.Length)).Map(i =>
-            b[i] is GNode.Word w && cutting[i]
-                ? (GNode)w.With('F', caps[i])
-                : b[i]);
     }
 
-    private static double Reachable(double entryMmPerSecond, double distanceMm, MotionDynamics dynamics) {
-        double acceleration = Math.Sqrt(entryMmPerSecond * entryMmPerSecond + 2.0 * dynamics.Acceleration * distanceMm);
-        double jerk = entryMmPerSecond + Math.Cbrt(6.0 * dynamics.Jerk * distanceMm * distanceMm);
-        return Math.Min(acceleration, jerk) * 60.0;
+    private static double Reachable(double entry, double distance, MotionDynamics dynamics) => Math.Min(
+        Math.Sqrt(entry * entry + 2.0 * dynamics.Acceleration * distance),
+        entry + Math.Cbrt(6.0 * dynamics.Jerk * distance * distance)) * 60.0;
+
+    private static double Feedrate(Loop loop, int span, CutConditioning policy) {
+        double ceiling = FeedCeiling(policy);
+        int before = (span - 1 + loop.Spans) % loop.Spans;
+        int after = (span + 1) % loop.Spans;
+        Vector3d incoming = loop.At(span) - loop.At(before);
+        Vector3d outgoing = loop.At(after) - loop.At(span);
+        _ = incoming.Unitize();
+        _ = outgoing.Unitize();
+        return Math.Min(ceiling, policy.Dynamics.JunctionFeed(Vector3d.VectorAngle(incoming, outgoing)));
     }
 
-    private static bool MotionWord(GNode.Word word) => word.Command.Group == ModalGroup.Motion;
-
-    // The ONE motion-dynamics law COMPOSED: MotionDynamics.JunctionFeed (Kinematics/machine) is the
-    // junction-deviation cap, evaluated over the Dynamics.LookaheadBlocks window of CURSOR-THREADED
-    // positions — an absent Y or Z word inherits the cursor, never a zero default that corrupts the turn.
-    private static double JunctionFeed(Point3d[] at, bool[] motion, int i, MotionDynamics dynamics) {
-        Seq<Point3d> ahead = toSeq(Enumerable.Range(i, dynamics.LookaheadBlocks + 1))
-            .Filter(k => k < at.Length && motion[k])
-            .Map(k => at[k]);
-        double turn = ahead.Count < 3 ? 0.0 : toSeq(Enumerable.Range(1, ahead.Count - 2)).Map(j => {
-            Vector3d incoming = ahead[j] - ahead[j - 1];
-            Vector3d outgoing = ahead[j + 1] - ahead[j];
-            incoming.Unitize();
-            outgoing.Unitize();
-            return Vector3d.VectorAngle(incoming, outgoing);
-        }).Max();
-        return turn <= 1e-9
-            ? dynamics.CuttingFeed
-            : Math.Min(dynamics.CuttingFeed, dynamics.JunctionFeed(turn));
-    }
-
-    private static double Feedrate(Loop loop, int i, PostPolicy policy) {
-        Vector3d incoming = loop.At(i) - loop.At(i - 1);
-        Vector3d outgoing = loop.At(i + 1) - loop.At(i);
-        double edgeDistance = Math.Min(incoming.Length, outgoing.Length);
-        incoming.Unitize();
-        outgoing.Unitize();
-        double turn = Vector3d.VectorAngle(incoming, outgoing);
-        double corner = Math.Min(policy.FeedCeiling, policy.Dynamics.JunctionFeed(turn));
-        double edge = edgeDistance < policy.Feed.EdgeDistance ? policy.FeedCeiling * policy.Feed.EdgeFloor : policy.FeedCeiling;
-        return Math.Min(corner, edge);
-    }
-
-    // WCS lowers as the Wcs ROW carrying slot ordinal + family flag — the dialect roster renders the code;
-    // tool sections own coolant restoration; a G90-P WCS fiction is the deleted form.
     private static Seq<GNode> Prologue(SetupSchedule schedule) =>
-        schedule.Wcs.Bind(wcs => WcsBlocks(wcs, schedule.Setups[wcs.Setup]));
+        schedule.Wcs.Map(assignment => (GNode)new GNode.CoordinateFrame(
+            assignment,
+            schedule.Setups[assignment.Setup].Mounting.Frame)).ToSeq();
 
-    private static Seq<GNode> WcsBlocks(WcsAssignment assignment, Setup setup) =>
-        Seq<GNode>(
-            new GNode.Word(GCommand.SetWcs, Arr(
-                new GParam('L', 2.0), new GParam('P', WcsOrdinal(assignment.Slot)),
-                new GParam('X', setup.Frame.OriginX), new GParam('Y', setup.Frame.OriginY), new GParam('Z', setup.Frame.OriginZ)), None),
-            new GNode.Word(GCommand.Wcs, Arr(
-                new GParam('P', WcsOrdinal(assignment.Slot)),
-                new GParam('E', assignment.Slot.Family == WcsFamily.Extended ? 1.0 : 0.0)), None));
+    private static Fin<CutProgram> ParseRs274(
+        string source, PostDialect dialect, Encoding codec, Option<ChecksumRule> checksum) =>
+        codec is null
+            ? Fin.Fail<CutProgram>(FabricationFault.ProgramParse(0, ModalGroup.NonModal).ToError())
+            : Lines(source).FoldM<Fin, ParseState>(new ParseState(ModalState.Empty, Seq<GNode>()),
+            (state, row) => from parsed in ParseBlock(
+                    row.Line, row.Text, dialect, codec, checksum, state.Modal, state.Nodes.Count)
+                select new ParseState(parsed.Modal, state.Nodes.Add(parsed.Block)))
+        .As().Bind(state => state.Nodes.Exists(static node => node is GNode.Block { Body.IsEmpty: false })
+            ? Fin.Succ(CutProgram.Of(state.Nodes, dialect))
+            : Fin.Fail<CutProgram>(FabricationFault.ProgramParse(0, ModalGroup.NonModal).ToError()));
 
-    private static int WcsOrdinal(WcsSlot slot) => slot.Family == WcsFamily.Base ? slot.Ordinal + 1 : slot.Ordinal;
+    private static Fin<(GNode Block, ModalState Modal)> ParseBlock(
+        int line, string text, PostDialect dialect, Encoding codec, Option<ChecksumRule> checksumRule,
+        ModalState modal, int locus) {
+        ProgramLocus at = ProgramLocus.Root(line, locus);
+        string record = text.Trim();
+        Seq<string> comments = CommentText.Matches(text).Select(static match => match.Value).ToSeq();
+        string body = CommentText.Replace(text, string.Empty).Trim();
+        if (body.Length == 0 || body == "%") {
+            GNode.Block empty = new(
+                new BlockFrame(None, None, false, body == "%", None, comments, text), Arr<GNode>());
+            return modal.Push(at, empty).Map(next => ((GNode)empty, next));
+        }
+        bool optional = body.StartsWith("/", StringComparison.Ordinal);
+        string opened = optional ? body[1..].TrimStart() : body;
+        Seq<string> tokens = WordText.Matches(opened).Select(static match => match.Value).ToSeq();
+        string residue = WordText.Replace(opened, string.Empty);
+        Match check = ChecksumText.Match(record);
+        Option<uint> parsedChecksum = checksumRule.Bind(rule => check.Success
+            && uint.TryParse(check.Groups[1].Value,
+                rule.Width > 0 ? NumberStyles.HexNumber : NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out uint checksumValue)
+                ? Some(checksumValue)
+                : None);
+        Option<int> checksum = parsedChecksum.Filter(static value => value <= int.MaxValue)
+            .Map(static value => checked((int)value));
+        residue = ChecksumText.Replace(residue, string.Empty);
+        int checksumCount = ChecksumText.Matches(opened).Count;
+        bool frameValid = checksumCount <= 1 && checksumCount == (check.Success ? 1 : 0)
+            && tokens.Filter(static token => char.ToUpperInvariant(token[0]) == 'O').Count <= 1
+            && tokens.Filter(static token => char.ToUpperInvariant(token[0]) == 'N').Count <= 1
+            && (!check.Success || dialect.Features.Contains(DialectFeature.Checksum)
+                && checksumRule.Exists(rule => parsedChecksum.Exists(value =>
+                    value == rule.Digest(codec.GetBytes(record[..check.Index])))));
+        if (!frameValid || residue.Any(static character => !char.IsWhiteSpace(character)))
+            return Fin.Fail<(GNode, ModalState)>(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError());
+        Option<int> program = NumberToken(tokens, 'O');
+        Option<int> sequence = NumberToken(tokens, 'N');
+        Seq<string> words = tokens.Filter(static token => char.ToUpperInvariant(token[0]) is not 'O' and not 'N').ToSeq();
+        BlockFrame frame = new(program, sequence, optional, false, checksum, comments, text);
+        ModalState entered = modal with { Events = modal.Events.Add(new ProgramEvent.Boundary(at, frame)) };
+        return ParseWords(line, words, dialect, entered, at).Bind(parsed => {
+            GNode.Block block = new(frame, parsed.Nodes.ToArr());
+            return ModalState.AdmitBlock(line, block.Body).Map(_ => ((GNode)block, parsed.Modal));
+        });
+    }
 
-    // Ordered segment parse: each address run attaches to the command token it follows, so two
-    // parameter-owning commands in one block keep their own words; leading params bind the first command.
-    private static Fin<Seq<GNode.Word>> ParseBlock(int line, string text, PostDialect dialect) {
-        (Seq<(string Command, Seq<string> Params)> Segments, Seq<string> Leading) split = Tokens(text).Fold(
-            (Segments: Seq<(string Command, Seq<string> Params)>(), Leading: Seq<string>()),
-            (acc, token) => Commands.Exists(c => string.Equals(c.Code, token, StringComparison.OrdinalIgnoreCase))
-                ? (acc.Segments.Add((token, Seq<string>())), acc.Leading)
-                : acc.Segments.IsEmpty
-                    ? (acc.Segments, acc.Leading.Add(token))
-                    : (acc.Segments.Init.Add((acc.Segments.Last.Command, acc.Segments.Last.Params.Add(token))), acc.Leading));
-        return split.Segments.IsEmpty
-            ? Fin.Fail<Seq<GNode.Word>>(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError())
-            : Seq((split.Segments.Head.Command, split.Leading.Concat(split.Segments.Head.Params))).Concat(split.Segments.Tail)
-                .TraverseM(segment =>
-                    from parameters in segment.Item2.Map(t => ParseParam(line, t)).TraverseM(identity).As()
-                    from command in Command(line, segment.Item1, parameters.ToArr(), dialect)
-                    select new GNode.Word(command, parameters.ToArr(), None))
+    private static Fin<ParseState> ParseWords(
+        int line, Seq<string> tokens, PostDialect dialect, ModalState modal, ProgramLocus locus) {
+        (Seq<(string Command, Seq<string> Parameters)> Segments, Seq<string> Leading) split = tokens.Fold(
+            (Segments: Seq<(string, Seq<string>)>(), Leading: Seq<string>()),
+            (state, token) => IsCommand(token)
+                ? (state.Segments.Add((token, Seq<string>())), state.Leading)
+                : state.Segments.IsEmpty
+                    ? (state.Segments, state.Leading.Add(token))
+                    : (state.Segments.Init.Add((state.Segments.Last.IfNone((string.Empty, Seq<string>())).Item1,
+                        state.Segments.Last.IfNone((string.Empty, Seq<string>())).Item2.Add(token))), state.Leading));
+        return tokens.IsEmpty
+            ? Fin.Succ(new ParseState(modal, Seq<GNode>()))
+            : split.Segments.IsEmpty
+                ? Fin.Fail<ParseState>(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError())
+            : Seq((split.Segments.Head.IfNone((string.Empty, Seq<string>())).Item1,
+                    split.Leading.Concat(split.Segments.Head.IfNone((string.Empty, Seq<string>())).Item2)))
+                .Concat(split.Segments.Tail)
+                .FoldM<Fin, ParseState>(new ParseState(modal, Seq<GNode>()), (state, segment) =>
+                    from command in Resolve(line, segment.Item1, segment.Item2, dialect)
+                    let normalized = NormalizeWcs(command, segment.Item1, segment.Item2)
+                    from parameters in normalized.TraverseM(token => ParseParam(line, token, command, state.Modal)).As()
+                    from admitted in command.Admit(line, parameters.ToArr())
+                    let node = (GNode)new GNode.Word(command, admitted, Feed(command))
+                    from next in state.Modal.Push(locus.Descend(state.Nodes.Count), node)
+                    select new ParseState(next, state.Nodes.Add(node)))
                 .As();
     }
 
-    // Emission aliases legitimately SHARE wire codes (a pierce IS a G4 dwell on a torch dialect, an
-    // extrusion IS a G1 move carrying an E word) — the lookup disambiguates a shared code by dialect and
-    // parameter shape rather than inventing nonstandard codes.
-    private static Fin<GCommand> Command(int line, string code, Arr<GParam> parameters, PostDialect dialect) =>
-        Commands.Filter(command => string.Equals(command.Code, code, StringComparison.OrdinalIgnoreCase)) switch {
-            { Count: 1 } lone => Fin.Succ(lone.Head),
-            Seq<GCommand> shared => shared.Find(command =>
-                    (command == GCommand.Extrude && parameters.Exists(static p => p.Address == 'E'))
-                    || (command == GCommand.Feed && !parameters.Exists(static p => p.Address == 'E'))
-                    || (command == GCommand.Pierce && dialect == PostDialect.Hypertherm)
-                    || (command == GCommand.Dwell && dialect != PostDialect.Hypertherm))
-                .ToFin(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError()),
-        };
+    private static Fin<GCommand> Resolve(int line, string token, Seq<string> parameters, PostDialect dialect) {
+        Seq<GCommand> candidates = Commands.Filter(command => WireCode(command.Code) == WireCode(token)
+            || command == GCommand.Wcs && IsWcs(token));
+        Seq<char> addresses = parameters.Filter(static value => value.Length > 1).Map(static value => char.ToUpperInvariant(value[0])).ToSeq();
+        Seq<GCommand> admitted = candidates.Filter(command => command.Admits(dialect)
+            && command.Grammar.Required.ForAll(addresses.Contains)
+            && addresses.ForAll(command.Grammar.Allowed.Contains));
+        return admitted.Count == 1
+            ? admitted.Head.ToFin(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError())
+            : Fin.Fail<GCommand>(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError());
+    }
 
-    private static Fin<GParam> ParseParam(int line, string token) =>
-        token.Length < 2 || char.ToUpperInvariant(token[0]) is 'G' or 'M'
-            || !double.TryParse(token[1..], NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
-            ? Fin.Fail<GParam>(FabricationFault.ProgramParse(line, ModalGroup.NonModal).ToError())
-            : Fin.Succ(new GParam(char.ToUpperInvariant(token[0]), value));
+    private static Seq<string> NormalizeWcs(GCommand command, string token, Seq<string> parameters) =>
+        command == GCommand.Wcs
+        && BaseWcs(token).Map(ordinal => $"P{ordinal}").Filter(_ => !parameters.Exists(static value => value.StartsWith('P'))).IsSome
+            ? parameters.Add(BaseWcs(token).Map(ordinal => $"P{ordinal}").IfNone(string.Empty))
+            : parameters;
 
-    [GeneratedRegex(@"\([^)]*\)|;.*$")]
+    private static bool IsWcs(string token) =>
+        BaseWcs(token).IsSome;
+
+    private static Option<int> BaseWcs(string token) =>
+        int.TryParse(WireCode(token).AsSpan(1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int code)
+        && code is >= 54 and <= 59
+            ? Some(code - 53)
+            : None;
+
+    private static Fin<GParam> ParseParam(int line, string token, GCommand command, ModalState modal) {
+        if (token.Length < 2)
+            return Fin.Fail<GParam>(FabricationFault.ProgramParse(line, command.Group).ToError());
+        char address = char.ToUpperInvariant(token[0]);
+        string lexeme = token[1..];
+        if (lexeme.StartsWith('#') && int.TryParse(lexeme[1..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int variable))
+            return Fin.Succ(new GParam(address, new GValue.Variable(variable, lexeme)));
+        if (lexeme.StartsWith('[') && lexeme.EndsWith(']'))
+            return Fin.Succ(new GParam(address, new GValue.Expression(lexeme)));
+        if (!double.TryParse(lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out double received))
+            return Fin.Fail<GParam>(FabricationFault.ProgramParse(line, command.Group).ToError());
+        bool dimensioned = address is 'X' or 'Y' or 'Z' or 'U' or 'V' or 'W' or 'I' or 'J' or 'K'
+            || (address == 'E' && command == GCommand.Extrude)
+            || (address == 'F' && modal.Mode == FeedMode.UnitsPerMinute)
+            || (address == 'R' && (command == GCommand.ArcCw || command == GCommand.ArcCcw || command.Group == ModalGroup.Cycle));
+        double canonical = dimensioned ? modal.Units.Canonical(received) : received;
+        return Fin.Succ(new GParam(address, new GValue.Number(canonical, lexeme, modal.Units)));
+    }
+
+    private static Option<int> NumberToken(Seq<string> tokens, char address) => tokens.Find(token =>
+        char.ToUpperInvariant(token[0]) == address).Bind(token => int.TryParse(token[1..], NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out int value) ? Some(value) : None);
+
+    private static Option<FeedMode> Feed(GCommand command) => command == GCommand.FeedInverseTime
+        ? Some(FeedMode.InverseTime) : command == GCommand.FeedPerMinute ? Some(FeedMode.UnitsPerMinute) : None;
+
+    private static bool IsCommand(string token) => IsWcs(token)
+        || Commands.Exists(command => WireCode(command.Code) == WireCode(token));
+
+    private static string WireCode(string token) {
+        int prefixLength = token.TakeWhile(static character => char.IsLetter(character)).Count();
+        string prefix = token[..prefixLength].ToUpperInvariant();
+        return prefixLength == token.Length || !decimal.TryParse(token[prefixLength..], NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value)
+            ? prefix : $"{prefix}{value.ToString("0.####", CultureInfo.InvariantCulture)}";
+    }
+
+    private static Seq<(int Line, string Text)> Lines(string source) =>
+        source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n')
+            .Select((text, index) => (Line: index + 1, Text: text)).ToSeq();
+
+    private static Arr<GParam> XY(Point3d point) => Arr(
+        GParam.Number('X', point.X, ProgramUnits.Metric),
+        GParam.Number('Y', point.Y, ProgramUnits.Metric));
+
+    private static double FeedCeiling(CutConditioning policy) =>
+        policy.Cut.Map(static value => value.FeedMmPerMinute).IfNone(policy.Dynamics.CuttingFeed);
+    private static double FeedFloor(CutConditioning policy) =>
+        policy.Cut.Map(static value => value.FeedMmPerMinute * value.LinkFeedFactor).IfNone(policy.Dynamics.CuttingFeed);
+
+    private readonly record struct ParseState(ModalState Modal, Seq<GNode> Nodes);
+    private readonly record struct TabWindow(double Start, double End);
+    private readonly record struct PathSegment(int Span, Point3d From, Point3d To, double Bulge, bool Tab);
+
+    [GeneratedRegex(@"\([^)]*\)|;[^\r\n]*")]
     private static partial Regex CommentText { get; }
 
-    [GeneratedRegex(@"[A-Za-z]+[+-]?(?:\d+(?:\.\d*)?|\.\d+)")]
+    [GeneratedRegex(@"[A-Za-z]+(?:#[0-9]+|\[[^\]]+\]|[+-]?(?:\d+(?:\.\d*)?|\.\d+))")]
     private static partial Regex WordText { get; }
 
-    private static Arr<string> Tokens(string text) =>
-        WordText.Matches(CommentText.Replace(text, string.Empty))
-            .Select(static match => match.Value)
-            .ToArr();
-
-    // Foreign-file framing: `%` tape delimiters and bare O-number program headers are structure, not words —
-    // stripped here so a real Fanuc/Haas file parses instead of failing on its first line.
-    private static Seq<(int Line, string Text)> Lines(string source) =>
-        source.Split('\n')
-            .Select((text, index) => (Line: index + 1, Text: text.Trim()))
-            .Where(static row => row.Text.Length > 0 && row.Text != "%"
-                && !(char.ToUpperInvariant(row.Text[0]) == 'O' && row.Text.Length > 1 && row.Text.Skip(1).All(char.IsDigit)))
-            .ToSeq();
-
-    private static Seq<string> Render(Seq<GWord> words) =>
-        RenderRows(words, Map<ModalGroup, string>()).Lines.Concat(words.Bind(Definitions));
-
-    private static (Seq<string> Lines, Map<ModalGroup, string> Active) RenderRows(
-        Seq<GWord> words, Map<ModalGroup, string> active) =>
-        words.Fold((Lines: Seq<string>(), Active: active), (state, word) => {
-            (Seq<string> Lines, Map<ModalGroup, string> Active) next = RenderWord(word, state.Active);
-            return (state.Lines.Concat(next.Lines), next.Active);
-        });
-
-    private static (Seq<string> Lines, Map<ModalGroup, string> Active) RenderWord(
-        GWord word, Map<ModalGroup, string> active) => word.Switch(
-        state: active,
-        address: static (state, w) => {
-            bool emitMode = w.Mode.Exists(mode => w.Retention == WordRetention.Explicit
-                || !state.Find(ModalGroup.Feed).Exists(code => code == mode.Code));
-            Map<ModalGroup, string> withMode = w.Mode.Match(
-                Some: mode => state.AddOrUpdate(ModalGroup.Feed, mode.Code),
-                None: () => state);
-            bool emitCode = w.Group == ModalGroup.NonModal || w.Retention == WordRetention.Explicit
-                || !withMode.Find(w.Group).Exists(code => code == w.Code);
-            string modeText = emitMode ? w.Mode.Map(static mode => $"{mode.Code} ").IfNone(string.Empty) : string.Empty;
-            string codeText = emitCode ? $"{w.Code} " : string.Empty;
-            string line = $"{modeText}{codeText}{string.Join(" ", w.Words.Map(p => $"{p.Address}{Number(p.Value)}").ToArray())}".Trim();
-            Map<ModalGroup, string> next = w.Group == ModalGroup.NonModal ? withMode : withMode.AddOrUpdate(w.Group, w.Code);
-            return (string.IsNullOrEmpty(line) ? Seq<string>() : Seq(line), next);
-        },
-        conversational: static (_, w) => (Seq(($"{w.Verb} " + string.Join(" ", w.Words.Map(p => p.Address == 'F'
-            ? $"F{Number(Math.Round(p.Value, w.Decimals))}"
-            : $"{p.Address}{(p.Value >= 0 ? "+" : "")}{Number(Math.Round(p.Value, w.Decimals))}").ToArray())
-            + (w.Tail.Length == 0 ? string.Empty : $" {w.Tail}")).Trim()), Map<ModalGroup, string>()),
-        text: static (_, w) => (w.Records, Map<ModalGroup, string>()),
-        // Grammar-true dialect-cycle rendering keyed on the retained dialect: Sinumerik cycles are parameterized
-        // subroutine calls (MCALL for repetition), Klartext cycles are CYCL DEF blocks closed by CYCL CALL, and
-        // every word-address dialect-cycle row keeps the word form with L-repeats.
-        cycleCall: static (_, w) => (w.Dialect switch {
-            "siemens-840d" => Seq((w.Repeats > 1 ? "MCALL " : string.Empty)
-                + $"{w.Code}({string.Join(", ", w.Words.Map(p => Number(p.Value)).ToArray())})"),
-            "heidenhain-tnc" => Seq($"CYCL DEF {w.Code}")
-                .Concat(w.Words.Map(p => $"{p.Address}{Number(p.Value)}"))
-                .Add(w.Repeats > 1 ? $"CYCL CALL REP{w.Repeats}" : "CYCL CALL"),
-            _ => Seq(($"{w.Code} {string.Join(" ", w.Words.Map(p => $"{p.Address}{Number(p.Value)}").ToArray())}"
-                + (w.Repeats > 1 ? $" L{w.Repeats}" : string.Empty)).Trim()),
-        }, Map<ModalGroup, string>()),
-        fault: static (state, w) => (Seq(w.Error.Message), state),
-        macro: static (state, w) => {
-            // Slot assignments render one per line with the grammar-owned `=` form (#n= / Rn= / Qn= / Vn=);
-            // MacroGrammar.None admits no assignments — a slot-bearing macro on a grammarless dialect is upstream's fault to reject.
-            (Seq<string> Lines, Map<ModalGroup, string> Active) body = RenderRows(w.Body, state);
-            Seq<string> assignments = w.Grammar == MacroGrammar.None
-                ? Seq<string>()
-                : w.Slots.Map(s => $"{s.Key}={Number(s.Value)}").ToSeq();
-            return (assignments.Concat(body.Lines), body.Active);
-        },
-        subprogram: static (_, w) => (w.Grammar == SubprogramGrammar.M98
-            ? Seq($"M98 P{w.Label} L{w.Repeats}")
-            : Seq($"CALL LBL {w.Label} REP {w.Repeats}"), Map<ModalGroup, string>()),
-        additive: static (_, w) => (Seq(
-            $";LAYER:{w.Layer}",
-            $"M104 S{Number(w.Temperatures.Hotend)}",
-            $"M140 S{Number(w.Temperatures.Bed)}",
-            $"G1 E{Number(w.Extrusion.Amount)} F{Number(w.Extrusion.Feed)}"), Map<ModalGroup, string>()),
-        nc1: static (_, w) => (w.Records, Map<ModalGroup, string>()),
-        expanded: static (state, w) => RenderRows(w.Words, state));
-
-    private static Seq<string> Definitions(GWord word) => word.Switch(
-        address: static _ => Seq<string>(),
-        conversational: static _ => Seq<string>(),
-        text: static _ => Seq<string>(),
-        cycleCall: static _ => Seq<string>(),
-        macro: w => w.Body.Bind(Definitions),
-        subprogram: w => (w.Grammar == SubprogramGrammar.M98
-            ? Seq($"O{w.Label}").Concat(RenderRows(w.Body, Map<ModalGroup, string>()).Lines).Add("M99")
-            : Seq($"LBL {w.Label}").Concat(RenderRows(w.Body, Map<ModalGroup, string>()).Lines).Add("LBL 0"))
-            .Concat(w.Body.Bind(Definitions)),
-        additive: static _ => Seq<string>(),
-        nc1: static _ => Seq<string>(),
-        fault: static _ => Seq<string>(),
-        expanded: w => w.Words.Bind(Definitions));
-
-    private static string Number(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
-
-    private static bool Cutting(GNode.Word w) =>
-        w.Command == GCommand.Feed || w.Command == GCommand.ArcCw || w.Command == GCommand.ArcCcw || w.Command == GCommand.Extrude;
+    [GeneratedRegex(@"\*([0-9A-Fa-f]+)\s*$")]
+    private static partial Regex ChecksumText { get; }
 }
+
 ```

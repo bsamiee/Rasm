@@ -1,161 +1,295 @@
 # [RASM_FABRICATION_GUARD]
 
-`Guard` is the fail-closed per-move safety owner inside the CAM fold. It preserves cutter and holder envelopes as distinct fields because they have different stock semantics: the cutter may remove current stock during a feed move, while the holder may never intersect it; both cutter and holder remain forbidden against fixtures, static keep-outs, protected finished geometry, and every rapid obstacle. Combining both envelopes before testing stock rejects every legitimate cut and erases the collision cause.
+`Guard` owns fail-closed motion admission from one aggregate request through arc-true planar sweep, protected-surface gouge, fixture and stock collision, medial-clearance, voxel-field, and robot-cell probes. `GuardReceipt` retains every hazard, its overlap severity, the probe scope actually executed, and every provider warning, while provider errors terminate on the typed failure rail; no probe hides a prior contact or degrades a geometric failure into an empty result.
 
-Every geometric leg stays on `Fin`: cutter sweep, rail-bound `ToolMagazine.HolderEnvelope`, holder sweep, keep-out clipping, BVH decoding, and protected-geometry clipping. `HolderSweep.Swept` without a mounted `ToolAssembly` fails closed. `HolderSweep.Omitted` omits assembly resolution only: `HolderOmissionProof.Admit` binds the cutter, setup, assembly identity, guarded spatial scope, and a conservative holder envelope after proving that the actual admitted holder footprint has no area outside it; guard still sweeps that envelope. Missing, mismatched, or geometry-free evidence fails closed. A clearance-plane shortcut proves that every stock, fixture, keep-out, and protected loop lies below the plane and admits no mounted clearance channel before it returns `Clear`. A channel pinch also fails typed; guard does not invent an unverified lift because `Link.Route` owns travel and the owner-atom `Move` cannot carry a guard proof.
-
-Wire posture: HOST-LOCAL. `Verdict` crosses only to `Toolpath/motion.md` through `Cam`; failures remain typed on the common `Fin` rail.
+`Guard.Check` consumes one admitted `GuardRequest`. `GuardScope` separates a probed verdict from one elided by the clearance plane, so `GuardReceipt.Proven` distinguishes tested-and-clear from untested where `Clear` alone cannot. `HolderState` makes mounted and certified holder evidence mutually exclusive, `HolderCertificate.Admit` binds omission evidence to the exact `ToolAssembly.Identity`, cutter, operation, scope, and conservative envelope, and native `Voxels` custody terminates inside the probe capsule.
 
 ## [01]-[INDEX]
 
-- [01]-[GUARD]: owns `GuardPolicy`, `Part`, `Stock`, the distinct cutter/holder sweep, and the one `Guard.Check` safety fold.
+- [01]-[GUARD]: `GuardRequest` closes aggregate admission, `HolderState` closes holder posture, `GuardScope` closes probe disposition, `GuardProbe` adds sidecar voxel and robot-cell evidence, and `Guard.Check` returns one accumulated `GuardReceipt`.
 
 ## [02]-[GUARD]
 
-- Owner: `Part` carries the committed cursor and protected finished loops. `Stock` carries the raw blank, setup snapshots, static keep-outs, cutter, optional admitted tool assembly, optional kernel clearance channel, optional static-set index, and policy. `GuardPolicy` carries clearance and gouge thresholds, the holder posture and optional omission proof, the geometric `Context` used by admitted sweep loops, admitted polygon-offset policy, maximum sweep and channel-probe capacities, clearance-probe pitch, and the arc chord error that derives circular-trajectory subdivision and enters every constructed `ExclusionZone`. `SweptEnvelope` is file-local computation state absorbed into `Guard`; `Verdict` carries only committed safety outcomes.
-- Cases: `Verdict.Clear` commits, `Verdict.Gouge(Point3d)` names the protected-surface witness, and `Verdict.Collision(ExclusionZone, CollisionContact)` preserves both obstacle and cutter-versus-holder cause. `HolderSweep.Swept` resolves and sweeps the mounted assembly; `HolderSweep.Omitted` sweeps the proof-carried conservative envelope admitted against the identified assembly without resolving that assembly during each move.
-- Entry: `public static Fin<Verdict> Check(Move move, Part part, Stock stock, Fixture fixture)` is the only public operation. It returns geometry/provider failures on the failure rail and never converts a failed check into `Clear`.
-- Auto: every move lowers to an arc-true open trajectory first — a circular move rides its `ArcCenter` and `RotationSense` as one bulged span densified at `ArcChordErrorMm` — and cutter and holder sweep separately along that trajectory as round-end open-path offsets, the exact disc-swept envelopes, closed by construction under the algebra region contract; the holder disc radius bounds its spinning footprint. Protected geometry tests the cutter envelope. Static and fixture obstacles test each envelope and retain the first contact cause. Current stock tests the holder envelope for feed and both envelopes for rapid. `Stock.Current(setup)` selects the latest snapshot at or before the operation, falling back to the raw blank. The mounted BVH prunes only the static set, validates every returned ordinal, and rejects any non-`Result/Hits` answer. Channel probes walk every trajectory span at `ClearanceProbeStepMm`, including both endpoints. The rapid clearance-plane fast path is admitted only when all carried obstacle heights are at or below the plane and no clearance channel is mounted.
-- Receipt: `Verdict` is the safety receipt; an unmounted required holder, malformed BVH answer, provider failure, or channel pinch is a `Fin` failure and cannot masquerade as a geometric verdict.
-- Packages: `Tooling/magazine.md` (`ToolAssembly`, `ToolMagazine.HolderEnvelope`), `Fixturing/workholding.md` (`Fixture`, `ExclusionZone`), `Geometry2D/algebra.md` (`Offset` with `OffsetJoin.Round`/`OffsetEnd.Round`, `Clip`, `PolygonBoolean`, `PolygonFill`), `Geometry2D/arcs.md` (`ArcAlgebra.Densify`), kernel `Rasm.Meshing` (`CurveSkeleton.Clearance`), kernel `Rasm.Spatial` (`Spatial.Apply`, `SpatialOp.Query`, `SpatialQuery.Range`, `QueryResult.Hits`), `Process/owner.md` atoms (`CutterForm`, `Move`, `Loop`, `StockSnapshot`), LanguageExt.Core, Thinktecture.Runtime.Extensions, RhinoCommon.
-- Growth: simultaneous tool-axis motion first widens the owner atom and the kinematic seam, then adds orientation to the existing sweep; a near-miss is one `Verdict` case; routed recovery remains `Link` policy.
-- Boundary: guard owns verdicts, not travel. A combined cutter/holder stock test, implicit holder omission, unbound `Fin<Loop>` passed as geometry, malformed-index fallback, three-point-only channel probe, automatic unverified lift, or swallowed algebra failure is a deleted form.
+- Owner: `GuardRequest` is the admitted move, part, stock, fixture, fixture-state, policy, and probe aggregate; `GuardReceipt` is its evidence-complete result. `Fixture.Zones` is the sole exclusion-zone owner and the spatial-index ordinal domain; stock carries blank, forbidden, and snapshot geometry only.
+- Cases: `HolderState` admits mounted or identity-bound certified envelopes; `ProbeRoute` admits the scalar reference or benchmark-authorized parallel channel path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
+- Entry: `Guard.Check(GuardRequest)` preserves the frozen `Check` operation name and accumulates independent contacts through `Traverse`, `As`, and `Bind`.
+- Auto: planar straight and circular moves lower once to an arc-true trajectory, round-ended offset sweeps retain cutter and holder separation, one `Surfaces` row set traverses every planar obstacle class against the shared cutter-and-holder `Faces` table, feed moves drop the cutter face against stock while the holder face always tests, and channel pinch uses the larger swept radius with the admitted margin.
+- Evidence: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings.
+- Packages: `ToolMagazine.HolderEnvelope` derives mounted and certified holder footprints; `ArcAlgebra.Densify` preserves circular motion; `PolygonAlgebra.Apply` owns offset and intersection and receives the calling `Op` key so a trace refusal names its operation; `RegionNode.SignedArea` supplies contact severity without a second measure pass; `Spatial.Apply` owns indexed pruning; `CurveSkeleton.Clearance` owns arbitrary-probe clearance; `MemoryOwner<T>`, `ParallelHelper.For2D` with the admitted partition floor, and `TensorPrimitives` own pooled measured clearance reduction; PicoGK owns copied SDF intersection, membership, and ray witnesses; `IRobotCollisionProvider` owns the executable robot-cell collision boundary.
+- Growth: a new obstacle is one `Hazard` case and one `Surfaces` row, a new swept face is one `Faces` row every obstacle class inherits, a new provider is one `GuardProbe` case, and a new execution substrate is one evidence-carrying `ProbeRoute` case.
+- Boundary: `Clearance` and `ArcSpan` are the named statement kernels — pooled measured reduction and arc-frame numerics respectively; Rhino-native planar geometry stays inside the package wire, Rhino3dm geometry enters only as the `extern alias R3` `RobotMesh` the cell probe forwards and never escapes `Robots.Program`, and PicoGK resources remain bracketed inside `ProbeVoxel`; no provider geometry escapes `GuardReceipt`.
 
 ```csharp signature
+extern alias R3;
+
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using CommunityToolkit.HighPerformance.Buffers;
+using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
+using PicoGK;
 using Rasm.Domain;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Tooling;
 using Rasm.Meshing;
-using Rasm.Numerics;
 using Rasm.Spatial;
 using Rhino.Geometry;
+using System.Numerics.Tensors;
 using Thinktecture;
+using UnitsNet;
+using UnitsNet.Units;
+using RobotProgram = Robots.Program;
+using RobotMesh = R3::Rhino.Geometry.Mesh;
+using PVector = PicoGK.Vector3;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class HolderSweep {
-    public static readonly HolderSweep Swept = new("swept");
-    public static readonly HolderSweep Omitted = new("omitted");
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record HolderState {
+    private HolderState() { }
+
+    public sealed record Mounted(ToolAssembly Assembly) : HolderState;
+    public sealed record Certified(HolderCertificate Certificate) : HolderState;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record HolderOmissionProof {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ProbeRoute {
+    private ProbeRoute() { }
+
+    public sealed record Reference : ProbeRoute;
+    public sealed record Measured(string BenchmarkKey, int MinimumActionsPerThread) : ProbeRoute;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GuardProbe {
+    private GuardProbe() { }
+
+    public sealed record Voxel(Func<Fin<VoxelLease>> Acquire, VoxelRay Ray) : GuardProbe;
+    public sealed record Robot(
+        IRobotCollisionProvider Provider,
+        RobotProgram Program,
+        IReadOnlyList<int>? First,
+        IReadOnlyList<int>? Second,
+        RobotMesh Environment,
+        int EnvironmentPlane,
+        double LinearStepMm,
+        double AngularStepRad) : GuardProbe;
+}
+
+public sealed record RobotCollisionQuery(
+    RobotProgram Program,
+    IReadOnlyList<int>? First,
+    IReadOnlyList<int>? Second,
+    RobotMesh Environment,
+    int EnvironmentPlane,
+    double LinearStepMm,
+    double AngularStepRad);
+
+public sealed record RobotCollisionEvidence(
+    bool HasCollision,
+    string Target,
+    int Meshes,
+    Seq<string> Warnings);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RobotCollisionAdmission {
+    private RobotCollisionAdmission() { }
+
+    public sealed record Accepted(
+        bool HasCollision,
+        string Target,
+        int Meshes,
+        int Targets,
+        double DurationSeconds,
+        Seq<string> Warnings) : RobotCollisionAdmission;
+    public sealed record Refused(string Field) : RobotCollisionAdmission;
+}
+
+public interface IRobotCollisionProvider {
+    Fin<RobotCollisionEvidence> Check(RobotCollisionQuery query);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GuardScope {
+    private GuardScope() { }
+
+    public sealed record Probed : GuardScope;
+    public sealed record Elided(double ClearancePlaneMm, double LowestZMm) : GuardScope;
+}
+
+[SmartEnum<string>(IsValidatable = true)]
+public sealed partial class VoxelObstacle {
+    public static readonly VoxelObstacle Stock = new("stock");
+    public static readonly VoxelObstacle Fixture = new("fixture");
+    public static readonly VoxelObstacle Protected = new("protected");
+}
+
+[ComplexValueObject]
+public sealed partial class VoxelRay {
+    public Point3d Search { get; }
+    public Vector3d Direction { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Point3d search,
+        ref Vector3d direction) =>
+        validationError = search.IsValid && direction.IsValid && !direction.IsZero
+            ? null
+            : new ValidationError(message: "guard-voxel-ray");
+}
+
+public sealed class VoxelLease : IDisposable {
+    public Voxels Tool { get; }
+    public Voxels Stock { get; }
+    public Voxels Fixture { get; }
+    public Voxels Protected { get; }
+
+    private VoxelLease(Voxels tool, Voxels stock, Voxels fixture, Voxels @protected) =>
+        (Tool, Stock, Fixture, Protected) = (tool, stock, fixture, @protected);
+
+    public static Fin<VoxelLease> Admit(Voxels tool, Voxels stock, Voxels fixture, Voxels @protected) =>
+        Seq(tool, stock, fixture, @protected).ForAll(static field => field is not null)
+        && !ReferenceEquals(tool, stock)
+        && !ReferenceEquals(tool, fixture)
+        && !ReferenceEquals(tool, @protected)
+        && !ReferenceEquals(stock, fixture)
+        && !ReferenceEquals(stock, @protected)
+        && !ReferenceEquals(fixture, @protected)
+            ? Fin.Succ(new VoxelLease(tool, stock, fixture, @protected))
+            : Fin.Fail<VoxelLease>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:voxel-lease").ToError());
+
+    public void Dispose() {
+        List<Exception> failures = [];
+        foreach (Voxels field in new[] { Tool, Stock, Fixture, Protected }) {
+            try { field.Dispose(); }
+            catch (Exception error) { failures.Add(error); }
+        }
+        if (failures.Count == 1)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        if (failures.Count > 1)
+            throw new AggregateException("guard:voxel-release", failures);
+    }
+}
+
+public sealed class HolderCertificate {
+    public UInt128 AssemblyIdentity { get; }
     public CutterForm Cutter { get; }
     public int Operation { get; }
-    public UInt128 AssemblyIdentity { get; }
     public BoundingBox Scope { get; }
     public Loop ConservativeEnvelope { get; }
 
-    private HolderOmissionProof(
+    private HolderCertificate(
+        UInt128 assemblyIdentity,
         CutterForm cutter,
         int operation,
-        UInt128 assemblyIdentity,
         BoundingBox scope,
-        Loop conservativeEnvelope) {
-        Cutter = cutter;
-        Operation = operation;
-        AssemblyIdentity = assemblyIdentity;
-        Scope = scope;
-        ConservativeEnvelope = conservativeEnvelope;
+        Loop conservativeEnvelope) =>
+        (AssemblyIdentity, Cutter, Operation, Scope, ConservativeEnvelope) =
+            (assemblyIdentity, cutter, operation, scope, conservativeEnvelope);
+
+    public static Fin<HolderCertificate> Admit(
+        ToolAssembly assembly,
+        CutterForm cutter,
+        int operation,
+        BoundingBox scope) =>
+        from _ in assembly is not null
+            && cutter is not null
+            && assembly.Identity != UInt128.Zero
+            && operation >= 0
+            && scope.IsValid
+            && scope.Diagonal.Length > 0.0
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:holder-certificate").ToError())
+        from envelope in ToolMagazine.HolderEnvelope(assembly)
+        select new HolderCertificate(assembly.Identity, cutter, operation, scope, envelope);
+}
+
+[ComplexValueObject]
+public sealed partial class GuardPolicy {
+    public double ClearancePlaneMm { get; }
+    public double GougeToleranceMm { get; }
+    public Context Tolerance { get; }
+    public OffsetPolicy SweepOffset { get; }
+    public OffsetPolicy RegionOffset { get; }
+    public double ArcChordErrorMm { get; }
+    public double ChannelMarginMm { get; }
+    public double ClearanceProbeStepMm { get; }
+    public int MaximumSweepSegments { get; }
+    public int MaximumClearanceProbes { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double clearancePlaneMm,
+        ref double gougeToleranceMm,
+        ref Context tolerance,
+        ref OffsetPolicy sweepOffset,
+        ref OffsetPolicy regionOffset,
+        ref double arcChordErrorMm,
+        ref double channelMarginMm,
+        ref double clearanceProbeStepMm,
+        ref int maximumSweepSegments,
+        ref int maximumClearanceProbes) {
+        Validation<Error, Unit> admitted = (
+            Gate(double.IsFinite(clearancePlaneMm), "clearance-plane"),
+            Gate(gougeToleranceMm >= 0.0 && double.IsFinite(gougeToleranceMm), "gouge-tolerance"),
+            Gate(sweepOffset.Join == OffsetJoin.Round && sweepOffset.End == OffsetEnd.Round, "sweep-offset"),
+            Gate(regionOffset.End == OffsetEnd.Polygon, "region-offset"),
+            Gate(arcChordErrorMm > 0.0 && double.IsFinite(arcChordErrorMm), "arc-chord"),
+            Gate(channelMarginMm >= 0.0 && double.IsFinite(channelMarginMm), "channel-margin"),
+            Gate(clearanceProbeStepMm > 0.0 && double.IsFinite(clearanceProbeStepMm), "probe-step"),
+            Gate(maximumSweepSegments >= 8, "sweep-capacity"),
+            Gate(maximumClearanceProbes >= 2, "probe-capacity"))
+            .Apply(static (_, _, _, _, _, _, _, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static error => new ValidationError(message: error.Message),
+            Succ: static _ => null);
     }
 
-    public static Fin<HolderOmissionProof> Admit(
-        CutterForm cutter,
-        int operation,
-        BoundingBox scope,
-        Loop conservativeEnvelope,
-        ToolAssembly assembly) =>
-        cutter is not null
-        && assembly is not null
-        && assembly.Identity != UInt128.Zero
-        && operation >= 0
-        && scope.IsValid
-        && conservativeEnvelope is not null
-        && conservativeEnvelope.Closed
-        && conservativeEnvelope.Count >= 3
-        && conservativeEnvelope.Vertices.All(scope.Contains)
-            ? ToolMagazine.HolderEnvelope(assembly).Bind(actual => PolygonAlgebra.Clip(
-                    Seq1(actual),
-                    Seq1(conservativeEnvelope),
-                    PolygonBoolean.Difference,
-                    PolygonFill.NonZero)
-                .Bind(outside => outside.IsEmpty
-                    ? Fin.Succ(new HolderOmissionProof(cutter, operation, assembly.Identity, scope, conservativeEnvelope.AsCcw()))
-                    : Fin.Fail<HolderOmissionProof>(GeometryFault.DegenerateInput("guard:holder-proof-underbound").ToError())))
-            : Fin.Fail<HolderOmissionProof>(GeometryFault.DegenerateInput("guard:holder-proof").ToError());
-}
-
-public readonly record struct GuardPolicy(
-    double ClearancePlane,
-    double GougeTolerance,
-    HolderSweep Holder,
-    Option<HolderOmissionProof> HolderProof,
-    Context Tolerance,
-    Rasm.Fabrication.Geometry2D.OffsetPolicy Offset,
-    int MaximumSweepSegments,
-    int MaximumClearanceProbes,
-    double ClearanceProbeStepMm,
-    double ArcChordErrorMm) {
-    public Fin<Unit> Admit(double cutterRadius) =>
-        double.IsFinite(ClearancePlane)
-        && GougeTolerance >= 0.0
-        && double.IsFinite(GougeTolerance)
-        && cutterRadius > 0.0
-        && double.IsFinite(cutterRadius)
-        && Holder is not null
-        && Tolerance is not null
-        && Offset is not null
-        && MaximumSweepSegments >= 8
-        && MaximumSweepSegments <= Array.MaxLength
-        && MaximumClearanceProbes >= 1
-        && MaximumClearanceProbes < Array.MaxLength
-        && ClearanceProbeStepMm > 0.0
-        && double.IsFinite(ClearanceProbeStepMm)
-        && ArcChordErrorMm > 0.0
-        && double.IsFinite(ArcChordErrorMm)
-        && (Holder == HolderSweep.Omitted ? HolderProof.IsSome : HolderProof.IsNone)
-            ? SweepSegments(cutterRadius).Map(static _ => unit)
-            : Fin.Fail<Unit>(GeometryFault.DegenerateInput("guard:policy").ToError());
-
-    public Fin<int> SweepSegments(double cutterRadius) =>
-        from halfAngle in cutterRadius > 0.0 && ArcChordErrorMm > 0.0
-            ? Fin.Succ(Math.Acos(Math.Clamp(1.0 - (ArcChordErrorMm / cutterRadius), -1.0, 1.0)))
-            : Fin.Fail<double>(GeometryFault.DegenerateInput("guard:sweep-radius").ToError())
-        let demand = Math.Max(8.0, Math.Ceiling(Math.Tau / (2.0 * halfAngle)))
-        from segments in halfAngle > 0.0 && double.IsFinite(demand) && demand <= MaximumSweepSegments
-            ? Fin.Succ((int)demand)
-            : Fin.Fail<int>(GeometryFault.DegenerateInput("guard:sweep-capacity").ToError())
-        select segments;
-
     public Fin<int> ClearanceSegments(double length) =>
-        from demand in length >= 0.0 && double.IsFinite(length)
-            ? Fin.Succ(Math.Ceiling(length / ClearanceProbeStepMm))
-            : Fin.Fail<double>(GeometryFault.DegenerateInput("guard:clearance-length").ToError())
-        from segments in double.IsFinite(demand) && demand <= MaximumClearanceProbes
-            ? Fin.Succ(Math.Max(1, (int)demand))
-            : Fin.Fail<int>(GeometryFault.DegenerateInput("guard:clearance-capacity").ToError())
-        select segments;
+        double.IsFinite(length) && length >= 0.0
+        && Math.Ceiling(length / ClearanceProbeStepMm) <= MaximumClearanceProbes
+            ? Fin.Succ(Math.Max(1, (int)Math.Ceiling(length / ClearanceProbeStepMm)))
+            : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:clearance-capacity").ToError());
+
+    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
+        admitted
+            ? Fin.Succ(unit).ToValidation()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"guard-policy:{axis}").ToError()).ToValidation();
 }
 
-public sealed record Part(Point3d Cursor, Seq<Loop> Protected);
+[ComplexValueObject]
+public sealed partial class GuardPart {
+    public Point3d Cursor { get; }
+    public Seq<Loop> Protected { get; }
 
-public sealed record Stock(
-    Seq<Loop> RawBlank,
-    Seq<ExclusionZone> Keepouts,
-    Seq<StockSnapshot> Snapshots,
-    CutterForm Cutter,
-    Option<ToolAssembly> Assembly,
-    Option<CurveSkeleton> Channel,
-    Option<SpatialIndex> Index,
-    GuardPolicy Policy) {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Point3d cursor,
+        ref Seq<Loop> @protected) =>
+        validationError = cursor.IsValid && @protected.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3)
+            ? null
+            : new ValidationError(message: "guard-part");
+}
+
+[ComplexValueObject]
+public sealed partial class GuardStock {
+    public Seq<Loop> RawBlank { get; }
+    public Seq<Loop> Forbidden { get; }
+    public Seq<StockSnapshot> Snapshots { get; }
+    public CutterForm Cutter { get; }
+    public HolderState Holder { get; }
+    public Option<CurveSkeleton> Channel { get; }
+    public Option<SpatialIndex> Index { get; }
+    public ProbeRoute Route { get; }
+
     public double Radius => Cutter.Diameter * 0.5;
 
     public Seq<Loop> Current(int setup) =>
@@ -165,287 +299,515 @@ public sealed record Stock(
             .Map(static snapshot => snapshot.Machined.ToSeq())
             .IfNone(RawBlank);
 
-    // The stock keep-out satisfies the workholding six-field contract: Keepouts carry exact arc topology, Walls
-    // carry the ONCE-densified polygons every segment test reads, and Height: MaxValue blocks at every Z.
-    public Fin<ExclusionZone> CurrentZone(Fixture fixture) {
-        Seq<Loop> current = Current(fixture.Operation);
-        return current.Traverse(loop => loop.Bulges.ForAll(static bulge => bulge == 0.0)
-                ? Fin.Succ(loop)
-                : ArcAlgebra.Densify(loop, Policy.ArcChordErrorMm).Map(static receipt => receipt.Result))
-            .As()
-            .Map(walls => new ExclusionZone(
-                fixture.Operation, WorkholdingKind.SacrificialBed, current, walls, double.MaxValue, Policy.ArcChordErrorMm));
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<Loop> rawBlank,
+        ref Seq<Loop> forbidden,
+        ref Seq<StockSnapshot> snapshots,
+        ref CutterForm cutter,
+        ref HolderState holder,
+        ref Option<CurveSkeleton> channel,
+        ref Option<SpatialIndex> index,
+        ref ProbeRoute route) {
+        Validation<Error, Unit> admitted = (
+            Gate(!rawBlank.IsEmpty && rawBlank.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3), "blank"),
+            Gate(forbidden.ForAll(static loop => loop is not null && loop.Closed && loop.Count >= 3), "forbidden"),
+            Gate(snapshots.ForAll(static snapshot => snapshot is not null && snapshot.Setup >= 0
+                && snapshot.Machined.ForAll(static loop => loop is not null && loop.Closed)), "snapshots"),
+            Gate(cutter is not null && cutter.Diameter > 0.0 && double.IsFinite(cutter.Diameter), "cutter"),
+            Gate(holder is not null && holder.Switch(
+                mounted: static row => row.Assembly is not null && row.Assembly.Identity != UInt128.Zero,
+                certified: static row => row.Certificate is not null && row.Certificate.AssemblyIdentity != UInt128.Zero), "holder"),
+            Gate(channel.Map(ChannelValid).IfNone(true), "channel"),
+            Gate(route is not null && route.Switch(reference: static _ => true, measured: static row =>
+                !string.IsNullOrWhiteSpace(row.BenchmarkKey) && row.MinimumActionsPerThread > 0), "route"))
+            .Apply(static (_, _, _, _, _, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static error => new ValidationError(message: error.Message),
+            Succ: static _ => null);
     }
+
+    private static bool ChannelValid(CurveSkeleton channel) =>
+        channel.NodeCount > 0
+        && channel.NodeX.Length == channel.NodeCount
+        && channel.NodeY.Length == channel.NodeCount
+        && channel.NodeZ.Length == channel.NodeCount
+        && channel.Radius.Length == channel.NodeCount
+        && channel.Witness.Length == channel.NodeCount
+        && channel.ArcFrom.Length == channel.ArcCount
+        && channel.ArcTo.Length == channel.ArcCount
+        && channel.ArcOrigin.Length == channel.ArcCount
+        && channel.Component.Length == channel.ArcCount
+        && channel.ArcFrom.All(index => index >= 0 && index < channel.NodeCount)
+        && channel.ArcTo.All(index => index >= 0 && index < channel.NodeCount)
+        && channel.NodeX.Concat(channel.NodeY).Concat(channel.NodeZ).Concat(channel.Radius).All(double.IsFinite)
+        && channel.Radius.All(static radius => radius >= 0.0);
+
+    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
+        admitted
+            ? Fin.Succ(unit).ToValidation()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"guard-stock:{axis}").ToError()).ToValidation();
 }
 
-file sealed record SweptEnvelope(Seq<Loop> Cutter, Seq<Loop> Holder) {
-    public Seq<Loop> Combined => Cutter.Concat(Holder);
+[ComplexValueObject]
+public sealed partial class GuardRequest {
+    public Move Move { get; }
+    public GuardPart Part { get; }
+    public GuardStock Stock { get; }
+    public Fixture Fixture { get; }
+    public FixtureState State { get; }
+    public GuardPolicy Policy { get; }
+    public Seq<GuardProbe> Probes { get; }
+    public Point3d Target => TargetOf(Move);
 
-    public BoundingBox Bound(Seq<Loop> loops) =>
-        loops.Map(static loop => loop.Bound()).Fold(BoundingBox.Empty, BoundingBox.Union);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Move move,
+        ref GuardPart part,
+        ref GuardStock stock,
+        ref Fixture fixture,
+        ref FixtureState state,
+        ref GuardPolicy policy,
+        ref Seq<GuardProbe> probes) {
+        if (move is null || part is null || stock is null || fixture is null || state is null || policy is null) {
+            validationError = new ValidationError(message: "guard-request:aggregate");
+            return;
+        }
+        Point3d target = TargetOf(move);
+        Validation<Error, Unit> admitted = (
+            Gate(target.IsValid
+                && Move.Admit(move) is Fin.Succ<Move>
+                && move is not Move.Circular { Arc.Sense: null }, "move"),
+            Gate(probes.ForAll(ProbeValid), "probe"),
+            Gate(HolderValid(stock.Holder, stock.Cutter, fixture.Operation, MotionScope(move, part.Cursor)), "holder"))
+            .Apply(static (_, _, _) => unit)
+            .As();
+        validationError = admitted.Match<ValidationError?>(
+            Fail: static error => new ValidationError(message: error.Message),
+            Succ: static _ => null);
+    }
+
+    private static bool ProbeValid(GuardProbe probe) => probe is not null && probe.Switch(
+        voxel: static row => row.Acquire is not null
+            && row.Ray is not null,
+        robot: static row => row.Provider is not null
+            && row.Program is not null
+            && row.Environment is { IsValid: true }
+            && row.EnvironmentPlane >= 0
+            && row.LinearStepMm > 0.0
+            && double.IsFinite(row.LinearStepMm)
+            && row.AngularStepRad > 0.0
+            && double.IsFinite(row.AngularStepRad));
+
+    private static bool HolderValid(HolderState holder, CutterForm cutter, int operation, BoundingBox motionScope) =>
+        holder.Switch(
+            mounted: static row => row.Assembly.Identity != UInt128.Zero,
+            certified: row => row.Certificate.AssemblyIdentity != UInt128.Zero
+                && row.Certificate.Cutter == cutter
+                && row.Certificate.Operation == operation
+                && row.Certificate.Scope.Contains(motionScope));
+
+    private static BoundingBox MotionScope(Move move, Point3d from) => move.Switch(
+        state: from,
+        rapid: static (start, row) => new BoundingBox(start, row.Target),
+        linear: static (start, row) => new BoundingBox(start, row.Target),
+        circular: static (start, row) => new BoundingBox(
+            new Point3d(
+                row.Arc.Center.X - start.DistanceTo(row.Arc.Center),
+                row.Arc.Center.Y - start.DistanceTo(row.Arc.Center),
+                Math.Min(start.Z, row.Target.Z)),
+            new Point3d(
+                row.Arc.Center.X + start.DistanceTo(row.Arc.Center),
+                row.Arc.Center.Y + start.DistanceTo(row.Arc.Center),
+                Math.Max(start.Z, row.Target.Z))));
+
+    private static Point3d TargetOf(Move move) => move.Switch(
+        rapid: static row => row.Target,
+        linear: static row => row.Target,
+        circular: static row => row.Target);
+
+    private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
+        admitted
+            ? Fin.Succ(unit).ToValidation()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"guard-request:{axis}").ToError()).ToValidation();
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+public sealed record ContactWitness(Point3d Surface, double AreaMm2);
+
+public sealed record ClearanceEvidence(
+    double MinimumMm,
+    Point3d Probe,
+    Option<int> SkeletonWitness,
+    ProbeRoute Route,
+    bool Parallel,
+    int Samples);
+
+public sealed record VoxelContact(
+    VoxelObstacle Obstacle,
+    bool SearchInside,
+    Point3d Witness,
+    double VolumeMm3,
+    long NativeBytes);
+
+public sealed record RobotContact(
+    string CollisionTarget,
+    int CollisionMeshes,
+    int ProgramTargets,
+    double DurationSeconds,
+    Seq<string> Warnings);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record HolderEvidence {
+    private HolderEvidence() { }
+
+    public sealed record Mounted(UInt128 AssemblyIdentity, Loop Footprint) : HolderEvidence;
+    public sealed record Certified(UInt128 AssemblyIdentity, BoundingBox Scope, Loop Footprint) : HolderEvidence;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Verdict {
-    private Verdict() { }
+public abstract partial record Hazard {
+    private Hazard() { }
 
-    public sealed record Clear : Verdict;
-    public sealed record Gouge(Point3d Surface) : Verdict;
-    public sealed record Collision(ExclusionZone Obstacle, CollisionContact Contact) : Verdict;
+    public sealed record Gouge(Loop Obstacle, CollisionContact Contact, ContactWitness Witness) : Hazard;
+    public sealed record Fixed(ExclusionZone Obstacle, CollisionContact Contact, ContactWitness Witness) : Hazard;
+    public sealed record Keepout(Loop Obstacle, CollisionContact Contact, ContactWitness Witness) : Hazard;
+    public sealed record Stock(Loop Obstacle, CollisionContact Contact, ContactWitness Witness) : Hazard;
+    public sealed record Channel(ClearanceEvidence Evidence, double RequiredMm) : Hazard;
+    public sealed record Voxel(VoxelContact Contact) : Hazard;
+    public sealed record Robot(RobotContact Contact) : Hazard;
+
+    // Ordering rank only: planar arms carry mm2 overlap, voxel carries mm3 overlap, channel carries mm shortfall, and robot outranks all.
+    public double Severity => Switch(
+        gouge: static row => row.Witness.AreaMm2,
+        @fixed: static row => row.Witness.AreaMm2,
+        keepout: static row => row.Witness.AreaMm2,
+        stock: static row => row.Witness.AreaMm2,
+        channel: static row => row.RequiredMm - row.Evidence.MinimumMm,
+        voxel: static row => row.Contact.VolumeMm3,
+        robot: static _ => double.PositiveInfinity);
+}
+
+public sealed record GuardReceipt(
+    Move Move,
+    GuardScope Scope,
+    Seq<Hazard> Hazards,
+    Option<ClearanceEvidence> Clearance,
+    HolderEvidence Holder,
+    Seq<string> Warnings) {
+    public bool Clear => Hazards.IsEmpty;
+
+    public bool Proven => Hazards.IsEmpty && Scope is GuardScope.Probed;
+
+    public Seq<Hazard> Ranked => Hazards.OrderByDescending(static hazard => hazard.Severity).ToSeq();
+}
+
+file sealed record SweptEnvelope(
+    Seq<Loop> Cutter,
+    Seq<Loop> Holder,
+    HolderEvidence Evidence,
+    double RequiredClearanceMm) {
+    public Seq<Loop> Combined => Cutter.Concat(Holder);
+    public BoundingBox Bound => Combined.Map(static loop => loop.Bound()).Fold(BoundingBox.Empty, BoundingBox.Union);
+}
+
+file readonly record struct ClearanceAction(Arr<Point3d> Points, CurveSkeleton Channel, Memory<double> Values) : IAction2D {
+    public void Invoke(int i, int _) => Values.Span[i] = Channel.Clearance(Points[i]).Radius;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Guard {
-    public static Fin<Verdict> Check(Move move, Part part, Stock stock, Fixture fixture) =>
-        from _ in stock.Policy.Admit(stock.Radius)
-        from __ in HolderEvidence(part.Cursor, Target(move), stock, fixture)
-        from verdict in (ClearedByPlane(move, part, stock, fixture)
-            ? Fin.Succ<Verdict>(new Verdict.Clear())
-            : from spine in Trajectory(move, part.Cursor, stock.Policy)
-              from swept in Sweep(spine, stock)
-              from gouged in Gouged(swept.Cutter, part.Protected, stock.Policy.GougeTolerance, stock.Policy.Offset)
-              from struck in gouged.IsSome
-                  ? Fin.Succ(Option<Verdict.Collision>.None)
-                  : Struck(move, part.Cursor, swept, stock, fixture)
-              from pinched in gouged.IsSome || struck.IsSome ? Fin.Succ(false) : Pinched(spine, stock)
-              from _ in pinched
-                  ? Fin.Fail<Unit>(GeometryFault.DegenerateInput("guard:channel-clearance").ToError())
-                  : Fin.Succ(unit)
-              select gouged.Match(
-                  Some: point => (Verdict)new Verdict.Gouge(point),
-                  None: () => struck.Match(
-                      Some: collision => (Verdict)collision,
-                      None: () => new Verdict.Clear())))
-        select verdict;
+    public static Fin<GuardReceipt> Check(GuardRequest request) =>
+        from trajectory in Trajectory(request.Move, request.Part.Cursor, request.Policy)
+        from swept in Sweep(trajectory, request.Stock, request.Policy)
+        let scope = PlanarScope(request)
+        from planar in scope is GuardScope.Probed
+            ? Surfaces.Traverse(surface => surface(swept, request)).As().Map(static rows => rows.Bind(identity))
+            : Fin.Succ(Seq<Hazard>())
+        from clearance in scope is GuardScope.Probed
+            ? Channel(trajectory, request.Stock, request.Policy)
+            : Fin.Succ(Option<ClearanceEvidence>.None)
+        from probeRows in request.Probes.Traverse(probe => Probe(probe, request.Target)).As()
+        let channelHazards = clearance.Filter(evidence => evidence.MinimumMm < swept.RequiredClearanceMm)
+            .Map(evidence => Seq<Hazard>(new Hazard.Channel(evidence, swept.RequiredClearanceMm)))
+            .IfNone(Seq<Hazard>())
+        select new GuardReceipt(
+            request.Move,
+            scope,
+            planar.Concat(channelHazards).Concat(probeRows.Bind(static row => row.Hazards)),
+            clearance,
+            swept.Evidence,
+            probeRows.Bind(static row => row.Warnings));
 
-    private static Fin<Unit> HolderEvidence(Point3d from, Point3d to, Stock stock, Fixture fixture) =>
-        stock.Policy.Holder == HolderSweep.Swept
-            ? stock.Assembly.IsSome
-                ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(GeometryFault.DegenerateInput("guard:holder-unmounted").ToError())
-            : stock.Policy.HolderProof.Match(
-                Some: proof => proof.Operation == fixture.Operation
-                    && proof.Cutter == stock.Cutter
-                    && proof.Scope.IsValid
-                    && proof.ConservativeEnvelope.Closed
-                    && proof.ConservativeEnvelope.Count >= 3
-                    && proof.Scope.Contains(from)
-                    && proof.Scope.Contains(to)
-                        ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(GeometryFault.DegenerateInput("guard:holder-proof-mismatch").ToError()),
-                None: () => Fin.Fail<Unit>(GeometryFault.DegenerateInput("guard:holder-proof-missing").ToError()));
+    private static readonly Arr<Func<SweptEnvelope, GuardRequest, Fin<Seq<Hazard>>>> Surfaces =
+        Arr<Func<SweptEnvelope, GuardRequest, Fin<Seq<Hazard>>>>(
+            Gouged, FixedContacts, KeepoutContacts, StockContacts);
 
-    private static bool ClearedByPlane(Move move, Part part, Stock stock, Fixture fixture) =>
-        move is Move.Rapid
-        && Math.Min(part.Cursor.Z, Target(move).Z) >= stock.Policy.ClearancePlane
-        && stock.Channel.IsNone
-        && stock.Keepouts.Concat(fixture.Zones).All(zone => zone.Height <= stock.Policy.ClearancePlane)
-        && part.Protected.Concat(stock.Current(fixture.Operation))
-            .All(loop => loop.Bound().Max.Z <= stock.Policy.ClearancePlane);
+    private static GuardScope PlanarScope(GuardRequest request) =>
+        request.Move is Move.Rapid
+        && Math.Min(request.Part.Cursor.Z, request.Target.Z) >= request.Policy.ClearancePlaneMm
+        && request.Stock.Channel.IsNone
+        && request.Fixture.Zones.Filter(zone => zone.Active.Contains(request.State))
+            .ForAll(zone => zone.Upper.As(LengthUnit.Millimeter) <= request.Policy.ClearancePlaneMm)
+        && request.Part.Protected.Concat(request.Stock.Forbidden).Concat(request.Stock.Current(request.Fixture.Operation))
+            .ForAll(loop => loop.Bound().Max.Z <= request.Policy.ClearancePlaneMm)
+            ? new GuardScope.Elided(
+                request.Policy.ClearancePlaneMm,
+                Math.Min(request.Part.Cursor.Z, request.Target.Z))
+            : new GuardScope.Probed();
 
-    // The arc-true trajectory: a straight move is its own open span; a circular move lowers to ONE bulged span
-    // (bulge from the ArcCenter sweep sagitta, a coincident-endpoint move as two half-circle spans) and the arcs
-    // owner densifies it at the policy chord error, so the swept envelopes and every channel probe follow the
-    // real path — never the endpoint chord. Densified spans stay within the policy sweep capacity.
+    private static Seq<(Seq<Loop> Envelope, CollisionContact Contact)> Faces(SweptEnvelope swept) =>
+        Seq((swept.Cutter, CollisionContact.Cutter), (swept.Holder, CollisionContact.Holder));
+
     private static Fin<Loop> Trajectory(Move move, Point3d cursor, GuardPolicy policy) =>
         move.Switch(
             state: (Cursor: cursor, Policy: policy),
-            rapid: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), closed: false, Arr<double>.Empty, state.Policy.Tolerance),
-            linear: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), closed: false, Arr<double>.Empty, state.Policy.Tolerance),
+            rapid: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
+            linear: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
             circular: static (state, row) => ArcSpan(state.Cursor, row.Target, row.Arc, state.Policy)
-                .Bind(span => ArcAlgebra.Densify(span, state.Policy.ArcChordErrorMm))
-                .Bind(receipt => receipt.Result.Spans <= state.Policy.MaximumSweepSegments
-                    ? Fin.Succ(receipt.Result)
-                    : Fin.Fail<Loop>(GeometryFault.DegenerateInput("guard:sweep-capacity").ToError())));
+                .Bind(span => Chords(span, state.Policy.ArcChordErrorMm))
+                .Bind(result => result.Spans <= state.Policy.MaximumSweepSegments
+                    ? Fin.Succ(result)
+                    : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:sweep-capacity").ToError())));
 
     private static Fin<Loop> ArcSpan(Point3d from, Point3d to, ArcCenter arc, GuardPolicy policy) {
         Vector3d a = from - arc.Center;
         Vector3d b = to - arc.Center;
         double radius = a.Length;
-        if (!double.IsFinite(radius) || radius <= 0.0 || Math.Abs(radius - b.Length) > policy.ArcChordErrorMm)
-            return Fin.Fail<Loop>(GeometryFault.DegenerateInput("guard:arc-motion").ToError());
+        if (!double.IsFinite(radius)
+            || radius <= 0.0
+            || Math.Abs(from.Z - to.Z) > policy.Tolerance.Absolute.Value
+            || Math.Abs(from.Z - arc.Center.Z) > policy.Tolerance.Absolute.Value
+            || Math.Abs(radius - b.Length) > policy.ArcChordErrorMm)
+            return Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:arc-motion").ToError());
         bool clockwise = arc.Sense == RotationSense.Clockwise;
         if (from.DistanceTo(to) <= policy.Tolerance.Absolute.Value) {
             Point3d opposite = new(2.0 * arc.Center.X - from.X, 2.0 * arc.Center.Y - from.Y, from.Z);
             double half = clockwise ? -1.0 : 1.0;
-            return Loop.Admit(Arr(from, opposite, to), closed: false, Arr(half, half, 0.0), policy.Tolerance);
+            return Loop.Admit(Arr(from, opposite, to), false, Arr(half, half, 0.0), policy.Tolerance);
         }
         double minor = Vector3d.VectorAngle(a, b);
         double cross = Vector3d.CrossProduct(a, b).Z;
         bool ccw = !clockwise;
         double sweep = (ccw && cross >= 0.0) || (!ccw && cross <= 0.0) ? minor : Math.Tau - minor;
-        return Loop.Admit(Arr(from, to), closed: false, Arr(Math.Tan((ccw ? sweep : -sweep) / 4.0), 0.0), policy.Tolerance);
+        return Loop.Admit(Arr(from, to), false, Arr(Math.Tan((ccw ? sweep : -sweep) / 4.0), 0.0), policy.Tolerance);
     }
 
-    // The sweep IS the algebra owner's open-path round-end offset: an open trajectory inflated by radius r is the
-    // exact disc-swept envelope, and the closed result satisfies every downstream region contract by construction.
-    // The holder footprint spins with the spindle, so its planar sweep is the disc of its bounding radius.
-    private static Fin<SweptEnvelope> Sweep(Loop spine, Stock stock) =>
-        from sweepPolicy in OffsetPolicy.Admit(
-            OffsetJoin.Round, OffsetEnd.Round, miterLimit: 2.0, stock.Policy.Tolerance.Absolute.Value)
-        from cutter in PolygonAlgebra.Offset(Seq(spine), stock.Radius, sweepPolicy)
-        from holderShape in stock.Policy.Holder == HolderSweep.Omitted
-            ? stock.Policy.HolderProof.Match(
-                Some: proof => Fin.Succ(proof.ConservativeEnvelope),
-                None: () => Fin.Fail<Loop>(GeometryFault.DegenerateInput("guard:holder-proof-missing").ToError()))
-            : stock.Assembly.Match(
-                Some: ToolMagazine.HolderEnvelope,
-                None: () => Fin.Fail<Loop>(GeometryFault.DegenerateInput("guard:holder-unmounted").ToError()))
-        from holderRadius in FootprintRadius(holderShape, stock.Policy)
-        from holder in PolygonAlgebra.Offset(Seq(spine), holderRadius, sweepPolicy)
-        select new SweptEnvelope(cutter, holder);
+    private static Fin<SweptEnvelope> Sweep(Loop trajectory, GuardStock stock, GuardPolicy policy) =>
+        from cutter in Offset(trajectory, stock.Radius, policy.SweepOffset)
+        from evidence in stock.Holder.Switch(
+            mounted: static row => ToolMagazine.HolderEnvelope(row.Assembly)
+                .Map(footprint => (HolderEvidence)new HolderEvidence.Mounted(row.Assembly.Identity, footprint)),
+            certified: static row => Fin.Succ((HolderEvidence)new HolderEvidence.Certified(
+                row.Certificate.AssemblyIdentity,
+                row.Certificate.Scope,
+                row.Certificate.ConservativeEnvelope)))
+        from holderRadius in FootprintRadius(evidence.Switch(
+            mounted: static row => row.Footprint,
+            certified: static row => row.Footprint), policy)
+        from holder in Offset(trajectory, holderRadius, policy.SweepOffset)
+        select new SweptEnvelope(cutter, holder, evidence, Math.Max(stock.Radius, holderRadius) + policy.ChannelMarginMm);
 
-    // Bounding spindle radius of a tool-centered footprint: bulged rims densify first, and the chord error rides
-    // the bound so the disc stays a conservative superset of the true rim — fail-closed by construction.
     private static Fin<double> FootprintRadius(Loop footprint, GuardPolicy policy) =>
         (footprint.Bulges.ForAll(static bulge => bulge == 0.0)
             ? Fin.Succ(footprint)
-            : ArcAlgebra.Densify(footprint, policy.ArcChordErrorMm).Map(static receipt => receipt.Result))
-        .Bind(rim => {
-            double radius = rim.Vertices.Fold(0.0, static (bound, vertex) =>
-                Math.Max(bound, Math.Sqrt((vertex.X * vertex.X) + (vertex.Y * vertex.Y))));
-            return radius > 0.0 && double.IsFinite(radius)
+            : Chords(footprint, policy.ArcChordErrorMm))
+        .Bind(rim => rim.Vertices.Fold(0.0, static (bound, vertex) =>
+                Math.Max(bound, Math.Sqrt((vertex.X * vertex.X) + (vertex.Y * vertex.Y)))) is var radius
+            && radius > 0.0 && double.IsFinite(radius)
                 ? Fin.Succ(radius + policy.ArcChordErrorMm)
-                : Fin.Fail<double>(GeometryFault.DegenerateInput("guard:holder-footprint").ToError());
-        });
+                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:holder-footprint").ToError()));
 
-    private static Fin<Option<Point3d>> Gouged(
-        Seq<Loop> cutter,
-        Seq<Loop> protectedLoops,
-        double tolerance,
-        Rasm.Fabrication.Geometry2D.OffsetPolicy offset) =>
-        (tolerance <= 0.0
-            ? Fin.Succ(cutter)
-            : PolygonAlgebra.Offset(cutter, -Math.Abs(tolerance), offset))
-        .Bind(envelope => FirstWitness(protectedLoops, loop =>
-            PolygonAlgebra.Clip(
-                envelope,
-                Seq(loop),
-                PolygonBoolean.Intersection,
-                PolygonFill.NonZero)
-                .Map(static overlap => overlap.HeadOrNone()
-                    .Filter(static region => region.Count > 0)
-                    .Map(static region => region.At(0)))));
+    private static Fin<Seq<Hazard>> Gouged(SweptEnvelope swept, GuardRequest request) =>
+        Faces(swept).Traverse(face =>
+            from envelope in request.Policy.GougeToleranceMm == 0.0
+                ? Fin.Succ(face.Envelope)
+                : face.Envelope.Traverse(loop => Offset(loop, -request.Policy.GougeToleranceMm, request.Policy.RegionOffset))
+                    .As().Map(static rows => rows.Bind(identity))
+            from rows in request.Part.Protected.Traverse(loop => Intersections(envelope, Seq(loop))
+                .Map(witnesses => witnesses.Map(witness => (Hazard)new Hazard.Gouge(loop, face.Contact, witness)))).As()
+            select rows.Bind(identity))
+        .As()
+        .Map(static rows => rows.Bind(identity));
 
-    private static Fin<Option<Verdict.Collision>> Struck(Move move, Point3d cursor, SweptEnvelope swept, Stock stock, Fixture fixture) =>
-        from statics in StaticCandidates(swept, stock)
-        let obstacles = statics.Concat(fixture.Zones).Filter(zone => Math.Min(cursor.Z, Target(move).Z) < zone.Height)
-        from cutterFixed in FirstOverlap(swept.Cutter, obstacles)
-        from holderFixed in cutterFixed.IsSome ? Fin.Succ(Option<ExclusionZone>.None) : FirstOverlap(swept.Holder, obstacles)
-        let fixedHit = Collision(cutterFixed, holderFixed)
-        from stockZone in stock.CurrentZone(fixture)
-        from cutterStock in fixedHit.IsSome || move is not Move.Rapid
-            ? Fin.Succ(Option<ExclusionZone>.None)
-            : Overlaps(swept.Cutter, stockZone)
-        from holderStock in fixedHit.IsSome || cutterStock.IsSome
-            ? Fin.Succ(Option<ExclusionZone>.None)
-            : Overlaps(swept.Holder, stockZone)
-        select fixedHit.IsSome ? fixedHit : Collision(cutterStock, holderStock);
+    private static Fin<Seq<Hazard>> FixedContacts(SweptEnvelope swept, GuardRequest request) =>
+        from candidates in StaticCandidates(swept, request)
+        let zones = candidates.Filter(zone => zone.Active.Contains(request.State)
+            && Math.Min(request.Part.Cursor.Z, request.Target.Z) <= zone.Upper.As(LengthUnit.Millimeter)
+            && Math.Max(request.Part.Cursor.Z, request.Target.Z) >= zone.Lower.As(LengthUnit.Millimeter))
+        from rows in zones.Traverse(zone => Faces(swept).Traverse(face =>
+            Intersections(face.Envelope, zone.Keepouts.Concat(zone.Walls))
+                .Map(witnesses => witnesses.Map(witness => (Hazard)new Hazard.Fixed(zone, face.Contact, witness)))).As()).As()
+        select rows.Bind(static row => row.Bind(identity));
 
-    private static Option<Verdict.Collision> Collision(Option<ExclusionZone> cutter, Option<ExclusionZone> holder) =>
-        cutter.Match(
-            Some: zone => Some(new Verdict.Collision(zone, CollisionContact.Cutter)),
-            None: () => holder.Map(zone => new Verdict.Collision(zone, CollisionContact.Holder)));
+    private static Fin<Seq<Hazard>> StockContacts(SweptEnvelope swept, GuardRequest request) =>
+        request.Stock.Current(request.Fixture.Operation).Traverse(loop =>
+            Faces(swept).Filter(face => request.Move is Move.Rapid || face.Contact == CollisionContact.Holder)
+                .Traverse(face => Intersections(face.Envelope, Seq(loop))
+                    .Map(witnesses => witnesses.Map(witness => (Hazard)new Hazard.Stock(loop, face.Contact, witness)))).As())
+        .As()
+        .Map(static rows => rows.Bind(static row => row.Bind(identity)));
 
-    private static Fin<Seq<ExclusionZone>> StaticCandidates(SweptEnvelope swept, Stock stock) =>
+    private static Fin<Seq<Hazard>> KeepoutContacts(SweptEnvelope swept, GuardRequest request) =>
+        request.Stock.Forbidden.Traverse(loop =>
+            Faces(swept).Traverse(face => Intersections(face.Envelope, Seq(loop))
+                .Map(witnesses => witnesses.Map(witness => (Hazard)new Hazard.Keepout(loop, face.Contact, witness)))).As())
+        .As()
+        .Map(static rows => rows.Bind(static row => row.Bind(identity)));
+
+    private static Fin<Loop> Chords(Loop exact, double error) =>
+        ArcAlgebra.Densify(new ArcProjection.Lower(exact, error))
+            .Bind(static trace => trace is ArcTrace.Densified densified
+                ? Fin.Succ(densified.Receipt.Result)
+                : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:arc-projection-shape").ToError()));
+
+    private static Fin<Seq<ExclusionZone>> StaticCandidates(SweptEnvelope swept, GuardRequest request) =>
         swept.Combined.IsEmpty
             ? Fin.Succ(Seq<ExclusionZone>())
-            : stock.Index.Match(
-                None: () => Fin.Succ(stock.Keepouts),
-                Some: index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(swept.Bound(swept.Combined), None)))
+            : request.Stock.Index.Map(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(swept.Bound, None)))
                     .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
-                        ? hits.Ids.Exists(id => id < 0 || id >= stock.Keepouts.Count)
-                            ? Fin.Fail<Seq<ExclusionZone>>(GeometryFault.DegenerateInput("guard:index-ordinal").ToError())
-                            : Fin.Succ(hits.Ids.Map(id => stock.Keepouts[id]))
-                        : Fin.Fail<Seq<ExclusionZone>>(GeometryFault.DegenerateInput("guard:index-answer").ToError())));
+                        ? hits.Ids.Exists(id => id < 0 || id >= request.Fixture.Zones.Count)
+                            ? Fin.Fail<Seq<ExclusionZone>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:index-ordinal").ToError())
+                            : Fin.Succ(hits.Ids.Map(id => request.Fixture.Zones[id]))
+                        : Fin.Fail<Seq<ExclusionZone>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:index-answer").ToError())))
+                .IfNone(Fin.Succ(request.Fixture.Zones));
 
-    private static Fin<Option<ExclusionZone>> FirstOverlap(Seq<Loop> envelope, Seq<ExclusionZone> zones) =>
-        FirstWitness(zones, zone => Overlaps(envelope, zone));
+    private static Fin<Option<ClearanceEvidence>> Channel(Loop trajectory, GuardStock stock, GuardPolicy policy) =>
+        stock.Channel.Map(channel => Samples(trajectory, policy).Bind(samples => Clearance(samples, channel, stock.Route)
+                .Map(Some)))
+            .IfNone(Fin.Succ(Option<ClearanceEvidence>.None));
 
-    private static Fin<Option<ExclusionZone>> Overlaps(Seq<Loop> envelope, ExclusionZone zone) =>
-        envelope.IsEmpty
-            ? Fin.Succ(Option<ExclusionZone>.None)
-            : FirstWitness(zone.Keepouts, keepout =>
-                PolygonAlgebra.Clip(
-                    envelope,
-                    Seq(keepout),
-                    PolygonBoolean.Intersection,
-                    PolygonFill.NonZero).Map(overlap => overlap.IsEmpty ? Option<ExclusionZone>.None : Some(zone)));
+    private static Fin<Arr<Point3d>> Samples(Loop trajectory, GuardPolicy policy) =>
+        Range(0, trajectory.Spans).Traverse(span => {
+            Point3d from = trajectory.At(span);
+            Point3d to = trajectory.At(span + 1);
+            return policy.ClearanceSegments(from.DistanceTo(to)).Map(segments =>
+                Range(0, segments + 1).Map(index => from + ((double)index / segments * (to - from))));
+        }).As().Map(static spans => spans.Bind(identity).Distinct().ToArr());
 
-    private static Fin<Option<TWitness>> FirstWitness<TRow, TWitness>(Seq<TRow> rows, Func<TRow, Fin<Option<TWitness>>> probe) =>
-        rows.Fold(
-            Fin.Succ(Option<TWitness>.None),
-            (state, row) => state.Bind(found => found.IsSome ? Fin.Succ(found) : probe(row)));
+    private static Fin<ClearanceEvidence> Clearance(Arr<Point3d> points, CurveSkeleton channel, ProbeRoute route) {
+        using MemoryOwner<double> values = MemoryOwner<double>.Allocate(points.Count, AllocationMode.Clear);
+        ProbeRoute.Measured? measured = route as ProbeRoute.Measured;
+        bool parallel = measured is not null && points.Count >= measured.MinimumActionsPerThread;
+        if (parallel)
+            ParallelHelper.For2D(
+                0,
+                points.Count,
+                0,
+                1,
+                new ClearanceAction(points, channel, values.Memory),
+                measured!.MinimumActionsPerThread);
+        else
+            points.Map((point, index) => (point, index)).Iter(cell => values.Span[cell.index] = channel.Clearance(cell.point).Radius);
+        if (!TensorPrimitives.IsFiniteAll(values.Span))
+            return Fin.Fail<ClearanceEvidence>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:clearance-finite").ToError());
+        int minimum = TensorPrimitives.IndexOfMin(values.Span);
+        ClearanceNode witness = channel.Clearance(points[minimum]);
+        return Fin.Succ(new ClearanceEvidence(
+            values.Span[minimum],
+            points[minimum],
+            witness.NearestEdge >= 0 ? Some(witness.NearestEdge) : None,
+            route,
+            parallel,
+            points.Count));
+    }
 
-    // Channel probes walk every densified trajectory span at the probe pitch, both endpoints included, so an
-    // arc that pinches only mid-flight still fails typed.
-    private static Fin<bool> Pinched(Loop spine, Stock stock) =>
-        stock.Channel.Match(
-            None: () => Fin.Succ(false),
-            Some: channel => toSeq(Enumerable.Range(0, spine.Spans)).TraverseM(span => {
-                Point3d from = spine.At(span);
-                Point3d to = spine.At(span + 1);
-                return stock.Policy.ClearanceSegments(from.DistanceTo(to)).Map(segments =>
-                    Range(0, segments + 1).Exists(index => {
-                        Point3d point = from + ((double)index / segments * (to - from));
-                        return channel.Clearance(point).Radius < stock.Radius;
-                    }));
-            }).As().Map(static pinches => pinches.Exists(identity)));
+    private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> Probe(GuardProbe probe, Point3d target) => probe.Switch(
+        state: target,
+        voxel: static (point, row) => ProbeVoxel(row, point),
+        robot: static (_, row) => ProbeRobot(row));
 
-    private static Point3d Target(Move move) =>
-        move.Switch(
-            rapid: static row => row.Target,
-            linear: static row => row.Target,
-            circular: static row => row.Target);
+    private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeVoxel(GuardProbe.Voxel probe, Point3d target) =>
+        Try.lift(probe.Acquire).Run()
+            .MapFail(static _ => new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:voxel-acquire").ToError())
+            .Bind(static lease => lease)
+            .Bind(lease => Try.lift(() => {
+                using (lease) {
+                    Seq<(VoxelObstacle Obstacle, Voxels Field)> obstacles = Seq(
+                        (VoxelObstacle.Stock, lease.Stock),
+                        (VoxelObstacle.Fixture, lease.Fixture),
+                        (VoxelObstacle.Protected, lease.Protected));
+                    Seq<Hazard> hazards = obstacles.Bind(row => VoxelContacts(lease.Tool, row.Field, row.Obstacle, probe.Ray, target));
+                    return (hazards, Seq<string>());
+                }
+            }).Run().MapFail(static _ => new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:voxel-native").ToError()));
+
+    private static Seq<Hazard> VoxelContacts(Voxels tool, Voxels obstacle, VoxelObstacle kind, VoxelRay ray, Point3d target) {
+        using Voxels contact = tool.voxBoolIntersect(obstacle);
+        if (contact.bIsEmpty())
+            return Seq<Hazard>();
+        PVector search = new((float)ray.Search.X, (float)ray.Search.Y, (float)ray.Search.Z);
+        PVector direction = new((float)ray.Direction.X, (float)ray.Direction.Y, (float)ray.Direction.Z);
+        contact.CalculateProperties(out float volumeMm3, out _);
+        bool rayHit = contact.bRayCastToSurface(search, direction, out PVector surface);
+        Point3d witness = rayHit ? new Point3d(surface.X, surface.Y, surface.Z) : target;
+        return Seq<Hazard>(new Hazard.Voxel(new VoxelContact(kind, contact.bIsInside(search), witness, volumeMm3, contact.nMemUsage())));
+    }
+
+    private static Fin<(Seq<Hazard> Hazards, Seq<string> Warnings)> ProbeRobot(GuardProbe.Robot probe) =>
+        toSeq(probe.Program.Errors) is var errors && !errors.IsEmpty
+            ? Fin.Fail<(Seq<Hazard>, Seq<string>)>(new FabricationFault.Unreachable(
+                new JointDiagnostic.Configuration(string.Join('|', errors), "guard:robot-program"), 0).ToError())
+            : Try.lift<Fin<RobotCollisionEvidence>>(() => probe.Provider.Check(new RobotCollisionQuery(
+                    probe.Program, probe.First, probe.Second, probe.Environment, probe.EnvironmentPlane,
+                    probe.LinearStepMm, probe.AngularStepRad)))
+                .Run()
+                .MapFail(error => new FabricationFault.Unreachable(
+                    new JointDiagnostic.Configuration(error.Message, nameof(IRobotCollisionProvider)), 0).ToError())
+                .Bind(static collision => collision)
+                .Bind(collision => AdmitRobotEvidence(probe, collision).Switch(
+                    accepted: static row => Fin.Succ((
+                        row.HasCollision
+                            ? Seq<Hazard>(new Hazard.Robot(new RobotContact(
+                                row.Target,
+                                row.Meshes,
+                                row.Targets,
+                                row.DurationSeconds,
+                                row.Warnings)))
+                            : Seq<Hazard>(),
+                        row.Warnings)),
+                    refused: static row => Fin.Fail<(Seq<Hazard>, Seq<string>)>(
+                        new FabricationFault.Unreachable(
+                            new JointDiagnostic.Configuration(row.Field, nameof(IRobotCollisionProvider)), 0).ToError())));
+
+    private static RobotCollisionAdmission AdmitRobotEvidence(
+        GuardProbe.Robot probe,
+        RobotCollisionEvidence collision) {
+        if (collision is null)
+            return new RobotCollisionAdmission.Refused("guard:robot-evidence:null");
+        if (collision.Meshes < 0)
+            return new RobotCollisionAdmission.Refused("guard:robot-evidence:meshes");
+        if (!double.IsFinite(probe.Program.Duration) || probe.Program.Duration < 0.0)
+            return new RobotCollisionAdmission.Refused("guard:robot-evidence:duration");
+        if (probe.Program.Targets.Count < 1)
+            return new RobotCollisionAdmission.Refused("guard:robot-evidence:targets");
+        if (collision.HasCollision && string.IsNullOrWhiteSpace(collision.Target))
+            return new RobotCollisionAdmission.Refused("guard:robot-evidence:target");
+        return new RobotCollisionAdmission.Accepted(
+            collision.HasCollision,
+            collision.Target,
+            collision.Meshes,
+            probe.Program.Targets.Count,
+            probe.Program.Duration,
+            toSeq(probe.Program.Warnings) + collision.Warnings);
+    }
+
+    private static Fin<Seq<Loop>> Offset(Loop path, double distance, OffsetPolicy policy) =>
+        PolygonAlgebra.Apply(new PolygonOp.Offset(Seq(path), new OffsetField.Uniform(distance), policy), Op.Of())
+            .Bind(static trace => trace is PolygonTrace.Regions regions
+                ? Fin.Succ(regions.Result.Nodes.Filter(static node => !node.IsHole).Map(static node => node.Boundary))
+                : Fin.Fail<Seq<Loop>>(Op.Of(name: nameof(Offset)).InvalidResult()));
+
+    private static Fin<Seq<ContactWitness>> Intersections(Seq<Loop> subject, Seq<Loop> clip) =>
+        subject.IsEmpty || clip.IsEmpty
+            ? Fin.Succ(Seq<ContactWitness>())
+            : PolygonAlgebra.Apply(new PolygonOp.Boolean(subject, clip, PolygonBoolean.Intersection, PolygonFill.NonZero), Op.Of())
+                .Bind(static trace => trace is PolygonTrace.Regions regions
+                    ? Fin.Succ(regions.Result.Nodes.Filter(static node => !node.IsHole)
+                        .Map(static node => new ContactWitness(node.Boundary.At(0), Math.Abs(node.SignedArea))))
+                    : Fin.Fail<Seq<ContactWitness>>(Op.Of(name: nameof(Intersections)).InvalidResult()));
 }
-```
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-  accTitle: Fail-closed motion guard
-  accDescr: Distinct cutter and holder envelopes test protected geometry, fixed obstacles, stock, and channel clearance before producing one typed verdict.
-  Move["Move + committed cursor → arc-true trajectory"] --> Sweep["distinct round-end cutter and holder sweeps"]
-  Assembly["ToolAssembly → Fin&lt;Loop&gt;"] --> Sweep
-  Proof["HolderOmissionProof → conservative Loop"] --> Sweep
-  Sweep -->|cutter only| Protected["protected geometry → Gouge"]
-  Sweep -->|cutter + holder| Fixed["fixtures + static keep-outs → Collision"]
-  Sweep -->|"holder on feed; cutter + holder on rapid"| Current["current stock → Collision + contact cause"]
-  Channel["CurveSkeleton clearance sampled over full trajectory"] --> Check["Guard.Check"]
-  Protected --> Check
-  Fixed --> Check
-  Current --> Check
-  Check --> Verdict["Fin&lt;Verdict&gt;"]
-  linkStyle 3,4,5,7,8,9 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-  classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-  classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-  class Move,Channel boundary
-  class Assembly,Proof external
-  class Sweep,Check primary
-  class Protected,Fixed,Current error
-  class Verdict boundary
 ```

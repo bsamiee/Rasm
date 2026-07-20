@@ -1,95 +1,276 @@
 # [RASM_FABRICATION_MANUFACTURABILITY]
 
-The cross-modality DfM owner folds an `AdmittedComponent` and input-carried `DfmPolicy` evidence into typed producibility receipts through one `Assess` entry. Removal, additive, formed, joined, shared-wall, and tolerance-capability lanes preserve their `Fin` faults as `Validation`, join applicatively, and lower once, so one kernel failure never suppresses an independent lane. The policy carries the admitted modality-physics map, machine approach vectors, and demanded-frame capability rows; no string property lookup or caller-faith achievable scalar enters the fold. Each `DfmCheck` owns its `DfmMeasureKind`, and process-specific tolerance blockers carry `DfmLocus.AtProcess`, so routing interprets every scalar and applies evidence only to its process.
+`Manufacturability` owns evidence-backed producibility from admitted component geometry and supplied domain observations through parameterized rule evaluation, remediation, process-requirement ranking, assembly precheck, and one terminal `DfmReport`. Missing, insufficient-confidence, or incomparable evidence remains an explicit gate state; no absent lane reads as conforming.
 
-Process routing is the second product of the same fold: one `RoutingRow` per `ProcessKind` is viable only when its class lane is admitted, the policy physics map contains its modality, its general blockers are empty, and no `AtProcess` tolerance blocker targets it. `Kinematics/fleet` remains the machine-capability owner. Stackup feasibility remains the assembly-chain pre-check, while correlated distribution stackup stays `Spec/capability`. `Additive/support` keeps layer-exact overhang truth, `Fixturing/assembly` keeps approach derivation and holding standoff, and `Forming/sheet` keeps unfold-time bend-radius enforcement.
-
-Wire posture: HOST-LOCAL. `DfmReport` crosses only the in-process seam to the derivation orchestrator, the traveler fan-in, and the capability gate — never a browser or peer wire; no verdict row sits between wire and rail. Rendering is the artifacts plane's: this page never draws, annotates, or emits a document.
+`Analyze`, `Offsetting`, and `Spatial` remain geometry-kernel owners. `Capability.Achievable` owns process-history projection through the qualifying row's own `ItGrade`, `Tolerance.Apply(ToleranceRequest.Effective)` owns material-condition departure and virtual condition, `ProcedureReceipt.Qualified` owns weld-procedure compliance, `ModalityPhysics` owns process physics, and `Kinematics/fleet` owns machine matching. `DfmReport.Routing` crosses the derivation seam as ranked `ProcessKind` evidence.
 
 ## [01]-[INDEX]
 
-- [01]-[MANUFACTURABILITY]: owns severity, measure, check, and locus vocabularies; the policy evidence carrier; the verdict/routing/report receipt family; and the one `Manufacturability.Assess` fold over applicative lanes, shared wall evidence, process routing, tolerance capability, and stackup pre-check.
+- [02]-[MANUFACTURABILITY]: `Manufacturability.Assess` admits one `DfmRequest`, composes derived and supplied observations, evaluates parameterized policy rows per process, projects process requirements, ranks viable processes, and emits one `DfmReport`.
 
 ## [02]-[MANUFACTURABILITY]
 
-- Owner: `DfmSeverity` owns gate posture; `DfmMeasureKind` owns scalar interpretation; `DfmCheck` binds applicability and measure; `DfmLocus` owns point/edge/face/joint/process/global sites; `DfmPolicy` carries thresholds plus approach, physics, and tolerance evidence; `DfmVerdict`, `RoutingRow`, and `DfmReport` are the receipt family; `Manufacturability.Assess` is the sole fold.
-- Cases: `DfmSeverity` rows 3; `DfmMeasureKind` rows 4; `DfmCheck` rows 14 — lane admission, geometry evidence, material physics, draft, undercut, tool access, aspect ratio, corner radius, minimum wall, bend radius, weld access, overhang, integrity, and tolerance capability; `DfmLocus` cases 6. Formed evidence exists only when both sheet thickness and forming physics exist, while missing joined or additive geometry is a typed failure rather than clear access.
-- Entry: `public static Fin<DfmReport> Assess(AdmittedComponent component, DfmPolicy policy)` — the ONE cross-modality fold; `Fin<T>` routes only composed kernel failures (`GeometryFault` band-2400 pass-through) — a failed spatial build or ray query PROPAGATES as typed failure, never reads as clear access; an infeasible component is a REPORT full of blockers, never a fault — `Process/derivation` reads the report and routes its own `RoutingInfeasible` 2730 when routing exhausts.
-- Auto: `Assess` joins policy admission plus six validation lanes, derives routing from typed geometry evidence, the admitted physics map, and process-targeted blockers, and folds the connection stackup pre-check. Removal composes `Faces.Bottom`, isolated native face normals, normalized approach-vector `SpatialQuery.Ray` probes, and straight and bulged concave corners. The shared wall census is total over admitted geometry — one `OffsetOp.Medial` query per profile, the sheet-thickness fast-check, and one inward centroid ray probe per mesh face — so a mesh-only removal or additive shape still lands `MinWall` evidence or a typed lane failure, never a silent pass. Formed compares bulge radii with input-carried forming physics. Joined and additive propagate absent required geometry, build failures, and query failures. Tolerance capability spends MMC/LMC departure through `Tolerance.Effective` and blocks only the targeted process when historical achievable width exceeds the effective demanded zone.
-- Receipt: `DfmReport` IS the evidence — typed verdict rows with measured/bound scalars and typed loci, routing rows with typed blocker sets, one stackup boolean; no score-only summary, no generic issue list, no string diagnosis.
-- Packages: `Rasm.Analysis` (`Analyze.Run`/`AnalysisQuery`, `Faces.Bottom`, `Meshes.Defects`), `Rasm.Meshing` (`Offsetting.Apply`, `OffsetOp.Medial`), `Rasm.Spatial` (`Spatial.Apply`, `SpatialQuery.Ray`), `Rasm.Domain` (`Op`), `Process/owner`, `Process/family`, `Process/physics` (`ModalityPhysics`), `Spec/tolerance` (`FeatureControl`, `Tolerance.Effective`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Validation`/`TraverseM`/`Apply`), RhinoCommon, BCL inbox.
-- Growth: a new producibility concern is one `DfmCheck` row plus one lane term; a new scalar class is one `DfmMeasureKind` row; a new process-targeted concern uses `DfmLocus.AtProcess`. Feature recognition remains gated on signed per-edge concavity, analytic face classification, and exposed face adjacency in the kernel; zero new entrypoints.
-- Boundary: ONE DfM surface — per-modality `MillingDfm`/`PrintabilityChecker`/`WeldabilityAudit` siblings are the deleted form; verdicts are receipts and a fault arm for "hard to make" is the named misuse (the receipts-only law — hard gates belong to the owning folds); a spatial failure mapped to a clear-access verdict is the named seam-erasure defect — build and query failures stay on the rail; the routing row answers process viability and a machine join here is fleet's stolen concern; kernel geometry composes at the verified fronts and a second medial, normal classifier, or ray walker is the named re-implementation defect; rendering is the artifacts plane's and a drawing/annotation emission here is the boundary violation; a `DfmCheck` re-encoding modality (a `mill-draft` beside `draft`) is the deleted axis-duplication.
+- Owner: `DfmConcern` and `DfmFeature` close domain vocabulary; `DfmMeasure` and `DfmCriterion` close typed comparison; `DfmRule` parameterizes applicability, evidence obligation, minimum confidence, severity, and remediation; `DfmObservation` preserves measured evidence and provenance.
+- Provenance: `DfmProvenance` owns the evidence-key namespace and the confidence each derivation route earns, so an analytic measurement, a sampled medial axis, and a ray probe are never equally trusted and no lane spells a key literal.
+- Gate: `DfmVerdict.Gates` defers every consequence to `DfmSeverity`, and `DfmPolicy` admission proves each required concern carries a gating rule — the telos that no absent lane reads as conforming holds structurally instead of by outcome-kind override.
+- Routing: `RouteObjective` rows carry their own yield-adjusted measurement and weight selector, so `RouteScore` folds `RouteColumn` values and a new routing dimension is one row with no scoring expression re-spelled.
+- Cases: removal covers access, draft, undercut, feature depth, corner radius, thread, finish, stock, datum, and inspection constraints; additive covers feature size, wall, overhang, bridge, enclosed volume, escape, support removal, recoater, anisotropy, thermal, and integrity constraints; forming covers bend radius, edge and hole distance, flange, hem, draw, grain, tonnage, springback, and thinning constraints; joining covers access, root gap, throat, heat input, distortion, qualification, inspection, and assembly constraints.
+- Entry: `Manufacturability.Assess(DfmRequest)` is the sole cross-modality fold. Geometry, capability, supplied evidence, and assembly allowances join applicatively; kernel failures remain typed `Fin` failures, while producibility failures remain report rows.
+- Auto: `DfmPolicy` proves every required concern has a generic or process-specific gating rule; `DfmCriterion.Evaluate` compares unit-bearing, count, ratio, and flag measures; `RouteCandidate.Encloses` derives the envelope concern from the candidate's own work volume, so a mesh-only part is never blocked for want of supplied envelope evidence; approach rows derive removal, joining, and build-orientation evidence; `ProcedureReceipt.Qualified` derives the joined-process qualification concern; `TraverseM`, `Apply`, `Choose`, and `Fold` own collection flow; `Capability.Achievable` and `Tolerance.Apply(ToleranceRequest.Effective)` derive achievable-tolerance and virtual-condition observations.
+- Degradation: a degenerate profile, an unresolvable medial axis, or absent history contributes no observation rather than failing the report, so producibility gaps stay report rows and only kernel faults leave the rail.
+- Receipt: `DfmVerdict` preserves process, confidence outcome, observation, criterion, locus, and remedy; `RoutingRow` preserves blockers, requirements, and the `RouteScore` column set whose `Worst` names the dominant burden; `StackupPrecheck` preserves required and observed allowance counts with worst-case evidence; `DfmReport` preserves the full decision basis.
+- Packages: `Loop.Apply` composes CavalierContours arc-native measurement and sampling; `PolygonAlgebra.Apply` composes Clipper2 topology; `DfmPackageEvidence.Cutter` carries OpenCAMLib cutter-contact evidence against canonical `ToolEvidence`; `DfmPackageEvidence.Voxel` carries PicoGK morphology, membership, ray, and solid-property evidence; UnitsNet owns every physical comparison; Thinktecture and LanguageExt own generated values and the accumulated rail.
+- Growth: a concern is one `DfmConcern` seed; a feature is one `DfmFeature` seed; a policy variation is one `DfmRule` row; a process candidate is one `RouteCandidate` row; a routing dimension is one `RouteObjective` row; a derivation route is one `DfmProvenance` row; no entrypoint or verdict case grows.
+- Boundary: sidecar OpenCAMLib and PicoGK owners lower native handles into `DfmPackageEvidence.Cutter` and `DfmPackageEvidence.Voxel` before this host-local owner consumes them. Routing ranks process requirements and evidence, while fleet matching, tool selection, support generation, unfolding, joining sequence, correlated stackup, rendering, and persistence remain downstream owners.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
-using Rasm.Analysis;                      // Analyze.Run · AnalysisQuery · Faces.Bottom · Meshes.Defects census
+using LanguageExt.Common;
+using NodaTime;
+using Rasm.Analysis;
 using Rasm.Domain;
-using Rasm.Fabrication.Process;           // AdmittedComponent · ModalityClass · ProcessModality · ProcessKind · Material · ModalityPhysics
-using Rasm.Meshing;                       // MeshSpace · Offsetting.Apply · OffsetOp.Medial · ClearanceNode (K1)
-using Rasm.Spatial;                       // SpatialIndex · SpatialQuery.Ray
+using Rasm.Fabrication.Geometry2D;
+using Rasm.Fabrication.Joining;
+using Rasm.Fabrication.Process;
+using Rasm.Meshing;
+using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Spec;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DfmSeverity {
-    public static readonly DfmSeverity Advisory = new("advisory", gate: false);
-    public static readonly DfmSeverity Warning = new("warning", gate: false);
-    public static readonly DfmSeverity Blocker = new("blocker", gate: true);
+    public static readonly DfmSeverity Advisory = new("advisory", gate: false, penalty: 1.0);
+    public static readonly DfmSeverity Warning = new("warning", gate: false, penalty: 3.0);
+    public static readonly DfmSeverity Blocker = new("blocker", gate: true, penalty: 10.0);
+
+    public bool Gate { get; }
+    public double Penalty { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class DfmOutcome {
+    public static readonly DfmOutcome Conforming = new("conforming", gate: false);
+    public static readonly DfmOutcome Nonconforming = new("nonconforming", gate: true);
+    public static readonly DfmOutcome MissingEvidence = new("missing-evidence", gate: true);
+    public static readonly DfmOutcome InsufficientConfidence = new("insufficient-confidence", gate: true);
+    public static readonly DfmOutcome IncomparableEvidence = new("incomparable-evidence", gate: true);
 
     public bool Gate { get; }
 }
 
-// One check row per concern; the Classes set selects it into lanes — never a per-modality check sibling.
 [SmartEnum<string>]
-public sealed partial class DfmMeasureKind {
-    public static readonly DfmMeasureKind LengthMm = new("mm");
-    public static readonly DfmMeasureKind AngleDeg = new("deg");
-    public static readonly DfmMeasureKind Ratio = new("ratio");
-    public static readonly DfmMeasureKind Count = new("count");
+public sealed partial class DfmFeature {
+    public static readonly DfmFeature Part = new("part");
+    public static readonly DfmFeature Stock = new("stock");
+    public static readonly DfmFeature Envelope = new("envelope");
+    public static readonly DfmFeature Surface = new("surface");
+    public static readonly DfmFeature Wall = new("wall");
+    public static readonly DfmFeature Rib = new("rib");
+    public static readonly DfmFeature Boss = new("boss");
+    public static readonly DfmFeature Hole = new("hole");
+    public static readonly DfmFeature Pocket = new("pocket");
+    public static readonly DfmFeature Slot = new("slot");
+    public static readonly DfmFeature Thread = new("thread");
+    public static readonly DfmFeature Datum = new("datum");
+    public static readonly DfmFeature Inspection = new("inspection");
+    public static readonly DfmFeature Bend = new("bend");
+    public static readonly DfmFeature Flange = new("flange");
+    public static readonly DfmFeature Hem = new("hem");
+    public static readonly DfmFeature Draw = new("draw");
+    public static readonly DfmFeature Joint = new("joint");
+    public static readonly DfmFeature Overhang = new("overhang");
+    public static readonly DfmFeature Bridge = new("bridge");
+    public static readonly DfmFeature EnclosedVolume = new("enclosed-volume");
+    public static readonly DfmFeature Lattice = new("lattice");
+    public static readonly DfmFeature Support = new("support");
+    public static readonly DfmFeature Setup = new("setup");
+    public static readonly DfmFeature Assembly = new("assembly");
 }
 
 [SmartEnum<string>]
-public sealed partial class DfmCheck {
-    public static readonly DfmCheck LaneAdmission = new(
-        "lane-admission",
-        Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined),
-        DfmMeasureKind.Count);
-    public static readonly DfmCheck GeometryEvidence = new(
-        "geometry-evidence",
-        Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined),
-        DfmMeasureKind.Count);
-    public static readonly DfmCheck MaterialPhysics = new(
-        "material-physics",
-        Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined),
-        DfmMeasureKind.Count);
-    public static readonly DfmCheck Draft = new("draft", Set(ModalityClass.Removal), DfmMeasureKind.AngleDeg);
-    public static readonly DfmCheck Undercut = new("undercut", Set(ModalityClass.Removal), DfmMeasureKind.AngleDeg);
-    public static readonly DfmCheck ToolAccess = new("tool-access", Set(ModalityClass.Removal), DfmMeasureKind.LengthMm);
-    public static readonly DfmCheck AspectRatio = new("aspect-ratio", Set(ModalityClass.Removal), DfmMeasureKind.Ratio);
-    public static readonly DfmCheck CornerRadius = new("corner-radius", Set(ModalityClass.Removal), DfmMeasureKind.LengthMm);
-    public static readonly DfmCheck MinWall = new("min-wall", Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed), DfmMeasureKind.LengthMm);
-    public static readonly DfmCheck BendRadius = new("bend-radius", Set(ModalityClass.Formed), DfmMeasureKind.LengthMm);
-    public static readonly DfmCheck WeldAccess = new("weld-access", Set(ModalityClass.Joined), DfmMeasureKind.AngleDeg);
-    public static readonly DfmCheck Overhang = new("overhang", Set(ModalityClass.Additive), DfmMeasureKind.AngleDeg);
-    public static readonly DfmCheck Integrity = new("integrity", Set(ModalityClass.Additive), DfmMeasureKind.Count);
-    public static readonly DfmCheck ToleranceCapability = new(
-        "tolerance-capability",
-        Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined),
-        DfmMeasureKind.LengthMm);
+public sealed partial class DfmConcern {
+    public static readonly DfmConcern GeometryEvidence = Any("geometry-evidence", required: true);
+    public static readonly DfmConcern MaterialEvidence = Any("material-evidence", required: true);
+    public static readonly DfmConcern ToleranceCapability = Any("tolerance-capability", required: true);
+    public static readonly DfmConcern MinimumFeature = Any("minimum-feature", required: true);
+    public static readonly DfmConcern MinimumWall = For("minimum-wall", true, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed);
+    public static readonly DfmConcern SolidVolume = Any("solid-volume", required: false);
+    public static readonly DfmConcern DatumAccess = Any("datum-access", required: true);
+    public static readonly DfmConcern InspectionAccess = Any("inspection-access", required: true);
+    public static readonly DfmConcern StandardSize = Any("standard-size", required: false);
+    public static readonly DfmConcern StockAllowance = For("stock-allowance", true, ModalityClass.Removal, ModalityClass.Formed);
+    public static readonly DfmConcern Envelope = Any("envelope", required: true);
+    public static readonly DfmConcern Draft = For("draft", true, ModalityClass.Removal);
+    public static readonly DfmConcern Undercut = For("undercut", true, ModalityClass.Removal);
+    public static readonly DfmConcern ToolAccess = For("tool-access", true, ModalityClass.Removal);
+    public static readonly DfmConcern DepthToDiameter = For("depth-to-diameter", true, ModalityClass.Removal);
+    public static readonly DfmConcern InternalCorner = For("internal-corner", true, ModalityClass.Removal);
+    public static readonly DfmConcern ThreadReach = For("thread-reach", true, ModalityClass.Removal);
+    public static readonly DfmConcern SurfaceFinish = For("surface-finish", true, ModalityClass.Removal, ModalityClass.Additive);
+    public static readonly DfmConcern Overhang = For("overhang", true, ModalityClass.Additive);
+    public static readonly DfmConcern Bridge = For("bridge", true, ModalityClass.Additive);
+    public static readonly DfmConcern TrappedVolume = For("trapped-volume", true, ModalityClass.Additive);
+    public static readonly DfmConcern EscapeAccess = For("escape-access", true, ModalityClass.Additive);
+    public static readonly DfmConcern SupportRemoval = For("support-removal", true, ModalityClass.Additive);
+    public static readonly DfmConcern RecoaterClearance = For("recoater-clearance", true, ModalityClass.Additive);
+    public static readonly DfmConcern Anisotropy = For("anisotropy", true, ModalityClass.Additive);
+    public static readonly DfmConcern ThermalDistortion = For("thermal-distortion", true, ModalityClass.Additive, ModalityClass.Joined);
+    public static readonly DfmConcern Integrity = For("integrity", true, ModalityClass.Additive);
+    public static readonly DfmConcern BendRadius = For("bend-radius", true, ModalityClass.Formed);
+    public static readonly DfmConcern BendEdgeDistance = For("bend-edge-distance", true, ModalityClass.Formed);
+    public static readonly DfmConcern BendHoleDistance = For("bend-hole-distance", true, ModalityClass.Formed);
+    public static readonly DfmConcern FlangeLength = For("flange-length", true, ModalityClass.Formed);
+    public static readonly DfmConcern HemGap = For("hem-gap", true, ModalityClass.Formed);
+    public static readonly DfmConcern DrawRatio = For("draw-ratio", true, ModalityClass.Formed);
+    public static readonly DfmConcern GrainDirection = For("grain-direction", true, ModalityClass.Formed);
+    public static readonly DfmConcern Tonnage = For("tonnage", true, ModalityClass.Formed);
+    public static readonly DfmConcern Springback = For("springback", true, ModalityClass.Formed);
+    public static readonly DfmConcern Thinning = For("thinning", true, ModalityClass.Formed);
+    public static readonly DfmConcern WeldAccess = For("weld-access", true, ModalityClass.Joined);
+    public static readonly DfmConcern RootGap = For("root-gap", true, ModalityClass.Joined);
+    public static readonly DfmConcern Throat = For("throat", true, ModalityClass.Joined);
+    public static readonly DfmConcern HeatInput = For("heat-input", true, ModalityClass.Joined);
+    public static readonly DfmConcern ProcedureQualification = For("procedure-qualification", true, ModalityClass.Joined);
+    public static readonly DfmConcern JointInspection = For("joint-inspection", true, ModalityClass.Joined);
+    public static readonly DfmConcern AssemblyAccess = For("assembly-access", true, ModalityClass.Joined);
+    public static readonly DfmConcern AssemblyStackup = Any("assembly-stackup", required: false);
 
     public Set<ModalityClass> Classes { get; }
-    public DfmMeasureKind Measure { get; }
+    public bool Required { get; }
 
     public bool AppliesTo(ModalityClass cls) => Classes.Contains(cls);
+
+    private static DfmConcern Any(string key, bool required) =>
+        For(key, required, ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined);
+
+    private static DfmConcern For(string key, bool required, params ModalityClass[] classes) =>
+        new(key, toSet(classes), required);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+[ValueObject<string>]
+public readonly partial struct DfmEvidenceKey {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+            validationError = ValidationError.Create("DfmEvidenceKey cannot be empty.");
+    }
+}
+
+// Derivation route owns both the evidence-key namespace and the confidence a measurement of that kind carries.
+[SmartEnum<string>]
+public sealed partial class DfmProvenance {
+    public static readonly DfmProvenance Analytic = new("analytic", confidence: 1.0);
+    public static readonly DfmProvenance Policy = new("policy", confidence: 1.0);
+    public static readonly DfmProvenance Package = new("package", confidence: 1.0);
+    public static readonly DfmProvenance History = new("capability-history", confidence: 1.0);
+    public static readonly DfmProvenance Qualification = new("qualification", confidence: 1.0);
+    public static readonly DfmProvenance Sampled = new("sampled", confidence: 0.9);
+    public static readonly DfmProvenance Probed = new("probed", confidence: 0.75);
+
+    public double Confidence { get; }
+
+    public Fin<DfmEvidenceKey> Evidence(DfmConcern concern, Option<ProcessKind> process) =>
+        DfmEvidenceKey.Validate(
+            process.Match(Some: candidate => $"{Key}:{concern.Key}:{candidate.Key}", None: () => $"{Key}:{concern.Key}"),
+            provider: null,
+            out DfmEvidenceKey admitted) is { }
+                ? Fin.Fail<DfmEvidenceKey>(Manufacturability.DfmOp.InvalidInput())
+                : Fin.Succ(admitted);
+}
+
+// One weighted, yield-adjusted objective per row: a new routing dimension is a row, and no scoring expression is re-spelled.
+[SmartEnum<string>]
+public sealed partial class RouteObjective {
+    public static readonly RouteObjective Quality = new("quality",
+        static (weight, _, lane) => lane.Fold(0.0, static (sum, verdict) => sum
+                + (verdict.Outcome == DfmOutcome.Conforming ? 0.0 : verdict.Rule.Severity.Penalty * verdict.Rule.Weight))
+            / weight.QualityReference,
+        static weight => weight.Quality);
+    public static readonly RouteObjective Time = new("time",
+        static (weight, candidate, _) => candidate.CycleTime.Seconds / (weight.TimeReference.Seconds * candidate.YieldRate),
+        static weight => weight.Time);
+    public static readonly RouteObjective Waste = new("waste",
+        static (weight, candidate, _) => candidate.Waste.Kilograms / (weight.WasteReference.Kilograms * candidate.YieldRate),
+        static weight => weight.Waste);
+    public static readonly RouteObjective Energy = new("energy",
+        static (weight, candidate, _) => candidate.Energy.Joules / (weight.EnergyReference.Joules * candidate.YieldRate),
+        static weight => weight.Energy);
+    public static readonly RouteObjective Risk = new("risk",
+        static (_, candidate, _) => candidate.Risk,
+        static weight => weight.Risk);
+
+    public Func<RouteWeight, RouteCandidate, Seq<DfmVerdict>, double> Measure { get; }
+    public Func<RouteWeight, double> Weight { get; }
+}
+
+// --- [MEASUREMENT] --------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DfmMeasure {
+    private DfmMeasure() { }
+
+    public sealed record Quantity(IQuantity Value) : DfmMeasure;
+    public sealed record Ratio(double Value) : DfmMeasure;
+    public sealed record Count(int Value) : DfmMeasure;
+    public sealed record Flag(bool Value) : DfmMeasure;
+
+    public bool IsValid => Switch(
+        quantity: static quantity => quantity.Value is not null && double.IsFinite(quantity.Value.Value),
+        ratio: static ratio => double.IsFinite(ratio.Value),
+        count: static count => count.Value >= 0,
+        flag: static _ => true);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DfmCriterion {
+    private DfmCriterion() { }
+
+    public sealed record Minimum(DfmMeasure Bound) : DfmCriterion;
+    public sealed record Maximum(DfmMeasure Bound) : DfmCriterion;
+    public sealed record Band(DfmMeasure Lower, DfmMeasure Upper) : DfmCriterion;
+    public sealed record Required() : DfmCriterion;
+    public sealed record Forbidden() : DfmCriterion;
+
+    public bool IsValid => Switch(
+        minimum: static criterion => criterion.Bound is not null && criterion.Bound.IsValid,
+        maximum: static criterion => criterion.Bound is not null && criterion.Bound.IsValid,
+        band: static criterion => criterion.Lower is not null && criterion.Lower.IsValid
+            && criterion.Upper is not null && criterion.Upper.IsValid
+            && Compare(criterion.Lower, criterion.Upper).Exists(static order => order <= 0),
+        required: static _ => true,
+        forbidden: static _ => true);
+
+    public Option<bool> Evaluate(DfmMeasure measured) =>
+        Switch(
+            state: measured,
+            minimum: static (value, criterion) => Compare(value, criterion.Bound).Map(order => order >= 0),
+            maximum: static (value, criterion) => Compare(value, criterion.Bound).Map(order => order <= 0),
+            band: static (value, criterion) =>
+                from lower in Compare(value, criterion.Lower)
+                from upper in Compare(value, criterion.Upper)
+                select lower >= 0 && upper <= 0,
+            required: static (value, _) => value is DfmMeasure.Flag flag ? Some(flag.Value) : None,
+            forbidden: static (value, _) => value is DfmMeasure.Flag flag ? Some(!flag.Value) : None);
+
+    private static Option<int> Compare(DfmMeasure left, DfmMeasure right) =>
+        (left, right) switch {
+            (DfmMeasure.Quantity a, DfmMeasure.Quantity b) when a.Value is not null && b.Value is not null
+                && a.Value.QuantityInfo.Name == b.Value.QuantityInfo.Name
+                && a.Value.QuantityInfo.BaseDimensions == b.Value.QuantityInfo.BaseDimensions =>
+                Some(a.Value.As(UnitSystem.SI).CompareTo(b.Value.As(UnitSystem.SI))),
+            (DfmMeasure.Ratio a, DfmMeasure.Ratio b) => Some(a.Value.CompareTo(b.Value)),
+            (DfmMeasure.Count a, DfmMeasure.Count b) => Some(a.Value.CompareTo(b.Value)),
+            (DfmMeasure.Flag a, DfmMeasure.Flag b) => Some(a.Value.CompareTo(b.Value)),
+            _ => None,
+        };
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DfmLocus {
     private DfmLocus() { }
@@ -97,379 +278,989 @@ public abstract partial record DfmLocus {
     public sealed record AtPoint(Point3d Point) : DfmLocus;
     public sealed record AtEdge(Edge3 Edge) : DfmLocus;
     public sealed record AtFace(int Face) : DfmLocus;
+    public sealed record AtRegion(BoundingBox Bounds) : DfmLocus;
+    public sealed record AtVolume(BoundingBox Bounds) : DfmLocus;
+    public sealed record AtFeature(DfmFeature Feature, UInt128 Key) : DfmLocus;
+    public sealed record AtDatum(UInt128 Key) : DfmLocus;
+    public sealed record AtLayer(int Layer) : DfmLocus;
     public sealed record AtJoint(int Joint) : DfmLocus;
+    public sealed record AtSetup(int Setup) : DfmLocus;
     public sealed record AtProcess(ProcessKind Process) : DfmLocus;
     public sealed record Global() : DfmLocus;
+
+    public bool IsValid => Switch(
+        atPoint: static locus => locus.Point.IsValid,
+        atEdge: static locus => locus.Edge.A.IsValid && locus.Edge.B.IsValid && locus.Edge.A.DistanceTo(locus.Edge.B) > 0.0,
+        atFace: static locus => locus.Face >= 0,
+        atRegion: static locus => locus.Bounds.IsValid,
+        atVolume: static locus => locus.Bounds.IsValid,
+        atFeature: static locus => locus.Feature is not null && locus.Key != 0,
+        atDatum: static locus => locus.Key != 0,
+        atLayer: static locus => locus.Layer >= 0,
+        atJoint: static locus => locus.Joint >= 0,
+        atSetup: static locus => locus.Setup >= 0,
+        atProcess: static locus => locus.Process is not null,
+        global: static _ => true);
 }
 
-// Threshold row: every bound a lane reads is a policy datum; OverhangCriticalDeg aligns with SupportPolicy.CriticalAngleDeg by seed, not by reference.
-public sealed record DfmPolicy(
-    double MinDraftDeg,
-    double AccessConeHalfAngleDeg,
-    double MinWallMm,
-    double MinInternalCornerRadiusMm,
-    double MaxDepthToDiameter,
-    double OverhangCriticalDeg,
-    double TorchConeHalfAngleDeg,
-    double StackupAllowancePerJointMm,
-    double StackupBoundMm,
-    double ProbeReachMm,
-    Arr<Vector3d> ToolApproaches,
-    Map<ProcessModality, ModalityPhysics> Physics,
-    Seq<(FeatureControl Frame, ProcessKind Process, double AchievableMm, double DepartureMm)> Tolerances,
-    Set<ModalityClass> Lanes) {
-    public static DfmPolicy Canonical =>
-        new(
-            2.0, 30.0, 1.0, 1.0, 4.0, 45.0, 35.0, 0.5, 3.0, 500.0,
-            Arr(Vector3d.ZAxis), Map<ProcessModality, ModalityPhysics>(),
-            Seq<(FeatureControl Frame, ProcessKind Process, double AchievableMm, double DepartureMm)>(),
-            Set(ModalityClass.Removal, ModalityClass.Additive, ModalityClass.Formed, ModalityClass.Joined));
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DfmRemedy {
+    private DfmRemedy() { }
+
+    public sealed record Adjust(DfmFeature Feature, DfmCriterion Target) : DfmRemedy;
+    public sealed record Reorient(Vector3d Direction) : DfmRemedy;
+    public sealed record ChangeProcess(Set<ProcessKind> Candidates) : DfmRemedy;
+    public sealed record Split(DfmLocus Locus) : DfmRemedy;
+    public sealed record AddAccess(DfmFeature Feature) : DfmRemedy;
+    public sealed record Qualify(DfmConcern Concern) : DfmRemedy;
+    public sealed record Review(DfmConcern Concern) : DfmRemedy;
+
+    public bool IsValid => Switch(
+        adjust: static remedy => remedy.Feature is not null && remedy.Target is not null && remedy.Target.IsValid,
+        reorient: static remedy => remedy.Direction.IsValid && remedy.Direction.Length > 0.0,
+        changeProcess: static remedy => !remedy.Candidates.IsEmpty && remedy.Candidates.ForAll(static process => process is not null),
+        split: static remedy => remedy.Locus is not null && remedy.Locus.IsValid,
+        addAccess: static remedy => remedy.Feature is not null,
+        qualify: static remedy => remedy.Concern is not null,
+        review: static remedy => remedy.Concern is not null);
 }
 
-public sealed record DfmVerdict(DfmCheck Check, DfmSeverity Severity, DfmLocus Locus, double Measured, double Bound);
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+[ComplexValueObject]
+public sealed partial class DfmRule {
+    public DfmConcern Concern { get; }
+    public Set<DfmFeature> Features { get; }
+    public Set<ModalityClass> Classes { get; }
+    public DfmCriterion Criterion { get; }
+    public DfmSeverity Severity { get; }
+    public Option<ProcessKind> Process { get; }
+    public DfmRemedy Remedy { get; }
+    public double Weight { get; }
+    public double MinimumConfidence { get; }
+    public bool EvidenceRequired { get; }
 
-public sealed record RoutingRow(ProcessKind Process, bool Viable, Seq<DfmCheck> Blockers, int Friction);
+    public bool AppliesTo(RouteCandidate candidate) => candidate is not null
+        && Classes.Contains(candidate.Process.Modality.Class)
+        && Process.ForAll(selected => selected == candidate.Process)
+        && Features.Exists(candidate.Features.Contains);
 
-public sealed record DfmReport(UInt128 ComponentKey, Seq<DfmVerdict> Verdicts, Seq<RoutingRow> Rows, bool StackupPrecheck) {
-    public Seq<DfmVerdict> Blockers(ModalityClass cls) => Verdicts.Filter(v => v.Severity.Gate && v.Check.AppliesTo(cls));
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref DfmConcern concern,
+        ref Set<DfmFeature> features,
+        ref Set<ModalityClass> classes,
+        ref DfmCriterion criterion,
+        ref DfmSeverity severity,
+        ref Option<ProcessKind> process,
+        ref DfmRemedy remedy,
+        ref double weight,
+        ref double minimumConfidence,
+        ref bool evidenceRequired) {
+        if (concern is null || criterion is null || !criterion.IsValid || severity is null || remedy is null || !remedy.IsValid
+            || features.IsEmpty || features.Exists(static feature => feature is null)
+            || classes.IsEmpty || classes.Exists(cls => cls is null || !concern.Classes.Contains(cls))
+            || process.Exists(candidate => !classes.Contains(candidate.Modality.Class))
+            || !double.IsFinite(weight) || weight <= 0.0 || !double.IsFinite(minimumConfidence) || minimumConfidence is < 0.0 or > 1.0)
+            validationError = ValidationError.Create("DfmRule requires feature and class coverage plus positive finite weight.");
+    }
+}
 
-    // THE derivation contract: the RANKED viable-process sequence (least advisory/warning friction first);
-    // empty ⇒ derivation routes ITS RoutingInfeasible 2730 at the routing stage. Rows keep the typed blocker evidence.
-    public Seq<ProcessKind> Routing => Rows.Filter(r => r.Viable).OrderBy(r => r.Friction).ToSeq().Map(r => r.Process);
+[ComplexValueObject]
+public sealed partial class DfmObservation {
+    public DfmConcern Concern { get; }
+    public DfmFeature Feature { get; }
+    public DfmMeasure Measure { get; }
+    public Option<DfmCriterion> Criterion { get; }
+    public DfmLocus Locus { get; }
+    public Option<ProcessKind> Process { get; }
+    public DfmEvidenceKey Evidence { get; }
+    public DfmProvenance Provenance { get; }
+    public double Confidence => Provenance.Confidence;
+    public Instant At { get; }
 
-    public bool Feasible(ModalityClass cls) => Blockers(cls).IsEmpty;
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref DfmConcern concern,
+        ref DfmFeature feature,
+        ref DfmMeasure measure,
+        ref Option<DfmCriterion> criterion,
+        ref DfmLocus locus,
+        ref Option<ProcessKind> process,
+        ref DfmEvidenceKey evidence,
+        ref DfmProvenance provenance,
+        ref Instant at) {
+        bool evidenceOwned = provenance is not null && concern is not null
+            && !process.Exists(static value => value is null)
+            && provenance.Evidence(concern, process).Map(expected => expected == evidence).IfFail(false);
+        if (concern is null || feature is null || measure is null || locus is null || !locus.IsValid || !measure.IsValid
+            || criterion.Exists(static value => value is null || !value.IsValid)
+            || process.Exists(static value => value is null) || evidence == default || !evidenceOwned || at == default)
+            validationError = ValidationError.Create("DfmObservation requires provenance-owned evidence and an observation instant.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class RouteWeight {
+    public double Quality { get; }
+    public double Time { get; }
+    public double Waste { get; }
+    public double Energy { get; }
+    public double Risk { get; }
+    public double QualityReference { get; }
+    public Duration TimeReference { get; }
+    public Mass WasteReference { get; }
+    public Energy EnergyReference { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double quality,
+        ref double time,
+        ref double waste,
+        ref double energy,
+        ref double risk,
+        ref double qualityReference,
+        ref Duration timeReference,
+        ref Mass wasteReference,
+        ref Energy energyReference) {
+        Seq<double> weights = Seq(quality, time, waste, energy, risk);
+        if (weights.Exists(static value => !double.IsFinite(value) || value < 0.0)
+            || weights.Fold(0.0, static (sum, value) => sum + value) <= 0.0
+            || !double.IsFinite(qualityReference) || qualityReference <= 0.0
+            || !double.IsFinite(timeReference.Seconds) || timeReference.Seconds <= 0.0
+            || !double.IsFinite(wasteReference.Kilograms) || wasteReference.Kilograms <= 0.0
+            || !double.IsFinite(energyReference.Joules) || energyReference.Joules <= 0.0)
+            validationError = ValidationError.Create("RouteWeight requires nonnegative weights and positive normalization references.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class RouteCandidate {
+    public ProcessKind Process { get; }
+    public ModalityPhysics Physics { get; }
+    public CapabilityIdentity Capability { get; }
+    public bool MaterialCompatible { get; }
+    public Set<DfmFeature> Features { get; }
+    public Arr<Vector3d> Approaches { get; }
+    public BoundingBox WorkEnvelope { get; }
+    public Mass MassCapacity { get; }
+    public Duration CycleTime { get; }
+    public Mass Waste { get; }
+    public Energy Energy { get; }
+    public double Risk { get; }
+    public double YieldRate { get; }
+
+    // Envelope conformance is a candidate fact, so the required Envelope concern derives instead of waiting on supplied evidence.
+    public bool Encloses(BoundingBox part) =>
+        part.IsValid && WorkEnvelope.Contains(part.Min) && WorkEnvelope.Contains(part.Max);
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref ProcessKind process,
+        ref ModalityPhysics physics,
+        ref CapabilityIdentity capability,
+        ref bool materialCompatible,
+        ref Set<DfmFeature> features,
+        ref Arr<Vector3d> approaches,
+        ref BoundingBox workEnvelope,
+        ref Mass massCapacity,
+        ref Duration cycleTime,
+        ref Mass waste,
+        ref Energy energy,
+        ref double risk,
+        ref double yieldRate) {
+        bool congruent = process is not null && physics is not null && physics.Switch(
+            state: process.Physics,
+            subtractive: static (kind, _) => kind == PhysicsKind.Subtractive,
+            thermal: static (kind, _) => kind == PhysicsKind.Thermal,
+            abrasive: static (kind, _) => kind == PhysicsKind.Abrasive,
+            fff: static (kind, _) => kind == PhysicsKind.Fff,
+            deposition: static (kind, _) => kind == PhysicsKind.Deposition,
+            joining: static (kind, _) => kind == PhysicsKind.Joining,
+            erosion: static (kind, _) => kind == PhysicsKind.Erosion,
+            resin: static (kind, _) => kind == PhysicsKind.Resin,
+            powder: static (kind, _) => kind == PhysicsKind.Powder,
+            forming: static (kind, _) => kind == PhysicsKind.Forming);
+        if (!congruent || capability is null || capability.Process != process || capability.ToolState is null
+            || features.IsEmpty || features.Exists(static feature => feature is null)
+            || approaches.IsEmpty || approaches.Exists(static vector => !vector.IsValid || vector.Length <= 0.0)
+            || !workEnvelope.IsValid || workEnvelope.Volume <= 0.0
+            || !double.IsFinite(massCapacity.Kilograms) || massCapacity.Kilograms <= 0.0
+            || !double.IsFinite(cycleTime.Seconds) || cycleTime.Seconds < 0.0
+            || !double.IsFinite(waste.Kilograms) || waste.Kilograms < 0.0
+            || !double.IsFinite(energy.Joules) || energy.Joules < 0.0
+            || !double.IsFinite(risk) || risk is < 0.0 or > 1.0 || !double.IsFinite(yieldRate) || yieldRate is <= 0.0 or > 1.0)
+            validationError = ValidationError.Create("RouteCandidate requires supported features, approaches, a positive work envelope and mass capacity, bounded risk and yield, and nonnegative burdens.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class ToleranceDemand {
+    public FeatureControl Frame { get; }
+    public CapabilityIdentity Capability { get; }
+    public Length Departure { get; }
+    public DfmLocus Locus { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FeatureControl frame,
+        ref CapabilityIdentity capability,
+        ref Length departure,
+        ref DfmLocus locus) =>
+        validationError = frame is not null && capability is not null
+            && double.IsFinite(departure.Millimeters) && departure.Millimeters >= 0.0
+            && locus is not null && locus.IsValid
+                ? null
+                : ValidationError.Create("ToleranceDemand requires one process-congruent capability identity and finite departure.");
+}
+
+[ComplexValueObject]
+public sealed partial class AssemblyAllowance {
+    public string Term { get; }
+    public DfmLocus Locus { get; }
+    public Length Negative { get; }
+    public Length Positive { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string term,
+        ref DfmLocus locus,
+        ref Length negative,
+        ref Length positive) {
+        term = term?.Trim() ?? string.Empty;
+        if (term.Length == 0 || locus is null || !locus.IsValid
+            || !double.IsFinite(negative.Millimeters) || !double.IsFinite(positive.Millimeters)
+            || negative.Millimeters > 0.0 || positive.Millimeters < 0.0)
+            validationError = ValidationError.Create("AssemblyAllowance requires an ordered signed interval.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class DfmPolicy {
+    public Seq<DfmRule> Rules { get; }
+    public Seq<RouteCandidate> Candidates { get; }
+    public RouteWeight RouteWeight { get; }
+    public Length ProbeReach { get; }
+    public Length ArcTolerance { get; }
+    public Option<ToleranceChain> AssemblyChain { get; }
+    public Instant At { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<DfmRule> rules,
+        ref Seq<RouteCandidate> candidates,
+        ref RouteWeight routeWeight,
+        ref Length probeReach,
+        ref Length arcTolerance,
+        ref Option<ToleranceChain> assemblyChain,
+        ref Instant at) {
+        bool ownersValid = rules.ForAll(static rule => rule is not null) && candidates.ForAll(static row => row is not null);
+        bool rulesReachable = ownersValid && rules.ForAll(rule => rule.Classes.ForAll(cls =>
+            candidates.Exists(row => row.Process.Modality.Class == cls && rule.AppliesTo(row))));
+        // A required concern's rule must gate, so DfmVerdict can defer every consequence to severity without weakening the telos.
+        bool requiredCovered = ownersValid && candidates.ForAll(row => toSeq(DfmConcern.Items)
+            .Filter(concern => concern.Required && concern.AppliesTo(row.Process.Modality.Class))
+            .ForAll(concern => rules.Exists(rule => rule.Concern == concern
+                && rule.Severity.Gate
+                && rule.AppliesTo(row))));
+        if (routeWeight is null || rules.IsEmpty || candidates.IsEmpty || !double.IsFinite(probeReach.Millimeters)
+            || probeReach.Millimeters <= 0.0 || !double.IsFinite(arcTolerance.Millimeters)
+            || arcTolerance.Millimeters <= 0.0 || at == default
+            || candidates.GroupBy(static row => row.Process).Exists(static group => group.Count() != 1)
+            || !rulesReachable || !requiredCovered)
+            validationError = ValidationError.Create("DfmPolicy requires unique process evidence, complete required-rule coverage, positive reach, and an assessment instant.");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class DfmRequest {
+    public AdmittedComponent Component { get; }
+    public DfmPolicy Policy { get; }
+    public Seq<DfmObservation> Observations { get; }
+    public Seq<DfmPackageEvidence> PackageEvidence { get; }
+    public Seq<ToleranceDemand> Tolerances { get; }
+    public Seq<CapabilityHistory> CapabilityHistory { get; }
+    public Seq<ProcedureReceipt> Procedures { get; }
+    public Seq<AssemblyAllowance> Allowances { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref AdmittedComponent component,
+        ref DfmPolicy policy,
+        ref Seq<DfmObservation> observations,
+        ref Seq<DfmPackageEvidence> packageEvidence,
+        ref Seq<ToleranceDemand> tolerances,
+        ref Seq<CapabilityHistory> capabilityHistory,
+        ref Seq<ProcedureReceipt> procedures,
+        ref Seq<AssemblyAllowance> allowances) {
+        bool packagesValid = packageEvidence.ForAll(static row => row is not null && row.IsValid);
+        if (component is null || policy is null || observations.Exists(static row => row is null)
+            || !packagesValid || tolerances.Exists(static row => row is null)
+            || capabilityHistory.Exists(static row => row is null) || procedures.Exists(static row => row is null)
+            || allowances.Exists(static row => row is null))
+            validationError = ValidationError.Create("DfmRequest requires admitted owners and non-null evidence rows.");
+    }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DfmPackageEvidence {
+    private DfmPackageEvidence() { }
+
+    public sealed record Cutter(
+        ProcessKind Process,
+        ToolEvidence Tool,
+        DfmLocus Locus,
+        Length CutterDiameter,
+        Length CornerRadius,
+        Length CuttingLength,
+        Length RequiredReach,
+        bool ContactFree,
+        Instant At) : DfmPackageEvidence;
+
+    public sealed record Voxel(
+        Length MinimumWall,
+        Length MinimumGap,
+        int TrappedVolumes,
+        bool EscapeReachable,
+        bool SupportRemovable,
+        Volume SolidVolume,
+        BoundingBox Bounds,
+        Instant At) : DfmPackageEvidence;
+
+    public bool IsValid => Switch(
+        cutter: static receipt => receipt.Process is not null && receipt.Tool is not null
+            && receipt.Locus is not null && receipt.Locus.IsValid
+            && double.IsFinite(receipt.CutterDiameter.Millimeters) && receipt.CutterDiameter > Length.Zero
+            && double.IsFinite(receipt.CornerRadius.Millimeters) && receipt.CornerRadius >= Length.Zero
+            && double.IsFinite(receipt.CuttingLength.Millimeters) && receipt.CuttingLength > Length.Zero
+            && double.IsFinite(receipt.RequiredReach.Millimeters) && receipt.RequiredReach >= Length.Zero
+            && receipt.At != default,
+        voxel: static receipt => double.IsFinite(receipt.MinimumWall.Millimeters) && receipt.MinimumWall >= Length.Zero
+            && double.IsFinite(receipt.MinimumGap.Millimeters) && receipt.MinimumGap >= Length.Zero
+            && receipt.TrappedVolumes >= 0
+            && double.IsFinite(receipt.SolidVolume.As(VolumeUnit.CubicMillimeter)) && receipt.SolidVolume > Volume.Zero
+            && receipt.Bounds.IsValid && receipt.At != default);
+}
+
+public sealed record DfmVerdict(
+    ProcessKind Process,
+    DfmRule Rule,
+    DfmOutcome Outcome,
+    Option<DfmObservation> Observation,
+    DfmCriterion Criterion,
+    DfmLocus Locus,
+    DfmRemedy Remedy) {
+    // Severity is the single gate authority; policy admission proves every required concern carries a gating rule.
+    public bool Gates => Outcome.Gate && Rule.Severity.Gate;
+}
+
+public sealed record ProcessRequirement(DfmConcern Concern, DfmFeature Feature, DfmCriterion Criterion, DfmLocus Locus);
+
+public sealed record RouteColumn(RouteObjective Objective, double Normalized, double Weight) {
+    public double Weighted => Normalized * Weight;
+}
+
+public sealed record RouteScore(Seq<RouteColumn> Columns) {
+    public double Total => Columns.Fold(0.0, static (sum, column) => sum + column.Weighted);
+    public Option<RouteColumn> Worst => Columns.OrderByDescending(static column => column.Weighted).Head;
+}
+
+public sealed record RoutingRow(
+    ProcessKind Process,
+    bool Viable,
+    Seq<DfmConcern> Blockers,
+    Seq<ProcessRequirement> Requirements,
+    RouteScore Score);
+
+public sealed record StackupPrecheck(
+    ToleranceChain Chain,
+    Length Negative,
+    Length Positive,
+    int RequiredAllowances,
+    int ObservedAllowances,
+    Seq<string> MissingTerms,
+    Seq<string> UnexpectedTerms,
+    bool Pass);
+
+public sealed record DfmReport(
+    UInt128 ComponentKey,
+    Seq<DfmObservation> Observations,
+    Seq<DfmVerdict> Verdicts,
+    Seq<RoutingRow> Rows,
+    Option<StackupPrecheck> Stackup,
+    Instant At) {
+    public Seq<ProcessKind> Routing => Rows.Filter(static row => row.Viable).OrderBy(static row => row.Score.Total).Map(static row => row.Process);
+    public bool Feasible(ModalityClass cls) => Rows.Exists(row => row.Process.Modality.Class == cls && row.Viable);
+}
+
+// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
+public static class ApproachVector {
+    extension(Vector3d approach) {
+        // Unitize mutates its receiver, so every probe direction enters through one detached unit projection.
+        public Vector3d Unit => approach.IsValid && approach.Length > 0.0
+            ? approach / approach.Length
+            : Vector3d.Unset;
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Manufacturability {
-    static readonly Op DfmOp = Op.Of(name: "fabrication:manufacturability");
+    internal static readonly Op DfmOp = Op.Of(name: "fabrication:manufacturability");
+    private static readonly Error ObservationAfterAssessment = DfmOp.InvalidInput();
+    private static readonly Error ObservationOffRoster = DfmOp.InvalidInput();
+    private static readonly Error PackageEvidenceUnmatched = DfmOp.InvalidInput();
+    private static readonly Error ToleranceIdentityUnmatched = DfmOp.InvalidInput();
+    private static readonly Error ProcedureAfterAssessment = DfmOp.InvalidInput();
+    private static readonly Error ProcedureOffRoster = DfmOp.InvalidInput();
+    private static readonly Error AllowanceWithoutChain = DfmOp.InvalidInput();
+    private static readonly Error AllowanceInterval = DfmOp.InvalidInput();
 
-    // ONE cross-modality fold: independent lanes join applicatively — a removal-lane kernel failure never suppresses
-    // additive evidence, and every lane failure is a typed rail value. Infeasibility is a REPORT, never a fault.
-    public static Fin<DfmReport> Assess(AdmittedComponent component, DfmPolicy policy) =>
-        (Admit(policy).Map(static _ => Seq<DfmVerdict>()).ToValidation(),
-         (policy.Lanes.Contains(ModalityClass.Removal) ? RemovalLane(component, policy) : Fin.Succ(Seq<DfmVerdict>())).ToValidation(),
-         (policy.Lanes.Contains(ModalityClass.Additive) ? AdditiveLane(component, policy) : Fin.Succ(Seq<DfmVerdict>())).ToValidation(),
-         (policy.Lanes.Contains(ModalityClass.Formed) ? FormedLane(component, policy) : Fin.Succ(Seq<DfmVerdict>())).ToValidation(),
-         (policy.Lanes.Contains(ModalityClass.Joined) ? JoinedLane(component, policy) : Fin.Succ(Seq<DfmVerdict>())).ToValidation(),
-         WallLane(component, policy).ToValidation(),
-         ToleranceLane(policy).ToValidation())
-            .Apply(static (policyAdmission, removal, additive, formed, joined, walls, tolerances) =>
-                policyAdmission + removal + additive + formed + joined + walls + tolerances)
+    public static Fin<DfmReport> Assess(DfmRequest request) =>
+        from _ in Admit(request)
+        from evidence in (Accumulate(Probe(request.Component, request.Policy)),
+                Accumulate(PackageEvidence(request.PackageEvidence)),
+                Accumulate(ToleranceEvidence(request)),
+                Accumulate(ProcedureEvidence(request)))
+            .Apply((derived, package, tolerance, procedure) =>
+                request.Observations + derived + package + tolerance + procedure)
             .As()
             .ToFin()
-            .Map(verdicts => new DfmReport(
-                component.RepresentationKey,
-                verdicts,
-                Route(component, policy, verdicts),
-                component.Connections.Count * policy.StackupAllowancePerJointMm <= policy.StackupBoundMm));
+        let verdicts = Evaluate(request.Policy.Rules, request.Policy.Candidates, evidence, request.Policy.At)
+        let stackup = Precheck(request.Policy.AssemblyChain, request.Allowances)
+        select new DfmReport(
+            request.Component.RepresentationKey,
+            evidence,
+            verdicts,
+            Route(request.Component, request.Policy, verdicts, stackup),
+            stackup,
+            request.Policy.At);
 
-    // Routing = family-axis viability: the material map must hold the modality AND the class lane must have been
-    // ADMITTED and gate-clean — an unassessed lane never reads as clear. Machine matching is Fleet.Capable's.
-    static Seq<RoutingRow> Route(AdmittedComponent component, DfmPolicy policy, Seq<DfmVerdict> verdicts) =>
-        toSeq(ProcessKind.Items).Map(kind => {
-            Seq<DfmVerdict> lane = verdicts.Filter(v => v.Check.AppliesTo(kind.Modality.Class)
-                && (v.Locus is not DfmLocus.AtProcess process || process.Process == kind));
-            bool geometry = GeometryAdmits(component, kind.Modality.Class);
-            bool assessed = policy.Lanes.Contains(kind.Modality.Class);
-            bool material = policy.Physics.Find(kind.Modality).IsSome;
-            Seq<DfmCheck> blockers = (lane.Filter(v => v.Severity.Gate).Map(v => v.Check)
-                + (assessed ? Seq<DfmCheck>() : Seq1(DfmCheck.LaneAdmission))
-                + (geometry ? Seq<DfmCheck>() : Seq1(DfmCheck.GeometryEvidence))
-                + (material ? Seq<DfmCheck>() : Seq1(DfmCheck.MaterialPhysics))).Distinct();
-            return new RoutingRow(kind, assessed && material && blockers.IsEmpty, blockers, lane.Filter(v => !v.Severity.Gate).Count);
+    private static Fin<Unit> Admit(DfmRequest request) =>
+        (Check(request.Observations.ForAll(row => row.At <= request.Policy.At), ObservationAfterAssessment),
+            Check(request.Observations.ForAll(row => row.Process.ForAll(candidate =>
+                request.Policy.Candidates.Exists(process => process.Process == candidate))), ObservationOffRoster),
+            Check(request.PackageEvidence.ForAll(row => row.Switch(
+                cutter: value => value.At <= request.Policy.At
+                    && request.Policy.Candidates.Exists(process => process.Process == value.Process
+                        && process.Capability.ToolState == value.Tool),
+                voxel: value => value.At <= request.Policy.At)), PackageEvidenceUnmatched),
+            Check(request.Tolerances.ForAll(row => request.Policy.Candidates.Exists(process => process.Process == row.Capability.Process
+                && process.Capability == row.Capability)), ToleranceIdentityUnmatched),
+            Check(request.Procedures.ForAll(row => row.At <= request.Policy.At), ProcedureAfterAssessment),
+            Check(request.Procedures.ForAll(row => request.Policy.Candidates.Exists(candidate =>
+                candidate.Process == row.Process && candidate.Process.Modality.Class == ModalityClass.Joined)), ProcedureOffRoster),
+            Check(request.Policy.AssemblyChain.IsSome || request.Allowances.IsEmpty, AllowanceWithoutChain),
+            Check(request.Allowances.ForAll(static row => row.Negative <= row.Positive), AllowanceInterval))
+            .Apply(static (_, _, _, _, _, _, _, _) => unit)
+            .As()
+            .ToFin();
+
+    private static Seq<DfmVerdict> Evaluate(
+        Seq<DfmRule> rules,
+        Seq<RouteCandidate> candidates,
+        Seq<DfmObservation> observations,
+        Instant at) =>
+        rules.Bind(rule => candidates
+            .Filter(rule.AppliesTo)
+            .Bind(candidate => {
+                ProcessKind process = candidate.Process;
+                Seq<DfmObservation> matching = observations.Filter(row => row.Concern == rule.Concern
+                    && rule.Features.Contains(row.Feature)
+                    && candidate.Features.Contains(row.Feature)
+                    && row.Process.ForAll(selected => selected == process)
+                    && row.At <= at);
+                if (matching.IsEmpty)
+                    return rule.EvidenceRequired || rule.Concern.Required
+                        ? Seq(new DfmVerdict(process, rule, DfmOutcome.MissingEvidence, None, rule.Criterion, new DfmLocus.AtProcess(process), rule.Remedy))
+                        : Seq<DfmVerdict>();
+                Seq<DfmObservation> current = toSeq(matching.GroupBy(static row => (row.Evidence, row.Locus, row.Process)))
+                    .Choose(group => toSeq(group.OrderByDescending(static row => row.At)).Head);
+                return current.Map(observation => {
+                    DfmCriterion criterion = observation.Criterion.IfNone(rule.Criterion);
+                    DfmOutcome outcome = observation.Confidence < rule.MinimumConfidence
+                        ? DfmOutcome.InsufficientConfidence
+                        : criterion.Evaluate(observation.Measure).Match(
+                            Some: passed => passed ? DfmOutcome.Conforming : DfmOutcome.Nonconforming,
+                            None: static () => DfmOutcome.IncomparableEvidence);
+                    return new DfmVerdict(process, rule, outcome, Some(observation), criterion, observation.Locus, rule.Remedy);
+                });
+            }));
+
+    private static Seq<RoutingRow> Route(
+        AdmittedComponent component,
+        DfmPolicy policy,
+        Seq<DfmVerdict> verdicts,
+        Option<StackupPrecheck> stackup) =>
+        policy.Candidates.Map(candidate => {
+            Seq<DfmVerdict> lane = verdicts.Filter(verdict => verdict.Process == candidate.Process);
+            Seq<DfmConcern> unsupported = lane.Choose(verdict => verdict.Observation
+                .Filter(observation => !candidate.Features.Contains(observation.Feature))
+                .Map(_ => verdict.Rule.Concern));
+            Seq<DfmConcern> assembly = stackup.Exists(static row => !row.Pass)
+                ? Seq(DfmConcern.AssemblyStackup)
+                : Seq<DfmConcern>();
+            Seq<DfmConcern> blockers = (lane.Filter(static verdict => verdict.Gates).Map(static verdict => verdict.Rule.Concern)
+                + unsupported + assembly).Distinct();
+            bool admitted = GeometryAdmits(component, candidate.Process.Modality.Class);
+            RouteScore score = new(toSeq(RouteObjective.Items).Map(objective => new RouteColumn(
+                objective,
+                objective.Measure(policy.RouteWeight, candidate, lane),
+                objective.Weight(policy.RouteWeight))));
+            Seq<ProcessRequirement> requirements = lane.Filter(static verdict => verdict.Outcome != DfmOutcome.Conforming)
+                .Map(verdict => new ProcessRequirement(
+                    verdict.Rule.Concern,
+                    verdict.Observation.Map(static row => row.Feature).IfNone(verdict.Rule.Features.Head.IfNone(DfmFeature.Part)),
+                    verdict.Criterion,
+                    verdict.Locus));
+            return new RoutingRow(candidate.Process, admitted && blockers.IsEmpty, blockers, requirements, score);
         });
 
-    static Fin<Unit> Admit(DfmPolicy policy) =>
-        Seq(
-            guard(double.IsFinite(policy.MinDraftDeg) && policy.MinDraftDeg is >= 0.0 and < 90.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.AccessConeHalfAngleDeg) && policy.AccessConeHalfAngleDeg is > 0.0 and < 90.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.MinWallMm) && policy.MinWallMm > 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.MinInternalCornerRadiusMm) && policy.MinInternalCornerRadiusMm > 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.MaxDepthToDiameter) && policy.MaxDepthToDiameter > 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.OverhangCriticalDeg) && policy.OverhangCriticalDeg is > 0.0 and < 90.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.TorchConeHalfAngleDeg) && policy.TorchConeHalfAngleDeg is > 0.0 and < 90.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.StackupAllowancePerJointMm) && policy.StackupAllowancePerJointMm >= 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.StackupBoundMm) && policy.StackupBoundMm > 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(double.IsFinite(policy.ProbeReachMm) && policy.ProbeReachMm > 0.0, DfmOp.InvalidInput()).ToValidation(),
-            guard(!policy.ToolApproaches.IsEmpty && policy.ToolApproaches.ForAll(static vector => vector.IsValid && vector.Length > 0.0), DfmOp.InvalidInput()).ToValidation(),
-            guard(policy.Tolerances.ForAll(static row =>
-                double.IsFinite(row.AchievableMm) && row.AchievableMm > 0.0
-                && double.IsFinite(row.DepartureMm) && row.DepartureMm >= 0.0), DfmOp.InvalidInput()).ToValidation())
-            .Traverse(static validation => validation)
+    private static Fin<Seq<DfmObservation>> Probe(AdmittedComponent component, DfmPolicy policy) =>
+        (Accumulate(PolicyEvidence(component, policy)),
+            Accumulate(ProfileEvidence(component.Profiles.ToSeq(), policy)),
+            Accumulate(WallEvidence(component, policy)),
+            Accumulate(RemovalEvidence(component, policy)),
+            Accumulate(FormingEvidence(component, policy)),
+            Accumulate(JoiningEvidence(component, policy)),
+            Accumulate(AdditiveEvidence(component, policy)))
+            .Apply(static (policyRows, profile, wall, removal, forming, joining, additive) =>
+                policyRows + profile + wall + removal + forming + joining + additive)
             .As()
             .ToFin();
 
-    static bool GeometryAdmits(AdmittedComponent component, ModalityClass modality) =>
-        modality == ModalityClass.Removal
-            ? component.Mesh.IsSome || !component.Profiles.IsEmpty
-            : modality == ModalityClass.Additive
-                ? component.Mesh.IsSome
-                : modality == ModalityClass.Formed
-                    ? component.SheetThicknessMm.IsSome && !component.Profiles.IsEmpty
-                    : modality != ModalityClass.Joined || component.Mesh.IsSome && !component.Connections.IsEmpty;
-
-    // The SHARED wall census over EVERY admitted geometry source: one Medial query per profile (2·min Radius vs
-    // the floor), a present sheet thickness below the floor as the formed fast-check, and one inward centroid ray
-    // probe per mesh face as the solid census — so a mesh-only removal or additive shape still lands MinWall
-    // evidence and the check's Classes set and its execution never disagree; the aspect column emits only under
-    // the removal lane, and a failed BVH build or ray query stays a typed lane failure, never silence.
-    static Fin<Seq<DfmVerdict>> WallLane(AdmittedComponent component, DfmPolicy policy) {
-        if (!policy.Lanes.Contains(ModalityClass.Removal) && !policy.Lanes.Contains(ModalityClass.Additive) && !policy.Lanes.Contains(ModalityClass.Formed))
-            return Fin.Succ(Seq<DfmVerdict>());
-        bool aspect = policy.Lanes.Contains(ModalityClass.Removal);
-        bool solid = policy.Lanes.Contains(ModalityClass.Removal) || policy.Lanes.Contains(ModalityClass.Additive);
-        double heightMm = component.Mesh.Map(static m => {
-            BoundingBox box = m.Native.GetBoundingBox(accurate: false);
-            return box.Max.Z - box.Min.Z;
-        }).IfNone(0.0);
-        Seq<DfmVerdict> sheet = component.SheetThicknessMm
-            .Filter(t => t < policy.MinWallMm)
-            .Map(t => new DfmVerdict(DfmCheck.MinWall, DfmSeverity.Blocker, new DfmLocus.Global(), t, policy.MinWallMm))
-            .ToSeq();
-        Fin<Seq<DfmVerdict>> seeded = solid
-            ? component.Mesh.Match(
-                Some: mesh => MeshWallVerdicts(mesh, policy).Map(rows => sheet + rows),
-                None: () => Fin.Succ(sheet))
-            : Fin.Succ(sheet);
-        return seeded.Bind(rows => component.Profiles.ToSeq()
-            .Fold(Fin.Succ(rows), (acc, loop) => acc.Bind(seq =>
-                Offsetting.Apply(new OffsetOp.Medial(ToPolyline(loop), OffsetPolicy.Canonical)).Map(medial => seq + WallVerdicts(medial, heightMm, aspect, policy)))));
-    }
-
-    // The solid half of the ONE MinWall identity: an inward ray from each face centroid against the face BVH reads
-    // the local thickness to the opposite wall; the standoff keeps the probe off its own seed face and rides back
-    // onto the measured value, and the ray range caps at the floor — hits past it are conforming walls.
-    static Fin<Seq<DfmVerdict>> MeshWallVerdicts(MeshSpace mesh, DfmPolicy policy) {
-        double standoff = policy.MinWallMm / 100.0;
-        return BvhOf(mesh).Bind(index => FaceNormals(mesh)
-            .Fold(Fin.Succ(Seq<DfmVerdict>()), (acc, row) => acc.Bind(seq => {
-                Vector3d inward = -row.Normal;
-                inward.Unitize();
-                Point3d origin = mesh.Native.Faces.GetFaceCenter(row.Face) + (inward * standoff);
-                return RayHitT(index, new Ray3d(origin, inward), policy.MinWallMm).Map(hit => seq + hit
-                    .Filter(t => t + standoff < policy.MinWallMm)
-                    .Map(t => new DfmVerdict(DfmCheck.MinWall, DfmSeverity.Blocker, new DfmLocus.AtFace(row.Face), t + standoff, policy.MinWallMm))
-                    .ToSeq());
-            })));
-    }
-
-    // Removal lane: draft/undercut off one face-normal partition against the ranked resting set, access off BVH rays,
-    // sharp internal corners off the vertex/bulge capture — each term Fin-shaped so a kernel failure stays typed.
-    static Fin<Seq<DfmVerdict>> RemovalLane(AdmittedComponent component, DfmPolicy policy) =>
-        (DraftVerdicts(component, policy).ToValidation(), AccessVerdicts(component, policy).ToValidation())
-            .Apply((draft, access) => draft + access + component.Profiles.ToSeq().Bind(loop => CornerVerdicts(loop, policy)))
+    // Achievable projects the qualifying history row's own grade, and the frame's virtual condition gates the mating boundary.
+    private static Fin<Seq<DfmObservation>> ToleranceEvidence(DfmRequest request) =>
+        request.Tolerances.TraverseM(row =>
+            Tolerance.Apply(new ToleranceRequest.Effective(row.Frame, row.Departure.Millimeters)).Bind(receipt =>
+                receipt is ToleranceReceipt.Effective effective
+                    ? Capability.Achievable(row.Capability, request.Policy.At, request.CapabilityHistory)
+                        .Map(achievable => Seq(
+                            Observe(
+                                DfmConcern.ToleranceCapability,
+                                DfmFeature.Datum,
+                                new DfmMeasure.Quantity(achievable),
+                                row.Locus,
+                                request.Policy.At,
+                                DfmProvenance.History,
+                                Some(row.Capability.Process),
+                                Some<DfmCriterion>(new DfmCriterion.Maximum(
+                                    new DfmMeasure.Quantity(Length.FromMillimeters(effective.WidthMm))))))
+                            + effective.VirtualConditionMm.Map(boundary => Observe(
+                                DfmConcern.ToleranceCapability,
+                                DfmFeature.Datum,
+                                new DfmMeasure.Quantity(Length.FromMillimeters(boundary)),
+                                row.Locus,
+                                request.Policy.At,
+                                DfmProvenance.History,
+                                Some(row.Capability.Process),
+                                Some<DfmCriterion>(new DfmCriterion.Maximum(
+                                    new DfmMeasure.Quantity(Length.FromMillimeters(effective.WidthMm) + row.Departure))))).ToSeq())
+                        .IfNone(Seq<Fin<DfmObservation>>())
+                        .TraverseM(identity)
+                        .As()
+                    : Fin.Fail<Seq<DfmObservation>>(DfmOp.InvalidResult())))
             .As()
-            .ToFin();
+            .Map(static rows => rows.Bind(identity));
 
-    // Formed lane: fillet radius from the bulge span (R = c·(1+b²)/(4|b|)) vs Forming.MinBendRadiusFactor·T — the DfM
-    // altitude; Forming/sheet re-derives per-bend at unfold and owns MinBendRadiusViolated 2743.
-    static Fin<Seq<DfmVerdict>> FormedLane(AdmittedComponent component, DfmPolicy policy) =>
-        (from thickness in component.SheetThicknessMm
-         from physics in policy.Physics.Find(ProcessModality.Formed)
-         from row in physics is ModalityPhysics.Forming forming ? Some(forming) : Option<ModalityPhysics.Forming>.None
-         select component.Profiles.ToSeq().Bind(loop => BulgeRadii(loop)
-             .Filter(radius => radius.Radius < row.MinBendRadiusFactor * thickness)
-             .Map(radius => new DfmVerdict(
-                 DfmCheck.BendRadius,
-                 DfmSeverity.Blocker,
-                 new DfmLocus.AtEdge(radius.Span),
-                 radius.Radius,
-                 row.MinBendRadiusFactor * thickness))))
-        .Match(
-            Some: static verdicts => Fin.Succ(verdicts),
-            None: static () => Fin.Succ(Seq<DfmVerdict>()));
-
-    static Fin<Seq<DfmVerdict>> ToleranceLane(DfmPolicy policy) =>
-        policy.Tolerances.TraverseM(static row =>
-            Tolerance.Effective(row.Frame, row.DepartureMm).Map(effective =>
-                row.AchievableMm <= effective
-                    ? Option<DfmVerdict>.None
-                    : Some(new DfmVerdict(
-                        DfmCheck.ToleranceCapability,
-                        DfmSeverity.Blocker,
-                        new DfmLocus.AtProcess(row.Process),
-                        row.AchievableMm,
-                        effective))))
+    private static Fin<Seq<DfmObservation>> ProcedureEvidence(DfmRequest request) =>
+        request.Procedures.TraverseM(receipt => request.Policy.Candidates
+                .Find(candidate => candidate.Process == receipt.Process
+                    && candidate.Process.Modality.Class == ModalityClass.Joined)
+                .ToFin(ProcedureOffRoster)
+                .Bind(candidate => Seq(
+                    Observe(
+                        DfmConcern.ProcedureQualification,
+                        DfmFeature.Joint,
+                        new DfmMeasure.Flag(receipt.Qualified),
+                        new DfmLocus.AtProcess(candidate.Process),
+                        request.Policy.At,
+                        DfmProvenance.Qualification,
+                        Some(candidate.Process)),
+                    Observe(
+                        DfmConcern.JointInspection,
+                        DfmFeature.Inspection,
+                        new DfmMeasure.Count(receipt.Inspections.Count),
+                        new DfmLocus.AtProcess(candidate.Process),
+                        request.Policy.At,
+                        DfmProvenance.Qualification,
+                        Some(candidate.Process)))
+                    .TraverseM(identity)
+                    .As()))
             .As()
-            .Map(static rows => rows.Somes().ToSeq());
+            .Map(static rows => rows.Bind(identity));
 
-    // Joined lane: one torch-cone probe per connection along the assembly-owned approach law (left XY normal of the
-    // At edge); assembly gates holding standoff, this lane gates the torch cone — Joining/weld reads the verdict.
-    static Fin<Seq<DfmVerdict>> JoinedLane(AdmittedComponent component, DfmPolicy policy) =>
-        toSeq(Enumerable.Range(0, component.Connections.Count))
-            .Fold(Fin.Succ(Seq<DfmVerdict>()), (acc, joint) => acc.Bind(seq =>
-                ConeClear(component, component.Connections[joint].At, policy).Map(clear => clear
-                    ? seq
-                    : seq + Seq1(new DfmVerdict(DfmCheck.WeldAccess, DfmSeverity.Blocker, new DfmLocus.AtJoint(joint), 0.0, policy.TorchConeHalfAngleDeg)))));
+    private static Fin<Seq<DfmObservation>> PackageEvidence(Seq<DfmPackageEvidence> evidence) =>
+        evidence.TraverseM(row => row.Switch(
+                cutter: CutterEvidence,
+                voxel: VoxelEvidence))
+            .As()
+            .Map(static rows => rows.Bind(identity));
 
-    // Additive lane: mesh-level census — down-facing ranked faces below the critical angle + the Meshes defect rows;
-    // the layer-exact overhang set-algebra stays Support.Grow's, and layer HEIGHT stays the kernel LayerPlan (K3).
-    static Fin<Seq<DfmVerdict>> AdditiveLane(AdmittedComponent component, DfmPolicy policy) =>
-        component.Mesh.Match(
-            Some: mesh => (OverhangVerdicts(mesh, policy).ToValidation(), IntegrityVerdicts(mesh).ToValidation())
-                .Apply(static (overhang, integrity) => overhang + integrity)
+    private static Fin<Seq<DfmObservation>> ProfileEvidence(Seq<Loop> profiles, DfmPolicy policy) =>
+        profiles.TraverseM(profile => ArcProfileEvidence(profile, policy)).As().Map(static rows => rows.Bind(identity));
+
+    private static Fin<Seq<DfmObservation>> PolicyEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        PolicyRows(component, policy, Bounds(component));
+
+    private static Fin<Seq<DfmObservation>> PolicyRows(AdmittedComponent component, DfmPolicy policy, BoundingBox part) =>
+        policy.Candidates.Bind(candidate => Seq(
+                Observe(
+                    DfmConcern.GeometryEvidence,
+                    DfmFeature.Part,
+                    new DfmMeasure.Flag(GeometryAdmits(component, candidate.Process.Modality.Class)),
+                    new DfmLocus.AtProcess(candidate.Process),
+                    policy.At,
+                    DfmProvenance.Policy,
+                    Some(candidate.Process)),
+                Observe(
+                    DfmConcern.MaterialEvidence,
+                    DfmFeature.Part,
+                    new DfmMeasure.Flag(candidate.MaterialCompatible),
+                    new DfmLocus.AtProcess(candidate.Process),
+                    policy.At,
+                    DfmProvenance.Policy,
+                    Some(candidate.Process)),
+                Observe(
+                    DfmConcern.Envelope,
+                    DfmFeature.Envelope,
+                    new DfmMeasure.Flag(candidate.Encloses(part)),
+                    new DfmLocus.AtRegion(part),
+                    policy.At,
+                    DfmProvenance.Policy,
+                    Some(candidate.Process))))
+            .TraverseM(identity)
+            .As();
+
+    // A degenerate profile yields no observation, never a failed report: absence lands as the rule's own missing-evidence gate.
+    private static Fin<Seq<DfmObservation>> ArcProfileEvidence(Loop loop, DfmPolicy policy) =>
+        (Accumulate(loop.Apply(new ProfileOp.Measure())),
+                Accumulate(PolygonAlgebra.Apply(new PolygonOp.Inspect(Seq(loop), new PolygonQuery.Topology(PolygonFill.NonZero)))))
+            .Apply(static (measurement, topology) => (measurement, topology))
+            .As()
+            .ToFin()
+            .Bind(result => result is (ProfileResult.Measure measure, PolygonTrace.Regions regions) && !regions.Result.Nodes.IsEmpty
+                ? Observe(
+                    DfmConcern.StandardSize,
+                    DfmFeature.Part,
+                    new DfmMeasure.Quantity(Area.FromSquareMillimeters(Math.Abs(measure.SignedArea.SquareMillimeters))),
+                    new DfmLocus.AtRegion(loop.Bound()),
+                    policy.At,
+                    DfmProvenance.Analytic).Map(static observation => Seq(observation))
+                : Fin.Succ(Seq<DfmObservation>()));
+
+    private static Fin<Seq<DfmObservation>> CutterEvidence(DfmPackageEvidence.Cutter receipt) => Seq(
+        Observe(DfmConcern.ToolAccess, DfmFeature.Pocket, new DfmMeasure.Flag(receipt.ContactFree), receipt.Locus, receipt.At,
+            DfmProvenance.Package, Some(receipt.Process)),
+        Observe(DfmConcern.InternalCorner, DfmFeature.Pocket, new DfmMeasure.Quantity(receipt.CornerRadius), receipt.Locus, receipt.At,
+            DfmProvenance.Package, Some(receipt.Process)),
+        Observe(DfmConcern.DepthToDiameter, DfmFeature.Pocket,
+            new DfmMeasure.Ratio(receipt.RequiredReach.Millimeters / receipt.CutterDiameter.Millimeters), receipt.Locus, receipt.At,
+            DfmProvenance.Package, Some(receipt.Process)),
+        Observe(DfmConcern.ThreadReach, DfmFeature.Thread,
+            new DfmMeasure.Flag(receipt.CuttingLength >= receipt.RequiredReach), receipt.Locus, receipt.At,
+            DfmProvenance.Package, Some(receipt.Process)))
+        .TraverseM(identity)
+        .As();
+
+    private static Fin<Seq<DfmObservation>> VoxelEvidence(DfmPackageEvidence.Voxel receipt) => Seq(
+        Observe(DfmConcern.MinimumWall, DfmFeature.Wall, new DfmMeasure.Quantity(receipt.MinimumWall),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package),
+        Observe(DfmConcern.MinimumFeature, DfmFeature.EnclosedVolume, new DfmMeasure.Quantity(receipt.MinimumGap),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package),
+        Observe(DfmConcern.SolidVolume, DfmFeature.Envelope, new DfmMeasure.Quantity(receipt.SolidVolume),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package),
+        Observe(DfmConcern.TrappedVolume, DfmFeature.EnclosedVolume, new DfmMeasure.Count(receipt.TrappedVolumes),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package),
+        Observe(DfmConcern.EscapeAccess, DfmFeature.EnclosedVolume, new DfmMeasure.Flag(receipt.EscapeReachable),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package),
+        Observe(DfmConcern.SupportRemoval, DfmFeature.Support, new DfmMeasure.Flag(receipt.SupportRemovable),
+            new DfmLocus.AtVolume(receipt.Bounds), receipt.At, DfmProvenance.Package))
+        .TraverseM(identity)
+        .As();
+
+    private static Option<StackupPrecheck> Precheck(Option<ToleranceChain> chain, Seq<AssemblyAllowance> allowances) =>
+        chain.Map(owner => {
+            Length negative = Length.FromMillimeters(allowances.Fold(0.0, static (sum, row) => sum + row.Negative.Millimeters));
+            Length positive = Length.FromMillimeters(allowances.Fold(0.0, static (sum, row) => sum + row.Positive.Millimeters));
+            Seq<string> required = owner.Terms.ToSeq().Map(static row => row.Key);
+            Seq<string> observed = allowances.Map(static row => row.Term);
+            Seq<string> missing = required.Filter(term => !observed.Contains(term));
+            Seq<string> unexpected = observed.Filter(term => !required.Contains(term));
+            bool complete = allowances.Count == owner.Terms.Count && missing.IsEmpty && unexpected.IsEmpty;
+            return new StackupPrecheck(
+                owner,
+                negative,
+                positive,
+                owner.Terms.Count,
+                allowances.Count,
+                missing,
+                unexpected,
+                complete && double.Max(Math.Abs(negative.Millimeters), Math.Abs(positive.Millimeters)) <= owner.BoundMm);
+        });
+
+    // A profile the medial-axis lane cannot resolve contributes nothing; the wall rule's own gate reports the absence.
+    private static Fin<Seq<DfmObservation>> WallEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        component.Profiles.ToSeq().TraverseM(loop =>
+            ToPolyline(loop, policy.ArcTolerance).Bind(polyline =>
+                Offsetting.Apply(new OffsetOp.Medial(polyline, OffsetPolicy.Canonical))
+                    .Bind(result => result is OffsetResult.Axis axis
+                        ? axis.Medial.Nodes.TraverseM(node => Observe(
+                            DfmConcern.MinimumWall,
+                            DfmFeature.Wall,
+                            new DfmMeasure.Quantity(Length.FromMillimeters(2.0 * node.Radius)),
+                            new DfmLocus.AtPoint(node.At),
+                            policy.At,
+                            DfmProvenance.Sampled)).As()
+                        : Fin.Succ(Seq<DfmObservation>()))))
+            .As()
+            .Map(static rows => rows.Bind(identity));
+
+    private static Fin<Seq<DfmObservation>> RemovalEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        policy.Candidates.Exists(static process => process.Process.Modality.Class == ModalityClass.Removal)
+            ? (Accumulate(DraftEvidence(component, policy)),
+                    Accumulate(AccessEvidence(component, policy)),
+                    Accumulate(component.Profiles.ToSeq().TraverseM(loop => CornerEvidence(loop, policy.At)).As()
+                        .Map(static rows => rows.Bind(identity))))
+                .Apply(static (draft, access, corner) => draft + access + corner)
                 .As()
-                .ToFin(),
-            None: () => Fin.Fail<Seq<DfmVerdict>>(DfmOp.InvalidInput()));
+                .ToFin()
+            : Fin.Succ(Seq<DfmObservation>());
 
-    // Min-wall = 2·min(ClearanceNode.Radius) under the floor; aspect = the conservative global pocket depth (part
-    // height) over 2·local radius. The Medial op answers OffsetResult.Axis carrying the K1 SkeletonGraph node set.
-    static Seq<DfmVerdict> WallVerdicts(OffsetResult medial, double heightMm, bool aspect, DfmPolicy policy) =>
-        medial is not OffsetResult.Axis axis
-            ? Seq<DfmVerdict>()
-            : axis.Medial.Nodes.Bind(node => {
-                double diameter = 2.0 * node.Radius;
-                return (diameter < policy.MinWallMm
-                    ? Seq1(new DfmVerdict(DfmCheck.MinWall, DfmSeverity.Blocker, new DfmLocus.AtPoint(node.At), diameter, policy.MinWallMm))
-                    : Seq<DfmVerdict>())
-                    + (aspect && diameter > 0.0 && heightMm > 0.0 && heightMm / diameter > policy.MaxDepthToDiameter
-                        ? Seq1(new DfmVerdict(DfmCheck.AspectRatio, DfmSeverity.Warning, new DfmLocus.AtPoint(node.At), heightMm / diameter, policy.MaxDepthToDiameter))
-                        : Seq<DfmVerdict>());
-            });
-
-    // Draft + undercut off ONE face-normal partition: the wall draft is 90° − angle(normal, pull axis +Z); a face in
-    // [0, MinDraftDeg) is the insufficient-draft warning, a negative draft the re-entrant undercut blocker. Bottom
-    // extremum faces (Faces.Bottom, the K20 ranked decomposition) are the resting partition and never flag; a failed
-    // resting census PROPAGATES — profiles-only parts earn no draft verdicts, draft is a solid-face concern.
-    static Fin<Seq<DfmVerdict>> DraftVerdicts(AdmittedComponent component, DfmPolicy policy) =>
+    private static Fin<Seq<DfmObservation>> DraftEvidence(AdmittedComponent component, DfmPolicy policy) =>
         component.Mesh.Match(
-            None: static () => Fin.Succ(Seq<DfmVerdict>()),
-            Some: mesh => BottomFaces(mesh).Map(resting =>
-                FaceNormals(mesh)
-                    .Filter(row => !resting.Contains(row.Face))
-                    .Bind(row => {
-                        double draftDeg = 90.0 - (Vector3d.VectorAngle(row.Normal, Vector3d.ZAxis) * (180.0 / Math.PI));
-                        return draftDeg < 0.0
-                            ? Seq1(new DfmVerdict(DfmCheck.Undercut, DfmSeverity.Blocker, new DfmLocus.AtFace(row.Face), draftDeg, 0.0))
-                            : draftDeg < policy.MinDraftDeg
-                                ? Seq1(new DfmVerdict(DfmCheck.Draft, DfmSeverity.Warning, new DfmLocus.AtFace(row.Face), draftDeg, policy.MinDraftDeg))
-                                : Seq<DfmVerdict>();
-                    })));
+            None: static () => Fin.Succ(Seq<DfmObservation>()),
+            Some: mesh => BottomFaces(mesh).Bind(resting => FaceNormals(mesh)
+                .Filter(row => !resting.Contains(row.Face))
+                .Bind(row => policy.Candidates
+                    .Filter(static process => process.Process.Modality.Class == ModalityClass.Removal)
+                    .Map(process => (row, process)))
+                .TraverseM(pair => DraftOf(pair.row, pair.process, policy.At)).As()));
 
-    // Tool access probes every admitted machine approach at every profile vertex against the mesh-face BVH. A hit
-    // inside ProbeReachMm carries the limiting distance; build and query failures remain on the typed rail.
-    static Fin<Seq<DfmVerdict>> AccessVerdicts(AdmittedComponent component, DfmPolicy policy) =>
+    // A degenerate normal or approach yields a non-finite angle, so the guard is live rather than decorative.
+    private static Fin<DfmObservation> DraftOf((int Face, Vector3d Normal) face, RouteCandidate candidate, Instant at) =>
+        candidate.Approaches.Map(approach => 90.0 - (Vector3d.VectorAngle(face.Normal, approach.Unit) * (180.0 / Math.PI))).Max()
+                is var draft && double.IsFinite(draft)
+            ? Observe(
+                draft < 0.0 ? DfmConcern.Undercut : DfmConcern.Draft,
+                DfmFeature.Surface,
+                new DfmMeasure.Quantity(Angle.FromDegrees(draft)),
+                new DfmLocus.AtFace(face.Face),
+                at,
+                DfmProvenance.Analytic,
+                Some(candidate.Process))
+            : Fin.Fail<DfmObservation>(DfmOp.InvalidResult());
+
+    private static Fin<Seq<DfmObservation>> AccessEvidence(AdmittedComponent component, DfmPolicy policy) =>
         component.Mesh.Match(
-            None: static () => Fin.Succ(Seq<DfmVerdict>()),
+            None: static () => Fin.Succ(Seq<DfmObservation>()),
             Some: mesh => BvhOf(mesh).Bind(index => component.Profiles.ToSeq()
                 .Bind(static loop => loop.AsCcw().Vertices.ToSeq())
-                .Bind(point => policy.ToolApproaches.Map(approach => {
-                    Vector3d direction = approach;
-                    direction.Unitize();
-                    return (Point: point, Approach: direction);
-                }))
-                .Fold(Fin.Succ(Seq<DfmVerdict>()), (acc, probe) => acc.Bind(seq =>
-                    RayHitT(index, new Ray3d(probe.Point, probe.Approach), policy.ProbeReachMm).Map(hit => seq + hit
-                        .Map(distance => new DfmVerdict(
-                            DfmCheck.ToolAccess,
-                            DfmSeverity.Blocker,
-                            new DfmLocus.AtPoint(probe.Point),
-                            distance,
-                            policy.ProbeReachMm))
-                        .ToSeq())))));
+                .Bind(point => policy.Candidates.Filter(static process => process.Process.Modality.Class == ModalityClass.Removal)
+                    .Bind(process => process.Approaches.Map(approach => (point, process.Process, approach))))
+                .TraverseM(probe => RayHitT(
+                        index,
+                        new Ray3d(probe.point + (probe.approach.Unit * policy.ArcTolerance.Millimeters), probe.approach.Unit),
+                        policy.ProbeReach.Millimeters)
+                    .Bind(hit => Observe(
+                        DfmConcern.ToolAccess,
+                        DfmFeature.Pocket,
+                        new DfmMeasure.Flag(hit.IsNone),
+                        new DfmLocus.AtPoint(probe.point),
+                        policy.At,
+                        DfmProvenance.Probed,
+                        Some(probe.Process)))).As()));
 
-    // Sharp internal corners: a concave vertex whose adjacent spans are both straight is a zero-radius corner only
-    // EDM reaches; a concave bulged span below the floor flags with its real radius. CCW winding makes concavity the
-    // negative z-cross of the incoming/outgoing span directions.
-    static Seq<DfmVerdict> CornerVerdicts(Loop loop, DfmPolicy policy) {
+    private static Fin<Seq<DfmObservation>> CornerEvidence(Loop loop, Instant at) {
         Loop ccw = loop.AsCcw();
-        Seq<DfmVerdict> sharp = toSeq(Enumerable.Range(0, ccw.Count))
-            .Filter(i => {
-                Point3d prev = ccw.At((i + ccw.Count - 1) % ccw.Count), at = ccw.At(i), next = ccw.At((i + 1) % ccw.Count);
-                double cross = ((at.X - prev.X) * (next.Y - at.Y)) - ((at.Y - prev.Y) * (next.X - at.X));
-                return cross < 0.0 && Math.Abs(ccw.BulgeAt((i + ccw.Count - 1) % ccw.Count)) == 0.0 && Math.Abs(ccw.BulgeAt(i)) == 0.0;
-            })
-            .Map(i => new DfmVerdict(DfmCheck.CornerRadius, DfmSeverity.Warning, new DfmLocus.AtPoint(ccw.At(i)), 0.0, policy.MinInternalCornerRadiusMm));
-        return sharp + BulgeRadii(ccw)
-            .Filter(row => ccw.BulgeAt(row.Index) < 0.0 && row.Radius < policy.MinInternalCornerRadiusMm)
-            .Map(row => new DfmVerdict(
-                DfmCheck.CornerRadius,
-                DfmSeverity.Warning,
-                new DfmLocus.AtEdge(row.Span),
-                row.Radius,
-                policy.MinInternalCornerRadiusMm));
+        Seq<Fin<DfmObservation>> sharp = toSeq(Enumerable.Range(0, ccw.Count)).Choose(index => {
+            Point3d previous = ccw.At((index + ccw.Count - 1) % ccw.Count);
+            Point3d current = ccw.At(index);
+            Point3d next = ccw.At((index + 1) % ccw.Count);
+            double cross = ((current.X - previous.X) * (next.Y - current.Y)) - ((current.Y - previous.Y) * (next.X - current.X));
+            return cross < 0.0 && ccw.BulgeAt((index + ccw.Count - 1) % ccw.Count) == 0.0 && ccw.BulgeAt(index) == 0.0
+                ? Some(Observe(DfmConcern.InternalCorner, DfmFeature.Pocket, new DfmMeasure.Quantity(Length.Zero),
+                    new DfmLocus.AtPoint(current), at, DfmProvenance.Analytic))
+                : None;
+        });
+        Seq<Fin<DfmObservation>> curved = BulgeRadii(ccw).Choose(row => ccw.BulgeAt(row.Index) < 0.0
+            ? Some(Observe(DfmConcern.InternalCorner, DfmFeature.Pocket,
+                new DfmMeasure.Quantity(Length.FromMillimeters(row.Radius)), new DfmLocus.AtEdge(row.Span), at, DfmProvenance.Analytic))
+            : None);
+        return (sharp + curved).TraverseM(identity).As();
     }
 
-    // Torch cone: five probes — the assembly-law approach (the left XY normal of the joint edge) plus four rays tilted
-    // to the cone half-angle. ANY occluded probe fails the cone; a failed spatial operation PROPAGATES, never reads
-    // clear. An unresolved joint locus (the admission default) and a profiles-only part cannot be probed and read
-    // clear here — assembly resolves the edge and re-gates standoff.
-    static Fin<bool> ConeClear(AdmittedComponent component, Edge3 at, DfmPolicy policy) =>
-        at.A.DistanceTo(at.B) <= 0.0
-            ? Fin.Fail<bool>(DfmOp.InvalidInput())
-            : component.Mesh.Match(
-                None: static () => Fin.Fail<bool>(DfmOp.InvalidInput()),
-                Some: mesh => BvhOf(mesh).Bind(index =>
-                    ConeRays(at, policy.TorchConeHalfAngleDeg).Fold(Fin.Succ(true), (acc, ray) => acc.Bind(clear =>
-                        clear ? RayHitT(index, ray, policy.ProbeReachMm).Map(static hit => hit.IsNone) : Fin.Succ(false)))));
+    private static Fin<Seq<DfmObservation>> FormingEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        policy.Candidates.Exists(static process => process.Process.Modality.Class == ModalityClass.Formed)
+            ? component.SheetThicknessMm.Match(
+                Some: thickness => component.Profiles.ToSeq().Bind(BulgeRadii).TraverseM(row => Observe(
+                    DfmConcern.BendRadius,
+                    DfmFeature.Bend,
+                    new DfmMeasure.Ratio(row.Radius / thickness),
+                    new DfmLocus.AtEdge(row.Span),
+                    policy.At,
+                    DfmProvenance.Analytic)).As(),
+                None: static () => Fin.Succ(Seq<DfmObservation>()))
+            : Fin.Succ(Seq<DfmObservation>());
 
-    static Seq<Ray3d> ConeRays(Edge3 at, double halfAngleDeg) {
-        Point3d mid = new((at.A.X + at.B.X) / 2.0, (at.A.Y + at.B.Y) / 2.0, (at.A.Z + at.B.Z) / 2.0);
-        Vector3d edge = at.B - at.A;
-        Vector3d approach = new(-edge.Y, edge.X, 0.0);
-        approach.Unitize();
-        double half = halfAngleDeg * (Math.PI / 180.0);
-        Vector3d side = Vector3d.CrossProduct(approach, Vector3d.ZAxis);
-        Point3d origin = mid + approach;  // 1 mm standoff keeps the probe off its own seed surface
-        return Seq1(new Ray3d(origin, approach))
-            + Seq(Vector3d.ZAxis, -Vector3d.ZAxis, side, -side).Map(tilt => {
-                Vector3d v = approach;
-                v.Rotate(half, tilt);
-                return new Ray3d(origin, v);
+    private static Fin<Seq<DfmObservation>> JoiningEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        policy.Candidates.Exists(static process => process.Process.Modality.Class == ModalityClass.Joined)
+            ? component.Mesh.Match(
+                None: static () => Fin.Succ(Seq<DfmObservation>()),
+                Some: mesh => BvhOf(mesh).Bind(index => policy.Candidates
+                    .Filter(static process => process.Process.Modality.Class == ModalityClass.Joined)
+                    .Bind(process => toSeq(component.Connections).Map((connection, joint) => (connection, joint, process)))
+                    .TraverseM(row => ConeClear(index, row.connection.At, row.process.Approaches, policy.ProbeReach, policy.ArcTolerance)
+                        .Bind(clear => Observe(
+                            DfmConcern.WeldAccess,
+                            DfmFeature.Joint,
+                            new DfmMeasure.Flag(clear),
+                            new DfmLocus.AtJoint(row.joint),
+                            policy.At,
+                            DfmProvenance.Probed,
+                            Some(row.process.Process))))
+                    .As()))
+            : Fin.Succ(Seq<DfmObservation>());
+
+    private static Fin<Seq<DfmObservation>> AdditiveEvidence(AdmittedComponent component, DfmPolicy policy) =>
+        policy.Candidates.Exists(static process => process.Process.Modality.Class == ModalityClass.Additive)
+            ? component.Mesh.Match(
+                Some: mesh => (Accumulate(OverhangEvidence(mesh, policy)), Accumulate(IntegrityEvidence(mesh, policy.At)))
+                    .Apply(static (overhang, integrity) => overhang + integrity)
+                    .As()
+                    .ToFin(),
+                None: static () => Fin.Succ(Seq<DfmObservation>()))
+            : Fin.Succ(Seq<DfmObservation>());
+
+    // Build direction is chosen per candidate as the approach maximizing the worst face angle, then every face reports against it.
+    private static Fin<Seq<DfmObservation>> OverhangEvidence(MeshSpace mesh, DfmPolicy policy) =>
+        OverhangRows(FaceNormals(mesh), policy);
+
+    private static Fin<Seq<DfmObservation>> OverhangRows(Seq<(int Face, Vector3d Normal)> faces, DfmPolicy policy) =>
+        guard(!faces.IsEmpty, DfmOp.InvalidInput()).ToFin().Bind(_ => policy.Candidates
+                .Filter(static candidate => candidate.Process.Modality.Class == ModalityClass.Additive)
+                .Bind(candidate => candidate.Approaches
+                    .Map(approach => (Direction: approach.Unit,
+                        Worst: faces.Map(row => Vector3d.VectorAngle(row.Normal, -approach.Unit)).Min()))
+                    .OrderByDescending(static row => row.Worst)
+                    .Head
+                    .ToSeq()
+                    .Bind(build => faces.Map(row => Observe(
+                        DfmConcern.Overhang,
+                        DfmFeature.Overhang,
+                        new DfmMeasure.Quantity(Angle.FromRadians(Vector3d.VectorAngle(row.Normal, -build.Direction))),
+                        new DfmLocus.AtFace(row.Face),
+                        policy.At,
+                        DfmProvenance.Analytic,
+                        Some(candidate.Process)))))
+            .TraverseM(identity)
+            .As());
+
+    private static Fin<Seq<DfmObservation>> IntegrityEvidence(MeshSpace mesh, Instant at) =>
+        Analyze.Run<Mesh, MeshSample>(new AnalysisQuery.MeshesCase(Meshes.Defects), mesh.Native)
+            .ToFin()
+            .Bind(samples => samples.TraverseM(sample => Observe(
+                DfmConcern.Integrity,
+                DfmFeature.Part,
+                new DfmMeasure.Count(sample.Value),
+                new DfmLocus.Global(),
+                at,
+                DfmProvenance.Analytic)).As());
+
+    // Provenance mints the evidence key and carries the confidence its derivation route earns; no caller spells either.
+    private static Fin<DfmObservation> Observe(
+        DfmConcern concern,
+        DfmFeature feature,
+        DfmMeasure measure,
+        DfmLocus locus,
+        Instant at,
+        DfmProvenance provenance,
+        Option<ProcessKind> process = default,
+        Option<DfmCriterion> criterion = default) =>
+        from evidence in provenance.Evidence(concern, process)
+        from observation in Admitted(concern, feature, measure, criterion, locus, process, evidence, provenance, at)
+        select observation;
+
+    private static Fin<DfmObservation> Admitted(
+        DfmConcern concern,
+        DfmFeature feature,
+        DfmMeasure measure,
+        Option<DfmCriterion> criterion,
+        DfmLocus locus,
+        Option<ProcessKind> process,
+        DfmEvidenceKey evidence,
+        DfmProvenance provenance,
+        Instant at) =>
+        DfmObservation.Validate(concern, feature, measure, criterion, locus, process, evidence, provenance, at,
+            out DfmObservation observation) is { }
+                ? Fin.Fail<DfmObservation>(DfmOp.InvalidInput())
+                : Fin.Succ(observation);
+
+    // Total over the modality family: a new ModalityClass row breaks this dispatch at compile time rather than admitting silently.
+    private static bool GeometryAdmits(AdmittedComponent component, ModalityClass modality) =>
+        modality.Switch(
+            state: component,
+            removal: static part => part.Mesh.IsSome || !part.Profiles.IsEmpty,
+            additive: static part => part.Mesh.IsSome,
+            formed: static part => part.SheetThicknessMm.IsSome && !part.Profiles.IsEmpty,
+            joined: static part => part.Mesh.IsSome && !part.Connections.IsEmpty);
+
+    private static BoundingBox Bounds(AdmittedComponent component) =>
+        component.Mesh.Match(
+            Some: static mesh => mesh.Native.GetBoundingBox(accurate: true),
+            None: () => component.Profiles.ToSeq().Fold(BoundingBox.Empty, static (box, loop) => {
+                box.Union(loop.Bound());
+                return box;
+            }));
+
+    private static Fin<bool> ConeClear(
+        SpatialIndex index,
+        Edge3 at,
+        Arr<Vector3d> approaches,
+        Length reach,
+        Length clearance) =>
+        at.A.DistanceTo(at.B) > 0.0
+            ? approaches.TraverseM(approach => {
+                    Vector3d direction = approach.Unit;
+                    Point3d midpoint = at.A + ((at.B - at.A) * 0.5);
+                    Point3d origin = midpoint + (direction * clearance.Millimeters);
+                    return RayHitT(index, new Ray3d(origin, direction), reach.Millimeters).Map(static hit => hit.IsNone);
+                })
+                .Map(static answers => answers.Exists(identity))
+                .As()
+            : Fin.Fail<bool>(DfmOp.InvalidInput());
+
+    private static Fin<Polyline> ToPolyline(Loop loop, Length tolerance) {
+        double path = loop.Length();
+        int count = int.Max(loop.Spans, (int)Math.Ceiling(path / tolerance.Millimeters));
+        return toSeq(Enumerable.Range(0, count)).TraverseM(index =>
+                loop.Apply(new ProfileOp.Sample(Length.FromMillimeters(path * index / count)))
+                    .Bind(result => result is ProfileResult.Sampled sample
+                        ? Fin.Succ(sample.Point)
+                        : Fin.Fail<Point3d>(DfmOp.InvalidResult())))
+            .As()
+            .Map(points => {
+                Polyline ring = new(points);
+                if (ring.Count > 0)
+                    ring.Add(ring[0]);
+                return ring;
             });
     }
 
-    // Additive overhang census (mesh-level DfM altitude): a non-resting face whose normal sits within (90° − critical)
-    // of straight down needs support — layer-exact set algebra stays Support.Grow's.
-    static Fin<Seq<DfmVerdict>> OverhangVerdicts(MeshSpace mesh, DfmPolicy policy) =>
-        BottomFaces(mesh).Map(resting =>
-            FaceNormals(mesh)
-                .Filter(row => !resting.Contains(row.Face))
-                .Map(row => (row.Face, DownDeg: Vector3d.VectorAngle(row.Normal, -Vector3d.ZAxis) * (180.0 / Math.PI)))
-                .Filter(row => row.DownDeg < 90.0 - policy.OverhangCriticalDeg)
-                .Map(row => new DfmVerdict(DfmCheck.Overhang, DfmSeverity.Warning, new DfmLocus.AtFace(row.Face), row.DownDeg, 90.0 - policy.OverhangCriticalDeg)));
-
-    // Printability census (K36): every positive kernel defect sample is one Integrity blocker; a census that cannot
-    // run at all is itself the blocker — the additive lane never silently passes an uninspectable mesh.
-    static Fin<Seq<DfmVerdict>> IntegrityVerdicts(MeshSpace mesh) =>
-        Analyze.Run<Mesh, MeshSample>(new AnalysisQuery.MeshesCase(Meshes.Defects), mesh.Native)
-            .ToFin()
-            .Map(static samples => samples.Filter(static sample => sample.Value > 0)
-                .Map(static sample => new DfmVerdict(
-                    DfmCheck.Integrity,
-                    DfmSeverity.Blocker,
-                    new DfmLocus.Global(),
-                    sample.Value,
-                    0.0)));
-
-    // --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------
-    // Loop → closed Rhino ring for the K1 medial query; AsCcw is the winding law, the closing vertex the ring convention.
-    static Polyline ToPolyline(Loop loop) {
-        Polyline ring = new(loop.AsCcw().Vertices);
-        if (ring.Count > 0)
-            ring.Add(ring[0]);
-        return ring;
-    }
-
-    // The resting-set census stays on the rail: Analyze.Run answers Validation and lowers through ToFin — a failed
-    // ranked decomposition is a typed lane failure, never an empty resting set that turns bottom faces into undercuts.
-    static Fin<Set<int>> BottomFaces(MeshSpace mesh) =>
+    private static Fin<Set<int>> BottomFaces(MeshSpace mesh) =>
         Analyze.Run<Mesh, int>(new AnalysisQuery.FacesCase(Faces.Bottom()), mesh.Native).ToFin().Map(static faces => toSet(faces));
 
-    static Seq<(int Face, Vector3d Normal)> FaceNormals(MeshSpace mesh) {
+    private static Seq<(int Face, Vector3d Normal)> FaceNormals(MeshSpace mesh) {
         Mesh native = mesh.Native.DuplicateMesh();
         native.FaceNormals.ComputeFaceNormals();
-        return toSeq(Enumerable.Range(0, native.Faces.Count)).Map(i => (i, (Vector3d)native.FaceNormals[i]));
+        return toSeq(Enumerable.Range(0, native.Faces.Count)).Map(index => (index, (Vector3d)native.FaceNormals[index]));
     }
 
-    static Fin<SpatialIndex> BvhOf(MeshSpace mesh) =>
+    private static Fin<SpatialIndex> BvhOf(MeshSpace mesh) =>
         Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, FaceBoxes(mesh.Native), BuildPolicy.Canonical), DfmOp)
             .Bind(static answer => answer is SpatialAnswer.Index built
                 ? Fin.Succ(built.Value)
                 : Fin.Fail<SpatialIndex>(DfmOp.InvalidResult()));
 
-    static Fin<Option<double>> RayHitT(SpatialIndex index, Ray3d ray, double maxT) =>
+    private static Fin<Option<double>> RayHitT(SpatialIndex index, Ray3d ray, double maxT) =>
         Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Ray(ray, maxT)), DfmOp)
             .Bind(static answer => answer switch {
                 SpatialAnswer.Result { Value: QueryResult.RayHit { Id.IsSome: true } hit } => Fin.Succ(Some(hit.T)),
@@ -477,80 +1268,32 @@ public static class Manufacturability {
                 _ => Fin.Fail<Option<double>>(DfmOp.InvalidResult()),
             });
 
-    static BoundingBox[] FaceBoxes(Mesh native) =>
-        Enumerable.Range(0, native.Faces.Count)
-            .Select(i => {
-                MeshFace face = native.Faces[i];
-                BoundingBox box = BoundingBox.Empty;
-                box.Union(native.Vertices[face.A]);
-                box.Union(native.Vertices[face.B]);
-                box.Union(native.Vertices[face.C]);
-                if (face.IsQuad)
-                    box.Union(native.Vertices[face.D]);
-                return box;
-            })
-            .ToArray();
+    private static BoundingBox[] FaceBoxes(Mesh native) =>
+        Enumerable.Range(0, native.Faces.Count).Select(index => {
+            MeshFace face = native.Faces[index];
+            BoundingBox box = BoundingBox.Empty;
+            box.Union(native.Vertices[face.A]);
+            box.Union(native.Vertices[face.B]);
+            box.Union(native.Vertices[face.C]);
+            if (face.IsQuad)
+                box.Union(native.Vertices[face.D]);
+            return box;
+        }).ToArray();
 
-    // Bulge span → (chord, radius): R = c·(1+b²)/(4|b|); zero-bulge spans are straight and never earn a radius verdict.
-    static Seq<(int Index, Edge3 Span, double Radius)> BulgeRadii(Loop loop) =>
-        toSeq(Enumerable.Range(0, loop.Count))
-            .Filter(i => Math.Abs(loop.BulgeAt(i)) > 0.0)
-            .Map(i => {
-                double b = Math.Abs(loop.BulgeAt(i));
-                double c = loop.At(i).DistanceTo(loop.At(i + 1));
-                return (i, new Edge3(loop.At(i), loop.At(i + 1)), c * (1.0 + b * b) / (4.0 * b));
-            });
+    private static Seq<(int Index, Edge3 Span, double Radius)> BulgeRadii(Loop loop) =>
+        toSeq(Enumerable.Range(0, loop.Count)).Choose(index => {
+            double bulge = Math.Abs(loop.BulgeAt(index));
+            if (bulge == 0.0)
+                return None;
+            double chord = loop.At(index).DistanceTo(loop.At(index + 1));
+            return Some((index, new Edge3(loop.At(index), loop.At(index + 1)), chord * (1.0 + (bulge * bulge)) / (4.0 * bulge)));
+        });
 
+    // One error per gate keeps accumulation informative; a shared error collapses every fault into one indistinguishable row.
+    private static K<Validation<Error>, Unit> Check(bool condition, Error fault) =>
+        guard(condition, fault).ToValidation();
+
+    private static K<Validation<Error>, T> Accumulate<T>(Fin<T> effect) =>
+        effect.ToValidation();
 }
-```
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Manufacturability plane seams
-    accDescr: The admitted component folds through applicatively joined class lanes into the DfM report whose routing projection feeds derivation, capability, and the traveler fan-in.
-    Component["AdmittedComponent (owner#atoms)"] -->|"one fold"| Assess["Manufacturability.Assess"]
-    Policy["DfmPolicy thresholds + admitted lanes"] -->|"policy"| Assess
-    Assess -->|"removal lane"| Kernel["Faces.Bottom (K20) · SpatialQuery.Ray · OffsetOp.Medial ClearanceNode.Radius (K1)"]
-    Assess -->|"formed lane"| Physics["ModalityPhysics.Forming.MinBendRadiusFactor"]
-    Assess -->|"joined lane"| Approach["assembly approach law · torch cone probes"]
-    Assess -->|"additive lane"| Census["Meshes.Defects census · overhang faces"]
-    Assess -->|"receipt"| Report["DfmReport verdicts + RoutingRow per ProcessKind + stackup pre-check"]
-    Report -->|"Routing : ranked Seq&lt;ProcessKind&gt;"| Derive["Process/derivation Run(Derive)"]
-    Report -->|"TYPE seam"| Capability["Spec/capability Gate"]
-    Report -.->|"fan-in"| Traveler["Run(Document) traveler Dfm lane"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
-    class Component,Policy primary
-    class Assess boundary
-    class Kernel,Physics,Approach,Census data
-    class Report,Derive,Capability,Traveler annotation
-    linkStyle 6 stroke:#50FA7B,color:#F8F8F2
-    linkStyle 9 stroke:#6272A4,color:#F8F8F2,stroke-dasharray:4 6
 ```

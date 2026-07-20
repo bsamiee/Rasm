@@ -4,6 +4,8 @@ The typed per-op rebuild evidence the heal rail emits and the naming `Track` re-
 
 The boolean case carries the `Meshing/arrangement#ARRANGEMENT` `BooleanReceipt` as payload beside `ManifoldStatus` — ONE receipt type corpus-wide, never a renamed sibling — and its convergence witness is the boolean's OWN topological success, never a gate flag: a scale-gated boolean fails the arrangement rail with `NativeAssetMissing` 2423 and never reaches a mint, so every minted `MergeReceipt` is un-gated by construction. The receipt records op tolerances and affected refs but mints NO hash and asserts NO content identity — the healed mesh's content hash is the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` job; the receipt only names which entities changed so the reference identity (`TopoName`) re-binds. The `RebuildReceipt` chain crosses only the in-process seam to the naming `Track` fold; the records are interior types that never sit between wire and rail.
 
+`HealSession.FinalStatus` projects the last receipt's `StatusAfter` as `Option<ManifoldStatus>`; an empty session exposes `None`, so a consumer cannot confuse repair presence with post-repair closure evidence.
+
 ## [01]-[INDEX]
 
 - [01]-[REBUILD_RECEIPTS]: `ManifoldStatus` six-field Genus-tolerant projection + `GenusClosed` witness; `RebuildReceipt` `[Union]` typed per-op evidence registering `IValidityEvidence`; `RebuildLog` re-anchor seed; `HealSession` carrier whose validity is the `ValidityClaim.All` fold over the chain.
@@ -137,6 +139,8 @@ public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Face
 }
 
 public sealed record HealSession(MeshSpace Input, MeshSpace Healed, Seq<RebuildReceipt> Receipts) : IValidityEvidence {
+    public Option<ManifoldStatus> FinalStatus => Receipts.Last.Map(static receipt => receipt.StatusAfter);
+
     // THE registered convergence surface: ValidityClaim.All over the per-receipt witnesses —
     // the standalone Converged/Improved bool folds are dead into this registration.
     public bool IsValid => ValidityClaim.All(

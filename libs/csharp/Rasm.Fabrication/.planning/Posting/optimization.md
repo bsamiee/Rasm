@@ -1,477 +1,796 @@
 # [RASM_FABRICATION_PROGRAM_OPTIMIZATION]
 
-The program-level optimization owner: one `Optimize.Feeds(CutProgram, OptimizePolicy) → Fin<CutProgram>` pass family over the `Posting/program` `CutProgram` AST — MRR-adaptive feedrate, HSM corner smoothing, and block-cap compaction — rewrites an already-conditioned program toward the cycle-time objective and returns the re-keyed program on the ruled seam; the typed before/after evidence projects through `Optimize.Delta` beside the seam, never as a wrapper on it. The pass order is fixed by the `OptimizePass` declaration order and executed through each row's `[UseDelegateFromConstructor]` fold column: `mrr-feed` rewrites every cutting move — explicit or modally inherited `F` — from the AST-altitude radial-chip-thinning estimate against the basis-true machinability feed; `corner-smooth` replaces sharp `G1`–`G1` junctions with tangent `G2`/`G3` blend arcs inside the deviation band; `compact` merges forward-monotone collinear and co-circular runs, strips modally redundant words, and gates the physical record count against `PostDialect.BlockCap`; the one internal `Post.Lookahead` kinematic sweep then certifies the final geometry — acceleration and jerk reachability are segment-length facts, so the certificate binds the distances the program actually ships. The in-house `Run(Post)` lowering threads `Feeds` between conditioning and `Emit` when `PostPolicy.Passes` selects it, while a parsed foreign program arrives with no engagement-aware seeds; the AST altitude makes one owner serve both.
+`Optimize` owns one admitted `CutProgram` transformation. `OptimizationIngress` admits domain evidence or an existing policy, `OptimizePass` folds the selected concerns in declaration order, `Post.Interpret` supplies the one modal and spatial trace, and `OptimizationResult` returns the re-keyed program, pass evidence, and exact `Dialect.Emit` image together.
 
-The physics inputs are composed, never re-derived: `MrrPolicy.Of` validates and derives its `Fin<MrrPolicy>` seed from the `Process/physics` `ProcessBudget.Subtractive` row and the `Tooling/cuttingdata` `CuttingData` receipt. The working feed derives from the typed `CutRegime` basis — `per-tooth` multiplies the regime feed by teeth and `SpindleRpm`, `per-revolution` by `SpindleRpm` alone, and `pitch` fails typed because a thread lead is geometry-locked, never a free feed — capped by the budget `FeedRate`; the engagement estimator remains junction-geometry-bound, and the feed rewrite applies radial chip thinning. The receipt's integrated seconds are the pass objective under a chord-approximate block-time fold; `Verify/simulate` remains the authoritative cycle-time walk. The acceleration caps ride `PostPolicy.Dynamics`, which consumes the `Kinematics/machine` `MotionDynamics` law as values.
-
-Wire posture: HOST-LOCAL. `Feeds` transforms an in-process AST and re-keys it through the one `CutProgram.Of` mint; the optimized program egresses through the same `Post.Lower` + content-key spine `program` owns — no wire, no second emitter, no second hasher.
+`MrrPolicy` composes `ProcessBudget.Subtractive`, `CuttingData`, and `MTConnect` controller ranges into dimensional feed decisions. `SmoothPolicy`, `CompactPolicy`, and `PatternPolicy` parameterize geometry preservation, modal compaction, and repeated-sequence factoring; no pass owns an implicit tolerance, label range, feed floor, or output convention.
 
 ## [01]-[INDEX]
 
-- [01]-[PROGRAM_OPTIMIZATION]: owns the `OptimizePass` fold axis, its three policy rows, the `OptimizePolicy` carrier, `PassDelta`/`OptimizationReceipt`, and the one declaration-ordered `Optimize.Feeds` fold over `CutProgram`; the terminal `Post.Lookahead` sweep certifies the final geometry, `PostDialect.BlockCap` gates physical records, and `Optimize.Delta` projects evidence beside the seam.
+- [01]-[ADMISSION]: `OptimizationIngress` selects raw evidence or an admitted policy.
+- [02]-[OPTIMIZATION]: `Optimize.Apply` executes the selected generated pass rows and returns one result.
+- [03]-[TRACE]: `Post.Interpret` derives effective position, feed, units, distance mode, and nested execution in one fold.
+- [04]-[OBJECTIVE]: `MotionDynamics` turns the trace into accel-limited machine minutes over every motion, not cutting alone.
+- [05]-[PASSES]: `OptimizationCore` owns feed adaptation, corner blending, compaction, and pattern folding.
 
-## [02]-[PROGRAM_OPTIMIZATION]
+## [02]-[ADMISSION]
 
-- Owner: `OptimizePass` `[SmartEnum<string>]` carries the declaration-ordered `mrr-feed`/`corner-smooth`/`compact` folds; `BlockLocus` addresses one AST locus as the index path from the program root through macro and subprogram bodies, so nested peers never alias; `RemovalEngagement` carries locus-addressed radial width, axial depth, cutter diameter, specific cutting force, and optional spindle-power ceiling; `MrrPolicy` carries the derived basis-true feed, locus-keyed engagement evidence, estimated-engagement seed, and feed band; `SmoothPolicy` carries the deviation band, minimum corner, and minimum useful radius; `CompactPolicy` carries merge tolerances (modal stripping is the dialect's `WordRetention` fact, never a policy knob); `OptimizePolicy` carries those rows plus the one `PostPolicy` dynamics source. `Delta` returns `Fin<OptimizationReceipt>` and reports how many cutting blocks used estimated rather than measured engagement.
-- Cases: `mrr-feed` uses measured `ae/ap/D/kc` rows when present, falls back explicitly to the junction estimate, applies radial-chip thinning, and power-caps feed through `P = kc·ae·ap·F/60`; `corner-smooth` computes the deviation-bounded radius and leaves the corner sharp when that radius falls below the minimum useful value instead of inflating beyond tolerance; `compact` merges collinear or truly co-circular sub-turn rows from the survivor's real predecessor and strips `F`/`S` against their own global modal registers. Every pass descends recursively through macro and subprogram bodies.
-- Entry: `Optimize.Feeds` folds the selected rows, certifies the final geometry through the one internal `Post.Lookahead` sweep, and then calls `Dialect.Seal` over the lowered program, so the cap covers physical nested records rather than top-level AST nodes. `Optimize.Delta` follows the same fallible gate and returns `Fin<OptimizationReceipt>`; neither projection bypasses the rail.
-- Auto: `Feeds` folds the `OptimizePass.Items` rows the policy selects over `program.Nodes`, then runs `Post.Lookahead` (internal, the ONE sweep) over the final geometry — every trim, blend, and merge lands before the certificate, so acceleration and jerk evaluate the distances the program ships; only `GNode.Word` motion nodes rewrite, cycle/macro/subprogram/additive/NC1 interiors passing through grammar-owned. The caller seeds `MrrPolicy.Of(budget, cuttingData, teeth, nominalEngagement, engagement)` from `ProcessPhysics.Budget` + `CuttingData.Of` at the policy boundary; a hand-tuned feed literal in a pass body is the named defect. The `Run(Post)` case body threads `Feeds` after conditioning when `Passes` is non-empty; `Verify/simulate` re-walks the optimized program for the authoritative time and envelope verdicts; `Verify/estimation` consumes simulate's receipt, never this page's objective fold.
-- Receipt: `OptimizationReceipt` — baseline/optimized integrated seconds (the chord-approximate objective, honestly named), block counts, and the ordered `PassDelta` rows — projected by `Optimize.Delta` beside the seam; the ruled `Feeds` return stays a bare `Fin<CutProgram>`. The receipt IS the evidence; no generic optimization ledger, no result wrapper.
-- Packages: `Posting/program` (`CutProgram`, `GNode.Word` parameter algebra, `PostPolicy`, and the internal `Post.Lookahead` sweep); `Process/physics` (`ProcessBudget.Subtractive` and its `SpindleRpm`/`FeedRate` columns via `ProcessPhysics.Budget`); `Tooling/cuttingdata` (measured chip-load cell); `Process/family` (`PostDialect.BlockCap` and `WordRetention` columns); `Process/faults` (`BlockCapExceeded` 2728); `Rasm.Numerics` (`GeometryFault`); Thinktecture.Runtime.Extensions; LanguageExt.Core; BCL inbox.
-- Growth: a new optimization concern is one `OptimizePass` row carrying its fold column plus its knob record — never a second entry; a finer engagement model is columns on `MrrPolicy` (the estimator stays junction-bound until a toolpath-level engagement receipt rides the AST); the motion-dynamics re-source is one `PostPolicy.Dynamics` re-point when `Kinematics/machine` widens its shape; zero new surface.
-- Boundary: `Optimize` is the ONE AST-optimization owner and a per-pass public method family (`OptimizeFeeds`/`SmoothCorners`/`CompactBlocks`) is the deleted form — one `Feeds`, pass rows; a pipeline table restating the `OptimizePass` rows beside their fold columns is the deleted form; a public result wrapper on the ruled `Fin<CutProgram>` seam is the deleted form; the kinematic certificate is `Post.Lookahead`'s and a local velocity planner, a re-derived junction law, or a raised F that skips the re-sweep is the second-planner defect; the cycle-time authority is `Verify/simulate` and quoting off this receipt is the split-truth defect; machinability is composed (`Budget`/`CuttingData.Of`) and a feed table on this page is the deleted form; the THC/Z law is `Toolpath/bevel`'s and feed rewriting near a pierce never touches torch-height words; the block cap is the dialect COLUMN and a page-local cap constant is the deleted form; the pass order is the declaration order and a caller-ordered pass list is the rejected knob.
+- Owner: `OptimizePolicy` is the canonical policy; `OptimizationIngress.Raw` is the only raw admission case.
+- Cases: `OptimizationIngress.Raw` composes process, cutting, controller, engagement, geometry, compaction, pattern, and kinematic evidence; `OptimizationIngress.Admitted` preserves an already admitted policy.
+- Entry: `Optimize.Apply` consumes `CutProgram`, `OptimizationIngress`, and parameterized `OptimizationEgress`; `OptimizationEgress.Measurement` derives the final codec, termination, and framing with `BlockLimit.Observe`, while `Final` retains `BlockLimit.Enforce`.
+- Auto: independent raw-policy failures accumulate through `Validation<Error, T>` before the `Fin<T>` execution rail; independent capability refusals accumulate the same way.
+- Receipt: `OptimizePolicy` carries typed `UnitsNet` quantities past admission.
+- Packages: `UnitsNet` supplies `Speed`, `RotationalSpeed`, `Length`, `Angle`, `Power`, and `Duration` constructors and canonical properties; `ProcessFeedRate.Minimum`/`Nominal`/`Maximum`/`Value` and `ProcessSpindleSpeed.Minimum`/`Nominal`/`Maximum`/`Value` supply controller bounds; `LanguageExt.Core` supplies `Validation<Error, T>`, applicative `Apply`, `Fin<T>`, `Fold`, `Bind`, `Choose`, `Zip`, and the equality-keyed `HashMap` carrier `BlockLocus` requires.
+- Growth: one new evidence source extends `OptimizationIngress.Raw` and the existing admission fan-in.
+- Boundary: raw dimensional doubles, controller-range copies, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
+
+## [03]-[OPTIMIZATION]
+
+- Owner: `OptimizePass` carries the declaration order and fold behavior; `OptimizationResult` is the sole egress.
+- Cases: `mrr-feed`, `corner-smooth`, `compact`, and `pattern-fold` are generated rows over one `PassState`.
+- Entry: `Optimize.Apply(CutProgram, OptimizationIngress, OptimizationEgress)` is the only public operation.
+- Auto: baseline and optimized block counts come from `PostImage.PhysicalRecords`; `PassState` threads the interpretation forward so each pass interprets the program it produced exactly once; `Post.Lookahead` derives caps from the recursively interpreted motion trace and rewrites every block, macro, and subprogram locus before final emission.
+- Receipt: `OptimizationReceipt` carries baseline and optimized duration, physical records, estimated-engagement count, folded-pattern count, and ordered `PassDelta` evidence.
+- Packages: `Dialect.Emit` owns physical rendering; `Post.Interpret`, `Post.Lookahead`, `CutProgram.Of`, `GNode.Switch`, `GNode.Word.P`/`With`/`Without`, and `GParam.Number` own program semantics; `MotionDynamics.RapidFeed`/`LinearFeed`/`ArcFeed`/`Acceleration`/`JunctionFeed` own machine timing; `CuttingData.Evaluate(CutIntent)` supplies dimensional force, power, and removal evidence; `Thinktecture.Runtime.Extensions` generates pass rows and policy owners.
+- Growth: one optimization concern adds one `OptimizePass` row and one pure `PassState` fold.
+- Boundary: separate `Feeds`, `Delta`, `Blocks`, and renderer-shaped estimators are deleted forms; symbolic `GValue.Variable`/`Expression` motion fails admission because geometry-changing passes cannot preserve unevaluated coordinates by inspection.
+
+## [04]-[TRACE]
+
+`Post.Interpret` is the single semantic walk. Missing axes inherit the cursor, `G90` and `G91` alter coordinate interpretation, `F` remains modal, and every block, macro, repeated subprogram, and canned cycle enters with caller state and returns its final state.
+
+`ProgramEvent.Motion.Cutting` is refined by the subtractive command family before feed rewriting, so `GCommand.Extrude` never enters material-removal logic. Arc rows preserve their admitted `I`/`J` center evidence, while distances and turns use full `Point3d` positions; no absent axis becomes zero and no zero-length span becomes fabricated distance.
+
+## [05]-[OBJECTIVE]
+
+Objective time counts every machine minute: rapids traverse at `MotionDynamics.RapidFeed`, feed motion is bounded by `LinearFeed` and `ArcFeed`, `FeedMode.InverseTime` reads one block as `1/F` minutes, and `GCommand.Dwell` contributes its `P` seconds for every commanded pause, including pierce delay. A cutting-only objective reports compaction and linking gains it never earned.
+
+Each span is accel-limited: `MotionDynamics.JunctionFeed` fixes the shared speed at the turn between consecutive spans, and `Acceleration` bounds the reachable peak, so a fold of short segments cannot show its programmed feed. `MotionSpan` carries length, cruise ceiling, entry speed, and chord direction, and the trapezoid closes each span when its successor fixes the exit.
+
+## [06]-[PASSES]
+
+`mrr-feed` evaluates `CuttingData.Evaluate(CutIntent)` for each subtractive locus, applies radial chip thinning, intersects process, controller, and spindle-power limits, and writes one explicit effective `F`. Missing engagement evidence uses the policy estimator and increments receipt evidence. Tapping and threading cycles are excluded because their feed is bound to pitch and spindle speed.
+
+`corner-smooth` runs only after `ProgramTrace` proves absolute `G17` motion with explicit `X`/`Y`/`Z` and the dialect admits center-form arcs, then applies one measured three-word array window, carries the corner's modal words onto the emitted arc, and emits the existing `GNode.Word` arc representation. `Geometry2D/arcs` remains the owner for subsequent arc inspection, offset, and densification.
+
+`compact` uses the same admitted geometry, folds forward-collinear rapid and feed runs and co-circular arc runs while preserving traversed locus, and strips repeated modal `F` and `S` values. A nested body executes under state the parent fold cannot see, so the modal census clears at every non-word node rather than stripping a word the body already changed.
+
+`pattern-fold` selects the maximal positive structural saving after call and definition overhead, replaces occurrences with one `GNode.Subprogram`, and repeats until no profitable sequence remains; generated labels come only from `PatternPolicy`, and `Dialect.Emit` hoists one definition per label regardless of call-site count.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
+using MTConnect.Assets.CuttingTools;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
-using Rasm.Numerics;
+using Rasm.Fabrication.Tooling;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] ----------------------------------------------------------------------------------------------------------------------------------------
-// Pass ORDER is the declaration order and each row carries its own fold; the ONE Post.Lookahead sweep runs in Run over the FINAL geometry after the
-// last selected pass, so no row can stale the certificate. Selection toggles rows; order never moves.
+// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OptimizationIngress {
+    private OptimizationIngress() { }
+
+    public sealed record Raw(
+        ProcessBudget.Subtractive Budget,
+        CuttingData Cutting,
+        ProcessFeedRate FeedRange,
+        ProcessSpindleSpeed SpindleRange,
+        int Teeth,
+        double ToolDiameterMm,
+        double EstimatedRadialDepthMm,
+        double EstimatedAxialDepthMm,
+        double MinimumEngagementFraction,
+        Option<double> SpindlePowerWatts,
+        HashMap<BlockLocus, EngagementRow> Engagement,
+        double MaximumDeviationMm,
+        double MinimumTurnRadians,
+        double MinimumRadiusMm,
+        double GeometryToleranceMm,
+        double CollinearToleranceMm,
+        double CocircularToleranceMm,
+        int MinimumPatternLength,
+        int MaximumPatternLength,
+        int MinimumPatternOccurrences,
+        int FirstPatternLabel,
+        Set<OptimizePass> Passes,
+        PostPolicy Post) : OptimizationIngress;
+
+    public sealed record Admitted(OptimizePolicy Policy) : OptimizationIngress;
+}
+
 [SmartEnum<string>]
 public sealed partial class OptimizePass {
-    public static readonly OptimizePass MrrFeed = new("mrr-feed", static (n, p, _) => Optimize.Deep(n, Seq<int>(), (level, path) => Optimize.MrrFeedPass(level, path, p.Mrr)));
-    public static readonly OptimizePass CornerSmooth = new("corner-smooth", static (n, p, _) => Optimize.Deep(n, Seq<int>(), (level, _) => Optimize.SmoothPass(level, p.Smooth)));
-    public static readonly OptimizePass Compact = new("compact", static (n, p, d) => Optimize.Deep(n, Seq<int>(), (level, _) => Optimize.CompactPass(level, p.Compact, d)));
+    public static readonly OptimizePass MrrFeed = new("mrr-feed", 10, OptimizationCore.MrrFeed);
+    public static readonly OptimizePass CornerSmooth = new("corner-smooth", 20, OptimizationCore.Smooth);
+    public static readonly OptimizePass Compact = new("compact", 30, OptimizationCore.Compact);
+    public static readonly OptimizePass PatternFold = new("pattern-fold", 40, OptimizationCore.PatternFold);
+
+    public int Order { get; }
 
     [UseDelegateFromConstructor]
-    public partial Seq<GNode> Fold(Seq<GNode> nodes, OptimizePolicy policy, PostDialect dialect);
+    internal partial Fin<PassState> Fold(PassState state, OptimizePolicy policy);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
-// Of() seeds from the landed physics surfaces: the working feed derives from the typed CutRegime basis on the CuttingData receipt — per-tooth ×
-// teeth × rpm, per-revolution × rpm, pitch fails typed — capped by the budget FeedRate; the pass never re-derives machinability and never carries
-// a feed table. BlockLocus is the index PATH from the program root, so nested macro/subprogram peers never alias one evidence row.
-public readonly record struct BlockLocus(Seq<int> Path);
+[ValueObject<int>(KeyMemberName = "Segments")]
+public readonly partial struct PatternLength;
 
-public readonly record struct RemovalEngagement(
-    BlockLocus Locus, double RadialWidthMm, double AxialDepthMm, double ToolDiameterMm, double SpecificCuttingForceNPerMm2, Option<double> PowerLimitKw);
+[ComplexValueObject]
+public sealed partial class BlockLocus {
+    public Seq<int> Path { get; }
 
-public sealed record MrrPolicy(
-    double BudgetFeed, HashMap<BlockLocus, RemovalEngagement> Engagement, double NominalEngagement, double FloorFraction, double CeilingFactor) {
-    public static MrrPolicy Disabled(double feed) =>
-        new(feed, HashMap<BlockLocus, RemovalEngagement>(), NominalEngagement: 0.5, FloorFraction: 0.25, CeilingFactor: 1.0);
-
-    public static Fin<MrrPolicy> Of(
-        ProcessBudget.Subtractive budget,
-        CuttingData data,
-        int teeth,
-        double nominalEngagement,
-        Seq<RemovalEngagement> engagement) =>
-        data.Regime.Basis.Switch(
-            perTooth: () => Fin.Succ(data.Regime.Feed * teeth * budget.SpindleRpm),
-            perRevolution: () => Fin.Succ(data.Regime.Feed * budget.SpindleRpm),
-            pitch: static () => Fin.Fail<double>(GeometryFault.DegenerateInput("optimize:mrr-pitch-basis").ToError()))
-        .Bind(measured => {
-            double feed = budget.FeedRate > 0.0 ? Math.Min(measured, budget.FeedRate) : measured;
-            bool invalid = !double.IsFinite(feed) || !double.IsFinite(nominalEngagement)
-                || feed <= 0.0 || teeth <= 0 || nominalEngagement is <= 0.0 or > 1.0
-                || engagement.Exists(static row => row.Locus.Path.IsEmpty || row.Locus.Path.Exists(static index => index < 0)
-                    || !double.IsFinite(row.RadialWidthMm) || !double.IsFinite(row.AxialDepthMm)
-                    || !double.IsFinite(row.ToolDiameterMm) || !double.IsFinite(row.SpecificCuttingForceNPerMm2)
-                    || row.PowerLimitKw.Exists(static power => !double.IsFinite(power))
-                    || row.RadialWidthMm <= 0.0 || row.AxialDepthMm <= 0.0
-                    || row.ToolDiameterMm <= 0.0 || row.RadialWidthMm > row.ToolDiameterMm
-                    || row.SpecificCuttingForceNPerMm2 <= 0.0 || row.PowerLimitKw.Exists(static power => power <= 0.0))
-                || engagement.Map(static row => row.Locus).Distinct().Count != engagement.Count;
-            return invalid
-                ? Fin.Fail<MrrPolicy>(GeometryFault.DegenerateInput("optimize:mrr-policy").ToError())
-                : Fin.Succ(new MrrPolicy(
-                    feed,
-                    toHashMap(engagement.Map(static row => (row.Locus, row))),
-                    nominalEngagement,
-                    FloorFraction: 0.25,
-                    CeilingFactor: 1.5));
-        });
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<int> path) =>
+        validationError = path.IsEmpty || path.Exists(static index => index < 0)
+            ? new ValidationError("optimization:locus") : null;
 }
 
-public readonly record struct SmoothPolicy(double MaxDeviationMm, double MinCornerRad, double MinimumUsefulRadiusMm) {
-    public static readonly SmoothPolicy Canonical = new(MaxDeviationMm: 0.05, MinCornerRad: Math.PI / 12.0, MinimumUsefulRadiusMm: 0.2);
+[ComplexValueObject]
+public sealed partial class EngagementRow {
+    public BlockLocus Locus { get; }
+    public Length RadialDepth { get; }
+    public Length AxialDepth { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref BlockLocus locus,
+        ref Length radialDepth, ref Length axialDepth) =>
+        validationError = locus is null || radialDepth <= Length.Zero || axialDepth <= Length.Zero
+            ? new ValidationError("optimization:engagement") : null;
 }
 
-// Modal stripping is the DIALECT's fact (WordRetention.Modal), never a policy knob beside it.
-public readonly record struct CompactPolicy(double CollinearEpsilon, double CocircularEpsilon) {
-    public static readonly CompactPolicy Canonical = new(CollinearEpsilon: 1e-3, CocircularEpsilon: 1e-3);
+[ComplexValueObject]
+public sealed partial class MrrPolicy {
+    public CuttingData Cutting { get; }
+    public Speed ProcessFeed { get; }
+    public Speed MinimumFeed { get; }
+    public Speed MaximumFeed { get; }
+    public RotationalSpeed MinimumSpindle { get; }
+    public RotationalSpeed MaximumSpindle { get; }
+    public RotationalSpeed ProgramSpindle { get; }
+    public Length ToolDiameter { get; }
+    public int Teeth { get; }
+    public Length EstimatedRadialDepth { get; }
+    public Length EstimatedAxialDepth { get; }
+    public double MinimumEngagementFraction { get; }
+    public Option<Power> SpindlePower { get; }
+    public HashMap<BlockLocus, EngagementRow> Engagement { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CuttingData cutting,
+        ref Speed processFeed, ref Speed minimumFeed, ref Speed maximumFeed, ref RotationalSpeed minimumSpindle,
+        ref RotationalSpeed maximumSpindle, ref RotationalSpeed programSpindle, ref Length toolDiameter, ref int teeth,
+        ref Length estimatedRadialDepth, ref Length estimatedAxialDepth, ref double minimumEngagementFraction,
+        ref Option<Power> spindlePower, ref HashMap<BlockLocus, EngagementRow> engagement) =>
+        validationError = cutting is null || processFeed <= Speed.Zero || minimumFeed <= Speed.Zero || maximumFeed < minimumFeed
+            || minimumSpindle <= RotationalSpeed.Zero || maximumSpindle < minimumSpindle || programSpindle <= RotationalSpeed.Zero
+            || toolDiameter <= Length.Zero || teeth <= 0 || estimatedRadialDepth <= Length.Zero || estimatedAxialDepth <= Length.Zero
+            || estimatedRadialDepth > toolDiameter || engagement.AsIterable().Exists(row => row.Key != row.Value.Locus
+                || row.Value.RadialDepth > toolDiameter)
+            || !double.IsFinite(minimumEngagementFraction) || minimumEngagementFraction is <= 0.0 or > 1.0
+            || spindlePower.Exists(static value => value <= Power.Zero)
+            ? new ValidationError("optimization:mrr") : null;
 }
 
-// Post carries the Dynamics caps the re-sweep reads — the same policy the program was conditioned with.
-public sealed record OptimizePolicy(Set<OptimizePass> Passes, MrrPolicy Mrr, SmoothPolicy Smooth, CompactPolicy Compact, PostPolicy Post);
+[ComplexValueObject]
+public sealed partial class SmoothPolicy {
+    public Length MaximumDeviation { get; }
+    public Angle MinimumTurn { get; }
+    public Length MinimumRadius { get; }
+    public Length GeometryTolerance { get; }
 
-public readonly record struct PassDelta(OptimizePass Pass, double SecondsDelta, int BlocksDelta);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Length maximumDeviation,
+        ref Angle minimumTurn, ref Length minimumRadius, ref Length geometryTolerance) =>
+        validationError = maximumDeviation <= Length.Zero || minimumTurn <= Angle.Zero || minimumTurn >= Angle.FromRadians(Math.PI)
+            || minimumRadius <= Length.Zero || geometryTolerance <= Length.Zero
+            ? new ValidationError("optimization:smooth") : null;
+}
 
-public sealed record OptimizationReceipt(double BaselineSeconds, double OptimizedSeconds, int BaselineBlocks, int OptimizedBlocks, int EstimatedEngagementBlocks, Seq<PassDelta> Passes);
+[ComplexValueObject]
+public sealed partial class CompactPolicy {
+    public Length CollinearTolerance { get; }
+    public Length CocircularTolerance { get; }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError,
+        ref Length collinearTolerance, ref Length cocircularTolerance) =>
+        validationError = collinearTolerance <= Length.Zero || cocircularTolerance <= Length.Zero
+            ? new ValidationError("optimization:compact") : null;
+}
+
+[ComplexValueObject]
+public sealed partial class PatternPolicy {
+    public PatternLength MinimumLength { get; }
+    public PatternLength MaximumLength { get; }
+    public int MinimumOccurrences { get; }
+    public int FirstLabel { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PatternLength minimumLength,
+        ref PatternLength maximumLength, ref int minimumOccurrences, ref int firstLabel) =>
+        validationError = minimumLength.Segments <= 0 || maximumLength.Segments < minimumLength.Segments
+            || minimumOccurrences <= 1 || firstLabel <= 0
+            ? new ValidationError("optimization:pattern") : null;
+}
+
+[ComplexValueObject]
+public sealed partial class OptimizePolicy {
+    public Set<OptimizePass> Passes { get; }
+    public MrrPolicy Mrr { get; }
+    public SmoothPolicy Smooth { get; }
+    public CompactPolicy Compact { get; }
+    public PatternPolicy Pattern { get; }
+    public PostPolicy Post { get; }
+
+    [IgnoreMember]
+    public MotionDynamics Dynamics => Post.Cut.Dynamics;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Set<OptimizePass> passes,
+        ref MrrPolicy mrr, ref SmoothPolicy smooth, ref CompactPolicy compact, ref PatternPolicy pattern, ref PostPolicy post) =>
+        validationError = mrr is null || smooth is null || compact is null || pattern is null || post is null
+            ? new ValidationError("optimization:policy-owner") : null;
+}
+
+[ComplexValueObject]
+public sealed partial class OptimizationEgress {
+    public EmitPolicy Final { get; }
+
+    [IgnoreMember]
+    public EmitPolicy Measurement => EmitPolicy.Create(
+        Final.Codec, Final.NewLine, Final.FinalTerminator, Final.Frame, new BlockLimit.Observe());
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref EmitPolicy @final) =>
+        validationError = @final is null || @final.Limit is not BlockLimit.Enforce
+            ? new ValidationError("optimization:egress") : null;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+public sealed record PassDelta(
+    OptimizePass Pass,
+    Duration Before,
+    Duration After,
+    int ChangedNodes,
+    int EstimatedEngagement,
+    int FoldedPatterns);
+
+public sealed record OptimizationReceipt(
+    Duration BaselineObjective,
+    Duration OptimizedObjective,
+    int BaselineRecords,
+    int OptimizedRecords,
+    int EstimatedEngagement,
+    int FoldedPatterns,
+    Seq<PassDelta> Passes);
+
+public sealed record OptimizationResult(CutProgram Program, PostImage Image, OptimizationReceipt Receipt);
+
+internal readonly record struct MotionSpan(double Length, double Cruise, double Entry, double Minutes, Vector3d Direction);
+
+internal sealed record PassState(CutProgram Program, ProgramTrace Trace, Seq<PassDelta> Deltas);
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Optimize {
-    // THE ruled seam: an optimized CutProgram out for a CutProgram in — the rewritten AST re-keys through
-    // CutProgram.Of so the content key follows the bytes; no wrapper rides the rail. The fold runs at the
-    // CutProgram AST altitude (Seq<GNode>): only GNode.Word motion nodes rewrite — canned-cycle, macro,
-    // subprogram, additive-layer, and NC1 interiors are grammar-owned and pass through untouched.
-    public static Fin<CutProgram> Feeds(CutProgram program, OptimizePolicy policy) =>
-        Run(program, policy).Map(static run => run.Program);
+    public static Fin<OptimizationResult> Apply(CutProgram program, OptimizationIngress ingress, OptimizationEgress egress) {
+        ArgumentNullException.ThrowIfNull(program);
+        ArgumentNullException.ThrowIfNull(ingress);
+        ArgumentNullException.ThrowIfNull(egress);
 
-    // Receipt PROJECTION beside the seam, never a wrapper on it: both projections read the SAME core run,
-    // so a pass can never diverge between the optimized program and its evidence; Verify/simulate stays the
-    // authoritative cycle-time walk.
-    public static Fin<OptimizationReceipt> Delta(CutProgram program, OptimizePolicy policy) =>
-        Run(program, policy).Map(run => new OptimizationReceipt(
-            Seconds(program.Nodes, policy), Seconds(run.Program.Nodes, policy),
-            Blocks(program.Nodes), Blocks(run.Program.Nodes),
-            Estimated(program.Nodes, Seq<int>(), policy.Mrr),
-            run.Deltas));
+        return from policy in Admit(ingress)
+               from _ in Numeric(program.Nodes)
+               from baselineTrace in Post.Interpret(program)
+               from __ in Capability(program, policy, baselineTrace)
+               from baselineImage in Dialect.Emit(program, egress.Measurement)
+               let initial = new PassState(program, baselineTrace, Seq<PassDelta>())
+               from folded in toSeq(policy.Passes.OrderBy(static pass => pass.Order))
+                   .Fold(Fin.Succ(initial), (state, pass) => state.Bind(current => pass.Fold(current, policy)))
+               from looked in Post.Lookahead(folded.Program.Nodes, policy.Dynamics, program.Dialect)
+               let certified = CutProgram.Of(looked, program.Dialect)
+               from image in Dialect.Emit(certified, egress.Final)
+               from optimizedTrace in Post.Interpret(certified)
+               let estimated = folded.Deltas.Sum(static delta => delta.EstimatedEngagement)
+               let patterns = folded.Deltas.Sum(static delta => delta.FoldedPatterns)
+               select new OptimizationResult(certified, image, new OptimizationReceipt(
+                   Objective(baselineTrace, policy.Dynamics), Objective(optimizedTrace, policy.Dynamics),
+                   baselineImage.PhysicalRecords, image.PhysicalRecords, estimated, patterns, folded.Deltas));
+    }
 
-    private static Fin<(CutProgram Program, Seq<PassDelta> Deltas)> Run(CutProgram program, OptimizePolicy policy) {
-        if (program.Nodes.IsEmpty)
-            return Fin.Fail<(CutProgram, Seq<PassDelta>)>(GeometryFault.DegenerateInput("optimize:empty-program").ToError());
-        return Admit(policy).Bind(_ => {
-            (Seq<GNode> Nodes, Seq<PassDelta> Deltas) run = toSeq(OptimizePass.Items)
-                .Filter(policy.Passes.Contains)
-                .Fold((program.Nodes, Seq<PassDelta>()), (acc, pass) => {
-                    Seq<GNode> next = pass.Fold(acc.Nodes, policy, program.Dialect);
-                    return (next, acc.Deltas.Add(new PassDelta(pass, Seconds(next, policy) - Seconds(acc.Nodes, policy), Blocks(next) - Blocks(acc.Nodes))));
-                });
-            Seq<GNode> certified = policy.Passes.IsEmpty
-                ? run.Nodes
-                : Deep(run.Nodes, Seq<int>(), (level, _) => Post.Lookahead(level, policy.Post));
-            return Dialect.Seal(program.Dialect, certified.Map(node => Dialect.Emit(program.Dialect, node)))
-                .Map(_ => (CutProgram.Of(certified, program.Dialect), run.Deltas));
+    private static Fin<OptimizePolicy> Admit(OptimizationIngress ingress) => ingress.Switch(
+        raw: static raw => Admit(raw),
+        admitted: static admitted => Optional(admitted.Policy).ToFin(Error.New("optimization:admitted-policy")));
+
+    private static Fin<OptimizePolicy> Admit(OptimizationIngress.Raw raw) {
+        if (raw.Budget is null || raw.Cutting is null || raw.FeedRange is null || raw.SpindleRange is null || raw.Post is null)
+            return Fin.Fail<OptimizePolicy>(Error.New("optimization:references"));
+        double feedMinimum = raw.FeedRange.Minimum ?? raw.FeedRange.Value ?? raw.FeedRange.Nominal ?? raw.Budget.FeedRate;
+        double feedMaximum = raw.FeedRange.Maximum ?? raw.FeedRange.Value ?? raw.FeedRange.Nominal ?? raw.Budget.FeedRate;
+        double spindleMinimum = raw.SpindleRange.Minimum ?? raw.SpindleRange.Value ?? raw.SpindleRange.Nominal ?? raw.Budget.SpindleRpm;
+        double spindleMaximum = raw.SpindleRange.Maximum ?? raw.SpindleRange.Value ?? raw.SpindleRange.Nominal ?? raw.Budget.SpindleRpm;
+        K<Validation<Error>, Unit> dimensions = Gate(Seq(raw.ToolDiameterMm, raw.EstimatedRadialDepthMm,
+            raw.EstimatedAxialDepthMm, raw.MaximumDeviationMm, raw.MinimumRadiusMm, raw.GeometryToleranceMm,
+            raw.CollinearToleranceMm, raw.CocircularToleranceMm).ForAll(static value => double.IsFinite(value) && value > 0.0),
+            "optimization:dimensions");
+        K<Validation<Error>, Unit> ranges = Gate(feedMinimum > 0.0 && feedMaximum >= feedMinimum
+            && spindleMinimum > 0.0 && spindleMaximum >= spindleMinimum && double.IsFinite(raw.Budget.FeedRate)
+            && raw.Budget.FeedRate > 0.0 && double.IsFinite(raw.Budget.SpindleRpm) && raw.Budget.SpindleRpm > 0.0,
+            "optimization:controller-range");
+        K<Validation<Error>, Unit> topology = Gate(raw.Teeth > 0
+            && double.IsFinite(raw.MinimumEngagementFraction) && raw.MinimumEngagementFraction is > 0.0 and <= 1.0
+            && double.IsFinite(raw.MinimumTurnRadians) && raw.MinimumTurnRadians is > 0.0 and < Math.PI
+            && raw.SpindlePowerWatts.ForAll(static value => double.IsFinite(value) && value > 0.0)
+            && raw.MinimumPatternLength > 0 && raw.MaximumPatternLength >= raw.MinimumPatternLength
+            && raw.MinimumPatternOccurrences > 1 && raw.FirstPatternLabel > 0, "optimization:policy");
+        return (dimensions, ranges, topology).Apply((_, _, _) => Policy(raw,
+            feedMinimum, feedMaximum, spindleMinimum, spindleMaximum)).As().ToFin();
+    }
+
+    private static OptimizePolicy Policy(OptimizationIngress.Raw raw,
+        double feedMinimum, double feedMaximum, double spindleMinimum, double spindleMaximum) =>
+        OptimizePolicy.Create(
+            raw.Passes,
+            MrrPolicy.Create(raw.Cutting, Speed.FromMillimetersPerMinute(raw.Budget.FeedRate),
+                Speed.FromMillimetersPerMinute(feedMinimum), Speed.FromMillimetersPerMinute(feedMaximum),
+                RotationalSpeed.FromRevolutionsPerMinute(spindleMinimum), RotationalSpeed.FromRevolutionsPerMinute(spindleMaximum),
+                RotationalSpeed.FromRevolutionsPerMinute(raw.Budget.SpindleRpm),
+                Length.FromMillimeters(raw.ToolDiameterMm), raw.Teeth, Length.FromMillimeters(raw.EstimatedRadialDepthMm),
+                Length.FromMillimeters(raw.EstimatedAxialDepthMm), raw.MinimumEngagementFraction,
+                raw.SpindlePowerWatts.Map(Power.FromWatts), raw.Engagement),
+            SmoothPolicy.Create(Length.FromMillimeters(raw.MaximumDeviationMm), Angle.FromRadians(raw.MinimumTurnRadians),
+                Length.FromMillimeters(raw.MinimumRadiusMm), Length.FromMillimeters(raw.GeometryToleranceMm)),
+            CompactPolicy.Create(Length.FromMillimeters(raw.CollinearToleranceMm), Length.FromMillimeters(raw.CocircularToleranceMm)),
+            PatternPolicy.Create(PatternLength.Create(raw.MinimumPatternLength), PatternLength.Create(raw.MaximumPatternLength),
+                raw.MinimumPatternOccurrences, raw.FirstPatternLabel), raw.Post);
+
+    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) => valid
+        ? Validation<Error, Unit>.Success(unit)
+        : Validation<Error, Unit>.Fail(Error.New(locus));
+
+    private static Fin<Unit> Numeric(Seq<GNode> nodes) => nodes.ForAll(NumericNode)
+        ? Fin.Succ(unit)
+        : Fin.Fail<Unit>(Error.New("optimization:symbolic-program"));
+
+    // Every selected pass states its own precondition against the program; independent refusals accumulate.
+    private static Fin<Unit> Capability(CutProgram program, OptimizePolicy policy, ProgramTrace trace) {
+        bool geometry = trace.Events.ForAll(static item => item switch {
+            ProgramEvent.Motion motion => Seq('X', 'Y', 'Z').ForAll(address => motion.Word.P(address).IsSome),
+            ProgramEvent.State state => state.Command != GCommand.Relative && state.Command != GCommand.ArcRelative
+                && state.Command != GCommand.PlaneZx && state.Command != GCommand.PlaneYz,
+            _ => true,
         });
+        return (Gate(!policy.Passes.Contains(OptimizePass.PatternFold) || program.Dialect.Subprogram != SubprogramGrammar.None,
+                "optimization:subprogram-grammar"),
+            Gate(!policy.Passes.Contains(OptimizePass.CornerSmooth) && !policy.Passes.Contains(OptimizePass.Compact) || geometry,
+                "optimization:geometry-context"),
+            Gate(!policy.Passes.Contains(OptimizePass.CornerSmooth)
+                || program.Dialect.Arc.Exists(static mode => mode == ArcMode.Ijk || mode == ArcMode.Both),
+                "optimization:arc-representation"))
+            .Apply(static (_, _, _) => unit).As().ToFin();
     }
 
-    // The estimated-engagement census folds the SAME recursive domain the rewrite executes over — a nested
-    // cutting block without measured evidence counts exactly once at its own locus.
-    private static int Estimated(Seq<GNode> nodes, Seq<int> prefix, MrrPolicy mrr) {
-        GNode[] b = nodes.ToArray();
-        return toSeq(Enumerable.Range(0, b.Length)).Sum(k => b[k].Switch(
-            word:          w => Cutting(w) && mrr.Engagement.Find(new BlockLocus(prefix.Add(k))).IsNone ? 1 : 0,
-            cannedCycle:   static _ => 0,
-            macro:         m => Estimated(m.Body.ToSeq(), prefix.Add(k), mrr),
-            subprogram:    s => Estimated(s.Body.ToSeq(), prefix.Add(k), mrr),
-            additiveLayer: static _ => 0,
-            nc1:           static _ => 0));
+    private static bool NumericNode(GNode node) => node.Switch(
+        block: static block => block.Body.ForAll(NumericNode),
+        word: static word => word.Command.Group != ModalGroup.Motion || word.Words
+            .Filter(static parameter => parameter.Address is 'X' or 'Y' or 'Z' or 'A' or 'B' or 'C' or 'U' or 'V' or 'W'
+                or 'I' or 'J' or 'K' or 'R' or 'F' or 'S')
+            .ForAll(static parameter => parameter.Value.Scalar.IsSome),
+        cannedCycle: static cycle => cycle.SingleBlockWords.ForAll(static parameter => parameter.Value.Scalar.IsSome),
+        coordinateFrame: static _ => true,
+        macro: static macro => macro.Body.ForAll(NumericNode),
+        subprogram: static subprogram => subprogram.Body.ForAll(NumericNode),
+        additiveLayer: static _ => true,
+        nc1: static _ => true,
+        directive: static _ => true);
+
+    // Machine minutes: every span closes against the junction speed its successor fixes, so the last span decelerates
+    // to rest and no pass can report a gain the machine cannot deliver.
+    internal static Duration Objective(ProgramTrace trace, MotionDynamics dynamics) {
+        (GCommand Plane, Option<MotionSpan> Pending, double Minutes) folded = trace.Events.Fold(
+            (Plane: GCommand.PlaneXy, Pending: Option<MotionSpan>.None, Minutes: 0.0),
+            (state, item) => item switch {
+                ProgramEvent.State { Command: var command }
+                    when command == GCommand.PlaneXy || command == GCommand.PlaneZx || command == GCommand.PlaneYz =>
+                        (command, state.Pending, state.Minutes),
+                ProgramEvent.State { Word: var word }
+                    when word.Command == GCommand.Dwell =>
+                        (state.Plane, state.Pending, state.Minutes + (word.P('P').IfNone(0.0) / 60.0)),
+                ProgramEvent.Motion motion when Span(motion, state.Plane, dynamics) is { Length: > 0.0 } span =>
+                    (state.Plane, Some(span with { Entry = Junction(state.Pending, span, dynamics) }),
+                        state.Minutes + state.Pending.Map(pending => Elapsed(pending, Junction(state.Pending, span, dynamics), dynamics))
+                            .IfNone(0.0)),
+                _ => state,
+            });
+        return Duration.FromMinutes(folded.Minutes + folded.Pending.Map(span => Elapsed(span, 0.0, dynamics)).IfNone(0.0));
     }
 
-    private static Fin<Unit> Admit(OptimizePolicy policy) {
-        Seq<Error> errors = Seq<Error>();
-        if (policy.Passes.Contains(OptimizePass.MrrFeed)
-            && (!Seq(policy.Mrr.BudgetFeed, policy.Mrr.NominalEngagement, policy.Mrr.FloorFraction, policy.Mrr.CeilingFactor).ForAll(double.IsFinite)
-                || policy.Mrr.BudgetFeed <= 0.0 || policy.Mrr.NominalEngagement is <= 0.0 or > 1.0
-                || policy.Mrr.FloorFraction is <= 0.0 or > 1.0 || policy.Mrr.CeilingFactor < 1.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("optimize:mrr-policy").ToError());
-        if (policy.Passes.Contains(OptimizePass.CornerSmooth)
-            && (!Seq(policy.Smooth.MaxDeviationMm, policy.Smooth.MinCornerRad, policy.Smooth.MinimumUsefulRadiusMm).ForAll(double.IsFinite)
-                || policy.Smooth.MaxDeviationMm <= 0.0 || policy.Smooth.MinCornerRad is <= 0.0 or >= Math.PI
-                || policy.Smooth.MinimumUsefulRadiusMm <= 0.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("optimize:smooth-policy").ToError());
-        if (policy.Passes.Contains(OptimizePass.Compact)
-            && (!double.IsFinite(policy.Compact.CollinearEpsilon) || !double.IsFinite(policy.Compact.CocircularEpsilon)
-                || policy.Compact.CollinearEpsilon <= 0.0 || policy.Compact.CocircularEpsilon <= 0.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("optimize:compact-policy").ToError());
-        return errors.Head.Match(
-            Some: head => Fin.Fail<Unit>(errors.Tail.Fold(head, static (folded, error) => folded + error)),
-            None: () => Fin.Succ(unit));
+    private static double Junction(Option<MotionSpan> pending, MotionSpan span, MotionDynamics dynamics) => pending
+        .Map(previous => Math.Min(Math.Min(previous.Cruise, span.Cruise),
+            dynamics.JunctionFeed(Vector3d.VectorAngle(previous.Direction, span.Direction))))
+        .IfNone(0.0);
+
+    private static double Elapsed(MotionSpan span, double exit, MotionDynamics dynamics) {
+        if (span.Minutes > 0.0)
+            return span.Minutes;
+        double accel = Math.Max(dynamics.Acceleration, double.Epsilon);
+        double cruise = span.Cruise / 60.0;
+        double entry = Math.Min(span.Entry / 60.0, cruise);
+        double leave = Math.Min(exit / 60.0, cruise);
+        double peak = Math.Min(cruise, Math.Sqrt(((2.0 * accel * span.Length) + (entry * entry) + (leave * leave)) / 2.0));
+        double ramps = (Math.Max(peak - entry, 0.0) + Math.Max(peak - leave, 0.0)) / accel;
+        double covered = (((peak * peak) - (entry * entry)) + ((peak * peak) - (leave * leave))) / (2.0 * accel);
+        return (ramps + (Math.Max(span.Length - covered, 0.0) / Math.Max(peak, double.Epsilon))) / 60.0;
     }
 
-    // Generated total Switch — a new GNode case breaks the descent loudly instead of falling to a silent
-    // default arm. The prefix threads the AST locus so nested bodies never restart block addressing.
-    internal static Seq<GNode> Deep(Seq<GNode> nodes, Seq<int> prefix, Func<Seq<GNode>, Seq<int>, Seq<GNode>> fold) =>
-        fold(nodes.Map((node, index) => node.Switch(
-            word:          static w => (GNode)w,
-            cannedCycle:   static c => c,
-            macro:         m => m with { Body = Deep(m.Body.ToSeq(), prefix.Add(index), fold).ToArr() },
-            subprogram:    s => s with { Body = Deep(s.Body.ToSeq(), prefix.Add(index), fold).ToArr() },
-            additiveLayer: static a => a,
-            nc1:           static n => n)), prefix);
-
-    // AST-altitude engagement estimator (CCW-outline convention): a concave junction turn raises radial engagement toward slotting, a convex turn
-    // sheds it; the rewrite is the standard radial-chip-thinning correction F' = F_budget · RCTF, RCTF = 1/sqrt(1-(1-2e)^2), floor/ceiling clamped.
-    // EVERY cutting move rewrites — a block inheriting modal F gains its explicit rewritten F here, so the terminal Lookahead sweep certifies it and
-    // StripModal drops any redundant repeat; the toolpath-level engagement LAW stays upstream, and the SECOND feed is a Post.Parse foreign program.
-    internal static Seq<GNode> MrrFeedPass(Seq<GNode> nodes, Seq<int> path, MrrPolicy mrr) {
-        GNode[] b = nodes.ToArray();
-        double eNom = Math.Clamp(mrr.NominalEngagement, 0.01, 1.0);
-        return toSeq(Enumerable.Range(0, b.Length)).Map(k =>
-            b[k] is GNode.Word w && Cutting(w)
-                ? Rewrite(b, k, w, path, mrr, eNom)
-                : b[k]);
+    private static MotionSpan Span(ProgramEvent.Motion motion, GCommand plane, MotionDynamics dynamics) {
+        bool arc = motion.Word.Command == GCommand.ArcCw || motion.Word.Command == GCommand.ArcCcw;
+        double length = arc ? ArcLength(motion, plane) : motion.From.DistanceTo(motion.To);
+        double programmed = motion.Word.Command == GCommand.Rapid
+            ? dynamics.RapidFeed
+            : Math.Min(motion.Feed > 0.0 ? motion.Feed : dynamics.LinearFeed, arc ? dynamics.ArcFeed : dynamics.LinearFeed);
+        Vector3d direction = motion.To - motion.From;
+        _ = direction.Unitize();
+        return new MotionSpan(
+            length,
+            programmed,
+            0.0,
+            motion.Mode == FeedMode.InverseTime && motion.Feed > 0.0 ? 1.0 / motion.Feed : 0.0,
+            direction);
     }
 
-    private static GNode Rewrite(GNode[] b, int k, GNode.Word w, Seq<int> path, MrrPolicy mrr, double eNom) {
-        Option<RemovalEngagement> evidence = mrr.Engagement.Find(new BlockLocus(path.Add(k)));
-        double e = evidence.Map(static row => row.RadialWidthMm / row.ToolDiameterMm)
-            .IfNone(Math.Clamp(eNom * (1.0 - (SignedTurn(b, k) / Math.PI)), 0.01, 0.99));
-        e = Math.Clamp(e, 0.01, 0.99);
-        double thinning = e >= 0.5 ? 1.0 : 1.0 / Math.Sqrt(1.0 - Math.Pow(1.0 - (2.0 * e), 2.0));
-        double powerCap = evidence.Bind(row => row.PowerLimitKw.Map(power =>
-                power * 60_000_000.0 / Math.Max(1e-9, row.SpecificCuttingForceNPerMm2 * row.RadialWidthMm * row.AxialDepthMm)))
-            .IfNone(double.PositiveInfinity);
-        double upper = Math.Min(mrr.CeilingFactor * mrr.BudgetFeed, powerCap);
-        double lower = Math.Min(mrr.FloorFraction * mrr.BudgetFeed, upper);
-        double f = Math.Clamp(Math.Min(mrr.BudgetFeed * thinning, powerCap), lower, upper);
-        return w.With('F', f);
-    }
-
-    // Corner blend inside the deviation band: interior angle beta = pi - turn; r = delta·sin(beta/2)/(1-sin(beta/2));
-    // each leg trims by r/tan(beta/2); the junction emits ONE tangent G2/G3 word. Trim-infeasible junctions stay
-    // sharp. Named kernel exemption: measured array-window kernel over the block stream.
-    internal static Seq<GNode> SmoothPass(Seq<GNode> nodes, SmoothPolicy s) {
-        GNode[] b = nodes.ToArray();
-        Seq<GNode> outp = Seq<GNode>();
-        for (int k = 0; k < b.Length; k++) {
-            bool junction = k > 0 && k + 1 < b.Length
-                && b[k] is GNode.Word cur && cur.Command == GCommand.Feed
-                && b[k + 1] is GNode.Word nxt && nxt.Command == GCommand.Feed
-                && At(b[k - 1]).IsSome && At(b[k]).IsSome && At(b[k + 1]).IsSome;
-            double turn = junction ? Math.Abs(SignedTurn(b, k)) : 0.0;
-            if (!junction || turn < s.MinCornerRad) { outp = outp.Add(b[k]); continue; }
-            GNode.Word word = (GNode.Word)b[k];
-            double beta = Math.PI - turn, sinHalf = Math.Sin(0.5 * beta);
-            double r = s.MaxDeviationMm * sinHalf / Math.Max(1e-9, 1.0 - sinHalf);
-            double trim = r / Math.Max(1e-9, Math.Tan(0.5 * beta));
-            (double x, double y) p = Pt(b, k), prev = Pt(b, k - 1), next = Pt(b, k + 1);
-            (double lin, double lout) = (Len(prev, p), Len(p, next));
-            if (r < s.MinimumUsefulRadiusMm || trim > 0.5 * lin || trim > 0.5 * lout) { outp = outp.Add(b[k]); continue; }
-            (double x, double y) t1 = Along(p, prev, trim), t2 = Along(p, next, trim);
-            (double x, double y) c = Bisector(p, prev, next, r, beta);
-            bool ccw = SignedTurn(b, k) > 0.0;
-            Arr<GParam> arc = Arr(
-                new GParam('X', t2.x), new GParam('Y', t2.y),
-                new GParam('I', c.x - t1.x), new GParam('J', c.y - t1.y));
-            outp = outp
-                .Add(word.With('X', t1.x).With('Y', t1.y))
-                .Add(new GNode.Word(
-                    ccw ? GCommand.ArcCcw : GCommand.ArcCw,
-                    word.P('F').Match(Some: f => arc.Add(new GParam('F', f)), None: () => arc),
-                    None));
+    private static double ArcLength(ProgramEvent.Motion motion, GCommand plane) {
+        (double FromU, double FromV, double FromW) = Project(motion.From, plane);
+        (double ToU, double ToV, double ToW) = Project(motion.To, plane);
+        Option<double> radiusWord = motion.Word.P('R');
+        if (radiusWord.IsSome) {
+            double signedRadius = radiusWord.IfNone(0.0);
+            double radius = Math.Abs(signedRadius);
+            double chord = new Vector2d(ToU - FromU, ToV - FromV).Length;
+            double minor = 2.0 * Math.Asin(Math.Clamp(chord / (2.0 * Math.Max(radius, double.Epsilon)), 0.0, 1.0));
+            double sweep = signedRadius < 0.0 ? Math.Tau - minor : minor;
+            return Helical(radius * sweep, ToW - FromW);
         }
-        return outp;
+        return motion.Arc.Match(
+            Some: resolved => {
+                (double CenterU, double CenterV, _) = Project(resolved.Center, plane);
+                double centerRadius = new Vector2d(FromU - CenterU, FromV - CenterV).Length;
+                double start = Math.Atan2(FromV - CenterV, FromU - CenterU);
+                double end = Math.Atan2(ToV - CenterV, ToU - CenterU);
+                double turn = resolved.Sense == RotationSense.Clockwise
+                    ? (start - end + Math.Tau) % Math.Tau
+                    : (end - start + Math.Tau) % Math.Tau;
+                return Helical(centerRadius * turn, ToW - FromW);
+            },
+            None: static () => 0.0);
     }
 
-    // Merge rows: collinear equal-F Feed runs collapse only when the survivor advances FORWARD along the shared line — cross AND positive dot against
-    // the true predecessor anchor, so an out-and-back reversal never collapses and the traversed locus survives; consecutive same-direction co-circular
-    // arcs collapse to one sweep; modal F/S words strip where the dialect renders modally. Reduction is the merge, never a drop. The collinearity
-    // anchor is the SURVIVOR's true predecessor, threaded across merges. Named kernel exemption: measured array-window kernel.
-    internal static Seq<GNode> CompactPass(Seq<GNode> nodes, CompactPolicy c, PostDialect dialect) {
-        GNode[] b = nodes.ToArray();
-        Seq<GNode> merged = Seq<GNode>();
-        (double x, double y) anchor = (0.0, 0.0);
-        for (int k = 0; k < b.Length; k++) {
-            if (!merged.IsEmpty && merged.Last is GNode.Word last && b[k] is GNode.Word cur
-                && Collinear(anchor, last, cur, c.CollinearEpsilon))
-                merged = merged.Init.Add(Carry(last, cur, "XYZ"));
-            else if (!merged.IsEmpty && merged.Last is GNode.Word lastArc && b[k] is GNode.Word curArc
-                && Cocircular(anchor, lastArc, curArc, c.CocircularEpsilon)
-                && MergeableSweep(anchor, lastArc, curArc))
-                merged = merged.Init.Add(Carry(lastArc, curArc, "XY"));
-            else {
-                anchor = !merged.IsEmpty && merged.Last is GNode.Word prevWord ? At((GNode)prevWord).IfNone(anchor) : anchor;
-                merged = merged.Add(b[k]);
-            }
-        }
-        return dialect.Retention == WordRetention.Modal ? StripModal(merged) : merged;
-    }
+    private static double Helical(double planar, double rise) => Math.Sqrt((planar * planar) + (rise * rise));
 
-    // A merged arc must stay representable: the combined sweep about the shared center holds under one full
-    // turn, so opposed or wrap-around arc pairs never collapse into an ambiguous single block.
-    private static bool MergeableSweep((double x, double y) start, GNode.Word last, GNode.Word cur) {
-        (double cx, double cy) = (start.x + last.P('I').IfNone(0.0), start.y + last.P('J').IfNone(0.0));
-        (double mx, double my) = (last.P('X').IfNone(start.x), last.P('Y').IfNone(start.y));
-        (double ex, double ey) = (cur.P('X').IfNone(mx), cur.P('Y').IfNone(my));
-        bool cw = last.Command == GCommand.ArcCw;
-        double a0 = Math.Atan2(start.y - cy, start.x - cx), a1 = Math.Atan2(my - cy, mx - cx), a2 = Math.Atan2(ey - cy, ex - cx);
-        double first = cw ? (a0 - a1 + Math.Tau) % Math.Tau : (a1 - a0 + Math.Tau) % Math.Tau;
-        double second = cw ? (a1 - a2 + Math.Tau) % Math.Tau : (a2 - a1 + Math.Tau) % Math.Tau;
-        return first + second < Math.Tau - 1e-6;
-    }
+    private static (double U, double V, double W) Project(Point3d point, GCommand plane) => plane == GCommand.PlaneZx
+        ? (point.Z, point.X, point.Y)
+        : plane == GCommand.PlaneYz ? (point.Y, point.Z, point.X) : (point.X, point.Y, point.Z);
 
-    // F and S are GLOBAL modal registers — keying by address alone matches controller semantics; a
-    // group-scoped key would re-emit a feed the register already holds after any group transition.
-    private static Seq<GNode> StripModal(Seq<GNode> nodes) =>
-        nodes.Fold(
-            (Out: Seq<GNode>(), Values: Map<char, double>()),
-            static (st, node) => node is GNode.Word w
-                ? StripWord(st, w)
-                : (st.Out.Add(node), st.Values)).Out;
-
-    private static (Seq<GNode> Out, Map<char, double> Values) StripWord(
-        (Seq<GNode> Out, Map<char, double> Values) state,
-        GNode.Word word) {
-        (GNode.Word Word, Map<char, double> Values) folded =
-            word.Words.Filter(static parameter => parameter.Address is 'F' or 'S').Fold(
-            (Word: word, Values: state.Values),
-            static (fold, parameter) => fold.Values.Find(parameter.Address).Match(
-                Some: value => value == parameter.Value
-                    ? (fold.Word.Without(parameter.Address), fold.Values)
-                    : (fold.Word, fold.Values.AddOrUpdate(parameter.Address, parameter.Value)),
-                None: () => (fold.Word, fold.Values.Add(parameter.Address, parameter.Value))));
-        return (state.Out.Add(folded.Word), folded.Values);
-    }
-
-    // Chord-approximate objective fold — the pass metric ONLY; Verify/simulate's modal-state walk is the
-    // authoritative cycle time. The modal F register threads across blocks, so a cutting move inheriting its
-    // feed is charged at the effective feed, never skipped. Canned cycles carry their dwell in the P slot per
-    // the program AST law. Named kernel exemption: measured array-window kernel.
-    private static double Seconds(Seq<GNode> nodes, OptimizePolicy p) {
-        GNode[] b = nodes.ToArray();
-        double t = 0.0, modal = 0.0;
-        for (int k = 0; k < b.Length; k++) {
-            modal = b[k] is GNode.Word register ? register.P('F').IfNone(modal) : modal;
-            double effective = modal;
-            if (k == 0)
-                continue;
-            t += b[k].Switch(
-                word: w => w.Command == GCommand.Rapid ? 60.0 * SpanOf(b, k) / Math.Max(1e-9, p.Post.Dynamics.RapidFeed)
-                    : w.Command == GCommand.Dwell ? w.P('P').IfNone(0.0)
-                    : Cutting(w) && effective > 0.0 ? 60.0 * SpanOf(b, k) / effective
-                    : 0.0,
-                cannedCycle: cycle => Math.Max(1, cycle.Repeats) * (cycle.P + Seconds(GNode.Moves(cycle.ExpandedMoves, Point3d.Origin), p)),
-                macro: macro => Seconds(macro.Body.ToSeq(), p),
-                subprogram: subprogram => Math.Max(1, subprogram.Repeats) * Seconds(subprogram.Body.ToSeq(), p),
-                additiveLayer: static layer => 60.0 * Math.Abs(layer.Extrusion.Amount) / Math.Max(1e-9, layer.Extrusion.Feed),
-                nc1: static _ => 0.0);
-        }
-        return t;
-    }
-
-    private static int Blocks(Seq<GNode> nodes) =>
-        nodes.Sum(static node => node.Switch(
-            word:          static _ => 1,
-            cannedCycle:   static cycle => Math.Max(1, cycle.Repeats) * Math.Max(1, cycle.ExpandedMoves.Count),
-            macro:         static macro => 1 + Blocks(macro.Body.ToSeq()),
-            subprogram:    static subprogram => subprogram.Repeats * Blocks(subprogram.Body.ToSeq()),
-            additiveLayer: static _ => 1,
-            nc1:           static _ => 1));
-
-    private static bool Cutting(GNode.Word w) =>
-        w.Command == GCommand.Feed || w.Command == GCommand.ArcCw || w.Command == GCommand.ArcCcw || w.Command == GCommand.Extrude;
-
-    // A merge PROVES forward monotonicity: zero cross admits the shared line, positive dot rejects the
-    // reversal whose collapse would erase an out-and-back cutting segment from the traversed locus.
-    private static bool Collinear((double x, double y) prev, GNode.Word last, GNode.Word cur, double eps) =>
-        last.Command == GCommand.Feed && cur.Command == GCommand.Feed && last.P('F') == cur.P('F')
-            && At((GNode)last).IsSome && At((GNode)cur).IsSome
-            && Math.Abs(Cross(prev, At((GNode)last).IfNone((0.0, 0.0)), At((GNode)cur).IfNone((0.0, 0.0)))) < eps
-            && Dot(prev, At((GNode)last).IfNone((0.0, 0.0)), At((GNode)cur).IfNone((0.0, 0.0))) > 0.0;
-
-    private static bool Cocircular((double x, double y) start, GNode.Word last, GNode.Word cur, double eps) =>
-        (last.Command == GCommand.ArcCw || last.Command == GCommand.ArcCcw)
-            && cur.Command == last.Command && last.P('F') == cur.P('F')
-            && Math.Abs(start.x + last.P('I').IfNone(0.0) - (last.P('X').IfNone(start.x) + cur.P('I').IfNone(0.0))) < eps
-            && Math.Abs(start.y + last.P('J').IfNone(0.0) - (last.P('Y').IfNone(start.y) + cur.P('J').IfNone(0.0))) < eps;
-
-    // --- [BOUNDARIES] -----------------------------------------------------------------------------------------------------------------------------
-    // Carry copies the named axes from the merged-away word onto the survivor; the per-word P/With/Without
-    // algebra is GNode.Word's own instance surface. Non-Word nodes never reach these folds.
-    private static GNode.Word Carry(GNode.Word survivor, GNode.Word merged, string axes) =>
-        toSeq(axes).Fold(survivor, (acc, axis) => merged.P(axis).Match(Some: v => acc.With(axis, v), None: () => acc));
-
-    private static Option<(double x, double y)> At(GNode node) =>
-        node is GNode.Word w
-            ? from x in w.P('X') from y in w.P('Y') select (x, y)
-            : Option<(double x, double y)>.None;
-
-    private static (double x, double y) Pt(GNode[] b, int k) => At(b[k]).IfNone((0.0, 0.0));
-
-    private static double SignedTurn(GNode[] b, int k) {
-        if (k <= 0 || k + 1 >= b.Length || At(b[k - 1]).IsNone || At(b[k]).IsNone || At(b[k + 1]).IsNone)
-            return 0.0;
-        (double x, double y) p0 = Pt(b, k - 1), p1 = Pt(b, k), p2 = Pt(b, k + 1);
-        double cz = Cross(p0, p1, p2);
-        double angle = Angle(p0, p1, p2);
-        return cz >= 0.0 ? angle : -angle;
-    }
-
-    private static double Angle((double x, double y) p0, (double x, double y) p1, (double x, double y) p2) {
-        (double ax, double ay, double bx, double by) = (p1.x - p0.x, p1.y - p0.y, p2.x - p1.x, p2.y - p1.y);
-        double na = Math.Sqrt((ax * ax) + (ay * ay)), nb = Math.Sqrt((bx * bx) + (by * by));
-        return na < 1e-9 || nb < 1e-9 ? 0.0 : Math.Acos(Math.Clamp(((ax * bx) + (ay * by)) / (na * nb), -1.0, 1.0));
-    }
-
-    private static double Cross((double x, double y) a, (double x, double y) p, (double x, double y) q) =>
-        ((p.x - a.x) * (q.y - p.y)) - ((p.y - a.y) * (q.x - p.x));
-
-    private static double Dot((double x, double y) a, (double x, double y) p, (double x, double y) q) =>
-        ((p.x - a.x) * (q.x - p.x)) + ((p.y - a.y) * (q.y - p.y));
-
-    private static double Len((double x, double y) a, (double x, double y) b2) =>
-        Math.Sqrt(((b2.x - a.x) * (b2.x - a.x)) + ((b2.y - a.y) * (b2.y - a.y)));
-
-    private static (double x, double y) Along((double x, double y) from, (double x, double y) toward, double d) {
-        double l = Math.Max(1e-9, Len(from, toward));
-        return (from.x + (d * (toward.x - from.x) / l), from.y + (d * (toward.y - from.y) / l));
-    }
-
-    private static (double x, double y) Bisector((double x, double y) p, (double x, double y) prev, (double x, double y) next, double r, double beta) {
-        (double x, double y) u = Along(p, prev, 1.0), v = Along(p, next, 1.0);
-        (double bx, double by) = (u.x - p.x + (v.x - p.x), u.y - p.y + (v.y - p.y));
-        double nl = Math.Max(1e-9, Math.Sqrt((bx * bx) + (by * by)));
-        double reach = r / Math.Max(1e-9, Math.Sin(0.5 * beta));
-        return (p.x + (reach * bx / nl), p.y + (reach * by / nl));
-    }
-
-    private static double SpanOf(GNode[] b, int k) =>
-        At(b[k]).Bind(cur => At(b[k - 1]).Map(prev => Math.Max(1e-6, Len(prev, cur)))).IfNone(1e-6);
 }
-```
 
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Posting optimization rail
-    accDescr: Conditioned and parsed programs fold the selected pass rows in declaration order, certify the final geometry through the sole kinematic sweep, seal under the dialect cap, and hand authoritative timing to simulation.
-    Post["Posting.Post conditioned CutProgram"] --> Apply["Optimize.Feeds — OptimizePass rows in declaration order"]
-    Parse["Post.Parse foreign program (no engagement seeds)"] --> Apply
-    Physics["ProcessBudget.Subtractive + CuttingData CutRegime"] -->|"MrrPolicy.Of seed (basis-true feed capped by FeedRate)"| Apply
-    Apply -->|"mrr-feed rewrite"| SmoothP["corner-smooth G2/G3 blends"]
-    SmoothP --> CompactP["compact forward-monotone merge + modal strip"]
-    CompactP -->|final geometry| Sweep["Post.Lookahead terminal sweep (the ONE kinematic certifier)"]
-    Sweep -->|"BlockCap.Some(cap) and count > cap"| Cap["BlockCapExceeded 2728"]
-    Sweep --> Out["re-keyed CutProgram · Optimize.Delta receipt (pass objective)"]
-    Out -->|authoritative time + envelope| Sim["Verify/simulate modal-state walk"]
-    Machine["Kinematics/machine MotionDynamics law"] -.->|"values via PostPolicy.Dynamics, never a second planner"| Apply
-    linkStyle 6 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    linkStyle 8 stroke:#50FA7B,color:#F8F8F2
-    linkStyle 9 stroke:#8BE9FD,stroke-width:1.5px,stroke-dasharray:4 6,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    classDef external fill:#21222C,stroke:#8BE9FD,color:#8BE9FD
-    class Apply,Sweep,SmoothP,CompactP primary
-    class Post,Parse,Out,Sim boundary
-    class Physics data
-    class Cap error
-    class Machine external
+internal static class OptimizationCore {
+    // Tapping and threading feed is bound to pitch and spindle speed, so adaptation never reaches them.
+    private static readonly Set<GCommand> AdaptiveCycles = Set(GCommand.Drill, GCommand.DrillDwell, GCommand.Peck, GCommand.Bore);
+
+    internal static Fin<PassState> MrrFeed(PassState state, OptimizePolicy policy) => Rewrite(
+        state, OptimizePass.MrrFeed, policy,
+        nodes => Deep(
+            nodes,
+            Seq<int>(),
+            (locus, word) => Subtractive(word)
+                ? Feed(locus, policy.Mrr).Map(feed => word.With('F', feed.MillimetersPerMinute))
+                : Fin.Succ(word),
+            (locus, cycle) => CycleSubtractive(cycle)
+                ? Feed(locus, policy.Mrr).Map(feed => CycleFeed(cycle, feed))
+                : Fin.Succ(cycle)),
+        Estimated(state.Program.Nodes, Seq<int>(), policy.Mrr),
+        0);
+
+    internal static Fin<PassState> Smooth(PassState state, OptimizePolicy policy) => Rewrite(
+        state, OptimizePass.CornerSmooth, policy,
+        nodes => Fin.Succ(SmoothNodes(nodes, policy.Smooth, state.Program.Dialect)), 0, 0);
+
+    internal static Fin<PassState> Compact(PassState state, OptimizePolicy policy) => Rewrite(
+        state, OptimizePass.Compact, policy,
+        nodes => Fin.Succ(CompactNodes(nodes, policy.Compact, state.Program.Dialect)), 0, 0);
+
+    internal static Fin<PassState> PatternFold(PassState state, OptimizePolicy policy) {
+        (Seq<GNode> Nodes, int Count) folded = FoldPatterns(state.Program.Nodes, policy.Pattern, policy.Pattern.FirstLabel);
+        return Rewrite(state, OptimizePass.PatternFold, policy, _ => Fin.Succ(folded.Nodes), 0, folded.Count);
+    }
+
+    // Incoming trace is the prior pass's result, so one interpretation per pass proves both ends of its delta.
+    private static Fin<PassState> Rewrite(PassState state, OptimizePass pass, OptimizePolicy policy,
+        Func<Seq<GNode>, Fin<Seq<GNode>>> transform, int estimated, int patterns) =>
+        from nodes in transform(state.Program.Nodes)
+        let program = CutProgram.Of(nodes, state.Program.Dialect)
+        from trace in Post.Interpret(program)
+        select new PassState(program, trace, state.Deltas.Add(new PassDelta(pass,
+            Optimize.Objective(state.Trace, policy.Dynamics), Optimize.Objective(trace, policy.Dynamics),
+            Changed(state.Program.Nodes, nodes), estimated, patterns)));
+
+    private static Fin<Speed> Feed(BlockLocus locus, MrrPolicy policy) {
+        EngagementRow engagement = policy.Engagement.Find(locus).IfNone(
+            EngagementRow.Create(locus, policy.EstimatedRadialDepth, policy.EstimatedAxialDepth));
+        double fraction = Math.Clamp(engagement.RadialDepth.Millimeters / policy.ToolDiameter.Millimeters,
+            policy.MinimumEngagementFraction, 1.0);
+        double thinning = fraction >= 0.5 ? 1.0 : 1.0 / Math.Sqrt(1.0 - Math.Pow(1.0 - (2.0 * fraction), 2.0));
+        double spindle = Math.Clamp(policy.ProgramSpindle.RevolutionsPerMinute,
+            policy.MinimumSpindle.RevolutionsPerMinute, policy.MaximumSpindle.RevolutionsPerMinute);
+        (double Feed, double Chip) basis = policy.Cutting.FeedBasis.Switch(
+            state: (Feed: policy.Cutting.Feed, Process: policy.ProcessFeed.MillimetersPerMinute, Teeth: policy.Teeth, Spindle: spindle),
+            perTooth: static value => (value.Feed * value.Teeth * value.Spindle, value.Feed),
+            perRevolution: static value => (value.Feed * value.Spindle, value.Feed / value.Teeth),
+            linearPerMinute: static value => (value.Feed, value.Feed / (value.Teeth * value.Spindle)),
+            surfaceRatio: static value => (value.Process, value.Process / (value.Teeth * value.Spindle)));
+        double proposed = Math.Min(policy.ProcessFeed.MillimetersPerMinute, basis.Feed * thinning);
+        CutIntent intent = CutIntent.Create(
+            Length.FromMillimeters(basis.Chip), engagement.AxialDepth, engagement.AxialDepth,
+            engagement.RadialDepth, policy.ToolDiameter, policy.Teeth,
+            RotationalSpeed.FromRevolutionsPerMinute(spindle), Speed.FromMillimetersPerMinute(proposed));
+        return from load in policy.Cutting.Evaluate(intent)
+               let powered = policy.SpindlePower
+                   .Map(ceiling => load.Power > ceiling ? proposed * ceiling.Watts / load.Power.Watts : proposed)
+                   .IfNone(proposed)
+               from feed in powered >= policy.MinimumFeed.MillimetersPerMinute
+                   ? Fin.Succ(Speed.FromMillimetersPerMinute(Math.Min(powered, policy.MaximumFeed.MillimetersPerMinute)))
+                   : Fin.Fail<Speed>(Error.New("optimization:feed-envelope"))
+               select feed;
+    }
+
+    private static Fin<Seq<GNode>> Deep(
+        Seq<GNode> nodes,
+        Seq<int> prefix,
+        Func<BlockLocus, GNode.Word, Fin<GNode.Word>> rewrite,
+        Func<BlockLocus, GNode.CannedCycle, Fin<GNode.CannedCycle>> cycleRewrite) =>
+        nodes.Map((node, index) => (Node: node, Locus: prefix.Add(index))).Traverse(row => row.Node.Switch(
+            state: (Locus: row.Locus, Rewrite: rewrite, CycleRewrite: cycleRewrite),
+            block: static (context, block) => Deep(block.Body.ToSeq(), context.Locus, context.Rewrite, context.CycleRewrite)
+                .Map<GNode>(body => block with { Body = body.ToArr() }),
+            word: static (context, word) => context.Rewrite(BlockLocus.Create(context.Locus), word).Map<GNode>(static value => value),
+            cannedCycle: static (context, cycle) => context.CycleRewrite(BlockLocus.Create(context.Locus), cycle).Map<GNode>(static value => value),
+            coordinateFrame: static (_, frame) => Fin.Succ<GNode>(frame),
+            macro: static (context, macro) => Deep(macro.Body.ToSeq(), context.Locus, context.Rewrite, context.CycleRewrite)
+                .Map<GNode>(body => macro with { Body = body.ToArr() }),
+            subprogram: static (context, subprogram) => Deep(subprogram.Body.ToSeq(), context.Locus, context.Rewrite, context.CycleRewrite)
+                .Map<GNode>(body => subprogram with { Body = body.ToArr() }),
+            additiveLayer: static (_, layer) => Fin.Succ<GNode>(layer),
+            nc1: static (_, nc1) => Fin.Succ<GNode>(nc1),
+            directive: static (_, directive) => Fin.Succ<GNode>(directive))).As();
+
+    private static Seq<GNode> SmoothNodes(Seq<GNode> nodes, SmoothPolicy policy, PostDialect dialect) {
+        GNode[] source = nodes.Map(node => node.Switch(
+            block: block => block with { Body = SmoothNodes(block.Body.ToSeq(), policy, dialect).ToArr() },
+            word: static word => (GNode)word,
+            cannedCycle: static cycle => cycle,
+            coordinateFrame: static frame => frame,
+            macro: macro => macro with { Body = SmoothNodes(macro.Body.ToSeq(), policy, dialect).ToArr() },
+            subprogram: subprogram => subprogram with { Body = SmoothNodes(subprogram.Body.ToSeq(), policy, dialect).ToArr() },
+            additiveLayer: static layer => layer,
+            nc1: static nc1 => nc1,
+            directive: static directive => directive)).ToArray();
+        return toSeq(Enumerable.Range(0, source.Length)).Bind(index => Blend(source, index, policy, dialect));
+    }
+
+    private static Seq<GNode> Blend(GNode[] source, int index, SmoothPolicy policy, PostDialect dialect) {
+        if (index == 0 || index + 1 >= source.Length || source[index] is not GNode.Word corner
+            || source[index - 1] is not GNode.Word incoming || source[index + 1] is not GNode.Word outgoing
+            || incoming.Command != GCommand.Feed || corner.Command != GCommand.Feed || outgoing.Command != GCommand.Feed)
+            return Seq(source[index]);
+        Point3d start = Point(incoming, Point3d.Origin);
+        Point3d vertex = Point(corner, start);
+        Point3d end = Point(outgoing, vertex);
+        Vector3d first = vertex - start;
+        Vector3d second = end - vertex;
+        if (first.Length <= policy.GeometryTolerance.Millimeters || second.Length <= policy.GeometryTolerance.Millimeters
+            || Math.Abs(first.Z) > policy.GeometryTolerance.Millimeters || Math.Abs(second.Z) > policy.GeometryTolerance.Millimeters)
+            return Seq(source[index]);
+        double turn = Vector3d.VectorAngle(first, second);
+        if (turn < policy.MinimumTurn.Radians)
+            return Seq(source[index]);
+        double half = 0.5 * (Math.PI - turn);
+        double radius = policy.MaximumDeviation.Millimeters * Math.Sin(half) / (1.0 - Math.Sin(half));
+        double trim = radius / Math.Tan(half);
+        if (radius < policy.MinimumRadius.Millimeters || trim >= Math.Min(first.Length, second.Length))
+            return Seq(source[index]);
+        first.Unitize();
+        second.Unitize();
+        Point3d tangentIn = vertex - (first * trim);
+        Point3d tangentOut = vertex + (second * trim);
+        double orientation = Vector3d.CrossProduct(first, second).Z;
+        Point3d center = tangentIn + (Vector3d.CrossProduct(Vector3d.ZAxis, first) * (orientation < 0.0 ? -radius : radius));
+        GNode.Word line = corner.With('X', tangentIn.X).With('Y', tangentIn.Y).With('Z', tangentIn.Z);
+        GNode.Word arc = Modal(new GNode.Word(
+            orientation < 0.0 ? GCommand.ArcCw : GCommand.ArcCcw,
+            Arr(GParam.Number('X', tangentOut.X, corner.SourceUnits), GParam.Number('Y', tangentOut.Y, corner.SourceUnits),
+                GParam.Number('Z', tangentOut.Z, corner.SourceUnits), GParam.Number('I', center.X - tangentIn.X, corner.SourceUnits),
+                GParam.Number('J', center.Y - tangentIn.Y, corner.SourceUnits)), corner.Mode), corner, dialect);
+        return Seq<GNode>(line, arc);
+    }
+
+    // An explicit-retention control repeats every modal word, so the produced arc carries the corner's own feed and speed
+    // while keeping its own tangent-out endpoint.
+    private static GNode.Word Modal(GNode.Word arc, GNode.Word corner, PostDialect dialect) => dialect.Retention == WordRetention.Modal
+        ? arc
+        : Seq('F', 'S').Fold(arc, (current, address) => corner.P(address).Match(
+            Some: value => current.With(address, value),
+            None: () => current));
+
+    private static Seq<GNode> CompactNodes(Seq<GNode> nodes, CompactPolicy policy, PostDialect dialect) =>
+        StripModal(nodes.Map(node => node.Switch(
+            block: block => block with { Body = CompactNodes(block.Body.ToSeq(), policy, dialect).ToArr() },
+            word: static word => (GNode)word,
+            cannedCycle: static cycle => cycle,
+            coordinateFrame: static frame => frame,
+            macro: macro => macro with { Body = CompactNodes(macro.Body.ToSeq(), policy, dialect).ToArr() },
+            subprogram: subprogram => subprogram with { Body = CompactNodes(subprogram.Body.ToSeq(), policy, dialect).ToArr() },
+            additiveLayer: static layer => layer,
+            nc1: static nc1 => nc1,
+            directive: static directive => directive)).Fold(
+            (Rows: Seq<GNode>(), Start: Point3d.Origin, Cursor: Point3d.Origin),
+            (state, node) => Merge(state, node, policy)).Rows, dialect).Rows;
+
+    // Start is the locus entering the surviving row and Cursor the locus leaving it, so a merged row keeps its true span.
+    private static (Seq<GNode> Rows, Point3d Start, Point3d Cursor) Merge(
+        (Seq<GNode> Rows, Point3d Start, Point3d Cursor) state, GNode node, CompactPolicy policy) {
+        if (state.Rows.Last.Case is not GNode.Word previous || node is not GNode.Word current)
+            return (state.Rows.Add(node), state.Cursor,
+                node is GNode.Word word ? Point(word, state.Cursor) : state.Cursor);
+        Point3d end = Point(current, state.Cursor);
+        Vector3d first = state.Cursor - state.Start;
+        Vector3d second = end - state.Cursor;
+        bool linear = current.Command == previous.Command
+            && (current.Command == GCommand.Feed || current.Command == GCommand.Rapid)
+            && Vector3d.CrossProduct(first, second).Length <= policy.CollinearTolerance.Millimeters
+            && first * second > 0.0 && previous.P('F') == current.P('F');
+        bool cocircular = (previous.Command == GCommand.ArcCw || previous.Command == GCommand.ArcCcw)
+            && current.Command == previous.Command && previous.P('F') == current.P('F')
+            && new Point3d(state.Start.X + previous.P('I').IfNone(0.0), state.Start.Y + previous.P('J').IfNone(0.0), state.Start.Z)
+                .DistanceTo(new Point3d(state.Cursor.X + current.P('I').IfNone(0.0), state.Cursor.Y + current.P('J').IfNone(0.0), state.Cursor.Z))
+                <= policy.CocircularTolerance.Millimeters;
+        return linear || cocircular
+            ? (state.Rows.Init.Add(Carry(previous, current)), state.Start, end)
+            : (state.Rows.Add(node), state.Cursor, end);
+    }
+
+    // A nested body runs under state this fold cannot read, so the census clears rather than stripping a stale repeat.
+    private static (Seq<GNode> Rows, HashMap<char, double> Modal) StripModal(Seq<GNode> rows, PostDialect dialect) =>
+        dialect.Retention != WordRetention.Modal
+            ? (rows, HashMap<char, double>())
+            : rows.Fold((Rows: Seq<GNode>(), Modal: HashMap<char, double>()), static (fold, node) => node is GNode.Word word
+                ? StripWord(fold, word)
+                : (fold.Rows.Add(node), HashMap<char, double>()));
+
+    private static (Seq<GNode> Rows, HashMap<char, double> Modal) StripWord(
+        (Seq<GNode> Rows, HashMap<char, double> Modal) state, GNode.Word word) {
+        (GNode.Word Word, HashMap<char, double> Modal) stripped = word.Words
+            .Filter(static parameter => parameter.Address is 'F' or 'S')
+            .Choose(static parameter => parameter.Value.Scalar.Map(value => (parameter.Address, Value: value)))
+            .Fold((Word: word, Modal: state.Modal), static (fold, parameter) => fold.Modal.Find(parameter.Address).Match(
+                Some: value => value == parameter.Value
+                    ? (fold.Word.Without(parameter.Address), fold.Modal)
+                    : (fold.Word, fold.Modal.AddOrUpdate(parameter.Address, parameter.Value)),
+                None: () => (fold.Word, fold.Modal.Add(parameter.Address, parameter.Value))));
+        return (state.Rows.Add(stripped.Word), stripped.Modal);
+    }
+
+    private static (Seq<GNode> Nodes, int Count) FoldPatterns(Seq<GNode> nodes, PatternPolicy policy, int label) {
+        (Seq<GNode> Nested, int NestedCount) nested = nodes.Fold(
+            (Nodes: Seq<GNode>(), Count: 0),
+            (state, node) => node.Switch(
+                state: state,
+                block: (current, block) => {
+                    (Seq<GNode> Nodes, int Count) body = FoldPatterns(block.Body.ToSeq(), policy, label + current.Count);
+                    return (current.Nodes.Add(block with { Body = body.Nodes.ToArr() }), current.Count + body.Count);
+                },
+                word: static (current, word) => (current.Nodes.Add(word), current.Count),
+                cannedCycle: static (current, cycle) => (current.Nodes.Add(cycle), current.Count),
+                coordinateFrame: static (current, frame) => (current.Nodes.Add(frame), current.Count),
+                macro: (current, macro) => {
+                    (Seq<GNode> Nodes, int Count) body = FoldPatterns(macro.Body.ToSeq(), policy, label + current.Count);
+                    return (current.Nodes.Add(macro with { Body = body.Nodes.ToArr() }), current.Count + body.Count);
+                },
+                subprogram: (current, subprogram) => {
+                    (Seq<GNode> Nodes, int Count) body = FoldPatterns(subprogram.Body.ToSeq(), policy, label + current.Count);
+                    return (current.Nodes.Add(subprogram with { Body = body.Nodes.ToArr() }), current.Count + body.Count);
+                },
+                additiveLayer: static (current, layer) => (current.Nodes.Add(layer), current.Count),
+                nc1: static (current, nc1) => (current.Nodes.Add(nc1), current.Count),
+                directive: static (current, directive) => (current.Nodes.Add(directive), current.Count)));
+        int available = NextLabel(nested.Nested, checked(label + nested.NestedCount));
+        Option<(int Start, int Length, Seq<int> Occurrences)> candidate = Enumerable
+            .Range(policy.MinimumLength.Segments, policy.MaximumLength.Segments - policy.MinimumLength.Segments + 1)
+            .SelectMany(length => Enumerable.Range(0, Math.Max(0, nested.Nested.Count - length + 1)).Select(start => (start, length)))
+            .Select(row => (Start: row.start, Length: row.length, Occurrences: Occurrences(nested.Nested, row.start, row.length)))
+            .Where(row => row.Occurrences.Count >= policy.MinimumOccurrences && Saving(row.Occurrences.Count, row.Length) > 0)
+            .OrderByDescending(row => Saving(row.Occurrences.Count, row.Length))
+            .ThenByDescending(row => row.Length)
+            .HeadOrNone();
+        return candidate.Match(
+            Some: row => {
+                Arr<GNode> body = nested.Nested.Skip(row.Start).Take(row.Length).ToArr();
+                Set<int> starts = row.Occurrences.ToSet();
+                Seq<GNode> rewritten = nested.Nested.Map(static (node, index) => (Node: node, Index: index)).Bind(entry =>
+                    starts.Contains(entry.Index) ? Seq<GNode>(new GNode.Subprogram(available, 1, body))
+                    : starts.Exists(start => entry.Index > start && entry.Index < start + row.Length) ? Seq<GNode>()
+                    : Seq(entry.Node));
+                (Seq<GNode> Nested, int Count) repeated = FoldPatterns(rewritten, policy, checked(available + 1));
+                return (repeated.Nested, nested.NestedCount + repeated.Count + 1);
+            },
+            None: () => (nested.Nested, nested.NestedCount));
+    }
+
+    // Occurrences replaced by one call each, one hoisted definition, and its two framing records.
+    private static int Saving(int occurrences, int length) => ((occurrences - 1) * length) - occurrences - 2;
+
+    private static int NextLabel(Seq<GNode> nodes, int candidate) =>
+        Labels(nodes).Exists(label => label == candidate) ? NextLabel(nodes, checked(candidate + 1)) : candidate;
+
+    private static Seq<int> Labels(Seq<GNode> nodes) => nodes.Bind(node => node.Switch(
+        block: static block => Labels(block.Body.ToSeq()),
+        word: static _ => Seq<int>(),
+        cannedCycle: static _ => Seq<int>(),
+        coordinateFrame: static _ => Seq<int>(),
+        macro: static macro => Labels(macro.Body.ToSeq()),
+        subprogram: static subprogram => Seq(subprogram.Label).Concat(Labels(subprogram.Body.ToSeq())),
+        additiveLayer: static _ => Seq<int>(),
+        nc1: static _ => Seq<int>()));
+
+    private static Seq<int> Occurrences(Seq<GNode> nodes, int seed, int length) {
+        Seq<GNode> pattern = nodes.Skip(seed).Take(length);
+        return toSeq(Enumerable.Range(0, Math.Max(0, nodes.Count - length + 1)))
+            .Filter(index => nodes.Skip(index).Take(length).SequenceEqual(pattern))
+            .Fold((Starts: Seq<int>(), End: -1), (state, index) => index >= state.End
+                ? (state.Starts.Add(index), index + length) : state).Starts;
+    }
+
+    private static Point3d Point(GNode.Word word, Point3d prior) => new(
+        word.P('X').IfNone(prior.X), word.P('Y').IfNone(prior.Y), word.P('Z').IfNone(prior.Z));
+
+    private static GNode.Word Carry(GNode.Word survivor, GNode.Word merged) =>
+        Seq('X', 'Y', 'Z', 'F', 'S').Fold(survivor,
+            (current, address) => merged.P(address).Match(
+                Some: value => current.With(address, value),
+                None: () => current));
+
+    private static bool Subtractive(GNode.Word word) => word.Command.Role == MotionRole.Cutting;
+
+    private static bool CycleSubtractive(GNode.CannedCycle cycle) => AdaptiveCycles.Contains(cycle.Command);
+
+    private static GNode.CannedCycle CycleFeed(GNode.CannedCycle cycle, Speed feed) {
+        Arr<GParam> words = cycle.SingleBlockWords
+            .Filter(static parameter => parameter.Address != 'F')
+            .Add(GParam.Number('F', feed.MillimetersPerMinute, ProgramUnits.Metric));
+        Seq<Move> moves = cycle.ExpandedMoves.Map(move => move.Switch(
+            rapid: static rapid => (Move)rapid,
+            linear: linear => linear with { Feed = feed.MillimetersPerMinute },
+            circular: circular => circular with { Feed = feed.MillimetersPerMinute }));
+        return cycle with { SingleBlockWords = words, ExpandedMoves = moves };
+    }
+
+    private static int Estimated(Seq<GNode> nodes, Seq<int> prefix, MrrPolicy policy) =>
+        nodes.Map((node, index) => (Node: node, Locus: prefix.Add(index))).Sum(row => row.Node.Switch(
+            block: block => Estimated(block.Body.ToSeq(), row.Locus, policy),
+            word: word => Subtractive(word) && !policy.Engagement.ContainsKey(BlockLocus.Create(row.Locus)) ? 1 : 0,
+            cannedCycle: cycle => CycleSubtractive(cycle) && !policy.Engagement.ContainsKey(BlockLocus.Create(row.Locus))
+                ? Math.Max(1, cycle.Repeats) : 0,
+            coordinateFrame: static _ => 0,
+            macro: macro => Estimated(macro.Body.ToSeq(), row.Locus, policy),
+            subprogram: subprogram => Estimated(subprogram.Body.ToSeq(), row.Locus, policy),
+            additiveLayer: static _ => 0,
+            nc1: static _ => 0));
+
+    private static int Changed(Seq<GNode> before, Seq<GNode> after) =>
+        before.Zip(after, static (left, right) => Changed(left, right)).Sum() + Math.Abs(before.Count - after.Count);
+
+    private static int Changed(GNode before, GNode after) => (before, after) switch {
+        (GNode.Block left, GNode.Block right) when left.Frame == right.Frame => Changed(left.Body.ToSeq(), right.Body.ToSeq()),
+        (GNode.Macro left, GNode.Macro right) when left.Slots == right.Slots => Changed(left.Body.ToSeq(), right.Body.ToSeq()),
+        (GNode.Subprogram left, GNode.Subprogram right) when left.Label == right.Label && left.Repeats == right.Repeats =>
+            Changed(left.Body.ToSeq(), right.Body.ToSeq()),
+        _ => before == after ? 0 : 1,
+    };
+}
 ```

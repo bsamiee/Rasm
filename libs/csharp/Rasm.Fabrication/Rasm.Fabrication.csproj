@@ -46,6 +46,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Numeric">
+        <PackageReference Include="CSparse" />
         <PackageReference Include="UnitsNet" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
@@ -55,11 +56,14 @@
     <ItemGroup Label="Identity Time">
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
     </ItemGroup>
 
     <ItemGroup Label="Mapping Graph">
+        <PackageReference Include="Generator.Equals" />
         <PackageReference Include="Riok.Mapperly" />
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

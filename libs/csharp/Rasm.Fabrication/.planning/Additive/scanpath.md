@@ -1,627 +1,1164 @@
-# [RASM_FABRICATION_SCANPATH]
+# [RASM_FABRICATION_ADDITIVE_SCANPATH]
 
-The LPBF scan-path owner is ONE `Scan.Plan` fold over the kernel slice stack producing the per-layer vector program — hatch vectors, contour border passes, and point exposures — the `scan-vectors` content-keyed egress a powder-bed machine consumes. The hatch geometry is the `HatchPattern` union (`Meander` whole-region parallel fill · `Stripe(width/overlap/stagger)` band-partitioned long-part fill · `Island(size/shift)` checkerboard thermal-stress partition · `Hexagon(cell)` tiled cellular fill · `Generated(cells)` parameterized extension) — five cell laws over ONE `Cells → Clip → Sort` pipeline, never sibling generators. `ScanLaw.HatchAngleDeg` projects the policy-carried rotation recurrence, while `ScanSort` composes direction (`Keep` · `Alternate` · `AgainstGas(bearing)`) and ordering (`Linear` · `Nearest` · `ThermalSpacing` · `Generated(order)`) as orthogonal payload-bearing axes. The generated ordering receives measured centroids and must return one permutation, so custom thermal, recoater, gas, and field-aware policies reuse the same cell/vector rail without bypassing clipping. The exposure partition is region set-algebra over the hole-carrying `SliceRegion` atom: `DownSkinₙ`, `UpSkinₙ` (down-skin wins the thin-web overlap), `InSkinₙ`, `Contour`, `SupportSparse`, and `SupportInterface` each bind a complete `SkinParameters` row. A hatch vector shorter than `ScanPolicy.MinVectorMm` demotes to a `Spot` carrying its class, power, and energy-equivalent dwell; it never silently disappears.
+`Scan.Plan` owns LPBF vector planning from admitted layers to source-assigned machine events. One `ScanPolicy` controls region classification, parameterized cell generation, exposure, thermal order, multi-source partitioning, plume separation, remelt, delays, recoating, and canonical egress.
 
-The fold consumes the `Process/physics` `ProcessBudget.Powder(LaserPower, HatchSpacing, ScanSpeed)` triple as the parameter floor — every emitted vector carries its skin-scaled power/speed, and the hatch pitch is `budget.HatchSpacing` under the policy and skin scales. The layer set arrives from the kernel `Slicing.Apply → Fin<SliceStack>` five-channel wire — adaptive layer HEIGHT stays the kernel `LayerPlan` height-law family (SEALED — this page never re-derives an elevation schedule, it walks `stack.Elevations` as given), and holes arrive through `SliceRegion.Of` `Depth` parity so a bore never hatches. Region Booleans route the ONE `Geometry2D/algebra` owner through the region atom. The voxel/grayscale/`.cli` lane is `Additive/implicit`'s; this page is the METAL VECTOR lane, reached from `owner#run` through the `AdditivePolicy.Scan` case that CARRIES the narrowed `Powder` budget. The `scan-vectors` `ContentKey` mints over the COMPLETE program — layer ordinal, elevation, every geometry case with its skin class, power, speed, and dwell — so two programs differing in any process-relevant byte never share a key. No new fault arm: an empty stack or a nonempty region yielding zero geometry is kernel `GeometryFault.DegenerateInput`, never a silent empty program.
-
-Wire posture: HOST-LOCAL. The `ScanPlan` crosses only the in-process seam — its `ContentKey` rides `AdditiveResult.Artifacts` on the owner result and enrolls on the Persistence artifact index; the vector rows never sit between wire and rail.
+Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `SupportPlan` enter once; `Audit.Preflight` gates commit; `ScanPlan` leaves through `ContentKey.Of(EgressKind.ScanVectors)` with complete timing and source evidence.
 
 ## [01]-[INDEX]
 
-- [01]-[SCAN_PATH]: owns the `SkinRegion`/`ScanDirection`/`ScanOrdering` axes, the `ScanLaw` rotation recurrence, the `HatchPattern` cell-law union, the `ScanSort`/`SkinParameters`/`ScanPolicy` policy rows, the `LayerGeometry` 3-case vector vocabulary with the sub-spot `Spot` demotion, the `ScanLayer`/`ScanPlan` receipts, and the ONE `Scan.Plan` fold from kernel `SliceStack` plus optional `SupportPlan` to the content-keyed vector program.
+- [01]-[DOMAIN]: Unit-bearing exposure, source, field, timing, pattern, sort, and policy owners.
+- [02]-[REGIONS]: `SliceRegion` classification and support projections become typed `ExposureRegion` rows.
+- [03]-[PARTITION]: Relaxed point-site fields assign vectors to calibrated sources and retain overlap adjacency.
+- [04]-[SCHEDULING]: Thermal coloring, gas, parity, spatial locality, plume, synchronization, remelt, delay, and recoater laws emit explicit events.
+- [05]-[IDENTITY]: One canonical codec covers geometry, `Z`, exposure, source, focus, spot, timing, ordering, and policy identity.
 
-## [02]-[SCAN_PATH]
+## [02]-[DOMAIN]
 
-- Owner: `SkinRegion` `[SmartEnum<string>]` (`down-skin`/`up-skin`/`in-skin`/`contour`/`support-sparse`/`support-interface`) the exposure-class axis; payload-bearing `ScanDirection` and `ScanOrdering` the orthogonal sorter axes; `ScanLaw` the recurrence projection; `HatchPattern` `[Union]` the cell law; `ScanSort` the composed sorter pair; `SkinParameters` the per-class power/speed/hatch row; `ScanPolicy` the ONE policy carrier, including rotation, minimum-vector, jump, layer-delay, and recoat timing values; `LayerGeometry` `[Union]` (`Hatch` · `Contour` · `Spot`) the machine-geometry vocabulary; `ScanLayer`/`ScanPlan` the typed receipts; `Scan` the static surface owning the ONE `Plan` fold.
-- Cases: `HatchPattern` cases 5 — `Meander`, `Stripe`, `Island`, `Hexagon`, and the parameterized `Generated` cell law; `ScanOrdering` cases 4 — linear rank, nearest traversal, max-min thermal spacing, and parameterized generated permutation; `LayerGeometry` cases 3 — `Hatch`, `Contour`, and generated `Spot`; `SkinRegion` rows 6 bind complete `SkinParameters` — the contour border class scales its own power/speed, and sparse support and dense interface exposure stay distinct rows.
-- Entry: `public static Fin<ScanPlan> Plan(SliceStack stack, ScanPolicy policy, ProcessBudget.Powder budget, Option<SupportPlan> support = default)` — the ONE batch entry; the support plan contributes sparse and interface exposure classes, and every geometry/offset failure remains on `Fin`.
-- Auto: `Plan` rejects open contours through `Slice.Gate`, then folds each layer. `SliceRegion.Of` lifts the kernel forest (holes by `Depth` parity — a bore's interior never hatches); `Partition` seeds direct adjacent-layer exposure and projects those seeds through depth `k = policy.SkinDepth`, so a reappearing island remains exposed instead of becoming false core, then merges the layer's sparse and interface support rows as distinct classes. `Cells` expands every built-in or generated pattern into `(cell, angle, rank)` rows at `ScanLaw.HatchAngleDeg(n, θ₀)`; each class×cell intersection hatches at `budget.HatchSpacing · policy.HatchSpacingScale · class.HatchScale`, clips through `SliceRegion.Rays`, and sorts under the `ScanSort` pair. `AgainstGas.BearingDeg` carries the gas direction only for that operation, and `ThermalSpacing` uses the ONE `MaxMinOrder` greedy at cell and vector altitude. Sub-spot survivors demote to `Spot` exposures; contour passes emit inward offset rings before the hatch inset; every vector row carries its class-scaled `PowerW`/`SpeedMmS` from the `Powder` budget; `Assemble` totals path length and build time and mints `ContentKey.Of(EgressKind.ScanVectors, …)` over the payload-complete little-endian program stream.
-- Receipt: `ScanPlan` IS the typed evidence — per-layer `LayerGeometry` rows with vector counts and path lengths, the build-time estimate, and the content key; no generic scan ledger, no machine-dialect bytes (the vendor build-file writer is a boundary consumer of these rows, never an arm here).
-- Packages: `Rasm.Meshing` (`SliceStack`), `Additive/slicing` (`SliceRegion`, `Slice.Gate`), `Additive/support` (`SupportPlan`/`SupportLayer`), `Geometry2D/algebra` (`Clip`/`ClipOpen`/`Offset`), `Process/physics` (`ProcessBudget.Powder`), `Process/owner` (`Loop`/`Edge3`/`EgressKind.ScanVectors`/`ContentKey`), CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter<byte>`), System.Numerics.Tensors (`TensorPrimitives.Distance` in the measured thermal-ordering kernel), `Rasm.Numerics` (`GeometryFault`, `Context.Millimeters`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new cell-generated hatch is one `HatchPattern.Generated` value over the existing clip/sort rail; a hatch with distinct payload or execution semantics is one `HatchPattern` case plus one `Cells` arm; a new exposure class is one `SkinRegion` row plus one complete `SkinParameters` map entry; an experimental ordering heuristic is one `ScanOrdering.Generated` value returning a complete permutation, while a settled shared heuristic may become one named case; per-region parameter overrides beyond the class axis enter as `SkinParameters` map rows, never a second parameter carrier; zero new surface.
-- Boundary: `Scan` is the ONE LPBF vector owner and a per-pattern generator quartet is the deleted form — patterns are cell laws over one pipeline; the layer heights are the kernel `LayerPlan` family and an elevation schedule computed here is the SEALED-boundary violation; region Booleans route `PolygonAlgebra` through `SliceRegion` and a scan-local Clipper call site or a hole-blind region set is the named duplication defect; the sorter is the two-axis `ScanSort` pair and a flattened `MeanderAlternateLinear`-style product enum is the deleted form; the gas bearing is `ScanDirection.AgainstGas` payload and a global bearing knob or inline `+X` literal is the named defect; the `.cli`/grayscale/voxel egress is `Additive/implicit`'s lane and a rasterizer here is the split-brain defect; power/speed/hatch scalars derive from the `Powder` budget row and an inline watt/speed literal in a fold body is the named defect; the content key covers the COMPLETE program and a hatch-only digest is the byte-identity defect; the content key mints through `ContentKey.Of` and a raw hasher is the second-hasher defect.
+- Owner: `ExposureClass` carries power, speed, spacing, focus, spot, contour, and remelt behavior on generated rows.
+- Owner: `HatchProgram` closes line, cell, contour, and generated candidate modalities while `CellProgram` generates the point-site space from bounded parameters.
+- Owner: `LaserSource` carries field envelope, calibrated power, focus, spot, stitch width, drift, and calibration identity.
+- Owner: `ScanEvent` is the executable vocabulary; exposure with dwell, jump, delay, synchronization, and recoating all participate in identity and timing.
+- Owner: `ScanOrder` rows carry their own `Project` key law and `Orient` direction rewrite, so `ScanSort.Order` is one sort over one comparable `ScanSortKey` and no caller re-tests order identity.
+- Owner: `ScanPlane` derives every spatial quantity once — separation cell, Morton locality, thermal wave, gas bearing — and both ordering and wave election read it.
+- Growth: an exposure class is a row, an ordering law is one `ScanOrder` row with its two columns, a source is a value, and a machine event is one union case consumed by the existing folds.
+
+## [03]-[REGIONS]
+
+- Law: one `SliceRegion` per layer is derived once and every zone reads that stack; down-skin and up-skin subtract the neighbour at their own policy depth, and core is the region minus their union.
+- Law: support projects its own rows — `SupportLayer.Sparse` at `Density` and `SupportLayer.Interface` at `ContactDuty` — so support exposure carries the planner's realized duty, never a model-derived default.
+- Law: an empty zone leaves the row set entirely; a class with no area never reaches candidate generation as a degenerate region.
+- Receipt: `ExposureRegion` carries layer, elevation, class, region, and density, so spacing resolves from the row alone.
+
+## [04]-[PARTITION]
+
+- Boundary: `SourcePartition.Build` uses `VoronoiPlane.SetSites`, `Tessellate`, `Relax`, `ClockwisePoints`, `Neighbours`, and `GetNearestSiteTo(..., KDTree)` once per plan because calibrated source fields are invariant across layers.
+- Auto: `MemoryOwner<double>` stages the vector-to-source score plane and `SourcePartition.Elect` walks it as one pooled span kernel; `TensorPrimitives.IndexOfMin`, `Average`, `StdDev`, and `SumOfSquares` derive assignment and balance evidence.
+- Law: a vector no calibrated field admits leaves `Elect` as source `-1` and converts on the rail; no election throws.
+- Law: exclusive vectors stay inside one source field; overlap vectors stitch under one policy and retain both adjacent source identities.
+- Law: source scheduling assigns conflict-free thermal waves from whole-segment separation and emits one `ScanEvent.Synchronize` barrier per wave before recoating.
+
+## [05]-[SCHEDULING]
+
+- Entry: `Scan.Plan` runs audit, region projection, candidate generation, clipping, field assignment, ordering, machine-event projection, canonicalization, and receipt construction in one flat query.
+- Law: exposure dwell, jump, layer delay, source synchronization, remelt, and recoater delay are executable values, never receipt-only estimates.
+- Law: gas bearing, layer rotation, thermal separation, source overlap, skywriting, pulse, focus, spot, and distortion compensation are policy values consumed before identity.
+- Law: `Scan.Waves` buckets scheduled vectors by separation cell, so wave election probes only the neighbourhood a vector can contend with and searches at most one wave past the blocked set.
+- Receipt: `ScanReceipt` retains audit, source loads, thermal moments, plume conflicts, overlap stitches, field cells, event census, energy, path, and build time.
+
+## [06]-[IDENTITY]
+
+- Owner: `ScanCodec.Write` is the sole canonical octet projection.
+- Law: `ScanIdentity` carries the complete output-driving `ScanPolicy`; canonical projection orders profile keys and writes generated behavior by content key.
+- Law: every point writes `X`, `Y`, and `Z`; every exposure writes source, class, power, speed, dwell, focus, spot, pulse, and skywriting values.
+- Egress: `ContentKey.Of(EgressKind.ScanVectors, bytes)` mints exactly once over the canonical stored bytes.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
+extern alias Voronoi;
+
+using System.Buffers.Binary;
+using System.Collections.Frozen;
+using System.Globalization;
+using System.Numerics.Tensors;
+using System.Text;
 using CommunityToolkit.HighPerformance.Buffers;
+using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
-using System.Numerics.Tensors;
-using Rasm.Fabrication.Geometry2D;
-using Rasm.Fabrication.Process;
-using Rasm.Meshing;                       // SliceStack — the K3 kernel slice-stack wire; heights stay kernel LayerPlan
-using Rasm.Numerics;
+using Rasm.Domain;
+using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
+using UnitsNet.Units;
+using Voronoi::SharpVoronoiLib;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
 
-// --- [TYPES] ----------------------------------------------------------------------------------------------------------------------------------------
-// The exposure-class axis: support regions are a CLASS here, hatched by the same fold under their own row.
+// --- [GENERATED_OWNERS] ---------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class SkinRegion {
-    public static readonly SkinRegion DownSkin = new("down-skin");
-    public static readonly SkinRegion UpSkin = new("up-skin");
-    public static readonly SkinRegion InSkin = new("in-skin");
-    public static readonly SkinRegion Contour = new("contour");
-    public static readonly SkinRegion SupportSparse = new("support-sparse");
-    public static readonly SkinRegion SupportInterface = new("support-interface");
+public sealed partial class ExposureClass {
+    public static readonly ExposureClass Core = new("core", Ratio.FromDecimalFractions(1.00), Ratio.FromDecimalFractions(1.00), Ratio.FromDecimalFractions(1.00), Length.Zero, Ratio.FromDecimalFractions(1.00), contourPasses: 0, remeltPasses: 0);
+    public static readonly ExposureClass DownSkin = new("down-skin", Ratio.FromDecimalFractions(0.82), Ratio.FromDecimalFractions(0.76), Ratio.FromDecimalFractions(0.82), Length.FromMillimeters(-0.15), Ratio.FromDecimalFractions(1.08), contourPasses: 1, remeltPasses: 0);
+    public static readonly ExposureClass UpSkin = new("up-skin", Ratio.FromDecimalFractions(0.88), Ratio.FromDecimalFractions(0.82), Ratio.FromDecimalFractions(0.86), Length.FromMillimeters(-0.08), Ratio.FromDecimalFractions(1.04), contourPasses: 1, remeltPasses: 1);
+    public static readonly ExposureClass Contour = new("contour", Ratio.FromDecimalFractions(0.72), Ratio.FromDecimalFractions(0.62), Ratio.FromDecimalFractions(0.70), Length.FromMillimeters(-0.10), Ratio.FromDecimalFractions(0.78), contourPasses: 2, remeltPasses: 0);
+    public static readonly ExposureClass SupportSparse = new("support-sparse", Ratio.FromDecimalFractions(0.65), Ratio.FromDecimalFractions(1.20), Ratio.FromDecimalFractions(1.55), Length.FromMillimeters(0.10), Ratio.FromDecimalFractions(1.12), contourPasses: 0, remeltPasses: 0);
+    public static readonly ExposureClass SupportInterface = new("support-interface", Ratio.FromDecimalFractions(0.80), Ratio.FromDecimalFractions(0.92), Ratio.FromDecimalFractions(0.92), Length.FromMillimeters(0.02), Ratio.FromDecimalFractions(1.04), contourPasses: 1, remeltPasses: 0);
+    public static readonly ExposureClass Remelt = new("remelt", Ratio.FromDecimalFractions(0.58), Ratio.FromDecimalFractions(0.54), Ratio.FromDecimalFractions(1.00), Length.FromMillimeters(-0.18), Ratio.FromDecimalFractions(0.90), contourPasses: 0, remeltPasses: 1);
+
+    public Ratio PowerScale { get; }
+    public Ratio SpeedScale { get; }
+    public Ratio SpacingScale { get; }
+    public Length FocusOffset { get; }
+    public Ratio SpotScale { get; }
+    public int ContourPasses { get; }
+    public int RemeltPasses { get; }
 }
 
-// Direction-op × ordering-op: the sorter is TWO orthogonal axes, never a flattened product enum.
+[SmartEnum<string>]
+public sealed partial class ScanOrder {
+    public static readonly ScanOrder Spatial = new("spatial",
+        static (row, plane) => new ScanSortKey(0, 0, 0.0, plane.Locality(row), row.Score),
+        static rows => rows);
+    public static readonly ScanOrder ThermalColored = new("thermal-colored",
+        static (row, plane) => new ScanSortKey(plane.Wave(row), 0, 0.0,
+            plane.Wave(row) % 2 == 0 ? plane.Locality(row) : ulong.MaxValue - plane.Locality(row), row.Score),
+        static rows => rows);
+    public static readonly ScanOrder AgainstGas = new("against-gas",
+        static (row, plane) => new ScanSortKey(0, 0, plane.Bearing(row), plane.Locality(row), row.Score),
+        static rows => rows);
+    public static readonly ScanOrder Alternating = new("alternating",
+        static (row, plane) => new ScanSortKey(0, 0, 0.0, plane.Locality(row), row.Score),
+        static rows => rows.Map(static (row, index) => index % 2 == 0
+            ? row
+            : row with { Vector = row.Vector with { Geometry = new Edge3(row.Vector.Geometry.B, row.Vector.Geometry.A) } }));
+    public static readonly ScanOrder SourceBalanced = new("source-balanced",
+        static (row, plane) => new ScanSortKey(0, row.Source.Id.ToValue(), 0.0, plane.Locality(row), row.Score),
+        static rows => rows);
+
+    public Func<SourceAssignment, ScanPlane, ScanSortKey> Project { get; }
+    public Func<Seq<SourceAssignment>, Seq<SourceAssignment>> Orient { get; }
+}
+
+[ValueObject<int>]
+public readonly partial struct LaserId;
+
+[ComplexValueObject]
+public sealed partial class LaserSource {
+    public LaserId Id { get; }
+    public BoundingBox Field { get; }
+    public Power MaximumPower { get; }
+    public Length SpotDiameter { get; }
+    public Length StitchWidth { get; }
+    public Length FocusMinimum { get; }
+    public Length FocusMaximum { get; }
+    public Ratio Drift { get; }
+    public ContentKey Calibration { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref LaserId id,
+        ref BoundingBox field,
+        ref Power maximumPower,
+        ref Length spotDiameter,
+        ref Length stitchWidth,
+        ref Length focusMinimum,
+        ref Length focusMaximum,
+        ref Ratio drift,
+        ref ContentKey calibration) {
+        Seq<double> values = Seq(maximumPower.Watts, spotDiameter.Millimeters, stitchWidth.Millimeters,
+            focusMinimum.Millimeters, focusMaximum.Millimeters, drift.DecimalFractions);
+        if (!field.IsValid || values.Exists(static value => !double.IsFinite(value))
+            || maximumPower <= Power.Zero || spotDiameter <= Length.Zero || stitchWidth < Length.Zero
+            || focusMinimum > focusMaximum || drift < Ratio.Zero || drift >= Ratio.FromPercent(100))
+            validationError = new ValidationError("laser source contains an invalid field or calibration envelope");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class ExposureProfile {
+    public Power Power { get; }
+    public Speed Speed { get; }
+    public Length Spacing { get; }
+    public Duration Dwell { get; }
+    public Length Spot { get; }
+    public Length Focus { get; }
+    public Duration PulseOn { get; }
+    public Duration PulseOff { get; }
+    public Length SkywritingLead { get; }
+    public Length SkywritingLag { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Power power,
+        ref Speed speed,
+        ref Length spacing,
+        ref Duration dwell,
+        ref Length spot,
+        ref Length focus,
+        ref Duration pulseOn,
+        ref Duration pulseOff,
+        ref Length skywritingLead,
+        ref Length skywritingLag) {
+        Seq<double> values = Seq(power.Watts, speed.MillimetersPerSecond, spacing.Millimeters, dwell.Seconds,
+            spot.Millimeters, focus.Millimeters, pulseOn.Seconds, pulseOff.Seconds,
+            skywritingLead.Millimeters, skywritingLag.Millimeters);
+        if (values.Exists(static value => !double.IsFinite(value))
+            || power <= Power.Zero || speed <= Speed.Zero || spacing <= Length.Zero || dwell < Duration.Zero
+            || spot <= Length.Zero || pulseOn < Duration.Zero || pulseOff < Duration.Zero
+            || skywritingLead < Length.Zero || skywritingLag < Length.Zero)
+            validationError = new ValidationError("exposure profile contains an invalid physical value");
+    }
+}
+
+public sealed record CellProgram(Length Pitch, int Relaxations, Ratio RelaxationStrength, int MaximumSites, int Seed, Area MergeBelowArea);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ScanDirection {
-    private ScanDirection() { }
-
-    public sealed record Keep : ScanDirection;
-    public sealed record Alternate : ScanDirection;
-    public sealed record AgainstGas(double BearingDeg) : ScanDirection;
+public abstract partial record HatchProgram {
+    private HatchProgram() { }
+    public sealed record Lines(Angle Bearing) : HatchProgram;
+    public sealed record Cells(CellProgram Cells, Angle Bearing) : HatchProgram;
+    public sealed record Contours(int Passes, Length Offset) : HatchProgram;
+    public sealed record Generated(ContentKey Identity, Func<FillContext, Fin<Seq<Edge3>>> Candidates) : HatchProgram;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ScanOrdering {
-    private ScanOrdering() { }
+public abstract partial record DistortionCompensation {
+    private DistortionCompensation() { }
+    public sealed record None : DistortionCompensation;
+    public sealed record Affine(Transform BuildToCommand, ContentKey Calibration) : DistortionCompensation;
+    public sealed record Generated(Func<Point3d, Fin<Point3d>> Correct, ContentKey Calibration) : DistortionCompensation;
 
-    public sealed record Linear : ScanOrdering;
-    public sealed record Nearest : ScanOrdering;
-    public sealed record ThermalSpacing : ScanOrdering;
-    public sealed record Generated(Func<Seq<Point3d>, Fin<Seq<int>>> Order) : ScanOrdering;
+    public Fin<Point3d> Apply(Point3d point) => Switch(
+        state: point,
+        none: static (value, _) => Fin.Succ(value),
+        affine: static (value, compensation) => Fin.Succ(compensation.BuildToCommand * value),
+        generated: static (value, compensation) => Scan.Capture(
+            () => compensation.Correct(value),
+            "scan:compensation-callback"));
+
+    public string Identity => Switch(
+        none: static _ => "none",
+        affine: static value => value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture),
+        generated: static value => value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture));
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------------------------------------------------------------
-public static class ScanLaw {
-    public static double HatchAngleDeg(int layer, double theta0Deg, double rotationDeg) =>
-        (((theta0Deg + layer * rotationDeg) % 180.0) + 180.0) % 180.0;
-}
+public sealed record SourcePolicy(
+    Arr<LaserSource> Sources,
+    Ratio BalanceWeight,
+    Length PlumeClearance,
+    Length Overlap,
+    int FieldRelaxations,
+    Ratio FieldRelaxationStrength,
+    Vector3d GasBearing);
 
-// --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
-// Five cell laws over ONE Cells → Clip → Sort pipeline; parameters are case payloads, never policy knobs.
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record HatchPattern {
-    private HatchPattern() { }
+public sealed record TimingPolicy(
+    Speed JumpSpeed,
+    Duration LayerDelay,
+    Duration RecoatDelay,
+    Duration SourceDelay,
+    Speed RecoatSpeed,
+    Length RecoatTravel);
 
-    public sealed record Meander : HatchPattern;
-    public sealed record Stripe(double WidthMm, double OverlapMm, double StaggerMm) : HatchPattern;
-    public sealed record Island(double SizeMm, double ShiftMm) : HatchPattern;
-    public sealed record Hexagon(double CellMm) : HatchPattern;
-    public sealed record Generated(
-        Func<BoundingBox, int, double, Fin<Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)>>> Cells) : HatchPattern;
-}
-
-public readonly record struct ScanSort(ScanDirection Direction, ScanOrdering Ordering);
-
-public readonly record struct SkinParameters(double PowerScale, double SpeedScale, double HatchScale);
+public sealed record RotationPolicy(Angle LayerIncrement, int Cycle, Angle ContourOffset);
 
 public sealed record ScanPolicy(
-    HatchPattern Pattern,
-    ScanSort Sort,
-    double Theta0Deg,
-    int SkinDepth,                                  // propagation depth for direct adjacent-layer exposure seeds
-    Map<SkinRegion, SkinParameters> Skins,
-    int ContourPasses,
-    double ContourOffsetMm,
-    double HatchSpacingScale,
-    double LayerRotationDeg,
-    double MinVectorMm,
-    double JumpSpeedMmS,
-    double LayerDelayS,
-    double RecoatDelayS,
-    OffsetPolicy Offset) {
-    public static Fin<ScanPolicy> Lpbf(HatchPattern pattern) =>
-        OffsetPolicy.Admit(OffsetJoin.Miter, OffsetEnd.Polygon, miterLimit: 2.0, arcTolerance: 0.01)
-            .Map(offset => new ScanPolicy(
-                pattern, new ScanSort(new ScanDirection.Alternate(), new ScanOrdering.Linear()), Theta0Deg: 57.0, SkinDepth: 3,
-                Map((SkinRegion.DownSkin, new SkinParameters(0.70, 1.20, 0.90)),
-                    (SkinRegion.UpSkin, new SkinParameters(0.85, 1.10, 0.95)),
-                    (SkinRegion.InSkin, new SkinParameters(1.00, 1.00, 1.00)),
-                    (SkinRegion.Contour, new SkinParameters(0.90, 0.85, 1.00)),
-                    (SkinRegion.SupportSparse, new SkinParameters(0.60, 1.30, 1.20)),
-                    (SkinRegion.SupportInterface, new SkinParameters(0.75, 1.10, 0.85))),
-                ContourPasses: 2, ContourOffsetMm: 0.12, HatchSpacingScale: 1.0,
-                LayerRotationDeg: 66.7, MinVectorMm: 0.05, JumpSpeedMmS: 5000.0, LayerDelayS: 0.05, RecoatDelayS: 1.8,
-                offset));
+    AuditPolicy Audit,
+    ExposureProfile Base,
+    FrozenDictionary<ExposureClass, ExposureProfile> Profiles,
+    HatchProgram Hatch,
+    ScanOrder Order,
+    SourcePolicy Sources,
+    TimingPolicy Timing,
+    RotationPolicy Rotation,
+    DistortionCompensation Compensation,
+    OffsetPolicy Offset,
+    Length ThermalSeparation,
+    Length IntersectionTolerance,
+    int ThermalWindow,
+    int MaximumVectors,
+    int DownSkinLayers,
+    int UpSkinLayers);
+
+// --- [DOMAIN_MODEL] --------------------------------------------------------------------------------------------------------------------------------
+public sealed record ExposureRegion(int Layer, Length Elevation, ExposureClass Class, SliceRegion Region, Ratio Density);
+public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass Class, Edge3 Geometry);
+public sealed record FieldCell(LaserId Source, Seq<Point2d> Boundary, Seq<LaserId> Neighbours, Point2d Centroid, Length Perimeter, bool Closed);
+public sealed record SourceAssignment(CandidateVector Vector, LaserSource Source, Seq<LaserSource> StitchPeers, double Score);
+
+public readonly record struct ScanSortKey(int ThermalClass, int Source, double Bearing, ulong Locality, double Score)
+    : IComparable<ScanSortKey> {
+    public int CompareTo(ScanSortKey other) =>
+        ThermalClass != other.ThermalClass ? ThermalClass.CompareTo(other.ThermalClass)
+        : Source != other.Source ? Source.CompareTo(other.Source)
+        : Bearing != other.Bearing ? Bearing.CompareTo(other.Bearing)
+        : Locality != other.Locality ? Locality.CompareTo(other.Locality)
+        : Score.CompareTo(other.Score);
+}
+
+public sealed record ScanPlane(Vector3d Gas, Length Separation, Length IntersectionTolerance, int ThermalWindow) {
+    public ulong Locality(SourceAssignment row) {
+        (long x, long y) = Cell(row);
+        return Morton(ZigZag(x), ZigZag(y));
+    }
+
+    public int Wave(SourceAssignment row) {
+        (long x, long y) = Cell(row);
+        return (int)(ZigZag(unchecked(x + (2 * y))) % (uint)ThermalWindow);
+    }
+
+    public double Bearing(SourceAssignment row) => Vector3d.Multiply(row.Vector.Geometry.B - row.Vector.Geometry.A, Gas);
+
+    private (long X, long Y) Cell(SourceAssignment row) {
+        Point3d midpoint = 0.5 * (row.Vector.Geometry.A + row.Vector.Geometry.B);
+        double pitch = Math.Max(
+            Math.Max(Separation.Millimeters, row.Vector.Geometry.A.DistanceTo(row.Vector.Geometry.B)),
+            double.Epsilon);
+        return ((long)Math.Floor(midpoint.X / pitch), (long)Math.Floor(midpoint.Y / pitch));
+    }
+
+    private static uint ZigZag(long value) => unchecked((uint)((value << 1) ^ (value >> 63)));
+
+    private static ulong Morton(uint x, uint y) => Spread(x) | (Spread(y) << 1);
+
+    private static ulong Spread(uint value) {
+        ulong bits = value;
+        bits = (bits | (bits << 16)) & 0x0000FFFF0000FFFF;
+        bits = (bits | (bits << 8)) & 0x00FF00FF00FF00FF;
+        bits = (bits | (bits << 4)) & 0x0F0F0F0F0F0F0F0F;
+        bits = (bits | (bits << 2)) & 0x3333333333333333;
+        return (bits | (bits << 1)) & 0x5555555555555555;
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LayerGeometry {
-    private LayerGeometry() { }
-
-    public sealed record Hatch(SkinRegion Skin, Seq<Edge3> Vectors, double PowerW, double SpeedMmS) : LayerGeometry;
-    public sealed record Contour(Loop Ring, int Pass, double PowerW, double SpeedMmS) : LayerGeometry;
-    public sealed record Spot(SkinRegion Skin, Point3d At, double PowerW, double DwellUs) : LayerGeometry;
+public abstract partial record ScanEvent {
+    private ScanEvent() { }
+    public sealed record Expose(
+        LaserId Source,
+        ExposureClass Class,
+        Point3d From,
+        Point3d To,
+        Power Power,
+        Speed Speed,
+        Duration Dwell,
+        Length Focus,
+        Length Spot,
+        Duration PulseOn,
+        Duration PulseOff,
+        Length SkywritingLead,
+        Length SkywritingLag,
+        Seq<LaserId> StitchPeers,
+        int Wave,
+        int Pass) : ScanEvent;
+    public sealed record Jump(LaserId Source, Point3d From, Point3d To, Speed Speed, int Wave) : ScanEvent;
+    public sealed record Synchronize(Seq<LaserId> Sources, int Wave, Duration Duration, string Reason) : ScanEvent;
+    public sealed record Recoat(int Layer, Length Travel, Speed Speed, Duration Delay) : ScanEvent;
+    public sealed record LayerDelay(int Layer, Duration Duration) : ScanEvent;
 }
 
-public sealed record ScanLayer(
-    int Layer, double Elevation, Seq<LayerGeometry> Geometry, int VectorCount, int ContourCount, int SpotCount, double PathMm);
+public sealed record SourceLane(LaserId Source, Seq<ScanEvent> Events);
+public sealed record ScanLayer(int Layer, Length Elevation, Seq<SourceLane> Sources, Seq<ScanEvent> Events);
 
-public sealed record ScanPlan(Seq<ScanLayer> Layers, double TotalPathM, double EstimatedBuildS, ContentKey Key);
+public sealed record ScanIdentity(ScanPolicy Policy);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
+public sealed record SourceLoad(LaserId Source, int Vectors, Length Path, Duration Exposure, Energy Energy);
+public sealed record ThermalEvidence(double AverageSeparation, double StandardDeviation, double SumOfSquares, int PlumeConflicts);
+public sealed record ScanReceipt(
+    AuditReceipt Audit,
+    Seq<SourceLoad> Sources,
+    Seq<FieldCell> Fields,
+    ThermalEvidence Thermal,
+    int Exposures,
+    int Jumps,
+    int Remelts,
+    int Stitches,
+    Length Path,
+    Energy Energy,
+    Duration BuildTime,
+    int CanonicalBytes);
+
+public sealed record ScanPlan(Seq<ScanLayer> Layers, ReadOnlyMemory<byte> Bytes, ContentKey Key, ScanReceipt Receipt);
+
+// --- [OPERATIONS] ----------------------------------------------------------------------------------------------------------------------------------
 public static class Scan {
-    // Layers are independent after the shared gate: the applicative traverse reports EVERY failing layer at once.
-    public static Fin<ScanPlan> Plan(SliceStack stack, ScanPolicy policy, ProcessBudget.Powder budget, Option<SupportPlan> support = default) =>
-        stack.LayerCount == 0
-            ? Fin.Fail<ScanPlan>(GeometryFault.DegenerateInput("scan:empty-slice-stack").ToError())
-            : from closed in Slice.Gate(stack, OpenSheetPolicy.Reject)
-              from admitted in Admit(policy, budget)
-              from tolerance in Context.Millimeters().ToFin()
-              from layers in toSeq(Enumerable.Range(0, stack.LayerCount))
-                .Map(n => Layer(stack, n, policy, budget, support, tolerance).ToValidation())
-                .Traverse(identity)
-                .As()
-                .ToFin()
-              from plan in Assemble(layers, policy)
-              select plan;
-
-    private static Fin<Unit> Admit(ScanPolicy policy, ProcessBudget.Powder budget) {
-        Seq<SkinRegion> classes = Seq(
-            SkinRegion.DownSkin,
-            SkinRegion.UpSkin,
-            SkinRegion.InSkin,
-            SkinRegion.Contour,
-            SkinRegion.SupportSparse,
-            SkinRegion.SupportInterface);
-        bool complete = classes.ForAll(skin => policy.Skins.Find(skin).Exists(static row =>
-            double.IsFinite(row.PowerScale) && row.PowerScale > 0.0
-            && double.IsFinite(row.SpeedScale) && row.SpeedScale > 0.0
-            && double.IsFinite(row.HatchScale) && row.HatchScale > 0.0));
-        bool pattern = policy.Pattern.Switch(
-            meander: static () => true,
-            stripe: static row => row.WidthMm > 0.0 && row.OverlapMm is >= 0.0 && row.OverlapMm < row.WidthMm && double.IsFinite(row.StaggerMm),
-            island: static row => row.SizeMm > 0.0 && double.IsFinite(row.ShiftMm),
-            hexagon: static row => row.CellMm > 0.0,
-            generated: static row => row.Cells is not null);
-        return complete
-            && pattern
-            && double.IsFinite(policy.Theta0Deg)
-            && policy.SkinDepth > 0
-            && policy.ContourPasses >= 0
-            && double.IsFinite(policy.ContourOffsetMm) && policy.ContourOffsetMm >= 0.0
-            && double.IsFinite(policy.HatchSpacingScale) && policy.HatchSpacingScale > 0.0
-            && policy.Sort.Direction.Switch(
-                keep: static () => true,
-                alternate: static () => true,
-                againstGas: static direction => double.IsFinite(direction.BearingDeg))
-            && policy.Sort.Ordering.Switch(
-                linear: static () => true,
-                nearest: static () => true,
-                thermalSpacing: static () => true,
-                generated: static ordering => ordering.Order is not null)
-            && double.IsFinite(policy.LayerRotationDeg)
-            && double.IsFinite(policy.MinVectorMm) && policy.MinVectorMm > 0.0
-            && double.IsFinite(policy.JumpSpeedMmS) && policy.JumpSpeedMmS > 0.0
-            && double.IsFinite(policy.LayerDelayS) && policy.LayerDelayS >= 0.0
-            && double.IsFinite(policy.RecoatDelayS) && policy.RecoatDelayS >= 0.0
-            && double.IsFinite(budget.LaserPower) && budget.LaserPower > 0.0
-            && double.IsFinite(budget.HatchSpacing) && budget.HatchSpacing > 0.0
-            && double.IsFinite(budget.ScanSpeed) && budget.ScanSpeed > 0.0
-                ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(GeometryFault.DegenerateInput("scan:invalid-policy-or-budget").ToError());
-    }
-
-    private static Fin<ScanLayer> Layer(SliceStack stack, int n, ScanPolicy policy, ProcessBudget.Powder budget, Option<SupportPlan> support, Context tolerance) =>
-        from region in SliceRegion.Of(stack, n)
-        let supportRows = SupportRows(support, n)
-        from layer in region.IsEmpty && supportRows.IsEmpty
-            ? Fin.Succ(new ScanLayer(n, stack.Elevations[n], Seq<LayerGeometry>(), 0, 0, 0, 0.0))
-            : Exposed(stack, n, region, supportRows, policy, budget, tolerance)
-        select layer;
-
-    private static Fin<ScanLayer> Exposed(
+    public static Fin<ScanPlan> Plan(
         SliceStack stack,
-        int n,
-        SliceRegion region,
-        Seq<(SkinRegion Class, SliceRegion Area)> supportRows,
         ScanPolicy policy,
         ProcessBudget.Powder budget,
-        Context tolerance) {
-        double angle = ScanLaw.HatchAngleDeg(n, policy.Theta0Deg, policy.LayerRotationDeg);
-        return from inset in region.IsEmpty ? Fin.Succ(region) : region.Grow(-(policy.ContourPasses * policy.ContourOffsetMm), policy.Offset)
-               from skins in Partition(stack, n, policy.SkinDepth)
-               from clipped in skins.Map(skin => skin.Area.Intersect(inset).Map(cut => (skin.Class, Area: cut))).Sequence()
-               from borders in Borders(region, policy, budget)
-               from hatchRows in clipped.ToSeq().Concat(supportRows)
-                   .Map(skin => HatchClass(skin.Class, skin.Area, n, angle, policy, budget, tolerance))
-                   .Sequence()
-               let geometry = borders.Concat(hatchRows.Bind(static rows => rows))
-               let path = geometry.Map(Length).Sum()
-               let census = geometry.Fold((V: 0, C: 0, S: 0), static (acc, g) => g.Switch(
-                   state:   acc,
-                   hatch:   static (a, h) => (a.V + h.Vectors.Count, a.C, a.S),
-                   contour: static (a, _) => (a.V, a.C + 1, a.S),
-                   spot:    static (a, _) => (a.V, a.C, a.S + 1)))
-               from layer in census.V + census.C + census.S == 0 && !region.IsEmpty && policy.ContourPasses == 0
-                   ? Fin.Fail<ScanLayer>(GeometryFault.DegenerateInput($"scan:zero-vectors:layer-{n}").ToError())
-                   : Fin.Succ(new ScanLayer(n, stack.Elevations[n], geometry, census.V, census.C, census.S, path))
-               select layer;
+        Option<SupportPlan> support) =>
+        from _policy in (
+            Gate(policy.Rotation.Cycle > 0
+                && double.IsFinite(policy.Rotation.LayerIncrement.Radians)
+                && double.IsFinite(policy.Rotation.ContourOffset.Radians)
+                && policy.DownSkinLayers > 0
+                && policy.UpSkinLayers > 0,
+                "scan:layer-policy"),
+            Gate(policy.ThermalWindow > 0
+                && policy.MaximumVectors > 0
+                && policy.MaximumVectors < int.MaxValue
+                && policy.ThermalSeparation >= Length.Zero
+                && policy.IntersectionTolerance > Length.Zero
+                && double.IsFinite(policy.IntersectionTolerance.Millimeters),
+                "scan:thermal-policy"),
+            Gate(policy.Sources.FieldRelaxations >= 0
+                && policy.Sources.FieldRelaxationStrength >= Ratio.Zero
+                && policy.Sources.Sources.Length > 0
+                && policy.Sources.Sources.Map(static source => source.Id).Distinct().Count == policy.Sources.Sources.Length
+                && policy.Sources.GasBearing.IsValid
+                && !policy.Sources.GasBearing.IsZero
+                && policy.Sources.BalanceWeight >= Ratio.Zero
+                && policy.Sources.PlumeClearance >= Length.Zero
+                && policy.Sources.Overlap >= Length.Zero,
+                "scan:source-policy"),
+            Gate(policy.Timing.JumpSpeed > Speed.Zero
+                && policy.Timing.RecoatSpeed > Speed.Zero
+                && policy.Timing.RecoatTravel > Length.Zero
+                && policy.Timing.LayerDelay >= Duration.Zero
+                && policy.Timing.RecoatDelay >= Duration.Zero
+                && policy.Timing.SourceDelay >= Duration.Zero,
+                "scan:timing-policy"),
+            Gate(HatchValid(policy.Hatch), "scan:hatch-policy"),
+            Gate(CompensationValid(policy.Compensation), "scan:compensation-policy"))
+            .Apply(static (_, _, _, _, _, _) => unit)
+            .As()
+            .ToFin()
+        from audit in Audit.Preflight(stack, policy.Audit)
+        from _clean in audit.Clean
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:audit:{audit.Defects.Count}").ToError())
+        from physics in Physics(budget)
+        from _physics in physics.Power == policy.Base.Power
+                && physics.Speed == policy.Base.Speed
+                && physics.Spacing == policy.Base.Spacing
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:physics-policy").ToError())
+        from regions in Regions(stack, support, policy)
+        from _regions in regions.ForAll(static region => region.Density > Ratio.Zero
+                && double.IsFinite(region.Density.DecimalFractions))
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:region-density").ToError())
+        from fields in SourcePartition.Build(stack, policy.Sources)
+        from vectors in Candidates(regions, policy)
+        from assigned in SourcePartition.Assign(vectors, fields, policy.Sources, policy.MaximumVectors)
+        from ordered in Schedule(assigned, policy)
+        from layers in Events(ordered, policy)
+        let identity = Identity(policy)
+        let bytes = ScanCodec.Write(identity, layers)
+        let key = ContentKey.Of(EgressKind.ScanVectors, bytes)
+        let receipt = Receipt(audit, fields, ordered, layers, policy, bytes.Length)
+        from _plume in receipt.Thermal.PlumeConflicts == 0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:plume-conflicts:{receipt.Thermal.PlumeConflicts}").ToError())
+        select new ScanPlan(layers, bytes, key, receipt);
+
+    internal static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
+        Try.lift(callback).Run()
+            .MapFail(error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"{locus}:{error.Message}").ToError())
+            .Bind(identity);
+
+    private static bool HatchValid(HatchProgram program) => program.Switch(
+        lines: static value => double.IsFinite(value.Bearing.Radians),
+        cells: static value => double.IsFinite(value.Bearing.Radians)
+            && value.Cells.Pitch > Length.Zero
+            && value.Cells.Relaxations >= 0
+            && value.Cells.RelaxationStrength >= Ratio.Zero
+            && value.Cells.MaximumSites > 0
+            && value.Cells.MergeBelowArea >= Area.Zero,
+        contours: static value => value.Passes > 0 && value.Offset > Length.Zero,
+        generated: static value => value.Identity != default && value.Candidates is not null);
+
+    private static bool CompensationValid(DistortionCompensation compensation) => compensation.Switch(
+        none: static _ => true,
+        affine: static value => TransformValid(value.BuildToCommand) && value.Calibration != default,
+        generated: static value => value.Calibration != default && value.Correct is not null);
+
+    private static bool TransformValid(Transform value) => Seq(
+        value.M00, value.M01, value.M02, value.M03,
+        value.M10, value.M11, value.M12, value.M13,
+        value.M20, value.M21, value.M22, value.M23,
+        value.M30, value.M31, value.M32, value.M33).ForAll(double.IsFinite);
+
+    private static Fin<ExposureProfile> Physics(ProcessBudget.Powder budget) =>
+        ExposureProfile.Validate(
+            new Power(budget.LaserPower, PowerUnit.Watt),
+            new Speed(budget.ScanSpeed, SpeedUnit.MillimeterPerSecond),
+            Length.FromMillimeters(budget.HatchSpacing),
+            Duration.Zero,
+            Length.FromMillimeters(budget.HatchSpacing / 2.0),
+            Length.Zero,
+            Duration.Zero,
+            Duration.Zero,
+            Length.Zero,
+            Length.Zero,
+            out ExposureProfile? admitted) is { } error || admitted is null
+                ? Fin.Fail<ExposureProfile>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:physics:{error?.ToString() ?? "unadmitted"}").ToError())
+                : Fin.Succ(admitted);
+
+    private static Fin<Seq<ExposureRegion>> Regions(SliceStack stack, Option<SupportPlan> support, ScanPolicy policy) =>
+        toSeq(Enumerable.Range(0, stack.LayerCount))
+            .Traverse(layer => SliceRegion.Of(stack, layer))
+            .As()
+            .Bind(slices => Zoned(stack, slices, support, policy));
+
+    private static Fin<Seq<ExposureRegion>> Zoned(
+        SliceStack stack,
+        Seq<SliceRegion> slices,
+        Option<SupportPlan> support,
+        ScanPolicy policy) =>
+        toSeq(Enumerable.Range(0, stack.LayerCount)).Traverse(layer => {
+            SliceRegion region = slices[layer];
+            Length elevation = Length.FromMillimeters(stack.Elevations[layer]);
+            Seq<SupportLayer> supports = support.Map(plan => plan.PlanarRows.Filter(row => row.Layer == layer)).IfNone(Seq<SupportLayer>());
+            return from down in Skin(region, At(slices, layer - policy.DownSkinLayers))
+                   from up in Skin(region, At(slices, layer + policy.UpSkinLayers))
+                   from skin in down.Union(up)
+                   from core in region.Difference(skin)
+                   select Seq(
+                       new ExposureRegion(layer, elevation, ExposureClass.Core, core, Ratio.FromPercent(100)),
+                       new ExposureRegion(layer, elevation, ExposureClass.Contour, region, Ratio.FromPercent(100)),
+                       new ExposureRegion(layer, elevation, ExposureClass.DownSkin, down, Ratio.FromPercent(100)),
+                       new ExposureRegion(layer, elevation, ExposureClass.UpSkin, up, Ratio.FromPercent(100)))
+                       .Concat(supports.Bind(row => Seq(
+                           new ExposureRegion(layer, elevation, ExposureClass.SupportSparse, row.Sparse, row.Density),
+                           new ExposureRegion(layer, elevation, ExposureClass.SupportInterface, row.Interface, row.ContactDuty))));
+        }).As()
+            .Map(static rows => rows.Bind(static row => row).Filter(static row => !row.Region.IsEmpty));
+
+    private static Fin<SliceRegion> Skin(SliceRegion current, Option<SliceRegion> neighbour) =>
+        neighbour.Map(current.Difference).IfNone(Fin.Succ(current));
+
+    private static Option<SliceRegion> At(Seq<SliceRegion> slices, int layer) =>
+        layer >= 0 && layer < slices.Count ? Some(slices[layer]) : None;
+
+    private static Fin<Seq<CandidateVector>> Candidates(Seq<ExposureRegion> regions, ScanPolicy policy) =>
+        regions.Fold(
+            Fin.Succ(Seq<CandidateVector>()),
+            (state, region) => state.Bind(held => Candidates(region, policy, policy.MaximumVectors - held.Count)
+                .Map(held.Concat)));
+
+    private static Fin<Seq<CandidateVector>> Candidates(ExposureRegion region, ScanPolicy policy, int remaining) {
+        ExposureProfile profile = policy.Profiles.TryGetValue(region.Class, out ExposureProfile? specialized) ? specialized : policy.Base;
+        Angle rotation = Angle.FromDegrees((region.Layer % policy.Rotation.Cycle) * policy.Rotation.LayerIncrement.Degrees);
+        HatchProgram program = region.Class == ExposureClass.Contour
+            ? new HatchProgram.Contours(
+                region.Class.ContourPasses,
+                profile.Spacing * region.Class.SpacingScale.DecimalFractions)
+            : policy.Hatch;
+        Length spacing = profile.Spacing * region.Class.SpacingScale.DecimalFractions / region.Density.DecimalFractions;
+        return spacing <= Length.Zero || !double.IsFinite(spacing.Millimeters)
+            ? Fin.Fail<Seq<CandidateVector>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:hatch-spacing").ToError())
+            : program.Switch(
+            state: (region, profile, rotation, spacing),
+            lines: (state, lines) => state.region.Region.Rays(ScanGeometry.Parallel(state.region.Region.Bound(), lines.Bearing + state.rotation, spacing)),
+            cells: (state, cells) => CellHatch(state.region, cells.Cells, cells.Bearing + state.rotation, spacing),
+            contours: (state, contours) => ContourHatch(state.region, contours.Passes, contours.Offset, policy.Offset, policy.Rotation.ContourOffset + state.rotation),
+            generated: static (state, generated) => Capture(
+                () => generated.Candidates(new FillContext(
+                        state.region.Region,
+                        state.region.Elevation,
+                        state.region.Region.Bound(),
+                        state.region.Layer,
+                        _ => state.spacing,
+                        state.rotation)),
+                    "scan:hatch-callback")
+                .Bind(state.region.Region.Rays))
+            .Bind(edges => Bounded(edges, remaining))
+            .Map(edges => edges.Map(edge => new CandidateVector(region.Layer, region.Elevation, region.Class, edge)));
     }
 
-    // --- [SKIN_PARTITION]
-    // Direct exposure compares the adjacent layer only; depth k projects those seed regions through the current
-    // layer. A reappearing island never becomes core because an older, non-adjacent layer happened to cover it.
-    // Down-skin wins the overlap: a thin web exposed on both faces melts ONCE, under the harsher down-skin row.
-    private static Fin<Seq<(SkinRegion Class, SliceRegion Area)>> Partition(SliceStack stack, int n, int k) =>
-        from down in SkinDepth(stack, n, Math.Max(1, k), downward: true)
-        from up in SkinDepth(stack, n, Math.Max(1, k), downward: false)
-        from upOnly in up.Difference(down)
-        from downUp in down.Union(upOnly)
-        from current in SliceRegion.Of(stack, n)
-        from core in current.Difference(downUp)
-        select Seq((SkinRegion.DownSkin, down), (SkinRegion.UpSkin, upOnly), (SkinRegion.InSkin, core));
-
-    private static Fin<SliceRegion> SkinDepth(SliceStack stack, int layer, int depth, bool downward) {
-        int first = downward ? Math.Max(0, layer - depth + 1) : layer;
-        int last = downward ? layer : Math.Min(stack.LayerCount - 1, layer + depth - 1);
-        return toSeq(Enumerable.Range(first, last - first + 1))
-            .Map(index => DirectSkin(stack, index, downward))
-            .Sequence()
-            .Bind(seeds => seeds.Fold(
-                Fin.Succ(SliceRegion.Empty),
-                static (rail, seed) => rail.Bind(region => region.Union(seed))))
-            .Bind(seeds => SliceRegion.Of(stack, layer).Bind(current => current.Intersect(seeds)));
+    private static Fin<Seq<Edge3>> Bounded(Seq<Edge3> edges, int maximum) {
+        Seq<Edge3> bounded = edges.Take(maximum + 1).Strict();
+        return bounded.Count <= maximum
+            ? Fin.Succ(bounded)
+            : Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:vector-cap:{bounded.Count}").ToError());
     }
 
-    private static Fin<SliceRegion> DirectSkin(SliceStack stack, int layer, bool downward) {
-        int neighbour = downward ? layer - 1 : layer + 1;
-        return neighbour < 0 || neighbour >= stack.LayerCount
-            ? SliceRegion.Of(stack, layer)
-            : from current in SliceRegion.Of(stack, layer)
-              from beside in SliceRegion.Of(stack, neighbour)
-              from skin in current.Difference(beside)
-              select skin;
-    }
+    private static Fin<Seq<Edge3>> CellHatch(ExposureRegion region, CellProgram cells, Angle bearing, Length spacing) =>
+        CellDiagram.Build(region.Region.Bound(), cells).Bind(diagram => region.Region.Rays(
+            diagram.Bind(cell => ScanGeometry.Parallel(cell, bearing, spacing))));
 
-    private static Seq<(SkinRegion Class, SliceRegion Area)> SupportRows(Option<SupportPlan> support, int layer) =>
-        support.Map(plan => plan.PlanarRows
-                .Filter(row => row.Layer == layer)
-                .Bind(row => Seq(
-                    (Class: SkinRegion.SupportSparse, Area: row.Sparse),
-                    (Class: SkinRegion.SupportInterface, Area: row.Interface)))
-                .Filter(static row => !row.Area.IsEmpty))
-            .IfNone(Seq<(SkinRegion, SliceRegion)>());
-
-    // --- [CELL_LAWS]
-    // Every pattern is (cell loops, cell angle, sequence rank) rows over the layer bound; the hatch/clip/sort pipeline is shared.
-    private static Fin<Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)>> Cells(
-        HatchPattern pattern,
-        BoundingBox bound,
-        int layer,
-        double angleDeg,
-        Context tolerance) =>
-        pattern.Switch(
-            state:   (bound, layer, angleDeg, tolerance),
-            meander: static s => Plane(s.bound, s.tolerance).Map(cell => Seq((cell, s.angleDeg, 0))),
-            stripe:  static (s, p) => Bands(s.bound, s.angleDeg, p.WidthMm, p.OverlapMm, p.StaggerMm * s.layer, s.tolerance)
-                                          .Map(bands => bands.Map((band, i) => (band, s.angleDeg, i)).ToSeq()),
-            island:  static (s, p) => Grid(s.bound, p.SizeMm, p.ShiftMm * s.layer, s.tolerance)
-                                          .Map(cells => cells.Map((cell, i) => (cell.Cell, s.angleDeg + (cell.Parity ? 90.0 : 0.0), ParityRank(i, cell.Parity))).ToSeq()),
-            hexagon: static (s, p) => Hexes(s.bound, p.CellMm, s.tolerance)
-                                          .Map(hexes => hexes.Map((hex, i) => (hex.Cell, s.angleDeg + hex.Color * 60.0, i)).ToSeq()),
-            generated: static (s, p) => p.Cells(s.bound, s.layer, s.angleDeg).Bind(Admissible));
-
-    // A generated cell law admits AFTER the delegate returns: finite angles and nonempty closed cells only.
-    private static Fin<Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)>> Admissible(Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)> rows) =>
-        rows.ForAll(static row => double.IsFinite(row.AngleDeg) && !row.Cell.IsEmpty && row.Cell.ForAll(static loop => loop.Closed))
-            ? Fin.Succ(rows)
-            : Fin.Fail<Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)>>(GeometryFault.DegenerateInput("scan:invalid-generated-cells").ToError());
-
-    // Sub-spot survivors DEMOTE to Spot exposures — dwell reproduces the vector's energy at the class speed.
-    // One Hatch row PER CELL: island/stripe boundaries survive as receipt rows, so machine-side thermal pauses
-    // and cell interleave stay recoverable from the plan instead of vanishing into one flattened class row.
-    private static Fin<Seq<LayerGeometry>> HatchClass(
-        SkinRegion skin,
-        SliceRegion region,
-        int layer,
-        double angleDeg,
-        ScanPolicy policy,
-        ProcessBudget.Powder budget,
-        Context tolerance) =>
-        region.IsEmpty
-            ? Fin.Succ(Seq<LayerGeometry>())
-            : from parameters in policy.Skins.Find(skin).ToFin(
-                    GeometryFault.DegenerateInput($"scan:missing-skin-parameters:{skin.Key}").ToError())
-              let spacing = Math.Max(budget.HatchSpacing * policy.HatchSpacingScale * parameters.HatchScale, 1e-3)
-              let speed = budget.ScanSpeed * parameters.SpeedScale
-              let power = budget.LaserPower * parameters.PowerScale
-              let bound = region.Bound()
-              from cells in Cells(policy.Pattern, bound, layer, angleDeg, tolerance)
-              from orderedCells in OrderCells(cells, policy.Sort.Ordering)
-              from cellRows in orderedCells
-                  .Map(cell =>
-                      from cut in PolygonAlgebra.Clip(cell.Cell, region.Loops, PolygonBoolean.Intersection, PolygonFill.NonZero)
-                      from clipped in SliceRegion.Of(cut)
-                      from rays in clipped.Rays(Rays(bound, cell.AngleDeg, spacing))
-                      from sorted in Sortie(rays, policy)
-                      select sorted)
-                  .Sequence()
-              select cellRows.Bind(rows => {
-                  Seq<Edge3> vectors = rows.Filter(v => v.A.DistanceTo(v.B) >= policy.MinVectorMm);
-                  Seq<LayerGeometry> spots = rows.Filter(v => v.A.DistanceTo(v.B) < policy.MinVectorMm)
-                      .Map(v => (LayerGeometry)new LayerGeometry.Spot(
-                          skin, (v.A + v.B) * 0.5, power, DwellUs: 1e6 * v.A.DistanceTo(v.B) / Math.Max(speed, 1e-3)));
-                  return vectors.IsEmpty
-                      ? spots
-                      : Seq((LayerGeometry)new LayerGeometry.Hatch(skin, vectors, power, speed)).Concat(spots);
-              });
-
-    // The boundary exposure is its own class row: contour power/speed scale off SkinRegion.Contour, never raw budget.
-    private static Fin<Seq<LayerGeometry>> Borders(SliceRegion region, ScanPolicy policy, ProcessBudget.Powder budget) =>
-        from parameters in policy.Skins.Find(SkinRegion.Contour).ToFin(
-                GeometryFault.DegenerateInput($"scan:missing-skin-parameters:{SkinRegion.Contour.Key}").ToError())
-        from rows in toSeq(Enumerable.Range(0, policy.ContourPasses))
-            .Map(pass => region.Grow(-pass * policy.ContourOffsetMm, policy.Offset)
-                .Map(r => r.Loops.Map(ring => (LayerGeometry)new LayerGeometry.Contour(
-                    ring, pass, budget.LaserPower * parameters.PowerScale, budget.ScanSpeed * parameters.SpeedScale))))
-            .Sequence()
-        select rows.Bind(static row => row);
-
-    // --- [SORTER]
-    // Direction op flips individual vectors; ordering op ranks cells/vectors; thermal-spacing is the ONE
-    // MaxMinOrder greedy over centroids, shared by the cell and vector levels.
-    private static Fin<Seq<Edge3>> Sortie(Seq<Edge3> vectors, ScanPolicy policy) =>
-        from ordered in policy.Sort.Ordering.Switch(
-            state:          vectors,
-            linear:         static v => Fin.Succ(v),
-            nearest:        static v => Fin.Succ(GreedyNearest(v, static edge => edge.A, static edge => edge.B)),
-            thermalSpacing: static v => Fin.Succ(MaxMinOrder(v, static edge => (edge.A + edge.B) * 0.5)),
-            generated:      static (v, ordering) => GeneratedOrder(v, static edge => (edge.A + edge.B) * 0.5, ordering.Order))
-        select policy.Sort.Direction.Switch(
-            state:      ordered,
-            keep:       static rows => rows,
-            alternate:  static rows => rows.Map((edge, i) => i % 2 == 1 ? new Edge3(edge.B, edge.A) : edge).ToSeq(),
-            againstGas: static (rows, direction) => {
-                Vector3d gas = new(
-                    Math.Cos(direction.BearingDeg * Math.PI / 180.0),
-                    Math.Sin(direction.BearingDeg * Math.PI / 180.0),
-                    0.0);
-                return rows.Map(edge => (edge.B - edge.A) * gas > 0.0 ? new Edge3(edge.B, edge.A) : edge);   // melt travels against the flow
+    private static Fin<Seq<Edge3>> ContourHatch(ExposureRegion region, int passes, Length offset, OffsetPolicy policy, Angle phase) =>
+        passes <= 0 || offset <= Length.Zero
+            ? Fin.Fail<Seq<Edge3>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:contour-program").ToError())
+            : toSeq(Enumerable.Range(0, passes))
+            .Traverse(pass => region.Region.Grow(offset * -(pass + 1), policy))
+            .As()
+            .Map(rows => {
+                Point3d center = region.Region.Bound().Center;
+                return rows.Bind(static row => row.Outers.Bind(loop =>
+                    toSeq(Enumerable.Range(0, loop.Count)).Map(index => new Edge3(loop.At(index), loop.At(index + 1)))))
+                    .OrderBy(edge => Wrapped(Math.Atan2(edge.A.Y - center.Y, edge.A.X - center.X) - phase.Radians))
+                    .ToSeq();
             });
 
-    private static Fin<ScanPlan> Assemble(Seq<ScanLayer> layers, ScanPolicy policy) {
-        double pathMm = layers.Map(static l => l.PathMm).Sum();
-        double seconds = layers.Bind(static l => l.Geometry).Map(static g => g.Switch(
-            hatch:   static h => Length(h) / Math.Max(h.SpeedMmS, 1e-3),
-            contour: static c => Length(c) / Math.Max(c.SpeedMmS, 1e-3),
-            spot:    static s => s.DwellUs * 1e-6)).Sum();
-        double delays = layers.Count * (policy.LayerDelayS + policy.RecoatDelayS);
-        double jumps = (layers.Map(layer => JumpDistance(layer.Geometry)).Sum() + CrossLayer(layers)) / Math.Max(policy.JumpSpeedMmS, 1e-3);
-        return Fin.Succ(new ScanPlan(layers, pathMm / 1000.0, seconds + delays + jumps, ContentKey.Of(EgressKind.ScanVectors, Canonical(layers))));
-    }
+    private static double Wrapped(double radians) => radians - (2.0 * Math.PI * Math.Floor(radians / (2.0 * Math.PI)));
 
-    private static double CrossLayer(Seq<ScanLayer> layers) =>
-        toSeq(Enumerable.Range(1, Math.Max(0, layers.Count - 1)))
-            .Map(i => (layers[i - 1].Geometry.LastOrNone().Map(End), layers[i].Geometry.HeadOrNone().Map(Start)))
-            .Map(static pair => pair.Item1.Bind(a => pair.Item2.Map(b => a.DistanceTo(b))).IfNone(0.0))
-            .Sum();
+    private static ScanPlane Plane(ScanPolicy policy) => new(
+        policy.Sources.GasBearing,
+        UnitMath.Max(policy.ThermalSeparation, policy.Sources.PlumeClearance),
+        policy.IntersectionTolerance,
+        policy.ThermalWindow);
 
-    // --- [CELL_PRIMITIVES]
-    // Parity and color derive from WORLD cell coordinates, never enumeration ordinals: an identical world-space
-    // cell keeps its thermal orientation when the layer bound drifts.
-    private static Fin<Seq<Loop>> Plane(BoundingBox b, Context tolerance) =>
-        Loop.Admit(
-            Arr(new Point3d(b.Min.X, b.Min.Y, 0), new Point3d(b.Max.X, b.Min.Y, 0), new Point3d(b.Max.X, b.Max.Y, 0), new Point3d(b.Min.X, b.Max.Y, 0)),
-            closed: true, Arr<double>(), tolerance).Map(static loop => Seq(loop));
+    private static Fin<Seq<SourceAssignment>> Schedule(Seq<SourceAssignment> assigned, ScanPolicy policy) =>
+        assigned.GroupBy(static row => row.Vector.Layer)
+            .Map(group => ScanSort.Order(toSeq(group), policy.Order, Plane(policy)))
+            .Sequence()
+            .Map(static rows => rows.Bind(static row => row));
 
-    private static Fin<Seq<Seq<Loop>>> Bands(BoundingBox b, double angleDeg, double width, double overlap, double stagger, Context tolerance) {
-        double rad = angleDeg * Math.PI / 180.0, diag = b.Min.DistanceTo(b.Max);
-        Vector3d step = new(-Math.Sin(rad), Math.Cos(rad), 0.0);
-        Point3d centre = (b.Min + b.Max) * 0.5 + (stagger % Math.Max(width, 1e-3)) * step;
-        int count = Math.Max(1, (int)Math.Ceiling(diag / Math.Max(width, 1e-3)));
-        return toSeq(Enumerable.Range(-count, 2 * count + 1))
-            .Map(i => Band(centre + i * width * step, rad, diag, width + overlap, tolerance))
-            .Sequence();
-    }
-
-    private static Fin<Seq<Loop>> Band(Point3d mid, double rad, double diag, double width, Context tolerance) {
-        Vector3d dir = new(Math.Cos(rad), Math.Sin(rad), 0.0);
-        Vector3d across = new(-Math.Sin(rad), Math.Cos(rad), 0.0);
-        return Loop.Admit(Arr(
-                mid - 0.5 * diag * dir - 0.5 * width * across, mid + 0.5 * diag * dir - 0.5 * width * across,
-                mid + 0.5 * diag * dir + 0.5 * width * across, mid - 0.5 * diag * dir + 0.5 * width * across),
-            closed: true, Arr<double>(), tolerance).Map(static loop => Seq(loop));
-    }
-
-    private static Fin<Seq<(Seq<Loop> Cell, bool Parity)>> Grid(BoundingBox b, double size, double shift, Context tolerance) {
-        double s = Math.Max(size, 1e-3), ox = b.Min.X + shift % s, oy = b.Min.Y + shift % s;
-        int nx = (int)Math.Ceiling((b.Max.X - ox) / s) + 1, ny = (int)Math.Ceiling((b.Max.Y - oy) / s) + 1;
-        return toSeq(Enumerable.Range(0, nx * ny)).Map(k => {
-            int i = k % nx, j = k / nx;
-            Point3d lo = new(ox + (i - 1) * s, oy + (j - 1) * s, 0.0);
-            bool parity = ((((int)Math.Floor(lo.X / s) + (int)Math.Floor(lo.Y / s)) % 2) + 2) % 2 == 0;
-            return Loop.Admit(
-                    Arr(lo, new Point3d(lo.X + s, lo.Y, 0), new Point3d(lo.X + s, lo.Y + s, 0), new Point3d(lo.X, lo.Y + s, 0)),
-                    closed: true, Arr<double>(), tolerance)
-                .Map(cell => (Seq(cell), parity));
+    private static Fin<Seq<ScanLayer>> Events(Seq<SourceAssignment> ordered, ScanPolicy policy) =>
+        ordered.GroupBy(static row => row.Vector.Layer).Map(group => {
+            Seq<SourceAssignment> rows = toSeq(group);
+            Seq<(SourceAssignment Row, int Wave)> scheduled = Waves(rows, Plane(policy));
+            Fin<Seq<SourceLane>> lanes = scheduled.GroupBy(static row => row.Row.Source.Id).Map(source => {
+                Seq<(SourceAssignment Row, int Wave)> sourceRows = toSeq(source)
+                    .OrderBy(static row => row.Item2)
+                    .ToSeq();
+                Seq<ScanEvent> exposure = sourceRows.Map((scheduled, index) => Exposure(
+                        scheduled.Row,
+                        policy,
+                        index > 0 ? Some(sourceRows[index - 1].Row) : None,
+                        scheduled.Wave))
+                    .Bind(static row => row);
+                return exposure.Traverse(EventCompensated(policy.Compensation)).As()
+                    .Map(events => new SourceLane(source.Key, events));
+            }).Sequence();
+            Seq<ScanEvent> global = scheduled.Map(static row => row.Wave).Distinct().OrderBy(static wave => wave).ToSeq().Map(wave =>
+                    (ScanEvent)new ScanEvent.Synchronize(
+                        policy.Sources.Sources.Map(static source => source.Id).ToSeq(),
+                        wave,
+                        policy.Timing.SourceDelay,
+                        "wave-barrier"))
+                .Concat(Seq<ScanEvent>(new ScanEvent.Recoat(
+                    group.Key,
+                    policy.Timing.RecoatTravel,
+                    policy.Timing.RecoatSpeed,
+                    policy.Timing.RecoatDelay)))
+                .Concat(Seq<ScanEvent>(new ScanEvent.LayerDelay(group.Key, policy.Timing.LayerDelay)));
+            return from sources in lanes
+                   from events in global.Traverse(EventCompensated(policy.Compensation)).As()
+                   select new ScanLayer(
+                       group.Key,
+                       rows.Head.Map(static row => row.Vector.Elevation).IfNone(Length.Zero),
+                       sources,
+                       events);
         }).Sequence();
+
+    // Separation buckets bound the conflict probe: only peers sharing or neighbouring a covered cell can fall
+    // inside the separation, so wave election stays linear in the vectors it actually contends with.
+    private static Seq<(SourceAssignment Row, int Wave)> Waves(Seq<SourceAssignment> rows, ScanPlane plane) =>
+        rows.Fold(
+            (Scheduled: Seq<(SourceAssignment Row, int Wave)>(), Index: HashMap<(long X, long Y), Seq<(SourceAssignment Row, int Wave)>>()),
+            (state, row) => {
+                Seq<(long X, long Y)> cells = Cells(row.Vector.Geometry, plane.Separation);
+                Set<int> blocked = cells
+                    .Bind(cell => Neighbourhood(cell).Bind(probe => state.Index.Find(probe).IfNone(Seq<(SourceAssignment Row, int Wave)>())))
+                    .Filter(peer => peer.Row.Source.Id != row.Source.Id
+                        && SegmentGap(peer.Row.Vector.Geometry, row.Vector.Geometry, plane.IntersectionTolerance) < plane.Separation.Millimeters)
+                    .Map(static peer => peer.Wave)
+                    .ToSet();
+                int seed = plane.Wave(row);
+                (SourceAssignment Row, int Wave) placed = (row, toSeq(Enumerable.Range(0, blocked.Count + 1))
+                    .Map(offset => seed + (offset * plane.ThermalWindow))
+                    .Find(candidate => !blocked.Contains(candidate))
+                    .IfNone(seed + ((blocked.Count + 1) * plane.ThermalWindow)));
+                return (
+                    state.Scheduled.Add(placed),
+                    cells.Fold(state.Index, (index, cell) => index.AddOrUpdate(
+                        cell,
+                        index.Find(cell).IfNone(Seq<(SourceAssignment Row, int Wave)>()).Add(placed))));
+            })
+        .Scheduled;
+
+    private static Seq<(long X, long Y)> Cells(Edge3 segment, Length separation) {
+        double pitch = Math.Max(separation.Millimeters, double.Epsilon);
+        long minimumX = (long)Math.Floor(Math.Min(segment.A.X, segment.B.X) / pitch);
+        long maximumX = (long)Math.Floor(Math.Max(segment.A.X, segment.B.X) / pitch);
+        long minimumY = (long)Math.Floor(Math.Min(segment.A.Y, segment.B.Y) / pitch);
+        long maximumY = (long)Math.Floor(Math.Max(segment.A.Y, segment.B.Y) / pitch);
+        return toSeq(
+            from x in LongRange(minimumX, maximumX)
+            from y in LongRange(minimumY, maximumY)
+            select (x, y));
     }
 
-    private static Fin<Seq<(Seq<Loop> Cell, int Color)>> Hexes(BoundingBox b, double cell, Context tolerance) {
-        double s = Math.Max(cell, 1e-3), h = s * Math.Sqrt(3.0) / 2.0;
-        int nx = (int)Math.Ceiling((b.Max.X - b.Min.X) / (1.5 * s)) + 1, ny = (int)Math.Ceiling((b.Max.Y - b.Min.Y) / (2.0 * h)) + 1;
-        return toSeq(Enumerable.Range(0, nx * ny)).Map(k => {
-            int i = k % nx, j = k / nx;
-            Point3d c = new(b.Min.X + i * 1.5 * s, b.Min.Y + j * 2.0 * h + (i % 2 == 1 ? h : 0.0), 0.0);
-            int color = ((((int)Math.Floor(c.X / (1.5 * s))) % 3) + 3) % 3;
-            return Loop.Admit(toArr(Enumerable.Range(0, 6).Select(v =>
-                    new Point3d(c.X + s * Math.Cos(v * Math.PI / 3.0), c.Y + s * Math.Sin(v * Math.PI / 3.0), 0.0))),
-                    closed: true, Arr<double>(), tolerance)
-                .Map(hex => (Seq(hex), color));
-        }).Sequence();
+    private static Seq<(long X, long Y)> Neighbourhood((long X, long Y) cell) => toSeq(
+        from x in Enumerable.Range(-1, 3)
+        from y in Enumerable.Range(-1, 3)
+        select (cell.X + x, cell.Y + y));
+
+    private static IEnumerable<long> LongRange(long from, long to) =>
+        Enumerable.Range(0, checked((int)(to - from + 1))).Select(offset => from + offset);
+
+    private static double SegmentGap(Edge3 left, Edge3 right, Length tolerance) =>
+        Intersects(left, right, tolerance)
+            ? 0.0
+            : Seq(
+                PointGap(left.A, right),
+                PointGap(left.B, right),
+                PointGap(right.A, left),
+                PointGap(right.B, left)).Min();
+
+    private static bool Intersects(Edge3 left, Edge3 right, Length tolerance) {
+        double leftA = Cross(left.A, left.B, right.A);
+        double leftB = Cross(left.A, left.B, right.B);
+        double rightA = Cross(right.A, right.B, left.A);
+        double rightB = Cross(right.A, right.B, left.B);
+        double linear = tolerance.Millimeters;
+        double scale = Math.Max(1.0, Math.Max(left.A.DistanceTo(left.B), right.A.DistanceTo(right.B)));
+        double area = linear * scale;
+        int leftASign = Sign(leftA, area);
+        int leftBSign = Sign(leftB, area);
+        int rightASign = Sign(rightA, area);
+        int rightBSign = Sign(rightB, area);
+        bool rightAOnLeft = leftASign == 0 && OnSegment(left, right.A, linear);
+        bool rightBOnLeft = leftBSign == 0 && OnSegment(left, right.B, linear);
+        bool leftAOnRight = rightASign == 0 && OnSegment(right, left.A, linear);
+        bool leftBOnRight = rightBSign == 0 && OnSegment(right, left.B, linear);
+        return rightAOnLeft || rightBOnLeft || leftAOnRight || leftBOnRight
+            || (leftASign != leftBSign && rightASign != rightBSign);
     }
 
-    private static int ParityRank(int i, bool parity) => parity ? i : i + (1 << 20);   // checkerboard: even-parity cells melt first, odd cells the pass after
+    private static int Sign(double value, double tolerance) => value > tolerance ? 1 : value < -tolerance ? -1 : 0;
 
-    private static Seq<Edge3> Rays(BoundingBox b, double angleDeg, double spacing) {
-        double rad = angleDeg * Math.PI / 180.0, diag = b.Min.DistanceTo(b.Max);
-        Point3d centre = (b.Min + b.Max) * 0.5;
-        Vector3d dir = new(Math.Cos(rad), Math.Sin(rad), 0.0);
-        Vector3d step = new(-Math.Sin(rad), Math.Cos(rad), 0.0);
-        int lines = Math.Max(1, (int)Math.Ceiling(diag / spacing));
-        return toSeq(Enumerable.Range(-lines, 2 * lines + 1)).Map(i => {
-            Point3d mid = centre + i * spacing * step;
-            return new Edge3(mid - 0.5 * diag * dir, mid + 0.5 * diag * dir);
+    private static bool OnSegment(Edge3 segment, Point3d point, double tolerance) =>
+        point.X >= Math.Min(segment.A.X, segment.B.X) - tolerance
+        && point.X <= Math.Max(segment.A.X, segment.B.X) + tolerance
+        && point.Y >= Math.Min(segment.A.Y, segment.B.Y) - tolerance
+        && point.Y <= Math.Max(segment.A.Y, segment.B.Y) + tolerance;
+
+    private static double Cross(Point3d origin, Point3d along, Point3d point) =>
+        (along.X - origin.X) * (point.Y - origin.Y) - (along.Y - origin.Y) * (point.X - origin.X);
+
+    private static double PointGap(Point3d point, Edge3 segment) =>
+        point.DistanceTo(new Line(segment.A, segment.B).ClosestPoint(point, limitToFiniteSegment: true));
+
+    private static Seq<ScanEvent> Exposure(SourceAssignment assignment, ScanPolicy policy, Option<SourceAssignment> prior, int wave) {
+        ExposureProfile profile = policy.Profiles.TryGetValue(assignment.Vector.Class, out ExposureProfile? specialized)
+            ? specialized
+            : policy.Base;
+        Seq<ScanEvent> jump = Seq<ScanEvent>(new ScanEvent.Jump(
+            assignment.Source.Id,
+            prior.Map(static previous => previous.Vector.Geometry.B).IfNone(assignment.Source.Field.Center),
+            assignment.Vector.Geometry.A,
+            policy.Timing.JumpSpeed,
+            wave));
+        Seq<ScanEvent> passes = toSeq(Enumerable.Range(0, Math.Max(1, assignment.Vector.Class.RemeltPasses + 1)))
+            .Map(pass => {
+                ExposureClass active = pass == 0 ? assignment.Vector.Class : ExposureClass.Remelt;
+                ExposureProfile activeProfile = policy.Profiles.TryGetValue(active, out ExposureProfile? specialized)
+                    ? specialized
+                    : profile;
+                double power = Math.Min(
+                    activeProfile.Power.Watts * active.PowerScale.DecimalFractions * (1.0 - assignment.Source.Drift.DecimalFractions),
+                    assignment.Source.MaximumPower.Watts);
+                double focus = Math.Clamp(
+                    (activeProfile.Focus + active.FocusOffset).Millimeters,
+                    assignment.Source.FocusMinimum.Millimeters,
+                    assignment.Source.FocusMaximum.Millimeters);
+                double spot = Math.Max(
+                    activeProfile.Spot.Millimeters * active.SpotScale.DecimalFractions,
+                    assignment.Source.SpotDiameter.Millimeters);
+                return (ScanEvent)new ScanEvent.Expose(
+                    assignment.Source.Id,
+                    active,
+                    assignment.Vector.Geometry.A,
+                    assignment.Vector.Geometry.B,
+                    Power.FromWatts(power),
+                    activeProfile.Speed * active.SpeedScale.DecimalFractions,
+                    activeProfile.Dwell,
+                    Length.FromMillimeters(focus),
+                    Length.FromMillimeters(spot),
+                    activeProfile.PulseOn,
+                    activeProfile.PulseOff,
+                    activeProfile.SkywritingLead,
+                    activeProfile.SkywritingLag,
+                    assignment.StitchPeers.Map(static source => source.Id),
+                    wave,
+                    pass);
+            });
+        return jump.Concat(passes);
+    }
+
+    private static Func<ScanEvent, Fin<ScanEvent>> EventCompensated(DistortionCompensation compensation) => scanEvent =>
+        scanEvent.Switch(
+            expose: expose => from start in compensation.Apply(expose.From)
+                               from end in compensation.Apply(expose.To)
+                               select (ScanEvent)(expose with { From = start, To = end }),
+            jump: jump => from start in compensation.Apply(jump.From)
+                          from end in compensation.Apply(jump.To)
+                          select (ScanEvent)(jump with { From = start, To = end }),
+            synchronize: static value => Fin.Succ<ScanEvent>(value),
+            recoat: static value => Fin.Succ<ScanEvent>(value),
+            layerDelay: static value => Fin.Succ<ScanEvent>(value));
+
+    private static ScanIdentity Identity(ScanPolicy policy) => new(policy);
+
+    private static ScanReceipt Receipt(
+        AuditReceipt audit,
+        Seq<FieldCell> fields,
+        Seq<SourceAssignment> ordered,
+        Seq<ScanLayer> layers,
+        ScanPolicy policy,
+        int bytes) {
+        Seq<ScanEvent> events = layers.Bind(static layer => layer.Sources.Bind(static source => source.Events).Concat(layer.Events));
+        Seq<ScanEvent.Expose> exposure = events.Choose(static value => value is ScanEvent.Expose row ? Some(row) : None);
+        Seq<double> distances = ordered.GroupBy(static row => row.Vector.Layer).Bind(group => {
+            Seq<SourceAssignment> rows = toSeq(group);
+            return rows.Skip(1).Map((row, index) => rows[index].Vector.Geometry.B.DistanceTo(row.Vector.Geometry.A));
         });
+        double[] samples = distances.ToArray();
+        Seq<(int Layer, int Wave, ScanEvent.Expose Event)> waved = layers.Bind(layer => layer.Sources.Bind(source => source.Events
+            .Choose(value => value is ScanEvent.Expose expose ? Some((Layer: layer.Layer, Wave: expose.Wave, Event: expose)) : None)));
+        int plumeConflicts = waved.GroupBy(static row => (row.Layer, row.Wave)).Map(group => {
+            Seq<(int Layer, int Wave, ScanEvent.Expose Event)> wave = toSeq(group);
+            return wave.Map((row, index) => wave.Skip(index + 1).Count(peer =>
+                row.Event.Source != peer.Event.Source
+                && SegmentGap(new Edge3(row.Event.From, row.Event.To), new Edge3(peer.Event.From, peer.Event.To), policy.IntersectionTolerance)
+                    < policy.Sources.PlumeClearance.Millimeters)).Sum();
+        }).Sum();
+        ThermalEvidence thermal = samples.Length == 0
+            ? new ThermalEvidence(0.0, 0.0, 0.0, plumeConflicts)
+            : new ThermalEvidence(
+                TensorPrimitives.Average(samples),
+                TensorPrimitives.StdDev(samples),
+                TensorPrimitives.SumOfSquares(samples),
+                plumeConflicts);
+        Seq<SourceLoad> loads = exposure.GroupBy(static row => row.Source).Map(group => {
+            Seq<ScanEvent.Expose> rows = toSeq(group);
+            Length path = Length.FromMillimeters(rows.Map(static row =>
+                row.From.DistanceTo(row.To) + row.SkywritingLead.Millimeters + row.SkywritingLag.Millimeters).Sum());
+            Duration duration = rows.Map(static row => DurationOf(row)).Fold(Duration.Zero, static (sum, value) => sum + value);
+            Energy energy = rows.Map(static row => row.Power
+                    * (Duration.FromSeconds(row.From.DistanceTo(row.To) / row.Speed.MillimetersPerSecond) + row.Dwell)
+                    * Duty(row))
+                .Fold(Energy.Zero, static (sum, value) => sum + value);
+            return new SourceLoad(group.Key, rows.Count, path, duration, energy);
+        });
+        Length path = events.Fold(Length.Zero, static (sum, value) => sum + LengthOf(value));
+        Duration buildTime = layers.Map(layer => {
+            Duration sourceTime = layer.Sources.Bind(source => source.Events.Choose(value => WaveOf(value)
+                    .Map(wave => (source.Source, Wave: wave, Event: value))))
+                .GroupBy(static row => row.Wave)
+                .Map(wave => toSeq(wave).GroupBy(static row => row.Source)
+                    .Map(source => toSeq(source).Map(static row => DurationOf(row.Event)).Fold(Duration.Zero, static (sum, value) => sum + value))
+                    .Fold(Duration.Zero, static (maximum, value) => value > maximum ? value : maximum))
+                .Fold(Duration.Zero, static (sum, value) => sum + value);
+            Duration globalTime = layer.Events.Fold(Duration.Zero, static (sum, value) => sum + DurationOf(value));
+            return sourceTime + globalTime;
+        }).Fold(Duration.Zero, static (sum, value) => sum + value);
+        return new ScanReceipt(
+            audit,
+            loads,
+            fields,
+            thermal,
+            exposure.Count,
+            events.Count(static value => value is ScanEvent.Jump),
+            exposure.Count(static value => value.Pass > 0),
+            ordered.Map(static row => row.StitchPeers.Count).Sum(),
+            path,
+            loads.Map(static load => load.Energy).Fold(Energy.Zero, static (sum, value) => sum + value),
+            buildTime,
+            bytes);
     }
 
-    // --- [ORDERING_PRIMITIVES]
-    private static Fin<Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)>> OrderCells(
-        Seq<(Seq<Loop> Cell, double AngleDeg, int Rank)> cells,
-        ScanOrdering ordering) =>
-        ordering.Switch(
-            state:          cells,
-            linear:         static rows => Fin.Succ(rows.OrderBy(static cell => cell.Rank).ToSeq()),
-            nearest:        static rows => Fin.Succ(GreedyNearest(rows, static cell => Centroid(cell.Cell), static cell => Centroid(cell.Cell))),
-            thermalSpacing: static rows => Fin.Succ(MaxMinOrder(rows, static cell => Centroid(cell.Cell))),
-            generated:      static (rows, policy) => GeneratedOrder(rows, static cell => Centroid(cell.Cell), policy.Order));
+    private static Duration DurationOf(ScanEvent value) => value.Switch(
+        expose: static row => Duration.FromSeconds(
+            (row.From.DistanceTo(row.To) + row.SkywritingLead.Millimeters + row.SkywritingLag.Millimeters)
+                / row.Speed.MillimetersPerSecond) + row.Dwell,
+        jump: static row => Duration.FromSeconds(row.From.DistanceTo(row.To) / row.Speed.MillimetersPerSecond),
+        synchronize: static row => row.Duration,
+        recoat: static row => Duration.FromSeconds(row.Travel.Millimeters / row.Speed.MillimetersPerSecond) + row.Delay,
+        layerDelay: static row => row.Duration);
 
-    // The ONE max-min-distance greedy: each pick maximizes its minimum distance to everything already melted.
-    // Bounded O(n²) kernel shared by the cell and vector thermal-spacing arms.
-    private static Seq<T> MaxMinOrder<T>(Seq<T> items, Func<T, Point3d> at) {
-        Arr<T> rows = items.ToArr();
-        (Seq<int> Ordered, Set<int> Remaining) state = toSeq(Enumerable.Range(0, rows.Count))
-            .Fold(
-                (Ordered: Seq<int>(), Remaining: toSet(Enumerable.Range(0, rows.Count))),
-                (held, _) => {
-                    int pick = held.Ordered.IsEmpty
-                        ? held.Remaining.Min()
-                        : held.Remaining
-                            .OrderByDescending(candidate => held.Ordered
-                                .Map(selected => Distance(at(rows[selected]), at(rows[candidate])))
-                                .Min())
-                            .ThenBy(static candidate => candidate)
-                            .First();
-                    return (held.Ordered.Add(pick), held.Remaining.Remove(pick));
-                });
-        return state.Ordered.Map(index => rows[index]);
+    private static Length LengthOf(ScanEvent value) => value.Switch(
+        expose: static row => Length.FromMillimeters(
+            row.From.DistanceTo(row.To) + row.SkywritingLead.Millimeters + row.SkywritingLag.Millimeters),
+        jump: static row => Length.FromMillimeters(row.From.DistanceTo(row.To)),
+        synchronize: static _ => Length.Zero,
+        recoat: static row => row.Travel,
+        layerDelay: static _ => Length.Zero);
+
+    private static double Duty(ScanEvent.Expose row) => row.PulseOn + row.PulseOff == Duration.Zero
+        ? 1.0
+        : row.PulseOn.Seconds / (row.PulseOn + row.PulseOff).Seconds;
+
+    private static Option<int> WaveOf(ScanEvent value) => value.Switch(
+        expose: static row => Some(row.Wave),
+        jump: static row => Some(row.Wave),
+        synchronize: static _ => Option<int>.None,
+        recoat: static _ => Option<int>.None,
+        layerDelay: static _ => Option<int>.None);
+
+    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
+        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError())).ToValidation();
+}
+
+// --- [FIELD_PARTITION] -----------------------------------------------------------------------------------------------------------------------------
+public static class SourcePartition {
+    public static Fin<Seq<FieldCell>> Build(SliceStack stack, SourcePolicy policy) =>
+        stack.LayerCount == 0 || policy.Sources.IsEmpty || stack.X.Length == 0 || stack.X.Length != stack.Y.Length || stack.X.Length != stack.Z.Length
+            ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:source-partition").ToError())
+            : policy.Sources.Map(static source => (source.Field.Center.X, source.Field.Center.Y)).Distinct().Count != policy.Sources.Length
+            ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:duplicate-source-sites").ToError())
+            : Try.lift(() => {
+                BoundingBox bound = new(
+                    new Point3d(stack.X.Min(), stack.Y.Min(), 0.0),
+                    new Point3d(stack.X.Max(), stack.Y.Max(), 0.0));
+                VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
+                plane.SetSites(policy.Sources.Map(static source => new VoronoiSite(source.Field.Center.X, source.Field.Center.Y)).ToList());
+                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
+                plane.Relax(policy.FieldRelaxations, (float)policy.FieldRelaxationStrength.DecimalFractions, reTessellate: true);
+                return plane.DuplicateCount != 0 || plane.Sites.Count != policy.Sources.Length
+                    ? Fin.Fail<Seq<FieldCell>>(new GeometryFault.DegenerateInput(
+                        Kind.Mesh,
+                        -1,
+                        $"scan:duplicate-source-sites:{plane.DuplicateCount}").ToError())
+                    : Fin.Succ(toSeq(plane.Sites).Map(site => new FieldCell(
+                        policy.Sources[plane.Sites.IndexOf(plane.GetNearestSiteTo(
+                            site.Centroid.X,
+                            site.Centroid.Y,
+                            NearestSiteLookupMethod.KDTree))].Id,
+                        toSeq(site.ClockwisePoints).Map(static point => new Point2d(point.X, point.Y)),
+                        toSeq(site.Neighbours).Map(neighbour => policy.Sources[plane.Sites.IndexOf(neighbour)].Id),
+                        new Point2d(site.Centroid.X, site.Centroid.Y),
+                        Length.FromMillimeters(toSeq(site.ClockwiseEdges).Map(static edge => edge.Length).Sum()),
+                        site.Closed)));
+            }).Run()
+                .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:voronoi:{error.Message}").ToError())
+                .Bind(identity);
+
+    public static Fin<Seq<SourceAssignment>> Assign(
+        Seq<CandidateVector> vectors,
+        Seq<FieldCell> fields,
+        SourcePolicy policy,
+        int maximumVectors) {
+        if (vectors.IsEmpty)
+            return Fin.Succ(Seq<SourceAssignment>());
+        if (vectors.Count > maximumVectors)
+            return Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:vector-cap:{vectors.Count}").ToError());
+        return Try.lift(() => {
+            int capacity = checked(vectors.Count * policy.Sources.Count);
+            using MemoryOwner<double> scores = MemoryOwner<double>.Allocate(capacity, AllocationMode.Clear);
+            ScoreAction action = new(scores.Memory, policy.Sources.Count, vectors.ToArr(), policy.Sources);
+            ParallelHelper.For2D(0, vectors.Count, 0, policy.Sources.Count, in action);
+            Arr<(int Source, double Score)> elected = Elect(scores.Span, vectors.Count, policy.Sources.Count, policy.BalanceWeight.DecimalFractions);
+            return vectors.Map((vector, row) => (Vector: vector, Election: elected[row]))
+                .Find(static row => row.Election.Source < 0)
+                .Match(
+                    Some: row => Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1,
+                        $"scan:source-field-miss:{row.Vector.Layer}:{row.Vector.Geometry.A}").ToError()),
+                    None: () => Fin.Succ(vectors.Map((vector, row) => {
+                        LaserSource source = policy.Sources[elected[row].Source];
+                        return new SourceAssignment(vector, source, Peers(vector, source, fields, policy), elected[row].Score);
+                    })));
+        }).Run()
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:score-plane:{error.Message}").ToError())
+            .Bind(identity);
     }
 
-    private static Seq<T> GreedyNearest<T>(Seq<T> items, Func<T, Point3d> start, Func<T, Point3d> end) {
-        Arr<T> rows = items.ToArr();
-        (Seq<int> Ordered, Set<int> Remaining, Point3d Head) state = toSeq(Enumerable.Range(0, rows.Count))
-            .Fold(
-                (Ordered: Seq<int>(), Remaining: toSet(Enumerable.Range(0, rows.Count)), Head: rows.IsEmpty ? Point3d.Origin : start(rows[0])),
-                (held, _) => {
-                    int pick = held.Remaining
-                        .OrderBy(candidate => Distance(held.Head, start(rows[candidate])))
-                        .ThenBy(static candidate => candidate)
-                        .First();
-                    return (held.Ordered.Add(pick), held.Remaining.Remove(pick), end(rows[pick]));
-                });
-        return state.Ordered.Map(index => rows[index]);
+    private static Seq<LaserSource> Peers(CandidateVector vector, LaserSource source, Seq<FieldCell> fields, SourcePolicy policy) =>
+        fields.Find(field => field.Source == source.Id)
+            .Map(field => field.Neighbours.Bind(id => policy.Sources
+                .Find(candidate => candidate.Id == id)
+                .Filter(candidate => candidate.Field.Center.DistanceTo(0.5 * (vector.Geometry.A + vector.Geometry.B))
+                    <= candidate.StitchWidth.Millimeters + policy.Overlap.Millimeters)
+                .ToSeq()))
+            .IfNone(Seq<LaserSource>());
+
+    // Exemption: the balance cell must carry between elections, so the running assignment stays a span loop
+    // inside this one kernel; a rejected election lands as source -1 and the caller converts it on the rail.
+    private static Arr<(int Source, double Score)> Elect(Span<double> plane, int rows, int width, double balanceWeight) {
+        (int Source, double Score)[] elected = new (int, double)[rows];
+        using SpanOwner<double> load = SpanOwner<double>.Allocate(width, AllocationMode.Clear);
+        using SpanOwner<double> balanced = SpanOwner<double>.Allocate(width, AllocationMode.Clear);
+        for (int row = 0; row < rows; row++) {
+            ReadOnlySpan<double> score = plane.Slice(row * width, width);
+            TensorPrimitives.MultiplyAdd(load.Span, balanceWeight, score, balanced.Span);
+            int index = TensorPrimitives.IndexOfMin(balanced.Span);
+            bool admitted = index >= 0 && double.IsFinite(score[index]);
+            elected[row] = admitted ? (index, score[index]) : (-1, double.PositiveInfinity);
+            if (admitted)
+                load.Span[index]++;
+        }
+        return elected;
     }
 
-    private static Fin<Seq<T>> GeneratedOrder<T>(Seq<T> items, Func<T, Point3d> at, Func<Seq<Point3d>, Fin<Seq<int>>> order) {
-        Arr<T> rows = items.ToArr();
-        return from indices in order(items.Map(at))
-               from _ in indices.Count == rows.Count
-                   && indices.Distinct().Count == rows.Count
-                   && indices.ForAll(index => index >= 0 && index < rows.Count)
-                       ? Fin.Succ(unit)
-                       : Fin.Fail<Unit>(GeometryFault.DegenerateInput("scan:invalid-generated-order").ToError())
-               select indices.Map(index => rows[index]);
+    private readonly struct ScoreAction(Memory<double> scores, int width, Arr<CandidateVector> vectors, Arr<LaserSource> sources) : IAction2D {
+        public void Invoke(int row, int column) {
+            CandidateVector vector = vectors[row];
+            LaserSource source = sources[column];
+            Point3d midpoint = 0.5 * (vector.Geometry.A + vector.Geometry.B);
+            scores.Span[row * width + column] = source.Field.Contains(midpoint)
+                ? TensorPrimitives.Distance(
+                    [midpoint.X, midpoint.Y, midpoint.Z],
+                    [source.Field.Center.X, source.Field.Center.Y, source.Field.Center.Z])
+                : double.PositiveInfinity;
+        }
     }
+}
 
-    // --- [BOUNDARIES]
-    private static double Length(LayerGeometry g) => g.Switch(
-        hatch:   static h => h.Vectors.Map(static e => e.A.DistanceTo(e.B)).Sum(),
-        contour: static c => toSeq(Enumerable.Range(0, c.Ring.Count)).Map(i => c.Ring.At(i).DistanceTo(c.Ring.At(i + 1))).Sum(),
-        spot:    static _ => 0.0);
+public static class CellDiagram {
+    public static Fin<Seq<BoundingBox>> Build(BoundingBox bound, CellProgram policy) =>
+        policy.Pitch <= Length.Zero || policy.Relaxations < 0 || policy.RelaxationStrength < Ratio.Zero || policy.MaximumSites <= 0 || policy.MergeBelowArea < Area.Zero
+            ? Fin.Fail<Seq<BoundingBox>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "scan:cell-program").ToError())
+            : Try.lift(() => {
+                VoronoiPlane plane = new(bound.Min.X, bound.Min.Y, bound.Max.X, bound.Max.Y);
+                int count = Math.Min(policy.MaximumSites, Math.Max(1, (int)Math.Ceiling(
+                    (bound.Diagonal.X * bound.Diagonal.Y) / Math.Pow(policy.Pitch.Millimeters, 2.0))));
+                plane.GenerateRandomSites(count, PointGenerationMethod.Uniform, new SeededRandomNumberGenerator(policy.Seed));
+                plane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
+                plane.Relax(policy.Relaxations, (float)policy.RelaxationStrength.DecimalFractions, reTessellate: true);
+                plane.MergeSites((left, right) => CellArea(left) < policy.MergeBelowArea.SquareMillimeters
+                    ? VoronoiSiteMergeDecision.MergeIntoSite2
+                    : CellArea(right) < policy.MergeBelowArea.SquareMillimeters
+                        ? VoronoiSiteMergeDecision.MergeIntoSite1
+                        : VoronoiSiteMergeDecision.DontMerge);
+                return toSeq(plane.Sites).Filter(static site => site.Closed).Map(site => new BoundingBox(
+                    new Point3d(site.ClockwisePoints.Min(static point => point.X), site.ClockwisePoints.Min(static point => point.Y), bound.Min.Z),
+                    new Point3d(site.ClockwisePoints.Max(static point => point.X), site.ClockwisePoints.Max(static point => point.Y), bound.Max.Z)));
+            }).Run().MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:cells:{error.Message}").ToError());
 
-    // Between-row jumps AND within-hatch vector-to-vector jumps: the dominant discontinuous-scan travel counts.
-    private static double JumpDistance(Seq<LayerGeometry> geometry) {
-        Arr<LayerGeometry> rows = geometry.ToArr();
-        double between = toSeq(Enumerable.Range(1, Math.Max(0, rows.Count - 1)))
-            .Map(i => End(rows[i - 1]).DistanceTo(Start(rows[i])))
-            .Sum();
-        double within = rows.ToSeq().Map(static g => g.Switch(
-            hatch:   static h => toSeq(Enumerable.Range(1, Math.Max(0, h.Vectors.Count - 1)))
-                .Map(i => h.Vectors[i - 1].B.DistanceTo(h.Vectors[i].A)).Sum(),
-            contour: static _ => 0.0,
-            spot:    static _ => 0.0)).Sum();
-        return between + within;
-    }
+    private static double CellArea(VoronoiSite site) =>
+        Math.Abs(toSeq(site.ClockwisePoints).Zip(toSeq(site.ClockwisePoints).Tail.Add(site.ClockwisePoints[0]))
+            .Map(static pair => pair.First.X * pair.Second.Y - pair.Second.X * pair.First.Y).Sum()) / 2.0;
+}
 
-    private static Point3d Start(LayerGeometry geometry) => geometry.Switch(
-        hatch:   static h => h.Vectors.HeadOrNone().Map(static edge => edge.A).IfNone(Point3d.Origin),
-        contour: static c => c.Ring.At(0),
-        spot:    static s => s.At);
+public static class ScanSort {
+    public static Fin<Seq<SourceAssignment>> Order(Seq<SourceAssignment> rows, ScanOrder order, ScanPlane plane) =>
+        Fin.Succ(rows.IsEmpty ? rows : order.Orient(rows.OrderBy(row => order.Project(row, plane)).ToSeq()));
+}
 
-    private static Point3d End(LayerGeometry geometry) => geometry.Switch(
-        hatch:   static h => h.Vectors.LastOrNone().Map(static edge => edge.B).IfNone(Point3d.Origin),
-        contour: static c => c.Ring.At(c.Ring.Count),
-        spot:    static s => s.At);
-
-    private static double Distance(Point3d a, Point3d b) {
-        Span<double> left = stackalloc[] { a.X, a.Y, a.Z };
-        Span<double> right = stackalloc[] { b.X, b.Y, b.Z };
-        return TensorPrimitives.Distance(left, right);
-    }
-
-    // Payload-complete little-endian program stream: layer ordinal, elevation, every geometry case with its
-    // discriminant, class key, power/speed/dwell, and full coordinates — the scan-vectors content-key bytes.
-    private static byte[] Canonical(Seq<ScanLayer> layers) {
+// --- [CANONICAL_EGRESS] ----------------------------------------------------------------------------------------------------------------------------
+public static class ScanCodec {
+    public static byte[] Write(ScanIdentity identity, Seq<ScanLayer> layers) {
         using ArrayPoolBufferWriter<byte> writer = new();
-        Int32(writer, layers.Count);
+        Identity(identity, writer);
+        Int32(layers.Count, writer);
         layers.Iter(layer => {
-            Int32(writer, layer.Layer);
-            Float64(writer, layer.Elevation);
-            Int32(writer, layer.Geometry.Count);
-            layer.Geometry.Iter(g => {
-                switch (g) {
-                    case LayerGeometry.Hatch h:
-                        Int32(writer, 0);
-                        Utf8(writer, h.Skin.Key);
-                        Float64(writer, h.PowerW);
-                        Float64(writer, h.SpeedMmS);
-                        Int32(writer, h.Vectors.Count);
-                        h.Vectors.Iter(e => { Point(writer, e.A); Point(writer, e.B); });
-                        break;
-                    case LayerGeometry.Contour c:
-                        Int32(writer, 1);
-                        Int32(writer, c.Pass);
-                        Float64(writer, c.PowerW);
-                        Float64(writer, c.SpeedMmS);
-                        Int32(writer, c.Ring.Count);
-                        toSeq(Enumerable.Range(0, c.Ring.Count)).Iter(i => Point(writer, c.Ring.At(i)));
-                        break;
-                    case LayerGeometry.Spot s:
-                        Int32(writer, 2);
-                        Utf8(writer, s.Skin.Key);
-                        Float64(writer, s.PowerW);
-                        Float64(writer, s.DwellUs);
-                        Point(writer, s.At);
-                        break;
-                }
+            Int32(layer.Layer, writer);
+            Float64(layer.Elevation.Millimeters, writer);
+            Int32(layer.Sources.Count, writer);
+            layer.Sources.Iter(source => {
+                Int32(source.Source, writer);
+                Int32(source.Events.Count, writer);
+                source.Events.Iter(scanEvent => Event(scanEvent, writer));
             });
+            Int32(layer.Events.Count, writer);
+            layer.Events.Iter(scanEvent => Event(scanEvent, writer));
         });
         return writer.WrittenSpan.ToArray();
     }
 
-    private static void Point(ArrayPoolBufferWriter<byte> writer, Point3d p) {
-        Float64(writer, p.X);
-        Float64(writer, p.Y);
+    private static void Event(ScanEvent scanEvent, ArrayPoolBufferWriter<byte> writer) => scanEvent.Switch(
+        state: writer,
+        expose: static (sink, value) => {
+            Byte(1, sink); Int32(value.Source, sink); Utf8(value.Class.Key, sink); Point(value.From, sink); Point(value.To, sink);
+            Float64(value.Power.Watts, sink); Float64(value.Speed.MillimetersPerSecond, sink); Float64(value.Dwell.Seconds, sink);
+            Float64(value.Focus.Millimeters, sink); Float64(value.Spot.Millimeters, sink); Float64(value.PulseOn.Seconds, sink);
+            Float64(value.PulseOff.Seconds, sink); Float64(value.SkywritingLead.Millimeters, sink); Float64(value.SkywritingLag.Millimeters, sink);
+            Int32(value.StitchPeers.Count, sink); value.StitchPeers.Iter(peer => Int32(peer, sink));
+            Int32(value.Wave, sink); Int32(value.Pass, sink); return unit;
+        },
+        jump: static (sink, value) => { Byte(2, sink); Int32(value.Source, sink); Point(value.From, sink); Point(value.To, sink); Float64(value.Speed.MillimetersPerSecond, sink); Int32(value.Wave, sink); return unit; },
+        synchronize: static (sink, value) => { Byte(3, sink); Int32(value.Sources.Count, sink); value.Sources.Iter(id => Int32(id, sink)); Int32(value.Wave, sink); Float64(value.Duration.Seconds, sink); Utf8(value.Reason, sink); return unit; },
+        recoat: static (sink, value) => { Byte(4, sink); Int32(value.Layer, sink); Float64(value.Travel.Millimeters, sink); Float64(value.Speed.MillimetersPerSecond, sink); Float64(value.Delay.Seconds, sink); return unit; },
+        layerDelay: static (sink, value) => { Byte(5, sink); Int32(value.Layer, sink); Float64(value.Duration.Seconds, sink); return unit; });
+
+    private static void Identity(ScanIdentity identity, ArrayPoolBufferWriter<byte> writer) {
+        ScanPolicy policy = identity.Policy;
+        Profile(policy.Base, writer);
+        Int32(policy.Profiles.Count, writer);
+        policy.Profiles.OrderBy(static pair => pair.Key.Key).Iter(pair => {
+            Utf8(pair.Key.Key, writer);
+            Profile(pair.Value, writer);
+        });
+        Hatch(policy.Hatch, writer);
+        Utf8(policy.Order.Key, writer);
+        Sources(policy.Sources, writer);
+        Timing(policy.Timing, writer);
+        Rotation(policy.Rotation, writer);
+        Compensation(policy.Compensation, writer);
+        Offset(policy.Offset, writer);
+        Float64(policy.ThermalSeparation.Millimeters, writer);
+        Float64(policy.IntersectionTolerance.Millimeters, writer);
+        Int32(policy.ThermalWindow, writer);
+        Int32(policy.MaximumVectors, writer);
+        Int32(policy.DownSkinLayers, writer);
+        Int32(policy.UpSkinLayers, writer);
     }
 
-    private static void Utf8(ArrayPoolBufferWriter<byte> writer, string value) {
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
-        Int32(writer, bytes.Length);
-        writer.Write(bytes);
+    private static void Profile(ExposureProfile value, ArrayPoolBufferWriter<byte> writer) {
+        Float64(value.Power.Watts, writer); Float64(value.Speed.MillimetersPerSecond, writer);
+        Float64(value.Spacing.Millimeters, writer); Float64(value.Dwell.Seconds, writer);
+        Float64(value.Spot.Millimeters, writer); Float64(value.Focus.Millimeters, writer);
+        Float64(value.PulseOn.Seconds, writer); Float64(value.PulseOff.Seconds, writer);
+        Float64(value.SkywritingLead.Millimeters, writer); Float64(value.SkywritingLag.Millimeters, writer);
     }
 
-    private static void Int32(ArrayPoolBufferWriter<byte> writer, int value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
-        writer.Advance(sizeof(int));
+    private static void Sources(SourcePolicy value, ArrayPoolBufferWriter<byte> writer) {
+        Int32(value.Sources.Length, writer);
+        value.Sources.Iter(source => {
+            Int32(source.Id, writer); Point(source.Field.Min, writer); Point(source.Field.Max, writer);
+            Float64(source.MaximumPower.Watts, writer); Float64(source.SpotDiameter.Millimeters, writer);
+            Float64(source.StitchWidth.Millimeters, writer); Float64(source.FocusMinimum.Millimeters, writer);
+            Float64(source.FocusMaximum.Millimeters, writer); Float64(source.Drift.DecimalFractions, writer);
+            Utf8(source.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), writer);
+        });
+        Float64(value.BalanceWeight.DecimalFractions, writer); Float64(value.PlumeClearance.Millimeters, writer);
+        Float64(value.Overlap.Millimeters, writer); Int32(value.FieldRelaxations, writer);
+        Float64(value.FieldRelaxationStrength.DecimalFractions, writer);
+        Float64(value.GasBearing.X, writer); Float64(value.GasBearing.Y, writer); Float64(value.GasBearing.Z, writer);
     }
 
-    private static void Float64(ArrayPoolBufferWriter<byte> writer, double value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
-        writer.Advance(sizeof(double));
+    private static void Timing(TimingPolicy value, ArrayPoolBufferWriter<byte> writer) {
+        Float64(value.JumpSpeed.MillimetersPerSecond, writer); Float64(value.LayerDelay.Seconds, writer);
+        Float64(value.RecoatDelay.Seconds, writer); Float64(value.SourceDelay.Seconds, writer);
+        Float64(value.RecoatSpeed.MillimetersPerSecond, writer); Float64(value.RecoatTravel.Millimeters, writer);
     }
 
-    private static Point3d Centroid(Seq<Loop> cell) {
-        Seq<Point3d> pts = cell.Bind(static l => toSeq(l.Vertices));
-        return pts.IsEmpty ? Point3d.Origin : new Point3d(pts.Map(static p => p.X).Sum() / pts.Count, pts.Map(static p => p.Y).Sum() / pts.Count, 0.0);
+    private static void Rotation(RotationPolicy value, ArrayPoolBufferWriter<byte> writer) {
+        Float64(value.LayerIncrement.Radians, writer); Int32(value.Cycle, writer); Float64(value.ContourOffset.Radians, writer);
+    }
+
+    private static void Offset(OffsetPolicy value, ArrayPoolBufferWriter<byte> writer) {
+        Utf8(value.Join.Key, writer); Utf8(value.End.Key, writer); Float64(value.MiterLimit, writer);
+        Float64(value.ArcTolerance, writer); Byte(value.PreserveCollinear ? (byte)1 : (byte)0, writer);
+        Byte(value.ReverseSolution ? (byte)1 : (byte)0, writer); Byte(value.MergeGroups ? (byte)1 : (byte)0, writer);
+    }
+
+    private static void Hatch(HatchProgram program, ArrayPoolBufferWriter<byte> writer) => program.Switch(
+        state: writer,
+        lines: static (sink, value) => { Byte(1, sink); Float64(value.Bearing.Radians, sink); return unit; },
+        cells: static (sink, value) => {
+            Byte(2, sink); Float64(value.Bearing.Radians, sink); Float64(value.Cells.Pitch.Millimeters, sink);
+            Int32(value.Cells.Relaxations, sink); Float64(value.Cells.RelaxationStrength.DecimalFractions, sink);
+            Int32(value.Cells.MaximumSites, sink); Int32(value.Cells.Seed, sink); Float64(value.Cells.MergeBelowArea.SquareMillimeters, sink);
+            return unit;
+        },
+        contours: static (sink, value) => { Byte(3, sink); Int32(value.Passes, sink); Float64(value.Offset.Millimeters, sink); return unit; },
+        generated: static (sink, value) => { Byte(4, sink); Utf8(value.Identity.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit; });
+
+    private static void Compensation(DistortionCompensation compensation, ArrayPoolBufferWriter<byte> writer) => compensation.Switch(
+        state: writer,
+        none: static (sink, _) => { Byte(1, sink); return unit; },
+        affine: static (sink, value) => {
+            Byte(2, sink); Transform(value.BuildToCommand, sink); Utf8(value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit;
+        },
+        generated: static (sink, value) => { Byte(3, sink); Utf8(value.Calibration.Digest.ToString("x32", CultureInfo.InvariantCulture), sink); return unit; });
+
+    private static void Transform(Transform value, ArrayPoolBufferWriter<byte> writer) {
+        Float64(value.M00, writer); Float64(value.M01, writer); Float64(value.M02, writer); Float64(value.M03, writer);
+        Float64(value.M10, writer); Float64(value.M11, writer); Float64(value.M12, writer); Float64(value.M13, writer);
+        Float64(value.M20, writer); Float64(value.M21, writer); Float64(value.M22, writer); Float64(value.M23, writer);
+        Float64(value.M30, writer); Float64(value.M31, writer); Float64(value.M32, writer); Float64(value.M33, writer);
+    }
+
+    private static void Point(Point3d point, ArrayPoolBufferWriter<byte> writer) { Float64(point.X, writer); Float64(point.Y, writer); Float64(point.Z, writer); }
+    private static void Byte(byte value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(1); span[0] = value; writer.Advance(1); }
+    private static void Int32(int value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(int)); BinaryPrimitives.WriteInt32LittleEndian(span, value); writer.Advance(sizeof(int)); }
+    private static void Int32(LaserId value, ArrayPoolBufferWriter<byte> writer) => Int32(value.ToValue(), writer);
+    private static void Float64(double value, ArrayPoolBufferWriter<byte> writer) { Span<byte> span = writer.GetSpan(sizeof(double)); BinaryPrimitives.WriteInt64LittleEndian(span, BitConverter.DoubleToInt64Bits(value)); writer.Advance(sizeof(double)); }
+    private static void Utf8(string value, ArrayPoolBufferWriter<byte> writer) {
+        int length = Encoding.UTF8.GetByteCount(value);
+        Int32(length, writer);
+        Span<byte> target = writer.GetSpan(length);
+        int written = Encoding.UTF8.GetBytes(value, target);
+        writer.Advance(written);
+    }
+}
+
+public static class ScanGeometry {
+    public static Seq<Edge3> Parallel(BoundingBox bound, Angle bearing, Length spacing) {
+        Vector3d direction = new(Math.Cos(bearing.Radians), Math.Sin(bearing.Radians), 0.0);
+        Vector3d normal = new(-direction.Y, direction.X, 0.0);
+        Point3d center = bound.Center;
+        double span = bound.Diagonal.Length;
+        int count = Math.Max(1, (int)Math.Ceiling(span / spacing.Millimeters));
+        return toSeq(Enumerable.Range(-count, 2 * count + 1)).Map(index =>
+            new Edge3(center + index * spacing.Millimeters * normal - span * direction, center + index * spacing.Millimeters * normal + span * direction));
     }
 }
 ```
@@ -629,59 +1166,21 @@ public static class Scan {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    clusterBkg: "#21222C"
-    clusterBorder: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+  look: handDrawn
+  theme: dark
 ---
 flowchart LR
-    accTitle: Powder-bed scan planning
-    accDescr: Scan planning partitions exposure regions, generates cells, clips and sorts vectors, and emits a payload-complete content key.
-    Owner["owner#run Additive Scan case (Powder budget carried typed)"] --> PlanNode["Scan.Plan"]
-    Stack["kernel SliceStack (K3) heights = LayerPlan, SEALED"] -->|Depth-parity holes| Region["SliceRegion.Of"]
-    Region -->|"direct adjacent exposure → depth-k projection"| Skins["SkinRegion × SkinParameters"]
-    SupportP["SupportPlan.PlanarRows projection"] support@-->|sparse + interface classes| Skins
-    Pattern["HatchPattern cell law Meander · Stripe · Island · Hexagon · Generated"] -->|"θₙ = (θ₀ + n·66.7°) mod 180"| Cells["Cells (cell, angle, rank)"]
-    Skins --> Hatch["hatch → SliceRegion.Rays → ScanSort (bearing on AgainstGas)"]
-    Cells --> Hatch
-    Hatch -->|"sub-spot demotes"| Spot["Spot point exposures"]
-    Budget["ProcessBudget.Powder laser · hatch · speed"] budget@-->|class-scaled| Hatch
-    Hatch hatchReceipt@--> Receipt["ScanPlan + payload-complete scan-vectors ContentKey"]
-    Spot spotReceipt@--> Receipt
-    Receipt persist@-->|AdditiveResult.Artifacts| Persist["Rasm.Persistence artifact index"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef payload fill:#FFD86654,stroke:#FFD866,color:#F8F8F2
-    class Owner boundary
-    class PlanNode,Skins,Cells,Hatch primary
-    class Stack,Region,Receipt data
-    class SupportP,Budget,Persist external
-    class Pattern payload
-    class Spot success
-    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
-    classDef edgeData stroke:#FFB86C,color:#F8F8F2
-    class support,budget edgeExternal
-    class hatchReceipt,spotReceipt,persist edgeData
+    accTitle: Additive scanpath planning flow
+    accDescr: Admitted layers become bounded candidate vectors, source assignments, thermal schedules, compensated scan events, and canonical plan evidence.
+    Stack["SliceStack"] --> Audit["Audit.Preflight"]
+    Audit --> Regions["ExposureRegion rows"]
+    Regions --> Cells["HatchProgram + relaxed cells"]
+    Cells --> Fields["Voronoi source fields"]
+    Fields --> Assign["pooled score plane + IndexOfMin"]
+    Assign --> Order["thermal / gas / plume schedule"]
+    Order --> Events["explicit ScanEvent program"]
+    Events --> Codec["XYZ + physics + timing codec"]
+    Codec --> Key["ContentKey.Of ScanVectors"]
+    Key --> Plan["ScanPlan + ScanReceipt"]
 ```

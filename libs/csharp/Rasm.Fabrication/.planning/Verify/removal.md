@@ -1,30 +1,48 @@
 # [RASM_FABRICATION_REMOVAL]
 
-The removal verifier is the program-level verify-time material truth plane for `Run(Verify)`: it starts from the content-keyed stock `VoxelWire`, subtracts the accumulated swept-tool volume from the actual stock state, compares that state against the target residual stock, and returns only `FabricationResult.VerificationResult` atoms. Guard remains the per-move design-time floor before Cam commits a feed; removal runs after the program exists and owns the verified stock truth, per-setup `StockSnapshot` chain, gouge fault routing, tolerance-gated uncut/overcut/air-cut receipts, and holder-strike detection. PicoGK is the sidecar/AppHost-resident native kernel: this verifier executes in that host process behind the `Additive/implicit` `VoxelWire` seam, and only result atoms cross back. Each `CutterFamily` row declares its beam profile, and the holder footprint sweeps above the flute so deep-cavity holder strikes surface as typed findings.
+`Removal.Verify` owns post-program stock truth: one admitted `VerifyPolicy` materializes stock and target through the shared voxel runtime, folds setup-framed cutter sweeps and non-cutting obstruction prisms over actual stock, and projects residual stock, snapshots, signed surface deviation, and tolerance evidence onto `FabricationResult.VerificationResult`.
+
+`FabricationPolicy.Verify`, `VoxelWire`, `ToolMagazine.HolderEnvelope`, `StockSnapshot`, and `ContentKey.Of` remain frozen seams. Native handles terminate inside one exception-capture and disposal capsule; only process atoms leave the Verify plane.
 
 ## [01]-[INDEX]
 
-- [01]-[REMOVAL]: owns `VerifyPolicy`, `SweepSampling`, `GougeTolerance`, `SetupWindow`, `RemovalFinding`, `RemovalMetrics`, `RemovalState`, `RemovalCanonical`, and the one `Removal.Verify(VerifyPolicy, FabricationInput)` entry that subtracts family-true PicoGK swept-tool voxels from the actual stock state and returns `FabricationResult.VerificationResult`.
+- [02]-[POLICY]: generated admission for removal resolution, setup framing, sampling, tolerance, and native budget.
+- [03]-[STOCK_FOLD]: setup-ordered cutter sweeps and shank-plus-holder obstruction tests over one mutable stock lease.
+- [04]-[SURFACE_TRUTH]: signed target-to-actual deviation, residual topology, payload-complete snapshot identity, and result projection.
 
-## [02]-[REMOVAL]
+## [02]-[POLICY]
 
-- Owner: `VerifyPolicy` carries the conditioned motion, initial cursor, cutter, optional holder `ToolAssembly` with magazine policy and sweep length (the envelope resolves HERE through `ToolMagazine.HolderEnvelope`, so an arbitrary caller loop can never masquerade as magazine evidence), stock/target `VoxelWire`s, native bounds/budget, sampling and tolerance rows, framed setup windows, and per-move tool frames. `SweepSampling` owns chord, arc, and curvature-derived adaptive stations on the `Fin` rail — an arc whose start and target radii disagree fails before any sweep; `RemovalState` threads cursor, snapshot, strike, and air-cut state on the `Fin` rail; `RemovalFinding` owns gouge/holder-strike/uncut/overcut/air-cut receipts; `RemovalCanonical` owns snapshot identity.
-- Cases: `SweepSampling` rows `Chord` · `Arc` · `Adaptive`; `GougeTolerance` rows `Finish` · `Roughing` · `Proof`; `RemovalFinding` cases `Gouge(int Setup, int Move, Point3d Point, CutterForm Tool, double DepthMm)` · `HolderStrike(int Setup, int Move, Point3d Point, double RadiusMm)` · `Uncut(double)` · `Overcut(double)` · `AirCut(double)`; the swept-beam table dispatches the seven `CutterFamily` rows — ball (round-capped tip sphere), flat/thread-mill (flat-capped cylinder), drill/chamfer (tip cones whose height derives from the admitted `TaperAngle`), bull (corner-stepped pair), taper (two-radius cone) — each a row of `(offsetA, radiusA, offsetB, radiusB, roundCap)` beam data, never a per-family sweep method.
-- Entry: `public static Fin<FabricationResult> Removal.Verify(VerifyPolicy policy, FabricationInput input)` is the ruled verify arm body for `FabricationPolicy.Verify(VerifyPolicy)`; a voxel census over `Bounds`/`VoxelSizeMm` exceeding `VoxelCap` routes `GeometryFault.DegenerateInput` BEFORE any native allocation — the cap is a live admission gate, not serialized metadata.
-- Auto: admission accumulates invalid voxel, bounds, setup-window, and tool-frame rows before native allocation, then stock and target materialize through `Implicit.Voxelize` — the ONE `VoxelRuntime` resolver — so every later `Lattice`/`Voxels` handle binds the same ambient resolution or fails typed before geometry work. Each move resolves its tool axis from the indexed frame map or setup frame; cutter bodies and the full canonical holder footprint sweep along that axis at every station, while full-circle arcs and curvature-derived adaptive chord spacing remain explicit. Subtraction, gouge localization, and snapshot projection share ONE per-window traversal law: every fold starts at its own window's frame origin, falls back to that window's frame, and sections residual stock in the setup frame — a world-axis fallback beside a setup-frame subtraction is the split-frame defect. Gouge witnesses derive from full cutter-volume interference at each station, never tip points alone, so flank, corner, and cone overcuts reach the critical rail. Snapshot section extraction stays on `Fin<Arr<Loop>>`, so a mesh/section failure aborts instead of becoming an empty residual.
-- Receipt: `RemovalFinding` is the local typed receipt set — a metric row mints ONLY when it exceeds its `GougeTolerance` threshold (the tolerance rows are the gate, never dead columns); the public result is `FabricationResult.VerificationResult(ResidualStock, Snapshots, Gouges, UncutVolume, OvercutVolume, AirCutRatio)` carrying the raw metrics and no `Voxels`, `Lattice`, PicoGK `Mesh`, or internal receipt type.
-- Packages: `api-picogk.md` (`Voxels`, `Lattice.AddBeam` two-radius, `IImplicit.fSignedDistance` with the `Voxels(IImplicit, BBox3)` raster, `BoolSubtractAll`, `BoolIntersect`, `voxDuplicate`, `CalculateProperties`, `bIsInside`, `mshAsMesh`, `BBox3` — sidecar/AppHost-resident per the catalog firebreak); `Additive/implicit` (`VoxelWire`, `FromVoxels`, `Implicit.Voxelize`, `ImplicitOp.Source`, `ImplicitPolicy`, `VoxelBudget` — the one `VoxelRuntime`/`Library` resolution route); `Tooling/magazine` (`ToolMagazine.HolderEnvelope`, `ToolAssembly`, `MagazinePolicy`); `Process/owner` (`CutterForm`, `CutterFamily`, `Move`, `ResidualStock`, `StockSnapshot`, `ContentKey.Of`, `EgressKind.StockSnapshot`, `FabricationResult.VerificationResult`); `Process/faults` (`Gouge` 2706); kernel K4/K15 (`MeshSpace.Of`, `Intersection.Apply`, `PlaneMesh`, `Context.Millimeters()`); LanguageExt.Core; Thinktecture.Runtime.Extensions; RhinoCommon; BCL inbox.
-- Growth: a new sampling law is one `SweepSampling` row; a new tolerance tranche is one `GougeTolerance` row; a new cutter geometry is one family beam-table row; a new receipt scalar is one `RemovalFinding` case plus one `FabricationResult.VerificationResult` projection only when the result atom contract admits the payload; a new stock source is one `VoxelWire` adapter on the implicit seam; zero public entrypoint growth.
-- Boundary: removal owns verify-time program truth, not design-time move admission; guard owns feed-floor safety before Cam commits; implicit owns PicoGK native posture, the `Library` voxel size, and the mesh↔voxel wire; the fabrication result contract owns result payloads and content keys; Persistence owns the `stock-snapshot` artifact-index enrollment row. A raw `XxHash128`/`GenerateHash`, a second voxel posture, terminal-only stock state, guard-side program verifier, result-carried `Voxels`, a one-capsule sweep serving every cutter family, an unenforced voxel cap, a phantom kernel clearance member, or a removal-side Persistence type reference is the deleted form.
+- Owner: `VerifyPolicy` admits the complete removal request once; `SetupWindow` admits each setup partition, and `RemovalTolerance` carries every verdict and evidence-coverage threshold as data.
+- Cases: `SweepSampling` rows carry only the bound-to-arc-length conversion their name states, so chord, arc, and sagitta stationing share one generator over the move family.
+- Entry: `Removal.Verify` is the sole public operation and consumes an already admitted policy from `FabricationPolicy.Verify`.
+- Auto: generated factories reject primitive defects, one `Validation<Error, Unit>` fan-in proves stock lineage, setup partition, tool-frame coverage, and voxel demand, and `Capture` encloses native source construction, voxelization, callback execution, and lease disposal.
+- Growth: a sampling law is one `SweepSampling` row, and tolerance regimes arrive as `RemovalTolerance` values without another named preset or entrypoint.
+- Boundary: `VoxelWire` remains the only stock ingress and egress codec; native `Library`, `Voxels`, `Lattice`, and `Mesh` leases never cross the operation.
+
+## [03]-[STOCK_FOLD]
+
+- Owner: `Removal` folds every setup from its admitted frame origin and commits each setup as one `BoolSubtractAll` batch.
+- Cases: the swept envelope derives from `CutterFamily`'s own `CornerRadius` seat and `TaperFrom` body law, so every admitted family generates its silhouette and a new row needs no arm here.
+- Entry: setup and move arity collapse into immutable sequences consumed by `FoldM`, while resource custody stays inside the native boundary capsule.
+- Auto: arc admission proves one radius before station generation; the shank and holder rings sample once per program as `Obstruction` rows and test as non-cutting prisms, so a body that crashes never reads as material removed.
+- Receipt: `RemovalFinding` retains gouge, strike, uncut, overcut, air-cut, signed-deviation, and unresolved-coverage evidence, and each case carries its own invalidating verdict through one total dispatch.
+- Growth: a cutter geometry is one `CutterFamily` row on the existing rule columns; a new non-cutting body is one `Obstruction` row.
+
+## [04]-[SURFACE_TRUTH]
+
+- Owner: `DeviationField` selects positive-area target triangles against a cumulative-area prefix so coverage is uniform over surface rather than tessellation, then samples each face along both normal directions through `Voxels.bRayCastToSurface`, retaining the nearest signed distance and unresolved rays.
+- Auto: barycentric draws come from `Deterministic.UnitInterval` on the face centroid, so the field reproduces bit-identically; Boolean volume deltas remain the independent conservation check, and neither scalar path substitutes for the other.
+- Receipt: every setup snapshot key length-frames stock lineage, motion, setup and tool frames, tool assembly identity, cutter and tolerance policy, machined loops, metrics, and signed field samples.
+- Boundary: `ResidualLoops` reuses one Rhino vertex index for each extracted native vertex before plane intersection; `FabricationResult.VerificationResult` carries the verdict, so a program that missed its volume band returns the receipt with `Clean` false.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using PicoGK;
@@ -36,630 +54,998 @@ using Rasm.Meshing;
 using Rhino;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Verify;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Stations ride the Fin rail: an arc whose start and target radii disagree is inconsistent geometry and
-// fails BEFORE any sweep — a coerced radius or a cursor jump past an unverified target is the deleted form.
 [SmartEnum<string>]
 public sealed partial class SweepSampling {
-    public static readonly SweepSampling Chord = new("chord", static (from, move, step) => Fin.Succ(RemovalStations.Linear(from, RemovalStations.Target(move), step)));
-    public static readonly SweepSampling Arc = new("arc", static (from, move, step) => RemovalStations.Arc(from, move, step));
-    public static readonly SweepSampling Adaptive = new("adaptive", static (from, move, step) => RemovalStations.Adaptive(from, move, step));
+    public static readonly SweepSampling Chord = new("chord", static (radius, bound) =>
+        2.0 * radius * Math.Asin(Math.Clamp(bound / (2.0 * radius), 0.0, 1.0)));
+    public static readonly SweepSampling Arc = new("arc", static (_, bound) => bound);
+    public static readonly SweepSampling Adaptive = new("adaptive", static (radius, bound) => Math.Max(
+        2.0 * radius * Math.Sin(Math.Acos(Math.Clamp(1.0 - (bound / radius), -1.0, 1.0))),
+        bound));
 
+    // Every row converts its own bound — chord length, arc length, sagitta — into the one arc-length
+    // step the circular generator consumes, so linear stationing is row-invariant.
     [UseDelegateFromConstructor]
-    public partial Fin<Seq<Point3d>> Stations(Point3d from, Move move, double stepMm);
+    private partial double ArcStep(double radiusMm, double boundMm);
+
+    public Fin<Seq<Point3d>> Project(Point3d from, Move move, double boundMm) => move.Switch(
+        state: (From: from, Bound: boundMm, Row: this),
+        rapid: static (state, row) => Fin.Succ(Stations(state.From, row.Target, state.Bound)),
+        linear: static (state, row) => Fin.Succ(Stations(state.From, row.Target, state.Bound)),
+        circular: static (state, row) => Radius(state.From, row.Target, row.Arc).Map(radius =>
+            Circular(state.From, row.Target, row.Arc, radius, state.Row.ArcStep(radius, state.Bound))));
+
+    private static Seq<Point3d> Stations(Point3d from, Point3d to, double stepMm) {
+        int count = Math.Max(1, (int)Math.Ceiling(from.DistanceTo(to) / stepMm));
+        return toSeq(Enumerable.Range(1, count)).Map(index => PointAt(from, to, (double)index / count));
+    }
+
+    private static Seq<Point3d> Circular(Point3d from, Point3d to, ArcCenter arc, double radius, double stepMm) {
+        double start = Math.Atan2(from.Y - arc.Center.Y, from.X - arc.Center.X);
+        double finish = Math.Atan2(to.Y - arc.Center.Y, to.X - arc.Center.X);
+        double sweep = Sweep(start, finish, arc.Sense == RotationSense.Clockwise);
+        int count = Math.Max(1, (int)Math.Ceiling(Math.Abs(sweep) * radius / Math.Max(stepMm, radius * Math.Sqrt(double.Epsilon))));
+        return toSeq(Enumerable.Range(1, count)).Map(index => {
+            double t = (double)index / count;
+            double angle = start + (sweep * t);
+            return index == count
+                ? to
+                : new Point3d(arc.Center.X + (radius * Math.Cos(angle)), arc.Center.Y + (radius * Math.Sin(angle)), from.Z + ((to.Z - from.Z) * t));
+        });
+    }
+
+    private static Fin<double> Radius(Point3d from, Point3d to, ArcCenter arc) {
+        double start = Math.Sqrt(Math.Pow(from.X - arc.Center.X, 2.0) + Math.Pow(from.Y - arc.Center.Y, 2.0));
+        double finish = Math.Sqrt(Math.Pow(to.X - arc.Center.X, 2.0) + Math.Pow(to.Y - arc.Center.Y, 2.0));
+        return start > 0.0
+            && Math.Abs(start - finish) <= Math.Sqrt(double.Epsilon) * Math.Max(start, finish)
+            ? Fin.Succ(start)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:arc-radius").ToError());
+    }
+
+    private static double Sweep(double start, double finish, bool clockwise) {
+        if (Math.Abs(finish - start) <= Math.Sqrt(double.Epsilon)) return clockwise ? -Math.Tau : Math.Tau;
+        double delta = Math.IEEERemainder(finish - start, Math.Tau);
+        return clockwise && delta > 0.0 ? delta - Math.Tau : !clockwise && delta < 0.0 ? delta + Math.Tau : delta;
+    }
+
+    private static Point3d PointAt(Point3d from, Point3d to, double t) =>
+        new(from.X + ((to.X - from.X) * t), from.Y + ((to.Y - from.Y) * t), from.Z + ((to.Z - from.Z) * t));
 }
 
-[SmartEnum<string>]
-public sealed partial class GougeTolerance {
-    public static readonly GougeTolerance Finish = new("finish", gougeMm: 0.01, uncutMm3: 0.10, overcutMm3: 0.05, airCutRatio: 0.20);
-    public static readonly GougeTolerance Roughing = new("roughing", gougeMm: 0.05, uncutMm3: 1.00, overcutMm3: 0.25, airCutRatio: 0.35);
-    public static readonly GougeTolerance Proof = new("proof", gougeMm: 0.001, uncutMm3: 0.01, overcutMm3: 0.01, airCutRatio: 0.05);
-
+[ComplexValueObject]
+public sealed partial class RemovalTolerance {
     public double GougeMm { get; }
     public double UncutMm3 { get; }
     public double OvercutMm3 { get; }
     public double AirCutRatio { get; }
+    public double SurfaceMm { get; }
+    public double UnresolvedRatio { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double gougeMm,
+        ref double uncutMm3,
+        ref double overcutMm3,
+        ref double airCutRatio,
+        ref double surfaceMm,
+        ref double unresolvedRatio) =>
+        validationError = Seq(gougeMm, uncutMm3, overcutMm3, airCutRatio, surfaceMm, unresolvedRatio)
+            .ForAll(static value => double.IsFinite(value) && value >= 0.0)
+            && airCutRatio <= 1.0 && unresolvedRatio <= 1.0
+                ? null
+                : new ValidationError("removal:tolerance");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public readonly record struct SetupWindow(int Setup, int FirstMove, int Count, Plane Frame);
+[ComplexValueObject]
+public sealed partial class SetupWindow {
+    public int Setup { get; }
+    public int FirstMove { get; }
+    public int Count { get; }
+    public Plane Frame { get; }
 
-// Holder input is the admitted ToolAssembly itself: Verify resolves the swept footprint through the ONE
-// ToolMagazine.HolderEnvelope projection under the carried magazine policy, so an unrelated or uninflated
-// caller loop can never masquerade as magazine clearance evidence.
-public sealed record VerifyPolicy(
-    FabricationResult.Motion Motion,
-    Point3d Origin,
-    CutterForm Cutter,
-    Option<ToolAssembly> Holder,
-    Option<MagazinePolicy> Magazine,
-    double HolderLengthMm,
-    VoxelWire Stock,
-    VoxelWire Target,
-    BBox3 Bounds,
-    double VoxelSizeMm,
-    long VoxelCap,
-    double StationMm,
-    SweepSampling Sampling,
-    GougeTolerance Tolerance,
-    Seq<SetupWindow> Setups,
-    Map<int, Plane> ToolFrames);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int setup,
+        ref int firstMove,
+        ref int count,
+        ref Plane frame) =>
+        validationError = setup >= 0 && firstMove >= 0 && count > 0 && frame.IsValid
+            ? null
+            : new ValidationError("removal:setup-window");
+}
 
-public readonly record struct RemovalMetrics(double UncutVolume, double OvercutVolume, double AirCutRatio);
+[ComplexValueObject]
+public sealed partial class VerifyPolicy {
+    public FabricationResult.Motion Motion { get; }
+    public Point3d Origin { get; }
+    public CutterForm Cutter { get; }
+    public Option<ToolAssembly> Holder { get; }
+    public VoxelWire Stock { get; }
+    public VoxelWire Target { get; }
+    public BoundingBox Bounds { get; }
+    public double VoxelSizeMm { get; }
+    public long VoxelCap { get; }
+    public double StationMm { get; }
+    public int SurfaceSamples { get; }
+    public SweepSampling Sampling { get; }
+    public RemovalTolerance Tolerance { get; }
+    public CalibrationPolicy Calibration { get; }
+    public Seq<SetupWindow> Setups { get; }
+    public Map<int, Plane> ToolFrames { get; }
 
-public sealed record RemovalState(Point3d Cursor, Seq<StockSnapshot> Snapshots, Seq<RemovalFinding> Strikes, int AirMoves, int FeedMoves);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref FabricationResult.Motion motion,
+        ref Point3d origin,
+        ref CutterForm cutter,
+        ref Option<ToolAssembly> holder,
+        ref VoxelWire stock,
+        ref VoxelWire target,
+        ref BoundingBox bounds,
+        ref double voxelSizeMm,
+        ref long voxelCap,
+        ref double stationMm,
+        ref int surfaceSamples,
+        ref SweepSampling sampling,
+        ref RemovalTolerance tolerance,
+        ref CalibrationPolicy calibration,
+        ref Seq<SetupWindow> setups,
+        ref Map<int, Plane> toolFrames) {
+        bool finite = Seq(voxelSizeMm, stationMm).ForAll(double.IsFinite);
+        bool frames = toolFrames.ForAll(static row => row.Key >= 0 && row.Value.IsValid);
+        validationError = motion is not null && origin.IsValid && cutter is not null && stock is not null && target is not null && bounds.IsValid
+            && finite && voxelSizeMm > 0.0 && stationMm > 0.0 && voxelCap > 0L && surfaceSamples > 0
+            && sampling is not null && tolerance is not null && calibration is not null
+            && holder.ForAll(static value => value is not null)
+            && setups.ForAll(static value => value is not null) && frames
+                ? null
+                : new ValidationError("removal:policy");
+    }
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RemovalFinding {
     private RemovalFinding() { }
 
-    public sealed record Gouge(int Setup, int Move, Point3d Point, CutterForm Tool, double DepthMm) : RemovalFinding;
-    public sealed record HolderStrike(int Setup, int Move, Point3d Point, double RadiusMm) : RemovalFinding;
+    public sealed record Gouge(int Setup, int Move, Point3d Point, CutterForm Cutter, double DepthMm) : RemovalFinding;
+    public sealed record Strike(int Setup, int Move, Point3d Point, CollisionContact Contact, double ReachMm) : RemovalFinding;
     public sealed record Uncut(double VolumeMm3) : RemovalFinding;
     public sealed record Overcut(double VolumeMm3) : RemovalFinding;
     public sealed record AirCut(double Ratio) : RemovalFinding;
+    public sealed record Deviation(DeviationField Field) : RemovalFinding;
+    public sealed record Unresolved(int Setup, int Count, double Ratio) : RemovalFinding;
+
+    // Volume and air-cut findings are quality evidence the verification atom projects and its `Clean`
+    // property adjudicates; only a physical strike, a gouge past band, or evidence too sparse to
+    // support any claim invalidates the run itself.
+    public Option<Error> Fault(RemovalTolerance tolerance, CollisionZone zone) => Switch(
+        state: (Tolerance: tolerance, Zone: zone),
+        gouge: static (state, row) => row.DepthMm > state.Tolerance.GougeMm
+            ? Some<Error>(FabricationFault.Gouge(row.Point, row.Cutter).ToError())
+            : None,
+        strike: static (state, row) => Some<Error>(FabricationFault.Collision(state.Zone, row.Contact).ToError()),
+        uncut: static (_, _) => Option<Error>.None,
+        overcut: static (_, _) => Option<Error>.None,
+        airCut: static (_, _) => Option<Error>.None,
+        deviation: static (state, row) => row.Field.Samples
+            .Find(sample => sample.SignedMm < -state.Tolerance.SurfaceMm)
+            .Map<Error>(sample => FabricationFault.Gouge(sample.Nominal, row.Field.Cutter).ToError()),
+        unresolved: static (state, row) => row.Ratio > state.Tolerance.UnresolvedRatio
+            ? Some<Error>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:surface-coverage").ToError())
+            : None);
+
+    public Option<GougeWitness> Witness => Switch(
+        gouge: static row => Some(new GougeWitness(row.Setup, row.Move, row.Point, row.DepthMm)),
+        strike: static _ => Option<GougeWitness>.None,
+        uncut: static _ => Option<GougeWitness>.None,
+        overcut: static _ => Option<GougeWitness>.None,
+        airCut: static _ => Option<GougeWitness>.None,
+        deviation: static _ => Option<GougeWitness>.None,
+        unresolved: static _ => Option<GougeWitness>.None);
 }
+
+public readonly record struct DeviationSample(Point3d Nominal, Vector3d Normal, double SignedMm);
+public sealed record DeviationField(
+    int Setup,
+    ContentKey Field,
+    ContentKey Key,
+    CutterForm Cutter,
+    Seq<DeviationSample> Samples,
+    int Unresolved,
+    double MinimumMm,
+    double MaximumMm);
+public readonly record struct RemovalMetrics(double UncutVolume, double OvercutVolume, double AirCutRatio);
+file readonly record struct CutterSection(double OffsetMm, double RadiusMm, bool Round);
+file readonly record struct Obstruction(
+    CollisionContact Contact,
+    Seq<(double X, double Y)> Ring,
+    double StartMm,
+    double LengthMm,
+    double ReachMm);
+file sealed record RemovalState(
+    Point3d Cursor,
+    Seq<StockSnapshot> Snapshots,
+    Seq<RemovalFinding> Findings,
+    Option<ContentKey> Field,
+    int AirMoves,
+    int FeedMoves);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Removal {
-    // Stock and target materialize through Implicit.Voxelize — the ONE VoxelRuntime resolver — so the ambient
-    // Library binds VerifyPolicy.VoxelSizeMm before any native handle exists and a resolution mismatch fails
-    // typed instead of running verification at a stale ambient size.
     public static Fin<FabricationResult> Verify(VerifyPolicy policy, FabricationInput input) =>
-        from _ in Admit(policy, input)
-        from budget in VoxelBudget.Admit(BudgetBounds(policy), policy.VoxelSizeMm, policy.VoxelCap)
-        let runtime = new ImplicitPolicy(budget, policy.VoxelSizeMm, new CliMode.Grayscale())
-        from stock in Implicit.Voxelize(new ImplicitOp.Source(policy.Stock, Seq<VoxelMorphologyStep>(), runtime))
-        from target in Implicit.Voxelize(new ImplicitOp.Source(policy.Target, Seq<VoxelMorphologyStep>(), runtime))
-        from holder in policy.Holder.Match(
-            Some: assembly => ToolMagazine.HolderEnvelope(assembly, policy.Magazine).Map(Some),
-            None: () => Fin.Succ(Option<Loop>.None))
-        from result in Execute(policy, input, stock, target, holder)
+        from requiredCells in RequiredCells(policy)
+        from _ in Admit(policy, input, requiredCells)
+        from budget in Admitted(
+            VoxelBudget.Validate(policy.Bounds, policy.VoxelSizeMm, policy.VoxelCap, requiredCells, out VoxelBudget cells),
+            cells,
+            "removal:voxel-budget")
+        from runtime in Admitted(
+            ImplicitPolicy.Validate(
+                budget,
+                Length.FromMillimeters(policy.VoxelSizeMm),
+                new CliMode.Grayscale(ESliceMode.SignedDistance, MaskSampling.Interpolated),
+                policy.Calibration,
+                policy.Stock.FromVoxels,
+                out ImplicitPolicy composed),
+            composed,
+            "removal:implicit-policy")
+        from obstructions in Obstructions(policy)
+        from result in Capture(() => {
+            ImplicitOp.Source stock = new(policy.Stock, Seq<VoxelMorphologyStep>(), runtime);
+            ImplicitOp.Source target = new(policy.Target, Seq<VoxelMorphologyStep>(), runtime);
+            return Implicit.Voxelize(
+                Seq<ImplicitOp>(stock, target),
+                scopes => Execute(policy, input.Snapshots, scopes[0].Native, scopes[1].Native, obstructions));
+        })
         select result;
 
-    private static BoundingBox BudgetBounds(VerifyPolicy policy) =>
-        new(
-            new Point3d(policy.Bounds.vecMin.X, policy.Bounds.vecMin.Y, policy.Bounds.vecMin.Z),
-            new Point3d(policy.Bounds.vecMax.X, policy.Bounds.vecMax.Y, policy.Bounds.vecMax.Z));
+    private static Fin<T> Admitted<T>(ValidationError? error, T value, string locus) =>
+        error is { } rejection
+            ? Fin.Fail<T>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"{locus}:{rejection.Message}").ToError())
+            : Fin.Succ(value);
 
-    private static Fin<Unit> Admit(VerifyPolicy policy, FabricationInput input) {
-        Seq<Error> errors = Seq<Error>();
-        if (!double.IsFinite(policy.VoxelSizeMm) || policy.VoxelSizeMm <= 0.0) errors = errors.Add(GeometryFault.DegenerateInput("removal:voxel-size").ToError());
-        if (policy.VoxelCap <= 0L) errors = errors.Add(GeometryFault.DegenerateInput("removal:voxel-cap").ToError());
-        if (!double.IsFinite(policy.StationMm) || policy.StationMm <= 0.0) errors = errors.Add(GeometryFault.DegenerateInput("removal:station").ToError());
-        Seq<double> bounds = Seq(
-            (double)policy.Bounds.vecMin.X, (double)policy.Bounds.vecMin.Y, (double)policy.Bounds.vecMin.Z,
-            (double)policy.Bounds.vecMax.X, (double)policy.Bounds.vecMax.Y, (double)policy.Bounds.vecMax.Z);
-        if (!bounds.ForAll(double.IsFinite) || policy.Bounds.vecMax.X <= policy.Bounds.vecMin.X
-            || policy.Bounds.vecMax.Y <= policy.Bounds.vecMin.Y || policy.Bounds.vecMax.Z <= policy.Bounds.vecMin.Z)
-            errors = errors.Add(GeometryFault.DegenerateInput("removal:bounds").ToError());
-        errors = errors.Concat(input.Residual.Filter(residual => residual.Key != policy.Stock.Key)
-            .Map(static _ => GeometryFault.DegenerateInput("removal:stock-lineage").ToError()).ToSeq());
-        if (policy.Holder.IsSome && (!double.IsFinite(policy.HolderLengthMm) || policy.HolderLengthMm <= 0.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("removal:holder-length").ToError());
-        errors = errors.Concat(policy.Setups
-            .Filter(window => window.FirstMove < 0 || window.Count < 0 || window.FirstMove + window.Count > policy.Motion.Moves.Count)
-            .Map(window => GeometryFault.DegenerateInput($"removal:setup-window:{window.Setup}").ToError()));
-        errors = errors.Concat(policy.ToolFrames
-            .Filter(row => row.Key < 0 || row.Key >= policy.Motion.Moves.Count || !row.Value.IsValid)
-            .Map(row => GeometryFault.DegenerateInput($"removal:tool-frame:{row.Key}").ToError()));
-        Seq<SetupWindow> windows = policy.Setups.OrderBy(static window => window.FirstMove).ToSeq();
-        bool partitioned = windows.IsEmpty
-            || (windows.Head.Map(static head => head.FirstMove == 0).IfNone(false)
-                && windows.Last.Map(last => last.FirstMove + last.Count == policy.Motion.Moves.Count).IfNone(false)
-                && !toSeq(Enumerable.Range(1, windows.Count - 1)).Exists(index => windows[index - 1].FirstMove + windows[index - 1].Count != windows[index].FirstMove)
-                && windows.Map(static window => window.Setup).Distinct().Count == windows.Count);
-        if (!partitioned)
-            errors = errors.Add(GeometryFault.DegenerateInput("removal:setup-partition").ToError());
-        return errors.Head.Match(
-            Some: head => Fin.Fail<Unit>(errors.Tail.Fold(head, static (folded, error) => folded + error)),
-            None: () => Budget(policy));
+    // Holder envelope and shank silhouette are program invariants; sampling them once keeps the
+    // per-station strike test a pure membership query.
+    private static Fin<Seq<Obstruction>> Obstructions(VerifyPolicy policy) => policy.Holder.Traverse(assembly =>
+        from envelope in ToolMagazine.HolderEnvelope(assembly)
+        from ring in Ring(envelope, Step(policy))
+        let shank = (policy.Cutter.BodyDiameterMm | policy.Cutter.ShankDiameterMm)
+            .Map(static diameter => diameter * 0.5)
+            .Filter(_ => assembly.Stickout > policy.Cutter.FluteLength)
+            .Map(radius => new Obstruction(
+                CollisionContact.Shank,
+                Circle(radius, Step(policy)),
+                policy.Cutter.FluteLength,
+                assembly.Stickout - policy.Cutter.FluteLength,
+                radius))
+        select shank.ToSeq() + Seq(new Obstruction(
+            CollisionContact.Holder,
+            ring,
+            assembly.Stickout,
+            assembly.GaugeLength,
+            Reach(ring)))).As().Map(static rows => rows.IfNone(Seq<Obstruction>()));
+
+    private static Seq<(double X, double Y)> Circle(double radiusMm, double resolutionMm) {
+        int count = Math.Max(3, (int)Math.Ceiling(Math.Tau * radiusMm / resolutionMm));
+        return toSeq(Enumerable.Range(0, count)).Map(index => {
+            double angle = Math.Tau * index / count;
+            return (radiusMm * Math.Cos(angle), radiusMm * Math.Sin(angle));
+        });
     }
 
-    // The voxel-cap ADMISSION gate: the estimated cell census over Bounds/VoxelSizeMm must clear VoxelCap
-    // BEFORE any native allocation — the policy fields are live controls, never serialized metadata.
-    private static Fin<Unit> Budget(VerifyPolicy policy) {
-        double size = Math.Max(policy.VoxelSizeMm, 1e-6);
-        double cells = Math.Ceiling((policy.Bounds.vecMax.X - policy.Bounds.vecMin.X) / size)
-                     * Math.Ceiling((policy.Bounds.vecMax.Y - policy.Bounds.vecMin.Y) / size)
-                     * Math.Ceiling((policy.Bounds.vecMax.Z - policy.Bounds.vecMin.Z) / size);
-        return cells > policy.VoxelCap
-            ? Fin.Fail<Unit>(GeometryFault.DegenerateInput($"removal:voxel-cap:{cells:0}>{policy.VoxelCap}").ToError())
-            : Fin.Succ(unit);
+    private static double Reach(Seq<(double X, double Y)> ring) =>
+        ring.Map(static point => Math.Sqrt((point.X * point.X) + (point.Y * point.Y))).Fold(0.0, double.Max);
+
+    private static double Step(VerifyPolicy policy) => Math.Min(policy.StationMm, policy.VoxelSizeMm);
+
+    private static Fin<Unit> Admit(VerifyPolicy policy, FabricationInput input, long requiredCells) =>
+        (Gate(policy.Motion.Moves.Count > 0, "removal:motion"),
+         Gate(input.Residual.ForAll(residual => residual.Key == policy.Stock.Key), "removal:stock-lineage"),
+         Gate(Partitioned(policy), "removal:setup-partition"),
+         Gate(policy.ToolFrames.ForAll(row => row.Key < policy.Motion.Moves.Count), "removal:tool-frame"),
+         Gate(DepthWithin(policy), "removal:tool-depth"),
+         Gate(requiredCells <= policy.VoxelCap, "removal:voxel-cap"))
+        .Apply(static (_, _, _, _, _, _) => unit)
+        .As()
+        .ToFin();
+
+    private static K<Validation<Error>, Unit> Gate(bool valid, string locus) =>
+        guard(valid, new GeometryFault.DegenerateInput(Kind.Mesh, -1, locus).ToError()).ToFin().ToValidation();
+
+    private static bool Partitioned(VerifyPolicy policy) {
+        Seq<SetupWindow> windows = Windows(policy);
+        return windows.Head.Map(static row => row.FirstMove == 0).IfNone(false)
+            && windows.Last.Map(row => row.FirstMove + row.Count == policy.Motion.Moves.Count).IfNone(false)
+            && windows.Map(static row => row.Setup).Distinct().Count == windows.Count
+            && !toSeq(Enumerable.Range(1, Math.Max(0, windows.Count - 1)))
+                .Exists(index => windows[index - 1].FirstMove + windows[index - 1].Count != windows[index].FirstMove);
     }
 
-    private static Fin<FabricationResult> Execute(VerifyPolicy policy, FabricationInput input, Voxels stock, Voxels nominal, Option<Loop> holder) {
-        using Voxels actual = stock;
-        using Voxels target = nominal;
-        return from run in Remove(policy, actual, input.Snapshots, holder)
-               let metrics = Measure(actual, target, run)
-               from gougeRows in Findings(policy, actual, target, metrics)
-               let findings = gougeRows.Concat(run.Strikes)
-               from final in run.Snapshots.Last.ToFin(GeometryFault.DegenerateInput("removal:no-snapshot").ToError())
-               from residual in ResidualStock.Admit(final.Key, final.Machined)
-               let gouges = GougeRows(findings).Map(static gouge => new GougeWitness(gouge.Setup, gouge.Move, gouge.Point, gouge.DepthMm))
-               let result = new FabricationResult.VerificationResult(
-                   residual, run.Snapshots, gouges, metrics.UncutVolume, metrics.OvercutVolume, metrics.AirCutRatio)
-               from verified in Critical(findings, policy).Match(
-                Some: at => Fin.Fail<FabricationResult>(FabricationFault.Gouge(at, policy.Cutter).ToError()),
-                None: () => Fin.Succ<FabricationResult>(result))
-               select verified;
+    private static bool DepthWithin(VerifyPolicy policy) {
+        double admitted = Seq(
+                policy.Cutter.MaxDepthMm,
+                policy.Cutter.UsableLengthMm,
+                policy.Cutter.FunctionalLengthMm,
+                Some(policy.Cutter.FluteLength))
+            .Bind(static value => value.ToSeq())
+            .Fold(double.PositiveInfinity, double.Min);
+        return Windows(policy).ForAll(window =>
+            toSeq(policy.Motion.Moves.Skip(window.FirstMove).Take(window.Count)).ForAll(move =>
+                move is Move.Rapid || Math.Abs((Target(move) - window.Frame.Origin) * window.Frame.ZAxis) <= admitted));
     }
 
-    private static Fin<RemovalState> Remove(VerifyPolicy policy, Voxels actual, Seq<StockSnapshot> prior, Option<Loop> holder) =>
-        Windows(policy).Fold(
-            Fin.Succ(new RemovalState(policy.Origin, prior, Seq<RemovalFinding>(), AirMoves: 0, FeedMoves: 0)),
-            (rail, window) => rail.Bind(state => RemoveWindow(policy, actual, window, state, holder)));
+    private static Fin<long> RequiredCells(VerifyPolicy policy) {
+        Seq<double> axes = Seq(
+            Math.Ceiling((policy.Bounds.Max.X - policy.Bounds.Min.X) / policy.VoxelSizeMm),
+            Math.Ceiling((policy.Bounds.Max.Y - policy.Bounds.Min.Y) / policy.VoxelSizeMm),
+            Math.Ceiling((policy.Bounds.Max.Z - policy.Bounds.Min.Z) / policy.VoxelSizeMm));
+        if (!axes.ForAll(static count => double.IsFinite(count) && count >= 1.0 && count <= long.MaxValue))
+            return Fin.Fail<long>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:voxel-grid").ToError());
+        BigInteger required = axes.Map(static count => new BigInteger(count)).Fold(BigInteger.One, static (product, count) => product * count);
+        return required <= long.MaxValue
+            ? Fin.Succ((long)required)
+            : Fin.Fail<long>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:voxel-grid").ToError());
+    }
 
-    private static Fin<RemovalState> RemoveWindow(VerifyPolicy policy, Voxels actual, SetupWindow window, RemovalState state, Option<Loop> holder) {
-        Seq<(Move Move, int Index)> moves = toSeq(policy.Motion.Moves.Skip(window.FirstMove).Take(window.Count))
-            .Map((move, offset) => (move, window.FirstMove + offset));
+    private static Fin<FabricationResult> Execute(
+        VerifyPolicy policy,
+        Seq<StockSnapshot> prior,
+        Voxels actual,
+        Voxels target,
+        Seq<Obstruction> obstructions) =>
+        Windows(policy).FoldM<Fin, RemovalState>(
+                new RemovalState(policy.Origin, prior, Seq<RemovalFinding>(), Field: None, AirMoves: 0, FeedMoves: 0),
+                (state, window) => RemoveWindow(policy, actual, target, obstructions, state, window))
+            .As()
+            .Bind(run => Project(policy, actual, target, run));
+
+    private static Fin<RemovalState> RemoveWindow(
+        VerifyPolicy policy,
+        Voxels actual,
+        Voxels target,
+        Seq<Obstruction> obstructions,
+        RemovalState state,
+        SetupWindow window) {
         using Voxels shadow = actual.voxDuplicate();
         List<Voxels> cuts = [];
         try {
-            Fin<RemovalState> rail = Fin.Succ(state with { Cursor = window.Frame.Origin });
-            foreach ((Move move, int index) in moves) {
-                rail = rail.Bind(current => Advance(policy, shadow, cuts, window, current, move, index, holder));
-                if (rail.IsFail) return rail;
-            }
-            return rail.Bind(removed => {
-                actual.BoolSubtractAll(cuts);
-                RemovalMetrics open = new(
-                    UncutVolume: Volume(actual),
-                    OvercutVolume: 0.0,
-                    AirCutRatio: removed.FeedMoves == 0 ? 0.0 : (double)removed.AirMoves / removed.FeedMoves);
-                return from fieldKey in policy.Stock.FromVoxels(actual)
-                       from loops in ResidualLoops(actual, policy, window)
-                       let key = ContentKey.Of(EgressKind.StockSnapshot, RemovalCanonical.Stock(actual, policy, window.Setup, open, removed, fieldKey))
-                       from snapshot in StockSnapshot.Admit(window.Setup, key, loops)
-                       select removed with { Snapshots = removed.Snapshots.Add(snapshot) };
-            });
+            Seq<(Move Move, int Index)> moves = toSeq(policy.Motion.Moves.Skip(window.FirstMove).Take(window.Count))
+                .Map((move, offset) => (move, window.FirstMove + offset));
+            return moves.FoldM<Fin, RemovalState>(state with { Cursor = window.Frame.Origin },
+                    (current, row) => Advance(policy, shadow, obstructions, cuts, window, current, row.Move, row.Index))
+                .As()
+                .Bind(removed => CommitWindow(policy, actual, target, cuts, window, removed));
         }
         finally { cuts.ForEach(static cut => cut.Dispose()); }
     }
 
     private static Fin<RemovalState> Advance(
-        VerifyPolicy policy, Voxels shadow, List<Voxels> cuts, SetupWindow window, RemovalState state, Move move, int index, Option<Loop> holder) {
-        if (RemovalStations.IsRapid(move))
-            return Fin.Succ(state with { Cursor = RemovalStations.Target(move) });
+        VerifyPolicy policy,
+        Voxels shadow,
+        Seq<Obstruction> obstructions,
+        List<Voxels> cuts,
+        SetupWindow window,
+        RemovalState state,
+        Move move,
+        int index) {
         Plane frame = policy.ToolFrames.Find(index).IfNone(window.Frame);
-        return from strikes in HolderStrikes(policy, shadow, holder, state.Cursor, move, frame, window.Setup, index)
-               from swept in Sweep(state.Cursor, move, policy, frame)
-               select Commit(shadow, cuts, state, move, swept, strikes);
+        return Strikes(policy, shadow, obstructions, state.Cursor, move, frame, window.Setup, index).Bind(strikes =>
+            move is Move.Rapid
+                ? Fin.Succ(state with { Cursor = Target(move), Findings = state.Findings + strikes })
+                : from swept in SweepTool(policy, state.Cursor, move, frame)
+                  let removes = Intersects(shadow, swept)
+                  select CommitMove(shadow, cuts, swept, removes, state, move, strikes));
     }
 
-    private static RemovalState Commit(Voxels shadow, List<Voxels> cuts, RemovalState state, Move move, Voxels swept, Seq<RemovalFinding> strikes) {
-        bool removes = Touches(shadow, swept);
+    private static RemovalState CommitMove(
+        Voxels shadow,
+        List<Voxels> cuts,
+        Voxels swept,
+        bool removes,
+        RemovalState state,
+        Move move,
+        Seq<RemovalFinding> strikes) {
         if (removes) {
-            shadow.BoolSubtract(swept);
             cuts.Add(swept);
-        }
-        else swept.Dispose();
+            shadow.BoolSubtract(swept);
+        } else swept.Dispose();
         return state with {
-            Cursor = RemovalStations.Target(move),
-            Strikes = state.Strikes.Concat(strikes),
+            Cursor = Target(move),
+            Findings = state.Findings + strikes,
             FeedMoves = state.FeedMoves + 1,
             AirMoves = state.AirMoves + (removes ? 0 : 1),
         };
     }
 
-    // FAMILY-TRUE sweep: a ball rides its round tip-connective beam at the sphere CENTER (+r on the axis);
-    // flat-family tools carry NO horizontal tip beam — that beam removes a half-cylinder BELOW the tip plane
-    // and mints false gouges — so their station spacing clamps to the voxel size and the per-station body
-    // beams union voxel-contiguous.
-    private static Fin<Voxels> Sweep(Point3d from, Move move, VerifyPolicy policy, Plane frame) {
-        float r = ToolRadius(policy.Cutter);
-        bool ball = policy.Cutter.Family == CutterFamily.Ball;
-        Vector3 up = new((float)frame.ZAxis.X, (float)frame.ZAxis.Y, (float)frame.ZAxis.Z);
-        double step = ball ? policy.StationMm : Math.Min(policy.StationMm, policy.VoxelSizeMm);
-        return policy.Sampling.Stations(from, move, step).Map(stations => {
+    private static Fin<RemovalState> CommitWindow(
+        VerifyPolicy policy,
+        Voxels actual,
+        Voxels target,
+        List<Voxels> cuts,
+        SetupWindow window,
+        RemovalState state) {
+        actual.BoolSubtractAll(cuts);
+        RemovalMetrics metrics = Metrics(actual, target, state);
+        return from fieldKey in policy.Stock.FromVoxels(actual)
+               from loops in ResidualLoops(actual, window.Frame)
+               from field in Surface(policy, actual, target, window, fieldKey, loops, metrics)
+               from snapshot in StockSnapshot.Admit(window.Setup, field.Key, loops)
+               select state with {
+                   Snapshots = state.Snapshots.Add(snapshot),
+                   Findings = state.Findings + DeviationFindings(policy, window, field),
+                   Field = Some(fieldKey),
+               };
+    }
+
+    private static Fin<Voxels> SweepTool(VerifyPolicy policy, Point3d from, Move move, Plane frame) =>
+        policy.Sampling.Project(from, move, Math.Min(policy.StationMm, policy.VoxelSizeMm)).Map(stations => {
             using Lattice lattice = new();
-            Point3d cursor = from;
-            foreach (Point3d station in stations) {
-                if (ball)
-                    lattice.AddBeam(ToVector(cursor) + up * r, r, ToVector(station) + up * r, r, bRoundCap: true);
-                foreach ((Vector3 a, float ra, Vector3 b, float rb, bool round) in BodyBeams(station, policy.Cutter, frame.ZAxis))
-                    lattice.AddBeam(a, ra, b, rb, bRoundCap: round);
-                cursor = station;
-            }
+            Seq<CutterSection> sections = Sections(policy.Cutter, policy.VoxelSizeMm * 0.5);
+            (Point3d Point, bool First) seed = (from, true);
+            _ = stations.Fold(seed, (held, point) => {
+                AddTool(lattice, held.Point, point, frame.ZAxis, sections, held.First);
+                return (point, false);
+            });
             return new Voxels(lattice);
         });
-    }
 
-    // The per-family beam TABLE — data rows, never per-family sweep methods. Offsets ride the tool axis (+Z).
-    // Drill and chamfer tip cones derive their height from the ADMITTED TaperAngle (the half-angle from the
-    // axis, the same reading the taper row applies), so distinct point geometries yield distinct fields — a
-    // hardcoded one-radius cone slope is the dead-field defect the owner's required dimensions forbid.
-    private static Seq<(Vector3 A, float Ra, Vector3 B, float Rb, bool Round)> BodyBeams(Point3d tip, CutterForm cutter, Vector3d axis) {
-        float r = ToolRadius(cutter);
-        float rc = (float)Math.Max(cutter.CornerRadius, 0.0);
-        float length = (float)Math.Max(cutter.FluteLength, r * 2.0);
-        float cone = (float)Math.Min(length, r / Math.Max(Math.Tan(Math.Clamp(cutter.TaperAngle, 1.0, 89.0) * Math.PI / 180.0), 1e-3));
-        Vector3 t = ToVector(tip);
-        Vector3 up = new((float)axis.X, (float)axis.Y, (float)axis.Z);
-        return cutter.Family.Switch(
-            flat:       () => Seq(((t, r, t + up * length, r, false))),
-            ball:       () => Seq(((t + up * r, r, t + up * length, r, true))),
-            bull:       () => Seq((t + up * rc, r, t + up * length, r, false), (t, r - rc, t + up * rc, r, true)),
-            taper:      () => Seq(((t, r, t + up * length, r + length * (float)Math.Tan(cutter.TaperAngle * Math.PI / 180.0), false))),
-            drill:      () => Seq((t, 0.1f * r, t + up * cone, r, false), (t + up * cone, r, t + up * length, r, false)),
-            chamfer:    () => Seq(((t, 0.1f * r, t + up * cone, r, false))),
-            threadMill: () => Seq(((t, r, t + up * length, r, false))));
-    }
-
-    // Holder strike: the FULL canonical envelope footprint sweeps above the flute stack as a signed-distance
-    // prism — concavity, eccentricity, and directional clearance survive, so distinct envelopes stay distinct.
-    // Contact tests per STATION and the witness IS the first intersecting station, never the move target.
-    private static Fin<Seq<RemovalFinding>> HolderStrikes(
-        VerifyPolicy policy, Voxels actual, Option<Loop> holder, Point3d from, Move move, Plane frame, int setup, int moveIndex) =>
-        holder.Match(
-            None: () => Fin.Succ(Seq<RemovalFinding>()),
-            Some: envelope => policy.Sampling.Stations(from, move, policy.StationMm).Map(stations => {
-                Seq<(double X, double Y)> footprint = toSeq(envelope.Vertices).Map(v => ((double)v.X, (double)v.Y));
-                double reach = footprint.Map(static v => Math.Sqrt((v.X * v.X) + (v.Y * v.Y))).Fold(1e-3, Math.Max);
-                double z0 = Math.Max(policy.Cutter.FluteLength, policy.Cutter.Diameter);
-                double length = Math.Max(policy.HolderLengthMm, 1.0);
-                return stations
-                    .Fold(Option<Point3d>.None, (hit, station) => hit.IsSome || !HolderTouches(actual, footprint, frame, station, z0, length, reach)
-                        ? hit
-                        : Some(station))
-                    .Match(
-                        Some: at => Seq<RemovalFinding>(new RemovalFinding.HolderStrike(setup, moveIndex, at, reach)),
-                        None: () => Seq<RemovalFinding>());
-            }));
-
-    private static bool HolderTouches(Voxels actual, Seq<(double X, double Y)> footprint, Plane frame, Point3d station, double z0, double length, double reach) {
-        Vector3 axis = new((float)frame.ZAxis.X, (float)frame.ZAxis.Y, (float)frame.ZAxis.Z);
-        Vector3 center = ToVector(station) + axis * (float)(z0 + (0.5 * length));
-        float half = (float)(reach + (0.5 * length));
-        BBox3 bounds = new(center - new Vector3(half, half, half), center + new Vector3(half, half, half));
-        using Voxels prism = new(new HolderPrism(footprint, frame, station, z0, length), bounds);
-        return Touches(actual, prism);
-    }
-
-    // The envelope cross-section as a PicoGK implicit: signed 2D polygon distance in the tool frame combined
-    // with the axial slab — the exact swept footprint, never a bounding disc.
-    private sealed class HolderPrism(Seq<(double X, double Y)> footprint, Plane frame, Point3d station, double z0, double length) : IImplicit {
-        public float fSignedDistance(in Vector3 at) {
-            Point3d world = new(at.X, at.Y, at.Z);
-            Vector3d local = world - station;
-            double x = local * frame.XAxis, y = local * frame.YAxis, z = local * frame.ZAxis;
-            double planar = PolygonDistance(footprint, x, y);
-            double slab = Math.Max(z0 - z, z - (z0 + length));
-            return (float)Math.Max(planar, slab);
-        }
-
-        private static double PolygonDistance(Seq<(double X, double Y)> ring, double x, double y) {
-            double best = double.PositiveInfinity;
-            bool inside = false;
-            for (int i = 0, j = ring.Count - 1; i < ring.Count; j = i++) {
-                (double ax, double ay) = ring[j];
-                (double bx, double by) = ring[i];
-                (double ex, double ey) = (bx - ax, by - ay);
-                double t = Math.Clamp((((x - ax) * ex) + ((y - ay) * ey)) / Math.Max((ex * ex) + (ey * ey), 1e-12), 0.0, 1.0);
-                (double px, double py) = (ax + (t * ex) - x, ay + (t * ey) - y);
-                best = Math.Min(best, Math.Sqrt((px * px) + (py * py)));
-                if (ay > y != by > y && x < ax + ((bx - ax) * (y - ay) / (by - ay))) inside = !inside;
-            }
-            return inside ? -best : best;
-        }
-    }
-
-    private static bool Touches(Voxels actual, Voxels swept) {
-        using Voxels overlap = swept.voxDuplicate();
-        overlap.BoolIntersect(actual);
-        return Volume(overlap) > 0.0;
-    }
-
-    private static RemovalMetrics Measure(Voxels actual, Voxels target, RemovalState run) =>
-        new(
-            UncutVolume: DifferenceVolume(actual, target),
-            OvercutVolume: DifferenceVolume(target, actual),
-            AirCutRatio: run.FeedMoves == 0 ? 0.0 : (double)run.AirMoves / run.FeedMoves);
-
-    // Findings are TOLERANCE-GATED: a metric row mints only when it exceeds its GougeTolerance threshold —
-    // the tolerance columns are the gate, never serialized dead data. Gouge localization folds the SAME
-    // per-window traversal subtraction executed — each window from its own frame origin with its own frame
-    // fallback — and interference tests the FULL family cutter field per station, never tip points alone.
-    private static Fin<Seq<RemovalFinding>> Findings(VerifyPolicy policy, Voxels actual, Voxels target, RemovalMetrics metrics) =>
-        Windows(policy).Fold(
-            Fin.Succ(Seq<RemovalFinding>()),
-            (rail, window) => rail.Bind(rows => WindowGouges(policy, actual, target, window).Map(rows.Concat)))
-        .Map(gouges => {
-            Seq<RemovalFinding> metricRows = Seq<RemovalFinding>();
-            if (metrics.UncutVolume > policy.Tolerance.UncutMm3) metricRows = metricRows.Add(new RemovalFinding.Uncut(metrics.UncutVolume));
-            if (metrics.OvercutVolume > policy.Tolerance.OvercutMm3) metricRows = metricRows.Add(new RemovalFinding.Overcut(metrics.OvercutVolume));
-            if (metrics.AirCutRatio > policy.Tolerance.AirCutRatio) metricRows = metricRows.Add(new RemovalFinding.AirCut(metrics.AirCutRatio));
-            return gouges.Concat(metricRows);
+    private static void AddTool(Lattice lattice, Point3d from, Point3d to, Vector3d axis, Seq<CutterSection> sections, bool first) {
+        Vector3 direction = new((float)axis.X, (float)axis.Y, (float)axis.Z);
+        _ = sections.Fold(Option<CutterSection>.None, (previous, section) => {
+            Vector3 a = ToVector(from) + (direction * (float)section.OffsetMm);
+            Vector3 b = ToVector(to) + (direction * (float)section.OffsetMm);
+            lattice.AddBeam(a, (float)section.RadiusMm, b, (float)section.RadiusMm, bRoundCap: section.Round);
+            _ = previous.Iter(prior => lattice.AddBeam(
+                b - (direction * (float)(section.OffsetMm - prior.OffsetMm)),
+                (float)prior.RadiusMm,
+                b,
+                (float)section.RadiusMm,
+                bRoundCap: prior.Round || section.Round));
+            if (first) _ = previous.Iter(prior => lattice.AddBeam(
+                a - (direction * (float)(section.OffsetMm - prior.OffsetMm)),
+                (float)prior.RadiusMm,
+                a,
+                (float)section.RadiusMm,
+                bRoundCap: prior.Round || section.Round));
+            return Some(section);
         });
-
-    private static Fin<Seq<RemovalFinding>> WindowGouges(VerifyPolicy policy, Voxels actual, Voxels target, SetupWindow window) =>
-        toSeq(policy.Motion.Moves.Skip(window.FirstMove).Take(window.Count))
-            .Map((move, offset) => (Move: move, Index: window.FirstMove + offset))
-            .Fold(
-                Fin.Succ((Cursor: window.Frame.Origin, Rows: Seq<RemovalFinding>())),
-                (rail, row) => rail.Bind(state => RemovalStations.IsRapid(row.Move)
-                    ? Fin.Succ((RemovalStations.Target(row.Move), state.Rows))
-                    : policy.Sampling.Stations(state.Cursor, row.Move, policy.StationMm).Map(stations => {
-                        Plane frame = policy.ToolFrames.Find(row.Index).IfNone(window.Frame);
-                        Seq<RemovalFinding> hits = stations
-                            .Filter(point => BodyGouges(target, actual, point, policy, frame))
-                            .Map(point => (RemovalFinding)new RemovalFinding.Gouge(
-                                window.Setup, row.Index, point, policy.Cutter, GougeDepth(target, point, policy, frame)));
-                        return (RemovalStations.Target(row.Move), state.Rows.Concat(hits));
-                    })))
-            .Map(static state => state.Rows);
-
-    // Full cutter-volume interference: the station's family field intersected with target, minus what still
-    // stands in actual, is the physically gouged region — a tip-only membership test misses every flank,
-    // corner, taper, and cone overcut whose tip stays outside the target.
-    private static bool BodyGouges(Voxels target, Voxels actual, Point3d station, VerifyPolicy policy, Plane frame) {
-        using Lattice lattice = new();
-        foreach ((Vector3 a, float ra, Vector3 b, float rb, bool round) in BodyBeams(station, policy.Cutter, frame.ZAxis))
-            lattice.AddBeam(a, ra, b, rb, bRoundCap: round);
-        using Voxels body = new(lattice);
-        body.BoolIntersect(target);
-        if (Volume(body) <= 0.0) return false;
-        body.BoolSubtract(actual);
-        return Volume(body) > 0.0;
     }
 
-    private static double GougeDepth(Voxels target, Point3d at, VerifyPolicy policy, Plane frame) {
-        double step = Math.Max(policy.VoxelSizeMm, 1e-6);
-        double cap = Math.Max(policy.Cutter.Diameter, step);
-        double depth = 0.0;
-        Vector3d axis = frame.ZAxis;
-        while (depth < cap && target.bIsInside(ToVector(at + axis * depth))) depth += step;
-        return Math.Max(depth, step);
+    // Swept-envelope geometry derives from the family's own admission columns, never from a per-family arm:
+    // `CornerRadius` seats the nose arc (zero flat, half-diameter ball, between toroidal) and `TaperFrom`
+    // selects the body law, so a seventeenth `CutterFamily` row generates its silhouette with no edit here.
+    // Every derivation is outward-bounding, so a narrowing family (dovetail) verifies against a superset.
+    private static Seq<CutterSection> Sections(CutterForm cutter, double resolutionMm) {
+        double radius = cutter.Diameter * 0.5;
+        double nose = Math.Clamp(cutter.CornerRadius, 0.0, radius);
+        double length = cutter.FluteLength;
+        double floor = Math.Max(resolutionMm, radius * Math.Sqrt(double.Epsilon));
+        return cutter.Family.TaperFrom.Switch(
+            state: (Radius: radius, Nose: nose, Length: length, Floor: floor, Resolution: resolutionMm, Form: cutter),
+            flat: static state => Extend(Nose(state.Radius, state.Nose, state.Length, state.Floor, state.Resolution), state.Length, state.Radius),
+            edgeAngle: static state => Nose(state.Radius, state.Nose, state.Length, state.Floor, state.Resolution)
+                .Add(new CutterSection(
+                    state.Length,
+                    state.Radius + ((state.Length - state.Nose) * Tilt(state.Form.TaperAngle)),
+                    false)),
+            halfPointAngle: static state => Extend(
+                Seq(
+                    new CutterSection(0.0, state.Floor, false),
+                    new CutterSection(
+                        Math.Min(state.Length, state.Radius / Tilt(state.Form.PointAngleDeg.IfNone(state.Form.TaperAngle * 2.0) * 0.5)),
+                        state.Radius,
+                        false)),
+                state.Length,
+                state.Radius));
     }
 
-    private static Option<Point3d> Critical(Seq<RemovalFinding> findings, VerifyPolicy policy) =>
-        GougeRows(findings).Find(gouge => gouge.DepthMm > policy.Tolerance.GougeMm).Map(static g => g.Point)
-            | findings.Find(static f => f is RemovalFinding.HolderStrike).Map(static f => ((RemovalFinding.HolderStrike)f).Point);
+    private static double Tilt(double degrees) =>
+        Math.Tan(Math.Clamp(degrees, Math.Sqrt(double.Epsilon), Math.BitDecrement(90.0)) * Math.PI / 180.0);
 
-    private static Seq<RemovalFinding.Gouge> GougeRows(Seq<RemovalFinding> findings) =>
-        toSeq(findings.OfType<RemovalFinding.Gouge>());
+    private static Seq<CutterSection> Nose(double radiusMm, double noseMm, double lengthMm, double floorMm, double resolutionMm) =>
+        noseMm <= floorMm
+            ? Seq(new CutterSection(0.0, radiusMm, false))
+            : Profile(
+                Math.Min(noseMm, lengthMm),
+                resolutionMm,
+                offset => radiusMm - noseMm + Math.Sqrt(Math.Max(0.0, (noseMm * noseMm) - Math.Pow(noseMm - offset, 2.0))));
 
-    private static Seq<SetupWindow> Windows(VerifyPolicy policy) =>
-        policy.Setups.IsEmpty
-            ? Seq(new SetupWindow(Setup: 0, FirstMove: 0, Count: policy.Motion.Moves.Count, Frame: Plane.WorldXY))
-            : policy.Setups;
-
-    private static double DifferenceVolume(Voxels left, Voxels right) {
-        using Voxels delta = left.voxDuplicate();
-        delta.BoolSubtract(right);
-        return Volume(delta);
+    private static Seq<CutterSection> Profile(double extentMm, double resolutionMm, Func<double, double> radius) {
+        int count = Math.Max(1, (int)Math.Ceiling(extentMm / resolutionMm));
+        return toSeq(Enumerable.Range(0, count + 1))
+            .Map(index => new CutterSection(
+                extentMm * index / count,
+                Math.Max(radius(extentMm * index / count), resolutionMm * Math.Sqrt(double.Epsilon)),
+                true));
     }
 
-    private static double Volume(Voxels voxels) {
-        voxels.CalculateProperties(out float volume, out BBox3 _);
-        return volume;
+    private static Seq<CutterSection> Extend(Seq<CutterSection> profile, double lengthMm, double radiusMm) =>
+        profile.Last.Filter(last => last.OffsetMm < lengthMm)
+            .Map(_ => profile.Add(new CutterSection(lengthMm, radiusMm, false)))
+            .IfNone(profile);
+
+    private static Fin<Seq<RemovalFinding>> Strikes(
+        VerifyPolicy policy,
+        Voxels actual,
+        Seq<Obstruction> obstructions,
+        Point3d from,
+        Move move,
+        Plane frame,
+        int setup,
+        int index) => obstructions.IsEmpty
+        ? Fin.Succ(Seq<RemovalFinding>())
+        : from sampled in policy.Sampling.Project(from, move, Step(policy))
+          let stations = Seq(from) + sampled
+          select obstructions.Bind(row => stations
+              .Find(point => Touches(actual, row, frame, point))
+              .Map(point => (RemovalFinding)new RemovalFinding.Strike(setup, index, point, row.Contact, row.ReachMm))
+              .ToSeq());
+
+    private static Fin<Seq<(double X, double Y)>> Ring(Loop envelope, double resolutionMm) =>
+        from result in envelope.Apply(new ProfileOp.Measure())
+        from path in result is ProfileResult.Measure measured
+            ? Fin.Succ(measured.Path.Millimeters)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:holder-measure").ToError())
+        let count = Math.Max(envelope.Vertices.Count, (int)Math.Ceiling(path / resolutionMm))
+        from ring in toSeq(Enumerable.Range(0, count)).TraverseM(index =>
+            envelope.Apply(new ProfileOp.Sample(Length.FromMillimeters(path * index / count))).Bind(sample =>
+                sample is ProfileResult.Sampled point
+                    ? Fin.Succ((point.Point.X, point.Point.Y))
+                    : Fin.Fail<(double X, double Y)>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:holder-sample").ToError()))).As()
+        select ring;
+
+    private static bool Touches(Voxels actual, Obstruction row, Plane frame, Point3d station) {
+        Vector3 axis = new((float)frame.ZAxis.X, (float)frame.ZAxis.Y, (float)frame.ZAxis.Z);
+        Vector3 center = ToVector(station) + (axis * (float)(row.StartMm + (row.LengthMm * 0.5)));
+        float half = (float)(row.ReachMm + (row.LengthMm * 0.5));
+        using Voxels prism = new(
+            new ProfilePrism(row.Ring, frame, station, row.StartMm, row.LengthMm),
+            new BBox3(center - new Vector3(half), center + new Vector3(half)));
+        return Intersects(actual, prism);
     }
 
-    // The residual TRUTH projection: the final voxel field extracts through the declared mesh wire
-    // (Voxels.mshAsMesh — the catalog's one crossing) into the kernel MeshSpace vocabulary and sections through
-    // the kernel K4 PlaneMesh fold IN THE SETUP FRAME — the same plane whose origin anchored subtraction — so a
-    // rotated setup's machined loops share coordinates with the setup identity that labels them; islands, holes,
-    // and cut topology come from the ACTUAL residual state, and the source profiles never masquerade as residual
-    // geometry. A projection failure fails the snapshot rail, never substitutes stale profiles or empty success.
-    private static Fin<Arr<Loop>> ResidualLoops(Voxels actual, VerifyPolicy policy, SetupWindow window) {
-        using PicoGK.Mesh extracted = actual.mshAsMesh();
-        Rhino.Geometry.Mesh native = new();
-        foreach (int t in Enumerable.Range(0, extracted.nTriangleCount())) {
-            extracted.GetTriangle(t, out Vector3 a, out Vector3 b, out Vector3 c);
-            int ia = native.Vertices.Add(a.X, a.Y, a.Z);
-            int ib = native.Vertices.Add(b.X, b.Y, b.Z);
-            int ic = native.Vertices.Add(c.X, c.Y, c.Z);
-            native.Faces.AddFace(ia, ib, ic);
-        }
-        return from context in Context.Millimeters().ToFin()
-               from space in MeshSpace.Of(native, context)
-               from result in Intersection.Apply(new IntersectOp.PlaneMesh(window.Frame, space, IntersectPolicy.Canonical))
-               from loops in result is IntersectResult.Chains chains
-                   ? chains.Walked.Filter(static chain => chain.Closed)
-                       .Map(chain => Loop.Admit(toSeq(chain.Points).ToArr(), closed: true, bulges: Arr<double>(), tolerance: context).Map(static loop => loop.AsCcw()))
-                       .TraverseM(identity).As()
-                   : Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput("removal:residual-section").ToError())
-               select loops.ToArr();
+    private static Fin<DeviationField> Surface(
+        VerifyPolicy policy,
+        Voxels actual,
+        Voxels target,
+        SetupWindow window,
+        ContentKey fieldKey,
+        Arr<Loop> loops,
+        RemovalMetrics metrics) {
+        using PicoGK.Mesh mesh = target.mshAsMesh();
+        int triangles = mesh.nTriangleCount();
+        if (triangles == 0)
+            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:target-surface").ToError());
+        // Index-uniform triangle selection samples a finely tessellated region far denser than a coarse
+        // one, so the deviation field would under-cover exactly the large flat faces a gouge escapes on;
+        // Cumulative-area prefixing makes selection area-uniform over the target surface instead.
+        Seq<(int Triangle, double Area)> surface = toSeq(Enumerable.Range(0, triangles)).Choose(index => {
+            mesh.GetTriangle(index, out Vector3 a, out Vector3 b, out Vector3 c);
+            double area = 0.5 * Vector3.Cross(b - a, c - a).Length();
+            return double.IsFinite(area) && area > 0.0 ? Some((index, area)) : None;
+        });
+        if (surface.IsEmpty)
+            return Fin.Fail<DeviationField>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:target-area").ToError());
+        double[] cumulative = new double[surface.Count];
+        _ = toSeq(Enumerable.Range(0, surface.Count)).Fold(0.0, (running, index) => {
+            cumulative[index] = running + surface[index].Area;
+            return cumulative[index];
+        });
+        double total = cumulative[surface.Count - 1];
+        Seq<(Option<DeviationSample> Sample, int Unresolved)> rows = toSeq(Enumerable.Range(0, policy.SurfaceSamples)).Map(index => {
+            int face = Math.Clamp(
+                Array.BinarySearch(cumulative, total * (index + 0.5) / policy.SurfaceSamples) is var found && found >= 0 ? found : ~found,
+                0,
+                surface.Count - 1);
+            int triangle = surface[face].Triangle;
+            mesh.GetTriangle(triangle, out Vector3 a, out Vector3 b, out Vector3 c);
+            Vector3 cross = Vector3.Cross(b - a, c - a);
+            if (!float.IsFinite(cross.LengthSquared()) || cross.LengthSquared() <= float.Epsilon)
+                return (Option<DeviationSample>.None, 1);
+            Vector3 normal = Vector3.Normalize(cross);
+            Point3d centroid = ToPoint((a + b + c) / 3.0f);
+            double root = Math.Sqrt(Deterministic.UnitInterval(centroid, salt: index));
+            double sweep = Deterministic.UnitInterval(centroid, salt: index, seed: 1);
+            Vector3 nominal = (float)(1.0 - root) * a + (float)(root * (1.0 - sweep)) * b + (float)(root * sweep) * c;
+            Option<DeviationSample> positive = Ray(actual, nominal, normal, 1.0);
+            Option<DeviationSample> negative = Ray(actual, nominal, -normal, -1.0);
+            Option<DeviationSample> nearest = (positive, negative).Apply((outside, inside) =>
+                Math.Abs(outside.SignedMm) <= Math.Abs(inside.SignedMm) ? outside : inside)
+                | positive
+                | negative;
+            return (nearest, nearest.IsNone ? 1 : 0);
+        });
+        Seq<DeviationSample> samples = rows.Bind(static row => row.Sample.ToSeq());
+        int unresolved = rows.Map(static row => row.Unresolved).Sum();
+        ContentKey key = SnapshotKey(policy, window, fieldKey, loops, metrics, samples, unresolved);
+        return Fin.Succ(new DeviationField(
+            window.Setup,
+            fieldKey,
+            key,
+            policy.Cutter,
+            samples,
+            unresolved,
+            samples.Map(static row => row.SignedMm).Fold(double.PositiveInfinity, double.Min) is var minimum && double.IsFinite(minimum) ? minimum : 0.0,
+            samples.Map(static row => row.SignedMm).Fold(double.NegativeInfinity, double.Max) is var maximum && double.IsFinite(maximum) ? maximum : 0.0));
     }
 
-    private static Vector3 ToVector(Point3d p) => new((float)p.X, (float)p.Y, (float)p.Z);
+    private static Option<DeviationSample> Ray(Voxels actual, Vector3 nominal, Vector3 direction, double sign) =>
+        actual.bRayCastToSurface(nominal, direction, out Vector3 hit)
+            ? Some(new DeviationSample(ToPoint(nominal), new Vector3d(direction.X, direction.Y, direction.Z), sign * Vector3.Distance(nominal, hit)))
+            : None;
 
-    private static float ToolRadius(CutterForm cutter) => (float)Math.Max(cutter.Diameter * 0.5, 1e-6);
-}
-
-public static class RemovalStations {
-    public static Point3d Target(Move move) => move.Switch(
-        rapid: static row => row.Target,
-        linear: static row => row.Target,
-        circular: static row => row.Target);
-
-    public static bool IsRapid(Move move) => move is Move.Rapid;
-
-    public static Seq<Point3d> Linear(Point3d from, Point3d to, double stepMm) {
-        double length = from.DistanceTo(to);
-        int count = Math.Max(1, (int)Math.Ceiling(length / Math.Max(stepMm, 1e-6)));
-        return toSeq(Enumerable.Range(1, count)).Map(i => Lerp(from, to, (double)i / count));
-    }
-
-    public static Fin<Seq<Point3d>> Arc(Point3d from, Move move, double stepMm) =>
-        move.Switch(
-            state: (From: from, Step: stepMm),
-            rapid: static (state, row) => Fin.Succ(Linear(state.From, row.Target, state.Step)),
-            linear: static (state, row) => Fin.Succ(Linear(state.From, row.Target, state.Step)),
-            circular: static (state, row) => ArcStations(state.From, row.Target, row.Arc, state.Step));
-
-    public static Fin<Seq<Point3d>> Adaptive(Point3d from, Move move, double chordToleranceMm) =>
-        move.Switch(
-            state: (From: from, Chord: chordToleranceMm),
-            rapid: static (state, row) => Fin.Succ(Linear(state.From, row.Target, state.Chord)),
-            linear: static (state, row) => Fin.Succ(Linear(state.From, row.Target, state.Chord)),
-            circular: static (state, row) => {
-                // Sagitta law: s = r(1 − cos(θ/2)) ⇒ chord = 2r·sin(acos(1 − s/r)) — no second halving.
-                double radius = Radial(state.From, row.Arc.Center);
-                double chord = 2.0 * radius * Math.Sin(Math.Acos(Math.Clamp(1.0 - state.Chord / Math.Max(radius, 1e-9), -1.0, 1.0)));
-                return ArcStations(state.From, row.Target, row.Arc, Math.Max(chord, state.Chord));
-            });
-
-    // Arc consistency is ADMITTED, never coerced: start and target must sit on one radius about the center
-    // (planar measure — the helical Z rides linearly) and the final station IS the target, so the next segment
-    // never begins after an unverified cursor jump.
-    private static Fin<Seq<Point3d>> ArcStations(Point3d from, Point3d to, ArcCenter arc, double stepMm) {
-        double r0 = Radial(from, arc.Center);
-        double r1 = Radial(to, arc.Center);
-        if (r0 <= 1e-9 || Math.Abs(r0 - r1) > Math.Max(1e-3, 1e-6 * Math.Max(r0, r1)))
-            return Fin.Fail<Seq<Point3d>>(GeometryFault.DegenerateInput("removal:arc-radius").ToError());
-        double a0 = Math.Atan2(from.Y - arc.Center.Y, from.X - arc.Center.X);
-        double a1 = Math.Atan2(to.Y - arc.Center.Y, to.X - arc.Center.X);
-        double sweep = Delta(a0, a1, arc.Sense == RotationSense.Clockwise);
-        int count = Math.Max(1, (int)Math.Ceiling(Math.Abs(sweep) * Math.Max(r0, 1e-6) / Math.Max(stepMm, 1e-6)));
-        return Fin.Succ(toSeq(Enumerable.Range(1, count)).Map(i => {
-            double t = (double)i / count;
-            double a = a0 + sweep * t;
-            return i == count
-                ? to
-                : new Point3d(
-                    arc.Center.X + r0 * Math.Cos(a),
-                    arc.Center.Y + r0 * Math.Sin(a),
-                    from.Z + (to.Z - from.Z) * t);
-        }));
-    }
-
-    private static double Radial(Point3d p, Point3d center) {
-        double dx = p.X - center.X, dy = p.Y - center.Y;
-        return Math.Sqrt((dx * dx) + (dy * dy));
-    }
-
-    private static double Delta(double a0, double a1, bool clockwise) {
-        if (Math.Abs(a1 - a0) <= 1e-12) return clockwise ? -Math.Tau : Math.Tau;
-        double delta = a1 - a0;
-        while (delta <= -Math.PI) delta += Math.Tau;
-        while (delta > Math.PI) delta -= Math.Tau;
-        return clockwise && delta > 0.0 ? delta - Math.Tau : !clockwise && delta < 0.0 ? delta + Math.Tau : delta;
-    }
-
-    private static Point3d Lerp(Point3d a, Point3d b, double t) =>
-        new(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t, a.Z + (b.Z - a.Z) * t);
-}
-
-public static class RemovalCanonical {
-    // Snapshot identity includes the `VoxelWire.FromVoxels` payload digest before the run evidence, so equal
-    // volume and bounds cannot alias distinct residual fields.
-    public static byte[] Stock(Voxels actual, VerifyPolicy policy, int setup, RemovalMetrics metrics, RemovalState run, ContentKey fieldKey) {
-        actual.CalculateProperties(out float volume, out BBox3 bounds);
-        ArrayBufferWriter<byte> writer = new();
+    private static ContentKey SnapshotKey(
+        VerifyPolicy policy,
+        SetupWindow window,
+        ContentKey fieldKey,
+        Arr<Loop> loops,
+        RemovalMetrics metrics,
+        Seq<DeviationSample> samples,
+        int unresolved) {
+        using ArrayPoolBufferWriter<byte> writer = new();
         Write(writer, fieldKey.Digest);
-        Write(writer, setup);
-        Write(writer, (double)volume);
-        Write(writer, policy.VoxelSizeMm);
-        Write(writer, policy.VoxelCap);
-        Write(writer, policy.StationMm);
+        Write(writer, policy.Stock.Key.Digest);
+        Write(writer, policy.Target.Key.Digest);
+        Write(writer, policy.Origin);
+        Write(writer, window.Setup);
+        Write(writer, window.FirstMove);
+        Write(writer, window.Count);
+        Write(writer, window.Frame);
+        Write(writer, policy.Bounds);
+        Write(writer, policy.Cutter.Family.Key);
         Write(writer, policy.Cutter.Diameter);
         Write(writer, policy.Cutter.CornerRadius);
         Write(writer, policy.Cutter.TaperAngle);
         Write(writer, policy.Cutter.FluteLength);
-        Write(writer, run.FeedMoves);
-        Write(writer, run.AirMoves);
+        Write(writer, policy.Cutter.UsableLengthMm);
+        Write(writer, policy.Cutter.FunctionalLengthMm);
+        Write(writer, policy.Cutter.OverallLengthMm);
+        Write(writer, policy.Cutter.BodyDiameterMm);
+        Write(writer, policy.Cutter.ShankDiameterMm);
+        Write(writer, policy.Cutter.MaxDepthMm);
+        Write(writer, policy.Cutter.LeadAngleDeg);
+        Write(writer, policy.Cutter.PointAngleDeg);
+        Write(writer, policy.Cutter.OrientationDeg);
+        Write(writer, policy.Cutter.Evidence.Map(static evidence => evidence.StructuralDigest));
+        Write(writer, policy.Holder.Map(static assembly => assembly.Identity));
+        Write(writer, policy.VoxelSizeMm);
+        Write(writer, policy.VoxelCap);
+        Write(writer, policy.StationMm);
+        Write(writer, policy.SurfaceSamples);
+        Write(writer, policy.Sampling.Key);
+        Write(writer, policy.Calibration.MinimumSamples);
+        Write(writer, policy.Calibration.MaximumSamples);
+        Write(writer, policy.Calibration.QuantileError.DecimalFractions);
+        Write(writer, policy.Calibration.DensityFloor.DecimalFractions);
+        Write(writer, policy.Calibration.GradientFloorPerMillimeter);
+        Write(writer, policy.Tolerance.GougeMm);
+        Write(writer, policy.Tolerance.UncutMm3);
+        Write(writer, policy.Tolerance.OvercutMm3);
+        Write(writer, policy.Tolerance.AirCutRatio);
+        Write(writer, policy.Tolerance.SurfaceMm);
+        Write(writer, policy.Tolerance.UnresolvedRatio);
         Write(writer, metrics.UncutVolume);
         Write(writer, metrics.OvercutVolume);
         Write(writer, metrics.AirCutRatio);
-        foreach (double d in new[] {
-            (double)policy.Bounds.vecMin.X, (double)policy.Bounds.vecMin.Y, (double)policy.Bounds.vecMin.Z,
-            (double)policy.Bounds.vecMax.X, (double)policy.Bounds.vecMax.Y, (double)policy.Bounds.vecMax.Z,
-            (double)bounds.vecMin.X, (double)bounds.vecMin.Y, (double)bounds.vecMin.Z,
-            (double)bounds.vecMax.X, (double)bounds.vecMax.Y, (double)bounds.vecMax.Z })
-            Write(writer, d);
-        Write(writer, Encoding.UTF8.GetBytes($"{policy.Cutter.Family.Key}:{policy.Sampling.Key}:{policy.Tolerance.Key}"));
+        Write(writer, unresolved);
+        Write(writer, policy.Motion.Moves.Count);
+        _ = policy.Motion.Moves.Iter(move => move.Switch(
+            state: writer,
+            rapid: static (held, value) => {
+                Write(held, 0);
+                Write(held, value.Target);
+                return unit;
+            },
+            linear: static (held, value) => {
+                Write(held, 1);
+                Write(held, value.Target);
+                Write(held, value.Feed);
+                return unit;
+            },
+            circular: static (held, value) => {
+                Write(held, 2);
+                Write(held, value.Target);
+                Write(held, value.Feed);
+                Write(held, value.Arc.Center);
+                Write(held, value.Arc.Sense.Key);
+                return unit;
+            }));
+        Write(writer, policy.ToolFrames.Count);
+        _ = toSeq(policy.ToolFrames).OrderBy(static row => row.Key).Iter(row => {
+            Write(writer, row.Key);
+            Write(writer, row.Value);
+        });
+        Seq<SetupWindow> windows = Windows(policy);
+        Write(writer, windows.Count);
+        _ = windows.Iter(setup => {
+            Write(writer, setup.Setup);
+            Write(writer, setup.FirstMove);
+            Write(writer, setup.Count);
+            Write(writer, setup.Frame);
+        });
+        Write(writer, loops.Count);
+        _ = loops.Map(Canonical).OrderBy(static payload => Convert.ToHexString(payload)).Iter(payload => {
+            Write(writer, payload.Length);
+            Write(writer, payload);
+        });
+        Write(writer, samples.Count);
+        _ = samples.Iter(sample => {
+            Write(writer, sample.Nominal);
+            Write(writer, sample.Normal);
+            Write(writer, sample.SignedMm);
+        });
+        return ContentKey.Of(EgressKind.StockSnapshot, writer.WrittenSpan);
+    }
+
+    private static ContentKey ResidualKey(ContentKey field) {
+        using ArrayPoolBufferWriter<byte> writer = new();
+        Write(writer, field.Digest);
+        return ContentKey.Of(EgressKind.Remnant, writer.WrittenSpan);
+    }
+
+    private static byte[] Canonical(Loop loop) {
+        using ArrayPoolBufferWriter<byte> writer = new();
+        int start = toSeq(Enumerable.Range(1, loop.Vertices.Count - 1)).Fold(0, (best, index) =>
+            (loop.Vertices[index].X, loop.Vertices[index].Y, loop.Vertices[index].Z)
+                .CompareTo((loop.Vertices[best].X, loop.Vertices[best].Y, loop.Vertices[best].Z)) < 0
+                ? index
+                : best);
+        Write(writer, loop.Vertices.Count);
+        _ = toSeq(Enumerable.Range(0, loop.Vertices.Count)).Iter(offset => {
+            int index = (start + offset) % loop.Vertices.Count;
+            Write(writer, loop.Vertices[index]);
+            Write(writer, loop.Bulges[index]);
+        });
         return writer.WrittenSpan.ToArray();
     }
 
-    private static void Write(ArrayBufferWriter<byte> writer, int value) {
-        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), value);
-        writer.Advance(4);
+    // A verified program that missed its band is a receipt with `Clean` false, not a failed rail: the atom
+    // carries the volumes, the ratio, and the gouge witnesses precisely so the consumer reads the verdict.
+    // Only a physical strike, an out-of-band gouge, or surface evidence too sparse to support any claim
+    // invalidates the run, and the volume tolerance floors at the one voxel the field can resolve.
+    private static Fin<FabricationResult> Project(VerifyPolicy policy, Voxels actual, Voxels target, RemovalState run) {
+        RemovalMetrics metrics = Metrics(actual, target, run);
+        Seq<RemovalFinding> findings = run.Findings + Findings(policy, metrics);
+        double quantum = Math.Max(policy.Tolerance.OvercutMm3, Math.Pow(policy.VoxelSizeMm, 3.0));
+        return from final in run.Snapshots.Last.ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:no-snapshot").ToError())
+               from field in run.Field.ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:no-field").ToError())
+               from residual in ResidualStock.Admit(ResidualKey(field), final.Machined)
+               from zone in Admitted(
+                   CollisionZone.Validate(policy.Stock.Key, policy.Bounds, out CollisionZone extent),
+                   extent,
+                   "removal:collision-zone")
+               from _ in Invalidating(findings, policy.Tolerance, zone).Match(
+                   Some: Fin.Fail<Unit>,
+                   None: static () => Fin.Succ(unit))
+               select (FabricationResult)new FabricationResult.VerificationResult(
+                   residual,
+                   run.Snapshots,
+                   findings.Choose(static finding => finding.Witness),
+                   metrics.UncutVolume,
+                   metrics.OvercutVolume,
+                   metrics.AirCutRatio,
+                   quantum);
     }
 
-    private static void Write(ArrayBufferWriter<byte> writer, long value) {
-        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
+    private static RemovalMetrics Metrics(Voxels actual, Voxels target, RemovalState run) =>
+        new(Difference(actual, target), Difference(target, actual), run.FeedMoves == 0 ? 0.0 : (double)run.AirMoves / run.FeedMoves);
+
+    private static Seq<RemovalFinding> Findings(VerifyPolicy policy, RemovalMetrics metrics) =>
+        Seq(
+            metrics.UncutVolume > policy.Tolerance.UncutMm3 ? Some<RemovalFinding>(new RemovalFinding.Uncut(metrics.UncutVolume)) : None,
+            metrics.OvercutVolume > policy.Tolerance.OvercutMm3 ? Some<RemovalFinding>(new RemovalFinding.Overcut(metrics.OvercutVolume)) : None,
+            metrics.AirCutRatio > policy.Tolerance.AirCutRatio ? Some<RemovalFinding>(new RemovalFinding.AirCut(metrics.AirCutRatio)) : None)
+        .Bind(static row => row.ToSeq());
+
+    private static Seq<RemovalFinding> DeviationFindings(VerifyPolicy policy, SetupWindow window, DeviationField field) =>
+        Seq<RemovalFinding>(new RemovalFinding.Deviation(field))
+        + (field.Unresolved > 0
+            ? Seq<RemovalFinding>(new RemovalFinding.Unresolved(
+                field.Setup,
+                field.Unresolved,
+                (double)field.Unresolved / (field.Samples.Count + field.Unresolved)))
+            : Seq<RemovalFinding>())
+        + field.Samples
+            .Filter(sample => sample.SignedMm < -policy.Tolerance.GougeMm)
+            .Map(sample => (RemovalFinding)new RemovalFinding.Gouge(
+                field.Setup,
+                ClosestMove(policy, window, sample.Nominal),
+                sample.Nominal,
+                policy.Cutter,
+                -sample.SignedMm));
+
+    private static Option<Error> Invalidating(Seq<RemovalFinding> findings, RemovalTolerance tolerance, CollisionZone zone) {
+        Seq<Error> errors = findings.Choose(finding => finding.Fault(tolerance, zone));
+        return errors.Head.Map(first => errors.Tail.Fold(first, static (combined, error) => combined + error));
     }
 
-    private static void Write(ArrayBufferWriter<byte> writer, UInt128 value) {
-        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(8), (ulong)value);
-        writer.Advance(8);
-        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(8), (ulong)(value >> 64));
-        writer.Advance(8);
+    private static int ClosestMove(VerifyPolicy policy, SetupWindow window, Point3d point) =>
+        toSeq(policy.Motion.Moves.Skip(window.FirstMove).Take(window.Count))
+            .Map((move, offset) => (Move: move, Index: window.FirstMove + offset))
+            .Fold(
+                (Cursor: window.Frame.Origin, Index: window.FirstMove, Distance: double.PositiveInfinity),
+                (state, row) => {
+                    Point3d target = Target(row.Move);
+                    double distance = SegmentDistance(state.Cursor, target, point);
+                    return (target, distance < state.Distance ? row.Index : state.Index, Math.Min(distance, state.Distance));
+                })
+            .Index;
+
+    private static double SegmentDistance(Point3d from, Point3d to, Point3d point) {
+        Vector3d direction = to - from;
+        if (direction.SquareLength == 0.0) return point.DistanceTo(from);
+        double t = Math.Clamp(((point - from) * direction) / direction.SquareLength, 0.0, 1.0);
+        return point.DistanceTo(from + (direction * t));
     }
 
-    private static void Write(ArrayBufferWriter<byte> writer, double value) {
-        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
+    private static Fin<Arr<Loop>> ResidualLoops(Voxels actual, Plane frame) {
+        using PicoGK.Mesh extracted = actual.mshAsMesh();
+        using Rhino.Geometry.Mesh native = new();
+        Dictionary<Vector3, int> vertices = [];
+        int Vertex(Vector3 point) {
+            if (vertices.TryGetValue(point, out int index)) return index;
+            int added = native.Vertices.Add(point.X, point.Y, point.Z);
+            vertices.Add(point, added);
+            return added;
+        }
+        _ = toSeq(Enumerable.Range(0, extracted.nTriangleCount())).Iter(index => {
+            extracted.GetTriangle(index, out Vector3 a, out Vector3 b, out Vector3 c);
+            native.Faces.AddFace(Vertex(a), Vertex(b), Vertex(c));
+        });
+        return from context in Context.Millimeters().ToFin()
+               from space in MeshSpace.Of(native, context)
+               from result in Intersection.Apply(new IntersectOp.PlaneMesh(frame, space, IntersectPolicy.Canonical))
+               from loops in result is IntersectResult.Chains chains
+                   ? chains.Walked.Filter(static chain => chain.Closed)
+                       .TraverseM(chain => Loop.Admit(toSeq(chain.Points).ToArr(), closed: true, bulges: Arr<double>(), tolerance: context).Map(static loop => loop.AsCcw()))
+                       .As()
+                   : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "removal:residual-section").ToError())
+               select loops.ToArr();
     }
 
-    private static void Write(ArrayBufferWriter<byte> writer, byte[] bytes) {
-        bytes.CopyTo(writer.GetSpan(bytes.Length));
-        writer.Advance(bytes.Length);
+    private static double Difference(Voxels left, Voxels right) {
+        if (left.bIsEqual(in right)) return 0.0;
+        using Voxels delta = left.voxDuplicate();
+        delta.BoolSubtract(right);
+        delta.CalculateProperties(out float volume, out BBox3 _);
+        return volume;
+    }
+
+    private static bool Intersects(Voxels left, Voxels right) {
+        using Voxels overlap = right.voxDuplicate();
+        overlap.BoolIntersect(left);
+        return !overlap.bIsEmpty();
+    }
+
+    private static Seq<SetupWindow> Windows(VerifyPolicy policy) => policy.Setups.IsEmpty
+        ? Seq(SetupWindow.Create(
+            setup: 0,
+            firstMove: 0,
+            count: policy.Motion.Moves.Count,
+            frame: new Plane(policy.Origin, Vector3d.XAxis, Vector3d.YAxis)))
+        : policy.Setups.OrderBy(static row => row.FirstMove).ToSeq();
+
+    private static Point3d Target(Move move) => move.Switch(
+        rapid: static row => row.Target,
+        linear: static row => row.Target,
+        circular: static row => row.Target);
+
+    // PicoGK allocation and library-mismatch exits are thrown, so the whole native walk funnels through one
+    // lift; the self-flattening bind collapses the capture rail onto the walk's own typed outcome.
+    private static Fin<T> Capture<T>(Func<Fin<T>> native) {
+        ArgumentNullException.ThrowIfNull(native);
+        return Try.lift<Fin<T>>(native)
+            .Run()
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"removal:native:{error.Message}").ToError())
+            .Bind(static result => result);
+    }
+
+    private static Vector3 ToVector(Point3d point) => new((float)point.X, (float)point.Y, (float)point.Z);
+    private static Point3d ToPoint(Vector3 point) => new(point.X, point.Y, point.Z);
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
+        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
+        writer.Advance(sizeof(int));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, long value) {
+        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(sizeof(long)), value);
+        writer.Advance(sizeof(long));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
+        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
+        writer.Advance(sizeof(double));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, UInt128 value) {
+        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(sizeof(ulong)), (ulong)value);
+        writer.Advance(sizeof(ulong));
+        BinaryPrimitives.WriteUInt64LittleEndian(writer.GetSpan(sizeof(ulong)), (ulong)(value >> 64));
+        writer.Advance(sizeof(ulong));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
+        byte[] payload = Encoding.UTF8.GetBytes(value);
+        Write(writer, payload.Length);
+        Write(writer, payload);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<double> value) {
+        Write(writer, value.IsSome ? 1 : 0);
+        _ = value.Iter(amount => Write(writer, amount));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<string> value) {
+        Write(writer, value.IsSome ? 1 : 0);
+        _ = value.Iter(text => Write(writer, text));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Option<UInt128> value) {
+        Write(writer, value.IsSome ? 1 : 0);
+        _ = value.Iter(identity => Write(writer, identity));
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Point3d value) {
+        Write(writer, value.X);
+        Write(writer, value.Y);
+        Write(writer, value.Z);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Vector3d value) {
+        Write(writer, value.X);
+        Write(writer, value.Y);
+        Write(writer, value.Z);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, BoundingBox value) {
+        Write(writer, value.Min);
+        Write(writer, value.Max);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Plane value) {
+        Write(writer, value.Origin);
+        Write(writer, value.XAxis);
+        Write(writer, value.YAxis);
+        Write(writer, value.ZAxis);
+    }
+
+    private static void Write(ArrayPoolBufferWriter<byte> writer, byte[] value) {
+        value.CopyTo(writer.GetSpan(value.Length));
+        writer.Advance(value.Length);
+    }
+
+    private sealed class ProfilePrism(Seq<(double X, double Y)> ring, Plane frame, Point3d station, double start, double length) : IImplicit {
+        public float fSignedDistance(in Vector3 at) {
+            Vector3d local = new Point3d(at.X, at.Y, at.Z) - station;
+            double x = local * frame.XAxis;
+            double y = local * frame.YAxis;
+            double z = local * frame.ZAxis;
+            double planar = ring.Map((point, index) => SegmentDistance(point, ring[(index + 1) % ring.Count], x, y)).Fold(double.PositiveInfinity, double.Min);
+            bool inside = ring.Map((point, index) => (point, next: ring[(index + 1) % ring.Count]))
+                .Count(edge => edge.point.Y > y != edge.next.Y > y && x < edge.point.X + (((edge.next.X - edge.point.X) * (y - edge.point.Y)) / (edge.next.Y - edge.point.Y))) % 2 == 1;
+            double slab = Math.Max(start - z, z - (start + length));
+            return (float)Math.Max(inside ? -planar : planar, slab);
+        }
+
+        private static double SegmentDistance((double X, double Y) a, (double X, double Y) b, double x, double y) {
+            double dx = b.X - a.X;
+            double dy = b.Y - a.Y;
+            double lengthSquared = (dx * dx) + (dy * dy);
+            if (lengthSquared == 0.0) return Math.Sqrt(Math.Pow(a.X - x, 2.0) + Math.Pow(a.Y - y, 2.0));
+            double t = Math.Clamp((((x - a.X) * dx) + ((y - a.Y) * dy)) / lengthSquared, 0.0, 1.0);
+            return Math.Sqrt(Math.Pow(a.X + (t * dx) - x, 2.0) + Math.Pow(a.Y + (t * dy) - y, 2.0));
+        }
     }
 }
-```
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Material-removal verification rail
-    accDescr: Admitted stock, target, cutter, holder, and conditioned motion compose sequential setup truth before one batched material commit, keyed snapshots, tolerance findings, and residual-stock projection.
-    Run["Run(Verify) policy case"] --> Removal["Removal.Verify (sidecar/AppHost-resident body)"]
-    Removal -->|"cells > VoxelCap"| Cap["DegenerateInput — pre-allocation gate"]
-    Stock["Additive/implicit VoxelWire stock"] --> Actual["actual stock Voxels"]
-    Target["target residual VoxelWire"] --> Nominal["target residual Voxels"]
-    Motion["conditioned Motion moves"] --> Sweep["family beam table: tip capsule + tool-axis body + holder"]
-    Cutter["CutterForm atom (7-family dispatch)"] --> Sweep
-    Holder["ToolMagazine.HolderEnvelope footprint"] --> Sweep
-    Sweep -->|"shadow sequential truth · BoolSubtractAll per setup"| Actual
-    Actual -->|"ContentKey.Of stock-snapshot after each setup"| Snapshot["Seq<StockSnapshot>"]
-    Actual -->|"Bool difference vs target"| Receipt["RemovalFinding gouge · holder-strike · tolerance-gated uncut/overcut/air-cut"]
-    Nominal --> Receipt
-    Receipt -->|"critical gouge or holder strike"| Fault["FabricationFault.Gouge 2706"]
-    Receipt -->|"owner-safe projection"| Result["FabricationResult.VerificationResult"]
-    Snapshot --> Result
-    Actual --> Residual["ResidualStock for run N+1"]
-    Residual --> Result
-    linkStyle 1,11 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
-    linkStyle 2,3,4,5,6,9,10 stroke:#FFB86C,color:#F8F8F2
-    linkStyle 12 stroke:#50FA7B,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    classDef external fill:#21222C,stroke:#8BE9FD,color:#8BE9FD
-    class Removal,Sweep primary
-    class Run,Result boundary
-    class Actual,Nominal,Snapshot,Receipt,Residual data
-    class Cap,Fault error
-    class Stock,Target,Motion,Cutter,Holder external
 ```

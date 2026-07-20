@@ -1,32 +1,32 @@
 # [RASM_FABRICATION_ESTIMATION]
 
-The cost-derivation owner: `Estimate.Of(FabricationResult, EstimateBasis) → Fin<CostReceipt>` and the lot projection `Estimate.Quote` price the ten-case result union from correlated evidence. `CostEvidence<T>` binds every simulation, machine, wear, stock, and additive receipt to the priced `ContentKey`; result-carried keys and all evidence keys must equal `EstimateBasis.Subject`. `StockConsumption` carries consumed area directly, so perfect utilization remains priceable; `AdditiveYield` carries part, support, purge, density, and recovery quantities under a per-kilogram tariff. Inspection and forming require explicit `OperationTime` evidence rather than reconstructing seconds from feature or bend counts.
+`Estimate.Run` converts correlated fabrication evidence into a unit or lot receipt selected by `EstimateRequest`. Lot evaluation transforms parallel money and carbon ledgers by quantity, batching, scrap, commercial loading, validity, capacity, and confidence while preserving every source dimension. Pricing reads authoritative sibling receipts; it never reconstructs clocks, yield, wear, availability, or welding work.
 
-This page is RECEIPTS-ONLY: it mints no fault arm, routes kernel `GeometryFault.DegenerateInput` only where a result case is un-priceable by charter (a `HiddenLineResult`/`TravelerDocument` is documentation; a clock-requiring case without its simulation receipt has no time authority), and its `CostReceipt` is the evidence. The Compute seam stays recorded-only: cost rows are Fabrication-local receipts and the frozen `NestWasteArea` SI-m² wire the Compute rollup decodes is untouched — estimation PRICES what that wire already carries, never a second waste mint. The `FabricationPlan` arm prices per-step setup at the labor tariff and a distinct labor row from each step's `OperationTime` evidence; the rated per-step machine forecast lands when `PlannedStep` carries a duration column — a `SetupSeconds` copy masquerading as rated machine time is the deleted fiction. The plan subject is the plan's own canonical key: `Artifacts` stay provenance, and evidence correlated to one output artifact can never authorize pricing the whole plan.
-
-Wire posture: HOST-LOCAL. The `CostReceipt`/`QuoteReceipt` cross only the in-process seam — the derivation quote, the traveler's commercial rows; no cost row sits between wire and rail.
+`EstimateEvidence` is one closed union that prices its own activity rows, so a new evidence source is one case and no projection roster changes. `AllocationKind` and `CommercialLoad` carry their multipliers, stages, loading eligibility, ranks, and compounding bases as data, so lot allocation and commercial loading are one ordered fold. `EstimateRow` is the sole signed egress family and every row retains the quantity and rate its amount derives from.
 
 ## [01]-[INDEX]
 
-- [01]-[ESTIMATION]: owns the signed `CostKind` axis, the evidence-keyed `EstimateBasis`, the currency-stamped receipt family, the one total `Estimate.Of` projection over the result union, and the `Estimate.Quote` lot fold above it. The unit fold prices machine, material, tooling, consumable, labor, energy, rework, commercial, and remnant-credit evidence.
+- [01]-[ESTIMATION]: owns `EstimateEvidence`, `EvidenceKind`, `EstimateBasis`, activity rows, tariff/factor policy, `CostReceipt`, `QuotePolicy`, `QuoteReceipt`, `EstimateRequest`, `EstimateReceipt`, and `Estimate.Run`.
 
 ## [02]-[ESTIMATION]
 
-- Owner: `CostKind` carries 18 signed dimensions: machine, material, tooling, consumable, setup, labor, energy, rework, scrap, quality, outside service, logistics, overhead, depreciation, tax, contingency, margin, and remnant credit. `EstimateBasis` carries subject and canonical `Rasm.Element.Currency`, content-keyed evidence, operation clocks, unit-correct material tariffs, consumable/tool/rework rates, commercial loads, and batch capacity. `CostRow` stamps currency on every line; `CostReceipt` carries the unit ledger; `QuoteReceipt` carries batch count plus typed amortized-setup, scrap-load, logistics, contingency, tax, and margin rows — every lot transformation is a signed adjustment row, never a bare scalar.
-- Cases: motion may use its declared duration only when simulation is absent; additive, verification, and posted programs demand simulation; verification prices the full verified clock and separate rework volume; inspection and forming demand named `OperationTime` rows; placement consumes explicit sheet area and credits remnants; additive consumes recovered feedstock mass; flat-pattern material uses the signed contour-area sum so holes subtract. Tool and consumable depletion clamp to one life, while energy reads the same correlated simulation and machine evidence.
-- Entry: `public static Fin<CostReceipt> Of(FabricationResult result, EstimateBasis basis)` — the ONE projection; `public static Fin<QuoteReceipt> Quote(FabricationResult result, EstimateBasis basis, int quantity)` — the lot fold composing `Of`, amortizing setup/labor rows over the quantity, loading `ScrapRate`, applying `MarginFactor`; `Fin<T>` routes only kernel `GeometryFault.DegenerateInput` (un-priceable case, absent required clock, non-positive quantity); NO fabrication fault arm mints or routes here — the receipts-only law.
-- Auto: admission accumulates invalid tariffs, ratios, evidence subjects, operation clocks, stock area, and additive yield before dispatch. Each result-case arm passes explicit simulation provenance into `Assemble`; equal seconds never manufacture provenance. `Assemble` derives quality, outside-service, depreciation, and overhead rows from the unit ledger. `Quote` repeats fixed rows per `BatchCapacity`, amortizes them across quantity, loads scrap, logistics, contingency, tax, and margin, and carries each lot adjustment as a currency-stamped row.
-- Receipt: `CostReceipt` IS the typed evidence — the signed row ledger, the total, the seconds basis, and the `SimulationBacked` provenance flag; `QuoteReceipt` carries the lot economics over it; no generic cost ledger, no unpriced silent zero.
-- Packages: `Verify/simulate` (`SimulationReceipt`); `Kinematics/fleet` (`MachineMatch.Checks.Feasible`, `Instance.HourlyRate`, `SpindlePowerKw`); `Tooling/wear` (`WearState.VbMm`, `WearState.WearLimitMm`, `ConsumableRow`, `CriticalWear`); `Joining/sequence` (`WeldSchedule.TotalS` — the joining clock evidence); `Nesting/stock` (`NestYield` aggregates); `Process/owner` (the 10-case result union and `Loop`); `Geometry2D/arcs` (`ArcArea` — the bulge-true signed measure); `Rasm.Element` (`Currency`); `Rasm.Numerics` (`GeometryFault`); Thinktecture.Runtime.Extensions; LanguageExt.Core; BCL inbox; recorded seam: `Rasm.Compute` `NestWasteArea` frozen wire.
-- Growth: a new cost dimension is one `CostKind` row + one arm term; a per-machine energy profile is one `MachineInstance` column read here; scrap loading from enrolled `CapabilityHistory` displaces the `ScrapRate` scalar when the Spec seam threads it; the per-step rated forecast is one `PlannedStep` duration column read by the plan arm; a currency/locale concern is the consumer's presentation, never a receipt column; zero new surface.
-- Boundary: `Estimate` is the ONE pricing fold and a per-case `MotionCost`/`NestCost` sibling family is the deleted form; the clock is simulate's receipt and a page-local time integral is the second-clock defect — an absence-tolerant `IfNone(0.0)` on a clock-requiring arm is the silent-zero defect; the rate is the fleet instance column, only `Checks.Feasible` match evidence may carry it — infeasible match evidence fails admission typed while fleet retains the rejected rows — and a page-local rate table is the deleted form; the tool-life criterion is `WearState.WearLimitMm` — the receipt's own limit — and a pricing-local VB scalar beside it is the split-criterion defect; material truth is the stock yield receipt and a re-measured sheet area is the deleted form; the credit is a SIGNED `CostKind` row and a call-site negation is the named defect; setup prices at the LABOR rate — machine occupancy and human time are distinct tariffs; receipts-only — a fault arm minted here violates the registry law.
+- Owner: `EstimateBasis` binds one subject, currency, evaluation instant, evidence corpus, tariff map, carbon-factor map, uncertainty, and remnant policy. `QuotePolicy` binds lot shape, per-kind commercial loading, confidence, and validity, and derives its own batch count. `CapacityQuote` bounds the units admitted by its promise interval and derives that interval, its queue, and its load factor from `LotReceipt` and the bottleneck `AvailabilityPlan` whenever the package planned the lot. `CostReceipt` owns unit money, carbon, clock, per-kind reconciliation, and evidence identity. `QuoteReceipt` owns lot allocation, risk-loaded totals, validity, and promise interval.
+- Cases: `EstimateEvidence` covers simulation, fleet match, wear, stock, additive build, welding, operation time, capacity, quality, outside service, logistics, and consumable mass, and each case owns the `CostActivity` and `ImpactActivity` rows it can prove. `EvidenceKind` names each case and declares whether it admits repetition. `CostKind` and `CarbonKind` generate every activity and allocation row from policy data.
+- Entry: `Estimate.Run(EstimateRequest request)` admits unit and lot modalities by input case, consumes generated `EstimateBasis` and `QuotePolicy` admission, verifies result-to-subject identity, then evaluates one total `FabricationResult.Switch` into an `EstimateDemand` whose required evidence kinds gate the fold.
+- Auto: `SimulationReceipt` supplies authoritative duration and energy, including specialized slices retained in `SimulationReceipt.Specialized`. `MachineMatch.HourlyRate` supplies assessed machine rate, and `MachineInstance.Availability` supplies routing truth. `WearReceipt`, `BuildReceipt`, `NestYield`, `WeldSchedule.Total`, `CapacityQuote`, and explicit operation receipts supply their owned facts.
+- Receipt: every `EstimateRow.Money` retains `CostKind`, `CostStage`, quantity, and rate, so `Amount` is always re-derivable and batch, lot, commercial loading, and risk projections never relabel labor as setup. `QuoteReceipt.ExpectedTotal`, `RiskTotal`, and `QuotedTotal` remain disjoint projections over the same ledger, and `ByKind` reconciles per source dimension on both sides of every lot transformation. `CostReceipt.MachineTime` remains the traveler actual-versus-estimated reconciliation seam.
+- Packages: `Verify/simulate` (`SimulationReceipt`); `Additive/production` (`BuildReceipt`, `OrientationVerdict.Admitted`, `OrientedPart.RequiredFeedstock`, `FeedstockBlend.VirginFraction`); `Kinematics/fleet` (`MachineMatch.HourlyRate`, `MachineInstance.Availability`, `AvailabilityPlan.LoadFactor`); `Process/derivation` (`LotReceipt.Available`, `LotReceipt.Completion`, `LotReceipt.Queue`); `Tooling/wear` (`WearReceipt`, `WearState`, `ConsumableRow`, `ConsumableKind`); `Nesting/stock` (`NestYield`); `Joining/sequence` (`WeldSchedule.Total`); `Process/owner` (`FabricationResult`, `ContentKey`); `NodaTime` (`Instant`, `Duration`, `Interval`); `MathNet.Numerics.Distributions` (`Normal.InvCDF`); `Rasm.Element` (`Currency`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: new evidence is one `EstimateEvidence` case with its `EvidenceKind` row and its own activity arm; a priceable resource is one `CostKind` row with one tariff; an emission source is one `CarbonKind` row with one factor; an allocation regime is one `AllocationKind` row; a commercial transformation is one `CommercialLoad` row carrying its rank and compounding base.
+- Boundary: pricing consumes evidence and never invents missing clocks or rates. Every evidence case correlates to `EstimateBasis.Subject`. Credits remain signed rows. Carbon never converts to currency. Quote validity and capacity use one evaluation instant. Machine and depreciation rows belong to the clock spine at the demand locus, so an `OperationTime` at that same locus contributes labor and setup only.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Element.Composition;
-using Rasm.Fabrication.Geometry2D;
+using Rasm.Domain;
+using MathNet.Numerics.Distributions;
+using NodaTime;
+using Rasm.Element;
+using Rasm.Fabrication.Additive;
 using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Nesting;
@@ -39,386 +39,653 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Verify;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// The signed-row law: Credit rows land negative through the axis, never a call-site minus.
+[SmartEnum<string>]
+public sealed partial class CostStage {
+    public static readonly CostStage Unit = new("unit");
+    public static readonly CostStage Batch = new("batch");
+    public static readonly CostStage Lot = new("lot");
+    public static readonly CostStage Scrap = new("scrap");
+    public static readonly CostStage Contingency = new("contingency");
+    public static readonly CostStage Margin = new("margin");
+    public static readonly CostStage Tax = new("tax");
+    public static readonly CostStage Risk = new("risk");
+}
+
+[SmartEnum<string>]
+public sealed partial class AllocationKind {
+    public static readonly AllocationKind Variable = new("variable", CostStage.Unit, true, static (quantity, _) => quantity);
+    public static readonly AllocationKind Batch = new("batch", CostStage.Batch, true, static (_, batches) => batches);
+    public static readonly AllocationKind Lot = new("lot", CostStage.Lot, true, static (_, _) => 1);
+    public static readonly AllocationKind Credit = new("credit", CostStage.Unit, false, static (quantity, _) => quantity);
+
+    public CostStage Stage { get; }
+    public bool CommerciallyLoadable { get; }
+
+    [UseDelegateFromConstructor]
+    public partial int Multiplier(int quantity, int batches);
+}
+
+[SmartEnum<string>]
+public sealed partial class RateBasis {
+    public static readonly RateBasis Hour = new("hour");
+    public static readonly RateBasis SquareMeter = new("square-meter");
+    public static readonly RateBasis Kilogram = new("kilogram");
+    public static readonly RateBasis KilowattHour = new("kilowatt-hour");
+    public static readonly RateBasis Life = new("life");
+    public static readonly RateBasis CubicCentimeter = new("cubic-centimeter");
+    public static readonly RateBasis Unit = new("unit");
+    public static readonly RateBasis Lot = new("lot");
+    public static readonly RateBasis TonneKilometer = new("tonne-kilometer");
+}
+
 [SmartEnum<string>]
 public sealed partial class CostKind {
-    public static readonly CostKind MachineTime = new("machine-time", credit: false);
-    public static readonly CostKind Material = new("material", credit: false);
-    public static readonly CostKind Tooling = new("tooling", credit: false);
-    public static readonly CostKind Consumable = new("consumable", credit: false);
-    public static readonly CostKind Setup = new("setup", credit: false);
-    public static readonly CostKind Labor = new("labor", credit: false);
-    public static readonly CostKind Energy = new("energy", credit: false);
-    public static readonly CostKind Rework = new("rework", credit: false);
-    public static readonly CostKind Scrap = new("scrap", credit: false);
-    public static readonly CostKind Quality = new("quality", credit: false);
-    public static readonly CostKind OutsideService = new("outside-service", credit: false);
-    public static readonly CostKind Logistics = new("logistics", credit: false);
-    public static readonly CostKind Overhead = new("overhead", credit: false);
-    public static readonly CostKind Depreciation = new("depreciation", credit: false);
-    public static readonly CostKind Tax = new("tax", credit: false);
-    public static readonly CostKind Contingency = new("contingency", credit: false);
-    public static readonly CostKind Margin = new("margin", credit: false);
-    public static readonly CostKind RemnantCredit = new("remnant-credit", credit: true);
+    public static readonly CostKind Machine = new("machine", RateBasis.Hour, AllocationKind.Variable);
+    public static readonly CostKind Labor = new("labor", RateBasis.Hour, AllocationKind.Variable);
+    public static readonly CostKind Setup = new("setup", RateBasis.Hour, AllocationKind.Batch);
+    public static readonly CostKind Material = new("material", RateBasis.SquareMeter, AllocationKind.Variable);
+    public static readonly CostKind AdditiveMaterial = new("additive-material", RateBasis.Kilogram, AllocationKind.Variable);
+    public static readonly CostKind Energy = new("energy", RateBasis.KilowattHour, AllocationKind.Variable);
+    public static readonly CostKind Tooling = new("tooling", RateBasis.Life, AllocationKind.Variable);
+    public static readonly CostKind Consumable = new("consumable", RateBasis.Life, AllocationKind.Variable);
+    public static readonly CostKind Rework = new("rework", RateBasis.CubicCentimeter, AllocationKind.Variable);
+    public static readonly CostKind Quality = new("quality", RateBasis.Unit, AllocationKind.Variable);
+    public static readonly CostKind OutsideService = new("outside-service", RateBasis.Unit, AllocationKind.Variable);
+    public static readonly CostKind Logistics = new("logistics", RateBasis.Lot, AllocationKind.Lot);
+    public static readonly CostKind Depreciation = new("depreciation", RateBasis.Hour, AllocationKind.Variable);
+    public static readonly CostKind Remnant = new("remnant", RateBasis.Kilogram, AllocationKind.Credit);
 
-    public bool Credit { get; }
-
-    public double Signed(double amount) => Credit ? -Math.Abs(amount) : Math.Abs(amount);
+    public RateBasis Basis { get; }
+    public AllocationKind Allocation { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Carried receipts + tariffs: every option is a LANDED sibling receipt, never a re-derivation; the consumable
-// price map keys on the wear row kind with the scalar fallback.
-public readonly record struct CostEvidence<T>(ContentKey Subject, T Receipt);
+[SmartEnum<string>]
+public sealed partial class CarbonKind {
+    public static readonly CarbonKind Electricity = new("electricity", RateBasis.KilowattHour, AllocationKind.Variable);
+    public static readonly CarbonKind Material = new("material", RateBasis.Kilogram, AllocationKind.Variable);
+    public static readonly CarbonKind RecycledFeedstock = new("recycled-feedstock", RateBasis.Kilogram, AllocationKind.Variable);
+    public static readonly CarbonKind Scrap = new("scrap", RateBasis.Kilogram, AllocationKind.Variable);
+    public static readonly CarbonKind Recovery = new("recovery", RateBasis.Kilogram, AllocationKind.Credit);
+    public static readonly CarbonKind Consumable = new("consumable", RateBasis.Kilogram, AllocationKind.Variable);
+    public static readonly CarbonKind Logistics = new("logistics", RateBasis.TonneKilometer, AllocationKind.Lot);
 
-public readonly record struct StockConsumption(NestYield Yield, double ConsumedAreaMm2);
+    public RateBasis Basis { get; }
+    public AllocationKind Allocation { get; }
+}
 
-public readonly record struct AdditiveYield(double PartVolumeMm3, double SupportVolumeMm3, double PurgeVolumeMm3, double DensityKgPerM3, double RecoveryFraction);
+// Rank fixes the compounding order and `Over` declares the stages each load prices, so tax rides the marked-up total
+// while margin never prices tax; a new commercial transformation is one row and no fold changes.
+[SmartEnum<string>]
+public sealed partial class CommercialLoad {
+    public static readonly CommercialLoad Scrap = new("scrap", CostStage.Scrap, rank: 0,
+        Set(CostStage.Unit, CostStage.Batch, CostStage.Lot),
+        static rate => rate / (1.0 - rate), static rate => rate is >= 0.0 and < 1.0);
+    public static readonly CommercialLoad Contingency = new("contingency", CostStage.Contingency, rank: 1,
+        Set(CostStage.Unit, CostStage.Batch, CostStage.Lot, CostStage.Scrap),
+        static rate => rate, static rate => rate >= 0.0);
+    public static readonly CommercialLoad Margin = new("margin", CostStage.Margin, rank: 2,
+        Set(CostStage.Unit, CostStage.Batch, CostStage.Lot, CostStage.Scrap, CostStage.Contingency),
+        static rate => rate, static rate => rate >= 0.0);
+    public static readonly CommercialLoad Tax = new("tax", CostStage.Tax, rank: 3,
+        Set(CostStage.Unit, CostStage.Batch, CostStage.Lot, CostStage.Scrap, CostStage.Contingency, CostStage.Margin),
+        static rate => rate, static rate => rate >= 0.0);
 
-public readonly record struct OperationTime(string Locus, double MachineSeconds, double LaborSeconds);
+    public CostStage Stage { get; }
+    public int Rank { get; }
+    public Set<CostStage> Over { get; }
 
-public sealed record EstimateBasis(
+    [UseDelegateFromConstructor]
+    public partial double Factor(double rate);
+
+    [UseDelegateFromConstructor]
+    public partial bool Admits(double rate);
+}
+
+[SmartEnum<string>]
+public sealed partial class EvidenceKind {
+    public static readonly EvidenceKind Simulation = new("simulation", repeatable: false);
+    public static readonly EvidenceKind Machine = new("machine", repeatable: false);
+    public static readonly EvidenceKind Wear = new("wear", repeatable: false);
+    public static readonly EvidenceKind Stock = new("stock", repeatable: false);
+    public static readonly EvidenceKind Additive = new("additive", repeatable: false);
+    public static readonly EvidenceKind Welding = new("welding", repeatable: false);
+    public static readonly EvidenceKind Operation = new("operation", repeatable: true);
+    public static readonly EvidenceKind Capacity = new("capacity", repeatable: false);
+    public static readonly EvidenceKind Quality = new("quality", repeatable: false);
+    public static readonly EvidenceKind OutsideService = new("outside-service", repeatable: false);
+    public static readonly EvidenceKind Logistics = new("logistics", repeatable: false);
+    public static readonly EvidenceKind ConsumableMass = new("consumable-mass", repeatable: false);
+
+    public bool Repeatable { get; }
+}
+
+[ComplexValueObject]
+public sealed partial class StockConsumption {
+    public NestYield Yield { get; }
+    public double ConsumedAreaMm2 { get; }
+    public double ThicknessMm { get; }
+    public double DensityKgM3 { get; }
+    public double RemnantMassKg { get; }
+
+    public double ConsumedMassKg => ConsumedAreaMm2 * ThicknessMm * DensityKgM3 / 1e9;
+    public double WasteMassKg => Yield.WasteAreaMm2 * ThicknessMm * DensityKgM3 / 1e9;
+    public double ScrapMassKg => WasteMassKg - RemnantMassKg;
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NestYield yield,
+        ref double consumedAreaMm2, ref double thicknessMm, ref double densityKgM3, ref double remnantMassKg) {
+        bool finite = new[] { consumedAreaMm2, thicknessMm, densityKgM3, remnantMassKg }.ForAll(double.IsFinite);
+        double recoverableWasteKg = yield is null ? double.NaN : yield.WasteAreaMm2 * thicknessMm * densityKgM3 / 1e9;
+        if (yield is null || !finite || consumedAreaMm2 < yield.TruePartAreaMm2 || consumedAreaMm2 > yield.StockAreaMm2
+            || thicknessMm <= 0.0 || densityKgM3 <= 0.0 || remnantMassKg < 0.0 || remnantMassKg > recoverableWasteKg)
+            validationError = new ValidationError(message: "stock consumption requires bounded part, stock, waste, and remnant mass with positive section and density");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class OperationTime {
+    public string Locus { get; }
+    public Duration Machine { get; }
+    public Duration Labor { get; }
+    public Duration Setup { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string locus,
+        ref Duration machine, ref Duration labor, ref Duration setup) {
+        locus = locus?.Trim() ?? string.Empty;
+        if (locus.Length == 0 || machine < Duration.Zero || labor < Duration.Zero || setup < Duration.Zero)
+            validationError = new ValidationError(message: "operation time requires one locus and nonnegative machine, labor, and setup clocks");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class CapacityQuote {
+    public Interval Promise { get; }
+    public Duration Queue { get; }
+    public double LoadFactor { get; }
+    public int Units { get; }
+
+    // A planned lot never asserts its own promise: availability, calendar completion, and the queue the shift
+    // calendar imposed are already derived facts, and the bottleneck machine's committed load is the fourth.
+    // Scalar admission survives only for capacity the package did not plan, such as an outside service window.
+    public static Fin<CapacityQuote> Of(LotReceipt lot, AvailabilityPlan bottleneck, int units) =>
+        Validate(new Interval(lot.Available, lot.Completion), lot.Queue, bottleneck.LoadFactor, units,
+            out CapacityQuote quote) is { } error
+                ? Fin.Fail<CapacityQuote>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, error.Message).ToError())
+                : Fin.Succ(quote);
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Interval promise,
+        ref Duration queue, ref double loadFactor, ref int units) {
+        if (promise is null || !promise.HasStart || !promise.HasEnd || promise.Duration <= Duration.Zero
+            || queue < Duration.Zero || !double.IsFinite(loadFactor)
+            || loadFactor is < 0.0 or > 1.0 || units <= 0)
+            validationError = new ValidationError(message: "capacity quote requires a promise interval, positive unit capacity, nonnegative queue, and bounded load factor");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class LogisticsActivity {
+    public double TonneKilometers { get; }
+    public int Lots { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double tonneKilometers, ref int lots) {
+        if (!double.IsFinite(tonneKilometers) || tonneKilometers < 0.0 || lots <= 0)
+            validationError = new ValidationError(message: "logistics activity requires nonnegative freight activity and positive lots");
+    }
+}
+
+public readonly record struct CostActivity(CostKind Kind, string Locus, double Quantity);
+
+public readonly record struct ImpactActivity(CarbonKind Kind, string Locus, double Quantity);
+
+public readonly record struct ActivityRows(Seq<CostActivity> Cost, Seq<ImpactActivity> Impact) {
+    public static ActivityRows Empty { get; } = new(Seq<CostActivity>(), Seq<ImpactActivity>());
+
+    public ActivityRows Concat(ActivityRows other) => new(Cost.Concat(other.Cost), Impact.Concat(other.Impact));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EstimateEvidence(ContentKey Subject) {
+
+    public sealed record Simulation(ContentKey Subject, SimulationReceipt Receipt) : EstimateEvidence(Subject);
+    public sealed record Machine(ContentKey Subject, MachineMatch Receipt) : EstimateEvidence(Subject);
+    public sealed record Wear(ContentKey Subject, WearReceipt Receipt) : EstimateEvidence(Subject);
+    public sealed record Stock(ContentKey Subject, StockConsumption Receipt) : EstimateEvidence(Subject);
+    public sealed record Additive(ContentKey Subject, BuildReceipt Receipt) : EstimateEvidence(Subject);
+    public sealed record Welding(ContentKey Subject, WeldSchedule Receipt) : EstimateEvidence(Subject);
+    public sealed record Operation(ContentKey Subject, OperationTime Receipt) : EstimateEvidence(Subject);
+    public sealed record Capacity(ContentKey Subject, CapacityQuote Receipt) : EstimateEvidence(Subject);
+    public sealed record Quality(ContentKey Subject, int Units) : EstimateEvidence(Subject);
+    public sealed record OutsideService(ContentKey Subject, int Units) : EstimateEvidence(Subject);
+    public sealed record Logistics(ContentKey Subject, LogisticsActivity Receipt) : EstimateEvidence(Subject);
+    public sealed record ConsumableMass(ContentKey Subject, Map<ConsumableKind, double> Kilograms) : EstimateEvidence(Subject);
+
+    public EvidenceKind Kind => Switch(
+        simulation: static _ => EvidenceKind.Simulation,
+        machine: static _ => EvidenceKind.Machine,
+        wear: static _ => EvidenceKind.Wear,
+        stock: static _ => EvidenceKind.Stock,
+        additive: static _ => EvidenceKind.Additive,
+        welding: static _ => EvidenceKind.Welding,
+        operation: static _ => EvidenceKind.Operation,
+        capacity: static _ => EvidenceKind.Capacity,
+        quality: static _ => EvidenceKind.Quality,
+        outsideService: static _ => EvidenceKind.OutsideService,
+        logistics: static _ => EvidenceKind.Logistics,
+        consumableMass: static _ => EvidenceKind.ConsumableMass);
+
+    public bool Payload => Switch(
+        simulation: static value => value.Receipt is not null,
+        machine: static value => value.Receipt is not null && value.Receipt.Instance is not null,
+        wear: static value => value.Receipt is not null,
+        stock: static value => value.Receipt is not null,
+        additive: static value => value.Receipt is not null
+            && value.Receipt.Orientations.Exists(static verdict => verdict is OrientationVerdict.Admitted),
+        welding: static value => value.Receipt is not null,
+        operation: static value => value.Receipt is not null,
+        capacity: static value => value.Receipt is not null,
+        quality: static value => value.Units >= 0,
+        outsideService: static value => value.Units >= 0,
+        logistics: static value => value.Receipt is not null,
+        consumableMass: static value => value.Kilograms.ForAll(static item => item.Key is not null
+            && double.IsFinite(item.Value) && item.Value >= 0.0));
+
+    // Every case prices what its own receipt proves. The clock spine owns machine, depreciation, and energy at the
+    // demand locus, so an operation receipt sharing that locus contributes labor and setup only.
+    public ActivityRows Rows(EstimateBasis basis, string clockLocus) => Switch(
+        state: (Basis: basis, Clock: clockLocus),
+        simulation: static (_, _) => ActivityRows.Empty,
+        machine: static (_, _) => ActivityRows.Empty,
+        capacity: static (_, _) => ActivityRows.Empty,
+        wear: static (_, value) => new ActivityRows(
+            value.Receipt.States.Choose(static state => state is WearState.Tool row && row.Limit > 0.0
+                    ? Some(new CostActivity(CostKind.Tooling, $"tool:{row.Target}", Math.Clamp(row.Current / row.Limit, 0.0, 1.0)))
+                    : None)
+                .Concat(value.Receipt.Consumables.Filter(static row => row.Limit > 0.0)
+                    .Map(static row => new CostActivity(CostKind.Consumable, $"consumable:{row.Kind.Key}",
+                        Math.Clamp(row.Used / row.Limit, 0.0, 1.0)))),
+            Seq<ImpactActivity>()),
+        stock: static (context, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.Material, "stock", value.Receipt.ConsumedAreaMm2 / 1e6),
+                new CostActivity(CostKind.Remnant, "remnant", -value.Receipt.RemnantMassKg * context.Basis.RemnantCreditFactor)),
+            Seq(new ImpactActivity(CarbonKind.Material, "stock", value.Receipt.ConsumedMassKg),
+                new ImpactActivity(CarbonKind.Scrap, "stock", value.Receipt.ScrapMassKg),
+                new ImpactActivity(CarbonKind.Recovery, "remnant", -value.Receipt.RemnantMassKg))),
+        additive: static (_, value) => Feedstock(value.Receipt),
+        welding: static (_, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.Machine, "welding", value.Receipt.Total.TotalHours),
+                new CostActivity(CostKind.Labor, "welding", value.Receipt.Total.TotalHours)),
+            Seq<ImpactActivity>()),
+        operation: static (context, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.Labor, value.Receipt.Locus, value.Receipt.Labor.TotalHours),
+                new CostActivity(CostKind.Setup, value.Receipt.Locus, value.Receipt.Setup.TotalHours))
+                .Concat(value.Receipt.Locus == context.Clock
+                    ? Seq<CostActivity>()
+                    : Seq(new CostActivity(CostKind.Machine, value.Receipt.Locus, value.Receipt.Machine.TotalHours))),
+            Seq<ImpactActivity>()),
+        quality: static (_, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.Quality, "quality", value.Units)), Seq<ImpactActivity>()),
+        outsideService: static (_, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.OutsideService, "outside-service", value.Units)), Seq<ImpactActivity>()),
+        logistics: static (_, value) => new ActivityRows(
+            Seq(new CostActivity(CostKind.Logistics, "logistics", value.Receipt.Lots)),
+            Seq(new ImpactActivity(CarbonKind.Logistics, "logistics", value.Receipt.TonneKilometers))),
+        consumableMass: static (_, value) => new ActivityRows(Seq<CostActivity>(), value.Kilograms
+            .Map(static row => new ImpactActivity(CarbonKind.Consumable, $"consumable:{row.Key.Key}", row.Value)).ToSeq()));
+
+    private static ActivityRows Feedstock(BuildReceipt receipt) {
+        Seq<OrientedPart> parts = receipt.Orientations.Choose(static verdict => verdict is OrientationVerdict.Admitted admitted
+            ? Some(admitted.Part) : None);
+        double requiredKg = parts.Sum(static part => part.RequiredFeedstock.Kilograms);
+        double virginKg = parts.Sum(static part => part.RequiredFeedstock.Kilograms
+            * part.Part.Feedstock.VirginFraction.DecimalFractions);
+        return new ActivityRows(
+            Seq(new CostActivity(CostKind.AdditiveMaterial, "additive", requiredKg)),
+            Seq(new ImpactActivity(CarbonKind.Material, "additive:virgin", virginKg),
+                new ImpactActivity(CarbonKind.RecycledFeedstock, "additive:recycled", requiredKg - virginKg)));
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class EstimateBasis {
+    public ContentKey Subject { get; }
+    public Currency Currency { get; }
+    public Instant EvaluatedAt { get; }
+    public Seq<EstimateEvidence> Evidence { get; }
+    public Map<CostKind, decimal> Tariffs { get; }
+    public Map<CarbonKind, double> CarbonFactors { get; }
+    public Map<CostKind, double> CoefficientOfVariation { get; }
+    public double RemnantCreditFactor { get; }
+
+    public Option<T> Find<T>() where T : EstimateEvidence => Evidence.Find(static row => row is T).Map(static row => (T)row);
+
+    public bool Carries(EvidenceKind kind) => Evidence.Exists(row => row.Kind == kind);
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref ContentKey subject,
+        ref Currency currency,
+        ref Instant evaluatedAt,
+        ref Seq<EstimateEvidence> evidence,
+        ref Map<CostKind, decimal> tariffs,
+        ref Map<CarbonKind, double> carbonFactors,
+        ref Map<CostKind, double> coefficientOfVariation,
+        ref double remnantCreditFactor) {
+        bool priceComplete = toSeq(CostKind.Items).ForAll(kind => tariffs.Find(kind).Exists(static rate => rate >= decimal.Zero));
+        bool carbonComplete = toSeq(CarbonKind.Items).ForAll(kind => carbonFactors.Find(kind)
+            .Exists(static factor => double.IsFinite(factor) && factor >= 0.0));
+        bool uncertaintyComplete = toSeq(CostKind.Items).ForAll(kind => coefficientOfVariation.Find(kind)
+            .Exists(static value => double.IsFinite(value) && value >= 0.0));
+        bool correlated = evidence.ForAll(row => row is not null && row.Subject == subject);
+        bool cardinality = evidence.ForAll(row => row is not null && (row.Kind.Repeatable
+            || evidence.Count(candidate => candidate is not null && candidate.Kind == row.Kind) == 1));
+        Seq<OperationTime> operations = evidence.Choose(static row => row is EstimateEvidence.Operation value ? Some(value.Receipt) : None);
+        bool operationIdentity = operations.Map(static value => value.Locus).Distinct().Count == operations.Count;
+        Option<EstimateEvidence.Machine> machine = evidence.Find(static row => row is EstimateEvidence.Machine)
+            .Map(static row => (EstimateEvidence.Machine)row);
+        Option<EstimateEvidence.Capacity> capacity = evidence.Find(static row => row is EstimateEvidence.Capacity)
+            .Map(static row => (EstimateEvidence.Capacity)row);
+        bool feasible = machine.ForAll(static value => value.Receipt is not null && value.Receipt.Checks.Feasible);
+        bool temporal = capacity.ForAll(value => value.Receipt is not null
+            && value.Receipt.Promise is { HasStart: true, HasEnd: true } promise
+            && (promise.Contains(evaluatedAt) || promise.Start >= evaluatedAt))
+            && (capacity.IsSome || machine.ForAll(value => value.Receipt is not null && value.Receipt.Instance is not null
+                && value.Receipt.Instance.Availability.IsRoutable(evaluatedAt)));
+        bool payloads = evidence.ForAll(row => row is not null && row.Payload);
+        if (subject.Kind is null || currency is null || !priceComplete || !carbonComplete || !uncertaintyComplete
+            || !correlated || !cardinality || !operationIdentity || !feasible || !temporal || !payloads
+            || !double.IsFinite(remnantCreditFactor) || remnantCreditFactor is < 0.0 or > 1.0)
+            validationError = new ValidationError(message: "estimate basis requires correlated evidence, complete rates and factors, bounded uncertainty, and one subject");
+    }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EstimateRow {
+    private EstimateRow() { }
+
+    public sealed record Money(CostKind Kind, CostStage Stage, string Locus, Currency Currency,
+        double Quantity, decimal Rate) : EstimateRow {
+        public decimal Amount => Rate * (decimal)Quantity;
+    }
+
+    public sealed record Carbon(CarbonKind Kind, string Locus, double Quantity, double Factor) : EstimateRow {
+        public double KgCo2e => Quantity * Factor;
+    }
+
+    public AllocationKind Allocation => Switch(
+        money: static value => value.Kind.Allocation,
+        carbon: static value => value.Kind.Allocation);
+
+    public EstimateRow Allocate(int quantity, int batches) => Switch(
+        state: (Quantity: quantity, Batches: batches),
+        money: static (lot, value) => (EstimateRow)(value with {
+            Stage = value.Kind.Allocation.Stage,
+            Quantity = value.Quantity * value.Kind.Allocation.Multiplier(lot.Quantity, lot.Batches),
+        }),
+        carbon: static (lot, value) => value with {
+            Quantity = value.Quantity * value.Kind.Allocation.Multiplier(lot.Quantity, lot.Batches),
+        });
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EstimateClock {
+    private EstimateClock() { }
+
+    public sealed record Simulation(Duration Duration) : EstimateClock;
+    public sealed record Declared(Duration Duration) : EstimateClock;
+
+    public Duration Value => Switch(
+        simulation: static value => value.Duration,
+        declared: static value => value.Duration);
+}
+
+public sealed record CostReceipt(
     ContentKey Subject,
     Currency Currency,
-    Option<CostEvidence<SimulationReceipt>> Simulation,
-    Option<CostEvidence<MachineMatch>> Match,
-    Option<CostEvidence<WearState>> Wear,
-    Option<CostEvidence<StockConsumption>> Stock,
-    Option<CostEvidence<AdditiveYield>> Additive,
-    Option<CostEvidence<WeldSchedule>> Welding,
-    Seq<OperationTime> OperationTimes,
-    double MaterialRatePerM2, double AdditiveRatePerKg, double FallbackRatePerHour, double LaborRatePerHour, double EnergyRatePerKwh,
-    double ConsumableCostPerLife, Map<string, double> ConsumablePrices, double ToolCostPerLife,
-    double ReworkRatePerCm3, double RemnantCreditFactor,
-    double SetupSeconds,
-    double QualityPerUnit, double OutsideServicePerUnit, double LogisticsPerLot, double OverheadRate, double DepreciationPerHour,
-    double TaxRate, double ContingencyRate, double ScrapRate, double MarginFactor, int BatchCapacity) {
-    public static EstimateBasis For(ContentKey subject, Currency currency) => new(
-        Subject: subject, Currency: currency, Simulation: None, Match: None, Wear: None, Stock: None, Additive: None, Welding: None, OperationTimes: Seq<OperationTime>(),
-        MaterialRatePerM2: 45.0, AdditiveRatePerKg: 30.0, FallbackRatePerHour: 90.0, LaborRatePerHour: 55.0, EnergyRatePerKwh: 0.30,
-        ConsumableCostPerLife: 25.0, ConsumablePrices: Map<string, double>(), ToolCostPerLife: 180.0,
-        ReworkRatePerCm3: 4.0, RemnantCreditFactor: 0.6,
-        SetupSeconds: 900.0, QualityPerUnit: 0.0, OutsideServicePerUnit: 0.0, LogisticsPerLot: 0.0,
-        OverheadRate: 0.15, DepreciationPerHour: 0.0, TaxRate: 0.0, ContingencyRate: 0.05,
-        ScrapRate: 0.02, MarginFactor: 1.35, BatchCapacity: 1);
-
-    public double RatePerHour => Match.Map(static evidence => evidence.Receipt.Instance.HourlyRate).IfNone(FallbackRatePerHour);
+    Instant EvaluatedAt,
+    Seq<EstimateRow> Rows,
+    EstimateClock Clock) {
+    public Duration MachineTime => Clock.Value;
+    public bool SimulationBacked => Clock is EstimateClock.Simulation;
+    public Seq<EstimateRow.Money> Money => Rows.Choose(static row => row is EstimateRow.Money value ? Some(value) : None);
+    public Seq<EstimateRow.Carbon> Carbon => Rows.Choose(static row => row is EstimateRow.Carbon value ? Some(value) : None);
+    public decimal MoneyTotal => Money.Sum(static row => row.Amount);
+    public double CarbonTotalKgCo2e => Carbon.Sum(static row => row.KgCo2e);
+    public Map<CostKind, decimal> ByKind => Estimate.Reconcile(Money);
+    public Map<CarbonKind, double> CarbonByKind => Estimate.Reconcile(Carbon);
 }
 
-public readonly record struct CostRow(CostKind Kind, string Locus, Currency Currency, double Amount);
+[ComplexValueObject]
+public sealed partial class QuotePolicy {
+    public int Quantity { get; }
+    public int BatchCapacity { get; }
+    public Map<(CommercialLoad Load, CostKind Kind), double> Loading { get; }
+    public double Confidence { get; }
+    public Duration ValidFor { get; }
 
-public sealed record CostReceipt(ContentKey Subject, Currency Currency, Seq<CostRow> Rows, double Total, double MachineSeconds, bool SimulationBacked);
+    public int Batches => (int)Math.Ceiling((double)Quantity / BatchCapacity);
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int quantity,
+        ref int batchCapacity,
+        ref Map<(CommercialLoad Load, CostKind Kind), double> loading,
+        ref double confidence,
+        ref Duration validFor) {
+        bool complete = toSeq(CommercialLoad.Items).ForAll(load => toSeq(CostKind.Items)
+            .ForAll(kind => loading.Find((load, kind)).Exists(rate => double.IsFinite(rate) && load.Admits(rate))));
+        if (quantity <= 0 || batchCapacity <= 0 || !complete || !double.IsFinite(confidence)
+            || confidence is <= 0.5 or >= 1.0 || validFor <= Duration.Zero)
+            validationError = new ValidationError(message: "quote policy requires positive quantity, capacity, validity, confidence, and one commercial loading per stage and cost kind");
+    }
+}
 
 public sealed record QuoteReceipt(
-    int Quantity,
-    int Batches,
-    double UnitMarginal,
-    double AmortizedSetup,
-    double ScrapLoadedUnit,
-    double Logistics,
-    double Tax,
-    double Contingency,
-    double LotTotal,
-    Seq<CostRow> Adjustments,
-    CostReceipt Unit);
+    CostReceipt Unit,
+    QuotePolicy Policy,
+    Seq<EstimateRow.Money> Money,
+    Seq<EstimateRow.Carbon> Carbon,
+    Option<CapacityQuote> Capacity) {
+    public int Batches => Policy.Batches;
+    public decimal ExpectedTotal => Money.Filter(static row => row.Stage != CostStage.Risk).Sum(static row => row.Amount);
+    public decimal RiskTotal => Money.Filter(static row => row.Stage == CostStage.Risk).Sum(static row => row.Amount);
+    public decimal QuotedTotal => Money.Sum(static row => row.Amount);
+    public double CarbonTotalKgCo2e => Carbon.Sum(static row => row.KgCo2e);
+    public Map<CostKind, decimal> ByKind => Estimate.Reconcile(Money);
+    public Map<CarbonKind, double> CarbonByKind => Estimate.Reconcile(Carbon);
+    public Interval Validity => new(Unit.EvaluatedAt, Unit.EvaluatedAt + Policy.ValidFor);
+    public Option<Interval> Promise => Capacity.Map(static value => value.Promise);
+    public Duration Queue => Capacity.Map(static value => value.Queue).IfNone(Duration.Zero);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EstimateRequest {
+    private EstimateRequest() { }
+
+    public sealed record Unit(FabricationResult Result, EstimateBasis Basis) : EstimateRequest;
+    public sealed record Lot(FabricationResult Result, EstimateBasis Basis, QuotePolicy Policy) : EstimateRequest;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record EstimateReceipt {
+    private EstimateReceipt() { }
+
+    public sealed record Unit(CostReceipt Receipt) : EstimateReceipt;
+    public sealed record Lot(QuoteReceipt Receipt) : EstimateReceipt;
+}
+
+// One demand per result case: the locus every clock-derived row carries, whether a simulation clock is mandatory, the
+// declared fallback, the evidence kinds the result cannot be priced without, and the rows only the result can prove.
+internal sealed record EstimateDemand(
+    string Locus,
+    bool ClockRequired,
+    Option<Duration> Declared,
+    Set<EvidenceKind> Required,
+    Seq<CostActivity> Intrinsic);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Estimate {
-    // The ONE pricing fold — total over the 10-case union; documentation cases are un-priceable by charter;
-    // a clock-REQUIRING case (additive, verification, posted program) demands the authoritative simulate
-    // receipt and FAILS typed on absence — a silent zero is the named defect. Motion alone declares its
-    // Duration fallback, flagged on the receipt.
-    public static Fin<CostReceipt> Of(FabricationResult result, EstimateBasis basis) =>
-        Admit(result, basis).Bind(_ => result.Switch(
-            state:            basis,
-            hiddenLineResult: static (_, _) => Fin.Fail<CostReceipt>(GeometryFault.DegenerateInput("estimate:hidden-line").ToError()),
-            motion:           static (b, m) => Fin.Succ(
-                Assemble(b, Seconds(b, m.Duration), MachineRows(b, Seconds(b, m.Duration), "motion").Concat(ToolRows(b)).Concat(ConsumableRows(b)).Concat(EnergyRows(b)), b.Simulation.IsSome)),
-            placement:        static (b, p) => CreditRows(b, p.Remnants).Map(credits =>
-                Assemble(b, 0.0, MaterialRows(b).Concat(credits), simulationBacked: false)),
-            additiveResult:   static (b, _) => Demand(b, "estimate:additive-without-simulation", s => Assemble(b, s.CycleSeconds,
-                MachineRows(b, s.CycleSeconds, "additive").Concat(AdditiveRows(b)).Concat(EnergyRows(b)), simulationBacked: true)),
-            verificationResult: static (b, v) => Demand(b, "estimate:verification-without-simulation", s => Assemble(b, s.CycleSeconds,
-                Seq(Row(b, CostKind.MachineTime, "verification", s.CycleSeconds / 3600.0 * b.RatePerHour))
-                    .Concat(ReworkRows(b, v.UncutVolume, v.OvercutVolume)), simulationBacked: true)),
-            inspectionResult: static (b, _) => OperationReceipt(b, "inspection"),
-            postedProgram:    static (b, _) => Demand(b, "estimate:program-without-simulation", s => Assemble(b, s.CycleSeconds,
-                MachineRows(b, s.CycleSeconds, "program").Concat(ToolRows(b)).Concat(ConsumableRows(b)), simulationBacked: true)),
-            travelerDocument: static (_, _) => Fin.Fail<CostReceipt>(GeometryFault.DegenerateInput("estimate:traveler").ToError()),
-            fabricationPlan:  static (b, plan) => Fin.Succ(Assemble(b, 0.0,
-                plan.Steps.Bind(step => PlanStepRows(b, step)).Concat(WeldingRows(b)), simulationBacked: false)),
-            formedResult:     static (b, f) => FlatRows(b, f.FlatPattern).Bind(rows => OperationReceipt(b, "forming", rows))));
+    public static Fin<EstimateReceipt> Run(EstimateRequest request) =>
+        Optional(request).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:request").ToError()).Bind(value => value.Switch(
+            unit: static value => Priced(value.Result, value.Basis).Map(static receipt => (EstimateReceipt)new EstimateReceipt.Unit(receipt)),
+            lot: static value => Quoted(value.Result, value.Basis, value.Policy).Map(static receipt => (EstimateReceipt)new EstimateReceipt.Lot(receipt))));
 
-    // Setup charges every step at the labor tariff; a step whose OperationTime evidence rides the basis ALSO
-    // earns its distinct labor row — declared setup+labor coverage, never one setup row wearing both hats.
-    private static Seq<CostRow> PlanStepRows(EstimateBasis b, PlannedStep step) {
-        string locus = $"step-{step.Order}:{step.Process.Key}";
-        return Seq1(SetupRow(b, locus)).Concat(
-            b.OperationTimes.Find(time => string.Equals(time.Locus, locus, StringComparison.Ordinal))
-                .Map(time => Seq1(Row(b, CostKind.Labor, locus, time.LaborSeconds / 3600.0 * b.LaborRatePerHour)))
-                .IfNone(Seq<CostRow>()));
-    }
+    private static Fin<CostReceipt> Priced(FabricationResult result, EstimateBasis basis) =>
+        from admitted in Admit(result, basis)
+        from demand in Demand(result, admitted)
+        from clock in Clock(admitted, demand)
+        let rows = Spine(admitted, clock, demand)
+            .Concat(admitted.Evidence.Map(row => row.Rows(admitted, demand.Locus))
+                .Fold(ActivityRows.Empty, static (all, next) => all.Concat(next)))
+        let costs = rows.Cost.Map(activity => Price(activity, admitted)).ToSeq()
+        let impacts = rows.Impact.Map(activity => Impact(activity, admitted)).ToSeq()
+        select new CostReceipt(admitted.Subject, admitted.Currency, admitted.EvaluatedAt,
+            costs.Map(static row => (EstimateRow)row).Concat(impacts.Map(static row => (EstimateRow)row)),
+            clock.Backed
+                ? (EstimateClock)new EstimateClock.Simulation(clock.Duration)
+                : new EstimateClock.Declared(clock.Duration));
 
-    private static Fin<Unit> Admit(FabricationResult result, EstimateBasis basis) {
-        Seq<Error> errors = Seq<Error>();
-        Seq<double> nonnegative = Seq(
-            basis.MaterialRatePerM2, basis.AdditiveRatePerKg, basis.FallbackRatePerHour, basis.LaborRatePerHour, basis.EnergyRatePerKwh,
-            basis.ConsumableCostPerLife, basis.ToolCostPerLife, basis.ReworkRatePerCm3, basis.SetupSeconds,
-            basis.QualityPerUnit, basis.OutsideServicePerUnit, basis.LogisticsPerLot, basis.OverheadRate,
-            basis.DepreciationPerHour, basis.TaxRate, basis.ContingencyRate);
-        if (basis.Subject.Kind is null || basis.Currency is null || nonnegative.Exists(static value => !double.IsFinite(value) || value < 0.0)
-            || basis.ConsumablePrices.Exists(static row => !double.IsFinite(row.Value) || row.Value < 0.0))
-            errors = errors.Add(GeometryFault.DegenerateInput("estimate:tariffs").ToError());
-        if (!double.IsFinite(basis.RemnantCreditFactor) || basis.RemnantCreditFactor is < 0.0 or > 1.0
-            || !double.IsFinite(basis.ScrapRate) || basis.ScrapRate is < 0.0 or >= 1.0
-            || !double.IsFinite(basis.MarginFactor) || basis.MarginFactor < 1.0 || basis.BatchCapacity <= 0)
-            errors = errors.Add(GeometryFault.DegenerateInput("estimate:policy").ToError());
-        // Only Checks.Feasible evidence prices: fleet retains rejected pairs as evidence, and an infeasible
-        // match riding the basis is an admission defect, never a silent fallback-rate downgrade.
-        errors = errors.Concat(basis.Match
-            .Filter(static match => !match.Receipt.Checks.Feasible)
-            .Map(static _ => GeometryFault.DegenerateInput("estimate:match-infeasible").ToError()).ToSeq());
-        Seq<ContentKey> resultSubjects = SubjectsOf(result);
-        if (!resultSubjects.IsEmpty && !resultSubjects.Contains(basis.Subject))
-            errors = errors.Add(GeometryFault.DegenerateInput("estimate:subject-result").ToError());
-        Seq<ContentKey> evidence = basis.Simulation.Map(static row => row.Subject).ToSeq()
-            + basis.Match.Map(static row => row.Subject).ToSeq()
-            + basis.Wear.Map(static row => row.Subject).ToSeq()
-            + basis.Stock.Map(static row => row.Subject).ToSeq()
-            + basis.Additive.Map(static row => row.Subject).ToSeq();
-        errors = errors.Concat(evidence.Filter(key => key != basis.Subject).Map(_ => GeometryFault.DegenerateInput("estimate:subject-evidence").ToError()));
-        errors = errors.Concat(basis.OperationTimes
-            .Filter(static time => !double.IsFinite(time.MachineSeconds) || !double.IsFinite(time.LaborSeconds)
-                || time.MachineSeconds < 0.0 || time.LaborSeconds < 0.0 || string.IsNullOrWhiteSpace(time.Locus))
-            .Map(time => GeometryFault.DegenerateInput($"estimate:operation-time:{time.Locus}").ToError()));
-        if (basis.OperationTimes.Map(static time => time.Locus).Distinct().Count != basis.OperationTimes.Count)
-            errors = errors.Add(GeometryFault.DegenerateInput("estimate:operation-time-duplicate").ToError());
-        errors = errors.Concat(basis.Stock
-            .Filter(static stock => !double.IsFinite(stock.Receipt.ConsumedAreaMm2) || stock.Receipt.ConsumedAreaMm2 < 0.0)
-            .Map(static _ => GeometryFault.DegenerateInput("estimate:stock-consumption").ToError()).ToSeq());
-        errors = errors.Concat(basis.Additive
-            .Filter(static additive =>
-                !Seq(additive.Receipt.PartVolumeMm3, additive.Receipt.SupportVolumeMm3, additive.Receipt.PurgeVolumeMm3,
-                    additive.Receipt.DensityKgPerM3, additive.Receipt.RecoveryFraction).ForAll(double.IsFinite)
-                || additive.Receipt.PartVolumeMm3 < 0.0 || additive.Receipt.SupportVolumeMm3 < 0.0
-                || additive.Receipt.PurgeVolumeMm3 < 0.0 || additive.Receipt.DensityKgPerM3 <= 0.0
-                || additive.Receipt.RecoveryFraction is <= 0.0 or > 1.0)
-            .Map(static _ => GeometryFault.DegenerateInput("estimate:additive-yield").ToError()).ToSeq());
-        return errors.Head.Match(
-            Some: head => Fin.Fail<Unit>(errors.Tail.Fold(head, static (folded, error) => folded + error)),
-            None: () => Fin.Succ(unit));
-    }
+    private static Fin<QuoteReceipt> Quoted(FabricationResult result, EstimateBasis basis, QuotePolicy policy) =>
+        from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:quote-policy").ToError())
+        from unit in Priced(result, basis)
+        let allocated = unit.Money.Map(row => (EstimateRow.Money)row.Allocate(admittedPolicy.Quantity, admittedPolicy.Batches)).ToSeq()
+        let expected = toSeq(CommercialLoad.Items).OrderBy(static load => load.Rank).ToSeq()
+            .Fold(allocated, (rows, load) => rows.Concat(Scale(
+                rows.Filter(row => row.Kind.Allocation.CommerciallyLoadable && load.Over.Contains(row.Stage)), load, admittedPolicy)))
+        let money = expected.Concat(Risk(expected, basis.CoefficientOfVariation, admittedPolicy.Confidence))
+        let carbon = unit.Carbon.Map(row => (EstimateRow.Carbon)row.Allocate(admittedPolicy.Quantity, admittedPolicy.Batches)).ToSeq()
+        let capacity = basis.Find<EstimateEvidence.Capacity>().Map(static value => value.Receipt)
+        from _ in capacity.ForAll(value => value.Units >= admittedPolicy.Quantity)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:lot-capacity").ToError())
+        select new QuoteReceipt(unit, admittedPolicy, money, carbon, capacity);
 
-    // CANONICAL PRIMARY KEYS only: composed and artifact keys are provenance — evidence correlated to one
-    // output artifact can never authorize pricing a plan or traveler whose own identity does not match.
-    private static Seq<ContentKey> SubjectsOf(FabricationResult result) =>
-        result.Switch(
-            hiddenLineResult: static _ => Seq<ContentKey>(),
-            motion: static _ => Seq<ContentKey>(),
+    private static Fin<EstimateBasis> Admit(FabricationResult result, EstimateBasis basis) =>
+        from admittedResult in Optional(result).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:result").ToError())
+        from admittedBasis in Optional(basis).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:basis").ToError())
+        from _ in ResultSubject(admittedResult, admittedBasis.Subject)
+        select admittedBasis;
+
+    private static Fin<Unit> ResultSubject(FabricationResult result, ContentKey subject) {
+        Seq<ContentKey> keys = result.Switch(
+            hiddenLineResult: static value => value.Subjects,
+            motion: static value => value.Subjects,
             placement: static value => Seq(value.Key),
             additiveResult: static value => value.Artifacts,
-            verificationResult: static value => Seq(value.Residual.Key),
-            inspectionResult: static _ => Seq<ContentKey>(),
+            verificationResult: static value => Seq(value.Residual.Key).Concat(value.Snapshots.Map(static row => row.Key)),
+            inspectionResult: static value => value.Subjects,
             postedProgram: static value => Seq(value.Key),
             travelerDocument: static value => Seq(value.Key),
-            fabricationPlan: static value => Seq(value.Key),
+            fabricationPlan: static value => Seq(value.Key).Concat(value.Artifacts),
             formedResult: static value => Seq(value.Key));
-
-    // The LOT projection beside the seam: setup/labor rows amortize across the quantity, the scrap rate loads
-    // the unit price, and the margin factor prices the lot — quantity is genuine input, never a mode knob.
-    public static Fin<QuoteReceipt> Quote(FabricationResult result, EstimateBasis basis, int quantity) =>
-        quantity <= 0
-            ? Fin.Fail<QuoteReceipt>(GeometryFault.DegenerateInput($"estimate:quantity-{quantity}").ToError())
-            : Of(result, basis).Map(unit => {
-                // Fixed rows carry their overhead share out of the marginal subtotal, so batch amortization
-                // never re-prices fixed overhead per unit; every lot transformation lands as a typed row.
-                double fixedRows = unit.Rows.Filter(static r => r.Kind == CostKind.Setup || r.Kind == CostKind.Labor).Fold(0.0, static (t, r) => t + r.Amount);
-                double fixedOverhead = fixedRows * basis.OverheadRate;
-                double marginal = unit.Total - fixedRows - fixedOverhead;
-                int batches = (int)Math.Ceiling((double)quantity / basis.BatchCapacity);
-                double amortized = (fixedRows + fixedOverhead) * batches / quantity;
-                double scrapLoaded = (marginal + amortized) / Math.Max(1e-9, 1.0 - basis.ScrapRate);
-                double subtotal = scrapLoaded * quantity + basis.LogisticsPerLot;
-                double contingency = subtotal * basis.ContingencyRate;
-                double tax = (subtotal + contingency) * basis.TaxRate;
-                double preMargin = subtotal + contingency + tax;
-                double margin = preMargin * (basis.MarginFactor - 1.0);
-                Seq<CostRow> adjustments = Seq(
-                    Row(basis, CostKind.Setup, "lot-amortized-setup", amortized * quantity),
-                    Row(basis, CostKind.Scrap, "lot-scrap-load", (scrapLoaded - marginal - amortized) * quantity),
-                    Row(basis, CostKind.Logistics, "lot-logistics", basis.LogisticsPerLot),
-                    Row(basis, CostKind.Contingency, "lot-contingency", contingency),
-                    Row(basis, CostKind.Tax, "lot-tax", tax),
-                    Row(basis, CostKind.Margin, "lot-margin", margin));
-                return new QuoteReceipt(
-                    quantity, batches, marginal, amortized, scrapLoaded, basis.LogisticsPerLot, tax, contingency,
-                    preMargin + margin, adjustments, unit);
-            });
-
-    private static Fin<CostReceipt> OperationReceipt(EstimateBasis basis, string locus) =>
-        OperationReceipt(basis, locus, Seq<CostRow>());
-
-    private static Fin<CostReceipt> OperationReceipt(EstimateBasis basis, string locus, Seq<CostRow> rows) =>
-        basis.OperationTimes.Find(time => string.Equals(time.Locus, locus, StringComparison.Ordinal)).Match(
-            Some: time => Fin.Succ(Assemble(
-                basis,
-                time.MachineSeconds,
-                rows
-                    .Add(SetupRow(basis, locus))
-                    .Add(Row(basis, CostKind.MachineTime, locus, time.MachineSeconds / 3600.0 * basis.RatePerHour))
-                    .Add(Row(basis, CostKind.Labor, locus, time.LaborSeconds / 3600.0 * basis.LaborRatePerHour)),
-                simulationBacked: false)),
-            None: () => Fin.Fail<CostReceipt>(GeometryFault.DegenerateInput($"estimate:operation-time:{locus}").ToError()));
-
-    private static Fin<CostReceipt> Demand(EstimateBasis b, string locus, Func<SimulationReceipt, CostReceipt> price) =>
-        b.Simulation.Match(
-            Some: s => Fin.Succ(price(s.Receipt)),
-            None: () => Fin.Fail<CostReceipt>(GeometryFault.DegenerateInput(locus).ToError()));
-
-    private static double Seconds(EstimateBasis b, double declared) => b.Simulation.Map(static evidence => evidence.Receipt.CycleSeconds).IfNone(declared);
-
-    private static Seq<CostRow> MachineRows(EstimateBasis b, double seconds, string locus) =>
-        seconds <= 0.0 ? Seq<CostRow>() : Seq(Row(b, CostKind.MachineTime, locus, seconds / 3600.0 * b.RatePerHour));
-
-    // Tool depletion prices the wear receipt's TIGHTEST criterion — the CriticalWear body-or-edge row when the
-    // receipt carries one, else the body VB fraction — so magazine capacity and priced depletion apply one life
-    // criterion to the same evidence and an exhausted insert edge is never hidden behind a healthy body.
-    private static Seq<CostRow> ToolRows(EstimateBasis b) =>
-        b.Wear.Bind(evidence => evidence.Receipt.Critical.Match(
-                Some: critical => Some(critical.Switch(
-                    body: static c => (Locus: $"critical:{c.Row.Kind.Key}", Fraction: Math.Clamp(c.Row.Used / Math.Max(1e-9, c.Row.Limit), 0.0, 1.0)),
-                    edge: static c => (Locus: $"critical:edge:{c.Row.Indices}", Fraction: Math.Clamp(c.Row.Used / Math.Max(1e-9, c.Row.Limit), 0.0, 1.0)))),
-                None: () => evidence.Receipt.VbMm > 0.0 && evidence.Receipt.WearLimitMm > 0.0
-                    ? Some((Locus: "flank-wear", Fraction: Math.Min(1.0, evidence.Receipt.VbMm / evidence.Receipt.WearLimitMm)))
-                    : None))
-            .Map(row => Row(b, CostKind.Tooling, row.Locus, row.Fraction * b.ToolCostPerLife))
-            .ToSeq();
-
-    // Joining cycle time is the sequence owner's receipt — TotalS already carries arc seconds, interpass waits,
-    // tack windows, and charged re-preheat, so pricing reads the receipt clock at machine and labor tariffs and
-    // never re-sums the per-row AtS ledger it validates against.
-    private static Seq<CostRow> WeldingRows(EstimateBasis b) =>
-        b.Welding.Filter(static evidence => evidence.Receipt.TotalS > 0.0)
-            .Map(evidence => Seq(
-                Row(b, CostKind.MachineTime, "welding", evidence.Receipt.TotalS / 3600.0 * b.RatePerHour),
-                Row(b, CostKind.Labor, "welding", evidence.Receipt.TotalS / 3600.0 * b.LaborRatePerHour)))
-            .IfNone(Seq<CostRow>());
-
-    // Consumable pricing walks the wear receipt's Used/Limit life fractions against the per-kind price map
-    // with the scalar fallback — ONE signed application per row.
-    private static Seq<CostRow> ConsumableRows(EstimateBasis b) =>
-        b.Wear.Map(static evidence => evidence.Receipt.Consumables).IfNone(Seq<ConsumableRow>())
-            .Filter(static c => c.Limit > 0.0)
-            .Map(c => Row(b, CostKind.Consumable, c.Kind.Key,
-                Math.Clamp(c.Used / c.Limit, 0.0, 1.0) * b.ConsumablePrices.Find(c.Kind.Key).IfNone(b.ConsumableCostPerLife)));
-
-    // Energy prices cut seconds × the matched instance's spindle power × the tariff — both receipts must ride.
-    private static Seq<CostRow> EnergyRows(EstimateBasis b) =>
-        b.Simulation.Bind(s => b.Match.Map(m => (s.Receipt.CutSeconds, m.Receipt.Instance.SpindlePowerKw)))
-            .Filter(static x => x.CutSeconds > 0.0 && x.SpindlePowerKw > 0.0)
-            .Map(x => Row(b, CostKind.Energy, "spindle", x.CutSeconds / 3600.0 * x.SpindlePowerKw * b.EnergyRatePerKwh))
-            .ToSeq();
-
-    private static Seq<CostRow> ReworkRows(EstimateBasis b, double uncutMm3, double overcutMm3) =>
-        Seq((Locus: "uncut", Volume: uncutMm3), (Locus: "overcut", Volume: overcutMm3))
-            .Filter(static r => r.Volume > 0.0)
-            .Map(r => Row(b, CostKind.Rework, r.Locus, r.Volume / 1e3 * b.ReworkRatePerCm3));
-
-    // The stock receipt carries consumed area explicitly, so perfect utilization remains priceable.
-    private static Seq<CostRow> MaterialRows(EstimateBasis b) =>
-        b.Stock.Match(
-            Some: evidence => Seq(Row(b, CostKind.Material, "sheets", evidence.Receipt.ConsumedAreaMm2 / 1e6 * b.MaterialRatePerM2)),
-            None: () => Seq<CostRow>());
-
-    private static Seq<CostRow> AdditiveRows(EstimateBasis basis) =>
-        basis.Additive.Map(evidence => {
-            AdditiveYield additiveYield = evidence.Receipt;
-            double netMm3 = additiveYield.PartVolumeMm3 + additiveYield.SupportVolumeMm3 + additiveYield.PurgeVolumeMm3;
-            double chargedMm3 = netMm3 / additiveYield.RecoveryFraction;
-            return Row(basis, CostKind.Material, "additive-feedstock", chargedMm3 / 1e9 * additiveYield.DensityKgPerM3 * basis.AdditiveRatePerKg);
-        }).ToSeq();
-
-    // Remnant and flat-pattern loops are bulge-capable: the arc-aware signed measure ArcArea prices curved
-    // material on the Fin rail — a line-only area owner rejects valid bulged boundaries, and the geometry
-    // failure propagates typed instead of erasing into a scalar. Hole winding stays subtractive in the sum.
-    private static Fin<Seq<CostRow>> CreditRows(EstimateBasis b, Seq<Remnant> remnants) =>
-        remnants
-            .TraverseM(r => ArcAlgebra.ArcArea(r.Boundary)
-                .Map(area => Row(b, CostKind.RemnantCredit, "remnant", Math.Abs(area) / 1e6 * b.MaterialRatePerM2 * b.RemnantCreditFactor)))
-            .As();
-
-    private static Fin<Seq<CostRow>> FlatRows(EstimateBasis b, Arr<Loop> flat) =>
-        toSeq(flat).TraverseM(ArcAlgebra.ArcArea).As()
-            .Map(areas => Seq(Row(b, CostKind.Material, "flat-pattern", Math.Abs(areas.Sum()) / 1e6 * b.MaterialRatePerM2)));
-
-    // Setup is HUMAN time — the labor tariff, never the machine rate.
-    private static CostRow SetupRow(EstimateBasis b, string locus) => Row(b, CostKind.Setup, locus, b.SetupSeconds / 3600.0 * b.LaborRatePerHour);
-
-    private static CostReceipt Assemble(EstimateBasis b, double seconds, Seq<CostRow> rows, bool simulationBacked) {
-        double direct = rows.Filter(static row => !row.Kind.Credit).Sum(static row => row.Amount);
-        Seq<CostRow> commercial = Seq(
-            Row(b, CostKind.Quality, "quality", b.QualityPerUnit),
-            Row(b, CostKind.OutsideService, "outside-service", b.OutsideServicePerUnit),
-            Row(b, CostKind.Depreciation, "machine-depreciation", seconds / 3600.0 * b.DepreciationPerHour),
-            Row(b, CostKind.Overhead, "overhead", direct * b.OverheadRate));
-        Seq<CostRow> ledger = rows.Concat(commercial.Filter(static row => Math.Abs(row.Amount) > 1e-12));
-        return new CostReceipt(b.Subject, b.Currency, ledger, ledger.Sum(static row => row.Amount), seconds, simulationBacked);
+        return !keys.IsEmpty && keys.Contains(subject)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:result-subject").ToError());
     }
 
-    private static CostRow Row(EstimateBasis basis, CostKind kind, string locus, double amount) =>
-        new(kind, locus, basis.Currency, kind.Signed(amount));
-}
-```
+    private static Fin<EstimateDemand> Demand(FabricationResult result, EstimateBasis basis) =>
+        result.Switch(
+            state: basis,
+            hiddenLineResult: static (_, _) => Unpriceable("hidden-line"),
+            travelerDocument: static (_, _) => Unpriceable("traveler"),
+            motion: static (_, value) => Fin.Succ(new EstimateDemand("motion", ClockRequired: false,
+                Some(Duration.FromSeconds(value.Duration)), Set<EvidenceKind>(), Seq<CostActivity>())),
+            postedProgram: static (_, _) => Fin.Succ(new EstimateDemand("posted-program", ClockRequired: true,
+                None, Set(EvidenceKind.Simulation), Seq<CostActivity>())),
+            placement: static (_, _) => Fin.Succ(new EstimateDemand("stock", ClockRequired: false,
+                Some(Duration.Zero), Set(EvidenceKind.Stock), Seq<CostActivity>())),
+            additiveResult: static (_, _) => Fin.Succ(new EstimateDemand("additive", ClockRequired: true,
+                None, Set(EvidenceKind.Simulation, EvidenceKind.Additive), Seq<CostActivity>())),
+            verificationResult: static (_, value) => Fin.Succ(new EstimateDemand("verification", ClockRequired: true,
+                None, Set(EvidenceKind.Simulation), Seq(
+                    new CostActivity(CostKind.Rework, "uncut", value.UncutVolume / 1e3),
+                    new CostActivity(CostKind.Rework, "overcut", value.OvercutVolume / 1e3)))),
+            inspectionResult: static (_, _) => Fin.Succ(new EstimateDemand("inspection", ClockRequired: false,
+                Some(Duration.Zero), Set(EvidenceKind.Operation), Seq<CostActivity>())),
+            formedResult: static (_, _) => Fin.Succ(new EstimateDemand("forming", ClockRequired: false,
+                Some(Duration.Zero), Set(EvidenceKind.Operation), Seq<CostActivity>())),
+            fabricationPlan: static (context, value) => value.Steps.ForAll(step => context.Evidence.Exists(row =>
+                    row is EstimateEvidence.Operation operation
+                    && operation.Receipt.Locus == $"step:{step.Order}:{step.Process.Key}"))
+                ? Fin.Succ(new EstimateDemand("plan", ClockRequired: false, Some(Duration.Zero),
+                    Set(EvidenceKind.Operation), Seq<CostActivity>()))
+                : Fin.Fail<EstimateDemand>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "estimate:plan-operation-evidence").ToError()))
+        .Bind(demand => demand.Required.ToSeq().TraverseM(kind => basis.Carries(kind)
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{demand.Locus}:{kind.Key}").ToError())).As()
+            .Map(_ => demand));
 
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Evidence-keyed cost and quote rail
-    accDescr: A fabrication result joins subject-keyed simulation, machine, wear, stock, remnant, additive, and commercial evidence into typed currency rows before lot amortization, scrap loading, and explicit margin.
-    Result["FabricationResult (10-case union)"] -->|total Switch| Of["Estimate.Of"]
-    Sim["simulate SimulationReceipt — the clock (REQUIRED where the case demands it)"] --> Of
-    Fleet["fleet MachineMatch — HourlyRate + SpindlePowerKw"] --> Of
-    Wear["wear WearState — VbMm tooling row + Consumables per-kind price map"] --> Of
-    Yield["stock NestYield waste/utilization"] --> Of
-    Remnants["Placement.Remnants boundaries × ArcAlgebra.ArcArea"] -->|signed credit rows| Of
-    Of --> Receipt["CostReceipt signed rows · total · SimulationBacked"]
-    Receipt --> QuoteF["Estimate.Quote — amortized setup/labor · scrap load · margin"]
-    QuoteF --> QuoteR["QuoteReceipt lot economics"]
-    Receipt -->|quote stage| Derivation["Process/derivation"]
-    Receipt -->|commercial rows| Traveler["Documentation/traveler"]
-    Compute["Rasm.Compute NestWasteArea frozen wire"] -.->|priced, never re-minted| Receipt
-    linkStyle 1,2,3,4,5 stroke:#8BE9FD,color:#F8F8F2
-    linkStyle 6 stroke:#FFB86C,color:#F8F8F2
-    linkStyle 7,9,10 stroke:#50FA7B,color:#F8F8F2
-    linkStyle 11 stroke:#6272A4,stroke-width:1.5px,stroke-dasharray:4 6,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef external fill:#21222C,stroke:#8BE9FD,color:#8BE9FD
-    class Result,QuoteR,Derivation,Traveler boundary
-    class Of,QuoteF primary
-    class Receipt data
-    class Sim,Fleet,Wear,Yield,Remnants,Compute external
+    private static Fin<EstimateDemand> Unpriceable(string locus) =>
+        Fin.Fail<EstimateDemand>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{locus}").ToError());
+
+    private static Fin<(Duration Duration, bool Backed)> Clock(EstimateBasis basis, EstimateDemand demand) =>
+        basis.Find<EstimateEvidence.Simulation>()
+            .Map(static value => (Duration: value.Receipt.Cycle, Backed: true))
+            .OrElse(demand.ClockRequired
+                ? Option<(Duration Duration, bool Backed)>.None
+                : demand.Declared.Map(static value => (Duration: value, Backed: false)))
+            .Filter(static value => value.Duration >= Duration.Zero)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"estimate:{demand.Locus}-clock").ToError());
+
+    // Machine, depreciation, and energy are the clock's own rows; every other row belongs to the evidence case proving it.
+    private static ActivityRows Spine(EstimateBasis basis, (Duration Duration, bool Backed) clock, EstimateDemand demand) {
+        double hours = clock.Duration.TotalHours;
+        double energy = basis.Find<EstimateEvidence.Simulation>().Map(static value => value.Receipt.EnergyKwh).IfNone(0.0);
+        return new ActivityRows(
+            Seq(new CostActivity(CostKind.Machine, demand.Locus, hours),
+                new CostActivity(CostKind.Depreciation, demand.Locus, hours),
+                new CostActivity(CostKind.Energy, demand.Locus, energy))
+                .Concat(demand.Intrinsic),
+            Seq(new ImpactActivity(CarbonKind.Electricity, demand.Locus, energy)));
+    }
+
+    private static EstimateRow.Money Price(CostActivity activity, EstimateBasis basis) =>
+        new(activity.Kind, CostStage.Unit, activity.Locus, basis.Currency, activity.Quantity,
+            activity.Kind == CostKind.Machine
+                ? basis.Find<EstimateEvidence.Machine>().Map(static value => (decimal)value.Receipt.HourlyRate)
+                    .IfNone(basis.Tariffs[activity.Kind])
+                : basis.Tariffs[activity.Kind]);
+
+    private static EstimateRow.Carbon Impact(ImpactActivity activity, EstimateBasis basis) =>
+        new(activity.Kind, activity.Locus, activity.Quantity, basis.CarbonFactors[activity.Kind]);
+
+    private static Seq<EstimateRow.Money> Scale(Seq<EstimateRow.Money> source, CommercialLoad load, QuotePolicy policy) =>
+        source.Map(row => (Row: row, Rate: load.Factor(policy.Loading[(load, row.Kind)])))
+            .Filter(static item => item.Row.Amount != decimal.Zero && item.Rate != 0.0)
+            .Map(item => item.Row with {
+                Stage = load.Stage,
+                Locus = $"{item.Row.Locus}:{load.Stage.Key}",
+                Quantity = (double)item.Row.Amount,
+                Rate = (decimal)item.Rate,
+            });
+
+    private static Seq<EstimateRow.Money> Risk(
+        Seq<EstimateRow.Money> rows,
+        Map<CostKind, double> variation,
+        double confidence) {
+        Seq<(EstimateRow.Money Row, double Variance)> weighted = rows.Map(row => (row,
+            Math.Pow((double)decimal.Abs(row.Amount) * variation[row.Kind], 2.0)));
+        double sigma = Math.Sqrt(weighted.Sum(static item => item.Variance));
+        double z = Normal.InvCDF(0.0, 1.0, confidence);
+        return sigma == 0.0 ? Seq<EstimateRow.Money>() : weighted.Filter(static item => item.Variance > 0.0)
+            .Map(item => item.Row with {
+                Stage = CostStage.Risk,
+                Locus = $"{item.Row.Locus}:{CostStage.Risk.Key}",
+                Quantity = item.Variance / sigma,
+                Rate = (decimal)z,
+            });
+    }
+
+    internal static Map<CostKind, decimal> Reconcile(Seq<EstimateRow.Money> rows) =>
+        rows.Fold(Map<CostKind, decimal>(), static (totals, row) =>
+            totals.AddOrUpdate(row.Kind, totals.Find(row.Kind).IfNone(decimal.Zero) + row.Amount));
+
+    internal static Map<CarbonKind, double> Reconcile(Seq<EstimateRow.Carbon> rows) =>
+        rows.Fold(Map<CarbonKind, double>(), static (totals, row) =>
+            totals.AddOrUpdate(row.Kind, totals.Find(row.Kind).IfNone(0.0) + row.KgCo2e));
+}
 ```

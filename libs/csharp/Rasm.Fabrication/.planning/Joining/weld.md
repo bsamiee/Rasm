@@ -1,36 +1,41 @@
 # [RASM_FABRICATION_WELD]
 
-The weld-plan owner, `Weld.Plan`, turns a joint census into executable multi-pass deposits, root-treatment actions, procedure demands, and one content-keyed receipt. `JointPrep` carries boundary-resolved `Rasm.Materials` facts without importing the peer package: groove, fillet, plug/slot, and flare cases retain the dimensions and treatment keys their planning arms consume. `WeldPosition` models groove and fillet qualification positions, including vertical progression and fixed-pipe positions, through travel and cooling columns.
+`Weld.Plan` consumes one admitted `WeldRequest` and derives fill-complete bead deposits, side-correct transported torch frames, preparation actions, qualification demands, and one content-keyed `WeldPlan`. Boundary-resolved preparation profiles carry the full section and cavity demand; planning never recreates `Rasm.Materials` groove geometry from a key or a nominal leg.
 
-Heat input remains `HI = η·60·P/(1000·v)`. `WeldProcessLaw` couples efficiency, deposition source, travel envelope, and heat-input envelope by process key. `DepositionSource.Wire` derives volume rate from wire diameter and `WireFeedRate`; `DepositionSource.Volumetric` carries calibrated volume rate and characteristic bead width without pretending it consumes a wire-feed axis or manufacturing an equivalent diameter. Groove volume reads root face, effective throat, radius, angle, opening, side count, backing, and root treatment. Each role's actual deposition area and weave width derive its layer height before the groove stack closes; the fill weave cannot price a stringer root. Plug/slot demand is cavity volume over its fill traversal, while flare remains seam cross-section; both use the same deposition law without crossing units. Every pass owns its shifted moves and actual `Plane` frames, while `JointAction` carries groove preparation, backing, backgouge, and backing-removal operations; a `seal-pass` root treatment realizes solely as the terminal `PassRole.Seal` deposit, never a parallel action row.
+`WeldProcessLaw` converts `ProcessBudget.Joining` into deposited volume through one `ArcMode` per transfer mode. Joint process keys gate admission and select efficiency, travel, heat-input, and t8/5 envelopes. `BeadProgram` derives role and oscillation from fraction bands; fill roles close the groove, while butter and temper overlays deposit outside it. `Waveform` evaluates oscillation at every waypoint; named weaves never replace paths.
 
-Each bead remains a `boundary-pass` under `ProcessModality.Joined`; Cam and robot ingress are counterpart owners. The plan key covers complete pass, move, frame, action, and demand atoms in normalized length-prefixed bytes. Per-waypoint normals create side-correct frames, and double-sided work reverses the normal and lateral offset on the second side. Access gates precede path construction.
+Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile` resolves the trapezoidal section at the current fill height and `BeadProgram.Lattice` seats as many overlapped beads across that width as it admits, so `WeldPass.LateralOffsetMm` and `WeldPass.HeightOffsetMm` carry a real position inside the groove. `ArcProgram` places run-in, backstep, run-out, and crater dwell on the emitted path and arc clock, so `WeldPass.HeatInputKjMm`, `BeadEvidence.EnergyJ`, and the EN 1011-2 `BeadEvidence.CoolingTimeS` read every burning move.
 
-Wire posture: HOST-LOCAL. `WeldPass` rows, the demand rows, and the plan key cross only the in-process seam to the Cam egress, the sequence scheduler, and the procedure gate — never a browser or peer wire.
+`WeldPlan.Passes`, `WeldPlan.Actions`, `WeldPlan.Demands`, `WeldPass.Path`, `WeldPass.Frames`, and `TorchFrame` remain the host-local sequence, procedure, Cam, and robot wires. `WeldProjection` parameterizes execution, qualification, and receipt egress without moving scheduling, kinematics, posting, or procedure ownership into joining.
 
 ## [01]-[INDEX]
 
-- [01]-[WELD_PLAN]: owns pass, weave, position, prep, deposition, process-law, joint-action, torch-frame, demand-production, and plan-receipt surfaces under one `Weld.Plan` fold.
+- [01]-[WELD_PLAN]: owns admitted joint and policy input, preparation demand, process and bead policy, pass generation, transported torch frames, preparation actions, qualification evidence, projections, and the `WeldPlan` receipt.
 
 ## [02]-[WELD_PLAN]
 
-- Owner: `PassRole`, `WeavePattern`, and `WeldPosition` own closed behavioral axes; `JointPrep` owns boundary facts; `DepositionSource` and `WeldProcessLaw` own process physics; `WeldJoint` and `WeldPolicy` own demand and policy; `JointAction`, `TorchFrame`, `WeldPass`, and `WeldPlan` own execution and evidence; `Weld` owns planning and heat-input projection.
-- Cases: pass and weave rows parameterize bead behavior; position rows cover `1G` through `6G` progression variants and `1F` through `4F`; prep cases cover groove, fillet, plug/slot, and flare; deposition cases cover wire-derived and volumetric rates; joint actions cover groove preparation, backing, backgouge, and backing removal — seal-pass root treatment is the `PassRole.Seal` deposit, never an action row.
-- Entry: `public static Fin<WeldPlan> Plan(Seq<WeldJoint> joints, WeldPolicy policy, ProcessBudget.Deposition budget)` — the ONE fold absorbing single joint and batch by the `Seq` shape: per joint it gates the seam (≥ 2 points, positive thickness, normals aligned to waypoints), gates access (`WorkAngleDeg > AccessHalfAngleDeg` → 2744), resolves η from the process key (missing row → typed fail), derives the role-coupled travel/HI rows, stacks the passes per prep case and side, verifies every realized `HI_role ≤ HeatInputCapKjMm` (2745 on overrun), emits the joint's `WeldDemand`, and mints the plan key over the LE-double preimage.
-- Auto: each pass shifts the seam through its side-correct tangent-normal frame, constructs rotated `Plane` poses, derives travel and realized heat input from the process law, and preserves dwell. Groove, fillet, plug/slot, and flare arms share the same deposition and cap gates. `Joining/sequence` orders passes and joint actions; `Joining/procedure` assesses `WeldPlan.Demands`; Cam and robot owners consume moves and frames once their counterpart ingress lands.
-- Receipt: `WeldPlan` carries passes with frames, joint actions, qualification demands, realized maximum heat input, bead count, and a complete `ContentKey(EgressKind.WeldPlan, digest)`.
-- Packages: boundary-resolved Materials joint facts, `ProcessBudget.Deposition`, `ProcessModality.Joined`, `Move`, `ContentKey.Of`, assembly joint identity and access, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rhino `Plane`, and BCL inbox surfaces compose directly.
-- Growth: a new weave is one `WeavePattern` row; a new pass discipline (temper-bead, buttering) is one `PassRole` row + its stacking arm; a new arc process is one Materials row + one efficiency map entry — zero local rows; a new position is one `WeldPosition` row (both columns); narrow-gap grooves are Materials `GrooveGeometry` rows the boundary already resolves; the preheat DERIVATION (carbon-equivalent per AWS D1.1/EN 1011-2) lands as a census-boundary law when the material chemistry seam lands — the census carries the resolved `PreheatC` until then; the Cam pass-path ingress is the designed-ahead owner counterpart; zero new entrypoints.
-- Boundary: the groove/process/fillet vocabulary is Materials-owned and resolves to FACTS at the boundary — a Materials type import contradicts the package's no-AEC-peer law, and a local `GrooveGeometry`/`WeldProcess` re-mint is equally dead: `JointPrep` carries resolved scalars and the process rides its KEY; the heat-input law lives HERE and a sequence- or procedure-side HI formula is the second-law defect (they read the rows); travel derives role-coupled from the heat-input target and an independent travel knob — or a role table whose `AreaFactor` no derivation reads — is the deleted form; the egress is the existing `Run(Cam)` case under `Joined`/`boundary-pass` and an eleventh owner case, a weld-local motion conditioner, or a plan-side G-code emitter is the deleted form; pose blending rides the kernel dispatch and a local slerp is the deleted form; the content preimage is canonical LE bytes and a formatted-string float preimage is the named defect; a plan bypassing the access gate ships a torch crash — the gate precedes motion, always.
+- Owner: `FillProfile` owns boundary-resolved fill geometry and its trapezoidal section algebra; `RootProgram` owns preparation behavior and the side schedule; `CavityKind` and `FlareKind` own bounded preparation sub-kinds; `JointPrep` owns preparation modality and the EN 1011-2 shape factors; `WeldJoint` owns one admitted joint; `WeldRequest` owns census correspondence and the fill ledger; `DepositionSource`, `ArcMode`, `WeldProcessLaw`, `Waveform`, `WeavePattern`, `PassRole`, `RoleBand`, and `BeadProgram` own deposition policy; `WeldStandard` owns canonical policy rows; `IWeldAccess.Admit` mints internal `WeldAccess` strategies; `WeldDemandBinding` generates profile-defined procedure values; `WeldPolicySource` owns policy admission modality; `WeldPolicy` owns aggregate planning policy; `JointAction`, `TorchFrame`, `BeadEvidence`, `WeldPass`, `WeldDemand`, and `WeldPlan` own execution and evidence; `Weld` owns `Plan` and `HeatInput`.
+- Cases: `JointPrep.Groove`, `JointPrep.Fillet`, `JointPrep.Cavity`, and `JointPrep.Flare` carry fill demand without local geometry formulae; the groove case preserves geometry and penetration keys independently. `DepositionSource.SolidWire` and `DepositionSource.CoredWire` parameterize multi-electrode count and spacing, while `DepositionSource.Rod`, `DepositionSource.Strip`, `DepositionSource.Powder`, `DepositionSource.Volumetric`, and `DepositionSource.Autogenous` cover the remaining deposition carriers. `Waveform.Harmonic` carries a phase-shifted sine series and `Waveform.Piecewise` a knot interpolation, so between them any mean-zero periodic oscillation generates. `RootProgram` covers no treatment, backing, backgouging, combined backing and backgouging, and seal deposition. `WeldPolicySource.Defined` and `WeldPolicySource.Canonical` collapse explicit and standard admission onto `WeldPolicy.Admit`, the canonical arm reading one `WeldStandard` row rather than inline constants. `JointAction.Preheat` and `JointAction.PostWeldHeatTreat` carry the thermal shop actions the joint's `PreheatC`, `PwhtC`, and `PwhtMinutes` demand. `WeldDemandBinding.Quantity`, `WeldDemandBinding.Categorical`, `WeldDemandBinding.Boolean`, and `WeldDemandBinding.Temporal` cover the procedure value modalities. `PassLineage.Planned`, `PassLineage.Repair`, and `PassLineage.Temper` preserve derivation evidence.
+- Entry: `public static Fin<WeldPlan> Plan(WeldRequest request)` normalizes the census by joint identity, accumulates every joint's planning failure before reporting, resolves each process law and its admitted `ArcMode`, accumulates all access constraints, derives pass count from required volume and realized deposition, generates every pass from the role bands and the bead lattice, verifies heat, cooling, and fill conservation, emits procedure demand maps, and mints `ContentKey.Of(EgressKind.WeldPlan, ...)`.
+- Admission: `WeldJoint.Admit` converts `UnitsNet` length, angle, temperature, and duration quantities once into canonical millimetre, degree, Celsius, and minute fields before `WeldJoint.Validate`. `WeldPolicy.Admit` validates process keys, role-band coverage, deposition laws, pass bounds, access constraints, and the procedure profile's `WeldDemandBinding` rows once. `WeldRequest.Validate` closes census identity and `ProcessBudget.Joining` invariants before planning. Interior operations consume only admitted owners.
+- Derivation: `FillProfile.VolumeMm3` is the complete boundary-resolved deposit demand, including unequal fillet legs, contour, reinforcement, root opening and face, backing displacement, groove radii, variable section, plug or slot cavity, flare throat, side split, and repair excavation. `SectionStation.AreaMm2` derives from root width, face width, and height. `BeadProgram.Resolve` generates role and oscillation from deposited fraction, and `BeadProgram.Lattice` seats each bead across the layer width `FillProfile.WidthAtHeight` resolves at `FillProfile.HeightAtFill`. `Transport` carries the seam frame — tangent, lateral, normal — offsets its origin by admitted standoff, and resamples every `DepositSpan` boundary. `Weave` places the bead before work and travel rotation, so oscillation never bleeds into travel.
+- Receipt: `WeldPass` retains the frozen scheduling fields and adds lattice placement, `CommandedFeedMmMin` scaled to hold seam progression through oscillation, `BeadEvidence`, `ArcProgram`, and `PassLineage`. `TorchFrame.StandoffMm` and its offset pose preserve setup geometry. `BeadEvidence` carries arc time, EN 1011-2 t8/5 cooling time, and deposit length beside bead geometry. `WeldPlan` retains passes, actions, demands, maximum heat input, bead count, and key. `WeldPlan.Project` returns execution, qualification, or receipt evidence through one closed egress family.
+- Packages: Thinktecture.Runtime.Extensions supplies `[Union]`, `[SmartEnum<string>]`, and `[ComplexValueObject]`; LanguageExt.Core supplies `Fin`, `Validation`, `Option`, `Map`, `Set`, `Seq`, `Traverse`, `Apply`, `Fold`, `Choose`, and `Zip`; UnitsNet supplies typed boundary quantities and conversion; NodaTime supplies `Instant`; RhinoCommon supplies `Point3d`, `Vector3d`, `Plane`, `VectorAngle`, `CrossProduct`, `Unitize`, and `Rotate`; `Rasm.Fabrication.Process` supplies `ProcessBudget.Joining`, `Move`, `ContentKey`, and `EgressKind.WeldPlan`.
+- Boundary: `Rasm.Materials` supplies material, penetration, and qualification keys; callers resolve preparation geometry into the local `FillProfile`. `Joining/sequence` alone orders deposits and cooling. `Joining/procedure` alone assesses `WeldPlan.Demands`. Kinematics alone turns `WeldPass.Path` and `WeldPass.Frames` into robot solutions. Cam alone conditions execution motion. `FillProfile.VolumeMm3`, `FillProfile.Fits`, and `Pass` are numerical fold kernels; `Transport`, `Pose`, and `Weave` are Rhino mutation kernels; `CanonicalBytes` is the BCL binary-encoding kernel. `Weld` never posts machine code.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Runtime.InteropServices;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
+using NodaTime;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
+using UnitsNet.Units;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Joining;
@@ -38,120 +43,1054 @@ namespace Rasm.Fabrication.Joining;
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PassRole {
-    public static readonly PassRole Root = new("root", areaFactor: 0.7, weaveAdmitted: false);
-    public static readonly PassRole HotPass = new("hot-pass", areaFactor: 0.9, weaveAdmitted: false);
-    public static readonly PassRole Fill = new("fill", areaFactor: 1.0, weaveAdmitted: true);
-    public static readonly PassRole Cap = new("cap", areaFactor: 0.85, weaveAdmitted: true);
-    public static readonly PassRole Seal = new("seal", areaFactor: 0.6, weaveAdmitted: false);
+    public static readonly PassRole Tack = new("tack", 0.35, 0.45, false, 1.00, 0.80, false);
+    public static readonly PassRole Root = new("root", 0.55, 0.70, false, 1.00, 0.75, true);
+    public static readonly PassRole HotPass = new("hot-pass", 0.70, 0.85, false, 1.00, 0.90, false);
+    public static readonly PassRole Fill = new("fill", 1.00, 1.00, true, 1.00, 1.00, false);
+    public static readonly PassRole Cap = new("cap", 0.80, 0.90, true, 1.00, 0.95, true);
+    public static readonly PassRole Seal = new("seal", 0.50, 0.65, false, 1.00, 0.80, true);
+    public static readonly PassRole Butter = new("butter", 0.75, 0.80, true, 0.00, 0.90, false);
+    public static readonly PassRole Temper = new("temper", 0.55, 0.65, false, 0.00, 0.70, false);
+    public static readonly PassRole Buildup = new("buildup", 0.90, 0.90, true, 1.00, 1.00, false);
+    public static readonly PassRole Repair = new("repair", 0.65, 0.70, true, 1.00, 0.85, true);
 
     public double AreaFactor { get; }
-    public bool WeaveAdmitted { get; }
+    public double TravelFactor { get; }
+    public bool OscillationAdmitted { get; }
+    public double FillContribution { get; }
+    public double CurrentFactor { get; }
+    public bool HoldForInspection { get; }
 }
 
-[SmartEnum<string>]
-public sealed partial class WeavePattern {
-    public static readonly WeavePattern Stringer = new("stringer", widthFactor: 1.0, edgeDwellMs: 0);
-    public static readonly WeavePattern Zigzag = new("zigzag", widthFactor: 2.5, edgeDwellMs: 150);
-    public static readonly WeavePattern Crescent = new("crescent", widthFactor: 3.0, edgeDwellMs: 200);
-    public static readonly WeavePattern Triangle = new("triangle", widthFactor: 3.5, edgeDwellMs: 250);
-
-    public double WidthFactor { get; }
-    public int EdgeDwellMs { get; }
-}
-
-// The position axis Materials does not carry: TravelDerate derates the role-coupled travel (vertical-up runs
-// slow), CoolingScale scales the sequence's interpass wait (an overhead joint sheds heat slower).
 [SmartEnum<string>]
 public sealed partial class WeldPosition {
-    public static readonly WeldPosition G1 = new("1g", travelDerate: 1.0, coolingScale: 1.0);
-    public static readonly WeldPosition G2 = new("2g", travelDerate: 0.9, coolingScale: 1.0);
-    public static readonly WeldPosition G3Up = new("3g-up", travelDerate: 0.6, coolingScale: 1.3);
-    public static readonly WeldPosition G3Down = new("3g-down", travelDerate: 1.05, coolingScale: 0.9);
-    public static readonly WeldPosition G4 = new("4g", travelDerate: 0.7, coolingScale: 1.15);
-    public static readonly WeldPosition G5Up = new("5g-up", travelDerate: 0.55, coolingScale: 1.35);
-    public static readonly WeldPosition G5Down = new("5g-down", travelDerate: 0.95, coolingScale: 1.0);
-    public static readonly WeldPosition G6 = new("6g", travelDerate: 0.5, coolingScale: 1.4);
-    public static readonly WeldPosition F1 = new("1f", travelDerate: 1.0, coolingScale: 1.0);
-    public static readonly WeldPosition F2 = new("2f", travelDerate: 0.9, coolingScale: 1.0);
-    public static readonly WeldPosition F3 = new("3f", travelDerate: 0.65, coolingScale: 1.25);
-    public static readonly WeldPosition F4 = new("4f", travelDerate: 0.7, coolingScale: 1.15);
+    public static readonly WeldPosition G1 = new("1g", 1.00, 1.00, 1.00, true);
+    public static readonly WeldPosition G2 = new("2g", 0.90, 1.00, 0.95, true);
+    public static readonly WeldPosition G3Up = new("3g-up", 0.60, 1.30, 0.65, true);
+    public static readonly WeldPosition G3Down = new("3g-down", 1.05, 0.90, 0.85, false);
+    public static readonly WeldPosition G4 = new("4g", 0.70, 1.15, 0.55, false);
+    public static readonly WeldPosition G5Up = new("5g-up", 0.55, 1.35, 0.60, true);
+    public static readonly WeldPosition G5Down = new("5g-down", 0.95, 1.00, 0.85, false);
+    public static readonly WeldPosition G6 = new("6g", 0.50, 1.40, 0.50, true);
+    public static readonly WeldPosition F1 = new("1f", 1.00, 1.00, 1.00, true);
+    public static readonly WeldPosition F2 = new("2f", 0.90, 1.00, 0.95, true);
+    public static readonly WeldPosition F3 = new("3f", 0.65, 1.25, 0.65, true);
+    public static readonly WeldPosition F4 = new("4f", 0.70, 1.15, 0.55, false);
 
     public double TravelDerate { get; }
     public double CoolingScale { get; }
+    public double DepositionDerate { get; }
+    public bool OscillationAdmitted { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class WeldStandard {
+    public static readonly WeldStandard AwsD11 = new("aws-d1.1", 1.00, 2.50, 45.0, 10.0, 512, 1e-6, 1e-9);
+    public static readonly WeldStandard Iso15614 = new("iso-15614", 1.20, 3.00, 45.0, 10.0, 512, 1e-6, 1e-9);
+    public static readonly WeldStandard AsmeIx = new("asme-ix", 0.80, 2.20, 45.0, 5.0, 512, 1e-6, 1e-9);
+    public static readonly WeldStandard Iso3834 = new("iso-3834", 1.00, 2.00, 45.0, 10.0, 512, 1e-6, 1e-9);
+
+    public double TargetHeatInputKjMm { get; }
+    public double HeatInputCapKjMm { get; }
+    public double WorkAngleDeg { get; }
+    public double TravelAngleDeg { get; }
+    public int PassCap { get; }
+    public double AbsoluteVolumeToleranceMm3 { get; }
+    public double RelativeVolumeTolerance { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class CavityKind {
+    public static readonly CavityKind Plug = new("plug");
+    public static readonly CavityKind Slot = new("slot");
+}
+
+[SmartEnum<string>]
+public sealed partial class FlareKind {
+    public static readonly FlareKind Bevel = new("flare-bevel");
+    public static readonly FlareKind V = new("flare-v");
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Waveform {
+    private Waveform() { }
+
+    public sealed record Harmonic(Arr<HarmonicTerm> Terms) : Waveform;
+    public sealed record Piecewise(Arr<WaveKnot> Knots) : Waveform;
+
+    public double Offset(double phase) => Switch(
+        state: phase - Math.Floor(phase),
+        harmonic: static (p, value) => value.Terms.Fold(0.0,
+            (sum, term) => sum + term.Amplitude * Math.Sin((2.0 * Math.PI * term.Order * p) + term.PhaseRad)),
+        piecewise: static (p, value) => value.Knots.Zip(value.Knots.Tail)
+            .Choose(pair => p >= pair.Item1.Phase && p <= pair.Item2.Phase
+                ? Some(pair.Item1.Offset + ((pair.Item2.Offset - pair.Item1.Offset)
+                    * ((p - pair.Item1.Phase) / (pair.Item2.Phase - pair.Item1.Phase))))
+                : None)
+            .HeadOrNone()
+            .IfNone(0.0));
+
+    public bool Admitted => Switch(
+        harmonic: static value => !value.Terms.IsEmpty && value.Terms.ForAll(static term => term != default)
+            && value.Terms.Map(static term => term.Order).Distinct().Count == value.Terms.Count,
+        piecewise: static value => value.Knots.Count >= 2 && value.Knots.ForAll(static knot => knot != default)
+            && value.Knots.Head.Phase == 0.0 && value.Knots.Last.Phase == 1.0
+            && value.Knots.Head.Offset == value.Knots.Last.Offset
+            && value.Knots.Zip(value.Knots.Tail).ForAll(static pair => pair.Item1.Phase < pair.Item2.Phase));
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct HarmonicTerm {
+    public int Order { get; }
+    public double Amplitude { get; }
+    public double PhaseRad { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int order,
+        ref double amplitude,
+        ref double phaseRad) =>
+        validationError = order <= 0 || !double.IsFinite(amplitude) || !double.IsFinite(phaseRad)
+            ? new ValidationError(message: "weld-harmonic")
+            : null;
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct WaveKnot {
+    public double Phase { get; }
+    public double Offset { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double phase,
+        ref double offset) =>
+        validationError = !double.IsFinite(phase) || phase is < 0.0 or > 1.0 || !double.IsFinite(offset)
+            ? new ValidationError(message: "weld-wave-knot")
+            : null;
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct WeavePattern {
+    public Waveform Shape { get; }
+    public double AmplitudeMm { get; }
+    public double PitchMm { get; }
+    public double EdgeDwellS { get; }
+    public int TogglesPerCycle { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Waveform shape,
+        ref double amplitudeMm,
+        ref double pitchMm,
+        ref double edgeDwellS,
+        ref int togglesPerCycle) =>
+        validationError = shape is null || !shape.Admitted || amplitudeMm < 0.0 || pitchMm <= 0.0 || edgeDwellS < 0.0
+            || togglesPerCycle < 0 || (edgeDwellS > 0.0) != (togglesPerCycle > 0)
+            || (amplitudeMm == 0.0 && edgeDwellS > 0.0)
+            || Seq(amplitudeMm, pitchMm, edgeDwellS).Exists(static value => !double.IsFinite(value))
+            ? new ValidationError(message: "weld-weave")
+            : null;
+
+    public double Offset(double stationMm) => AmplitudeMm * Shape.Offset(stationMm / PitchMm);
+
+    public double DwellSeconds(double lengthMm) => EdgeDwellS * TogglesPerCycle * (lengthMm / PitchMm);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Boundary-resolved prep FACTS ([SHAPE]: GroovePrep seam — no Materials type crosses): the WeldType row selects
-// the case at the census boundary; Groove.DepthMm is the prep-true fill height (PJP depth, CJP t−f) and
-// EffectiveThroatMm the deduction-resolved qualification throat; Backed/Backgouge are the root-condition facts.
+[ComplexValueObject]
+public sealed partial class FillProfile {
+    public Arr<SectionStation> Stations { get; }
+    public Arr<DepositSpan> Spans { get; }
+    public double EffectiveThroatMm { get; }
+    public double ReinforcementMm { get; }
+    public double ToeRadiusMm { get; }
+    public double VolumeMm3 => Spans.Fold(0.0, (sum, span) => {
+        Seq<double> stations = Seq(span.StartMm)
+            + Stations.Map(static row => row.StationMm).Filter(value => value > span.StartMm && value < span.EndMm)
+            + Seq(span.EndMm);
+        return sum + stations.Zip(stations.Tail).Fold(0.0, (volume, pair) => volume
+            + (0.5 * (Section(pair.Item1).AreaMm2 + Section(pair.Item2).AreaMm2) * (pair.Item2 - pair.Item1)));
+    });
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Arr<SectionStation> stations,
+        ref Arr<DepositSpan> spans,
+        ref double effectiveThroatMm,
+        ref double reinforcementMm,
+        ref double toeRadiusMm) =>
+        validationError = effectiveThroatMm <= 0.0 || reinforcementMm < 0.0 || toeRadiusMm < 0.0
+            || Seq(effectiveThroatMm, reinforcementMm, toeRadiusMm).Exists(static value => !double.IsFinite(value))
+            || stations.IsEmpty || stations.Exists(static row => row == default)
+            || spans.IsEmpty || spans.Exists(static row => row == default)
+            || stations.Head.StationMm != 0.0
+            || stations.Map(static row => row.StationMm).Distinct().Count != stations.Count
+            || !stations.AsEnumerable().OrderBy(static row => row.StationMm).Select(static row => row.StationMm)
+                .SequenceEqual(stations.Map(static row => row.StationMm))
+            || spans.Zip(spans.Tail).Exists(static pair => pair.Item1.EndMm >= pair.Item2.StartMm)
+            || spans.Last.EndMm > stations.Last.StationMm
+            ? new ValidationError(message: "weld-fill-profile")
+            : null;
+
+    public double EnvelopeWidthMm => Stations.Map(static row => row.WidthMm).Fold(0.0, Math.Max);
+    public double EnvelopeRootWidthMm => Stations.Map(static row => row.RootWidthMm).Fold(double.PositiveInfinity, Math.Min);
+    public double EnvelopeHeightMm => Stations.Map(static row => row.HeightMm).Fold(0.0, Math.Max);
+    public double DepositLengthMm => Spans.Fold(0.0, static (sum, span) => sum + span.EndMm - span.StartMm);
+
+    public (double AreaMm2, double WidthMm, double RootWidthMm, double HeightMm) Section(double stationMm) => Stations
+        .Zip(Stations.Tail)
+        .Choose(pair => stationMm >= pair.Item1.StationMm && stationMm <= pair.Item2.StationMm
+            ? Some((pair.Item1, pair.Item2))
+            : None)
+        .HeadOrNone()
+        .Map(pair => {
+            double t = (stationMm - pair.Item1.StationMm) / (pair.Item2.StationMm - pair.Item1.StationMm);
+            return (
+                pair.Item1.AreaMm2 + ((pair.Item2.AreaMm2 - pair.Item1.AreaMm2) * t),
+                pair.Item1.WidthMm + ((pair.Item2.WidthMm - pair.Item1.WidthMm) * t),
+                pair.Item1.RootWidthMm + ((pair.Item2.RootWidthMm - pair.Item1.RootWidthMm) * t),
+                pair.Item1.HeightMm + ((pair.Item2.HeightMm - pair.Item1.HeightMm) * t));
+        })
+        .IfNone(stationMm <= Stations.Head.StationMm
+            ? (Stations.Head.AreaMm2, Stations.Head.WidthMm, Stations.Head.RootWidthMm, Stations.Head.HeightMm)
+            : (Stations.Last.AreaMm2, Stations.Last.WidthMm, Stations.Last.RootWidthMm, Stations.Last.HeightMm));
+
+    // Envelope section is the trapezoid root -> face; a square groove degenerates to the constant-width arm.
+    public double WidthAtHeight(double heightMm) => EnvelopeRootWidthMm
+        + ((EnvelopeWidthMm - EnvelopeRootWidthMm) * Math.Clamp(heightMm / EnvelopeHeightMm, 0.0, 1.0));
+
+    public double HeightAtFill(double fraction) {
+        double taper = (EnvelopeWidthMm - EnvelopeRootWidthMm) / EnvelopeHeightMm;
+        double area = 0.5 * (EnvelopeRootWidthMm + EnvelopeWidthMm) * EnvelopeHeightMm * Math.Clamp(fraction, 0.0, 1.0);
+        return taper <= 0.0
+            ? area / EnvelopeRootWidthMm
+            : (Math.Sqrt((EnvelopeRootWidthMm * EnvelopeRootWidthMm) + (2.0 * taper * area)) - EnvelopeRootWidthMm) / taper;
+    }
+
+    public bool Fits(Arr<Point3d> seam) => Spans.Last.EndMm <= seam.Zip(seam.Tail)
+        .Fold(0.0, static (sum, pair) => sum + pair.Item1.DistanceTo(pair.Item2));
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct DepositSpan {
+    public double StartMm { get; }
+    public double EndMm { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double startMm,
+        ref double endMm) =>
+        validationError = startMm < 0.0 || startMm >= endMm || !double.IsFinite(startMm) || !double.IsFinite(endMm)
+            ? new ValidationError(message: "weld-deposit-span")
+            : null;
+
+    public bool Contains(double stationMm) => stationMm >= StartMm && stationMm <= EndMm;
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct SectionStation {
+    public double StationMm { get; }
+    public double WidthMm { get; }
+    public double RootWidthMm { get; }
+    public double HeightMm { get; }
+    public double AreaMm2 => 0.5 * (WidthMm + RootWidthMm) * HeightMm;
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double stationMm,
+        ref double widthMm,
+        ref double rootWidthMm,
+        ref double heightMm) =>
+        validationError = stationMm < 0.0 || widthMm <= 0.0 || heightMm <= 0.0
+            || rootWidthMm < 0.0 || rootWidthMm > widthMm
+            || Seq(stationMm, widthMm, rootWidthMm, heightMm).Exists(static value => !double.IsFinite(value))
+            ? new ValidationError(message: "weld-section-station")
+            : null;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RootProgram {
+    private RootProgram() { }
+
+    public sealed record None : RootProgram;
+    public sealed record Backing(string Key, bool RemoveAfterWeld) : RootProgram;
+    public sealed record Backgouge(double DepthMm, int BeforeSide) : RootProgram;
+    public sealed record BackingAndBackgouge(string Key, bool RemoveAfterWeld, double DepthMm, int BeforeSide) : RootProgram;
+    public sealed record Seal(int Side) : RootProgram;
+
+    public bool Admitted => Switch(
+        none: static _ => true,
+        backing: static value => !string.IsNullOrWhiteSpace(value.Key),
+        backgouge: static value => value.DepthMm > 0.0 && double.IsFinite(value.DepthMm) && value.BeforeSide is 0 or 1,
+        backingAndBackgouge: static value => !string.IsNullOrWhiteSpace(value.Key) && value.DepthMm > 0.0
+            && double.IsFinite(value.DepthMm) && value.BeforeSide is 0 or 1,
+        seal: static value => value.Side is 0 or 1);
+
+    // Side the deposit opens on; a double-sided groove flips to its complement once the first side reaches half fill.
+    public int FirstSide => Switch(
+        none: static _ => 0,
+        backing: static _ => 0,
+        backgouge: static value => 1 - value.BeforeSide,
+        backingAndBackgouge: static value => 1 - value.BeforeSide,
+        seal: static value => 1 - value.Side);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record JointPrep {
     private JointPrep() { }
 
     public sealed record Groove(
-        string GeometryKey, double WallAngleDeg, double RootOpeningMm, double RootFaceMm, double GrooveRadiusMm,
-        double DepthMm, double EffectiveThroatMm, bool DoubleSided, string BackingKey, string RootTreatmentKey) : JointPrep;
+        string GeometryKey,
+        string PenetrationKey,
+        FillProfile Fill,
+        RootProgram Root,
+        bool DoubleSided) : JointPrep;
+    public sealed record Fillet(string ContourKey, FillProfile Fill, double LegAMm, double LegBMm) : JointPrep;
+    public sealed record Cavity(CavityKind Kind, FillProfile Fill) : JointPrep;
+    public sealed record Flare(FlareKind Kind, FillProfile Fill, double RadiusMm) : JointPrep;
 
-    public sealed record Fillet(double LegMm, double MinLegMm) : JointPrep;
-    public sealed record PlugSlot(double HoleDiameterMm, double DepthMm, double SlotLengthMm, bool Filled) : JointPrep;
-    public sealed record Flare(string TypeKey, double RadiusMm, double EffectiveThroatMm) : JointPrep;
+    public FillProfile Demand => Switch(
+        groove: static value => value.Fill,
+        fillet: static value => value.Fill,
+        cavity: static value => value.Fill,
+        flare: static value => value.Fill);
+
+    public string QualificationType => Switch(
+        groove: static _ => "groove",
+        fillet: static _ => "fillet",
+        cavity: static value => value.Kind.Key,
+        flare: static value => value.Kind.Key);
+
+    // EN 1011-2 joint shape factors: sheet-plane (F2) and volumetric (F3) heat-flow correction per preparation.
+    public (double Planar, double Spatial) ShapeFactors => Switch(
+        groove: static value => value.DoubleSided ? (0.90, 0.90) : (1.00, 1.00),
+        fillet: static _ => (0.90, 0.67),
+        cavity: static _ => (0.67, 0.67),
+        flare: static _ => (0.90, 0.67));
+
+    public int FirstSide => Switch(
+        groove: static value => value.Root.FirstSide,
+        fillet: static _ => 0,
+        cavity: static _ => 0,
+        flare: static _ => 0);
+
+    public bool DoubleSided => Switch(
+        groove: static value => value.DoubleSided,
+        fillet: static _ => false,
+        cavity: static _ => false,
+        flare: static _ => false);
+
+    public bool Admitted(double thicknessMm) => Demand is not null && Demand.VolumeMm3 > 0.0 && Switch(
+        state: thicknessMm,
+        groove: static (thickness, value) => !string.IsNullOrWhiteSpace(value.GeometryKey)
+            && !string.IsNullOrWhiteSpace(value.PenetrationKey) && value.Root is not null && value.Root.Admitted
+            && value.Fill.EffectiveThroatMm <= thickness && (!value.DoubleSided || value.Root is not RootProgram.None),
+        fillet: static (_, value) => !string.IsNullOrWhiteSpace(value.ContourKey) && value.LegAMm > 0.0 && value.LegBMm > 0.0
+            && double.IsFinite(value.LegAMm) && double.IsFinite(value.LegBMm),
+        cavity: static (_, value) => value.Kind is not null,
+        flare: static (_, value) => value.Kind is not null && value.RadiusMm > 0.0
+            && double.IsFinite(value.RadiusMm));
 }
 
-// The census row: seam waypoints WITH per-waypoint normals (a world-Z lateral offset collapses on a vertical
-// seam); for plug/slot the same carrier is the cavity-fill traversal, so volume divides by its admitted length.
-// Joint IS the assembly AssemblyJoint.Index ordinal — one identity space; the scheduler's join fails typed on
-// any mismatch.
-public sealed record WeldJoint(
-    int Joint, Arr<Point3d> Seam, Arr<Vector3d> Normals, JointPrep Prep,
-    string ProcessKey, string FillerKey, string ShieldingKey, WeldPosition Position,
-    string FillerClassificationKey, string FluxKey, string ProgressionKey,
-    string CurrentTypeKey, string PolarityKey, string TransferModeKey, string PassTechniqueKey,
-    double ElectrodeDiameterMm, double ThicknessMm, double DiameterMm, string MaterialGroupKey,
-    double PreheatC, Option<double> PwhtC, Option<double> PwhtMinutes,
-    double AccessHalfAngleDeg, bool ImpactDemanded);
+[ComplexValueObject]
+public sealed partial class WeldJoint {
+    public int Joint { get; }
+    public Arr<Point3d> Seam { get; }
+    public Arr<Vector3d> Normals { get; }
+    public double NormalToleranceRad { get; }
+    public JointPrep Prep { get; }
+    public string ProcessKey { get; }
+    public Option<string> FillerKey { get; }
+    public Option<string> ShieldingKey { get; }
+    public WeldPosition Position { get; }
+    public Option<string> FillerClassificationKey { get; }
+    public Option<string> FluxKey { get; }
+    public string ProgressionKey { get; }
+    public string CurrentTypeKey { get; }
+    public string PolarityKey { get; }
+    public Option<string> TransferModeKey { get; }
+    public string PassTechniqueKey { get; }
+    public double ElectrodeDiameterMm { get; }
+    public double ThicknessMm { get; }
+    public Option<double> DiameterMm { get; }
+    public string MaterialGroupKey { get; }
+    public double PreheatC { get; }
+    public Option<double> PwhtC { get; }
+    public Option<double> PwhtMinutes { get; }
+    public bool ImpactDemanded { get; }
+    public Set<string> QualificationContext { get; }
+    public InspectionBasis Inspection { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int joint,
+        ref Arr<Point3d> seam,
+        ref Arr<Vector3d> normals,
+        ref double normalToleranceRad,
+        ref JointPrep prep,
+        ref string processKey,
+        ref Option<string> fillerKey,
+        ref Option<string> shieldingKey,
+        ref WeldPosition position,
+        ref Option<string> fillerClassificationKey,
+        ref Option<string> fluxKey,
+        ref string progressionKey,
+        ref string currentTypeKey,
+        ref string polarityKey,
+        ref Option<string> transferModeKey,
+        ref string passTechniqueKey,
+        ref double electrodeDiameterMm,
+        ref double thicknessMm,
+        ref Option<double> diameterMm,
+        ref string materialGroupKey,
+        ref double preheatC,
+        ref Option<double> pwhtC,
+        ref Option<double> pwhtMinutes,
+        ref bool impactDemanded,
+        ref Set<string> qualificationContext,
+        ref InspectionBasis inspection) =>
+        validationError = joint < 0 || prep is null || position is null || seam.Count < 2 || seam.Count != normals.Count
+            || seam.Exists(static point => !point.IsValid) || normals.Exists(static normal => !normal.IsValid || normal.IsZero)
+            || seam.Zip(seam.Tail).Exists(static pair => pair.Item1.DistanceTo(pair.Item2) <= 0.0)
+            || !double.IsFinite(normalToleranceRad) || normalToleranceRad <= 0.0 || normalToleranceRad > 0.5 * Math.PI
+            || seam.Map((_, index) => (Tangent: Tangent(seam, index), Normal: normals[index]))
+                .Exists(pair => pair.Tangent.IsZero
+                    || !double.IsFinite(Vector3d.VectorAngle(pair.Tangent, pair.Normal))
+                    || Math.Abs(Vector3d.VectorAngle(pair.Tangent, pair.Normal) - (0.5 * Math.PI)) > normalToleranceRad)
+            || Seq(processKey, progressionKey, currentTypeKey, polarityKey, passTechniqueKey, materialGroupKey)
+                .Exists(string.IsNullOrWhiteSpace)
+            || Seq(fillerKey, shieldingKey, fillerClassificationKey, fluxKey, transferModeKey)
+                .Exists(static value => value.Exists(string.IsNullOrWhiteSpace))
+            || electrodeDiameterMm <= 0.0 || thicknessMm <= 0.0
+            || diameterMm.Exists(static value => value <= 0.0 || !double.IsFinite(value))
+            || preheatC < 0.0 || preheatC >= 500.0
+            || Seq(electrodeDiameterMm, thicknessMm, preheatC).Exists(static value => !double.IsFinite(value))
+            || !prep.Admitted(thicknessMm) || !prep.Demand.Fits(seam)
+            || inspection == default || pwhtC.IsSome != pwhtMinutes.IsSome
+            || pwhtC.Exists(static value => value <= 0.0 || !double.IsFinite(value))
+            || pwhtMinutes.Exists(static value => value <= 0.0 || !double.IsFinite(value))
+            ? new ValidationError(message: "weld-joint")
+            : null;
+
+    public static Fin<WeldJoint> Admit(
+        int joint,
+        Arr<Point3d> seam,
+        Arr<Vector3d> normals,
+        Angle normalTolerance,
+        JointPrep prep,
+        string processKey,
+        Option<string> fillerKey,
+        Option<string> shieldingKey,
+        WeldPosition position,
+        Option<string> fillerClassificationKey,
+        Option<string> fluxKey,
+        string progressionKey,
+        string currentTypeKey,
+        string polarityKey,
+        Option<string> transferModeKey,
+        string passTechniqueKey,
+        Length electrodeDiameter,
+        Length thickness,
+        Option<Length> diameter,
+        string materialGroupKey,
+        Temperature preheat,
+        Option<Temperature> pwht,
+        Option<Duration> pwhtDuration,
+        bool impactDemanded,
+        Set<string> qualificationContext,
+        InspectionBasis inspection) =>
+        Validate(
+            joint, seam, normals, normalTolerance.As(AngleUnit.Radian), prep, processKey, fillerKey, shieldingKey,
+            position, fillerClassificationKey, fluxKey,
+            progressionKey, currentTypeKey, polarityKey, transferModeKey, passTechniqueKey,
+            electrodeDiameter.As(LengthUnit.Millimeter), thickness.As(LengthUnit.Millimeter),
+            diameter.Map(static value => value.As(LengthUnit.Millimeter)), materialGroupKey,
+            preheat.DegreesCelsius, pwht.Map(static value => value.DegreesCelsius),
+            pwhtDuration.Map(static value => value.Minutes), impactDemanded, qualificationContext, inspection,
+            out WeldJoint admitted) is { } error
+                ? Fin.Fail<WeldJoint>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                : Fin.Succ(admitted);
+
+    internal static Vector3d Tangent(Arr<Point3d> seam, int index) => index switch {
+        0 => seam[1] - seam[0],
+        _ when index == seam.Count - 1 => seam[index] - seam[index - 1],
+        _ => seam[index + 1] - seam[index - 1],
+    };
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DepositionSource {
     private DepositionSource() { }
 
-    public sealed record Wire(double DiameterMm) : DepositionSource;
+    public sealed record SolidWire(double DiameterMm, int Count, double SpacingMm, double Yield) : DepositionSource;
+    public sealed record CoredWire(
+        double OuterDiameterMm,
+        double FillFraction,
+        int Count,
+        double SpacingMm,
+        double Yield) : DepositionSource;
+    public sealed record Rod(double AreaMm2, double FeedMmMin, double Yield) : DepositionSource;
+    public sealed record Strip(double WidthMm, double ThicknessMm, double FeedMmMin, double Yield) : DepositionSource;
+    public sealed record Powder(double Mm3Min, double Capture, double CharacteristicWidthMm) : DepositionSource;
     public sealed record Volumetric(double Mm3Min, double CharacteristicWidthMm) : DepositionSource;
+    public sealed record Autogenous(double FusedAreaMm2) : DepositionSource;
+
+    public double Rate(ProcessBudget.Joining budget) => Switch(
+        state: budget,
+        solidWire: static (joined, value) => 0.25 * Math.PI * value.DiameterMm * value.DiameterMm
+            * value.Count * joined.WireFeedRate * value.Yield,
+        coredWire: static (joined, value) => 0.25 * Math.PI * value.OuterDiameterMm * value.OuterDiameterMm
+            * value.FillFraction * value.Count * joined.WireFeedRate * value.Yield,
+        rod: static (_, value) => value.AreaMm2 * value.FeedMmMin * value.Yield,
+        strip: static (_, value) => value.WidthMm * value.ThicknessMm * value.FeedMmMin * value.Yield,
+        powder: static (_, value) => value.Mm3Min * value.Capture,
+        volumetric: static (_, value) => value.Mm3Min,
+        autogenous: static (joined, value) => value.FusedAreaMm2 * joined.TravelSpeed);
+
+    public double Width => Switch(
+        solidWire: static value => value.DiameterMm + ((value.Count - 1) * value.SpacingMm),
+        coredWire: static value => value.OuterDiameterMm + ((value.Count - 1) * value.SpacingMm),
+        rod: static value => Math.Sqrt(value.AreaMm2),
+        strip: static value => value.WidthMm,
+        powder: static value => value.CharacteristicWidthMm,
+        volumetric: static value => value.CharacteristicWidthMm,
+        autogenous: static value => Math.Sqrt(value.FusedAreaMm2));
+
+    public double FillerLength(double depositedMm3) => Switch(
+        state: depositedMm3,
+        solidWire: static (deposited, value) => deposited
+            / (0.25 * Math.PI * value.DiameterMm * value.DiameterMm * value.Count * value.Yield),
+        coredWire: static (deposited, value) => deposited
+            / (0.25 * Math.PI * value.OuterDiameterMm * value.OuterDiameterMm
+                * value.FillFraction * value.Count * value.Yield),
+        rod: static (deposited, value) => deposited / (value.AreaMm2 * value.Yield),
+        strip: static (deposited, value) => deposited / (value.WidthMm * value.ThicknessMm * value.Yield),
+        powder: static (_, _) => 0.0,
+        volumetric: static (_, _) => 0.0,
+        autogenous: static (_, _) => 0.0);
+
+    public bool Admitted => Switch(
+        solidWire: static value => value.DiameterMm > 0.0 && value.Count > 0 && value.SpacingMm >= 0.0
+            && (value.Count > 1 || value.SpacingMm == 0.0) && value.Yield is > 0.0 and <= 1.0
+            && Seq(value.DiameterMm, value.SpacingMm, value.Yield).ForAll(double.IsFinite),
+        coredWire: static value => value.OuterDiameterMm > 0.0 && value.FillFraction is > 0.0 and <= 1.0
+            && value.Count > 0 && value.SpacingMm >= 0.0 && (value.Count > 1 || value.SpacingMm == 0.0)
+            && value.Yield is > 0.0 and <= 1.0
+            && Seq(value.OuterDiameterMm, value.FillFraction, value.SpacingMm, value.Yield).ForAll(double.IsFinite),
+        rod: static value => value.AreaMm2 > 0.0 && value.FeedMmMin > 0.0 && value.Yield is > 0.0 and <= 1.0
+            && Seq(value.AreaMm2, value.FeedMmMin, value.Yield).ForAll(double.IsFinite),
+        strip: static value => value.WidthMm > 0.0 && value.ThicknessMm > 0.0 && value.FeedMmMin > 0.0
+            && value.Yield is > 0.0 and <= 1.0
+            && Seq(value.WidthMm, value.ThicknessMm, value.FeedMmMin, value.Yield).ForAll(double.IsFinite),
+        powder: static value => value.Mm3Min > 0.0 && value.Capture is > 0.0 and <= 1.0
+            && value.CharacteristicWidthMm > 0.0
+            && Seq(value.Mm3Min, value.Capture, value.CharacteristicWidthMm).ForAll(double.IsFinite),
+        volumetric: static value => value.Mm3Min > 0.0 && value.CharacteristicWidthMm > 0.0
+            && double.IsFinite(value.Mm3Min) && double.IsFinite(value.CharacteristicWidthMm),
+        autogenous: static value => value.FusedAreaMm2 > 0.0 && double.IsFinite(value.FusedAreaMm2));
 }
 
-public sealed record WeldProcessLaw(
-    double Efficiency, DepositionSource Deposition, double TravelLowMmMin, double TravelHighMmMin,
-    double HeatInputLowKjMm, double HeatInputHighKjMm);
+[ComplexValueObject]
+public sealed partial class ArcMode {
+    public double Efficiency { get; }
+    public double TravelLowMmMin { get; }
+    public double TravelHighMmMin { get; }
+    public double HeatInputLowKjMm { get; }
+    public double HeatInputHighKjMm { get; }
+    public double CoolingLowS { get; }
+    public double CoolingHighS { get; }
+    public double CurrentCapA { get; }
+    public Set<string> Polarities { get; }
+    public Set<string> CurrentTypes { get; }
+    public Set<string> Progressions { get; }
+    public Set<string> Techniques { get; }
 
-// Efficiency: the EN 1011-1 thermal-efficiency column keyed by the Materials process KEY — arc physics is
-// Fabrication's column, the process AXIS stays Materials-owned; BeadWidthWireDia and FilletStepFactor are the
-// bead-geometry rows (inline 2.5/0.35 literals are the named defect).
-public sealed record WeldPolicy(
-    double TargetHeatInputKjMm, double HeatInputCapKjMm,
-    double WorkAngleDeg, double TravelAngleDeg, WeavePattern FillWeave,
-    double BeadWidthWireDia, double FilletStepFactor, int PassCap, Map<string, WeldProcessLaw> Processes) {
-    public static readonly WeldPolicy Canonical = new(
-        TargetHeatInputKjMm: 1.0, HeatInputCapKjMm: 2.5,
-        WorkAngleDeg: 45.0, TravelAngleDeg: 10.0, WeavePattern.Zigzag,
-        BeadWidthWireDia: 2.5, FilletStepFactor: 0.35, PassCap: 512,
-        Map(
-            ("smaw", new WeldProcessLaw(0.8, new DepositionSource.Volumetric(650.0, 4.0), 75.0, 350.0, 0.4, 2.5)),
-            ("gmaw", new WeldProcessLaw(0.8, new DepositionSource.Wire(1.2), 150.0, 900.0, 0.3, 2.0)),
-            ("fcaw", new WeldProcessLaw(0.8, new DepositionSource.Wire(1.2), 120.0, 700.0, 0.4, 2.5)),
-            ("saw", new WeldProcessLaw(1.0, new DepositionSource.Wire(3.2), 200.0, 1200.0, 0.5, 3.5))));
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double efficiency,
+        ref double travelLowMmMin,
+        ref double travelHighMmMin,
+        ref double heatInputLowKjMm,
+        ref double heatInputHighKjMm,
+        ref double coolingLowS,
+        ref double coolingHighS,
+        ref double currentCapA,
+        ref Set<string> polarities,
+        ref Set<string> currentTypes,
+        ref Set<string> progressions,
+        ref Set<string> techniques) =>
+        validationError = efficiency is <= 0.0 or > 1.0 || travelLowMmMin <= 0.0 || travelLowMmMin > travelHighMmMin
+            || heatInputLowKjMm <= 0.0 || heatInputLowKjMm > heatInputHighKjMm
+            || coolingLowS <= 0.0 || coolingLowS > coolingHighS || currentCapA <= 0.0
+            || Seq(efficiency, travelLowMmMin, travelHighMmMin, heatInputLowKjMm, heatInputHighKjMm,
+                coolingLowS, coolingHighS, currentCapA).Exists(static value => !double.IsFinite(value))
+            || Seq(polarities, currentTypes, progressions, techniques)
+                .Exists(static row => row.IsEmpty || row.Exists(string.IsNullOrWhiteSpace))
+            ? new ValidationError(message: "weld-arc-mode")
+            : null;
+
+    public Validation<Error, Unit> Admits(WeldJoint joint) => (
+            Gate(Polarities, joint.PolarityKey, "polarity", joint.Joint),
+            Gate(CurrentTypes, joint.CurrentTypeKey, "current-type", joint.Joint),
+            Gate(Progressions, joint.ProgressionKey, "progression", joint.Joint),
+            Gate(Techniques, joint.PassTechniqueKey, "technique", joint.Joint))
+        .Apply(static (_, _, _, _) => unit)
+        .As();
+
+    public Fin<double> Travel(double requestedMmMin, int joint) =>
+        !double.IsFinite(requestedMmMin) || requestedMmMin < TravelLowMmMin
+            ? Fin.Fail<double>(new GeometryFault.DegenerateInput(
+                Kind.Curve,
+                -1,
+                $"weld-plan:travel-floor:{joint}:{requestedMmMin:R}").ToError())
+            : Fin.Succ(Math.Min(requestedMmMin, TravelHighMmMin));
+
+    private static K<Validation<Error>, Unit> Gate(Set<string> admitted, string key, string axis, int joint) =>
+        admitted.Contains(key)
+            ? Validation<Error, Unit>.Success(unit)
+            : Validation<Error, Unit>.Fail(
+                new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-arc-mode:{axis}:{joint}:{key}").ToError());
 }
 
-public readonly record struct TorchFrame(int Joint, int Waypoint, Plane Pose, double WorkAngleDeg, double TravelAngleDeg) {
-    // Reversed-travel pose: unwind the travel/work tilts about the pose's own axes, flip the base frame 180°
-    // about its torch axis, re-apply the tilts — X tracks the reversed tangent, push/drag character preserved.
-    public TorchFrame Reversed() {
-        Plane pose = Pose;
-        pose.Rotate(-TravelAngleDeg * Math.PI / 180.0, pose.YAxis, pose.Origin);
-        pose.Rotate(-WorkAngleDeg * Math.PI / 180.0, pose.XAxis, pose.Origin);
-        pose.Rotate(Math.PI, pose.ZAxis, pose.Origin);
-        pose.Rotate(WorkAngleDeg * Math.PI / 180.0, pose.XAxis, pose.Origin);
-        pose.Rotate(TravelAngleDeg * Math.PI / 180.0, pose.YAxis, pose.Origin);
-        return this with { Pose = pose };
+[ComplexValueObject]
+public sealed partial class WeldProcessLaw {
+    public DepositionSource Deposition { get; }
+    public string DefaultModeKey { get; }
+    public Map<string, ArcMode> Modes { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref DepositionSource deposition,
+        ref string defaultModeKey,
+        ref Map<string, ArcMode> modes) =>
+        validationError = deposition is null || !deposition.Admitted || string.IsNullOrWhiteSpace(defaultModeKey)
+            || modes.IsEmpty || modes.Keys.Exists(string.IsNullOrWhiteSpace)
+            || modes.Values.Exists(static value => value is null) || !modes.ContainsKey(defaultModeKey)
+            ? new ValidationError(message: "weld-process-law")
+            : null;
+
+    public Fin<ArcMode> Mode(WeldJoint joint) => joint.TransferModeKey
+        .Match(
+            Some: key => Modes.Find(key)
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:transfer-mode:{joint.Joint}:{key}").ToError()),
+            None: () => Modes.Find(DefaultModeKey)
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:default-mode:{DefaultModeKey}").ToError()))
+        .Bind(mode => mode.Admits(joint).ToFin().Map(_ => mode));
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct RoleBand {
+    public double StartFraction { get; }
+    public double EndFraction { get; }
+    public PassRole Role { get; }
+    public WeavePattern Weave { get; }
+    public ArcProgram Arc { get; }
+    public PassLineage Lineage { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double startFraction,
+        ref double endFraction,
+        ref PassRole role,
+        ref WeavePattern weave,
+        ref ArcProgram arc,
+        ref PassLineage lineage) =>
+        validationError = role is null || weave == default || arc == default || lineage is null || !lineage.Admitted
+            || !double.IsFinite(startFraction) || !double.IsFinite(endFraction)
+            || startFraction < 0.0 || endFraction > 1.0 || startFraction >= endFraction
+            || (!role.OscillationAdmitted && weave.AmplitudeMm > 0.0)
+            || (role == PassRole.Repair) != (lineage is PassLineage.Repair)
+            || (role == PassRole.Temper) != (lineage is PassLineage.Temper)
+            ? new ValidationError(message: "weld-role-band")
+            : null;
+}
+
+[ComplexValueObject]
+public sealed partial class BeadProgram {
+    public Seq<RoleBand> Bands { get; }
+    public Seq<RoleBand> Overlay { get; }
+    public double OverlapFraction { get; }
+    public double WidthFactor { get; }
+    public double HeightFactor { get; }
+
+    // Fill bands must advance the groove ledger, so a zero-contribution role (butter, temper) rides the overlay
+    // and deposits once after closure; interleaving it into Bands would stall the fill fold against the pass cap.
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<RoleBand> bands,
+        ref Seq<RoleBand> overlay,
+        ref double overlapFraction,
+        ref double widthFactor,
+        ref double heightFactor) =>
+        validationError = bands.IsEmpty || bands.Exists(static row => row == default)
+            || bands.Head.StartFraction != 0.0 || bands.Last.EndFraction != 1.0
+            || bands.Zip(bands.Tail).Exists(static pair => pair.Item1.EndFraction != pair.Item2.StartFraction)
+            || bands.Exists(static row => row.Role.FillContribution <= 0.0)
+            || overlay.Exists(static row => row == default || row.Role.FillContribution > 0.0)
+            || overlapFraction is < 0.0 or >= 1.0 || widthFactor <= 0.0 || heightFactor <= 0.0
+            || Seq(overlapFraction, widthFactor, heightFactor).Exists(static value => !double.IsFinite(value))
+            ? new ValidationError(message: "weld-bead-program")
+            : null;
+
+    public RoleBand Resolve(double fraction) => Bands.Find(row => fraction >= row.StartFraction && fraction < row.EndFraction)
+        .IfNone(Bands.Last);
+
+    // One layer carries as many overlapped beads as its section width admits; bead 0 sits at the left toe.
+    public (int BeadsInLayer, double LateralOffsetMm) Lattice(double layerWidthMm, double beadWidthMm, int bead) {
+        int count = Math.Max(1, (int)Math.Ceiling(layerWidthMm / (beadWidthMm * (1.0 - OverlapFraction))));
+        return (count, (-0.5 * layerWidthMm) + ((Math.Min(bead, count - 1) + 0.5) * (layerWidthMm / count)));
     }
+}
+
+public interface IWeldAccess {
+    string Key { get; }
+    Validation<Error, Unit> Check(WeldJoint joint, Seq<WeldPass> passes);
+
+    public static Fin<IWeldAccess> Admit(
+        string key,
+        Func<WeldJoint, Seq<WeldPass>, Validation<Error, Unit>> check) =>
+        WeldAccess.Validate(key, check, out WeldAccess access) is { } error
+            ? Fin.Fail<IWeldAccess>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+            : Fin.Succ<IWeldAccess>(access);
+}
+
+[ComplexValueObject]
+internal sealed partial class WeldAccess : IWeldAccess {
+    public string Key { get; }
+    public Func<WeldJoint, Seq<WeldPass>, Validation<Error, Unit>> Constraint { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string key,
+        ref Func<WeldJoint, Seq<WeldPass>, Validation<Error, Unit>> constraint) =>
+        validationError = string.IsNullOrWhiteSpace(key) || constraint is null
+            ? new ValidationError(message: "weld-access")
+            : null;
+
+    public Validation<Error, Unit> Check(WeldJoint joint, Seq<WeldPass> passes) =>
+        Try.lift<Validation<Error, Unit>>(() => Constraint(joint, passes))
+            .Run()
+            .Match(
+                Succ: static result => result,
+                Fail: error => Validation<Error, Unit>.Fail(new GeometryFault.DegenerateInput(
+                    Kind.Curve,
+                    -1,
+                    $"weld-access:{Key}:{error.Message}").ToError()));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WeldDemandBinding {
+    private WeldDemandBinding() { }
+
+    public sealed record Facts(
+        WeldJoint Joint,
+        ProcessBudget.Joining Budget,
+        Seq<WeldPass> Passes,
+        double MaxHeatInputKjMm);
+
+    public sealed record Quantity(
+        EssentialVariable Variable,
+        Func<Facts, Option<IQuantity>> Project) : WeldDemandBinding;
+
+    public sealed record Categorical(
+        EssentialVariable Variable,
+        Func<Facts, Option<string>> Project) : WeldDemandBinding;
+
+    public sealed record Boolean(
+        EssentialVariable Variable,
+        Func<Facts, Option<bool>> Project) : WeldDemandBinding;
+
+    public sealed record Temporal(
+        EssentialVariable Variable,
+        Func<Facts, Option<Instant>> Project) : WeldDemandBinding;
+
+    public EssentialVariable Field => Switch(
+        quantity: static value => value.Variable,
+        categorical: static value => value.Variable,
+        boolean: static value => value.Variable,
+        temporal: static value => value.Variable);
+
+    public bool Admitted => Field is not null && Switch(
+        quantity: static value => value.Variable.Modality == VariableModality.Quantity && value.Project is not null,
+        categorical: static value => value.Variable.Modality == VariableModality.Categorical && value.Project is not null,
+        boolean: static value => value.Variable.Modality == VariableModality.Boolean && value.Project is not null,
+        temporal: static value => value.Variable.Modality == VariableModality.Temporal && value.Project is not null);
+
+    public Fin<QualificationValue> Resolve(Facts facts) => Switch(
+        state: facts,
+        quantity: static (state, binding) => Resolved(
+            state, binding.Variable, binding.Project(state), static value => new QualificationValue.Quantity(value)),
+        categorical: static (state, binding) => Resolved(
+            state, binding.Variable, binding.Project(state), static value => new QualificationValue.Categorical(value)),
+        boolean: static (state, binding) => Resolved(
+            state, binding.Variable, binding.Project(state), static value => new QualificationValue.Boolean(value)),
+        temporal: static (state, binding) => Resolved(
+            state, binding.Variable, binding.Project(state), static value => new QualificationValue.Temporal(value)));
+
+    private static Fin<QualificationValue> Resolved<T>(
+        Facts facts,
+        EssentialVariable variable,
+        Option<T> projected,
+        Func<T, QualificationValue> wrap) =>
+        variable.Applicability.Exists(law => !law.Matches(facts.Joint.QualificationContext))
+            ? Fin.Succ<QualificationValue>(new QualificationValue.ContextExcluded())
+            : projected.Match(
+                Some: value => Fin.Succ(wrap(value)),
+                None: () => variable.Requirement.EvidenceRequired
+                    ? Fin.Fail<QualificationValue>(new GeometryFault.DegenerateInput(
+                        Kind.Curve,
+                        -1,
+                        $"weld-demand:required:{variable.Key}").ToError())
+                    : Fin.Succ<QualificationValue>(new QualificationValue.EvidenceOmitted()));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WeldPolicySource {
+    private WeldPolicySource() { }
+
+    public sealed record Defined(
+        double TargetHeatInputKjMm,
+        double HeatInputCapKjMm,
+        Angle WorkAngle,
+        Angle TravelAngle,
+        int PassCap,
+        Volume AbsoluteVolumeTolerance,
+        double RelativeVolumeTolerance) : WeldPolicySource;
+
+    public sealed record Canonical(WeldStandard Standard) : WeldPolicySource;
+}
+
+[ComplexValueObject]
+public sealed partial class WeldPolicy {
+    public double TargetHeatInputKjMm { get; }
+    public double HeatInputCapKjMm { get; }
+    public double WorkAngleDeg { get; }
+    public double TravelAngleDeg { get; }
+    public int PassCap { get; }
+    public double AbsoluteVolumeToleranceMm3 { get; }
+    public double RelativeVolumeTolerance { get; }
+    public BeadProgram Beads { get; }
+    public Map<string, WeldProcessLaw> Processes { get; }
+    public Seq<IWeldAccess> Access { get; }
+    public Seq<WeldDemandBinding> DemandBindings { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double targetHeatInputKjMm,
+        ref double heatInputCapKjMm,
+        ref double workAngleDeg,
+        ref double travelAngleDeg,
+        ref int passCap,
+        ref double absoluteVolumeToleranceMm3,
+        ref double relativeVolumeTolerance,
+        ref BeadProgram beads,
+        ref Map<string, WeldProcessLaw> processes,
+        ref Seq<IWeldAccess> access,
+        ref Seq<WeldDemandBinding> demandBindings) =>
+        validationError = targetHeatInputKjMm <= 0.0 || heatInputCapKjMm < targetHeatInputKjMm
+            || workAngleDeg is < 0.0 or > 180.0 || Math.Abs(travelAngleDeg) > 90.0 || passCap <= 0
+            || absoluteVolumeToleranceMm3 <= 0.0 || relativeVolumeTolerance <= 0.0
+            || Seq(targetHeatInputKjMm, heatInputCapKjMm, workAngleDeg, travelAngleDeg,
+                absoluteVolumeToleranceMm3, relativeVolumeTolerance)
+                .Exists(static value => !double.IsFinite(value))
+            || beads is null || processes.IsEmpty || processes.Keys.Exists(string.IsNullOrWhiteSpace)
+            || processes.Values.Exists(static value => value is null) || access.IsEmpty
+            || access.Exists(static value => value is null) || access.Map(static value => value.Key).Distinct().Count != access.Count
+            || demandBindings.IsEmpty || demandBindings.Exists(static value => value is null || !value.Admitted)
+            || demandBindings.Map(static value => value.Field).Distinct().Count != demandBindings.Count
+            ? new ValidationError(message: "weld-policy")
+            : null;
+
+    public static Fin<WeldPolicy> Admit(
+        WeldPolicySource source,
+        BeadProgram beads,
+        Map<string, WeldProcessLaw> processes,
+        Seq<IWeldAccess> access,
+        Seq<WeldDemandBinding> demandBindings) => Optional(source)
+        .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-policy-source").ToError())
+        .Map(input => input.Switch(
+            defined: static value => (
+                Target: value.TargetHeatInputKjMm,
+                Cap: value.HeatInputCapKjMm,
+                Work: value.WorkAngle.Degrees,
+                Travel: value.TravelAngle.Degrees,
+                Passes: value.PassCap,
+                Absolute: value.AbsoluteVolumeTolerance.As(VolumeUnit.CubicMillimeter),
+                Relative: value.RelativeVolumeTolerance),
+            canonical: static value => (
+                Target: value.Standard.TargetHeatInputKjMm,
+                Cap: value.Standard.HeatInputCapKjMm,
+                Work: value.Standard.WorkAngleDeg,
+                Travel: value.Standard.TravelAngleDeg,
+                Passes: value.Standard.PassCap,
+                Absolute: value.Standard.AbsoluteVolumeToleranceMm3,
+                Relative: value.Standard.RelativeVolumeTolerance)))
+        .Bind(values => Validate(
+            values.Target,
+            values.Cap,
+            values.Work,
+            values.Travel,
+            values.Passes,
+            values.Absolute,
+            values.Relative,
+            beads,
+            processes,
+            access,
+            demandBindings,
+            out WeldPolicy admitted) is { } error
+                ? Fin.Fail<WeldPolicy>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                : Fin.Succ(admitted));
+}
+
+[ComplexValueObject]
+public sealed partial class WeldRequest {
+    public Seq<WeldJoint> Joints { get; }
+    public WeldPolicy Policy { get; }
+    public ProcessBudget.Joining Budget { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<WeldJoint> joints,
+        ref WeldPolicy policy,
+        ref ProcessBudget.Joining budget) =>
+        validationError = joints.IsEmpty || joints.Exists(static joint => joint is null) || policy is null || budget is null
+            || joints.Map(static joint => joint.Joint).Distinct().Count != joints.Count
+            || budget.CurrentA <= 0.0 || budget.VoltageV <= 0.0 || budget.WireFeedRate <= 0.0
+            || budget.TravelSpeed <= 0.0 || budget.Standoff <= 0.0 || budget.InterpassTemp <= 0.0
+            || Seq(budget.CurrentA, budget.VoltageV, budget.WireFeedRate, budget.TravelSpeed,
+                budget.Standoff, budget.InterpassTemp).Exists(static value => !double.IsFinite(value))
+            ? new ValidationError(message: "weld-request")
+            : null;
+
+    // Only fill-contributing roles close the groove; buttering and temper metal lands outside it, and every
+    // repair excavation re-opens demand, so the ledger balances contribution against required plus excavated.
+    public Fin<Unit> Coverage(Seq<WeldPass> passes) => Joints.Map(joint => (
+            Joint: joint.Joint,
+            Required: joint.Prep.Demand.VolumeMm3 + passes.Filter(pass => pass.Joint == joint.Joint)
+                .Map(static pass => pass.Lineage.ExcavatedMm3).Sum(),
+            Deposited: passes.Filter(pass => pass.Joint == joint.Joint)
+                .Map(static pass => pass.Deposit.DepositedVolumeMm3 * pass.Role.FillContribution).Sum()))
+        .Map(row => Math.Abs(row.Required - row.Deposited) <= Math.Max(
+                Policy.AbsoluteVolumeToleranceMm3,
+                row.Required * Policy.RelativeVolumeTolerance)
+            ? Fin.Succ(unit).ToValidation()
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:coverage:{row.Joint}").ToError()).ToValidation())
+        .Traverse(identity)
+        .As()
+        .ToFin()
+        .Map(static _ => unit);
+}
+
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct ArcProgram {
+    public double RunInMm { get; }
+    public double BackstepMm { get; }
+    public double CraterFillS { get; }
+    public double RunOutMm { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double runInMm,
+        ref double backstepMm,
+        ref double craterFillS,
+        ref double runOutMm) =>
+        validationError = Seq(runInMm, backstepMm, craterFillS, runOutMm)
+            .Exists(static value => !double.IsFinite(value) || value < 0.0)
+            ? new ValidationError(message: "weld-arc-program")
+            : null;
+
+    public Seq<Move> Apply(Seq<TorchFrame> run, double feedMmMin) {
+        TorchFrame first = run.Head;
+        TorchFrame last = run.Last;
+        Point3d start = first.Pose.Origin - (RunInMm * first.Pose.XAxis);
+        return Seq<Move>(new Move.Rapid(start))
+            + (RunInMm > 0.0
+                ? Seq<Move>(new Move.Linear(first.Pose.Origin, feedMmMin))
+                : Seq<Move>())
+            + (BackstepMm > 0.0
+                ? Seq<Move>(
+                    new Move.Linear(first.Pose.Origin + (BackstepMm * first.Pose.XAxis), feedMmMin),
+                    new Move.Linear(first.Pose.Origin, feedMmMin))
+                : Seq<Move>())
+            + run.Tail.Map(frame => (Move)new Move.Linear(frame.Pose.Origin, feedMmMin))
+            + (RunOutMm > 0.0
+                ? Seq<Move>(new Move.Linear(last.Pose.Origin + (RunOutMm * last.Pose.XAxis), feedMmMin))
+                : Seq<Move>());
+    }
+
+    public double ArcTime(Seq<Move> path) => path.Zip(path.Tail).Fold(
+        CraterFillS,
+        static (seconds, pair) => pair.Item2 is Move.Linear linear
+            ? seconds + (60.0 * pair.Item1.Target.DistanceTo(linear.Target) / linear.Feed)
+            : seconds);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PassLineage {
+    private PassLineage() { }
+
+    public sealed record Planned : PassLineage;
+    public sealed record Repair(int ReplacesOrdinal, string DefectKey, double ExcavatedMm3) : PassLineage;
+    public sealed record Temper(int ConditionsOrdinal) : PassLineage;
+
+    public bool Admitted => Switch(
+        planned: static _ => true,
+        repair: static value => value.ReplacesOrdinal >= 0 && !string.IsNullOrWhiteSpace(value.DefectKey)
+            && value.ExcavatedMm3 > 0.0 && double.IsFinite(value.ExcavatedMm3),
+        temper: static value => value.ConditionsOrdinal >= 0);
+
+    // Excavated metal re-opens fill demand, so the coverage ledger balances against required plus every excavation.
+    public double ExcavatedMm3 => Switch(
+        planned: static _ => 0.0,
+        repair: static value => value.ExcavatedMm3,
+        temper: static _ => 0.0);
+
+    public bool Resolves(int joint, Seq<WeldPass> emitted) => Switch(
+        state: (Joint: joint, Emitted: emitted),
+        planned: static (_, _) => true,
+        repair: static (state, value) => state.Emitted.Exists(
+            pass => pass.Joint == state.Joint && pass.Ordinal == value.ReplacesOrdinal),
+        temper: static (state, value) => state.Emitted.Exists(
+            pass => pass.Joint == state.Joint && pass.Ordinal == value.ConditionsOrdinal));
+}
+
+public readonly record struct TorchFrame(
+    int Joint,
+    int Side,
+    int Waypoint,
+    double StationMm,
+    Plane Pose,
+    double WorkAngleDeg,
+    double TravelAngleDeg,
+    double Phase,
+    double LateralOffsetMm,
+    double StandoffMm) {
+    public TorchFrame Opposed() => this with {
+        Side = 1,
+        Pose = new Plane(Pose.Origin, Pose.XAxis, -Pose.YAxis),
+    };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -159,545 +1098,765 @@ public abstract partial record JointAction {
     private JointAction() { }
 
     public sealed record PrepareGroove(
-        int Joint, string GeometryKey, double WallAngleDeg, double RootOpeningMm,
-        double RootFaceMm, double GrooveRadiusMm, double DepthMm, bool DoubleSided) : JointAction;
+        int Joint,
+        string GeometryKey,
+        string PenetrationKey,
+        FillProfile Profile,
+        bool DoubleSided) : JointAction;
     public sealed record InstallBacking(int Joint, string BackingKey) : JointAction;
     public sealed record Backgouge(int Joint, int BeforeSide, double DepthMm) : JointAction;
     public sealed record RemoveBacking(int Joint, string BackingKey) : JointAction;
+    public sealed record Preheat(int Joint, double TargetC, double InterpassCapC) : JointAction;
+    public sealed record PostWeldHeatTreat(int Joint, double SoakC, double SoakMinutes) : JointAction;
+
+    public int Joint => Switch(
+        prepareGroove: static value => value.Joint,
+        installBacking: static value => value.Joint,
+        backgouge: static value => value.Joint,
+        removeBacking: static value => value.Joint,
+        preheat: static value => value.Joint,
+        postWeldHeatTreat: static value => value.Joint);
+
+    public bool Admitted => Joint >= 0 && Switch(
+        prepareGroove: static value => !string.IsNullOrWhiteSpace(value.GeometryKey)
+            && !string.IsNullOrWhiteSpace(value.PenetrationKey) && value.Profile is not null,
+        installBacking: static value => !string.IsNullOrWhiteSpace(value.BackingKey),
+        backgouge: static value => value.BeforeSide is 0 or 1 && value.DepthMm > 0.0 && double.IsFinite(value.DepthMm),
+        removeBacking: static value => !string.IsNullOrWhiteSpace(value.BackingKey),
+        preheat: static value => value.TargetC >= 0.0 && value.InterpassCapC >= value.TargetC
+            && double.IsFinite(value.TargetC) && double.IsFinite(value.InterpassCapC),
+        postWeldHeatTreat: static value => value.SoakC > 0.0 && value.SoakMinutes > 0.0
+            && double.IsFinite(value.SoakC) && double.IsFinite(value.SoakMinutes));
 }
 
-// The coupled pass row: role, side, groove position, weave dwell, position, travel, and heat input travel
-// TOGETHER — changing one without re-deriving the others ships a cold lap or a burn-through.
-public sealed record WeldPass(
-    int Joint, PassRole Role, int Layer, int Side, int Ordinal, WeavePattern Weave, int EdgeDwellMs,
-    WeldPosition Position, double OffsetMm, double TravelMmMin, double HeatInputKjMm, double ThicknessMm,
-    Seq<Move> Path, Seq<TorchFrame> Frames);
+[ComplexValueObject]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct BeadEvidence {
+    public double DepositedVolumeMm3 { get; }
+    public double BeadAreaMm2 { get; }
+    public double WidthMm { get; }
+    public double HeightMm { get; }
+    public double EnergyJ { get; }
+    public double FillerLengthMm { get; }
+    public double CoverageFraction { get; }
+    public double ArcTimeS { get; }
+    public double CoolingTimeS { get; }
+    public double DepositLengthMm { get; }
 
-public sealed record WeldPlan(Seq<WeldPass> Passes, Seq<JointAction> Actions, Seq<WeldDemand> Demands, double MaxHeatInputKjMm, int Beads, ContentKey Key);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double depositedVolumeMm3,
+        ref double beadAreaMm2,
+        ref double widthMm,
+        ref double heightMm,
+        ref double energyJ,
+        ref double fillerLengthMm,
+        ref double coverageFraction,
+        ref double arcTimeS,
+        ref double coolingTimeS,
+        ref double depositLengthMm) =>
+        validationError = depositedVolumeMm3 <= 0.0 || beadAreaMm2 <= 0.0 || widthMm <= 0.0 || heightMm <= 0.0
+            || energyJ <= 0.0 || fillerLengthMm < 0.0 || coverageFraction is <= 0.0 or > 1.0
+            || arcTimeS <= 0.0 || coolingTimeS <= 0.0 || depositLengthMm <= 0.0
+            || Seq(depositedVolumeMm3, beadAreaMm2, widthMm, heightMm, energyJ, fillerLengthMm, coverageFraction,
+                arcTimeS, coolingTimeS, depositLengthMm).Exists(static value => !double.IsFinite(value))
+            ? new ValidationError(message: "weld-bead-evidence")
+            : null;
+
+    // EN 1011-2 t8/5: the thicker arm governs above the transition thickness, the sheet arm below it.
+    public static double CoolingTime(
+        double heatInputKjMm,
+        double preheatC,
+        double thicknessMm,
+        (double Planar, double Spatial) shape,
+        double positionScale) {
+        double planar = (4300.0 - (4.3 * preheatC)) * 1e5 * Math.Pow(heatInputKjMm / thicknessMm, 2.0)
+            * ((1.0 / Math.Pow(500.0 - preheatC, 2.0)) - (1.0 / Math.Pow(800.0 - preheatC, 2.0))) * shape.Planar;
+        double spatial = (6700.0 - (5.0 * preheatC)) * heatInputKjMm
+            * ((1.0 / (500.0 - preheatC)) - (1.0 / (800.0 - preheatC))) * shape.Spatial;
+        return Math.Max(planar, spatial) * positionScale;
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class WeldPass {
+    public int Joint { get; }
+    public PassRole Role { get; }
+    public int Layer { get; }
+    public int Bead { get; }
+    public int BeadsInLayer { get; }
+    public int Side { get; }
+    public int Ordinal { get; }
+    public WeavePattern Weave { get; }
+    public int EdgeDwellMs { get; }
+    public WeldPosition Position { get; }
+    public double LateralOffsetMm { get; }
+    public double HeightOffsetMm { get; }
+    public double TravelMmMin { get; }
+    public double CommandedFeedMmMin { get; }
+    public double HeatInputKjMm { get; }
+    public double ThicknessMm { get; }
+    public Seq<Move> Path { get; }
+    public Seq<TorchFrame> Frames { get; }
+    public BeadEvidence Deposit { get; }
+    public ArcProgram Arc { get; }
+    public PassLineage Lineage { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref int joint,
+        ref PassRole role,
+        ref int layer,
+        ref int bead,
+        ref int beadsInLayer,
+        ref int side,
+        ref int ordinal,
+        ref WeavePattern weave,
+        ref int edgeDwellMs,
+        ref WeldPosition position,
+        ref double lateralOffsetMm,
+        ref double heightOffsetMm,
+        ref double travelMmMin,
+        ref double commandedFeedMmMin,
+        ref double heatInputKjMm,
+        ref double thicknessMm,
+        ref Seq<Move> path,
+        ref Seq<TorchFrame> frames,
+        ref BeadEvidence deposit,
+        ref ArcProgram arc,
+        ref PassLineage lineage) =>
+        validationError = joint < 0 || role is null || layer < 0 || side is < 0 or > 1 || ordinal < 0
+            || bead < 0 || beadsInLayer <= 0 || bead >= beadsInLayer
+            || weave == default || edgeDwellMs < 0 || position is null
+            || (!position.OscillationAdmitted && weave.AmplitudeMm > 0.0)
+            || Seq(lateralOffsetMm, heightOffsetMm, travelMmMin, commandedFeedMmMin, heatInputKjMm, thicknessMm)
+                .Exists(static value => !double.IsFinite(value))
+            || travelMmMin <= 0.0 || commandedFeedMmMin < travelMmMin || heatInputKjMm <= 0.0 || thicknessMm <= 0.0
+            || path.IsEmpty || path.Exists(static move => move is null)
+            || !path.ForAll(static move => move.Target.IsValid && move.Switch(
+                rapid: static _ => true,
+                linear: static value => value.Feed > 0.0 && double.IsFinite(value.Feed),
+                circular: static _ => false))
+            || frames.Count < 2 || frames.Exists(frame => frame.Joint != joint || frame.Side != side
+                || frame.Waypoint < 0 || frame.StationMm < 0.0 || frame.StandoffMm <= 0.0 || !frame.Pose.IsValid
+                || Seq(frame.StationMm, frame.WorkAngleDeg, frame.TravelAngleDeg, frame.Phase,
+                    frame.LateralOffsetMm, frame.StandoffMm)
+                    .Exists(static value => !double.IsFinite(value)))
+            || frames.Zip(frames.Tail).Exists(static pair => pair.Item1.StationMm >= pair.Item2.StationMm)
+            || frames.Exists(frame => !path.Exists(move => move is not Move.Circular
+                && frame.Pose.Origin.DistanceTo(move.Target) == 0.0))
+            || deposit == default || arc == default || lineage is null || !lineage.Admitted
+            ? new ValidationError(message: "weld-pass")
+            : null;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WeldProjection {
+    private WeldProjection() { }
+
+    public sealed record Execution(Option<Set<int>> Joints, Option<Set<string>> RoleKeys) : WeldProjection;
+    public sealed record Qualification(Option<Set<int>> Joints) : WeldProjection;
+    public sealed record Identity : WeldProjection;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WeldProjectionReceipt {
+    private WeldProjectionReceipt() { }
+
+    public sealed record Execution(Seq<WeldPass> Passes, Seq<JointAction> Actions) : WeldProjectionReceipt;
+    public sealed record Qualification(Seq<WeldDemand> Demands) : WeldProjectionReceipt;
+    public sealed record Identity(double MaxHeatInputKjMm, int Beads, ContentKey Key) : WeldProjectionReceipt;
+}
+
+[ComplexValueObject]
+public sealed partial class WeldPlan {
+    public Seq<WeldPass> Passes { get; }
+    public Seq<JointAction> Actions { get; }
+    public Seq<WeldDemand> Demands { get; }
+    public double MaxHeatInputKjMm { get; }
+    public int Beads { get; }
+    public ContentKey Key { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Seq<WeldPass> passes,
+        ref Seq<JointAction> actions,
+        ref Seq<WeldDemand> demands,
+        ref double maxHeatInputKjMm,
+        ref int beads,
+        ref ContentKey key) {
+        Seq<int> passJoints = passes.Choose(pass => Optional(pass).Map(static row => row.Joint)).Distinct().ToSeq();
+        Seq<int> demandJoints = demands.Choose(demand => Optional(demand).Map(static row => row.Joint)).Distinct().ToSeq();
+        validationError = passes.IsEmpty || passes.Exists(static pass => pass is null)
+            || demands.IsEmpty || demands.Exists(static demand => demand is null)
+            || !LineageClosed(passes)
+            || demands.Count != demandJoints.Count
+            || passJoints.Count != demandJoints.Count || passJoints.Exists(joint => !demandJoints.Contains(joint))
+            || actions.Exists(static action => action is null || !action.Admitted)
+            || actions.Exists(action => !passJoints.Contains(action.Joint))
+            || maxHeatInputKjMm <= 0.0 || !double.IsFinite(maxHeatInputKjMm)
+            || beads != passes.Count || key is null || key.Kind != EgressKind.WeldPlan
+            ? new ValidationError(message: "weld-plan")
+            : null;
+    }
+
+    private static bool LineageClosed(Seq<WeldPass> passes) => passes
+        .Map((pass, index) => (Pass: pass, Prior: toSeq(passes.AsEnumerable().Take(index))))
+        .ForAll(static row => !row.Prior.Exists(prior => prior.Joint == row.Pass.Joint && prior.Ordinal == row.Pass.Ordinal)
+            && row.Pass.Lineage.Resolves(row.Pass.Joint, row.Prior));
+
+    public Fin<WeldProjectionReceipt> Project(WeldProjection projection) => Optional(projection)
+        .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-projection").ToError())
+        .Map(request => request.Switch(
+            state: this,
+            execution: static (plan, value) => new WeldProjectionReceipt.Execution(
+                plan.Passes.Filter(pass => value.Joints.ForAll(rows => rows.Contains(pass.Joint))
+                    && value.RoleKeys.ForAll(rows => rows.Contains(pass.Role.Key))),
+                plan.Actions.Filter(action => value.Joints.ForAll(rows => rows.Contains(action.Joint)))),
+            qualification: static (plan, value) => new WeldProjectionReceipt.Qualification(
+                plan.Demands.Filter(demand => value.Joints.ForAll(rows => rows.Contains(demand.Joint)))),
+            identity: static (plan, _) => new WeldProjectionReceipt.Identity(plan.MaxHeatInputKjMm, plan.Beads, plan.Key)));
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Weld {
-    // The ONE fold: per joint — seam/access gates -> role-coupled travel/HI rows -> bead stack (groove per-side
-    // recurrence | fillet leg arm) -> HI cap verify -> demand emission; then the plan key. Seq absorbs batch.
-    public static Fin<WeldPlan> Plan(Seq<WeldJoint> joints, WeldPolicy policy, ProcessBudget.Deposition budget) =>
-        policy is null || budget is null || joints.IsEmpty || joints.Exists(static joint => joint is null)
-            || joints.Map(static joint => joint.Joint).Distinct().Count != joints.Count
-            || joints.Exists(static joint => !Valid(joint))
-            || policy.FillWeave is null || policy.TargetHeatInputKjMm <= 0.0 || !double.IsFinite(policy.TargetHeatInputKjMm)
-            || policy.HeatInputCapKjMm <= 0.0 || !double.IsFinite(policy.HeatInputCapKjMm)
-            || policy.WorkAngleDeg is < 0.0 or > 180.0 || !double.IsFinite(policy.WorkAngleDeg)
-            || Math.Abs(policy.TravelAngleDeg) > 90.0 || !double.IsFinite(policy.TravelAngleDeg)
-            || policy.BeadWidthWireDia <= 0.0 || !double.IsFinite(policy.BeadWidthWireDia)
-            || policy.FilletStepFactor <= 0.0 || !double.IsFinite(policy.FilletStepFactor)
-            || policy.PassCap is <= 0 or >= int.MaxValue
-            || budget.PowerW <= 0.0 || !double.IsFinite(budget.PowerW)
-            || budget.WireFeedRate <= 0.0 || !double.IsFinite(budget.WireFeedRate)
-            || budget.Standoff <= 0.0 || !double.IsFinite(budget.Standoff)
-            || budget.InterpassTemp <= 0.0 || !double.IsFinite(budget.InterpassTemp) || policy.Processes.IsEmpty
-            || policy.Processes.Keys.Exists(string.IsNullOrWhiteSpace)
-            || policy.Processes.Values.Exists(law => law is null || !Valid(law, budget))
-        ? Fin.Fail<WeldPlan>(GeometryFault.DegenerateInput("weld:policy").ToError())
-        : joints.TraverseM(j => PlanJoint(j, policy, budget)).As().Map(rows => {
-            Seq<WeldPass> passes = rows.Bind(static r => r.Passes);
-            Seq<JointAction> actions = rows.Bind(static r => r.Actions);
-            Seq<WeldDemand> demands = rows.Map(static r => r.Demand);
-            return new WeldPlan(
-                passes,
-                actions,
-                demands,
-                rows.Map(static r => r.MaxHi).Fold(0.0, Math.Max),
-                passes.Count,
-                ContentKey.Of(EgressKind.WeldPlan, CanonicalBytes(passes, actions, demands)));
+    public static Fin<WeldPlan> Plan(WeldRequest request) =>
+        request.Joints.OrderBy(static joint => joint.Joint).ToSeq()
+            .Map(joint => PlanJoint(joint, request.Policy, request.Budget).ToValidation())
+            .Traverse(identity)
+            .As()
+            .ToFin()
+            .Map(rows => (
+                Passes: rows.Bind(static row => row.Passes),
+                Actions: rows.Bind(static row => row.Actions),
+                Demands: rows.Map(static row => row.Demand),
+                Maximum: rows.Map(static row => row.MaxHeatInputKjMm).Fold(0.0, Math.Max)))
+            .Bind(receipt => request.Coverage(receipt.Passes).Bind(_ => WeldPlan.Validate(
+                receipt.Passes,
+                receipt.Actions,
+                receipt.Demands,
+                receipt.Maximum,
+                receipt.Passes.Count,
+                ContentKey.Of(EgressKind.WeldPlan, CanonicalBytes(receipt.Passes, receipt.Actions, receipt.Demands)),
+                out WeldPlan plan) is { } error
+                    ? Fin.Fail<WeldPlan>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                    : Fin.Succ(plan)));
+
+    public static double HeatInput(double efficiency, double powerW, double arcTimeS, double weldLengthMm) =>
+        efficiency * powerW * arcTimeS / (1000.0 * weldLengthMm);
+
+    private static Fin<(Seq<WeldPass> Passes, Seq<JointAction> Actions, WeldDemand Demand, double MaxHeatInputKjMm)> PlanJoint(
+        WeldJoint joint,
+        WeldPolicy policy,
+        ProcessBudget.Joining budget) =>
+        from law in policy.Processes.Find(joint.ProcessKey)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:process-law:{joint.ProcessKey}").ToError())
+        from mode in law.Mode(joint)
+        from consumable in law.Deposition is DepositionSource.Autogenous
+            ? joint.FillerKey.IsNone && joint.FillerClassificationKey.IsNone
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:autogenous-filler").ToError())
+            : joint.FillerKey.IsSome && joint.FillerClassificationKey.IsSome
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:filler").ToError())
+        from arc in budget.CurrentA <= mode.CurrentCapA && budget.InterpassTemp >= joint.PreheatC
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:arc-envelope:{joint.Joint}").ToError())
+        from frames in Transport(joint, policy, budget.Standoff)
+        from seal in joint.Prep is JointPrep.Groove { Root: RootProgram.Seal }
+            && !policy.Beads.Bands.Exists(static band => band.Role == PassRole.Seal && band.EndFraction == 1.0)
+                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:seal-band").ToError())
+                : Fin.Succ(unit)
+        from passes in Generate(joint, policy, budget, law, mode, frames)
+        from access in policy.Access.Traverse(constraint => constraint.Check(joint, passes)).As().ToFin()
+        let maximum = passes.Map(static pass => pass.HeatInputKjMm).Fold(0.0, Math.Max)
+        let minimum = passes.Map(static pass => pass.HeatInputKjMm).Fold(double.PositiveInfinity, Math.Min)
+        from ceiling in maximum <= policy.HeatInputCapKjMm && maximum <= mode.HeatInputHighKjMm
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new FabricationFault.HeatInputExceeded(
+                joint.Joint,
+                maximum,
+                Math.Min(policy.HeatInputCapKjMm, mode.HeatInputHighKjMm)).ToError())
+        from floor in minimum >= mode.HeatInputLowKjMm
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:heat-input-floor:{joint.Joint}:{minimum:R}").ToError())
+        from cooling in passes.Map(static pass => pass.Deposit.CoolingTimeS)
+            .Filter(value => value < mode.CoolingLowS || value > mode.CoolingHighS)
+            .HeadOrNone()
+            .Match(
+                Some: value => Fin.Fail<Unit>(
+                    new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-plan:cooling-band:{joint.Joint}:{value:R}").ToError()),
+                None: () => Fin.Succ(unit))
+        from demand in Demand(joint, policy, budget, passes, maximum)
+        select (passes, Actions(joint, budget), demand, maximum);
+
+    // Fold cursor: fill metal closes the groove, deposit metal is every carrier, and the lattice indices place
+    // each bead within its layer. Threading it keeps the pass generator a pure state advance.
+    private readonly record struct BeadCursor(
+        double FillMm3,
+        double DepositMm3,
+        int Layer,
+        int Bead,
+        int BeadsInLayer,
+        Seq<WeldPass> Passes);
+
+    private static Fin<Seq<WeldPass>> Generate(
+        WeldJoint joint,
+        WeldPolicy policy,
+        ProcessBudget.Joining budget,
+        WeldProcessLaw law,
+        ArcMode mode,
+        Seq<TorchFrame> baseFrames) {
+        double requestedTravel = Math.Min(
+            (mode.Efficiency * 60.0 * budget.CurrentA * budget.VoltageV) / (1000.0 * policy.TargetHeatInputKjMm),
+            budget.TravelSpeed) * joint.Position.TravelDerate;
+        double pathLength = joint.Prep.Demand.DepositLengthMm;
+        double rate = law.Deposition.Rate(budget) * joint.Position.DepositionDerate;
+        double required = joint.Prep.Demand.VolumeMm3;
+        return mode.Travel(requestedTravel, joint.Joint).Bind(travel => rate <= 0.0 || pathLength <= 0.0
+                ? Fin.Fail<Seq<WeldPass>>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:capacity").ToError())
+                : Range(0, policy.PassCap).Fold(
+                    Fin.Succ(new BeadCursor(0.0, 0.0, 0, 0, 1, Seq<WeldPass>())),
+                    (held, ordinal) => held.Bind(cursor => cursor.FillMm3 >= required
+                        ? Fin.Succ(cursor)
+                        : Pass(joint, policy, law, mode, budget, baseFrames,
+                            policy.Beads.Resolve(Math.Min(double.BitDecrement(1.0), cursor.FillMm3 / required)),
+                            cursor, ordinal, travel, rate, pathLength)))
+                    .Bind(cursor => cursor.FillMm3 >= required
+                        ? Fin.Succ(cursor)
+                        : Fin.Fail<BeadCursor>(new GeometryFault.DegenerateInput(
+                            Kind.Curve, -1, "weld-plan:pass-cap").ToError()))
+                    .Bind(cursor => policy.Beads.Overlay.Fold(
+                        Fin.Succ(cursor),
+                        (held, band) => held.Bind(row => Pass(
+                            joint, policy, law, mode, budget, baseFrames, band, row,
+                            row.Passes.Count, travel, rate, pathLength))))
+                    .Map(static cursor => cursor.Passes));
+    }
+
+    private static Fin<BeadCursor> Pass(
+        WeldJoint joint,
+        WeldPolicy policy,
+        WeldProcessLaw law,
+        ArcMode mode,
+        ProcessBudget.Joining budget,
+        Seq<TorchFrame> baseFrames,
+        RoleBand band,
+        BeadCursor cursor,
+        int ordinal,
+        double travel,
+        double rate,
+        double pathLength) {
+        FillProfile profile = joint.Prep.Demand;
+        double required = profile.VolumeMm3;
+        double fraction = Math.Min(double.BitDecrement(1.0), cursor.FillMm3 / required);
+        return mode.Travel(travel * band.Role.TravelFactor, joint.Joint).Bind(roleTravel => {
+        double powerW = budget.CurrentA * band.Role.CurrentFactor * budget.VoltageV;
+        double capacity = Math.Min(rate * pathLength / roleTravel, required * band.Role.AreaFactor);
+        double deposited = band.Role.FillContribution > 0.0
+            ? Math.Min(capacity, (required - cursor.FillMm3) / band.Role.FillContribution)
+            : capacity;
+        double area = deposited / pathLength;
+        // Bead geometry resolves against the layer's section width, so a wide groove takes several beads across
+        // one layer instead of a single full-width deposit stacked vertically.
+        double fillHeight = profile.HeightAtFill(fraction);
+        double layerWidth = profile.WidthAtHeight(fillHeight);
+        // A bead never runs narrower than its deposition source, so a fillet root of zero layer width still
+        // seats one bead instead of dividing height by a vanishing width.
+        double width = Math.Max(law.Deposition.Width, Math.Min(layerWidth, Math.Max(law.Deposition.Width,
+            Math.Sqrt((area * band.Role.AreaFactor) / policy.Beads.HeightFactor) * policy.Beads.WidthFactor)));
+        double height = area / width;
+        (int beadsInLayer, double lateral) = policy.Beads.Lattice(layerWidth, width, cursor.Bead);
+        int bead = Math.Min(cursor.Bead, beadsInLayer - 1);
+        int side = joint.Prep.DoubleSided
+            ? fraction < 0.5 ? joint.Prep.FirstSide : 1 - joint.Prep.FirstSide
+            : 0;
+        Seq<TorchFrame> oriented = side == 0 ? baseFrames : baseFrames.Map(static frame => frame.Opposed());
+        Seq<TorchFrame> frames = Weave(oriented, band.Weave, profile, policy, lateral, fillHeight)
+            .Filter(frame => profile.Spans.Exists(span => span.Contains(frame.StationMm)));
+        double wovenLength = frames.Zip(frames.Tail)
+            .Filter(pair => profile.Spans.Exists(span => span.Contains(pair.Item1.StationMm)
+                && span.Contains(pair.Item2.StationMm)))
+            .Fold(0.0, static (sum, pair) => sum + pair.Item1.Pose.Origin.DistanceTo(pair.Item2.Pose.Origin));
+        // Oscillated frames lengthen the commanded path, so the feed scales to hold seam progression at roleTravel.
+        double commandedFeed = roleTravel * Math.Max(1.0, wovenLength / pathLength);
+        Seq<Move> path = toSeq(profile.Spans).Bind(span => {
+            Seq<TorchFrame> run = frames.Filter(frame => span.Contains(frame.StationMm));
+            return run.Count < 2
+                ? Seq<Move>()
+                : band.Arc.Apply(run, commandedFeed);
         });
-
-    // HI = η·60·V·I/(1000·v) with V·I = Deposition.PowerW — the joined-keyed budget's first consumer.
-    public static double HeatInput(double eta, double powerW, double travelMmMin) => eta * 60.0 * powerW / (1000.0 * travelMmMin);
-
-    sealed record JointRows(Seq<WeldPass> Passes, Seq<JointAction> Actions, WeldDemand Demand, double MaxHi);
-
-    static Fin<JointRows> PlanJoint(WeldJoint j, WeldPolicy policy, ProcessBudget.Deposition budget) =>
-        j.Seam.Count < 2 || j.ThicknessMm <= 0.0 || j.Normals.Count != j.Seam.Count || !PrepValid(j.Prep, j.ThicknessMm)
-            || j.Seam.Zip(j.Seam.Skip(1)).Map(static pair => pair.Item1.DistanceTo(pair.Item2)).Exists(static d => d <= 1e-9 || !double.IsFinite(d))
-            || toSeq(Enumerable.Range(0, j.Seam.Count)).Exists(i => !AdmitsFrame(j, i))
-            ? Fin.Fail<JointRows>(GeometryFault.DegenerateInput($"weld:seam:{j.Joint}").ToError())
-            : policy.WorkAngleDeg > j.AccessHalfAngleDeg
-                ? Fin.Fail<JointRows>(FabricationFault.WeldAccessBlocked(j.Joint, policy.WorkAngleDeg).ToError())
-                : policy.Processes.Find(j.ProcessKey)
-                    .ToFin(GeometryFault.DegenerateInput($"weld:process:{j.ProcessKey}").ToError())
-                    .Bind(law => {
-                        double v0 = law.Efficiency * 60.0 * budget.PowerW / (1000.0 * policy.TargetHeatInputKjMm);
-                        Seq<WeldPass> stack = j.Prep.Switch(
-                            state: (Joint: j, Policy: policy, Budget: budget, Law: law, V0: v0),
-                            groove: static (s, prep) => GrooveStack(s.Joint, prep, s.Policy, s.Budget, s.Law, s.V0),
-                            fillet: static (s, prep) => FilletStack(s.Joint, Math.Max(prep.LegMm, prep.MinLegMm), s.Policy, s.Budget, s.Law, s.V0),
-                            plugSlot: static (s, prep) => prep.Filled
-                                ? FillVolumeStack(s.Joint, PlugSlotArea(prep) * prep.DepthMm, s.Policy, s.Budget, s.Law, s.V0)
-                                : Seq<WeldPass>(),
-                            flare: static (s, prep) => AreaStack(s.Joint, 0.5 * prep.EffectiveThroatMm * prep.EffectiveThroatMm, s.Policy, s.Budget, s.Law, s.V0))
-                            .Take(policy.PassCap + 1);
-                        double maxHi = stack.Map(static p => p.HeatInputKjMm).Fold(0.0, Math.Max);
-                        return stack.IsEmpty
-                            ? Fin.Fail<JointRows>(GeometryFault.DegenerateInput($"weld:prep:{j.Joint}").ToError())
-                            : stack.Count > policy.PassCap
-                                ? Fin.Fail<JointRows>(GeometryFault.DegenerateInput($"weld:pass-cap:{j.Joint}:{policy.PassCap}").ToError())
-                            : stack.Exists(static pass => !Valid(pass))
-                                ? Fin.Fail<JointRows>(GeometryFault.DegenerateInput($"weld:pass:{j.Joint}").ToError())
-                            : stack.Filter(p => p.HeatInputKjMm > Math.Min(policy.HeatInputCapKjMm, law.HeatInputHighKjMm)).HeadOrNone().Match(
-                                Some: p => Fin.Fail<JointRows>(FabricationFault.HeatInputExceeded(
-                                    j.Joint, p.HeatInputKjMm, Math.Min(policy.HeatInputCapKjMm, law.HeatInputHighKjMm)).ToError()),
-                                None: () => stack.Filter(p => p.HeatInputKjMm < law.HeatInputLowKjMm
-                                        || p.TravelMmMin < law.TravelLowMmMin || p.TravelMmMin > law.TravelHighMmMin)
-                                    .HeadOrNone()
-                                    .Match(
-                                        Some: p => Fin.Fail<JointRows>(GeometryFault.DegenerateInput(
-                                            $"weld:process-envelope:{j.Joint}:{p.Ordinal}:{p.TravelMmMin:0.###}:{p.HeatInputKjMm:0.###}").ToError()),
-                                        None: () => Fin.Succ(new JointRows(stack, Actions(j), Demand(j, budget, maxHi), maxHi))));
-                    });
-
-    // Role-coupled derivation: v_role = v0·derate/AreaFactor keeps the role's bead area at AreaFactor·A0, so
-    // HI_role = HI_target·AreaFactor/derate — the cap gate is a real per-pass verdict, never target==realized.
-    static (double Travel, double Hi) RoleRow(PassRole role, WeldPosition position, WeldProcessLaw law, double powerW, double v0) {
-        double travel = v0 * position.TravelDerate / role.AreaFactor;
-        return (travel, HeatInput(law.Efficiency, powerW, travel));
-    }
-
-    // Groove recurrence per SIDE over the prep-true depth: layers stack at layerHeight = A_bead/w_bead, passes
-    // per layer ceil(w(h)/w_bead) with w(h) = g + 2h·tan(αw); a double-sided prep halves the depth per side and
-    // the second side opens with the backgouge root when the boundary resolved Backgouge.
-    static Seq<WeldPass> GrooveStack(WeldJoint j, JointPrep.Groove g, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0) {
-        double aw = g.WallAngleDeg * Math.PI / 180.0;
-        int sides = g.DoubleSided ? 2 : 1;
-        double sideDepth = Math.Max(g.EffectiveThroatMm, g.DepthMm - g.RootFaceMm) / sides;
-        Seq<WeldPass> stack = toSeq(Enumerable.Range(0, sides))
-            .Bind(side => SideStack(j, g, policy, budget, law, v0, side, sideDepth, aw))
-            .Take(policy.PassCap + 1)
-            .Map(static (pass, ordinal) => pass with { Ordinal = ordinal });
-        if (g.RootTreatmentKey != "seal-pass")
-            return stack;
-        // Seal-pass root treatment has ONE execution identity: this terminal Seal deposit with its own geometry,
-        // travel, and heat input — a parallel JointAction row double-charges the schedule and is the deleted form.
-        (double travel, double hi) = RoleRow(PassRole.Seal, j.Position, law, budget.PowerW, v0);
-        return stack.Add(Pass(
-            j, policy, PassRole.Seal, layer: stack.Count, side: sides - 1, ordinal: stack.Count,
-            WeavePattern.Stringer, offset: 0.0, travel, hi));
-    }
-
-    static Seq<WeldPass> SideStack(WeldJoint j, JointPrep.Groove g, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0, int side, double depth, double aw) {
-        double rootHeight = LayerHeight(PassRole.Root, WeavePattern.Stringer, j, policy, budget, law, v0);
-        double hotHeight = LayerHeight(PassRole.HotPass, WeavePattern.Stringer, j, policy, budget, law, v0);
-        double fillHeight = LayerHeight(PassRole.Fill, policy.FillWeave, j, policy, budget, law, v0);
-        double capHeight = LayerHeight(PassRole.Cap, policy.FillWeave, j, policy, budget, law, v0);
-        bool hot = depth > rootHeight + capHeight;
-        int fills = CountOf(Math.Max(0.0, depth - rootHeight - capHeight - (hot ? hotHeight : 0.0)), fillHeight, policy.PassCap);
-        int capLayer = 1 + (hot ? 1 : 0) + fills;
-        Seq<(PassRole Role, int Layer, double Height)> plan =
-            Seq1((Role: PassRole.Root, Layer: 0, Height: Math.Min(depth, rootHeight)))
-            + (hot ? Seq1((Role: PassRole.HotPass, Layer: 1, Height: Math.Min(depth, rootHeight + hotHeight))) : Seq<(PassRole Role, int Layer, double Height)>())
-            + toSeq(Enumerable.Range(0, fills)).Map(i =>
-                (Role: PassRole.Fill, Layer: 1 + (hot ? 1 : 0) + i, Height: Math.Min(depth, rootHeight + (hot ? hotHeight : 0.0) + ((i + 1) * fillHeight))))
-            + Seq1((Role: PassRole.Cap, Layer: capLayer, Height: depth));
-        return plan
-            .Bind(row => {
-                WeavePattern weave = row.Role.WeaveAdmitted ? policy.FillWeave : WeavePattern.Stringer;
-                double beadWidth = BeadWidth(weave, policy, law);
-                int perLayer = row.Role == PassRole.Root ? 1 : Math.Max(1, CountOf(GrooveWidth(g, row.Height, aw), beadWidth, policy.PassCap));
-                return toSeq(Enumerable.Range(0, perLayer)).Map(p => (row.Role, row.Layer, P: p, PerLayer: perLayer, Weave: weave, BeadWidth: beadWidth));
+        double fillerLength = law.Deposition.FillerLength(deposited);
+        // Arc time carries oscillation dwell and crater fill, so heat input and energy stop reading a bare
+        // travel-speed quotient that under-reports every dwelling weave.
+        double arcTime = band.Arc.ArcTime(path) + band.Weave.DwellSeconds(pathLength);
+        double heatInput = HeatInput(mode.Efficiency, powerW, arcTime, pathLength);
+        double cooling = BeadEvidence.CoolingTime(
+            heatInput, joint.PreheatC, joint.ThicknessMm, joint.Prep.ShapeFactors, joint.Position.CoolingScale);
+        double fill = deposited * band.Role.FillContribution;
+        ValidationError? evidenceError = BeadEvidence.Validate(
+            deposited, area, width, height, powerW * arcTime, fillerLength,
+            Math.Min(1.0, (cursor.FillMm3 + fill) / required), arcTime, cooling, pathLength,
+            out BeadEvidence evidence);
+        ValidationError? passError = WeldPass.Validate(
+            joint.Joint, band.Role, cursor.Layer, bead, beadsInLayer, side, ordinal, band.Weave,
+            (int)Math.Round(band.Weave.EdgeDwellS * 1000.0), joint.Position, lateral, fillHeight,
+            roleTravel, commandedFeed, heatInput, joint.ThicknessMm, path, frames, evidence,
+            band.Arc, band.Lineage, out WeldPass pass);
+        return frames.Count >= 2 && !path.IsEmpty && band.Lineage.Resolves(joint.Joint, cursor.Passes)
+            && evidenceError is null && passError is null
+            ? Fin.Succ(cursor with {
+                FillMm3 = cursor.FillMm3 + fill,
+                DepositMm3 = cursor.DepositMm3 + deposited,
+                Layer = bead + 1 >= beadsInLayer ? cursor.Layer + 1 : cursor.Layer,
+                Bead = bead + 1 >= beadsInLayer ? 0 : bead + 1,
+                BeadsInLayer = beadsInLayer,
+                Passes = cursor.Passes.Add(pass),
             })
-            .Map((slot, ordinal) => {
-                (double travel, double hi) = RoleRow(slot.Role, j.Position, law, budget.PowerW, v0);
-                double offset = (slot.P - (0.5 * (slot.PerLayer - 1))) * slot.BeadWidth;
-                return Pass(j, policy, slot.Role, slot.Layer, side, ordinal, slot.Weave, offset, travel, hi);
-            });
-    }
-
-    static double LayerHeight(PassRole role, WeavePattern weave, WeldJoint joint, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0) =>
-        DepositionRate(law.Deposition, budget) / RoleRow(role, joint.Position, law, budget.PowerW, v0).Travel / BeadWidth(weave, policy, law);
-
-    static double BeadWidth(WeavePattern weave, WeldPolicy policy, WeldProcessLaw law) =>
-        weave.WidthFactor * law.Deposition.Switch(
-            state: policy.BeadWidthWireDia,
-            wire: static (factor, source) => factor * source.DiameterMm,
-            volumetric: static (_, source) => source.CharacteristicWidthMm);
-
-    static int CountOf(double demand, double capacity, int cap) {
-        double count = Math.Ceiling(demand / capacity);
-        return demand <= 0.0 ? 0 : !double.IsFinite(count) || count > cap ? cap + 1 : (int)count;
-    }
-
-    // Fillet arm: leg floored by the boundary-resolved J2.4 minimum; pass count from the triangular leg area;
-    // the step offset walks FilletStepFactor·d per pass — a policy row, never an inline literal.
-    static Seq<WeldPass> FilletStack(WeldJoint j, double legMm, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0) {
-        (double vFill, _) = RoleRow(PassRole.Fill, j.Position, law, budget.PowerW, v0);
-        double beadArea = DepositionRate(law.Deposition, budget) / vFill;
-        int n = Math.Max(1, CountOf(0.5 * legMm * legMm, beadArea, policy.PassCap));
-        return toSeq(Enumerable.Range(0, n)).Map(p => {
-            PassRole role = p == 0 ? PassRole.Root : p == n - 1 ? PassRole.Cap : PassRole.Fill;
-            (double travel, double hi) = RoleRow(role, j.Position, law, budget.PowerW, v0);
-            return Pass(j, policy, role, layer: p, side: 0, ordinal: p,
-                p == 0 ? WeavePattern.Stringer : policy.FillWeave,
-                offset: policy.FilletStepFactor * p * CharacteristicWidth(law.Deposition), travel, hi);
+            : Fin.Fail<BeadCursor>(
+                new GeometryFault.DegenerateInput(
+                    Kind.Curve,
+                    -1,
+                    evidenceError?.Message ?? passError?.Message ?? "weld-plan:deposit-span").ToError());
         });
     }
 
-    static Seq<WeldPass> AreaStack(WeldJoint j, double requiredAreaMm2, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0) {
-        (double vFill, _) = RoleRow(PassRole.Fill, j.Position, law, budget.PowerW, v0);
-        double beadArea = DepositionRate(law.Deposition, budget) / vFill;
-        int count = Math.Max(1, CountOf(requiredAreaMm2, beadArea, policy.PassCap));
-        return toSeq(Enumerable.Range(0, count)).Map(i => {
-            PassRole role = i == 0 ? PassRole.Root : i == count - 1 ? PassRole.Cap : PassRole.Fill;
-            (double travel, double hi) = RoleRow(role, j.Position, law, budget.PowerW, v0);
-            return Pass(j, policy, role, i, side: 0, ordinal: i, role.WeaveAdmitted ? policy.FillWeave : WeavePattern.Stringer,
-                policy.FilletStepFactor * i * CharacteristicWidth(law.Deposition), travel, hi);
+    // Transport carries the SEAM frame — X tangent, Y lateral, Z surface normal — and never the torch attitude;
+    // work and travel rotation applies after Weave places the bead, so lateral and height offsets stay orthogonal
+    // to travel instead of bleeding into it through a pre-rotated basis.
+    private static Fin<Seq<TorchFrame>> Transport(WeldJoint joint, WeldPolicy policy, double standoffMm) {
+        (Option<Vector3d> Prior, Seq<TorchFrame> Rows) seed = (None, Seq<TorchFrame>());
+        Seq<double> stations = joint.Seam.Zip(joint.Seam.Tail).Fold(
+            Seq(0.0),
+            static (held, pair) => held.Add(held.Last + pair.Item1.DistanceTo(pair.Item2)));
+        return joint.Seam.Zip(joint.Normals).Map((pair, index) => (pair.Item1, pair.Item2, index)).Fold(
+            Fin.Succ(seed),
+            (held, row) => held.Bind(state => Frame(
+                    joint, policy, standoffMm, state.Prior, row.Item1, row.Item2, row.index)
+                .Map(frame => (Some(frame.Normal), state.Rows.Add(frame.Frame)))))
+            .Map(state => state.Rows.Map((frame, index) => frame with { StationMm = stations[index] }))
+            .Map(rows => Resample(rows, toSeq(joint.Prep.Demand.Spans).Bind(static span => Seq(span.StartMm, span.EndMm))))
+            .Map(static rows => rows.Map(static (frame, index) => frame with { Waypoint = index }));
+    }
+
+    // Span endpoints rarely coincide with seam vertices, so each boundary station gains an interpolated frame;
+    // without it a span bracketed by two distant vertices yields fewer than two run frames and no deposit path.
+    private static Seq<TorchFrame> Resample(Seq<TorchFrame> rows, Seq<double> required) => required
+        .Distinct()
+        .OrderBy(static station => station)
+        .ToSeq()
+        .Fold(rows, static (held, station) => held.Exists(row => row.StationMm == station)
+            ? held
+            : held.Zip(held.Tail)
+                .Choose(pair => station > pair.Item1.StationMm && station < pair.Item2.StationMm
+                    ? Some(Interpolate(pair.Item1, pair.Item2, station))
+                    : None)
+                .HeadOrNone()
+                .Match(
+                    Some: frame => held.Add(frame).OrderBy(static row => row.StationMm).ToSeq(),
+                    None: () => held));
+
+    private static TorchFrame Interpolate(TorchFrame low, TorchFrame high, double station) {
+        double t = (station - low.StationMm) / (high.StationMm - low.StationMm);
+        return low with {
+            StationMm = station,
+            Pose = new Plane(
+                low.Pose.Origin + ((high.Pose.Origin - low.Pose.Origin) * t),
+                low.Pose.XAxis + ((high.Pose.XAxis - low.Pose.XAxis) * t),
+                low.Pose.YAxis + ((high.Pose.YAxis - low.Pose.YAxis) * t)),
+        };
+    }
+
+    private static Fin<(TorchFrame Frame, Vector3d Normal)> Frame(
+        WeldJoint joint,
+        WeldPolicy policy,
+        double standoffMm,
+        Option<Vector3d> prior,
+        Point3d point,
+        Vector3d suppliedNormal,
+        int index) {
+        Vector3d tangent = WeldJoint.Tangent(joint.Seam, index);
+        Vector3d normal = prior.Exists(value => Vector3d.Multiply(value, suppliedNormal) < 0.0)
+            ? -suppliedNormal
+            : suppliedNormal;
+        return tangent.Unitize() && normal.Unitize()
+            ? Pose(point, tangent, normal, standoffMm, policy, joint.Joint, index).Map(frame => (frame, normal))
+            : Fin.Fail<(TorchFrame, Vector3d)>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:frame").ToError());
+    }
+
+    private static Fin<TorchFrame> Pose(
+        Point3d point,
+        Vector3d tangent,
+        Vector3d normal,
+        double standoffMm,
+        WeldPolicy policy,
+        int joint,
+        int index) {
+        Plane pose = new(point + (standoffMm * normal), tangent, Vector3d.CrossProduct(normal, tangent));
+        return pose.IsValid
+            ? Fin.Succ(new TorchFrame(
+                joint, 0, index, 0.0, pose, policy.WorkAngleDeg, policy.TravelAngleDeg, 0.0, 0.0, standoffMm))
+            : Fin.Fail<TorchFrame>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "weld-plan:pose").ToError());
+    }
+
+    private static Seq<TorchFrame> Weave(
+        Seq<TorchFrame> frames,
+        WeavePattern weave,
+        FillProfile profile,
+        WeldPolicy policy,
+        double lateralOffset,
+        double heightOffset) =>
+        frames.Map(frame => {
+            double station = frame.StationMm;
+            (double _, double width, double _, double _) = profile.Section(station);
+            double lateral = Math.Clamp(lateralOffset + weave.Offset(station), -0.5 * width, 0.5 * width);
+            Plane pose = frame.Pose;
+            pose.Origin += (heightOffset * pose.ZAxis) + (lateral * pose.YAxis);
+            _ = pose.Rotate(policy.WorkAngleDeg * Math.PI / 180.0, pose.XAxis);
+            _ = pose.Rotate(policy.TravelAngleDeg * Math.PI / 180.0, pose.YAxis);
+            return frame with {
+                Pose = pose,
+                Phase = station / weave.PitchMm,
+                LateralOffsetMm = lateral,
+            };
         });
-    }
 
-    // Plug and slot demand is VOLUME, not groove cross-section. The boundary supplies the cavity-filling
-    // traversal as Seam; each repeated layer deposits bead-area × traversal-length until the volume closes.
-    static Seq<WeldPass> FillVolumeStack(WeldJoint j, double requiredVolumeMm3, WeldPolicy policy, ProcessBudget.Deposition budget, WeldProcessLaw law, double v0) {
-        (double vFill, _) = RoleRow(PassRole.Fill, j.Position, law, budget.PowerW, v0);
-        double beadArea = DepositionRate(law.Deposition, budget) / vFill;
-        double traversal = j.Seam.Zip(j.Seam.Skip(1)).Map(static pair => pair.Item1.DistanceTo(pair.Item2)).Sum();
-        int count = Math.Max(1, CountOf(requiredVolumeMm3, beadArea * traversal, policy.PassCap));
-        return toSeq(Enumerable.Range(0, count)).Map(i => {
-            PassRole role = i == 0 ? PassRole.Root : i == count - 1 ? PassRole.Cap : PassRole.Fill;
-            (double travel, double hi) = RoleRow(role, j.Position, law, budget.PowerW, v0);
-            return Pass(j, policy, role, layer: i, side: 0, ordinal: i,
-                role.WeaveAdmitted ? policy.FillWeave : WeavePattern.Stringer, offset: 0.0, travel, hi);
-        });
-    }
+    private static Seq<JointAction> Actions(WeldJoint joint, ProcessBudget.Joining budget) =>
+        Seq<JointAction>(new JointAction.Preheat(joint.Joint, joint.PreheatC, budget.InterpassTemp))
+        + Prep(joint)
+        + joint.PwhtC
+            .Bind(soak => joint.PwhtMinutes.Map(minutes =>
+                (JointAction)new JointAction.PostWeldHeatTreat(joint.Joint, soak, minutes)))
+            .ToSeq();
 
-    // The pass path: the seam shifted along the per-waypoint tangent×normal frame by the groove offset with a
-    // rapid link in — the shift VALUE is this page's; conditioning executes in the Cam fold downstream.
-    static WeldPass Pass(WeldJoint j, WeldPolicy policy, PassRole role, int layer, int side, int ordinal, WeavePattern weave, double offset, double travel, double hi) {
-        double signedOffset = side == 0 ? offset : -offset;
-        Seq<Move> path = Seq1<Move>(new Move.Rapid(Shift(j, 0, offset, side)))
-            + toSeq(Enumerable.Range(0, j.Seam.Count)).Map(i => (Move)new Move.Linear(Shift(j, i, offset, side), travel));
-        Seq<TorchFrame> frames = toSeq(Enumerable.Range(0, j.Seam.Count)).Map(i => Frame(j, i, offset, side, policy));
-        return new WeldPass(j.Joint, role, layer, side, ordinal, weave, weave.EdgeDwellMs, j.Position, signedOffset, travel, hi, j.ThicknessMm, path, frames);
-    }
-
-    static TorchFrame Frame(WeldJoint j, int i, double offset, int side, WeldPolicy policy) {
-        (Vector3d travel, Vector3d lateral, Vector3d normal) = RequiredAxes(j, i, side);
-        Point3d at = j.Seam[i] + (offset * lateral);
-        Plane pose = new(at, travel, Vector3d.CrossProduct(normal, travel));
-        pose.Rotate(policy.WorkAngleDeg * Math.PI / 180.0, pose.XAxis, pose.Origin);
-        pose.Rotate(policy.TravelAngleDeg * Math.PI / 180.0, pose.YAxis, pose.Origin);
-        return new TorchFrame(j.Joint, i, pose, policy.WorkAngleDeg, policy.TravelAngleDeg);
-    }
-
-    // The demand chain producer: every procedure gate field has a source — keys and position off the census,
-    // thickness/preheat off the joint, the interpass ceiling off the budget, the realized HI off the stack.
-    static WeldDemand Demand(WeldJoint j, ProcessBudget.Deposition budget, double maxHi) =>
-        new(j.Joint, Map<EssentialVariable, QualificationValue>(
-            (EssentialVariable.Process, new QualificationValue.Categorical(j.ProcessKey)),
-            (EssentialVariable.WeldType, new QualificationValue.Categorical(PrepType(j.Prep))),
-            (EssentialVariable.GrooveGeometry, GrooveValue(j.Prep)),
-            (EssentialVariable.FillerMetal, new QualificationValue.Categorical(j.FillerKey)),
-            (EssentialVariable.FillerClassification, new QualificationValue.Categorical(j.FillerClassificationKey)),
-            (EssentialVariable.ShieldingGas, OptionalText(j.ShieldingKey)),
-            (EssentialVariable.Flux, OptionalText(j.FluxKey)),
-            (EssentialVariable.Position, new QualificationValue.Categorical(j.Position.Key)),
-            (EssentialVariable.Progression, new QualificationValue.Categorical(j.ProgressionKey)),
-            (EssentialVariable.CurrentType, new QualificationValue.Categorical(j.CurrentTypeKey)),
-            (EssentialVariable.Polarity, new QualificationValue.Categorical(j.PolarityKey)),
-            (EssentialVariable.TransferMode, new QualificationValue.Categorical(j.TransferModeKey)),
-            (EssentialVariable.ElectrodeDiameter, new QualificationValue.Numeric(j.ElectrodeDiameterMm)),
-            (EssentialVariable.BaseMaterialGroup, new QualificationValue.Categorical(j.MaterialGroupKey)),
-            (EssentialVariable.ThicknessRange, new QualificationValue.Numeric(j.ThicknessMm)),
-            (EssentialVariable.DiameterRange, OptionalNumber(j.DiameterMm > 0.0 ? Some(j.DiameterMm) : None)),
-            (EssentialVariable.Preheat, new QualificationValue.Numeric(j.PreheatC)),
-            (EssentialVariable.Interpass, new QualificationValue.Numeric(budget.InterpassTemp)),
-            (EssentialVariable.HeatInput, new QualificationValue.Numeric(maxHi)),
-            (EssentialVariable.PwhtTemperature, OptionalNumber(j.PwhtC)),
-            (EssentialVariable.PwhtDuration, OptionalNumber(j.PwhtMinutes)),
-            (EssentialVariable.ImpactQualification, new QualificationValue.Boolean(j.ImpactDemanded)),
-            (EssentialVariable.Backing, BackingValue(j.Prep)),
-            (EssentialVariable.RootTreatment, RootTreatmentValue(j.Prep)),
-            (EssentialVariable.PassTechnique, new QualificationValue.Categorical(j.PassTechniqueKey))));
-
-    // Canonical LE preimage: pass count, then per pass its role/side ordinals and LE-double waypoint triples —
-    // a formatted-string float preimage re-spells doubles and is the named BYTE_IDENTITY defect.
-    static byte[] CanonicalBytes(Seq<WeldPass> passes, Seq<JointAction> actions, Seq<WeldDemand> demands) {
-        System.Buffers.ArrayBufferWriter<byte> writer = new();
-        WriteInt(writer, passes.Count);
-        passes.Iter(p => {
-            WriteInt(writer, p.Joint); WriteString(writer, p.Role.Key); WriteInt(writer, p.Layer); WriteInt(writer, p.Side); WriteInt(writer, p.Ordinal);
-            WriteString(writer, p.Weave.Key); WriteInt(writer, p.EdgeDwellMs); WriteString(writer, p.Position.Key);
-            WriteDouble(writer, p.OffsetMm); WriteDouble(writer, p.TravelMmMin); WriteDouble(writer, p.HeatInputKjMm); WriteDouble(writer, p.ThicknessMm);
-            WriteInt(writer, p.Path.Count);
-            p.Path.Iter(move => move.Switch(
-                state: writer,
-                rapid: static (sink, value) => { WriteString(sink, "rapid"); WritePoint(sink, value.Target); return unit; },
-                linear: static (sink, value) => { WriteString(sink, "linear"); WritePoint(sink, value.Target); WriteDouble(sink, value.Feed); return unit; },
-                circular: static (sink, value) => {
-                    WriteString(sink, "circular"); WritePoint(sink, value.Target); WriteDouble(sink, value.Feed);
-                    WritePoint(sink, value.Arc.Center); WriteString(sink, value.Arc.Sense.Key); return unit;
-                }));
-            WriteInt(writer, p.Frames.Count);
-            p.Frames.Iter(frame => {
-                WriteInt(writer, frame.Waypoint); WritePlane(writer, frame.Pose);
-                WriteDouble(writer, frame.WorkAngleDeg); WriteDouble(writer, frame.TravelAngleDeg);
-            });
-        });
-        WriteInt(writer, actions.Count);
-        actions.Iter(action => {
-            action.Switch(
-                state: writer,
-                prepareGroove: static (sink, value) => {
-                    WriteString(sink, "prepare-groove"); WriteInt(sink, value.Joint); WriteString(sink, value.GeometryKey);
-                    WriteDouble(sink, value.WallAngleDeg); WriteDouble(sink, value.RootOpeningMm); WriteDouble(sink, value.RootFaceMm);
-                    WriteDouble(sink, value.GrooveRadiusMm); WriteDouble(sink, value.DepthMm); WriteInt(sink, value.DoubleSided ? 1 : 0); return unit;
-                },
-                installBacking: static (sink, value) => { WriteString(sink, "install-backing"); WriteInt(sink, value.Joint); WriteString(sink, value.BackingKey); return unit; },
-                backgouge: static (sink, value) => { WriteString(sink, "backgouge"); WriteInt(sink, value.Joint); WriteInt(sink, value.BeforeSide); WriteDouble(sink, value.DepthMm); return unit; },
-                removeBacking: static (sink, value) => { WriteString(sink, "remove-backing"); WriteInt(sink, value.Joint); WriteString(sink, value.BackingKey); return unit; });
-        });
-        WriteInt(writer, demands.Count);
-        demands.Iter(d => {
-            WriteInt(writer, d.Joint);
-            toSeq(EssentialVariable.Items).Filter(static variable => variable != EssentialVariable.ProcedureValidity).Iter(variable => {
-                WriteString(writer, variable.Key);
-                d.Values[variable].Switch(
-                    numeric: value => { WriteString(writer, "number"); WriteDouble(writer, value.Value); return unit; },
-                    categorical: value => { WriteString(writer, "text"); WriteString(writer, value.Value); return unit; },
-                    boolean: value => { WriteString(writer, "boolean"); WriteInt(writer, value.Value ? 1 : 0); return unit; },
-                    temporal: value => { WriteString(writer, "instant"); WriteLong(writer, value.Value.ToUnixTimeTicks()); return unit; },
-                    notApplicable: _ => { WriteString(writer, "not-applicable"); return unit; });
-            });
-        });
-        return writer.WrittenSpan.ToArray();
-    }
-
-    static void WriteInt(System.Buffers.ArrayBufferWriter<byte> writer, int value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), value);
-        writer.Advance(4);
-    }
-
-    static void WriteDouble(System.Buffers.ArrayBufferWriter<byte> writer, double value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
-    }
-
-    static void WriteLong(System.Buffers.ArrayBufferWriter<byte> writer, long value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
-    }
-
-    static void WriteString(System.Buffers.ArrayBufferWriter<byte> writer, string value) {
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value.Normalize(System.Text.NormalizationForm.FormC));
-        WriteInt(writer, bytes.Length);
-        bytes.AsSpan().CopyTo(writer.GetSpan(bytes.Length));
-        writer.Advance(bytes.Length);
-    }
-
-    static void WritePlane(System.Buffers.ArrayBufferWriter<byte> writer, Plane plane) {
-        WriteDouble(writer, plane.Origin.X); WriteDouble(writer, plane.Origin.Y); WriteDouble(writer, plane.Origin.Z);
-        WriteDouble(writer, plane.XAxis.X); WriteDouble(writer, plane.XAxis.Y); WriteDouble(writer, plane.XAxis.Z);
-        WriteDouble(writer, plane.YAxis.X); WriteDouble(writer, plane.YAxis.Y); WriteDouble(writer, plane.YAxis.Z);
-    }
-
-    static void WritePoint(System.Buffers.ArrayBufferWriter<byte> writer, Point3d point) {
-        WriteDouble(writer, point.X); WriteDouble(writer, point.Y); WriteDouble(writer, point.Z);
-    }
-
-    // Lateral shift in the seam's own frame: tangent × per-waypoint normal — a world-Z cross collapses on a
-    // vertical seam, so the frame is joint data.
-    static Point3d Shift(WeldJoint j, int i, double offset, int side) =>
-        j.Seam[i] + (offset * RequiredAxes(j, i, side).Lateral);
-
-    static Vector3d TangentAt(Arr<Point3d> seam, int i) {
-        Vector3d t = seam[Math.Min(i + 1, seam.Count - 1)] - seam[Math.Max(i - 1, 0)];
-        t.Unitize();
-        return t;
-    }
-
-    static bool AdmitsFrame(WeldJoint j, int i) {
-        Vector3d travel = TangentAt(j.Seam, i);
-        Vector3d normal = j.Normals[i];
-        Vector3d lateral = Vector3d.CrossProduct(travel, normal);
-        return !travel.IsTiny() && normal.Unitize() && lateral.Unitize();
-    }
-
-    static (Vector3d Travel, Vector3d Lateral, Vector3d Normal) RequiredAxes(WeldJoint j, int i, int side) {
-        Vector3d travel = TangentAt(j.Seam, i);
-        Vector3d normal = side == 0 ? j.Normals[i] : -j.Normals[i];
-        normal.Unitize();
-        Vector3d lateral = Vector3d.CrossProduct(travel, normal);
-        lateral.Unitize();
-        return (travel, lateral, normal);
-    }
-
-    static Seq<JointAction> Actions(WeldJoint joint) => joint.Prep.Switch(
+    private static Seq<JointAction> Prep(WeldJoint joint) => joint.Prep.Switch(
         state: joint.Joint,
-        groove: static (jointId, prep) =>
-            (prep.GeometryKey == "square" ? Seq<JointAction>() : Seq1<JointAction>(new JointAction.PrepareGroove(
-                jointId, prep.GeometryKey, prep.WallAngleDeg, prep.RootOpeningMm, prep.RootFaceMm,
-                prep.GrooveRadiusMm, prep.DepthMm, prep.DoubleSided)))
-            + (prep.BackingKey == "none" ? Seq<JointAction>() : Seq1<JointAction>(new JointAction.InstallBacking(jointId, prep.BackingKey)))
-            + (prep.RootTreatmentKey == "backgouge" ? Seq1<JointAction>(new JointAction.Backgouge(
-                jointId, BeforeSide: 1, Math.Max(prep.RootFaceMm, prep.DepthMm - prep.EffectiveThroatMm))) : Seq<JointAction>())
-            + (prep.BackingKey is "copper" or "ceramic" ? Seq1<JointAction>(new JointAction.RemoveBacking(jointId, prep.BackingKey)) : Seq<JointAction>()),
+        groove: static (jointId, prep) => Seq<JointAction>(new JointAction.PrepareGroove(
+                jointId, prep.GeometryKey, prep.PenetrationKey, prep.Fill, prep.DoubleSided))
+            + prep.Root.Switch(
+                none: static _ => Seq<JointAction>(),
+                backing: value => Seq<JointAction>(new JointAction.InstallBacking(jointId, value.Key))
+                    + (value.RemoveAfterWeld
+                        ? Seq<JointAction>(new JointAction.RemoveBacking(jointId, value.Key))
+                        : Seq<JointAction>()),
+                backgouge: value => Seq<JointAction>(new JointAction.Backgouge(jointId, value.BeforeSide, value.DepthMm)),
+                backingAndBackgouge: value => Seq<JointAction>(
+                        new JointAction.InstallBacking(jointId, value.Key),
+                        new JointAction.Backgouge(jointId, value.BeforeSide, value.DepthMm))
+                    + (value.RemoveAfterWeld
+                        ? Seq<JointAction>(new JointAction.RemoveBacking(jointId, value.Key))
+                        : Seq<JointAction>()),
+                seal: static _ => Seq<JointAction>()),
         fillet: static (_, _) => Seq<JointAction>(),
-        plugSlot: static (_, _) => Seq<JointAction>(),
+        cavity: static (_, _) => Seq<JointAction>(),
         flare: static (_, _) => Seq<JointAction>());
 
-    static double DepositionRate(DepositionSource source, ProcessBudget.Deposition budget) => source.Switch(
-        state: budget.WireFeedRate,
-        wire: static (wireFeed, source) => 0.25 * Math.PI * source.DiameterMm * source.DiameterMm * wireFeed * 1000.0,
-        volumetric: static (_, source) => source.Mm3Min);
+    private static Fin<WeldDemand> Demand(
+        WeldJoint joint,
+        WeldPolicy policy,
+        ProcessBudget.Joining budget,
+        Seq<WeldPass> passes,
+        double maximum) =>
+        policy.DemandBindings.Map(binding => Try.lift(() => binding.Resolve(
+                    new WeldDemandBinding.Facts(joint, budget, passes, maximum)))
+                .Run()
+                .MapFail(error => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"weld-demand:{binding.Field.Key}:{error.Message}").ToError())
+                .Bind(identity)
+                .Map(value => (binding.Field.Key, value))
+                .ToValidation())
+            .Traverse(identity)
+            .As()
+            .ToFin()
+            .Bind(rows => WeldDemand.Validate(
+                    joint.Joint,
+                    rows.ToMap(),
+                    joint.QualificationContext,
+                    joint.Inspection,
+                    out WeldDemand demand) is { } error
+                        ? Fin.Fail<WeldDemand>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
+                        : Fin.Succ(demand));
 
-    static double CharacteristicWidth(DepositionSource source) => source.Switch(
-        wire: static value => value.DiameterMm,
-        volumetric: static value => value.CharacteristicWidthMm);
+    private static byte[] CanonicalBytes(Seq<WeldPass> passes, Seq<JointAction> actions, Seq<WeldDemand> demands) {
+        using System.IO.MemoryStream stream = new();
+        using System.IO.BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+        writer.Write(passes.Count);
+        passes.Iter(pass => {
+            writer.Write(pass.Joint);
+            writer.Write(pass.Role.Key);
+            WriteWeave(writer, pass.Weave);
+            WriteLineage(writer, pass.Lineage);
+            writer.Write(pass.Layer);
+            writer.Write(pass.Bead);
+            writer.Write(pass.BeadsInLayer);
+            writer.Write(pass.Side);
+            writer.Write(pass.Ordinal);
+            writer.Write(pass.Position.Key);
+            writer.Write(pass.EdgeDwellMs);
+            writer.Write(pass.LateralOffsetMm);
+            writer.Write(pass.HeightOffsetMm);
+            writer.Write(pass.TravelMmMin);
+            writer.Write(pass.CommandedFeedMmMin);
+            writer.Write(pass.HeatInputKjMm);
+            writer.Write(pass.ThicknessMm);
+            writer.Write(pass.Deposit.DepositedVolumeMm3);
+            writer.Write(pass.Deposit.BeadAreaMm2);
+            writer.Write(pass.Deposit.WidthMm);
+            writer.Write(pass.Deposit.HeightMm);
+            writer.Write(pass.Deposit.EnergyJ);
+            writer.Write(pass.Deposit.FillerLengthMm);
+            writer.Write(pass.Deposit.CoverageFraction);
+            writer.Write(pass.Deposit.ArcTimeS);
+            writer.Write(pass.Deposit.CoolingTimeS);
+            writer.Write(pass.Deposit.DepositLengthMm);
+            writer.Write(pass.Arc.RunInMm);
+            writer.Write(pass.Arc.BackstepMm);
+            writer.Write(pass.Arc.CraterFillS);
+            writer.Write(pass.Arc.RunOutMm);
+            writer.Write(pass.Frames.Count);
+            pass.Frames.Iter(frame => {
+                writer.Write(frame.Joint);
+                writer.Write(frame.Side);
+                writer.Write(frame.Waypoint);
+                writer.Write(frame.StationMm);
+                writer.Write(frame.WorkAngleDeg);
+                writer.Write(frame.TravelAngleDeg);
+                writer.Write(frame.Phase);
+                writer.Write(frame.LateralOffsetMm);
+                writer.Write(frame.StandoffMm);
+                WritePoint(writer, frame.Pose.Origin);
+                WriteVector(writer, frame.Pose.XAxis);
+                WriteVector(writer, frame.Pose.YAxis);
+                WriteVector(writer, frame.Pose.ZAxis);
+            });
+            writer.Write(pass.Path.Count);
+            pass.Path.Iter(move => move.Switch(
+                state: writer,
+                rapid: static (sink, value) => { sink.Write((byte)0); WritePoint(sink, value.Target); },
+                linear: static (sink, value) => { sink.Write((byte)1); WritePoint(sink, value.Target); sink.Write(value.Feed); },
+                circular: static (sink, value) => {
+                    sink.Write((byte)2);
+                    WritePoint(sink, value.Target);
+                    sink.Write(value.Feed);
+                    WritePoint(sink, value.Arc.Center);
+                    sink.Write(value.Arc.Sense.Key);
+                }));
+        });
+        writer.Write(actions.Count);
+        actions.Iter(action => action.Switch(
+            state: writer,
+            prepareGroove: static (sink, value) => {
+                sink.Write((byte)0); sink.Write(value.Joint); sink.Write(value.GeometryKey); sink.Write(value.PenetrationKey);
+                WriteProfile(sink, value.Profile); sink.Write(value.DoubleSided);
+            },
+            installBacking: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Joint); sink.Write(value.BackingKey); },
+            backgouge: static (sink, value) => {
+                sink.Write((byte)2); sink.Write(value.Joint); sink.Write(value.BeforeSide); sink.Write(value.DepthMm);
+            },
+            removeBacking: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Joint); sink.Write(value.BackingKey); },
+            preheat: static (sink, value) => {
+                sink.Write((byte)4); sink.Write(value.Joint); sink.Write(value.TargetC); sink.Write(value.InterpassCapC);
+            },
+            postWeldHeatTreat: static (sink, value) => {
+                sink.Write((byte)5); sink.Write(value.Joint); sink.Write(value.SoakC); sink.Write(value.SoakMinutes);
+            }));
+        writer.Write(demands.Count);
+        demands.Iter(demand => {
+            writer.Write(demand.Joint);
+            writer.Write(demand.Context.Count);
+            demand.Context.OrderBy(static value => value).Iter(value => writer.Write(value));
+            writer.Write(demand.Inspection.JointClass.Key);
+            writer.Write(demand.Inspection.ExecutionClass);
+            writer.Write(demand.Inspection.StressCategory);
+            writer.Write(demand.Inspection.FatigueCritical);
+            writer.Write(demand.Inspection.Thickness.As(LengthUnit.Millimeter));
+            writer.Write(demand.Inspection.Populations.Count);
+            demand.Inspection.Populations.OrderBy(static row => row.Key.Key).Iter(row => {
+                writer.Write(row.Key.Key);
+                row.Value.Switch(
+                    state: writer,
+                    joints: static (sink, value) => { sink.Write((byte)0); sink.Write(value.Count); },
+                    linear: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Value.Millimeters); },
+                    areal: static (sink, value) => { sink.Write((byte)2); sink.Write(value.Value.SquareMillimeters); },
+                    volumetric: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Value.CubicMillimeters); });
+            });
+            writer.Write(demand.Values.Count);
+            demand.Values.OrderBy(static row => row.Key.Value).Iter(row => {
+                writer.Write(row.Key.Value);
+                row.Value.Switch(
+                    state: writer,
+                    quantity: static (sink, value) => {
+                        sink.Write((byte)0);
+                        sink.Write(value.Value.GetType().FullName ?? value.Value.GetType().Name);
+                        sink.Write(value.Value.Unit.ToString());
+                        sink.Write(Convert.ToDouble(value.Value.Value, System.Globalization.CultureInfo.InvariantCulture));
+                    },
+                    categorical: static (sink, value) => { sink.Write((byte)1); sink.Write(value.Value); },
+                    boolean: static (sink, value) => { sink.Write((byte)2); sink.Write(value.Value); },
+                    temporal: static (sink, value) => { sink.Write((byte)3); sink.Write(value.Value.ToUnixTimeTicks()); },
+                    notApplicable: static (sink, _) => sink.Write((byte)4));
+            });
+        });
+        writer.Flush();
+        return stream.ToArray();
 
-    static double GrooveWidth(JointPrep.Groove groove, double height, double wallAngle) =>
-        groove.RootOpeningMm + (2.0 * height * Math.Tan(wallAngle))
-        + (groove.GrooveRadiusMm > 0.0 ? 2.0 * Math.Sqrt(Math.Max(0.0, (2.0 * groove.GrooveRadiusMm * height) - (height * height))) : 0.0);
+        static void WritePoint(System.IO.BinaryWriter writer, Point3d point) {
+            writer.Write(point.X);
+            writer.Write(point.Y);
+            writer.Write(point.Z);
+        }
 
-    static double PlugSlotArea(JointPrep.PlugSlot prep) =>
-        prep.SlotLengthMm > prep.HoleDiameterMm
-            ? (prep.HoleDiameterMm * (prep.SlotLengthMm - prep.HoleDiameterMm)) + (0.25 * Math.PI * prep.HoleDiameterMm * prep.HoleDiameterMm)
-            : 0.25 * Math.PI * prep.HoleDiameterMm * prep.HoleDiameterMm;
+        static void WriteVector(System.IO.BinaryWriter writer, Vector3d vector) {
+            writer.Write(vector.X);
+            writer.Write(vector.Y);
+            writer.Write(vector.Z);
+        }
 
-    static bool Valid(WeldPass pass) =>
-        pass is not null && pass.Role is not null && pass.Weave is not null && pass.Position is not null
-        && pass.Layer >= 0 && pass.Side >= 0 && pass.Ordinal >= 0 && pass.EdgeDwellMs >= 0
-        && double.IsFinite(pass.OffsetMm) && pass.TravelMmMin > 0.0 && double.IsFinite(pass.TravelMmMin)
-        && pass.HeatInputKjMm > 0.0 && double.IsFinite(pass.HeatInputKjMm)
-        && pass.ThicknessMm > 0.0 && double.IsFinite(pass.ThicknessMm)
-        && pass.Path.Count == pass.Frames.Count + 1 && pass.Frames.Count >= 2
-        && !pass.Path.Exists(static move => move is null or Move.Circular)
-        && pass.Path.ForAll(static move => move.Switch(
-            rapid: static value => value.Target.IsValid,
-            linear: static value => value.Target.IsValid && value.Feed > 0.0 && double.IsFinite(value.Feed),
-            circular: static _ => false))
-        && pass.Frames.ForAll(static frame => frame.Pose.IsValid);
+        static void WriteProfile(System.IO.BinaryWriter writer, FillProfile profile) {
+            writer.Write(profile.VolumeMm3);
+            writer.Write(profile.EffectiveThroatMm);
+            writer.Write(profile.ReinforcementMm);
+            writer.Write(profile.ToeRadiusMm);
+            writer.Write(profile.Stations.Count);
+            profile.Stations.Iter(station => {
+                writer.Write(station.StationMm);
+                writer.Write(station.AreaMm2);
+                writer.Write(station.WidthMm);
+                writer.Write(station.RootWidthMm);
+                writer.Write(station.HeightMm);
+            });
+            writer.Write(profile.Spans.Count);
+            profile.Spans.Iter(span => { writer.Write(span.StartMm); writer.Write(span.EndMm); });
+        }
 
-    static bool Valid(WeldProcessLaw law, ProcessBudget.Deposition budget) =>
-        law is not null && law.Efficiency is > 0.0 and <= 1.0 && double.IsFinite(law.Efficiency)
-        && law.TravelLowMmMin > 0.0 && law.TravelLowMmMin <= law.TravelHighMmMin
-        && double.IsFinite(law.TravelLowMmMin) && double.IsFinite(law.TravelHighMmMin)
-        && law.HeatInputLowKjMm > 0.0 && law.HeatInputLowKjMm <= law.HeatInputHighKjMm
-        && double.IsFinite(law.HeatInputLowKjMm) && double.IsFinite(law.HeatInputHighKjMm)
-        && Valid(law.Deposition)
-        && DepositionRate(law.Deposition, budget) > 0.0 && double.IsFinite(DepositionRate(law.Deposition, budget));
+        static void WriteWeave(System.IO.BinaryWriter writer, WeavePattern weave) {
+            writer.Write(weave.AmplitudeMm);
+            writer.Write(weave.PitchMm);
+            writer.Write(weave.EdgeDwellS);
+            writer.Write(weave.TogglesPerCycle);
+            weave.Shape.Switch(
+                state: writer,
+                harmonic: static (sink, value) => {
+                    sink.Write((byte)0);
+                    sink.Write(value.Terms.Count);
+                    value.Terms.Iter(term => { sink.Write(term.Order); sink.Write(term.Amplitude); sink.Write(term.PhaseRad); });
+                },
+                piecewise: static (sink, value) => {
+                    sink.Write((byte)1);
+                    sink.Write(value.Knots.Count);
+                    value.Knots.Iter(knot => { sink.Write(knot.Phase); sink.Write(knot.Offset); });
+                });
+        }
 
-    static bool Valid(DepositionSource source) => source is not null && source.Switch(
-        wire: static value => value.DiameterMm > 0.0 && double.IsFinite(value.DiameterMm),
-        volumetric: static value => value.Mm3Min > 0.0 && double.IsFinite(value.Mm3Min)
-            && value.CharacteristicWidthMm > 0.0 && double.IsFinite(value.CharacteristicWidthMm));
-
-    static bool Valid(WeldJoint joint) =>
-        joint is not null && joint.Joint >= 0 && joint.Prep is not null && joint.Position is not null
-        && !string.IsNullOrWhiteSpace(joint.ProcessKey) && !string.IsNullOrWhiteSpace(joint.FillerKey)
-        && !string.IsNullOrWhiteSpace(joint.FillerClassificationKey)
-        && !string.IsNullOrWhiteSpace(joint.ProgressionKey) && !string.IsNullOrWhiteSpace(joint.CurrentTypeKey)
-        && !string.IsNullOrWhiteSpace(joint.PolarityKey) && !string.IsNullOrWhiteSpace(joint.TransferModeKey)
-        && !string.IsNullOrWhiteSpace(joint.PassTechniqueKey) && !string.IsNullOrWhiteSpace(joint.MaterialGroupKey)
-        && joint.ElectrodeDiameterMm > 0.0 && double.IsFinite(joint.ElectrodeDiameterMm)
-        && joint.ThicknessMm > 0.0 && double.IsFinite(joint.ThicknessMm)
-        && joint.DiameterMm >= 0.0 && double.IsFinite(joint.DiameterMm)
-        && joint.PreheatC >= 0.0 && double.IsFinite(joint.PreheatC)
-        && joint.AccessHalfAngleDeg is >= 0.0 and <= 180.0 && double.IsFinite(joint.AccessHalfAngleDeg)
-        && joint.PwhtC.IsSome == joint.PwhtMinutes.IsSome
-        && joint.PwhtC.ForAll(static value => value > 0.0 && double.IsFinite(value))
-        && joint.PwhtMinutes.ForAll(static value => value > 0.0 && double.IsFinite(value));
-
-    static bool PrepValid(JointPrep prep, double thicknessMm) => prep.Switch(
-        state: thicknessMm,
-        groove: static (t, value) => value.WallAngleDeg is >= 0.0 and < 90.0
-            && double.IsFinite(value.WallAngleDeg) && double.IsFinite(value.RootOpeningMm)
-            && double.IsFinite(value.RootFaceMm) && double.IsFinite(value.GrooveRadiusMm)
-            && double.IsFinite(value.DepthMm) && double.IsFinite(value.EffectiveThroatMm)
-            && !string.IsNullOrWhiteSpace(value.GeometryKey) && !string.IsNullOrWhiteSpace(value.BackingKey)
-            && !string.IsNullOrWhiteSpace(value.RootTreatmentKey)
-            && value.RootOpeningMm >= 0.0 && value.RootFaceMm >= 0.0 && value.GrooveRadiusMm >= 0.0
-            && value.DepthMm > 0.0 && value.DepthMm <= t && value.EffectiveThroatMm > 0.0 && value.EffectiveThroatMm <= value.DepthMm
-            && (!value.DoubleSided || value.RootTreatmentKey is "backgouge" or "seal-pass" or "as-welded"),
-        fillet: static (_, value) => value.LegMm > 0.0 && value.MinLegMm > 0.0
-            && double.IsFinite(value.LegMm) && double.IsFinite(value.MinLegMm),
-        plugSlot: static (t, value) => value.HoleDiameterMm > 0.0 && value.DepthMm > 0.0 && value.DepthMm <= t
-            && value.SlotLengthMm >= value.HoleDiameterMm && double.IsFinite(value.HoleDiameterMm)
-            && double.IsFinite(value.DepthMm) && double.IsFinite(value.SlotLengthMm),
-        flare: static (_, value) => value.RadiusMm > 0.0 && value.EffectiveThroatMm > 0.0
-            && double.IsFinite(value.RadiusMm) && double.IsFinite(value.EffectiveThroatMm)
-            && !string.IsNullOrWhiteSpace(value.TypeKey));
-
-    static QualificationValue OptionalNumber(Option<double> value) => value.Match<QualificationValue>(
-        Some: static number => new QualificationValue.Numeric(number),
-        None: static () => new QualificationValue.NotApplicable());
-
-    static QualificationValue OptionalText(string value) => string.IsNullOrWhiteSpace(value)
-        ? new QualificationValue.NotApplicable()
-        : new QualificationValue.Categorical(value);
-
-    static string PrepType(JointPrep prep) => prep.Switch(
-        groove: static _ => "groove",
-        fillet: static _ => "fillet",
-        plugSlot: static value => value.SlotLengthMm > value.HoleDiameterMm ? "slot" : "plug",
-        flare: static value => value.TypeKey);
-
-    static QualificationValue GrooveValue(JointPrep prep) => prep.Switch<QualificationValue>(
-        groove: static value => new QualificationValue.Categorical(value.GeometryKey),
-        fillet: static _ => new QualificationValue.NotApplicable(),
-        plugSlot: static _ => new QualificationValue.NotApplicable(),
-        flare: static _ => new QualificationValue.NotApplicable());
-
-    static QualificationValue BackingValue(JointPrep prep) => prep.Switch<QualificationValue>(
-        groove: static value => new QualificationValue.Categorical(value.BackingKey),
-        fillet: static _ => new QualificationValue.NotApplicable(),
-        plugSlot: static _ => new QualificationValue.NotApplicable(),
-        flare: static _ => new QualificationValue.NotApplicable());
-
-    static QualificationValue RootTreatmentValue(JointPrep prep) => prep.Switch<QualificationValue>(
-        groove: static value => new QualificationValue.Categorical(value.RootTreatmentKey),
-        fillet: static _ => new QualificationValue.NotApplicable(),
-        plugSlot: static _ => new QualificationValue.NotApplicable(),
-        flare: static _ => new QualificationValue.NotApplicable());
+        static void WriteLineage(System.IO.BinaryWriter writer, PassLineage lineage) => lineage.Switch(
+            state: writer,
+            planned: static (sink, _) => sink.Write((byte)0),
+            repair: static (sink, value) => {
+                sink.Write((byte)1); sink.Write(value.ReplacesOrdinal); sink.Write(value.DefectKey); sink.Write(value.ExcavatedMm3);
+            },
+            temper: static (sink, value) => { sink.Write((byte)2); sink.Write(value.ConditionsOrdinal); });
+    }
 }
-```
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Weld planning spine
-    accDescr: Joint facts, deposition policy, and joined physics enter one weld planner that emits executable passes, preparation actions, qualification demands, and one keyed receipt.
-    Joint[/WeldJoint census/] --> Plan[[Weld.Plan]]
-    Policy[(Process and bead policy)] --> Plan
-    Physics[(Deposition physics)] --> Plan
-    Plan --> Passes([WeldPass paths and frames])
-    Plan --> Actions([JointAction rows])
-    Plan --> Demands([WeldDemand maps])
-    Passes --> Sequence[[Sequence.Order]]
-    Actions --> Sequence
-    Demands --> Procedure[[Procedure.Assess]]
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    class Joint,Passes,Actions,Demands boundary
-    class Plan,Sequence,Procedure primary
-    class Policy,Physics data
 ```

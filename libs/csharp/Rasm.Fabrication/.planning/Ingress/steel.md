@@ -1,33 +1,41 @@
 # [RASM_FABRICATION_STEEL_IMPORT]
 
-The DSTV NC1 steel-ingress boundary admits an `.nc1` profile program through `DSTV.Net` and projects the complete 25-field `ST` header plus verified `BO`/`SI`/`SC`/`AK`/`IK`/`KO`/`PU` payloads into fabrication-owned rows. `DstvReader.ParseAsync` owns parse admission, `ParseException.LineNumber` lowers to `FabricationFault.IngressTranslation(SourceKind.Steel, SourceLocus.DstvBlock(...))`, and no provider type crosses the boundary. `Riok.Mapperly` owns provider-record transcription while `SteelImport` owns feature dispatch, contour topology, `Loop.AsCcw`, and `ContentKey.Of(EgressKind.Nc1, ...)`.
+`SteelImport` owns DSTV/NC1 admission from path, text, or bytes into one fabrication steel owner. Every source preserves its received bytes for `ContentKey`, every fault carries a positive DSTV line the `SourceKind.Steel` locus gate admits, and every admitted feature leaves provider types at the boundary.
 
-A radiused `AK`/`IK` contour point lowers arc-exactly: the vertex becomes a validated tangent pair and one signed bulge span. `SteelContourPolicy` carries the canonical `Context` and rejects zero-length legs, collinear corners, oversized radii, and non-finite tangent geometry before `Loop.Admit`. A bevelled `DstvSkewedPoint` carries both angle/blunting pairs on `SteelBevel`. `KO`/`PU` contours remain marking features and never enter the boundary-loop library.
-
-The imported profile is the same `Loop` library consumed by nesting and toolpath. `DSTV.Net` recognizes `KA` as `DstvBend` but every payload field (`_originX`/`_originY`/`_finishX`/`_finishY`/`_bendingAngle`/`_bendingRadius`) is private with no public accessor or `Deconstruct`; a `KA` element therefore routes the typed `KA` block fault instead of fabricating geometry from unreachable members. A future `KA` admission requires a package surface exposing the complete bend record, and its analytic lowering remains owned by `Forming/sheet`. NC1 emission remains the posting dialect owner.
-
-Wire posture: HOST-LOCAL, HOST-NEUTRAL. `DSTV.Net` is pure managed input material, `Mapperly` is compile-time transcription, and the public ingress entry remains `Ingress.Admit(IngressSource)` through its `Steel` arm — the fold itself is declared ONCE on `Ingress/profile#PROFILE_IMPORT` and this page supplies only the arm body. A second steel reader, a second `Ingress` fold declaration, a hand-written DSTV record copyist, a direct `DstvElement` dependency in nesting/toolpath/forming, or a local NC1 writer is the rejected shape.
+`SteelPart` carries the complete `ST` descriptor, recognized feature family, arc-aware contour measures, and `AK` minus `IK` region hierarchy. DSTV face-local coordinates resolve into part space through the `SteelFace` frame rows, so a downstream plane consumes placed geometry rather than a face tag it must interpret. `SteelView` parameterizes downstream projection without opening a writer; NC1 emission remains `PostDialect` work.
 
 ## [01]-[INDEX]
 
-- [01]-[STEEL_IMPORT]: owns `SteelImport.Read`, the `IngressSource.Steel` arm, `SteelContourPolicy`, the local `SteelHeader`/`SteelPart`/`SteelFeature`/`SteelContour`/`SteelBevel` model, the Mapperly `DstvMap` seam, parse and recognized-unsupported block fault lowering, validated corner-fillet bulges, and `AK`/`IK` loop projection.
+| [INDEX] | [OWNER]              | [OWNS]                                                    |
+| :-----: | :------------------- | :-------------------------------------------------------- |
+|  [01]   | `SteelSource`        | path, text, and byte ingress preserving received bytes    |
+|  [02]   | `SteelProfileCode`   | DSTV profile vocabulary and its admitted face set         |
+|  [03]   | `SteelFace`          | DSTV face vocabulary and the face-to-part placement frame |
+|  [04]   | `SteelBlockKind`     | block identity, contour correspondence, and topology sign |
+|  [05]   | `SteelParseKind`     | parser-failure classification over exception-type rows    |
+|  [06]   | `SteelHeader`        | the complete admitted `ST` descriptor                     |
+|  [07]   | `SteelFeature`       | every readable DSTV feature payload                       |
+|  [08]   | `SteelPart`          | admitted header, features, topology, and placement        |
+|  [09]   | `SteelImport`        | source, parse, and admission rails                        |
+|  [10]   | `SteelView`          | parameterized projection over the admitted receipt        |
 
-## [02]-[STEEL_IMPORT]
+## [02]-[STEEL_EXCHANGE]
 
-- Owner: `SteelImport` owns read admission; `SteelBlockKind` owns diagnostic codes; `SteelHeader` carries all 25 public `ST` fields; `SteelFeature` closes over hole, slot, cut, numeration, contour, and marking; `SteelPart` stores only `Features` and derives every per-kind view; `SteelContourPolicy` carries the canonical `Context`, minimum-leg, and angular-degeneracy bounds; `DstvMap` owns transcription.
-- Cases: `ST` maps to `SteelHeader`; `DstvSlot` precedes `DstvHole`; `SI` maps to numeration; `SC` maps to cut; `AK`/`IK` map to boundary contours; `KO`/`PU` map to markings; `DstvSkewedPoint` precedes its base point and maps both bevel pairs. `DstvBend` is recognized but fails at the `KA` locus because its public record carries no usable bend payload, and an unrecognized `DstvElement` subtype fails at the `UNKNOWN` locus.
-- Entry: `Fin<SteelImportReceipt> SteelImport.Read(string path, SteelContourPolicy policy)` reads stable identity bytes, parses through the one sync bridge, traverses every recognized feature on `Fin`, validates contour rounding, and returns the receipt. `Ingress.Admit` carries `SteelContourPolicy` on the source case and returns the complete receipt as `AdmittedGeometry.Steel` — header, features, bevels, and content key cross the fold intact.
-- Auto: `ParseException.LineNumber` lowers to `ST`; `Try.lift` captures non-parse failures; missing header lowers to `ST:0`; empty boundary contours lower to `AK:0`; `KA` lowers at its parsed ordinal; an unknown provider subtype lowers to `UNKNOWN:<ordinal>`. The feature traversal admits every catalogued element or aborts, adjacent corner radii must leave a forward, tolerance-long straight span on their shared leg, and an `IsNotch` point inverts its bulge sign — the notch arc bows into the material where the fillet arc bows away.
-- Receipt: `SteelImportReceipt` carries `SteelPart` plus `ContentKey.Of(EgressKind.Nc1, rawBytes)`. `SteelPart.Loops` is the bulge-carrying boundary library, `SteelPart.Features` the ONE stored feature family, every per-kind view a derived projection, and no `IDstv`, `DstvElement`, `Contour`, `DstvHole`, or `CodeProfile` leaks.
-- Packages: `DSTV.Net` (`DstvReader.ParseAsync(TextReader)`, `IDstv.Header`/`Elements`, the 25 public `IDstvHeader` fields, `DstvElement`, `LocatedElement`, `DstvHole`, `DstvSlot`, `DstvCut`, `DstvBend` recognition only, `DstvNumeration`, `DstvContourPoint`, `DstvSkewedPoint`, `Contour.Points`, `ContourType`, `ParseException.LineNumber`); `Riok.Mapperly` (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]`, `[UserMapping]`); fabrication atoms and fault band; LanguageExt.Core; Thinktecture.Runtime.Extensions; BCL inbox.
-- Growth: a new NC1 block is one feature case, block row, and Mapperly mapping. A package release exposing complete `KA` data admits one bend feature case and one analytic `Forming/sheet` seam; incomplete coordinate-only admission remains rejected. NC1 emission detail lands on the posting dialect.
-- Boundary: `DSTV.Net` is read-only; `ToSvg()` is preview-only; Mapperly owns transcription but no topology, rail, identity, or policy. The feature family stores once. Recognized fabrication blocks never disappear through a default arm, and unsupported `KA` input never synthesizes a bend from header dimensions.
+- Owner: `SteelImport` admits one `SteelSource`, and `SteelPart` owns the normalized header, operations, contours, placement, and identity.
+- Cases: `SteelSource` closes path, text, and byte ingress; `SteelFeature` closes every readable DSTV feature payload; `SteelProjection` closes part, boundary, feature, topology, placement, and identity views.
+- Entry: `Read` returns one deferred `Eff<SteelImportReceipt>` and accumulates independent feature faults before admission.
+- Auto: `DstvMap` transcribes feature records, generated owners validate policy, header, and aggregate values, `SteelBlockKind` supplies statement identity, contour correspondence, and topology sign, and `SteelParseKind` classifies a `ParseException` by most-derived exception-type row.
+- Receipt: `SteelImportReceipt` carries the admitted part, content key, and source-byte count; `SteelPart.Topology` preserves outer, hole, parent, depth, area, and bounds evidence; `SteelPart.Placed` resolves each face-local feature into part coordinates.
+- Packages: `DSTV.Net` owns asynchronous parsing; `Riok.Mapperly` owns field transcription; `Thinktecture.Runtime.Extensions` owns cases and policy rows; `LanguageExt.Core` owns effects, accumulation, and immutable carriers; `UnitsNet` owns physical values; `Loop` composes `CavalierContours` for arc measures; `PolygonAlgebra` composes `Clipper2` for hierarchy and fill.
+- Growth: a readable block lands as one `SteelFeature` case, one `SteelBlockKind` row, and one Mapperly declaration; a parser fault lands as one `SteelParseKind` row; a profile or face convention lands as one `SteelProfileCode` or `SteelFace` row; a new source or view lands as one generated case or row.
+- Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable, face frames derive wholly from the admitted header so a convention correction is one row, and `ToSvg()` remains outside fabrication projection.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
-using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading;
 using DSTV.Net.Contracts;
 using DSTV.Net.Data;
 using DSTV.Net.Enums;
@@ -36,316 +44,618 @@ using DSTV.Net.Implementations;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
+using UnitsNet;
+using UnitsNet.Units;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Ingress;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class SteelBlockKind {
-    public static readonly SteelBlockKind St = new("ST");
-    public static readonly SteelBlockKind Bo = new("BO");
-    public static readonly SteelBlockKind Si = new("SI");
-    public static readonly SteelBlockKind Sc = new("SC");
-    public static readonly SteelBlockKind Ak = new("AK");
-    public static readonly SteelBlockKind Ik = new("IK");
-    public static readonly SteelBlockKind Ko = new("KO");
-    public static readonly SteelBlockKind Pu = new("PU");
-    public static readonly SteelBlockKind Ka = new("KA");
-    public static readonly SteelBlockKind Unknown = new("UNKNOWN");
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SteelSource {
+    private SteelSource() { }
+
+    public sealed record Path(string Value, CancellationToken Cancellation) : SteelSource;
+    public sealed record Text(string Value) : SteelSource;
+    public sealed record Bytes(ReadOnlyMemory<byte> Value) : SteelSource;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public sealed record SteelHeader(
-    string OrderIdentification,
-    string DrawingIdentification,
-    string PhaseIdentification,
-    string PieceIdentification,
-    int QuantityOfPieces,
-    string Profile,
-    string ProfileCode,
-    string SteelQuality,
-    double Length,
-    double SawLength,
-    double ProfileHeight,
-    double FlangeWidth,
-    double FlangeThickness,
-    double WebThickness,
-    double Radius,
-    double WebStartCut,
-    double WebEndCut,
-    double FlangeStartCut,
-    double FlangeEndCut,
-    double WeightByMeter,
-    double PaintingSurfaceByMeter,
-    string Text1InfoOnPiece,
-    string Text2InfoOnPiece,
-    string Text3InfoOnPiece,
-    string Text4InfoOnPiece);
+[SmartEnum<string>]
+public sealed partial class SteelBlockKind {
+    public static readonly SteelBlockKind St = new("ST", None, topologySign: 0);
+    public static readonly SteelBlockKind Bo = new("BO", None, topologySign: 0);
+    public static readonly SteelBlockKind Si = new("SI", None, topologySign: 0);
+    public static readonly SteelBlockKind Sc = new("SC", None, topologySign: 0);
+    public static readonly SteelBlockKind Ak = new("AK", Some(ContourType.AK), topologySign: 1);
+    public static readonly SteelBlockKind Ik = new("IK", Some(ContourType.IK), topologySign: -1);
+    public static readonly SteelBlockKind Ko = new("KO", Some(ContourType.KO), topologySign: 0);
+    public static readonly SteelBlockKind Pu = new("PU", Some(ContourType.PU), topologySign: 0);
+    public static readonly SteelBlockKind Ka = new("KA", None, topologySign: 0);
+    public static readonly SteelBlockKind Source = new("SOURCE", None, topologySign: 0);
+    public static readonly SteelBlockKind Unknown = new("UNKNOWN", None, topologySign: 0);
 
-public sealed record SteelBevel(double FirstAngleDeg, double FirstBlunting, double SecondAngleDeg, double SecondBlunting);
+    public Option<ContourType> Contour { get; }
 
-public sealed record SteelPoint(Point3d At, bool IsNotch, double RadiusMm, Option<SteelBevel> Bevel);
+    public int TopologySign { get; }
 
-public sealed record SteelHole(Point3d Center, string Flange, double DiameterMm, double DepthMm);
+    public bool Boundary => TopologySign != 0;
 
-public sealed record SteelSlot(
-    Point3d Center,
-    string Flange,
-    double DiameterMm,
-    double DepthMm,
-    double SlotLengthMm,
-    double SlotWidthMm,
-    double SlotAngleDeg);
+    public static Option<SteelBlockKind> Of(ContourType type) =>
+        toSeq(Items).Find(row => row.Contour == Some(type));
+}
 
-public sealed record SteelCut(Point3d At, string Flange);
+[SmartEnum<string>]
+public sealed partial class SteelParseKind {
+    public static readonly SteelParseKind Start = new("ST:START", typeof(MissingStartOfFileException));
+    public static readonly SteelParseKind Character = new("ST:CHARACTER", typeof(UnexpectedCharacterException));
+    public static readonly SteelParseKind End = new("ST:END", typeof(UnexpectedEndException));
+    public static readonly SteelParseKind Integer = new("ST:INTEGER", typeof(IntegerParseException));
+    public static readonly SteelParseKind Double = new("ST:DOUBLE", typeof(DoubleParseException));
+    public static readonly SteelParseKind Enum = new("ST:ENUM", typeof(EnumParseException));
+    public static readonly SteelParseKind Tuple = new("ST:TUPLE", typeof(TupleParseException));
+    public static readonly SteelParseKind FreeText = new("ST:FREE-TEXT", typeof(FreeTextTooLargeException));
+    public static readonly SteelParseKind Structure = new("ST:STRUCTURE", typeof(DstvParseException));
+    public static readonly SteelParseKind Unknown = new("ST:UNKNOWN", typeof(ParseException));
 
-public sealed record SteelNumeration(Point3d At, string Flange);
+    public Type ExceptionType { get; }
 
-public sealed record SteelContour(SteelBlockKind Kind, Loop Loop, Arr<SteelPoint> Points);
+    // Specificity ranks by inheritance depth, so a base row never shadows a derived one and declaration order is free.
+    public static SteelParseKind Classify(ParseException error) =>
+        toSeq(Items)
+            .Filter(kind => kind.ExceptionType.IsInstanceOfType(error))
+            .OrderByDescending(static kind => Depth(kind.ExceptionType))
+            .Head
+            .IfNone(Unknown);
+
+    private static int Depth(Type type) =>
+        type == typeof(ParseException) ? 0 : 1 + Depth(type.BaseType ?? typeof(ParseException));
+}
+
+// SteelFace row owns its DSTV placement convention, so corrections stay on one row.
+// Part x runs the member length; the section occupies part y and z.
+[SmartEnum<string>]
+public sealed partial class SteelFace {
+    public static readonly SteelFace Web = new("V", static (_, local) =>
+        new Point3d(local.X, 0.0, local.Y), false);
+    public static readonly SteelFace Top = new("O", static (header, local) =>
+        new Point3d(local.X, local.Y, header.ProfileHeight.As(LengthUnit.Millimeter)), false);
+    public static readonly SteelFace Bottom = new("U", static (_, local) =>
+        new Point3d(local.X, -local.Y, 0.0), true);
+    public static readonly SteelFace Rear = new("H", static (header, local) =>
+        new Point3d(-local.X, header.WebThickness.As(LengthUnit.Millimeter), local.Y), true);
+
+    public Func<SteelHeader, Point3d, Point3d> Place { get; }
+    public bool Reverses { get; }
+
+    public Arr<double> PlaceBulges(Arr<double> bulges) =>
+        Reverses ? bulges.Map(static bulge => -bulge) : bulges;
+}
+
+[SmartEnum<string>]
+public sealed partial class SteelProfileCode {
+    public static readonly SteelProfileCode I = new("I", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode U = new("U", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode C = new("C", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode M = new("M", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode So = new("SO", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode T = new("T", Seq(SteelFace.Web, SteelFace.Top, SteelFace.Rear));
+    public static readonly SteelProfileCode L = new("L", Seq(SteelFace.Web, SteelFace.Bottom, SteelFace.Rear));
+    public static readonly SteelProfileCode Ro = new("RO", Seq(SteelFace.Web));
+    public static readonly SteelProfileCode Ru = new("RU", Seq(SteelFace.Web));
+    public static readonly SteelProfileCode B = new("B", Seq(SteelFace.Web));
+
+    public Seq<SteelFace> Faces { get; }
+
+    public bool Admits(SteelFace face) => Faces.Contains(face);
+}
+
+[ComplexValueObject]
+public sealed partial class SteelContourPolicy {
+    public Context Tolerance { get; }
+    public Length MinimumLeg { get; }
+    public Angle AngularTolerance { get; }
+
+    public static SteelContourPolicy Canonical(Context tolerance) =>
+        Create(
+            tolerance,
+            Length.FromMillimeters(tolerance.Absolute.Value),
+            Angle.FromRadians(tolerance.Angle.Value));
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Context tolerance,
+        ref Length minimumLeg,
+        ref Angle angularTolerance) {
+        double leg = minimumLeg.As(LengthUnit.Millimeter);
+        double angle = angularTolerance.As(AngleUnit.Radian);
+        if (!double.IsFinite(leg) || leg <= 0.0 || !double.IsFinite(angle) || angle <= 0.0 || angle >= (Math.PI / 2.0))
+            validationError = new ValidationError("steel contour policy is outside its positive finite domain");
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class SteelHeader {
+    public string OrderIdentification { get; }
+    public string DrawingIdentification { get; }
+    public string PhaseIdentification { get; }
+    public string PieceIdentification { get; }
+    public int QuantityOfPieces { get; }
+    public string Profile { get; }
+    public SteelProfileCode ProfileCode { get; }
+    public string SteelQuality { get; }
+    public Length Length { get; }
+    public Length SawLength { get; }
+    public Length ProfileHeight { get; }
+    public Length FlangeWidth { get; }
+    public Length FlangeThickness { get; }
+    public Length WebThickness { get; }
+    public Length Radius { get; }
+    public Angle WebStartCut { get; }
+    public Angle WebEndCut { get; }
+    public Angle FlangeStartCut { get; }
+    public Angle FlangeEndCut { get; }
+    public double WeightByMeter { get; }
+    public double PaintingSurfaceByMeter { get; }
+    public string Text1InfoOnPiece { get; }
+    public string Text2InfoOnPiece { get; }
+    public string Text3InfoOnPiece { get; }
+    public string Text4InfoOnPiece { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string orderIdentification,
+        ref string drawingIdentification,
+        ref string phaseIdentification,
+        ref string pieceIdentification,
+        ref int quantityOfPieces,
+        ref string profile,
+        ref SteelProfileCode profileCode,
+        ref string steelQuality,
+        ref Length length,
+        ref Length sawLength,
+        ref Length profileHeight,
+        ref Length flangeWidth,
+        ref Length flangeThickness,
+        ref Length webThickness,
+        ref Length radius,
+        ref Angle webStartCut,
+        ref Angle webEndCut,
+        ref Angle flangeStartCut,
+        ref Angle flangeEndCut,
+        ref double weightByMeter,
+        ref double paintingSurfaceByMeter,
+        ref string text1InfoOnPiece,
+        ref string text2InfoOnPiece,
+        ref string text3InfoOnPiece,
+        ref string text4InfoOnPiece) {
+        orderIdentification = orderIdentification?.Trim() ?? string.Empty;
+        drawingIdentification = drawingIdentification?.Trim() ?? string.Empty;
+        phaseIdentification = phaseIdentification?.Trim() ?? string.Empty;
+        pieceIdentification = pieceIdentification?.Trim() ?? string.Empty;
+        profile = profile?.Trim() ?? string.Empty;
+        steelQuality = steelQuality?.Trim() ?? string.Empty;
+        text1InfoOnPiece = text1InfoOnPiece?.Trim() ?? string.Empty;
+        text2InfoOnPiece = text2InfoOnPiece?.Trim() ?? string.Empty;
+        text3InfoOnPiece = text3InfoOnPiece?.Trim() ?? string.Empty;
+        text4InfoOnPiece = text4InfoOnPiece?.Trim() ?? string.Empty;
+        Seq<double> positive = [length.As(LengthUnit.Millimeter), sawLength.As(LengthUnit.Millimeter)];
+        Seq<double> nonnegative = [profileHeight.As(LengthUnit.Millimeter), flangeWidth.As(LengthUnit.Millimeter),
+            flangeThickness.As(LengthUnit.Millimeter), webThickness.As(LengthUnit.Millimeter), radius.As(LengthUnit.Millimeter),
+            weightByMeter, paintingSurfaceByMeter];
+        Seq<double> angles = [webStartCut.As(AngleUnit.Radian), webEndCut.As(AngleUnit.Radian),
+            flangeStartCut.As(AngleUnit.Radian), flangeEndCut.As(AngleUnit.Radian)];
+        Seq<(string Slot, bool Admits)> slots = [
+            ("identity", pieceIdentification.Length > 0 && profile.Length > 0 && steelQuality.Length > 0),
+            ("quantity", quantityOfPieces > 0),
+            ("extent", positive.ForAll(static value => double.IsFinite(value) && value > 0.0)),
+            ("section", nonnegative.ForAll(static value => double.IsFinite(value) && value >= 0.0)),
+            ("end-cut", angles.ForAll(static value => double.IsFinite(value)))];
+        validationError = slots
+            .Find(static slot => !slot.Admits)
+            .Match(
+                Some: static slot => new ValidationError($"steel header rejected at {slot.Slot}"),
+                None: static () => (ValidationError?)null);
+    }
+}
+
+public sealed record SteelBevel(Angle FirstAngle, Length FirstBlunting, Angle SecondAngle, Length SecondBlunting);
+
+public sealed record SteelVertex(Point3d At, bool IsNotch, Length Radius, Option<SteelBevel> Bevel);
+
+public sealed record SteelContour(SteelBlockKind Block, SteelFace Face, Loop Loop, Arr<SteelVertex> Vertices) {
+    public double SignedAreaMm2 => Loop.Area();
+    public Length Perimeter => Length.FromMillimeters(Loop.Length());
+    public Sign Winding => Loop.Winding();
+    public BoundingBox Bounds => Loop.Bound();
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SteelFeature {
     private SteelFeature() { }
 
-    public sealed record Hole(SteelHole Row) : SteelFeature;
-    public sealed record Slot(SteelSlot Row) : SteelFeature;
-    public sealed record Cut(SteelCut Row) : SteelFeature;
-    public sealed record Numeration(SteelNumeration Row) : SteelFeature;
-    public sealed record Contour(SteelContour Row) : SteelFeature;
-    public sealed record Marking(SteelContour Row) : SteelFeature;
+    public sealed record Hole(Point3d Center, SteelFace Face, Length Diameter, Length Depth) : SteelFeature;
+    public sealed record Slot(Point3d Center, SteelFace Face, Length Diameter, Length Depth, Length Span, Length Width, Angle Rotation) : SteelFeature;
+    public sealed record Cut(Point3d At, SteelFace Face) : SteelFeature;
+    public sealed record Numeration(Point3d At, SteelFace Face) : SteelFeature;
+    public sealed record Boundary(SteelContour Contour) : SteelFeature;
+    public sealed record Marking(SteelContour Contour) : SteelFeature;
 }
 
-public sealed record SteelPart(SteelHeader Header, Seq<SteelFeature> Features) {
-    public Seq<SteelContour> Contours => Features.Choose(static f => f is SteelFeature.Contour c ? Some(c.Row) : None);
-    public Arr<Loop> Loops => Contours.Map(static c => c.Loop).ToArr();
-    public Seq<SteelContour> Markings => Features.Choose(static f => f is SteelFeature.Marking m ? Some(m.Row) : None);
-    public Seq<SteelHole> Holes => Features.Choose(static f => f is SteelFeature.Hole h ? Some(h.Row) : None);
-    public Seq<SteelSlot> Slots => Features.Choose(static f => f is SteelFeature.Slot s ? Some(s.Row) : None);
-    public Seq<SteelCut> Cuts => Features.Choose(static f => f is SteelFeature.Cut c ? Some(c.Row) : None);
-    public Seq<SteelNumeration> Numerations => Features.Choose(static f => f is SteelFeature.Numeration n ? Some(n.Row) : None);
+public sealed record SteelPlacement(
+    SteelFeature Feature,
+    SteelFace Face,
+    Seq<Point3d> Geometry,
+    Arr<double> Bulges);
+
+[ComplexValueObject]
+public sealed partial class SteelPart {
+    public SteelHeader Header { get; }
+    public Seq<SteelFeature> Features { get; }
+    public TopologyReceipt Topology { get; }
+
+    [IgnoreMember]
+    public Seq<SteelContour> Boundaries => ContoursOf(boundary: true);
+
+    [IgnoreMember]
+    public Seq<SteelContour> Markings => ContoursOf(boundary: false);
+
+    [IgnoreMember]
+    public Arr<Loop> Loops => Boundaries.Map(static contour => contour.Loop).ToArr();
+
+    // Face-local DSTV coordinates only become part geometry through the header, so placement lives with the aggregate
+    // that owns both and never with the feature case that carries the bare face tag.
+    [IgnoreMember]
+    public Seq<SteelPlacement> Placed => Features.Map(feature => feature.Switch(
+        hole: hole => new SteelPlacement(feature, hole.Face, Seq(hole.Face.Place(Header, hole.Center)), Arr<double>()),
+        slot: slot => new SteelPlacement(feature, slot.Face, Seq(slot.Face.Place(Header, slot.Center)), Arr<double>()),
+        cut: cut => new SteelPlacement(feature, cut.Face, Seq(cut.Face.Place(Header, cut.At)), Arr<double>()),
+        numeration: numeration => new SteelPlacement(
+            feature, numeration.Face, Seq(numeration.Face.Place(Header, numeration.At)), Arr<double>()),
+        boundary: boundary => new SteelPlacement(feature, boundary.Contour.Face,
+            boundary.Contour.Loop.Vertices.Map(point => boundary.Contour.Face.Place(Header, point)),
+            boundary.Contour.Face.PlaceBulges(boundary.Contour.Loop.Bulges)),
+        marking: marking => new SteelPlacement(feature, marking.Contour.Face,
+            marking.Contour.Loop.Vertices.Map(point => marking.Contour.Face.Place(Header, point)),
+            marking.Contour.Face.PlaceBulges(marking.Contour.Loop.Bulges))));
+
+    private Seq<SteelContour> ContoursOf(bool boundary) => Features.Choose(feature => (feature, boundary) switch {
+        (SteelFeature.Boundary row, true) => Some(row.Contour),
+        (SteelFeature.Marking row, false) => Some(row.Contour),
+        _ => None,
+    });
 }
 
-public sealed record SteelImportReceipt(SteelPart Part, ContentKey Key);
+public sealed record SteelImportReceipt(SteelPart Part, ContentKey Key, int SourceBytes);
 
-public readonly record struct SteelContourPolicy(Context Tolerance, double MinimumLegMm, double AngularToleranceRad) {
-    public static Fin<SteelContourPolicy> Canonical(Context tolerance) => Of(tolerance, minimumLegMm: 1e-6, angularToleranceRad: 1e-9);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SteelProjection {
+    private SteelProjection() { }
 
-    public static Fin<SteelContourPolicy> Of(Context tolerance, double minimumLegMm, double angularToleranceRad) =>
-        double.IsFinite(minimumLegMm) && minimumLegMm > 0.0
-        && double.IsFinite(angularToleranceRad) && angularToleranceRad > 0.0 && angularToleranceRad < Math.PI / 2.0
-            ? Fin.Succ(new SteelContourPolicy(tolerance, minimumLegMm, angularToleranceRad))
-            : Fin.Fail<SteelContourPolicy>(FabricationFault.IngressTranslation(
-                SourceKind.Steel, new SourceLocus.DstvBlock(SteelBlockKind.Ak.Key, 0)).ToError());
+    public sealed record Part(SteelPart Value) : SteelProjection;
+    public sealed record Boundaries(Arr<Loop> Value) : SteelProjection;
+    public sealed record Features(Seq<SteelFeature> Value) : SteelProjection;
+    public sealed record Placements(Seq<SteelPlacement> Value) : SteelProjection;
+    public sealed record Topology(TopologyReceipt Value) : SteelProjection;
+    public sealed record Identity(ContentKey Value) : SteelProjection;
+}
+
+[SmartEnum]
+public sealed partial class SteelView {
+    public static readonly SteelView Part = new(static receipt => new SteelProjection.Part(receipt.Part));
+    public static readonly SteelView Boundaries = new(static receipt => new SteelProjection.Boundaries(receipt.Part.Loops));
+    public static readonly SteelView Features = new(static receipt => new SteelProjection.Features(receipt.Part.Features));
+    public static readonly SteelView Placements = new(static receipt => new SteelProjection.Placements(receipt.Part.Placed));
+    public static readonly SteelView Topology = new(static receipt => new SteelProjection.Topology(receipt.Part.Topology));
+    public static readonly SteelView Identity = new(static receipt => new SteelProjection.Identity(receipt.Key));
+
+    [UseDelegateFromConstructor]
+    public partial SteelProjection Project(SteelImportReceipt receipt);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class SteelImport {
-    public static Fin<SteelImportReceipt> Read(string path, SteelContourPolicy policy) =>
-        Validate(policy).Bind(_ => Try.lift(() => File.ReadAllBytes(path)).Run()
-            .MapFail(static _ => Fault(SteelBlockKind.St, 0))
-            .Bind(raw => Parse(raw).Bind(dstv => Project(dstv, raw, policy))));
+    private const int HeaderLine = 1;
+    private const int FirstFeatureLine = HeaderLine + 1;
 
-    static Fin<IDstv> Parse(byte[] raw) =>
-        Try.lift(() => ParseSync(raw)).Run()
-            .MapFail(static _ => Fault(SteelBlockKind.St, 0))
-            .Bind(identity);
-
-    static Fin<IDstv> ParseSync(byte[] raw) {
-        using MemoryStream stream = new(raw);
-        using TextReader reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        try { return Fin.Succ(new DstvReader().ParseAsync(reader).GetAwaiter().GetResult()); }
-        catch (ParseException ex) { return Fin.Fail<IDstv>(Fault(SteelBlockKind.St, ex.LineNumber ?? 0)); }
+    public static Eff<SteelImportReceipt> Read(SteelSource source, SteelContourPolicy policy) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(policy);
+        return from bytes in Payload(source)
+               from parsed in Parse(bytes)
+               from receipt in Admit(parsed, bytes, policy).ToEff()
+               select receipt;
     }
 
-    static Fin<SteelImportReceipt> Project(IDstv dstv, byte[] raw, SteelContourPolicy policy) =>
-        Optional(dstv.Header)
-            .ToFin(Fault(SteelBlockKind.St, 0))
-            .Bind(header => ValidateHeader(DstvMap.Header(header)).Bind(admitted => Build(admitted, dstv.Elements, raw, policy)));
+    private static Eff<byte[]> Payload(SteelSource source) =>
+        source.Switch(
+                path: static path => Eff.lift(async () =>
+                    await File.ReadAllBytesAsync(path.Value, path.Cancellation).ConfigureAwait(false)),
+                text: static text => Eff.lift(() => Encoding.UTF8.GetBytes(text.Value)),
+                bytes: static bytes => Eff.lift(() => bytes.Value.ToArray()))
+            .MapFail(static _ => Fault(SteelBlockKind.Source.Key, HeaderLine));
 
-    static Fin<SteelImportReceipt> Build(SteelHeader header, IEnumerable<DstvElement> elements, byte[] raw, SteelContourPolicy policy) =>
-        toSeq(elements).Map((element, ordinal) => (element, ordinal))
-            .TraverseM(row => Feature(row.element, row.ordinal, policy)).As()
-            .Map(static admitted => admitted.Somes())
-            .Bind(features => {
-                SteelPart part = new(header, features);
-                return part.Loops.IsEmpty
-                    ? Fin.Fail<SteelImportReceipt>(Fault(SteelBlockKind.Ak, 0))
-                    : Fin.Succ(new SteelImportReceipt(part, ContentKey.Of(EgressKind.Nc1, raw)));
-            });
+    private static Eff<IDstv> Parse(byte[] bytes) =>
+        Eff.lift(async () => {
+            using MemoryStream stream = new(bytes, writable: false);
+            using TextReader reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+            return await new DstvReader().ParseAsync(reader).ConfigureAwait(false);
+        }).MapFail(static error => error.Exception
+            .Bind(static exception => Optional(exception as ParseException))
+            .Match(
+                Some: static parsed => Fault(SteelParseKind.Classify(parsed).Key, parsed.LineNumber ?? HeaderLine),
+                None: static () => Fault(SteelParseKind.Unknown.Key, HeaderLine)));
 
-    static Fin<Option<SteelFeature>> Feature(DstvElement element, int ordinal, SteelContourPolicy policy) =>
+    private static Fin<SteelImportReceipt> Admit(IDstv document, byte[] bytes, SteelContourPolicy policy) =>
+        from source in Optional(document.Header).ToFin(Fault(SteelBlockKind.St.Key, HeaderLine))
+        from header in Header(source)
+        from features in Features(document.Elements, header, policy).ToFin()
+        from topology in TopologyOf(features)
+        from part in Try.lift(() => SteelPart.Create(header, features, topology))
+            .Run()
+            .MapFail(static _ => Fault(SteelBlockKind.St.Key, HeaderLine))
+        select new SteelImportReceipt(part, ContentKey.Of(EgressKind.Nc1, bytes), bytes.Length);
+
+    private static Fin<TopologyReceipt> TopologyOf(Seq<SteelFeature> features) {
+        Seq<(SteelBlockKind Block, Loop Loop)> regions = features
+            .Choose(static feature => feature is SteelFeature.Boundary { Contour: { Block: var block, Loop: var loop } }
+                ? Some((Block: block, Loop: loop))
+                : None);
+        Seq<Loop> outers = regions.Filter(static row => row.Block.TopologySign > 0).Map(static row => row.Loop);
+        Seq<Loop> holes = regions.Filter(static row => row.Block.TopologySign < 0).Map(static row => row.Loop);
+        PolygonOp operation = holes.IsEmpty
+            ? new PolygonOp.Inspect(outers, new PolygonQuery.Topology(PolygonFill.NonZero))
+            : new PolygonOp.Boolean(outers, holes, PolygonBoolean.Difference, PolygonFill.NonZero);
+        return outers.IsEmpty
+            ? Fin.Fail<TopologyReceipt>(Fault(SteelBlockKind.Ak.Key, HeaderLine))
+            : PolygonAlgebra.Apply(operation).Bind(static trace => trace is PolygonTrace.Regions result
+                ? Fin.Succ(result.Result)
+                : Fin.Fail<TopologyReceipt>(Fault(SteelBlockKind.Ak.Key, HeaderLine)));
+    }
+
+    private static Fin<SteelHeader> Header(IDstvHeader source) {
+        if (!SteelProfileCode.TryGet(source.CodeProfile.ToString().Trim().ToUpperInvariant(), out SteelProfileCode? code))
+            return Fin.Fail<SteelHeader>(Fault(SteelBlockKind.St.Key, HeaderLine));
+        ValidationError? failure = SteelHeader.Validate(
+            source.OrderIdentification,
+            source.DrawingIdentification,
+            source.PhaseIdentification,
+            source.PieceIdentification,
+            source.QuantityOfPieces,
+            source.Profile,
+            code,
+            source.SteelQuality,
+            DstvMap.Millimeters(source.Length),
+            DstvMap.Millimeters(source.SawLength),
+            DstvMap.Millimeters(source.ProfileHeight),
+            DstvMap.Millimeters(source.FlangeWidth),
+            DstvMap.Millimeters(source.FlangeThickness),
+            DstvMap.Millimeters(source.WebThickness),
+            DstvMap.Millimeters(source.Radius),
+            DstvMap.Degrees(source.WebStartCut),
+            DstvMap.Degrees(source.WebEndCut),
+            DstvMap.Degrees(source.FlangeStartCut),
+            DstvMap.Degrees(source.FlangeEndCut),
+            source.WeightByMeter,
+            source.PaintingSurfaceByMeter,
+            source.Text1InfoOnPiece,
+            source.Text2InfoOnPiece,
+            source.Text3InfoOnPiece,
+            source.Text4InfoOnPiece,
+            CultureInfo.InvariantCulture,
+            out SteelHeader? admitted);
+        return failure is null && admitted is not null
+            ? Fin.Succ(admitted)
+            : Fin.Fail<SteelHeader>(Fault(SteelBlockKind.St.Key, HeaderLine));
+    }
+
+    // DSTV block positions are one-based; the ordinal converts once here so no fault site can mint the line-zero locus
+    // SourceKind.Steel refuses.
+    private static Validation<Error, Seq<SteelFeature>> Features(
+        IEnumerable<DstvElement> elements,
+        SteelHeader header,
+        SteelContourPolicy policy) =>
+        toSeq(elements).Map(static (element, ordinal) => (Element: element, Line: ordinal + FirstFeatureLine))
+            .Traverse(row => Feature(row.Element, row.Line, header, policy).ToValidation()).As();
+
+    // DstvSlot derives from DstvHole and DstvSkewedPoint from DstvContourPoint, so the derived arm precedes its base.
+    private static Fin<SteelFeature> Feature(DstvElement element, int line, SteelHeader header, SteelContourPolicy policy) =>
         element switch {
-            DstvSlot slot => Valid(new SteelFeature.Slot(DstvMap.Slot(slot)), SteelBlockKind.Bo, ordinal),
-            DstvHole hole => Valid(new SteelFeature.Hole(DstvMap.Hole(hole)), SteelBlockKind.Bo, ordinal),
-            DstvCut cut => Valid(new SteelFeature.Cut(DstvMap.Cut(cut)), SteelBlockKind.Sc, ordinal),
-            DstvNumeration numeration => Valid(new SteelFeature.Numeration(DstvMap.Numeration(numeration)), SteelBlockKind.Si, ordinal),
-            DstvBend => Fin.Fail<Option<SteelFeature>>(Fault(SteelBlockKind.Ka, ordinal)),
-            Contour contour when contour.ContourType is ContourType.AK or ContourType.IK =>
-                ContourOf(contour, ordinal, policy).Map(row => (Option<SteelFeature>)Some<SteelFeature>(new SteelFeature.Contour(row))),
-            Contour contour when contour.ContourType is ContourType.KO or ContourType.PU =>
-                ContourOf(contour, ordinal, policy).Map(row => (Option<SteelFeature>)Some<SteelFeature>(new SteelFeature.Marking(row))),
-            _ => Fin.Fail<Option<SteelFeature>>(Fault(SteelBlockKind.Unknown, ordinal)),
+            DstvSlot slot => Capture(() => DstvMap.Slot(slot), SteelBlockKind.Bo, line, header),
+            DstvHole hole => Capture(() => DstvMap.Hole(hole), SteelBlockKind.Bo, line, header),
+            DstvCut cut => Capture(() => DstvMap.Cut(cut), SteelBlockKind.Sc, line, header),
+            DstvNumeration numeration => Capture(() => DstvMap.Numeration(numeration), SteelBlockKind.Si, line, header),
+            DstvBend => Fin.Fail<SteelFeature>(Fault(SteelBlockKind.Ka.Key, line)),
+            Contour contour => SteelBlockKind.Of(contour.ContourType)
+                .ToFin(Fault(SteelBlockKind.Unknown.Key, line))
+                .Bind(block => ContourOf(contour, block, line, header, policy)),
+            _ => Fin.Fail<SteelFeature>(Fault(SteelBlockKind.Unknown.Key, line)),
         };
 
-    static Fin<Option<SteelFeature>> Valid(SteelFeature feature, SteelBlockKind kind, int ordinal) =>
+    private static Fin<SteelFeature> Capture(Func<SteelFeature> mapping, SteelBlockKind block, int line, SteelHeader header) =>
+        Try.lift(mapping)
+            .Run()
+            .MapFail(_ => Fault(block.Key, line))
+            .Bind(feature => Valid(feature, block, line, header));
+
+    private static Fin<SteelFeature> Valid(SteelFeature feature, SteelBlockKind block, int line, SteelHeader header) =>
         feature.Switch(
-            hole: static hole => hole.Row.Center.IsValid && !string.IsNullOrWhiteSpace(hole.Row.Flange)
-                && double.IsFinite(hole.Row.DiameterMm) && hole.Row.DiameterMm > 0.0
-                && double.IsFinite(hole.Row.DepthMm) && hole.Row.DepthMm >= 0.0,
-            slot: static slot => slot.Row.Center.IsValid && !string.IsNullOrWhiteSpace(slot.Row.Flange)
-                && double.IsFinite(slot.Row.DiameterMm) && slot.Row.DiameterMm > 0.0
-                && double.IsFinite(slot.Row.DepthMm) && slot.Row.DepthMm >= 0.0
-                && double.IsFinite(slot.Row.SlotLengthMm) && slot.Row.SlotLengthMm > 0.0
-                && double.IsFinite(slot.Row.SlotWidthMm) && slot.Row.SlotWidthMm > 0.0
-                && slot.Row.SlotLengthMm >= slot.Row.SlotWidthMm
-                && double.IsFinite(slot.Row.SlotAngleDeg),
-            cut: static cut => cut.Row.At.IsValid && !string.IsNullOrWhiteSpace(cut.Row.Flange),
-            numeration: static numeration => numeration.Row.At.IsValid && !string.IsNullOrWhiteSpace(numeration.Row.Flange),
-            contour: static _ => true,
-            marking: static _ => true)
-            ? Fin.Succ<Option<SteelFeature>>(Some(feature))
-            : Fin.Fail<Option<SteelFeature>>(Fault(kind, ordinal));
+            state: header,
+            hole: static (hole, row) => Faced(row, hole.Face) && ValidPoint(hole.Center)
+                && Positive(hole.Diameter) && Nonnegative(hole.Depth),
+            slot: static (slot, row) => Faced(row, slot.Face) && ValidPoint(slot.Center)
+                && Positive(slot.Diameter) && Nonnegative(slot.Depth) && Positive(slot.Span) && Positive(slot.Width)
+                && slot.Span >= slot.Width && Finite(slot.Rotation),
+            cut: static (cut, row) => Faced(row, cut.Face) && ValidPoint(cut.At),
+            numeration: static (numeration, row) => Faced(row, numeration.Face) && ValidPoint(numeration.At),
+            boundary: static (boundary, row) => Faced(row, boundary.Contour.Face),
+            marking: static (marking, row) => Faced(row, marking.Contour.Face))
+            ? Fin.Succ(feature)
+            : Fin.Fail<SteelFeature>(Fault(block.Key, line));
 
-    static Fin<SteelContour> ContourOf(Contour contour, int ordinal, SteelContourPolicy policy) {
-        Arr<SteelPoint> points = toSeq(contour.Points).Map(static point => point switch {
-            DstvSkewedPoint skew => DstvMap.Point(skew) with {
-                Bevel = Some(new SteelBevel(skew.FirstAngle, skew.FirstBlunting, skew.SecondAngle, skew.SecondBlunting)) },
-            _ => DstvMap.Point(point),
-        }).ToArr();
-        SteelBlockKind kind = BlockOf(contour);
-        return Rounded(points, policy, kind, ordinal).Map(loop => new SteelContour(kind, loop.AsCcw(), points));
-    }
+    private static bool Faced(SteelHeader header, SteelFace face) => header.ProfileCode.Admits(face);
 
-    static Fin<Loop> Rounded(Arr<SteelPoint> points, SteelContourPolicy policy, SteelBlockKind kind, int ordinal) =>
-        points.Count < 3
-            ? Fin.Fail<Loop>(Fault(kind, ordinal))
-            : toSeq(Enumerable.Range(0, points.Count)).TraverseM(index => Corner(points, index, policy, kind, ordinal)).As()
-                .Bind(corners => toSeq(Enumerable.Range(0, points.Count)).Exists(index => {
-                    int next = (index + 1) % points.Count;
-                    Vector3d edge = points[next].At - points[index].At;
+    private static Fin<SteelFeature> ContourOf(
+        Contour contour,
+        SteelBlockKind block,
+        int line,
+        SteelHeader header,
+        SteelContourPolicy policy) => Try.lift(() => (
+            Face: DstvMap.Face(contour.FlCode),
+            Vertices: toSeq(contour.Points).Map(static point => point switch {
+                DstvSkewedPoint skew => DstvMap.Vertex(skew) with {
+                    Bevel = Some(new SteelBevel(
+                        DstvMap.Degrees(skew.FirstAngle), DstvMap.Millimeters(skew.FirstBlunting),
+                        DstvMap.Degrees(skew.SecondAngle), DstvMap.Millimeters(skew.SecondBlunting))),
+                },
+                _ => DstvMap.Vertex(point),
+            }).ToArr()))
+        .Run()
+        .MapFail(_ => Fault(block.Key, line))
+        .Bind(active => Faced(header, active.Face)
+            ? Rounded(active.Vertices, policy, block, line)
+            .Bind(loop => block.TopologySign > 0 ? loop.AsCcw() : Fin.Succ(loop))
+            .Map(loop => block.Boundary
+                ? (SteelFeature)new SteelFeature.Boundary(new SteelContour(block, active.Face, loop, active.Vertices))
+                : new SteelFeature.Marking(new SteelContour(block, active.Face, loop, active.Vertices)))
+            : Fin.Fail<SteelFeature>(Fault(block.Key, line)));
+
+    private static Fin<Loop> Rounded(Arr<SteelVertex> vertices, SteelContourPolicy policy, SteelBlockKind block, int line) =>
+        vertices.Count < 3
+            ? Fin.Fail<Loop>(Fault(block.Key, line))
+            : toSeq(Enumerable.Range(0, vertices.Count)).Traverse(index => Corner(vertices, index, policy, block, line)).As()
+                .Bind(corners => toSeq(Enumerable.Range(0, vertices.Count)).Exists(index => {
+                    int next = (index + 1) % vertices.Count;
+                    Vector3d edge = vertices[next].At - vertices[index].At;
                     Vector3d straight = corners[next].Enter - corners[index].Exit;
-                    return straight.Length <= policy.Tolerance.Absolute.Value || Vector3d.Multiply(edge, straight) <= 0.0;
+                    return straight.Length <= policy.Tolerance.Absolute.Value || (edge * straight) <= 0.0;
                 })
-                    ? Fin.Fail<Loop>(Fault(kind, ordinal))
+                    ? Fin.Fail<Loop>(Fault(block.Key, line))
                     : Fin.Succ(corners.Bind(corner => corner.Enter.DistanceTo(corner.Exit) <= policy.Tolerance.Absolute.Value
                         ? Seq((At: corner.Enter, Bulge: 0.0))
                         : Seq((At: corner.Enter, corner.Bulge), (At: corner.Exit, Bulge: 0.0)))))
-                .Bind(spans => Loop.Admit(spans.Map(static span => span.At).ToArr(), closed: true,
-                    spans.Map(static span => span.Bulge).ToArr(), policy.Tolerance).MapFail(_ => Fault(kind, ordinal)));
+                .Bind(spans => Loop.Admit(
+                    spans.Map(static span => span.At).ToArr(),
+                    closed: true,
+                    spans.Map(static span => span.Bulge).ToArr(),
+                    policy.Tolerance).MapFail(_ => Fault(block.Key, line)));
 
-    static Fin<(Point3d Enter, double Bulge, Point3d Exit)> Corner(Arr<SteelPoint> points, int index, SteelContourPolicy policy,
-        SteelBlockKind kind, int ordinal) {
-        SteelPoint point = points[index];
-        if (!double.IsFinite(point.At.X) || !double.IsFinite(point.At.Y) || !double.IsFinite(point.At.Z)
-            || !double.IsFinite(point.RadiusMm) || point.RadiusMm < 0.0
-            || point.Bevel.Exists(static bevel => !double.IsFinite(bevel.FirstAngleDeg) || !double.IsFinite(bevel.FirstBlunting)
-                || !double.IsFinite(bevel.SecondAngleDeg) || !double.IsFinite(bevel.SecondBlunting)))
-            return Fin.Fail<(Point3d, double, Point3d)>(Fault(kind, ordinal));
-        if (point.RadiusMm == 0.0)
-            return Fin.Succ((point.At, 0.0, point.At));
-        Point3d previous = points[((index - 1) + points.Count) % points.Count].At;
-        Point3d next = points[(index + 1) % points.Count].At;
-        Vector3d previousLeg = previous - point.At;
-        Vector3d nextLeg = next - point.At;
-        double previousLength = previousLeg.Length;
-        double nextLength = nextLeg.Length;
-        if (previousLength <= policy.MinimumLegMm || nextLength <= policy.MinimumLegMm)
-            return Fin.Fail<(Point3d, double, Point3d)>(Fault(kind, ordinal));
-        Vector3d toPrevious = previousLeg / previousLength;
-        Vector3d toNext = nextLeg / nextLength;
-        double theta = Vector3d.VectorAngle(toPrevious, toNext);
-        double tangent = point.RadiusMm / Math.Tan(theta / 2.0);
-        double sign = Math.Sign(Vector3d.CrossProduct(-toPrevious, toNext).Z);
-        // DSTV notch semantics: a notch radius arcs INTO the material, so the span bows opposite the fillet side.
-        double orientation = point.IsNotch ? -sign : sign;
-        return !double.IsFinite(theta) || theta <= policy.AngularToleranceRad || Math.PI - theta <= policy.AngularToleranceRad
-            || !double.IsFinite(tangent) || tangent <= 0.0 || tangent >= previousLength || tangent >= nextLength || sign == 0.0
-                ? Fin.Fail<(Point3d, double, Point3d)>(Fault(kind, ordinal))
-                : Fin.Succ((point.At + toPrevious * tangent, orientation * Math.Tan((Math.PI - theta) / 4.0),
-                    point.At + toNext * tangent));
+    private static Fin<(Point3d Enter, double Bulge, Point3d Exit)> Corner(
+        Arr<SteelVertex> vertices,
+        int index,
+        SteelContourPolicy policy,
+        SteelBlockKind block,
+        int line) {
+        SteelVertex vertex = vertices[index];
+        double radius = vertex.Radius.As(LengthUnit.Millimeter);
+        if (!ValidPoint(vertex.At) || !double.IsFinite(radius) || radius < 0.0 || !ValidBevel(vertex.Bevel))
+            return Fin.Fail<(Point3d, double, Point3d)>(Fault(block.Key, line));
+        if (radius == 0.0)
+            return Fin.Succ((vertex.At, 0.0, vertex.At));
+        Point3d previous = vertices[((index - 1) + vertices.Count) % vertices.Count].At;
+        Point3d next = vertices[(index + 1) % vertices.Count].At;
+        Vector3d incoming = previous - vertex.At;
+        Vector3d outgoing = next - vertex.At;
+        double incomingLength = incoming.Length;
+        double outgoingLength = outgoing.Length;
+        double minimum = policy.MinimumLeg.As(LengthUnit.Millimeter);
+        if (incomingLength <= minimum || outgoingLength <= minimum)
+            return Fin.Fail<(Point3d, double, Point3d)>(Fault(block.Key, line));
+        Vector3d towardPrevious = incoming / incomingLength;
+        Vector3d towardNext = outgoing / outgoingLength;
+        double theta = Vector3d.VectorAngle(towardPrevious, towardNext);
+        double tangent = radius / Math.Tan(theta / 2.0);
+        double sign = Math.Sign(Vector3d.CrossProduct(-towardPrevious, towardNext).Z);
+        double angular = policy.AngularTolerance.As(AngleUnit.Radian);
+        return !double.IsFinite(theta) || theta <= angular || (Math.PI - theta) <= angular
+            || !double.IsFinite(tangent) || tangent <= 0.0 || tangent >= incomingLength || tangent >= outgoingLength || sign == 0.0
+                ? Fin.Fail<(Point3d, double, Point3d)>(Fault(block.Key, line))
+                : Fin.Succ((
+                    vertex.At + (towardPrevious * tangent),
+                    (vertex.IsNotch ? -sign : sign) * Math.Tan((Math.PI - theta) / 4.0),
+                    vertex.At + (towardNext * tangent)));
     }
 
-    static SteelBlockKind BlockOf(Contour contour) =>
-        contour.ContourType switch {
-            ContourType.IK => SteelBlockKind.Ik,
-            ContourType.KO => SteelBlockKind.Ko,
-            ContourType.PU => SteelBlockKind.Pu,
-            _ => SteelBlockKind.Ak,
-        };
+    private static bool ValidBevel(Option<SteelBevel> bevel) =>
+        bevel.ForAll(static row => Finite(row.FirstAngle) && Nonnegative(row.FirstBlunting)
+            && Finite(row.SecondAngle) && Nonnegative(row.SecondBlunting));
 
-    static Fin<Unit> Validate(SteelContourPolicy policy) =>
-        SteelContourPolicy.Of(policy.Tolerance, policy.MinimumLegMm, policy.AngularToleranceRad).Map(static _ => unit);
+    private static bool ValidPoint(Point3d point) =>
+        double.IsFinite(point.X) && double.IsFinite(point.Y) && double.IsFinite(point.Z);
 
-    static Fin<SteelHeader> ValidateHeader(SteelHeader header) =>
-        string.IsNullOrWhiteSpace(header.PieceIdentification) || string.IsNullOrWhiteSpace(header.Profile)
-        || string.IsNullOrWhiteSpace(header.ProfileCode) || string.IsNullOrWhiteSpace(header.SteelQuality)
-        || header.QuantityOfPieces <= 0
-        || !double.IsFinite(header.Length) || header.Length <= 0.0
-        || !double.IsFinite(header.SawLength) || header.SawLength <= 0.0
-        || !double.IsFinite(header.ProfileHeight) || header.ProfileHeight < 0.0
-        || !double.IsFinite(header.FlangeWidth) || header.FlangeWidth < 0.0
-        || !double.IsFinite(header.FlangeThickness) || header.FlangeThickness < 0.0
-        || !double.IsFinite(header.WebThickness) || header.WebThickness < 0.0
-        || !double.IsFinite(header.Radius) || header.Radius < 0.0
-        || !double.IsFinite(header.WebStartCut) || !double.IsFinite(header.WebEndCut)
-        || !double.IsFinite(header.FlangeStartCut) || !double.IsFinite(header.FlangeEndCut)
-        || !double.IsFinite(header.WeightByMeter) || header.WeightByMeter < 0.0
-        || !double.IsFinite(header.PaintingSurfaceByMeter) || header.PaintingSurfaceByMeter < 0.0
-            ? Fin.Fail<SteelHeader>(Fault(SteelBlockKind.St, 0))
-            : Fin.Succ(header);
+    private static bool Positive(Length value) =>
+        double.IsFinite(value.As(LengthUnit.Millimeter)) && value.As(LengthUnit.Millimeter) > 0.0;
 
-    static Error Fault(SteelBlockKind block, int line) =>
-        FabricationFault.IngressTranslation(SourceKind.Steel, new SourceLocus.DstvBlock(block.Key, line)).ToError();
+    private static bool Nonnegative(Length value) =>
+        double.IsFinite(value.As(LengthUnit.Millimeter)) && value.As(LengthUnit.Millimeter) >= 0.0;
+
+    private static bool Finite(Angle value) => double.IsFinite(value.As(AngleUnit.Radian));
+
+    // SourceKind.Steel admits a DstvBlock only on a positive line, so the one mint floors every locus at the ST block.
+    private static Error Fault(string block, int line) =>
+        new FabricationFault.IngressTranslation(new SourceLocus.DstvBlock(block, Math.Max(line, HeaderLine)));
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public static partial class DstvMap {
-    [MapProperty(nameof(IDstvHeader.CodeProfile), nameof(SteelHeader.ProfileCode), Use = nameof(ProfileCode))]
-    public static partial SteelHeader Header(IDstvHeader source);
+internal static partial class DstvMap {
+    [MapPropertyFromSource(nameof(SteelVertex.At), Use = nameof(ContourPoint))]
+    [MapProperty(nameof(DstvContourPoint.Radius), nameof(SteelVertex.Radius), Use = nameof(Millimeters))]
+    [MapPropertyFromSource(nameof(SteelVertex.Bevel), Use = nameof(NoBevel))]
+    public static partial SteelVertex Vertex(DstvContourPoint source);
 
-    [MapPropertyFromSource(nameof(SteelPoint.At), Use = nameof(ContourPoint))]
-    [MapProperty(nameof(DstvContourPoint.Radius), nameof(SteelPoint.RadiusMm))]
-    [MapPropertyFromSource(nameof(SteelPoint.Bevel), Use = nameof(NoBevel))]
-    public static partial SteelPoint Point(DstvContourPoint source);
+    [MapPropertyFromSource(nameof(SteelFeature.Hole.Center), Use = nameof(LocatedPoint))]
+    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelFeature.Hole.Face), Use = nameof(Face))]
+    [MapProperty(nameof(DstvHole.Diameter), nameof(SteelFeature.Hole.Diameter), Use = nameof(Millimeters))]
+    [MapProperty(nameof(DstvHole.Depth), nameof(SteelFeature.Hole.Depth), Use = nameof(Millimeters))]
+    public static partial SteelFeature.Hole Hole(DstvHole source);
 
-    [MapPropertyFromSource(nameof(SteelHole.Center), Use = nameof(LocatedPoint))]
-    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelHole.Flange))]
-    [MapProperty(nameof(DstvHole.Diameter), nameof(SteelHole.DiameterMm))]
-    [MapProperty(nameof(DstvHole.Depth), nameof(SteelHole.DepthMm))]
-    public static partial SteelHole Hole(DstvHole source);
+    [MapPropertyFromSource(nameof(SteelFeature.Slot.Center), Use = nameof(LocatedPoint))]
+    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelFeature.Slot.Face), Use = nameof(Face))]
+    [MapProperty(nameof(DstvHole.Diameter), nameof(SteelFeature.Slot.Diameter), Use = nameof(Millimeters))]
+    [MapProperty(nameof(DstvHole.Depth), nameof(SteelFeature.Slot.Depth), Use = nameof(Millimeters))]
+    [MapProperty(nameof(DstvSlot.SlotLength), nameof(SteelFeature.Slot.Span), Use = nameof(Millimeters))]
+    [MapProperty(nameof(DstvSlot.SlotWidth), nameof(SteelFeature.Slot.Width), Use = nameof(Millimeters))]
+    [MapProperty(nameof(DstvSlot.SlotAngle), nameof(SteelFeature.Slot.Rotation), Use = nameof(Degrees))]
+    public static partial SteelFeature.Slot Slot(DstvSlot source);
 
-    [MapPropertyFromSource(nameof(SteelSlot.Center), Use = nameof(LocatedPoint))]
-    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelSlot.Flange))]
-    [MapProperty(nameof(DstvHole.Diameter), nameof(SteelSlot.DiameterMm))]
-    [MapProperty(nameof(DstvHole.Depth), nameof(SteelSlot.DepthMm))]
-    [MapProperty(nameof(DstvSlot.SlotLength), nameof(SteelSlot.SlotLengthMm))]
-    [MapProperty(nameof(DstvSlot.SlotWidth), nameof(SteelSlot.SlotWidthMm))]
-    [MapProperty(nameof(DstvSlot.SlotAngle), nameof(SteelSlot.SlotAngleDeg))]
-    public static partial SteelSlot Slot(DstvSlot source);
+    [MapPropertyFromSource(nameof(SteelFeature.Cut.At), Use = nameof(LocatedPoint))]
+    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelFeature.Cut.Face), Use = nameof(Face))]
+    public static partial SteelFeature.Cut Cut(DstvCut source);
 
-    [MapPropertyFromSource(nameof(SteelCut.At), Use = nameof(LocatedPoint))]
-    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelCut.Flange))]
-    public static partial SteelCut Cut(DstvCut source);
+    [MapPropertyFromSource(nameof(SteelFeature.Numeration.At), Use = nameof(LocatedPoint))]
+    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelFeature.Numeration.Face), Use = nameof(Face))]
+    public static partial SteelFeature.Numeration Numeration(DstvNumeration source);
 
-    [MapPropertyFromSource(nameof(SteelNumeration.At), Use = nameof(LocatedPoint))]
-    [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelNumeration.Flange))]
-    public static partial SteelNumeration Numeration(DstvNumeration source);
+    // Get throws on an unlisted DSTV face code; every call site rides SteelImport.Capture, so the throw lands as the
+    // block-and-line fault rather than escaping the rail.
+    [UserMapping]
+    internal static SteelFace Face(string code) => SteelFace.Get(code.Trim().ToUpperInvariant());
 
     [UserMapping]
-    static string ProfileCode(CodeProfile code) => code.ToString();
+    internal static Point3d LocatedPoint(LocatedElement source) => new(source.XCoord, source.YCoord, 0.0);
 
     [UserMapping]
-    static Point3d LocatedPoint(LocatedElement source) => new(source.XCoord, source.YCoord, 0.0);
+    internal static Point3d ContourPoint(DstvContourPoint source) => new(source.XCoord, source.YCoord, 0.0);
 
     [UserMapping]
-    static Point3d ContourPoint(DstvContourPoint source) => new(source.XCoord, source.YCoord, 0.0);
+    internal static Length Millimeters(double value) => new(value, LengthUnit.Millimeter);
 
     [UserMapping]
-    static Option<SteelBevel> NoBevel(DstvContourPoint source) => None;
+    internal static Angle Degrees(double value) => new(value, AngleUnit.Degree);
+
+    [UserMapping]
+    internal static Option<SteelBevel> NoBevel(DstvContourPoint source) => None;
 }
 ```
+
+## [03]-[LIFECYCLE]
+
+- Admission: `SteelSource` normalizes every source to stable bytes before `DstvReader.ParseAsync` runs; the header admits before any feature so profile-code face admissibility gates each located element.
+- Owner: `SteelHeader`, `SteelFeature`, and `SteelPart` retain the complete readable NC1 program without provider shapes; `SteelContour` exposes arc-aware measure evidence, `SteelPart.Topology` owns the normalized `AK` minus `IK` hierarchy, and `SteelPart.Placed` owns face-to-part resolution with contour bulges beside transformed vertices.
+- Rail: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress rail.
+- Projection: `SteelView` selects part, boundary, feature, placement, topology, or identity egress through one generated behavior row, and `SteelProjection` preserves each result shape including `TopologyReceipt`.
+- Boundary: path cancellation remains source data, contour geometry is the named statement kernel, one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.

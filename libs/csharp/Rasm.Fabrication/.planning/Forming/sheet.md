@@ -1,525 +1,1220 @@
 # [RASM_FABRICATION_FLAT_PATTERN]
 
-The ONE unfold owner, `FlatPattern.Unfold`, projects a formed sheet source to the flat pattern and per-bend lines consumed by brake planning. The bend projection is the four-scalar algebra over `(A, R, T, K)`: `BA = (π/180)·|A|·(R + K·T)`, `OSSB = tan(|A|·π/360)·(R + T)`, `BD = 2·OSSB − BA`, and `flatDelta = −BD`. The sign of `BendLine.AngleDeg` owns direction. `KSource` rows carry their own `[UseDelegateFromConstructor]` resolution laws, and `KFactorTable` is policy data keyed by admitted grade or family baseline, method, and `R/T` band. Production tables use `Interpolate.CubicSplineMonotone` only within one matching grade-method series; seed rows remain replaceable data rather than a hidden global roster. `FormPolicy` resolves `MaterialSpec`, positive thickness, development controls, isometry budgets, grain anisotropy, tooling posture, and K calibration once. The owner composition remains `FlatPattern.Unfold → BendSequence.Plan → FormedResult`, and the one `flat-pattern` content key covers complete flat and bend-step atoms.
+`FlatPattern` owns sheet development from admitted formed-panel or kernel-surface evidence to one neutral-axis-correct flat, bend topology, feature evidence, relief census, and content-keyed result. `FormPolicy` admits material, thickness, calibration, development, grain, relief, and feature limits once; every interior length is machining-canonical millimeters.
 
-Unfold overlays the kernel development owner. The surface lane routes `DevelopOp.Unroll` through `Development.Apply`, gates the returned `DevelopmentReceipt` against policy budgets, and projects every `UvIsland` boundary. `SurfaceBendSeed` identifies the source-mesh edge and supplies signed angle and optional radius; `UvIsland.Vertices` then transfers that exact edge into the developed plane. No body infers fold angle or radius from unrelated ruling widths, and a bare `AdmittedComponent.Mesh` still feeds no development lane. The profile lane consumes `BendSeed` rows directly. `ReliefKind` rows carry rail-returning loop generators through `Loop.Admit`, `HemKind` rows carry their allowance law, and one `PolygonAlgebra.Clip` difference applies the generated reliefs. `GrainLaw` carries parallel, diagonal, and transverse radius factors. Invalid policy values, non-developable receipts, unresolved source edges, malformed layout parents, undersized radii, and open demanded profiles fail on typed rails.
-
-Wire posture: HOST-LOCAL. The flat pattern crosses as `Arr<Loop>` on `FormedResult` with the ONE `flat-pattern` `ContentKey` (flat + bend rows in one preimage — `EgressKind.BendProgram` stays unminted on this carrier; a second key demands a second `FormedResult` slot, an owner-page decision); the flat feeds `Nesting/nfp` as a true-shape part by re-admission across runs; no DXF writer lands here — the CAD write leg is AppUi's, and the flat reaches it only as the insulated result payload. `ProcessPhysics.Budget` resolves the admitted grade's `ProcessBudget.Formed` once, and `UnfoldResult.Forming` carries that exact budget into brake planning.
+`FlatPattern.Unfold`, `UnfoldResult`, and `FlatPattern.Formed` preserve the `FabricationPolicy.Form` wire. Kernel `Development.Apply` owns surface isometry, `PolygonAlgebra.Apply` owns region topology and relief subtraction, and `ContentKey.Of` owns artifact identity.
 
 ## [01]-[INDEX]
 
-- [01]-[FLAT_PATTERN]: owns the `KSource`/`ReliefKind`/`HemKind` vocabularies with their delegate-column laws, the `KFactorTable` rows and resolution fold, the `BendSeed`/`FormSource`/`FormPolicy`/`GrainLaw` carriers, the `BendProjection`/`BendLine`/`UnfoldResult` plane-local models, the `(A,R,T,K)` bend-projection algebra with signed direction, and the ONE `FlatPattern.Unfold` fold over the surface and analytic lanes before `BendSequence.Plan`.
+- [01]-[SHEET_DEVELOPMENT]: Generated admission, parameterized bend physics, panel and surface development, neutral-axis placement, sheet-feature evidence, relief topology, and result projection.
 
-## [02]-[FLAT_PATTERN]
+## [02]-[SHEET_DEVELOPMENT]
 
-- Owner: `KSource` `[SmartEnum<string>]` owns K-resolution dispatch; `KFactorTable` owns replaceable calibration rows; `ReliefKind` and `HemKind` own bounded geometry and allowance laws; `BendSeed` and `SurfaceBendSeed` own analytic and developed-edge bend annotations; `FormSource` owns profile, component, and kernel-bound surface lanes; `FormPolicy` owns material, thickness, calibration, tooling, development, and evidence budgets; `GrainLaw` owns anisotropic radius factors; `BendProjection`, `BendLine`, and `UnfoldResult` own the plane-local projection and receipt; `FlatPattern` owns the fold, algebra, inverse calibration, physics lookup, and complete content-key preimage.
-- Cases: `KSource`, `ReliefKind`, and `HemKind` are row-driven closed vocabularies. `KFactorTable.Canonical` is seed data, while any admitted production table enters through the same carrier. `FormSource` discriminates surface and analytic lanes inside one fold.
-- Entry: `public static Fin<UnfoldResult> Unfold(FormPolicy policy, FabricationInput input)` — the ONE unfold fold the `Run(Form)` case body composes; `public static BendProjection Project(double angleDeg, double insideRadiusMm, double thicknessMm, double k)` the pure bend algebra every consumer reads (brake re-projects per die selection; `|angle|` drives the algebra, the sign is direction); `public static Fin<double> SolveK(double measuredFlatMm, Arr<double> flangeMm, double angleDeg, double insideRadiusMm, double thicknessMm)` the coupon inverse whose result the policy carries as `CouponK`.
-- Auto: the surface lane composes the policy-carried `DevelopPolicy`, maps source vertex identities through each `UvIsland`, and preserves `DevelopmentReceipt`; the analytic lane projects `BendSeed` rows directly; relief rows generate distinct straight-segment loops before one difference; radius gates read the full grain band; `BendSequence.Plan` re-projects working radii after tooling selection and accumulates only the working-minus-original `FlatDeltaMm` difference beyond the projection this fold already embedded in the flat; `Nesting/nfp` receives the flat through normal re-admission.
-- Receipt: `UnfoldResult` carries the flat `Arr<Loop>`, the `Seq<BendLine>`, thickness, `MaterialSpec`, the exact `ProcessBudget.Formed`, and the kernel `DevelopmentReceipt` isometry evidence when the surface lane ran — typed evidence end to end; the `FormedResult` egress case carries only atoms rows (`Arr<Loop>` + `Seq<BendStep>` + the ONE key over both) per ruling 5.
-- Packages: kernel `Development.Apply`, `SurfaceResult.UvTessellation`, fabrication atoms, `MaterialSpec`, `ProcessPhysics.Budget`, `ProcessBudget.Formed`, `PolygonAlgebra`, `BendMethod`, `PunchKind`, MathNet.Numerics `Interpolate.CubicSplineMonotone`, QuikGraph `UndirectedGraph<int,SEdge<int>>` and `ConnectedComponents`, Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rasm.Numerics`, and BCL inbox surfaces compose directly.
-- Growth: a new K convention is one `KSource` row WITH its `Resolve` delegate — the build breaks until the delegate lands; a new relief or hem is one row with its columns; production K data is the data-ingress arm, never inline rows; the DSTV `KA`/`ConnectorPlate` reads lower to `BendSeed` at their ingress arms (`Ingress/steel`, `Ingress/element`) — the seed row is the ONE analytic-lane wire; `composite.md` (fishnet draping + AFP geodesic-parallel courses over the kernel on-mesh suite) admits LAST as its own page on a named consumer; zero new entrypoint surface.
-- Boundary: this page is the ONE unfold owner and a second unroll engine — or a re-derived strip adjacency/MST beside the kernel `StripField.LayoutParent` columns — is the deleted form; `Decompose` cannot produce a flat or a receipt, so a mesh-lane claim over it is the named fiction; the kernel owns isometric development and this overlay owns ONLY neutral-fiber substitution and bend annotation; NO DXF/DWG writer lands here and the flat crosses only as the `FormedResult` payload; `FormPolicy` is the one policy carrier and a parallel `UnfoldPolicy`/`SheetPolicy` sibling is the deleted form; the K factor is a resolved scalar at the fold and a K literal in a downstream signature is the named defect; bend direction is the SIGN of the angle — a parallel direction flag beside a signed angle is the deleted form; Materials vocabulary (`ConnectorPlate`/`PlateStock`, groove rows) resolves to `BendSeed`/scalar facts at the ingress boundary, never a Materials type in-folder.
+- Owner: `FormPolicy` owns admitted sheet intent; `SheetSource` owns formed-panel, component, and kernel-surface ingress; `SheetLink` owns panel and surface adjacency; `SheetForm` owns line-form and local-feature evidence; `FlatPattern` owns development and projection.
+- Cases: `KSource` resolves table, measured-coupon, `DIN 6935`, and material-physics neutral-axis positions; `HemKind` carries per-row sweep and inside-radius laws; `ReliefKind` sizes and generates rectangular, obround, tear, and circular reliefs; `SheetForm` carries each feature's distinct evidence and its tooling demand.
+- Entry: `FlatPattern.Unfold(FormPolicy, FabricationInput)` is the frozen development seam, and `FlatPattern.Formed(UnfoldResult, Seq<BendStep>)` is the frozen result projection.
+- Auto: Panel links derive a topological placement order; the generated grain field gates bend radius and loop-feature strain; surface links shift kernel islands by neutral-axis deltas; every bend endpoint enters one relief-seat census that folds co-terminating bends into one corner seat sized against the formed radius; one `PolygonOp.Boolean` subtracts admitted reliefs.
+- Receipt: `UnfoldResult` preserves flat regions, bend topology, forming physics, kernel isometry, neutral-axis displacement, feature evidence, relief evidence, and material identity.
+- Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `CommunityToolkit.HighPerformance`, `QuikGraph`, `UnitsNet`, `Rasm`, and the `Geometry2D` owner compose the surface.
+- Growth: A K convention is one `KSource` row, a hem geometry is one `HemKind` row, a relief geometry is one `ReliefKind` row, a sheet feature is one `SheetForm` case, a link modality is one `SheetLink` case, and a new source is one `SheetSource` case with one total dispatch arm.
+- Boundary: Forming owns neutral-axis and feature development; kernel isometry, planar topology, process physics, and content identity remain at their canonical owners.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Buffers.Binary;
+using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
-using MathNet.Numerics;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
-using Rasm.Meshing;
-using Rasm.Numerics;
 using Rasm.Parametric;
 using Rasm.Processing;
-using QuikGraph;
-using QuikGraph.Algorithms;
 using Rhino.Geometry;
 using Thinktecture;
+using UnitsNet;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Forming;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// K resolution is ROW-OWNED behavior: each source carries its Resolve law, so a central K switch and a
-// per-source resolver family are both unconstructable; a new convention is one row WITH its delegate.
 [SmartEnum<string>]
 public sealed partial class KSource {
-    public static readonly KSource TableRow = new("table-row", static q => q.Table.K(q.Material, q.Method, q.InsideRadiusMm / q.ThicknessMm)
-        .ToFin(GeometryFault.DegenerateInput($"flat-pattern:k-table:{q.Material.Family.Key}:{q.Material.Grade}:{q.Method.Key}").ToError()));
-    public static readonly KSource CouponBackSolve = new("coupon-back-solve", static q => q.CouponK
-        .ToFin(GeometryFault.DegenerateInput("flat-pattern:k-coupon-missing").ToError()));
-    public static readonly KSource Din6935 = new("din-6935", static q => Fin.Succ(FlatPattern.KDin6935(q.InsideRadiusMm, q.ThicknessMm)));
-    public static readonly KSource Physics = new("physics", static q => Fin.Succ(q.BaseK));
+    public static readonly KSource Table = new("table", static query => query.Table
+        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-table").ToError())
+        .Bind(table => table.Resolve(query)));
+    public static readonly KSource Coupon = new("coupon", static query => query.Coupon
+        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-coupon").ToError())
+        .Bind(coupon => coupon.Calibrate(query)));
+    public static readonly KSource Din6935 = new("din-6935", static query =>
+        Fin.Succ(Math.Clamp(0.65 + (0.5 * Math.Log10(query.RadiusMm / query.ThicknessMm)), 0.5, 1.0) / 2.0));
+    public static readonly KSource Physics = new("physics", static query => Fin.Succ(query.Forming.KFactor));
 
     [UseDelegateFromConstructor]
-    public partial Fin<double> Resolve(KQuery query);
+    private partial Fin<double> ResolveAdmitted(KQuery query);
+
+    public Fin<double> Resolve(KQuery? query) => Optional(query)
+        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-query").ToError())
+        .Bind(ResolveAdmitted)
+        .Bind(static k => double.IsFinite(k) && k is > 0.0 and < 1.0
+            ? Fin.Succ(k)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-result").ToError()));
 }
 
 [SmartEnum<string>]
 public sealed partial class ReliefKind {
-    public static readonly ReliefKind Rectangular = new("rectangular", widthFactor: 1.0, depthClearance: 0.5, FlatPattern.RectangularRelief);
-    public static readonly ReliefKind Obround = new("obround", widthFactor: 1.0, depthClearance: 0.5, FlatPattern.ObroundRelief);
-    public static readonly ReliefKind Tear = new("tear", widthFactor: 1.0, depthClearance: 0.0, FlatPattern.TearRelief);
+    public static readonly ReliefKind Rectangular = new("rectangular", widthFactor: 1.0, radiusFactor: 1.0, depthFactor: 1.0, FlatPattern.Rectangular);
+    public static readonly ReliefKind Obround = new("obround", widthFactor: 1.0, radiusFactor: 1.0, depthFactor: 1.5, FlatPattern.Obround);
+    public static readonly ReliefKind Tear = new("tear", widthFactor: 0.75, radiusFactor: 1.0, depthFactor: 0.5, FlatPattern.Tear);
+    public static readonly ReliefKind Circular = new("circular", widthFactor: 1.5, radiusFactor: 0.5, depthFactor: 0.75, FlatPattern.Circular);
 
     public double WidthFactor { get; }
-    public double DepthClearance { get; }
+    public double RadiusFactor { get; }
+    public double DepthFactor { get; }
+
+    // Relief must clear the formed radius, so depth carries the bend's inside radius beside the thickness term.
+    public double Width(double thicknessMm) => WidthFactor * thicknessMm;
+    public double Depth(double thicknessMm, double insideRadiusMm) => (RadiusFactor * insideRadiusMm) + (DepthFactor * thicknessMm);
 
     [UseDelegateFromConstructor]
     public partial Fin<Loop> Cut(ReliefSeat seat, Context tolerance);
 }
 
-// The hem allowance is a LAW, not a factor: closed hems take the 1.5·T practical row, open/teardrop the
-// full BA(180°, R) projection — one delegate column, no allowance-factor arithmetic at the call site.
-[SmartEnum<string>]
-public sealed partial class HemKind {
-    public static readonly HemKind Closed = new("closed", static (t, _, _) => 1.5 * t);
-    public static readonly HemKind Open = new("open", static (t, r, k) => Math.PI * (r + (k * t)));
-    public static readonly HemKind Teardrop = new("teardrop", static (t, r, k) => Math.PI * (r + (k * t)));
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SheetForm {
+    private SheetForm() { }
 
-    [UseDelegateFromConstructor]
-    public partial double Allowance(double thicknessMm, double radiusMm, double k);
+    public sealed record Bend : SheetForm;
+    public sealed record Hem(HemKind Kind, Length Gap) : SheetForm;
+    public sealed record Jog(Length Offset, Length Spacing) : SheetForm;
+    public sealed record Curl(Length InsideRadius, Angle Sweep) : SheetForm;
+    public sealed record Bead(Loop Path, Length Width, Length Depth) : SheetForm;
+    public sealed record Louver(Loop Aperture, Length Height, Angle Opening) : SheetForm;
+    public sealed record Emboss(Loop Footprint, Length Height, Angle Draft) : SheetForm;
+    public sealed record Dimple(Loop Footprint, Length Depth, Length ToolRadius) : SheetForm;
+
+    public bool IsValid => Switch(
+        bend: static _ => true,
+        hem: static row => row.Kind is not null && double.IsFinite(row.Gap.Millimeters) && row.Gap.Millimeters >= 0.0,
+        jog: static row => double.IsFinite(row.Offset.Millimeters) && row.Offset > Length.Zero
+            && double.IsFinite(row.Spacing.Millimeters) && row.Spacing > Length.Zero,
+        curl: static row => double.IsFinite(row.InsideRadius.Millimeters) && row.InsideRadius > Length.Zero
+            && double.IsFinite(row.Sweep.Radians) && row.Sweep > Angle.Zero && row.Sweep <= Angle.FromDegrees(360.0),
+        bead: static row => row.Path is { Closed: true } && row.Width > Length.Zero && row.Depth > Length.Zero,
+        louver: static row => row.Aperture is { Closed: true } && row.Height > Length.Zero
+            && row.Opening > Angle.Zero && row.Opening <= Angle.FromDegrees(180.0),
+        emboss: static row => row.Footprint is { Closed: true } && row.Height > Length.Zero
+            && row.Draft >= Angle.Zero && row.Draft < Angle.FromDegrees(90.0),
+        dimple: static row => row.Footprint is { Closed: true } && row.Depth > Length.Zero && row.ToolRadius > Length.Zero);
+
+    public bool IsLine => Switch(
+        bend: static _ => true,
+        hem: static _ => true,
+        jog: static _ => true,
+        curl: static _ => true,
+        bead: static _ => false,
+        louver: static _ => false,
+        emboss: static _ => false,
+        dimple: static _ => false);
+
+    public bool IsFeature => IsValid && !IsLine;
+
+    // A line form whose geometry demands dedicated tooling overrides the policy default at candidate admission;
+    // None defers to FormPolicy, so one part mixes hemmed, curled, and ordinary bends under one policy.
+    public Option<(BendMethod Method, PunchKind Punch)> Tooling => Switch(
+        bend: static _ => Option<(BendMethod, PunchKind)>.None,
+        hem: static row => Some((row.Kind == HemKind.Closed ? BendMethod.Coin : BendMethod.Hem, PunchKind.Hemming)),
+        jog: static _ => Option<(BendMethod, PunchKind)>.None,
+        curl: static _ => Some((BendMethod.Fold, PunchKind.Radius)),
+        bead: static _ => Option<(BendMethod, PunchKind)>.None,
+        louver: static _ => Option<(BendMethod, PunchKind)>.None,
+        emboss: static _ => Option<(BendMethod, PunchKind)>.None,
+        dimple: static _ => Option<(BendMethod, PunchKind)>.None);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-public readonly record struct KQuery(MaterialSpec Material, BendMethod Method, double InsideRadiusMm, double ThicknessMm, KFactorTable Table, Option<double> CouponK, double BaseK);
+[SmartEnum<string>]
+public sealed partial class HemKind {
+    public static readonly HemKind Open = new("open", Angle.FromDegrees(180.0), static (_, radius, gap) => Math.Max(radius, gap / 2.0));
+    public static readonly HemKind Closed = new("closed", Angle.FromDegrees(180.0), static (thickness, radius, _) => Math.Max(radius, thickness / 2.0));
+    public static readonly HemKind Teardrop = new("teardrop", Angle.FromDegrees(210.0), static (thickness, radius, gap) => Math.Max(radius, Math.Max(gap, thickness) / 2.0));
+    public static readonly HemKind Rolled = new("rolled", Angle.FromDegrees(270.0), static (thickness, radius, gap) => Math.Max(radius, Math.Max(gap, thickness)));
 
-public readonly record struct KFactorRow(Material Material, Option<string> Grade, double RtLow, double RtHigh, BendMethod Method, double K);
+    public Angle Sweep { get; }
 
-public sealed record KFactorTable(Arr<KFactorRow> Rows) {
-    public const double Floor = 0.25;
-    public const double Ceiling = 0.50;
-    public const double StationCeilingRt = 6.0;
+    [UseDelegateFromConstructor]
+    public partial double InsideRadius(double thicknessMm, double radiusMm, double gapMm);
 
-    static readonly Arr<KFactorRow> AirCalibration = Array(
-        new KFactorRow(Material.MildSteel, None, 0.0, 1.0, BendMethod.Air, 0.33), new KFactorRow(Material.MildSteel, None, 1.0, 3.0, BendMethod.Air, 0.40), new KFactorRow(Material.MildSteel, None, 3.0, double.MaxValue, BendMethod.Air, 0.50),
-        new KFactorRow(Material.Aluminium, None, 0.0, 1.0, BendMethod.Air, 0.35), new KFactorRow(Material.Aluminium, None, 1.0, 3.0, BendMethod.Air, 0.42), new KFactorRow(Material.Aluminium, None, 3.0, double.MaxValue, BendMethod.Air, 0.50),
-        new KFactorRow(Material.Stainless, None, 0.0, 1.0, BendMethod.Air, 0.38), new KFactorRow(Material.Stainless, None, 1.0, 3.0, BendMethod.Air, 0.45), new KFactorRow(Material.Stainless, None, 3.0, double.MaxValue, BendMethod.Air, 0.50));
+    public double Allowance(double thicknessMm, double radiusMm, double k, double gapMm) =>
+        Sweep.Radians * (InsideRadius(thicknessMm, radiusMm, gapMm) + (k * thicknessMm));
+}
 
-    public static readonly KFactorTable Canonical = new([
-        .. from row in AirCalibration.AsEnumerable()
-           from method in BendMethod.Items
-           select row with { Method = method },
-    ]);
+[ComplexValueObject]
+public sealed partial class BendCoupon {
+    public Material Material { get; }
+    public Option<string> Grade { get; }
+    public BendMethod Method { get; }
+    public double ThicknessMm { get; }
+    public double InsideRadiusMm { get; }
+    public double BendAngleDeg { get; }
+    public double DevelopedAllowanceMm { get; }
+    public double RadiusThicknessTolerance { get; }
 
-    public Option<double> K(MaterialSpec material, BendMethod method, double rt) {
-        Arr<KFactorRow> exact = Rows.Filter(r => r.Material == material.Family && r.Method == method && r.Grade.Exists(grade => grade == material.Grade));
-        Arr<KFactorRow> series = [.. (exact.IsEmpty
-            ? Rows.Filter(r => r.Material == material.Family && r.Method == method && r.Grade.IsNone)
-            : exact).AsEnumerable().OrderBy(static row => row.RtLow)];
-        double[] stations = [.. series.Map(static row => (row.RtLow + Math.Min(row.RtHigh, StationCeilingRt)) / 2.0)];
-        bool admitted = double.IsFinite(rt) && series.Exists(row => rt >= row.RtLow && rt < row.RtHigh);
-        bool monotone = stations.Zip(stations.Skip(1)).All(static pair => pair.First < pair.Second);
-        Option<double> raw = !admitted || (series.Count >= 3 && !monotone)
-            ? None
-            : series.Count >= 3
-            ? Optional(Interpolate.CubicSplineMonotone(stations, [.. series.Map(static row => row.K)])
-                .Interpolate(Math.Clamp(rt, stations[0], stations[^1])))
-            : series.Filter(r => rt >= r.RtLow && rt < r.RtHigh).HeadOrNone().Map(static r => r.K);
-        return raw.Map(k => Math.Clamp(k + method.KBias, Floor, Ceiling));
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Material material,
+        ref Option<string> grade,
+        ref BendMethod method,
+        ref double thicknessMm,
+        ref double insideRadiusMm,
+        ref double bendAngleDeg,
+        ref double developedAllowanceMm,
+        ref double radiusThicknessTolerance) =>
+        validationError = material is not null && method is not null
+            && grade.ForAll(static value => !string.IsNullOrWhiteSpace(value))
+            && double.IsFinite(thicknessMm) && thicknessMm > 0.0
+            && double.IsFinite(insideRadiusMm) && insideRadiusMm >= 0.0
+            && double.IsFinite(bendAngleDeg) && Math.Abs(bendAngleDeg) is > 0.0 and <= 180.0
+            && double.IsFinite(developedAllowanceMm) && developedAllowanceMm > 0.0
+            && double.IsFinite(radiusThicknessTolerance) && radiusThicknessTolerance >= 0.0
+                ? null
+                : new ValidationError(message: "Bend coupon must carry material, method, measured geometry, and an R/T applicability band.");
+
+    public Fin<double> Calibrate(KQuery query) {
+        double couponRatio = InsideRadiusMm / ThicknessMm;
+        double queryRatio = query.RadiusMm / query.ThicknessMm;
+        double radians = Angle.FromDegrees(Math.Abs(BendAngleDeg)).Radians;
+        double k = ((DevelopedAllowanceMm / radians) - InsideRadiusMm) / ThicknessMm;
+        return Material == query.Material.Family && Method == query.Method
+            && Grade.ForAll(grade => grade == query.Material.Identity.Grade)
+            && Math.Abs(queryRatio - couponRatio) <= RadiusThicknessTolerance
+            && double.IsFinite(k) && k is > 0.0 and < 1.0
+                ? Fin.Succ(k)
+                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:k-coupon-applicability").ToError());
     }
 }
 
-// The analytic-lane bend annotation: DSTV KA rows and ConnectorPlate/PlateStock facts lower to this row at
-// their ingress arms. AngleDeg is SIGNED (+up/−down) — direction is the sign, never a parallel flag.
-public readonly record struct BendSeed(Edge3 Line, double AngleDeg, Option<double> RadiusMm, Set<int> Prerequisites);
+[ComplexValueObject]
+public sealed partial class KFactorBand {
+    public Material Material { get; }
+    public Option<string> Grade { get; }
+    public BendMethod Method { get; }
+    public double RtLow { get; }
+    public double RtHigh { get; }
+    public double KLow { get; }
+    public double KHigh { get; }
 
-public readonly record struct SurfaceBendSeed(int SourceA, int SourceB, double AngleDeg, Option<double> RadiusMm, Set<int> Prerequisites);
-
-public readonly record struct GrainLaw(double AngleDeg, double ParallelPenalty, double DiagonalPenalty, double TransversePenalty);
-
-public readonly record struct ReliefSeat(Point3d At, double WidthMm, double DepthMm);
-
-// Polymorphic unfold target. Surface carries the kernel-bound tessellation because a bare world-space mesh
-// cannot feed Development.Apply by construction; AdmittedComponent.Mesh therefore feeds no lane.
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FormSource {
-    private FormSource() { }
-
-    public sealed record Profile(Seq<BendSeed> Bends) : FormSource;
-    public sealed record Component(AdmittedComponent Admitted, Seq<BendSeed> Bends) : FormSource;
-    public sealed record Surface(SurfaceResult.UvTessellation Source, Seq<SurfaceBendSeed> Bends) : FormSource;
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Material material,
+        ref Option<string> grade,
+        ref BendMethod method,
+        ref double rtLow,
+        ref double rtHigh,
+        ref double kLow,
+        ref double kHigh) =>
+        validationError = material is not null && method is not null
+            && grade.ForAll(static value => !string.IsNullOrWhiteSpace(value))
+            && double.IsFinite(rtLow) && rtLow >= 0.0 && double.IsFinite(rtHigh) && rtHigh > rtLow
+            && double.IsFinite(kLow) && double.IsFinite(kHigh)
+            && kLow is > 0.0 and < 1.0 && kHigh is > 0.0 and < 1.0
+                ? null
+                : new ValidationError(message: "K-factor bands require an admitted material-method interval and bounded neutral-axis factors.");
 }
 
-// Minted HERE: the Run(Form) policy payload and the material/thickness boundary (FabricationInput carries
-// neither). DieWidthFactor None = the brake die-rule band decides; CouponK is SolveK's once-solved result.
-public sealed record FormPolicy(
-    FormSource Source, MaterialSpec Material, KSource KSource, BendMethod Method, PunchKind Punch,
-    ReliefKind Relief, HemKind Hem, double ThicknessMm, Option<double> DieWidthFactor,
-    KFactorTable KFactors, Option<double> CouponK, Option<GrainLaw> Grain, DevelopPolicy Development,
-    double MaxIsometry, double MaxTorsal);
+[ComplexValueObject]
+public sealed partial class KFactorTable {
+    public Arr<KFactorBand> Bands { get; }
 
-public readonly record struct BendProjection(double BaMm, double BdMm, double OssbMm, double FlatDeltaMm);
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<KFactorBand> bands) =>
+        validationError = !bands.IsEmpty
+            && bands.GroupBy(static band => (band.Material, band.Grade, band.Method)).ForAll(static series =>
+                series.OrderBy(static band => band.RtLow)
+                    .Zip(series.OrderBy(static band => band.RtLow).Skip(1))
+                    .All(static pair => pair.First.RtHigh <= pair.Second.RtLow))
+                ? null
+                : new ValidationError(message: "K-factor bands must form finite non-overlapping material and method series.");
 
-public sealed record BendLine(Edge3 Line, double AngleDeg, double InsideRadiusMm, double K, double BaMm, Set<int> Prerequisites);
+    public Fin<double> Resolve(KQuery query) {
+        Arr<KFactorBand> exact = Bands.Filter(band => band.Material == query.Material.Family && band.Method == query.Method
+            && band.Grade.Exists(grade => grade == query.Material.Identity.Grade));
+        Arr<KFactorBand> series = exact.IsEmpty
+            ? Bands.Filter(band => band.Material == query.Material.Family && band.Method == query.Method && band.Grade.IsNone)
+            : exact;
+        return series.Filter(band => query.RadiusMm / query.ThicknessMm >= band.RtLow && query.RadiusMm / query.ThicknessMm < band.RtHigh)
+            .HeadOrNone()
+            .Map(band => band.KLow + ((band.KHigh - band.KLow)
+                * ((query.RadiusMm / query.ThicknessMm) - band.RtLow) / (band.RtHigh - band.RtLow)))
+            .Filter(static k => double.IsFinite(k) && k is > 0.0 and < 1.0)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:k-band:{query.Material.Family.Key}:{query.Method.Key}").ToError());
+    }
+}
 
-public sealed record UnfoldResult(
-    Arr<Loop> Flat, Seq<BendLine> Bends, double ThicknessMm,
-    MaterialSpec Material, ProcessBudget.Formed Forming, Option<DevelopmentReceipt> Isometry);
+[ComplexValueObject]
+public sealed partial class KQuery {
+    public MaterialSpec Material { get; }
+    public BendMethod Method { get; }
+    public double RadiusMm { get; }
+    public double ThicknessMm { get; }
+    public Option<KFactorTable> Table { get; }
+    public Option<BendCoupon> Coupon { get; }
+    public ProcessBudget.Formed Forming { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref MaterialSpec material,
+        ref BendMethod method,
+        ref double radiusMm,
+        ref double thicknessMm,
+        ref Option<KFactorTable> table,
+        ref Option<BendCoupon> coupon,
+        ref ProcessBudget.Formed forming) =>
+        validationError = material is not null && method is not null && forming is not null
+            && double.IsFinite(radiusMm) && radiusMm > 0.0
+            && double.IsFinite(thicknessMm) && thicknessMm > 0.0
+                ? null
+                : new ValidationError(message: "K-factor query must carry admitted material, method, forming, radius, and thickness.");
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SheetLink {
+    private SheetLink() { }
+
+    public sealed record Panel(
+        int Parent,
+        int Child,
+        Edge3 ParentEdge,
+        Edge3 ChildEdge,
+        double AngleDeg,
+        Option<double> RadiusMm,
+        SheetForm Form,
+        Set<int> Prerequisites) : SheetLink;
+
+    public sealed record Surface(
+        ChartId Parent,
+        ChartId Child,
+        int SourceA,
+        int SourceB,
+        double ReferenceArcMm,
+        double AngleDeg,
+        Option<double> RadiusMm,
+        SheetForm Form,
+        Set<int> Prerequisites) : SheetLink;
+
+    public bool IsValid => Switch(
+        panel: static link => link.ParentEdge.A.IsValid && link.ParentEdge.B.IsValid && link.ParentEdge.A != link.ParentEdge.B
+            && link.ChildEdge.A.IsValid && link.ChildEdge.B.IsValid && link.ChildEdge.A != link.ChildEdge.B
+            && double.IsFinite(link.AngleDeg) && Math.Abs(link.AngleDeg) is > 0.0 and <= 180.0
+            && link.RadiusMm.ForAll(static radius => double.IsFinite(radius) && radius >= 0.0)
+            && link.Form is { IsValid: true, IsLine: true },
+        surface: static link => link.SourceA >= 0 && link.SourceB >= 0 && link.SourceA != link.SourceB
+            && double.IsFinite(link.ReferenceArcMm) && link.ReferenceArcMm >= 0.0
+            && double.IsFinite(link.AngleDeg) && Math.Abs(link.AngleDeg) is > 0.0 and <= 180.0
+            && link.RadiusMm.ForAll(static radius => double.IsFinite(radius) && radius >= 0.0)
+            && link.Form is { IsValid: true, IsLine: true });
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SheetSource {
+    private SheetSource() { }
+
+    public sealed record Panels(Seq<SheetLink.Panel> Links, Seq<SheetForm> Features) : SheetSource;
+    public sealed record Component(AdmittedComponent Value, Seq<SheetLink.Panel> Links, Seq<SheetForm> Features) : SheetSource;
+    public sealed record Surface(SurfaceResult.UvTessellation Value, Seq<SheetLink.Surface> Links, Seq<SheetForm> Features) : SheetSource;
+
+    public bool IsValid => Switch(
+        panels: static row => row.Links.ForAll(static link => link.IsValid) && row.Features.ForAll(static feature => feature is { IsFeature: true }),
+        component: static row => row.Value is not null && row.Links.ForAll(static link => link.IsValid)
+            && row.Features.ForAll(static feature => feature is { IsFeature: true }),
+        surface: static row => row.Value is not null && row.Links.ForAll(static link => link.IsValid)
+            && row.Features.ForAll(static feature => feature is { IsFeature: true }));
+}
+
+[ComplexValueObject]
+public sealed partial class GrainLaw {
+    public double RollingDeg { get; }
+    public double Parallel { get; }
+    public double Transverse { get; }
+    public double Exponent { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double rollingDeg,
+        ref double parallel,
+        ref double transverse,
+        ref double exponent) =>
+        validationError = double.IsFinite(rollingDeg)
+            && double.IsFinite(parallel) && parallel > 0.0
+            && double.IsFinite(transverse) && transverse > 0.0
+            && double.IsFinite(exponent) && exponent >= 1.0
+                ? null
+                : new ValidationError(message: "Grain law must carry a rolling axis, positive directional limits, and a finite interpolation exponent.");
+
+    public Fin<double> At(Vector3d direction) {
+        Vector3d projected = new(direction.X, direction.Y, 0.0);
+        if (!projected.Unitize())
+            return Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:grain-axis").ToError());
+        double radians = Angle.FromDegrees(RollingDeg).Radians;
+        Vector3d rolling = new(Math.Cos(radians), Math.Sin(radians), 0.0);
+        double parallel = Math.Abs(projected * rolling);
+        double transverse = Math.Sqrt(Math.Max(0.0, 1.0 - (parallel * parallel)));
+        return Fin.Succ(Math.Pow(
+            Math.Pow(Parallel * parallel, Exponent) + Math.Pow(Transverse * transverse, Exponent),
+            1.0 / Exponent));
+    }
+}
+
+[ComplexValueObject]
+public sealed partial class FormPolicy {
+    public SheetSource Source { get; }
+    public MaterialSpec Material { get; }
+    public ConstitutiveState State { get; }
+    public double ThicknessMm { get; }
+    public BendMethod Method { get; }
+    public PunchKind Punch { get; }
+    public BrakePolicy Brake { get; }
+    public KSource KSource { get; }
+    public Option<KFactorTable> KFactors { get; }
+    public Option<BendCoupon> Coupon { get; }
+    public Option<double> DieWidthFactor { get; }
+    public Option<GrainLaw> Grain { get; }
+    public ReliefKind Relief { get; }
+    public DevelopPolicy Development { get; }
+    public double IsometryBudget { get; }
+    public double TorsalBudget { get; }
+    public double FeatureStrainLimit { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref SheetSource source,
+        ref MaterialSpec material,
+        ref ConstitutiveState state,
+        ref double thicknessMm,
+        ref BendMethod method,
+        ref PunchKind punch,
+        ref BrakePolicy brake,
+        ref KSource kSource,
+        ref Option<KFactorTable> kFactors,
+        ref Option<BendCoupon> coupon,
+        ref Option<double> dieWidthFactor,
+        ref Option<GrainLaw> grain,
+        ref ReliefKind relief,
+        ref DevelopPolicy development,
+        ref double isometryBudget,
+        ref double torsalBudget,
+        ref double featureStrainLimit) =>
+        validationError = source is { IsValid: true } && material is not null && state is not null
+            && method is not null && punch is not null && brake is not null
+            && kSource is not null && kFactors.ForAll(static value => value is not null) && relief is not null && development is { IsValid: true }
+            && (kSource != KSource.Table || kFactors.IsSome) && (kSource != KSource.Coupon || coupon.IsSome)
+            && double.IsFinite(thicknessMm) && thicknessMm > 0.0
+            && coupon.ForAll(static value => value is not null)
+            && dieWidthFactor.ForAll(static value => double.IsFinite(value) && value > 0.0)
+            && double.IsFinite(isometryBudget) && isometryBudget >= 0.0
+            && double.IsFinite(torsalBudget) && torsalBudget >= 0.0
+            && double.IsFinite(featureStrainLimit) && featureStrainLimit > 0.0
+                ? null
+                : new ValidationError(message: "Sheet policy must carry admitted material, geometry, calibration, tooling, and budgets.");
+
+}
+
+public readonly record struct BendProjection(double AllowanceMm, double SetbackMm, double DeductionMm, double NeutralShiftMm);
+
+public sealed record BendLine(
+    int Index,
+    Edge3 Line,
+    int Parent,
+    int Child,
+    double AngleDeg,
+    double InsideRadiusMm,
+    double K,
+    BendProjection Projection,
+    SheetForm Form,
+    Set<int> Prerequisites);
+
+public sealed record ReliefSeat(
+    Point3d At,
+    Vector3d Along,
+    Vector3d Inward,
+    double WidthMm,
+    double DepthMm,
+    double InsideRadiusMm,
+    Set<int> Meeting,
+    bool ExistingClearance);
+
+public sealed record SheetFeatureEvidence(SheetForm Form, double DevelopedMm, double PeakStrain);
+public sealed record PanelRegion(int Panel, Loop Boundary);
+
+public sealed record UnfoldEvidence(
+    Option<DevelopmentReceipt> Isometry,
+    Seq<PanelRegion> Panels,
+    Seq<(int Bend, double ShiftMm)> NeutralAxis,
+    Seq<SheetFeatureEvidence> Features,
+    Seq<ReliefSeat> Reliefs,
+    TopologyReceipt Topology);
+
+[ComplexValueObject]
+public sealed partial class UnfoldResult {
+    public Arr<Loop> Flat { get; }
+    public Seq<BendLine> Bends { get; }
+    public double ThicknessMm { get; }
+    public MaterialSpec Material { get; }
+    public ProcessBudget.Formed Forming { get; }
+    public UnfoldEvidence Evidence { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref Arr<Loop> flat,
+        ref Seq<BendLine> bends,
+        ref double thicknessMm,
+        ref MaterialSpec material,
+        ref ProcessBudget.Formed forming,
+        ref UnfoldEvidence evidence) =>
+        validationError = !flat.IsEmpty && flat.ForAll(static loop => loop is not null && loop.Closed)
+            && flat.ForAll(loop => loop.Tolerance == flat[0].Tolerance)
+            && bends.ForAll(static bend => bend.Line.A.IsValid && bend.Line.B.IsValid && bend.Line.A != bend.Line.B
+                && bend.Parent >= 0 && bend.Child >= 0 && bend.Parent != bend.Child
+                && double.IsFinite(bend.AngleDeg) && Math.Abs(bend.AngleDeg) is > 0.0 and <= 180.0
+                && double.IsFinite(bend.InsideRadiusMm) && bend.InsideRadiusMm >= 0.0
+                && double.IsFinite(bend.K) && bend.K is > 0.0 and < 1.0
+                && double.IsFinite(bend.Projection.AllowanceMm) && bend.Projection.AllowanceMm > 0.0
+                && double.IsFinite(bend.Projection.SetbackMm)
+                && double.IsFinite(bend.Projection.DeductionMm)
+                && double.IsFinite(bend.Projection.NeutralShiftMm)
+                && bend.Form is { IsValid: true, IsLine: true })
+            && bends.Map(static bend => bend.Index).Distinct().Count() == bends.Count
+            && double.IsFinite(thicknessMm) && thicknessMm > 0.0 && material is not null && forming is not null && evidence is not null
+            && evidence.Topology is not null
+            && !evidence.Panels.IsEmpty && evidence.Panels.ForAll(panel => panel.Panel >= 0
+                && panel.Boundary is { Closed: true } && panel.Boundary.Tolerance == flat[0].Tolerance)
+            && evidence.NeutralAxis.Count == bends.Count
+            && evidence.NeutralAxis.Map(static row => row.Bend).Distinct().Count == bends.Count
+            && bends.ForAll(bend => evidence.Panels.Exists(panel => panel.Panel == bend.Parent)
+                && evidence.Panels.Exists(panel => panel.Panel == bend.Child)
+                && bend.Prerequisites.ForAll(prerequisite => prerequisite != bend.Index
+                    && bends.Exists(candidate => candidate.Index == prerequisite))
+                && evidence.NeutralAxis.Exists(row => row.Bend == bend.Index
+                    && double.IsFinite(row.ShiftMm)
+                    && row.ShiftMm.Equals(bend.Projection.NeutralShiftMm)))
+            && evidence.Features.ForAll(static feature => feature.Form is { IsValid: true, IsFeature: true }
+                && double.IsFinite(feature.DevelopedMm) && feature.DevelopedMm > 0.0
+                && double.IsFinite(feature.PeakStrain) && feature.PeakStrain >= 0.0)
+            && evidence.Reliefs.ForAll(relief => Valid(relief, bends, evidence.Topology, flat[0].Tolerance.Absolute.Value))
+                ? null
+                : new ValidationError(message: "Unfold evidence must carry closed compatible flats and fully admitted bend rows.");
+
+    private static bool Valid(ReliefSeat relief, Seq<BendLine> bends, TopologyReceipt topology, double toleranceMm) {
+        double unitTolerance = Math.Sqrt(double.BitIncrement(1.0) - 1.0);
+        return relief is not null && relief.At.IsValid
+            && Finite(relief.Along) && Finite(relief.Inward)
+            && Math.Abs(relief.Along.Length - 1.0) <= unitTolerance
+            && Math.Abs(relief.Inward.Length - 1.0) <= unitTolerance
+            && Math.Abs(relief.Along * relief.Inward) <= unitTolerance
+            && double.IsFinite(relief.WidthMm) && relief.WidthMm > 0.0
+            && double.IsFinite(relief.DepthMm) && relief.DepthMm > 0.0
+            && double.IsFinite(relief.InsideRadiusMm) && relief.InsideRadiusMm >= 0.0
+            && !relief.Meeting.IsEmpty
+            && relief.Meeting.ForAll(index => bends.Find(bend => bend.Index == index)
+                .Exists(bend => bend.Line.A.DistanceTo(relief.At) <= toleranceMm
+                    || bend.Line.B.DistanceTo(relief.At) <= toleranceMm))
+            && topology.Nodes.Count > 0;
+
+        static bool Finite(Vector3d value) => value.IsValid
+            && double.IsFinite(value.X) && double.IsFinite(value.Y) && double.IsFinite(value.Z);
+    }
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class FlatPattern {
-    const double HemAngleFloorDeg = 175.0;
-    const double ThicknessMatchMm = 1e-6;
+    public static Fin<UnfoldResult> Unfold(FormPolicy policy, FabricationInput input) =>
+        policy is null || input is null
+            ? Fin.Fail<UnfoldResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:input").ToError())
+            : from bendLength in BendLength(policy.Source)
+              from forming in FormedRow(policy.Material, input.Process, policy.State, policy.ThicknessMm, bendLength)
+              from assembly in policy.Source.Switch(
+                  state: (Policy: policy, Input: input, Forming: forming),
+                  panels: static (state, source) => DevelopPanels(state.Input.Profiles, source.Links, source.Features, state.Policy, state.Forming),
+                  component: static (state, source) => DevelopPanels(source.Value.Profiles, source.Links, source.Features, state.Policy, state.Forming),
+                  surface: static (state, source) => DevelopSurface(source, state.Policy, state.Forming))
+              from result in Finish(assembly, policy, forming)
+              select result;
 
-    // The owner#run Form-arm terminal mint: ONE flat-pattern key digests the flat AND the bend rows — two
-    // programs over one flat never collide; length prefixes keep loop grouping in the preimage.
     public static FabricationResult Formed(UnfoldResult unfold, Seq<BendStep> bends) =>
         new FabricationResult.FormedResult(
-            unfold.Flat, bends,
-            bends.Map(static b => b.OverbendDeg).Fold(0.0, Math.Max),
-            ContentKey.Of(EgressKind.FlatPattern, CanonicalBytes(unfold.Flat, bends)));
+            unfold.Flat,
+            bends,
+            bends.Map(static bend => bend.OverbendDeg).Fold(0.0, Math.Max),
+            ContentKey.Of(EgressKind.FlatPattern, Canonical(unfold, bends)));
 
-    static byte[] CanonicalBytes(Arr<Loop> flat, Seq<BendStep> bends) {
-        System.Buffers.ArrayBufferWriter<byte> writer = new();
-        WriteCount(writer, flat.Count);
-        flat.Iter(loop => {
-            WriteCount(writer, loop.Count);
-            for (int i = 0; i < loop.Count; i++) {
-                Point3d v = loop.At(i);
-                WriteDouble(writer, v.X); WriteDouble(writer, v.Y); WriteDouble(writer, loop.BulgeAt(i));
-            }
+    internal static Fin<ProcessBudget.Formed> FormedRow(
+        MaterialSpec material,
+        ProcessKind process,
+        ConstitutiveState state,
+        double thicknessMm,
+        double bendLengthMm) =>
+        ProcessPhysics.Budget(new PhysicsRequest.Forming(process, material, state, thicknessMm, bendLengthMm))
+            .Bind(static budget => budget is ProcessBudget.Formed formed
+            ? Fin.Succ(formed)
+            : Fin.Fail<ProcessBudget.Formed>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:forming-budget").ToError()));
+
+    private static Fin<double> BendLength(SheetSource source) => source.Switch(
+        panels: static row => Total(row.Links.Map(static link => link.ParentEdge.A.DistanceTo(link.ParentEdge.B))),
+        component: static row => Total(row.Links.Map(static link => link.ParentEdge.A.DistanceTo(link.ParentEdge.B))),
+        surface: static row => SurfaceLength(row));
+
+    private static Fin<double> SurfaceLength(SheetSource.Surface source) {
+        Mesh mesh = source.Value.Mesh.DuplicateNative();
+        return source.Links.Traverse(link => (link.SourceA < mesh.Vertices.Count && link.SourceB < mesh.Vertices.Count
+                ? Fin.Succ(mesh.Vertices.Point3dAt(link.SourceA).DistanceTo(mesh.Vertices.Point3dAt(link.SourceB)))
+                : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-bend-length").ToError()))
+            .ToValidation()).As().ToFin().Bind(Total);
+    }
+
+    private static Fin<double> Total(Seq<double> lengths) {
+        double total = lengths.Fold(0.0, static (sum, length) => sum + length);
+        return double.IsFinite(total) && total > 0.0
+            ? Fin.Succ(total)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:bend-length").ToError());
+    }
+
+    private static Fin<SheetAssembly> DevelopPanels(
+        Arr<Loop> panels,
+        Seq<SheetLink.Panel> links,
+        Seq<SheetForm> features,
+        FormPolicy policy,
+        ProcessBudget.Formed forming) =>
+        from schedule in LinkOrder(panels.Count, links)
+        from bends in schedule.Order.Traverse(link => BendOf(link, policy, forming).ToValidation()).As().ToFin()
+        from placed in schedule.Order.FoldM<Fin, PanelState>(PanelState.Start(panels, schedule.Root), (state, link) => Place(state, link, bends)).As()
+        select new SheetAssembly(
+            placed.Flat,
+            bends,
+            features,
+            None,
+            placed.Flat.Map((loop, panel) => new PanelRegion(panel, loop)).ToSeq());
+
+    private static Fin<SheetAssembly> DevelopSurface(SheetSource.Surface source, FormPolicy policy, ProcessBudget.Formed forming) =>
+        from development in Development.Apply(new DevelopOp.Unroll(source.Value, policy.Development))
+        from unrolled in development is DevelopmentResult.Unrolled value
+            ? Fin.Succ(value)
+            : Fin.Fail<DevelopmentResult.Unrolled>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-result").ToError())
+        from _ in unrolled.Receipt.MaxIsometry <= policy.IsometryBudget && unrolled.Receipt.MaxTorsal <= policy.TorsalBudget
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(FabricationFault.UnfoldInfeasible(unrolled.Atlas.Islands.Count, unrolled.Field.RailOffsets.Count))
+        from bends in source.Links.Traverse(link => SurfaceBendOf(link, unrolled.Atlas.Islands, policy, forming).ToValidation()).As().ToFin()
+        from panels in Neutralize(unrolled.Atlas.Islands, bends, source.Value.Mesh.Tolerance)
+        select new SheetAssembly(
+            panels.Map(static panel => panel.Boundary).ToArr(),
+            bends,
+            source.Features,
+            Some(unrolled.Receipt),
+            panels);
+
+    private static Fin<UnfoldResult> Finish(SheetAssembly assembly, FormPolicy policy, ProcessBudget.Formed forming) =>
+        from topology in Regions(assembly.Flat)
+        from features in assembly.Features.Traverse(feature => FeatureOf(feature, policy, forming).ToValidation()).As().ToFin()
+        from seats in ReliefSeats(assembly.Flat, assembly.Bends, topology, policy)
+        from cuts in seats.Filter(static seat => !seat.ExistingClearance)
+            .Traverse(seat => policy.Relief.Cut(seat, assembly.Flat[0].Tolerance).ToValidation()).As().ToFin()
+        from relieved in cuts.IsEmpty ? Fin.Succ(assembly.Flat) : Difference(assembly.Flat, cuts)
+        from panels in cuts.IsEmpty
+            ? Fin.Succ(assembly.Panels)
+            : assembly.Panels.Traverse(panel => Difference(Arr(panel.Boundary), cuts)
+                .Map(loops => loops.Map(loop => new PanelRegion(panel.Panel, loop)).ToSeq()).ToValidation()).As().ToFin()
+                .Map(static regions => regions.Bind(static region => region))
+        from finalTopology in Regions(relieved)
+        from result in AdmitResult(
+            relieved.ToArr(),
+            assembly.Bends,
+            policy.ThicknessMm,
+            policy.Material,
+            forming,
+            new UnfoldEvidence(
+                assembly.Isometry,
+                panels,
+                assembly.Bends.Map(static bend => (bend.Index, bend.Projection.NeutralShiftMm)),
+                features,
+                seats,
+                finalTopology))
+        select result;
+
+    private static Fin<BendLine> BendOf(SheetLink.Panel link, FormPolicy policy, ProcessBudget.Formed forming) =>
+        Annotate(link.Child, link.ParentEdge, link.Parent, link.Child, link.AngleDeg, link.RadiusMm, link.Form, link.Prerequisites, policy, forming, 0.0);
+
+    private static Fin<BendLine> SurfaceBendOf(
+        SheetLink.Surface link,
+        Seq<UvIsland> islands,
+        FormPolicy policy,
+        ProcessBudget.Formed forming) =>
+        from parent in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Parent)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-parent").ToError())
+        from child in islands.Map((island, index) => (Island: island, Index: index)).Find(row => row.Island.Chart == link.Child)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:surface-child").ToError())
+        from a in Local(parent.Island, link.SourceA)
+        from b in Local(parent.Island, link.SourceB)
+        from bend in Annotate(
+            child.Index,
+            new Edge3(Planar(parent.Island.Uv[a]), Planar(parent.Island.Uv[b])),
+            parent.Index,
+            child.Index,
+            link.AngleDeg,
+            link.RadiusMm,
+            link.Form,
+            link.Prerequisites,
+            policy,
+            forming,
+            link.ReferenceArcMm)
+        select bend;
+
+    private static Fin<BendLine> Annotate(
+        int index,
+        Edge3 line,
+        int parent,
+        int child,
+        double angleDeg,
+        Option<double> radius,
+        SheetForm form,
+        Set<int> prerequisites,
+        FormPolicy policy,
+        ProcessBudget.Formed forming,
+        double referenceArcMm) {
+        return from grainFactor in policy.Grain.Map(grain => grain.At(line.B - line.A)).IfNone(Fin.Succ(1.0))
+               let minimumRadius = forming.MinBendRadiusFactor * policy.ThicknessMm * grainFactor
+               let resolvedRadius = radius.IfNone(minimumRadius)
+               from _ in double.IsFinite(angleDeg) && Math.Abs(angleDeg) is > 0.0 and <= 180.0
+            && double.IsFinite(resolvedRadius) && resolvedRadius >= minimumRadius
+            && line.A.IsValid && line.B.IsValid && line.A != line.B
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:bend").ToError())
+               from query in KQuery.Validate(
+                   policy.Material,
+                   policy.Method,
+                   resolvedRadius,
+                   policy.ThicknessMm,
+                   policy.KFactors,
+                   policy.Coupon,
+                   forming,
+                   out KQuery admitted) is { } error
+                    ? Fin.Fail<KQuery>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+                    : Fin.Succ(admitted)
+               from k in policy.KSource.Resolve(query)
+               from projection in Project(form, angleDeg, resolvedRadius, policy.ThicknessMm, k, referenceArcMm)
+               select new BendLine(index, line, parent, child, angleDeg, resolvedRadius, k, projection, form, prerequisites);
+    }
+
+    private static Fin<BendProjection> Project(SheetForm form, double angleDeg, double radiusMm, double thicknessMm, double k, double referenceArcMm) {
+        double angle = Math.Abs(angleDeg);
+        double radians = angle * Math.PI / 180.0;
+        Fin<double> allowance = form.Switch(
+            state: (Radians: radians, Radius: radiusMm, Thickness: thicknessMm, K: k),
+            bend: static (state, _) => Fin.Succ(state.Radians * (state.Radius + (state.K * state.Thickness))),
+            hem: static (state, value) => Fin.Succ(value.Kind.Allowance(state.Thickness, state.Radius, state.K, value.Gap.Millimeters)),
+            jog: static (state, value) => Fin.Succ((2.0 * state.Radians * (state.Radius + (state.K * state.Thickness)))
+                + value.Spacing.Millimeters),
+            curl: static (state, value) => Fin.Succ(
+                value.Sweep.Radians * (value.InsideRadius.Millimeters + (state.K * state.Thickness))),
+            bead: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-bead").ToError()),
+            louver: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-louver").ToError()),
+            emboss: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-emboss").ToError()),
+            dimple: static (_, _) => Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:line-dimple").ToError()));
+        double setback = Math.Tan(angle * Math.PI / 360.0) * (radiusMm + thicknessMm);
+        return allowance.Map(value => new BendProjection(value, setback, (2.0 * setback) - value, value - referenceArcMm));
+    }
+
+    private static Fin<(int Root, Seq<SheetLink.Panel> Order)> LinkOrder(int panels, Seq<SheetLink.Panel> links) {
+        Set<int> children = links.Map(static link => link.Child).ToSet();
+        bool tree = panels > 0 && links.Count == panels - 1 && children.Count == links.Count
+            && links.ForAll(link => link.Parent >= 0 && link.Parent < panels && link.Child >= 0 && link.Child < panels
+                && link.Parent != link.Child && link.Prerequisites.ForAll(prerequisite => prerequisite >= 0 && prerequisite < panels));
+        if (!tree)
+            return Fin.Fail<(int, Seq<SheetLink.Panel>)>(FabricationFault.UnfoldInfeasible(panels, links.Count));
+        BidirectionalGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
+        graph.AddVertexRange(Enumerable.Range(0, panels));
+        links.Iter(link => {
+            graph.AddEdge(new SEdge<int>(link.Parent, link.Child));
+            link.Prerequisites.Iter(prerequisite => graph.AddEdge(new SEdge<int>(prerequisite, link.Child)));
         });
-        WriteCount(writer, bends.Count);
-        bends.Iter(b => {
-            WriteCount(writer, b.Order);
-            WriteDouble(writer, b.Line.A.X); WriteDouble(writer, b.Line.A.Y);
-            WriteDouble(writer, b.Line.B.X); WriteDouble(writer, b.Line.B.Y);
-            WriteDouble(writer, b.AngleDeg); WriteDouble(writer, b.RadiusMm); WriteDouble(writer, b.KFactor);
-            WriteDouble(writer, b.OverbendDeg); WriteDouble(writer, b.TonnageKn);
-            WriteCount(writer, b.Orientation == BendOrientation.Flipped ? 1 : 0);
+        Seq<int> roots = graph.Roots().ToSeq();
+        return roots.Count == 1 && graph.IsDirectedAcyclicGraph()
+            ? Fin.Succ((roots[0], graph.SourceFirstTopologicalSort().ToSeq().Bind(vertex => links.Filter(link => link.Child == vertex))))
+            : Fin.Fail<(int, Seq<SheetLink.Panel>)>(FabricationFault.UnfoldInfeasible(panels, links.Count));
+    }
+
+    private static Fin<PanelState> Place(PanelState state, SheetLink.Panel link, Seq<BendLine> bends) =>
+        from parent in state.Placement.Find(link.Parent)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:parent:{link.Parent}").ToError())
+        from resolved in bends.Find(row => row.Child == link.Child)
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:bend:{link.Child}").ToError())
+        from child in PlanarPlacement.Between(link.ChildEdge, parent.Apply(link.ParentEdge), resolved.Projection.AllowanceMm)
+        from loop in Transform(state.Panels[link.Child], child.Apply)
+        select state with {
+            Flat = state.Flat.SetItem(link.Child, loop),
+            Placement = state.Placement.Add(link.Child, child),
+        };
+
+    private static Fin<Seq<PanelRegion>> Neutralize(Seq<UvIsland> islands, Seq<BendLine> bends, Context tolerance) =>
+        islands.Map((island, index) => (Island: island, Index: index))
+            .Traverse(row => Boundaries(row.Island, tolerance)
+                .Map(loops => loops.Map(loop => new PanelRegion(row.Index, loop))).ToValidation()).As().ToFin()
+            .Map(static regions => regions.Bind(static region => region))
+            .Bind(regions => bends.FoldM<Fin, Seq<PanelRegion>>(regions,
+                (state, bend) => ShiftSurface(state, bend, bends)).As());
+
+    private static Fin<Seq<PanelRegion>> ShiftSurface(
+        Seq<PanelRegion> regions,
+        BendLine bend,
+        Seq<BendLine> bends) {
+        Vector3d edge = bend.Line.B - bend.Line.A;
+        Vector3d normal = new(-edge.Y, edge.X, 0.0);
+        Set<int> descendants = Descendants(bends, Set(bend.Child));
+        return normal.Unitize()
+            ? regions.Traverse(region => (descendants.Contains(region.Panel)
+                ? Transform(region.Boundary, point => point + (normal * bend.Projection.NeutralShiftMm))
+                    .Map(loop => region with { Boundary = loop })
+                : Fin.Succ(region)).ToValidation()).As().ToFin()
+            : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:neutral-axis").ToError());
+    }
+
+    private static Set<int> Descendants(Seq<BendLine> bends, Set<int> seed) {
+        Set<int> closure = seed.Union(bends.Filter(bend => seed.Contains(bend.Parent)).Map(static bend => bend.Child).ToSet());
+        return closure.Count > seed.Count ? Descendants(bends, closure) : closure;
+    }
+
+    private static Fin<SheetFeatureEvidence> FeatureOf(
+        SheetForm feature,
+        FormPolicy policy,
+        ProcessBudget.Formed forming) => feature.Switch(
+        state: (Policy: policy, Forming: forming),
+        bend: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-bend").ToError()),
+        hem: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-hem").ToError()),
+        jog: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-jog").ToError()),
+        curl: static (_, _) => Fin.Fail<SheetFeatureEvidence>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-curl").ToError()),
+        bead: static (state, value) => FeatureFromLoop(value, value.Path, value.Width.Millimeters, value.Depth.Millimeters, state.Policy, state.Forming),
+        louver: static (state, value) => FeatureFromLoop(value, value.Aperture, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
+        emboss: static (state, value) => FeatureFromLoop(value, value.Footprint, 0.0, value.Height.Millimeters, state.Policy, state.Forming),
+        dimple: static (state, value) => FeatureFromLoop(value, value.Footprint, value.ToolRadius.Millimeters, value.Depth.Millimeters, state.Policy, state.Forming));
+
+    private static Fin<SheetFeatureEvidence> Feature(
+        SheetForm form,
+        double developedMm,
+        double strain,
+        FormPolicy policy,
+        ProcessBudget.Formed forming) =>
+        double.IsFinite(developedMm) && developedMm >= 0.0
+            && double.IsFinite(strain) && strain >= 0.0
+            && strain <= Math.Min(policy.FeatureStrainLimit, forming.LimitStrain)
+                ? Fin.Succ(new SheetFeatureEvidence(form, developedMm, strain))
+                : Fin.Fail<SheetFeatureEvidence>(FabricationFault.UnfoldInfeasible(1, 1));
+
+    private static Fin<SheetFeatureEvidence> FeatureFromLoop(
+        SheetForm form,
+        Loop loop,
+        double widthMm,
+        double heightMm,
+        FormPolicy policy,
+        ProcessBudget.Formed forming) =>
+        from measured in loop.Apply(new ProfileOp.Measure())
+        from bounded in loop.Apply(new ProfileOp.Bound())
+        from path in measured is ProfileResult.Measure metric
+            ? Fin.Succ(metric.Path.Millimeters)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-measure").ToError())
+        from diagonal in bounded is ProfileResult.Bound bound
+            ? Fin.Succ(bound.Box.Diagonal.Length)
+            : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:feature-bound").ToError())
+        from grainFactors in policy.Grain.Map(grain => toSeq(Enumerable.Range(0, loop.Count))
+            .Traverse(index => grain.At(loop.At(index + 1) - loop.At(index)).ToValidation()).As().ToFin())
+            .IfNone(Fin.Succ(Seq(1.0)))
+        let grainFactor = grainFactors.Fold(0.0, Math.Max)
+        from evidence in Feature(form, path + widthMm, grainFactor * heightMm / Math.Max(widthMm, diagonal), policy, forming)
+        select evidence;
+
+    private static Fin<TopologyReceipt> Regions(Arr<Loop> flat) =>
+        PolygonAlgebra.Apply(new PolygonOp.Inspect(flat.ToSeq(), new PolygonQuery.Topology(PolygonFill.NonZero)))
+            .Bind(static trace => trace is PolygonTrace.Regions regions
+                ? Fin.Succ(regions.Result)
+                : Fin.Fail<TopologyReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:topology-trace").ToError()));
+
+    private static Fin<Seq<ReliefSeat>> ReliefSeats(Arr<Loop> flat, Seq<BendLine> bends, TopologyReceipt topology, FormPolicy policy) {
+        double probe = Math.Max(policy.ThicknessMm, flat[0].Tolerance.Absolute.Value * 2.0);
+        return bends.Bind(static bend => Seq((Bend: bend, At: bend.Line.A), (Bend: bend, At: bend.Line.B)))
+            .Traverse(pair => (
+                from axis in Unit(pair.Bend.Line.B - pair.Bend.Line.A, "flat:relief-axis")
+                let left = new Vector3d(-axis.Y, axis.X, 0.0)
+                from contained in Seq(left, -left).Traverse(direction => flat
+                    .Traverse(loop => loop.Apply(new ProfileOp.Contains(pair.At + (direction * probe)))
+                        .Map(static result => result is ProfileResult.Contains inside && inside.Value)
+                        .ToValidation()).As().ToFin()
+                    .Map(static hits => hits.Exists(identity)).ToValidation()).As().ToFin()
+                from inward in contained.Filter(identity).Count == 1
+                    ? contained.Head
+                        .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-side").ToError())
+                        .Map(hit => hit ? left : -left)
+                    : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-side").ToError())
+                from holeClear in topology.Nodes.Filter(static node => node.IsHole)
+                    .Traverse(node => node.Boundary.Apply(new ProfileOp.Contains(pair.At))
+                        .Map(static result => result is ProfileResult.Contains inside && inside.Value)
+                        .ToValidation()).As().ToFin()
+                select new ReliefSeat(
+                    pair.At,
+                    axis,
+                    inward,
+                    policy.Relief.Width(policy.ThicknessMm),
+                    policy.Relief.Depth(policy.ThicknessMm, pair.Bend.InsideRadiusMm),
+                    pair.Bend.InsideRadiusMm,
+                    Set(pair.Bend.Index),
+                    holeClear.Exists(identity))).ToValidation()).As().ToFin()
+            .Map(seats => Corners(seats, probe));
+    }
+
+    // Bend terminations sharing one point are one corner seat sized for the deepest meeting bend, so a corner
+    // takes a single relief instead of overlapping cuts and a lone bend against free boundary still seats alone.
+    private static Seq<ReliefSeat> Corners(Seq<ReliefSeat> seats, double probeMm) =>
+        seats.Fold(Seq<ReliefSeat>(), (held, seat) => held
+            .Map(static (row, index) => (Row: row, Index: index))
+            .Find(row => row.Row.At.DistanceTo(seat.At) <= probeMm)
+            .Match(
+                Some: found => held.Map((row, index) => index != found.Index ? row : row with {
+                    WidthMm = Math.Max(row.WidthMm, seat.WidthMm),
+                    DepthMm = Math.Max(row.DepthMm, seat.DepthMm),
+                    InsideRadiusMm = Math.Max(row.InsideRadiusMm, seat.InsideRadiusMm),
+                    Meeting = row.Meeting.Union(seat.Meeting),
+                    ExistingClearance = row.ExistingClearance && seat.ExistingClearance,
+                }),
+                None: () => held.Add(seat)));
+
+    private static Fin<Arr<Loop>> Difference(Arr<Loop> flat, Seq<Loop> cuts) =>
+        PolygonAlgebra.Apply(new PolygonOp.Boolean(flat.ToSeq(), cuts, PolygonBoolean.Difference, PolygonFill.NonZero))
+            .Bind(static trace => trace is PolygonTrace.Regions regions
+                ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary).ToArr())
+                : Fin.Fail<Arr<Loop>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:relief-trace").ToError()));
+
+    internal static Fin<Loop> Rectangular(ReliefSeat seat, Context tolerance) =>
+        ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
+            center - (along * halfWidth),
+            center + (along * halfWidth),
+            center + (along * halfWidth) + (normal * halfDepth * 2.0),
+            center - (along * halfWidth) + (normal * halfDepth * 2.0),
+        ], Arr<double>());
+
+    // A slot closed by one semicircle across its far edge: `Bulges[i]` owns the span opening at `Vertices[i]`,
+    // so only index 2 — the returning width edge — carries the half turn.
+    internal static Fin<Loop> Obround(ReliefSeat seat, Context tolerance) =>
+        ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
+            center - (along * halfWidth),
+            center + (along * halfWidth),
+            center + (along * halfWidth) + (normal * halfDepth * 2.0),
+            center - (along * halfWidth) + (normal * halfDepth * 2.0),
+        ], Arr(0.0, 0.0, 1.0, 0.0));
+
+    internal static Fin<Loop> Tear(ReliefSeat seat, Context tolerance) =>
+        ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
+            center,
+            center + (along * halfWidth) + (normal * halfDepth),
+            center + (normal * halfDepth * 2.0),
+            center - (along * halfWidth) + (normal * halfDepth),
+        ], Arr(0.0, Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), 0.0));
+
+    // Four cardinal points at one radius about a seated centre keep the cut circular at every width-to-depth
+    // ratio; sharing the width and depth half-extents as two radii would emit an ellipse under a bulge quarter turn.
+    internal static Fin<Loop> Circular(ReliefSeat seat, Context tolerance) =>
+        ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
+            center + (normal * Math.Max(halfDepth, halfWidth)) - (along * halfWidth),
+            center + (normal * (Math.Max(halfDepth, halfWidth) - halfWidth)),
+            center + (normal * Math.Max(halfDepth, halfWidth)) + (along * halfWidth),
+            center + (normal * (Math.Max(halfDepth, halfWidth) + halfWidth)),
+        ], Arr(Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0), Math.Tan(Math.PI / 8.0)));
+
+    private static Fin<Loop> ReliefPolygon(
+        ReliefSeat seat,
+        Context tolerance,
+        Func<Point3d, Vector3d, Vector3d, double, double, Arr<Point3d>> vertices,
+        Arr<double> bulges) {
+        return Loop.Admit(
+            vertices(seat.At, seat.Along, seat.Inward, seat.WidthMm / 2.0, seat.DepthMm / 2.0),
+            closed: true,
+            bulges,
+            tolerance);
+    }
+
+    private static Fin<Vector3d> Unit(Vector3d vector, string locus) =>
+        vector.Unitize()
+            ? Fin.Succ(vector)
+            : Fin.Fail<Vector3d>(new GeometryFault.DegenerateInput(Kind.Brep, -1, locus).ToError());
+
+    private static Fin<UnfoldResult> AdmitResult(
+        Arr<Loop> flat,
+        Seq<BendLine> bends,
+        double thicknessMm,
+        MaterialSpec material,
+        ProcessBudget.Formed forming,
+        UnfoldEvidence evidence) =>
+        UnfoldResult.Validate(flat, bends, thicknessMm, material, forming, evidence, out UnfoldResult result) is { } error
+            ? Fin.Fail<UnfoldResult>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
+            : Fin.Succ(result);
+
+    private static Option<int> Local(UvIsland island, int source) =>
+        toSeq(Enumerable.Range(0, island.Vertices.Count)).Find(index => island.Vertices[index] == source);
+
+    private static Fin<Seq<Loop>> Boundaries(UvIsland island, Context tolerance) {
+        Seq<(int A, int B)> boundary = toSeq(island.Faces)
+            .Bind(static face => Seq(
+                (A: face.A, B: face.B),
+                (A: face.B, B: face.C),
+                (A: face.C, B: face.A)))
+            .GroupBy(static edge => (Math.Min(edge.A, edge.B), Math.Max(edge.A, edge.B)))
+            .Filter(static group => group.Count() == 1)
+            .Map(static group => group.First())
+            .ToSeq();
+        return boundary.Count >= 3
+            ? BoundaryRegions(boundary, island, tolerance, Seq<Loop>())
+            : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island:{island.Chart}").ToError());
+    }
+
+    private static Fin<Seq<Loop>> BoundaryRegions(
+        Seq<(int A, int B)> remaining,
+        UvIsland island,
+        Context tolerance,
+        Seq<Loop> regions) =>
+        remaining.IsEmpty
+            ? Fin.Succ(regions)
+            : from cycle in BoundaryCycle(remaining, island.Chart)
+              from loop in Loop.Admit(cycle.Vertices.Map(index => Planar(island.Uv[index])).ToArr(), closed: true, Arr<double>(), tolerance)
+              from result in BoundaryRegions(
+                  remaining.Filter(edge => !cycle.Edges.Contains(Normalize(edge))),
+                  island,
+                  tolerance,
+                  regions.Add(loop))
+              select result;
+
+    private static Fin<(Seq<int> Vertices, Set<(int A, int B)> Edges)> BoundaryCycle(
+        Seq<(int A, int B)> boundary,
+        ChartId chart) =>
+        boundary.Head
+            .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
+            .Bind(seed => AdvanceBoundary(boundary, chart, seed.A, seed.B, Seq(seed.A), Set(Normalize(seed))));
+
+    private static Fin<(Seq<int> Vertices, Set<(int A, int B)> Edges)> AdvanceBoundary(
+        Seq<(int A, int B)> boundary,
+        ChartId chart,
+        int origin,
+        int current,
+        Seq<int> vertices,
+        Set<(int A, int B)> used) =>
+        current == origin
+            ? vertices.Count >= 3
+                ? Fin.Succ((vertices, used))
+                : Fin.Fail<(Seq<int>, Set<(int, int)>)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
+            : used.Count > boundary.Count
+                ? Fin.Fail<(Seq<int>, Set<(int, int)>)>(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-cycle:{chart}").ToError())
+                : from edge in boundary
+                      .Filter(edge => !used.Contains(Normalize(edge)) && (edge.A == current || edge.B == current))
+                      .OrderBy(edge => (edge.A == current ? edge.B : edge.A) == origin ? 1 : 0)
+                      .HeadOrNone()
+                      .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, $"flat:island-open:{chart}").ToError())
+                  from cycle in AdvanceBoundary(
+                      boundary,
+                      chart,
+                      origin,
+                      edge.A == current ? edge.B : edge.A,
+                      vertices.Add(current),
+                      used.Add(Normalize(edge)))
+                  select cycle;
+
+    private static (int A, int B) Normalize((int A, int B) edge) =>
+        edge.A <= edge.B ? edge : (edge.B, edge.A);
+
+    private static Fin<Loop> Transform(Loop loop, Func<Point3d, Point3d> apply) =>
+        Loop.Admit(loop.Vertices.Map(apply).ToArr(), loop.Closed, loop.Bulges, loop.Tolerance);
+
+    private static Point3d Planar(Point2d point) => new(point.X, point.Y, 0.0);
+
+    private static byte[] Canonical(UnfoldResult unfold, Seq<BendStep> bends) {
+        using ArrayPoolBufferWriter<byte> writer = new();
+        Write(writer, unfold.ThicknessMm);
+        Write(writer, unfold.Material.Family.Key);
+        Write(writer, unfold.Material.Identity.Grade);
+        Write(writer, unfold.Forming.TensileRm);
+        Write(writer, unfold.Forming.KFactor);
+        Write(writer, unfold.Forming.SpringbackRatio);
+        Write(writer, unfold.Forming.MinBendRadiusFactor);
+        Write(writer, unfold.Forming.FlowStressMpa);
+        Write(writer, unfold.Forming.LimitStrain);
+        Write(writer, unfold.Forming.Evidence);
+        Write(writer, unfold.Flat.Count);
+        unfold.Flat.Iter(loop => Write(writer, loop));
+        Write(writer, unfold.Bends.Count);
+        unfold.Bends.Iter(bend => {
+            Write(writer, bend.Index);
+            Write(writer, bend.Line.A); Write(writer, bend.Line.B);
+            Write(writer, bend.Parent); Write(writer, bend.Child);
+            Write(writer, bend.AngleDeg); Write(writer, bend.InsideRadiusMm); Write(writer, bend.K);
+            Write(writer, bend.Projection.AllowanceMm); Write(writer, bend.Projection.SetbackMm);
+            Write(writer, bend.Projection.DeductionMm); Write(writer, bend.Projection.NeutralShiftMm);
+            Write(writer, bend.Form);
+            Write(writer, bend.Prerequisites.Count);
+            bend.Prerequisites.Order().Iter(prerequisite => Write(writer, prerequisite));
+        });
+        Write(writer, unfold.Evidence.Features.Count);
+        unfold.Evidence.Features.Iter(feature => {
+            Write(writer, feature.Form);
+            Write(writer, feature.DevelopedMm);
+            Write(writer, feature.PeakStrain);
+        });
+        Write(writer, unfold.Evidence.Reliefs.Count);
+        unfold.Evidence.Reliefs.Iter(relief => {
+            Write(writer, relief.At); Write(writer, relief.Along.X); Write(writer, relief.Along.Y); Write(writer, relief.Along.Z);
+            Write(writer, relief.Inward.X); Write(writer, relief.Inward.Y); Write(writer, relief.Inward.Z);
+            Write(writer, relief.WidthMm); Write(writer, relief.DepthMm); Write(writer, relief.InsideRadiusMm);
+            Write(writer, relief.Meeting.Count);
+            relief.Meeting.Order().Iter(bend => Write(writer, bend));
+            Write(writer, relief.ExistingClearance ? 1 : 0);
+        });
+        Write(writer, unfold.Evidence.Isometry.IsSome ? 1 : 0);
+        unfold.Evidence.Isometry.Iter(receipt => {
+            Write(writer, receipt.Strips); Write(writer, receipt.Rulings);
+            Write(writer, receipt.MaxIsometry); Write(writer, receipt.MeanIsometry); Write(writer, receipt.MaxTorsal);
+            Write(writer, receipt.Components);
+        });
+        Write(writer, unfold.Evidence.Panels.Count);
+        unfold.Evidence.Panels.Iter(panel => {
+            Write(writer, panel.Panel); Write(writer, panel.Boundary);
+        });
+        Write(writer, unfold.Evidence.NeutralAxis.Count);
+        unfold.Evidence.NeutralAxis.Iter(row => {
+            Write(writer, row.Bend); Write(writer, row.ShiftMm);
+        });
+        Write(writer, unfold.Evidence.Topology.Fill.Key);
+        Write(writer, unfold.Evidence.Topology.Tolerance.Absolute.Value);
+        Write(writer, unfold.Evidence.Topology.Plane);
+        Write(writer, unfold.Evidence.Topology.Nodes.Count);
+        unfold.Evidence.Topology.Nodes.Iter(node => {
+            Write(writer, node.Index);
+            Write(writer, node.Parent.IsSome ? 1 : 0);
+            node.Parent.Iter(parent => Write(writer, parent));
+            Write(writer, node.Depth); Write(writer, node.IsHole ? 1 : 0);
+            Write(writer, node.Boundary); Write(writer, node.SignedArea);
+        });
+        Write(writer, bends.Count);
+        bends.Iter(bend => {
+            Write(writer, bend.Line.A); Write(writer, bend.Line.B);
+            Write(writer, bend.Order); Write(writer, bend.AngleDeg); Write(writer, bend.RadiusMm);
+            Write(writer, bend.KFactor); Write(writer, bend.OverbendDeg); Write(writer, bend.TonnageKn);
+            Write(writer, bend.Orientation.Key);
         });
         return writer.WrittenSpan.ToArray();
     }
 
-    static void WriteCount(System.Buffers.ArrayBufferWriter<byte> writer, int count) {
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), count);
-        writer.Advance(4);
+    private static void Write(ArrayPoolBufferWriter<byte> writer, int value) {
+        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(sizeof(int)), value);
+        writer.Advance(sizeof(int));
     }
 
-    static void WriteDouble(System.Buffers.ArrayBufferWriter<byte> writer, double value) {
-        System.Buffers.Binary.BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(8), value);
-        writer.Advance(8);
+    private static void Write(ArrayPoolBufferWriter<byte> writer, double value) {
+        BinaryPrimitives.WriteDoubleLittleEndian(writer.GetSpan(sizeof(double)), value);
+        writer.Advance(sizeof(double));
     }
 
-    // Forming's ONE physics accessor composes the canonical grade-and-process budget fold; a wrong modality or
-    // missing grade row remains on the typed rail, and every downstream projection reads the same receipt.
-    internal static Fin<ProcessBudget.Formed> FormedRow(MaterialSpec material, ProcessKind process) =>
-        ProcessPhysics.Budget(process, material, None, None).Bind(static budget => budget is ProcessBudget.Formed formed
-            ? Fin.Succ(formed)
-            : Fin.Fail<ProcessBudget.Formed>(GeometryFault.DegenerateInput("flat-pattern:formed-budget").ToError()));
-
-    // The (A,R,T,K) algebra over |angle|: BA along the neutral fiber, OSSB to the mold-line apex, BD the
-    // per-bend flat shrink; the angle SIGN is direction and never enters the magnitude algebra.
-    public static BendProjection Project(double angleDeg, double insideRadiusMm, double thicknessMm, double k) {
-        double a = Math.Abs(angleDeg);
-        double ba = Math.PI / 180.0 * a * (insideRadiusMm + (k * thicknessMm));
-        double ossb = Math.Tan(a * Math.PI / 360.0) * (insideRadiusMm + thicknessMm);
-        double bd = (2.0 * ossb) - ba;
-        return new BendProjection(ba, bd, ossb, -bd);
+    private static void Write(ArrayPoolBufferWriter<byte> writer, string value) {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(value);
+        Write(writer, bytes.Length);
+        bytes.CopyTo(writer.GetSpan(bytes.Length));
+        writer.Advance(bytes.Length);
     }
 
-    public static double YFactor(double k) => k * Math.PI / 2.0;
-
-    // DIN 6935 correction k = 0.65 + 0.5·log10(R/T) capped at 1; neutral line at (T/2)·k ⇒ K = k/2.
-    public static double KDin6935(double insideRadiusMm, double thicknessMm) =>
-        Math.Clamp(0.65 + (0.5 * Math.Log10(insideRadiusMm / thicknessMm)), 0.5, 1.0) / 2.0;
-
-    // Coupon inverse: BA_measured = flat − Σ(flange − OSSB); K = (BA·180/(π·A) − R)/T. The result rides
-    // FormPolicy.CouponK — solved once, read by the coupon-back-solve row per bend.
-    public static Fin<double> SolveK(double measuredFlatMm, Arr<double> flangeMm, double angleDeg, double insideRadiusMm, double thicknessMm) {
-        double a = Math.Abs(angleDeg);
-        double ossb = Math.Tan(a * Math.PI / 360.0) * (insideRadiusMm + thicknessMm);
-        double ba = measuredFlatMm - flangeMm.Sum(f => f - ossb);
-        double k = ((ba * 180.0 / (Math.PI * a)) - insideRadiusMm) / thicknessMm;
-        return a is > 0.0 and < 175.0 && thicknessMm > 0.0 && insideRadiusMm >= 0.0 && double.IsFinite(k) && k is > 0.0 and < 1.0
-            ? Fin.Succ(k)
-            : Fin.Fail<double>(GeometryFault.DegenerateInput($"flat-pattern:coupon-k:{k:0.###}").ToError());
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Point3d point) {
+        Write(writer, point.X); Write(writer, point.Y); Write(writer, point.Z);
     }
 
-    // ONE fold, two lanes discriminated by the FormSource case: Surface (kernel Unroll overlay — islands are
-    // the flat, LayoutParent rulings the bend lines, BA substituted per station) and Profile/Component
-    // (analytic BendSeed projection). Every lane exits through relief subtraction and the grain-aware radius gate.
-    public static Fin<UnfoldResult> Unfold(FormPolicy policy, FabricationInput input) =>
-        Valid(policy) && input.Process is not null
-        ? FormedRow(policy.Material, input.Process).Bind(formed =>
-            policy.Source.Switch(
-                state: (Policy: policy, Input: input, Formed: formed),
-                profile: static (s, p) => ProfileLane(s.Input.Profiles, p.Bends, s.Policy.ThicknessMm, s.Policy, s.Formed),
-                component: static (s, c) => c.Admitted.SheetThicknessMm.Map(t => Math.Abs(t - s.Policy.ThicknessMm) <= ThicknessMatchMm).IfNone(true)
-                    ? ProfileLane(c.Admitted.Profiles, c.Bends, s.Policy.ThicknessMm, s.Policy, s.Formed)
-                    : Fin.Fail<UnfoldResult>(GeometryFault.DegenerateInput("flat-pattern:thickness-conflict").ToError()),
-                surface: static (s, src) => SurfaceLane(src.Source, src.Bends, s.Policy, s.Formed))
-            .Bind(r => Relieved(r, policy.Relief))
-            .Bind(r => GateRadii(r, formed.MinBendRadiusFactor, policy.Grain)))
-        : Fin.Fail<UnfoldResult>(GeometryFault.DegenerateInput("flat-pattern:policy").ToError());
-
-    // Surface lane: Development.Apply(Unroll) is the ONLY planar-yielding kernel op; the develop policy threads
-    // verified kernel knobs resolved from thickness, never a kernel-side default literal. Islands → flat Loops;
-    // source-identity annotations → BendLines with K resolved per edge and BA substituted at the placed edge.
-    static Fin<UnfoldResult> SurfaceLane(SurfaceResult.UvTessellation source, Seq<SurfaceBendSeed> seeds, FormPolicy policy, ProcessBudget.Formed formed) =>
-        Development.Apply(new DevelopOp.Unroll(source, policy.Development)).Bind(dev => dev.Switch(
-            state: (Source: source, Seeds: seeds, Policy: policy, Formed: formed),
-            strips: static (_, _) => Fin.Fail<UnfoldResult>(GeometryFault.DegenerateInput("flat-pattern:unroll-shape").ToError()),
-            unrolled: static (s, u) =>
-                InvalidLayout(u.Field) is var malformed && malformed > 0
-                    ? Fin.Fail<UnfoldResult>(FabricationFault.UnfoldInfeasible(u.Field.RailOffsets.Count, malformed).ToError())
-                    : u.Receipt.MaxIsometry > s.Policy.MaxIsometry || u.Receipt.MaxTorsal > s.Policy.MaxTorsal
-                        ? Fin.Fail<UnfoldResult>(FabricationFault.UnfoldInfeasible(u.Field.RailOffsets.Count, Branches(u.Field)).ToError())
-                        : u.Atlas.Islands
-                            .Traverse(island => IslandLoops(island, s.Source.Mesh.Tolerance))
-                            .Bind(flat => s.Seeds
-                                .Traverse(seed => SurfaceAnnotated(seed, u.Atlas.Islands, s.Policy.ThicknessMm, s.Policy, s.Formed))
-                                .Map(bends => new UnfoldResult([.. flat.Bind(identity)], bends, s.Policy.ThicknessMm, s.Policy.Material, s.Formed, Some(u.Receipt))))));
-
-    // Profile lane: BendSeed rows are flange-true — pure Resolve + Project arithmetic; a seed at the hem floor
-    // takes the HemKind allowance in place of BA; a seed without a radius takes the physics floor radius.
-    static Fin<UnfoldResult> ProfileLane(Arr<Loop> profiles, Seq<BendSeed> seeds, double thickness, FormPolicy policy, ProcessBudget.Formed formed) =>
-        profiles.IsEmpty || !profiles.ForAll(static profile => profile.Closed)
-            || !profiles.Tail.ForAll(profile => profile.Tolerance == profiles.Head.Tolerance)
-            ? Fin.Fail<UnfoldResult>(FabricationFault.OpenLoop(FabConcern.Form, profiles.ToSeq()
-                .Map(static (loop, index) => (loop.Closed, Index: index))
-                .Filter(static row => !row.Closed)
-                .HeadOrNone().Map(static row => row.Index).IfNone(0)).ToError())
-            : seeds.Traverse(seed => Annotated(seed, thickness, policy, formed))
-                .Map(bends => new UnfoldResult(profiles, bends, thickness, policy.Material, formed, None));
-
-    static Fin<BendLine> Annotated(BendSeed seed, double t, FormPolicy policy, ProcessBudget.Formed formed) {
-        double radius = seed.RadiusMm.IfNone(formed.MinBendRadiusFactor * t);
-        double length = seed.Line.A.DistanceTo(seed.Line.B);
-        return !double.IsFinite(length) || length <= 1e-9 || !double.IsFinite(seed.AngleDeg)
-            || Math.Abs(seed.AngleDeg) is <= 0.0 or > 180.0 || !double.IsFinite(radius) || radius < 0.0
-            ? Fin.Fail<BendLine>(GeometryFault.DegenerateInput("flat-pattern:bend-seed").ToError())
-            : policy.KSource.Resolve(new KQuery(policy.Material, policy.Method, radius, t, policy.KFactors, policy.CouponK, formed.KFactor))
-                .Bind(k => !double.IsFinite(k) || k is <= 0.0 or >= 1.0
-                    ? Fin.Fail<BendLine>(GeometryFault.DegenerateInput($"flat-pattern:k:{k:0.###}").ToError())
-                    : Fin.Succ(new BendLine(
-                        seed.Line, seed.AngleDeg, radius, k,
-                        Math.Abs(seed.AngleDeg) >= HemAngleFloorDeg ? policy.Hem.Allowance(t, radius, k) : Project(seed.AngleDeg, radius, t, k).BaMm,
-                        seed.Prerequisites)));
+    private static void Write(ArrayPoolBufferWriter<byte> writer, Loop loop) {
+        Write(writer, loop.Count);
+        Write(writer, loop.Closed ? 1 : 0);
+        Write(writer, loop.Tolerance.Absolute.Value);
+        loop.Vertices.Iter(point => Write(writer, point));
+        loop.Bulges.Iter(bulge => Write(writer, bulge));
     }
 
-    static Fin<BendLine> SurfaceAnnotated(SurfaceBendSeed seed, Seq<UvIsland> islands, double t, FormPolicy policy, ProcessBudget.Formed formed) =>
-        islands
-            .Choose(island => LocalIndex(island, seed.SourceA).Bind(a => LocalIndex(island, seed.SourceB).Map(b => (Island: island, A: a, B: b))))
-            .HeadOrNone()
-            .ToFin(FabricationFault.UnfoldInfeasible(islands.Count, 0).ToError())
-            .Bind(found => Annotated(
-                new BendSeed(new Edge3(Planar(found.Island.Uv[found.A]), Planar(found.Island.Uv[found.B])), seed.AngleDeg, seed.RadiusMm, seed.Prerequisites),
-                t, policy, formed));
-
-    static Option<int> LocalIndex(UvIsland island, int sourceVertex) =>
-        toSeq(Enumerable.Range(0, island.Vertices.Count)).Filter(i => island.Vertices[i] == sourceVertex).HeadOrNone();
-
-    static Point3d Planar(Point2d uv) => new(uv.X, uv.Y, 0.0);
-
-    static Fin<UnfoldResult> Relieved(UnfoldResult result, ReliefKind relief) =>
-        result.Flat.IsEmpty
-            ? Fin.Fail<UnfoldResult>(GeometryFault.DegenerateInput("flat-pattern:empty-flat").ToError())
-            : Corners(result) is var corners && corners.IsEmpty
-                ? Fin.Succ(result)
-                : corners.Traverse(corner => ReliefLoop(corner, result.ThicknessMm, relief, result.Flat.Head.Tolerance))
-                    .Bind(cuts => PolygonAlgebra.Clip(toSeq(result.Flat), cuts, ClipOp.Difference))
-                    .Map(cut => result with { Flat = [.. cut] });
-
-    // Relief geometry: width = max(T, factor·T), depth = BA/2 + clearance·T at each pair of bend lines whose
-    // endpoints meet inside the flat — the ONE Clip difference; hand-stitched vertex surgery is the deleted form.
-    static Fin<Loop> ReliefLoop((Point3d At, BendLine A, BendLine B) corner, double t, ReliefKind relief, Context tolerance) =>
-        relief.Cut(new ReliefSeat(corner.At, Math.Max(t, relief.WidthFactor * t), ((corner.A.BaMm + corner.B.BaMm) / 4.0) + (relief.DepthClearance * t)), tolerance);
-
-    static Seq<(Point3d At, BendLine A, BendLine B)> Corners(UnfoldResult result) =>
-        toSeq(Enumerable.Range(0, result.Bends.Count)).Bind(i =>
-            toSeq(Enumerable.Range(i + 1, result.Bends.Count - i - 1))
-                .Filter(j => Meets(result.Bends[i].Line, result.Bends[j].Line))
-                .Map(j => (Meet(result.Bends[i].Line, result.Bends[j].Line), result.Bends[i], result.Bends[j])));
-
-    // Radius gate every lane exits through: floor = factor·T, scaled by the grain penalty when the bend line
-    // runs within 45° of the rolling direction; the first violating bend routes 2743 with its index.
-    static Fin<UnfoldResult> GateRadii(UnfoldResult result, double minRadiusFactor, Option<GrainLaw> grain) =>
-        result.Bends
-            .Map((b, i) => (Index: i, Bend: b, Floor: minRadiusFactor * result.ThicknessMm * GrainScale(b, grain)))
-            .Filter(row => row.Bend.InsideRadiusMm < row.Floor)
-            .HeadOrNone()
-            .Match(
-                Some: row => Fin.Fail<UnfoldResult>(FabricationFault.MinBendRadiusViolated(row.Index, row.Bend.InsideRadiusMm, row.Floor).ToError()),
-                None: () => Fin.Succ(result));
-
-    static double GrainScale(BendLine bend, Option<GrainLaw> grain) =>
-        grain.Map(g => AngleTo(bend.Line, g.AngleDeg) is var a
-            ? a <= 22.5 ? g.ParallelPenalty : a >= 67.5 ? g.TransversePenalty : g.DiagonalPenalty
-            : 1.0).IfNone(1.0);
-
-    // --- [STATION_KERNELS]
-    // Small declared kernels — every member the lanes reach resolves HERE; a named-but-bodiless helper is the
-    // fence defect this page forecloses.
-    // LayoutParent is a directed forest projection: branching is valid, while invalid parents, self-parenting,
-    // and longer cycles are not. QuikGraph owns the cycle predicate; this overlay only projects kernel rows.
-    static int InvalidLayout(StripField field) {
-        Seq<(int Parent, int Strip)> rows = field.LayoutParent.ToSeq().Map((parent, strip) => (parent, strip));
-        int malformed = rows.Count(row => row.Parent < -1 || row.Parent >= field.LayoutParent.Count || row.Parent == row.Strip);
-        if (malformed > 0)
-            return malformed;
-        AdjacencyGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(Enumerable.Range(0, field.LayoutParent.Count));
-        rows.Filter(static row => row.Parent >= 0).Iter(row => graph.AddEdge(new SEdge<int>(row.Strip, row.Parent)));
-        return graph.IsDirectedAcyclicGraph() ? 0 : 1;
+    private static void Write(ArrayPoolBufferWriter<byte> writer, BudgetEvidence evidence) {
+        Write(writer, evidence.State.TemperatureC); Write(writer, evidence.State.Hardness);
+        Write(writer, evidence.State.StrainRate); Write(writer, evidence.State.Strain);
+        Write(writer, evidence.State.MoistureFraction); Write(writer, evidence.State.GrainSizeUm);
+        Write(writer, evidence.PowerW);
+        Write(writer, evidence.Energy.Joules.IsSome ? 1 : 0);
+        evidence.Energy.Joules.Iter(value => Write(writer, value));
+        Write(writer, evidence.Energy.Seconds.IsSome ? 1 : 0);
+        evidence.Energy.Seconds.Iter(value => Write(writer, value));
+        Write(writer, evidence.Material.Family.Key); Write(writer, evidence.Material.Identity.Grade);
     }
 
-    static int Branches(StripField field) =>
-        field.LayoutParent.ToSeq().Filter(static parent => parent >= 0).GroupBy(static parent => parent).Count(static children => children.Count() > 1);
-
-    // Boundary edges form a degree-two undirected graph. ConnectedComponents preserves holes as independent
-    // loops, adjacency orders each cycle, and the surviving face-edge direction restores outer/hole winding.
-    static Fin<Seq<Loop>> IslandLoops(UvIsland island, Context tolerance) {
-        Seq<(SEdge<int> Edge, int From, int To)> boundary = toSeq(island.Faces)
-            .Bind(static f => Seq(
-                (From: f.A, To: f.B, A: Math.Min(f.A, f.B), B: Math.Max(f.A, f.B)),
-                (From: f.B, To: f.C, A: Math.Min(f.B, f.C), B: Math.Max(f.B, f.C)),
-                (From: f.C, To: f.A, A: Math.Min(f.C, f.A), B: Math.Max(f.C, f.A))))
-            .GroupBy(static edge => (edge.A, edge.B))
-            .Filter(static group => group.Count() == 1)
-            .Map(static group => {
-                (int From, int To, int A, int B) edge = group.First();
-                return (Edge: new SEdge<int>(group.Key.A, group.Key.B), edge.From, edge.To);
-            })
-            .ToSeq();
-        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(boundary.Bind(static row => Seq(row.Edge.Source, row.Edge.Target)).Distinct());
-        boundary.Iter(row => graph.AddEdge(row.Edge));
-        if (graph.VertexCount < 3 || graph.Vertices.Any(vertex => graph.AdjacentDegree(vertex) != 2))
-            return Fin.Fail<Seq<Loop>>(GeometryFault.DegenerateInput($"flat-pattern:island-boundary:{island.Chart}").ToError());
-        Dictionary<int, int> componentOf = new();
-        int components = graph.ConnectedComponents(componentOf);
-        return toSeq(Enumerable.Range(0, components)).Traverse(component => BoundaryLoop(island, graph, boundary, componentOf, component, tolerance));
+    private static void Write(ArrayPoolBufferWriter<byte> writer, SheetForm form) {
+        _ = form.Switch<ArrayPoolBufferWriter<byte>, Unit>(
+            state: writer,
+            bend: static (target, _) => {
+                Write(target, nameof(SheetForm.Bend)); return unit;
+            },
+            hem: static (target, value) => {
+                Write(target, nameof(SheetForm.Hem)); Write(target, value.Kind.Key); Write(target, value.Gap.Millimeters); return unit;
+            },
+            jog: static (target, value) => {
+                Write(target, nameof(SheetForm.Jog)); Write(target, value.Offset.Millimeters); Write(target, value.Spacing.Millimeters); return unit;
+            },
+            curl: static (target, value) => {
+                Write(target, nameof(SheetForm.Curl)); Write(target, value.InsideRadius.Millimeters); Write(target, value.Sweep.Radians); return unit;
+            },
+            bead: static (target, value) => {
+                Write(target, nameof(SheetForm.Bead)); Write(target, value.Path); Write(target, value.Width.Millimeters); Write(target, value.Depth.Millimeters); return unit;
+            },
+            louver: static (target, value) => {
+                Write(target, nameof(SheetForm.Louver)); Write(target, value.Aperture); Write(target, value.Height.Millimeters); Write(target, value.Opening.Radians); return unit;
+            },
+            emboss: static (target, value) => {
+                Write(target, nameof(SheetForm.Emboss)); Write(target, value.Footprint); Write(target, value.Height.Millimeters); Write(target, value.Draft.Radians); return unit;
+            },
+            dimple: static (target, value) => {
+                Write(target, nameof(SheetForm.Dimple)); Write(target, value.Footprint); Write(target, value.Depth.Millimeters); Write(target, value.ToolRadius.Millimeters); return unit;
+            });
     }
 
-    static Fin<Loop> BoundaryLoop(UvIsland island, UndirectedGraph<int, SEdge<int>> graph, Seq<(SEdge<int> Edge, int From, int To)> boundary, Dictionary<int, int> componentOf, int component, Context tolerance) {
-        int start = componentOf.Where(static row => row.Value >= 0).Where(row => row.Value == component).Min(static row => row.Key);
-        List<int> cycle = [start];
-        int prior = -1, current = start, guard = 0;
-        do {
-            int next = graph.AdjacentEdges(current)
-                .Select(edge => edge.Source == current ? edge.Target : edge.Source)
-                .First(vertex => vertex != prior);
-            prior = current;
-            current = next;
-            if (current != start) cycle.Add(current);
-        } while (current != start && guard++ <= graph.VertexCount);
-        IEnumerable<int> oriented = cycle.Count >= 2 && boundary.Exists(row => row.From == cycle[0] && row.To == cycle[1])
-            ? cycle
-            : cycle.AsEnumerable().Reverse();
-        return current == start && cycle.Count >= 3
-            ? Loop.Admit([.. oriented.Select(vertex => Planar(island.Uv[vertex]))], closed: true, Arr<double>(), tolerance)
-            : Fin.Fail<Loop>(GeometryFault.DegenerateInput($"flat-pattern:island-cycle:{island.Chart}:{component}").ToError());
+    private sealed record SheetAssembly(
+        Arr<Loop> Flat,
+        Seq<BendLine> Bends,
+        Seq<SheetForm> Features,
+        Option<DevelopmentReceipt> Isometry,
+        Seq<PanelRegion> Panels);
+
+    private sealed record PanelState(Arr<Loop> Panels, Arr<Loop> Flat, HashMap<int, PlanarPlacement> Placement) {
+        public static PanelState Start(Arr<Loop> panels, int root) => new(panels, panels, HashMap((root, PlanarPlacement.Identity)));
     }
 
-    // Exact corner probe: two bend segments meet when each straddles the other's carrier — four Orient2D signs,
-    // the kernel exact floor, never a float epsilon.
-    static bool Meets(Edge3 p, Edge3 q) =>
-        Predicate.Orient2D(p.A, p.B, q.A) != Predicate.Orient2D(p.A, p.B, q.B)
-        && Predicate.Orient2D(q.A, q.B, p.A) != Predicate.Orient2D(q.A, q.B, p.B);
+    private readonly record struct PlanarPlacement(double Cos, double Sin, double Tx, double Ty) {
+        public static readonly PlanarPlacement Identity = new(1.0, 0.0, 0.0, 0.0);
 
-    static Point3d Meet(Edge3 p, Edge3 q) {
-        double d = ((p.B.X - p.A.X) * (q.B.Y - q.A.Y)) - ((p.B.Y - p.A.Y) * (q.B.X - q.A.X));
-        double s = (((q.A.X - p.A.X) * (q.B.Y - q.A.Y)) - ((q.A.Y - p.A.Y) * (q.B.X - q.A.X))) / d;
-        return new Point3d(p.A.X + (s * (p.B.X - p.A.X)), p.A.Y + (s * (p.B.Y - p.A.Y)), 0.0);
+        public Point3d Apply(Point3d point) => new(
+            (Cos * point.X) - (Sin * point.Y) + Tx,
+            (Sin * point.X) + (Cos * point.Y) + Ty,
+            point.Z);
+
+        public Edge3 Apply(Edge3 edge) => new(Apply(edge.A), Apply(edge.B));
+
+        public static Fin<PlanarPlacement> Between(Edge3 source, Edge3 target, double gap) {
+            Vector3d from = source.B - source.A;
+            Vector3d to = target.A - target.B;
+            if (!from.Unitize() || !to.Unitize())
+                return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "flat:panel-edge").ToError());
+            double cos = (from * to) / (from.Length * to.Length);
+            double sin = Vector3d.CrossProduct(from, to).Z;
+            Vector3d normal = new(-to.Y, to.X, 0.0);
+            Point3d rotated = new((cos * source.A.X) - (sin * source.A.Y), (sin * source.A.X) + (cos * source.A.Y), source.A.Z);
+            Vector3d shift = target.B - rotated + (normal * gap);
+            return Fin.Succ(new PlanarPlacement(cos, sin, shift.X, shift.Y));
+        }
     }
-
-    static double AngleTo(Edge3 line, double grainAngleDeg) {
-        double lineDeg = Math.Atan2(line.B.Y - line.A.Y, line.B.X - line.A.X) * 180.0 / Math.PI;
-        double delta = Math.Abs(lineDeg - grainAngleDeg) % 180.0;
-        return Math.Min(delta, 180.0 - delta);
-    }
-
-    internal static Fin<Loop> RectangularRelief(ReliefSeat seat, Context tolerance) =>
-        Loop.Admit(Arr(
-            new Point3d(seat.At.X - (seat.WidthMm / 2.0), seat.At.Y - (seat.DepthMm / 2.0), 0.0),
-            new Point3d(seat.At.X + (seat.WidthMm / 2.0), seat.At.Y - (seat.DepthMm / 2.0), 0.0),
-            new Point3d(seat.At.X + (seat.WidthMm / 2.0), seat.At.Y + (seat.DepthMm / 2.0), 0.0),
-            new Point3d(seat.At.X - (seat.WidthMm / 2.0), seat.At.Y + (seat.DepthMm / 2.0), 0.0)), closed: true, Arr<double>(), tolerance);
-
-    internal static Fin<Loop> ObroundRelief(ReliefSeat seat, Context tolerance) =>
-        Loop.Admit([.. Generate.LinearSpacedMap(17, 0.0, 2.0 * Math.PI, a => new Point3d(
-            seat.At.X + ((seat.WidthMm / 2.0) * Math.Cos(a)),
-            seat.At.Y + ((seat.DepthMm / 2.0) * Math.Sin(a)), 0.0)).Take(16)], closed: true, Arr<double>(), tolerance);
-
-    internal static Fin<Loop> TearRelief(ReliefSeat seat, Context tolerance) =>
-        Loop.Admit(Arr(
-            new Point3d(seat.At.X, seat.At.Y - (seat.DepthMm / 2.0), 0.0),
-            new Point3d(seat.At.X + (seat.WidthMm / 2.0), seat.At.Y, 0.0),
-            new Point3d(seat.At.X, seat.At.Y + (seat.DepthMm / 2.0), 0.0),
-            new Point3d(seat.At.X - (seat.WidthMm / 2.0), seat.At.Y, 0.0)), closed: true, Arr<double>(), tolerance);
-
-    static bool Valid(FormPolicy policy) =>
-        policy is not null && policy.Source is not null && policy.Material is not null && policy.KSource is not null
-        && policy.Method is not null && policy.Punch is not null && policy.Relief is not null && policy.Hem is not null
-        && (policy.Source switch {
-            FormSource.Surface surface => surface.Source is not null,
-            FormSource.Component component => component.Admitted is not null,
-            FormSource.Profile => true,
-            _ => false,
-        })
-        && policy.KFactors is not null && policy.ThicknessMm > 0.0 && double.IsFinite(policy.ThicknessMm)
-        && policy.MaxIsometry >= 0.0 && double.IsFinite(policy.MaxIsometry)
-        && policy.MaxTorsal >= 0.0 && double.IsFinite(policy.MaxTorsal)
-        && policy.Development.IsValid && !policy.KFactors.Rows.IsEmpty
-        && policy.KFactors.Rows.ForAll(static row => row.Material is not null && row.Method is not null
-            && row.RtLow >= 0.0 && row.RtHigh > row.RtLow
-            && double.IsFinite(row.RtLow) && !double.IsNaN(row.RtHigh) && row.K is > 0.0 and < 1.0 && double.IsFinite(row.K))
-        && policy.KFactors.Rows.GroupBy(static row => (row.Material, row.Grade, row.Method)).ForAll(static group => {
-            double[] stations = [.. group.OrderBy(static row => row.RtLow).Select(static row => (row.RtLow + Math.Min(row.RtHigh, KFactorTable.StationCeilingRt)) / 2.0)];
-            return stations.Length < 3 || stations.Zip(stations.Skip(1)).All(static pair => pair.First < pair.Second);
-        })
-        && policy.KFactors.Rows.ForAll(static row => row.Grade.ForAll(static grade => !string.IsNullOrWhiteSpace(grade)))
-        && policy.CouponK.ForAll(static k => k is > 0.0 and < 1.0 && double.IsFinite(k))
-        && policy.DieWidthFactor.ForAll(static factor => factor > 0.0 && double.IsFinite(factor))
-        && policy.Grain.ForAll(static grain => double.IsFinite(grain.AngleDeg)
-            && grain.ParallelPenalty > 0.0 && double.IsFinite(grain.ParallelPenalty)
-            && grain.DiagonalPenalty > 0.0 && double.IsFinite(grain.DiagonalPenalty)
-            && grain.TransversePenalty > 0.0 && double.IsFinite(grain.TransversePenalty));
 }
-```
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Flat-pattern projection spine
-    accDescr: Surface and analytic bend annotations enter one policy and physics governed unfold fold that emits a flat and ordered bend lines for brake planning.
-    Surface[/Surface source and source-edge bends/] --> Unfold[[FlatPattern.Unfold]]
-    Analytic[/Profile or component bend seeds/] --> Unfold
-    Policy[(FormPolicy calibration and development)] --> Unfold
-    Physics[(Forming physics)] --> Unfold
-    Unfold --> Result([UnfoldResult])
-    Result --> Brake[[BendSequence.Plan]]
-    Result --> Nest[[Nesting admission]]
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    class Surface,Analytic,Result boundary
-    class Unfold,Brake,Nest primary
-    class Policy,Physics data
 ```
