@@ -1,15 +1,12 @@
 ---
 name: docgen
 description: >-
-    Owns durable agent-facing prose wherever it lives — markdown files and the comments inside
-    source files and fences — through one register, altitude and one-owner-per-fact law, an
-    anti-anchoring rule against rosters, counts, and freezes, a named defect catalog, file-kind
-    templates, and a deterministic gate and fixer. Use when authoring, editing, reviewing, or
-    rebuilding a README, ARCHITECTURE, spec, standard, card ledger, API catalog, prompt, tool
-    doc, or the prose inside a skill; when designing a document schema or marker vocabulary;
-    when pruning code comments; or on "clean up this doc", "tighten the prose", "this doc is
-    stale". Bundle design — triggers, disclosure, evals — belongs to skill-writer. Silent where
-    the deliverable is not a durable doc.
+    Owns all prose, markdown files and the comments inside source files and fences
+    through one register, an anti-anchoring rule against rosters, counts, and freezes,
+    a named defect catalog, file-kind templates, and a deterministic gate and fixer.
+    Use when authoring, editing, reviewing, or markdown files of any kind, and comments in
+    source files; when designing a document schema or marker vocabulary; when pruning code
+    comments; or on "clean up this doc", "tighten the prose", "this doc is stale".
 ---
 
 # [DOCGEN]

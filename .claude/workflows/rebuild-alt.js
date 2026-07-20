@@ -2722,7 +2722,7 @@ const runBatch = async (b) => {
             const rt = await slot(() =>
                 agent(
                     redteamPrompt(L, half, sibling, hi + 1, dossiers, ideate, scopesFor(tag), roster, halfUnmapped, implReport, critR, lbase + '-rt', pack),
-                    wopts('rt:' + halfTag, 'Build', 'opus', RT_SCHEMA, { effort: 'xhigh' }),
+                    wopts('rt:' + halfTag, 'Build', 'opus', RT_SCHEMA),
                 ),
             ).catch(() => null);
             return { pkg: b.pkg, pages: half, fix, crit: critR, rt };
@@ -2764,7 +2764,7 @@ const built = (
                     const realize = await slot(() =>
                         agent(
                             ideasRealizePrompt(Lof(pkg), pkg, ideaFiles, scopesFor(''), pkR && pkR.ok ? lawPackPath(Lof(pkg).key) : ''),
-                            wopts('ideas:' + pkgTag(pkg), 'Build', 'opus', FIXLOG_SCHEMA, { effort: 'xhigh' }),
+                            wopts('ideas:' + pkgTag(pkg), 'Build', 'opus', FIXLOG_SCHEMA),
                         ),
                     );
                     // The realize fixlog rides the rt slot: aggregation reads rows from d.rt only (implement receipts are thin),

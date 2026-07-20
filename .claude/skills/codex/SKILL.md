@@ -1,15 +1,13 @@
 ---
 name: codex
 description: >-
-    Owns codex lanes end to end — dispatch through the MCP tool or CLI, the developer/user prompt
-    contract, model and effort choice, session resume, and `collaboration.*` fan-out. Isolated
-    write-capable lanes returning one report carry repo sweeps, audits, spec implementation,
-    migrations, fleet fix and critique waves, `codex review`, live web research, log or dataset
-    distillation, volume extraction, and a second perspective on any plan or diff. Use when
-    writing or repairing a lane prompt, choosing a model or effort tier, or when a lane returns
-    weak or incomplete work — and on "offload this", "save my usage", or any mention of codex or
-    OpenAI. Gemini and read-only multimodal judgment belong to agy; placement across Claude's own
-    surfaces to agent-dispatch.
+    Owns codex usage end to end, dispatch via MCP or CLI, the codex prompt contract,
+    model and effort choice, and session resume. Use as a write delegated sub-agent
+    when work is well defined and explicit, use as a read delegate for exploration,
+    research, and navigation, writing a durable report when a stronger model is needed
+    for deep investigation with cheap usage expense, and a second perspective on any
+    plan or diff. Use when writing or repairing a codex prompt, or codex related config,
+    and on "offload this", "save my usage", or any mention of codex.
 ---
 
 # [CODEX]

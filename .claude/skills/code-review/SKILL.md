@@ -1,12 +1,10 @@
 ---
 name: code-review
 description: >-
-    Owns the local review cycle over three engines — CodeRabbit, Greptile, Macroscope — across
-    anything they review. Deliverables are normalized findings, drained fixer lanes, the standing
-    refuted-class registry, and the reviewer configs hardened each round: `.coderabbit.yaml`,
-    `.greptile/`, `.macroscope/`. Use on any request to review, autonomously when landed work
-    warrants one, and whenever those config files are read, tuned, or authored — this skill owns
-    their schemas and rule grammar. Hosted PR reviewer round-trips belong to pr-loop.
+    Owns the local review cycle over three engines, CodeRabbit, Greptile, and Macroscope,
+    (`.coderabbit.yaml`, `.greptile/`, `.macroscope/`). Use on any request to review, and
+    whenever those config files are read, edited, or authored — this skill owns their schemas
+    and rule grammar. Hosted PR reviewer round-trips belong to pr-loop.
 ---
 
 # [CODE_REVIEW]

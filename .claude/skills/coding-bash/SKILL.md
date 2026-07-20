@@ -1,13 +1,9 @@
 ---
 name: coding-bash
 description: >-
-    Authors, hardens, reviews, and debugs Bash and POSIX shell — scripts, CLIs, container
-    and CI entrypoints, text-processing pipelines, bats-core suites, structured logging,
-    and cross-shell portability (macOS bash 3.2, dash, Alpine). Use for any .sh/.bash file,
-    ShellCheck remediation, or a Bash 5.2/5.3 feature gate — "write a shell script",
-    "fix this bash", "make a CLI wrapper", "why does this loop fail", "breaks on spaces in
-    filenames". osascript and JXA automation belongs to applescript; workflow YAML and CI/CD
-    wiring to github-actions.
+    Authors, hardens, reviews, and debugs Bash and shell scripts. Use for any
+    .sh/.bash file, or ShellCheck remediation. osascript and JXA automation
+    belongs to applescript.
 ---
 
 # [CODING_BASH]

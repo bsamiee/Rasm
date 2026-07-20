@@ -1,12 +1,11 @@
 ---
 name: agy
 description: >-
-    Gemini dispatch through Antigravity: image generation and edit iteration (Nano Banana),
-    visual judgment over images and visual artifacts, screenshots, rendered diagrams, and
-    read-only second-model critique returning taste and quality related findings. Use for
-    "generate an image", "make a mockup", "does this screenshot look right", "second
-    opinion", for competing-design synthesis, ambiguity reduction, counterexample hunts,
-    and redacted log distillation, and on any mention of Gemini, Antigravity, or Nano Banana.
+    Gemini dispatch via Antigravity: image generation and Nano Banana, visual
+    judgment of images, visual artifacts, screenshots, diagrams, and second-model
+    critique returning taste and quality related findings. Use for "generate an image",
+    "make a mockup", "visually confirm", for competing-design synthesis, visual validation,
+    counterexample hunts, and on any mention of Gemini, Antigravity, or Nano Banana.
 ---
 
 # [AGY]

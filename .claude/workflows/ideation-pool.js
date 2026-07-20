@@ -528,7 +528,7 @@ const wrapPrompt = (report, law, task, medium, minHeads) =>
     'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
     'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
     REPO +
-    '", sandbox="read-only", approval-policy="never", ' +
+    '", sandbox="danger-full-access", approval-policy="never", ' +
     (medium ? 'config={"model_reasoning_effort":"medium"}, ' : '') +
     '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE with a ' +
     'sharpened prompt — your whole recovery budget. (3) The tool result is a JSON envelope {threadId, content}; Write the CONTENT text ' +

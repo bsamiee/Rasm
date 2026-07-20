@@ -1,14 +1,13 @@
 ---
 name: coding-pg
 description: >-
-    Owns all PostgreSQL work: schema and DDL, migrations and their lock levels, set-algebraic
+    Owns PostgreSQL work: schema and DDL, migrations and lock levels, set-algebraic
     queries, functions and PL/pgSQL, indexes, RLS and tenant isolation, extensions (pgvector,
     PostGIS, TimescaleDB, pg_partman, pg_cron, pg_duckdb), logical replication and CDC, server
     tuning (vacuum, WAL, parallel query, JIT), EXPLAIN plans, wait-event and lock-contention
     diagnosis, and SQL embedded in TypeScript through @effect/sql-pg. Use when authoring,
-    reviewing, migrating, or debugging any .sql file or SQL string — "this query is slow", "add
-    an index", "write a migration", "why is this deadlocking", "design the schema", "lint my
-    SQL". Provisioning or hosting a database instance belongs to pulumi.
+    reviewing, migrating, or debugging any .sql file or SQL string and "lint my SQL".
+    Provisioning and hosting a database instance belongs to pulumi.
 ---
 
 # [CODING_PG]

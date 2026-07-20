@@ -1,13 +1,13 @@
 ---
 name: applescript
 description: >-
-    Scripted reach into macOS itself — an app's scripting dictionary, the Apple Event wire ABI
-    under it, and the Objective-C bridge opening Cocoa and Foundation to JXA. Reads and drives
-    native app state and data, resolves terminology against the installed dictionary, packages a
-    capability as an agent-callable tool returning a typed JSON envelope, embeds OSA in a Cocoa
-    host, runs unattended under launchd, ships packaged applets, and authors the sdef that makes
-    an app scriptable. Use whenever a task must inspect or change what a native app or system
-    framework owns, whenever a capability should become a reusable tool, and for writing or
+    Scripted actions in macOS — an app's scripting dictionary, Apple Event wire ABI under
+    it, and the Objective-C bridge opening Cocoa and Foundation to JXA. Drives native machine
+    and app state and data, resolves terminology via installed dictionary, provides capability
+    as an agent-callable tool returning a typed JSON envelope, embeds OSA in a Cocoa host,
+    runs unattended via launchd, ships packaged applets, and authors sdef that makes an
+    app scriptable. Use whenever interacting with macOS applications, programmatic native
+    scripting, or whenever a capability should become a reusable tool, and for writing or
     reviewing AppleScript, JXA, or `osascript`. Shell-only scripting belongs to coding-bash.
 ---
 

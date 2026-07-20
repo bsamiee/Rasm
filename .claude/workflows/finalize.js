@@ -1155,7 +1155,6 @@ const chains = await Promise.all(
                 label: 'rt:' + u.tag,
                 phase: 'Review',
                 model: 'opus',
-                effort: 'xhigh',
                 schema: RT_SCHEMA,
                 stallMs: STALL,
             }),

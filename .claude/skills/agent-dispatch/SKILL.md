@@ -1,14 +1,13 @@
 ---
 name: agent-dispatch
 description: >-
-    Owns work placement and delegation craft: which surface holds the work — main turn, fork,
-    subagent, agent team, workflow, or machine automation — and the decision-complete worker
-    contract (territory, exclusions, return shape, acceptance, and root discipline),
-    result-flow topology, depth and fan-out budgeting, worker model tiering, and `SendMessage`
-    resume. Use when "orchestrate", "parallelize this" , "delegate this", "subagent or workflow?",
-    "run it in the background", or when a delegation over-prompts for permission or returns weak results.
-    Every operation on a chosen workflow belongs to workflow-creator; offload to codex and Gemini to
-    agy; settings, memory, and model defaults to harness-steering.
+    Owns delegation craft: delegation of work — fork, subagent, agent team, workflow,
+    or machine automation — and the decision-complete worker contract (territory,
+    exclusions, return shape, acceptance, root discipline), result-flow topology,
+    depth and fan-out budgeting, worker model tiering, and `SendMessage` resume. Use when
+    "orchestrate", "parallelize" , "delegate this", "subagent or workflow?", "run in the
+    background". Every operation on a chosen workflow belongs to workflow-creator; offload
+    to codex and Gemini to agy; settings, and memory to harness-steering.
 ---
 
 # [AGENT_DISPATCH]

@@ -34,6 +34,8 @@ Use the route-owned standard for the file being edited:
 - [NEVER] delete functionality to satisfy a density or LOC signal. Preserve capability through denser owners.
 
 [IMPORTANT]:
+- [ALWAYS] ASSUME 10X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
+- [ALWAYS] aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
 - [ALWAYS] co-locate domain logic with its owner instead of scattering it into generic support files.
 - [ALWAYS] drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
 - [ALWAYS] collapse related variants into one polymorphic surface before adding entrypoints.
@@ -41,8 +43,6 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS] treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
 - [ALWAYS] treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
-- [ALWAYS] ASSUME 10X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
-- [ALWAYS] aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
 - [ALWAYS] create code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
 - [ALWAYS] maintain semantic consistency in naming patterns of files, code functionality, types, classes, and functions.
 - [ALWAYS] use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, or policy row.
@@ -55,11 +55,11 @@ Use the route-owned standard for the file being edited:
 
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
 - [ALWAYS] treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
+- [ALWAYS] keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
+- [ALWAYS] keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
 - [ALWAYS] mine admitted packages to their full useful capability before writing local kernels.
 - [ALWAYS] prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
 - [ALWAYS] internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
-- [ALWAYS] keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
-- [ALWAYS] keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
 - [ALWAYS] keep C# MSBuild, NuGet, and `.csproj` manifests label-grouped by owner, sorted within coherent clusters, and limited to one-line maintenance comments.
 - [ALWAYS] put shared C# substrate API catalogues under `libs/csharp/.api/`; package `.api/` folders carry domain catalogues and folder-specific overlays.
 - [NEVER] hand-roll functionality provided by admitted dependencies.
@@ -69,10 +69,12 @@ Use the route-owned standard for the file being edited:
 ## [04]-[OWNER_ROUTING]
 
 [IMPORTANT]:
+- [ALWAYS] start open-web research with `exa` for neural discovery — the right page, repo, paper, or entity — replacing a blind `WebFetch`.
+- [ALWAYS] reach for `tavily` on known targets — extract or crawl a site, or run a cited multi-source report.
 - [ALWAYS] resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner.
 - [ALWAYS] use `nuget` MCP to validate the existence of a package and newest version available.
-- [ALWAYS] open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry verified traps the `.api` catalogs omit, and dispatched agents reach them only through this route.
 - [ALWAYS] read `tests/README.md` before touching any testing surface.
+- [ALWAYS] open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry verified traps the `.api` catalogs omit, and dispatched agents reach them only through this route.
 
 ## [05]-[FILE_ORGANIZATION]
 
