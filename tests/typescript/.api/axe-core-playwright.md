@@ -1,14 +1,14 @@
-# [@axe-core/playwright] — the wcag conformance gauge riding the e2e fixture tower
+# [TS_TESTS_API_AXE_CORE_PLAYWRIGHT]
 
 [PACKAGE_SURFACE]:
 - package: `@axe-core/playwright` · version `4.12.1` · license `MPL-2.0` · depends on `axe-core@4.12.1`, peer `playwright-core >= 1.0.0`
 - module: dual CJS/ESM (`dist/index.js` + `dist/index.mjs`) with one `.` export; `AxeBuilder` ships named AND as default — the named import is the house spelling.
 - asset: bundles the `axe-core` rules engine source and injects it into the page (and every child frame) at `analyze()`; no browser binary, no server, no network.
 - runtime: node `>=18` driving a live `playwright-core` `Page` — the audit executes inside the page, the receipt returns to node.
-- plane: `plane:dev` — the accessibility half of the `tests/typescript/e2e` visual-and-aria gauge, beside `@playwright/test`. The `tests/typescript/_architecture` suite fences it off every runtime graph.
+- plane: `plane:dev` — the accessibility half of the `tests/typescript/e2e` visual-and-aria gauge, beside `@playwright/test`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: wcag-conformance gauge over a live page.
 
-`@axe-core/playwright` is one builder class over one live `Page`: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into a single typed `AxeResults` receipt. It is the rules-engine complement to the two golden gauges — `toMatchAriaSnapshot` freezes one accessibility tree, `toHaveScreenshot` freezes pixels, axe audits CONFORMANCE against the wcag rule catalog with zero goldens to mint. The e2e kit composes it as one fixture row whose tag set is the policy value; a spec asserts on `violations` and never re-learns the engine.
+`@axe-core/playwright` is one builder class over one live `Page`: chain scope (`include`/`exclude`), rule selection (`withTags`/`withRules`/`disableRules`), and engine options (`options`), then `analyze()` injects axe into every frame and folds the audit into a single typed `AxeResults` receipt. It is the rules-engine complement to the two golden gauges — `toMatchAriaSnapshot` freezes one accessibility tree, `toHaveScreenshot` freezes pixels, axe audits CONFORMANCE against the wcag rule catalog with zero goldens to mint. Kit fixtures compose it as one row whose tag set is the policy value; a spec asserts on `violations` and never re-learns the engine.
 
 ## [01]-[BUILDER_SURFACE]
 
@@ -45,7 +45,7 @@ export { AxeBuilder, AxeBuilder as default }
 
 ## [02]-[RESULT_RECEIPT]
 
-`AxeResults` is the audit as data: four disjoint result groups over one `Result` row shape. The gauge verdict is `violations` — an empty array is conformance, and each violation row carries the rule id, impact, wcag tags, and the offending nodes with their selector ancestry.
+`AxeResults` is the audit as data: four disjoint result groups over one `Result` row shape; gauge verdict is `violations` — an empty array is conformance, and each violation row carries the rule id, impact, wcag tags, and the offending nodes with their selector ancestry.
 
 ```ts signature
 // axe-core axe.d.ts — the receipt the builder resolves.
@@ -57,11 +57,11 @@ interface RunOptions { runOnly?: RunOnly | TagValue[] | string[] | string; rules
 
 ## [03]-[INTEGRATION]
 
-[STACK: `@axe-core/playwright` + the e2e fixture tower] — the kit exposes one `a11y` fixture row: `new AxeBuilder({ page }).withTags([...wcagTags])` with an optional `include` scope, projecting `violations` as the verdict. The tag set is the fixture's policy value, so every target project — hermetic corpus or served product — inherits one conformance floor; a spec asserts `toEqual([])` and its falsification twin perturbs the DOM (`label` removed, `lang` stripped) to prove the audit draws the named rule id.
+[STACK: `@axe-core/playwright` + the e2e fixture tower] — the kit exposes one `a11y` fixture row: `new AxeBuilder({ page }).withTags([...wcagTags])` with an optional `include` scope, projecting `violations` as the verdict. Tag set is the fixture's policy value, so every target project — hermetic corpus or served product — inherits one conformance floor; a spec asserts `toEqual([])` and its falsification twin perturbs the DOM (`label` removed, `lang` stripped) to prove the audit draws the named rule id.
 
-[STACK: axe beside the aria golden] — `toMatchAriaSnapshot` proves the tree the page EXPOSES matches its committed contract; axe proves the page CONFORMS to rules no golden encodes (contrast, labeling, landmark structure). The two never substitute: a renamed heading breaks the golden and passes axe, a low-contrast button passes the golden and breaks axe.
+[STACK: axe beside the aria golden] — `toMatchAriaSnapshot` proves the tree the page EXPOSES matches its committed contract; axe proves the page CONFORMS to rules no golden encodes (contrast, labeling, landmark structure); the two never substitute: a renamed heading breaks the golden and passes axe, a low-contrast button passes the golden and breaks axe.
 
-[BOUNDARY vs the unit lane] — axe runs against a real rendered page (styles, contrast, frames); a DOM-only structural assertion belongs to `happy-dom`/`jsdom` in the unit lane. The audit is a promise-rail Playwright citizen — it composes inside `.pw.ts` suites only, never on the Effect rail.
+[BOUNDARY vs the unit lane] — axe runs against a real rendered page (styles, contrast, frames); a DOM-only structural assertion belongs to `happy-dom`/`jsdom` in the unit lane; the audit is a promise-rail Playwright citizen — it composes inside `.pw.ts` suites only, never on the Effect rail.
 
 ## [04]-[RAIL_LAW]
 

@@ -1,6 +1,6 @@
-# [pytest-benchmark] — the timed-measurement fixture and stored-run series behind the regression gate
+# [PY_TESTS_API_PYTEST_BENCHMARK]
 
-`pytest-benchmark` injects a `benchmark` fixture that runs a callable under a calibrated timer, folds robust statistics (`min`, `median`, `iqr`, `ops`), and persists each run as a JSON document under a storage URI. The Rasm testkit wraps it: `BenchCase` rows drive absolute-budget gates through `run_bench`, and the `pytest_benchmark_update_json` hook reconstructs per-subject median series to fail a session on a sustained regression. Benchmarks are deselected by default (`-m "not benchmark"`) and run in a session separate from `pytest-xdist`.
+`pytest-benchmark` injects a `benchmark` fixture that runs a callable under a calibrated timer, folds robust statistics (`min`, `median`, `iqr`, `ops`), and persists each run as a JSON document under a storage URI. Rasm's testkit wraps it: `BenchCase` rows drive absolute-budget gates through `run_bench`, and the `pytest_benchmark_update_json` hook reconstructs per-subject median series to fail a session on a sustained regression. Benchmarks are deselected by default (`-m "not benchmark"`) and run in a session separate from `pytest-xdist`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -54,9 +54,9 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PYTEST_BENCHMARK_TOPOLOGY]:
-- The `benchmark` fixture times a subject once per fixture request; `pedantic` is the only path with a per-round `setup`, which the testkit uses to rebuild mutating payloads.
+- `benchmark` times a subject once per fixture request; `pedantic` is the only path with a per-round `setup`, which the testkit uses to rebuild mutating payloads.
 - `stats` is `None` until the run finishes, then exposes robust statistics; `benchmark.group` set before `pedantic` becomes the storage-series key, so late assignment drops the series.
-- `--benchmark-autosave` persists one JSON document per run under `<storage-root>/<machine>/`; the sustained-regression fold reads the ordered set of those documents plus the current report.
+- `--benchmark-autosave` persists one JSON document per run under `<storage-root>/<machine>/`; the sustained-regression fold reads the ordered set of those documents and the current report.
 
 [STACKING]:
 - `bench.py`(`../_testkit/bench.py`): `BenchCase` rows carry `budget_ms`/`gate_stat`/`max_rel_iqr`; `run_bench` drives `pedantic`, writes `extra_info`, and skips or fails on dispersion or budget; `pytest_benchmark_update_json` folds `_series_from_storage` medians through the Potts/BIC step detector.

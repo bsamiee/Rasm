@@ -1,6 +1,6 @@
-# [coverage] — the measurement substrate under pytest-cov and the mutmut covered-line map
+# [PY_TESTS_API_COVERAGE]
 
-`coverage.py` records executed lines and branches through a pluggable core, stores them in a SQLite `CoverageData` file, combines parallel data across processes, and writes reports in seven formats. On CPython 3.15 it runs the `sysmon` core (`sys.monitoring`), since the compiled C tracer is unavailable on the beta interpreter. `pytest-cov` drives it as a session (`.api/pytest-cov.md`); the mutmut lane drives it directly against `.config/coverage-mutmut.ini` for an absolute-keyed covered-line map. `patch = ["subprocess"]` makes child interpreters auto-measure through a shipped `.pth` and the `COVERAGE_PROCESS_CONFIG` handshake.
+`coverage.py` records executed lines and branches through a pluggable core, stores them in a SQLite `CoverageData` file, combines parallel data across processes, and writes seven report formats. CPython 3.15 runs the `sysmon` core (`sys.monitoring`), the C tracer being absent on the beta interpreter. `pytest-cov` drives it as a session (`.api/pytest-cov.md`); the mutmut lane drives it against `.config/coverage-mutmut.ini` for an absolute-keyed covered-line map. `patch = ["subprocess"]` auto-measures child interpreters through a shipped `.pth` and the `COVERAGE_PROCESS_CONFIG` handshake.
 
 ## [01]-[PACKAGE_SURFACE]
 

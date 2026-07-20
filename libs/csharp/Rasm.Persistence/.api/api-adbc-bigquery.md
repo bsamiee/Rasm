@@ -130,7 +130,7 @@ contract.
   `api-google-kms.md`) and the redaction owner (`api-redaction.md`) — credentials flow from the secret store into
   the parameter map and the refresh callback, never inline literals, and never reach a log sink.
 - tracing seam: `BigQueryConnection : TracingConnection` emits `ActivitySource` spans, so a federated BigQuery
-  query nests under the same OpenTelemetry trace the Npgsql/OTel owner (`api-npgsql-otel.md`) opens — one
+  query nests under the same OpenTelemetry trace the Npgsql/OTel owner (`api-npgsql-opentelemetry.md`) opens — one
   distributed trace spans the in-PG path and the warehouse egress.
 
 [RAIL_LAW]:

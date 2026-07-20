@@ -1,18 +1,18 @@
 # [PY_BRANCH_API_XARRAY]
 
-`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, polynomial/curve fitting, dask/cubed-backed chunking, the `.dt`/`.str`/`.plot` computed accessors, a custom-accessor registration hook, and netCDF/Zarr IO. It is the canonical owner surface for the `field-dataset` CF labelled-field dataset: the `FieldDataset` owner addresses CF coordinates by dimension name through `sel`/`isel`, reads and writes CF field cubes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr` over the netcdf4/h5netcdf/zarr engines, opts a cube into the lazy chunked path through `chunk`, and defers grouped reductions to the installed `flox` lowering. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`.
+`xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers over `numpy`. It is the canonical surface for the `field-dataset` CF cube: the `FieldDataset` owner addresses CF coordinates through `sel`/`isel`, reads and writes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr`, opts into the lazy chunked path through `chunk`, and defers grouped reductions to the installed `flox` lowering. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `xarray`
 - package: `xarray`
 - import: `import xarray as xr`
-- version: `2025.x`
+- version: `2026.4.0`
 - license: Apache-2.0
 - owner: `data` (field-dataset), `compute` (`DataTree`, `experiments/inference`; `numerics/array` — the `ArraySource.Labelled` arm extracting `.data` with coords into `NamedAxis` rows, structural reads only)
 - rail: field-dataset
 - entry points: backend plugins register through the `xarray.backends` entry-point group (`netcdf4`, `h5netcdf`, `zarr`, `scipy`, `rasterio` via rioxarray); library use is import-only
-- capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and nodata fill, polynomial and non-linear curve fitting, numerical integration/differentiation, the `.dt`/`.str`/`.plot` computed accessors with custom-accessor registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO over the netcdf4/h5netcdf/zarr engines with per-variable `encoding`, and a dask/cubed-backed lazy/chunked path
+- capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and fill, polynomial/curve fitting, integration/differentiation, `.dt`/`.str`/`.plot` accessors with custom registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO with per-variable `encoding`, and the dask/cubed lazy path
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -150,7 +150,7 @@ Every combine surface carries `compat`/`join` conflict-resolution knobs and the 
 - `apply_ufunc` is the boundary for arbitrary NumPy-style functions over labelled cubes; `input_core_dims`/`output_core_dims` declare the broadcasting contract and `dask='parallelized'` lifts it onto the chunked graph. `polyfit`/`curvefit` own polynomial and non-linear fitting; `integrate`/`differentiate` own coordinate calculus.
 - IO flows through `open_dataset`/`open_zarr`/`open_datatree` at the boundary and `to_netcdf`/`to_zarr` at egress with per-variable `encoding`; the `FieldDataset` egress materialises to the same content-keyed `pyarrow`/Zarr surface the `tensor`/`columnar` owners speak.
 
-[INTEGRATION]:
+[STACKING]:
 - flox seam: when `flox` is installed `xarray` automatically lowers `groupby`/`groupby_bins`/`resample` reductions onto the vectorized numpy-groupies / map-reduce kernel; the `FieldSelection` grouped arm gets parallel grouped reductions for free, and `flox.xarray.xarray_reduce` is the direct entry for the cohorts/blockwise strategies and custom `Aggregation` escapes.
 - netcdf4/h5netcdf seam: `open_dataset(path, engine='netcdf4')` (or `engine='h5netcdf'`) routes CF decode through the `netcdf4` C-extension owner; reach `netcdf4` directly only for low-level group/dimension/variable authoring, MPI-collective write, or `memory=`/`diskless=` round-trips. `cftime` owns the non-standard-calendar `CFTimeIndex`.
 - zarr/icechunk seam: `open_zarr`/`Dataset.to_zarr(store=...)` target any zarr `StoreLike`; passing an `IcechunkStore` (from `repo.writable_session(branch).store`) gives the transactional/versioned cube, and `to_zarr(region=, append_dim=)` does the partial/append writes. `tensorstore` reads the same on-disk v3 store asynchronously.

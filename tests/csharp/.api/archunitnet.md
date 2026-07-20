@@ -1,6 +1,6 @@
-# [archunitnet] — assembly-model architecture rules under the boundary laws
+# [CSHARP_TESTING_API_ARCHUNITNET]
 
-`TngTech.ArchUnitNET.xUnitV3` loads assemblies into a Mono.Cecil-backed architecture model and evaluates a fluent predicate/condition grammar over types, members, and namespace slices. The estate's `_architecture` suite composes the core surface — `ArchLoader`, `ArchRuleDefinition`, `SliceRuleDefinition` — inside `Assert.True(rule.HasNoViolations(architecture))`, always behind the kit vacuity gate because an empty filtered set passes vacuously by construction.
+`TngTech.ArchUnitNET.xUnitV3` loads assemblies into a Mono.Cecil-backed architecture model and evaluates a fluent predicate/condition grammar over types, members, and namespace slices; the estate's `_architecture` suite composes the core surface — `ArchLoader`, `ArchRuleDefinition`, `SliceRuleDefinition` — inside `Assert.True(rule.HasNoViolations(architecture))`, always behind the kit vacuity gate because an empty filtered set passes vacuously by construction.
 
 ## [01]-[PACKAGE_SURFACE]
 

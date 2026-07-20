@@ -1,4 +1,4 @@
-# [@vitest/coverage-v8] — V8 coverage provider feeding the gauge coverage thresholds
+# [TS_TESTS_API_VITEST_COVERAGE_V8]
 
 [PACKAGE_SURFACE]:
 - package: `@vitest/coverage-v8` · version `4.1.10` · license `MIT`
@@ -8,7 +8,7 @@
 - plane: `plane:dev` — the coverage half of the mutation/coverage gauge; thresholds live as data — coverage in the root `vitest.config.ts`, mutation in `stryker.config.json`.
 - rail: coverage-provider — a resolved module, never a spec import.
 
-`@vitest/coverage-v8` is a PROVIDER MODULE, not a config surface: no spec imports it; the design sets `test.coverage.provider = 'v8'` (the default) and vitest resolves this package's default `CoverageProviderModule`, whose `getProvider()` yields a `V8CoverageProvider`. The entire configuration vocabulary — `CoverageOptions`, `Thresholds`, `CoverageReporter` — is vitest's, and this catalog documents that vocabulary because the root `vitest.config.ts` composes the pass gate ("coverage thresholds as data") on it, plus the provider internals the design must understand. The v4 collapse is load-bearing: `CoverageV8Options`, `CoverageIstanbulOptions`, `BaseCoverageOptions`, and `CustomProviderOptions` are ALL `@deprecated`, empty `extends CoverageOptions {}` — there is ONE options type, discriminated by `provider: "v8" | "istanbul" | "custom"`. A v8-vs-istanbul split in config is a phantom; the difference is one string.
+`@vitest/coverage-v8` is a PROVIDER MODULE, not a config surface: no spec imports it; the design sets `test.coverage.provider = 'v8'` (the default) and vitest resolves this package's default `CoverageProviderModule`, whose `getProvider()` yields a `V8CoverageProvider`; the entire configuration vocabulary — `CoverageOptions`, `Thresholds`, `CoverageReporter` — is vitest's, and this catalog documents that vocabulary because the root `vitest.config.ts` composes the pass gate ("coverage thresholds as data") on it, with the provider internals the design must understand; the v4 collapse is load-bearing: `CoverageV8Options`, `CoverageIstanbulOptions`, `BaseCoverageOptions`, and `CustomProviderOptions` are ALL `@deprecated`, empty `extends CoverageOptions {}` — there is ONE options type, discriminated by `provider: "v8" | "istanbul" | "custom"`. A v8-vs-istanbul split in config is a phantom; the difference is one string.
 
 ## [01]-[PROVIDER_MODULE]
 
@@ -50,7 +50,7 @@ declare class BaseCoverageProvider {
 
 ## [02]-[COVERAGE_OPTIONS]
 
-`test.coverage` is ONE `CoverageOptions` object — a `provider` discriminant plus include/report/threshold policy. This is the config the design's `defineConfig` binds; `coverageConfigDefaults` (from `vitest/config`) is the spread-in baseline.
+`test.coverage` is ONE `CoverageOptions` object — a `provider` discriminant with include/report/threshold policy. This is the config the design's `defineConfig` binds; `coverageConfigDefaults` (from `vitest/config`) is the spread-in baseline.
 
 | [INDEX] | [FIELD]                    | [SHAPE]                                 | [CAPABILITY]                                                   |
 | :-----: | :------------------------- | :-------------------------------------- | :------------------------------------------------------------- |
@@ -98,9 +98,9 @@ interface Thresholds {
 
 ## [04]-[INTEGRATION]
 
-[STACK: `@vitest/coverage-v8` ← `vitest` (`provider:'v8'`)] — the resolution seam. The design never imports this package; `defineConfig({ test: { coverage: { provider: 'v8', thresholds } } })` makes vitest load the default `CoverageProviderModule`, and `BaseCoverageProvider.reportThresholds` sets exit 1 when a threshold is unmet — the CI gate. `coverageConfigDefaults` (`vitest/config`) supplies the baseline the design overrides.
+[STACK: `@vitest/coverage-v8` ← `vitest` (`provider:'v8'`)] — the resolution seam; the design never imports this package; `defineConfig({ test: { coverage: { provider: 'v8', thresholds } } })` makes vitest load the default `CoverageProviderModule`, and `BaseCoverageProvider.reportThresholds` sets exit 1 when a threshold is unmet — the CI gate. `coverageConfigDefaults` (`vitest/config`) supplies the baseline the design overrides.
 
-[STACK: `@vitest/coverage-v8` `Thresholds` + `@stryker-mutator/core` `MutationScoreThresholds` (the mutation/coverage gauge)] — the two-floor "thresholds as data" gate, the mirror of `stryker-mutator-core.md`'s reciprocal STACK. Coverage thresholds are the FIRST gate (did the specs execute the code); the Stryker mutation-score `break` is the SECOND (did they assert on it), and `@stryker-mutator/vitest-runner` runs BOTH floors over the same vitest spec set. The two floors live as data — coverage `Thresholds` (`statements`/`functions`/`branches`/`lines`) in the root `vitest.config.ts`, `MutationScoreThresholds { high, low, break }` in `stryker.config.json` (`stryker-mutator-core.md`). A high coverage number with a low mutation score is the exact defect the two-gate stack catches.
+[STACK: `@vitest/coverage-v8` `Thresholds` + `@stryker-mutator/core` `MutationScoreThresholds` (the mutation/coverage gauge)] — the two-floor "thresholds as data" gate, the mirror of `stryker-mutator-core.md`'s reciprocal STACK. Coverage thresholds are the FIRST gate (did the specs execute the code); the Stryker mutation-score `break` is the SECOND (did they assert on it), and `@stryker-mutator/vitest-runner` runs BOTH floors over the same vitest spec set; the two floors live as data — coverage `Thresholds` (`statements`/`functions`/`branches`/`lines`) in the root `vitest.config.ts`, `MutationScoreThresholds { high, low, break }` in `stryker.config.json` (`stryker-mutator-core.md`). A high coverage number with a low mutation score is the exact defect the two-gate stack catches.
 
 [STACK: `@vitest/coverage-v8` + `@vitest/ui` / html reporter] — the report seam. `reporter: ['html']` (coverage) writes an istanbul HTML tree under `htmlDir`; the `@vitest/ui` dashboard and the `reporters: ['html']` test report (see `vitest-ui.md`) embed it, so a run's coverage is inspectable beside its spec tree. `lcov` output feeds external coverage services.
 

@@ -1,18 +1,18 @@
-# [happy-dom] — fast DOM environment for the unit lane
+# [TS_TESTS_API_HAPPY_DOM]
 
 [PACKAGE_SURFACE]:
 - package: `happy-dom` · version `20.10.6` · license `MIT`
 - module: ESM (`type: module`); single barrel `happy-dom` — no `exports` map, so deep paths (`happy-dom/lib/window/Window.js`) resolve but the barrel is canonical; declarations ship co-located (`lib/**/*.d.ts`, implicit `lib/index.d.ts`).
 - asset: pure JS + `.d.ts` under `lib/`; zero native, zero wasm — a hand-written WHATWG DOM in TypeScript.
 - runtime: node `>=20`; the whole DOM is a plain object graph the spec builds and discards — microsecond startup, no browser process, no layout, no pixels.
-- plane: `plane:dev` — the fast `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fidelity counterpart is `jsdom.md`. The `tests/typescript/_architecture` suite fences it off every runtime graph.
+- plane: `plane:dev` — the fast `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fidelity counterpart is `jsdom.md`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: dom-environment / fast-unit-lane.
 
-happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds. Two consumption seams — vitest selects it by the `environment: 'happy-dom'` string (vitest dynamically imports this package and installs its classes as globals; `test.environmentOptions.happyDOM` forwards `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`). The fidelity boundary — in-page `<script>` execution, exact computed-style, byte-exact WHATWG serialization — routes to `jsdom.md`.
+happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and runs no layout, trading strict spec-conformance for speed so a DOM-touching unit spec settles in microseconds. Two consumption seams — vitest selects it by the `environment: 'happy-dom'` string (vitest dynamically imports this package and installs its classes as globals; `test.environmentOptions.happyDOM` forwards `Window` construction options), and a spec needing an isolated, directly-controlled DOM constructs `new Window(...)` and drives async settling through `window.happyDOM` (a `DetachedWindowAPI`); the fidelity boundary — in-page `<script>` execution, exact computed-style, byte-exact WHATWG serialization — routes to `jsdom.md`.
 
 ## [01]-[ENTRY_WINDOW]
 
-[PUBLIC_TYPE_SCOPE]: the global DOM the unit lane installs — one window owner plus its detached control surface.
+[PUBLIC_TYPE_SCOPE]: the global DOM the unit lane installs — one window owner with its detached control surface.
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                        |
 | :-----: | :------------------------- | :------------ | :---------------------------------------------------------------------------------- |
@@ -28,7 +28,7 @@ declare class Window extends BrowserWindow {
   readonly happyDOM: DetachedWindowAPI
   constructor(options?: { width?: number; height?: number; url?: string; console?: IConsole; settings?: IOptionalBrowserSettings })
 }
-// The control surface — the ONLY sound way to await DOM async work (timers, fetch, microtasks) before asserting.
+// Control surface — the ONLY sound way to await DOM async work (timers, fetch, microtasks) before asserting.
 declare class DetachedWindowAPI {
   get settings(): IBrowserSettings
   get virtualConsolePrinter(): VirtualConsolePrinter        // buffered console output the spec can readAll()/dump
@@ -91,7 +91,7 @@ interface IOptionalBrowserSettings {
 
 ## [04]-[DOM_SURFACE]
 
-The full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family (`CustomEvent`, `KeyboardEvent`, `PointerEvent`, `SubmitEvent`, …), the CSS-rule family (`CSSStyleSheet`, `CSSStyleRule`, `CSSMediaRule`, `CSSContainerRule`, …), the fetch/file family (`Request`, `Response`, `Headers`, `Blob`, `File`, `FormData`), and the observers (`MutationObserver`, `ResizeObserver`, `IntersectionObserver`) — is SEED DATA re-exported by the one barrel, never a list a consumer hand-enumerates. A spec reaches these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
+Full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family (`CustomEvent`, `KeyboardEvent`, `PointerEvent`, `SubmitEvent`, …), the CSS-rule family (`CSSStyleSheet`, `CSSStyleRule`, `CSSMediaRule`, `CSSContainerRule`, …), the fetch/file family (`Request`, `Response`, `Headers`, `Blob`, `File`, `FormData`), and the observers (`MutationObserver`, `ResizeObserver`, `IntersectionObserver`) — is SEED DATA re-exported by the one barrel, never a list a consumer hand-enumerates. A spec reaches these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
 
 | [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                 |
 | :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ The full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` fa
 
 [STACK: `happy-dom` + `@electric-sql/pglite`] — both are the FAST HALF of the `_testkit` unit lane: in-process, no server, no external process, microsecond-to-millisecond startup. A spec that needs both a DOM and a database composes the `PGlite` Layer (see `electric-sql-pglite.md`) under the `happy-dom` environment in one `layer(...)` block — the whole verification runs in-process with nothing to tear down but object graphs.
 
-[STACK: `happy-dom` + `fast-check`] — a property that generates DOM inputs (markup fragments, event sequences, viewport dimensions) runs each generated case inside the window; `settings.timer.preventTimerLoops` and `maxIntervalIterations` bound a pathological generated case so shrinking terminates. The `Schema`-derived arbitraries in the `_testkit` law/arbitrary source feed the same predicate.
+[STACK: `happy-dom` + `fast-check`] — a property that generates DOM inputs (markup fragments, event sequences, viewport dimensions) runs each generated case inside the window; `settings.timer.preventTimerLoops` and `maxIntervalIterations` bound a pathological generated case so shrinking terminates; the `Schema`-derived arbitraries in the `_testkit` law/arbitrary source feed the same predicate.
 
 [BOUNDARY vs `jsdom`] — happy-dom disables script execution and computed-style rendering by default and approximates (never implements) layout. A spec asserting in-page `<script>` side effects, exact `getComputedStyle` cascade, or byte-exact WHATWG fragment serialization is a `jsdom` spec by definition. Both are `plane:dev` DOM environments; neither may be imported from a `plane:runtime` folder.
 

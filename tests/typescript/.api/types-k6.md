@@ -1,18 +1,18 @@
-# [@types/k6] — typed k6 load-script authoring; the k6 binary is a runner fact, never a JS dependency
+# [TS_TESTS_API_TYPES_K6]
 
 [PACKAGE_SURFACE]:
 - package: `@types/k6` · version `2.0.0` · license `MIT` (DefinitelyTyped)
 - module: type-only — ships ZERO `.js` (0 runtime files); `index.d.ts` + `global.d.ts` + ambient `declare module 'k6/*'` submodule declarations only.
 - asset: ambient module declarations for `k6`, `k6/http`, `k6/metrics`, `k6/execution`, `k6/options`, `k6/ws`, `k6/websockets`, `k6/net/grpc`, `k6/html`, `k6/crypto`, `k6/encoding`, `k6/data`, `k6/timers`, `k6/browser`, `k6/secrets`, `k6/experimental/*`; `global.d.ts` adds `__ENV`/`__VU`/`__ITER`/`open`.
-- runtime: NONE in node. The k6 binary is a Go program embedding the `goja`/`sobek` JS runtime; it — not node — executes the load script. Node never imports `k6`; this package types the SCRIPT the binary runs.
+- runtime: NONE in node; the k6 binary is a Go program embedding the `goja`/`sobek` JS runtime; it — not node — executes the load script. Node never imports `k6`; this package types the SCRIPT the binary runs.
 - plane: `plane:dev` — the `tests/typescript/e2e` load-driver, beside `@playwright/test`. It cannot leak into a bundle (there is nothing to import at runtime), so the `tests/typescript/_architecture` purity audit holds by construction.
 - rail: load-script authoring types / e2e-gauge input contract.
 
-`@types/k6` is the authoring-type surface for the k6 half of the `tests/typescript/e2e` home. It contributes no runtime and composes into NO Effect rail — a k6 script runs in the k6 binary's own JS runtime, outside node and outside the Effect world entirely. What this package buys is a fully typed load script: a typed `export default` VU body, typed `k6/http` calls, typed custom `Metric`s, and — the payload that matters — a typed `Options` object whose `scenarios`, `thresholds`, and executor shapes are the load profile AS DATA. The `Scenario.executor` field is a seven-arm discriminated union: one `scenarios` map owns every load shape (constant/ramping VUs, arrival-rate, per-VU iterations), discriminated by an `executor` string — a new load pattern is a row, never a new mechanism. The gauge does not import k6; it SPAWNS the binary (`@effect/platform` `Command`) against a typed script and parses the threshold verdict from the exported summary. This is the load twin of `@playwright/test`'s browser driver: both are subprocess gauges, neither is a runtime import.
+`@types/k6` is the authoring-type surface for the k6 half of the `tests/typescript/e2e` home. It contributes no runtime and composes into NO Effect rail — a k6 script runs in the k6 binary's own JS runtime, outside node and outside the Effect world entirely. What this package buys is a fully typed load script: a typed `export default` VU body, typed `k6/http` calls, typed custom `Metric`s, and — the payload that matters — a typed `Options` object whose `scenarios`, `thresholds`, and executor shapes are the load profile AS DATA; the `Scenario.executor` field is a seven-arm discriminated union: one `scenarios` map owns every load shape (constant/ramping VUs, arrival-rate, per-VU iterations), discriminated by an `executor` string — a new load pattern is a row, never a new mechanism; the gauge does not import k6; it SPAWNS the binary (`@effect/platform` `Command`) against a typed script and parses the threshold verdict from the exported summary. This is the load twin of `@playwright/test`'s browser driver: both are subprocess gauges, neither is a runtime import.
 
 ## [01]-[LIFECYCLE_AND_GLOBALS]
 
-[PUBLIC_TYPE_SCOPE]: the k6 execution lifecycle — the author writes `export default` (the per-iteration VU body) plus optional `setup`/`teardown`; k6 calls them. The root `k6` module supplies the in-body verbs; `global.d.ts` supplies the ambient VU/env globals.
+[PUBLIC_TYPE_SCOPE]: the k6 execution lifecycle — the author writes `export default` (the per-iteration VU body) with optional `setup`/`teardown`; k6 calls them. Root `k6` module supplies the in-body verbs; `global.d.ts` supplies the ambient VU/env globals.
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]  | [CAPABILITY]                                                 |
 | :-----: | :---------------------------- | :------------- | :----------------------------------------------------------- |
@@ -60,7 +60,7 @@ interface Options {
 }
 type Threshold = string | ObjectThreshold
 interface ObjectThreshold { threshold: string; abortOnFail?: boolean; delayAbortEval?: string }
-// The executor collapse — seven rows, one union, discriminated by `executor`:
+// Executor collapse — seven rows, one union, discriminated by `executor`:
 type Executor =
   | "shared-iterations" | "per-vu-iterations" | "constant-vus" | "ramping-vus"
   | "constant-arrival-rate" | "ramping-arrival-rate" | "externally-controlled"
@@ -117,7 +117,7 @@ export const vu: { idInInstance: number; idInTest: number; iterationInInstance: 
 
 ## [05]-[INTEGRATION]
 
-[STACK: the e2e gauge SPAWNS the binary — it does not import k6] — this is the load twin of the container gauges, but the boundary is different: k6 runs OUTSIDE node, so there is no runtime import and no Effect Layer for the script. The `tests/typescript/e2e` suites drive the binary through the same subprocess rail the branch uses everywhere — `@effect/platform` `Command.make("k6", "run", "--summary-export=<f>", scriptPath).pipe(Command.env({ … }))` under `NodeContext.layer` (`effect-platform.md` / `effect-platform-node.md`, `host/exec/process.ts`), captures `.exitCode`/`.string`, and treats a non-zero exit (a breached `abortOnFail` threshold) as the gauge failure. `@types/k6` types the SCRIPT the binary runs; `@effect/platform` `Command` drives the BINARY; the two never share a runtime.
+[STACK: the e2e gauge SPAWNS the binary — it does not import k6] — this is the load twin of the container gauges, but the boundary is different: k6 runs OUTSIDE node, so there is no runtime import and no Effect Layer for the script; the `tests/typescript/e2e` suites drive the binary through the same subprocess rail the branch uses everywhere — `@effect/platform` `Command.make("k6", "run", "--summary-export=<f>", scriptPath).pipe(Command.env({ … }))` under `NodeContext.layer` (`effect-platform.md` / `effect-platform-node.md`, `host/exec/process.ts`), captures `.exitCode`/`.string`, and treats a non-zero exit (a breached `abortOnFail` threshold) as the gauge failure. `@types/k6` types the SCRIPT the binary runs; `@effect/platform` `Command` drives the BINARY; the two never share a runtime.
 
 [STACK: the summary JSON is the receipt — `effect/Schema` validates the OUTPUT, never the script] — the only Effect-side composition is on the k6 OUTPUT: the `--summary-export` / `--out json` payload is decoded by an `effect/Schema` at the gauge boundary into a typed threshold-verdict receipt, folded into the gauge's pass/fail exactly like the Stryker JSON reporter output (`stryker-mutator-vitest-runner.md` [04]). Do NOT model the k6 script itself as an Effect program — it is authored against these ambient types and executed by goja; the Effect rail begins at the spawned process boundary and the parsed summary, not inside the load script.
 
@@ -128,4 +128,4 @@ export const vu: { idInInstance: number; idInTest: number; iterationInInstance: 
 - Owns: the authoring types for a k6 load script — the lifecycle verbs (`check`/`group`/`sleep`), the `Options` load profile (executor-discriminated `scenarios` + metric-keyed `thresholds`), the RT-generic `k6/http` client, custom `Metric`s, and the ambient VU/env globals.
 - Accept: a typed `export default` VU body + typed `Options`; `thresholds` as the declarative e2e gate with `abortOnFail` for fail-fast; `scenarios` executor rows for load shape; custom `Trend`/`Rate` metrics feeding thresholds by name; `SharedArray` + `open` for a fixture corpus; `__ENV` for run parameterization from the spawning `Command.env`.
 - Reject: `import`ing `k6` or any `k6/*` from a `plane:runtime` folder (there is no runtime — it resolves to nothing in node and is meaningless outside the binary); modeling the load script as an Effect program (it runs in goja, not the Effect runtime); asserting the k6 result inside node without going through the spawned-binary summary (the script's return value never crosses into node); hardcoding a target host instead of `__ENV`.
-- Boundary: this package is `.d.ts` only — it types the script and contributes zero bytes to any bundle or runtime. The Effect world starts at the `@effect/platform` `Command` that spawns `k6` and ends at the `effect/Schema`-decoded summary; everything between runs in the k6 binary. A k6 script is not a vitest spec and not an Effect: it is an input artifact to a subprocess gauge.
+- Boundary: this package is `.d.ts` only — it types the script and contributes zero bytes to any bundle or runtime; the Effect world starts at the `@effect/platform` `Command` that spawns `k6` and ends at the `effect/Schema`-decoded summary; everything between runs in the k6 binary. A k6 script is not a vitest spec and not an Effect: it is an input artifact to a subprocess gauge.

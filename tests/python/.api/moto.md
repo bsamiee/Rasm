@@ -1,6 +1,6 @@
-# [moto] — the in-process AWS mock the object-store double binds as a real S3-compatible loopback
+# [PY_TESTS_API_MOTO]
 
-`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. The `moto[server]` extra adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `_testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the estate drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
+`moto` intercepts AWS SDK traffic and answers it from process-local backend state, so a spec exercises S3 semantics with no network and no credentials. `moto[server]` adds `ThreadedMotoServer`, a Werkzeug server projecting those backends over a real HTTP endpoint — the exact surface the `_testkit` `ObjectStore` double binds so `s3fs` speaks to genuine S3-native egress (e-tags, presigned GET) that an in-memory `MemoryFileSystem` cannot forge. S3 is the one service the estate drives; the mock covers the wider AWS surface as latent capability, never a differentiated entry.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -47,9 +47,9 @@ httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)   # idempotent teardown �
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MOTO_TOPOLOGY]:
-- Backend state is process-global, keyed by `(account_id, region, service)`; concurrent `ThreadedMotoServer` endpoints share one backend set, so isolation is per-key naming plus reset, never per-server.
+- Backend state is process-global, keyed by `(account_id, region, service)`; concurrent `ThreadedMotoServer` endpoints share one backend set, so isolation is per-key naming and reset, never per-server.
 - `mock_aws` is the single intercept surface; the service discriminates by which SDK client the guarded code constructs, never by a per-service decorator.
-- The `[server]` extra is the only path to a real wire endpoint; the bare decorator patches the SDK in-process and exposes no HTTP surface an out-of-process client (`s3fs`) can reach.
+- `moto[server]` is the only path to a real wire endpoint; the bare decorator patches the SDK in-process and exposes no HTTP surface an out-of-process client (`s3fs`) can reach.
 - `port=0` binds an OS-ephemeral port the OS reissues to a later provision, so endpoint novelty never isolates state — the `s3fs` view fences itself against a dead endpoint (`.api/s3fs.md`) and isolation rides the reset.
 
 [STACKING]:
@@ -59,7 +59,7 @@ httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)   # idempotent teardown �
 
 [LOCAL_ADMISSION]:
 - Admitted at the dev-plane test tier only (`[dependency-groups] dev`, `moto[server]`); never a runtime `libs/python` dependency.
-- The double is the sole moto consumer — specs reach S3 semantics through `provision(ObjectStore())`, never a bare `mock_aws` or a raw `ThreadedMotoServer`.
+- `ObjectStore` is the sole moto consumer — specs reach S3 semantics through `provision(ObjectStore())`, never a bare `mock_aws` or a raw `ThreadedMotoServer`.
 
 [RAIL_LAW]:
 - Package: `moto[server]`

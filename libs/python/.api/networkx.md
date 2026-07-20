@@ -155,12 +155,10 @@
 - `shortest_path` discriminates `method='dijkstra'`/`'bellman-ford'` and source/target presence to return a single path, per-target dict, or all-pairs dict from one entry; `floyd_warshall` is the dense all-pairs alternative.
 - Community algorithms namespace under `nx.community` (alias of `networkx.algorithms.community`): `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition; partitions return `list[set]`/`list[frozenset]`/an iterator of nested community tuples.
 
-[INTEGRATION]:
+[STACKING]:
 - node-link JSON is the canonical wire form: `node_link_data(G)` emits `{nodes, edges, ...}` (the `edges='edges'` key is the settled 3.x default — `links` is the removed legacy spelling, never pin it) and `node_link_graph(data, directed=, multigraph=)` rebuilds, discriminating graph kind from the two positional flags rather than a per-kind reader; `adjacency`/`cytoscape`/`tree` JSON are sibling shapes for the same round-trip.
 - Tabular egress flows through `to_pandas_edgelist`/`to_pandas_adjacency`; columnar reframing into Arrow or Polars belongs to the columnar rail. `to_scipy_sparse_array`/`adjacency_matrix` hand the graph to the sparse-LA rail (`scipy.sparse`) for spectral/algebraic work, and `to_numpy_array` to the dense numeric rail.
 - A `node_link_data` payload serializes through the `msgspec`/JSON codec rail as the canonical persisted graph document, keyed by the same content-identity discipline as other data payloads; the graph is never re-parsed from an ad-hoc edge schema.
-
-## [05]-[LOCAL_ADMISSION]
 
 [RAIL_LAW]:
 - Package: `networkx`

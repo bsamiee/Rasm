@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_UNIVERSAL_PATHLIB]
 
-`universal-pathlib` supplies `UPath`: a `pathlib`-shaped path object over any fsspec backend built on the `pathlib_abc` `JoinablePath`/`ReadablePath`/`WritablePath` protocol stack. Protocol and `storage_options` resolve at construction so local, memory, S3, GCS, HTTP, zip, tar, ftp, sftp, smb, webdav, github, hdfs, and data-uri roots share one path API. A metaclass dispatches `UPath(url)` to the registered subclass for the detected protocol, `upath.registry` owns the protocol-to-class table, `upath.extensions.ProxyUPath` is the backend-agnostic extension base, and `UPath.__get_pydantic_core_schema__` makes any `UPath` a first-class pydantic field. It is the runtime path-object face over the fsspec filesystem surface owned by `libs/python/.api/fsspec.md`, with data-specific scan law carried by `libs/python/data/.api/fsspec.md`.
+`universal-pathlib` supplies `UPath`: the runtime path-object face over the `fsspec` filesystem surface, `pathlib`-shaped on the `pathlib_abc` protocol stack. Protocol and `storage_options` resolve at construction, so every fsspec protocol root — local, cloud, archive, or remote — shares one path API. A metaclass dispatches `UPath(url)` to the registered subclass, `upath.registry` owns the protocol-to-class table, `upath.extensions.ProxyUPath` is the backend-agnostic extension base, and `UPath.__get_pydantic_core_schema__` makes `UPath` a first-class pydantic field.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -107,15 +107,18 @@
 [RESOURCES_TOPOLOGY]:
 - path law: a resource reference is one `UPath` carrying its protocol and `storage_options`; path arithmetic (`/`, `joinpath`, `with_segments`, `glob`, `walk`) is backend-agnostic and the same code serves local, memory, zip, and cloud roots. No per-scheme `os.path`/`Path` branching.
 - dispatch law: protocol selection is the `_UPathMeta` metaclass with `upath.registry`; `UPath(url)` resolves the subclass once at construction. A new backend is one `register_implementation` entry or a `universal_pathlib.implementations` entry-point, never a hand-rolled scheme switch in the consumer.
-- resolution law: `UPath.fs` is the cached fsspec `AbstractFileSystem`; the filesystem surface and dispatch law arrive settled from `libs/python/.api/fsspec.md`, with data-specific DuckDB registration captured by `libs/python/data/.api/fsspec.md`. `UPath` is the path face, fsspec is the filesystem face — one backend, two views. Cloud backends (`s3fs`/`gcsfs`) are reached only through their protocol, never instantiated alongside the path.
+- resolution law: `UPath.fs` is the cached fsspec `AbstractFileSystem` — `UPath` is the path face, fsspec is the filesystem face, one backend, two views. Cloud backends (`s3fs`/`gcsfs`) are reached only through their protocol, never instantiated alongside the path.
 - option law: `protocol=`/`storage_options` resolution at construction is load-bearing; credentials and endpoints travel with the path value as a read-only `MappingProxyType`, never a separate global filesystem handle. Inline url query parameters fold into `storage_options` via `_parse_storage_options`.
 - info law: filesystem metadata is one `UPath.info` (`PathInfo`) backed by a single `fs.info` call, not repeated `exists`/`is_dir`/`stat` round-trips; type predicates and `stat` reuse the same backend info.
 - transfer law: cross-root copies use `copy`/`move`/`copy_into`/`move_into`; cross-protocol transfer streams through `_copy_from` (`vfsopen` read/write), never a backend-specific bulk client the consumer must select.
 
+[STACKING]:
+- `fsspec`(`libs/python/.api/fsspec.md`): owns the `AbstractFileSystem` surface and dispatch law `UPath.fs` caches; data-folder DuckDB scan registration rides the folder overlay `libs/python/data/.api/fsspec.md`.
+- `pydantic`(`libs/python/.api/pydantic.md`): `UPath.__get_pydantic_core_schema__` validates from a `str` or a `{path, protocol, storage_options}` mapping and serialises back to that mapping, so a settings/config model carries a `UPath` directly and the artifact-store root deserialises with its `storage_options` intact — no `str`-field-then-reconstruct seam.
+
 [LOCAL_ADMISSION]:
-- `ResourceRef` is a `UPath`; the runtime composes path arithmetic and traversal over it and resolves the filesystem only when bytes are accessed. `libs/python/.api/fsspec.md` owns the `AbstractFileSystem` surface — this page never re-documents filesystem resolution.
+- `ResourceRef` is a `UPath`; the runtime composes path arithmetic and traversal over it and resolves the filesystem only when bytes are accessed.
 - typed path edges admit `JoinablePathLike`/`ReadablePathLike`/`WritablePathLike` from `upath.types`, never bare `str`; the flavour is `UPathParser`, the metadata carrier is `PathInfo`/`StatResultType`.
-- a `UPath` is a first-class pydantic field: `UPath.__get_pydantic_core_schema__` validates from a `str` or a `{path, protocol, storage_options}` mapping and serialises back to that mapping, so a settings/config model (`.api/pydantic-settings.md`) carries a `UPath` directly and the artifact-store root deserialises with its `storage_options` intact — no `str`-field-then-reconstruct seam.
 - a backend-agnostic capability extension (a method that must work over every protocol) subclasses `ProxyUPath`, not `UPath`; the deprecated `_protocol_dispatch = False` route is never used.
 - `UPath` never replaces `pathlib.Path` for purely local, performance-critical paths where no protocol indirection is needed; the registry resolves the empty protocol to the local `PosixUPath`/`WindowsUPath` for the base class.
 

@@ -1,4 +1,4 @@
-# [@vitest/ui] — interactive spec-run inspection surface over the vitest runner
+# [TS_TESTS_API_VITEST_UI]
 
 [PACKAGE_SURFACE]:
 - package: `@vitest/ui` · version `4.1.10` · license `MIT`
@@ -48,7 +48,7 @@ interface HTMLOptions { outputFile?: string }
 
 ## [03]-[INTEGRATION]
 
-[STACK: `@vitest/ui` ← `vitest`] — the read seam. Both surfaces consume the runner's `WebSocketRPC` (`WebSocketHandlers`/`WebSocketEvents`, see `vitest.md`) and the Reported-Tasks tree — the module graph, task results, console logs, annotations (`recordArtifact`), and unhandled errors. The design enables the UI purely through `test.ui`/`reporters`; there is no programmatic surface to bind.
+[STACK: `@vitest/ui` ← `vitest`] — the read seam. Both surfaces consume the runner's `WebSocketRPC` (`WebSocketHandlers`/`WebSocketEvents`, see `vitest.md`) and the Reported-Tasks tree — the module graph, task results, console logs, annotations (`recordArtifact`), and unhandled errors; the design enables the UI purely through `test.ui`/`reporters`; there is no programmatic surface to bind.
 
 [STACK: `@vitest/ui` + `@vitest/coverage-v8`] — the coverage embed. With `test.coverage.enabled` + a `reporter: ['html']` coverage row, `htmlDir` holds the istanbul tree; both the live dashboard and the `html` test report link it, so a run's coverage is inspectable inline with its spec tree — the two-artifact face of one run.
 
@@ -59,4 +59,4 @@ interface HTMLOptions { outputFile?: string }
 - Owns: spec-run inspection — the live dashboard (a Vite plugin over the runner's WebSocket RPC) and the durable `html` reporter (the UI frozen to a static offline bundle); both project the same Reported-Tasks tree, and it embeds coverage HTML and the browser-mode iframe.
 - Accept: `test.ui`/`--ui` + `test.api` for the live dashboard during a watch/debug session; `reporters: ['html']` (tuple form for `outputFile`) for the durable CI artifact; `browser.ui` in browser mode; the coverage `htmlDir` link when coverage is on.
 - Reject: importing this package in a spec or a gauge (it is configured, not composed — there is no runtime API); the `html` reporter as a pass/fail gate (it is a view; the gate is coverage thresholds + mutation score); a bespoke result dashboard where this reads the runner's own RPC; any `plane:runtime` import.
-- Boundary: the live dashboard needs `test.api` (a server port) open; it is a dev/debug and CI-artifact surface, never load-bearing on a pass/fail decision. The package exposes no members to import — its whole contract is a config flag and a reporter name; a "stacking" claim beyond config is a category error.
+- Boundary: the live dashboard needs `test.api` (a server port) open; it is a dev/debug and CI-artifact surface, never load-bearing on a pass/fail decision; the package exposes no members to import — its whole contract is a config flag and a reporter name; a "stacking" claim beyond config is a category error.

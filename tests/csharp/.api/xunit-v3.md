@@ -1,6 +1,6 @@
-# [xunit-v3] — the discovery, assertion, and MTP execution spine under every C# spec
+# [CSHARP_TESTING_API_XUNIT_V3]
 
-The xunit.v3 family carries the whole C# proof estate: `xunit.v3.assert` is the assertion surface the kit gates throw through, `xunit.v3.extensibility.core` owns the fact/theory/collection attribute model, `xunit.v3.common` is their shared substrate, and `xunit.v3.mtp-v2` is the metapackage that turns each test project into a self-hosting Microsoft.Testing.Platform executable. `Directory.Build.props` injects the three sub-packages into `IsTestKitProject` and `mtp-v2` into `IsTestProject`, all `PrivateAssets="all"`, with a global `Using Include="Xunit"`; a csproj never re-wires them.
+xunit.v3 packages carry the whole C# proof estate: `xunit.v3.assert` is the assertion surface the kit gates throw through, `xunit.v3.extensibility.core` owns the fact/theory/collection attribute model, `xunit.v3.common` is their shared substrate, and `xunit.v3.mtp-v2` is the metapackage that turns each test project into a self-hosting Microsoft.Testing.Platform executable. `Directory.Build.props` injects the three sub-packages into `IsTestKitProject` and `mtp-v2` into `IsTestProject`, all `PrivateAssets="all"`, with a global `Using Include="Xunit"`; a csproj never re-wires them.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -80,7 +80,7 @@ public interface ITestOutputHelper {
 - `longRunningTestSeconds: 30` — diagnostic notification past the wall-clock threshold.
 - `printMaxEnumerableLength: 64` / `printMaxObjectDepth: 4` — failure-message formatting caps.
 
-[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the MTP entry point, so `UseMicrosoftTestingPlatformRunner=true` + `OutputType=Exe` compile every suite into a self-hosting MTP executable. The MTP dependency floor it declares floats up to the centrally pinned Testing.Platform stack. `GenerateTestingPlatformEntryPoint`-family properties are scrubbed from transitive project references by the estate's reference-isolation `ItemDefinitionGroup`.
+[MTP_BRIDGE]: `xunit.v3.mtp-v2` is a pure metapackage; its transitive `xunit.v3.core.mtp-v2` carries the `buildTransitive` props/targets that generate the MTP entry point, so `UseMicrosoftTestingPlatformRunner=true` + `OutputType=Exe` compile every suite into a self-hosting MTP executable, and the MTP dependency floor it declares floats up to the centrally pinned Testing.Platform stack. `GenerateTestingPlatformEntryPoint`-family properties are scrubbed from transitive project references by the estate's reference-isolation `ItemDefinitionGroup`.
 
 [FIXTURES]: fixtures route through `IClassFixture<T>`/`ICollectionFixture<T>`, `AssemblyFixtureAttribute`, and the `CollectionAttribute<T>`/`CollectionDefinitionAttribute` pairing; all three tiers ship in `xunit.v3.core.dll`.
 

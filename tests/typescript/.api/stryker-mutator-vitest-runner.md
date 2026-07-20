@@ -1,4 +1,4 @@
-# [@stryker-mutator/vitest-runner] — runs each surviving mutant through the vitest spec runner and reports the kill verdict
+# [TS_TESTS_API_STRYKER_MUTATOR_VITEST_RUNNER]
 
 [PACKAGE_SURFACE]:
 - package: `@stryker-mutator/vitest-runner` · version `9.6.1` · license `Apache-2.0`
@@ -81,7 +81,7 @@ declare module 'vitest' {
 
 ## [03]-[CONFIG_AS_DATA]
 
-The runner and the whole mutation gauge are ONE declarative options object `stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor. The `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
+Runner and the whole mutation gauge are ONE declarative options object `stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor; the `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
 
 | [INDEX] | [CONFIG_ROW]                                    | [OWNER] | [CAPABILITY]                                                          |
 | :-----: | :---------------------------------------------- | :------ | :-------------------------------------------------------------------- |
@@ -115,7 +115,7 @@ const strykerConfig = {
 
 [STACK: shared harness Layers as the mutant-execution environment] — because the runner reuses one vitest worker across mutants (`reloadEnvironment` reported per `TestRunnerCapabilities`), a spec's acquired Layers persist across `mutantRun` calls. A `layer(PgLiteTest)` unit Layer (`electric-sql-pglite.md` [04]) or a `layer(PgContainer)` container Layer (`testcontainers.md` [04]) is built once and re-entered per mutant — so those Layers must be idempotent and leave no cross-mutant state (a mutant must not see another mutant's rows). `hitLimit` + `Effect.timeout` guard a mutant that drives an acquired resource into an infinite loop; `disableBail` keeps a spec block running so `killedBy` names every catching test, not just the first.
 
-[STACK: assay `test --mutation` + the checker pair] — `uv run python -m tools.assay test run --mutation changed|full --typescript` loads `@stryker-mutator/core`, which runs the `typescript-checker` compile gate (`stryker-mutator-typescript-checker.md`) then this runner. The JSON reporter output is the gauge receipt the assay rail scores against its kill floor; `thresholds.break` is that floor expressed as config data. `vitest.related: true` aligns with `--mutation changed` — both narrow to changed-related specs.
+[STACK: assay `test --mutation` + the checker pair] — `uv run python -m tools.assay test run --mutation changed|full --typescript` loads `@stryker-mutator/core`, which runs the `typescript-checker` compile gate (`stryker-mutator-typescript-checker.md`) then this runner; the JSON reporter output is the gauge receipt the assay rail scores against its kill floor; `thresholds.break` is that floor expressed as config data. `vitest.related: true` aligns with `--mutation changed` — both narrow to changed-related specs.
 
 ## [05]-[RAIL_LAW]
 

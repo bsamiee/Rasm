@@ -1,14 +1,14 @@
-# [@vitest/browser-playwright] — vitest browser-mode driver running browser-runtime specs over playwright
+# [TS_TESTS_API_VITEST_BROWSER_PLAYWRIGHT]
 
 [PACKAGE_SURFACE]:
 - package: `@vitest/browser-playwright` · version `4.1.10` · license `MIT`
 - module: ESM (`type: module`); subpaths `.` (the `playwright()` provider + `PlaywrightBrowserProvider`) and `./context`. Peers: `playwright *` (required — the real browser driver), `vitest 4.1.9`.
-- asset: `dist/index.d.ts`. The test-side browser context (`page`/`userEvent`/locators) is `@vitest/browser` (reached via `vitest/browser`), which THIS provider augments with Playwright's real option and `_BrowserNames` shapes.
+- asset: `dist/index.d.ts`; the test-side browser context (`page`/`userEvent`/locators) is `@vitest/browser` (reached via `vitest/browser`), which THIS provider augments with Playwright's real option and `_BrowserNames` shapes.
 - runtime: drives a real Chromium/Firefox/WebKit through Playwright's `Browser`/`BrowserContext`/`Page`/`CDPSession`; specs execute IN the browser page, not in Node.
 - plane: `plane:dev` — the browser-mode arm of the SPEC_RUNNER group; the `tests/typescript/_architecture` suite asserts no `plane:runtime` graph imports it.
 - rail: browser-runtime spec execution — the real-DOM half of the `environment` axis.
 
-`@vitest/browser-playwright` is the v4 per-provider browser package: the runner ships no built-in provider, so browser mode is admitted by importing THIS provider function. The v3 string form (`browser: { provider: 'playwright', name: 'chromium' }`) is GONE — v4 sets `browser.provider = playwright()` (an imported call) and lists a browser MATRIX in `browser.instances[]`. The provider augments the runner's ambient types: `_BrowserNames` gains `"firefox" | "webkit" | "chromium"`, `BrowserCommandContext` gains `page`/`frame`/`iframe`/`context`, and the `UserEvent*Options`/`ScreenshotOptions`/`ToMatchScreenshotOptions` gain Playwright's real shapes. It ENABLES the `vitest/browser` test context — `page`, `userEvent`, locators, `expect(el).toMatchScreenshot`, `cdp()`, `commands` — so a folder's own specs run against a real DOM. This is the browser-runtime unit/component lane, ORTHOGONAL to `@playwright/test` (the `tests/typescript/e2e` sibling, full cross-page e2e over a deployed app): browser mode runs a spec's own modules in a real engine; e2e drives an assembled application.
+`@vitest/browser-playwright` is the v4 per-provider browser package: the runner ships no built-in provider, so browser mode is admitted by importing THIS provider function; the v3 string form (`browser: { provider: 'playwright', name: 'chromium' }`) is GONE — v4 sets `browser.provider = playwright()` (an imported call) and lists a browser MATRIX in `browser.instances[]`; the provider augments the runner's ambient types: `_BrowserNames` gains `"firefox" | "webkit" | "chromium"`, `BrowserCommandContext` gains `page`/`frame`/`iframe`/`context`, and the `UserEvent*Options`/`ScreenshotOptions`/`ToMatchScreenshotOptions` gain Playwright's real shapes. It ENABLES the `vitest/browser` test context — `page`, `userEvent`, locators, `expect(el).toMatchScreenshot`, `cdp()`, `commands` — so a folder's own specs run against a real DOM. This is the browser-runtime unit/component lane, ORTHOGONAL to `@playwright/test` (the `tests/typescript/e2e` sibling, full cross-page e2e over a deployed app): browser mode runs a spec's own modules in a real engine; e2e drives an assembled application.
 
 ## [01]-[PROVIDER]
 
@@ -23,7 +23,7 @@
 |  [05]   | `defineBrowserCommand(fn)`   | command factory           | the `@vitest/browser` server-command factory a spec calls via `commands`   |
 
 ```ts signature
-// The provider is a function call, NOT a string (v4). One call owns launch/connect/context/trace for every instance.
+// Provider is a function call, NOT a string (v4). One call owns launch/connect/context/trace for every instance.
 declare function playwright(options?: PlaywrightProviderOptions): BrowserProviderOption<PlaywrightProviderOptions>
 interface PlaywrightProviderOptions {
   launchOptions?: Omit<LaunchOptions, "tracesDir">                          // playwright.launch — headless, args, channel
@@ -100,13 +100,13 @@ interface UserEvent {
 
 ## [04]-[INTEGRATION]
 
-[STACK: `@vitest/browser-playwright` ← `vitest` (`browser.provider: playwright()`)] — the mode seam. The provider plugs into `test.browser` (see `vitest.md`); the runner boots a Playwright browser per `instances[]` row and runs each spec inside it. The provider's module augmentation makes `browser` (`"chromium"|"firefox"|"webkit"`), `page`, and the `UserEvent*Options` type-check against Playwright's real capabilities.
+[STACK: `@vitest/browser-playwright` ← `vitest` (`browser.provider: playwright()`)] — the mode seam; the provider plugs into `test.browser` (see `vitest.md`); the runner boots a Playwright browser per `instances[]` row and runs each spec inside it; the provider's module augmentation makes `browser` (`"chromium"|"firefox"|"webkit"`), `page`, and the `UserEvent*Options` type-check against Playwright's real capabilities.
 
 [STACK: `@vitest/browser-playwright` + `@effect/vitest`] — the effect-in-browser seam. An `it.effect` body runs in the browser worker with `TestServices`, and its body drives `page`/`userEvent`/locators; a UI-facing kernel invariant is asserted as an effect law against the real DOM. `it.layer` shares a page-setup Layer across a browser `describe` block exactly as it shares a container in the harness lanes.
 
 [STACK: `@vitest/browser-playwright` + `@vitest/coverage-v8` + `@vitest/ui`] — the report seam. `@vitest/coverage-v8/browser` collects coverage inside the browser and folds it into the Node lane's `CoverageMap`; `browser.ui: true` embeds the `@vitest/ui` dashboard with the live iframe so a failing browser spec is inspected in the DOM it ran in (see `vitest-coverage-v8.md`, `vitest-ui.md`).
 
-[STACK: `@vitest/browser-playwright` + `@playwright/test` (one shared `playwright` engine)] — the engine-reuse seam, the mirror of `playwright-test.md`. Orthogonal in PURPOSE (this is the browser-runtime unit lane; `@playwright/test` is the app-e2e gauge) yet SHARED in engine: this provider's required `playwright` peer is the exact package `@playwright/test` bundles, so one `playwright install` of Chromium/Firefox/WebKit backs both lanes while each lane declares its OWN launch config from the same option shape — `PlaywrightProviderOptions.launchOptions`/`connectOptions` here (in `vitest.config.ts`) mirror `@playwright/test`'s worker-scoped `use.launchOptions`/`connectOptions` there (in `playwright.config.ts`), never a single shared config instance. The lanes diverge only at the ASSERTION rail: a browser-mode spec asserts through the `vitest`/`@effect/vitest` rail, NEVER Playwright's auto-retrying `expect` (that belongs to the `tests/typescript/e2e` driver).
+[STACK: `@vitest/browser-playwright` + `@playwright/test` (one shared `playwright` engine)] — the engine-reuse seam, the mirror of `playwright-test.md`. Orthogonal in PURPOSE (this is the browser-runtime unit lane; `@playwright/test` is the app-e2e gauge) yet SHARED in engine: this provider's required `playwright` peer is the exact package `@playwright/test` bundles, so one `playwright install` of Chromium/Firefox/WebKit backs both lanes while each lane declares its OWN launch config from the same option shape — `PlaywrightProviderOptions.launchOptions`/`connectOptions` here (in `vitest.config.ts`) mirror `@playwright/test`'s worker-scoped `use.launchOptions`/`connectOptions` there (in `playwright.config.ts`), never a single shared config instance; the lanes diverge only at the ASSERTION rail: a browser-mode spec asserts through the `vitest`/`@effect/vitest` rail, NEVER Playwright's auto-retrying `expect` (that belongs to the `tests/typescript/e2e` driver).
 
 [STACK boundary: `@vitest/browser-playwright` vs `@playwright/test` vs `happy-dom`/`jsdom`] — the three DOM modalities. `happy-dom`/`jsdom` (`test.environment`) are simulated DOM in Node — fast, no engine, adequate for logic that touches `document`. `@vitest/browser-playwright` runs the SAME spec in a real engine — real layout, real events, `toMatchScreenshot`. `@playwright/test` (`tests/typescript/e2e`, `playwright-test.md`) drives a deployed multi-page app end-to-end. One `environment` axis, escalating fidelity; the design picks the least-fidelity lane that proves the invariant.
 

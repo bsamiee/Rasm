@@ -1,4 +1,4 @@
-# [@electric-sql/pglite] — in-process pg for the fast unit lane, no server extensions
+# [TS_TESTS_API_ELECTRIC_SQL_PGLITE]
 
 [PACKAGE_SURFACE]:
 - package: `@electric-sql/pglite` · version `0.5.4` · license `Apache-2.0`
@@ -8,7 +8,7 @@
 - plane: `plane:dev` — the `_testkit` fast unit lane; the container lane's counterpart is `testcontainers.md` (the real server-extension pg image `tests/containers.json` pins as the `pg` row).
 - rail: persistence-verification / in-process-sql.
 
-`@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds. The `_testkit` unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface. It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane. The `tests/typescript/_architecture` suite bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.
+`@electric-sql/pglite` is the fast half of the `_testkit` harness (`tests/typescript/_testkit`): the whole database is a WASM instance the spec constructs, seeds with raw DDL, and discards — microsecond startup versus the container lane's seconds; the `_testkit` unit lane wraps one `PGlite` in an effect `Layer` (acquire `PGlite.create` → release `close`) shared across a spec block via `@effect/vitest` `layer(...)`, exposing the `query`/`sql`/`exec`/`transaction` surface. It is the lane for query logic that needs no SERVER extension (pgvector, postgis, the CNPG image rows) — those force the container lane; `tests/typescript/_architecture` bans `@effect/sql/Migrator` and `@effect/sql-pg/PgMigrator` branch-wide, so schema setup here is raw `exec(ddl)`, never a migrator.
 
 ## [01]-[CORE]
 
@@ -30,7 +30,7 @@
 |  [12]   | `IdbFs` / `MemoryFS`         | class               | persistence backends — IndexedDB vs in-memory (unit lane default)       |
 |  [13]   | `Mutex`                      | class               | the single-connection serialization primitive `runExclusive` uses       |
 
-```ts contract
+```ts signature
 // dataDir absent ⇒ in-memory (the unit-lane default); prefer PGlite.create over `new` so extension namespaces type through.
 declare class PGlite extends BasePGlite implements PGliteInterface, AsyncDisposable {
   constructor(dataDir?: string, options?: PGliteOptions)
@@ -64,7 +64,7 @@ type PGliteInterface<T extends Extensions = Extensions> = InitializedExtensions<
 
 [PUBLIC_TYPE_SCOPE]: construction bag — the fields the unit lane sets.
 
-```ts contract
+```ts signature
 interface PGliteOptions<TExtensions extends Extensions = Extensions> {
   dataDir?: string                  // absent ⇒ in-memory; "idb://name" ⇒ IdbFs; "memory://" explicit
   extensions?: TExtensions          // client-side wasm extensions keyed by namespace (see [03])
@@ -90,7 +90,7 @@ interface PGliteOptions<TExtensions extends Extensions = Extensions> {
 |  [03]   | `identifier` (tagged template) | `TemplatePart`      | auto-escaped identifier (never a parameter)             |
 |  [04]   | `raw` (tagged template)        | `TemplatePart`      | verbatim string, no escaping/parametrization            |
 
-```ts contract
+```ts signature
 // query`SELECT * FROM ${identifier`t`} ${withFilter ? sql`WHERE a = ${x}` : sql``}`  → { query: 'SELECT * FROM "t" WHERE a = $1', params: [x] }
 declare function sql(strings: TemplateStringsArray, ...values: any[]): TemplateContainer
 declare function identifier(strings: TemplateStringsArray, ...values: any[]): TemplatePart
@@ -101,9 +101,9 @@ Barrel also exports `parse` (wire parser) and `formatQuery`, and `protocol` (the
 
 ## [03]-[EXTENSIONS_AND_LANES]
 
-The extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`). The `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `earthdistance`, `fuzzystrmatch`, `hstore`, `intarray`, `isn`, `lo`, `ltree`, `pg_trgm`, `pgcrypto`, `seg`, `tablefunc`, `tsm_system_rows`, `unaccent`, `uuid_ossp`, … — 33 bundled) and the first-party `live` extension are SEED ROWS on that shape. This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
+Extension mechanism is ONE parameterized shape, not a fixed roster: an `Extension` is `{ name, setup }` keyed into `PGliteOptions.extensions` by namespace, and `PGlite.create` types the resulting namespace onto the handle (`PGliteInterfaceExtensions`); the `./contrib/*` roster (`amcheck`, `auto_explain`, `bloom`, `btree_gin`, `btree_gist`, `citext`, `cube`, `earthdistance`, `fuzzystrmatch`, `hstore`, `intarray`, `isn`, `lo`, `ltree`, `pg_trgm`, `pgcrypto`, `seg`, `tablefunc`, `tsm_system_rows`, `unaccent`, `uuid_ossp`, … — 33 bundled) and the first-party `live` extension are SEED ROWS on that shape. This is the CLIENT-side wasm-contrib surface — orthogonal to the SERVER extensions (`pgvector`, `postgis`, the CNPG image rows) that force the `testcontainers` lane; "no server extensions" names that boundary, not a ban on `live` or the bundled contribs.
 
-```ts contract
+```ts signature
 interface Extension<TNamespace = any> { name: string; setup: ExtensionSetup<TNamespace> }
 type Extensions = { [namespace: string]: Extension | URL }
 ```

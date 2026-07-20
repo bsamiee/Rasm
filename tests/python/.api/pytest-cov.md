@@ -1,6 +1,6 @@
-# [pytest-cov] — the session driver that runs coverage.py under pytest and gates the total
+# [PY_TESTS_API_PYTEST_COV]
 
-`pytest-cov` boots a `coverage.Coverage` instance from `[tool.coverage.*]`, starts it before collection, and folds child-process and xdist-worker data into one report at session end. It contributes no coverage vocabulary of its own beyond the `--cov*` CLI: source selection, branch mode, contexts, and the fail-under floor all delegate to coverage.py, which owns the measurement (`.api/coverage.md`). The Rasm suite runs the default lane through this driver; the mutmut lane bypasses it, driving coverage directly against the absolute-path side-file `.config/coverage-mutmut.ini`.
+`pytest-cov` boots a `coverage.Coverage` instance from `[tool.coverage.*]`, starts it before collection, and folds child-process and xdist-worker data into one report at session end. It contributes no coverage vocabulary of its own beyond the `--cov*` CLI: source selection, branch mode, contexts, and the fail-under floor all delegate to coverage.py, which owns the measurement (`.api/coverage.md`). Rasm's default lane runs through this driver; the mutmut lane bypasses it, driving coverage directly against the absolute-path side-file `.config/coverage-mutmut.ini`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -53,7 +53,7 @@ class TestContextPlugin:
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PYTEST_COV_TOPOLOGY]:
-- The engine controller starts a `coverage.Coverage` before collection and stops it inside `CovPlugin.pytest_runtestloop` after the yielded run loop, then calls the report writers named by `--cov-report` against the combined data.
+- Engine controller starts a `coverage.Coverage` before collection and stops it inside `CovPlugin.pytest_runtestloop` after the yielded run loop, then calls the report writers named by `--cov-report` against the combined data.
 - Under `pytest-xdist`, `DistMaster.configure_node` seeds each worker with `cov_master_host`/`cov_master_topdir`/`cov_master_rsync_roots`; workers construct their coverage with `data_suffix=True`, and the controller combines the per-worker parallel files before reporting.
 - Every option not named `--cov*` is coverage.py's: `--cov-config` selects the file, but source, branch, contexts, exclusions, and the report shape are read from `[tool.coverage.*]`.
 

@@ -1,4 +1,4 @@
-# [timeprovider-testing] — the deterministic clock under time-dependent gauges
+# [CSHARP_TESTING_API_TIMEPROVIDER_TESTING]
 
 `Microsoft.Extensions.TimeProvider.Testing` ships `FakeTimeProvider`, the controllable `TimeProvider` that makes every time-dependent proof deterministic: wall-clock reads, timestamps, and timers advance only when the spec says so. It injects wherever a SUT accepts `TimeProvider`, so retry schedules, cache expiry, debounce windows, and the AppUi proof engine's timed lanes prove without real sleeps.
 
@@ -18,7 +18,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-The fence carries the full `CreateTimer` signature and the `FakeTimeProvider` shape.
+Fence carries the full `CreateTimer` signature and the `FakeTimeProvider` shape.
 
 | [INDEX] | [SURFACE]                                               | [KIND]  | [CAPABILITY]                                                    |
 | :-----: | :------------------------------------------------------ | :------ | :-------------------------------------------------------------- |
@@ -49,9 +49,9 @@ public class FakeTimeProvider : TimeProvider {
 [DETERMINISM]: time moves only through `Advance`/`SetUtcNow`/`AutoAdvanceAmount`; timer callbacks run synchronously on the advancing thread when their due time is crossed, so a timed proof is a pure function of the advance sequence — no sleeps, no race windows.
 
 [STACKING]:
-- `Rasm.TestKit`: the kit's time-dependent gauges take `TimeProvider` and receive `FakeTimeProvider` in specs; production code keeps `TimeProvider.System`.
+- `Rasm.TestKit`: kit gauges take `TimeProvider` and receive `FakeTimeProvider` in specs; production code keeps `TimeProvider.System`.
 - `xunit.v3` (`xunit-v3.md`): plain construction inside `[Fact]` bodies; no fixture requirement.
-- `libs/csharp/Rasm.AppUi/.api/api-headless.md`: the AppUi proof engine drives its timed render and evidence lanes off this clock.
+- `libs/csharp/Rasm.AppUi/.api/api-headless.md`: AppUi's proof engine drives its timed render and evidence lanes off this clock.
 
 [LOCAL_ADMISSION]:
 - A SUT reads time through an injected `TimeProvider`; a spec that sleeps, polls `DateTime.UtcNow`, or hand-rolls a fake clock is the named defect.

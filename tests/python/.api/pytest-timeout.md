@@ -1,4 +1,4 @@
-# [pytest-timeout] — the per-test wall-clock guard
+# [PY_TESTS_API_PYTEST_TIMEOUT]
 
 `pytest-timeout` bounds each test's wall-clock duration and dumps every thread's stack on breach, converting a hung test or runaway loop into a deterministic failure with a diagnostic trace. It owns the real-time ceiling the Hypothesis lane deliberately cedes: the `rasm` profiles set `deadline=None`, so per-example timing is off and this plugin is the sole wall-clock authority over a whole property test.
 
@@ -11,7 +11,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-The resolved per-item settings and the diagnostic dump the plugin emits on breach.
+Resolved per-item settings and the diagnostic dump the plugin emits on breach.
 
 | [INDEX] | [SYMBOL]                               | [KIND]          | [CAPABILITY]                                                              |
 | :-----: | :------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
@@ -33,7 +33,7 @@ def pytest_timeout_cancel_timer(item: Item) -> bool | None: ...
 
 ## [03]-[ENTRYPOINTS]
 
-The config key, marker, and CLI/env surface resolving a per-test ceiling.
+Config key, marker, and CLI/env surface resolving a per-test ceiling.
 
 | [INDEX] | [SURFACE]                                      | [KIND]            | [CAPABILITY]                                                     |
 | :-----: | :--------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
@@ -55,7 +55,7 @@ The config key, marker, and CLI/env surface resolving a per-test ceiling.
 
 [PYTEST_TIMEOUT_TOPOLOGY]:
 - `[tool.pytest] timeout = "30"` is string-typed on purpose: pytest-timeout registers `timeout` as a string ini option, and pytest 9's native TOML mode rejects a bare int for a string option, so the quoted `"30"` is the only valid spelling.
-- The `signal` method fires SIGALRM on the main thread and cannot bound work off it; the `thread` method arms a timer thread and bounds any context — the DEFAULT is `signal` where SIGALRM exists.
+- `signal` fires SIGALRM on the main thread and cannot bound work off it; the `thread` method arms a timer thread and bounds any context — the DEFAULT is `signal` where SIGALRM exists.
 - On breach the plugin runs `dump_stacks` for every thread, then fails the item; a detected debugger suppresses the timer unless `timeout_disable_debugger_detection` is set.
 
 [STACKING]:

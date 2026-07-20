@@ -61,10 +61,10 @@ STABLE (`.`) namespaces — API-frozen, safe for durable dashboards, SLO rows, a
 | [INDEX] | [RASM_NAMESPACES]                                                             | [CONSUMER_BOUNDARY]                                      |
 | :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------------- |
 |  [01]   | `service.*` (name/version/instance.id/namespace)                              | the `Resource` identity spine — `AppIdentity → resource` |
-|  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`                                        | SDK/distro resource attrs                                |
+|  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`, `otel.*`, `network.*`                 | unrowed — consumer-earned admission law                  |
 |  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                             |
-|  [04]   | `url.*`, `network.*`, `server.*`/`client.*`                                   | `host/net` client span attrs                             |
-|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`, `otel.*`            | `value/fault` `FaultCapture.Forensic` crash anchors      |
+|  [04]   | `url.*`, `server.*`/`client.*`                                                | `host/net` client span attrs                             |
+|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`                      | `value/fault` `FaultCapture.Forensic` crash anchors      |
 |  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` rows feed `board#QUERY` only   |
 
 INCUBATING (`./incubating`) namespaces — overlay, imported behind the churn-absorbing alias row:

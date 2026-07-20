@@ -1,6 +1,6 @@
-# [pytest-socket] — the default-deny INET guard the whole Python suite runs under
+# [PY_TESTS_API_PYTEST_SOCKET]
 
-`pytest-socket` swaps `socket.socket`, `socket.getaddrinfo`, and `socket.gethostbyname` for guarded stand-ins for the duration of a test, turning accidental egress into an immediate `SocketBlockedError` instead of a hang. The Rasm suite arms it globally through `addopts` so every test starts INET-blind; a test opts back in through the `socket_enabled` fixture, which the testkit couples to the auto-applied `network` marker. `--allow-unix-socket` keeps loopback UDS capsules alive while INET stays sealed.
+`pytest-socket` swaps `socket.socket`, `socket.getaddrinfo`, and `socket.gethostbyname` for guarded stand-ins for the duration of a test, turning accidental egress into an immediate `SocketBlockedError` instead of a hang. Rasm's suite arms it globally through `addopts` so every test starts INET-blind; a test opts back in through the `socket_enabled` fixture, which the testkit couples to the auto-applied `network` marker. `--allow-unix-socket` keeps loopback UDS capsules alive while INET stays sealed.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -53,7 +53,7 @@ def socket_disabled(pytestconfig: pytest.Config) -> Iterator[None]: ...  # disab
 
 [PYTEST_SOCKET_TOPOLOGY]:
 - One `_PytestSocketConfig` stash row holds the session decision; `pytest_runtest_setup` resolves per test in a fixed precedence and `pytest_runtest_teardown` restores the real socket surface every time.
-- The block replaces `socket.socket` with a `GuardedSocket` whose `__new__` raises unless the family is `AF_UNIX` under `allow_unix_socket`; `getaddrinfo`/`gethostbyname` raise directly, so DNS fails as fast as `connect`.
+- `GuardedSocket` replaces `socket.socket`, its `__new__` raising unless the family is `AF_UNIX` under `allow_unix_socket`; `getaddrinfo`/`gethostbyname` raise directly, so DNS fails as fast as `connect`.
 - `--allow-hosts` installs a narrower `connect`-only guard through `socket_allow_hosts`, admitting exact hosts, resolved hostnames, and CIDR networks parsed by `_partition_allowed`.
 
 [STACKING]:

@@ -1,4 +1,4 @@
-# [fast-check] — property engine behind the law combinators and Schema-driven arbitraries
+# [TS_TESTS_API_FAST_CHECK]
 
 [PACKAGE_SURFACE]:
 - package: `fast-check` · version `3.23.2` · license `MIT`
@@ -33,7 +33,7 @@
 |  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + counterexample rendering    |
 
 ```ts signature
-// The Arbitrary algebra — every primitive/combinator below returns one of these; you refine with three methods.
+// Arbitrary algebra — every primitive/combinator below returns one of these; refine with three methods.
 abstract class Arbitrary<T> {
   abstract generate(mrng: Random, biasFactor: number | undefined): Value<T>
   abstract canShrinkWithoutContext(value: unknown): value is T
@@ -83,7 +83,7 @@ declare function sample<Ts>(generator: IRawProperty<Ts> | Arbitrary<Ts>, params?
 
 ## [03]-[ARBITRARIES]
 
-The full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a new shape is a row, never a new mechanism. The `_testkit` law/arbitrary source reaches almost none of these by hand: it derives from `Schema` (see [05]) and drops to raw arbitraries only for a shape `Schema` cannot express.
+Full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a new shape is a row, never a new mechanism; the `_testkit` law/arbitrary source reaches almost none of these by hand: it derives from `Schema` (see [05]) and drops to raw arbitraries only for a shape `Schema` cannot express.
 
 [ENTRYPOINT_SCOPE]: scalars — `nat`, `integer`, `maxSafeInteger`, `maxSafeNat`, `double`, `float`, `boolean`, `bigInt`, `constant`, `constantFrom`, `falsy`, `date`, `ulid`, `uuid` (all take a `*Constraints` bag; `constant<const T>` preserves literal type).
 

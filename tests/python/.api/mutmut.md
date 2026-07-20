@@ -1,6 +1,6 @@
-# [mutmut] — the copied-tree mutation runner the assay gate governs over the Assay suite
+# [PY_TESTS_API_MUTMUT]
 
-`mutmut` 3.x mutates `tools/assay` source, stages each mutant into a copied `mutants/` workdir, and runs the pytest selection against it — a mutant the suite fails to kill is a survivor, a gap in the tests. It is CLI-first: the run is `mutmut run`, results and triage read the persisted cache, and all policy lives in `[tool.mutmut]` in `pyproject.toml`. The Rasm mutation lane is not a bare `mutmut run` — assay stages the workdir, feeds mutmut an absolute-keyed coverage side-file for its covered-line map, governs concurrency, and grades the cache through `mutation_gate.py`.
+`mutmut` 3.x mutates `tools/assay` source, stages each mutant into a copied `mutants/` workdir, and runs the pytest selection against it — a mutant the suite fails to kill is a survivor, a gap in the tests. It is CLI-first: the run is `mutmut run`, results and triage read the persisted cache, and all policy lives in `[tool.mutmut]` in `pyproject.toml`. Rasm's mutation lane is not a bare `mutmut run` — assay stages the workdir, feeds mutmut an absolute-keyed coverage side-file for its covered-line map, governs concurrency, and grades the cache through `mutation_gate.py`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -75,7 +75,7 @@ timeout_multiplier = 4.0; timeout_constant = 5.0   # per-mutant cap = (estimated
 
 [LOCAL_ADMISSION]:
 - Admitted at the dedicated `[dependency-groups] mutation` tier (`default-groups` includes it); never a runtime or `dev`-tier dependency.
-- The assay mutation rail is the sole consumer; `mutmut run` is reached through the assay-staged workdir, never a direct repo-root invocation.
+- Assay's mutation rail is the sole consumer; `mutmut run` is reached through the assay-staged workdir, never a direct repo-root invocation.
 
 [RAIL_LAW]:
 - Package: `mutmut`

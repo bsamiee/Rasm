@@ -1,6 +1,6 @@
-# [coverlet-mtp] — CLI-configured coverage instrumentation inside every MTP test executable
+# [CSHARP_TESTING_API_COVERLET_MTP]
 
-`coverlet.MTP` is the Microsoft.Testing.Platform flavor of coverlet: a builder-hook extension that IL-rewrites system-under-test assemblies ahead of load (Mono.Cecil, sequence-point hit recording) and reports on process exit. It is configured exclusively through MTP command-line options and config files — the `coverlet.msbuild` `Coverlet*` MSBuild property family is inert under this flavor. The estate activates it through the `RasmCoverage=true` gate in `Directory.Build.props`, which splices the `--coverlet` tail into `TestingPlatformCommandLineArguments` per test executable.
+`coverlet.MTP` is the Microsoft.Testing.Platform flavor of coverlet: a builder-hook extension that IL-rewrites system-under-test assemblies ahead of load (Mono.Cecil, sequence-point hit recording) and reports on process exit. It is configured exclusively through MTP command-line options and config files — the `coverlet.msbuild` `Coverlet*` MSBuild property family is inert under this flavor. Estate activation runs through the `RasmCoverage=true` gate in `Directory.Build.props`, which splices the `--coverlet` tail into `TestingPlatformCommandLineArguments` per test executable.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -44,7 +44,7 @@
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ACTIVATION]: `Directory.Build.props` owns the one activation seam — `RasmCoverage=true` on any `IsTestProject` splices `--coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)` into `TestingPlatformCommandLineArguments`; `RasmCoverageFormat` defaults to `cobertura`. The report lands beside the run's `--results-directory` as `<prefix>.coverage.<format>.<stamp>.<ext>`.
+[ACTIVATION]: `Directory.Build.props` owns the one activation seam — `RasmCoverage=true` on any `IsTestProject` splices `--coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)` into `TestingPlatformCommandLineArguments`; `RasmCoverageFormat` defaults to `cobertura`, and the report lands beside the run's `--results-directory` as `<prefix>.coverage.<format>.<stamp>.<ext>`.
 
 [DEAD_KNOBS]: the shipped build assets read no `Coverlet*` MSBuild property — `CoverletOutputFormat`, `CoverletInclude`, `CoverletExclude`, `CoverletOutput`, and the rest of the `coverlet.msbuild` family configure nothing here. There is no output-directory option; only the filename prefix and the results directory route placement. In CLI-only mode default excludes (`[coverlet.*]*`, `[xunit.*]*`, `[Microsoft.Testing.*]*`, test-host families) and default exclude-attributes auto-merge; a config file switches to authoritative mode where no defaults inject.
 

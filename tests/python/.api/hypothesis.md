@@ -1,6 +1,6 @@
-# [hypothesis] — the property-based generation engine under `@spec` and the stateful oracles
+# [PY_TESTS_API_HYPOTHESIS]
 
-`hypothesis` is the sole property substrate on the Python dev plane: it draws typed inputs from `SearchStrategy` values, shrinks every counterexample to a minimal witness, and persists failing examples for deterministic replay. The `_testkit` layer owns the repo-facing surface — `runtime.py` registers every profile and composes the example-database stack, `strategies.py` folds the msgspec and pydantic schema algebras into one `resolve(subject)`, and `spec.py`/`laws.py` bind `@given`, `settings`, and the stateful vocabulary into `@spec` — so a law module imports `@spec`, the oracles, and `resolve`, never raw `given` or a hand-built strategy.
+`hypothesis` is the sole property substrate on the Python dev plane: it draws typed inputs from `SearchStrategy` values, shrinks every counterexample to a minimal witness, and persists failing examples for deterministic replay. `_testkit` owns the repo-facing surface and folds the msgspec and pydantic schema algebras into one `resolve(subject)`, so a law module imports `@spec`, the oracles, and `resolve`, never raw `given` or a hand-built strategy.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -76,7 +76,7 @@ def run_state_machine_as_test(state_machine_factory: type[RuleBasedStateMachine]
 
 [STRATEGY_ALGEBRA]: scalars — `integers`, `floats`, `decimals`, `booleans`, `none`, `text`, `binary`, `uuids`, `datetimes`, `dates`, `times`, `timedeltas`, `timezones`, `just`, `nothing` (each takes constraint keywords: `min_value`/`max_value`, `min_size`/`max_size`, `allow_nan`/`allow_infinity`, `alphabet`).
 
-[STRATEGY_ALGEBRA]: containers + shape — `lists`, `sets`, `frozensets`, `tuples`, `dictionaries`, `fixed_dictionaries` (required plus `optional=` presence sampling), `from_regex` (`fullmatch=True`), `sampled_from` over a closed set.
+[STRATEGY_ALGEBRA]: containers + shape — `lists`, `sets`, `frozensets`, `tuples`, `dictionaries`, `fixed_dictionaries` (required keys, `optional=` presence sampling), `from_regex` (`fullmatch=True`), `sampled_from` over a closed set.
 
 [STRATEGY_ALGEBRA]: combinators + recursion — `one_of` (union over strategies), `builds` (construct from field strategies), `composite` (imperative `DrawFn` body), `deferred` (lazy self-reference), `recursive(base, extend, *, min_leaves, max_leaves)`, `data` (draw inside the test body).
 
@@ -89,7 +89,7 @@ def run_state_machine_as_test(state_machine_factory: type[RuleBasedStateMachine]
 [HYPOTHESIS_TOPOLOGY]:
 - One engine folds three surfaces: `SearchStrategy` construction, `@given` example generation, and automatic shrinking to a minimal counterexample — a law never loops or shrinks by hand.
 - Every profile is registered once in `runtime.py` and selected by name — `rasm` (the pytest default via `--hypothesis-profile=rasm`), `rasm-ci`, `rasm-stress`, `rasm-debug`, `rasm-mutation` (`database=None`, `derandomize=True`, short traces), `rasm-stateful`, `rasm-parity`, `rasm-adversarial`; an unpinned `@spec` law follows the session-active profile so the CLI selection governs it.
-- The example-database stack composes `BackgroundWriteDatabase(DirectoryBasedExampleDatabase(...))` for local writes, multiplexed with `ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo))` only when `RASM_HYPOTHESIS_GH_REPLAY` names a CI corpus.
+- Example-database composition stacks `BackgroundWriteDatabase(DirectoryBasedExampleDatabase(...))` for local writes, multiplexed with `ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo))` only when `RASM_HYPOTHESIS_GH_REPLAY` names a CI corpus.
 - `HealthCheck.filter_too_much`, `too_slow`, and `data_too_large` are the standing suppressions; recursion depth binds through engine rejection in `resolve`'s `deferred` strategies, never a manual counter.
 - Observability routes through `hypothesis.internal.observability.add_observability_callback` to `.artifacts/python/hypothesis` when `TESTS_OBSERVABILITY` is set, preserving the built-in callback.
 
@@ -101,7 +101,7 @@ def run_state_machine_as_test(state_machine_factory: type[RuleBasedStateMachine]
 
 [LOCAL_ADMISSION]:
 - Admitted on the `tests/` dev plane only; no `plane:runtime` module imports `hypothesis`.
-- The strategy registry, profile registry, and stateful driver are internalized behind `_testkit`; downstream law modules compose `@spec` and the oracles, never the engine directly.
+- `_testkit` internalizes the strategy registry, profile registry, and stateful driver; downstream law modules compose `@spec` and the oracles, never the engine directly.
 
 [RAIL_LAW]:
 - Package: `hypothesis`

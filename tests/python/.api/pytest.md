@@ -1,6 +1,6 @@
-# [pytest] — the spec-run substrate every Python lane and gauge stands on
+# [PY_TESTS_API_PYTEST]
 
-`pytest` is the collector, fixture, marker, config, and hook engine the whole `tests/python` estate composes on: the `_testkit` runtime plugin binds Hypothesis profiles and auto-markers through its hooks, the `spec.py` matrix folds report through its core `subtests` fixture, and every lane — unit, network, subprocess, benchmark, mutation — is a marker selection over one session. The parallel, ordering, and wall-clock lanes are sibling rails: `.api/pytest-xdist.md`, `.api/pytest-randomly.md`, `.api/pytest-timeout.md`.
+`pytest` is the collector, fixture, marker, config, and hook engine the whole `tests/python` estate composes on: the `_testkit` runtime plugin binds Hypothesis profiles and auto-markers through its hooks, the `spec.py` matrix folds report through its core `subtests` fixture, and every lane — unit, network, subprocess, benchmark, mutation — is a marker selection over one session. Parallel, ordering, and wall-clock lanes are sibling rails: `.api/pytest-xdist.md`, `.api/pytest-randomly.md`, `.api/pytest-timeout.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-The config, item, and hook objects the `_testkit` plugins and conftests implement against; every symbol re-exports on the `pytest` barrel.
+Config, item, and hook objects the `_testkit` plugins and conftests implement against; every symbol re-exports on the `pytest` barrel.
 
 | [INDEX] | [SYMBOL]                             | [KIND]             | [CAPABILITY]                                                               |
 | :-----: | :----------------------------------- | :----------------- | :------------------------------------------------------------------------- |
@@ -77,7 +77,7 @@ def skip(reason: str = "", allow_module_level: bool = False) -> NoReturn: ...
 def importorskip(modname: str, minversion: str | None = None, reason: str | None = None, *, exc_type: type[ImportError] | None = None) -> ModuleType: ...
 ```
 
-The `_testkit` plugins implement this hook surface; each signature is the kit's declared subset of the full hookspec — pluggy passes a hook argument only when the implementation names it.
+`_testkit` plugins implement this hook surface; each signature is the kit's declared subset of the full hookspec — pluggy passes a hook argument only when the implementation names it.
 
 ```python signature
 def pytest_addoption(parser: Parser) -> None: ...                        # bind CLI options + addini config keys
@@ -97,13 +97,13 @@ def pytest_sessionstart(session: Session) -> None: ...                   # optio
 - `required_plugins` guards the session: `anyio`, `hypothesis`, `inline-snapshot`, `pytest-benchmark`, `pytest-cov`, `pytest-randomly`, `pytest-socket`, `pytest-timeout`, `pytest-xdist` must all load or the session aborts.
 - `collect_imported_tests = false` stops collecting tests imported into a module rather than defined there; `empty_parameter_set_mark = "fail_at_collect"` fails an empty `parametrize` set at collection instead of silently skipping.
 - `--import-mode=importlib` collects without mutating `sys.path`, so `pythonpath = ["."]` is the only import anchor and suites import by fully-qualified package path.
-- The closed marker set is declared in `markers`: `benchmark`, `mutation`, `network`, `property`, `subprocess`; `strict = true` rejects any undeclared marker.
-- The runtime plugin implements `pytest_configure` (registers the bench regression hook when pytest-benchmark loads), `pytest_collection_modifyitems` (auto-applies `network` from `socket_enabled` membership and `property` from `is_hypothesis_test`, then consumes each module's `COVERS`), and `pytest_sessionstart` (optional CPU sampler); the assay conftest adds `pytest_runtest_setup`/`pytest_runtest_teardown` to isolate SUT `ContextVar`s per test.
-- The assay `cli` fixture composes `capsysbinary` (the `bytes` `CaptureFixture` variant), `monkeypatch`, and `request` to run the CLI in-process and decode the stdout envelope; `tmp_path` (backed by `TempPathFactory`) roots the isolated harness so filesystem laws never touch the repo tree.
+- Closed marker set is declared in `markers`: `benchmark`, `mutation`, `network`, `property`, `subprocess`; `strict = true` rejects any undeclared marker.
+- Runtime plugin implements `pytest_configure` (registers the bench regression hook when pytest-benchmark loads), `pytest_collection_modifyitems` (auto-applies `network` from `socket_enabled` membership and `property` from `is_hypothesis_test`, then consumes each module's `COVERS`), and `pytest_sessionstart` (optional CPU sampler); the assay conftest adds `pytest_runtest_setup`/`pytest_runtest_teardown` to isolate SUT `ContextVar`s per test.
+- Assay `cli` fixture composes `capsysbinary` (the `bytes` `CaptureFixture` variant), `monkeypatch`, and `request` to run the CLI in-process and decode the stdout envelope; `tmp_path` (backed by `TempPathFactory`) roots the isolated harness so filesystem laws never touch the repo tree.
 - `otel_spans` and `log_events` are the runtime plugin's observability fixtures — an `InMemorySpanExporter` cleared per test and a structlog event list — so a span or log assertion reads structured records, never scraped stdout.
 
 [STACKING]:
-- `runtime.py`(`../_testkit/runtime.py`): loaded via `-p tests.python._testkit.runtime`; registers the `rasm*` Hypothesis profile family (`.api/hypothesis.md` carries the roster) and provides `otel_spans`/`log_events` fixtures.
+- `runtime.py`(`../_testkit/runtime.py`): loaded via `-p tests.python._testkit.runtime`; registers the `rasm*` Hypothesis profile family (`.api/hypothesis.md` carries the roster) and exposes `otel_spans`/`log_events` fixtures.
 - `laws.py`(`../_testkit/laws.py`): `@spec` and `COVERS` fold into `MANIFEST`; `pytest_collection_modifyitems` calls `consume_covers` per collected module.
 - `spec.py`(`../_testkit/spec.py`): `validity_matrix`/`projection_matrix`/`support_matrix` accept `subtests: RowCarrier | None`; the core `pytest.Subtests` fixture satisfies `RowCarrier`, so a breached row reports independently.
 - `pytest-xdist`(`.api/pytest-xdist.md`): the parallel lane, excluded from default `addopts`.

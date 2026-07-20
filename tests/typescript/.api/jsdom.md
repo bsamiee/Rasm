@@ -1,15 +1,15 @@
-# [jsdom] — spec-conformant DOM environment where fidelity outranks speed
+# [TS_TESTS_API_JSDOM]
 
 [PACKAGE_SURFACE]:
 - package: `jsdom` · version `29.1.1` · license `MIT`
 - module: CommonJS (`type: commonjs`); single entry `main: ./lib/api.js` — `require("jsdom")` / interop-default under ESM; no `exports` map; the barrel exports exactly `{ JSDOM, VirtualConsole, CookieJar, requestInterceptor, toughCookie }`.
-- types: NONE bundled and `@types/jsdom` is NOT admitted — the member surface below is SOURCE-VERIFIED against `lib/api.js` (assay resolves the package as `tsdecl` but reports zero declaration paths). The vitest `environment: 'jsdom'` string path needs no types; a directly-typed `new JSDOM(...)` spec must admit the community `@types/jsdom` first or consume it untyped.
+- types: NONE bundled and `@types/jsdom` is NOT admitted — the member surface below is SOURCE-VERIFIED against `lib/api.js` (assay resolves the package as `tsdecl` but reports zero declaration paths); the vitest `environment: 'jsdom'` string path needs no types; a directly-typed `new JSDOM(...)` spec must admit the community `@types/jsdom` first or consume it untyped.
 - asset: pure JS under `lib/`; the HTML parser is `parse5`, cookies are `tough-cookie`, subresource loading is `undici` — real standards implementations, not approximations.
 - runtime: node `^20.19 || ^22.13 || >=24`; single-threaded; a full contextified `vm` global per instance — heavier startup than `happy-dom`.
-- plane: `plane:dev` — the fidelity `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fast counterpart is `happy-dom.md`. The `tests/typescript/_architecture` suite fences it off every runtime graph.
+- plane: `plane:dev` — the fidelity `DOM_ENVIRONMENT` half of the `_testkit` unit lane; the fast counterpart is `happy-dom.md`; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: dom-environment / fidelity-lane.
 
-jsdom is the FIDELITY DOM of the `_testkit` unit lane: real `parse5` parsing, real `tough-cookie` cookie semantics, real `undici`-driven subresource loading, and true in-`vm` script execution — the environment a spec picks when byte-exact WHATWG serialization, `getComputedStyle` cascade, or in-page `<script>` behavior must be correct rather than fast. Two consumption seams — vitest selects it by the `environment: 'jsdom'` string (`test.environmentOptions.jsdom` forwards constructor options), and a spec needing an inspectable instance constructs `new JSDOM(html, options)` and reads `.window` / `.serialize()` / `.nodeLocation()`. The v29 API is authoritative below: the pre-v29 `ResourceLoader` class is GONE — subresource loading is now an `undici` `Dispatcher` under the `resources` option, and `requestInterceptor` + `toughCookie` are new named exports.
+jsdom is the FIDELITY DOM of the `_testkit` unit lane: real `parse5` parsing, real `tough-cookie` cookie semantics, real `undici`-driven subresource loading, and true in-`vm` script execution — the environment a spec picks when byte-exact WHATWG serialization, `getComputedStyle` cascade, or in-page `<script>` behavior must be correct rather than fast. Two consumption seams — vitest selects it by the `environment: 'jsdom'` string (`test.environmentOptions.jsdom` forwards constructor options), and a spec needing an inspectable instance constructs `new JSDOM(html, options)` and reads `.window` / `.serialize()` / `.nodeLocation()`; the v29 API is authoritative below: the pre-v29 `ResourceLoader` class is GONE — subresource loading is now an `undici` `Dispatcher` under the `resources` option, and `requestInterceptor` + `toughCookie` are new named exports.
 
 ## [01]-[CORE]
 
@@ -79,11 +79,11 @@ Scripts inside the DOM using synchronous `XMLHttpRequest` bypass all resource cu
 |  [02]   | `virtualConsole.forwardTo(console, { jsdomErrors? })` | mirror to a real console; `jsdomErrors`: `undefined` \| `string[]` \| `"none"` |
 |  [03]   | `new CookieJar(store?, options?)`                     | `tough-cookie` jar; a shared jar correlates cookies across instances           |
 
-The `jsdomError` event on `VirtualConsole` is where uncaught in-DOM script errors and resource-load failures surface — a fidelity spec subscribes to it rather than letting jsdom default-forward to `console.error`. Match `jsdomError` categories (`"unhandled-exception"`, `"not-implemented"`, `"resource-loading"`) on the category token, never on message text.
+`jsdomError` on `VirtualConsole` is where uncaught in-DOM script errors and resource-load failures surface — a fidelity spec subscribes to it rather than letting jsdom default-forward to `console.error`. Match `jsdomError` categories (`"unhandled-exception"`, `"not-implemented"`, `"resource-loading"`) on the category token, never on message text.
 
 ## [04]-[INTEGRATION]
 
-[STACK: `jsdom` environment + `@effect/vitest`] — same environment role as `happy-dom`: `environment: 'jsdom'` (config or `// @vitest-environment jsdom` docblock) installs the DOM globals under which `it.effect`/`it.layer` bodies run. The fidelity axis is the whole reason to pay jsdom's startup cost — pick it only when the spec asserts something `happy-dom` approximates.
+[STACK: `jsdom` environment + `@effect/vitest`] — same environment role as `happy-dom`: `environment: 'jsdom'` (config or `// @vitest-environment jsdom` docblock) installs the DOM globals under which `it.effect`/`it.layer` bodies run; the fidelity axis is the whole reason to pay jsdom's startup cost — pick it only when the spec asserts something `happy-dom` approximates.
 
 [STACK: `jsdom.serialize()` + the `tests/contracts/` goldens] — `serialize()` returns the exact WHATWG HTML fragment serialization, and `nodeLocation()` (under `includeNodeLocations`) returns `parse5` source offsets. A spec asserting a rendered/serialized document against a frozen `tests/contracts/` byte fixture uses these two as the reproducer — jsdom's parser is the standards oracle, the frozen bytes are the expectation.
 

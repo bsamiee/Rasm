@@ -1,4 +1,4 @@
-# [vitest] — the dev-plane spec runner core the harness lanes and gauges drive
+# [TS_TESTS_API_VITEST]
 
 [PACKAGE_SURFACE]:
 - package: `vitest` · version `4.1.10` · license `MIT`
@@ -8,7 +8,7 @@
 - plane: `plane:dev` — the SPEC_RUNNER core; the `tests/typescript/_architecture` suite asserts no `plane:runtime` graph imports it.
 - rail: spec execution — the runner every folder's specs and every gauge terminate in.
 
-`vitest` is the substrate the whole TS spec estate stands on: `@effect/vitest` is a thin binding that re-exports this entire surface (`expect`/`describe`/`vi`/lifecycle) and adds `it.effect`/`it.layer`/`it.prop`, so an effect spec never imports raw `test`/`expect` — yet the config, coverage, browser, reporter, and programmatic surfaces ARE vitest's, and this catalog owns them because the gauges compose on them. The v4 surface below is authoritative for `4.1.9`: the `workspace` config is GONE (replaced by `projects` + `defineProject`); per-provider coverage option types collapsed into one `provider`-discriminated `CoverageOptions` (see `vitest-coverage-v8.md`); the browser provider is an imported `playwright()` function, not a string (see `vitest-browser-playwright.md`); and v4 adds `aroundAll`/`aroundEach` hooks, `recordArtifact` test annotations, `TestTags`, `vi.mockObject`, tinybench `bench`, the Reported-Tasks API (`TestModule`/`TestCase`/`TestSuite`), and the `AgentReporter`.
+`vitest` is the substrate the whole TS spec estate stands on: `@effect/vitest` is a thin binding that re-exports this entire surface (`expect`/`describe`/`vi`/lifecycle) and adds `it.effect`/`it.layer`/`it.prop`, so an effect spec never imports raw `test`/`expect` — yet the config, coverage, browser, reporter, and programmatic surfaces ARE vitest's, and this catalog owns them because the gauges compose on them; the v4 surface below is authoritative for `4.1.9`: the `workspace` config is GONE (replaced by `projects` + `defineProject`); per-provider coverage option types collapsed into one `provider`-discriminated `CoverageOptions` (see `vitest-coverage-v8.md`); the browser provider is an imported `playwright()` function, not a string (see `vitest-browser-playwright.md`); and v4 adds `aroundAll`/`aroundEach` hooks, `recordArtifact` test annotations, `TestTags`, `vi.mockObject`, tinybench `bench`, the Reported-Tasks API (`TestModule`/`TestCase`/`TestSuite`), and the `AgentReporter`.
 
 ## [01]-[TEST_API]
 
@@ -71,7 +71,7 @@ declare const vi: VitestUtils
 
 ## [03]-[CONFIG]
 
-[ENTRYPOINT_SCOPE]: `vitest/config` — the config builders. The `test` key is module-augmented onto Vite's `UserConfig`, so ONE `defineConfig` owns Vite + Vitest; a monorepo lists sub-projects via `defineProject` (v4 — the retired `workspace` file).
+[ENTRYPOINT_SCOPE]: `vitest/config` — the config builders; the `test` key is module-augmented onto Vite's `UserConfig`, so ONE `defineConfig` owns Vite + Vitest; a monorepo lists sub-projects via `defineProject` (v4 — the retired `workspace` file).
 
 | [INDEX] | [SYMBOL]                                  | [FAMILY]        | [CAPABILITY]                                                               |
 | :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------------------- |
@@ -129,7 +129,7 @@ interface TestRunResult { testModules: TestModule[]; unhandledErrors: unknown[] 
 
 [STACK: `vitest` + `@vitest/ui`] — inspection. `test.ui: true` / `--ui` mounts the `@vitest/ui` dashboard plugin; `reporters: ['html']` (its `HtmlReporter`) writes the durable static report — both read the Reported-Tasks tree above (see `vitest-ui.md`).
 
-[STACK: `vitest` + `fast-check`] — property law. `it.prop`/`it.effect.prop` (`@effect/vitest`) accept `fast-check` `Arbitrary`s beside `Schema`s; the `_testkit` law/arbitrary source folds them into the three reusable law combinators (see `fast-check.md`). The `fastCheck` option forwards `FC.Parameters` (seed, `numRuns`) into the vitest test.
+[STACK: `vitest` + `fast-check`] — property law. `it.prop`/`it.effect.prop` (`@effect/vitest`) accept `fast-check` `Arbitrary`s beside `Schema`s; the `_testkit` law/arbitrary source folds them into the three reusable law combinators (see `fast-check.md`); the `fastCheck` option forwards `FC.Parameters` (seed, `numRuns`) into the vitest test.
 
 ## [06]-[RAIL_LAW]
 

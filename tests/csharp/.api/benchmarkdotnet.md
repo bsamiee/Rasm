@@ -1,4 +1,4 @@
-# [benchmarkdotnet] — the measured console session behind the regression gate
+# [CSHARP_TESTING_API_BENCHMARKDOTNET]
 
 `BenchmarkDotNet` runs the estate's benchmark session as a plain optimized console app — never an MTP/xunit runner. `BenchmarkSwitcher` drives argv selection under the central `RasmBenchmarkConfig`; `JsonExporter.Full` writes the `*-report-full.json` the `gate` verb decodes into `BdnStatistics` rows for median/dispersion regression ceilings; the `_architecture` suite reads the benchmark assembly's types to enforce registry parity without ever running a session.
 
@@ -57,7 +57,7 @@ public class Statistics {
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SESSION_SHAPE]: `IsBenchmarkProject` classifies the session out of `IsTestProject`, so no MTP runner, no xunit json, no test packages reach it; the csproj carries `OutputType=Exe` + `Optimize=true`, and the validator pair turns an unoptimized or failing case into a session error. The workspace root resolves from the `RasmWorkspaceRoot` assembly metadata the csproj stamps, keeping artifacts under `.artifacts/benchmarks/rasm` instead of the BDN default folder.
+[SESSION_SHAPE]: `IsBenchmarkProject` classifies the session out of `IsTestProject`, so no MTP runner, no xunit json, no test packages reach it; the csproj carries `OutputType=Exe` + `Optimize=true`, and the validator pair turns an unoptimized or failing case into a session error, and the workspace root resolves from the `RasmWorkspaceRoot` assembly metadata the csproj stamps, keeping artifacts under `.artifacts/benchmarks/rasm` instead of the BDN default folder.
 
 [GATE]: the regression gate is a JSON consumer, never a BDN runtime consumer — `gate` argv decodes `Benchmarks[].Statistics` rows (`Min/Mean/Median/Q1/Q3/InterquartileRange`, nanoseconds, PascalCase) into `BdnStatistics`, projects `GateStat` medians, and applies `relIqr = InterquartileRange / Median` dispersion ceilings against the registry rows.
 

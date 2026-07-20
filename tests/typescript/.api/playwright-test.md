@@ -1,14 +1,14 @@
-# [@playwright/test] — browser e2e driver the `tests/typescript/e2e` suites compose
+# [TS_TESTS_API_PLAYWRIGHT_TEST]
 
 [PACKAGE_SURFACE]:
 - package: `@playwright/test` · version `1.61.1` · license `Apache-2.0`
-- module: dual CJS/ESM (`.js` + `.mjs`) with `exports` map `.` / `./cli` / `./reporter` / `./package.json`; the root is a thin re-export of `playwright/test` → `playwright/types/test` (types resolve through it). The custom-reporter SPI is the separate `@playwright/test/reporter` subpath.
+- module: dual CJS/ESM (`.js` + `.mjs`) with `exports` map `.` / `./cli` / `./reporter` / `./package.json`; the root is a thin re-export of `playwright/test` → `playwright/types/test` (types resolve through it); the custom-reporter SPI is the separate `@playwright/test/reporter` subpath.
 - asset: bundled `playwright` + `playwright-core` engines; the actual browser binaries (chromium / firefox / webkit) install out-of-band via `playwright install` — a runner fact, never a JS dependency on any bundle.
 - runtime: node `>=18`; each spec runs in a worker process driving a real browser over CDP/the Playwright protocol.
-- plane: `plane:dev` — the browser `E2E_GAUGE` of the `tests/typescript/e2e` home, beside the `@types/k6` load driver. The `tests/typescript/_architecture` suite fences it off every runtime graph.
+- plane: `plane:dev` — the browser `E2E_GAUGE` of the `tests/typescript/e2e` home, beside the `@types/k6` load driver; `tests/typescript/_architecture` fences it off every runtime graph.
 - rail: browser-e2e / visual-and-aria gauge.
 
-`@playwright/test` is the functional + visual e2e driver the `tests/typescript/e2e` home composes: a `test` runner with worker-scoped browser fixtures, a web-first auto-retrying `expect`, a config-as-code `defineConfig` matrix over `devices`, and a reporter SPI that projects results as data. It drives TWO seams — the standalone runner for full cross-browser e2e, and (via `@vitest/browser-playwright`) the browser PROVIDER under vitest browser mode so a browser-runtime unit spec reuses the same engine. The load half of the gauge is k6 (`@types/k6`); the two drivers are orthogonal rows on the one `e2e` owner.
+`@playwright/test` is the functional + visual e2e driver the `tests/typescript/e2e` home composes: a `test` runner with worker-scoped browser fixtures, a web-first auto-retrying `expect`, a config-as-code `defineConfig` matrix over `devices`, and a reporter SPI that projects results as data. It drives TWO seams — the standalone runner for full cross-browser e2e, and (via `@vitest/browser-playwright`) the browser PROVIDER under vitest browser mode so a browser-runtime unit spec reuses the same engine; load half of the gauge is k6 (`@types/k6`), the two drivers orthogonal rows on the one `e2e` owner.
 
 ## [01]-[ENTRY_SURFACE]
 
@@ -36,7 +36,7 @@ export function mergeExpects<List extends any[]>(...expects: List): MergedExpect
 
 ## [02]-[TEST_AND_FIXTURES]
 
-The `TestType` interface is ONE dispatch surface — `test(title, body)` plus modifier and lifecycle members hung off it, never a family of parallel entrypoints. Its type parameters carry the FIXTURE bag: fixtures are a typed DI rail (`.extend<Fixtures>`), and the built-in fixtures below are SEED ROWS on that rail, not a fixed roster — a custom fixture is a new row, `mergeTests` unions two fixture sets.
+`TestType` is ONE dispatch surface — `test(title, body)` with modifier and lifecycle members hung off it, never a family of parallel entrypoints. Its type parameters carry the FIXTURE bag: fixtures are a typed DI rail (`.extend<Fixtures>`), and the built-in fixtures below are SEED ROWS on that rail, not a fixed roster — a custom fixture is a new row, `mergeTests` unions two fixture sets.
 
 ```ts signature
 interface TestType<TestArgs, WorkerArgs> {
@@ -161,7 +161,7 @@ interface Reporter {
 
 [BOUNDARY vs the unit lane] — Playwright launches real browser processes: it is the heavy, high-fidelity end of the spectrum whose fast counterparts are `happy-dom`/`jsdom` (in-process DOM, no browser). A flow that needs no real engine belongs in the unit lane; a DOM-only assertion never justifies a browser launch.
 
-[STACK: the embedded test MCP] — the pinned `playwright` package ships `playwright run-test-mcp-server` (tools `test_list`/`test_run`/`test_debug`): agent-driven run and debug of the e2e estate with zero additional admission. The standalone `@playwright/mcp` browser-automation server is machine-plane agent tooling and never enters the repo manifests.
+[STACK: the embedded test MCP] — the pinned `playwright` package ships `playwright run-test-mcp-server` (tools `test_list`/`test_run`/`test_debug`): agent-driven run and debug of the e2e estate with zero additional admission; the standalone `@playwright/mcp` browser-automation server is machine-plane agent tooling and never enters the repo manifests.
 
 ## [06]-[RAIL_LAW]
 

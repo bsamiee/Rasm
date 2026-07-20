@@ -1,6 +1,6 @@
-# [verify] — the snapshot verb and hygiene walk over generator, contract, and report shapes
+# [CSHARP_TESTING_API_VERIFY]
 
-`Verify.XunitV3` binds the snapshot verb to the xunit.v3 discovery model: `Verifier.Verify(...)` compares a rendered target against a committed `*.verified.*` file and fails on drift, with the received counterpart written for review. `Verify.DiffPlex` replaces the failure diff with a DiffPlex-rendered compare, armed once per test assembly from a `[ModuleInitializer]`. The estate snapshots generator emissions and runs the whole-tree snapshot-hygiene walk as an explicit-only architecture case.
+`Verify.XunitV3` binds the snapshot verb to the xunit.v3 discovery model: `Verifier.Verify(...)` compares a rendered target against a committed `*.verified.*` file and fails on drift, with the received counterpart written for review. `Verify.DiffPlex` replaces the failure diff with a DiffPlex-rendered compare, armed once per test assembly from a `[ModuleInitializer]`; the estate snapshots generator emissions and runs the whole-tree snapshot-hygiene walk as an explicit-only architecture case.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -24,7 +24,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-The fence carries the full `Verify`, `AutoVerify`, and `VerifyDiffPlex.Initialize` signatures; the 4 hygiene check kinds are `[HYGIENE]` law.
+Fence carries the full `Verify`, `AutoVerify`, and `VerifyDiffPlex.Initialize` signatures; the hygiene check kinds are `[HYGIENE]` law.
 
 | [INDEX] | [SURFACE]                                           | [KIND]    | [CAPABILITY]                                                  |
 | :-----: | :-------------------------------------------------- | :-------- | :------------------------------------------------------------ |
@@ -61,7 +61,7 @@ public static class VerifyDiffPlex {
 
 [NAMING]: the snapshot path is `{Directory}/{TestClassName}.{TestMethodName}_{Parameters}_{UniqueFor1..X}.verified.{extension}`; `UseFileName` collapses to `{FileName}_{UniqueFor}.verified.{extension}`. Received files are the `*.received.*` mirror. Snapshot bytes open with the UTF-8 BOM the hygiene walk's editorconfig contract demands — a `[*.{received,verified}.{<exts>}]` section per the snapshot extensions found in-tree (`txt` here) carrying `charset = utf-8-bom`, `end_of_line = lf`, `insert_final_newline = false`, `trim_trailing_whitespace = false`.
 
-[HYGIENE]: `VerifyChecks.Run()` resolves the calling assembly's solution directory and walks the WHOLE tree — gitignore coverage for received files, wrongly nested `<None Update>` snapshot rows in csprojs, the editorconfig section, and gitattributes rows per snapshot extension. The estate carries it as `[Fact(Explicit = true)]`, invoked with `-- --explicit only`. `DanglingSnapshots.Run()` fails a build-server run on `*.verified.*` files no executed test tracked and stays inert locally.
+[HYGIENE]: `VerifyChecks.Run()` resolves the calling assembly's solution directory and walks the WHOLE tree — gitignore coverage for received files, wrongly nested `<None Update>` snapshot rows in csprojs, the editorconfig section, and gitattributes rows per snapshot extension; the estate carries it as `[Fact(Explicit = true)]`, invoked with `-- --explicit only`. `DanglingSnapshots.Run()` fails a build-server run on `*.verified.*` files no executed test tracked and stays inert locally.
 
 [ATTACHMENT]: no base class — `Verify` binds to the ambient test through `TestContext`; test-assembly registration lives in one `[ModuleInitializer]` per assembly, which is also where `VerifierSettings` global scrubbers belong. `VerifyDiffPlex.Initialize` throws on a second call, so each test assembly arms it exactly once.
 
@@ -72,7 +72,7 @@ public static class VerifyDiffPlex {
 
 [LOCAL_ADMISSION]:
 - Snapshot registration is one `[ModuleInitializer]` per test assembly; scattered `VerifierSettings` mutation inside test bodies is the named defect.
-- The hygiene walk runs explicit-only; wiring it into default runs makes every suite a whole-tree scan.
+- Hygiene walks run explicit-only; wiring one into default runs makes every suite a whole-tree scan.
 
 [RAIL_LAW]:
 - Package: `Verify.XunitV3` + `Verify.DiffPlex`

@@ -1,6 +1,6 @@
-# [cscheck] — the property engine under the kit's Spec gates and Gens bands
+# [CSHARP_TESTING_API_CSCHECK]
 
-`CsCheck` is the random-testing engine the TestKit composes: PCG-seeded generation with size-ordered shrinking, property sampling, model-based and metamorphic state testing, linearizability checking, and chi-squared distribution gates. It is zero-dependency pure BCL; `Directory.Build.props` injects it into test and kit projects with `PrivateAssets="all"` and a global `Using Include="CsCheck"`. The kit's `Gens` bands build on the `Gen` factories and the `Spec` owner routes every sample family, so specs compose kit gates instead of calling `Check` raw.
+`CsCheck` is the random-testing engine the TestKit composes: PCG-seeded generation with size-ordered shrinking, property sampling, model-based and metamorphic state testing, linearizability checking, and chi-squared distribution gates. It is zero-dependency pure BCL; `Directory.Build.props` injects it into test and kit projects with `PrivateAssets="all"` and a global `Using Include="CsCheck"`, and the kit's `Gens` bands build on the `Gen` factories while the `Spec` owner routes every sample family, so specs compose kit gates instead of calling `Check` raw.
 
 ## [01]-[PACKAGE_SURFACE]
 

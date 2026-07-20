@@ -1,6 +1,6 @@
-# [s3fs] — the S3-native fsspec view the object-store double projects over the moto endpoint
+# [PY_TESTS_API_S3FS]
 
-`s3fs` is the `AsyncFileSystem` implementation of the fsspec algebra for S3: an `S3FileSystem` targets any S3-compatible endpoint through `aiobotocore`/`botocore` and exposes both the universal fsspec verbs and the S3-native surfaces — object e-tags and presigned URLs — that a memory backend cannot serve. The `_testkit` `ObjectStore` double provisions one `S3FileSystem` bound by `endpoint_url` to a `ThreadedMotoServer` loopback, and `test_env.py` proves it satisfies the identical filesystem algebra the `MemoryFileSystem` double does while additionally round-tripping e-tags and presigned GET. It registers the `s3://` protocol into the shared fsspec registry that `universal-pathlib` `UPath` resolves against.
+`s3fs` is the `AsyncFileSystem` implementation of the fsspec algebra for S3: an `S3FileSystem` targets any S3-compatible endpoint through `aiobotocore`/`botocore` and exposes both the universal fsspec verbs and the S3-native surfaces — object e-tags and presigned URLs — a memory backend cannot serve. `_testkit`'s `ObjectStore` double provisions one `S3FileSystem` bound by `endpoint_url` to a `ThreadedMotoServer` loopback; `test_env.py` proves it satisfies the same filesystem algebra the `MemoryFileSystem` double does while round-tripping e-tags and presigned GET.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -52,7 +52,7 @@ fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"Lo
 - `S3FileSystem` is an `AsyncFileSystem`: every verb has an async core (`_ls`, `_cat_file`, `_call_s3`) with a sync facade wrapping it; `asynchronous=True` exposes the coroutines directly, `asynchronous=False` (the double's mode) drives them through the fsspec event loop.
 - fsspec caches instances by constructor args; a reissued endpoint port resurfaces a dead server's `dircache`, so the double sets `skip_instance_cache=True` to force a fresh filesystem per provision.
 - `endpoint_url` + `client_kwargs={"region_name": …}` retarget the client at any S3-compatible wire (moto here); `key`/`secret` are static double credentials, never real secrets.
-- The S3-native surfaces (`url`, `info(...)["ETag"]`) live below the fsspec algebra — they are the capability boundary the memory backend cannot cross, which is why the double resolves to the concrete `S3FileSystem` type, not `AbstractFileSystem`.
+- S3-native surfaces (`url`, `info(...)["ETag"]`) live below the fsspec algebra — they are the capability boundary the memory backend cannot cross, which is why the double resolves to the concrete `S3FileSystem` type, not `AbstractFileSystem`.
 
 [STACKING]:
 - `moto`(`.api/moto.md`): `_provision_store` binds an `endpoint_url` to a `ThreadedMotoServer` loopback; the real HTTP wire is what makes e-tags and presigned GET observable in `test_env.py`.
@@ -61,10 +61,10 @@ fs.call_s3("create_bucket", Bucket=bucket, **({"CreateBucketConfiguration": {"Lo
 
 [LOCAL_ADMISSION]:
 - Admitted at the dev-plane test tier only (`[dependency-groups] dev`, `s3fs`); never a runtime `libs/python` dependency — runtime object-store egress owns `obstore`.
-- The `ObjectStore` double is the sole `s3fs` consumer; specs reach S3 egress through `provision(ObjectStore()).client_factory()`, never a bare `S3FileSystem`.
+- `ObjectStore` is the sole `s3fs` consumer; specs reach S3 egress through `provision(ObjectStore()).client_factory()`, never a bare `S3FileSystem`.
 
 [RAIL_LAW]:
 - Package: `s3fs`
-- Owns: the S3-native fsspec view over a moto endpoint — the full fsspec algebra plus e-tags and presigned URLs.
+- Owns: the S3-native fsspec view over a moto endpoint — the full fsspec algebra with e-tags and presigned URLs.
 - Accept: `S3FileSystem(endpoint_url=…, client_kwargs={"region_name": …}, skip_instance_cache=True)`; `call_s3` for typed bucket ops the fsspec algebra cannot express; `url`/`info(...)["ETag"]` for the S3-native egress assertions.
 - Reject: an instance-cached filesystem over an ephemeral endpoint (stale `dircache`); `s3fs.mkdir` for a `us-east-1` bucket (its unconditional `LocationConstraint` fails); any `s3fs` import outside the `_testkit` `env.py` owner.

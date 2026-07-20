@@ -1,6 +1,6 @@
-# [inline-snapshot] — the report-only wire-golden rail for producer-emitted payloads
+# [PY_TESTS_API_INLINE_SNAPSHOT]
 
-`inline-snapshot` captures a value into a `snapshot()` literal that the test source carries, then compares subsequent runs against it. The repo admits it for genuine wire goldens only — payloads an independent producer emits — under a report-only default: `default-flags = ["short-report"]` reports every mismatch without mutating a snapshot, and the `fix` run flag is the single sanctioned rewrite path. Storage for outsourced blobs and external files lives under `.cache/inline-snapshot`.
+`inline-snapshot` captures a value into a `snapshot()` literal that the test source carries, then compares subsequent runs against it. Rasm admits it for genuine wire goldens only — payloads an independent producer emits — under a report-only default: `default-flags = ["short-report"]` reports every mismatch without mutating a snapshot, and the `fix` run flag is the single sanctioned rewrite path. Storage for outsourced blobs and external files lives under `.cache/inline-snapshot`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -54,7 +54,7 @@ def test_wire_golden(produce: Callable[[], bytes]) -> None:
 
 [INLINE_SNAPSHOT_TOPOLOGY]:
 - `[tool.inline-snapshot]` sets `default-flags = ["short-report"]` and `storage-dir = ".cache/inline-snapshot"`: a bare run compares and reports, never mutates.
-- The `--inline-snapshot=` run-flag vocabulary is `create`/`fix`/`trim`/`update`/`disable` for mutation modes and `report`/`short-report`/`review` for reporting; `create` fills an empty `snapshot()`, `fix` rewrites a mismatched literal, `trim` drops an over-broad container element, `update` re-renders after a token-stream change, and `review` walks each change interactively.
+- `--inline-snapshot=` names the run-flag vocabulary — `create`/`fix`/`trim`/`update`/`disable` for mutation modes, `report`/`short-report`/`review` for reporting; `create` fills an empty `snapshot()`, `fix` rewrites a mismatched literal, `trim` drops an over-broad container element, `update` re-renders after a token-stream change, and `review` walks each change interactively.
 - A snapshot compares a producer-emitted payload only; a value the test itself computes is a tautology, never a golden.
 - `outsource` and `external` keep large payloads out of the source literal, hash-keyed under the storage directory; `register_format` binds a serializer per external suffix.
 

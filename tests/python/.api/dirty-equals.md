@@ -1,6 +1,6 @@
-# [dirty-equals] — declarative partial-structure matchers inside larger equality facts
+# [PY_TESTS_API_DIRTY_EQUALS]
 
-`dirty-equals` supplies `Is*` matcher objects whose `__eq__` asserts a property rather than a literal — an `IsNow()` matches any near-current datetime, an `IsPartialDict` matches a subset of keys. The repo admits them for partial-structure assertions embedded in a larger fact: a matcher stands in for a nondeterministic or unbounded field so the surrounding structure asserts exactly, never as a replacement for whole-value equality where the value is known.
+`dirty-equals` supplies `Is*` matcher objects whose `__eq__` asserts a property rather than a literal — an `IsNow()` matches any near-current datetime, an `IsPartialDict` matches a subset of keys. Rasm admits them for partial-structure assertions embedded in a larger fact: a matcher stands in for a nondeterministic or unbounded field so the surrounding structure asserts exactly, never as a replacement for whole-value equality where the value is known.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -1,4 +1,4 @@
-# [diagnostics-testing] — fake logging and metric collection under telemetry-obligation specs
+# [CSHARP_TESTING_API_DIAGNOSTICS_TESTING]
 
 `Microsoft.Extensions.Diagnostics.Testing` ships the R9 telemetry doubles: `FakeLogger`/`FakeLogCollector` capture every structured log record as a typed `FakeLogRecord`, and `MetricCollector<T>` captures every measurement an `Instrument<T>` emits with its tags and timestamp. A telemetry obligation — a failure-path log a rail must write, a counter an operation must bump — asserts as one snapshot lookup instead of a provider mock, and both doubles take `TimeProvider`, so captured timestamps ride the same `FakeTimeProvider` clock as the rest of the spec (`timeprovider-testing.md`).
 

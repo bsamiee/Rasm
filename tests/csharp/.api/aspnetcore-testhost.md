@@ -1,6 +1,6 @@
-# [aspnetcore-testhost] — the in-memory ASP.NET Core host under transport-boundary specs
+# [CSHARP_TESTING_API_ASPNETCORE_TESTHOST]
 
-`Microsoft.AspNetCore.TestHost` ships `TestServer`, the in-memory server that runs a real ASP.NET Core pipeline — routing, middleware, gRPC endpoints — without a socket: `CreateClient()` returns an `HttpClient` whose handler dispatches straight into the application, so a transport-boundary spec proves the wire contract in-process and stays inside the unit lane's no-socket law. The Compute suite composes it for the gRPC/http compute endpoints; a real-socket proof belongs to the integration lane, never here.
+`Microsoft.AspNetCore.TestHost` ships `TestServer`, the in-memory server that runs a real ASP.NET Core pipeline — routing, middleware, gRPC endpoints — without a socket: `CreateClient()` returns an `HttpClient` whose handler dispatches straight into the application, so a transport-boundary spec proves the wire contract in-process and stays inside the unit lane's no-socket law; the Compute suite composes it for the gRPC/http compute endpoints, and a real-socket proof belongs to the integration lane, never here.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -57,7 +57,7 @@ public static class HostBuilderTestServerExtensions {
 [STACKING]:
 - `Grpc.Net.Client`: `GrpcChannel.ForAddress(server.BaseAddress, new GrpcChannelOptions { HttpHandler = server.CreateHandler() })` runs the full gRPC contract in-process.
 - `Rasm.TestKit` (`Spec.cs`): responses and typed gRPC results fold through the kit rail gates; wire payloads round-trip through `Spec.RoundtripBytes`.
-- `timeprovider-testing.md`: the hosted pipeline takes the spec's `TimeProvider` through DI like any SUT.
+- `timeprovider-testing.md`: hosted pipeline takes the spec's `TimeProvider` through DI like any SUT.
 
 [LOCAL_ADMISSION]:
 - Suites proving hosted transport boundaries own the reference (`Rasm.Compute.Tests` today); adding it to a suite with no hosted surface is roster noise.

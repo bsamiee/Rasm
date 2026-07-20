@@ -192,7 +192,7 @@ tracker.
   for a window-function/CTE/bulk-update query EF cannot translate, then re-materializes via
   `ToListAsyncLinqToDB`; `*AsyncEF` keeps the EF engine for change-tracked reads.
 - Telemetry: bridged `DataConnection` activity flows through the core `linq2db`
-  `ActivityService`, which the AppHost `telemetry` port / `api-npgsql-otel` span pipeline
+  `ActivityService`, which the AppHost `telemetry` port / `api-npgsql-opentelemetry` span pipeline
   observes alongside the EF command interceptor.
 
 [RAIL_LAW]:

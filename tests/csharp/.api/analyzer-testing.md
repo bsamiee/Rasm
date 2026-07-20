@@ -1,6 +1,6 @@
-# [analyzer-testing] — the Roslyn analyzer harness behind the Csp rule specs
+# [CSHARP_TESTING_API_ANALYZER_TESTING]
 
-`Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` runs a `DiagnosticAnalyzer` against markup-annotated or explicitly-located sources inside a synthetic solution and verifies the exact diagnostic set. The package is verifier-neutral — `DefaultVerifier` carries no xunit dependency — so the harness composes cleanly with xunit.v3 and threads `TestContext.Current.CancellationToken` through `RunAsync`. Generator specs deliberately bypass it: the estate drives `CSharpGeneratorDriver` directly with incremental-step tracking and snapshots emissions through the Verify lane.
+`Microsoft.CodeAnalysis.CSharp.Analyzer.Testing` runs a `DiagnosticAnalyzer` against markup-annotated or explicitly-located sources inside a synthetic solution and verifies the exact diagnostic set. `DefaultVerifier` carries no xunit dependency, so the harness is verifier-neutral and composes cleanly with xunit.v3, threading `TestContext.Current.CancellationToken` through `RunAsync`. Generator specs deliberately bypass it: the estate drives `CSharpGeneratorDriver` directly with incremental-step tracking and snapshots emissions through the Verify lane.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -63,7 +63,7 @@ public readonly struct DiagnosticResult {
 
 [LOCAL_ADMISSION]:
 - Analyzer rule specs ride the harness with `DefaultVerifier`; a hand-rolled compilation + diagnostic diff re-derives the harness.
-- The analyzer test project skips the workspace analyzer injection (`SkipLocalCSharpAnalyzerReference`), so the analyzer under test is the only analyzer in the run.
+- Analyzer test projects skip the workspace analyzer injection (`SkipLocalCSharpAnalyzerReference`), so the analyzer under test is the only analyzer in the run.
 
 [RAIL_LAW]:
 - Package: `Microsoft.CodeAnalysis.CSharp.Analyzer.Testing`
