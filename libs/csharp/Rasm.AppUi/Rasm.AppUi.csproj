@@ -55,6 +55,7 @@
 
     <ItemGroup Label="Render GPU">
         <PackageReference Include="Avalonia.Skia" />
+        <PackageReference Include="CSharpMath.SkiaSharp" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
         <PackageReference Include="Silk.NET.OpenXR" />
         <PackageReference Include="Silk.NET.OpenXR.Extensions.EXT" />

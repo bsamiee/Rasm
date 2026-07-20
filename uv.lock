@@ -941,6 +941,19 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudevents"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecation" },
+    { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/45/fe/3bae2187abea2682a1079c5618e45baf4c9df7e35017e1b9b7940955db59/cloudevents-2.2.0.tar.gz", hash = "sha256:fc52440a1fecde882b3b745361e1c7dd4e044e71a6b719cfec2e2c0aa1a19fa3", size = 48380, upload-time = "2026-06-11T14:10:02.339Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/d4/901b17ea39f4f1125fc92529cb842896309075406a78e13a7c544f0c5600/cloudevents-2.2.0-py3-none-any.whl", hash = "sha256:9ff8adff01b997d251d0fb54076557daa9906330e16afc1712a6447122f8f7a4", size = 98239, upload-time = "2026-06-11T14:10:01.059Z" },
+]
+
+[[package]]
 name = "cloudpickle"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -7580,6 +7593,7 @@ dependencies = [
     { name = "bw2io" },
     { name = "c2pa-python" },
     { name = "clarabel" },
+    { name = "cloudevents" },
     { name = "cloudpickle" },
     { name = "coloraide" },
     { name = "colour-cxf" },
@@ -7879,6 +7893,7 @@ requires-dist = [
     { name = "c2pa-python" },
     { name = "cadquery-ocp", marker = "python_full_version < '3.15'" },
     { name = "clarabel" },
+    { name = "cloudevents" },
     { name = "cloudpickle" },
     { name = "coloraide" },
     { name = "colour-cxf" },

@@ -52,6 +52,7 @@ dependencies = [
     # --- [IO_TRANSPORT]
     "asyncssh",                                # [RUNTIME]: fleet SSH channel for the remote worker arm and SFTP artifact reads
     "brotli",                                  # [ARTIFACTS]: compression
+    "cloudevents",                             # [ARTIFACTS]: CloudEvents structured/binary bindings and distributed-tracing extension for the TransmittalNotice issue envelope
     "detools",                                 # [ARTIFACTS]: binary-delta engine
     "fsspec",                                  # [TRANSPORT]: UPath-shared filesystem resolution and blocking-read offload for roots
     "grpcio",                                  # [RUNTIME]: gRPC transport for ServerHost serve paths

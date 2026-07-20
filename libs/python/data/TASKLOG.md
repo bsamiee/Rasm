@@ -18,8 +18,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 -->
 
 [ENGINE_PROFILE_ADAPTERS]-[QUEUED]: land the per-engine profile harvest rows on the query plane.
-- Capability: polars/datafusion/daft profile evidence decoded into the `QueryReceipt.profile` band beside the DuckDB harvest.
-- Anchors: `tabular/columnar#SCAN` `EngineProfile`; `tabular/query#QUERY` arms; the `polars`/`datafusion`/`daft` catalogues.
+- Capability: polars/datafusion/daft profile evidence decoded into the `QueryReceipt.profile` band beside the DuckDB harvest; the daft adapter controls partition grain through `DataFrame.into_partitions` so runner statistics arrive at a chosen fan-out.
+- Anchors: `tabular/columnar#SCAN` `EngineProfile`; `tabular/query#QUERY` arms; the `polars`/`datafusion`/`daft` catalogues; `.api/daft.md` `DataFrame.into_partitions`.
 - Tension: one decoded band shape, per-engine adapters at the arm — never parallel receipt fields.
 
 [QUERY_BENCH_HARNESS]-[QUEUED]: land the query bench lane over `QueryEngine.run`.
@@ -34,6 +34,67 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `graph/graph.md` `GraphPayload`/`NodeId`/`GraphResult.frame`; runtime `ContentIdentity` for the stable wire identity.
 - Tension: wire schema and codec mint in C#; the decoder lands after the wire freezes and carries only detached fact rows, never a host layer handle.
 - Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
+
+[HOOK_POINT_ROWS]-[QUEUED]: register the data-plane hook points on the runtime registry, one row per mutation edge.
+- Capability: `rasm.data.lakehouse.commit` (veto), `rasm.data.egress.put`/`rasm.data.egress.delete` (veto), `rasm.data.materialize.refresh` (replay), `rasm.data.contract.verdict` (observe) — `HookPoint` rows registered at composition on `.planning/tabular/lakehouse.md`, `.planning/tabular/egress.md`, `.planning/tabular/materialize.md`, and `.planning/tabular/contract.md`, payloads the pages' existing receipt structs.
+- Anchors: runtime `observability/hooks#HOOKS` `HookPoint`/`Hooks.register`/`fire`/`Modality`/`tap_receipts`/`tap_metrics`; idea `[DATA_HOOK_POINTS]`.
+- Tension: fires ride the emitter's active span — no hook opens a span, no page wires a subscriber.
+
+[COST_FACT_HARVEST]-[QUEUED]: land the cost-ledger page harvesting receipt families into the priced frame.
+- Capability: `libs/python/data/.planning/tabular/cost.md` — `CostFact` decode rows off `QueryReceipt`, egress byte volume, materialize row counts, and gridded `PlanReceipt`; the `CostLedger` group-fold by content key, tenant, and domain; the rate-policy parameter and the priced Arrow egress.
+- Anchors: `.planning/tabular/columnar.md` `QueryReceipt`; `.planning/tabular/egress.md`; `.planning/gridded/store.md` `PlanReceipt`; idea `[DATASET_COST_LEDGER]`.
+- Tension: a projection over receipts, never a second metering pipeline; unbounded partition ids stay receipt-only.
+- Ripple: `libs/.planning` `[COST_ATTRIBUTION_BAGGAGE]`.
+
+[ADBC_DRIVER_ROWS]-[QUEUED]: land the Postgres, SQLite, and Snowflake driver rows on the query remote sub-axis.
+- Capability: one row per driver on `.planning/tabular/query.md` `RemoteOp` dispatch — driver entrypoint, `db_kwargs` knob family, transient-retry classification — under the existing DBAPI bracket and receipt fold.
+- Anchors: `.api/adbc-driver-manager.md` `dbapi.connect`; `guarded(RetryClass.REMOTE_DB)`; idea `[ADBC_DRIVER_SET]`.
+- Atomic: three dispatch rows and their knob tables, zero new query surface.
+
+[SUBSTRAIT_GATE_FENCE]-[QUEUED]: land the typed plan admission fence on the federated arms.
+- Capability: parse-validate-census over inbound plan bytes on `.planning/tabular/query.md` `Federated`/`Flight` arms — typed refusal on malformed or version-skewed plans, relation-op census onto the receipt, original bytes handed onward untouched.
+- Anchors: `substrait` package plan model; `Serde.deserialize_bytes` hand-off; `ContentIdentity.of("query.plan", wire)`; idea `[SUBSTRAIT_PLAN_GATE]`.
+- Tension: never re-serialize — the identity law keys the original bytes.
+
+[GEOARROW_IO_ROWS]-[QUEUED]: land the GeoArrow-native reader and writer rows on the vector format axis.
+- Capability: FlatGeobuf, GeoParquet, shapefile, and GeoJSON rows over `geoarrow-rust-io` on `.planning/spatial/geospatial.md`, `geoarrow-rust-core` arrays as the typed memory model, `geoarrow-pyarrow` as the shapely bridge; pyogrio retained as the GDAL long-tail row.
+- Anchors: `VectorOp` axis and native-GeoArrow egress; `.api/geoarrow-rust-compute.md`; idea `[GEOARROW_NATIVE_SET]`.
+- Tension: a fast path beside the GDAL owner, never a second format owner.
+
+[GEOARROW_COMPUTE_SWEEP]-[QUEUED]: sweep the unexploited compute kernels onto the claims plane.
+- Capability: `frechet_distance`, `line_locate_point`, geodesic length and perimeter, `total_bounds` as vector-op rows on `.planning/spatial/geospatial.md`, operating on the GeoArrow arrays the plane already carries.
+- Anchors: `.api/geoarrow-rust-compute.md` member table; idea `[GEOARROW_NATIVE_SET]`.
+- Atomic: kernel rows on the existing op axis, no new owner.
+
+[ARRO3_HOP_REPLACEMENTS]-[QUEUED]: land the arro3 compute and IO rows where pyarrow re-import is the only reason pyarrow appears.
+- Capability: `arro3-compute` kernels on the `.planning/tabular/materialize.md` CDF hop replacing the `pa.table(...)` re-import where sort and filter are the whole need; `arro3-io` IPC rows on `.planning/tabular/interop.md` slim carrier legs.
+- Anchors: materialize PyCapsule hop comment; `ArrowCStream`; idea `[ARRO3_SLIM_SET]`.
+- Atomic: hop substitutions under a ruled arro3-versus-pyarrow split, no surface change.
+
+[ZONE_CUBE_OWNER]-[QUEUED]: land the vector-cube page bridging field cubes and vector claims.
+- Capability: `libs/python/data/.planning/spatial/cube.md` — the `xvec` geometry-indexed dimension owner over `FieldDataset` cubes, geometry-predicate selection through the claims plane's CRS law, zone-variable join onto `VectorGeoClaim` frames, content-keyed egress on the field receipt family.
+- Anchors: `.planning/gridded/field.md` `FieldDataset`; `.planning/spatial/geospatial.md` `VectorGeoClaim.reproject`; branch `xarray`; idea `[VECTOR_DATA_CUBES]`.
+- Tension: composes the CF owner, never a second labelled-array store.
+
+[CARRIER_COMPRESSION_OPTION]-[QUEUED]: land the transport-band compression codec vocabulary on the carrier IPC egress.
+- Capability: a closed codec parameter (`lz4`/`zstd`/`none`) on the `.planning/tabular/interop.md` IPC lowering via `ipc.IpcWriteOptions(compression=)`, threaded to `.planning/tabular/egress.md` put paths; the `arrow_bytes` identity fold pinned uncompressed by law.
+- Anchors: `.api/pyarrow.md` `ipc` submodule; branch `.api/lz4.md`; idea `[COMPRESSED_CARRIER_BAND]`.
+- Atomic: one parameterized option and its identity-law fence comment.
+
+[STORE_WRITE_GUARDS]-[QUEUED]: land the single-writer guards and re-scope the catalog signing handle.
+- Capability: `anyio` `ResourceGuard` rows on the `.planning/tabular/lakehouse.md` commit path and `.planning/gridded/store.md` write paths, guard ownership on the composition-bound policy; the `.planning/spatial/catalog.md` process-wide `planetary_computer` handle re-scoped to a composition-bound scheme row.
+- Anchors: branch `.api/anyio.md` `ResourceGuard`; `LAKE_COMMIT` conflict tags; idea `[APP_NEUTRAL_STORE_SCOPES]`.
+- Atomic: guard rows and one handle re-scope, no protocol change.
+
+[IMPACT_PAGE_SPLIT]-[QUEUED]: land the four provider-depth impact pages and redistribute the compressed surface.
+- Capability: `libs/python/data/.planning/impact/declaration.md` (openepd, epdx, EC3 search stream and offline bundles), `libs/python/data/.planning/impact/inventory.md` (bw2data, bw2io, bw-processing custody), `libs/python/data/.planning/impact/solve.md` (bw2calc `MultiLCA`, bw2analyzer contribution rows, olca-ipc live solve), `libs/python/data/.planning/impact/scenario.md` (premise IAM transforms); `impact/impact.md` keeps the EN 15804 carrier and `ImpactSource` axis.
+- Anchors: `.planning/impact/impact.md` Growth staged rows naming exactly this deferred set; the four provider catalog files under `.api/`; idea `[IMPACT_PLANE_BUILDOUT]`.
+- Tension: sibling pages feed `ImpactSource` cases — one normalization fold, one matrix owner.
+
+[NETWORK_FLOW_PAGE]-[QUEUED]: land the capacity-network page on the graph plane.
+- Capability: `libs/python/data/.planning/graph/network.md` — capacity-annotated network owner over the networkx codec lane, `maximum_flow`/`min_cost_flow`/`network_simplex` rows, flow results lowering through `GraphResult.frame` onto the columnar join, `domain="graph"` projection.
+- Anchors: `.planning/graph/graph.md` codec lane; branch `.api/networkx.md` flow family; idea `[GRAPH_NETWORK_ANALYSIS]`.
+- Tension: networkx carries the flow family only — rustworkx stays the kernel for everything it spells.
 
 ## [02]-[CLOSED]
 

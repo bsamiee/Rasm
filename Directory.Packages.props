@@ -343,6 +343,7 @@
         <PackageVersion Include="AvaloniaEdit.TextMate"                                   Version="12.0.0" />
         <PackageVersion Include="bodong.Avalonia.PropertyGrid"                            Version="12.0.4.1" />
         <PackageVersion Include="bodong.PropertyModels"                                   Version="12.0.0" />
+        <PackageVersion Include="CSharpMath.SkiaSharp"                                    Version="1.0.0-pre.1" />
         <PackageVersion Include="DialogHost.Avalonia"                                     Version="0.12.2" />
         <PackageVersion Include="Dock.Avalonia"                                           Version="12.0.0.2" />
         <PackageVersion Include="Dock.Model.ReactiveUI"                                   Version="12.0.0.2" />

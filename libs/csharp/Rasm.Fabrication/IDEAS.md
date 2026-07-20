@@ -41,7 +41,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: Arc edges preserve bulge geometry through `Arc.CreateFromBulge` rather than tessellating the filled region away.
 - Unlocks: Hatched cut regions enter as geometry instead of unsupported entities.
 - Anchors: `Ingress/profile.md` and the ACadSharp catalog's hatch and frame surfaces.
-- Tension: Nested `BoundaryPath.Edge` leaf-member spelling remains unverified.
+- Tension: nested `BoundaryPath.Edge` leaf-member spellings remain unverified — resolve via `tools.assay api query` over the installed ACadSharp assembly and extend `.api/api-acadsharp.md` with the edge rows.
 
 [PROFILE_ANNOTATION_MARKS]-[QUEUED]: Carry profile annotation content through ingress.
 - Capability: `ProfileMarking` admits insert attributes, text, and multiline-text content.
@@ -163,7 +163,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: an `ActivitySource` span family under the minted `TelemetrySource.Fabrication` scope identity wraps the long-running engine boundaries — nest solve, simulation run, scanpath derivation, probe fit — so TraceBased exemplars attach trace ids to the cycle-time, wear, and SPC histograms automatically.
 - Shape: one span per solve at the engine entry folds that already mint `FabricationFact` evidence, phase transitions as span events, `HasListeners()` gating tag cost; per-iteration spans stay the deleted form.
 - Unlocks: click-through from a latency histogram bucket to the exact solve trace; span-profile correlation joins the flame graph to the regressing solve.
-- Anchors: `Process/telemetry.md` fact union and instrument roster, the AppHost exemplar law (`SetExemplarFilter(TraceBased)`), the scope-name law binding tracer and meter to one package identity.
+- Anchors: `Process/telemetry.md` fact union and instrument roster, the AppHost exemplar law (`SetExemplarFilter(TraceBased)`), the scope-name law binding tracer and meter to one package identity, and the branch `PyroscopeSpanProcessor` registration (`libs/csharp/.api/api-pyroscope-opentelemetry.md`) joining flame graphs to the same traces at the AppHost root.
 - Tension: facts are receipts by design — spans complement the fact rail, and admission stays at the AppHost root's source roster, never a folder-local provider.
 
 [SOLVER_BENCHMARK_CORPUS]-[QUEUED]: Solver kernels join the corpus benchmark gate — the claims `ProbeRoute.Measured` consumes finally gain a producer.
@@ -171,6 +171,43 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: bench cases ride the branch benchmark project tier per the Test Stack law — BenchmarkDotNet never enters this package's csproj; `Toolpath/guard.md` `ProbeRoute.Measured` resolves its `BenchmarkKey` against the minted claims, closing the loop the route today references blind.
 - Unlocks: solver-regression detection with host-evidence honesty; benchmark-authorized parallel probing backed by a real claim instead of an unmintable key.
 - Anchors: AppHost `Observability/benchmarks.md` gate fold and `BenchmarkRun.Traced`, Persistence `Query/cache.md#BENCHMARK_INDEX` `BenchmarkRow` and `store.cache.benchmark`, `[ENGINE_COUNTER_FACTS]` counter evidence as the paired live signal.
+
+[FABRICATION_HOOK_RAIL]-[QUEUED]: Typed fabrication hook points let any app observe, veto, or replay the run spine without a code edit.
+- Capability: a `rasm.fabrication.<domain>.<point>` hook-point roster over the run spine — request admission, derivation stage advance, egress mint, verify verdict, delivery hand-off — each row declaring its veto, observe, and replay modalities and its payload receipt.
+- Shape: roster rows register on the AppHost hook registry at composition beside the existing receipt-tap observe row; hook scope rides the `FabricationRuntime` instance, so two apps composing the library never share a mutable registry or shadow each other's subscribers.
+- Unlocks: pre-egress policy veto, shop-floor event integration, and deterministic replay of a settled run without emit calls scattered in domain kernels.
+- Anchors: `Process/owner.md` run fold, `Process/telemetry.md` tap and fan, the AppHost hook-registry substrate with subscriber-fault isolation.
+
+[MACHINE_TELEMETRY_DECODE]-[QUEUED]: One typed machine-observation slice makes every measured consumer read the same decoded truth.
+- Capability: `Kinematics/observation.md` owns `MachineObservation` — the typed vocabulary for decoded machine telemetry (spindle load, axis state, alarm, tool-in-spindle, cycle events) that wear estimation, fleet performance refresh, and engagement feedback consume; the MTConnect.NET-Common observation and stream model, admitted yet unconsumed beyond the cutting-tool slice, supplies the source shapes.
+- Shape: AppHost decode lane produces the slice from transport bytes; the folder admits it as receipts — `Tooling/wear.md` observations, `Kinematics/fleet.md` `MachinePerformance` refresh, and `Toolpath/skeleton.md` measured-load rows all rebind onto the one vocabulary.
+- Unlocks: closed measured-feedback seam, condition-based maintenance, and evidence-based ranking from one decode.
+- Anchors: `.api/api-mtconnect-net-common.md` observation model, `Tooling/wear.md`, `Kinematics/fleet.md`, and the ARCHITECTURE decode-lane cross-package invariant.
+- Tension: exact observation and stream member spellings verify via `tools.assay api query` over MTConnect.NET-Common before the page mints.
+
+[SHOP_STATE_SLOTS]-[QUEUED]: Durable shop state persists as slot-registered stores, never in-memory registries that die with the process.
+- Capability: remnant inventory, fleet `MachinePerformance` horizons, magazine slot state, and capability history land as `store.fabrication.<domain>.<verb>` slot rows on the Persistence slot registry, each read and write a typed receipt.
+- Shape: owning pages keep their lifecycle folds and gain one persistence seam row each; artifact egress stays on the `EgressKind`-to-`ArtifactKind` content-key federation, so document custody never forks.
+- Unlocks: shop state surviving restart, multi-app shared inventory without collision, and history-backed capability gates and fleet ranking.
+- Anchors: `Nesting/remnant.md`, `Kinematics/fleet.md`, `Tooling/magazine.md`, `Spec/capability.md`, and the Persistence slot-registry pattern.
+
+[FABRICATION_SLO_PACK]-[QUEUED]: Instrument rows compile into dashboards and burn-rate alerts, so shop health is declared beside the metrics it watches.
+- Capability: an SLO row family derived from the instrument roster — wear-critical rate, capability-violation budget, gouge budget, fleet stale-match ratio, cycle-time envelope — each row naming instrument, objective, window, and burn-rate policy.
+- Shape: data rows beside `FabricationInstruments`; the AppHost alert rail consumes them and the TS iac dashboard compile leg renders the fabrication dashboard from the same rows, so a roster change re-derives both surfaces.
+- Unlocks: fabrication dashboards and alerting with zero hand-authored panel or rule drift.
+- Anchors: `Process/telemetry.md` instrument roster, the core SLO burn-rate algebra, and the iac dashboard compile leg.
+
+[PROGRAM_DELIVERY_RECEIPTS]-[QUEUED]: Program delivery becomes evidence — a posted artifact reaches its controller with a verified digest and an acknowledged receipt.
+- Capability: a delivery receipt binding `PostImage` content key to transfer digest, controller identity, acknowledgment, and operator attestation; the Robots remote upload, play, and pause channel — admitted and unconsumed — carries the robot arm.
+- Shape: `Kinematics/cell.md` owns the robot delivery boundary, `Posting/dialect.md` egress states delivery demand, and one delivery fact case joins the rail with its instrument row.
+- Unlocks: chain-of-custody from post to machine, delivery dashboards, and traveler steps releasing on acknowledged delivery.
+- Anchors: `.api/api-robots.md` remote channel, `Posting/dialect.md` `PostImage`, `Process/telemetry.md` fan, and `Documentation/traveler.md`.
+
+[SOLVER_MEMO_CACHE]-[QUEUED]: Expensive solver truth is content-keyed once and replayed everywhere.
+- Capability: NFP pair polygons, ICP datum fits, and clearance fields memoize under content keys folded from their exact inputs, with hit and miss facts on the telemetry rail.
+- Shape: an in-process memo tier per runtime instance — app-neutral, never process-global — over the branch hybrid-cache surface, and a durable tier federating at the Persistence cache seam beside the benchmark index.
+- Unlocks: interactive re-nest and re-probe latency, cross-run reuse of pair geometry, and cache-efficiency evidence for capacity planning.
+- Anchors: `Nesting/nfp.md` pair algebra, `Verify/probing.md` ICP, `libs/csharp/.api/api-hybrid-cache.md`, and the kernel `ContentHash.Of` single mint.
 
 ## [02]-[CLOSED]
 

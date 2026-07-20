@@ -180,7 +180,7 @@ const UNITS = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['order', 'title', 'tier', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'blockers'],
+                required: ['order', 'title', 'tier', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
                 properties: {
                     order: { type: 'integer' },
                     title: { type: 'string' },
@@ -190,6 +190,15 @@ const UNITS = {
                     pages: { type: 'array', items: { type: 'string' } },
                     anchors: { type: 'array', items: { type: 'string' } },
                     packages: { type: 'array', items: { type: 'string' } },
+                    rippleSurface: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['endpoint', 'source'],
+                            properties: { endpoint: { type: 'string' }, source: { type: 'string' } },
+                        },
+                    },
                     blockers: {
                         type: 'array',
                         items: {
@@ -382,7 +391,8 @@ const FENCE_LAW =
     'as a row, case, field, operation, or policy value inside the existing owner before any new surface appears; doctrine is the floor ' +
     'pushed past, never the ceiling. A page or sub-folder minted this pass meets the full density and coverage bar of a mature page the ' +
     'moment it lands — a stub, skeleton, or placeholder is a defect. Where a card assumes a file, folder, or owner: confirm it on disk ' +
-    'first; absent, CREATE it at that full bar and extend it as if it had existed from the start — never tacked-on.';
+    'first; absent, CREATE it at that full bar and extend it as if it had existed from the start — never tacked-on. A page or sub-folder ' +
+    'minted this pass joins its folder README registry and ARCHITECTURE codemap/[SEAMS] in the same unit — an unregistered mint is a defect.';
 
 const CARD_LAW =
     'Every card in the unit reaches a terminal disposition IN ITS CARD FILE this pass: a realized card moves to [02]-[CLOSED] as ' +
@@ -391,7 +401,11 @@ const CARD_LAW =
     '[BLOCKED] with an explicit arming trigger (the condition that activates it). An [ACTIVE] or [QUEUED] card may not survive your pass ' +
     'unchanged. Both ends of a Ripple pair move together only when both folders are yours — a foreign end is a crossFolderRows row. A ' +
     'cross-libs card closes at the cross tier only when every folder ripple is landed on disk. A non-theme open card sharing a card file ' +
-    'with unit cards stays byte-untouched — an expected leftover for a future slice, never dispositioned, never reworded.';
+    'with unit cards stays byte-untouched — an expected leftover for a future slice, never dispositioned, never reworded. RIPPLE ' +
+    'DISPOSITION: a card closes ONLY with its ripple surface dispositioned — every unit rippleSurface endpoint its card names ends (a) ' +
+    'LANDED in your territory this pass, (b) DEFERRED as a crossFolderRows row when outside your territory and theme-relevant, or (c) ' +
+    'OUT-OF-THEME recorded in the receipt rippleLedger with the future-slice hint; an endpoint with none of the three makes the close ' +
+    'incomplete — splash the endpoint exposes (a consumer of the consumer) joins the same ledger under the same three-way rule.';
 
 const ROW_LAW =
     'Cross-folder needs are DATA, never foreign edits: a change any file outside your write territory needs lands as a crossFolderRows row ' +
@@ -702,7 +716,9 @@ const receiptDoc = (id, stage) =>
     '-' +
     stage +
     '.json (Write tool, absolute path): {folder, stage, filesTouched: [absolute paths], crossFolderRows: [{targetFile, language, change, ' +
-    'origin}], cardsClosed: [{file, card, disposition}], packagesMissing: [{package, language, reason}], researchResolved: {resolved, ' +
+    'origin}], rippleLedger: [{endpoint, disposition: "landed"|"deferred"|"out-of-theme", evidence}] — one row per unit rippleSurface ' +
+    'endpoint plus every splash endpoint your work exposed, cardsClosed: [{file, card, disposition}], packagesMissing: [{package, ' +
+    'language, reason}], researchResolved: {resolved, ' +
     'sharpened, left}, residuals: [{claim, files, owner}], summary}.';
 const thinReceipt = (f, stage) =>
     ' Then return the thin receipt: folder ' +
@@ -763,7 +779,10 @@ const planPrompt = (f) =>
     'order (dependency position, 1 first — a unit consuming another unit fence output orders after it, and a unit that MINTS a page or ' +
     'sub-folder orders before every unit extending it); title; tier; heavy (true when the ' +
     'unit spans 3+ pages or creates any page); cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the unit edits, index docs ' +
-    'included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit composes); blockers — every ' +
+    'included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit composes); rippleSurface — ' +
+    'the unit ripple contract: for each selected card, every consumer, unlock endpoint, or counterpart the card NAMES in its Unlocks, ' +
+    'Shape, Ripple, or thesis lands one row {endpoint (the folder or page it names, absolute where resolvable — cross-folder and ' +
+    'cross-language included), source ("FILE [ID] Unlocks|Shape|Ripple")} — [] only when no selected card names one; blockers — every ' +
     'BLOCKED card in the unit lands one row {card, question (the blocker restated as an answerable question), route (the resolution route: ' +
     'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none. TIER is decision weight, never modality: ' +
     '"fable" = design synthesis — new owners, ground-up or multi-page authoring, contested judgment; "opus" = surgical realization on ' +
@@ -1024,7 +1043,10 @@ const critPrompt = (f, u, impl, mapR, admitted) =>
     'algebra, table, fold, or generator can own); owner choice; knob test (entry-point sprawl, boolean knobs); rail unification; language ' +
     'modernity; capability + illusion (a name promising capability the fence omits); fence transcription-completeness; member truth against ' +
     'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); card-closure truth (a ' +
-    'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); research-row discipline (a ' +
+    'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); ripple-ledger truth (every unit ' +
+    'rippleSurface endpoint carries a rippleLedger row in the implement receipt whose disposition holds against disk — a landed endpoint ' +
+    'proven, a deferred endpoint present as a crossFolderRows row, an out-of-theme endpoint carrying its hint; a silent or false endpoint ' +
+    'is a defect you land or ledger yourself); research-row discipline (a ' +
     'resolved row deleted whole; a sharpened row carrying question and route; a hard non-pertinent row left byte-untouched, never ' +
     'dispositioned; any emitted python-version gating is a defect you remove — ' +
     'py315 supports every admitted package); .api ultra-stacking (both tiers — ' +
@@ -1082,7 +1104,8 @@ const drainPrompt = (L, receiptPaths) =>
     'tier. Per row, REFUTE FIRST against current disk (the row predates later stages): a row already satisfied records verified-satisfied ' +
     'with the disk citation; a row conflicting with a landed page law records not-applied with the citation; the remainder APPLIES at root ' +
     '— land the change, mirror every touched seam edge at both endpoint ARCHITECTUREs with identical [KIND] and direction, and repair what ' +
-    'the edit exposes in the same pass. Rows targeting outside your territory RETURN as residualRows ("targetFile :: change"), never apply. ' +
+    'the edit exposes in the same pass. Rows targeting outside your territory RETURN as residualRows ("targetFile :: change"), never apply — ' +
+    'and a NEW cross-territory need an application exposes (second-order splash) joins residualRows the same way, never dropped. ' +
     pyGuard(L.key) +
     ' Write your full drain document (drained / verified-satisfied / not-applied-with-reason / escalated) to ' +
     OUT +
@@ -1092,7 +1115,7 @@ const drainPrompt = (L, receiptPaths) =>
     L.key +
     '", ok, report, applied count, residualRows, headline, failure.';
 
-const rtPrompt = (L, drainR, receiptPaths, admitRows) =>
+const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
     'TERMINAL RED-TEAM over ' +
     REPO +
     '/' +
@@ -1124,7 +1147,10 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows) =>
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched over every index doc your pass touched, repaired to ' +
     'zero FAIL. (8) FULL COLD RE-REVIEW of every conformance dimension by name, and card-closure truth: a closed card whose realization ' +
-    'fails your attack REOPENS with the defect named; count it in cardsReopened. Doctrine at source first: every root file of ' +
+    'fails your attack REOPENS with the defect named; count it in cardsReopened. (9) LINGERING-UNLOCK SWEEP — every closed card ripple ' +
+    'surface re-proven from the stage-receipt rippleLedger rows: a landed endpoint verified on disk, a deferred endpoint verified applied ' +
+    '(drain document or disk), an out-of-theme endpoint verified hinted; a lingering endpoint you land or return in residualRows. ' +
+    'Doctrine at source first: every root file of ' +
     REPO +
     '/docs/stacks/' +
     L.key +
@@ -1134,7 +1160,11 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows) =>
     JSON.stringify(receiptPaths) +
     '. MID-RUN ADMISSIONS to compose-check under (5) and (6): ' +
     JSON.stringify(admitRows) +
-    ' — an admitted row whose catalog capability no owner composes is an ultra-stacking defect; a rejected row stays out of every fence.' +
+    ' — an admitted row whose catalog capability no owner composes is an ultra-stacking defect; a rejected row stays out of every fence. ' +
+    'DRAIN RESIDUALS routed to your tree (rows no drain could apply, second-order splash included) — apply refute-first with your closure ' +
+    'authority; one you cannot land returns in residualRows with its blocker: ' +
+    JSON.stringify(residualRows) +
+    '.' +
     pyGuard(L.key) +
     ' DISPATCH LEGS where the sweep exceeds one context — legs read and report, every write is yours: opus legs through the Agent tool ' +
     '(subagent_type "general-purpose", model opus) for deep folder mapping and strata integration checks; codex legs through ' +
@@ -1257,7 +1287,7 @@ const testsImplPrompt = (L, mapR) =>
     L.key +
     ': reason" plus genuinely blocked items), headline, failure.';
 
-const auditPrompt = (roots, selected) =>
+const auditPrompt = (roots, selected, residuals) =>
     'SLICE-CLOSURE AUDIT for theme "' +
     THEME.title +
     '" — count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
@@ -1268,8 +1298,14 @@ const auditPrompt = (roots, selected) =>
     'future slices, never a failure, never rostered. Then count live "- " rows under terminal [RESEARCH] sections across every design ' +
     'page under these roots: ' +
     JSON.stringify(roots) +
-    ' — remaining rows are expected (future slices own non-pertinent debt); report total and per language as "language: N". Counts only — ' +
-    'no edits, no verdicts beyond the rosters.';
+    ' — remaining rows are expected (future slices own non-pertinent debt); report total and per language as "language: N". RIPPLE PROOF: ' +
+    'sweep the rippleLedger arrays across the stage receipt documents under ' +
+    OUT +
+    ' — a "deferred" endpoint no drain or red-team document shows applied and current disk does not satisfy joins openCards as {file: the ' +
+    'endpoint, card: "ripple: " + its source}. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
+    JSON.stringify(residuals) +
+    ' — verify each against current disk; one still unapplied joins openCards as {file: its targetFile, card: "residual: " + its change}. ' +
+    'Counts only — no edits, no verdicts beyond the rosters.';
 
 // --- [COMPOSITION] -------------------------------------------------------------------
 
@@ -1459,42 +1495,56 @@ log(unitRecs.length + ' unit(s), ' + receiptPaths.length + ' receipt(s), ' + adm
 
 // --- [SEAL_AND_TESTS]
 
+let drainUnrouted = [];
 const sealP = receiptPaths.length
-    ? pipeline(
-          LANGS,
-          (L) =>
-              guard(
-                  slot(() =>
-                      agent(drainPrompt(L, receiptPaths), {
-                          label: 'drain:' + L.key,
-                          phase: 'Drain',
-                          model: 'opus',
-                          effort: 'high',
-                          schema: DRAINR,
-                          stallMs: STALL_MS,
-                      }),
-                  ),
+    ? (async () => {
+          // Barrier is genuine: drain residualRows route ACROSS languages, so every drain must land before any redteam starts.
+          const drainRs = await parallel(
+              LANGS.map(
+                  (L) => () =>
+                      guard(
+                          slot(() =>
+                              agent(drainPrompt(L, receiptPaths), {
+                                  label: 'drain:' + L.key,
+                                  phase: 'Drain',
+                                  model: 'opus',
+                                  effort: 'high',
+                                  schema: DRAINR,
+                                  stallMs: STALL_MS,
+                              }),
+                          ),
+                      ),
               ),
-          (dr, L) => {
-              const hadUnits = allChains.some((c) => (c.language === L.key || c.language === 'cross') && c.units.length);
-              if (!hadUnits && !(dr && dr.applied > 0)) return { language: L.key, drain: dr, redteam: null };
-              const admitRows = admissions
-                  .filter((a) => a && a.language === L.key)
-                  .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
-              return guard(
-                  slot(() =>
-                      agent(rtPrompt(L, dr, receiptPaths, admitRows), {
-                          label: 'rt:' + L.key,
-                          phase: 'Redteam',
-                          model: 'fable',
-                          effort: 'max',
-                          schema: REDTEAMR,
-                          stallMs: STALL_MS,
-                      }),
-                  ),
-              ).then((rt) => ({ language: L.key, drain: dr, redteam: rt }));
-          },
-      )
+          );
+          const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
+          const residualFor = (L) => allResiduals.filter((r) => String(r).includes('/' + L.root + '/'));
+          const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
+          drainUnrouted = allResiduals.filter((r) => !routed.has(r));
+          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no language tree — carried to the audit');
+          return await parallel(
+              LANGS.map((L, i) => () => {
+                  const dr = drainRs[i];
+                  const res = residualFor(L);
+                  const hadUnits = allChains.some((c) => (c.language === L.key || c.language === 'cross') && c.units.length);
+                  if (!hadUnits && !(dr && dr.applied > 0) && !res.length) return Promise.resolve({ language: L.key, drain: dr, redteam: null });
+                  const admitRows = admissions
+                      .filter((a) => a && a.language === L.key)
+                      .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
+                  return guard(
+                      slot(() =>
+                          agent(rtPrompt(L, dr, receiptPaths, admitRows, res), {
+                              label: 'rt:' + L.key,
+                              phase: 'Redteam',
+                              model: 'fable',
+                              effort: 'max',
+                              schema: REDTEAMR,
+                              stallMs: STALL_MS,
+                          }),
+                      ),
+                  ).then((rt) => ({ language: L.key, drain: dr, redteam: rt }));
+              }),
+          );
+      })()
     : Promise.resolve([]);
 
 const testsP = TESTS_ON
@@ -1542,6 +1592,7 @@ const audit = await guard(
             auditPrompt(
                 folders.map((f) => f.path),
                 selectedCards,
+                drainUnrouted,
             ),
             {
                 label: 'audit',

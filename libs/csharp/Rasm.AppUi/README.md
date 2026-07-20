@@ -113,6 +113,7 @@ Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, an
 
 [RENDER_GPU]:
 - `Avalonia.Skia`
+- `CSharpMath.SkiaSharp` — TeX-subset math typesetting painted onto the Skia surface for the typography Math arms.
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
 - `SkiaSharp.NativeAssets.macOS`

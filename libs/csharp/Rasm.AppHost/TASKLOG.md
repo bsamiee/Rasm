@@ -34,10 +34,47 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [0005]-[QUEUED]: Profiler agent labels — the `Pyroscope` agent surface partitions continuous profiles by the dimensions instruments already carry.
 - Capability: dynamic profile labels thread tenant, command family, and degradation level into the profile stream `PyroscopeSpanProcessor` already correlates by span id — flame graphs answer per-tenant and per-command cost questions the aggregate profile cannot.
-- Shape: agent rows on the `Observability/benchmarks.md` profile-correlation cluster — `Profiler.Instance` tracking toggles (`SetCPUTrackingEnabled`/`SetAllocationTrackingEnabled`/`SetExceptionTrackingEnabled`) as policy rows, label scopes through `LabelSet.BuildUpon` and `LabelsWrapper.Do`, dynamic tags through `SetDynamicTag`.
+- Shape: agent rows on the `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#PROFILE_CORRELATION` cluster — `Profiler.Instance` tracking toggles (`SetCPUTrackingEnabled`/`SetAllocationTrackingEnabled`/`SetExceptionTrackingEnabled`/`SetContentionTrackingEnabled`) as policy rows, label scopes through `LabelSet.BuildUpon` and `LabelsWrapper.Do`, dynamic tags through `SetDynamicTag`.
 - Unlocks: per-tenant flame graphs; allocation and contention profiles cut by the same dimensions the metric governor caps.
 - Anchors: the `api-pyroscope.md` two-package catalog, the `pyroscope.profile.id` span tag, the `TenantContext` dimension row.
 - Tension: label cardinality shares the tenant-cap governor's budget — label vocabularies stay bounded, never free-form.
+
+[0006]-[QUEUED]: Carrier adapter rows — NATS headers, MQTT v5 user properties, and CloudEvents tracing attributes land as three `IPropagator`-backed adapters on the propagation spine with pinned member spellings.
+- Capability: getter/setter pairs over `NatsHeaders`, the MQTTnet user-property collection, and the CloudEvents `traceparent`/`tracestate` extension attributes delegate to `Correlation.Spine` `Inject`/`Extract`, so a broker hop continues the W3C trace and baggage.
+- Shape: three adapter rows on `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#CORRELATION_SPINE` mirroring the `TraceContext` gRPC shape; mount edges at the `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md` `MqttLane` publish and receive legs; exact member spellings pin against `api-mqtt.md` and the Persistence NATS and CloudEvents catalogs before the fences land.
+- Unlocks: realizes `[WIRE_CARRIER_ADAPTERS]` — trace continuity and exemplar survival across every estate broker hop.
+- Anchors: the `[WIRE_CARRIER_ADAPTERS]` idea, `TextMapPropagator.Inject`/`Extract`, `MqttApplicationMessageBuilder`, `NatsHeaders`, the CloudEvents extension-attribute surface.
+
+[0007]-[QUEUED]: Persistent OTLP transmission queue — file-system-backed export durability rows at both provider owners.
+- Capability: failed OTLP exports persist to a bounded on-disk queue and replay on reconnect; provider shutdown flushes wire-first, store-second.
+- Shape: persistent-storage binding rows at `SignalGovernance.Govern` and `PluginTelemetryHost.Open` on `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#SIGNAL_GOVERNANCE` and `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#PROVIDER_LIFETIME`; queue-directory, size-cap, and retention policy values join the governance table.
+- Unlocks: realizes `[TELEMETRY_OFFLINE_SPINE]` — the durability claim holds on every host profile.
+- Anchors: `OpenTelemetry.PersistentStorage.FileSystem` (admission pending), the `OTEL_EXPORTER_OTLP_*` rows, the telemetry drain band.
+
+[0008]-[QUEUED]: Baggage-to-span promotion rows — `BaggageActivityProcessor` admits the tenant and correlation keys onto span attributes at every provider owner.
+- Capability: `rasm.tenant` and `CorrelationId` baggage entries promote to span attributes under a key-allowlist predicate; unlisted baggage never leaks onto spans.
+- Shape: one `AddProcessor` row beside the `PyroscopeSpanProcessor` seat and one allowlist policy row on `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#SIGNAL_GOVERNANCE`; the per-ALC capsule takes the same processor row.
+- Unlocks: realizes `[TENANT_COST_SPAN_PROMOTION]` — backend per-tenant grouping over spend, latency, and traces.
+- Anchors: `OpenTelemetry.Extensions` `BaggageActivityProcessor` (admission pending), `Correlation.Spine`, `TenantContext.Tag`.
+- Atomic: two registration rows and one policy row on one page.
+
+[0009]-[QUEUED]: `RollAnnotationWire` record — wave, channel, verdict, host-count, and instant fields fold off the roll receipts into one deploy-annotation wire shape.
+- Capability: every wave advance, hold, and rollback lands one annotation record on the receipt fan, HLC-stamped like every spine fact.
+- Shape: one wire record and projection fold on `libs/csharp/Rasm.AppHost/.planning/Sandbox/provisioning.md#ROLLOVER_DRAIN`; the record joins the `AppHostWireContext` roster at `libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md#WIRE_LAW`.
+- Unlocks: realizes `[FLEET_DEPLOY_ANNOTATIONS]` — the dashboard timeline marks every fleet wave.
+- Anchors: `FleetRoll` wave conduct, `ReceiptSinkPort.Send`, the TypeScript iac deploy-annotation rail.
+
+[0010]-[QUEUED]: `DumpTriage` fold — ClrMD walks the captured dump into bounded triage rows inside the bundle manifest.
+- Capability: top heap types by retained size, per-thread managed stacks, and blocked-thread evidence land as typed rows under the bundle caps; the raw dump artifact keeps its key beside the triage.
+- Shape: one triage fold and one `SupportArtifact` factory row on `libs/csharp/Rasm.AppHost/.planning/Observability/bundles.md#CAPTURE_PIPELINE`; row caps and the capture-window deadline bound the walk.
+- Unlocks: realizes `[DIAGNOSTIC_HEAP_ANALYSIS]` — debugger-free first response from the bundle alone.
+- Anchors: `Microsoft.Diagnostics.Runtime` `DataTarget.LoadDump` (admission pending), `DumpPolicy`, `SupportManifest.Entry`.
+
+[0011]-[QUEUED]: Partitioned observable gauges — keyed level atoms bind `Measurement<T>` multi-value callbacks where a partition dimension exists.
+- Capability: per-probe health, per-channel outbox lag, and per-family roster series read from one callback each; scalar cells stay for un-partitioned levels.
+- Shape: keyed-atom widening of `LevelCells` and multi-measurement `CreateObservableGauge` bindings on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#INSTRUMENT_CATALOG`; partition tag vocabularies bind to their owning SmartEnum rows.
+- Unlocks: realizes `[PARTITIONED_OBSERVABLE_LEVELS]` — partitioned dashboards inside the existing series budget.
+- Anchors: `api-diagnostics-metrics.md` `Measurement<T>`, `DriverProbe.Items`, the `*` `AddView` cardinality row.
 
 ## [02]-[CLOSED]
 

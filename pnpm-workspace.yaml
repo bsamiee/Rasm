@@ -29,6 +29,7 @@ catalog:
   '@electric-sql/d2ts': 0.1.8
   '@effect/typeclass': 0.41.0
   '@opentelemetry/semantic-conventions': 1.43.0
+  mitata: 1.0.34
   # security
   jose: 6.2.3
   arctic: 3.7.0
