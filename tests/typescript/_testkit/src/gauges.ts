@@ -61,7 +61,7 @@ const _walked = (root: string): Effect.Effect<ReadonlyArray<string>, GaugeFault,
 const _specifiers = (path: string, text: string): ReadonlyArray<Imports.Specifier> => {
     // BOUNDARY ADAPTER: the swc parse walk is a native callback seam; the accumulator detaches immutable at the return.
     // The walk is recursive over every AST value so a dynamic `import("<specifier>")` buried in a body cannot evade a
-    // banned-module verdict, and an unparseable source throws loud — a span that fails to parse proves nothing.
+    // banned-module verdict, and an unparsable source throws loud — a span that fails to parse proves nothing.
     const found: Array<Imports.Specifier> = [];
     const visit = (node: unknown): void => {
         if (Array.isArray(node)) {

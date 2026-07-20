@@ -847,7 +847,7 @@ def test_signature_fallback_cases() -> None:
 def test_malformed_boundary_inputs_degrade_to_empty(assay_root: AssayHarness) -> None:
     """Malformed props, csproj, package.json, and XMLDoc inputs fold empty; a bad JSON field folds only itself."""
     assay_root.write("Directory.Packages.props", "<Project><PackageVersion Include='A' Version='1'/>")  # unterminated XML
-    csproj = assay_root.write("src/App/App.csproj", "<bad")  # unparseable XML
+    csproj = assay_root.write("src/App/App.csproj", "<bad")  # unparsable XML
     manifest = assay_root.write("node_modules/pkg/package.json", "{not json")
     bad_xml = assay_root.write("RhinoCommon.xml", "<doc><member")
     assert oracle_mod.packages(assay_root.settings) == {}
