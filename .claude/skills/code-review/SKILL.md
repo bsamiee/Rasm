@@ -34,16 +34,16 @@ One rail folds CodeRabbit, Greptile, and Macroscope into a single improvement ma
 
 ## [02]-[CYCLE]
 
-Every round runs COLLECT -> FIX -> DISPOSITION -> DISTILL on two custody lanes that never mix: work under review stays uncommitted or on its slice commits, while distillation — reviewer configs, `docs/`, `tools/` — commits and pushes to origin's default branch the moment it lands, because hosted engines read the indexed default branch and an unpushed guard protects nothing. Steps run in order; each carries what to watch and the knob that tunes it.
+Every round runs COLLECT -> FIX -> DISPOSITION -> DISTILL on two custody lanes that never mix: work under review stays uncommitted or on its slice commits, while distillation — reviewer configs, `docs/`, `tools/` — commits and pushes to origin's default branch the moment it lands, because hosted engines read the indexed default branch and an unpushed guard protects nothing. Steps run in order; each carries what to watch and the knob that tunes it. A campaign's rounds number from 1: a new campaign archives the prior `.cache/review/` round dirs and `rounds.jsonl` before its first launch, so round numbers and the `rounds.jsonl` delta thread within one campaign, never across.
 
 1. [CUSTODY]: commit non-review surfaces first — reviewer configs, `docs/`, `tools/`, `.claude/` infra — so the review scope holds exactly the work under review. WATCH: a reviewed-work file in the custody commit shrinks the next round's scope silently. KNOB: the commit-scope roster.
 2. [LAUNCH]: `launch` per engine at its canonical scope ([03]), then run the receipt's `watch_cmd`. Every diff-scoped engine shares one blind spot — an untouched file never enters review — so an estate round also runs the fleet-scope collectors beside the engines: `estate_audit.py` over the full skill and agent roots, its rows joining the round's finding pool as orchestrator-seeded lane rows. KNOB: engine choice and `--focus`.
 3. [NORMALIZE]: `findings --normalize` per completed round; `gather` unions concurrent engines; `findings --digest` is the post-normalize read and the query filters answer targeted inspections — never hand-jq over findings.json. WATCH: the provenance histogram before any count judgment — a flat total decomposes into `relitigation|refuted_remint|new_work|late_discovery` before any config takes blame, and rising new-work beside falling relitigation is convergence. KNOB: `--dedup-against`.
-4. [SLICE]: `slice --lanes N` into balanced per-lane manifests, each with its dispatch-ready `lane-<letter>-brief.md`. WATCH: severity and folder balance across lanes. KNOB: lane count, up to 12 sliced by folder ownership — small slices direct freed capacity into capability depth, never early finish.
-5. [FIX]: one keeper per lane under `templates/fix.md` — the identical filled law block on every lane; a codex lane takes it as developer instructions with the filled task as the user prompt, a claude lane takes both in one Agent call, and transport mechanics beyond these facts are the codex skill's, never restated. Per-lane files under `<round-dir>`: `lane-<letter>-brief.md`, `lane-<letter>.json`, `task-<letter>.md`, `lane-<letter>-report.json`, `lane-<letter>-stderr.log` (codex). Codex lanes run the config-default model and effort unflagged under the full user config (miner spawns need the multi-agent depth row; deviate only for purely mechanical slices); a codex task never names the report file — the captured final message IS the report, a violation recovering via `codex exec resume <session-id>` re-emitting with no `-o` — and the report's self-stated `model` re-stamps from the stderr banner at reconcile. A claude lane writes its report itself and returns only the path. Each lane returns only its report path, so report bodies never enter the orchestrator's context. Lane mix follows the graduation law: a corpus NEW to the machine runs its first fix wave on claude lanes to mint the quality baseline; the first codex wave on that corpus runs mixed — one claude lane beside codex lanes on comparable slices — and grades codex against the baseline on the standing [GRADING] axes; an observed shortfall hardens the universal template as an explicit decision rule, never a retreat to claude-only; at parity the next wave runs 100% codex, and the intermediate ratio widens only while shortfalls persist. WATCH: codex — the stderr banner and the spawn audit; claude — the report on disk at return (prose instead of the path relaunches once fresh; a second failure routes to a closer). KNOB: lane mix and template wording — sharpen by replacement, never accumulate.
+4. [SLICE]: `slice --lanes N` into balanced per-lane manifests, each with its dispatch-ready `lane-<letter>-brief.md`. WATCH: severity and folder balance across lanes. KNOB: lane count, one per balanced folder slice up to the rail's `LANES_CAP` ceiling — small slices direct freed capacity into capability depth, never early finish.
+5. [FIX]: one codex keeper per lane under `templates/fix.md` — the identical filled law block as developer instructions, the filled task as the user prompt; all lanes dispatch concurrently, and transport mechanics beyond these facts are the codex skill's, never restated. Per-lane files under `<round-dir>`: `lane-<letter>-brief.md`, `lane-<letter>.json`, `task-<letter>.md`, `lane-<letter>-report.json`, `lane-<letter>-events.jsonl`, `lane-<letter>-stderr.log`. Codex lanes run the config-default model and effort unflagged under the full user config (miner spawns need the multi-agent depth row; deviate only for purely mechanical slices); the task never names the report file, and `-o <round-dir>/lane-<letter>-report.json` materializes the captured final message — a violation recovering via `codex exec resume <session-id>` re-emitting with no `-o` — the report's self-stated `model` re-stamping from the stderr banner at reconcile. Each lane returns only its report path, so report bodies never enter the orchestrator's context. An observed shortfall hardens the universal template as an explicit decision rule, never a weaker per-model variant. WATCH: the stderr banner and the spawn audit per lane; a lane whose report never lands relaunches once fresh, a second failure routing to a closer. KNOB: lane count and template wording — sharpen by replacement, never accumulate.
 6. [RECONCILE]: `reconcile` proves per-lane id bijection and emits the verdict histogram. WATCH: verdict-mix honesty — fixed-versus-upgraded inflation, citation-backed push-back share. KNOB: a dropped finding closes through one small closer armed with the slice's stack doctrine, never a session resume.
 7. [CLOSERS]: routing rows drain concurrently over disjoint territories under `templates/close.md` — a small closer for single-file mechanical rows, a full-arming closer for family, design, or capability work, sized by row weight. WATCH: honest land-versus-refute — a mined candidate that cannot ground is refuted with its citation, never forced. KNOB: closer sizing.
-8. [DISTILL]: `harvest` assembles the feed and memory proposals; dispatch under `templates/harvest.md` — claude rides `Agent(subagent_type: "reviewer-harvest")` with the filled round slots, codex rides the template's law block with the slots as the user prompt. WATCH: diff-sample the touched blocks — density rose (fewer words, same law), integrations weave rather than append, additions passed the earn test; the ledger's `trimmed` self-report verifies against the actual diff, never trusted alone. KNOB: the agent file — the single versioned tuning surface.
+8. [DISTILL]: `harvest` assembles the feed and memory proposals; dispatch under `templates/harvest.md` — codex takes the template's `[02]` law block as developer instructions with the filled round slots as the user prompt. WATCH: diff-sample the touched blocks — density rose (fewer words, same law), integrations weave rather than append, additions passed the earn test; the ledger's `trimmed` self-report verifies against the actual diff, never trusted alone. KNOB: the agent file — the single versioned tuning surface.
 9. [VERIFY]: project the agent's ledger into `<round-dir>/surface-ledger.json` ([05]), then `verify --round N` proves each guard in its surface's own oracle. WATCH: an ineffective row marks failed wording — harden the owner, never re-skip. KNOB: `templates/refuted-classes.yaml` rows.
 10. [CLOSE]: commit and push the distillation lane, then `round` appends the `rounds.jsonl` row and prints the round-over-round delta; a zero-findings round arrives here straight from normalize and closes clean, and round grades, engine verdicts, and refuted-class calibrations land on the campaign memory (`project_cr_review_cycle_machine`) — orchestrator-curated under the harness-steering mining law, adjudicated rows merged into the owning verdict, never per-round narration. A campaign close curates the memory itself: accumulated round entries collapse to universal law carrying at most one calibration each (per-round numbers stay in `rounds.jsonl`), chaff and superseded guidance delete with their index lines, and near-similar entries restructure at the owning bullet under the harness-steering consolidation law, never appended siblings. WATCH: findings trending down while capability rows rise is the goal line. KNOB: none — the ledger is the sole progress instrument.
 11. [NEXT]: grade the round on the [GRADING] axes, then pick the next engine — recurrence judges per engine, counts flattening under one engine rotate the next round to another, and `--focus` aims a round within one: greptile rides early rounds while the accumulated diff fits its size caps, coderabbit carries breadth at any diff size, macroscope joins whenever its lane is open. WATCH: plateau under a hardened config. KNOB: rotation and focus.
@@ -58,31 +58,31 @@ Every round runs COLLECT -> FIX -> DISPOSITION -> DISTILL on two custody lanes t
 ## [03]-[USAGE]
 
 ```bash template
-RAIL="uv run ${CLAUDE_SKILL_DIR}/scripts/review_rail.py"
-$RAIL launch --reviewer <engine> --scope <scope> [--focus <text-or-file>]   # receipt: round N, pgid, watch_cmd
+rail() { uv run "${CLAUDE_SKILL_DIR}/scripts/review_rail.py" "$@"; }   # bash+zsh safe: quoted path, "$@" splits args
+rail launch --reviewer <engine> --scope <scope> [--focus <text-or-file>]   # receipt: round N, pgid, watch_cmd
 # run the receipt's watch_cmd; its exit re-invokes the agent
-$RAIL status --follow --round <N>
-$RAIL findings --normalize --round <N> [--dedup-against <M>]
-$RAIL findings --digest --round <N>
-$RAIL findings --file '<glob>' --severity <floor> --claim '<regex>' --round <N> [--json]
-$RAIL slice --lanes 3 --round <N>
+rail status --follow --round <N>
+rail findings --normalize --round <N> [--dedup-against <M>]
+rail findings --digest --round <N>
+rail findings --file '<glob>' --severity <floor> --claim '<regex>' --round <N> [--json]
+rail slice --lanes 3 --round <N>
 # fixer lanes run here (orchestrator dispatch): each prompt cites its lane-<letter>-brief.md; each lane writes <round-dir>/lane-<letter>-report.json
-$RAIL reconcile --round <N>
-$RAIL harvest --round <N>
+rail reconcile --round <N>
+rail harvest --round <N>
 # dispatch the reviewer-harvest agent on the feed; persist its ledger as <round-dir>/surface-ledger.json
-$RAIL registry --check --rows <path>   # validate the agent's proposed registry rows against the standing yaml
-$RAIL registry --apply --rows <path>   # append-only land of fully-clean rows; any fault refuses whole
-$RAIL verify --round <N>
-$RAIL round --round <N>
+rail registry --check --rows <path>   # validate the agent's proposed registry rows against the standing yaml
+rail registry --apply --rows <path>   # append-only land of fully-clean rows; any fault refuses whole
+rail verify --round <N>
+rail round --round <N>
 ```
 
 ```bash template
-$RAIL launch --reviewer coderabbit --scope uncommitted
-$RAIL launch --reviewer greptile --scope base:<prior-boundary>
-$RAIL launch --reviewer macroscope --scope base:<default-branch>
-$RAIL status --follow --all-live            # exits when every live round is terminal
-$RAIL findings --normalize --round <N>      # once per engine round
-$RAIL gather --all-live                     # union round: fingerprint collapse, corroborators, max severity
+rail launch --reviewer coderabbit --scope uncommitted
+rail launch --reviewer greptile --scope base:<prior-boundary>
+rail launch --reviewer macroscope --scope base:<default-branch>
+rail status --follow --all-live            # exits when every live round is terminal
+rail findings --normalize --round <N>      # once per engine round
+rail gather --all-live                     # union round: fingerprint collapse, corroborators, max severity
 # slice / reconcile / harvest / verify / round then target the gather round
 ```
 

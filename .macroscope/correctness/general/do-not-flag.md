@@ -1,6 +1,25 @@
 # [DO_NOT_FLAG]
 
 Deliberate house shapes that violate generic best practice — flagging them is a false positive:
+- Source descriptors retained beside a derived projection are not ignored, so an omission finding proves absence from both owners.
+- A modulo accessor is not an out-of-range access, and an option-shaped lookup is not a throwing access.
+- An optional egress that maps an empty aggregate to `None` exposes absence rather than concrete closure evidence.
+- Author-declared census fields are not native read-back counters, so a host-completion finding cites the actual read surface.
+- Private planning or search evidence is not output-affecting identity unless the frozen egress carries it.
+- An in-process callback owes owner-derived coverage rather than host-completion evidence when its charter exposes no host boundary.
+- Branches already inhabiting one typed rail need no carrier repair.
+- A duplicate-validation finding cites a second declaration or admission call rather than an imagined sibling site.
+- An admitted lower bound refutes a counterexample the complete owner roster cannot cross.
+- Algebraically equivalent factorings are settled current shapes rather than arithmetic defects.
+- A declaration migration demand moves every direct constructor and consumer in the same change, so a declaration-only factory repair is incomplete.
+- A local codec never duplicates a canonical-byte owner, whose case family extends before the consumer routes.
+- Recursive execution expansion deletes only after the published trace retains every executable case, structural locus, and repetition identity.
+- A predecessor dependency deletes only after the owning atom carries the intrinsic start, sweep, or equivalent evidence the consumer needs.
+- Repeated dispatch across stages consuming different state or rails is not duplicate law without one winner-complete survivor.
+- A package traversal lacking the owner's deterministic connected walk is not approved replacement leverage.
+- Both sides of an external ABI retain the shared operation spelling required by that boundary.
+- Payloads with different motion or effect semantics remain distinct even when their carriers look alike.
+- Gate failures confined to pre-existing untouched lines are not findings against the reviewed diff and authorize no collateral edits.
 - Aggressive API breaks with every call site updated in the same change: the sanctioned rename path.
 - Dense single-expression bodies and heavy polymorphic dispatch: the bar, not obfuscation.
 - Absent defensive guards inside domain logic: admission-once boundaries, not missing error handling.

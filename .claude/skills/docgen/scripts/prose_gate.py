@@ -257,7 +257,8 @@ SELF_COUNT = re.compile(
 # Its lookahead spares dotted-quad network literals; the lookbehind blocks interior re-matches inside them.
 VERSION_ANCHOR = re.compile(r"(?<![\d.])\b(?!(?:\d{1,3}\.){3}\d{1,3}\b)v?\d+\.\d+(?:\.\d+)+\b|\b\d+\.\d+(?:\.\d+)?\+|\bv\d+\.\d+\b")
 # A bare major band anchored to a capitalized product token: the `<Product> NN+` compatibility floor.
-VERSION_BAND = re.compile(r"\b[A-Z][A-Za-z]*\s+\d{1,3}\+(?!\+)")
+# The lookahead spares `N+M` notation (a digit after `+`) — CNC axis notation like `3+2`, never a version band.
+VERSION_BAND = re.compile(r"\b[A-Z][A-Za-z]*\s+\d{1,3}\+(?![+\d])")
 # A standards-clause citation is a domain value, not a release pin: Table 2.3.2 and its kin pass the anchor scan.
 CITATION_LEAD = re.compile(r"(?:Table|Clause|Section|Annex|Figure|Chapter|Note|Part|§)\s*$")
 # Spaced double or triple hyphens ride prose as an em dash; the spelled character is the only legal interrupter.
