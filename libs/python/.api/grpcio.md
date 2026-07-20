@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_GRPCIO]
 
-`grpcio` supplies synchronous and async (`grpc.aio`) gRPC channel, server, stub, and interceptor types plus credential and compression constructors. It is the wire-transport layer for all gRPC service communication, wrapping a C-extension core via `_cython/cygrpc`.
+`grpcio` supplies synchronous and async (`grpc.aio`) gRPC channel, server, stub, and interceptor types with credential and compression constructors. It is the wire-transport layer for all gRPC service communication, wrapping a C-extension core via `_cython/cygrpc`.
 
 ## [01]-[PACKAGE_SURFACE]
 

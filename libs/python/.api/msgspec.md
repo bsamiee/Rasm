@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_MSGSPEC]
 
-`msgspec` supplies a high-performance serialization and validation library built on `Struct`, a C-extension record type. It provides zero-copy JSON/MessagePack encode/decode, `Annotated`-constraint validation on `Struct` fields, dynamic struct construction via `defstruct`, type-level schema introspection through `msgspec.inspect`, and JSON Schema generation from Python types.
+`msgspec` supplies a high-performance serialization and validation library built on `Struct`, a C-extension record type. It owns zero-copy JSON/MessagePack encode/decode, `Annotated`-constraint validation on `Struct` fields, dynamic struct construction via `defstruct`, type-level schema introspection through `msgspec.inspect`, and JSON Schema generation from Python types.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -129,7 +129,7 @@ Full signatures for the `...`-abbreviated constructors; the mutually-exclusive `
 |  [09]   | `msgpack.Decoder(type, *, strict, dec_hook, ext_hook)`        | codec          | typed msgpack decoder; `ext_hook` decodes `Ext` |
 |  [10]   | `msgpack.Encoder.encode_into(obj, buffer, offset)`            | zero-alloc     | encode msgpack into a caller `bytearray`        |
 
-`Encoder(order="deterministic")` rejects any dict with non-`str` keys (`TypeError`) regardless of `enc_hook`, and `frozenset`/`ndarray` values reach `enc_hook` rather than encoding natively — a canonical-identity preimage over such payloads frames the offending fields as raw length-framed bytes instead of routing the whole value through the deterministic encoder. `enc_hook` fires ONLY for types the codec does not support natively: a `Struct`-typed value always encodes natively (an enc_hook keyed on a `Struct` subclass is dead code), and a native int field outside `[-2**63, 2**64 - 1]` raises `OverflowError` on the msgpack codec rather than routing to the hook — a u128-bearing key struct (`ContentKey.value`) is projected or nulled BEFORE joining any msgpack preimage (live-verified).
+`Encoder(order="deterministic")` raises `TypeError` on any non-`str`-keyed dict, and `frozenset`/`ndarray` values reach `enc_hook` rather than encoding natively — a canonical preimage frames such fields as raw length-framed bytes instead of routing the whole value through it. `enc_hook` fires ONLY for types the codec lacks natively: a `Struct` value always encodes natively (a `Struct`-keyed hook is dead code), and a native int outside `[-2**63, 2**64 - 1]` raises `OverflowError` before the hook — a u128-bearing key struct (`ContentKey.value`) projects or nulls BEFORE any msgpack preimage.
 
 [ENTRYPOINT_SCOPE]: struct utilities
 - rail: serialization
@@ -161,7 +161,7 @@ Full signatures for the `...`-abbreviated constructors; the mutually-exclusive `
 - `Meta` carries constraint metadata used inside `Annotated[T, Meta(...)]` and validated during decode; numeric (`gt`/`ge`/`lt`/`le`/`multiple_of`) and non-numeric (`pattern`/`min_length`/`max_length`/`tz`) constraint families cannot mix on one `Meta`, and `title`/`description`/`examples`/`extra_json_schema` feed `json.schema` output
 - integer `Meta` bounds must fit in int64: a `gt`/`ge`/`lt`/`le` value past `2**63 - 1` (e.g. `lt=2**64`) raises `ValueError` at codec/`convert` constraint build — a full-`uint64` wire slot carries the `ge=0` floor alone, its ceiling enforced by the producer domain or an explicit post-decode check
 - `UNSET` is the `UnsetType` singleton meaning "the client omitted this field" (round-trips as absent under `omit_defaults`); `NODEFAULT` is a *distinct* singleton meaning "this field declares no default" — the two are not identical (`UNSET is NODEFAULT` is `False`), so a field typed `int | UnsetType = UNSET` models tri-state presence while `NODEFAULT` only surfaces in `FieldInfo.default`
-- `json.Encoder`/`json.Decoder` instances are reusable; prefer them over per-call `encode`/`decode` in hot paths, and `Encoder.encode_into(obj, buffer, offset)` writes directly into a reused `bytearray` for zero intermediate allocation, while `Decoder.decode_lines` decodes an NDJSON frame stream in one C pass
+- `json.Encoder`/`json.Decoder` instances are reusable and carry hot paths in place of per-call `encode`/`decode`; `Encoder.encode_into(obj, buffer, offset)` writes directly into a reused `bytearray` for zero intermediate allocation, while `Decoder.decode_lines` decodes an NDJSON frame stream in one C pass
 - `defstruct` creates a `Struct` subclass at runtime; field names and types are provided as a sequence of tuples
 - `Struct.__struct_config__` exposes the per-class `structs.StructConfig`; `.tag` recovers the tagged-union discriminant value and `.tag_field` its key, read directly off an instance with no `match`
 - `Struct.__struct_fields__` is the declaration-order tuple of field names; `structs.fields(type)` returns the richer `FieldInfo` tuple carrying name, encode_name, type, and default

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PSUTIL]
 
-`psutil` supplies cross-platform system and process metrics: per-process CPU, memory, file descriptors, threads, connections, status, and full lifecycle control via `Process`; system-wide CPU, memory, disk, network, and sensor counters via module-level functions; and process iteration/waiting via `process_iter` and `wait_procs`. The `Process.oneshot()` context manager is the performance spine — it batches the underlying syscalls so a cluster of reads on one process costs one collection. Every metric returns a named tuple, so the dense design folds a single `oneshot` block into one typed reading rather than firing one syscall per attribute.
+`psutil` supplies cross-platform system and process metrics: per-process CPU, memory, file descriptors, threads, connections, status, and lifecycle control via `Process`; system-wide CPU, memory, disk, network, and sensor counters via module functions; and iteration/waiting via `process_iter`/`wait_procs`. `Process.oneshot()` is the performance spine — its context manager batches the underlying syscalls so a cluster of reads on one process costs one collection. Every metric returns a named tuple, so one `oneshot` block folds into one typed reading rather than one syscall per attribute.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -142,7 +142,7 @@
 
 [INTEGRATION_LAW]:
 - Stack with `opentelemetry-sdk`: feed a `oneshot` reading into OTel observable gauges/counters — `proc.memory_info().rss` and `proc.cpu_percent()` register through the API `Meter`, are shaped by an SDK `View`, and ship via the OTLP exporter. psutil is the source, the SDK owns temporality/aggregation. Read inside one `oneshot` so the gauge callback costs one collection.
-- The named-tuple readings are the boundary value carriers; map field names to canonical metric attribute keys at the edge, never thread raw tuples through domain code.
+- Named-tuple readings are the boundary value carriers; map field names to canonical metric attribute keys at the edge, never thread raw tuples through domain code.
 
 [LOCAL_ADMISSION]:
 - Wrap `Process` reads in try/except catching `NoSuchProcess`, `ZombieProcess`, and `AccessDenied`; the listing-to-reading race is unavoidable. `is_running()` is advisory only (pid reuse).

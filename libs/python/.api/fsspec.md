@@ -84,7 +84,7 @@
 - mutation law: writes, `transaction`, `FSMap`, cache strategy, and generic transfer are canonical fsspec surfaces, but folder overlays admit them only when their owner names a direct mutation or mapping rail.
 
 [STACK_LAW]:
-- runtime roots read through `UPath` plus this filesystem surface; object-store roots use `obstore` directly and only bridge through `obstore.fsspec` when a downstream library requires a filesystem handle.
+- runtime roots read through `UPath` over this filesystem surface; object-store roots use `obstore` directly and only bridge through `obstore.fsspec` when a downstream library requires a filesystem handle.
 - data scan sessions admit only the resolved `UPath.fs` handle passed to `DuckDBPyConnection.register_filesystem(fs)`; every data read slice stays downstream of that handle.
 - compute model assets compose `UPath` and fsspec for path resolution only; solver state never grows backend-specific file clients.
 

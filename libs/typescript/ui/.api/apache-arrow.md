@@ -10,7 +10,7 @@
 - asset: TSDECL `Arrow.dom.d.ts` (browser barrel over `Arrow.js`); per-concern `.d.ts` — `table`/`recordbatch`/`vector`/`data`/`schema`/`type`/`enum`/`factories`/`builder`/`visitor`/`ipc/*` (restored).
 - deps: `flatbuffers` (the IPC metadata wire), `tslib`, `@swc/helpers`; `command-line-args`/`command-line-usage` back the `arrow catalogcsv` bin — a CLI, NOT part of the library surface. No peer.
 - runtime: browser lane binds `Arrow.dom` (WHATWG streams, `ReadableStream`/`Blob`); data lanes bind node/wasm row peers. Zero-copy `Vector.toArray()` returns the backing `TypedArray` view, not a row copy.
-- plane: branch-wide catalog owned in `ui/.api` because the viewer is the strictest consumer; data consumes the same catalog for OLAP, pg, and viewer interchange.
+- plane: viewer-tier catalog owned in `ui/.api` — the type-system and builder depth the strictest consumer demands; data owns its own folder catalog for the OLAP/IPC seam.
 - rail: columnar interchange; the data `[ANALYTICAL]` group and ui `[GRID_CHARTS]`/`[SPATIAL]` groups meet on this owner.
 - role: the columnar container + type system, IPC decode/encode, and RecordBatch stream surface shared by engine seams and viewer layers.
 

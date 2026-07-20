@@ -63,7 +63,7 @@ type LogBody = AnyValue; type LogAttributes = AnyValueMap
 [STACKS_WITH]:
 - `@opentelemetry/sdk-logs` (`.api/opentelemetry-sdk-logs.md`): the SDK leg implements these contracts — `SdkLogRecord` is the mutable build of this `LogRecord` input, `LoggerConfig.minimumSeverity` keys on `SeverityNumber`, and `LogRecordProcessor.enabled?` mirrors `Logger.enabled` as the same pre-build drop at the processor tier. The vocabulary flows downward; nothing here depends on the SDK.
 - `@opentelemetry/exporter-logs-otlp-http` (`.api/opentelemetry-exporter-logs-otlp-http.md`): the OTLP egress of records built against this vocabulary — API → SDK processor → exporter is the one pipeline order.
-- `@effect/opentelemetry` (`libs/typescript/.api/effect-opentelemetry.md`): under the facade, application logs are `Effect.log` — the facade wires the provider through `Logger.layerLoggerProvider` and owns the global registration; no `plane:runtime` folder calls `logs.setGlobalLoggerProvider` beside it. Direct `logs.getLogger` is the lane for third-party instrumentation emitting OTel logs outside the Effect rail.
+- `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): under the facade, application logs are `Effect.log` — the facade wires the provider through `Logger.layerLoggerProvider` and owns the global registration; no `plane:runtime` folder calls `logs.setGlobalLoggerProvider` beside it. Direct `logs.getLogger` is the lane for third-party instrumentation emitting OTel logs outside the Effect rail.
 - `otel/crash`: the fatal-capture lane keys `SeverityNumber.FATAL` + `eventName` on this vocabulary and threads `context` so a crash record correlates to its span.
 
 [LOCAL_ADMISSION]:

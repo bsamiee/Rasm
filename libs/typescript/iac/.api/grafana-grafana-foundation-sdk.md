@@ -2,7 +2,7 @@
 
 [PACKAGE_SURFACE]:
 - package: `@grafana/grafana-foundation-sdk` · license `Apache-2.0`
-- module: exports-map subpaths only — one module per builder domain (`./dashboard`, `./timeseries`, `./stat`, `./gauge`, `./heatmap`, `./logs`, `./table`, `./geomap`, `./nodegraph`, `./prometheus`, `./units`, `./common`, `./cog`, …); each subpath resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and one `*Builder.gen` file per builder.
+- module: exports-map subpaths only — one module per builder domain (`./dashboard`, `./timeseries`, `./stat`, `./gauge`, `./heatmap`, `./logs`, `./table`, `./geomap`, `./nodegraph`, `./prometheus`, `./loki`, `./units`, `./common`, `./cog`, …); each subpath resolves `dist/<domain>/index.d.ts` re-exporting its `types.gen` and one `*Builder.gen` file per builder.
 - shape: every builder is a fluent `cog.Builder<T>` class — chainable members, terminal `.build()` emitting the plain Grafana JSON model — so authoring is typed and the emission boundary is one `.build()` call feeding `oss.Dashboard.configJson`.
 - plane: `plane:deploy` — consumed only by `operate/observe.md`'s `_compiled` fold; no runtime module resolves it.
 - rail: deployment / dashboard-compile.
@@ -34,13 +34,16 @@ One `PanelBuilder` per visualization subpath; the shared members below ride ever
 |  [01]   | `new PanelBuilder()` / implements `cog.Builder<dashboard.Panel>` | one panel row; feeds `.withPanel`                             |
 |  [02]   | `.title(t)` / `.description(d)` / `.transparent(b)`              | the shared emission fields                                    |
 |  [03]   | `.gridPos({ h, w, x, y })` / `.span(w)` / `.height(h)`           | placement — `DashboardModel.laid` positions land on `gridPos` |
-|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`                    | query binding — prometheus `DataqueryBuilder` rows            |
-|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)`            | value display — the model's unit/steps columns                |
+|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`                    | query binding — the prometheus or loki dataquery rows         |
+|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)`            | value display — the model's unit/ceiling/steps columns        |
 |  [06]   | `.legend(b)` / `.tooltip(b)`                                     | common-options builders from `./common`                       |
+|  [07]   | `.repeat(r)` / `.links(rows)` / `.withTransformation(t)`         | repetition, panel links, transform rows — on every subpath    |
 
-## [03]-[PROMETHEUS_MODULE]
+`.datasource(ref)` takes `common.DataSourceRef { type?: string; uid?: string }` — the compile leg pins `uid` to the `_SOURCES` row key; the logs subpath adds `.showTime(b)` / `.wrapLogMessage(b)` / `.sortOrder(common.LogsSortOrder)` (`Descending | Ascending`) / `.dedupStrategy(common.LogsDedupStrategy)` (`none | exact | numbers | signature`) — the display rows the model's Logs case lands.
 
-`./prometheus` `DataqueryBuilder` — the query row every panel target rides:
+## [03]-[QUERY_MODULES]
+
+`./prometheus` `DataqueryBuilder` — the query row every metrics-backed panel target rides:
 
 | [INDEX] | [MEMBER]                                       | [ROLE]                                             |
 | :-----: | :--------------------------------------------- | :------------------------------------------------- |
@@ -48,6 +51,8 @@ One `PanelBuilder` per visualization subpath; the shared members below ride ever
 |  [02]   | `.exemplar(bool)`                              | exemplar overlay — gated on the store row's column |
 |  [03]   | `.legendFormat(f)` / `.instant()` / `.range()` | series labeling and query mode                     |
 |  [04]   | `.datasource(ref)` / `.format(f)` / `.hide(b)` | binding and display posture                        |
+
+`.format(f)` takes `PromQueryFormat` (`time_series | table | heatmap` as `PromQueryFormat.TimeSeries`/`.Table`/`.Heatmap`); `.instant()`/`.range()` are zero-argument mode selectors. `./loki` `DataqueryBuilder` is the Logs-panel target row — `.expr(expr)`, `.refId(id)`, `.legendFormat(f)`, `.maxLines(n)`, `.instant(b)`/`.range(b)`, `.datasource(ref)`.
 
 ## [04]-[INTEGRATION]
 

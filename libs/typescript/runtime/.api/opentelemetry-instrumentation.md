@@ -46,7 +46,7 @@
 
 [INTEGRATION_LAW]:
 - Stack with `opentelemetry-instrumentation-{fetch,document-load,user-interaction}.md`: the three rows are `Instrumentation` values in one registered array; construction policy lives on each row's config, activation lives here.
-- Stack with `.api/../.api/effect-opentelemetry.md`: `Tracer.OtelTracerProvider` is the provider the options bind; the web lane's facade-leg assembly is what makes the Tag reachable.
+- Stack with `.api/effect-opentelemetry.md`: `Tracer.OtelTracerProvider` is the provider the options bind; the web lane's facade-leg assembly is what makes the Tag reachable.
 - Stack with `opentelemetry-context-zone.md`: the zone manager installs globally in the same bracket, so interaction spans parent the fetches they trigger.
 
 [LOCAL_ADMISSION]:

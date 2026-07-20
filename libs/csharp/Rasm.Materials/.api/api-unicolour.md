@@ -7,6 +7,7 @@ Full surface and stacking: `libs/csharp/.api/api-unicolour.md` (shared-tier cano
 [COLOUR_TOPOLOGY]:
 - namespace: `Wacton.Unicolour`; one immutable `Unicolour` value owns all conversions, differences, blends, and gamut maps — every operation returns a NEW value, the type carries no mutable state.
 - conversion: every `ColourSpace` member is a lazy property on `Unicolour`, computed once and cached behind a `Get(ref field, evaluator)` memo; reading `colour.Oklab` materializes only the Oklab path.
+- representation members: a space accessor returns its representation record — `RgbLinear.R`/`G`/`B` alias `First`/`Second`/`Third`, and every representation exposes `.Triplet` as `ColourTriplet(double First, double Second, double Third)` with a `.Tuple` deconstruction — the channel spellings the wire and field-average fences read.
 - construction discriminant: `ColourSpace` selects the input space; `Configuration` selects the working space; the parallel construction inputs (`Spd`, `Pigment[]`, `Chromaticity`, `Temperature`, `Icc.Channels`, `cct`+`Locus`, `hex`) each have a config-explicit overload.
 - difference: `Difference(reference, DeltaE)` dispatches on the `DeltaE` member; `Contrast` is WCAG-specific; `Blend(backdrop, BlendMode)` dispatches on the W3C blend member.
 - gamut: `MapToRgbGamut(GamutMap)`, `MapToPointerGamut()`, and `MapToMacAdamLimits()` return new mapped `Unicolour` values; `MapToRgbGamut` defaults to `GamutMap.OklchChromaReduction`. The `IsInRgbGamut`/`IsInPointerGamut`/`IsInMacAdamLimits`/`IsImaginary` predicates gate mapping.

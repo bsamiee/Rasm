@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_CLOUDPICKLE]
 
-`cloudpickle` extends the stdlib pickle protocol to serialize the callables and types stdlib pickle rejects — lambdas, closures over live cell state, module-local and `__main__`-defined functions, dynamically constructed classes and enums, and whole modules pickled by value — so the runtime ships a kernel and its captured environment across a worker seam without the target process importing the defining source. `dumps`/`dump` own the extended write path; `loads`/`load` re-export stdlib `pickle` for the read side, so a cloudpickle payload deserializes through the ordinary unpickler including protocol-5 out-of-band `buffers`. It is the kernel-shipping codec for the worker fabric: the payload the offload seam serializes and `loky` reuses across a warm process pool.
+`cloudpickle` extends the stdlib pickle protocol to serialize the callables and types stdlib pickle rejects — lambdas, closures over live cell state, module-local and `__main__`-defined functions, dynamic classes, enums, and by-value modules — so the runtime ships a kernel and its captured environment across a worker seam without the target process importing the defining source. `dumps`/`dump` own the extended write path; `loads`/`load` re-export stdlib `pickle`. It is the worker fabric's kernel-shipping codec: the payload the offload seam serializes and `loky` reuses across a warm pool.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -30,7 +30,7 @@
 
 [ENTRYPOINT_SCOPE]: one-shot and streamed serialization
 - rail: serialization
-- `dumps`/`dump` carry the extended write path and both accept `protocol` (default `None` resolves to `DEFAULT_PROTOCOL`) and `buffer_callback` for protocol-5 out-of-band buffers; each protocol-5 buffer surfaces once to the callback as a `pickle.PickleBuffer` and is elided from the main byte stream. `loads`/`load` re-export stdlib `pickle.loads`/`pickle.load` unchanged — the read side owns no cloudpickle logic and takes `buffers=` to reconstruct an out-of-band payload plus the stdlib `fix_imports`/`encoding`/`errors` keywords.
+- `dumps`/`dump` carry the extended write path and both accept `protocol` (default `None` resolves to `DEFAULT_PROTOCOL`) and `buffer_callback` for protocol-5 out-of-band buffers; each protocol-5 buffer surfaces once to the callback as a `pickle.PickleBuffer` and is elided from the main byte stream. `loads`/`load` re-export stdlib `pickle.loads`/`pickle.load` unchanged — the read side owns no cloudpickle logic and takes `buffers=` to reconstruct an out-of-band payload and the stdlib `fix_imports`/`encoding`/`errors` keywords.
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |

@@ -60,25 +60,27 @@
 [ENTRYPOINT_SCOPE]: logging operations
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                   |
-| :-----: | :--------------------------- | :------------------- | :----------------------- |
-|  [01]   | `WriteTo`                    | sink chain           | sink configuration       |
-|  [02]   | `AuditTo`                    | audit sink chain     | audit sink configuration |
-|  [03]   | `Sink`                       | sink registration    | sink admission           |
-|  [04]   | `Logger`                     | sub-logger setup     | sub-pipeline admission   |
-|  [05]   | `Conditional`                | sink predicate       | conditional sink         |
-|  [06]   | `FallbackChain`              | sink fallback        | fallback sinks           |
-|  [07]   | `Enrich.With`                | enricher admission   | enricher chain           |
-|  [08]   | `Enrich.WithProperty`        | property enrichment  | fixed property           |
-|  [09]   | `Enrich.FromLogContext`      | context enrichment   | ambient properties       |
-|  [10]   | `Filter.ByExcluding`         | filter predicate     | event exclusion          |
-|  [11]   | `Filter.ByIncludingOnly`     | filter predicate     | event inclusion          |
-|  [12]   | `MinimumLevel.ControlledBy`  | level switch         | dynamic level floor      |
-|  [13]   | `MinimumLevel.Override`      | source override      | category level override  |
-|  [14]   | `Destructure.With`           | destructuring policy | payload shaping          |
-|  [15]   | `Destructure.ToMaximumDepth` | destructuring limit  | depth bound              |
-|  [16]   | `CreateLogger`               | logger factory       | logger construction      |
-|  [17]   | `Fallible`                   | sink failure wrap    | failure observation      |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]       | [RAIL]                   |
+| :-----: | :------------------------------------- | :------------------- | :----------------------- |
+|  [01]   | `WriteTo`                              | sink chain           | sink configuration       |
+|  [02]   | `AuditTo`                              | audit sink chain     | audit sink configuration |
+|  [03]   | `Sink`                                 | sink registration    | sink admission           |
+|  [04]   | `Logger`                               | sub-logger setup     | sub-pipeline admission   |
+|  [05]   | `Conditional`                          | sink predicate       | conditional sink         |
+|  [06]   | `FallbackChain`                        | sink fallback        | fallback sinks           |
+|  [07]   | `Enrich.With`                          | enricher admission   | enricher chain           |
+|  [08]   | `Enrich.WithProperty`                  | property enrichment  | fixed property           |
+|  [09]   | `Enrich.FromLogContext`                | context enrichment   | ambient properties       |
+|  [10]   | `Filter.ByExcluding`                   | filter predicate     | event exclusion          |
+|  [11]   | `Filter.ByIncludingOnly`               | filter predicate     | event inclusion          |
+|  [12]   | `MinimumLevel.ControlledBy`            | level switch         | dynamic level floor      |
+|  [13]   | `MinimumLevel.Override`                | source override      | category level override  |
+|  [14]   | `Destructure.With`                     | destructuring policy | payload shaping          |
+|  [15]   | `Destructure.ToMaximumDepth`           | destructuring limit  | depth bound              |
+|  [16]   | `Destructure.ToMaximumStringLength`    | destructuring limit  | string-length bound      |
+|  [17]   | `Destructure.ToMaximumCollectionCount` | destructuring limit  | collection-count bound   |
+|  [18]   | `CreateLogger`                         | logger factory       | logger construction      |
+|  [19]   | `Fallible`                             | sink failure wrap    | failure observation      |
 
 [FALLIBLE]: `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink`, so the listener observes every reported failure.
 

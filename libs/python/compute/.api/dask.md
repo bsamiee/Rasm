@@ -1,6 +1,6 @@
-# [PY_DATA_API_DASK]
+# [PY_COMPUTE_API_DASK]
 
-`dask` supplies lazy, chunked, parallel collections backed by a deferred task graph. `dask.array.Array` partitions large NumPy-shaped payloads into blocks, `dask.dataframe.DataFrame` partitions pandas-shaped tables under a query-planning expression optimizer, `dask.delayed` wraps arbitrary calls into graph nodes, and `dask.bag.Bag` carries unstructured records. Top-level `compute`, `persist`, `optimize`, and `visualize` drive any collection, and `dask.distributed.Client` submits the graph to a local or remote cluster with future-level fan-out. Two consumers share this branch surface: `data` drives the lazy chunked-cube and partitioned-frame orchestration (the STAC/Zarr lazy cube, the partitioned study table); `compute` consumes `dask.array.Array` PASSIVELY as one Array-API namespace backend — `numerics/array` type-gates the `da.Array` union arm, resolves it through `array_namespace`, and routes its lazy fork through `is_lazy_array`, never importing dask at runtime and never driving a task graph.
+`dask` supplies lazy, chunked, parallel collections over a deferred task graph — `dask.array.Array` blocks NumPy-shaped payloads, `dask.dataframe.DataFrame` partitions pandas-shaped tables, `dask.delayed` lifts arbitrary calls, `dask.bag.Bag` carries unstructured records — driven by `compute`/`persist`/`optimize`/`visualize`. `compute` consumes `dask.array.Array` passively as one Array-API namespace backend: `numerics/array` type-gates the `da.Array` arm, resolves it through `array_namespace`, and routes its lazy fork through `is_lazy_array`, never importing dask at runtime.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -117,7 +117,7 @@
 - namespace: `dask.array` (`da`), `dask.dataframe` (`dd`), `dask.bag` (`db`), `dask.delayed`, `dask.distributed`
 - every collection is lazy; operations build a high-level task graph and no work runs until `compute`, `persist`, `store`, or a `Client` submission triggers a scheduler
 - `dask.dataframe` runs a query-planning expression optimizer (the merged former `dask-expr`): projection and predicate pushdown, automatic repartition, and join reordering are applied to the expression before lowering to the task graph, so `read_parquet(columns=, filters=)` pruning is planner-driven, not manual
-- the active scheduler is selected by `scheduler=`, by `dask.config.set(scheduler=...)`, or by a `distributed.Client` in scope; defaults are threaded for arrays/dataframes and a local cluster when `Client()` is constructed
+- Active-scheduler selection rides `scheduler=`, `dask.config.set(scheduler=...)`, or a `distributed.Client` in scope; defaults are threaded for arrays/dataframes and a local cluster when `Client()` is constructed
 - `delayed` wraps arbitrary Python calls into `Delayed` graph nodes; fan-out composes as a tree of `Delayed` or `Client.submit`/`Client.map` futures, drained by `gather`/`wait`/`as_completed`
 - `from_delayed` converts `Delayed` blocks into a typed `Array` or `DataFrame`, and `to_delayed` reverses it; this is the bridge between hand-built graphs and typed collections
 - `optimize` fuses and prunes the graph before execution; `visualize` renders it; `dask.base.tokenize` gives a deterministic content hash for caching and `dask.order.order` exposes the execution-priority topology

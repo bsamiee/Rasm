@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_OPENTELEMETRY_SDK]
 
-`opentelemetry-sdk` supplies the concrete `TracerProvider`, `MeterProvider`, and `LoggerProvider` plus their processor, exporter, reader, sampler, aggregation, exemplar, view, and resource types that replace the no-op API implementations at application startup. It owns the in-process pipeline from span/metric/log creation through batching and aggregation to the exporter boundary, the `Resource` model that labels every signal with service identity, and the `View`/`Aggregation`/`ExemplarReservoir` machinery that shapes metric output before export. The dense composition is one provider per signal, each fed configured processors/readers and a shared `Resource`, with the OTLP exporter as terminal sink.
+`opentelemetry-sdk` supplies the concrete `TracerProvider`, `MeterProvider`, and `LoggerProvider` with the processor, reader, and sampler machinery replacing the no-op API implementations at startup. It owns the in-process pipeline from signal creation through batching and aggregation to the exporter boundary, the `Resource` model labeling every signal with service identity, and the `View`/`Aggregation`/`ExemplarReservoir` shaping of metric output. Dense composition is one provider per signal, fed configured processors/readers and a shared `Resource`, the OTLP exporter as terminal sink.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -200,11 +200,11 @@ SpanLimits(
 - exemplars: `MeterProvider(exemplar_filter=...)` selects `AlwaysOn`/`AlwaysOff`/`TraceBased`; the reservoir (`SimpleFixedSizeExemplarReservoir`, `AlignedHistogramBucketExemplarReservoir`) per view captures representative measurements with trace context for metric-to-trace exemplar linking.
 - collected metrics serialize through the `MetricsData -> ResourceMetrics -> ScopeMetrics -> Metric -> (Sum|Gauge|Histogram|ExponentialHistogram) -> *DataPoint` tree; the OTLP exporter consumes this tree directly.
 - `Resource.create()` runs the built-in detectors and merges `OTEL_SERVICE_NAME`/`OTEL_RESOURCE_ATTRIBUTES`; the `_build_resource_detectors` order puts `OTELResourceDetector` last so env attributes win the merge.
-- `LoggingHandler(level=logging.NOTSET, logger_provider=None)` bridges stdlib `logging` into OTel `LogRecord`s; install once on the root logger with `logger_provider` bound. It is deprecated in this package — prefer the handler from `opentelemetry-instrumentation-logging` when that dependency is admitted.
+- `LoggingHandler(level=logging.NOTSET, logger_provider=None)` bridges stdlib `logging` into OTel `LogRecord`s; install once on the root logger with `logger_provider` bound. It is deprecated in this package — the `opentelemetry-instrumentation-logging` handler supersedes it when that dependency is admitted.
 
 [INTEGRATION_LAW]:
-- Stack with `opentelemetry-exporter-otlp-proto-http`: the OTLP exporter is the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`. The SDK owns batching/aggregation/sampling/resource; the exporter owns transport. The metric exporter's `preferred_temporality` and the reader's `preferred_temporality` must agree.
-- Stack with `psutil`: a process-health gauge/observable-counter fed by `psutil.Process(...).memory_info()`/`cpu_percent()` registers through the API `Meter` and is shaped by an SDK `View`; the SDK aggregates and the OTLP exporter ships it. The SDK is the only place the raw psutil reading becomes a temporality-correct metric point.
+- Stack with `opentelemetry-exporter-otlp-proto-http`: the OTLP exporter is the terminal sink wired into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor`. SDK processors own batching/aggregation/sampling/resource; the exporter owns transport. Metric-exporter `preferred_temporality` and reader `preferred_temporality` must agree.
+- Stack with `psutil`: a process-health gauge/observable-counter fed by `psutil.Process(...).memory_info()`/`cpu_percent()` registers through the API `Meter` and is shaped by an SDK `View`; the SDK aggregates and the OTLP exporter ships it. SDK aggregation is the only place the raw psutil reading becomes a temporality-correct metric point.
 - `InMemorySpanExporter`/`InMemoryMetricReader`/`InMemoryLogExporter` are the test seams: assert against captured `ReadableSpan`/`MetricsData`/`ReadableLogRecord` without a live collector — the verification rail for telemetry-shape laws.
 
 [LOCAL_ADMISSION]:

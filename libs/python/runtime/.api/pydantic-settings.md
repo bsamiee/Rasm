@@ -77,7 +77,7 @@
 
 [ENTRYPOINT_SCOPE]: settings config knobs (`SettingsConfigDict`)
 - rail: validation
-- the `model_config = SettingsConfigDict(...)` that the source chain reads; one config row per behavior, never scattered constructor args.
+- `model_config = SettingsConfigDict(...)` feeds the source chain; one config row per behavior, never scattered constructor args.
 
 | [INDEX] | [KNOB]                                                              | [ENTRY_FAMILY] | [RAIL]                                     |
 | :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------- |
@@ -104,20 +104,20 @@
 
 [SETTINGS_TOPOLOGY]:
 - settings law: caller configuration is one `BaseSettings` subclass; the source priority chain is declared once in `settings_customise_sources`, which returns a `tuple[PydanticBaseSettingsSource, ...]` ordered highest-to-lowest precedence (earlier tuple element wins), never resolved with scattered `os.environ` reads.
-- source law: every configuration origin is a source in the priority tuple — init kwargs, env, dotenv, the chosen file format, secrets dir, cloud secret manager, CLI; a new origin is one additional source class implementing `PydanticBaseSettingsSource.__call__`, never a parallel loader. The default order is `init_settings` > `env_settings` > `dotenv_settings` > `file_secret_settings`; reorder by returning a permuted tuple.
+- source law: every configuration origin is a source in the priority tuple — init kwargs, env, dotenv, the chosen file format, secrets dir, cloud secret manager, CLI; a new origin is one additional source class implementing `PydanticBaseSettingsSource.__call__`, never a parallel loader. Default order is `init_settings` > `env_settings` > `dotenv_settings` > `file_secret_settings`; reorder by returning a permuted tuple.
 - nested law: structured settings nest validated models with `env_nested_delimiter` splitting flat keys into the model tree; complex env values use the `NoDecode`/`ForceDecode` markers (and `nested_model_default_partial_update` for partial overrides), never manual JSON parsing. `SecretsSettingsSource` reads flat per-key files; `NestedSecretsSettingsSource` reads a subdirectory-per-model tree (Docker/K8s secret mounts).
 - cli law: the CLI source is `argparse`-backed; flag arity is declared by the annotation family (`CliImplicitFlag`/`CliExplicitFlag`/`CliToggleFlag`/`CliDualFlag`), subcommands by `CliSubCommand` + `get_subcommand`, positionals by `CliPositionalArg`, hidden fields by `CliSuppress`/`CLI_SUPPRESS`, exclusivity by `CliMutuallyExclusiveGroup`. `CliApp.run` is the entry that builds the model and dispatches to a `cli_cmd` method, awaiting async commands.
 - extras law: TOML/YAML/cloud sources lazily import their backing dependency (`tomli`/`pyyaml`/`boto3`/`azure-*`/`google-cloud-secret-manager`) and raise `ImportError`/`SettingsError` at construction when the extra is absent; admit the matching extra in the owning manifest before placing that source on the chain.
 - boundary law: a settings-load failure surfaces as `SettingsError`/`ValidationError` lifted into `Error(BoundaryFault(...))` at admission; the runtime owns no global settings singleton.
 
 [LOCAL_ADMISSION]:
-- The context-admission surface receives the validated settings model as a caller-owned value; the runtime resolves no host profile or global clock from it.
+- Context admission receives the validated settings model as a caller-owned value; the runtime resolves no host profile or global clock from it.
 - Model and validator semantics arrive settled from the `pydantic` dependency (`BaseModel`, `Field`, validators, `model_config`); this page owns only the `pydantic-settings`-specific source-chain, source classes, decode markers, and CLI surface.
 - Cloud secret-manager sources are admitted rows on the priority tuple, never separate credential fetchers.
 
 [INTEGRATION_STACK]:
 - pydantic leg: a `BaseSettings` subclass is a `pydantic.BaseModel`, so its fields use `pydantic` `Field`/validators/`SecretStr` and `Annotated[...]` types; the `NoDecode`/`ForceDecode` markers compose with pydantic `Annotated` metadata on a single field, and validation faults are pydantic `ValidationError`.
-- secrets-mount leg: a cloud-mounted secrets tree through the branch `fsspec`/`obstore` transport surface or a K8s secret volume is read by `NestedSecretsSettingsSource(secrets_dir=...)`; the cloud secret-manager sources (`AWSSecretsManagerSettingsSource` etc.) are the credential-store origin whose values then flow into the same merged model.
+- secrets-mount leg: a cloud-mounted secrets tree through the branch `fsspec`/`obstore` transport surface or a K8s secret volume is read by `NestedSecretsSettingsSource(secrets_dir=...)`; the cloud secret-manager sources (the `AWSSecretsManagerSettingsSource` family) are the credential-store origin whose values then flow into the same merged model.
 - credential-handoff leg: the validated settings model is the caller-owned carrier of `storage_options` (key/secret/token/endpoint) that the branch `fsspec`/`obstore` dispatch consumes (`libs/python/.api/fsspec.md`, `libs/python/.api/obstore.md`) and of the `tracer_provider` config the observability rail reads — one validated model, never per-consumer env reads.
 - single rail: one `BaseSettings` model declares the full source tuple (init > CLI > env > dotenv > nested secrets > cloud secret manager) in `settings_customise_sources`, `CliApp.run` is the binary entry, and the resulting immutable model is threaded into every downstream resource/observability owner — never a second config object.
 

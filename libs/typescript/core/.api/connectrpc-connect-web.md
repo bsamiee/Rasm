@@ -55,7 +55,7 @@
 [INTEGRATION_LAW]:
 - Stack with `@connectrpc/connect` (`.api/connectrpc-connect.md`): the factory output is the `Transport` argument to `createClient(service, transport)`; the `interceptors` are the shared `connect` `Interceptor` chain; `defaultTimeoutMs` seeds the deadline `CallOptions.timeoutMs` overrides. This package is the wire, `connect` is the client.
 - Stack with `@effect/platform` `HttpClient` / `@effect/platform-browser` (`.api/effect-platform.md`, `.api/effect-platform-browser.md`): the `fetch` override binds the transport to an instrumented fetch — the `host/net` default-policy client wrapped as a `fetch`, or a credentials-bearing fetch; when binary-frame progress or `arraybuffer` is required, the transport is bypassed for `BrowserHttpClient.layerXMLHttpRequest`.
-- Stack with `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): W3C `traceparent` propagation is injected by a `connect` `Interceptor` (reading `Tracer.currentOtelSpan`) rather than by rewriting `fetch`, so egress spans continue the active trace across both transport arms uniformly.
+- Stack with `@effect/opentelemetry`: W3C `traceparent` propagation is injected by a `connect` `Interceptor` (reading `Tracer.currentOtelSpan`) rather than by rewriting `fetch`, so egress spans continue the active trace across both transport arms uniformly.
 - Stack with `effect` (`.api/effect.md`) + `the `Dial.Config` policy record decoded at the interchange/invoke seam`: `baseUrl`/`defaultTimeoutMs`/`useBinaryFormat`/`protocol` are `Config`-decoded policy values from `host/config`, never hardcoded; the transport is constructed once at the `interchange/invoke` composition root and the client wrapped in `Effect.tryPromise`/`Stream.fromAsyncIterable` there.
 
 [LOCAL_ADMISSION]:

@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_OPENTELEMETRY_EXPORTER_OTLP_PROTO_HTTP]
 
-`opentelemetry-exporter-otlp-proto-http` supplies `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter`, which encode SDK span, metric, and log-record batches as OTLP protobuf and POST them to an OTLP/HTTP collector over a pooled `requests.Session`. These are the production-path exporters that wire into `BatchSpanProcessor`, `PeriodicExportingMetricReader`, and `BatchLogRecordProcessor` at the composition root. Each exporter owns its own jittered exponential-backoff retry loop (`_MAX_RETRYS = 6`), per-signal endpoint/cert/header env resolution, and optional gzip/deflate body compression — the design composes the exporter as a single configured sink, never re-implementing transport, retry, or compression.
+`opentelemetry-exporter-otlp-proto-http` supplies `OTLPSpanExporter`, `OTLPMetricExporter`, and `OTLPLogExporter`, which encode SDK span, metric, and log-record batches as OTLP protobuf and POST them to an OTLP/HTTP collector over a pooled `requests.Session`. They wire into `BatchSpanProcessor`/`PeriodicExportingMetricReader`/`BatchLogRecordProcessor` at the composition root. Each exporter owns a jittered exponential-backoff retry loop (`_MAX_RETRYS = 6`), per-signal endpoint/cert/header env resolution, and gzip/deflate compression — composed as one configured sink, never re-implemented.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -68,24 +68,24 @@
 
 [EXPORTER_TOPOLOGY]:
 - all three share constructor params `endpoint`, `certificate_file`, `client_key_file`, `client_certificate_file`, `headers`, `timeout`, `compression`, `session`; span/log add keyword-only `meter_provider` (drives internal `create_exporter_metrics` self-observability, gated on `OTEL_PYTHON_SDK_INTERNAL_METRICS_ENABLED`); metric adds `preferred_temporality`/`preferred_aggregation`.
-- `endpoint` resolution order: explicit arg, else per-signal env (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` etc.), else `OTEL_EXPORTER_OTLP_ENDPOINT` + signal path append (`v1/traces` / `v1/metrics` / `v1/logs`), else `DEFAULT_ENDPOINT = "http://localhost:4318/"`. Base-endpoint resolution appends the signal path; a per-signal env endpoint is used verbatim.
+- `endpoint` resolution order: explicit arg, else the per-signal env (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` family), else `OTEL_EXPORTER_OTLP_ENDPOINT` + signal path append (`v1/traces` / `v1/metrics` / `v1/logs`), else `DEFAULT_ENDPOINT = "http://localhost:4318/"`. Base-endpoint resolution appends the signal path; a per-signal env endpoint is used verbatim.
 - `timeout` defaults to `DEFAULT_TIMEOUT = 10` seconds, overridable per-signal via `OTEL_EXPORTER_OTLP_*_TIMEOUT`.
 - `headers` resolution: explicit `dict[str,str]`, else `parse_env_headers(OTEL_EXPORTER_OTLP_*_HEADERS, liberal=True)` (`key=value` comma-separated); authentication tokens go here. Headers merge into `session.headers` alongside `Content-Type: application/x-protobuf` and the OTel `User-Agent`.
 - `compression` resolution: explicit `Compression`, else `_compression_from_env()` reading `OTEL_EXPORTER_OTLP_*_COMPRESSION`; default `NoCompression`. Non-`NoCompression` adds the matching `Content-Encoding` header and compresses the protobuf body in `_export`.
 - `session` accepts a pre-built `requests.Session` (mTLS, proxy, connection-pool, custom adapters); else `_load_session_from_envvar(...CREDENTIAL_PROVIDER)` entry-point hook, else a fresh `requests.Session`. TLS verify uses `certificate_file` (server CA) and `(client_certificate_file, client_key_file)` for client mTLS, both env-resolvable.
-- retry: `export` runs `for retry_num in range(_MAX_RETRYS)` with `backoff_seconds = 2**retry_num * random.uniform(0.8, 1.2)` (+/-20% jitter); `_is_retryable(resp)` gates retry on the response; `_export` already retries once on `requests.ConnectionError` (keep-alive close). The loop honors an overall deadline and aborts when `shutdown()` flips `_shutdown_in_progress`.
+- retry: `export` runs `for retry_num in range(_MAX_RETRYS)` with `backoff_seconds = 2**retry_num * random.uniform(0.8, 1.2)` (+/-20% jitter); `_is_retryable(resp)` gates retry on the response; `_export` already retries once on `requests.ConnectionError` (keep-alive close). That loop honors an overall deadline and aborts when `shutdown()` flips `_shutdown_in_progress`.
 - `preferred_temporality` on `OTLPMetricExporter` is `dict[type, AggregationTemporality]`; controls `CUMULATIVE` vs `DELTA` per instrument type (env override via `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`). `preferred_aggregation` is `dict[type, Aggregation]`.
 
 [INTEGRATION_LAW]:
-- Stack with `opentelemetry-sdk`: an exporter instance is the terminal sink of one signal pipeline — `OTLPSpanExporter` -> `BatchSpanProcessor` -> `TracerProvider`; `OTLPMetricExporter` -> `PeriodicExportingMetricReader` -> `MeterProvider`; `OTLPLogExporter` -> `BatchLogRecordProcessor` -> `LoggerProvider`. The exporter owns transport+retry; the SDK processor owns batching/queueing. Never call `export()` directly.
+- Stack with `opentelemetry-sdk`: an exporter instance is the terminal sink of one signal pipeline — `OTLPSpanExporter` -> `BatchSpanProcessor` -> `TracerProvider`; `OTLPMetricExporter` -> `PeriodicExportingMetricReader` -> `MeterProvider`; `OTLPLogExporter` -> `BatchLogRecordProcessor` -> `LoggerProvider`. Exporters own transport and retry; the SDK processor owns batching/queueing. Never call `export()` directly.
 - Match `preferred_temporality` on the metric exporter to the backend (Prometheus-style scrape wants `CUMULATIVE`; OTLP-delta backends want `DELTA`) — this is the temporality decision point, set once at construction, not per-instrument in app code.
-- The `protobuf`/`opentelemetry-proto` encode is internal; the design never hand-builds OTLP protobuf — it hands SDK `ReadableSpan`/`MetricsData`/`LogData` to `export` and the exporter encodes.
+- `protobuf`/`opentelemetry-proto` encoding stays internal; the design never hand-builds OTLP protobuf — SDK `ReadableSpan`/`MetricsData`/`LogData` go to `export` and the exporter encodes.
 - `meter_provider` on span/log exporters routes the exporter's own success/failure/duration metrics into the same SDK `MeterProvider`, closing the self-observability loop without a second pipeline.
 
 [LOCAL_ADMISSION]:
 - Exporters are instantiated once per signal at the composition root and passed to the matching SDK processor/reader; one exporter instance per signal per process.
-- `session` override is the correct seam for per-deployment mTLS client certs, proxy adapters, and connection-pool sizing; prefer it over env certificate files when the deployment already builds a configured `Session`.
-- The built-in retry loop is sufficient; do not wrap `export` in an external retry — that does multiply the backoff.
+- `session` override is the correct seam for per-deployment mTLS client certs, proxy adapters, and connection-pool sizing; a deployment that already builds a configured `Session` passes it here rather than through env certificate files.
+- Built-in retry suffices; an external retry wrapped around `export` multiplies the backoff.
 
 [RAIL_LAW]:
 - Package: `opentelemetry-exporter-otlp-proto-http`

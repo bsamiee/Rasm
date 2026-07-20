@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_EFFECT_PLATFORM_BROWSER]
 
-`@effect/platform-browser` satisfies the abstract `@effect/platform` service Tags with concrete browser Web-API implementations, so folder code types against the platform-neutral contract and the browser binding is a Layer selection at app composition. It owns the single `BrowserRuntime.runMain` boot law; `KeyValueStore` over `localStorage`/`sessionStorage`; the `Worker` client/runner over `Worker`/`SharedWorker`/`MessagePort`; `HttpClient` over `XMLHttpRequest` (the only transport exposing upload/download progress and arraybuffer responses); `Socket` over the native `WebSocket`; DOM-event `Stream` sources; and the `Clipboard`/`Geolocation`/`Permissions` Web-API services. This is the `runtime:browser` lane the edge ledger fences: `@effect/platform-node`/`@effect/platform-bun`/`node:*` are banned inside it, and `@effect/platform-browser` is banned inside `runtime:node` — subpath purity is enforced by the `tests/typescript/_architecture` suite.
+`@effect/platform-browser` satisfies the abstract `@effect/platform` service Tags with browser Web-API implementations, so folder code types against the platform-neutral contract and the browser binding is a Layer selection at app composition. It owns the single `BrowserRuntime.runMain` boot, Web-Storage KV, the worker client/runner, the XHR `HttpClient` (progress + arraybuffer), native-`WebSocket` sockets, DOM-event `Stream` sources, and the `Clipboard`/`Geolocation`/`Permissions` services the tables below roster. This is the `runtime:browser` lane the edge ledger fences; the `tests/typescript/_architecture` suite audits subpath purity in both directions.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,13 +8,11 @@
 - package: `@effect/platform-browser`
 - license: `MIT`
 - effect-peer: `effect catalog`, `@effect/platform catalog` (the abstract Tags this package satisfies; `.api/effect.md`, `.api/effect-platform.md`)
-- catalog-verdict: KEEP
 - runtime: `runtime:browser` — edge-ledger banned inside `runtime:node`; bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside its own scope
-- modules: `BrowserRuntime`, `BrowserKeyValueStore`, `BrowserWorker`, `BrowserWorkerRunner`, `BrowserHttpClient`, `BrowserSocket`, `BrowserStream`, `Clipboard`, `Geolocation`, `Permissions`
 
 [TIER_SPLIT]: this branch-tier catalog vs the native-DOM ingress
-- This branch-tier catalog owns the branch-level stacking map: the `runtime browser/*` seam names, the `runtime:browser` purity ledger, and the EventLog / OpenTelemetry composition (`@effect/experimental`, `@effect/opentelemetry`).
-- Native-DOM ingress this package does NOT wrap is owned by the runtime browser pages as pinned boundary refinements — `navigator.storage` `StorageManager` (`persist`/`persisted`/`estimate`) at `runtime browser/persist`, the `PermissionStatus.change` `EventTarget` bridge and `navigator.connection`/`SyncManager` at `runtime browser/boot`, `window.navigation` at `runtime browser/route` — each spelled once at its owner, never at a consumer.
+- This branch-tier catalog owns the branch-level stacking map: the `browser/*` seam names, the `runtime:browser` purity ledger, and the EventLog / OpenTelemetry composition (`@effect/experimental`, `@effect/opentelemetry`).
+- Native-DOM ingress this package does NOT wrap is owned by the runtime browser pages as pinned boundary refinements — `navigator.storage` `StorageManager` (`persist`/`persisted`/`estimate`) at `browser/persist`, the `PermissionStatus.change` `EventTarget` bridge and `navigator.connection`/`SyncManager` at `browser/boot`, `window.navigation` at `browser/route` — each spelled once at its owner, never at a consumer.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -30,7 +28,7 @@
 |  [04]   | `BrowserWorkerRunner.layer` / `make` / `layerMessagePort`                | worker runner | worker entry; `ui/viewer` GLB decode        |
 |  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `net/client` browser XHR; OTLP transport    |
 |  [06]   | `BrowserHttpClient.currentXHRResponseType` / `withXHRArrayBuffer`        | XHR control   | force arraybuffer for binary frames         |
-|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `net/channel`, `wire`, EventLog WS sync     |
+|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `net/channel`, `core/interchange`, EventLog |
 |  [08]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`    | DOM stream    | `browser/boot` connectivity/visibility rows |
 
 [PUBLIC_TYPE_SCOPE]: Web-API capability services
@@ -63,15 +61,15 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BROWSER_BOUNDARY_TOPOLOGY]:
-- one boot law: `BrowserRuntime.runMain` is the single entry; `runtime browser/boot` owns it and a second boot is the named defect. It is a `RunMain` instance shared in shape with `BunRuntime.runMain`/`NodeRuntime.runMain`, so the boot contract is identical across runtimes.
+- one boot law: `BrowserRuntime.runMain` is the single entry; `browser/boot` owns it and a second boot is the named defect. It is a `RunMain` instance shared in shape with `BunRuntime.runMain`/`NodeRuntime.runMain`, so the boot contract is identical across runtimes.
 - Tag-satisfaction, not reimplementation: folder code types against `@effect/platform`'s abstract `KeyValueStore`/`Worker`/`HttpClient`/`Socket` Tags; this package's `layer*` values satisfy them with browser implementations. Identical folder code runs on node/bun when the app root selects the node/bun binding instead — capability is the contract, the binding is the Layer.
 - `runtime:browser` purity: the edge ledger bans `@effect/platform-node`/`@effect/platform-bun`/`node:*` inside this scope and bans this package inside `runtime:node`; the `tests/typescript/_architecture` suite audits per-runtime subpath purity the exports map cannot express.
 
-[INTEGRATION_LAW]:
+[STACKING]:
 - Stack with `@effect/experimental` EventLog: `BrowserKeyValueStore.layerLocalStorage` satisfies the `KeyValueStore` `EventLog.layerIdentityKvs({ key })` requires; `BrowserSocket.layerWebSocketConstructor` satisfies the `Socket.WebSocketConstructor` `EventLogRemote.layerWebSocket` requires; `EventJournal.layerIndexedDb` backs the journal. Browser EventLog client is these four Layers merged.
 - Stack with `@effect/opentelemetry`: `BrowserHttpClient.layerXMLHttpRequest` is the `HttpClient` the native `Otlp.layer` requires in the browser; `WebSdk.layer` is the browser SDK-bridge alternative. Browser RUM export rides the XHR client.
-- Stack with `runtime browser/fetch` + `ui/viewer`: `BrowserWorker.layer(spawn)` backs the off-main-thread decode pool; the worker side composes `BrowserWorkerRunner.layer`. Frame reassembly + content-key verify run off-thread, delegating the mint to `core/value/identity`.
-- Stack with `@effect/platform` `Stream`/`HttpClient`: `BrowserStream.fromEventListener*` feeds `runtime browser/boot` connectivity rows; the XHR `HttpClient` composes the `runtime net/client` default-policy (timeout/retry) transformers like any other client.
+- Stack with `browser/fetch` + `ui/viewer`: `BrowserWorker.layer(spawn)` backs the off-main-thread decode pool; the worker side composes `BrowserWorkerRunner.layer`. Frame reassembly + content-key verify run off-thread, delegating the mint to `core/value/contentKey`.
+- Stack with `@effect/platform` `Stream`/`HttpClient`: `BrowserStream.fromEventListener*` feeds `browser/boot` connectivity rows; the XHR `HttpClient` composes the `net/client` default-policy (timeout/retry) transformers like any other client.
 
 [LOCAL_ADMISSION]:
 - imported only inside `runtime:browser` subpaths; a node/bun rail that imports it is the defect the `tests/typescript/_architecture` import audit catches.

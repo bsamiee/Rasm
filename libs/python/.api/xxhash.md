@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_XXHASH]
 
-`xxhash` (release, BSD-2-Clause) binds the xxHash C library (`XXHASH_VERSION` release) for fast non-cryptographic hashing across four distinct algorithm families — classic `xxh32`/`xxh64` and the modern `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class plus three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
+`xxhash` binds the xxHash C library for fast non-cryptographic hashing across four algorithm families — classic `xxh32`/`xxh64` and XXH3 `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class and three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -12,13 +12,13 @@
 - owner: `runtime`
 - rail: hashing
 - namespaces: `xxhash`, `xxhash.version`
-- capability: fast non-cryptographic hashing via four families — `xxh32` (32-bit), `xxh64` (classic 64-bit), `xxh3_64` (XXH3 64-bit), `xxh3_128`/`xxh128` (XXH3 128-bit) — each a stateful hasher plus one-shot functions
+- capability: fast non-cryptographic hashing via four families — `xxh32` (32-bit), `xxh64` (classic 64-bit), `xxh3_64` (XXH3 64-bit), `xxh3_128`/`xxh128` (XXH3 128-bit) — each a stateful hasher with one-shot functions
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hasher classes
 - rail: hashing
-- All four are `@final` and share the `_Hasher` interface: constructor `(input: str | Buffer = b"", seed: int = 0)`, the `update`/`digest`/`hexdigest`/`intdigest`/`copy`/`reset` operations, and the `seed`/`name`/`digest_size`/`digestsize`/`block_size` properties. `xxh64`/`xxh3_64` are genuinely distinct at runtime — same 8-byte digest size but different hash values (`name` `XXH64` vs `XXH3_64`); only `xxh128` is a true alias of `xxh3_128` (identical class object). The `.pyi` stub aliases `xxh64 = xxh3_64`, but the compiled module keeps them separate — runtime is authoritative.
+- All four are `@final` and share the `_Hasher` interface: constructor `(input: str | Buffer = b"", seed: int = 0)`, the `update`/`digest`/`hexdigest`/`intdigest`/`copy`/`reset` operations, and the `seed`/`name`/`digest_size`/`digestsize`/`block_size` properties. `xxh64`/`xxh3_64` are distinct at runtime — same 8-byte digest size, different hash values; only `xxh128` aliases `xxh3_128`. Its `.pyi` stub aliases `xxh64 = xxh3_64`, but the module keeps them separate — runtime is authoritative.
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                                                              |
 | :-----: | :--------- | :------------ | :------------------------------------------------------------------ |
@@ -42,7 +42,7 @@
 
 [ENTRYPOINT_SCOPE]: hasher instance operations
 - rail: hashing
-- The stateful cycle for incremental/streaming input: construct with optional `input`/`seed`, feed with `update`, read the running state, `copy` to fork a partial digest, `reset` to return to the seed state. Both the constructor and `update` accept `_InputType = str | Buffer` — any buffer-protocol object (`bytes`, `bytearray`, `memoryview`, `array`) or a `str` (UTF-8 encoded by the binding); the owner still pins one input form (raw `bytes`) so the digest is reproducible across producers.
+- Stateful cycle for incremental/streaming input: construct with optional `input`/`seed`, feed with `update`, read the running state, `copy` to fork a partial digest, `reset` to return to the seed state. Both the constructor and `update` accept `_InputType = str | Buffer` — any buffer-protocol object (`bytes`, `bytearray`, `memoryview`, `array`) or a `str` (UTF-8 encoded by the binding); the owner still pins one input form (raw `bytes`) so the digest is reproducible across producers.
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]  | [RAIL]                                                |
 | :-----: | :--------------------------- | :-------------- | :---------------------------------------------------- |
@@ -60,7 +60,7 @@
 
 [ENTRYPOINT_SCOPE]: one-shot digest functions
 - rail: hashing
-- The fast single-buffer path: `<family>_<form>(data, seed=0)` where `data` is a buffer-protocol object and `seed` is an optional keyword. `_digest` returns `bytes`, `_hexdigest` returns hex `str`, `_intdigest` returns `int`. `xxh128_*` are true aliases of `xxh3_128_*`; `xxh64_*` are distinct from `xxh3_64_*` (classic vs XXH3).
+- Fast single-buffer path: `<family>_<form>(data, seed=0)` where `data` is a buffer-protocol object and `seed` is an optional keyword. `_digest` returns `bytes`, `_hexdigest` returns hex `str`, `_intdigest` returns `int`. `xxh128_*` are true aliases of `xxh3_128_*`; `xxh64_*` are distinct from `xxh3_64_*` (classic vs XXH3).
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                   |
 | :-----: | :--------------------------------- | :------------- | :--------------------------------------- |
@@ -83,17 +83,17 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HASH_TOPOLOGY]:
-- four families: `xxh32` (32-bit), `xxh64` (classic 64-bit), `xxh3_64` (XXH3 64-bit), `xxh3_128`/`xxh128` (XXH3 128-bit); each has one stateful hasher plus three one-shot functions.
-- the constructor and `update` accept optional `input: str | Buffer` and the constructor an integer `seed` (default 0); one-shot functions accept the same `seed=` keyword.
+- four families: `xxh32` (32-bit), `xxh64` (classic 64-bit), `xxh3_64` (XXH3 64-bit), `xxh3_128`/`xxh128` (XXH3 128-bit); each has one stateful hasher and three one-shot functions.
+- Constructor and `update` accept optional `input: str | Buffer` and the constructor an integer `seed` (default 0); one-shot functions accept the same `seed=` keyword.
 - `xxh64` and `xxh3_64` are not interchangeable — the same content hashes to different values; the family choice is fixed per owner identity and never mixed within one key namespace.
-- modern XXH3 families (`xxh3_64`/`xxh3_128`) are the default choice for new keys; classic `xxh32`/`xxh64` exist for cross-language compatibility with fixed peer formats.
+- XXH3 families (`xxh3_64`/`xxh3_128`) are the default choice for new keys; classic `xxh32`/`xxh64` exist for cross-language compatibility with fixed peer formats.
 
 [LOCAL_ADMISSION]:
 - one-shot functions are the fast path for single-buffer content keys; stateful hashers serve incremental streaming over a chunked source (`update` per chunk, one `intdigest()` at end).
 - content-identity keys and cache keys use `intdigest()` or `hexdigest()`; raw `bytes` from `digest()` is for binary framing and must declare endianness with the consumer.
-- the seed is fixed per owner identity; seeded and unseeded hashes are never mixed in one key namespace.
+- One seed per owner identity; seeded and unseeded hashes never mix in one key namespace.
 - `XXH3_128` is the content-identity digest that matches the C# `System.IO.Hashing.XxHash128` boundary; the owner that crosses the .NET wire pins `xxh3_128`/`xxh128` and a fixed seed so the Python and C# digests agree byte-for-byte. `digest()` returns big-endian `bytes`, so the .NET-bound owner declares the same byte order on the C# side rather than re-ordering.
-- the one-shot `<family>_intdigest(data)` is the content key feeding the keyed-cache and content-identity owners; it composes directly with a `msgspec`-encoded payload (`.api/msgspec.md`) — hash the canonical encoded `bytes` (one `msgspec.msgpack.encode` -> one `xxh3_128_intdigest`) so the identity is a deterministic function of the wire form, never of in-memory object identity. A `UPath` artifact (`.api/universal-pathlib.md`) is keyed by hashing its read `bytes`, not its string path.
+- One-shot `<family>_intdigest(data)` is the content key feeding the keyed-cache and content-identity owners; it composes directly with a `msgspec`-encoded payload (`.api/msgspec.md`) — hash the canonical encoded `bytes` (one `msgspec.msgpack.encode` -> one `xxh3_128_intdigest`) so the identity is a deterministic function of the wire form, never of in-memory object identity. A `UPath` artifact (`.api/universal-pathlib.md`) is keyed by hashing its read `bytes`, not its string path.
 
 [RAIL_LAW]:
 - Package: `xxhash`

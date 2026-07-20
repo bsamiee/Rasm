@@ -28,7 +28,7 @@
 
 [PUBLIC_TYPE_SCOPE]: door type-hint wrappers (`beartype.door`)
 - rail: type-enforcement
-- `TypeHint(hint)` wraps any PEP-compatible hint into an object-oriented, comparable, iterable façade; subscripted/union/callable/literal/etc. hints resolve to the concrete subclass.
+- `TypeHint(hint)` wraps any PEP-compatible hint into an object-oriented, comparable, iterable façade; subscripted, union, callable, and literal hints resolve to the concrete subclass.
 
 | [INDEX] | [SYMBOL]                                                  | [RAIL]                                                             |
 | :-----: | :-------------------------------------------------------- | :----------------------------------------------------------------- |
@@ -119,13 +119,13 @@ BeartypeConf(*, strategy=O1, is_pep484_tower=False, is_pep557_fields=False, is_c
 - `violation_type` / `violation_param_type` / `violation_return_type` / `violation_door_type` redirect raised violations to a caller-supplied `Exception` subtype; this is the first-class hook for mapping a type violation straight onto a domain error rail without a try/except adapter.
 - `is_pep484_tower=True` admits the numeric tower (an `int` satisfies a `float`/`complex` hint, a `bytearray` satisfies `bytes`); `is_pep557_fields=True` type-checks `@dataclass` field assignments.
 - `beartype.claw` installs an import-path AST transformer that decorates every callable/class in the hooked package at import — whole-package enforcement with zero per-function decoration. `claw_skip_package_names` excludes subpackages.
-- the DOOR API (`beartype.door`) is the procedural counterpart: `is_bearable(obj, hint)` returns a `TypeIs[T]` (so a `True` result narrows the static type), `die_if_unbearable` asserts, and `is_subhint(a, b)` answers decidable hint subtyping for dispatch tables and registry validation.
+- `beartype.door` (the DOOR API) is the procedural counterpart: `is_bearable(obj, hint)` returns a `TypeIs[T]` (so a `True` result narrows the static type), `die_if_unbearable` asserts, and `is_subhint(a, b)` answers decidable hint subtyping for dispatch tables and registry validation.
 - `beartype.vale` validators (`Is`, `IsAttr`, `IsEqual`, `IsInstance`, `IsSubclass`) subscript into `Annotated[T, validator]` and compose with `&`/`|`/`~`; the constraint is compiled into the same O(1) boundary check, so a refinement type costs nothing beyond the base hint.
 
 [STACKS_WITH]:
 - `pydantic`/`msgspec` (`.api/pydantic.md`, `.api/msgspec.md`): keep schema validation (coercion, JSON, settings) in pydantic/msgspec at the wire boundary; use `@beartype` for the *internal* call-boundary contract on domain functions that never touch the wire, and `beartype.vale.Is[...]` to express refinement predicates inside `Annotated` aliases that both beartype and a pydantic `Field`/`msgspec.Meta` annotation can share on one alias. `BeartypeConf(violation_type=DomainError)` folds a violation directly onto the domain error type.
 - `expression` (`.api/expression.md`): at a boundary adapter, wrap the `@beartype`d call in a try-builder (`effect.try_`) and catch `BeartypeCallHintViolation`, lifting it into `Result.Error`; use `door.is_bearable(value, hint)` as the `TypeIs` guard that narrows before constructing an `Ok`. `door.is_subhint(...)` validates discriminated-union registry rows at startup.
-- `beartype.typing`: a 106-symbol drop-in for `typing` (`Protocol`, `TypeVar`, `Annotated`, `TypedDict`, `Self`, `override`, `runtime_checkable`, the `List`/`Dict` aliases,...) tuned so `Protocol`/`TypeVar` participate correctly in beartype-checked call sites across the supported interpreter band. Import typing names from here only when a hint is consumed at a `@beartype` boundary; otherwise prefer stdlib `typing`.
+- `beartype.typing`: a 106-symbol drop-in for `typing` (`Protocol`, `TypeVar`, `Annotated`, `TypedDict`, `Self`, `override`, `runtime_checkable`, the `List`/`Dict` aliases,...) tuned so `Protocol`/`TypeVar` participate correctly in beartype-checked call sites across the supported interpreter band. Import typing names from here only when a hint is consumed at a `@beartype` boundary; stdlib `typing` serves everywhere else.
 
 [LOCAL_ADMISSION]:
 - Apply `@beartype` at service and domain-boundary entry points; use `beartype.claw` hooks (`beartype_this_package`) for whole-package enforcement at import time.

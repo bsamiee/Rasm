@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_PEBBLE]
 
-`pebble` owns the branch's terminal worker fabric: `ProcessPool`/`ThreadPool` schedule callables onto recyclable workers, and `schedule(timeout=)` enforces a wall-clock deadline by KILLING the worker mid-execution and reclaiming its slot — the one interruption `anyio.move_on_after` cooperative cancellation and `anyio.to_process` cannot express against a native C loop. Each process worker carries a `max_tasks` recycle bound that caps RSS growth, `ProcessFuture.cancel()` terminates a RUNNING task, and `ProcessExpired` (an `OSError` subclass) carries the dead worker's `exitcode`/`pid` as worker-death evidence. `schedule` and `submit` are two spellings over one kill mechanism — `schedule` passes `args`/`kwargs` as collections, `submit` flattens them positionally in the stdlib `Executor` shape. Decorator entrypoints in `pebble.concurrent` and `pebble.asynchronous` bridge one call to a fresh worker returning a `concurrent.futures.Future` or an `asyncio.Future`.
+`pebble` owns the terminal worker fabric: `ProcessPool`/`ThreadPool` schedule callables onto recyclable workers; `schedule(timeout=)` enforces a wall-clock deadline by KILLING the worker mid-execution — the interruption cooperative `anyio` cancellation cannot express against a native C loop. `max_tasks` recycling caps RSS growth, `ProcessFuture.cancel()` terminates a RUNNING task, and `ProcessExpired` carries the dead worker's `exitcode`/`pid`. `schedule`/`submit` are two spellings over one kill mechanism; `pebble.concurrent`/`pebble.asynchronous` decorators bridge one call to a fresh worker.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -84,7 +84,7 @@
 - running-cancel law: `ProcessFuture.cancel()` returns `True` and terminates a RUNNING process worker — stdlib `Future.cancel()` returns `False` once a task starts; only a FINISHED future refuses cancellation.
 - worker-death law: an abnormal worker exit (segfault, `os._exit`, OOM kill) surfaces as `ProcessExpired` on `.result()` carrying the worker's `exitcode` and `pid`; total worker loss surfaces as the stdlib `concurrent.futures.process.BrokenProcessPool` pebble raises, never a pebble-minted type.
 - pickle-payload law: pebble serializes every payload through the `multiprocessing` ForkingPickler (STDLIB pickle), not `cloudpickle`, so the dispatched callable must resolve by qualified name and every argument must be stdlib-picklable — a live lambda handed straight to `schedule` raises `PicklingError`.
-- shipped-gate law: closures never reach pebble live — the branch dispatches the module-level `shipped` gate (reference-picklable) plus a frozen `msgspec` `Kernel` Struct (stdlib-picklable) whose `payload` field carries `cloudpickle.dumps(fn)` bytes, so a lambda crosses pebble's stdlib seam as inert bytes the worker-floor `shipped` rehydrates through `cloudpickle.loads`.
+- shipped-gate law: closures never reach pebble live — the branch dispatches the module-level `shipped` gate (reference-picklable) with a frozen `msgspec` `Kernel` Struct (stdlib-picklable) whose `payload` field carries `cloudpickle.dumps(fn)` bytes, so a lambda crosses pebble's stdlib seam as inert bytes the worker-floor `shipped` rehydrates through `cloudpickle.loads`.
 - thread-asymmetry law: a thread worker is never killed — `ThreadPool.schedule` carries no `timeout`, and `ThreadPool.map(timeout=)` only bounds the caller's wait while the thread runs to completion; deadline enforcement that must reclaim a slot routes to `ProcessPool`.
 
 [STACKING]:
@@ -102,7 +102,7 @@
 - pebble is the branch's one worker-pool terminal-kill owner; a second pool abstraction, a hand-rolled `multiprocessing.Pool` wrapper, or a per-task `Process` spawn is the deleted form, and the warm-reuse `(PROCESS, COOPERATIVE)` half stays loky's.
 - a compute leg needing a hard wall-clock deadline over a native or blocking body routes to `ProcessPool.schedule(timeout=)`; a leg needing only cooperative in-loop cancellation stays with `anyio` and never spawns a killable process.
 - a standing `ProcessPool` is acquired once per arm key through `WorkerPool.acquire` and passed to the `concurrent`/`asynchronous` decorators via `pool=`; a per-call fresh spawn is reserved for one-shot legs where pool amortization does not pay.
-- worker payloads reach pebble as the module-level `shipped` gate plus a stdlib-picklable `Kernel`; a closure or lambda crosses only as `cloudpickle` bytes on the `Kernel.payload`, never handed live to `schedule`/`submit`.
+- worker payloads reach pebble as the module-level `shipped` gate with a stdlib-picklable `Kernel`; a closure or lambda crosses only as `cloudpickle` bytes on the `Kernel.payload`, never handed live to `schedule`/`submit`.
 
 [RAIL_LAW]:
 - Package: `pebble`

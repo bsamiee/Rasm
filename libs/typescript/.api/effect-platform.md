@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_EFFECT_PLATFORM]
 
-`@effect/platform` is the platform-neutral service-contract tier the branch composes for every host, wire, and edge boundary: the declarative HTTP-API family (`HttpApi`/`HttpApiGroup`/`HttpApiEndpoint` as data, `HttpApiBuilder` handlers, `HttpApiClient` derived typed SDKs, `OpenApi`/`HttpApiScalar` emission, `HttpApiSecurity`/`HttpApiMiddleware`), the request/response client (`HttpClient`, `HttpClientRequest`, `HttpClientResponse`, `FetchHttpClient`), the server + router (`HttpServer`, `HttpRouter`, `HttpApp`, `HttpLayerRouter`, `HttpMiddleware`), the web-value codecs (`HttpBody`, `Headers`, `Cookies`, `UrlParams`, `Url`, `Etag`, `Multipart`, `HttpMethod`), the system-API contracts as `Context.Tag`s (`FileSystem`, `Path`, `KeyValueStore`, `Command`/`CommandExecutor`, `Terminal`, `Socket`/`SocketServer`, `Worker`/`WorkerRunner`), the frame codecs (`MsgPack`, `Ndjson`, `Transferable`, `Template`), and the config/logger boundary (`PlatformConfigProvider`, `PlatformLogger`, `Runtime`, `PlatformError`). Every contract is an abstract Tag with no runtime binding of its own — a per-runtime package (`platform-node`, `-bun`, `-browser`) binds the `Layer` — so a domain folder codes once against `HttpClient`/`FileSystem`/`Worker` and the app root picks the runtime.
+`@effect/platform` is the platform-neutral service-contract tier the branch composes for every host, wire, and serve boundary: the declarative HTTP-API family whose one contract value derives server, typed client, and OpenAPI spec; the system-API contracts as abstract `Context.Tag`s; and the frame codecs typing socket and worker transport end to end. Every contract carries no runtime binding of its own — a per-runtime package (`platform-node`, `-bun`, `-browser`) binds the `Layer` — so a domain folder codes once against `HttpClient`/`FileSystem`/`Worker` and the app root picks the runtime; the type and entrypoint tables below carry the full surface roster.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,22 +10,22 @@
 - runtime target: platform-neutral abstract contracts — no runtime binding; a `platform-node`/`-bun`/`-browser` `Layer` satisfies each Tag. `find-my-way-ts` (router match), `msgpackr` (`MsgPack`), and `multipasta` (`Multipart`) are the only bundled runtime deps
 - peer: `effect@^catalog`
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); Tag contracts + `Schema`-typed endpoint declarations
-- rail: platform contracts (host, wire, edge, store; catalogued once at the branch tier)
+- rail: platform contracts (proc, net, serve, data; catalogued once at the branch tier)
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: declarative HTTP-API — the contribution family `edge` assembles
+[PUBLIC_TYPE_SCOPE]: declarative HTTP-API — the contribution family `serve/api` assembles
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [CONSUMER]                                  |
-| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------ |
-|  [01]   | `HttpApi<Groups, E, R>`                                | api value        | `edge/api` — one assembled api              |
-|  [02]   | `HttpApiGroup<Name, Endpoints>`                        | group            | `edge` — domain folders contribute a group  |
-|  [03]   | `HttpApiEndpoint<Name, Method>`                        | endpoint         | `edge` — request, success, error `Schema`   |
-|  [04]   | `HttpApiSchema.Multipart` / `.param` / `.withEncoding` | payload modality | `edge` — uploads, path params, encodings    |
-|  [05]   | `HttpApiSecurity.Bearer` / `.ApiKey` / `.Basic`        | auth scheme      | `security` — endpoint-declared credential   |
-|  [06]   | `HttpApiMiddleware.Tag` / `.TagClass.BaseSecurity`     | middleware       | `runtime/serve/api` — typed middleware Tags |
-|  [07]   | `HttpApiClient` (derived) / `OpenApi.OpenAPISpec`      | client / spec    | `edge/emit` — typed SDK, OpenAPI doc        |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [CONSUMER]                                    |
+| :-----: | :----------------------------------------------------- | :--------------- | :-------------------------------------------- |
+|  [01]   | `HttpApi<Groups, E, R>`                                | api value        | `serve/api` — one assembled api               |
+|  [02]   | `HttpApiGroup<Name, Endpoints>`                        | group            | `serve` — domain folders contribute a group   |
+|  [03]   | `HttpApiEndpoint<Name, Method>`                        | endpoint         | `serve` — request, success, error `Schema`    |
+|  [04]   | `HttpApiSchema.Multipart` / `.param` / `.withEncoding` | payload modality | `serve` — uploads, path params, encodings     |
+|  [05]   | `HttpApiSecurity.Bearer` / `.ApiKey` / `.Basic`        | auth scheme      | `security` — endpoint-declared credential     |
+|  [06]   | `HttpApiMiddleware.Tag` / `.TagClass.BaseSecurity`     | middleware       | `serve/api` — typed middleware Tags           |
+|  [07]   | `HttpApiClient` (derived) / `OpenApi.OpenAPISpec`      | client / spec    | `serve/api` — typed SDK, OpenAPI doc          |
 
 [PUBLIC_TYPE_SCOPE]: client, server, and routing
 - rail: boundaries
@@ -35,25 +35,26 @@
 |  [01]   | `HttpClient.HttpClient`                                | client Tag         | `net/client` — default-policy client    |
 |  [02]   | `HttpClientRequest` / `HttpClientResponse`             | request / response | `net` — request builder, decode access  |
 |  [03]   | `HttpClientError.RequestError` / `.ResponseError`      | client fault       | `net` — transport, decode faults        |
-|  [04]   | `HttpServer.HttpServer` / `HttpApp.Default`            | server Tag / app   | `edge/serve` — runtime `Layer` binds it |
-|  [05]   | `HttpRouter.HttpRouter` / `HttpLayerRouter.HttpRouter` | router             | `edge` — route table, mixed mounts      |
-|  [06]   | `HttpServerRequest` / `HttpServerResponse`             | server io          | `edge` handlers — self-rendering errors |
-|  [07]   | `HttpServerError.RouteNotFound` / `HttpMiddleware`     | server fault / mw  | `edge/problem` — RFC 9457 mapping       |
+|  [04]   | `HttpServer.HttpServer` / `HttpApp.Default`            | server Tag / app   | `serve/route` — runtime `Layer` binds it |
+|  [05]   | `HttpRouter.HttpRouter` / `HttpLayerRouter.HttpRouter` | router             | `serve/route` — route table, mixed mounts |
+|  [06]   | `HttpServerRequest` / `HttpServerResponse`             | server io          | `serve` handlers — self-rendering errors |
+|  [07]   | `HttpServerError.RouteNotFound` / `HttpMiddleware`     | server fault / mw  | `serve/problem` — RFC 9457 mapping       |
 
 [PUBLIC_TYPE_SCOPE]: system-API contracts — abstract Tags a runtime `Layer` satisfies
 - rail: system-apis
-- Each contract is an abstract `Context.Tag` a per-runtime `Layer` satisfies: `FileSystem` reads, writes, watches, streams, and mints scoped temp paths whose deletion ties to the `Scope`; `Path` resolves host-agnostic paths; `KeyValueStore` scopes a schema-typed store by `prefix`; `Command` describes a subprocess whose `Process` exposes `stdin` as a `Sink`, `stdout`/`stderr` as `Stream`, and `exitCode` as an `Effect`; `Socket` frames a duplex TCP/WebSocket connection as an Effect `Channel`. `Worker.WorkerManager`/`Worker.Spawner`/`WorkerRunner.PlatformRunner` and `Socket.WebSocketConstructor` are the runtime-provided Tags the `-node`/`-bun`/`-browser` bindings satisfy.
+- Each contract is an abstract `Context.Tag` a per-runtime `Layer` satisfies: `FileSystem` reads, writes, watches, streams, and mints scoped temp paths whose deletion ties to the `Scope`; `Path` resolves host-agnostic paths; `KeyValueStore` scopes a schema-typed store by `prefix`; `Socket` frames a duplex TCP/WebSocket connection as an Effect `Channel`.
+- `Command` describes a subprocess whose `Process` exposes `stdin` as a `Sink`, `stdout`/`stderr` as `Stream`, and `exitCode` as an `Effect`; `Worker.WorkerManager`/`Worker.Spawner`/`WorkerRunner.PlatformRunner` and `Socket.WebSocketConstructor` are the runtime-provided Tags the `-node`/`-bun`/`-browser` bindings satisfy.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CONSUMER]                               |
 | :-----: | :---------------------------------------------- | :------------ | :--------------------------------------- |
-|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `host`, `store/lane`                     |
-|  [02]   | `Path.Path`                                     | path Tag      | `host`, `iac`                            |
-|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data lane`, `browser/persist`           |
-|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `runtime/src/proc/exec.ts` — declarative |
-|  [05]   | `Terminal.Terminal`                             | tty Tag       | `edge/cli` — line/key input, display     |
-|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core interchange/frame`  |
+|  [01]   | `FileSystem.FileSystem`                         | fs Tag        | `proc`, `data/lane`                      |
+|  [02]   | `Path.Path`                                     | path Tag      | `proc`, `iac`                            |
+|  [03]   | `KeyValueStore.KeyValueStore` / `SchemaStore`   | kv Tag        | `data/lane`, `browser/persist`           |
+|  [04]   | `Command.Command` / `CommandExecutor.Process`   | subprocess    | `proc/exec` — declarative                |
+|  [05]   | `Terminal.Terminal`                             | tty Tag       | `serve/cli` — line/key input, display    |
+|  [06]   | `Socket.Socket` / `SocketServer`                | socket        | `net/channel`, `core/interchange/frame`  |
 |  [07]   | `Worker.WorkerPool` / `WorkerRunner`            | worker        | `proc/worker`, `browser/fetch` pools     |
-|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core interchange/codec` — one rail      |
+|  [08]   | `PlatformError` (`BadArgument` / `SystemError`) | system fault  | `core/interchange/codec` — one rail      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -61,16 +62,16 @@
 - rail: boundaries
 - `HttpApiEndpoint.get(name)`/`.post`/`.del` carry `.setPath`/`.setPayload(schema)`/`.addSuccess`/`.addError`; `HttpApiGroup.make(name)` carries `.add(endpoint)`/`.addError`/`.prefix`/`.middleware(tag)`; `HttpApi.make(id)` carries `.add(group)`/`.addError`/`.annotate`/`.middleware`. `HttpApiBuilder.group(api, name, (h) => h.handle(endpointName, handler))` binds handlers; `.api(api)`/`.serve(middleware?)`/`toWebHandler(api, options)` yield the api/serve `Layer` or web handler. `HttpApiBuilder.middlewareCors(options)`/`.middlewareOpenApi()`/`.securityDecode`; `HttpApiClient.make(api, { baseUrl, transformClient })`; `OpenApi.fromApi(api)`/`HttpApiScalar.layer()`/`HttpApiSwagger.layer()`.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                   |
-| :-----: | :----------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `HttpApiEndpoint.get` / `.post` / `.del`               | declare endpoint | `edge` — path, request, success, error `Schema`s             |
-|  [02]   | `HttpApiGroup.make(name)`                              | declare group    | domain folders build a group; errors + mw ride it            |
-|  [03]   | `HttpApi.make(id)`                                     | assemble api     | `edge/api` — one `HttpApi` from selected groups              |
-|  [04]   | `HttpApiBuilder.group(...)`                            | implement        | `edge` — bind each endpoint; a missing handler won't compile |
-|  [05]   | `HttpApiBuilder.serve`                                 | serve            | `runtime/serve` — api `Layer`, serve `Layer`, or web handler |
-|  [06]   | `HttpApiBuilder.middlewareCors`                        | api middleware   | `edge/middleware` — CORS, OpenAPI route, security decode     |
-|  [07]   | `HttpApiClient.make`                                   | derive client    | `edge/emit` — typed SDK from the `HttpApi` value             |
-|  [08]   | `OpenApi.fromApi` / `HttpApiScalar` / `HttpApiSwagger` | docs             | `edge/emit` — spec document + reference UI                   |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CONSUMER]                                                    |
+| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `HttpApiEndpoint.get` / `.post` / `.del`               | declare endpoint | `serve/api` — path, request, success, error `Schema`s         |
+|  [02]   | `HttpApiGroup.make(name)`                              | declare group    | domain folders build a group; errors + mw ride it             |
+|  [03]   | `HttpApi.make(id)`                                     | assemble api     | `serve/api` — one `HttpApi` from selected groups              |
+|  [04]   | `HttpApiBuilder.group(...)`                            | implement        | `serve/api` — bind each endpoint; a missing handler won't compile |
+|  [05]   | `HttpApiBuilder.serve`                                 | serve            | `serve/route` — api `Layer`, serve `Layer`, or web handler    |
+|  [06]   | `HttpApiBuilder.middlewareCors`                        | api middleware   | `serve/api` — CORS, OpenAPI route, security decode            |
+|  [07]   | `HttpApiClient.make`                                   | derive client    | `serve/api` — typed SDK from the `HttpApi` value              |
+|  [08]   | `OpenApi.fromApi` / `HttpApiScalar` / `HttpApiSwagger` | docs             | `serve/api` — spec document + reference UI                    |
 
 [ENTRYPOINT_SCOPE]: `HttpClient` — request policy and typed responses
 - rail: system-apis
@@ -81,8 +82,8 @@
 |  [01]   | `HttpClientRequest.get` / `.post`                            | build request  | `net/client`, `ai` — immutable request |
 |  [02]   | `HttpClient.execute` / `.get`                                | dispatch       | typed response in `Effect` channel     |
 |  [03]   | `HttpClient.retryTransient` / `.filterStatusOk`              | policy         | `net/client` — retry, filter, auth     |
-|  [04]   | `HttpClient.withTracerPropagation` / `.tapRequest`           | observability  | `telemetry` — egress propagation       |
-|  [05]   | `HttpClientResponse.schemaJson` / `.matchStatus` / `.stream` | decode         | `core interchange`, `ai` — decode body |
+|  [04]   | `HttpClient.withTracerPropagation` / `.tapRequest`           | observability  | `otel` — egress propagation            |
+|  [05]   | `HttpClientResponse.schemaJson` / `.matchStatus` / `.stream` | decode         | `core/interchange`, `ai` — decode body |
 |  [06]   | `FetchHttpClient.layer` / `HttpClient.layerMergedContext`    | provide        | `net` — `fetch` `Layer`, undici swap   |
 
 [ENTRYPOINT_SCOPE]: server, router, and middleware
@@ -91,34 +92,34 @@
 - `HttpLayerRouter` carries `.use`/`.add(method, path, handler)`/`.addAll`/`.addHttpApi(api, { openapiPath? })`/`.middleware`/`.cors()`/`.disableLogger`/`.serve`/`.toWebHandler`/`.params`/`.schemaJson`/`.schemaPathParams`; `HttpMultiplex` `.make`/`.empty`/`.add(predicate, app)`/`.headerExact`/`.headerRegex`/`.headerStartsWith`/`.hostExact`/`.hostRegex`; `HttpServerRespondable` `.symbol`/`.toResponse`/`.toResponseOrElse`/`.isRespondable`; `ChannelSchema` `.make`/`.duplex`/`.duplexUnknown({ inputSchema, outputSchema })`.
 - `HttpApiScalar.layer({ path? })`/`.layerCdn`/`.layerHttpLayerRouter({ api?, path? })` and `HttpApiSwagger.layer({ path })` mount the docs UI; `HttpApiError.HttpApiDecodeError`/`.BadRequest`/`.Unauthorized`/`.Forbidden`/`.NotFound`/`.Conflict`/`.InternalServerError`/`.ServiceUnavailable` are the prebuilt status faults.
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CONSUMER]                                                                  |
-| :-----: | :-------------------------------------- | :------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `HttpRouter`                            | route          | `edge` — compose routes; `mountApp` mounts a sub-`HttpApp` (EventLog sync)  |
-|  [02]   | `HttpServerResponse`                    | respond        | `edge` handlers; cookie/header decorators on the response value             |
-|  [03]   | `HttpServerRequest`                     | ingress decode | `edge` — body/header/query decode; `.upgrade` yields the WebSocket `Socket` |
-|  [04]   | `HttpMiddleware`                        | wrap           | `edge/middleware` — cross-cutting transforms on the handler `HttpApp`       |
-|  [05]   | `HttpLayerRouter`                       | layer route    | `runtime/serve/route` — `Layer`-native router; raw routes + an `HttpApi`    |
-|  [06]   | `HttpServer.serve` / `.layerTestClient` | run / test     | `runtime/serve/route` binds the app to the server `Layer`; test client      |
-|  [07]   | `HttpMultiplex`                         | multiplex      | `runtime/serve/route` — host/header dispatch across several `HttpApp`s      |
-|  [08]   | `HttpServerRespondable`                 | self-render    | `runtime/serve/problem` — a domain value self-renders; outbound-fault law   |
-|  [09]   | `HttpApiScalar` / `HttpApiSwagger`      | docs ui        | `runtime/serve/api` — Scalar reference UI beside the derived OpenAPI route  |
-|  [10]   | `HttpApiError` faults                   | status faults  | status-tagged endpoint errors; `runtime/serve/problem` folds escaped ones   |
-|  [11]   | `ChannelSchema`                         | typed channel  | `runtime/serve/live` — `Schema`-typed bidirectional `Channel`               |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CONSUMER]                                                                   |
+| :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `HttpRouter`                            | route          | `serve/route` — compose routes; `mountApp` mounts a sub-`HttpApp`            |
+|  [02]   | `HttpServerResponse`                    | respond        | `serve` handlers; cookie/header decorators on the response value             |
+|  [03]   | `HttpServerRequest`                     | ingress decode | `serve` — body/header/query decode; `.upgrade` yields the WebSocket `Socket` |
+|  [04]   | `HttpMiddleware`                        | wrap           | `serve/route` — cross-cutting transforms on the handler `HttpApp`            |
+|  [05]   | `HttpLayerRouter`                       | layer route    | `serve/route` — `Layer`-native router; raw routes + an `HttpApi`             |
+|  [06]   | `HttpServer.serve` / `.layerTestClient` | run / test     | `serve/route` binds the app to the server `Layer`; test client               |
+|  [07]   | `HttpMultiplex`                         | multiplex      | `serve/route` — host/header dispatch across several `HttpApp`s               |
+|  [08]   | `HttpServerRespondable`                 | self-render    | `serve/problem` — a domain value self-renders; outbound-fault law            |
+|  [09]   | `HttpApiScalar` / `HttpApiSwagger`      | docs ui        | `serve/api` — Scalar reference UI beside the derived OpenAPI route           |
+|  [10]   | `HttpApiError` faults                   | status faults  | status-tagged endpoint errors; `serve/problem` folds escaped ones            |
+|  [11]   | `ChannelSchema`                         | typed channel  | `serve/live` — `Schema`-typed bidirectional `Channel`                        |
 
 [ENTRYPOINT_SCOPE]: system-API contracts and frame codecs
 - rail: system-apis
 - `Command` `.make(cmd, ...args)`/`.pipeTo(next)`/`.stream`/`.string`/`.exitCode`/`.env`; `KeyValueStore` `.layerFileSystem(dir)`/`.layerMemory`/`.layerSchema(schema)`/`.prefix(k)`; `Worker` `.makePool`/`.makePoolLayer` (the `Layer` form over a `Spawner`)/`.makePoolSerialized({ size })` with `WorkerRunner.layerSerialized(handlers)`; `Socket` `.toChannel(socket)`/`.makeWebSocket(url)`/`.layerWebSocket`.
 - `MsgPack` `.duplexSchema({ inputSchema, outputSchema })`/`.pack` and `Ndjson` `.duplexSchema`/`.duplex`/`.duplexString` (text lines) frame `Schema`-typed messages over a byte `Channel`; `Multipart` `.toPersisted(parts)`/`.schemaPersisted(schema)`/`.withLimits(opts)`/`.withLimitsStream(parts, opts)` (the value-level bound composition over a part stream; the `withLimits.Options` record carries `Option`-shaped `maxParts`/`maxFileSize` beside `maxFieldSize`/`maxTotalSize`); `Transferable.schema(schema)`, `Template.make\`…\``, `HttpBody.json`/`.formData`.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER]                                                               |
-| :-----: | :--------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `Command`                                | subprocess     | `runtime/src/proc/exec.ts` — command pipelines, streamed, typed exit     |
-|  [02]   | `KeyValueStore`                          | kv store       | `data lane`, `browser/persist` — schema-typed KV, prefix-scoped          |
-|  [03]   | `Worker` / `WorkerRunner`                | worker pool    | `proc/worker`, `browser/fetch` — `Schema`-serialized off-thread pools    |
-|  [04]   | `Socket`                                 | socket channel | `net/channel.ts`, `core interchange/frame` — duplex bytes as a `Channel` |
-|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `core interchange/codec`, `runtime/serve/live` — MsgPack/NDJSON framing  |
-|  [06]   | `Multipart`                              | upload         | `edge` — decode multipart uploads to persisted files under limits        |
-|  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `edge` templating, request/response bodies     |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER]                                                                |
+| :-----: | :--------------------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Command`                                | subprocess     | `proc/exec` — command pipelines, streamed, typed exit                     |
+|  [02]   | `KeyValueStore`                          | kv store       | `data/lane`, `browser/persist` — schema-typed KV, prefix-scoped           |
+|  [03]   | `Worker` / `WorkerRunner`                | worker pool    | `proc/worker`, `browser/fetch` — `Schema`-serialized off-thread pools     |
+|  [04]   | `Socket`                                 | socket channel | `net/channel`, `core/interchange/frame` — duplex bytes as a `Channel`     |
+|  [05]   | `MsgPack` / `Ndjson`                     | frame codec    | `core/interchange/codec`, `serve/live` — MsgPack/NDJSON framing           |
+|  [06]   | `Multipart`                              | upload         | `serve/api` — decode multipart uploads to persisted files under limits    |
+|  [07]   | `Transferable` / `Template` / `HttpBody` | payload        | `browser/fetch` transfer, `serve` templating, request/response bodies     |
 
 [ENTRYPOINT_SCOPE]: config, logging, and process lifecycle boundary
 - rail: system-apis
@@ -126,26 +127,26 @@
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [CONSUMER]                                                                     |
 | :-----: | :---------------------------------- | :------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `PlatformConfigProvider`            | config source  | `runtime/src/proc/config.ts` — dotenv + file-tree (K8s secret mount) providers |
-|  [02]   | `PlatformLogger`                    | log sink       | `telemetry` — durable batched file logging behind `Logger`                     |
+|  [01]   | `PlatformConfigProvider`            | config source  | `proc/config` — dotenv + file-tree (K8s secret mount) providers                |
+|  [02]   | `PlatformLogger`                    | log sink       | `otel` — durable batched file logging behind `Logger`                          |
 |  [03]   | `Runtime`                           | run-main       | each runtime's `runMain` type; `-node`/`-bun`/`-browser` drain signals on exit |
-|  [04]   | `Headers` / `Cookies` / `UrlParams` | web value      | `security` redaction, `edge` cookie serialization, typed query-param decode    |
-|  [05]   | `Etag`                              | caching        | `edge/serve` static-asset ETag generation and immutable-asset responses        |
+|  [04]   | `Headers` / `Cookies` / `UrlParams` | web value      | `security` redaction, `serve` cookie serialization, typed query-param decode   |
+|  [05]   | `Etag`                              | caching        | `serve/route` static-asset ETag generation and immutable-asset responses       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_TOPOLOGY]:
-- Every system contract is a `Context.Tag` with no built-in binding: `FileSystem.FileSystem`, `Path.Path`, `HttpClient.HttpClient`, `Command`/`CommandExecutor`, `Terminal`, `Socket`, `Worker`, `KeyValueStore`. A domain folder yields the Tag inside `Effect.gen` and never imports a runtime; the app root binds the `platform-node`/`-bun`/`-browser` `Layer`. Runtime portability across `host`/`core interchange`/`edge` follows — a bun swap is a `Layer` selection, not a fork.
+- Every system contract is a `Context.Tag` with no built-in binding: `FileSystem.FileSystem`, `Path.Path`, `HttpClient.HttpClient`, `Command`/`CommandExecutor`, `Terminal`, `Socket`, `Worker`, `KeyValueStore`. A domain folder yields the Tag inside `Effect.gen` and never imports a runtime; the app root binds the `platform-node`/`-bun`/`-browser` `Layer`. Runtime portability across `proc`/`core/interchange`/`serve` follows — a bun swap is a `Layer` selection, not a fork.
 - HTTP-API family runs declaration-then-implementation: `HttpApiEndpoint`/`HttpApiGroup`/`HttpApi` are pure data carrying `Schema` request/success/error shapes; `HttpApiBuilder.group` binds each endpoint to an `Effect` handler, exhaustively checked against the declaration. One `HttpApi` value derives the server (`HttpApiBuilder.serve`), the typed client (`HttpApiClient.make`), and the OpenAPI document (`OpenApi.fromApi`) from one source, so spec, docs, client, and server never drift.
-- Client and server are `Schema`-symmetric: `HttpClientRequest`/`HttpServerRequest` decode inbound through `schemaBodyJson`, `HttpClientResponse`/`HttpServerResponse` encode outbound through `schemaJson`, and both fail into a tagged error family (`HttpClientError`, `HttpServerError`, `HttpApiDecodeError`) that flows the `Effect` error channel to the `edge/problem` RFC 9457 mapping.
-- `HttpLayerRouter` is the `Layer`-composable server: routes and middleware are `Layer`s, `addHttpApi` mounts a full declarative api beside raw routes, and the whole server is one `Layer` the app root binds — the model `edge/serve` uses when an app mixes an `HttpApi`, an EventLog sync `HttpApp`, and static assets under one server.
+- Client and server are `Schema`-symmetric: `HttpClientRequest`/`HttpServerRequest` decode inbound through `schemaBodyJson`, `HttpClientResponse`/`HttpServerResponse` encode outbound through `schemaJson`, and both fail into a tagged error family (`HttpClientError`, `HttpServerError`, `HttpApiDecodeError`) that flows the `Effect` error channel to the `serve/problem` RFC 9457 mapping.
+- `HttpLayerRouter` is the `Layer`-composable server: routes and middleware are `Layer`s, `addHttpApi` mounts a full declarative api beside raw routes, and the whole server is one `Layer` the app root binds — the model `serve/route` uses when an app mixes an `HttpApi`, an EventLog sync `HttpApp`, and static assets under one server.
 - Frame codecs (`MsgPack`, `Ndjson`) and `Socket` compose as Effect `Channel`s: `Socket.toChannel` turns a duplex connection into a byte channel, and `MsgPack.duplexSchema`/`Ndjson.duplexSchema` layer a `Schema`-typed message channel over it — the framed transport rail is decode-typed end to end with backpressure, never a raw event emitter.
-- `Worker`/`WorkerRunner` are `Schema`-serialized RPC over a thread/process boundary: the pool sends a decoded request and awaits a decoded response, so `runtime browser/fetch` moves content-key verification off-thread and `proc/worker` runs CPU-heavy work in a pool with the same typed contract as an in-process call.
+- `Worker`/`WorkerRunner` are `Schema`-serialized RPC over a thread/process boundary: the pool sends a decoded request and awaits a decoded response, so `browser/fetch` moves content-key verification off-thread and `proc/worker` runs CPU-heavy work in a pool with the same typed contract as an in-process call.
 
-[STACKS_WITH]:
+[STACKING]:
 - `effect` (`.api/effect.md`): every contract is an `Effect`-returning service keyed by `Context.Tag`; endpoint payloads, request bodies, and response bodies are `Schema`; middleware and client policy are effect transformers. Platform tier adds no new rail — `effect` applied to the boundary.
 - `@effect/platform-node` (`.api/effect-platform-node.md`): `NodeContext.layer` satisfies `FileSystem`/`Path`/`CommandExecutor`/`Terminal`/`Worker` in one Layer; `NodeHttpServer.layer` binds `HttpServer`; `NodeHttpClient.layerUndici` binds `HttpClient`. `@effect/platform-bun` (`.api/effect-platform-bun.md`) and `-browser` (`.api/effect-platform-browser.md`) are peer swaps behind the same Tags.
-- `@effect/opentelemetry`: `HttpClient.withTracerPropagation` and `HttpMiddleware` inject/extract W3C trace context; the OTel `Layer` under the graph exports every server span and client egress span with no handler change — `runtime/src/otel/emit.ts` owns the extract-and-continue seam.
+- `@effect/opentelemetry`: `HttpClient.withTracerPropagation` and `HttpMiddleware` inject/extract W3C trace context; the OTel `Layer` under the graph exports every server span and client egress span with no handler change — `otel/emit` owns the extract-and-continue seam.
 - `security` folder (`arctic`/`jose`/`@node-rs/argon2`, catalogued at `libs/typescript/security/.api/`): `HttpApiSecurity.bearer`/`.apiKey` declares the scheme, `HttpApiBuilder.securityDecode` decodes the credential, and the `security` middleware verifies it (`jose` JWKS, argon2 API-key digest) inside the `Effect` rail.
 - `@effect/rpc` + `@effect/cli` (catalogued at `libs/typescript/runtime/.api/`): `RpcGroup`/`RpcServer` is the second `serve` contribution family beside `HttpApiGroup`, and `@effect/cli` `Command` verbs compose `Terminal` — the same assembly law across HTTP, RPC, and CLI entry surfaces.
 - `@effect/sql` + `@effect/cluster` (catalogued at `libs/typescript/data/.api/` and `libs/typescript/runtime/.api/`): both are built on these platform contracts (`Socket`, `FileSystem`) and expose their own `SqlClient`/`MessageStorage` Tags the app root satisfies with a `data` driver `Layer`.

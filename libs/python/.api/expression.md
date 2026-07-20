@@ -142,7 +142,7 @@
 |  [16]   | `extra.result.pipeline(*fns)`                                 | ROP composition | Kleisli composition of `T -> Result` fns      |
 |  [17]   | `extra.result.catch(exception)`                               | ROP composition | trap one exception class into `Error`         |
 
-- `extra.result.traverse(fn, lst)`: `(T -> Result[R, E]) × Block[T] -> Result[Block[R], E]`; short-circuits on the first `Error`; the gate fold over a row set consumed by the `execution/recipe#RECIPE` `_staged` engine.
+- `extra.result.traverse(fn, lst)`: `(T -> Result[R, E]) × Block[T] -> Result[Block[R], E]`; short-circuits on the first `Error`; the gate fold over a row set a staged runtime engine consumes.
 - `extra.result.sequence(lst)`: `Block[Result[T, E]] -> Result[Block[T], E]`; the identity-`fn` `traverse`.
 
 [ENTRYPOINT_SCOPE]: persistent collection operations
@@ -187,9 +187,9 @@
 [EXPRESSION_TOPOLOGY]:
 - modules: `expression.core` (monads, combinators, builders, mailbox — re-exported at top level), `expression.collections` (`Block`/`Map`/`Seq`/`TypedArray` + matching module-level callables), `expression.effect`, `expression.extra` (`extra.result`: the `traverse`/`sequence`/`pipeline`/`catch` Result-sequencing combinators — never hand-roll a short-circuiting fold over a `Block` of `Result`s), `expression.system`.
 - `Result[T, E]` and `Option[T]` are `@tagged_union` classes; build with `Ok(v)`/`Error(e)`/`Some(v)`/`Nothing`, decompose with structural `match` on the case, and chain with the `map`/`bind`/`map2`/`filter` instance methods or the curried `expression.result`/`expression.option` module callables (designed for `pipe`).
-- `@tagged_union` plus `tag()`/`case()` declares an exhaustively-matchable discriminated union; `frozen=True` makes instances hashable, `order=True` derives comparison. This is the canonical owner for any bounded variant set — never parallel boolean flags.
+- `@tagged_union` with `tag()`/`case()` declares an exhaustively-matchable discriminated union; `frozen=True` makes instances hashable, `order=True` derives comparison. This is the canonical owner for any bounded variant set — never parallel boolean flags.
 - `pipe(value, *fns)` threads a value through unary callables; the module-level collection/monad callables are curried so `pipe(xs, block.map(f), block.filter(p), block.fold(g, 0))` reads as a point-free pipeline. `compose(*fns)` builds the reusable callable; `flip`/`curry_flip` reorder arguments to fit pipeline position.
-- effect builders (`@effect.option`/`@effect.result`/`@effect.try_`) use the generator-coroutine protocol: `yield from m` binds the inner value, an absent/error case raises `EffectError` and short-circuits the whole block to `Nothing`/`Error`. Use them when bind chains exceed ~three levels; prefer explicit `bind`/`map2` otherwise.
+- effect builders (`@effect.option`/`@effect.result`/`@effect.try_`) use the generator-coroutine protocol: `yield from m` binds the inner value, an absent/error case raises `EffectError` and short-circuits the whole block to `Nothing`/`Error`. Use them when bind chains exceed ~three levels; explicit `bind`/`map2` carries the shorter chain.
 - `tailrec`/`tailrec_async` trampoline: the function returns `TailCall(*args)` to recurse without growing the stack, or a plain value to complete.
 - `MailboxProcessor.start(body)` runs an actor over a serialized inbox; `post`/`post_and_async_reply` enqueue, and `AsyncReplyChannel` delivers a typed reply.
 

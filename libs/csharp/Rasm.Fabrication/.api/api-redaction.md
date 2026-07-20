@@ -10,7 +10,6 @@
 
 ## [02]-[FABRICATION_BINDINGS]
 
-[FABRICATION_BINDINGS]:
 - `FabricationClassified` mints the folder's three `DataClassification` values as `(taxonomy, value)` string pairs — `"DataClassification"` with `personal`, `confidential`, `credential` — value federation to the suite taxonomy rows, never a type reference across the package boundary.
 - Sealed attribute rows `PersonalDataAttribute`, `ConfidentialDataAttribute`, and `CredentialDataAttribute` subclass `DataClassificationAttribute` and annotate at definition time.
 - Classified members: `AttestationPayload.Signer` and `TravelerAmendment.Actor` and `WelderQualification.Welder` carry personal; `HeatNumber` carries confidential; `AttestationPayload.Credential` carries credential.

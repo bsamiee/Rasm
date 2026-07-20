@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_OPENTELEMETRY_API]
 
-`opentelemetry-api` supplies the provider, tracer, span, metric instrument, and log API contracts as abstract classes and no-op implementations, plus the context propagation, baggage, and `TextMapPropagator` surfaces that consuming owners depend on at the API boundary. It installs `get_tracer_provider`, `get_meter_provider`, `get_logger_provider`, and `propagate.extract`/`inject` as the global resolution points; SDK providers are registered at startup and never imported in library code.
+`opentelemetry-api` supplies the provider, tracer, span, metric instrument, and log API contracts as abstract classes and no-op implementations, with the context propagation, baggage, and `TextMapPropagator` surfaces that consuming owners depend on at the API boundary. It installs `get_tracer_provider`, `get_meter_provider`, `get_logger_provider`, and `propagate.extract`/`inject` as the global resolution points; SDK providers are registered at startup and never imported in library code.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -161,7 +161,7 @@
 - attributes: values are `str | bool | int | float | Sequence[str | bool | int | float]`; keys must be non-empty strings; `set_attributes` accepts a mapping in one call
 - instruments: synchronous `Counter`/`UpDownCounter`/`Histogram`/`Gauge` are recorded imperatively (`add`/`record`/`set`); observable (`Observable*`) instruments pull via registered callbacks yielding `Observation` under a `CallbackOptions` timeout — never mix push and pull on one instrument
 - baggage vs attributes: baggage is propagated cross-process key-value context (`set_baggage` derives a new immutable `Context`), distinct from span attributes which are local to a span; baggage does not auto-copy onto spans
-- propagation: `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; `DefaultGetter`/`DefaultSetter` cover dict-like HTTP header carriers, and a custom `Getter` handles multi-dict carriers such as `grpc.aio.Metadata`. The global propagator is a `CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` installed once at startup via `set_global_textmap` — the two concrete W3C codecs (`traceparent`/`tracestate` and `baggage`) chained over one carrier; never a hand-rolled header parser.
+- propagation: `TextMapPropagator` reads via `Getter[CarrierT]` and writes via `Setter[CarrierT]`; `DefaultGetter`/`DefaultSetter` cover dict-like HTTP header carriers, and a custom `Getter` handles multi-dict carriers such as `grpc.aio.Metadata`. One `CompositePropagator([TraceContextTextMapPropagator(), W3CBaggagePropagator()])` installs at startup via `set_global_textmap` — both W3C codecs chained over one carrier; never a hand-rolled header parser.
 
 [STACKS_WITH]:
 - grpc trace continuity: a client interceptor injects via `propagate.inject(metadata, setter=...)` and a server interceptor extracts via `propagate.extract(invocation_metadata, getter=...)` then opens `Tracer.start_as_current_span(kind=SpanKind.SERVER)` — `opentelemetry-api` owns the W3C `traceparent`/`tracestate` encoding while `grpcio` owns the metadata carrier.

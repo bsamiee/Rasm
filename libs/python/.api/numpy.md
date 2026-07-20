@@ -248,7 +248,7 @@
 - indexing: integer, boolean mask, fancy (array of indices), and slice indexing all produce views or copies depending on contiguity; boolean-mask assignment and `np.where` cover branchless selection
 - linalg in 2.x: `solve`/`inv`/`eig`/`svd`/`qr`/`cholesky` are batched (stacked) — a leading `(..., M, N)` shape applies the op over the trailing two axes, and `LinAlgError` signals singular/non-converging input
 - finiteness gating: `isfinite`/`isnan`/`isinf` masks, `nan_to_num`, and the `nan*` reductions are the canonical owners for non-finite handling; `errstate` scopes the FP error mode (`raise`/`warn`/`ignore`) for a kernel block
-- random Generator is the preferred API; `numpy.random.RandomState` is legacy and non-reentrant; `SeedSequence.spawn(n)` derives independent child seeds for parallel streams
+- random `Generator` is the sampling API; `numpy.random.RandomState` is non-reentrant and never used; `SeedSequence.spawn(n)` derives independent child seeds for parallel streams
 
 [STACKS_WITH]:
 - msgspec wire round-trip: a numeric block crosses the wire as a base64/`bytes` field or `Raw`; the producer flattens through `ndarray.tobytes()` (a C-order copy, the content-identity preimage chunk, its span pre-read from `ndarray.nbytes`), `np.frombuffer(buf, dtype).reshape(shape)` reconstructs a zero-copy view on the consumer side, and `ascontiguousarray` guarantees the C-contiguous layout before a `Struct` re-encodes the buffer — `numpy` owns the dtype, `msgspec` owns the envelope.

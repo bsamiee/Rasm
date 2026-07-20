@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_STRUCTLOG]
 
-`structlog` supplies structured logging as a left-to-right processor chain over a mutable event dict: per-logger context binding (`bind`/`unbind`/`try_unbind`/`new`), contextvars-backed ambient context for async/threaded propagation, a generated `FilteringBoundLogger` that compiles away sub-threshold levels, a stdlib `ProcessorFormatter` bridge that routes both structlog and foreign `logging` records through one render chain, callsite/timestamp/level/logger-name injectors, structured exception/traceback transformers, a `ConsoleRenderer` (column-configurable, optional Rich) for dev and `JSONRenderer`/`KeyValueRenderer`/`LogfmtRenderer` for production, plus `testing` capture helpers.
+`structlog` supplies structured logging as a left-to-right processor chain over a mutable event dict: per-logger context binding (`bind`/`unbind`/`try_unbind`/`new`), contextvars-backed ambient context, a `FilteringBoundLogger` that compiles away sub-threshold levels, a stdlib `ProcessorFormatter` bridge routing structlog and foreign `logging` records through one render chain, callsite/timestamp/level injectors, structured exception transformers, a `ConsoleRenderer` for dev and `JSONRenderer`/`KeyValueRenderer`/`LogfmtRenderer` for production, and `testing` capture helpers.
 
 ## [01]-[PACKAGE_SURFACE]
 

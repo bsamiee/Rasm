@@ -93,7 +93,7 @@
 - Stack with `@effect/sql-sqlite-node` / `@effect/sql-sqlite-wasm` (`.api/effect-sql-sqlite-node.md`, `-wasm`): the three sqlite lanes share the neutral `SqlClient` contract and the `lane/sqlite` statements, so a lane is a Layer row under one contract. Driver-distinct supersets diverge: node adds online `backup`/`BackupMetadata`, wasm adds `import`/`OpfsWorker`/`withTransferables`, this lane adds only the `create`/`readwrite` open-mode flags; `wasm` swaps `filename` for an OPFS worker handle.
 - Stack with `@effect/sql-pg` (`.api/effect-sql-pg.md`): the PG spine is the reference contract; this lane is its degraded mirror. `sql.onDialect` keeps one journal/projection statement across both, and the capability-degradation table is the map of what routes differently.
 - Stack with `@effect/experimental` (`.api/effect-experimental.md`): `make`/`reactive` require `Reactivity`; the sqlite lane's read-your-writes signal is in-process `Reactivity.invalidate` (no LISTEN/NOTIFY channel). `@effect/platform-bun` `BunContext` supplies the `FileSystem`/`Path` the banned `SqliteMigrator` does need.
-- Stack with `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): every statement auto-spans with `spanAttributes`; the exporter Layer under the graph ships them with no per-query wiring.
+- Stack with `@effect/opentelemetry`: every statement auto-spans with `spanAttributes`; the exporter Layer under the graph ships them with no per-query wiring.
 
 [LOCAL_ADMISSION]:
 - compose the neutral `SqlClient` Tag in lane rows; reach for the `SqliteClient` Tag only for `export`/`loadExtension`. Journal/projection statements are shared with the spine via `sql.onDialect`, never re-authored per lane.

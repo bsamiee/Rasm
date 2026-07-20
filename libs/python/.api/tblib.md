@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_TBLIB]
 
-`tblib` carries a Python traceback across a pickle seam so a worker-side exception re-raises parent-side with its frames intact. `Traceback` is the explicit carrier — it wraps a live traceback, folds to a dict or a parsed stacktrace string for wire transport, and rebuilds a native traceback for `raise exc.with_traceback(...)`. `pickling_support.install` is the monkeypatch rail — one process-global `copyreg` registration that makes every `BaseException` and `TracebackType` pickle-round-trip with its traceback attached. It is the runtime owner for cross-process fault fidelity, feeding `BoundaryFault.of` the true worker cause instead of a flattened subprocess marker.
+`tblib` carries a traceback across the pickle seam so a worker-side exception re-raises parent-side with its frames intact. `Traceback` is the carrier — wrapping a live traceback, folding to a dict or parsed string for wire transport, rebuilding a native traceback for `raise exc.with_traceback(...)`. `pickling_support.install` is the monkeypatch rail — one process-global `copyreg` registration making every `BaseException` and `TracebackType` pickle-round-trip with tracebacks. It owns cross-process fault fidelity, feeding `BoundaryFault.of` the true worker cause instead of a flattened marker.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -53,13 +53,13 @@ Both `as_dict` and `as_traceback` are the exact same class objects as `to_dict` 
 
 [ENTRYPOINT_SCOPE]: pickling-support install and reducers
 - rail: fault fidelity
-- `install(*exc_classes_or_instances, get_locals=None)` registers the traceback and exception reducers through `copyreg.dispatch_table`. No positional argument registers the `TracebackType` reducer plus one `pickle_exception` reducer per current `BaseException` subclass, walking the live subclass tree at call time — `copyreg` dispatch is exact-type, so a subclass defined after this call stays on the default pickle path until a later `install`. A class positional registers that exact class alone, never its subclasses; an instance positional registers `type(exc)` and recurses its `__cause__`, `__context__`, and `ExceptionGroup.exceptions` members. `get_locals=get_all_locals` threads locals capture into every traceback the reducer packs.
+- `install(*exc_classes_or_instances, get_locals=None)` registers the traceback and exception reducers through `copyreg.dispatch_table`. No positional argument registers the `TracebackType` reducer and one `pickle_exception` reducer per current `BaseException` subclass, walking the live subclass tree at call time — `copyreg` dispatch is exact-type, so a subclass defined after this call stays on the default pickle path until a later `install`. A class positional registers that exact class alone, never its subclasses; an instance positional registers `type(exc)` and recurses its `__cause__`, `__context__`, and `ExceptionGroup.exceptions` members. `get_locals=get_all_locals` threads locals capture into every traceback the reducer packs.
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [RAIL]                                         |
 | :-----: | :---------------------------------------------------- | :------------- | :--------------------------------------------- |
 |  [01]   | `install(*exc_classes_or_instances, get_locals=None)` | install        | register traceback + exception pickle reducers |
 
-Reducers name three pickle-side reconstructors the caller never invokes directly: `unpickle_traceback(tb_frame, tb_lineno, tb_next)` rebuilds a traceback, `unpickle_exception(func, args, cause, tb, context=None, suppress_context=False, notes=None)` rebuilds an exception, and `unpickle_exception_with_attrs(func, attrs, cause, tb, context, suppress_context, notes, args=())` additionally restores a subclass instance `__dict__`.
+Reducers name three pickle-side reconstructors the caller never invokes directly: `unpickle_traceback(tb_frame, tb_lineno, tb_next)` rebuilds a traceback, `unpickle_exception(func, args, cause, tb, context=None, suppress_context=False, notes=None)` rebuilds an exception, and `unpickle_exception_with_attrs(func, attrs, cause, tb, context, suppress_context, notes, args=())` also restores a subclass instance `__dict__`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
