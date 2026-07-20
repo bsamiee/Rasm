@@ -414,7 +414,7 @@ classes:
       - 'scanned alongside.{0,50}(fence|code span|link|placeholder)'
       - '(bare|body) placeholder.{0,50}(template|angle|slot)'
       - '(state|rewrite|surface).{0,60}(alongside|instead).{0,40}(gate|script|census) contract'
-    refuting_citation: 'demand-side gate bar — a demanded form the surface''s own enforcing gate refutes is void: prose_gate.py prose_spans() is the register-check feed, validate_bundle.py compiles templates strict so a bare angle slot fails (r5d-04, r5d-07)'
+    refuting_citation: 'demand-side gate bar — a demanded form the surface''s own enforcing gate refutes is void: prose_gate.py prose_spans() is the register-check feed (r5d-04, r5d-07)'
     landed_surfaces:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'

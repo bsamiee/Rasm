@@ -20,7 +20,6 @@ SETUP
 ```
 
 Baseline gates before the first deploy:
-
 - Docker engine and compose plugin present.
 - App directory exists.
 - `.env` exists with non-empty values for every required key.
@@ -50,7 +49,6 @@ Updates follow the same order with `docker compose pull` (registry images) or a 
 ## [04]-[VERIFY]
 
 Three levels, infrastructure to functionality:
-
 1. Container health: `docker compose ps` shows every service `Up` or `healthy`; `docker compose ps --format json | jq '.[] | select(.State != "running")'` catches restart loops.
 2. Application logs: `docker compose logs --tail=200 app`, and a grep for `error|fatal|exception` across services.
 3. Functional smoke: `curl -sf https://app.example.com/health` from outside, or `curl -sf http://localhost:3000/health` on-box; an application-specific end-to-end probe from the client surface closes the check.
@@ -73,7 +71,6 @@ Failed-deploy recovery, smallest hammer first: restore the previous compose or i
 |  [06]   | Monarx malware scanner            | API                        |
 
 Standing safety rows:
-
 - Secrets enter commands as environment variables and never print.
 - `.env` files never land in git.
 - Critical env keys validate non-empty before deploy.

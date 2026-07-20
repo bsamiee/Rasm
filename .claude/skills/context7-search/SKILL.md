@@ -23,7 +23,6 @@ Two MCP tools and a REST lane: `resolve-library-id` ranks indexed sources, `quer
 ## [01]-[SYMBOL_TRUTH]
 
 Any member of an external package about to be written, reviewed, or debugged:
-
 1. Resolve the library — skip when the ID is already known.
 2. Query the repo ID; add the doc-site ID in the same block only when the repo answer is thin.
 3. Drill — when a richer owning combinator surfaces, one query naming it returns production depth (status-gated policies, boundaries, idioms).

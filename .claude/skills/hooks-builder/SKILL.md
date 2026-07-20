@@ -5,8 +5,7 @@ description: >-
     becomes a deterministic exit-2 block, one body serving both providers. Use for PreToolUse
     gates, PostToolUse formatting/redaction, PermissionRequest auto-approval, SessionStart
     injection, Stop/SubagentStop continuation, PreCompact extraction, async guardrails, and
-    Codex hooks.json/config.toml adapters — "always run X first", "it keeps ignoring my
-    instruction". Where a rule should live is harness-steering.
+    Codex hooks.json/config.toml adapters.
 ---
 
 # [HOOKS_BUILDER]

@@ -1,24 +1,25 @@
 export const meta = {
     name: 'slice-implement',
     description:
-        'Theme-sliced implement engine over the whole libs/ card estate — one run realizes ONE functionality set at full depth, never unrelated work: discovery and per-folder plan lanes ingest the FULL card pool + census rows + research debt, then SELECT into typed work units only the theme-relevant cards and pages judged per folder against the run charter (borderline includes; non-theme cards stay untouched as expected leftovers, rostered with future-slice hints; cross-libs cards decompose into per-folder ripple executions landed in the same run); per unit a read-only codex sol lane writes a fact map + defect census + research-row census, blocked cards get a codex guidance leg then a stronger unblocking writer, a tiered writer (fable ground-up, opus surgical, codex mechanical volume) realizes cards into transcription-complete fences and drains research rows (theme-pertinent rows resolve fully; easy rows in touched files resolve opportunistically; hard non-pertinent rows stay, counted for their owning slice), a mid-run admission lane executes the full package-admission chain per discovered missing package (single-writer per central manifest), a critique repairs in place, and a conditional compose pass integrates critique-admitted packages into the unit fences; per-language drains apply cross-folder rows, one terminal fable red-team seals each libs tree with the four-surface drift closure, a theme-gated tests-estate branch with its own recon legs rebuilds tests/ + the root test spine to a gate-green state, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are never failures. args = {camp: absolute campaign home (required), theme?: {title, charter, include, tests} — omitted runs the built-in slice #1: the complete observability set + full IaC realization, ruled inseparable; scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
-    whenToUse: 'One run per functionality slice over the libs/ card estate — slice #1 is observability+IaC; later slices pass their own theme',
+        'Theme-sliced implement engine over the libs/ card estate — one run realizes ONE functionality set at full depth and does no unrelated work. Per-folder plan lanes ingest the full card pool, census rows, and research debt, then select only theme-relevant cards into dependency-ordered work units; the orchestrator packs those units into balanced writer batches under a page ceiling. Per batch a read-only recon lane maps verified facts, defects, and exact member signatures; blocked cards gain a guidance leg; a ground-up writer realizes every card into transcription-complete fences and drains research rows; a verification lane repairs conformance and capability defects in place; one admission barrier runs the full package chain per discovered missing package (single writer per central manifest); and a conditional compose pass integrates what landed. Four drain lanes apply cross-folder rows refute-first across the three language trees and the cross tier, a per-language closure census feeds one terminal adversarial lane per tree, a theme-gated tests branch rebuilds the tests estate to a green gate, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are rostered as future-slice work, never failures. args = {camp: absolute campaign home (required), theme?: {title, charter, include, tests} — omitted runs the built-in default theme; scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
+    whenToUse: 'One run per functionality slice over the libs/ card estate — pass a theme, or omit it to run the built-in default',
     phases: [
-        { title: 'Plan', detail: 'per-folder + cross-libs card-pool ingestion into typed, dependency-ordered work units with blocker rows' },
-        { title: 'Map', detail: 'per-unit codex sol fact map + defect and research census (read-only) and blocker guidance legs' },
-        { title: 'Implement', detail: 'tiered writers realize cards into fences, drain research rows, and close every card in-run' },
-        { title: 'Admit', detail: 'full admission chain per discovered missing package, single-writer per central manifest' },
-        { title: 'Critique', detail: 'per-unit conformance + capability audit, repaired in place' },
-        { title: 'Compose', detail: 'conditional integration pass composing critique-admitted packages into the unit fences' },
-        { title: 'Drain', detail: 'per-language cross-folder row application, refute-first' },
-        { title: 'Redteam', detail: 'one terminal fable lane per language tree + four-surface drift closure, legged for volume', model: 'fable' },
+        { title: 'Plan', detail: 'folder roster, then per-folder card-pool ingestion and theme selection into dependency-ordered work units' },
+        { title: 'Map', detail: 'per-batch recon: facts, defects, admitted capability at exact declaration depth, and blocker guidance legs' },
+        { title: 'Implement', detail: 'one ground-up writer per packed batch realizes cards into fences and drains research rows' },
+        { title: 'Critique', detail: 'per-batch conformance and capability verification, repaired in place' },
+        { title: 'Admit', detail: 'full admission chain per discovered missing package, single writer per central manifest' },
+        { title: 'Compose', detail: 'conditional integration pass composing admitted packages into the batch fences' },
+        { title: 'Drain', detail: 'cross-folder row application per language tree and the cross tier, refute-first' },
+        { title: 'Census', detail: 'per-language closure census across manifest, catalogs, registries, and project manifests' },
+        { title: 'Redteam', detail: 'one terminal adversarial lane per language tree, acting on the closure census' },
         {
             title: 'Tests',
-            detail: 'tests-estate build-out per language with its own recon legs: _testkits, harness rails, root spine, gate to green',
+            detail: 'tests-estate build-out per language: _testkits, harness rails, root spine, gate to green',
         },
         {
             title: 'Audit',
-            detail: 'slice-closure proof over theme-selected cards: zero open selected cards; leftovers + research counted, never failures',
+            detail: 'slice-closure proof over theme-selected cards: zero open selected cards; leftovers and research counted, never failures',
         },
     ],
 };
@@ -28,15 +29,19 @@ export const meta = {
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and reviewers all take one slot
 const STAGGER_MS = 1500;
-const STALL_MS = 900000; // blocking codex MCP legs and fable writers run many minutes without visible progress
-const PLAN_MEDIUM_FLOOR = 5; // open-card count from which a plan lane runs medium effort
-const PLAN_HIGH_FLOOR = 12; // open-card count from which a plan lane runs high effort — decomposition quality gates the whole chain
+const STALL_MS = 900000; // delegated MCP legs and ground-up writers run many minutes without visible progress
+const BATCH_PAGES = 16; // page target for one implement batch — the writer fan-width knob
+const BATCH_OVERFLOW = 1.25; // a starved tail folds into its predecessor while the merge stays inside this multiple of the target
+const MAP_SECTIONS = ['FACTS', 'DEFECTS', 'CAPABILITY', 'RESEARCH', 'SEAMS', 'COVERAGE'];
+const TMAP_SECTIONS = ['FACTS', 'CAPABILITY', 'GAPS', 'DRIFT', 'SPINE', 'COVERAGE'];
+const CENSUS_SECTIONS = ['SURFACES', 'ORPHANS', 'DUPLICATES', 'UNEXPLOITED', 'COVERAGE'];
 const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
 const LANGS = [
     { key: 'csharp', root: 'libs/csharp' },
     { key: 'python', root: 'libs/python' },
     { key: 'typescript', root: 'libs/typescript' },
 ];
+const DRAINS = LANGS.concat([{ key: 'cross', root: 'libs/.planning' }]); // the cross tier drains too — a row targeting it routed nowhere before
 const GATES = { csharp: 'dotnet build', python: 'pytest --collect-only', typescript: 'pnpm install then pnpm typecheck' };
 const AXES = {
     csharp:
@@ -50,7 +55,7 @@ const AXES = {
         'for the kafka/grpc/nats seams; vitest bench readiness',
 };
 const DEFAULT_THEME = {
-    // slice #1 — the launch theme when args.theme is omitted
+    // the built-in theme when args.theme is omitted
     title: 'observability-and-iac',
     charter:
         'The complete observability fabric and its full IaC realization, ruled inseparable — per-project deployment is the telemetry story ' +
@@ -180,11 +185,10 @@ const UNITS = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['order', 'title', 'tier', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
+                required: ['order', 'title', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
                 properties: {
                     order: { type: 'integer' },
                     title: { type: 'string' },
-                    tier: { type: 'string', enum: ['fable', 'opus', 'codex'] },
                     heavy: { type: 'boolean' },
                     cards: { type: 'array', items: { type: 'string' } },
                     pages: { type: 'array', items: { type: 'string' } },
@@ -431,39 +435,50 @@ const TESTKIT_LAW =
     '/tests/README.md first and execute tests-INFRASTRUCTURE ripples only — root spine, _testkits, imports — never test authoring.';
 
 const MAP_LAW =
-    '<role>\nYou are a read-only recon mapper for one work unit of the Rasm planning corpus.\nTreat the task-listed unit pages and the ' +
+    '<role>\nYou are a read-only recon mapper for one work batch of the Rasm planning corpus.\nTreat the task-listed batch pages and the ' +
     'required owner, catalog, and seam sources below as read territory.\nEdit nothing.\nRun no git command.\n</role>\n\n' +
     '<completion_bar>\nDone requires one complete markdown map as the final message.\nObservable completion requires every output-contract ' +
-    'section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required read.\nPlace every ' +
-    'unverified member, page, claim, or seam in [COVERAGE] with the failed probe.\nExclude unverified claims from settled sections.\n' +
-    '</completion_bar>\n\n' +
-    '<context_gathering>\nRead fully through EOF in this order:\n1. Every unit page the task lists.\n2. Each unit page folder README.md and ' +
-    'ARCHITECTURE.md.\n3. Each named package .api catalog, folder tier first and language-root tier second.\n4. Only the anchors explicitly ' +
-    'named at each seam-counterpart page.\n\nTreat explicit seam references as the only authority for expanding beyond the unit.\nDo not ' +
-    'follow inferred counterparts or adjacent pages.\nRecord an absent task-named or required path in [COVERAGE] with its absolute attempted ' +
-    'path and filesystem probe.\nDo not substitute a likely path for a missing path.\nCount a row under a unit page terminal [RESEARCH] ' +
-    'section as live when it remains on disk without an explicit resolved, closed, or removed marker.\nRecord a required research field ' +
-    'absent from its source as "missing on disk".\nUse at most 60 tool calls across discovery and verification.\nCount every tool invocation ' +
-    'against the single budget.\nRead in small batches that preserve complete output.\nDo not concatenate the territory into one command.\n' +
-    'Reserve enough calls to re-open every cited anchor during verification.\nStop discovery when the map is complete.\nWhen the remaining ' +
-    'budget is required for verification, route unresolved discovery to [COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
-    '<verification>\nRe-open every source anchor cited by a settled row.\nRe-check every cited member against both applicable .api tiers by ' +
-    'exact textual spelling.\nTreat a substring, fuzzy match, or paraphrase as unverified.\nClassify a cited member absent from both .api ' +
-    'tiers as a phantom in [DEFECTS].\nExclude every phantom from [FACTS].\nVerify each absence claim against the complete census boundary ' +
-    'named by its row.\nAdmit a seam to [SEAMS] only when both endpoints, the kind, and the label re-confirm on disk.\nRoute a one-ended or ' +
-    'mismatched seam to [DEFECTS] and [COVERAGE].\nRemove any settled row whose evidence fails re-confirmation.\nRecord the removed claim ' +
-    'and failed probe in [COVERAGE].\n</verification>\n\n' +
-    '<output_contract>\nReturn one markdown document with nothing before or after it.\nUse exactly these H2 sections in this order.\nAdd no ' +
-    'other H2 section.\n\n' +
+    'section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required read.\nThe map is ' +
+    'the whole verified substrate the writer consumes: a writer holding it re-derives no fact and re-opens no catalog.\nEvery [CAPABILITY] ' +
+    'row carries the exact transcribed declaration of its member.\nPlace every unverified member, page, claim, or seam in [COVERAGE] with ' +
+    'the failed probe.\nExclude unverified claims from settled sections.\n</completion_bar>\n\n' +
+    '<context_gathering>\nRead fully through EOF in this order:\n1. Every batch page the task lists.\n2. Each batch page folder README.md ' +
+    'and ARCHITECTURE.md.\n3. Each named package .api catalog, folder tier first and language-root tier second.\n4. Only the anchors ' +
+    'explicitly named at each seam-counterpart page.\n\nTreat explicit seam references as the only authority for expanding beyond the ' +
+    'batch.\nDo not follow inferred counterparts or adjacent pages.\nTranscribe each catalog declaration you cite at the point of reading; ' +
+    'a member recorded as a bare name costs a second read the budget does not carry.\nRecord an absent task-named or required path in ' +
+    '[COVERAGE] with its absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nCount a row ' +
+    'under a batch page terminal [RESEARCH] section as live when it remains on disk without an explicit resolved, closed, or removed ' +
+    'marker.\nRecord a required research field absent from its source as "missing on disk".\nUse at most 110 tool calls across discovery ' +
+    'and verification.\nCount every tool invocation against the single budget.\nRead in small batches that preserve complete output.\nDo ' +
+    'not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor and every transcribed declaration ' +
+    'during verification.\nStop discovery when the map is complete.\nWhen the remaining budget is required for verification, route ' +
+    'unresolved discovery to [COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
+    '<verification>\nRe-open every source anchor cited by a settled row.\nRe-check every cited member against both applicable .api tiers ' +
+    'by exact textual spelling.\nRe-open the catalog row behind every [CAPABILITY] declaration and confirm the transcription character for ' +
+    'character across owning type, member name, generic parameters, every parameter name and type, and the return type.\nTreat a ' +
+    '[CAPABILITY] row carrying a bare member name, a catalog heading, or a paraphrased declaration as an incomplete-signature defect: ' +
+    'complete it from the catalog or move it to [COVERAGE] as unverified.\nTreat a substring, fuzzy match, or paraphrase as unverified.\n' +
+    'Classify a cited member absent from both .api tiers as a phantom in [DEFECTS].\nExclude every phantom from [FACTS] and ' +
+    '[CAPABILITY].\nVerify each absence claim against the complete census boundary named by its row.\nAdmit a seam to [SEAMS] only when ' +
+    'both endpoints, the kind, and the label re-confirm on disk.\nRoute a one-ended or mismatched seam to [DEFECTS] and [COVERAGE].\n' +
+    'Remove any settled row whose evidence fails re-confirmation.\nRecord the removed claim and failed probe in [COVERAGE].\n' +
+    '</verification>\n\n' +
+    '<output_contract>\nReturn one markdown document with nothing before or after it.\nUse exactly these H2 sections in this order.\nAdd ' +
+    'no other H2 section.\n\n' +
     '## [FACTS]\nUse one "- " row per page capability composed by a fence.\nShape each row as: page: <absolute path> | anchor: <symbol or ' +
     'heading> | owner: <owner> | fence: <fence identifier> | fact: <verified capability>.\n\n' +
-    '## [DEFECTS]\nUse one "- " row per verified defect.\nAdmit these classes: facade, seam mirror missing, seam mirror mismatched, registry ' +
-    'drift, phantom member, stale card claim.\nShape each row as: class: <class> | source: <absolute path and anchor> | evidence: <observed ' +
-    'mismatch> | law: <violated planning law>.\nName the defect and its law.\nDo not state resulting code or remediation.\n\n' +
-    '## [UNEXPLOITED]\nUse one "- " row per qualifying .api member by exact name.\nRequire evidence that the unit concept admits the member ' +
-    'and that no unit-page fence composes it.\nShape each row as: member: <exact name> | catalog: <absolute .api path and anchor> | ' +
-    'admitted-by: <absolute unit-page path and anchor> | absence-boundary: <fences checked>.\n\n' +
-    '## [RESEARCH]\nUse one "- " row per live row under any unit page terminal [RESEARCH] section.\nShape each row as: page: <absolute ' +
+    '## [DEFECTS]\nUse one "- " row per verified defect.\nAdmit these classes: facade, seam mirror missing, seam mirror mismatched, ' +
+    'registry drift, phantom member, stale card claim.\nShape each row as: class: <class> | source: <absolute path and anchor> | evidence: ' +
+    '<observed mismatch> | law: <violated planning law>.\nName the defect and its law.\nDo not state resulting code or remediation.\n\n' +
+    '## [CAPABILITY]\nUse one "- " row per .api member the batch composes or should compose.\nSet status "required" when a batch card, ' +
+    'anchor, or package names the member, and "unexploited" when the batch concept admits the member and no batch-page fence composes ' +
+    'it.\nShape each row as: status: required|unexploited | member: <exact name> | owner: <declaring type or module> | signature: ' +
+    '<complete declaration transcribed from the catalog, carrying generic parameters, every parameter name and type, and the return type> ' +
+    '| catalog: <absolute .api path and anchor> | tier: folder|language-root | admitted-by: <absolute batch-page path and anchor, or the ' +
+    'card naming it> | absence-boundary: <fences checked, unexploited rows only>.\nTranscribe each declaration exactly as its catalog ' +
+    'states it.\nA row without a complete signature is a defect, not a row.\n\n' +
+    '## [RESEARCH]\nUse one "- " row per live row under any batch page terminal [RESEARCH] section.\nShape each row as: page: <absolute ' +
     'path> | anchor: <row anchor> | question: <source text> | route: <source text or "missing on disk">.\n\n' +
     '## [SEAMS]\nUse one "- " row per verified cross-folder or cross-language seam.\nShape each row as: endpoint-a: <absolute path and ' +
     'anchor> | endpoint-b: <absolute path and anchor> | kind: <exact disk spelling> | label: <exact disk spelling>.\n\n' +
@@ -509,99 +524,163 @@ const GUIDE_LAW =
     'item: <decision-critical fact> | probe: <exact failed probe> | result: <observed failure>.\nWrite "none" when every decision-critical ' +
     'fact is verified.\n</output_contract>';
 
-const IMPL_LAW =
-    '<role>\nYou are a design-page writer for one work unit of the Rasm planning corpus. Work at the design layer: markdown design pages ' +
-    'are the product, and their code fences carry the real, compilable design. Your write territory is exactly the files under the ' +
-    'territory the task names plus its IDEAS.md/TASKLOG.md card files. Edit no source-tree file, central manifest (Directory.Packages.props, ' +
-    'pyproject.toml, pnpm-workspace.yaml), or path outside that territory; run no git command.\n</role>\n\n' +
-    '<completion_bar>\nDone means all of these observable states hold:\n1. Each realized card has a transcription-complete code fence on its ' +
-    'owning page containing the real declaration, members, cases, fields, signatures, and bodies in exact verified spellings; its card file ' +
-    'carries [COMPLETE] with a one-line disposition naming the landed owner.\n2. Each card proven already realized by current disk carries ' +
-    '[COMPLETE] with a one-line disposition citing the landed fence.\n3. Each card refuted by current disk carries [DROPPED] with a ' +
-    'one-line disposition citing the refuting file and anchor.\n4. Each genuinely future card carries [BLOCKED] with a one-line disposition ' +
-    'stating the explicit condition that arms it.\n5. Each unit-page [RESEARCH] row reaches one task-defined outcome: a theme-pertinent ' +
-    'row resolves via its route — a confirmed spelling lands in the owning fence and the row is removed, a refuted assumption is corrected ' +
-    'at its owner and the obsolete row is removed, an unresolvable row is sharpened in place with a better question and exact verification ' +
-    'route; an easy row in any touched file — answerable by one verified read — resolves the same way regardless of theme, never left ' +
-    'standing in a touched file; a hard non-pertinent row stays untouched and is counted as left; a ' +
-    'python version-floor or package-support-gate row is removed as resolved by standing ruling (py315 supports every admitted package; ' +
-    'emit no python-version gating, marker, or prose anywhere).\n6. The receipt document exists at the exact absolute path the task names ' +
-    'and reports the landed files, card ' +
-    'dispositions, research outcomes, routed work, missing packages, and residuals.\n\nImplement exactly and only the task cards. Resolve ' +
-    'ambiguity through the simplest interpretation consistent with current disk, the doctrine, and the owning page charter; do not ask ' +
-    'questions. Do not land a partial edit for a deliverable that lacks enough evidence for a coherent landing; record one residuals row ' +
-    'naming the blocked claim, affected files, and owner. Route each required out-of-territory change to crossFolderRows. Route each ' +
-    'missing package to packagesMissing and perform no installation or manifest edit.\n</completion_bar>\n\n' +
-    '<context_gathering>\nComplete this read ladder before the first edit:\n1. Read every doctrine root file the task names in full; each ' +
-    'is the floor for every fence.\n2. Read every unit page in full.\n3. Read the task-named fact map in full when present; treat each ' +
-    'entry as a lead and re-verify its anchor before use.\n4. Read the task-named guidance dossier in full when present; treat its facts ' +
-    'and constraints as decision inputs, not design.\n5. Before writing a member, read its exact .api catalog row at the folder tier, then ' +
-    'at the language-root tier.\n\nBudget: at most 90 tool calls total across the lane. Read in bounded batches whose outputs do not ' +
-    'truncate; never concatenate the territory into one command. Stop gathering when the completion bar is met. At the budget, stop ' +
-    'searching: keep every member absent from both .api tiers out of settled fence code, create or sharpen its [RESEARCH] row with the ' +
-    'unresolved question and exact route, mark a dependent unrealizable card [BLOCKED] with its verification trigger, and record the ' +
-    'blocked claim in residuals.\n</context_gathering>\n\n' +
-    '<capability_mandate>\nLand new capability as a row, case, field, operation, or policy value on an existing owner before creating a ' +
-    'surface. Create a surface only when current pages prove that every existing owner would violate its charter by carrying the card. ' +
-    'Where a card assumes a file, folder, or owner, confirm it on disk first; absent, create it at the full bar and extend it as if it had ' +
-    'existed from the start — a minted page meets the same density and coverage bar as a mature page the moment it lands, never a stub or ' +
-    'skeleton. Mine both task-named .api tiers to operator depth for the unit concepts; an admitted capability the concept admits and no ' +
-    'fence composes is a defect: compose it or record one residuals row with the ruling. ' +
-    'Collapse flat repeated shapes and repeated case handling into one denser polymorphic owner. Parameterize repeated literals and ' +
-    'per-site spellings as policy rows on that owner. Keep one monadic spine per concern. Preserve every behavior through densification: ' +
-    'before removing a repeated shape, map each member, path, and precedence rule it carries to its surviving owner; an unmapped behavior ' +
-    'blocks the collapse and lands in residuals.\n</capability_mandate>\n\n' +
-    '<verification>\nRe-read each changed region immediately after landing its edit and compare it with the card it realizes. Accept a ' +
-    'member spelling only when an exact row in the folder-tier or language-root .api catalog confirms it; use the task-named routes to ' +
-    'resolve facts those catalogs delegate. Run no build, test, or compile command against the planning pages. Where the pass minted a ' +
-    'new markdown file, run the docgen gate script at ' +
+const CRIT_LAW =
+    '<role>\nYou are a verify-and-repair writer for one landed implement batch of the Rasm planning corpus.\nWork at the design layer: ' +
+    'markdown design pages are the product, and their code fences carry the real, compilable design.\nYour write territory is exactly the ' +
+    'territory the task names plus its IDEAS.md/TASKLOG.md card files.\nEdit no source-tree file, central manifest ' +
+    '(Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml), or path outside that territory.\nRun no git command.\n</role>\n\n' +
+    '<completion_bar>\nDone means all of these observable states hold:\n1. Every audit dimension below ran against current disk and every ' +
+    'finding it produced is FIXED in place; a finding recorded as a note instead of a fix is an incomplete pass.\n2. Every member the ' +
+    'batch pages cite is confirmed against the folder-tier or language-root .api catalog, or removed from settled fence code and re-cast ' +
+    'as a [RESEARCH] row carrying its question and exact route.\n3. Every card the task names carries a terminal marker whose evidence ' +
+    'holds on current disk; a closed card whose fence is partial REOPENS with the defect named.\n4. Every task-named rippleSurface ' +
+    'endpoint carries a rippleLedger row whose disposition holds against disk.\n5. The receipt document exists at the exact absolute path ' +
+    'the task names.\n\nFix, never annotate. An edit requires a named violated law and the concrete case that breaks it; churn without one ' +
+    'is a defect. The work ends objectively denser than the implement stage left it, or the attack proves the strongest form already ' +
+    'present by finding nothing — a clean verdict earned by an attack that finds nothing is a first-class result. Resolve ambiguity ' +
+    'through the simplest interpretation consistent with current disk, the doctrine, and the owning page charter; do not ask questions. ' +
+    'Route each required out-of-territory change to crossFolderRows. Route each missing package to packagesMissing and perform no ' +
+    'installation or manifest edit.\n</completion_bar>\n\n' +
+    '<context_gathering>\nComplete this ladder in this exact order; the order is the integrity of this lane.\n1. Read every doctrine root ' +
+    'file the task names in full.\n2. Read every batch page in full and derive your OWN defect list from current disk. Complete this step ' +
+    'before opening any prior-stage product; a defect list seeded by a prior claim is not a cold pass.\n3. Only then read the task-named ' +
+    'fact map and implement receipt in full. Treat both as UNVERIFIED prior claims to refute against current disk, never as findings to ' +
+    'accept.\n4. Read the card file of every card the task names.\n5. Before confirming or writing a member, read its exact .api catalog ' +
+    'row at the folder tier, then at the language-root tier.\n\nThe task-named files-touched roster is navigation only: look there first, ' +
+    'bound nothing by it.\nBudget: at most 120 tool calls total across the lane. Read in bounded batches whose outputs do not truncate; ' +
+    'never concatenate the territory into one command. At the budget, stop searching: keep every member absent from both .api tiers out ' +
+    'of settled fence code, sharpen its [RESEARCH] row with the unresolved question and exact route, and record the blocked claim in ' +
+    'residuals.\n</context_gathering>\n\n' +
+    '<audit_dimensions>\nRun every dimension as a FLOOR and hunt past it.\nCOLLAPSE SCAN: repeated shapes, parallel spellings, and ' +
+    'enumerable families an algebra, table, fold, or generator can own.\nOWNER CHOICE: capability landed on the wrong owner, or a new ' +
+    'surface created where an existing owner admits a row, case, field, operation, or policy value.\nKNOB TEST: entry-point sprawl and ' +
+    'boolean knobs an internalized policy row collapses.\nRAIL UNIFICATION: dual paradigms where one monadic spine per concern belongs.\n' +
+    'LANGUAGE MODERNITY: a construct the owning doctrine supersedes.\nCAPABILITY AND ILLUSION: a name promising capability its fence ' +
+    'omits.\nFENCE TRANSCRIPTION-COMPLETENESS: a fence carrying an elision, a placeholder, or an omitted body the card requires.\nMEMBER ' +
+    'TRUTH: every cited member re-verified against both .api tiers; a member failing verification is a phantom you delete or convert to a ' +
+    '[RESEARCH] row.\nISOLATION-CLAIM TRUTH: an app-scoped or per-instance claim without per-instance member evidence corrects to the ' +
+    'honest scope.\nCARD-CLOSURE TRUTH: a closed card whose fence is partial REOPENS with the defect named; a re-carded blocked entry ' +
+    'without an arming trigger gains one.\nRIPPLE-LEDGER TRUTH: every task-named rippleSurface endpoint carries a ledger row whose ' +
+    'disposition holds against disk — a landed endpoint proven on disk, a deferred endpoint present as a crossFolderRows row, an ' +
+    'out-of-theme endpoint carrying its future-slice hint; a silent or false endpoint you land or ledger yourself.\nRESEARCH-ROW ' +
+    'DISCIPLINE: a resolved row deleted whole, a sharpened row carrying question and route, a hard non-pertinent row left byte-untouched ' +
+    'and never dispositioned.\nAPI ULTRA-STACKING: both catalog tiers enumerated for the batch packages; an admitted capability the ' +
+    'concept admits and no fence composes is a defect you compose in.\nFRESH-PAGE DEPTH: a page minted this run meets the density and ' +
+    'coverage bar of a mature page.\nCARD-ASSUMED EXISTENCE: an owner a card assumed exists on disk at the full bar; a missing or stubbed ' +
+    'assumed owner is a defect you fix.\n</audit_dimensions>\n\n' +
+    '<verification>\nRe-read each changed region immediately after landing its edit and compare it with the card and the law that ' +
+    'motivated the change.\nAccept a member spelling only when an exact row in the folder-tier or language-root .api catalog confirms ' +
+    'it.\nRun no build, test, or compile command against the planning pages.\nWhere the pass minted a new markdown file, run the docgen ' +
+    'gate script at ' +
     REPO +
-    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over the new files after the final edit and ' +
-    'repair the FAILs it reports on those files.\n\nAfter the final content ' +
-    'edit, re-open every dispositioned card and its cited owner region. Confirm that each marker belongs to [COMPLETE], [DROPPED], or ' +
-    '[BLOCKED], that its one-line disposition matches the landed fence, refuting evidence, or arming trigger, and that no task card remains ' +
-    'without one terminal disposition. Re-open each unit page terminal [RESEARCH] section and confirm that every original row is removed, ' +
-    'corrected at its owner, sharpened with an exact route, or counted as left (hard non-pertinent rows only, byte-untouched). Reconcile ' +
-    'filesTouched against the design-page and card-file edits, ' +
-    'cardsClosed against the task-card roster, researchResolved against the final research outcomes, and every routing, package, and ' +
-    'residual row against current disk before writing the receipt.\n</verification>\n\n' +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help), batched once over the new files after the final edit, and ' +
+    'repair the FAILs it reports on those files.\nAfter the final content edit, re-open every card the task names and confirm one terminal ' +
+    'marker whose citation or arming trigger matches current disk.\nRe-open each batch page terminal [RESEARCH] section and confirm every ' +
+    'row is removed, corrected at its owner, sharpened with an exact route, or left byte-untouched as a hard non-pertinent row.\n' +
+    'Reconcile filesTouched against the actual edit roster, cardsClosed against the task-card roster, rippleLedger against the task-named ' +
+    'rippleSurface, researchResolved against the final research outcomes, and every routing, package, and residual row against current ' +
+    'disk before writing the receipt.\n</verification>\n\n' +
     '<output_contract>\nWrite the receipt document to the exact absolute path the task names as the final filesystem action before the ' +
-    'final message. Write one JSON object with exactly these keys and no others: {folder, stage, filesTouched, crossFolderRows, ' +
-    'cardsClosed, packagesMissing, researchResolved, residuals, summary}.\n\nfolder and stage use the exact task values. filesTouched is ' +
-    'the actual design-page and card-file edit roster as absolute paths. crossFolderRows is [{targetFile, language, change, origin}]. ' +
-    'cardsClosed is [{file, card, disposition}], with disposition using only [COMPLETE], [DROPPED], or [BLOCKED] and carrying the same ' +
-    'citation or arming trigger recorded in the card file. packagesMissing is [{package, language, reason}]. researchResolved is {resolved, ' +
-    'sharpened, left}, with nonnegative counts matching the final research outcomes. residuals is [{claim, files, owner}]. summary is one ' +
-    'evidence-grounded account of the landed outcome. Every path value is absolute. Use [] for an empty list; do not guess.\n\nYour final ' +
-    'message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
+    'final message.\nWrite one JSON object with exactly these keys and no others: {folder, stage, filesTouched, crossFolderRows, ' +
+    'rippleLedger, cardsClosed, packagesMissing, researchResolved, residuals, summary}.\n\nfolder and stage use the exact task values.\n' +
+    'filesTouched is the actual design-page and card-file edit roster as absolute paths.\ncrossFolderRows is [{targetFile, language, ' +
+    'change, origin}].\nrippleLedger is [{endpoint, disposition, evidence}] with disposition one of "landed", "deferred", or ' +
+    '"out-of-theme" — one row per task-named rippleSurface endpoint plus every splash endpoint this pass exposed.\ncardsClosed is [{file, ' +
+    'card, disposition}] with disposition using only [COMPLETE], [DROPPED], or [BLOCKED] and carrying the same citation or arming trigger ' +
+    'recorded in the card file.\npackagesMissing is [{package, language, reason}].\nresearchResolved is {resolved, sharpened, left} with ' +
+    'nonnegative counts matching the final research outcomes.\nresiduals is [{claim, files, owner}].\nsummary is one evidence-grounded ' +
+    'account of what the attack found and what it fixed.\nEvery path value is absolute.\nUse [] for an empty list; do not guess.\n\nYour ' +
+    'final message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
+
+const CENSUS_LAW =
+    '<role>\nYou are a read-only four-surface closure censor for one language tree of the Rasm planning corpus.\nTreat the central ' +
+    'manifest, both .api catalog tiers, every folder README registry, and every project manifest the task names as read territory.\nEdit ' +
+    'nothing.\nRun no git command.\n</role>\n\n' +
+    '<completion_bar>\nDone requires one complete markdown census as the final message.\nObservable completion requires every ' +
+    'output-contract section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required ' +
+    'read.\nThe census is the closure table its consumer acts on: a consumer holding it re-sweeps no surface.\nEvery admitted package ' +
+    'appears in [SURFACES] once per surface carrying it, and in [ORPHANS] once per owning surface that does not.\nEvery [UNEXPLOITED] row ' +
+    'carries the exact transcribed declaration of its member.\nPlace every unverified row, package, or claim in [COVERAGE] with the failed ' +
+    'probe.\nExclude unverified claims from settled sections.\nRecord findings only; prescribe no change and state no remediation.\n' +
+    '</completion_bar>\n\n' +
+    '<context_gathering>\nRead fully through EOF in this order:\n1. The central manifest the task names.\n2. Every .api catalog under the ' +
+    'language-root tier.\n3. Every .api catalog under each folder tier the task names.\n4. Each folder README.md package-registry ' +
+    'section.\n5. Each project manifest the task names.\n\nTreat the task-named manifest, catalog tiers, registries, and project ' +
+    'manifests as the complete census boundary.\nDo not expand into design pages except to confirm an [UNEXPLOITED] absence boundary.\n' +
+    'Transcribe each catalog declaration you cite at the point of reading.\nRecord an absent task-named or required path in [COVERAGE] ' +
+    'with its absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nUse at most 120 tool ' +
+    'calls across discovery and verification.\nCount every tool invocation against the single budget.\nRead in small batches that preserve ' +
+    'complete output.\nDo not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor during ' +
+    'verification.\nWhen the remaining budget is required for verification, route unresolved discovery to [COVERAGE] instead of ' +
+    're-reading.\n</context_gathering>\n\n' +
+    '<verification>\nRe-open every source anchor cited by a settled row.\nMatch every package name across surfaces by exact textual ' +
+    'spelling; treat a substring, casing variant, or paraphrase as a distinct name and record both.\nSupport each [ORPHANS] row by naming ' +
+    'the surface carrying the package, the owning surface that does not, and the probe proving the absence across the complete boundary ' +
+    'of that surface.\nSupport each [DUPLICATES] row by citing both anchors and the tier of each.\nRe-open the catalog row behind every ' +
+    '[UNEXPLOITED] declaration and confirm the transcription across owning type, member name, generic parameters, every parameter name ' +
+    'and type, and the return type.\nSupport each [UNEXPLOITED] row with the absence boundary — the owners checked — proving no owner ' +
+    'composes the member.\nRemove any settled row whose evidence fails re-confirmation.\nRecord the removed claim and failed probe in ' +
+    '[COVERAGE].\n</verification>\n\n' +
+    '<output_contract>\nReturn one markdown document with nothing before or after it.\nUse exactly these H2 sections in this order.\nAdd ' +
+    'no other H2 section.\n\n' +
+    '## [SURFACES]\nUse one "- " row per admitted package per surface carrying it.\nShape each row as: package: <exact name> | surface: ' +
+    'manifest|catalog|registry|project | source: <absolute path and anchor> | tier: folder|language-root|n-a | detail: <version anchor, ' +
+    'catalog scope, registry row text, or reference row text exactly as the surface states it>.\n\n' +
+    '## [ORPHANS]\nUse one "- " row per package absent from an owning surface that must carry it.\nShape each row as: package: <exact ' +
+    'name> | present-on: <surface with absolute path and anchor> | missing-from: <surface> | expected-source: <absolute path where the row ' +
+    'belongs> | absence-boundary: <the complete surface checked>.\n\n' +
+    '## [DUPLICATES]\nUse one "- " row per package documented twice across tiers or surfaces.\nShape each row as: package: <exact name> | ' +
+    'anchor-a: <absolute path and anchor> | tier-a: folder|language-root | anchor-b: <absolute path and anchor> | tier-b: ' +
+    'folder|language-root | overlap: <the members or scope both anchors state>.\n\n' +
+    '## [UNEXPLOITED]\nUse one "- " row per admitted member no owner in the tree composes.\nShape each row as: member: <exact name> | ' +
+    'owner: <declaring type or module> | signature: <complete declaration transcribed from the catalog, carrying generic parameters, every ' +
+    'parameter name and type, and the return type> | catalog: <absolute .api path and anchor> | tier: folder|language-root | ' +
+    'candidate-owner: <absolute page path and anchor whose concept admits the member> | absence-boundary: <owners checked>.\nTranscribe ' +
+    'each declaration exactly as its catalog states it.\nA row without a complete signature is a defect, not a row.\n\n' +
+    '## [COVERAGE]\nUse one "- " row per file read, file skipped, or entry left unverified.\nShape each row as: status: read|skipped|' +
+    'unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
+    'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
 const TMAP_LAW =
     '<role>\nYou are a read-only recon mapper for one language tests estate.\nTreat the paths named by the task and the required ' +
     'registry-depth sources below as read territory.\nEdit nothing.\nRun no git command.\n</role>\n\n' +
     '<completion_bar>\nDone requires one complete markdown map as the final message.\nObservable completion requires every output-contract ' +
-    'section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required read.\nPlace every ' +
-    'unverified file, capability, drift claim, or spine claim in [COVERAGE] with the failed probe.\nExclude unverified claims from settled ' +
-    'sections.\n</completion_bar>\n\n' +
+    'section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required read.\nThe map is ' +
+    'the whole verified substrate the build-out consumes: a build-out holding it re-derives no testing-package member and re-opens no ' +
+    'catalog.\nEvery [CAPABILITY] row carries the exact transcribed declaration of its member.\nPlace every unverified file, capability, ' +
+    'drift claim, or spine claim in [COVERAGE] with the failed probe.\nExclude unverified claims from settled sections.\n' +
+    '</completion_bar>\n\n' +
     '<context_gathering>\nRead fully through EOF in this order:\n1. Read the tests README, inventory the language tests tree named by the ' +
     'task, and read every file in that tree.\n2. Read every root spine file named by the task.\n3. Read each applicable language-libs ' +
     'README package-registry section, the testing-relevant .api catalogs the task names, and every observability page the task names.\n\n' +
     'Treat the named tests tree, named spine files, package registries, named catalogs, and named observability pages as the census ' +
-    'boundary.\nDo not expand into unlisted implementation pages.\nRecord an absent task-named or required path in [COVERAGE] with its ' +
-    'absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nUse at most 60 tool calls across ' +
-    'discovery and verification.\nCount every tool invocation against the single budget.\nRead in small batches that preserve complete ' +
-    'output.\nDo not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor during verification.\n' +
-    'Stop discovery when the estate map is complete.\nWhen the remaining budget is required for verification, route unresolved discovery to ' +
-    '[COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
+    'boundary.\nDo not expand into unlisted implementation pages.\nTranscribe each catalog declaration you cite at the point of reading; a ' +
+    'member recorded as a bare name costs a second read the budget does not carry.\nRecord an absent task-named or required path in ' +
+    '[COVERAGE] with its absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nUse at most ' +
+    '100 tool calls across discovery and verification.\nCount every tool invocation against the single budget.\nRead in small batches that ' +
+    'preserve complete output.\nDo not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor and ' +
+    'every transcribed declaration during verification.\nStop discovery when the estate map is complete.\nWhen the remaining budget is ' +
+    'required for verification, route unresolved discovery to [COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
     '<verification>\nRe-open every source anchor cited by a settled row.\nRe-confirm each _testkit and harness fact against its owning ' +
-    'file.\nVerify each [GAPS] absence claim across the complete named tests-tree boundary.\nName the build-out axis governing each ' +
-    'verified gap.\nVerify each [DRIFT] claim by comparing the tests-estate claim with the current libs registry or observability anchor.\n' +
-    'Verify each [SPINE] claim against both the root-config row and the affected tests-estate evidence.\nTreat a substring, inferred ' +
-    'relationship, or unmatched name as unverified.\nRemove any settled row whose evidence fails re-confirmation.\nRecord the removed ' +
-    'claim and failed probe in [COVERAGE].\n</verification>\n\n' +
+    'file.\nRe-open the catalog row behind every [CAPABILITY] declaration and confirm the transcription character for character across ' +
+    'owning type, member name, generic parameters, every parameter name and type, and the return type.\nTreat a [CAPABILITY] row carrying ' +
+    'a bare member name, a catalog heading, or a paraphrased declaration as an incomplete-signature defect: complete it from the catalog ' +
+    'or move it to [COVERAGE] as unverified.\nVerify each [GAPS] absence claim across the complete named tests-tree boundary.\nName the ' +
+    'build-out axis governing each verified gap.\nVerify each [DRIFT] claim by comparing the tests-estate claim with the current libs ' +
+    'registry or observability anchor.\nVerify each [SPINE] claim against both the root-config row and the affected tests-estate ' +
+    'evidence.\nTreat a substring, inferred relationship, or unmatched name as unverified.\nRemove any settled row whose evidence fails ' +
+    're-confirmation.\nRecord the removed claim and failed probe in [COVERAGE].\n</verification>\n\n' +
     '<output_contract>\nReturn one markdown document with nothing before or after it.\nUse exactly these H2 sections in this order.\nAdd ' +
     'no other H2 section.\n\n' +
     '## [FACTS]\nUse one "- " row per verified _testkit or harness inventory fact.\nShape each row as: source: <absolute path> | anchor: ' +
     '<symbol or heading> | owner: <_testkit or harness owner> | fact: <verified current capability>.\n\n' +
+    '## [CAPABILITY]\nUse one "- " row per testing-package member the spine cites or a build-out axis admits.\nSet status "cited" when a ' +
+    'spine row or existing harness names the member, and "admitted" when an axis admits it and no estate file composes it.\nShape each row ' +
+    'as: status: cited|admitted | member: <exact name> | owner: <declaring type or module> | signature: <complete declaration transcribed ' +
+    'from the catalog, carrying generic parameters, every parameter name and type, and the return type> | catalog: <absolute .api path and ' +
+    'anchor> | tier: folder|language-root | axis: <exact task spelling, admitted rows only> | absence-boundary: <estate files checked, ' +
+    'admitted rows only>.\nTranscribe each declaration exactly as its catalog states it.\nA row without a complete signature is a defect, ' +
+    'not a row.\n\n' +
     '## [GAPS]\nUse one "- " row per verified capability gap against a build-out axis named by the task.\nShape each row as: axis: <exact ' +
     'task spelling> | gap: <absent capability> | census-boundary: <files or tree checked> | evidence: <observable absence evidence>.\n\n' +
     '## [DRIFT]\nUse one "- " row per stale or misaligned tests-estate content item.\nShape each row as: tests-source: <absolute path and ' +
@@ -640,6 +719,7 @@ const makeSlots = (cap) => {
 const slot = makeSlots(CAP);
 const guard = (p) => p.catch(() => null);
 const sum = (xs, f) => xs.reduce((a, x) => a + (f(x) || 0), 0);
+const uniq = (xs) => [...new Set(xs)];
 
 const baseOf = (f) => {
     const segs = f.path.replace(/\/+$/, '').split('/');
@@ -647,8 +727,43 @@ const baseOf = (f) => {
     return tail === '.planning' ? (f.language === 'cross' ? 'libs' : 'branch') : tail;
 };
 const fid = (f) => (SHORT[f.language] || 'xx') + '-' + slugOf(baseOf(f));
-const uid = (f, i) => fid(f) + '-u' + (i + 1);
+const bid = (f, i) => fid(f) + '-b' + (i + 1);
 const planningRootOf = (f) => (f.path.endsWith('/.planning') ? f.path : f.path + '/.planning');
+// Units arrive dependency-ordered (a minting unit precedes every unit extending it); packing fills in that order so order survives,
+// the ceiling caps every writer's page load, and a starved tail folds back inside the overflow allowance.
+const packBatches = (f, units) => {
+    const bins = [];
+    for (const u of units.slice().sort((a, b) => a.order - b.order)) {
+        const last = bins[bins.length - 1];
+        const merged = last ? uniq(last.pages.concat(u.pages || [])) : null;
+        if (last && merged.length <= BATCH_PAGES) {
+            last.units.push(u);
+            last.pages = merged;
+        } else bins.push({ units: [u], pages: uniq(u.pages || []) });
+    }
+    if (bins.length > 1) {
+        const tail = bins[bins.length - 1];
+        const prev = bins[bins.length - 2];
+        const merged = uniq(prev.pages.concat(tail.pages));
+        if (tail.pages.length * 2 < BATCH_PAGES && merged.length <= BATCH_PAGES * BATCH_OVERFLOW) {
+            prev.units.push(...tail.units);
+            prev.pages = merged;
+            bins.pop();
+        }
+    }
+    return bins.map((b, i) => ({
+        id: bid(f, i),
+        title: b.units.map((u) => u.title).join(' + '),
+        members: b.units.map((u) => u.title),
+        heavy: b.units.some((u) => u.heavy),
+        cards: uniq(b.units.flatMap((u) => u.cards || [])),
+        pages: b.pages,
+        anchors: uniq(b.units.flatMap((u) => u.anchors || [])),
+        packages: uniq(b.units.flatMap((u) => u.packages || [])),
+        rippleSurface: b.units.flatMap((u) => u.rippleSurface || []),
+        blockers: b.units.flatMap((u) => u.blockers || []),
+    }));
+};
 const apiTiersOf = (f) =>
     f.language === 'cross'
         ? REPO + '/libs/csharp/.api, ' + REPO + '/libs/python/.api, and ' + REPO + '/libs/typescript/.api'
@@ -671,7 +786,7 @@ const censusOf = (f) =>
         : CAMP + '/realize/drain-' + f.language + '.md (escalated rows and unreviewed-chain sections) and ' + CAMP + '/residuals.md';
 const territoryOf = (f) =>
     f.language === 'cross'
-        ? 'libs-wide for this unit — every touchpoint page its cards name across ' +
+        ? 'libs-wide for this batch — every touchpoint page its cards name across ' +
           REPO +
           '/libs plus ' +
           f.path +
@@ -680,7 +795,7 @@ const territoryOf = (f) =>
 const memoryClause = (f) =>
     f.language === 'csharp' || f.language === 'cross'
         ? ', and the memory index at /Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md — ' +
-          'open every reference_* entry naming a surface this unit composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, telemetry traps)'
+          'open every reference_* entry naming a surface this batch composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, telemetry traps)'
         : '';
 const pyGuard = (k) =>
     k === 'python'
@@ -691,9 +806,13 @@ const mapClause = (mapR) =>
     mapR && mapR.ok
         ? 'at ' +
           mapR.report +
-          ' IN FULL from disk — its settled rows arrive twice-verified: compose them directly, re-opening only a row whose spelling a fence ' +
-          'composes as settled code; its [UNEXPLOITED] rows are your composition queue and its [DEFECTS] rows your repair queue.'
-        : '— NONE landed for this unit; your own full territory read replaces it.';
+          ' IN FULL from disk. Every settled row arrives twice-verified against disk, and its [CAPABILITY] rows carry exact transcribed ' +
+          'declarations — owning type, generic parameters, parameter list with types, return type. Compose those spellings straight into ' +
+          'fences; re-open a catalog ONLY where a fence settles a member the map routed to [COVERAGE] unverified. Its status:required ' +
+          '[CAPABILITY] rows are the members your cards name, its status:unexploited rows your composition queue, [DEFECTS] your repair ' +
+          'queue, [RESEARCH] your debt queue, [SEAMS] your both-ends obligation. Re-deriving what the map already settled is wasted ' +
+          'budget, not diligence.'
+        : '— NONE landed for this batch; your own full territory read replaces it.';
 const guideClause = (u, guideR) =>
     u.blockers.length
         ? ' BLOCKED CARDS: read the guidance dossier ' +
@@ -702,12 +821,15 @@ const guideClause = (u, guideR) =>
           'a blocker proven genuinely unresolvable (external dependency, frozen wire) closes its card back to [BLOCKED] with a sharpened arming ' +
           'condition citing the dossier path; every other blocked card resolves and realizes in this pass.'
         : '';
-const admitClause = (admitted) =>
-    admitted && admitted.length
-        ? ' ADMITTED MID-RUN for this unit: ' +
-          JSON.stringify(admitted.map((a) => ({ package: a.package, language: a.language, admitted: !!(a.ok && a.admitted), catalog: a.report }))) +
-          ' — compose each admitted package catalog members where the unit concept admits them; a rejected admission stays out of the fences.'
-        : '';
+const tmapClause = (mapR) =>
+    mapR && mapR.ok
+        ? 'at ' +
+          mapR.report +
+          ' IN FULL from disk. Every settled row arrives twice-verified, and its [CAPABILITY] rows carry the exact transcribed ' +
+          'declarations of the testing packages the spine cites — compose those spellings straight into the rails and re-open a catalog ' +
+          'ONLY where a rail settles a member the map routed to [COVERAGE] unverified. Its [GAPS] rows are your build-out queue, [DRIFT] ' +
+          'your repair queue, [SPINE] your alignment queue. Re-deriving what the map already settled is wasted budget, not diligence.'
+        : '— NONE landed; your own full estate read replaces it, including the testing-package catalogs at their owning tiers.';
 const receiptDoc = (id, stage) =>
     'Write your COMPLETE receipt document as one JSON object to ' +
     OUT +
@@ -716,7 +838,7 @@ const receiptDoc = (id, stage) =>
     '-' +
     stage +
     '.json (Write tool, absolute path): {folder, stage, filesTouched: [absolute paths], crossFolderRows: [{targetFile, language, change, ' +
-    'origin}], rippleLedger: [{endpoint, disposition: "landed"|"deferred"|"out-of-theme", evidence}] — one row per unit rippleSurface ' +
+    'origin}], rippleLedger: [{endpoint, disposition: "landed"|"deferred"|"out-of-theme", evidence}] — one row per batch rippleSurface ' +
     'endpoint plus every splash endpoint your work exposed, cardsClosed: [{file, card, disposition}], packagesMissing: [{package, ' +
     'language, reason}], researchResolved: {resolved, ' +
     'sharpened, left}, residuals: [{claim, files, owner}], summary}.';
@@ -728,8 +850,102 @@ const thinReceipt = (f, stage) =>
     '", ok, report, filesTouched (absolute), crossFolderRows/cardsClosed/researchResolved/residuals counts, packagesMissing rows copied ' +
     'verbatim from your receipt document, one-line headline, failure empty.';
 
-const discoverPrompt = () =>
-    'Resolve the card-owning folder roster from disk. Folders: every package directory directly under ' +
+const cfgOf = (o) => {
+    const rows = [];
+    if (o.effort) rows.push('"model_reasoning_effort":"' + o.effort + '"');
+    if (o.web) rows.push('"web_search":"live"');
+    return rows.length ? 'config={' + rows.join(',') + '}, ' : '';
+};
+const probeOf = (v, report) =>
+    v.sections
+        ? 'grep -oE "^## \\[(' +
+          v.sections.join('|') +
+          ')\\]" ' +
+          report +
+          ' | sort -u | wc -l — a count under ' +
+          v.sections.length +
+          ' means a missing contract section, a malformed product'
+        : v.marker
+          ? 'grep -c "' + v.marker + '" ' + report + ' — the count must equal ' + v.count + ', and a mismatch means a dropped section'
+          : 'jq -e ' + JSON.stringify(v.jq) + ' ' + report + ' >/dev/null — a nonzero exit means a missing or malformed product';
+
+// Sandbox decides authorship: a read-only delegate cannot write, so the wrapper lands the content; a writing delegate lands its own product.
+const relayPrompt = (o) => {
+    const many = Array.isArray(o.rows);
+    const sandbox = o.sandbox || 'read-only';
+    const authored = sandbox === 'workspace-write';
+    return (
+        'DISPATCH ROLE: a delegate performs the complete work below through ' +
+        (many ? String(o.rows.length) + ' SEQUENTIAL blocking delegate calls, one per ROW' : 'one blocking delegate call') +
+        '; never perform, edit, judge, research, or relay the work yourself. (1) ToolSearch "select:mcp__codex__codex"' +
+        (many ? ' once' : '') +
+        '. (2) ' +
+        (many ? 'Per row call' : 'Call') +
+        ' mcp__codex__codex' +
+        (many ? '' : ' ONCE') +
+        ' with model="gpt-5.6-sol", cwd="' +
+        REPO +
+        '", sandbox="' +
+        sandbox +
+        '", approval-policy="never", ' +
+        cfgOf(o) +
+        '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = ' +
+        (many ? 'the ROW TASK block below with that row values substituted' : 'the TASK block below VERBATIM') +
+        '. On a tool error retry ' +
+        (many ? 'that row ONCE, then record it failed and continue' : 'ONCE with a sharpened prompt — your whole recovery budget') +
+        '. (3) ' +
+        (authored
+            ? 'The delegate lands the product itself at ' + o.report + ' as its final act.'
+            : 'Each tool result is a JSON envelope {threadId, content}; ' +
+              (many
+                  ? 'concatenate the CONTENT texts (never the envelopes) in row order and Write the result'
+                  : 'Write the CONTENT text (never the envelope) unmodified') +
+              ' to ' +
+              o.report +
+              ' (delete any leftover file there first).') +
+        ' (4) Verify with one Bash call: ' +
+        probeOf(o.verify, o.report) +
+        '; on a miss re-derive the product from the tool result once and re-probe, and a second miss returns ok=false with the probe ' +
+        'output. (5) ' +
+        o.ret +
+        '\n\nLANE LAW:\n\n' +
+        o.law +
+        (many ? '\n\nROW TASK:\n\n' + o.rowTask + '\n\nROWS:\n\n' + JSON.stringify(o.rows) : '\n\nTASK:\n\n' + o.task)
+    );
+};
+
+const DISCOVER_LAW =
+    '<role>\nYou are a read-only roster resolver for the Rasm planning corpus.\nTreat the libs tree as read territory.\nEdit nothing ' +
+    'other than the product the task names.\nRun no git command.\n</role>\n\n' +
+    '<completion_bar>\nDone requires the product file holding one JSON object and nothing else.\nEvery folder row carries an absolute ' +
+    'path, its language, and an open-card count derived from the exact pattern the task states.\nA folder whose card files could not be ' +
+    'read is omitted, never guessed at.\n</completion_bar>\n\n' +
+    '<context_gathering>\nEnumerate directories first, then count within the enumerated set.\nUse at most 40 tool calls.\nCount every ' +
+    'tool invocation against the single budget.\nBatch the counting sweep rather than probing one folder per call.\n' +
+    '</context_gathering>\n\n' +
+    '<verification>\nRe-probe every folder admitted to the roster and confirm at least one card file exists at its root.\nConfirm each ' +
+    'count against the stated pattern rather than a similar one.\nDrop any row whose path fails re-confirmation.\n</verification>\n\n' +
+    '<output_contract>\nWrite one JSON object {folders: [{path, language, openCards}]} to the path the task names.\nEvery path value is ' +
+    'absolute.\nYour final message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
+
+const AUDIT_LAW =
+    '<role>\nYou are a read-only closure auditor for one theme slice of the Rasm planning corpus.\nTreat the card files and design pages ' +
+    'the task names as read territory.\nEdit nothing other than the product the task names.\nRun no git command.\nFix nothing.\n</role>\n\n' +
+    '<completion_bar>\nDone requires the product file holding one JSON object and nothing else.\nEvery roster entry is derived from a ' +
+    'current on-disk marker, never from a prior receipt claim.\nAn unreachable card file is rostered with its failed probe, never silently ' +
+    'dropped.\nCounts only: state no verdict beyond the rosters the output contract names.\n</completion_bar>\n\n' +
+    '<context_gathering>\nRead the card file of every selected card the task names, then sweep the terminal research sections across the ' +
+    'roots the task names, then the receipt documents the task names.\nUse at most 90 tool calls.\nCount every tool invocation against the ' +
+    'single budget.\nBatch each sweep rather than probing one file per call.\n</context_gathering>\n\n' +
+    '<verification>\nRe-open every card admitted to a roster and confirm its current leader marker.\nConfirm each deferred-endpoint and ' +
+    'residual claim against current disk before admitting it.\nDrop any entry whose evidence fails re-confirmation.\n</verification>\n\n' +
+    '<output_contract>\nWrite one JSON object {openCards: [{file, card}], blockedNoTrigger: [{file, card}], blockedCards, researchRows, ' +
+    'researchByLanguage} to the path the task names.\nresearchByLanguage is a list of "language: N" strings.\nEvery path value is ' +
+    'absolute.\nYour final message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
+
+const discoverTask = (report) =>
+    'Goal: resolve the card-owning folder roster from disk and write it as one JSON object.\n' +
+    'Folders: every package directory directly under ' +
     REPO +
     '/libs/csharp, ' +
     REPO +
@@ -739,10 +955,13 @@ const discoverPrompt = () =>
     REPO +
     '/libs/{csharp,python,typescript}/.planning where card files exist; plus the cross-libs tier ' +
     REPO +
-    '/libs/.planning. Per folder count OPEN cards: lines matching ^\\[[A-Za-z0-9_-]+\\]-\\[(ACTIVE|QUEUED|BLOCKED)\\] inside the [01]-[OPEN] ' +
-    'section of IDEAS.md plus TASKLOG.md ("(none)" is zero). Return folders as {path (absolute), language, openCards}; language derives from ' +
-    'the path segment under libs/, and libs/.planning is language "cross".' +
-    (SCOPE.length ? ' Restrict the roster to folders matching any of: ' + JSON.stringify(SCOPE) + '.' : '');
+    '/libs/.planning.\n' +
+    'Per folder count OPEN cards: lines matching ^\\[[A-Za-z0-9_-]+\\]-\\[(ACTIVE|QUEUED|BLOCKED)\\] inside the [01]-[OPEN] section of ' +
+    'IDEAS.md plus TASKLOG.md ("(none)" is zero). Language derives from the path segment under libs/; libs/.planning is language "cross".' +
+    (SCOPE.length ? ' Restrict the roster to folders matching any of: ' + JSON.stringify(SCOPE) + '.' : '') +
+    '\nDone when: ' +
+    report +
+    ' holds one JSON object {folders: [{path, language, openCards}]} and nothing else.';
 
 const planPrompt = (f) =>
     'POOL INGESTION for ' +
@@ -770,24 +989,24 @@ const planPrompt = (f) =>
     'matching; borderline relevance INCLUDES. EMIT typed WORK UNITS covering the theme-relevant pool: every theme-relevant open card joins ' +
     'exactly one unit — none excluded, none deferred; a non-theme card joins leftovers, never a unit, and stays untouched. Pages with ' +
     'theme-pertinent [RESEARCH] rows join the unit owning those pages, and theme-pertinent rows on pages outside every card unit form ' +
-    'one final research-drain unit ordered last; a non-pertinent row on a page no unit touches stays. A unit is a folder-scoped card ' +
-    'cluster one writer lands in one pass: cluster cards sharing ' +
-    'pages or one owner surface; never one unit per card when cards share a page, never one mega-unit over page-disjoint clusters. Size ' +
-    'units for one writer single pass — roughly 3 to 8 pages of real work: split a folder-swallowing mega-unit at its page-disjoint ' +
-    'cluster boundaries and merge card-sized fragments up; agent spin-up overhead swamps a tiny unit, and an oversized unit starves its ' +
-    'critique. Per unit: ' +
+    'one final research-drain unit ordered last; a non-pertinent row on a page no unit touches stays. A unit is the SMALLEST COHERENT ' +
+    'PAGE-DISJOINT card cluster: cards sharing a page or one owner surface cluster into one unit, and two clusters sharing no page stay ' +
+    'separate units. Units are NOT writer-sized — a packer downstream merges them into writer batches under a page ceiling, and it packs ' +
+    'cleanly only when units are page-disjoint. So never one unit per card when those cards share a page (the packer cannot split one ' +
+    'page across two writers), and never one unit spanning clusters that share no page (an unsplittable lump the packer cannot balance). ' +
+    'A unit whose own page count already exceeds a writer pass is still ONE unit when its pages are genuinely interdependent — say so in ' +
+    'note; do not fracture an interdependent cluster to hit a size. Report every page a unit edits: the packer balances on that count, so ' +
+    'an understated page list produces an overloaded writer and a starved sibling. Per unit: ' +
     'order (dependency position, 1 first — a unit consuming another unit fence output orders after it, and a unit that MINTS a page or ' +
-    'sub-folder orders before every unit extending it); title; tier; heavy (true when the ' +
+    'sub-folder orders before every unit extending it; the packer preserves this order inside and across batches, so it is load-bearing); ' +
+    'title; heavy (true when the ' +
     'unit spans 3+ pages or creates any page); cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the unit edits, index docs ' +
     'included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit composes); rippleSurface — ' +
     'the unit ripple contract: for each selected card, every consumer, unlock endpoint, or counterpart the card NAMES in its Unlocks, ' +
     'Shape, Ripple, or thesis lands one row {endpoint (the folder or page it names, absolute where resolvable — cross-folder and ' +
     'cross-language included), source ("FILE [ID] Unlocks|Shape|Ripple")} — [] only when no selected card names one; blockers — every ' +
     'BLOCKED card in the unit lands one row {card, question (the blocker restated as an answerable question), route (the resolution route: ' +
-    'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none. TIER is decision weight, never modality: ' +
-    '"fable" = design synthesis — new owners, ground-up or multi-page authoring, contested judgment; "opus" = surgical realization on ' +
-    'settled owners — fence edits, card closes, conformance; "codex" = transcription at scale where every decision is already on the page. ' +
-    'A unit carrying blockers tiers "fable" or "opus", never "codex".' +
+    'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none.' +
     (f.language === 'cross'
         ? ' CROSS-LIBS DECOMPOSITION: a cross-libs card is a multi-folder work unit — decompose it into per-folder ripple executions inside ' +
           'ONE unit: pages list every touchpoint page across libs/ grouped by folder, anchors name both ends of every seam, the title names ' +
@@ -798,82 +1017,69 @@ const planPrompt = (f) =>
     'page path>", hint}. Zero theme-relevant work = units [] (leftovers still rostered) with note naming what you checked. Units are ' +
     'navigation facts, never verdicts or designs.';
 
-const mapTask = (f, u) =>
-    'Map unit "' +
-    u.title +
+const discoverWrapPrompt = () => {
+    const report = OUT + '/discover.json';
+    return relayPrompt({
+        report,
+        law: DISCOVER_LAW,
+        task: discoverTask(report),
+        verify: { jq: '.folders | length > 0' },
+        effort: 'medium',
+        ret: 'Return folders = the roster array parsed from the landed product, one {path, language, openCards} row per folder.',
+    });
+};
+
+const mapTask = (f, b) =>
+    'Map work batch "' +
+    b.title +
     '" of ' +
     f.path +
-    '. UNIT PAGES (read in full): ' +
-    JSON.stringify(u.pages) +
+    '. BATCH PAGES (read in full): ' +
+    JSON.stringify(b.pages) +
     '. CARDS: ' +
-    JSON.stringify(u.cards) +
+    JSON.stringify(b.cards) +
     '. ANCHORS: ' +
-    JSON.stringify(u.anchors) +
+    JSON.stringify(b.anchors) +
     '. PACKAGES: ' +
-    JSON.stringify(u.packages) +
+    JSON.stringify(b.packages) +
     '. API TIERS: ' +
     apiTiersOf(f) +
     '. FOLDER: ' +
     f.path +
-    '.';
+    '. The writer consuming this map composes from it directly and does not re-open what you settle: transcribe every member the batch ' +
+    'cards will compose at exact declaration depth, and route every member you could not verify to [COVERAGE] rather than settling it. A ' +
+    'row that restates a catalog heading without its signature costs the writer a re-read and is a lane defect.';
 
-const mapWrapPrompt = (f, u) => {
-    const report = OUT + '/' + u.id + '-map.md';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
-        REPO +
-        '", sandbox="read-only", approval-policy="never", ' +
-        (u.heavy ? '' : 'config={"model_reasoning_effort":"medium"}, ') +
-        '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE ' +
-        'with a sharpened prompt — your whole recovery budget. (3) The tool result is a JSON envelope {threadId, content}; Write the CONTENT ' +
-        'text (never the envelope) unmodified to ' +
-        report +
-        ' (delete any leftover file there first). (4) Verify with one Bash call: grep -oE "^## \\[(FACTS|DEFECTS|UNEXPLOITED|RESEARCH|' +
-        'SEAMS|COVERAGE)\\]" ' +
-        report +
-        ' | sort -u | wc -l — a count under 6 means a missing contract section, a malformed product: rewrite once from the tool result, ' +
-        'then return ok=false with the miss. ' +
-        '(5) Return ok, report, entries = the "- " row count under [DEFECTS], research = the "- " row count under [RESEARCH] (Read the file ' +
-        'to count per section; "- none" counts zero), headline = "<defects>d <unexploited>u <research>r", failure empty — or ok=false with ' +
-        'the error text VERBATIM.\n\nLANE LAW:\n\n' +
-        MAP_LAW +
-        '\n\nTASK:\n\n' +
-        mapTask(f, u)
-    );
-};
+const mapWrapPrompt = (f, b) =>
+    relayPrompt({
+        report: OUT + '/' + b.id + '-map.md',
+        law: MAP_LAW,
+        task: mapTask(f, b),
+        verify: { sections: MAP_SECTIONS },
+        effort: b.heavy ? '' : 'medium',
+        ret:
+            'Return ok, report, entries = the "- " row count under [DEFECTS], research = the "- " row count under [RESEARCH] (Read the ' +
+            'file to count per section; "- none" counts zero), headline = "<defects>d <unexploited>u <research>r", failure empty — or ' +
+            'ok=false with the error text VERBATIM.',
+    });
 
-const guideWrapPrompt = (f, u) => {
-    const report = OUT + '/' + u.id + '-guidance.md';
-    return (
-        'DISPATCH ROLE: run ' +
-        u.blockers.length +
-        ' SEQUENTIAL blocking codex MCP calls, one per BLOCKER row below; never research, judge, or answer any blocker yourself. (1) ' +
-        'ToolSearch "select:mcp__codex__codex" once. (2) Per row call mcp__codex__codex with model="gpt-5.6-sol", cwd="' +
-        REPO +
-        '", sandbox="read-only", approval-policy="never", config={"model_reasoning_effort":"medium","web_search":"live"}, ' +
-        '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = "Resolve this blocker into decision inputs. CARD: <card>. ' +
-        'QUESTION: <question>. ROUTE: <route>. FOLDER: ' +
-        f.path +
-        '." with the row values substituted. On a tool error retry that row ONCE, then record it failed and continue. (3) Each tool result ' +
-        'is a JSON envelope {threadId, content}; concatenate the CONTENT texts (never envelopes) in row order and Write the result to ' +
-        report +
-        ' (delete any leftover file first). (4) Verify with one Bash call: grep -c "^## \\[BLOCKER\\]" ' +
-        report +
-        ' — the count must equal ' +
-        u.blockers.length +
-        '; on a mismatch rewrite once from the tool results, then return ok=false with the miss. (5) Return ok, report, entries = the ' +
-        'RESOLVABLE verdict count, research = 0, headline = "<resolvable>/<total> resolvable", failure = the failed row cards or empty.' +
-        '\n\nLANE LAW:\n\n' +
-        GUIDE_LAW +
-        '\n\nBLOCKER ROWS:\n\n' +
-        JSON.stringify(u.blockers)
-    );
-};
+const guideWrapPrompt = (f, b) =>
+    relayPrompt({
+        report: OUT + '/' + b.id + '-guidance.md',
+        law: GUIDE_LAW,
+        rows: b.blockers,
+        rowTask: 'Resolve this blocker into decision inputs. CARD: <card>. QUESTION: <question>. ROUTE: <route>. FOLDER: ' + f.path + '.',
+        verify: { marker: '^## \\[BLOCKER\\]', count: b.blockers.length },
+        effort: 'medium',
+        web: true,
+        ret:
+            'Return ok, report, entries = the RESOLVABLE verdict count, research = 0, headline = "<resolvable>/<total> resolvable", ' +
+            'failure = the failed row cards or empty.',
+    });
 
-const implPrompt = (f, u, mapR, guideR) =>
-    'IMPLEMENT unit "' +
-    u.title +
+const implPrompt = (f, b, mapR, guideR) =>
+    'IMPLEMENT work batch "' +
+    b.title +
     '" of ' +
     f.path +
     ' at the campaign bar. ' +
@@ -885,9 +1091,11 @@ const implPrompt = (f, u, mapR, guideR) =>
     ' Read AT SOURCE, in full, before any edit: ' +
     doctrineOf(f) +
     memoryClause(f) +
-    '. Then run your OWN blind pass over the unit pages — defect list and design rulings from disk FIRST; then read the fact map ' +
+    '. Then run your OWN blind DESIGN pass over the batch pages: owner shape, collapse rulings, capability bar, and the defect verdict ' +
+    'are yours to derive from disk and are never inherited. FACTS are the opposite — member spellings, seam endpoints, registry state, ' +
+    'and research debt arrive settled; read the fact map ' +
     mapClause(mapR) +
-    guideClause(u, guideR) +
+    guideClause(b, guideR) +
     ' Realize every card into transcription-complete code FENCES inside the owning design pages — the real declaration with members, cases, ' +
     'fields, signatures, and bodies in exact verified spellings; a member unverifiable against a .api tier lands as a RESEARCH row, never ' +
     'settled fence code. ' +
@@ -906,25 +1114,28 @@ const implPrompt = (f, u, mapR, guideR) =>
     'compose it or record it in residuals with the ruling. Where your pass mints a NEW markdown file, run the docgen gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over the new files after the final edit, ' +
-    'repaired to zero FAIL. UNIT: cards ' +
-    JSON.stringify(u.cards) +
+    'repaired to zero FAIL. BATCH: units (land in this order) ' +
+    JSON.stringify(b.members) +
+    '; cards ' +
+    JSON.stringify(b.cards) +
     '; pages ' +
-    JSON.stringify(u.pages) +
+    JSON.stringify(b.pages) +
     '; anchors ' +
-    JSON.stringify(u.anchors) +
+    JSON.stringify(b.anchors) +
     '; packages ' +
-    JSON.stringify(u.packages) +
-    '. ' +
-    receiptDoc(u.id, 'implement') +
+    JSON.stringify(b.packages) +
+    '. The batch is several dependency-ordered units packed into one pass: a unit that mints a page or owner lands before every unit ' +
+    'extending it, and a later unit composing an earlier unit fence output reads the landed fence, never the card. Every card of every ' +
+    'unit reaches a terminal disposition in this pass — a unit left unstarted is a residuals row naming it, never a silent omission. ' +
+    receiptDoc(b.id, 'implement') +
     thinReceipt(f, 'implement');
 
-const codexImplTask = (f, u, mapR, guideR) =>
-    'Goal: realize unit "' +
-    u.title +
+const critTask = (f, b, impl, mapR) =>
+    'Goal: audit and repair work batch "' +
+    b.title +
     '" of ' +
     f.path +
-    ' — every card below into transcription-complete fences, every card to a terminal disposition, every unit-page [RESEARCH] row to its ' +
-    'outcome.\n' +
+    ' IN PLACE — doctrinal conformance and capability completeness across every page the batch touched.\n' +
     'Theme: ' +
     THEME_LAW +
     '\n' +
@@ -932,63 +1143,50 @@ const codexImplTask = (f, u, mapR, guideR) =>
     territoryOf(f) +
     '; doctrine root files ' +
     doctrineOf(f) +
-    '; unit pages ' +
-    JSON.stringify(u.pages) +
+    '; batch pages ' +
+    JSON.stringify(b.pages) +
     '; cards ' +
-    JSON.stringify(u.cards) +
+    JSON.stringify(b.cards) +
     '; anchors ' +
-    JSON.stringify(u.anchors) +
+    JSON.stringify(b.anchors) +
     '; packages ' +
-    JSON.stringify(u.packages) +
+    JSON.stringify(b.packages) +
     '; api tiers ' +
     apiTiersOf(f) +
+    '; rippleSurface ' +
+    JSON.stringify(b.rippleSurface) +
     '; fact map ' +
-    (mapR && mapR.ok
-        ? mapR.report + ' (twice-verified navigation facts — compose directly; re-open only a spelling a fence settles)'
-        : 'none — your own read replaces it') +
-    (u.blockers.length
-        ? '; guidance dossier ' +
-          (guideR && guideR.ok
-              ? guideR.report +
-                ' (decision inputs, never design; an EXTERNALLY-BLOCKED verdict closes its card back to [BLOCKED] with a sharpened arming condition citing the dossier)'
-              : 'failed — run its routes yourself')
-        : '') +
-    '.\nResearch step: a theme-pertinent row verifies via its stated route (tools.assay api, .api catalogs, named docs) — bake confirmed ' +
-    'spellings into the owning fence and DELETE the row whole, correct refuted assumptions at the root, sharpen unresolvable rows in ' +
-    'place; an easy row in any touched file (one verified read answers it) resolves the same way regardless of theme; a hard ' +
-    'non-pertinent row stays untouched, counted as left; delete python version-floor and ' +
-    'package-support-gate rows as resolved by standing ruling (py315 supports every admitted package — emit no version gating, marker, or ' +
-    'prose anywhere).\n' +
-    'Constraints: absolute paths everywhere; no source files; no manifest edits; no package installs.\n' +
-    'Done when: every listed card dispositioned, fences landed, research drained, and the receipt document written to ' +
+    ((mapR && mapR.ok && mapR.report) || 'none — your own read replaces it') +
+    '; implement receipt ' +
+    ((impl && impl.report) || 'none') +
+    '; implement-touched files ' +
+    JSON.stringify((impl && impl.filesTouched) || []) +
+    '.\n' +
+    'Derive your own defect list from the pages on disk BEFORE opening either prior product. The map and the implement receipt are ' +
+    'unverified prior claims to refute against current disk; the touched-file list is navigation only and bounds nothing.\n' +
+    'A non-theme open card sharing a card file with batch cards stays byte-untouched — an expected leftover for a future slice, never ' +
+    'dispositioned, never reworded.\n' +
+    'Constraints: absolute paths everywhere; no source-tree file; no central manifest; no package install; no git command.\n' +
+    'Done when: every defect your audit confirms is FIXED in place — never noted — and the receipt document is written to ' +
     OUT +
     '/' +
-    u.id +
-    '-implement.json.';
+    b.id +
+    '-critique.json.';
 
-const codexImplWrapPrompt = (f, u, mapR, guideR) => {
-    const report = OUT + '/' + u.id + '-implement.json';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
-        REPO +
-        '", sandbox="workspace-write", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = the ' +
-        'TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt — your whole recovery budget. (3) Codex writes its ' +
-        'own receipt document to ' +
-        report +
-        ' as its final act; verify with one Bash call: jq -e ".filesTouched and .cardsClosed" ' +
-        report +
-        ' >/dev/null — on a miss, Write the tool-result CONTENT (the final-message JSON, never the envelope) to that path and re-probe; a ' +
-        'second miss returns ok=false with the probe error. (4) Return the thin receipt: folder ' +
-        f.path +
-        ', stage "implement", ok, report, filesTouched = jq ".filesTouched", crossFolderRows/cardsClosed/residuals = the jq array lengths, ' +
-        'researchResolved = jq ".researchResolved.resolved", packagesMissing = jq ".packagesMissing" rows verbatim, one-line headline, ' +
-        'failure empty — or ok=false with the error text VERBATIM.\n\nLANE LAW:\n\n' +
-        IMPL_LAW +
-        '\n\nTASK:\n\n' +
-        codexImplTask(f, u, mapR, guideR)
-    );
-};
+const critWrapPrompt = (f, b, impl, mapR) =>
+    relayPrompt({
+        report: OUT + '/' + b.id + '-critique.json',
+        law: CRIT_LAW,
+        task: critTask(f, b, impl, mapR),
+        sandbox: 'workspace-write',
+        verify: { jq: '.filesTouched and .cardsClosed' },
+        ret:
+            'Return the thin receipt: folder ' +
+            f.path +
+            ', stage "critique", ok, report, filesTouched = jq ".filesTouched", crossFolderRows/cardsClosed/residuals = the jq array ' +
+            'lengths, researchResolved = jq ".researchResolved.resolved", packagesMissing = jq ".packagesMissing" rows verbatim, one-line ' +
+            'headline, failure empty — or ok=false with the error text VERBATIM.',
+    });
 
 const admitPrompt = (row, origin) =>
     'ADMISSION LANE for package "' +
@@ -1029,72 +1227,27 @@ const admitPrompt = (row, origin) =>
     slugOf(row.package) +
     '.md, then return: package, language, ok, admitted, report, filesTouched, headline, failure.';
 
-const critPrompt = (f, u, impl, mapR, admitted) =>
-    'CRITIQUE unit "' +
-    u.title +
+const composePrompt = (f, b, landed) =>
+    'COMPOSE pass for work batch "' +
+    b.title +
     '" of ' +
     f.path +
-    ' — the clause-by-clause doctrinal-conformance and capability-completeness audit, repaired IN PLACE with the writer full authority. ' +
-    THEME_LAW +
-    ' A non-theme open card stays byte-untouched — an expected leftover for a future slice. Write territory: ' +
-    territoryOf(f) +
-    '. ' +
-    STANCE +
-    ' COLD PASS FIRST: derive your own defect list from the unit pages on disk before any prior claim; the implement stage touched ' +
-    JSON.stringify((impl && impl.filesTouched) || []) +
-    ' (navigation only — look here first, bound nothing). Then read ' +
-    (mapR && mapR.ok ? mapR.report + ' and ' : '') +
-    ((impl && impl.report) || '(no implement receipt)') +
-    ' IN FULL from disk as unverified prior claims to refute against current disk. Doctrine at source first: ' +
-    doctrineOf(f) +
-    '.' +
-    admitClause(admitted) +
-    ' Run the named checklists as a FLOOR and hunt past them: collapse scan (repeated shapes, parallel spellings, enumerable families an ' +
-    'algebra, table, fold, or generator can own); owner choice; knob test (entry-point sprawl, boolean knobs); rail unification; language ' +
-    'modernity; capability + illusion (a name promising capability the fence omits); fence transcription-completeness; member truth against ' +
-    'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); isolation-claim truth ' +
-    '(an app-scoped claim without per-instance member evidence is a defect you correct to the honest scope); card-closure truth (a ' +
-    'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); ripple-ledger truth (every unit ' +
-    'rippleSurface endpoint carries a rippleLedger row in the implement receipt whose disposition holds against disk — a landed endpoint ' +
-    'proven, a deferred endpoint present as a crossFolderRows row, an out-of-theme endpoint carrying its hint; a silent or false endpoint ' +
-    'is a defect you land or ledger yourself); research-row discipline (a ' +
-    'resolved row deleted whole; a sharpened row carrying question and route; a hard non-pertinent row left byte-untouched, never ' +
-    'dispositioned; any emitted python-version gating is a defect you remove — ' +
-    'py315 supports every admitted package); .api ultra-stacking (both tiers — ' +
-    apiTiersOf(f) +
-    ' — enumerated for the unit packages; an unexploited admitted capability the concept admits is a defect you compose in); fresh-page ' +
-    'depth (a page minted this run meets the mature-page density and coverage bar); card-assumed existence (an owner a card assumed exists ' +
-    'on disk at the full bar — a missing or stubbed assumed owner is a defect you fix). Every hit is a FIX landed in this pass, never a ' +
-    'note; the work ends objectively denser than ' +
-    'implement left it, or your attack proves the strongest form present by finding nothing. ' +
-    ROW_LAW +
-    ' ' +
-    PATH_LAW +
-    ' ' +
-    receiptDoc(u.id, 'critique') +
-    thinReceipt(f, 'critique');
-
-const composePrompt = (f, u, landed) =>
-    'COMPOSE pass for unit "' +
-    u.title +
-    '" of ' +
-    f.path +
-    ' — packages admitted AFTER the critique: ' +
+    ' — packages admitted from this batch implement and critique rows: ' +
     JSON.stringify(landed.map((a) => ({ package: a.package, language: a.language, catalog: a.report }))) +
     '. Write territory: ' +
     territoryOf(f) +
     '. ' +
     PATH_LAW +
-    ' Read each admitted package catalog at its landed tier IN FULL, then compose its members into the unit owning fences wherever the ' +
-    'unit concept admits them — as rows, cases, fields, operations, or policy values on existing owners, at the campaign bar. ' +
+    ' Read each admitted package catalog at its landed tier IN FULL, then compose its members into the batch owning fences wherever the ' +
+    'batch concept admits them — as rows, cases, fields, operations, or policy values on existing owners, at the campaign bar. ' +
     FENCE_LAW +
-    ' A package whose capability the unit concept does not admit records one residuals row naming the ruling; edit nothing the admitted ' +
+    ' A package whose capability the batch concept does not admit records one residuals row naming the ruling; edit nothing the admitted ' +
     'catalogs do not motivate. ' +
     ROW_LAW +
-    ' UNIT pages: ' +
-    JSON.stringify(u.pages) +
+    ' BATCH pages: ' +
+    JSON.stringify(b.pages) +
     '. ' +
-    receiptDoc(u.id, 'compose') +
+    receiptDoc(b.id, 'compose') +
     thinReceipt(f, 'compose');
 
 const drainPrompt = (L, receiptPaths) =>
@@ -1104,9 +1257,11 @@ const drainPrompt = (L, receiptPaths) =>
     REPO +
     '/' +
     L.root +
-    '; never a sibling language tree, never a central manifest, never ' +
-    REPO +
-    '/libs/.planning. ' +
+    '; never a central manifest, and never ' +
+    (L.key === 'cross'
+        ? 'a language tree under ' + REPO + '/libs/{csharp,python,typescript} — those are the sibling drains territory'
+        : 'a sibling language tree, never ' + REPO + '/libs/.planning — that is the cross drain territory') +
+    '. ' +
     PATH_LAW +
     ' Stage receipt documents (each one JSON object carrying a crossFolderRows array): ' +
     JSON.stringify(receiptPaths) +
@@ -1126,7 +1281,7 @@ const drainPrompt = (L, receiptPaths) =>
     L.key +
     '", ok, report, applied count, residualRows, headline, failure.';
 
-const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
+const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
     'TERMINAL RED-TEAM over ' +
     REPO +
     '/' +
@@ -1148,13 +1303,17 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
     '/' +
     L.root +
     '/.planning/ARCHITECTURE.md: a concern owned twice, scattered, or coupled to a sibling interior instead of a [SEAMS] edge is fixed or ' +
-    'recorded. (5) .API ULTRA-STACKING — both .api tiers enumerated in full; an admitted capability the concept admits but no owner ' +
-    'exploits is a defect you close. (6) FOUR-SURFACE CLOSURE — bidirectional drift proof across the central manifest <-> the .api catalogs ' +
-    '(both tiers) <-> the README registries <-> the project manifests (csproj rows for csharp): every admitted package present on every ' +
-    'owning surface, no orphan rows, no missing rows, no duplicates; a folder .api file duplicating a branch-substrate catalog collapses to ' +
-    'a folder-specific overlay or deletes per the two-tier law. Closure repairs on the central manifest are yours (orphan and duplicate ' +
-    'rows only, surgical anchored Edits — a tests-estate lane may hold test rows in the same file); a NEW admission routes as a residual ' +
-    'row. (7) DOCGEN-ZERO PROOF — run the docgen gate script at ' +
+    'recorded. (5) .API ULTRA-STACKING and (6) FOUR-SURFACE CLOSURE both ACT ON the closure census at ' +
+    ((censusR && censusR.ok && censusR.report) || '(no census document — enumerate the surfaces yourself)') +
+    ', read IN FULL from disk — verified inventory, not a lead: do not re-enumerate the catalogs, registries, or manifests it covers. Its ' +
+    '[UNEXPLOITED] rows are admitted capability no owner composes, each carrying its exact transcribed declaration — close each in the ' +
+    'owning fence or record the ruling that refuses it. Its [SURFACES], [ORPHANS], and [DUPLICATES] rows are the manifest <-> .api ' +
+    'catalogs (both tiers) <-> README registries <-> project manifests (csproj rows for csharp) drift set — repair each at its owning ' +
+    'surface. A census row you refute against current disk records refuted with its citation; a drift the census missed and your own pass ' +
+    'exposes you fix and name. A folder .api file duplicating a branch-substrate catalog collapses to a folder-specific overlay or deletes ' +
+    'per the two-tier law. Closure repairs on the central manifest are yours (orphan and duplicate rows only, surgical anchored Edits — a ' +
+    'tests-estate lane may hold test rows in the same file); a NEW admission routes as a residual row. (7) DOCGEN-ZERO PROOF — run the ' +
+    'docgen gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched over every index doc your pass touched, repaired to ' +
     'zero FAIL. (8) FULL COLD RE-REVIEW of every conformance dimension by name, and card-closure truth: a closed card whose realization ' +
@@ -1177,12 +1336,10 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
     JSON.stringify(residualRows) +
     '.' +
     pyGuard(L.key) +
-    ' DISPATCH LEGS where the sweep exceeds one context — legs read and report, every write is yours: opus legs through the Agent tool ' +
-    '(subagent_type "general-purpose", model opus) for deep folder mapping and strata integration checks; codex legs through ' +
-    'mcp__codex__codex (ToolSearch "select:mcp__codex__codex" first; model "gpt-5.6-sol", config={"model_reasoning_effort":"medium"}, ' +
-    'sandbox "read-only", approval-policy "never", cwd "' +
-    REPO +
-    '") for .api ultra-stacking member-verification volume. ' +
+    ' You are the sole actor in this lane: dispatch nothing, delegate nothing, spawn no sub-agent. Every read, verification, and write is ' +
+    'yours. The census already carries the enumeration volume that once justified a leg — where the remaining sweep still exceeds your ' +
+    'context, narrow by evidence (attack the owners the campaign touched, in receipt order) and return what you could not reach as ' +
+    'residualRows naming the unswept boundary; a silent partial sweep reported as complete is the one unrecoverable failure here. ' +
     ROW_LAW +
     ' ' +
     PATH_LAW +
@@ -1194,53 +1351,78 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
     L.key +
     '", ok, report, filesTouched, defectsFixed, cardsReopened, residualRows, headline, failure.';
 
-const testsMapWrapPrompt = (L) => {
-    const report = OUT + '/tests-' + L.key + '-map.md';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
-        REPO +
-        '", sandbox="read-only", approval-policy="never", config={"model_reasoning_effort":"medium"}, "developer-instructions" = the LANE ' +
-        'LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt. (3) The tool ' +
-        'result is a JSON envelope {threadId, content}; Write the CONTENT text (never the envelope) unmodified to ' +
-        report +
-        ' (delete any leftover file first). (4) Verify with one Bash call: grep -oE "^## \\[(FACTS|GAPS|DRIFT|SPINE|COVERAGE)\\]" ' +
-        report +
-        ' | sort -u | wc -l — a count under 5 means a missing contract section, a malformed product: rewrite once from the tool result, ' +
-        'then return ok=false with the miss. ' +
-        '(5) Return ok, report, entries = the "- " row count under [GAPS] ("- none" counts zero), research = 0, headline = "<gaps>g ' +
-        '<drift>d <spine>s", failure empty — or ok=false with the error text VERBATIM.\n\nLANE LAW:\n\n' +
-        TMAP_LAW +
-        '\n\nTASK:\n\n' +
-        'Map the ' +
-        L.key +
-        ' tests estate. Territory: ' +
-        REPO +
-        '/tests/README.md, the ' +
-        L.key +
-        ' tests tree under ' +
-        REPO +
-        '/tests (resolve the exact directory from the README), the root test spine (' +
-        (L.key === 'csharp'
-            ? 'Directory.Build.props, Directory.Build.targets, global.json test rows'
-            : L.key === 'python'
-              ? 'pyproject.toml test tier and pytest configuration'
-              : 'vitest/vite/playwright/stryker configs and package-manager test script rows') +
-        ', ' +
-        REPO +
-        '/.config where test-owned), the testing-relevant .api catalogs (packages the tests spine cites, at their owning tiers under ' +
-        apiTiersOf({ path: REPO + '/' + L.root, language: L.key }) +
-        '), and the ' +
-        L.key +
-        ' libs surface at registry depth (' +
-        REPO +
-        '/' +
-        L.root +
-        ' README registries and observability pages). BUILD-OUT AXES to grade [GAPS] against: ' +
-        AXES[L.key] +
-        '.'
-    );
-};
+const censusTask = (L) =>
+    'Census the ' +
+    L.key +
+    ' four closure surfaces. Territory: the central manifest (' +
+    (L.key === 'csharp' ? 'Directory.Packages.props' : L.key === 'python' ? 'pyproject.toml' : 'pnpm-workspace.yaml') +
+    ' at ' +
+    REPO +
+    '), every .api catalog under the language-root tier ' +
+    REPO +
+    '/libs/' +
+    L.key +
+    '/.api, every folder-tier .api catalog under ' +
+    REPO +
+    '/' +
+    L.root +
+    ', the README package-registry section of every package folder under that root, and the project manifests (' +
+    (L.key === 'csharp' ? 'every .csproj under the root' : L.key === 'python' ? 'the pyproject tool sections' : 'each package.json under the root') +
+    '). Grade [UNEXPLOITED] against the owners on the design pages under that root: an admitted member no owner composes is a row.';
+
+const censusWrapPrompt = (L) =>
+    relayPrompt({
+        report: OUT + '/census-' + L.key + '.md',
+        law: CENSUS_LAW,
+        task: censusTask(L),
+        verify: { sections: CENSUS_SECTIONS },
+        effort: 'medium',
+        ret:
+            'Return ok, report, entries = the "- " row count under [ORPHANS] plus [DUPLICATES], research = 0, headline = "<orphans>o ' +
+            '<duplicates>d <unexploited>u", failure empty — or ok=false with the error text VERBATIM.',
+    });
+
+const testsMapTask = (L) =>
+    'Map the ' +
+    L.key +
+    ' tests estate. Territory: ' +
+    REPO +
+    '/tests/README.md, the ' +
+    L.key +
+    ' tests tree under ' +
+    REPO +
+    '/tests (resolve the exact directory from the README), the root test spine (' +
+    (L.key === 'csharp'
+        ? 'Directory.Build.props, Directory.Build.targets, global.json test rows'
+        : L.key === 'python'
+          ? 'pyproject.toml test tier and pytest configuration'
+          : 'vitest/vite/playwright/stryker configs and package-manager test script rows') +
+    ', ' +
+    REPO +
+    '/.config where test-owned), the testing-relevant .api catalogs (packages the tests spine cites, at their owning tiers under ' +
+    apiTiersOf({ path: REPO + '/' + L.root, language: L.key }) +
+    '), and the ' +
+    L.key +
+    ' libs surface at registry depth (' +
+    REPO +
+    '/' +
+    L.root +
+    ' README registries and observability pages). BUILD-OUT AXES to grade [GAPS] and [CAPABILITY] against: ' +
+    AXES[L.key] +
+    '. The build-out consuming this map composes from it directly and does not re-open what you settle: transcribe every testing-package ' +
+    'member the spine cites or an axis admits at exact declaration depth.';
+
+const testsMapWrapPrompt = (L) =>
+    relayPrompt({
+        report: OUT + '/tests-' + L.key + '-map.md',
+        law: TMAP_LAW,
+        task: testsMapTask(L),
+        verify: { sections: TMAP_SECTIONS },
+        effort: 'medium',
+        ret:
+            'Return ok, report, entries = the "- " row count under [GAPS] ("- none" counts zero), research = 0, headline = "<gaps>g ' +
+            '<drift>d <spine>s", failure empty — or ok=false with the error text VERBATIM.',
+    });
 
 const testsImplPrompt = (L, mapR) =>
     'TESTS-ESTATE build-out for ' +
@@ -1272,8 +1454,8 @@ const testsImplPrompt = (L, mapR) =>
     REPO +
     '/docs/stacks/' +
     L.key +
-    '/, the .api catalogs of the testing packages the spine cites (your own reads — never guessed from pool receipts), then the tests map ' +
-    mapClause(mapR) +
+    '/, then the tests map ' +
+    tmapClause(mapR) +
     ' Build-out axes (a floor, hunted past): ' +
     AXES[L.key] +
     '; shared logic and capabilities consolidated into the _testkits; drift and stale content fixed against the post-implementation libs ' +
@@ -1281,7 +1463,7 @@ const testsImplPrompt = (L, mapR) =>
     PATH_LAW +
     ' GATE: after the final edit run ' +
     GATES[L.key] +
-    ' (exact invocation resolved from tests/README.md), batched ONCE, and repair what it reports to green before returning; gateClean is ' +
+    ', batched ONCE, and repair what it reports to green before returning; gateClean is ' +
     'true only from a green final run. Run the docgen gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over every markdown file you touched, repaired ' +
@@ -1298,10 +1480,10 @@ const testsImplPrompt = (L, mapR) =>
     L.key +
     ': reason" plus genuinely blocked items), headline, failure.';
 
-const auditPrompt = (roots, selected, residuals) =>
-    'SLICE-CLOSURE AUDIT for theme "' +
+const auditTask = (roots, selected, residuals, report) =>
+    'Goal: prove slice closure for theme "' +
     THEME.title +
-    '" — count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
+    '". Count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
     JSON.stringify(selected) +
     '. Verify each selected card CURRENT leader marker in its named card file: roster every one still [ACTIVE] or [QUEUED] as openCards ' +
     '{file (absolute), card}; roster every selected [BLOCKED] card whose body states no arming trigger or condition as blockedNoTrigger; ' +
@@ -1316,13 +1498,41 @@ const auditPrompt = (roots, selected, residuals) =>
     'endpoint, card: "ripple: " + its source}. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
     JSON.stringify(residuals) +
     ' — verify each against current disk; one still unapplied joins openCards as {file: its targetFile, card: "residual: " + its change}. ' +
-    'Counts only — no edits, no verdicts beyond the rosters.';
+    'Constraints: read only; edit no file other than the product; no git command; counts only, no verdicts beyond the rosters.\n' +
+    'Done when: ' +
+    report +
+    ' holds one JSON object {openCards: [{file, card}], blockedNoTrigger: [{file, card}], blockedCards, researchRows, researchByLanguage: ' +
+    '["language: N"]} and nothing else — no prose, no code fence. An unreachable card file is rostered in openCards with the failed probe ' +
+    'as its card value, never silently dropped.';
+
+const auditWrapPrompt = (roots, selected, residuals) => {
+    const report = OUT + '/audit.json';
+    return relayPrompt({
+        report,
+        law: AUDIT_LAW,
+        task: auditTask(roots, selected, residuals, report),
+        verify: { jq: 'has("openCards") and has("researchRows")' },
+        effort: 'medium',
+        ret: 'Return openCards, blockedNoTrigger, blockedCards, researchRows, researchByLanguage exactly as the landed product reports them.',
+    });
+};
 
 // --- [COMPOSITION] -------------------------------------------------------------------
 
 if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) is required' };
 
-const disco = await guard(slot(() => agent(discoverPrompt(), { label: 'discover', phase: 'Plan', model: 'opus', effort: 'low', schema: DISCOVERY })));
+const disco = await guard(
+    slot(() =>
+        agent(discoverWrapPrompt(), {
+            label: 'relay:discover',
+            phase: 'Plan',
+            model: 'sonnet',
+            effort: 'low',
+            schema: DISCOVERY,
+            stallMs: STALL_MS,
+        }),
+    ),
+);
 let folders = (disco?.folders ?? []).filter((f) => f.path && f.language);
 if (SCOPE.length)
     folders = folders.filter((f) => SCOPE.some((s) => f.path === s || f.path.endsWith('/' + s.replace(/\/+$/, '')) || f.path.includes(s)));
@@ -1332,7 +1542,7 @@ log(folders.length + ' folder(s), ' + sum(folders, (f) => f.openCards) + ' open 
 // --- [FOLDER_CHAINS]
 
 const manifestQueue = {};
-const admitSeen = {}; // one admission chain per package@language — later requesters share the first receipt
+const admitSeen = {}; // one chain per package@language — a settled ruling is shared, an execution failure evicts so a later requester retries
 const admit = (row, origin) => {
     const seenKey = row.language + ':' + slugOf(row.package);
     if (admitSeen[seenKey]) return admitSeen[seenKey];
@@ -1343,7 +1553,6 @@ const admit = (row, origin) => {
                     label: 'admit:' + slugOf(row.package),
                     phase: 'Admit',
                     model: 'opus',
-                    effort: 'high',
                     schema: ADMITR,
                     stallMs: STALL_MS,
                 }),
@@ -1355,56 +1564,43 @@ const admit = (row, origin) => {
         () => undefined,
     );
     admitSeen[seenKey] = p;
+    p.then(
+        (r) => {
+            if (!(r && r.ok)) delete admitSeen[seenKey];
+        },
+        () => {
+            delete admitSeen[seenKey];
+        },
+    );
     return p;
 };
-const runAdmissions = async (rec, origin) => {
-    const rows = ((rec && rec.ok && rec.packagesMissing) || []).filter((r) => r && r.package && LANGS.some((L) => L.key === r.language));
-    return (await Promise.all(rows.map((r) => admit(r, origin)))).filter(Boolean);
+const missingOf = (rec) => (rec && rec.ok && rec.packagesMissing) || [];
+const runAdmissions = async (rows, origin) => {
+    const seen = new Set();
+    const wanted = (rows || []).filter((r) => {
+        if (!r || !r.package || !LANGS.some((L) => L.key === r.language)) return false;
+        const k = r.language + ':' + slugOf(r.package);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    });
+    return (await Promise.all(wanted.map((r) => admit(r, origin)))).filter(Boolean);
 };
 
-const runImplement = (f, u, mapR, guideR) =>
-    u.tier === 'codex'
-        ? guard(
-              slot(() =>
-                  agent(codexImplWrapPrompt(f, u, mapR, guideR), {
-                      label: 'sol:impl:' + u.id,
-                      phase: 'Implement',
-                      model: 'sonnet',
-                      effort: 'low',
-                      schema: STAGE,
-                      stallMs: STALL_MS,
-                  }),
-              ),
-          )
-        : guard(
-              slot(() =>
-                  agent(implPrompt(f, u, mapR, guideR), {
-                      label: 'impl:' + u.id,
-                      phase: 'Implement',
-                      model: u.tier,
-                      effort: 'high',
-                      schema: STAGE,
-                      stallMs: STALL_MS,
-                  }),
-              ),
-          );
-
 const runFolderChain = async (f, plan) => {
-    const units = (plan?.units ?? [])
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .map((u, i) => ({ ...u, id: uid(f, i) }));
-    if (!units.length) {
+    const batches = packBatches(f, plan?.units ?? []);
+    if (!batches.length) {
         log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path);
-        return { folder: f.path, language: f.language, planOk: !!plan, units: [], leftovers: plan?.leftovers ?? [] };
+        return { folder: f.path, language: f.language, planOk: !!plan, batches: [], leftovers: plan?.leftovers ?? [] };
     }
+    log(f.path + ': ' + (plan?.units ?? []).length + ' unit(s) packed into ' + batches.length + ' batch(es)');
     const out = [];
-    for (const u of units) {
+    for (const b of batches) {
         const [mapR, guideR] = await Promise.all([
             guard(
                 slot(() =>
-                    agent(mapWrapPrompt(f, u), {
-                        label: 'sol:map:' + u.id,
+                    agent(mapWrapPrompt(f, b), {
+                        label: 'relay:map:' + b.id,
                         phase: 'Map',
                         model: 'sonnet',
                         effort: 'low',
@@ -1413,11 +1609,11 @@ const runFolderChain = async (f, plan) => {
                     }),
                 ),
             ),
-            u.blockers.length
+            b.blockers.length
                 ? guard(
                       slot(() =>
-                          agent(guideWrapPrompt(f, u), {
-                              label: 'sol:guide:' + u.id,
+                          agent(guideWrapPrompt(f, b), {
+                              label: 'relay:guide:' + b.id,
                               phase: 'Map',
                               model: 'sonnet',
                               effort: 'low',
@@ -1428,53 +1624,62 @@ const runFolderChain = async (f, plan) => {
                   )
                 : Promise.resolve(null),
         ]);
-        const impl = await runImplement(f, u, mapR, guideR);
-        const admittedImpl = await runAdmissions(impl, f.path);
+        const impl = await guard(
+            slot(() =>
+                agent(implPrompt(f, b, mapR, guideR), {
+                    label: 'impl:' + b.id,
+                    phase: 'Implement',
+                    model: 'fable',
+                    schema: STAGE,
+                    stallMs: STALL_MS,
+                }),
+            ),
+        );
         const crit =
             impl && impl.ok
                 ? await guard(
                       slot(() =>
-                          agent(critPrompt(f, u, impl, mapR, admittedImpl), {
-                              label: 'crit:' + u.id,
+                          agent(critWrapPrompt(f, b, impl, mapR), {
+                              label: 'relay:crit:' + b.id,
                               phase: 'Critique',
-                              model: u.heavy ? 'fable' : 'opus',
-                              effort: 'high',
+                              model: 'sonnet',
+                              effort: 'low',
                               schema: STAGE,
                               stallMs: STALL_MS,
                           }),
                       ),
                   )
                 : null;
-        const admittedCrit = await runAdmissions(crit, f.path);
-        const landedCrit = admittedCrit.filter((a) => a && a.ok && a.admitted);
-        const comp = landedCrit.length
+        // One admission barrier per batch: implement and critique findings enter the chain together, then one compose lands them.
+        const admitted = await runAdmissions(missingOf(impl).concat(missingOf(crit)), f.path);
+        const landed = admitted.filter((a) => a && a.ok && a.admitted);
+        const comp = landed.length
             ? await guard(
                   slot(() =>
-                      agent(composePrompt(f, u, landedCrit), {
-                          label: 'compose:' + u.id,
+                      agent(composePrompt(f, b, landed), {
+                          label: 'compose:' + b.id,
                           phase: 'Compose',
                           model: 'opus',
-                          effort: 'high',
                           schema: STAGE,
                           stallMs: STALL_MS,
                       }),
                   ),
               )
             : null;
-        const admittedComp = await runAdmissions(comp, f.path);
         out.push({
-            unit: u.id,
-            cards: u.cards,
-            blockers: u.blockers.length,
+            batch: b.id,
+            members: b.members,
+            cards: b.cards,
+            blockers: b.blockers.length,
             mapR,
             guideR,
             impl,
             crit,
             comp,
-            admissions: admittedImpl.concat(admittedCrit, admittedComp),
+            admissions: admitted,
         });
     }
-    return { folder: f.path, language: f.language, planOk: true, units: out, leftovers: plan?.leftovers ?? [] };
+    return { folder: f.path, language: f.language, planOk: true, batches: out, leftovers: plan?.leftovers ?? [] };
 };
 
 const planLane = (f) =>
@@ -1484,42 +1689,47 @@ const planLane = (f) =>
                 label: 'plan:' + fid(f),
                 phase: 'Plan',
                 model: 'opus',
-                effort: f.language === 'cross' || f.openCards >= PLAN_HIGH_FLOOR ? 'high' : f.openCards >= PLAN_MEDIUM_FLOOR ? 'medium' : 'low',
                 schema: UNITS,
+                stallMs: STALL_MS,
             }),
         ),
     );
 
 const folderRecs = folders.filter((f) => f.language !== 'cross');
-const crossRec = folders.find((f) => f.language === 'cross') || null;
-const crossPlanP = crossRec ? planLane(crossRec) : Promise.resolve(null);
+const crossRecs = folders.filter((f) => f.language === 'cross');
+const crossPlanPs = crossRecs.map((f) => planLane(f)); // cross plans start beside the folder plans; only their chains wait
 const chains = (await pipeline(folderRecs, planLane, (plan, f) => runFolderChain(f, plan))).filter(Boolean);
-const crossChain = crossRec ? await runFolderChain(crossRec, await crossPlanP) : null; // cross-libs units run after every folder chain — their touchpoints span the trees the folder writers just closed
-const allChains = crossChain ? chains.concat([crossChain]) : chains;
+const crossChains = []; // cross-libs batches run after every folder chain — their touchpoints span the trees the folder writers just closed
+for (let i = 0; i < crossRecs.length; i++) {
+    const c = await runFolderChain(crossRecs[i], await crossPlanPs[i]);
+    if (c) crossChains.push(c);
+}
+const allChains = chains.concat(crossChains);
 
-const unitRecs = allChains.flatMap((c) => c.units.map((x) => ({ ...x, folder: c.folder, language: c.language })));
-const receiptPaths = unitRecs.flatMap((x) =>
+const batchRecs = allChains.flatMap((c) => c.batches.map((x) => ({ ...x, folder: c.folder, language: c.language })));
+const receiptPaths = batchRecs.flatMap((x) =>
     [x.impl && x.impl.ok && x.impl.report, x.crit && x.crit.ok && x.crit.report, x.comp && x.comp.ok && x.comp.report].filter(Boolean),
 );
-const admissions = unitRecs.flatMap((x) => x.admissions || []);
-log(unitRecs.length + ' unit(s), ' + receiptPaths.length + ' receipt(s), ' + admissions.length + ' admission(s)');
+const admissions = batchRecs.flatMap((x) => x.admissions || []);
+log(batchRecs.length + ' batch(es), ' + receiptPaths.length + ' receipt(s), ' + admissions.length + ' admission(s)');
 
 // --- [SEAL_AND_TESTS]
 
 let drainUnrouted = [];
+const implFailedAll = batchRecs.length > 0 && !batchRecs.some((x) => x.impl && x.impl.ok);
+if (implFailedAll) log('SEAL SKIPPED: every implement lane failed — ' + batchRecs.length + ' batch(es) left unsealed on disk');
 const sealP = receiptPaths.length
     ? (async () => {
-          // Barrier is genuine: drain residualRows route ACROSS languages, so every drain must land before any redteam starts.
+          // Barrier is genuine: drain residualRows route ACROSS trees, so every drain must land before any census or redteam starts.
           const drainRs = await parallel(
-              LANGS.map(
-                  (L) => () =>
+              DRAINS.map(
+                  (D) => () =>
                       guard(
                           slot(() =>
-                              agent(drainPrompt(L, receiptPaths), {
-                                  label: 'drain:' + L.key,
+                              agent(drainPrompt(D, receiptPaths), {
+                                  label: 'drain:' + D.key,
                                   phase: 'Drain',
-                                  model: 'opus',
-                                  effort: 'high',
+                                  model: 'fable',
                                   schema: DRAINR,
                                   stallMs: STALL_MS,
                               }),
@@ -1527,36 +1737,65 @@ const sealP = receiptPaths.length
                       ),
               ),
           );
+          const drainOf = (key) => drainRs[DRAINS.findIndex((D) => D.key === key)] || null;
           const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
-          const residualFor = (L) => allResiduals.filter((r) => String(r).includes('/' + L.root + '/'));
-          const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
+          const residualFor = (D) => allResiduals.filter((r) => String(r).includes('/' + D.root + '/'));
+          const routed = new Set(DRAINS.flatMap((D) => residualFor(D)));
           drainUnrouted = allResiduals.filter((r) => !routed.has(r));
-          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no language tree — carried to the audit');
-          return await parallel(
-              LANGS.map((L, i) => () => {
-                  const dr = drainRs[i];
-                  const res = residualFor(L);
-                  const hadUnits = allChains.some((c) => (c.language === L.key || c.language === 'cross') && c.units.length);
-                  if (!hadUnits && !(dr && dr.applied > 0) && !res.length) return Promise.resolve({ language: L.key, drain: dr, redteam: null });
+          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no drained tree — carried to the audit');
+          // Arming is evidence, not label: a cross-libs batch edits language trees directly, so the receipts decide.
+          const touchedTree = (root) =>
+              batchRecs.some((x) =>
+                  [x.impl, x.crit, x.comp].some((r) => r && r.ok && (r.filesTouched || []).some((p) => String(p).includes('/' + root + '/'))),
+              );
+          const armed = LANGS.filter((L) => {
+              const dr = drainOf(L.key);
+              return touchedTree(L.root) || (dr && dr.applied > 0) || residualFor(L).length > 0;
+          });
+          const censusRs = {};
+          for (const x of (
+              await parallel(
+                  armed.map(
+                      (L) => () =>
+                          guard(
+                              slot(() =>
+                                  agent(censusWrapPrompt(L), {
+                                      label: 'relay:census:' + L.key,
+                                      phase: 'Census',
+                                      model: 'sonnet',
+                                      effort: 'low',
+                                      schema: RECEIPT,
+                                      stallMs: STALL_MS,
+                                  }),
+                              ),
+                          ).then((r) => ({ key: L.key, r })),
+                  ),
+              )
+          ).filter(Boolean))
+              censusRs[x.key] = x.r;
+          const seals = await parallel(
+              LANGS.map((L) => () => {
+                  const dr = drainOf(L.key);
+                  if (!armed.some((A) => A.key === L.key)) return Promise.resolve({ language: L.key, census: null, redteam: null });
                   const admitRows = admissions
                       .filter((a) => a && a.language === L.key)
                       .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
                   return guard(
                       slot(() =>
-                          agent(rtPrompt(L, dr, receiptPaths, admitRows, res), {
+                          agent(rtPrompt(L, dr, receiptPaths, admitRows, residualFor(L), censusRs[L.key] || null), {
                               label: 'rt:' + L.key,
                               phase: 'Redteam',
                               model: 'fable',
-                              effort: 'max',
                               schema: REDTEAMR,
                               stallMs: STALL_MS,
                           }),
                       ),
-                  ).then((rt) => ({ language: L.key, drain: dr, redteam: rt }));
+                  ).then((rt) => ({ language: L.key, census: censusRs[L.key] || null, redteam: rt }));
               }),
           );
+          return { drains: DRAINS.map((D, i) => ({ key: D.key, r: drainRs[i] || null })), seals };
       })()
-    : Promise.resolve([]);
+    : Promise.resolve({ drains: [], seals: [] });
 
 const testsP = TESTS_ON
     ? pipeline(
@@ -1565,7 +1804,7 @@ const testsP = TESTS_ON
               guard(
                   slot(() =>
                       agent(testsMapWrapPrompt(L), {
-                          label: 'sol:tmap:' + L.key,
+                          label: 'relay:tmap:' + L.key,
                           phase: 'Tests',
                           model: 'sonnet',
                           effort: 'low',
@@ -1581,7 +1820,6 @@ const testsP = TESTS_ON
                           label: 'tests:' + L.key,
                           phase: 'Tests',
                           model: 'fable',
-                          effort: 'high',
                           schema: TESTSR,
                           stallMs: STALL_MS,
                       }),
@@ -1590,27 +1828,29 @@ const testsP = TESTS_ON
       )
     : Promise.resolve([]);
 
-const [sealedRaw, testsRaw] = await Promise.all([sealP, testsP]);
-const sealed = sealedRaw.filter(Boolean);
+const [sealRaw, testsRaw] = await Promise.all([sealP, testsP]);
+const drainRecs = (sealRaw && sealRaw.drains) || [];
+const sealed = ((sealRaw && sealRaw.seals) || []).filter(Boolean);
 const tests = testsRaw.filter(Boolean);
 
 // --- [AUDIT]
 
-const selectedCards = unitRecs.flatMap((x) => x.cards || []);
+const selectedCards = batchRecs.flatMap((x) => x.cards || []);
 const audit = await guard(
     slot(() =>
         agent(
-            auditPrompt(
+            auditWrapPrompt(
                 folders.map((f) => f.path),
                 selectedCards,
                 drainUnrouted,
             ),
             {
-                label: 'audit',
+                label: 'relay:audit',
                 phase: 'Audit',
-                model: 'opus',
+                model: 'sonnet',
                 effort: 'low',
                 schema: AUDITR,
+                stallMs: STALL_MS,
             },
         ),
     ),
@@ -1634,34 +1874,40 @@ return {
     theme: THEME.title,
     folders: allChains.length,
     plansFailed,
-    units: unitRecs.length,
+    batches: batchRecs.length,
     selectedCards: selectedCards.length,
-    implemented: unitRecs.filter((x) => x.impl && x.impl.ok).length,
-    critiqued: unitRecs.filter((x) => x.crit && x.crit.ok).length,
-    composed: unitRecs.filter((x) => x.comp && x.comp.ok).length,
-    failedUnits: unitRecs.filter((x) => !(x.impl && x.impl.ok)).map((x) => x.unit),
+    implemented: batchRecs.filter((x) => x.impl && x.impl.ok).length,
+    critiqued: batchRecs.filter((x) => x.crit && x.crit.ok).length,
+    composed: batchRecs.filter((x) => x.comp && x.comp.ok).length,
+    failedBatches: batchRecs.filter((x) => !(x.impl && x.impl.ok)).map((x) => x.batch),
+    sealSkipped: implFailedAll,
     cardsClosed: sum(
-        unitRecs,
+        batchRecs,
         (x) => ((x.impl && x.impl.cardsClosed) || 0) + ((x.crit && x.crit.cardsClosed) || 0) + ((x.comp && x.comp.cardsClosed) || 0),
     ),
     crossFolderRows: sum(
-        unitRecs,
+        batchRecs,
         (x) => ((x.impl && x.impl.crossFolderRows) || 0) + ((x.crit && x.crit.crossFolderRows) || 0) + ((x.comp && x.comp.crossFolderRows) || 0),
     ),
-    researchBefore: sum(unitRecs, (x) => (x.mapR && x.mapR.research) || 0),
+    residualClaims: sum(
+        batchRecs,
+        (x) => ((x.impl && x.impl.residuals) || 0) + ((x.crit && x.crit.residuals) || 0) + ((x.comp && x.comp.residuals) || 0),
+    ),
+    researchBefore: sum(batchRecs, (x) => (x.mapR && x.mapR.research) || 0),
     researchResolved: sum(
-        unitRecs,
+        batchRecs,
         (x) => ((x.impl && x.impl.researchResolved) || 0) + ((x.crit && x.crit.researchResolved) || 0) + ((x.comp && x.comp.researchResolved) || 0),
     ),
     researchAfter: audit ? audit.researchRows : -1,
     researchByLanguage: audit ? audit.researchByLanguage : [],
     admissions: admissions.map((a) => ({ package: a.package, language: a.language, admitted: !!(a.ok && a.admitted), report: a.report || '' })),
-    drains: sealed.map((s) => ({
-        language: s.language,
-        ok: !!(s.drain && s.drain.ok),
-        applied: (s.drain && s.drain.applied) || 0,
-        report: (s.drain && s.drain.report) || '',
+    drains: drainRecs.map((d) => ({
+        language: d.key,
+        ok: !!(d.r && d.r.ok),
+        applied: (d.r && d.r.applied) || 0,
+        report: (d.r && d.r.report) || '',
     })),
+    censuses: sealed.filter((s) => s.census).map((s) => ({ language: s.language, ok: !!s.census.ok, report: s.census.report || '' })),
     redteams: sealed
         .filter((s) => s.redteam)
         .map((s) => ({
@@ -1672,8 +1918,9 @@ return {
             report: s.redteam.report || '',
         })),
     tests: tests.map((t) => ({ language: t.language, ok: !!t.ok, gate: t.gate || '', gateClean: !!t.gateClean, report: t.report || '' })),
-    residuals: sealed
-        .flatMap((s) => [...((s.drain && s.drain.residualRows) || []), ...((s.redteam && s.redteam.residualRows) || [])])
+    residuals: drainRecs
+        .flatMap((d) => (d.r && d.r.residualRows) || [])
+        .concat(sealed.flatMap((s) => (s.redteam && s.redteam.residualRows) || []))
         .concat(tests.flatMap((t) => t.residualRows || []))
         .concat(
             admissions
@@ -1685,9 +1932,10 @@ return {
     futureSlices: allChains.flatMap((c) => (c.leftovers || []).map((l) => ({ folder: c.folder, item: l.item, hint: l.hint }))),
     blockedCards: audit ? audit.blockedCards : -1,
     reports: receiptPaths
-        .concat(unitRecs.flatMap((x) => [x.mapR && x.mapR.ok && x.mapR.report, x.guideR && x.guideR.ok && x.guideR.report].filter(Boolean)))
+        .concat(batchRecs.flatMap((x) => [x.mapR && x.mapR.ok && x.mapR.report, x.guideR && x.guideR.ok && x.guideR.report].filter(Boolean)))
         .concat(admissions.map((a) => a.report).filter(Boolean))
-        .concat(sealed.flatMap((s) => [s.drain && s.drain.report, s.redteam && s.redteam.report].filter(Boolean)))
+        .concat(drainRecs.map((d) => d.r && d.r.report).filter(Boolean))
+        .concat(sealed.flatMap((s) => [s.census && s.census.report, s.redteam && s.redteam.report].filter(Boolean)))
         .concat(tests.map((t) => t.report).filter(Boolean)),
     failure: sliceClosed
         ? ''

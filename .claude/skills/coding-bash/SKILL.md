@@ -8,7 +8,6 @@ description: >-
 # [CODING_BASH]
 
 All code follows these governing principles:
-
 - [FUNCTIONAL] — immutable locals, pure functions, dispatch tables, and tightly bounded mutable shell state
 - [POLYMORPHIC] — one parser, one dispatcher, one logger; extend via table entries not code branches
 - [PRODUCTION_HARDENED] — ERR traps, atomic I/O, signal forwarding, cleanup registries, version gating

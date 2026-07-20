@@ -4,9 +4,12 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesitate to do considerable rebuilding of content within `libs/` while all content is still being planned.
 - Each `lib/<language>/` has an `.api/` folder, each sub-folder within a language lib has one as well; all work MUST fully stack as much external lib capabilities from BOTH altitudes where possible. External libs reduce handrolling, they ALSO enable new functionality, capabilities, as well as extending existing code capabilities, use them as guidance for ideation on new code features.
 
-## [01]-[REQUIRED_STANDARDS]
+## [01]-[REQUIRED]
 
-Use the route-owned standard for the file being edited:
+- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
+- `docs/laws/` is the repo-wide maintenance-law corpus, durable lessons land ONLY at the end of a session of large work when justified.
+
+[STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
 | [INDEX] | [FILE_TYPE]                | [ROUTE]                        | [LOCATION_TO_USE]                              | [NAMING_SCHEMA]                |
 | :-----: | :------------------------- | :----------------------------- | :--------------------------------------------- | :----------------------------- |
@@ -19,8 +22,13 @@ Use the route-owned standard for the file being edited:
 |  [07]   | Mermaid fences             | Skill: `mermaid-diagramming`   | Inside `.md` and `.html` pages                 | [N/A]                          |
 |  [08]   | HTML artifacts (`.html`)   | Skill: `html-studio`           | Durable: `docs/atlas/` Temp: `.claude/scratch` | `<kind>.<scope>[.<slug>].html` |
 
-- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
-- `docs/laws/` is the repo-wide maintenance-law corpus, durable lessons land ONLY at the end of a session of large work when justified.
+[TOOL_ROUTING]:
+- [ALWAYS] use `exa` MCP to start open-web search with neural discovery, the right page, repo, paper, or entity; REPLACES `WebFetch` entirely.
+- [ALWAYS] use `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
+- [ALWAYS] use `context7-search` skill when working on code/fences with external libraries, never guess on SDK/framework/API capabilities or implementations.
+- [ALWAYS] use `nuget` MCP to validate the existence of a package and newest version available.
+- [ALWAYS] use `claudeCodeDocs` MCP when working on Claude Code configs or harness questions; capabilities, memory, skills, hooks, plugins, settings.
+- [ALWAYS] read `tests/README.md` before touching any testing surface.
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
@@ -49,7 +57,7 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
 - [ALWAYS] keep boundary mapping at the edge; internal code uses canonical names and shapes.
 - [NEVER] preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
-- [NEVER] create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
+- [NEVER] create operation families like `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
 
 ## [03]-[DEPENDENCY_POLICY]
 
@@ -66,17 +74,7 @@ Use the route-owned standard for the file being edited:
 - [NEVER] create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
-## [04]-[OWNER_ROUTING]
-
-[IMPORTANT]:
-- [ALWAYS] start open-web research with `exa` for neural discovery — the right page, repo, paper, or entity — replacing a blind `WebFetch`.
-- [ALWAYS] reach for the `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
-- [ALWAYS] resolve external library, framework, SDK, or host-API usage through the `context7-search` skill before internalizing into a canonical owner.
-- [ALWAYS] use `nuget` MCP to validate the existence of a package and newest version available.
-- [ALWAYS] read `tests/README.md` before touching any testing surface.
-- [ALWAYS] open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry verified traps the `.api` catalogs omit, and dispatched agents reach them only through this route.
-
-## [05]-[FILE_ORGANIZATION]
+## [04]-[FILE_ORGANIZATION]
 
 Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill.
 
@@ -129,7 +127,8 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [NEVER] rename recurring categories per file; use canonical labels unless a domain extension is materially clearer.
 - [NEVER] use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
 
-Language overlays refine the canonical order by runtime semantics:
+Language overlays refine the canonical order by runtime semantics.
+
 - [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
 - [PYTHON]: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
 - [TYPESCRIPT]: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.

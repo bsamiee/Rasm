@@ -7,7 +7,6 @@ description: >-
     transcript ranges, local raw file export, and AI Tutor goals, courses, lessons. Use when a
     task saves, appends, or edits Heptabase content, sets a card property, or pulls a PDF or
     transcript — "add this to my Heptabase", "update that card's status", "get the transcript".
-    No file upload or media processing.
 ---
 
 # [HEPTABASE_CLI]

@@ -12,8 +12,6 @@ description: >-
 
 Antigravity is an external Gemini call admitted only where it adds capability beyond the local toolchain. Print mode runs the wrapper — one bounded prompt in, one JSON receipt out — yet executes tools and lands file writes without any permission flag, so safety is prompt discipline: a review or judgment prompt names no save path and directs inspect-only work; a generation prompt binds every save path to a throwaway scratch root, never a repo path or `$HOME`.
 
-`--dangerously-skip-permissions` buys nothing print mode lacks and stays unused. Output is advisory until local source, official docs, MCP output, or user intent confirms it.
-
 ## [01]-[ROUTING]
 
 [SCRIPTS]:
@@ -34,7 +32,7 @@ Antigravity is an external Gemini call admitted only where it adds capability be
 
 ## [03]-[MODEL_POLICY]
 
-Wrapper defaults pin the strongest Gemini reasoning model at its highest tier; that pin is the carrier of a standing operator policy, never a tunable preference. A weaker or faster tier is admitted only where a specific use case proves zero signal sacrifice, and the burden of that proof sits on the routing decision, never on the default. Agents never choose models in ordinary use; `models` lists the live catalog for capability accounting and skill maintenance, and `AGY_MODEL` re-pins only when the policy owner rules a proven exception.
+Wrapper defaults pin the strongest Gemini reasoning model at its highest tier; that pin is the carrier of a standing operator policy, never a tunable preference. Agents never choose models in ordinary use; `models` lists the live catalog for capability accounting and skill maintenance.
 
 ## [04]-[INVOCATION]
 

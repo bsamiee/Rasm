@@ -7,9 +7,7 @@ description: >-
     schedules. Use when reviewing or refactoring Pulumi code, debugging a failed `up` or `preview`,
     chasing an unexpected replace or delete in a preview, adopting resources via `pulumi import`,
     converting Terraform, CloudFormation, CDK, Bicep, or ARM code, and on tasks that never name
-    Pulumi — "deploy this app", "provision a database", "stand up a VPC", "tear down staging". App
-    code reading or writing data via cloud SDKs is not infrastructure; interactive Hostinger domain,
-    DNS, and VPS work belongs to hostinger.
+    Pulumi — "deploy this app", "provision a database", "stand up a VPC", "tear down staging".
 ---
 
 # [PULUMI]

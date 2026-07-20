@@ -2,7 +2,7 @@
 
 Copy-paste orchestration shapes: each names when it wins, the primitive it rests on, and the failure mode it guards, then gives runnable code. Match the pattern to the SKILL.md shape answers — known list or unknown count, one pass or staged, barrier or not. `SCHEMA` abbreviates JSON Schemas; define real ones per the closing section. Concurrency mechanics live in the throughput reference; runtime signatures in the api reference.
 
-A smell, error, or superior shape a run reveals becomes a durable row in this catalog or its owning delegation skill the same session — agent-dispatch owns which surface absorbs the lesson and its byte-identical propagation; a lesson left in a run ledger is a regression.
+A smell, error, or superior shape a run reveals becomes a durable row in this catalog the same session; a lesson left in a run ledger is a regression.
 
 ## [01]-[MAP]
 
@@ -28,7 +28,7 @@ Selection rules on top of the map: sectioning defaults to `pipeline`, never `par
 
 Discrimination runs as one dispatch, deliverable kind first: transformed items branch on count — a known list rides `pipeline` [04] unless a stage needs ALL results at once (the barrier, [05]); an unknown count branches on the stop signal — command-green takes self-repair [09], a count, token, or dry target takes the loop family [16]; one contested verdict a command can check takes the skeptic vote [11]; otherwise the judgment field picks — shallow takes the panel [12], wide or close takes the tournament [13], ambiguous stakes take the debate [14].
 
-Delegation contract — objective, territory, exclusions, output contract, success criteria — is the agent-dispatch skill's prompting law and rides every `agent()` prompt here unchanged. Workflow-specific residue: the output contract is a `schema` wherever a later line reads a field, and mid-run clarification does not exist — a subagent left needing to ask was dispatched vaguely. A write-station's prompt also pins authorship: the writing is the agent's own — a nested delegate may fetch information, never author the deliverable, so the model tier the orchestrator paid for is the tier that writes.
+Delegation contract — objective, territory, exclusions, output contract, success criteria — rides every `agent()` prompt here. Workflow-specific residue: the output contract is a `schema` wherever a later line reads a field, and mid-run clarification does not exist — a subagent left needing to ask was dispatched vaguely. A write-station's prompt also pins authorship: the writing is the agent's own — a nested delegate may fetch information, never author the deliverable, so the model tier the orchestrator paid for is the tier that writes.
 
 Anti-shapes the catalog refuses, each priced by the failure it manufactures:
 

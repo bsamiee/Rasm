@@ -6,8 +6,7 @@ description: >-
     and dry-running an existing script; launching a run, writing its ledger; recovering one
     through run IDs, `resumeFromRunId`, the `journal.jsonl` result cache, cross-session
     transplant, and continuation scripts. Use for "make a workflow", "run the workflow",
-    for any edit under `.claude/workflows/`. Whether a workflow beats a subagent, fork, team,
-    or background task belongs to agent-dispatch.
+    for any edit under `.claude/workflows/`.
 ---
 
 # [WORKFLOW_CREATOR]
@@ -47,7 +46,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 
 ## [02]-[FIT]
 
-Placement across execution surfaces is agent-dispatch law. A workflow earns its cost when the work is parallel or multi-stage, orchestration must be deterministic and resumable, and per-step fresh context pays. One subagent, one task: the plain `Agent` tool; a procedure where the model picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline to beat: decomposition pays only for genuinely separable units; a camouflaged dependency chain buys overhead and serial wall-clock. Doubtful fit is stated, the lighter option offered.
+A workflow earns its cost when the work is parallel or multi-stage, orchestration must be deterministic and resumable, and per-step fresh context pays. One subagent, one task: the plain `Agent` tool; a procedure where the model picks the steps each run is a skill; a fixed shape worth rerunning and resuming is a workflow. A single-agent run is the baseline to beat: decomposition pays only for genuinely separable units; a camouflaged dependency chain buys overhead and serial wall-clock. Doubtful fit is stated, the lighter option offered.
 
 ## [03]-[SHAPE]
 

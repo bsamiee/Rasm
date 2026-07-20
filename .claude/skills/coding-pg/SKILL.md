@@ -13,7 +13,6 @@ description: >-
 # [CODING_PG]
 
 All SQL follows these governing principles:
-
 - [POLYMORPHIC] — one function/query per concern, generic over specific via parameter dispatch and dynamic SQL
 - [SET_ALGEBRAIC] — express operations as set transformations; zero row-at-a-time iteration
 - [STRONGLY_TYPED] — domain types, composite types, range types; zero untyped `text` columns for structured data
