@@ -72,37 +72,40 @@
 |  [09]   | `SelectPipelineBy`                    | pipeline selector     | custom-keyed pipeline      |
 |  [10]   | `DisableForUnsafeHttpMethods`         | retry filter          | idempotency guard          |
 |  [11]   | `DisableFor`                          | retry filter          | method-specific guard      |
+|  [12]   | `ResilienceHandler(pipeline)`         | handler construction  | direct pipeline handler    |
+|  [13]   | `ResilienceHandler(pipelineProvider)` | handler construction  | per-request pipeline       |
 
 [ENTRYPOINT_SCOPE]: routing and context operations
 - rail: resilience
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                  |
-| :-----: | :---------------------------- | :---------------- | :---------------------- |
-|  [01]   | `ConfigureOrderedGroups`      | routing setup     | ordered route groups    |
-|  [02]   | `ConfigureWeightedGroups`     | routing setup     | weighted route groups   |
-|  [03]   | `IsTransient`                 | predicate         | retry/hedging predicate |
-|  [04]   | `IsTransientHttpFailure`      | predicate         | status-code predicate   |
-|  [05]   | `IsTransientHttpException`    | predicate         | exception predicate     |
-|  [06]   | `ResilienceHandler.SendAsync` | handler execution | async HTTP pipeline     |
-|  [07]   | `EnableReloads<TOptions>`     | context reload    | named options reload    |
-|  [08]   | `GetOptions<TOptions>`        | context lookup    | named options lookup    |
-|  [09]   | `OnPipelineDisposed`          | context callback  | pipeline disposal hook  |
-|  [10]   | `GetResilienceContext`        | request extension | request context read    |
-|  [11]   | `SetResilienceContext`        | request extension | request context write   |
-|  [12]   | `GetRequestMessage`           | Polly extension   | context request read    |
-|  [13]   | `SetRequestMessage`           | Polly extension   | context request write   |
+| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]    | [RAIL]                   |
+| :-----: | :------------------------ | :---------------- | :----------------------- |
+|  [01]   | `ConfigureOrderedGroups`  | routing setup     | ordered route groups     |
+|  [02]   | `ConfigureWeightedGroups` | routing setup     | weighted route groups    |
+|  [03]   | `IsTransient`             | predicate         | retry/hedging predicate  |
+|  [04]   | `EnableReloads<TOptions>` | context reload    | named options reload     |
+|  [05]   | `GetOptions<TOptions>`    | context lookup    | named options lookup     |
+|  [06]   | `OnPipelineDisposed`      | context callback  | pipeline disposal hook   |
+|  [07]   | `ServiceProvider`         | context read      | handler service provider |
+|  [08]   | `BuilderName`             | context read      | pipeline builder name    |
+|  [09]   | `InstanceName`            | context read      | pipeline instance name   |
+|  [10]   | `GetResilienceContext`    | request extension | request context read     |
+|  [11]   | `SetResilienceContext`    | request extension | request context write    |
+|  [12]   | `GetRequestMessage`       | Polly extension   | context request read     |
+|  [13]   | `SetRequestMessage`       | Polly extension   | context request write    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RESILIENCE_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.Resilience`
+- namespaces: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.DependencyInjection`, `System.Net.Http`, `Polly`
 - handler rails: standard resilience handler, custom resilience handler, standard hedging handler
 - policy families: retry, timeout, circuit breaker, rate limiter, attempt timeout, total request timeout
+- retry policy: transient retry honoring the `Retry-After` response header, opt-out for unsafe HTTP methods
 - hedging families: hedging strategy, endpoint timeout, endpoint breaker, endpoint rate limiter
 - selection surface: authority-based pipeline selection and custom request-key selection
 - routing surface: ordered groups, weighted groups, weighted endpoints, selection mode
-- predicate surface: transient HTTP status, exception, timeout, cancellation boundaries
-- context surface: request-message resilience context, pipeline options reload, pipeline disposal callback
+- predicate surface: transient HTTP status, transient exception, and timeout outcomes, with a cancellation-token overload
+- context surface: request-message resilience context, handler-scoped service provider and pipeline identity, options reload, pipeline disposal callback
 - generated validators: option validators for strategy and routing option records
 
 [LOCAL_ADMISSION]:

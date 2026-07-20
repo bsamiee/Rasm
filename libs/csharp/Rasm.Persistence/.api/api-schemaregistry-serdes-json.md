@@ -19,12 +19,13 @@
 [PUBLIC_TYPE_SCOPE]: serde family
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                    |
-| :-----: | :----------------------- | :------------------ | :-------------------------------------------------------- |
-|  [01]   | `JsonSerializer<T>`      | async serializer    | `where T : class`; generates schema, validates, frames id |
-|  [02]   | `JsonDeserializer<T>`    | async deserializer  | `where T : class`; resolves id, validates, parses         |
-|  [03]   | `JsonSerializerConfig`   | serializer config   | register/normalize/validate/subject/id-strategy           |
-|  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version + validate + id-strategy                   |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                                        |
+| :-----: | :----------------------- | :------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `JsonSerializer<T>`      | async serializer    | `where T : class`; generates schema, validates, frames id                    |
+|  [02]   | `JsonDeserializer<T>`    | async deserializer  | `where T : class`; resolves id, validates, parses                            |
+|  [03]   | `JsonSerializerConfig`   | serializer config   | register/normalize/validate/subject/id-strategy                              |
+|  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version + validate + id-strategy                                      |
+|  [05]   | `JsonSchemaResolver`     | reference resolver  | `GetResolvedSchema()` walks `Schema.References` `$ref` rows into one `JsonSchema` |
 
 [PUBLIC_TYPE_SCOPE]: composed contract family (re-stated from siblings)
 - rail: cdc-egress (JSON Schema)
@@ -87,7 +88,7 @@ Every ctor takes an optional trailing `jsonSchemaGeneratorSettings?` the table o
 
 [JSON_SERDE_TOPOLOGY]:
 - `JsonSerializer<T> : AsyncSerializer<T, JsonSchema> where T : class` and `JsonDeserializer<T> : AsyncDeserializer<T, JsonSchema> where T : class` — the parsed-schema type is `NJsonSchema.JsonSchema`. The shared `AsyncSerializer<T,TParsed>` base owns `autoRegisterSchema`, `normalizeSchemas`, the `ISchemaIdEncoder` (default `PrefixSchemaIdEncoder`), and `initialBufferSize`; this serde supplies JSON Schema generation, document validation, and the JSON read/write.
-- the document codec is `Newtonsoft.Json` and the schema engine is `NJsonSchema 11.0.2`: the schemaless `JsonSerializer<T>` ctor generates the `JsonSchema` from `T` through `NewtonsoftJsonSchemaGeneratorSettings`; the `Schema`-bound ctor uses a registered schema verbatim. This is structurally a different JSON stack from the admitted System.Text.Json surfaces (`NodaTime.Serialization.SystemTextJson`, `CloudNative.CloudEvents.SystemTextJson`) — a System.Text.Json `JsonSerializerOptions` never configures this serde.
+- the document codec is `Newtonsoft.Json` and the schema engine is the `NJsonSchema.NewtonsoftJson` chain: the schemaless `JsonSerializer<T>` ctor generates the `JsonSchema` from `T` through `NewtonsoftJsonSchemaGeneratorSettings`; the `Schema`-bound ctor uses a registered schema verbatim. This is structurally a different JSON stack from the admitted System.Text.Json surfaces (`NodaTime.Serialization.SystemTextJson`, `CloudNative.CloudEvents.SystemTextJson`) — a System.Text.Json `JsonSerializerOptions` never configures this serde.
 - the wire payload is the framed schema id plus the UTF-8 JSON document. `Validate` gates both directions on JSON-Schema conformance: on write the document is validated against the schema before framing; on read the decoded document is validated against the writer schema. `ValidateBeforeDomainRules` orders validation ahead of the rule-engine domain transforms so an invalid document is rejected before a field-encryption rule runs.
 - `DeserializeAsync(ReadOnlyMemory<byte> data, bool isNull, SerializationContext context)` parses the JSON into `T`; `isNull` returns the tombstone path. The registry-less ctor (`new JsonDeserializer<T>(config?)`) decodes id framing only without a registry fetch — admitted only where validation/evolution is not enforced.
 

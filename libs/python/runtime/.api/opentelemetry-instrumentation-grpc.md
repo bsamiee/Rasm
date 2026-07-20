@@ -36,7 +36,7 @@
 
 [PUBLIC_TYPE_SCOPE]: grpcext interceptor contracts
 - rail: observability
-- the legacy-channel interceptor abstractions `grpcext.intercept_channel` wraps; the OTel client interceptor implements `UnaryClientInterceptor`/`StreamClientInterceptor`, and a custom span-enriching channel interceptor subclasses these rather than re-deriving gRPC's own interceptor protocol.
+- the sync-channel interceptor abstractions `grpcext.intercept_channel` wraps; the OTel client interceptor implements `UnaryClientInterceptor`/`StreamClientInterceptor`, and a custom span-enriching channel interceptor subclasses these rather than re-deriving gRPC's own interceptor protocol.
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                                          |
 | :-----: | :-------------------------------- | :------------ | :------------------------------------------------------------------------------ |

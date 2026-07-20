@@ -51,24 +51,29 @@
 [PUBLIC_TYPE_SCOPE]: signal model family
 - rail: telemetry
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                   |
-| :-----: | :--------------------------- | :-------------- | :----------------------- |
-|  [01]   | `Tracer`                     | trace emitter   | span creation            |
-|  [02]   | `TelemetrySpan`              | span handle     | span mutation            |
-|  [03]   | `SpanContext`                | trace context   | trace identity           |
-|  [04]   | `SpanAttributes`             | attribute bag   | span attributes          |
-|  [05]   | `Link`                       | span link       | causal link              |
-|  [06]   | `Status`                     | span status     | trace result             |
-|  [07]   | `Sampler`                    | sampling policy | trace admission base     |
-|  [08]   | `SamplingResult`             | sampling result | trace admission result   |
-|  [09]   | `Metric`                     | metric payload  | metric export payload    |
-|  [10]   | `MetricPoint`                | metric point    | metric timeseries point  |
-|  [11]   | `MetricStreamConfiguration`  | metric stream   | metric stream policy     |
-|  [12]   | `Exemplar`                   | exemplar value  | trace-linked measurement |
-|  [13]   | `OpenTelemetryLoggerOptions` | logger options  | log capture policy       |
-|  [14]   | `LogRecord`                  | log payload     | log export payload       |
-|  [15]   | `LogRecordData`              | log data        | log emission payload     |
-|  [16]   | `LogRecordAttributeList`     | log attributes  | log attribute payload    |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [RAIL]                                   |
+| :-----: | :--------------------------- | :------------------- | :--------------------------------------- |
+|  [01]   | `Tracer`                     | trace emitter        | span creation                            |
+|  [02]   | `TelemetrySpan`              | span handle          | span mutation                            |
+|  [03]   | `SpanContext`                | trace context        | trace identity                           |
+|  [04]   | `SpanAttributes`             | attribute bag        | span attributes                          |
+|  [05]   | `SpanKind`                   | span kind enum       | internal/server/client/producer/consumer |
+|  [06]   | `Link`                       | span link            | causal link                              |
+|  [07]   | `Status`                     | span status          | trace result                             |
+|  [08]   | `StatusCode`                 | status code enum     | unset/ok/error                           |
+|  [09]   | `Sampler`                    | sampling policy      | trace admission base                     |
+|  [10]   | `SamplingResult`             | sampling result      | trace admission result                   |
+|  [11]   | `Metric`                     | metric payload       | metric export payload                    |
+|  [12]   | `MetricPoint`                | metric point         | metric timeseries point                  |
+|  [13]   | `MetricStreamConfiguration`  | metric stream        | metric stream policy                     |
+|  [14]   | `Exemplar`                   | exemplar value       | trace-linked measurement                 |
+|  [15]   | `ExemplarFilterType`         | exemplar filter enum | exemplar admission policy                |
+|  [16]   | `ReadOnlyExemplarCollection` | exemplar collection  | metric-point exemplars                   |
+|  [17]   | `OpenTelemetryLoggerOptions` | logger options       | log capture policy                       |
+|  [18]   | `LogRecord`                  | log payload          | log export payload                       |
+|  [19]   | `LogRecordData`              | log data             | log emission payload                     |
+|  [20]   | `LogRecordAttributeList`     | log attributes       | log attribute payload                    |
+|  [21]   | `LogRecordSeverity`          | log severity enum    | log severity vocabulary                  |
 
 [PUBLIC_TYPE_SCOPE]: context and propagation family
 - rail: telemetry
@@ -115,20 +120,22 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 [ENTRYPOINT_SCOPE]: signal operations
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]    | [RAIL]                  |
-| :-----: | :--------------------------- | :---------------- | :---------------------- |
-|  [01]   | `GetTracer`                  | trace access      | tracer lookup           |
-|  [02]   | `StartSpan`                  | span creation     | inactive span           |
-|  [03]   | `StartActiveSpan`            | span creation     | ambient active span     |
-|  [04]   | `SetAttribute`               | span mutation     | span attribute          |
-|  [05]   | `AddEvent`                   | span mutation     | span event              |
-|  [06]   | `AddLink`                    | span mutation     | linked span context     |
-|  [07]   | `SetStatus`                  | span mutation     | status projection       |
-|  [08]   | `RecordException`            | span/log mutation | exception projection    |
-|  [09]   | `EmitLog`                    | log emission      | log record creation     |
-|  [10]   | `LogRecordAttributeList.Add` | log attributes    | log attribute admission |
-|  [11]   | `MetricReader.Collect`       | metric collection | metric snapshot         |
-|  [12]   | `MetricReader.ForceFlush`    | metric drain      | reader flush            |
+| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                  |
+| :-----: | :---------------------------- | :---------------- | :---------------------- |
+|  [01]   | `GetTracer`                   | trace access      | tracer lookup           |
+|  [02]   | `StartSpan`                   | span creation     | inactive span           |
+|  [03]   | `StartActiveSpan`             | span creation     | ambient active span     |
+|  [04]   | `StartRootSpan`               | span creation     | parentless root span    |
+|  [05]   | `SetAttribute`                | span mutation     | span attribute          |
+|  [06]   | `AddEvent`                    | span mutation     | span event              |
+|  [07]   | `AddLink`                     | span mutation     | linked span context     |
+|  [08]   | `SetStatus`                   | span mutation     | status projection       |
+|  [09]   | `RecordException`             | span/log mutation | exception projection    |
+|  [10]   | `EmitLog`                     | log emission      | log record creation     |
+|  [11]   | `LogRecordAttributeList.Add`  | log attributes    | log attribute admission |
+|  [12]   | `MetricReader.Collect`        | metric collection | metric snapshot         |
+|  [13]   | `MetricReader.ForceFlush`     | metric drain      | reader flush            |
+|  [14]   | `MetricPoint.TryGetExemplars` | exemplar read     | metric-point exemplars  |
 
 [ENTRYPOINT_SCOPE]: processor exporter and propagation operations
 - rail: telemetry
@@ -164,6 +171,7 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 - reader contract: metric readers own collection cadence and export cadence
 - propagation rail: trace context, baggage, composite propagators
 - sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, set through `SetSampler` on the tracer-provider builder
+- exemplar rail: `SetExemplarFilter(ExemplarFilterType)` on the meter-provider builder gates trace-linked sample admission (`AlwaysOff`, `AlwaysOn`, `TraceBased`); `MetricPoint.TryGetExemplars` reads the per-point `ReadOnlyExemplarCollection`
 
 [LOCAL_ADMISSION]:
 - Runtime code emits signals through provider builders and processor chains.

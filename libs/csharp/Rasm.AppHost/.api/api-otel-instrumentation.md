@@ -45,7 +45,7 @@
 [ENTRYPOINT_SCOPE]: provider registration
 - rail: observability
 
-Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter where available; runtimes without that meter use the package-local `RuntimeMetrics` path when options are supplied.
+`AddRuntimeInstrumentation` subscribes the built-in `System.Runtime` meter where the runtime emits it; runtimes without that meter register the package-local `RuntimeMetrics` meter and honor `RuntimeInstrumentationOptions`.
 
 | [INDEX] | [SURFACE]                      | [BUILDER_SIGNAL]     | [OPTIONS]                               | [CAPABILITY]                           |
 | :-----: | :----------------------------- | :------------------- | :-------------------------------------- | :------------------------------------- |
@@ -70,36 +70,36 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter wh
 |  [07]   | `EnrichWithHttpWebResponse`     | `Action<Activity, HttpWebResponse>?`     | .NET Framework response enrichment                |
 |  [08]   | `RecordException`               | `bool` property, default false           | records exceptions as `ActivityEvent`             |
 
-[ENTRYPOINT_SCOPE]: package-local runtime instruments (`OpenTelemetry.Instrumentation.Runtime` meter)
+[ENTRYPOINT_SCOPE]: runtime metric families (`System.Runtime` meter)
 - rail: observability
 
-| [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]               | [CAPABILITY]                        |
-| :-----: | :--------------------------------------------------------- | :------------------------- | :---------------------------------- |
-|  [01]   | `process.runtime.dotnet.gc.collections.count`              | observable counter         | GC collections per generation       |
-|  [02]   | `process.runtime.dotnet.gc.objects.size`                   | observable up-down counter | live GC heap object bytes           |
-|  [03]   | `process.runtime.dotnet.gc.allocations.size`               | observable counter         | allocated bytes since process start |
-|  [04]   | `process.runtime.dotnet.gc.committed_memory.size`          | observable up-down counter | committed GC virtual memory         |
-|  [05]   | `process.runtime.dotnet.gc.heap.size`                      | observable up-down counter | heap size per generation            |
-|  [06]   | `process.runtime.dotnet.gc.heap.fragmentation.size`        | observable up-down counter | heap fragmentation per generation   |
-|  [07]   | `process.runtime.dotnet.gc.duration`                       | observable counter         | total GC pause time                 |
-|  [08]   | `process.runtime.dotnet.jit.il_compiled.size`              | observable counter         | compiled IL bytes                   |
-|  [09]   | `process.runtime.dotnet.jit.methods_compiled.count`        | observable counter         | JIT-compiled method count           |
-|  [10]   | `process.runtime.dotnet.jit.compilation_time`              | observable counter         | JIT compilation time                |
-|  [11]   | `process.runtime.dotnet.monitor.lock_contention.count`     | observable counter         | monitor lock contention count       |
-|  [12]   | `process.runtime.dotnet.thread_pool.threads.count`         | observable up-down counter | thread pool thread count            |
-|  [13]   | `process.runtime.dotnet.thread_pool.completed_items.count` | observable counter         | completed thread pool work items    |
-|  [14]   | `process.runtime.dotnet.thread_pool.queue.length`          | observable up-down counter | pending thread pool work items      |
-|  [15]   | `process.runtime.dotnet.timer.count`                       | observable up-down counter | active timer count                  |
-|  [16]   | `process.runtime.dotnet.assemblies.count`                  | observable up-down counter | loaded assembly count               |
-|  [17]   | `process.runtime.dotnet.exceptions.count`                  | counter                    | first-chance exception count        |
+The `System.Runtime` meter emits these families under the `dotnet.*` semantic convention.
+
+| [INDEX] | [DOMAIN]                    | [INSTRUMENT_KIND]          | [CAPABILITY]                        |
+| :-----: | :-------------------------- | :------------------------- | :---------------------------------- |
+|  [01]   | GC collections              | observable counter         | collections per generation          |
+|  [02]   | GC heap size                | observable up-down counter | live heap bytes per generation      |
+|  [03]   | GC allocations              | observable counter         | allocated bytes since process start |
+|  [04]   | GC committed memory         | observable up-down counter | committed GC virtual memory         |
+|  [05]   | GC heap fragmentation       | observable up-down counter | fragmentation per generation        |
+|  [06]   | GC pause                    | observable counter         | total GC pause time                 |
+|  [07]   | JIT compiled IL             | observable counter         | compiled IL bytes                   |
+|  [08]   | JIT compiled methods        | observable counter         | JIT-compiled method count           |
+|  [09]   | JIT compilation time        | observable counter         | JIT compilation time                |
+|  [10]   | monitor lock contention     | observable counter         | monitor lock contention count       |
+|  [11]   | thread pool threads         | observable up-down counter | thread pool thread count            |
+|  [12]   | thread pool completed items | observable counter         | completed thread pool work items    |
+|  [13]   | thread pool queue length    | observable up-down counter | pending thread pool work items      |
+|  [14]   | active timers               | observable up-down counter | active timer count                  |
+|  [15]   | loaded assemblies           | observable up-down counter | loaded assembly count               |
+|  [16]   | exceptions                  | counter                    | thrown exception count              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INSTRUMENTATION_TOPOLOGY]:
-- runtime dispatch: runtimes that emit `System.Runtime` metrics use `AddMeter("System.Runtime")`; runtimes without that meter register the internal `RuntimeMetrics` meter named `OpenTelemetry.Instrumentation.Runtime`
-- runtime options: `RuntimeInstrumentationOptions` is memberless; the configurator exists for forward policy only and is ignored when the runtime-emitted meter is active
-- exception counting: the package-local exception counter subscribes `AppDomain.FirstChanceException` once per process, reference counted across instrumentation instances
-- http trace dispatch: runtimes that emit the `System.Net.Http` activity source subscribe it directly; runtimes without that source add the package source plus legacy source `System.Net.Http.HttpRequestOut`
+- runtime dispatch: runtimes that emit `System.Runtime` metrics subscribe it via `AddMeter("System.Runtime")`; runtimes without that meter register the package-local `RuntimeMetrics` meter named `OpenTelemetry.Instrumentation.Runtime`
+- runtime options: `RuntimeInstrumentationOptions` is memberless; the configurator exists for forward policy only and is ignored when the built-in runtime meter is active
+- http trace dispatch: runtimes that emit the `System.Net.Http` activity source subscribe it directly; runtimes without that source add the package source plus the legacy `System.Net.Http.HttpRequestOut` source
 - http meter dispatch: meter admission is `AddMeter` over runtime-emitted `System.Net.Http` and `System.Net.NameResolution` meters; `OpenTelemetry.Instrumentation.Http` defines no package-local HTTP instruments for admitted target frameworks
 - options retrieval: trace options resolve through named `IOptionsMonitor<HttpClientTraceInstrumentationOptions>`
 - redaction: URL query values are redacted by default; `OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION` binds from environment configuration to disable it

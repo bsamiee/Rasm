@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_SCHEMAREGISTRY_SERDES_PROTOBUF]
 
-`Confluent.SchemaRegistry.Serdes.Protobuf` is the registry-governed Protobuf data-plane codec: `ProtobufSerializer<T>` and `ProtobufDeserializer<T>` derive from the shared `AsyncSerializer<T, FileDescriptorSet>`/`AsyncDeserializer<T, FileDescriptorSet>` base, frame each payload with a Confluent schema id plus the Protobuf message-index path, and register the `.proto` `FileDescriptorSet` (with transitive imports) through a shared `ISchemaRegistryClient`. `T` is constrained `where T : IMessage<T>, new()` (serializer) / `where T : class, IMessage<T>, new()` (deserializer), so `T` is exactly a `Google.Protobuf`-generated message — the admitted `Google.Protobuf 3.35.1` wire format the `Rasm.Compute` egress (`Version/egress#WIRE`) produces. It is the schema-evolving binary leg of the `Version/egress#EGRESS_SINK` rail for Protobuf-typed topics, distinct from the Avro and JSON-Schema serdes.
+`Confluent.SchemaRegistry.Serdes.Protobuf` is the registry-governed Protobuf data-plane codec: `ProtobufSerializer<T>` and `ProtobufDeserializer<T>` derive from the shared `AsyncSerializer<T, FileDescriptorSet>`/`AsyncDeserializer<T, FileDescriptorSet>` base, frame each payload with a Confluent schema id plus the Protobuf message-index path, and register the `.proto` `FileDescriptorSet` (with transitive imports) through a shared `ISchemaRegistryClient`. `T` is constrained `where T : IMessage<T>, new()` (serializer) / `where T : class, IMessage<T>, new()` (deserializer), so `T` is exactly a `Google.Protobuf`-generated message — the admitted `Google.Protobuf` wire format the `Rasm.Compute` egress (`Version/egress#WIRE`) produces. It is the schema-evolving binary leg of the `Version/egress#EGRESS_SINK` rail for Protobuf-typed topics, distinct from the Avro and JSON-Schema serdes.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -72,9 +72,10 @@ Scalar tunables (`bool?`/`int?`/dictionary):
 |  [02]   | `NormalizeSchemas` (`bool?`)                           | serializer     | canonical-form normalization                           |
 |  [03]   | `UseLatestVersion` (`bool?`)                           | both           | pin the latest registered descriptor version           |
 |  [04]   | `UseSchemaId` (`int?`)                                 | serializer     | force a specific registered descriptor id              |
-|  [05]   | `SkipKnownTypes` (`bool?`)                             | serializer     | omit well-known `google.protobuf.*` types from the set |
-|  [06]   | `UseDeprecatedFormat` (`bool?`)                        | both           | legacy single-message-index framing (interop)          |
-|  [07]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both           | pin the descriptor version whose `Metadata` matches    |
+|  [05]   | `BufferBytes` (`int?`)                                 | serializer     | initial serialize buffer override                      |
+|  [06]   | `SkipKnownTypes` (`bool?`)                             | serializer     | omit well-known `google.protobuf.*` types from the set |
+|  [07]   | `UseDeprecatedFormat` (`bool?`)                        | both           | legacy single-message-index framing (interop)          |
+|  [08]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both           | pin the descriptor version whose `Metadata` matches    |
 
 Strategy selectors (subject naming, reference naming, id framing):
 

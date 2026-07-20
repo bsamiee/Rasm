@@ -25,63 +25,71 @@
 
 [CHAT_CLIENTS]:
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]    | [CAPABILITY]              |
-| :-----: | :----------------------- | :--------------- | :------------------------ |
-|  [01]   | `IChatClient`            | client contract  | provider-neutral chat     |
-|  [02]   | `DelegatingChatClient`   | delegating base  | middleware composition    |
-|  [03]   | `ChatClientExtensions`   | extension class  | convenience operations    |
-|  [04]   | `ChatResponseExtensions` | extension class  | response accumulation     |
-|  [05]   | `ChatMessage`            | message model    | chat content carrier      |
-|  [06]   | `ChatRole`               | role value       | message role vocabulary   |
-|  [07]   | `ChatOptions`            | request options  | request policy carrier    |
-|  [08]   | `ChatResponse`           | response model   | response envelope         |
-|  [09]   | `ChatResponseUpdate`     | streaming update | incremental response unit |
-|  [10]   | `ChatFinishReason`       | finish reason    | stop vocabulary           |
-|  [11]   | `ChatToolMode`           | tool-mode base   | tool dispatch policy      |
-|  [12]   | `AutoChatToolMode`       | tool mode        | automatic invocation      |
-|  [13]   | `NoneChatToolMode`       | tool mode        | invocation disabled       |
-|  [14]   | `RequiredChatToolMode`   | tool mode        | invocation required       |
-|  [15]   | `ChatResponseFormat`     | response format  | response format base      |
-|  [16]   | `ChatResponseFormatText` | response format  | text responses            |
-|  [17]   | `ChatResponseFormatJson` | response format  | JSON responses            |
-|  [18]   | `ChatClientMetadata`     | client metadata  | provider identity         |
-|  [19]   | `IChatReducer`           | history reducer  | context reduction         |
-|  [20]   | `UsageDetails`           | usage model      | token counts              |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]      | [CAPABILITY]              |
+| :-----: | :-------------------------- | :----------------- | :------------------------ |
+|  [01]   | `IChatClient`               | client contract    | provider-neutral chat     |
+|  [02]   | `DelegatingChatClient`      | delegating base    | middleware composition    |
+|  [03]   | `ChatClientExtensions`      | extension class    | convenience operations    |
+|  [04]   | `ChatResponseExtensions`    | extension class    | response accumulation     |
+|  [05]   | `ChatMessage`               | message model      | chat content carrier      |
+|  [06]   | `ChatRole`                  | role value         | message role vocabulary   |
+|  [07]   | `ChatOptions`               | request options    | request policy carrier    |
+|  [08]   | `ChatResponse`              | response model     | response envelope         |
+|  [09]   | `ChatResponseUpdate`        | streaming update   | incremental response unit |
+|  [10]   | `ChatFinishReason`          | finish reason      | stop vocabulary           |
+|  [11]   | `ChatToolMode`              | tool-mode base     | tool dispatch policy      |
+|  [12]   | `AutoChatToolMode`          | tool mode          | automatic invocation      |
+|  [13]   | `NoneChatToolMode`          | tool mode          | invocation disabled       |
+|  [14]   | `RequiredChatToolMode`      | tool mode          | invocation required       |
+|  [15]   | `ChatResponseFormat`        | response format    | response format base      |
+|  [16]   | `ChatResponseFormatText`    | response format    | text responses            |
+|  [17]   | `ChatResponseFormatJson`    | response format    | JSON responses            |
+|  [18]   | `ChatClientMetadata`        | client metadata    | provider identity         |
+|  [19]   | `IChatReducer`              | history reducer    | context reduction         |
+|  [20]   | `UsageDetails`              | usage model        | token counts              |
+|  [21]   | `ResponseContinuationToken` | continuation token | resumable response handle |
 
 [CHAT_MEMBERS]: Message, role, response, and usage members retain one row per symbol.
 
-| [INDEX] | [SYMBOL]                         | [CAPABILITY]          |
-| :-----: | :------------------------------- | :-------------------- |
-|  [01]   | `ChatMessage.Role`               | message role          |
-|  [02]   | `ChatMessage.Contents`           | content parts         |
-|  [03]   | `ChatMessage.Text`               | concatenated text     |
-|  [04]   | `ChatMessage.Clone()`            | independent copy      |
-|  [05]   | `ChatRole.System`                | system message        |
-|  [06]   | `ChatRole.User`                  | user message          |
-|  [07]   | `ChatRole.Assistant`             | assistant message     |
-|  [08]   | `ChatRole.Tool`                  | tool message          |
-|  [09]   | `ChatResponse.Text`              | response text         |
-|  [10]   | `ChatResponse.Messages`          | response messages     |
-|  [11]   | `ChatResponse.Usage`             | usage details         |
-|  [12]   | `ChatResponse.FinishReason`      | stop condition        |
-|  [13]   | `ChatResponse.ContinuationToken` | response continuation |
-|  [14]   | `UsageDetails.InputTokenCount`   | input tokens          |
-|  [15]   | `UsageDetails.OutputTokenCount`  | output tokens         |
-|  [16]   | `UsageDetails.TotalTokenCount`   | total tokens          |
+| [INDEX] | [SYMBOL]                             | [CAPABILITY]          |
+| :-----: | :----------------------------------- | :-------------------- |
+|  [01]   | `ChatMessage.Role`                   | message role          |
+|  [02]   | `ChatMessage.AuthorName`             | message author        |
+|  [03]   | `ChatMessage.Contents`               | content parts         |
+|  [04]   | `ChatMessage.Text`                   | concatenated text     |
+|  [05]   | `ChatMessage.MessageId`              | message identity      |
+|  [06]   | `ChatMessage.CreatedAt`              | creation timestamp    |
+|  [07]   | `ChatMessage.Clone()`                | independent copy      |
+|  [08]   | `ChatRole.System`                    | system message        |
+|  [09]   | `ChatRole.User`                      | user message          |
+|  [10]   | `ChatRole.Assistant`                 | assistant message     |
+|  [11]   | `ChatRole.Tool`                      | tool message          |
+|  [12]   | `ChatResponse.Text`                  | response text         |
+|  [13]   | `ChatResponse.Messages`              | response messages     |
+|  [14]   | `ChatResponse.Usage`                 | usage details         |
+|  [15]   | `ChatResponse.FinishReason`          | stop condition        |
+|  [16]   | `ChatResponse.ContinuationToken`     | response continuation |
+|  [17]   | `UsageDetails.InputTokenCount`       | input tokens          |
+|  [18]   | `UsageDetails.OutputTokenCount`      | output tokens         |
+|  [19]   | `UsageDetails.TotalTokenCount`       | total tokens          |
+|  [20]   | `UsageDetails.CachedInputTokenCount` | cached input tokens   |
+|  [21]   | `UsageDetails.ReasoningTokenCount`   | reasoning tokens      |
+|  [22]   | `UsageDetails.AdditionalCounts`      | provider token counts |
 
 [EMBEDDING_GENERATORS]:
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CAPABILITY]           |
-| :-----: | :------------------------------------------------ | :---------------- | :--------------------- |
-|  [01]   | `IEmbeddingGenerator`                             | non-generic base  | service discovery      |
-|  [02]   | `IEmbeddingGenerator<TInput,TEmbedding>`          | typed contract    | batch generation       |
-|  [03]   | `DelegatingEmbeddingGenerator<TInput,TEmbedding>` | delegating base   | middleware composition |
-|  [04]   | `EmbeddingGeneratorExtensions`                    | extension class   | scalar projections     |
-|  [05]   | `Embedding`                                       | embedding carrier | payload base           |
-|  [06]   | `Embedding<T>`                                    | embedding carrier | typed payload          |
-|  [07]   | `GeneratedEmbeddings<TEmbedding>`                 | batch result      | generated batch        |
-|  [08]   | `BinaryEmbedding`                                 | binary embedding  | bit-packed vector      |
-|  [09]   | `EmbeddingGenerationOptions`                      | request options   | generation policy      |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]      | [CAPABILITY]           |
+| :-----: | :------------------------------------------------ | :----------------- | :--------------------- |
+|  [01]   | `IEmbeddingGenerator`                             | non-generic base   | service discovery      |
+|  [02]   | `IEmbeddingGenerator<TInput,TEmbedding>`          | typed contract     | batch generation       |
+|  [03]   | `DelegatingEmbeddingGenerator<TInput,TEmbedding>` | delegating base    | middleware composition |
+|  [04]   | `EmbeddingGeneratorExtensions`                    | extension class    | scalar projections     |
+|  [05]   | `Embedding`                                       | embedding carrier  | payload base           |
+|  [06]   | `Embedding<T>`                                    | embedding carrier  | typed payload          |
+|  [07]   | `GeneratedEmbeddings<TEmbedding>`                 | batch result       | generated batch        |
+|  [08]   | `BinaryEmbedding`                                 | binary embedding   | bit-packed vector      |
+|  [09]   | `EmbeddingGenerationOptions`                      | request options    | generation policy      |
+|  [10]   | `EmbeddingGeneratorMetadata`                      | generator metadata | provider identity      |
 
 [EMBEDDING_MEMBERS]:
 
@@ -94,26 +102,29 @@
 
 [TOOLS_AND_FUNCTIONS]:
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CAPABILITY]           |
-| :-----: | :------------------------------------------------ | :--------------- | :--------------------- |
-|  [01]   | `AITool`                                          | tool base        | tool description       |
-|  [02]   | `AIFunctionDeclaration`                           | declaration base | non-invocable manifest |
-|  [03]   | `AIFunction`                                      | function tool    | local invocation       |
-|  [04]   | `AIFunctionFactory`                               | function factory | function construction  |
-|  [05]   | `AIFunctionArguments`                             | argument carrier | keyed arguments        |
-|  [06]   | `AIFunctionFactoryOptions`                        | factory options  | binding policy         |
-|  [07]   | `ApprovalRequiredAIFunction`                      | approval gate    | explicit approval      |
-|  [08]   | `HostedWebSearchTool`                             | hosted tool      | web search             |
-|  [09]   | `HostedCodeInterpreterTool`                       | hosted tool      | code execution         |
-|  [10]   | `HostedFileSearchTool`                            | hosted tool      | file search            |
-|  [11]   | `HostedImageGenerationTool`                       | hosted tool      | image generation       |
-|  [12]   | `HostedToolSearchTool`                            | hosted tool      | tool search            |
-|  [13]   | `HostedMcpServerTool`                             | hosted MCP       | remote server tool     |
-|  [14]   | `HostedMcpServerToolApprovalMode`                 | approval mode    | approval vocabulary    |
-|  [15]   | `HostedMcpServerToolApprovalMode.AlwaysRequire`   | approval value   | unconditional approval |
-|  [16]   | `HostedMcpServerToolApprovalMode.NeverRequire`    | approval value   | approval bypass        |
-|  [17]   | `HostedMcpServerToolApprovalMode.RequireSpecific` | approval factory | selective approval     |
-|  [18]   | `HostedVectorStoreContent`                        | hosted content   | vector-store reference |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CAPABILITY]            |
+| :-----: | :------------------------------------------------ | :---------------- | :---------------------- |
+|  [01]   | `AITool`                                          | tool base         | tool description        |
+|  [02]   | `AIFunctionDeclaration`                           | declaration base  | non-invocable manifest  |
+|  [03]   | `AIFunction`                                      | function tool     | local invocation        |
+|  [04]   | `DelegatingAIFunction`                            | delegating base   | function middleware     |
+|  [05]   | `AIFunctionFactory`                               | function factory  | function construction   |
+|  [06]   | `AIFunctionArguments`                             | argument carrier  | keyed arguments         |
+|  [07]   | `AIFunctionFactoryOptions`                        | factory options   | binding policy          |
+|  [08]   | `AIFunctionNameAttribute`                         | binding attribute | function-name override  |
+|  [09]   | `AIParameterNameAttribute`                        | binding attribute | parameter-name override |
+|  [10]   | `ApprovalRequiredAIFunction`                      | approval gate     | explicit approval       |
+|  [11]   | `HostedWebSearchTool`                             | hosted tool       | web search              |
+|  [12]   | `HostedCodeInterpreterTool`                       | hosted tool       | code execution          |
+|  [13]   | `HostedFileSearchTool`                            | hosted tool       | file search             |
+|  [14]   | `HostedImageGenerationTool`                       | hosted tool       | image generation        |
+|  [15]   | `HostedToolSearchTool`                            | hosted tool       | tool search             |
+|  [16]   | `HostedMcpServerTool`                             | hosted MCP        | remote server tool      |
+|  [17]   | `HostedMcpServerToolApprovalMode`                 | approval mode     | approval vocabulary     |
+|  [18]   | `HostedMcpServerToolApprovalMode.AlwaysRequire`   | approval value    | unconditional approval  |
+|  [19]   | `HostedMcpServerToolApprovalMode.NeverRequire`    | approval value    | approval bypass         |
+|  [20]   | `HostedMcpServerToolApprovalMode.RequireSpecific` | approval factory  | selective approval      |
+|  [21]   | `HostedVectorStoreContent`                        | hosted content    | vector-store reference  |
 
 [MULTIMODAL_AND_REALTIME]:
 
@@ -141,33 +152,34 @@
 
 [CONTENT_AND_ANNOTATIONS]: `AIContent` owns the part hierarchy.
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]     | [CAPABILITY]          |
-| :-----: | :--------------------------------- | :---------------- | :-------------------- |
-|  [01]   | `AIContent`                        | content base      | discriminated part    |
-|  [02]   | `TextContent`                      | text content      | message text          |
-|  [03]   | `TextReasoningContent`             | reasoning content | reasoning text        |
-|  [04]   | `DataContent`                      | binary content    | inline data           |
-|  [05]   | `UriContent`                       | URI content       | external reference    |
-|  [06]   | `FunctionCallContent`              | local tool call   | invocation request    |
-|  [07]   | `FunctionResultContent`            | local tool result | invocation result     |
-|  [08]   | `ToolCallContent`                  | hosted tool call  | provider request      |
-|  [09]   | `ToolResultContent`                | hosted result     | provider result       |
-|  [10]   | `McpServerToolCallContent`         | MCP call          | remote request        |
-|  [11]   | `McpServerToolResultContent`       | MCP result        | remote result         |
-|  [12]   | `CodeInterpreterToolCallContent`   | code call         | execution request     |
-|  [13]   | `CodeInterpreterToolResultContent` | code result       | execution result      |
-|  [14]   | `WebSearchToolCallContent`         | search call       | search request        |
-|  [15]   | `WebSearchToolResultContent`       | search result     | search result         |
-|  [16]   | `ImageGenerationToolCallContent`   | image call        | generation request    |
-|  [17]   | `ImageGenerationToolResultContent` | image result      | generation result     |
-|  [18]   | `ToolApprovalRequestContent`       | approval request  | approval prompt       |
-|  [19]   | `ToolApprovalResponseContent`      | approval response | approval decision     |
-|  [20]   | `ErrorContent`                     | signal content    | structured error      |
-|  [21]   | `UsageContent`                     | signal content    | usage signal          |
-|  [22]   | `HostedFileContent`                | signal content    | hosted-file reference |
-|  [23]   | `AIAnnotation`                     | annotation base   | annotation carrier    |
-|  [24]   | `CitationAnnotation`               | annotation        | source citation       |
-|  [25]   | `TextSpanAnnotatedRegion`          | annotation        | text span             |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]     | [CAPABILITY]           |
+| :-----: | :--------------------------------- | :---------------- | :--------------------- |
+|  [01]   | `AIContent`                        | content base      | discriminated part     |
+|  [02]   | `TextContent`                      | text content      | message text           |
+|  [03]   | `TextReasoningContent`             | reasoning content | reasoning text         |
+|  [04]   | `DataContent`                      | binary content    | inline data            |
+|  [05]   | `UriContent`                       | URI content       | external reference     |
+|  [06]   | `FunctionCallContent`              | local tool call   | invocation request     |
+|  [07]   | `FunctionResultContent`            | local tool result | invocation result      |
+|  [08]   | `ToolCallContent`                  | hosted tool call  | provider request       |
+|  [09]   | `ToolResultContent`                | hosted result     | provider result        |
+|  [10]   | `McpServerToolCallContent`         | MCP call          | remote request         |
+|  [11]   | `McpServerToolResultContent`       | MCP result        | remote result          |
+|  [12]   | `CodeInterpreterToolCallContent`   | code call         | execution request      |
+|  [13]   | `CodeInterpreterToolResultContent` | code result       | execution result       |
+|  [14]   | `WebSearchToolCallContent`         | search call       | search request         |
+|  [15]   | `WebSearchToolResultContent`       | search result     | search result          |
+|  [16]   | `ImageGenerationToolCallContent`   | image call        | generation request     |
+|  [17]   | `ImageGenerationToolResultContent` | image result      | generation result      |
+|  [18]   | `ToolApprovalRequestContent`       | approval request  | approval prompt        |
+|  [19]   | `ToolApprovalResponseContent`      | approval response | approval decision      |
+|  [20]   | `ErrorContent`                     | signal content    | structured error       |
+|  [21]   | `UsageContent`                     | signal content    | usage signal           |
+|  [22]   | `HostedFileContent`                | signal content    | hosted-file reference  |
+|  [23]   | `AIAnnotation`                     | annotation base   | annotation carrier     |
+|  [24]   | `AnnotatedRegion<T>`               | region base       | typed annotated region |
+|  [25]   | `CitationAnnotation`               | annotation        | source citation        |
+|  [26]   | `TextSpanAnnotatedRegion`          | annotation        | text span              |
 
 [JSON_SCHEMA_UTILITIES]:
 
@@ -179,7 +191,6 @@
 |  [04]   | `AIJsonSchemaTransformOptions`   | transform policy | rewrite policy      |
 |  [05]   | `AIJsonSchemaTransformCache`     | transform cache  | rewrite caching     |
 |  [06]   | `AdditionalPropertiesDictionary` | carrier          | provider properties |
-|  [07]   | `DataUri`                        | carrier          | data-URI parsing    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -262,9 +273,12 @@
 |  [12]   | `AllowMultipleToolCalls`   | `bool?`                           | parallel tool calls   |
 |  [13]   | `Reasoning`                | `ReasoningOptions?`               | reasoning budget      |
 |  [14]   | `ModelId`                  | `string?`                         | model override        |
-|  [15]   | `ConversationId`           | `string?`                         | stateful conversation |
-|  [16]   | `AllowBackgroundResponses` | `bool?`                           | background responses  |
-|  [17]   | `AdditionalProperties`     | `AdditionalPropertiesDictionary?` | provider properties   |
+|  [15]   | `Instructions`             | `string?`                         | system-instruction    |
+|  [16]   | `ConversationId`           | `string?`                         | stateful conversation |
+|  [17]   | `AllowBackgroundResponses` | `bool?`                           | background responses  |
+|  [18]   | `ContinuationToken`        | `ResponseContinuationToken?`      | resume a response     |
+|  [19]   | `RawRepresentationFactory` | `Func<IChatClient,object?>?`      | provider request hook |
+|  [20]   | `AdditionalProperties`     | `AdditionalPropertiesDictionary?` | provider properties   |
 
 [SCHEMA_AND_CONTENT_OPERATIONS]:
 
@@ -286,15 +300,16 @@
 - `IChatClient: IDisposable` binds `GetResponseAsync`, `GetStreamingResponseAsync`, and `GetService`.
 - `IEmbeddingGenerator: IDisposable` is the non-generic discovery root, and `IEmbeddingGenerator<TInput,TEmbedding>` binds `GenerateAsync`.
 - Each multimodal client repeats the delegating base and `GetService` shape.
-- `DelegatingChatClient` and `DelegatingEmbeddingGenerator` wrap an inner client, while `GetService(Type, object?)` traverses the chain for metadata or a provider object.
+- `DelegatingChatClient` and `DelegatingEmbeddingGenerator` wrap an inner client, while `GetService(Type, object?)` traverses the chain for the per-client metadata (`ChatClientMetadata`, `EmbeddingGeneratorMetadata`) or a provider object.
 - Every client member is thread-safe for concurrent use.
 - `OnnxRuntimeGenAIChatClient` implements the shared `IChatClient` streaming contract.
 - `Microsoft.Extensions.AI` owns the builder pipeline and typed `ChatClientStructuredOutputExtensions.GetResponseAsync<T>` projection bound by `Rasm.AppHost`.
 
 [FUNCTION_SURFACE]:
 - `AIFunction: AIFunctionDeclaration` adds `InvokeAsync` returning `ValueTask<object?>`; the base declaration remains a schema-only manifest.
-- `AIFunctionFactory.Create` derives parameter schemas from a delegate or `MethodInfo` through reflection.
+- `AIFunctionFactory.Create` derives parameter schemas from a delegate or `MethodInfo` through reflection; `AIFunctionNameAttribute` and `AIParameterNameAttribute` override the reflected function and parameter names, and `AIFunctionFactoryOptions` exposes `ConfigureParameterBinding`, `MarshalResult`, and `ExcludeResultSchema` hooks over that binding.
 - `CreateDeclaration` binds an authored `JsonElement` schema and optional return schema without a local delegate.
+- `DelegatingAIFunction` wraps an inner `AIFunction` for function-level middleware, forwarding schema and delegating `InvokeAsync`.
 - `AsDeclarationOnly()` projects an invocable function to its manifest form.
 - `AIFunctionArguments` carries keyed arguments, and factory binding maps named JSON properties to typed parameters through `JsonSerializerOptions`.
 - `ApprovalRequiredAIFunction` gates invocation through paired `ToolApprovalRequestContent` and `ToolApprovalResponseContent` parts.

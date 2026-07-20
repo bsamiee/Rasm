@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_EXTENSIONS_AI_MIDDLEWARE]
 
-`Microsoft.Extensions.AI` is the concrete middleware package over the `Microsoft.Extensions.AI.Abstractions` contracts: a fluent `ChatClientBuilder`/`EmbeddingGeneratorBuilder` composes provider-agnostic decorators — function-invocation, distributed response caching, OpenTelemetry GenAI instrumentation, logging, and option configuration — into one delegating pipeline the AppHost model-governance fold consumes so every model call is metered, content-cached, and traced without coupling to a provider. The abstractions surface (`IChatClient`, `IEmbeddingGenerator`, `AIFunction`, the modal clients) lives at `api-extensions-ai.md`; this catalogue carries only the concrete builder and decorator types the middleware composition reaches for.
+`Microsoft.Extensions.AI` is the concrete middleware package over the `Microsoft.Extensions.AI.Abstractions` contracts: a fluent `ChatClientBuilder`/`EmbeddingGeneratorBuilder` composes provider-agnostic decorators — function-invocation, distributed response caching, OpenTelemetry GenAI instrumentation, logging, history reduction, and option configuration — into one delegating pipeline the AppHost model-governance fold consumes so every model call is metered, content-cached, traced, and context-bounded without coupling to a provider, and `AddChatClient`/`AddEmbeddingGenerator` register the built pipeline into DI. The abstractions surface (`IChatClient`, `IEmbeddingGenerator`, `AIFunction`, the modal clients) lives at `api-extensions-ai.md`; this catalogue carries only the concrete builder, decorator, reducer, and registration types the middleware composition reaches for.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -25,19 +25,25 @@
 |  [05]   | `OpenTelemetryChatClient`       | delegating client | GenAI span/metric telemetry        |
 |  [06]   | `LoggingChatClient`             | delegating client | structured request/response logs   |
 |  [07]   | `ConfigureOptionsChatClient`    | delegating client | per-request `ChatOptions` mutation |
-|  [08]   | `DelegatingChatClient`          | middleware base   | custom middleware                  |
-|  [09]   | `AnonymousDelegatingChatClient` | delegating client | delegate-backed middleware         |
+|  [08]   | `ReducingChatClient`            | delegating client | `IChatReducer` history reduction   |
+|  [09]   | `DelegatingChatClient`          | middleware base   | custom middleware                  |
+|  [10]   | `AnonymousDelegatingChatClient` | delegating client | delegate-backed middleware         |
 
 [DELEGATING_CHAT_CLIENT]:
 - Surface: public custom-middleware base.
 - Dispatch: `virtual` verbs delegate through `protected InnerClient`.
 
 [CACHING_CHAT_CLIENT]:
-- Base: caching decorator for `DistributedCachingChatClient` over `IDistributedCache`.
+- Base: abstract caching decorator for `DistributedCachingChatClient` over `IDistributedCache`.
+- Cache-key ownership: `protected abstract GetCacheKey(messages, options, params ReadOnlySpan<object?>)` derives the key; `protected virtual EnableCaching(messages, options)` gates whether a call is cached at all.
+
+[REDUCING_CHAT_CLIENT]:
+- Strategy: `MessageCountingChatReducer(int targetCount)` truncates to a message count; `SummarizingChatReducer(IChatClient, int targetCount, int? threshold)` summarizes overflow through a model.
+- Contract: both implement `IChatReducer.ReduceAsync` (abstractions); `ReducingChatClient(inner, reducer)` applies the reducer before each send, and `UseChatReducer` resolves the reducer from DI when none is supplied.
 
 [ANONYMOUS_DELEGATING_CHAT_CLIENT]:
 - Visibility: `internal sealed` and uninstantiable from a consumer package.
-- Binding: backs the public `Use(sharedFunc)` and `Use(getResponseFunc,getStreamingResponseFunc)` overloads.
+- Binding: backs the `ChatClientBuilder.Use(sharedFunc)` and `Use(getResponseFunc,getStreamingResponseFunc)` overloads.
 
 [PUBLIC_TYPE_SCOPE]: embedding-generator builder and decorators
 - rail: capability-agent
@@ -45,8 +51,11 @@
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]   | [RAIL]                                      |
 | :-----: | :--------------------------------------------- | :-------------- | :------------------------------------------ |
 |  [01]   | `EmbeddingGeneratorBuilder<TInput,TEmbedding>` | builder         | composes the `IEmbeddingGenerator` pipeline |
-|  [02]   | `DistributedCachingEmbeddingGenerator<TIn,TE>` | delegating gen. | content-keyed embedding cache               |
-|  [03]   | `OpenTelemetryEmbeddingGenerator<TIn,TE>`      | delegating gen. | embedding-call OTel instrumentation         |
+|  [02]   | `CachingEmbeddingGenerator<TIn,TE>`            | abstract base   | embedding-cache decorator                   |
+|  [03]   | `DistributedCachingEmbeddingGenerator<TIn,TE>` | delegating gen. | content-keyed embedding cache               |
+|  [04]   | `OpenTelemetryEmbeddingGenerator<TIn,TE>`      | delegating gen. | embedding-call OTel instrumentation         |
+|  [05]   | `LoggingEmbeddingGenerator<TIn,TE>`            | delegating gen. | structured embedding request/response logs  |
+|  [06]   | `ConfigureOptionsEmbeddingGenerator<TIn,TE>`   | delegating gen. | per-request `EmbeddingGenerationOptions`    |
 
 [PUBLIC_TYPE_SCOPE]: builder extension surfaces
 - rail: capability-agent
@@ -58,12 +67,24 @@
 |  [03]   | `OpenTelemetryChatClientBuilderExtensions`              | extension methods | `UseOpenTelemetry`                 |
 |  [04]   | `LoggingChatClientBuilderExtensions`                    | extension methods | `UseLogging`                       |
 |  [05]   | `ConfigureOptionsChatClientBuilderExtensions`           | extension methods | `ConfigureOptions`                 |
-|  [06]   | `ChatClientBuilderChatClientExtensions`                 | extension methods | `AsBuilder`                        |
-|  [07]   | `ChatClientStructuredOutputExtensions`                  | extension methods | typed `GetResponseAsync<T>`        |
-|  [08]   | `ChatResponse<T>`                                       | typed response    | structured-output carrier          |
-|  [09]   | `DistributedCachingEmbeddingGeneratorBuilderExtensions` | extension methods | `UseDistributedCache` (embeddings) |
-|  [10]   | `OpenTelemetryEmbeddingGeneratorBuilderExtensions`      | extension methods | `UseOpenTelemetry` (embeddings)    |
-|  [11]   | `EmbeddingGeneratorBuilderEmbeddingGeneratorExtensions` | extension methods | `AsBuilder` (embeddings)           |
+|  [06]   | `ReducingChatClientBuilderExtensions`                   | extension methods | `UseChatReducer`                   |
+|  [07]   | `ChatClientBuilderChatClientExtensions`                 | extension methods | `AsBuilder`                        |
+|  [08]   | `ChatClientStructuredOutputExtensions`                  | extension methods | typed `GetResponseAsync<T>`        |
+|  [09]   | `ChatResponse<T>`                                       | typed response    | structured-output carrier          |
+|  [10]   | `DistributedCachingEmbeddingGeneratorBuilderExtensions` | extension methods | `UseDistributedCache` (embeddings) |
+|  [11]   | `OpenTelemetryEmbeddingGeneratorBuilderExtensions`      | extension methods | `UseOpenTelemetry` (embeddings)    |
+|  [12]   | `LoggingEmbeddingGeneratorBuilderExtensions`            | extension methods | `UseLogging` (embeddings)          |
+|  [13]   | `ConfigureOptionsEmbeddingGeneratorBuilderExtensions`   | extension methods | `ConfigureOptions` (embeddings)    |
+|  [14]   | `EmbeddingGeneratorBuilderEmbeddingGeneratorExtensions` | extension methods | `AsBuilder` (embeddings)           |
+
+[PUBLIC_TYPE_SCOPE]: dependency-injection registration
+- rail: capability-agent
+- namespace: `Microsoft.Extensions.DependencyInjection`
+
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]     | [RAIL]                                                 |
+| :-----: | :----------------------------------------------------- | :---------------- | :----------------------------------------------------- |
+|  [01]   | `ChatClientBuilderServiceCollectionExtensions`         | extension methods | `AddChatClient` / `AddKeyedChatClient`                 |
+|  [02]   | `EmbeddingGeneratorBuilderServiceCollectionExtensions` | extension methods | `AddEmbeddingGenerator` / `AddKeyedEmbeddingGenerator` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -85,12 +106,18 @@
 |  [09]   | `ChatClientBuilder.UseOpenTelemetry(ILoggerFactory?, string?, Action<OpenTelemetryChatClient>?)`   | `ChatClientBuilder`                 |
 |  [10]   | `ChatClientBuilder.UseLogging(ILoggerFactory?, Action<LoggingChatClient>?)`                        | `ChatClientBuilder`                 |
 |  [11]   | `ChatClientBuilder.ConfigureOptions(Action<ChatOptions>)`                                          | `ChatClientBuilder`                 |
-|  [12]   | `IChatClient.GetResponseAsync<T>(...)`                                                             | `Task<ChatResponse<T>>`             |
-|  [13]   | `ChatResponse<T>.Result`                                                                           | `T`                                 |
-|  [14]   | `ChatResponse<T>.TryGetResult(out T?)`                                                             | non-throwing result                 |
-|  [15]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [16]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [17]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [12]   | `ChatClientBuilder.UseChatReducer(IChatReducer?, Action<ReducingChatClient>?)`                     | `ChatClientBuilder`                 |
+|  [13]   | `IServiceCollection.AddChatClient(IChatClient, ServiceLifetime)`                                   | `ChatClientBuilder`                 |
+|  [14]   | `IServiceCollection.AddKeyedChatClient(object?, IChatClient, ServiceLifetime)`                     | `ChatClientBuilder`                 |
+|  [15]   | `IChatClient.GetResponseAsync<T>(...)`                                                             | `Task<ChatResponse<T>>`             |
+|  [16]   | `ChatResponse<T>.Result`                                                                           | `T`                                 |
+|  [17]   | `ChatResponse<T>.TryGetResult(out T?)`                                                             | non-throwing result                 |
+|  [18]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [19]   | `IServiceCollection.AddEmbeddingGenerator<TIn,TE>(IEmbeddingGenerator<TIn,TE>, ServiceLifetime)`   | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [20]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [21]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [22]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseLogging(...)`                                                | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [23]   | `EmbeddingGeneratorBuilder<TIn,TE>.ConfigureOptions(Action<EmbeddingGenerationOptions>)`           | `EmbeddingGeneratorBuilder<TIn,TE>` |
 
 [SHARED_FUNC_OVERLOAD]:
 - Signature: `Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task> sharedFunc`.
@@ -108,15 +135,26 @@
 [ENTRYPOINT_SCOPE]: decorator-tuning properties
 - rail: capability-agent
 
-| [INDEX] | [MEMBER]                                                        | [KIND]   | [SEMANTICS]                             |
-| :-----: | :-------------------------------------------------------------- | :------- | :-------------------------------------- |
-|  [01]   | `FunctionInvokingChatClient.MaximumIterationsPerRequest`        | property | caps tool-call loop iterations          |
-|  [02]   | `FunctionInvokingChatClient.MaximumConsecutiveErrorsPerRequest` | property | caps consecutive tool-call errors       |
-|  [03]   | `FunctionInvokingChatClient.AllowConcurrentInvocation`          | property | gates parallel tool execution           |
-|  [04]   | `FunctionInvokingChatClient.AdditionalTools`                    | property | tools merged into every request         |
-|  [05]   | `FunctionInvokingChatClient.IncludeDetailedErrors`              | property | surfaces tool-error detail to the model |
-|  [06]   | `FunctionInvokingChatClient.TerminateOnUnknownCalls`            | property | halts on an unresolved tool name        |
-|  [07]   | `CachingChatClient.CacheKeyAdditionalValues`                    | property | extends the content-cache key           |
+| [INDEX] | [MEMBER]                                                        | [KIND]          | [SEMANTICS]                                     |
+| :-----: | :-------------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `FunctionInvokingChatClient.MaximumIterationsPerRequest`        | property        | caps tool-call loop iterations                  |
+|  [02]   | `FunctionInvokingChatClient.MaximumConsecutiveErrorsPerRequest` | property        | caps consecutive tool-call errors               |
+|  [03]   | `FunctionInvokingChatClient.AllowConcurrentInvocation`          | property        | gates parallel tool execution                   |
+|  [04]   | `FunctionInvokingChatClient.AdditionalTools`                    | property        | tools merged into every request                 |
+|  [05]   | `FunctionInvokingChatClient.IncludeDetailedErrors`              | property        | surfaces tool-error detail to the model         |
+|  [06]   | `FunctionInvokingChatClient.TerminateOnUnknownCalls`            | property        | halts on an unresolved tool name                |
+|  [07]   | `FunctionInvokingChatClient.FunctionInvoker`                    | property        | `Func` hook intercepting each `AIFunction` call |
+|  [08]   | `FunctionInvokingChatClient.CurrentContext`                     | static property | ambient `FunctionInvocationContext` in flight   |
+|  [09]   | `CachingChatClient.CoalesceStreamingUpdates`                    | property        | merges streamed updates before caching          |
+|  [10]   | `DistributedCachingChatClient.CacheKeyAdditionalValues`         | property        | extends the content-cache key                   |
+|  [11]   | `DistributedCachingChatClient.JsonSerializerOptions`            | property        | serializer for cached payloads                  |
+|  [12]   | `OpenTelemetryChatClient.EnableSensitiveData`                   | property        | includes prompt/response content in spans       |
+|  [13]   | `OpenTelemetryChatClient.JsonSerializerOptions`                 | property        | serializer for telemetry payloads               |
+
+[FUNCTION_INVOCATION_SURFACE]:
+- Extension points: `protected virtual InvokeFunctionAsync(FunctionInvocationContext, ct)` and `protected virtual CreateResponseMessages(ReadOnlySpan<FunctionInvocationResult>)` subclass the loop; `FunctionInvoker` overrides dispatch without subclassing.
+- Context: `FunctionInvocationContext` carries the mutable `Function`, `Arguments`, `CallContent`, and `Messages` for the in-flight call; `FunctionInvokingChatClient.CurrentContext` exposes it ambiently.
+- Result: `FunctionInvocationResult` reports `Status` (`FunctionInvocationStatus.RanToCompletion` / `NotFound` / `Exception`), `CallContent`, `Result`, `Exception`, and `Terminate`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -124,10 +162,13 @@
 - rail: capability-agent
 
 - pipeline shape: every decorator is a `DelegatingChatClient` wrapping the inner `IChatClient`; `ChatClientBuilder.Use`/`Build` composes them outermost-last so `UseOpenTelemetry().UseDistributedCache().UseFunctionInvocation()` reads outermost-to-innermost in call order, the OTel span enclosing the cache lookup enclosing the function-invocation loop.
-- caching: `DistributedCachingChatClient` keys the response by the serialized request (messages + options) over an injected `IDistributedCache`; an identical request-under-key replays the cached `ChatResponse` rather than re-calling the provider, and `CacheKeyAdditionalValues` folds extra discriminants into the key.
-- token usage: a completed `ChatResponse` carries `ChatResponse.Usage` (`UsageDetails` with `InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`) the governance fold projects onto a cost vector.
-- instrumentation: `UseOpenTelemetry` emits the OTel GenAI `gen_ai.*` conventions; the source name argument names the `ActivitySource`/`Meter` the observability composition root registers.
-- function invocation: `FunctionInvokingChatClient` runs the tool-call loop over `ChatOptions.Tools`, invoking each `AIFunction`; the governance fold supplies the brokered `CommandAIFunction` instances so every tool call routes through the command algebra.
+- caching: `DistributedCachingChatClient` keys the response by the serialized request (messages + options) over an injected `IDistributedCache`; an identical request-under-key replays the cached `ChatResponse` rather than re-calling the provider, `CacheKeyAdditionalValues` folds extra discriminants into the key, `JsonSerializerOptions` governs the persisted payload shape, the base `CachingChatClient.EnableCaching` override gates per-call cacheability, and `CoalesceStreamingUpdates` merges streamed updates into one cached response.
+- token usage: a completed `ChatResponse` carries `ChatResponse.Usage` (`UsageDetails` with `InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`/`CachedInputTokenCount`/`ReasoningTokenCount` and an `AdditionalCounts` map) the governance fold projects onto a cost vector, cache hits crediting `CachedInputTokenCount`.
+- instrumentation: `UseOpenTelemetry` emits the OTel GenAI `gen_ai.*` conventions; the source name argument names the `ActivitySource`/`Meter` the observability composition root registers, and `EnableSensitiveData` gates whether prompt and response content lands in spans.
+- function invocation: `FunctionInvokingChatClient` runs the tool-call loop over `ChatOptions.Tools`, invoking each `AIFunction`; the governance fold supplies the brokered `CommandAIFunction` instances so every tool call routes through the command algebra, the `FunctionInvoker` hook or an `InvokeFunctionAsync` override intercepts dispatch, and `CurrentContext` reads the in-flight `FunctionInvocationContext`.
+- history reduction: `ReducingChatClient` applies an `IChatReducer` before each send — `MessageCountingChatReducer` bounds by message count, `SummarizingChatReducer` collapses overflow through a model — so context stays inside the deadline class without a hand-rolled trim.
+- registration: `AddChatClient`/`AddKeyedChatClient` and `AddEmbeddingGenerator`/`AddKeyedEmbeddingGenerator` register the built pipeline into the DI container at a chosen `ServiceLifetime`, returning the builder for in-place decorator composition.
+- modal parity: the same builder-and-decorator shape repeats under `[Experimental("MEAI001")]` for the modal clients — `SpeechToTextClientBuilder`, `TextToSpeechClientBuilder`, `ImageGeneratorBuilder`, `RealtimeClientBuilder`, `HostedFileClientBuilder` each carry `Logging`/`OpenTelemetry`/`ConfigureOptions` decorators and `Add*` DI registration, and `ImageGeneratingChatClient` (`UseImageGeneration`) folds an `IImageGenerator` into the chat pipeline; the AppHost governance fold reaches for them only when a modal capability is admitted.
 - custom middleware: response-mutating governance arms subclass `DelegatingChatClient` and override its `virtual` `GetResponseAsync`, `GetStreamingResponseAsync`, or `GetService` verbs over `protected InnerClient`.
 - custom binding: `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)` weaves the subclass into the pipeline; the `internal sealed AnonymousDelegatingChatClient` behind `Use(sharedFunc)` exposes only a pre/post `Func<…,Task>` without a `ChatResponse` handle.
 - response mutation: middleware that rewrites or redacts a response uses the subclass surface, never the `sharedFunc` overload.
@@ -140,7 +181,8 @@
 [IMPLEMENTATION_LAW]: AppHost usage
 - rail: capability-agent
 
-- the model-governance fold composes the four decorators once at the capability-agent composition edge: `client.AsBuilder().UseOpenTelemetry(...).UseDistributedCache(hybridCache-backed IDistributedCache).UseFunctionInvocation(...).Build(sp)`.
+- the model-governance fold composes the decorators once at the capability-agent composition edge: `AddChatClient(sp => provider, lifetime).UseOpenTelemetry(...).UseDistributedCache(hybridCache-backed IDistributedCache).UseChatReducer(reducer).UseFunctionInvocation(...)`, and `Build`/`AddChatClient` registers the pipeline into DI.
 - the cache is the resources-lane `HybridCache` exposed as `IDistributedCache`, so the model response cache and the suite content cache share one store, never a second cache owner.
-- `MaximumIterationsPerRequest` and `MaximumConsecutiveErrorsPerRequest` are policy values read off the agent options row, never literals; the function-invocation loop bound traces to the agent's deadline class.
-- the concrete decorators are the one model-governance owner; a hand-rolled retry loop, a per-call OTel span, or a second response cache beside the decorators is the deleted form.
+- `MaximumIterationsPerRequest`, `MaximumConsecutiveErrorsPerRequest`, and the `IChatReducer` target count are policy values read off the agent options row, never literals; the function-invocation loop bound and the context window trace to the agent's deadline class.
+- `EnableSensitiveData` is a policy value off the agent's redaction class, never a literal; prompt and response capture is opt-in per agent, never global.
+- the concrete decorators are the one model-governance owner; a hand-rolled retry loop, a per-call OTel span, a hand-rolled history trim, or a second response cache beside the decorators is the deleted form.

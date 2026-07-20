@@ -1,15 +1,14 @@
-# [RASM_COMPUTE_API_HYBRID_CACHE]
+# [RASM_GRASSHOPPER_API_HYBRID_CACHE]
 
-`Microsoft.Extensions.Caching.Hybrid` is the single two-tier (L1 in-process + L2
-distributed) cache substrate: a stampede-collapsing `GetOrCreateAsync` read-through,
-tag-grouped invalidation, and a payload-codec seam (`IHybridCacheSerializer<T>`)
-that stacks onto the `CommunityToolkit.HighPerformance` `IBufferWriter<byte>` writers
-and the `StackExchange.Redis` L2 backing. One `HybridCache` is registered at the
-app root over the `CacheLane` descriptors; the model and lowering lanes compose it —
-they never register or instantiate a second cache. The substrate
-canonical member catalog is `libs/csharp/.api/api-hybrid-cache.md`; this overlay
-carries only the Compute delta — the lane bindings and per-call policy law the
-model and lowering pages compose.
+`Microsoft.Extensions.Caching.Hybrid` backs the Grasshopper session boundary's
+document-tagged cache: the composition root supplies one `HybridCache`, and the
+`SessionCache` boundary adapter reads through it per live document — keying by weak
+document identity, tagging each value with its document, so one session mutation
+evicts a single document's slots and never another's. Substrate canonical members
+live on `libs/csharp/.api/api-hybrid-cache.md`; this overlay carries only the
+Grasshopper delta — the session-scoped binding, the `gh:{documentId:N}:{slot}` key
+and `gh-doc:{documentId:N}` tag scheme, and the payload law the `Shell/session`
+page composes.
 
 ## [01]-[SUBSTRATE_CANONICAL]
 
@@ -17,47 +16,34 @@ model and lowering pages compose.
 - the contract/options/serializer type roster, the operation and registration call-shape tables, and the package/asset facts live on the substrate catalog — this overlay never re-states them
 - rail: runtime cache
 
-## [02]-[COMPUTE_BINDINGS]
+## [02]-[GRASSHOPPER_BINDINGS]
 
-[COMPUTE_BINDINGS]:
-- Every read/write carries `HybridCacheEntryOptions? options = null`, `IEnumerable<string>? tags = null`, and `CancellationToken cancellationToken = default`. The `TState` `GetOrCreateAsync` overload is the dense form the model and lowering lanes compose — passing captured state explicitly lets the `factory` delegate stay static (cached, no per-call closure allocation). The `ReadOnlySpan<char>` and `ref DefaultInterpolatedStringHandler` key overloads avoid a key-string allocation on the population path.
-- `HybridCacheEntryOptions` is a sealed `init`-only CLASS, not a record — `with` does not compile; per-call variation constructs a fresh options object seeded from the lane default (`new HybridCacheEntryOptions { Expiration = precision.NegativeTtl.ToTimeSpan(), LocalCacheExpiration = lane.Entry.LocalCacheExpiration, Flags = lane.Entry.Flags }`).
-- `HybridCacheEntryFlags` is the per-call tier-bypass — a non-serializable value (a compiled `Delegate` from `Symbolic/lowering#COMPILED_EXPR`) rides `DisableDistributedCache` (full L2 bypass, both read and write) and lives in L1 by reference through an `[ImmutableObject(true)]` carrier, never `DisableDistributedCacheWrite` alone (which leaves every miss probing a permanently-empty L2).
-- One `HybridCache` registers at the app root over the `CacheLane` descriptors (`Rasm.Persistence/Query/cache`); the model and lowering lanes compose it — they never register or instantiate a second cache.
+[GRASSHOPPER_BINDINGS]:
+- `DocumentToken` (`[BoundaryAdapter]`) assigns one stable `Guid` per live `Document` through a `ConditionalWeakTable`; the token dies with the document, and `Document.Hash` stays content identity and never enters cache addressing.
+- `CacheSlot` is a `[ValueObject<string>]` trimmed-nonblank concern identity; `SessionCache` keys entries `gh:{documentId:N}:{slot}` and stamps every minted value with the exact `gh-doc:{documentId:N}` tag.
+- `SessionCache.Remember<TState, T>(Guid documentId, CacheSlot slot, TState state, Func<TState, CancellationToken, ValueTask<T>> mint, HybridCacheEntryOptions? options = null, CancellationToken cancel = default): ValueTask<T>` composes the stateful `HybridCache.GetOrCreateAsync<TState, T>(string, TState, factory, …)` overload with a `static` factory — the `(State, Mint)` tuple threads through `state`, so the delegate captures nothing and stays cached.
+- `SessionCache.Evict(Guid documentId, CancellationToken cancel = default): ValueTask` composes the singular `HybridCache.RemoveByTagAsync(string tag, CancellationToken)` overload against the document tag; one call marks every slot minted for one document stale.
+- `SessionCache` (`[BoundaryAdapter]`) takes the `HybridCache` by constructor injection from the composition root; `ValueTask` stays the package carrier, and a kernel consumer bridges at its own seam. It never registers or instantiates a cache.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
 [CACHE_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`
-- contract root: `HybridCache` (abstract, in the `Abstractions` companion)
-- implementation root: `Microsoft.Extensions.Caching.Hybrid` (registered via `AddHybridCache`)
-- two tiers: L1 in-process (always) + L2 distributed (a registered `IDistributedCache`, optional); per-call `HybridCacheEntryFlags` and per-options `LocalCacheExpiration` partition the tiers
-- registration surface: default (`AddHybridCache`) and keyed (`AddKeyedHybridCache`, 4 overloads) profiles
-- policy surface: `HybridCacheOptions` — `DefaultEntryOptions`, `MaximumPayloadBytes` (1 MiB), `MaximumKeyLength` (1024), `DisableCompression`, `ReportTagMetrics`, `DistributedCacheServiceKey`
-- entry policy: `HybridCacheEntryOptions` `init`-only `Expiration`/`LocalCacheExpiration`/`Flags`
-- serializer surface: `IHybridCacheSerializer<T>` per type + `IHybridCacheSerializerFactory` open-generic discovery
-- invalidation surface: `RemoveAsync` (key, single+batch) and `RemoveByTagAsync` (tag, single+batch)
-
-[SERIALIZER_STACKING]:
-- `IHybridCacheSerializer<T>.Serialize(T, IBufferWriter<byte>)` writes the L2 payload directly into the `CommunityToolkit.HighPerformance` `ArrayPoolBufferWriter<byte>` (or any `IBufferWriter<byte>`), and `Deserialize(ReadOnlySequence<byte>) → T` reads back from the writer's `WrittenMemory` as a `ReadOnlySequence<byte>` — so a custom codec round-trips with zero intermediate array, the same convergence seam the codec lane uses.
-- a value durably serializable across a process boundary stores both tiers from one representation; a non-serializable value (a live `Delegate`) is wrapped in an `[ImmutableObject(true)]` carrier so HybridCache holds it in L1 by reference with no serialize/deserialize round-trip and carries `HybridCacheEntryFlags.DisableDistributedCache` to bypass L2 entirely (both read and write) — HybridCache keeps one representation per key (no separate L2 seed projection), so cross-process reuse is deterministic re-derivation off the content-addressed key, never a serialized delegate.
-- compression is on by default unless `DisableCompression` (global or per-call) is set; `MaximumPayloadBytes` rejects an oversized serialized payload.
-
-[L2_BACKING]:
-- the L2 distributed tier is whatever `IDistributedCache` is registered; `AddStackExchangeRedisCache(Action<RedisCacheOptions>)` (`Microsoft.Extensions.Caching.StackExchangeRedis` over `StackExchange.Redis`) is the Redis backing, and `DistributedCacheServiceKey` selects a keyed `IDistributedCache` when more than one is registered.
-- absent any `IDistributedCache`, the cache runs L1-only with no error; the L2 tier is additive infrastructure, not a contract change at the call site.
+- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `System.Runtime.CompilerServices` (`ConditionalWeakTable` weak document identity)
+- contract root: `HybridCache` (abstract, from the `Abstractions` companion), resolved from DI at the composition root
+- read root: `SessionCache.Remember` over the stateful `GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, HybridCacheEntryOptions?, IEnumerable<string>? tags, CancellationToken)` root — key `gh:{documentId:N}:{slot}`, tag set `[gh-doc:{documentId:N}]`, closure-free `static` factory
+- invalidation root: `SessionCache.Evict` over the singular `RemoveByTagAsync(string tag, CancellationToken)` — document-grouped eviction, one exact tag per document
+- entry policy: a per-call `HybridCacheEntryOptions?` flows through `Remember`; the substrate default entry policy, stampede control, serializer selection, and maximum-key/maximum-payload bypass behavior all stay in force under the read-through
+- tag semantics: tag invalidation makes matching entries stale for subsequent reads and never promises physical deletion from L1 or L2
 
 [LOCAL_ADMISSION]:
-- Hybrid cache is a runtime policy surface, not a domain repository.
-- Cache keys, tags, entry options, and serializer policy enter as values; the `CachePolicy` intent is a `[SmartEnum]` row, never a boolean flag.
-- Keyed cache registration represents an admitted cache profile, not ad-hoc service lookup.
-- Stampede control stays behind the `GetOrCreateAsync` single-flight; a caller that compiles-then-caches in two steps is the rejected form because it duplicates the population lock the read-through already owns.
-- The `TState` `GetOrCreateAsync` overload is the default population form (static factory, zero per-call closure); a closure factory is admitted only where no reusable state object exists.
-- Tag invalidation is an explicit cache capability and never substitutes for durable store integrity.
-- Cache keys derive from the suite `System.IO.Hashing` `XxHash128`/`XxHash3` content identity — never a path-keyed or display-string key.
+- Hybrid cache is the session boundary's read-through, not a domain repository; `SessionCache` is a `[BoundaryAdapter]`, never a static cache client.
+- Cache keys derive from weak document identity (`DocumentToken`) plus a `CacheSlot` concern; a hash-keyed, path-keyed, or display-string key is the rejected form.
+- Cache payloads are detached serializable values — encoded raster bytes, layout measurements, parse receipts; a `GhScope`, live host object, Eto bitmap, lease, or delegate never becomes a cache value.
+- Tag invalidation is an explicit cache capability and never substitutes for durable store integrity; document-grouped eviction is one exact tag value, not a per-entry sweep.
+- A new cached concern is one `CacheSlot` value at the call site; a new invalidation axis is one exact tag value — never a new adapter or entrypoint.
 
 [RAIL_LAW]:
-- Package: `Microsoft.Extensions.Caching.Hybrid` (+ `Abstractions`; L2 via `…StackExchangeRedis`/`StackExchange.Redis`)
-- Owns: two-tier cache registration, stampede-collapsed read-through, tag invalidation, payload-codec policy
-- Accept: cache policy as runtime data, the `TState` static-factory population, `init`-only entry options with per-call flag bypass, an `IBufferWriter<byte>`/`ReadOnlySequence<byte>` custom serializer, an optional Redis L2 backing
-- Reject: static cache clients and hidden invalidation channels; a second `HybridCache` registration beside the app-root one; a closure factory where a `TState` form fits; a path-keyed cache key; a duplicated call-site population lock
+- Package: `Microsoft.Extensions.Caching.Hybrid` (+ `Abstractions` contracts)
+- Owns: the session-scoped document-tagged cache binding — one composition-root `HybridCache`, the `SessionCache.Remember` read-through, and `SessionCache.Evict` tag invalidation
+- Accept: weak document identity plus a `CacheSlot` concern as the key, a per-call `HybridCacheEntryOptions`, a `static` closure-free factory, detached serializable payloads, document-grouped tag eviction
+- Reject: a second `HybridCache` registration; a hash-keyed or display-string cache key; a live host object, scope, bitmap, lease, or delegate as a cache value; a per-entry eviction where a document tag fits

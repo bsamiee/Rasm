@@ -5,7 +5,7 @@ Full surface and stacking: `libs/csharp/.api/api-extensions-ai.md` (shared-tier 
 ## [01]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
-- namespace: `Microsoft.Extensions.AI`; 180 public types across 5 namespaces
+- namespace: `Microsoft.Extensions.AI`
 - chat contract: `IChatClient : IDisposable` with `GetResponseAsync` and `GetStreamingResponseAsync`
 - embedding contract: `IEmbeddingGenerator : IDisposable` (non-generic); typed surface is `IEmbeddingGenerator<TInput,TEmbedding>`
 - modal contracts: `ISpeechToTextClient`, `ITextToSpeechClient`, `IImageGenerator`, `IRealtimeClient`, `IHostedFileClient` all carry `[Experimental("MEAI001")]`
@@ -15,8 +15,9 @@ Full surface and stacking: `libs/csharp/.api/api-extensions-ai.md` (shared-tier 
 
 [FUNCTION_SURFACE]:
 - `AITool` is the base; `AIFunctionDeclaration : AITool` adds `JsonSchema` and `ReturnJsonSchema`; `AIFunction : AIFunctionDeclaration` adds `InvokeAsync`
-- `AIFunctionFactory.Create` accepts a delegate or `MethodInfo` and derives a JSON schema from parameters via reflection
+- `AIFunctionFactory.Create` accepts a delegate or `MethodInfo` and derives a JSON schema from parameters via reflection; `AIFunctionNameAttribute` and `AIParameterNameAttribute` on the agent owner's delegate override the reflected tool and parameter names
 - `AIFunctionArguments` is a keyed `IDictionary<string,object?>` dictionary; factory binding maps named JSON properties to typed parameters
+- `DelegatingAIFunction` wraps an `AIFunction` for per-tool middleware without re-authoring its schema
 - `AsDeclarationOnly()` returns a non-invocable `AIFunctionDeclaration` for tool manifests sent to models without execution rights
 - hosted tool types (`HostedMcpServerTool`, `HostedWebSearchTool`, etc.) are `AITool` descendants that reference server-managed tools by identity
 

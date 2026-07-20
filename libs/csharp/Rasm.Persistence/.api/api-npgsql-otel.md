@@ -73,7 +73,7 @@ catalogued in `api-npgsql.md`, not a member of this package.
 
 [STACKING]:
 - `AddNpgsql` and `AddNpgsqlInstrumentation` register as two further altitudes on the same effect-transformer registration stack the `StoreInterceptor` rail composes (`Traces` rides `AddNpgsql(TracerProviderBuilder)`, `Meters` rides `AddNpgsqlInstrumentation(MeterProviderBuilder, Action<NpgsqlMetricsOptions>)`), so trace and meter admission are registration rows beside the EF and linq2db interceptor altitudes, never code inside an operation body.
-- These spans sit beside EF Core 10's native `Activity` emission (the EF-level command spans) and the data-source-layer `ConfigureTracing` depth knobs, so the driver-source spans and the EF-source spans compose into one trace without a beta EF-instrumentation package — the beta EF/gRPC OpenTelemetry instrumentation packages stay rejected because native `Activity` emission already carries those spans.
+- These spans sit beside EF Core 10's native `Activity` emission (the EF-level command spans) and the data-source-layer `ConfigureTracing` depth knobs, so the driver-source spans and the EF-source spans compose into one trace without a beta EF-instrumentation package — the beta EF OpenTelemetry instrumentation package stays rejected because native `Activity` emission already carries those spans.
 - The metrics subscription is the connection/command-counter source; query-observability depth (slow-query rows, plan capture) rides the Postgres-side `pg_stat_statements` read view and the `auto_explain` GUC posture as a separate `store.command.slow`/`store.command.plan` fact stream, so this package owns only the driver meter/span subscription, not the query-stats surface.
 - Because `NpgsqlMetricsOptions` is knob-free, all bucketing/cardinality control is expressed as OpenTelemetry meter-view rows on the `MeterProviderBuilder`, so the meter posture composes through the standard OTel view pipeline rather than a provider-specific options object.
 
@@ -88,4 +88,4 @@ catalogued in `api-npgsql.md`, not a member of this package.
 - Package: `Npgsql.OpenTelemetry`
 - Owns: Npgsql OpenTelemetry span and meter subscription onto the provider builders
 - Accept: composition-root tracer and meter admission as registration-stack altitudes
-- Reject: telemetry calls inside store profiles; a beta EF/gRPC instrumentation package where native `Activity` emission already carries the spans
+- Reject: telemetry calls inside store profiles; a beta EF instrumentation package where native `Activity` emission already carries the spans

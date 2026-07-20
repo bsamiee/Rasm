@@ -27,10 +27,11 @@
 |  [01]   | `LogPropertiesAttribute`     | generator attribute | expands object properties into tags    |
 |  [02]   | `LogPropertyIgnoreAttribute` | generator attribute | excludes a property from expansion     |
 |  [03]   | `TagProviderAttribute`       | generator attribute | custom tag projection method           |
-|  [04]   | `TagNameAttribute`           | generator attribute | renames an emitted tag                 |
-|  [05]   | `LoggerMessageState`         | state carrier       | tags plus classified-tag redaction set |
-|  [06]   | `ITagCollector`              | collector contract  | tag emission target                    |
-|  [07]   | `LoggingSampler`             | sampler base        | per-entry sampling decision            |
+|  [04]   | `TagNameAttribute`           | generator attribute | renames an emitted log tag             |
+|  [05]   | `LoggerMessageState`         | state carrier       | tags and classified-tag redaction set  |
+|  [06]   | `LoggerMessageHelper`        | generator runtime   | thread-local state and value stringify |
+|  [07]   | `ITagCollector`              | collector contract  | tag emission target                    |
+|  [08]   | `LoggingSampler`             | sampler base        | per-entry sampling decision            |
 
 [PUBLIC_TYPE_SCOPE]: buffering and enrichment family
 - rail: observability
@@ -47,33 +48,36 @@
 [PUBLIC_TYPE_SCOPE]: latency context family
 - rail: observability
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]    | [CAPABILITY]                           |
-| :-----: | :--------------------------- | :---------------- | :------------------------------------- |
-|  [01]   | `ILatencyContext`            | context contract  | checkpoint, measure, and tag recording |
-|  [02]   | `ILatencyContextProvider`    | provider contract | context creation                       |
-|  [03]   | `ILatencyContextTokenIssuer` | issuer contract   | name-to-token resolution               |
-|  [04]   | `ILatencyDataExporter`       | exporter contract | latency data export                    |
-|  [05]   | `LatencyData`                | data value        | tags, checkpoints, measures spans      |
-|  [06]   | `Checkpoint`                 | sample value      | named latency checkpoint               |
-|  [07]   | `Measure`                    | sample value      | named latency measure                  |
-|  [08]   | `Tag`                        | sample value      | named latency tag                      |
-|  [09]   | `CheckpointToken`            | token value       | pre-registered checkpoint handle       |
-|  [10]   | `MeasureToken`               | token value       | pre-registered measure handle          |
-|  [11]   | `TagToken`                   | token value       | pre-registered tag handle              |
-|  [12]   | `NullLatencyContext`         | null object       | no-op latency context                  |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]    | [CAPABILITY]                                        |
+| :-----: | :---------------------------------- | :---------------- | :-------------------------------------------------- |
+|  [01]   | `ILatencyContext`                   | context contract  | checkpoint, measure, and tag recording              |
+|  [02]   | `ILatencyContextProvider`           | provider contract | context creation                                    |
+|  [03]   | `ILatencyContextTokenIssuer`        | issuer contract   | name-to-token resolution                            |
+|  [04]   | `ILatencyDataExporter`              | exporter contract | latency data export                                 |
+|  [05]   | `LatencyData`                       | data value        | tags, checkpoints, and measures spans with duration |
+|  [06]   | `Checkpoint`                        | sample value      | named checkpoint with elapsed and frequency         |
+|  [07]   | `Measure`                           | sample value      | named latency measure value                         |
+|  [08]   | `Tag`                               | sample value      | named latency tag value                             |
+|  [09]   | `CheckpointToken`                   | token value       | pre-registered checkpoint handle                    |
+|  [10]   | `MeasureToken`                      | token value       | pre-registered measure handle                       |
+|  [11]   | `TagToken`                          | token value       | pre-registered tag handle                           |
+|  [12]   | `NullLatencyContext`                | null object       | no-op latency context                               |
+|  [13]   | `LatencyContextRegistrationOptions` | options carrier   | checkpoint, measure, and tag name registry          |
 
 [PUBLIC_TYPE_SCOPE]: metrics and request metadata family
 - rail: observability
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                     |
-| :-----: | :-------------------------------- | :------------------ | :------------------------------- |
-|  [01]   | `CounterAttribute`                | generator attribute | strongly typed counter factory   |
-|  [02]   | `GaugeAttribute`                  | generator attribute | strongly typed gauge factory     |
-|  [03]   | `HistogramAttribute`              | generator attribute | strongly typed histogram factory |
-|  [04]   | `RequestMetadata`                 | metadata value      | outgoing request route metadata  |
-|  [05]   | `IOutgoingRequestContext`         | context contract    | ambient request metadata         |
-|  [06]   | `IDownstreamDependencyMetadata`   | metadata contract   | dependency route declaration     |
-|  [07]   | `HttpRouteParameterRedactionMode` | redaction mode enum | route parameter redaction policy |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                 |
+| :-----: | :-------------------------------- | :------------------ | :------------------------------------------- |
+|  [01]   | `CounterAttribute`                | generator attribute | strongly typed counter factory               |
+|  [02]   | `GaugeAttribute`                  | generator attribute | strongly typed gauge factory                 |
+|  [03]   | `HistogramAttribute`              | generator attribute | strongly typed histogram factory             |
+|  [04]   | `TagNameAttribute`                | generator attribute | renames a metric tag dimension               |
+|  [05]   | `RequestMetadata`                 | metadata value      | outgoing request route metadata              |
+|  [06]   | `IOutgoingRequestContext`         | context contract    | ambient request metadata                     |
+|  [07]   | `IDownstreamDependencyMetadata`   | metadata contract   | dependency route declaration                 |
+|  [08]   | `HttpRouteParameterRedactionMode` | redaction mode enum | route parameter redaction policy             |
+|  [09]   | `TelemetryConstants`              | constant set        | request-metadata key and redaction sentinels |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -108,9 +112,9 @@
 |  [02]   | `GetMeasureToken`    | name lookup      | resolves measure token        |
 |  [03]   | `GetTagToken`        | name lookup      | resolves tag token            |
 |  [04]   | `AddCheckpoint`      | checkpoint token | records a latency checkpoint  |
-|  [05]   | `AddMeasure`         | token plus value | accumulates a latency measure |
-|  [06]   | `RecordMeasure`      | token plus value | sets a latency measure        |
-|  [07]   | `SetTag`             | token plus value | tags the latency context      |
+|  [05]   | `AddMeasure`         | token and value  | accumulates a latency measure |
+|  [06]   | `RecordMeasure`      | token and value  | sets a latency measure        |
+|  [07]   | `SetTag`             | token and value  | tags the latency context      |
 |  [08]   | `Freeze`             | context command  | seals latency data for export |
 
 [REQUEST_METADATA_RUNTIME]:
@@ -123,13 +127,13 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ABSTRACTION_TOPOLOGY]:
-- attribute surface: `[LogProperties]`, `[TagProvider]`, `[TagName]`, and metric attributes drive source generators
-- redaction surface: `LoggerMessageState.ClassifiedTag` carries data classification for redaction-aware sinks; `HttpRouteParameterRedactionMode` scopes route parameter redaction
+- attribute surface: `[LogProperties]`, `[TagProvider]`, `[TagName]`, and metric attributes (`[Counter]`, `[Gauge]`, `[Histogram]`, `[TagName]`) drive source generators; generated log methods marshal tags through `LoggerMessageHelper.ThreadLocalState`, a thread-local `LoggerMessageState`
+- redaction surface: `LoggerMessageState.ClassifiedTag` (`Name`, `Value`, `DataClassificationSet Classifications`) carries data classification for redaction-aware sinks; `HttpRouteParameterRedactionMode` scopes route parameter redaction
 - enrichment surface: `ILogEnricher` and `IStaticLogEnricher` feed `IEnrichmentTagCollector`
-- latency surface: names register once at composition (`RegisterCheckpointNames`/`RegisterMeasureNames`/`RegisterTagNames`); `ILatencyContextTokenIssuer.GetCheckpointToken`/`GetMeasureToken`/`GetTagToken` resolve each name to its token; runtime code records through the resolved tokens, then `Freeze` and the `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exporter contract close the seam
-- request-metadata surface: `RequestMetadata` (namespace `Microsoft.Extensions.Http.Diagnostics`) is a `class` with settable `string RequestRoute` (default `"unknown"`), `string RequestName` (default `"unknown"`), `string DependencyName` (default `"unknown"`), and `string MethodType` (default `"GET"`) members, a parameterless constructor, and a `(string methodType, string requestRoute, string requestName = "unknown")` constructor; `IOutgoingRequestContext` carries `RequestMetadata? RequestMetadata { get; }` and `void SetRequestMetadata(RequestMetadata metadata)`; `IDownstreamDependencyMetadata` carries `string DependencyName`, `ISet<string> UniqueHostNameSuffixes`, and `ISet<RequestMetadata> RequestMetadata`
+- latency surface: names register once at composition (`RegisterCheckpointNames`/`RegisterMeasureNames`/`RegisterTagNames`) into `LatencyContextRegistrationOptions` (`CheckpointNames`/`MeasureNames`/`TagNames`); `ILatencyContextTokenIssuer.GetCheckpointToken`/`GetMeasureToken`/`GetTagToken` resolve each name to its token; runtime code records through the resolved tokens, then `Freeze` and the `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exporter contract close the seam; `LatencyData` exposes `Checkpoints`/`Measures`/`Tags` spans with `DurationTimestamp` and `DurationTimestampFrequency`, where `Checkpoint` carries `Name`/`Elapsed`/`Frequency`, `Measure` carries `Name`/`Value`, and `Tag` carries `Name`/`Value`
+- request-metadata surface: `RequestMetadata` (namespace `Microsoft.Extensions.Http.Diagnostics`) is a `class` with settable `string RequestRoute` (default `"unknown"`), `string RequestName` (default `"unknown"`), `string DependencyName` (default `"unknown"`), and `string MethodType` (default `"GET"`) members, a parameterless constructor, and a `(string methodType, string requestRoute, string requestName = "unknown")` constructor; `IOutgoingRequestContext` carries `RequestMetadata? RequestMetadata { get; }` and `void SetRequestMetadata(RequestMetadata metadata)`; `IDownstreamDependencyMetadata` carries `string DependencyName`, `ISet<string> UniqueHostNameSuffixes`, and `ISet<RequestMetadata> RequestMetadata`; `TelemetryConstants.RequestMetadataKey` (`"Extensions-RequestMetadata"`) names the ambient metadata slot, with `Unknown`/`Redacted` redaction sentinels
 - dependency-registration surface: the `AddDownstreamDependencyMetadata` DI registration is owned by package `Microsoft.Extensions.Http.Diagnostics` on `Microsoft.Extensions.DependencyInjection.HttpDiagnosticsServiceCollectionExtensions`, with overloads `(IServiceCollection, IDownstreamDependencyMetadata)` and `(IServiceCollection)` (generic-derived), both returning `IServiceCollection`
-- implementation split: policy implementations and enricher registrations live in `Microsoft.Extensions.Telemetry`, where `AddApplicationLogEnricher` is current and `AddServiceLogEnricher` is its obsolete predecessor
+- implementation split: policy implementations and enricher registrations live in `Microsoft.Extensions.Telemetry`; contracts and generator attributes stay in this package
 
 [LOCAL_ADMISSION]:
 - Generator attributes annotate logging surfaces at the owning module; tags stay bounded dimensions.

@@ -59,23 +59,22 @@
 - rail: observability
 - call shape: `IServiceCollection` extension
 
-| [INDEX] | [SURFACE]                       | [RAIL]                                       |
-| :-----: | :------------------------------ | :------------------------------------------- |
-|  [01]   | `AddApplicationLogEnricher`     | application dimensions                       |
-|  [02]   | `AddServiceLogEnricher`         | obsolete predecessor of application enricher |
-|  [03]   | `AddProcessLogEnricher`         | process dimensions                           |
-|  [04]   | `AddLatencyContext`             | latency context                              |
-|  [05]   | `AddConsoleLatencyDataExporter` | latency console export                       |
+| [INDEX] | [SURFACE]                       | [RAIL]                 |
+| :-----: | :------------------------------ | :--------------------- |
+|  [01]   | `AddApplicationLogEnricher`     | application dimensions |
+|  [02]   | `AddProcessLogEnricher`         | process dimensions     |
+|  [03]   | `AddLatencyContext`             | latency context        |
+|  [04]   | `AddConsoleLatencyDataExporter` | latency console export |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
 - namespaces: buffering, enrichment, latency, sampling, logging
-- buffering surface: global log buffer options and filter rules
-- enrichment surface: application, service, and process tag producers
-- redaction surface: logger redaction options and redaction logging extension
-- sampling surface: trace-based, probabilistic, and custom sampler registration
-- latency surface: latency context registration and console exporter options
+- buffering surface: `GlobalLogBufferingOptions` (`AutoFlushDuration`, `MaxLogRecordSizeInBytes`, `MaxBufferSizeInBytes`, `Rules`) with `LogBufferingFilterRule` (category, log level, event id, event name, attributes) selecting buffered events
+- enrichment surface: application and process tag producers; `LoggerEnrichmentOptions` captures stack traces through `CaptureStackTraces`, `UseFileInfoForStackTraces`, `IncludeExceptionMessage`, and `MaxStackTraceLength`
+- redaction surface: classifier-backed redaction logging extension; `LoggerRedactionOptions.ApplyDiscriminator` gates the redaction discriminator
+- sampling surface: trace-based, probabilistic, and custom sampler registration; `RandomProbabilisticSamplerOptions.Rules` scope probability per matched log
+- latency surface: latency context registration (`LatencyContextOptions.ThrowOnUnregisteredNames`) with console exporter options
 
 [LOCAL_ADMISSION]:
 - Telemetry policy is registered at composition boundaries.
