@@ -8,8 +8,8 @@ description: >-
     headless `-p`, `--bare`, `--bg`, `--worktree`, SDK. Use for "where does this instruction go",
     "why isn't my CLAUDE.md loading", "stop asking permission every time", slimming a memory file,
     tuning model, effort, permission, or sandbox defaults, and reading `/context`, `/doctor`, or
-    `/memory`. settings.json edits belong to update-config, hook bodies to hooks-builder, skill
-    bundles to skill-writer, work placement to agent-dispatch.
+    `/memory`. settings.json edits belong to update-config, hook bodies to hooks-builder, work
+    placement to agent-dispatch.
 ---
 
 # [HARNESS_STEERING]
@@ -32,7 +32,7 @@ Every Claude Code fact — settings keys, limits, defaults, command and flag sur
 | :-----: | :----------- | :--------------------------------- | :------------------------------------------------------------------------- |
 |  [01]   | Memory file  | Every session, always in context   | An always-true convention for the machine, project, or operator            |
 |  [02]   | Rule         | Launch, or lazily on `paths` match | A convention true only for a subtree or file class                         |
-|  [03]   | Skill        | On task-shape selection            | A reusable procedure or deliverable doctrine — skill-writer owns it        |
+|  [03]   | Skill        | On task-shape selection            | A reusable procedure or deliverable doctrine                               |
 |  [04]   | Subagent     | On delegation                      | Work whose transcript belongs out of context — agent-dispatch owns it      |
 |  [05]   | Hook         | On lifecycle event, deterministic  | A gate that must fire regardless of model judgment — hooks-builder owns it |
 |  [06]   | Setting      | Startup and hot-reload             | Enforcement, defaults, and budgets: permissions, model, effort, env        |
@@ -71,5 +71,4 @@ Marketplace registration state is global per user and marketplace names are uniq
 
 - update-config performs the mechanical `settings.json` and `settings.local.json` edits this skill's decisions call for.
 - hooks-builder constructs the hook a steering decision lands on; this skill only rules that a hook is the right surface.
-- skill-writer owns bundle anatomy, triggers, and listing economics beyond the budget rows named here.
 - agent-dispatch owns where work executes; this skill owns where instructions and defaults persist.

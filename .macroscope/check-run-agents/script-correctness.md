@@ -9,7 +9,7 @@ include:
 
 # [SCRIPT_CORRECTNESS]
 
-Bundled-script correctness is this pass's one question: whether every changed script under a skill bundle's `scripts/` holds production-grade shape — Python at the `docs/stacks/python/` bar, shell at the coding-bash bar — because a bundle script executes in every session that invokes its skill. Prose in the bundle belongs to the correctness prose pass and disclosure structure to the skill-integrity check; this pass owns the executable bodies alone.
+Bundled-script correctness is this pass's one question: whether every changed script under a skill bundle's `scripts/` holds production-grade shape — Python at the `docs/stacks/python/` bar, shell at the coding-bash bar — because a bundle script executes in every session that invokes its skill. Prose in the bundle belongs to the correctness prose pass; this pass owns the executable bodies alone.
 
 Hunt these classes, each finding naming file, anchor, the naive shape, and the concrete stronger form:
 - Error custody: a bare or blanket except swallowing a failure, a silent fallback past a failed read, or a script deferring an error to the invoking agent instead of handling it — a script solves, never defers, and every failure lands as a typed exit with its reason on stderr.

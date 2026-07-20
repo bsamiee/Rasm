@@ -1,12 +1,11 @@
 ---
 name: secrets
 description: >-
-    Estate secret custody over 1Password and Doppler — op the permanent local store and
-    SSH-key custodian, Doppler the runtime backend. Use when a secret, token, or env key
-    fails to resolve, a session boots degraded or stale, ssh or git signing cannot reach
-    the op agent key, an MCP row needs a scoped token, or a config file needs secret
-    material rendered or mounted. Minting tokens and creating projects, configs, or
-    scopes is Pulumi topology in Parametric_Forge/services/topology.ts — the pulumi skill.
+    Owns secret custody over 1Password and Doppler — op the permanent local store and
+    SSH-key custodian, Doppler the runtime backend. Use when creating a secret, token, or env key
+    or when one fails to resolve, creating and managing them, the op agent key, a tool or code logic
+    needs a scoped token, or a config file needs secret material. Minting tokens and creating projects,
+    configs, or scopes is Pulumi topology in Parametric_Forge/services/topology.ts — the pulumi skill.
 ---
 
 # [SECRETS]

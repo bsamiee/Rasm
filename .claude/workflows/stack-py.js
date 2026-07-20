@@ -711,7 +711,7 @@ const doctrine = HARVEST_ROWS.length
     ? await agent(
           'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
               'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
-              'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+              'the `docgen` skill via the Skill tool BEFORE any durable edit; load ' +
               '`mermaid-diagramming` before touching any diagram. This run AUTHORED the docs/stacks/python corpus — adjudicate ' +
               'ONLY reviewer/laws/constitution nominations and NEVER edit a docs/stacks/python page; a stacks-altitude nomination ' +
               'is already owned by the run and is rejected. ' +

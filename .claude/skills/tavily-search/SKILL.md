@@ -1,12 +1,11 @@
 ---
 name: tavily-search
 description: >-
-    Owns live-web retrieval through the Tavily CLI (`tvly`) — search, extract, map, crawl,
-    research — on the cheapest verb that answers: relevance resolved server-side, not
+    Owns live-web retrieval through Tavily CLI (`tvly`), search, extract, map, crawl,
+    research, on the cheapest verb that answers: relevance resolved server-side, not
     post-filtered locally, and bulk page content routed to disk, never the context window.
     Beats blind single-URL fetching, which ranks and scopes nothing. Any current-web question
-    routes here — "what's the latest on", "compare X vs Y", "read this page", "download the
-    docs", a cited report outliving the turn. Indexed library docs belong to context7-search.
+    routes here.
 ---
 
 # [TAVILY_SEARCH]

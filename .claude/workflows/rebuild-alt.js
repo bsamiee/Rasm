@@ -3090,7 +3090,7 @@ const [ideas, doctrine] = await Promise.all([
               agent(
               'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
                   'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
-                  'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                  'the `docgen` skill via the Skill tool BEFORE any durable edit; load ' +
                   '`mermaid-diagramming` before touching any diagram. ' +
                   (fixerReports.length
                       ? 'FIXER FIXLOGS ON DISK (read each; its `harvest` rows join the nomination pool below at the same ' +

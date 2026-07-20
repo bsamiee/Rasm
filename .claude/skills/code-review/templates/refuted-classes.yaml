@@ -408,17 +408,6 @@ classes:
       - '.greptile/rules.md'
       - '.macroscope/correctness/general/prose.md'
     rounds_seen: [5]
-  - class_id: flat-bundle-load-demand
-    corpus: prose
-    matchers:
-      - '(task.?matched|partial|conditional|lazy).{0,40}load\w*.{0,50}(reference|bundle)'
-      - 'replace.{0,50}mandatory.{0,30}(full|whole).{0,30}(reference|set)'
-    refuting_citation: 'skill-writer SKILL.md [02]-[BUNDLE_LAW] — a bundle whose every invocation consumes the whole set stays flat; task-matched splitting arms the partial-load mis-steer (r5d-03)'
-    landed_surfaces:
-      - '.coderabbit.yaml'
-      - '.greptile/rules.md'
-      - '.macroscope/correctness/tooling/operators.md'
-    rounds_seen: [5]
   - class_id: demand-fails-owning-gate
     corpus: prose
     matchers:

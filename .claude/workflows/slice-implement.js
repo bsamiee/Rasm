@@ -1,29 +1,24 @@
 export const meta = {
     name: 'slice-implement',
     description:
-        'Theme-sliced implement engine over the whole libs/ card estate — one run realizes ONE functionality set at full depth, never unrelated work: discovery and per-folder plan lanes ingest the FULL card pool + census rows + research debt, then SELECT into typed work units only the theme-relevant cards and pages judged per folder against the run charter (borderline includes; non-theme cards stay untouched as expected leftovers, rostered with future-slice hints; cross-libs cards decompose into per-folder ripple executions landed in the same run); per unit a read-only recon lane writes a fact map + defect census + research-row census, blocked cards get a guidance leg feeding the per-unit writer, which realizes cards into transcription-complete fences and drains research rows (theme-pertinent rows resolve fully; easy rows in touched files resolve opportunistically; hard non-pertinent rows stay, counted for their owning slice), a mid-run admission lane executes the full package-admission chain per discovered missing package (single-writer per central manifest), one per-folder critique repairs every unit in place, and a conditional per-folder compose pass integrates critique-admitted packages into the folder fences; per-language drains apply cross-folder rows, one terminal red-team seals each libs tree with the four-surface drift closure, a theme-gated tests-estate branch with a recon leg and two build legs per language rebuilds tests/ + the root test spine to a gate-green state, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are never failures. args = {camp: absolute campaign home (required), theme?: {title, charter, include, tests} — omitted runs the built-in slice #1: the complete observability set + full IaC realization, ruled inseparable; scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
+        'Theme-sliced implement engine over the whole libs/ card estate — one run realizes ONE functionality set at full depth, never unrelated work: discovery and per-folder plan lanes ingest the FULL card pool + census rows + research debt, then SELECT into typed work units only the theme-relevant cards and pages judged per folder against the run charter (borderline includes; non-theme cards stay untouched as expected leftovers, rostered with future-slice hints; cross-libs cards decompose into per-folder ripple executions landed in the same run); per unit a read-only codex sol lane writes a fact map + defect census + research-row census, blocked cards get a codex guidance leg then a stronger unblocking writer, a tiered writer (fable ground-up, opus surgical, codex mechanical volume) realizes cards into transcription-complete fences and drains research rows (theme-pertinent rows resolve fully; easy rows in touched files resolve opportunistically; hard non-pertinent rows stay, counted for their owning slice), a mid-run admission lane executes the full package-admission chain per discovered missing package (single-writer per central manifest), a critique repairs in place, and a conditional compose pass integrates critique-admitted packages into the unit fences; per-language drains apply cross-folder rows, one terminal fable red-team seals each libs tree with the four-surface drift closure, a theme-gated tests-estate branch with its own recon legs rebuilds tests/ + the root test spine to a gate-green state, and a slice-closure audit proves every theme-selected card terminal — non-theme leftovers are never failures. args = {camp: absolute campaign home (required), theme?: {title, charter, include, tests} — omitted runs the built-in slice #1: the complete observability set + full IaC realization, ruled inseparable; scope?: folder subset; tests?: boolean}; products land under camp/implement/ in a per-theme directory.',
     whenToUse: 'One run per functionality slice over the libs/ card estate — slice #1 is observability+IaC; later slices pass their own theme',
     phases: [
         { title: 'Plan', detail: 'per-folder + cross-libs card-pool ingestion into typed, dependency-ordered work units with blocker rows' },
-        { title: 'Map', detail: 'per-unit fact map + defect and research census (read-only) and blocker guidance legs' },
-        { title: 'Implement', detail: 'per-unit writer realizes cards into fences, drains research rows, and closes every card in-run' },
+        { title: 'Map', detail: 'per-unit codex sol fact map + defect and research census (read-only) and blocker guidance legs' },
+        { title: 'Implement', detail: 'tiered writers realize cards into fences, drain research rows, and close every card in-run' },
         { title: 'Admit', detail: 'full admission chain per discovered missing package, single-writer per central manifest' },
-        { title: 'Critique', detail: 'one per-folder conformance + capability audit over every unit, repaired in place', model: 'fable' },
-        { title: 'Compose', detail: 'conditional per-folder integration pass composing critique-admitted packages into the folder fences' },
-        { title: 'Drain', detail: 'per-language cross-folder row application, refute-first', model: 'fable' },
-        {
-            title: 'Redteam',
-            detail: 'one terminal adversarial lane per language tree + four-surface drift closure, legged for volume',
-            model: 'fable',
-        },
+        { title: 'Critique', detail: 'per-unit conformance + capability audit, repaired in place' },
+        { title: 'Compose', detail: 'conditional integration pass composing critique-admitted packages into the unit fences' },
+        { title: 'Drain', detail: 'per-language cross-folder row application, refute-first' },
+        { title: 'Redteam', detail: 'one terminal fable lane per language tree + four-surface drift closure, legged for volume', model: 'fable' },
         {
             title: 'Tests',
-            detail: 'tests-estate build-out per language: one recon leg + two build legs (capture rails, then transports/bench/spine), gate to green',
+            detail: 'tests-estate build-out per language with its own recon legs: _testkits, harness rails, root spine, gate to green',
         },
         {
             title: 'Audit',
             detail: 'slice-closure proof over theme-selected cards: zero open selected cards; leftovers + research counted, never failures',
-            model: 'fable',
         },
     ],
 };
@@ -31,10 +26,9 @@ export const meta = {
 // --- [CONSTANTS] ---------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
-const CODEX_MODEL = 'gpt-5.6-sol'; // one site for the codex model slug — a bump lands here, never across the dispatch wrappers
 const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and reviewers all take one slot
 const STAGGER_MS = 1500;
-const STALL_MS = 900000; // blocking dispatch legs and deep writers run many minutes without visible progress
+const STALL_MS = 900000; // blocking codex MCP legs and fable writers run many minutes without visible progress
 const PLAN_MEDIUM_FLOOR = 5; // open-card count from which a plan lane runs medium effort
 const PLAN_HIGH_FLOOR = 12; // open-card count from which a plan lane runs high effort — decomposition quality gates the whole chain
 const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
@@ -44,17 +38,6 @@ const LANGS = [
     { key: 'typescript', root: 'libs/typescript' },
 ];
 const GATES = { csharp: 'dotnet build', python: 'pytest --collect-only', typescript: 'pnpm install then pnpm typecheck' };
-const MANIFEST_OF = {
-    csharp: REPO + '/Directory.Packages.props (owning label group)',
-    python: REPO + '/pyproject.toml (lean unpinned name in the dependency tier)',
-    typescript: REPO + '/pnpm-workspace.yaml (owning catalog cluster)',
-};
-const REG_OF = {
-    csharp: 'xh get https://api.nuget.org/v3-flatcontainer/<lowercase-package-id>/index.json for versions, the nuget registration leaf for license',
-    python: 'xh get https://pypi.org/pypi/<name>/json for version and license',
-    typescript: 'pnpm view <name> version license',
-};
-const INSTALL_OF = { csharp: 'dotnet restore over the consuming project closure', python: 'uv sync', typescript: 'pnpm install' };
 const AXES = {
     csharp:
         'deterministic doubles; fake/in-memory telemetry capture rails (MetricCollector-class collectors, in-memory OTLP exporters, fake ' +
@@ -65,22 +48,6 @@ const AXES = {
     typescript:
         'deterministic doubles; in-memory OTLP/metric capture rails and fake collectors; deterministic TestClock rails; transport harnesses ' +
         'for the kafka/grpc/nats seams; vitest bench readiness',
-};
-const AXES_A = {
-    // tests build leg A — _testkits, doubles, capture rails, clocks; in-tree only, the root spine untouched
-    csharp:
-        'deterministic doubles; fake/in-memory telemetry capture rails (MetricCollector-class collectors, in-memory OTLP exporters, fake ' +
-        'collectors, deterministic TimeProvider clocks); _testkit consolidation of shared logic',
-    python: 'deterministic doubles; in-memory OTLP/metric capture rails and fake collectors; deterministic clocks; _testkit consolidation of shared logic',
-    typescript:
-        'deterministic doubles; in-memory OTLP/metric capture rails and fake collectors; deterministic TestClock rails; _testkit consolidation of shared logic',
-};
-const AXES_B = {
-    // tests build leg B — transports, bench, root spine, drift; sequences after leg A and owns the final gate
-    csharp: 'transport harnesses for the kafka/grpc/nats seams; BenchmarkDotNet corpus-gate wiring; root test spine alignment; drift fixes against the current libs surface',
-    python: 'transport harnesses for the grpc/nats seams; the python bench tier; root test spine alignment; drift fixes against the current libs surface',
-    typescript:
-        'transport harnesses for the kafka/grpc/nats seams; vitest bench readiness; root test spine alignment; drift fixes against the current libs surface',
 };
 const DEFAULT_THEME = {
     // slice #1 — the launch theme when args.theme is omitted
@@ -213,10 +180,12 @@ const UNITS = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['order', 'title', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
+                required: ['order', 'title', 'tier', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
                 properties: {
                     order: { type: 'integer' },
                     title: { type: 'string' },
+                    tier: { type: 'string', enum: ['fable', 'opus', 'codex'] },
+                    heavy: { type: 'boolean' },
                     cards: { type: 'array', items: { type: 'string' } },
                     pages: { type: 'array', items: { type: 'string' } },
                     anchors: { type: 'array', items: { type: 'string' } },
@@ -417,12 +386,49 @@ const STANCE =
     'nothing is a first-class result. Emptiness is not evidence: a probe returning nothing proves absence only after the probe re-runs in a ' +
     'second form.';
 
+const FENCE_LAW =
+    'Fences are the work product: capability conserved absolutely, density through polymorphic collapse never deletion; new capability lands ' +
+    'as a row, case, field, operation, or policy value inside the existing owner before any new surface appears; doctrine is the floor ' +
+    'pushed past, never the ceiling. A page or sub-folder minted this pass meets the full density and coverage bar of a mature page the ' +
+    'moment it lands — a stub, skeleton, or placeholder is a defect. Where a card assumes a file, folder, or owner: confirm it on disk ' +
+    'first; absent, CREATE it at that full bar and extend it as if it had existed from the start — never tacked-on. A page or sub-folder ' +
+    'minted this pass joins its folder README registry and ARCHITECTURE codemap/[SEAMS] in the same unit — an unregistered mint is a defect.';
+
+const CARD_LAW =
+    'Every card in the unit reaches a terminal disposition IN ITS CARD FILE this pass: a realized card moves to [02]-[CLOSED] as ' +
+    '[ID]-[COMPLETE] with a one-line disposition naming the landed owner; a card current disk proves already realized closes [COMPLETE] ' +
+    'citing the landed fence; a refuted card closes [DROPPED] with the refuting citation; genuinely-future work re-cards in place to ' +
+    '[BLOCKED] with an explicit arming trigger (the condition that activates it). An [ACTIVE] or [QUEUED] card may not survive your pass ' +
+    'unchanged. Both ends of a Ripple pair move together only when both folders are yours — a foreign end is a crossFolderRows row. A ' +
+    'cross-libs card closes at the cross tier only when every folder ripple is landed on disk. A non-theme open card sharing a card file ' +
+    'with unit cards stays byte-untouched — an expected leftover for a future slice, never dispositioned, never reworded. RIPPLE ' +
+    'DISPOSITION: a card closes ONLY with its ripple surface dispositioned — every unit rippleSurface endpoint its card names ends (a) ' +
+    'LANDED in your territory this pass, (b) DEFERRED as a crossFolderRows row when outside your territory and theme-relevant, or (c) ' +
+    'OUT-OF-THEME recorded in the receipt rippleLedger with the future-slice hint; an endpoint with none of the three makes the close ' +
+    'incomplete — splash the endpoint exposes (a consumer of the consumer) joins the same ledger under the same three-way rule.';
+
 const ROW_LAW =
     'Cross-folder needs are DATA, never foreign edits: a change any file outside your write territory needs lands as a crossFolderRows row ' +
     '{targetFile (absolute), language, change, origin} in your receipt document. A missing or version-short package is NEVER installed by ' +
     'you and NEVER edits a central manifest (Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml) from your lane: it lands as a ' +
     'packagesMissing row {package, language, reason} — a dedicated admission lane owns the chain; language names the owning manifest ' +
     'language (csharp|python|typescript), never cross.';
+
+const RESEARCH_LAW =
+    'Research debt on unit pages and every file you touch — the map [RESEARCH] census is the queue, plus your own sweep of each unit page ' +
+    'terminal [RESEARCH] section: (a) a row PERTINENT to the theme resolves fully via its stated route — member truth through tools.assay ' +
+    'api, the .api catalogs, or the named live doc; a confirmed spelling bakes into the owning fence and the row DELETES whole (no ' +
+    'tombstones, no resolved notes); a refuted assumption corrects at its root; a genuinely unresolvable row SHARPENS in place with a ' +
+    'better question and exact route. (b) an EASY row in ANY file you touch — answerable by one verified read (an .api catalog row, a ' +
+    'signature check, one assay probe) — resolves the same way regardless of theme; never leave an easy row standing in a touched file. ' +
+    '(c) a HARD non-pertinent row stays byte-untouched and counts as left in your receipt. One ' +
+    'carve-out: a row about python version floors or package support gates DELETES as resolved by standing ruling — py315 fully supports ' +
+    'every admitted package; never emit python-version gating, markers, or prose anywhere — that is context poison, not a resolution.';
+
+const TESTKIT_LAW =
+    'Where the unit touches the testing surface, read ' +
+    REPO +
+    '/tests/README.md first and execute tests-INFRASTRUCTURE ripples only — root spine, _testkits, imports — never test authoring.';
 
 const MAP_LAW =
     '<role>\nYou are a read-only recon mapper for one work unit of the Rasm planning corpus.\nTreat the task-listed unit pages and the ' +
@@ -539,9 +545,7 @@ const IMPL_LAW =
     'surface. Create a surface only when current pages prove that every existing owner would violate its charter by carrying the card. ' +
     'Where a card assumes a file, folder, or owner, confirm it on disk first; absent, create it at the full bar and extend it as if it had ' +
     'existed from the start — a minted page meets the same density and coverage bar as a mature page the moment it lands, never a stub or ' +
-    'skeleton, and joins its folder README registry and ARCHITECTURE codemap/[SEAMS] in the same pass; an unregistered mint is a defect. ' +
-    'Where the unit touches the testing surface, execute tests-infrastructure ripples only — root spine, _testkits, imports — never test ' +
-    'authoring. Mine both task-named .api tiers to operator depth for the unit concepts; an admitted capability the concept admits and no ' +
+    'skeleton. Mine both task-named .api tiers to operator depth for the unit concepts; an admitted capability the concept admits and no ' +
     'fence composes is a defect: compose it or record one residuals row with the ruling. ' +
     'Collapse flat repeated shapes and repeated case handling into one denser polymorphic owner. Parameterize repeated literals and ' +
     'per-site spellings as policy rows on that owner. Keep one monadic spine per concern. Preserve every behavior through densification: ' +
@@ -563,60 +567,13 @@ const IMPL_LAW =
     'residual row against current disk before writing the receipt.\n</verification>\n\n' +
     '<output_contract>\nWrite the receipt document to the exact absolute path the task names as the final filesystem action before the ' +
     'final message. Write one JSON object with exactly these keys and no others: {folder, stage, filesTouched, crossFolderRows, ' +
-    'rippleLedger, cardsClosed, packagesMissing, researchResolved, residuals, summary}.\n\nfolder and stage use the exact task values. ' +
-    'filesTouched is ' +
+    'cardsClosed, packagesMissing, researchResolved, residuals, summary}.\n\nfolder and stage use the exact task values. filesTouched is ' +
     'the actual design-page and card-file edit roster as absolute paths. crossFolderRows is [{targetFile, language, change, origin}]. ' +
-    'rippleLedger is [{endpoint, disposition, evidence}] with disposition one of "landed"|"deferred"|"out-of-theme" — one row per unit ' +
-    'rippleSurface endpoint plus every splash endpoint the work exposed. ' +
     'cardsClosed is [{file, card, disposition}], with disposition using only [COMPLETE], [DROPPED], or [BLOCKED] and carrying the same ' +
     'citation or arming trigger recorded in the card file. packagesMissing is [{package, language, reason}]. researchResolved is {resolved, ' +
     'sharpened, left}, with nonnegative counts matching the final research outcomes. residuals is [{claim, files, owner}]. summary is one ' +
     'evidence-grounded account of the landed outcome. Every path value is absolute. Use [] for an empty list; do not guess.\n\nYour final ' +
     'message is the same JSON object only, with no prose outside it and no code fence.\n</output_contract>';
-
-const ADMIT_LAW =
-    '<role>\nYou are the single-writer admission lane for one package on one central manifest of the Rasm monorepo. Write territory: the ' +
-    'owning central manifest row, the package .api catalog at its owning tier, the consuming folder README registry row, the consuming ' +
-    '.csproj (csharp), and lockfiles the install gate regenerates; nothing else. Run no git command.\n</role>\n\n' +
-    '<completion_bar>\nDone is one terminal verdict plus the admission report at the exact task-named path: admitted=true with every ' +
-    'chain artifact landed, or admitted=false with the ruling and ZERO artifacts left behind. Rejection vocabulary is closed: supersession ' +
-    'by an already-admitted package; existence or installability failing live verification; the license gate — this estate is fully OSS, ' +
-    'any license granting full free use to an OSS project admits (copyleft included), only payment-required or paid-tier-gated capability ' +
-    'rejects; or EXECUTION FAILURE — any chain step failing after one self-heal attempt, named with its evidence. A failing admission ' +
-    'REVERTS WHOLE: the manifest row and every partial artifact landed this call (catalog, README row, csproj reference) removed so the ' +
-    'install gate stays green.\n</completion_bar>\n\n' +
-    '<context_gathering>\nVerify the live registry first; read the central manifest owning group, the target .api tier, and the consuming ' +
-    'README registry section before the first edit. Budget: at most 50 tool calls total. Stop when the chain reaches a terminal verdict; an ' +
-    'unresolved live-verification lands as the failure evidence, never a re-probe loop.\n</context_gathering>\n\n' +
-    '<verification>\nThe install gate proves green from a real run after the manifest edit. An isolation or app-scoped claim in the ' +
-    'catalog lands only with per-instance member evidence (a per-instance handle, factory, or scope parameter verified on the installed ' +
-    'surface); a process-global surface states its host-wide scope and the single-owner admission it demands. Run the docgen gate script ' +
-    'at ' +
-    REPO +
-    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over the new markdown and repair its FAILs to ' +
-    'zero.\n</verification>\n\n' +
-    '<output_contract>\nWrite the admission report — verdict, per-step chain evidence, artifacts landed or reverted — to the exact ' +
-    'task-named path. Your final message is one JSON object only, no prose outside it, no code fence: {package, language, admitted, ' +
-    'report, filesTouched, headline, failure}.\n</output_contract>';
-
-const COMPOSE_LAW =
-    '<role>\nYou are a composition writer for one FOLDER of the Rasm planning corpus. Write territory: exactly the folder pages the task ' +
-    'names. Edit nothing else; run no git command.\n</role>\n\n' +
-    '<completion_bar>\nDone is every admitted package catalog read in full and its members composed into the owning fences wherever the ' +
-    'folder concepts admit them — as rows, cases, fields, operations, or policy values on existing owners, never a new surface — plus ' +
-    'the receipt at the exact task-named path. A package whose capability no folder concept admits records one residuals row naming the ' +
-    'ruling. Edit nothing the admitted catalogs do not motivate.\n</completion_bar>\n\n' +
-    '<context_gathering>\nRead each admitted catalog in full, then each folder page in full, before the first edit. Budget: at most 40 tool ' +
-    'calls total. Stop when every admitted catalog is composed or ruled; an un-admitting concept lands one residuals row, never a ' +
-    're-read.\n</context_gathering>\n\n' +
-    '<verification>\nRe-read each changed fence after landing it; a composed member matches its catalog spelling exactly.\n' +
-    '</verification>\n\n' +
-    '<output_contract>\nWrite the receipt document to the exact task-named path as the final filesystem action, one JSON object with exactly ' +
-    'these keys: {folder, stage, filesTouched, crossFolderRows, rippleLedger, cardsClosed, packagesMissing, researchResolved, residuals, ' +
-    'summary}. crossFolderRows is [{targetFile, language, change, origin}]; rippleLedger is [] (compose exposes no new ripple unless a ' +
-    'composed member does, then one {endpoint, disposition, evidence} row); cardsClosed is [] (compose closes no cards); researchResolved ' +
-    'is {resolved:0, sharpened:0, left:0}; packagesMissing is [{package, language, reason}]; residuals is [{claim, files, owner}]. Your ' +
-    'final message is the same JSON object only — no prose outside it, no code fence.\n</output_contract>';
 
 const TMAP_LAW =
     '<role>\nYou are a read-only recon mapper for one language tests estate.\nTreat the paths named by the task and the required ' +
@@ -656,29 +613,6 @@ const TMAP_LAW =
     'unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
     'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
-const TIMPL_LAW =
-    '<role>\nYou are a tests-INFRASTRUCTURE writer for one language of the Rasm monorepo — never author tests. Write territory: exactly ' +
-    'the paths the task names. Shared root surfaces (tests/README.md, .config, central-manifest spine rows) sequence LAST, surgical ' +
-    'anchored Edits only, full re-read immediately before the first edit — sibling lanes run beside you. A NEW package is a residualRows ' +
-    'entry, never an install or manifest add. Run no git command.\n</role>\n\n' +
-    '<completion_bar>\nDone is every task-named axis built to a ready-to-author-tests bar — libs/ is treated as fully made — shared logic ' +
-    'consolidated into the _testkits, drift fixed where the task names it, the gate green from a real final run, and the receipt at the ' +
-    'exact task-named path; gateClean is true only from that green final run. A blocked item lands as one residualRows entry, never a ' +
-    'partial edit.\n</completion_bar>\n\n' +
-    '<context_gathering>\nRead fully, in order: ' +
-    REPO +
-    '/tests/README.md; every root file of the doctrine directory the task names; the .api catalogs of the testing packages the spine ' +
-    'cites; the tests map the task names. Budget: at most 70 tool calls total; never concatenate the territory into one command.\n' +
-    '</context_gathering>\n\n' +
-    '<verification>\nRe-read each changed region after landing it. Run the exact gate command the task names batched once after the final ' +
-    'edit and repair to green. Run the docgen gate script at ' +
-    REPO +
-    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over every markdown file touched and repair ' +
-    'its FAILs to zero.\n</verification>\n\n' +
-    '<output_contract>\nWrite the receipt — files, capabilities landed, drift fixed, spine rows, gate output tail — to the exact ' +
-    'task-named path. Your final message is one JSON object only, no prose outside it, no code fence: {language, gate, gateClean, ' +
-    'filesTouched, residualRows, headline, failure}.\n</output_contract>';
-
 // --- [OPERATIONS] --------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -715,13 +649,10 @@ const baseOf = (f) => {
 const fid = (f) => (SHORT[f.language] || 'xx') + '-' + slugOf(baseOf(f));
 const uid = (f, i) => fid(f) + '-u' + (i + 1);
 const planningRootOf = (f) => (f.path.endsWith('/.planning') ? f.path : f.path + '/.planning');
-const apiTiersOf = (f) => {
-    if (f.language === 'cross') return REPO + '/libs/csharp/.api, ' + REPO + '/libs/python/.api, and ' + REPO + '/libs/typescript/.api';
-    const root = REPO + '/libs/' + f.language + '/.api';
-    // a folder whose path IS the language root (or a .planning branch) has no distinct overlay tier — one tier, not the same path twice
-    const overlay = f.path.endsWith('/.planning') || f.path.replace(/\/+$/, '') === REPO + '/libs/' + f.language ? '' : f.path + '/.api and ';
-    return overlay + root;
-};
+const apiTiersOf = (f) =>
+    f.language === 'cross'
+        ? REPO + '/libs/csharp/.api, ' + REPO + '/libs/python/.api, and ' + REPO + '/libs/typescript/.api'
+        : (f.path.endsWith('/.planning') ? '' : f.path + '/.api and ') + REPO + '/libs/' + f.language + '/.api';
 const doctrineOf = (f) =>
     f.language === 'cross'
         ? REPO +
@@ -756,11 +687,26 @@ const pyGuard = (k) =>
         ? ' Standing ruling: py315 supports every admitted package — never emit python-version gating, floor markers, or version prose ' +
           'anywhere; such content found on any surface is a defect you delete on sight.'
         : '';
+const mapClause = (mapR) =>
+    mapR && mapR.ok
+        ? 'at ' +
+          mapR.report +
+          ' IN FULL from disk — its settled rows arrive twice-verified: compose them directly, re-opening only a row whose spelling a fence ' +
+          'composes as settled code; its [UNEXPLOITED] rows are your composition queue and its [DEFECTS] rows your repair queue.'
+        : '— NONE landed for this unit; your own full territory read replaces it.';
+const guideClause = (u, guideR) =>
+    u.blockers.length
+        ? ' BLOCKED CARDS: read the guidance dossier ' +
+          (guideR && guideR.ok ? 'at ' + guideR.report + ' IN FULL from disk' : '— the guidance leg failed; run its verification routes yourself') +
+          '; guidance is decision input (verified facts, spellings, route answers), never design — the design is yours. Implement each unblock; ' +
+          'a blocker proven genuinely unresolvable (external dependency, frozen wire) closes its card back to [BLOCKED] with a sharpened arming ' +
+          'condition citing the dossier path; every other blocked card resolves and realizes in this pass.'
+        : '';
 const admitClause = (admitted) =>
     admitted && admitted.length
-        ? ' ADMITTED MID-RUN for this folder: ' +
+        ? ' ADMITTED MID-RUN for this unit: ' +
           JSON.stringify(admitted.map((a) => ({ package: a.package, language: a.language, admitted: !!(a.ok && a.admitted), catalog: a.report }))) +
-          ' — compose each admitted package catalog members where the owning fence concept admits them; a rejected admission stays out of the fences.'
+          ' — compose each admitted package catalog members where the unit concept admits them; a rejected admission stays out of the fences.'
         : '';
 const receiptDoc = (id, stage) =>
     'Write your COMPLETE receipt document as one JSON object to ' +
@@ -779,8 +725,7 @@ const thinReceipt = (f, stage) =>
     f.path +
     ', stage "' +
     stage +
-    '", ok, report (the receipt document path you just wrote), filesTouched (absolute), crossFolderRows/cardsClosed/researchResolved/' +
-    'residuals counts, packagesMissing rows copied ' +
+    '", ok, report, filesTouched (absolute), crossFolderRows/cardsClosed/researchResolved/residuals counts, packagesMissing rows copied ' +
     'verbatim from your receipt document, one-line headline, failure empty.';
 
 const discoverPrompt = () =>
@@ -832,18 +777,21 @@ const planPrompt = (f) =>
     'cluster boundaries and merge card-sized fragments up; agent spin-up overhead swamps a tiny unit, and an oversized unit starves its ' +
     'critique. Per unit: ' +
     'order (dependency position, 1 first — a unit consuming another unit fence output orders after it, and a unit that MINTS a page or ' +
-    'sub-folder orders before every unit extending it); title; cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the unit ' +
-    'edits, index docs included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit ' +
-    'composes); rippleSurface — ' +
+    'sub-folder orders before every unit extending it); title; tier; heavy (true when the ' +
+    'unit spans 3+ pages or creates any page); cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the unit edits, index docs ' +
+    'included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit composes); rippleSurface — ' +
     'the unit ripple contract: for each selected card, every consumer, unlock endpoint, or counterpart the card NAMES in its Unlocks, ' +
     'Shape, Ripple, or thesis lands one row {endpoint (the folder or page it names, absolute where resolvable — cross-folder and ' +
     'cross-language included), source ("FILE [ID] Unlocks|Shape|Ripple")} — [] only when no selected card names one; blockers — every ' +
     'BLOCKED card in the unit lands one row {card, question (the blocker restated as an answerable question), route (the resolution route: ' +
-    'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none.' +
+    'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none. TIER is decision weight, never modality: ' +
+    '"fable" = design synthesis — new owners, ground-up or multi-page authoring, contested judgment; "opus" = surgical realization on ' +
+    'settled owners — fence edits, card closes, conformance; "codex" = transcription at scale where every decision is already on the page. ' +
+    'A unit carrying blockers tiers "fable" or "opus", never "codex".' +
     (f.language === 'cross'
         ? ' CROSS-LIBS DECOMPOSITION: a cross-libs card is a multi-folder work unit — decompose it into per-folder ripple executions inside ' +
           'ONE unit: pages list every touchpoint page across libs/ grouped by folder, anchors name both ends of every seam, the title names ' +
-          'the folders spanned; the card closes at the cross tier only when every folder ripple lands.'
+          'the folders spanned; the card closes at this tier only when every folder ripple lands.'
         : '') +
     ' LEFTOVERS: every non-theme OPEN card lands one row {item (exact "FILE [ID]" spelling), hint (one short phrase naming the future ' +
     'functionality set it belongs to)}; a hard non-pertinent research cluster on pages no unit touches lands {item: "RESEARCH <absolute ' +
@@ -873,11 +821,10 @@ const mapWrapPrompt = (f, u) => {
     const report = OUT + '/' + u.id + '-map.md';
     return (
         'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
+        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
         REPO +
-        '", sandbox="danger-full-access", approval-policy="never", ' +
+        '", sandbox="read-only", approval-policy="never", ' +
+        (u.heavy ? '' : 'config={"model_reasoning_effort":"medium"}, ') +
         '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE ' +
         'with a sharpened prompt — your whole recovery budget. (3) The tool result is a JSON envelope {threadId, content}; Write the CONTENT ' +
         'text (never the envelope) unmodified to ' +
@@ -887,9 +834,8 @@ const mapWrapPrompt = (f, u) => {
         report +
         ' | sort -u | wc -l — a count under 6 means a missing contract section, a malformed product: rewrite once from the tool result, ' +
         'then return ok=false with the miss. ' +
-        '(5) Return ok, report, entries = the "- " row count under [DEFECTS], research = the "- " row count under [RESEARCH]; the headline ' +
-        'also needs the "- " row count under [UNEXPLOITED] (Read the file to count per section; "- none" counts zero), headline = ' +
-        '"<defects>d <unexploited>u <research>r", failure empty — or ok=false with ' +
+        '(5) Return ok, report, entries = the "- " row count under [DEFECTS], research = the "- " row count under [RESEARCH] (Read the file ' +
+        'to count per section; "- none" counts zero), headline = "<defects>d <unexploited>u <research>r", failure empty — or ok=false with ' +
         'the error text VERBATIM.\n\nLANE LAW:\n\n' +
         MAP_LAW +
         '\n\nTASK:\n\n' +
@@ -903,11 +849,9 @@ const guideWrapPrompt = (f, u) => {
         'DISPATCH ROLE: run ' +
         u.blockers.length +
         ' SEQUENTIAL blocking codex MCP calls, one per BLOCKER row below; never research, judge, or answer any blocker yourself. (1) ' +
-        'ToolSearch "select:mcp__codex__codex" once. (2) Per row call mcp__codex__codex with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
+        'ToolSearch "select:mcp__codex__codex" once. (2) Per row call mcp__codex__codex with model="gpt-5.6-sol", cwd="' +
         REPO +
-        '", sandbox="danger-full-access", approval-policy="never", config={"web_search":"live"}, ' +
+        '", sandbox="read-only", approval-policy="never", config={"model_reasoning_effort":"medium","web_search":"live"}, ' +
         '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = "Resolve this blocker into decision inputs. CARD: <card>. ' +
         'QUESTION: <question>. ROUTE: <route>. FOLDER: ' +
         f.path +
@@ -926,6 +870,53 @@ const guideWrapPrompt = (f, u) => {
         JSON.stringify(u.blockers)
     );
 };
+
+const implPrompt = (f, u, mapR, guideR) =>
+    'IMPLEMENT unit "' +
+    u.title +
+    '" of ' +
+    f.path +
+    ' at the campaign bar. ' +
+    THEME_LAW +
+    ' Write territory: ' +
+    territoryOf(f) +
+    '. ' +
+    PATH_LAW +
+    ' Read AT SOURCE, in full, before any edit: ' +
+    doctrineOf(f) +
+    memoryClause(f) +
+    '. Then run your OWN blind pass over the unit pages — defect list and design rulings from disk FIRST; then read the fact map ' +
+    mapClause(mapR) +
+    guideClause(u, guideR) +
+    ' Realize every card into transcription-complete code FENCES inside the owning design pages — the real declaration with members, cases, ' +
+    'fields, signatures, and bodies in exact verified spellings; a member unverifiable against a .api tier lands as a RESEARCH row, never ' +
+    'settled fence code. ' +
+    FENCE_LAW +
+    ' ' +
+    CARD_LAW +
+    ' ' +
+    ROW_LAW +
+    ' ' +
+    RESEARCH_LAW +
+    ' ' +
+    TESTKIT_LAW +
+    ' ULTRA-STACKING: mine BOTH .api altitudes (' +
+    apiTiersOf(f) +
+    ') to operator depth for the unit concepts — an admitted capability the concept admits but no fence composes is a named defect: ' +
+    'compose it or record it in residuals with the ruling. Where your pass mints a NEW markdown file, run the docgen gate script at ' +
+    REPO +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over the new files after the final edit, ' +
+    'repaired to zero FAIL. UNIT: cards ' +
+    JSON.stringify(u.cards) +
+    '; pages ' +
+    JSON.stringify(u.pages) +
+    '; anchors ' +
+    JSON.stringify(u.anchors) +
+    '; packages ' +
+    JSON.stringify(u.packages) +
+    '. ' +
+    receiptDoc(u.id, 'implement') +
+    thinReceipt(f, 'implement');
 
 const codexImplTask = (f, u, mapR, guideR) =>
     'Goal: realize unit "' +
@@ -949,10 +940,7 @@ const codexImplTask = (f, u, mapR, guideR) =>
     JSON.stringify(u.anchors) +
     '; packages ' +
     JSON.stringify(u.packages) +
-    '; ripple contract ' +
-    JSON.stringify(u.rippleSurface) +
-    ' (the plan-curated endpoints this unit unlocks — land one rippleLedger row per endpoint, disposition landed|deferred|out-of-theme, plus ' +
-    'a row for every splash endpoint your work exposes); api tiers ' +
+    '; api tiers ' +
     apiTiersOf(f) +
     '; fact map ' +
     (mapR && mapR.ok
@@ -965,7 +953,12 @@ const codexImplTask = (f, u, mapR, guideR) =>
                 ' (decision inputs, never design; an EXTERNALLY-BLOCKED verdict closes its card back to [BLOCKED] with a sharpened arming condition citing the dossier)'
               : 'failed — run its routes yourself')
         : '') +
-    '.\nResearch step: drain each unit-page [RESEARCH] row per the LANE LAW completion bar — the resolution rules live there, not here.\n' +
+    '.\nResearch step: a theme-pertinent row verifies via its stated route (tools.assay api, .api catalogs, named docs) — bake confirmed ' +
+    'spellings into the owning fence and DELETE the row whole, correct refuted assumptions at the root, sharpen unresolvable rows in ' +
+    'place; an easy row in any touched file (one verified read answers it) resolves the same way regardless of theme; a hard ' +
+    'non-pertinent row stays untouched, counted as left; delete python version-floor and ' +
+    'package-support-gate rows as resolved by standing ruling (py315 supports every admitted package — emit no version gating, marker, or ' +
+    'prose anywhere).\n' +
     'Constraints: absolute paths everywhere; no source files; no manifest edits; no package installs.\n' +
     'Done when: every listed card dispositioned, fences landed, research drained, and the receipt document written to ' +
     OUT +
@@ -977,18 +970,13 @@ const codexImplWrapPrompt = (f, u, mapR, guideR) => {
     const report = OUT + '/' + u.id + '-implement.json';
     return (
         'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
+        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
         REPO +
-        '", sandbox="danger-full-access", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = the ' +
-        'TASK block below VERBATIM. Before the call, one Bash call: rm -f ' +
-        report +
-        ' so a dead lane cannot pass its probe on a prior run receipt. On a tool error retry ONCE with a sharpened prompt — your whole ' +
-        'recovery budget. (3) Codex writes its ' +
+        '", sandbox="workspace-write", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = the ' +
+        'TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt — your whole recovery budget. (3) Codex writes its ' +
         'own receipt document to ' +
         report +
-        ' as its final act; verify with one Bash call: jq -e ".filesTouched and .cardsClosed and (.rippleLedger|type==\\"array\\")" ' +
+        ' as its final act; verify with one Bash call: jq -e ".filesTouched and .cardsClosed" ' +
         report +
         ' >/dev/null — on a miss, Write the tool-result CONTENT (the final-message JSON, never the envelope) to that path and re-probe; a ' +
         'second miss returns ok=false with the probe error. (4) Return the thin receipt: folder ' +
@@ -1002,8 +990,8 @@ const codexImplWrapPrompt = (f, u, mapR, guideR) => {
     );
 };
 
-const codexAdmitTask = (row, origin) =>
-    'Goal: run the full admission chain for package "' +
+const admitPrompt = (row, origin) =>
+    'ADMISSION LANE for package "' +
     row.package +
     '" (' +
     row.language +
@@ -1011,161 +999,103 @@ const codexAdmitTask = (row, origin) =>
     origin +
     ': ' +
     row.reason +
-    '.\nChain, in order:\n' +
-    '1. LIVE-VERIFY newest stable version and license: ' +
-    REG_OF[row.language] +
-    '. Adjudicate on the closed rejection vocabulary only.\n' +
-    '2. Land the central manifest row in its owning group: ' +
-    MANIFEST_OF[row.language] +
-    '.\n' +
-    '3. Prove the install gate green: ' +
-    INSTALL_OF[row.language] +
-    ' — self-heal once, else revert whole.\n' +
-    '4. Author the .api catalog at the correct tier — folder overlay vs language-root substrate per the two-tier law — with verified ' +
-    'members only.\n' +
-    '5. Land the README package-registry row at the consuming folder.\n' +
-    '6. csharp only: land the PackageReference row in the consuming .csproj.\n' +
-    '7. Run the docgen gate over the new markdown, repaired to zero FAIL.\n' +
-    'Context: consuming folder ' +
-    origin +
-    '; api tiers ' +
-    REPO +
-    '/libs/' +
+    '. ' +
+    PATH_LAW +
+    ' You are the SINGLE writer on the ' +
     row.language +
-    '/.api (language root) and the consuming folder .api (overlay).\n' +
-    'Constraints: absolute paths everywhere; you are the only writer on this manifest during this call; no unrelated edits; no git.\n' +
-    'Done when: the verdict is terminal, the artifacts are consistent with the verdict, and the report is at ' +
+    ' central manifest for this call. Execute the FULL admission chain: (1) LIVE-VERIFY the newest stable version — nuget MCP ' +
+    'get_latest_package_version for csharp, the live registry for python/typescript; rejection vocabulary is closed: reject ONLY when an ' +
+    'already-admitted package supersedes the capability, when existence or installability fails verification, when the license gate ' +
+    'fails — this estate is fully OSS with zero commercial intent, any license granting full free use to an OSS project admits (copyleft ' +
+    'included) and only payment-required or paid-tier-gated capability rejects — or when any chain step below fails unrecoverably after ' +
+    'one self-heal attempt (EXECUTION FAILURE — the failed step named with its evidence), returning admitted=false with the ruling. (2) Land the ' +
+    'central manifest row in its ' +
+    'owning group (Directory.Packages.props label group / pyproject.toml lean unpinned / pnpm-workspace.yaml cluster). (3) Prove the ' +
+    'install gate green (dotnet restore over the consuming closure / uv sync / pnpm install), self-healing or reverting what cannot ' +
+    'resolve — a reverted admission returns admitted=false with the resolver evidence. (4) Author the .api catalog at the correct tier — ' +
+    'folder overlay vs language-root substrate per the two-tier law — with verified members only; an isolation or app-scoped claim lands ' +
+    'ONLY with per-instance member evidence (a per-instance handle, factory, or scope parameter verified on the decompiled/installed ' +
+    'surface), a process-global surface stating its host-wide scope honestly and the single-owner admission it demands. (5) Land the README registry row at the ' +
+    'consuming folder. (6) Land the csproj reference where consumed (csharp). (7) Run the docgen gate script at ' +
+    REPO +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Any of steps ' +
+    '(4)–(7) failing unrecoverably after one self-heal attempt is an EXECUTION FAILURE that REVERTS this admission whole — the manifest ' +
+    'row and every partial artifact landed this call (catalog, README row, csproj reference) removed so the install gate stays green — ' +
+    'returning admitted=false with the failed step named and its evidence; a reverted admission is a clean rejection, never a ' +
+    'half-landed package. Write your full ' +
+    'admission report to ' +
     OUT +
     '/admit-' +
     slugOf(row.package) +
-    '.md.';
+    '.md, then return: package, language, ok, admitted, report, filesTouched, headline, failure.';
 
-const codexAdmitWrapPrompt = (row, origin) => {
-    const report = OUT + '/admit-' + slugOf(row.package) + '.md';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
-        REPO +
-        '", sandbox="danger-full-access", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = ' +
-        'the TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt — your whole recovery budget. (3) The tool ' +
-        'result is a JSON envelope {threadId, content}; parse the CONTENT final-message JSON. Verify with one Bash call: test -s ' +
-        report +
-        ' — a miss returns ok=false with the probe error. (4) Return: package "' +
-        row.package +
-        '", language "' +
-        row.language +
-        '", ok, admitted (from the final-message JSON; false on any failure), report ' +
-        report +
-        ', filesTouched from the final-message JSON, one-line headline, failure empty — or ok=false with the error text VERBATIM.' +
-        '\n\nLANE LAW:\n\n' +
-        ADMIT_LAW +
-        '\n\nTASK:\n\n' +
-        codexAdmitTask(row, origin)
-    );
-};
-
-const folderCritPrompt = (f, units, implRecs, admitted) =>
-    'CRITIQUE the ' +
+const critPrompt = (f, u, impl, mapR, admitted) =>
+    'CRITIQUE unit "' +
+    u.title +
+    '" of ' +
     f.path +
-    ' folder — one clause-by-clause doctrinal-conformance and capability-completeness audit over every unit this run implemented, repaired ' +
-    'IN PLACE with the writer full authority. ' +
+    ' — the clause-by-clause doctrinal-conformance and capability-completeness audit, repaired IN PLACE with the writer full authority. ' +
     THEME_LAW +
     ' A non-theme open card stays byte-untouched — an expected leftover for a future slice. Write territory: ' +
     territoryOf(f) +
-    ' plus its IDEAS.md/TASKLOG.md card files. ' +
-    PATH_LAW +
-    ' ' +
+    '. ' +
     STANCE +
-    ' UNITS this run implemented (cards + pages the audit covers): ' +
-    JSON.stringify(units.map((u) => ({ unit: u.id, title: u.title, cards: u.cards, pages: u.pages, packages: u.packages }))) +
-    '. COLD PASS FIRST: derive your own defect list from the folder pages on disk before any prior claim; the implement stage touched ' +
-    JSON.stringify(implRecs.flatMap((r) => (r && r.filesTouched) || [])) +
-    ' (navigation only — look here first, bound nothing). Then read each implement receipt ' +
-    JSON.stringify(implRecs.map((r) => r && r.report).filter(Boolean)) +
+    ' COLD PASS FIRST: derive your own defect list from the unit pages on disk before any prior claim; the implement stage touched ' +
+    JSON.stringify((impl && impl.filesTouched) || []) +
+    ' (navigation only — look here first, bound nothing). Then read ' +
+    (mapR && mapR.ok ? mapR.report + ' and ' : '') +
+    ((impl && impl.report) || '(no implement receipt)') +
     ' IN FULL from disk as unverified prior claims to refute against current disk. Doctrine at source first: ' +
     doctrineOf(f) +
-    memoryClause(f) +
     '.' +
     admitClause(admitted) +
-    ' Run every dimension as a FLOOR and hunt past it, across all units: (1) COLLAPSE — repeated shapes, parallel spellings, or enumerable ' +
-    'families an algebra, table, fold, or generator can own collapse in place, including a shape repeated across sibling units. (2) OWNER + ' +
-    'KNOB — entry-point sprawl, boolean-knob accumulation, or a concern owned twice collapses to the canonical owner. (3) RAILS + ' +
-    'MODERNITY — dual paradigms on one concern unify onto the monadic rail; dated idioms rebuild to the doctrine floor. (4) CAPABILITY + ' +
-    'ILLUSION — a name promising capability its fence omits, composed in or renamed to the honest scope. (5) FENCE COMPLETENESS — every ' +
-    'realized card fence carries the real declaration with members, cases, fields, signatures, and bodies; a partial fence completes. (6) ' +
-    'MEMBER TRUTH — every cited member verified against both .api tiers (' +
+    ' Run the named checklists as a FLOOR and hunt past them: collapse scan (repeated shapes, parallel spellings, enumerable families an ' +
+    'algebra, table, fold, or generator can own); owner choice; knob test (entry-point sprawl, boolean knobs); rail unification; language ' +
+    'modernity; capability + illusion (a name promising capability the fence omits); fence transcription-completeness; member truth against ' +
+    'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); isolation-claim truth ' +
+    '(an app-scoped claim without per-instance member evidence is a defect you correct to the honest scope); card-closure truth (a ' +
+    'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); ripple-ledger truth (every unit ' +
+    'rippleSurface endpoint carries a rippleLedger row in the implement receipt whose disposition holds against disk — a landed endpoint ' +
+    'proven, a deferred endpoint present as a crossFolderRows row, an out-of-theme endpoint carrying its hint; a silent or false endpoint ' +
+    'is a defect you land or ledger yourself); research-row discipline (a ' +
+    'resolved row deleted whole; a sharpened row carrying question and route; a hard non-pertinent row left byte-untouched, never ' +
+    'dispositioned; any emitted python-version gating is a defect you remove — ' +
+    'py315 supports every admitted package); .api ultra-stacking (both tiers — ' +
     apiTiersOf(f) +
-    ') by exact spelling; a phantom deletes or converts to a [RESEARCH] row. (7) ISOLATION-CLAIM TRUTH — an app-scoped claim without ' +
-    'per-instance member evidence corrects to the honest host-wide scope. (8) CARD-CLOSURE TRUTH — a closed card whose fence is partial ' +
-    'REOPENS; a [BLOCKED] re-card without an arming trigger gains one. (9) RIPPLE-LEDGER TRUTH — every implement-receipt rippleLedger row ' +
-    'holds against disk: a landed endpoint proven, a deferred endpoint present as a crossFolderRows row, an out-of-theme endpoint carrying ' +
-    'its hint; a silent or false endpoint you land or ledger yourself. (10) RESEARCH ROWS — a resolved row deletes whole, a sharpened row ' +
-    'carries question and exact route, a hard non-pertinent row stays byte-untouched. (11) ULTRA-STACKING — both .api tiers enumerated for ' +
-    "the units' packages; an unexploited admitted capability the concept admits composes in. (12) DEPTH + ASSUMED OWNERS — a page minted " +
-    'this ' +
-    'run meets mature-page density; an owner a card assumed exists on disk at the full bar, missing or stubbed, gets built. Every hit is a ' +
-    'FIX landed in this pass, never a note; the folder ends objectively denser than implement left it, or your attack proves the strongest ' +
-    'form present by finding nothing. DISPATCH LEGS where the sweep exceeds one context — legs read and report, every write is yours: opus ' +
-    'legs through the Agent tool (subagent_type "general-purpose", model opus) for deep per-unit mapping and strata checks; codex legs ' +
-    'through mcp__codex__codex (ToolSearch "select:mcp__codex__codex" first; model "' +
-    CODEX_MODEL +
-    '", sandbox "danger-full-access", approval-policy "never", cwd "' +
-    REPO +
-    '") for .api member-verification volume. ' +
+    ' — enumerated for the unit packages; an unexploited admitted capability the concept admits is a defect you compose in); fresh-page ' +
+    'depth (a page minted this run meets the mature-page density and coverage bar); card-assumed existence (an owner a card assumed exists ' +
+    'on disk at the full bar — a missing or stubbed assumed owner is a defect you fix). Every hit is a FIX landed in this pass, never a ' +
+    'note; the work ends objectively denser than ' +
+    'implement left it, or your attack proves the strongest form present by finding nothing. ' +
     ROW_LAW +
     ' ' +
-    pyGuard(f.language) +
+    PATH_LAW +
     ' ' +
-    receiptDoc(fid(f), 'critique') +
+    receiptDoc(u.id, 'critique') +
     thinReceipt(f, 'critique');
 
-const codexComposeTask = (f, pages, landed) =>
-    'Goal: compose the packages admitted AFTER the critique into the owning fences of the ' +
+const composePrompt = (f, u, landed) =>
+    'COMPOSE pass for unit "' +
+    u.title +
+    '" of ' +
     f.path +
-    ' folder.\nAdmitted: ' +
+    ' — packages admitted AFTER the critique: ' +
     JSON.stringify(landed.map((a) => ({ package: a.package, language: a.language, catalog: a.report }))) +
-    '.\nContext: folder pages ' +
-    JSON.stringify(pages) +
-    '; api tiers ' +
-    apiTiersOf(f) +
-    '; write territory ' +
+    '. Write territory: ' +
     territoryOf(f) +
-    '.\nConstraints: absolute paths everywhere; a member lands only where the owning fence concept admits it, at the campaign bar; a ' +
-    'package the folder concept does not admit records one residuals row naming the ruling; edit nothing the admitted catalogs do not ' +
-    'motivate; no source files, manifest edits, installs, or git.\n' +
-    'Done when: every admitted catalog composed or ruled, and the receipt written. ' +
-    receiptDoc(fid(f), 'compose');
-
-const codexComposeWrapPrompt = (f, pages, landed) => {
-    const report = OUT + '/' + fid(f) + '-compose.json';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
-        REPO +
-        '", sandbox="danger-full-access", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = ' +
-        'the TASK block below VERBATIM. Before the call, one Bash call: rm -f ' +
-        report +
-        ' so a dead lane cannot pass its probe on a prior run receipt. On a tool error retry ONCE with a sharpened prompt — your whole ' +
-        'recovery budget. (3) Codex writes ' +
-        'its own receipt document to ' +
-        report +
-        ' as its final act; verify with one Bash call: jq -e ".filesTouched and (.rippleLedger|type==\\"array\\")" ' +
-        report +
-        ' >/dev/null — on a miss, Write the tool-result CONTENT (the final-message JSON, never the envelope) to that path and re-probe; a ' +
-        'second miss returns ok=false with the probe error. (4) Return the thin receipt: folder ' +
-        f.path +
-        ', stage "compose", ok, report, filesTouched = jq ".filesTouched", crossFolderRows/cardsClosed/residuals = the jq array lengths, ' +
-        'researchResolved = jq ".researchResolved.resolved", packagesMissing = jq ".packagesMissing" rows verbatim, one-line headline, ' +
-        'failure empty — or ok=false with the error text VERBATIM.\n\nLANE LAW:\n\n' +
-        COMPOSE_LAW +
-        '\n\nTASK:\n\n' +
-        codexComposeTask(f, pages, landed)
-    );
-};
+    '. ' +
+    PATH_LAW +
+    ' Read each admitted package catalog at its landed tier IN FULL, then compose its members into the unit owning fences wherever the ' +
+    'unit concept admits them — as rows, cases, fields, operations, or policy values on existing owners, at the campaign bar. ' +
+    FENCE_LAW +
+    ' A package whose capability the unit concept does not admit records one residuals row naming the ruling; edit nothing the admitted ' +
+    'catalogs do not motivate. ' +
+    ROW_LAW +
+    ' UNIT pages: ' +
+    JSON.stringify(u.pages) +
+    '. ' +
+    receiptDoc(u.id, 'compose') +
+    thinReceipt(f, 'compose');
 
 const drainPrompt = (L, receiptPaths) =>
     'DRAIN ' +
@@ -1183,9 +1113,7 @@ const drainPrompt = (L, receiptPaths) =>
     '. Roster the rows with ONE batched jq sweep over those files first, then read IN FULL each receipt carrying a row whose targetFile ' +
     'lies under your territory before applying it — rows originate from every language and the cross ' +
     'tier. Per row, REFUTE FIRST against current disk (the row predates later stages): a row already satisfied records verified-satisfied ' +
-    'with the disk citation; a row conflicting with a landed page law RECONCILES to the stronger form — compose the sibling counterpart the ' +
-    'landed page already carries rather than re-derive it, and land the shape that subsumes the other, recording not-applied only when ' +
-    'neither shape subsumes the other; the remainder APPLIES at root ' +
+    'with the disk citation; a row conflicting with a landed page law records not-applied with the citation; the remainder APPLIES at root ' +
     '— land the change, mirror every touched seam edge at both endpoint ARCHITECTUREs with identical [KIND] and direction, and repair what ' +
     'the edit exposes in the same pass. Rows targeting outside your territory RETURN as residualRows ("targetFile :: change"), never apply — ' +
     'and a NEW cross-territory need an application exposes (second-order splash) joins residualRows the same way, never dropped. ' +
@@ -1245,17 +1173,14 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows) =>
     JSON.stringify(admitRows) +
     ' — an admitted row whose catalog capability no owner composes is an ultra-stacking defect; a rejected row stays out of every fence. ' +
     'DRAIN RESIDUALS routed to your tree (rows no drain could apply, second-order splash included) — apply refute-first with your closure ' +
-    'authority, reconciling a conflict with a landed page to the stronger form rather than reverting; one you cannot land returns in ' +
-    'residualRows with its blocker: ' +
+    'authority; one you cannot land returns in residualRows with its blocker: ' +
     JSON.stringify(residualRows) +
     '.' +
     pyGuard(L.key) +
     ' DISPATCH LEGS where the sweep exceeds one context — legs read and report, every write is yours: opus legs through the Agent tool ' +
     '(subagent_type "general-purpose", model opus) for deep folder mapping and strata integration checks; codex legs through ' +
-    'mcp__codex__codex (ToolSearch "select:mcp__codex__codex" first; model "' +
-    CODEX_MODEL +
-    '", ' +
-    'sandbox "danger-full-access", approval-policy "never", cwd "' +
+    'mcp__codex__codex (ToolSearch "select:mcp__codex__codex" first; model "gpt-5.6-sol", config={"model_reasoning_effort":"medium"}, ' +
+    'sandbox "read-only", approval-policy "never", cwd "' +
     REPO +
     '") for .api ultra-stacking member-verification volume. ' +
     ROW_LAW +
@@ -1273,11 +1198,9 @@ const testsMapWrapPrompt = (L) => {
     const report = OUT + '/tests-' + L.key + '-map.md';
     return (
         'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
+        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
         REPO +
-        '", sandbox="danger-full-access", approval-policy="never", "developer-instructions" = the LANE ' +
+        '", sandbox="read-only", approval-policy="never", config={"model_reasoning_effort":"medium"}, "developer-instructions" = the LANE ' +
         'LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt. (3) The tool ' +
         'result is a JSON envelope {threadId, content}; Write the CONTENT text (never the envelope) unmodified to ' +
         report +
@@ -1319,99 +1242,61 @@ const testsMapWrapPrompt = (L) => {
     );
 };
 
-const spineOf = (k) =>
-    k === 'csharp'
+const testsImplPrompt = (L, mapR) =>
+    'TESTS-ESTATE build-out for ' +
+    L.key +
+    ' — ASSUME libs/ is fully made: build what tests/ must be for a world-class, powerful, ready-to-author-tests estate. INFRASTRUCTURE ' +
+    'ONLY — never author tests. Write territory: the ' +
+    L.key +
+    ' tests tree under ' +
+    REPO +
+    '/tests (resolve the exact directory from ' +
+    REPO +
+    '/tests/README.md) plus the ' +
+    L.key +
+    ' rows of the root test spine (' +
+    (L.key === 'csharp'
         ? 'Directory.Build.props/targets test rows and tests-level project files'
-        : k === 'python'
+        : L.key === 'python'
           ? 'pyproject.toml test tier and pytest configuration rows'
-          : 'vitest/vite/playwright/stryker configs and package-manager test script rows';
-
-const codexTestsTask = (L, leg, mapR, prev) =>
-    leg === 'rails'
-        ? 'Goal: build the ' +
-          L.key +
-          ' tests-estate capture-and-doubles half — libs/ is treated as fully made; infrastructure only, never test authoring. Axes: ' +
-          AXES_A[L.key] +
-          '.\nTerritory: the ' +
-          L.key +
-          ' tests tree under ' +
-          REPO +
-          '/tests (resolve the exact directory from ' +
-          REPO +
-          '/tests/README.md) — in-tree only; the root test spine belongs to the second leg.\n' +
-          'Context: doctrine ' +
-          REPO +
-          '/docs/stacks/' +
-          L.key +
-          '/; tests map ' +
-          (mapR && mapR.ok ? mapR.report + ' (read IN FULL from disk)' : '(none — your own read replaces it)') +
-          '.\nGate: ' +
-          GATES[L.key] +
-          ' (exact invocation resolved from tests/README.md), batched once after the final edit, repaired to green.' +
-          pyGuard(L.key) +
-          '\nDone when: the axes are landed, the gate is green, and the receipt is at ' +
-          OUT +
-          '/tests-' +
-          L.key +
-          '-rails.md.'
-        : 'Goal: build the ' +
-          L.key +
-          ' tests-estate transport-bench-spine half — libs/ is treated as fully made; infrastructure only, never test authoring. Axes: ' +
-          AXES_B[L.key] +
-          '.\nTerritory: the ' +
-          L.key +
-          ' tests tree under ' +
-          REPO +
-          '/tests (resolve the exact directory from ' +
-          REPO +
-          '/tests/README.md) plus the ' +
-          L.key +
-          ' rows of the root test spine (' +
-          spineOf(L.key) +
-          '). Root-manifest test rows are alignment territory — reshape existing configuration; a NEW package remains a residualRows ' +
-          'entry.\nContext: doctrine ' +
-          REPO +
-          '/docs/stacks/' +
-          L.key +
-          '/; tests map ' +
-          (mapR && mapR.ok ? mapR.report + ' (read IN FULL from disk)' : '(none — your own read replaces it)') +
-          '; first-leg receipt ' +
-          (prev && prev.ok ? prev.report + ' — treat its work as the as-found tree, repair what it left broken, duplicate nothing' : '(none)') +
-          '.\nGate: ' +
-          GATES[L.key] +
-          ' (exact invocation resolved from tests/README.md), batched once after the final edit, repaired to green.' +
-          pyGuard(L.key) +
-          '\nDone when: the axes are landed, the gate is green, and the receipt is at ' +
-          OUT +
-          '/tests-' +
-          L.key +
-          '-spine.md.';
-
-const codexTestsWrapPrompt = (L, leg, mapR, prev) => {
-    const report = OUT + '/tests-' + L.key + '-' + leg + '.md';
-    return (
-        'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-        'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="' +
-        CODEX_MODEL +
-        '", cwd="' +
-        REPO +
-        '", sandbox="danger-full-access", approval-policy="never", "developer-instructions" = the LANE LAW block below VERBATIM, prompt = ' +
-        'the TASK block below VERBATIM. On a tool error retry ONCE with a sharpened prompt — your whole recovery budget. (3) The tool ' +
-        'result is a JSON envelope {threadId, content}; parse the CONTENT final-message JSON. Verify with one Bash call: test -s ' +
-        report +
-        ' — a miss returns ok=false with the probe error. (4) Return: language "' +
-        L.key +
-        '", ok, report ' +
-        report +
-        ', filesTouched, gate, gateClean, residualRows (missing packages as "package@' +
-        L.key +
-        ': reason" plus genuinely blocked items), headline from the final-message JSON, failure empty — or ok=false with the error text ' +
-        'VERBATIM.\n\nLANE LAW:\n\n' +
-        TIMPL_LAW +
-        '\n\nTASK:\n\n' +
-        codexTestsTask(L, leg, mapR, prev)
-    );
-};
+          : 'vitest/vite/playwright/stryker configs and package-manager test script rows') +
+    '). Root-manifest test rows are alignment territory — reshape existing test configuration; a NEW package remains a residual row, never ' +
+    'an install or manifest add. Shared root surfaces (tests/README.md, ' +
+    REPO +
+    '/.config, and the central manifests where your spine rows live) sequence LAST, surgical anchored Edits only, full re-read immediately ' +
+    'before the first edit — sibling language lanes and the per-language seal lanes run beside you. ' +
+    STANCE +
+    ' Read AT SOURCE in full first: ' +
+    REPO +
+    '/tests/README.md, every root file of ' +
+    REPO +
+    '/docs/stacks/' +
+    L.key +
+    '/, the .api catalogs of the testing packages the spine cites (your own reads — never guessed from pool receipts), then the tests map ' +
+    mapClause(mapR) +
+    ' Build-out axes (a floor, hunted past): ' +
+    AXES[L.key] +
+    '; shared logic and capabilities consolidated into the _testkits; drift and stale content fixed against the post-implementation libs ' +
+    'surface; the root spine aligned. ' +
+    PATH_LAW +
+    ' GATE: after the final edit run ' +
+    GATES[L.key] +
+    ' (exact invocation resolved from tests/README.md), batched ONCE, and repair what it reports to green before returning; gateClean is ' +
+    'true only from a green final run. Run the docgen gate script at ' +
+    REPO +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched once over every markdown file you touched, repaired ' +
+    'to zero FAIL.' +
+    pyGuard(L.key) +
+    ' Write your full receipt document (files, capabilities landed, drift fixed, spine rows, gate output ' +
+    'tail) to ' +
+    OUT +
+    '/tests-' +
+    L.key +
+    '.md, then return: language "' +
+    L.key +
+    '", ok, report, filesTouched, gate (the exact command run), gateClean, residualRows (missing packages as "package@' +
+    L.key +
+    ': reason" plus genuinely blocked items), headline, failure.';
 
 const auditPrompt = (roots, selected, residuals) =>
     'SLICE-CLOSURE AUDIT for theme "' +
@@ -1454,11 +1339,11 @@ const admit = (row, origin) => {
     const run = () =>
         guard(
             slot(() =>
-                agent(codexAdmitWrapPrompt(row, origin), {
-                    label: 'sol:admit:' + slugOf(row.package),
+                agent(admitPrompt(row, origin), {
+                    label: 'admit:' + slugOf(row.package),
                     phase: 'Admit',
-                    model: 'sonnet',
-                    effort: 'low',
+                    model: 'opus',
+                    effort: 'high',
                     schema: ADMITR,
                     stallMs: STALL_MS,
                 }),
@@ -1478,18 +1363,31 @@ const runAdmissions = async (rec, origin) => {
 };
 
 const runImplement = (f, u, mapR, guideR) =>
-    guard(
-        slot(() =>
-            agent(codexImplWrapPrompt(f, u, mapR, guideR), {
-                label: 'sol:impl:' + u.id,
-                phase: 'Implement',
-                model: 'sonnet',
-                effort: 'low',
-                schema: STAGE,
-                stallMs: STALL_MS,
-            }),
-        ),
-    );
+    u.tier === 'codex'
+        ? guard(
+              slot(() =>
+                  agent(codexImplWrapPrompt(f, u, mapR, guideR), {
+                      label: 'sol:impl:' + u.id,
+                      phase: 'Implement',
+                      model: 'sonnet',
+                      effort: 'low',
+                      schema: STAGE,
+                      stallMs: STALL_MS,
+                  }),
+              ),
+          )
+        : guard(
+              slot(() =>
+                  agent(implPrompt(f, u, mapR, guideR), {
+                      label: 'impl:' + u.id,
+                      phase: 'Implement',
+                      model: u.tier,
+                      effort: 'high',
+                      schema: STAGE,
+                      stallMs: STALL_MS,
+                  }),
+              ),
+          );
 
 const runFolderChain = async (f, plan) => {
     const units = (plan?.units ?? [])
@@ -1497,20 +1395,10 @@ const runFolderChain = async (f, plan) => {
         .sort((a, b) => a.order - b.order)
         .map((u, i) => ({ ...u, id: uid(f, i) }));
     if (!units.length) {
-        log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path + (plan?.note ? ' — ' + plan.note : ''));
-        return {
-            folder: f.path,
-            language: f.language,
-            planOk: !!plan,
-            units: [],
-            crit: null,
-            comp: null,
-            critAdmissions: [],
-            leftovers: plan?.leftovers ?? [],
-        };
+        log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path);
+        return { folder: f.path, language: f.language, planOk: !!plan, units: [], leftovers: plan?.leftovers ?? [] };
     }
-    // Per unit (sequential, order-respecting): recon → implement → implement-driven admissions.
-    const built = [];
+    const out = [];
     for (const u of units) {
         const [mapR, guideR] = await Promise.all([
             guard(
@@ -1542,52 +1430,51 @@ const runFolderChain = async (f, plan) => {
         ]);
         const impl = await runImplement(f, u, mapR, guideR);
         const admittedImpl = await runAdmissions(impl, f.path);
-        built.push({ unit: u.id, cards: u.cards, blockers: u.blockers.length, mapR, guideR, impl, admissions: admittedImpl });
+        const crit =
+            impl && impl.ok
+                ? await guard(
+                      slot(() =>
+                          agent(critPrompt(f, u, impl, mapR, admittedImpl), {
+                              label: 'crit:' + u.id,
+                              phase: 'Critique',
+                              model: u.heavy ? 'fable' : 'opus',
+                              effort: 'high',
+                              schema: STAGE,
+                              stallMs: STALL_MS,
+                          }),
+                      ),
+                  )
+                : null;
+        const admittedCrit = await runAdmissions(crit, f.path);
+        const landedCrit = admittedCrit.filter((a) => a && a.ok && a.admitted);
+        const comp = landedCrit.length
+            ? await guard(
+                  slot(() =>
+                      agent(composePrompt(f, u, landedCrit), {
+                          label: 'compose:' + u.id,
+                          phase: 'Compose',
+                          model: 'opus',
+                          effort: 'high',
+                          schema: STAGE,
+                          stallMs: STALL_MS,
+                      }),
+                  ),
+              )
+            : null;
+        const admittedComp = await runAdmissions(comp, f.path);
+        out.push({
+            unit: u.id,
+            cards: u.cards,
+            blockers: u.blockers.length,
+            mapR,
+            guideR,
+            impl,
+            crit,
+            comp,
+            admissions: admittedImpl.concat(admittedCrit, admittedComp),
+        });
     }
-    // One folder-wide critique over every implemented unit, then a conditional folder-wide compose of critique-admitted packages.
-    const implemented = built.filter((b) => b.impl && b.impl.ok);
-    const crit = implemented.length
-        ? await guard(
-              slot(() =>
-                  agent(
-                      folderCritPrompt(
-                          f,
-                          units,
-                          implemented.map((b) => b.impl),
-                          built.flatMap((b) => b.admissions),
-                      ),
-                      { label: 'crit:' + fid(f), phase: 'Critique', model: 'fable', schema: STAGE, stallMs: STALL_MS },
-                  ),
-              ),
-          )
-        : null;
-    const admittedCrit = await runAdmissions(crit, f.path);
-    const landedCrit = admittedCrit.filter((a) => a && a.ok && a.admitted);
-    const comp = landedCrit.length
-        ? await guard(
-              slot(() =>
-                  agent(
-                      codexComposeWrapPrompt(
-                          f,
-                          units.flatMap((u) => u.pages),
-                          landedCrit,
-                      ),
-                      { label: 'sol:compose:' + fid(f), phase: 'Compose', model: 'sonnet', effort: 'low', schema: STAGE, stallMs: STALL_MS },
-                  ),
-              ),
-          )
-        : null;
-    const admittedComp = await runAdmissions(comp, f.path);
-    return {
-        folder: f.path,
-        language: f.language,
-        planOk: true,
-        units: built,
-        crit,
-        comp,
-        critAdmissions: admittedCrit.concat(admittedComp),
-        leftovers: plan?.leftovers ?? [],
-    };
+    return { folder: f.path, language: f.language, planOk: true, units: out, leftovers: plan?.leftovers ?? [] };
 };
 
 const planLane = (f) =>
@@ -1607,23 +1494,14 @@ const folderRecs = folders.filter((f) => f.language !== 'cross');
 const crossRec = folders.find((f) => f.language === 'cross') || null;
 const crossPlanP = crossRec ? planLane(crossRec) : Promise.resolve(null);
 const chains = (await pipeline(folderRecs, planLane, (plan, f) => runFolderChain(f, plan))).filter(Boolean);
-const crossChain = crossRec ? await guard(runFolderChain(crossRec, await crossPlanP)) : null; // cross-libs units run after every folder chain — their touchpoints span the trees the folder writers just closed; guarded so a cross-chain throw isolates like a folder chain
+const crossChain = crossRec ? await runFolderChain(crossRec, await crossPlanP) : null; // cross-libs units run after every folder chain — their touchpoints span the trees the folder writers just closed
 const allChains = crossChain ? chains.concat([crossChain]) : chains;
 
 const unitRecs = allChains.flatMap((c) => c.units.map((x) => ({ ...x, folder: c.folder, language: c.language })));
-const receiptPaths = unitRecs
-    .map((x) => x.impl && x.impl.ok && x.impl.report)
-    .concat(allChains.flatMap((c) => [c.crit && c.crit.ok && c.crit.report, c.comp && c.comp.ok && c.comp.report]))
-    .filter(Boolean);
-// admitSeen hands one shared admission promise to every requester, so an impl-requested package re-requested by crit/comp resolves to the SAME object in both arrays — dedupe by language+package before any count.
-const admissions = [
-    ...new Map(
-        unitRecs
-            .flatMap((x) => x.admissions || [])
-            .concat(allChains.flatMap((c) => c.critAdmissions || []))
-            .map((a) => [a.language + ':' + slugOf(a.package), a]),
-    ).values(),
-];
+const receiptPaths = unitRecs.flatMap((x) =>
+    [x.impl && x.impl.ok && x.impl.report, x.crit && x.crit.ok && x.crit.report, x.comp && x.comp.ok && x.comp.report].filter(Boolean),
+);
+const admissions = unitRecs.flatMap((x) => x.admissions || []);
 log(unitRecs.length + ' unit(s), ' + receiptPaths.length + ' receipt(s), ' + admissions.length + ' admission(s)');
 
 // --- [SEAL_AND_TESTS]
@@ -1631,109 +1509,90 @@ log(unitRecs.length + ' unit(s), ' + receiptPaths.length + ' receipt(s), ' + adm
 let drainUnrouted = [];
 const sealP = receiptPaths.length
     ? (async () => {
-          try {
-              // Barrier is genuine: drain residualRows route ACROSS languages, so every drain must land before any redteam starts.
-              const drainRs = await parallel(
-                  LANGS.map(
-                      (L) => () =>
-                          guard(
-                              slot(() =>
-                                  agent(drainPrompt(L, receiptPaths), {
-                                      label: 'drain:' + L.key,
-                                      phase: 'Drain',
-                                      model: 'fable',
-                                      schema: DRAINR,
-                                      stallMs: STALL_MS,
-                                  }),
-                              ),
-                          ),
-                  ),
-              );
-              const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
-              // match L.root without a leading slash so both absolute and repo-relative residual paths route (libs/csharp cannot substring libs/python)
-              const residualFor = (L) => allResiduals.filter((r) => String(r).includes(L.root + '/'));
-              const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
-              drainUnrouted = allResiduals.filter((r) => !routed.has(r));
-              if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no language tree — carried to the audit');
-              return await parallel(
-                  LANGS.map((L, i) => () => {
-                      const dr = drainRs[i];
-                      const res = residualFor(L);
-                      const hadUnits = allChains.some((c) => (c.language === L.key || c.language === 'cross') && c.units.length);
-                      if (!hadUnits && !(dr && dr.applied > 0) && !res.length) return Promise.resolve({ language: L.key, drain: dr, redteam: null });
-                      const admitRows = admissions
-                          .filter((a) => a && a.language === L.key)
-                          .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
-                      return guard(
+          // Barrier is genuine: drain residualRows route ACROSS languages, so every drain must land before any redteam starts.
+          const drainRs = await parallel(
+              LANGS.map(
+                  (L) => () =>
+                      guard(
                           slot(() =>
-                              agent(rtPrompt(L, dr, receiptPaths, admitRows, res), {
-                                  label: 'rt:' + L.key,
-                                  phase: 'Redteam',
-                                  model: 'fable',
-                                  schema: REDTEAMR,
+                              agent(drainPrompt(L, receiptPaths), {
+                                  label: 'drain:' + L.key,
+                                  phase: 'Drain',
+                                  model: 'opus',
+                                  effort: 'high',
+                                  schema: DRAINR,
                                   stallMs: STALL_MS,
                               }),
                           ),
-                      ).then((rt) => ({ language: L.key, drain: dr, redteam: rt }));
-                  }),
-              );
-          } catch {
-              drainUnrouted = [];
-              return [];
-          }
+                      ),
+              ),
+          );
+          const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
+          const residualFor = (L) => allResiduals.filter((r) => String(r).includes('/' + L.root + '/'));
+          const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
+          drainUnrouted = allResiduals.filter((r) => !routed.has(r));
+          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no language tree — carried to the audit');
+          return await parallel(
+              LANGS.map((L, i) => () => {
+                  const dr = drainRs[i];
+                  const res = residualFor(L);
+                  const hadUnits = allChains.some((c) => (c.language === L.key || c.language === 'cross') && c.units.length);
+                  if (!hadUnits && !(dr && dr.applied > 0) && !res.length) return Promise.resolve({ language: L.key, drain: dr, redteam: null });
+                  const admitRows = admissions
+                      .filter((a) => a && a.language === L.key)
+                      .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
+                  return guard(
+                      slot(() =>
+                          agent(rtPrompt(L, dr, receiptPaths, admitRows, res), {
+                              label: 'rt:' + L.key,
+                              phase: 'Redteam',
+                              model: 'fable',
+                              effort: 'max',
+                              schema: REDTEAMR,
+                              stallMs: STALL_MS,
+                          }),
+                      ),
+                  ).then((rt) => ({ language: L.key, drain: dr, redteam: rt }));
+              }),
+          );
       })()
     : Promise.resolve([]);
 
-// Tests drift-fix and spine-align against the SEALED libs surface, so the whole tests estate runs after the seal finishes mutating it.
-const runTests = () =>
-    TESTS_ON
-        ? pipeline(
-              LANGS,
-              (L) =>
-                  guard(
-                      slot(() =>
-                          agent(testsMapWrapPrompt(L), {
-                              label: 'sol:tmap:' + L.key,
-                              phase: 'Tests',
-                              model: 'sonnet',
-                              effort: 'low',
-                              schema: RECEIPT,
-                              stallMs: STALL_MS,
-                          }),
-                      ),
+const testsP = TESTS_ON
+    ? pipeline(
+          LANGS,
+          (L) =>
+              guard(
+                  slot(() =>
+                      agent(testsMapWrapPrompt(L), {
+                          label: 'sol:tmap:' + L.key,
+                          phase: 'Tests',
+                          model: 'sonnet',
+                          effort: 'low',
+                          schema: RECEIPT,
+                          stallMs: STALL_MS,
+                      }),
                   ),
-              async (tm, L) => {
-                  const rails = await guard(
-                      slot(() =>
-                          agent(codexTestsWrapPrompt(L, 'rails', tm, null), {
-                              label: 'sol:tests:' + L.key + ':rails',
-                              phase: 'Tests',
-                              model: 'sonnet',
-                              effort: 'low',
-                              schema: TESTSR,
-                              stallMs: STALL_MS,
-                          }),
-                      ),
-                  );
-                  const spine = await guard(
-                      slot(() =>
-                          agent(codexTestsWrapPrompt(L, 'spine', tm, rails), {
-                              label: 'sol:tests:' + L.key + ':spine',
-                              phase: 'Tests',
-                              model: 'sonnet',
-                              effort: 'low',
-                              schema: TESTSR,
-                              stallMs: STALL_MS,
-                          }),
-                      ),
-                  );
-                  return [rails, spine].filter(Boolean);
-              },
-          )
-        : Promise.resolve([]);
+              ),
+          (tm, L) =>
+              guard(
+                  slot(() =>
+                      agent(testsImplPrompt(L, tm), {
+                          label: 'tests:' + L.key,
+                          phase: 'Tests',
+                          model: 'fable',
+                          effort: 'high',
+                          schema: TESTSR,
+                          stallMs: STALL_MS,
+                      }),
+                  ),
+              ),
+      )
+    : Promise.resolve([]);
 
-const sealed = (await sealP).filter(Boolean);
-const tests = (await runTests()).filter(Boolean).flat();
+const [sealedRaw, testsRaw] = await Promise.all([sealP, testsP]);
+const sealed = sealedRaw.filter(Boolean);
+const tests = testsRaw.filter(Boolean);
 
 // --- [AUDIT]
 
@@ -1749,7 +1608,8 @@ const audit = await guard(
             {
                 label: 'audit',
                 phase: 'Audit',
-                model: 'fable',
+                model: 'opus',
+                effort: 'low',
                 schema: AUDITR,
             },
         ),
@@ -1777,22 +1637,22 @@ return {
     units: unitRecs.length,
     selectedCards: selectedCards.length,
     implemented: unitRecs.filter((x) => x.impl && x.impl.ok).length,
-    critiqued: allChains.filter((c) => c.crit && c.crit.ok).length,
-    composed: allChains.filter((c) => c.comp && c.comp.ok).length,
+    critiqued: unitRecs.filter((x) => x.crit && x.crit.ok).length,
+    composed: unitRecs.filter((x) => x.comp && x.comp.ok).length,
     failedUnits: unitRecs.filter((x) => !(x.impl && x.impl.ok)).map((x) => x.unit),
-    cardsClosed:
-        sum(unitRecs, (x) => (x.impl && x.impl.cardsClosed) || 0) +
-        sum(allChains, (c) => ((c.crit && c.crit.cardsClosed) || 0) + ((c.comp && c.comp.cardsClosed) || 0)),
-    crossFolderRows:
-        sum(unitRecs, (x) => (x.impl && x.impl.crossFolderRows) || 0) +
-        sum(allChains, (c) => ((c.crit && c.crit.crossFolderRows) || 0) + ((c.comp && c.comp.crossFolderRows) || 0)),
-    unitResiduals:
-        sum(unitRecs, (x) => (x.impl && x.impl.residuals) || 0) +
-        sum(allChains, (c) => ((c.crit && c.crit.residuals) || 0) + ((c.comp && c.comp.residuals) || 0)),
+    cardsClosed: sum(
+        unitRecs,
+        (x) => ((x.impl && x.impl.cardsClosed) || 0) + ((x.crit && x.crit.cardsClosed) || 0) + ((x.comp && x.comp.cardsClosed) || 0),
+    ),
+    crossFolderRows: sum(
+        unitRecs,
+        (x) => ((x.impl && x.impl.crossFolderRows) || 0) + ((x.crit && x.crit.crossFolderRows) || 0) + ((x.comp && x.comp.crossFolderRows) || 0),
+    ),
     researchBefore: sum(unitRecs, (x) => (x.mapR && x.mapR.research) || 0),
-    researchResolved:
-        sum(unitRecs, (x) => (x.impl && x.impl.researchResolved) || 0) +
-        sum(allChains, (c) => ((c.crit && c.crit.researchResolved) || 0) + ((c.comp && c.comp.researchResolved) || 0)),
+    researchResolved: sum(
+        unitRecs,
+        (x) => ((x.impl && x.impl.researchResolved) || 0) + ((x.crit && x.crit.researchResolved) || 0) + ((x.comp && x.comp.researchResolved) || 0),
+    ),
     researchAfter: audit ? audit.researchRows : -1,
     researchByLanguage: audit ? audit.researchByLanguage : [],
     admissions: admissions.map((a) => ({ package: a.package, language: a.language, admitted: !!(a.ok && a.admitted), report: a.report || '' })),

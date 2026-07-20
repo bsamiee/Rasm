@@ -1,8 +1,8 @@
 # [BIM_ENERGY_DERIVE]
 
-The BIM-to-BEM lower and the OSM-centric translation: `EnergyDerive` folds the seam `ElementGraph` down to the two managed authoring schemas — `IfcSpace` nodes (landed by the `Projection/semantic#SEMANTIC_PROJECTOR` IFC ingest or any other projector) fold to honeybee `Room`/`Face`/`Aperture`/`Door` envelopes with the layered seam composition lowered onto the energy library under the abridged-reference law (opaque `MaterialPropertySet.Thermal` layers onto `EnergyMaterial`/`OpaqueConstructionAbridged`, glazing `Optical` layers onto `EnergyWindowMaterialGlazing`/`WindowConstructionAbridged`), or to dragonfly `Story`/`Room2D` massing plates — and `EnergyTranslate` runs the OpenStudio translator matrix as one frozen `(source, target)` row table. Both arms are driven by the `Energy/exchange#ENERGY_EXCHANGE` `EnergyExchange.Apply` entry and emit content-keyed `EnergyArtifact`s; the class correspondence, the boundary payload statics, and the evidence bags are read back from the `Energy/projector#ENERGY_PROJECTOR` owner (`EnergyClassRows.ToFace`, `EnergyProjector.BoundaryCondition`/`Host`/`StoryMultiplier`), so the raise and the lower can never drift.
+`EnergyDerive` lowers the seam `ElementGraph` to two authoring schemas, and `EnergyTranslate` runs the OpenStudio translator matrix as one frozen `(source, target)` row table. `IfcSpace` nodes — landed by the `Projection/semantic#SEMANTIC_PROJECTOR` IFC ingest or any projector — fold to honeybee `Room`/`Face`/`Aperture`/`Door` envelopes with their layered seam composition lowered onto the energy library under the abridged-reference law, or to dragonfly `Story`/`Room2D` massing plates. `Energy/exchange#ENERGY_EXCHANGE`'s `EnergyExchange.Apply` drives both arms and emits content-keyed `EnergyArtifact`s; class correspondence, boundary payload statics, and evidence bags read back from the `Energy/projector#ENERGY_PROJECTOR` owner, so the raise and the lower cannot drift.
 
-Wire posture: HOST-LOCAL, foreign types emit-confined. The lowered `Hb.Model`/`Df.Model` is authored, `Validate()`-tallied, serialized through `ToJson()`, and released inside the arm; every `OpenStudio.*` SWIG wrapper is `using`-bracketed, and the translate temp-path crossings (`Workspace.save`/`Model.save` path-bound emits over a bracketed scratch file) are the named platform-forced statement seam. Faults route the `Model/faults#FAULT_BAND` arms: `CodecReject` (`energy-lower-unsupported`/`energy-translate-miss`), `CapabilityMiss` (`energy-graph-egress-pending`), `ModelRejected` (`energy-decode` on a translate source).
+Wire posture is HOST-LOCAL, foreign types emit-confined: each lowered `Hb.Model`/`Df.Model` is authored, `Validate()`-tallied, serialized through `ToJson()`, and released inside the arm; every `OpenStudio.*` SWIG wrapper is `using`-bracketed, and the translate temp-path crossings (`Workspace.save`/`Model.save` over a bracketed scratch file) are the platform-forced statement seam. Faults route the `Model/faults#FAULT_BAND` arms: `CodecReject` (`energy-lower-unsupported`/`energy-translate-miss`), `CapabilityMiss` (`energy-graph-egress-pending`), `ModelRejected` (`energy-decode` on a translate source).
 
 ## [01]-[INDEX]
 
@@ -12,12 +12,12 @@ Wire posture: HOST-LOCAL, foreign types emit-confined. The lowered `Hb.Model`/`D
 ## [02]-[MODEL_DERIVE]
 
 - Owner: `EnergyDerive` the BIM-to-BEM lower fold (graph → honeybee HBJSON envelope + energy library, graph → dragonfly DFJSON massing).
-- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — the `hbjson` arm selects the `IfcSpace`-classified `Object` nodes under the scope, folds each space's `IfcRelSpaceBoundary` `Generic`-edged bounding surfaces into honeybee `Face`s (`Face3D` boundary from the seam `GeometrySource`-resolved `FootprintPolygon` — the same one-hop content-key resolve the Compute build takes; `FaceType` from the derived `EnergyClassRows.ToFace` index; the `Host`-attributed opening boundaries into `Aperture`/`Door` sub-faces carrying their OWN lowered constructions), lowers each surface's and opening's `MaterialComposition.LayerSet` through ONE property-case-discriminated fold — an `Optical`-free set onto `EnergyMaterial` + `OpaqueConstructionAbridged`, an all-`Optical` set onto `EnergyWindowMaterialGlazing` + `WindowConstructionAbridged`, a mixed set a warning-counted degrade (no legal EnergyPlus construction exists, the Compute `BuildConstruction` mixed rejection mirrored) — populated into the model store through the identifier-dedup `ModelEnergyProperties` extension `AddMaterial`/`AddConstruction` mutators, the construction id the content-hashed material-key join (the abridged form referenced from `FaceEnergyPropertiesAbridged`/`ApertureEnergyPropertiesAbridged`/`DoorEnergyPropertiesAbridged` — the abridged-reference law, never expand-then-reinline), assembles `new Hb.Model(identifier, properties, rooms:, units: Meters, tolerance: Header.Tolerance)` and emits `model.ToJson()`; the `dfjson` arm folds the `IfcBuilding`/`IfcBuildingStorey` `Compose` tree into `Building`/`Story` with each space's footprint ring flattened to a `Room2D` floor plate, the `Qto_SpaceBaseQuantities` `Height` quantity read back as the floor-to-ceiling height, and the `Pset_EnergyModel`/`StoryMultiplier` evidence read back onto `Story(multiplier:)`.
-- Auto: the lowered model carries the SEMANTIC envelope and library only — no `SimulationParameter`, no run period, no conditioning, no weather (simulation context is Compute's or the python recipe plane's); boundary conditions derive from the boundary edge's `BoundaryCondition` payload where the raise stamped one (`Ground`/`Adiabatic`/`Outdoors` text → the `IBoundarycondition` case) and default `Outdoors` otherwise; the artifact content-key is the emitted-bytes derivation with `Graph = Some(ContentAddress.OfGraph(graph))` stamping the semantic pedigree, and the model IDENTIFIER is that same pedigree key (`rasm-energy-{key:x32}`) so a re-lowered identical graph emits byte-identical documents and the object-plane 412-noop dedup fires — a timestamp identifier forked the bytes per second, the deleted form.
-- Receipt: one `EnergyReceipt` per emit — `Lowered` legs count the folded spaces/surfaces/openings/constructions; the lowered model's `Validate()` DataAnnotations results fold into `Warnings` beside the degrade tallies, never an exception.
+- Entry: `EnergyDerive.Lower(ElementGraph graph, InterchangeFormat target, EnergyScope scope, GeometrySource geometry, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` — dispatches the frozen `Lowers` target table: the `hbjson` arm lowers each scoped `IfcSpace` and its opening sub-faces onto the honeybee envelope + energy library, the `dfjson` arm folds the `Compose` tree onto dragonfly massing plates; each surface and opening composition lowers through ONE property-case fold.
+- Auto: lowered models carry the SEMANTIC envelope and library only; simulation context — parameters, run period, conditioning, weather — is Compute's or the python recipe plane's, never authored on the lower.
+- Receipt: one `EnergyReceipt` per emit tallies the folded spaces, surfaces, openings, and constructions; the model's `Validate()` DataAnnotations fold into `Warnings` beside the degrade tallies, never an exception.
 - Packages: HoneybeeSchema, DragonflySchema, Rasm.Element, Rasm, LanguageExt.Core, NodaTime
-- Growth: a new lower target is one row on the frozen `Lowers` target table (the `EnergyProjector.Arms`/`EnergyTranslate.Matrix` row law); per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition is one arm row the moment the seam carries a second-level adjacency payload naming the counterpart face — until then the `Surface` text degrades `Outdoors` by the documented default.
-- Boundary: the lower reads the graph through seam-owned surfaces (`ObjectNodes`, `EdgesAt`, `CompositionOf`, `Material`, the `GeometrySource` port) and the `Model/query#ELEMENT_SET` algebra for scope selection — a Compute-owned discipline read (`SpacesOf`/`BoundingSurfacesOf`) is never referenced (Compute is a peer stratum, not a dependency); a space whose footprint blob is absent lowers as a logged warning and a skipped room, never a zero-area fabrication; a layer-set material lacking BOTH the `Thermal` and `Optical` case degrades warning-counted, never a fabricated physics row; the density reads the seam `Mechanical` case when carried, the 1000 kg/m³ fallback mirroring the Compute OSM-build row (the `Thermal` case itself carries no density); the graph→OSM/gbXML/IDF DIRECT egress is deliberately absent — no in-process HBJSON→OSM translation is admitted (`honeybee-openstudio` is the python peer's leg) and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` would be the duplicate-fold defect, so the request rails `BimFault.CapabilityMiss` (`energy-graph-egress-pending`) and the capability lands as one matrix column when its translation is admitted.
+- Growth: a new lower target is one row on the frozen `Lowers` target table (the `EnergyProjector.Arms`/`EnergyTranslate.Matrix` row law); per-space program/loads lower as `ProgramTypeAbridged` rows once the seam carries occupancy evidence; a NoMass R-value lower is one arm row the moment the seam carries an R-value-only thermal case; the space-adjacency `Surface` boundary condition is one arm row the moment the seam carries a second-level adjacency payload naming the counterpart face.
+- Boundary: `EnergyDerive` reads the graph through seam-owned surfaces and the `Model/query#ELEMENT_SET` scope algebra; Compute is a peer stratum, never a dependency, so its discipline reads (`SpacesOf`/`BoundingSurfacesOf`) are never referenced. Every missing- or ambiguous-evidence path degrades warning-counted — a footprint-less space, a material lacking both the `Thermal` and `Optical` case — never a zero-area fabrication or a fabricated physics row. `graph→OSM`/`gbXML`/`IDF` DIRECT egress is deliberately absent: no in-process HBJSON→OSM translation is admitted (the python peer's `honeybee-openstudio` leg owns it), and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` is the duplicate-fold defect, so the request rails `BimFault.CapabilityMiss`. Glazing lowering consumes the same seam `Optical` case (`Discipline.Energy`) Compute's `StandardGlazing` build reads, so the lowered honeybee document and Compute's OSM model agree on layer physics by construction.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -45,13 +45,13 @@ using Os = OpenStudio;
 namespace Rasm.Bim;
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
-// The BIM-to-BEM lower: graph -> honeybee envelope + library (hbjson) or dragonfly massing (dfjson). The
-// model store populates through the ModelEnergyProperties Add* mutators (the canonical lists), faces and
-// openings reference by abridged id.
+// BIM-to-BEM lower: graph -> honeybee envelope + library (hbjson) or dragonfly massing (dfjson). Model store
+// populates through the ModelEnergyProperties Add* mutators (the canonical lists); faces and openings
+// reference by abridged id.
 public static class EnergyDerive {
-    // The frozen target→arm table (the EnergyTranslate.Matrix and EnergyProjector.Arms row law): a new lower
-    // target is ONE row here, never a widened ternary chain — the miss splits CapabilityMiss (a raise-served form
-    // whose graph egress is pending) from CodecReject (a form no energy arm serves).
+    // Frozen target→arm table (the EnergyTranslate.Matrix and EnergyProjector.Arms row law): a new lower target
+    // is ONE row here, never a widened ternary chain; a miss splits CapabilityMiss (a raise-served form whose
+    // graph egress is pending) from CodecReject (a form no energy arm serves).
     static readonly FrozenDictionary<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>> Lowers =
         new KeyValuePair<InterchangeFormat, Func<ElementGraph, EnergyScope, GeometrySource, Instant, Op, Fin<EnergyOutcome.Emitted>>>[] {
             new(InterchangeFormat.Hbjson, Honeybee),
@@ -67,9 +67,9 @@ public static class EnergyDerive {
                 : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CodecReject(key, $"energy-lower-unsupported:{target.Key}"));
 
     static Fin<EnergyOutcome.Emitted> Honeybee(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
-        // The model identifier IS the graph pedigree: a timestamp identifier forked the emitted BYTES per second,
-        // so a re-lowered identical graph never byte-matched and the object-plane 412-noop dedup never fired —
-        // the content-stable identifier restores the reuse join the dual-key law states.
+        // Model identifier IS the graph pedigree: a timestamp identifier forks the emitted BYTES per second, so a
+        // re-lowered identical graph never byte-matches and the object-plane 412-noop dedup never fires; a
+        // content-stable identifier restores the reuse join the dual-key law states.
         ContentAddress pedigree = ContentAddress.OfGraph(graph);
         var store = new Hb.ModelEnergyProperties();
         var state = (Rooms: Seq<Hb.Room>(), Surfaces: 0, Openings: 0, Constructions: 0, Warnings: 0);
@@ -133,9 +133,9 @@ public static class EnergyDerive {
         return Some(id);
     }
 
-    // The glazing lower over the seam Optical case (Discipline.Energy): the nine [0,1] fractions map onto the
-    // EnergyWindowMaterialGlazing columns 1:1, the Thermal conductivity rides when carried (the 0.9 schema
-    // default otherwise — the one authoring default the schema itself declares, never fabricated physics).
+    // Glazing lower over the seam Optical case (Discipline.Energy): the nine [0,1] fractions map onto the
+    // EnergyWindowMaterialGlazing columns 1:1; Thermal conductivity rides when carried (the 0.9 schema default
+    // otherwise — the one authoring default the schema itself declares, never fabricated physics).
     static Option<string> LowerGlazing(Seq<(MaterialLayer Layer, Node.Material Node)> rows, MaterialComposition.LayerSet set, Hb.ModelEnergyProperties store, ref int warnings) {
         if (rows.Traverse(r => r.Node.Properties.Optical.Map(o => new Hb.EnergyWindowMaterialGlazing(
                 r.Layer.Material.ToString(), thickness: r.Layer.Thickness.Si,
@@ -187,11 +187,10 @@ public static class EnergyDerive {
                 ? graph.Find<Node.Object>(g.Related).Map(s => (g, s))
                 : None).ToSeq();
 
-    // The openings of one face: the space's boundary edges whose Host attribute names the face identifier —
-    // the raise's correlation idiom read back, never a NodeId join (rooted ids are raise-local). One read
-    // yields BOTH sub-face lists (IfcWindow -> Aperture, IfcDoor -> Door), and each opening's own composition
-    // lowers through the SAME discriminated fold so a raised window construction round-trips onto the
-    // aperture's abridged reference.
+    // Openings of one face: the space's boundary edges whose Host attribute names the face identifier — a raise
+    // correlation idiom read back, never a NodeId join (rooted ids are raise-local). One read yields BOTH sub-face
+    // lists (IfcWindow -> Aperture, IfcDoor -> Door), and each opening's own composition lowers through the SAME
+    // discriminated fold so a raised window construction round-trips onto the aperture's abridged reference.
     static (List<Hb.Aperture> Apertures, List<Hb.Door> Doors) Openings(
         ElementGraph graph, NodeId space, string hostIdentifier, GeometrySource geometry, Hb.ModelEnergyProperties store,
         ref int openings, ref int warnings, ref int constructions) {
@@ -227,8 +226,8 @@ public static class EnergyDerive {
     }
 
     // Dragonfly massing: the OWNING Compose tree lowers Building/Story shells and each space's footprint plate
-    // flattens onto a Room2D floor boundary — massing altitude only, no energy library, the honeybee shape inverted;
-    // the storey multiplier evidence reads back onto Story(multiplier:), so a unique-stories-x-repeat tower
+    // flattens onto a Room2D floor boundary — massing altitude only, no energy library, the honeybee shape
+    // inverted; storey multiplier evidence reads back onto Story(multiplier:), so a unique-stories-x-repeat tower
     // round-trips its repeat factor.
     static Fin<EnergyOutcome.Emitted> Dragonfly(ElementGraph graph, EnergyScope scope, GeometrySource geometry, Instant at, Op key) {
         ContentAddress pedigree = ContentAddress.OfGraph(graph);   // the content-stable identifier + Graph pedigree, one derivation
@@ -266,9 +265,9 @@ public static class EnergyDerive {
             new EnergyReceipt(EnergyLeg.Lowered, InterchangeFormat.Dfjson, None, spaces, 0, 0, 0, warnings, default, at)));
     }
 
-    // The documented massing fallback when a space carries no Qto height — a named policy default (the Compute
-    // density-1000 precedent), never a silent zero; a real height reads the Qto_SpaceBaseQuantities bag the
-    // IFC ingest OR the dragonfly raise landed.
+    // Massing fallback when a space carries no Qto height — a named policy default (the Compute density-1000
+    // precedent), never a silent zero; a real height reads the Qto_SpaceBaseQuantities bag the IFC ingest OR the
+    // dragonfly raise landed.
     const double DefaultFloorToCeiling = 3.0;
 
     static Option<double> Height(ElementGraph graph, NodeId space) =>
@@ -279,8 +278,8 @@ public static class EnergyDerive {
             .Bind(static qs => qs.Bag.Values.Find(PropertyName.Create("Height")))
             .Bind(static m => m.Length);
 
-    // The raise's StoryMultiplier evidence read back through the projector-owned symbol (never a re-spelled
-    // literal); absent evidence is multiplier 1 — the dragonfly schema default.
+    // Raise StoryMultiplier evidence read back through the projector-owned symbol (never a re-spelled literal);
+    // absent evidence is multiplier 1 — the dragonfly schema default.
     static int Multiplier(ElementGraph graph, NodeId storey) =>
         graph.EdgesAt(storey).Choose(e =>
             e is Relationship.Assign { SubKind: var k } a && k == AssignKind.PropertyDefinition && a.Subject == storey
@@ -319,8 +318,8 @@ public static class EnergyDerive {
 
 ```csharp signature
 // Shares the [02] RUNTIME_PRELUDE (the Os alias and the seam usings — one compilation unit per page).
-// The OSM-centric translator matrix: (source, target) rows over verified OpenStudio members; a translation
-// is one row, never a per-pair method family. Path-bound emits cross a bracketed scratch file.
+// OSM-centric translator matrix: (source, target) rows over verified OpenStudio members; a translation is one
+// row, never a per-pair method family. Path-bound emits cross a bracketed scratch file.
 public static class EnergyTranslate {
     static readonly FrozenDictionary<(InterchangeFormat Source, InterchangeFormat Target), Func<EnergyDoc, Op, Os.ProgressBar?, Fin<(byte[] Bytes, int Warnings)>>> Matrix =
         new KeyValuePair<(InterchangeFormat, InterchangeFormat), Func<EnergyDoc, Op, Os.ProgressBar?, Fin<(byte[], int)>>>[] {
@@ -354,9 +353,9 @@ public static class EnergyTranslate {
         });
     }
 
-    // The SWIG director subclass: OpenStudio calls the virtual onPercentageUpdated across the native boundary,
-    // and the override fires the Model/observability#HOOK_RAIL rasm.bim.energy.progress observe point —
-    // the 0..100 percentage normalized onto the [0,1] Fraction the Progress fact carries.
+    // SWIG director subclass: OpenStudio calls the virtual onPercentageUpdated across the native boundary, and the
+    // override fires the Model/observability#HOOK_RAIL rasm.bim.energy.progress observe point — a 0..100
+    // percentage normalized onto the [0,1] Fraction the Progress fact carries.
     sealed class TranslateProgress(BimHooks hooks, Op key) : Os.ProgressBar {
         public override void onPercentageUpdated(double percentage) =>
             ignore(hooks.EnergyProgress.Fire(new BimFact.Progress(key, "energy", "translate", Some(percentage / 100.0))));
@@ -421,4 +420,4 @@ public static class EnergyTranslate {
 
 ## [04]-[RESEARCH]
 
-- [SEAM_ALIGNMENT]: the lower reads `CompositionOf`/`Material`/`MaterialPropertySet.Thermal` plus the `Mechanical` density (1000 kg/m³ fallback) exactly as the Compute OSM build does, and the glazing lower reads the SAME seam `Optical` case (`Discipline.Energy`) the Compute `StandardGlazing` build consumes — so the honeybee document a graph lowers and the OSM model Compute builds from that graph agree on the layer physics by construction, and a mixed opaque+glazing set degrades identically on both sides (Compute rails, the lower warns) rather than authoring a construction EnergyPlus rejects; the `Qto_SpaceBaseQuantities` `Height` and `Pset_EnergyModel`/`StoryMultiplier` reads consume the evidence the `Energy/projector` dragonfly arm lands, closing the DFJSON round trip; re-verify the Compute-side member spellings (`BuildConstruction`, `StandardGlazing`, the density fallback row) against `csharp:Rasm.Compute` `Runtime` energy-build pages when the Compute OSM build page next rebuilds — the seam `Rasm.Element` reads confirm against `Graph/element` and `Composition` owners already.
+- [SEAM_ALIGNMENT]-[OPEN]: do the Compute-side member spellings `BuildConstruction`, `StandardGlazing`, and the density-1000 fallback row still match the lower's seam reads; verify against `csharp:Rasm.Compute` `Runtime` energy-build pages when the Compute OSM build page next rebuilds.

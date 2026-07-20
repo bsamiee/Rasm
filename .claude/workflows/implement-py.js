@@ -1233,8 +1233,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
 
 const doctrinePrompt = (rows, orphans) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
-    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the ' +
-    '`skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
+    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill via ' +
+    'the Skill tool BEFORE any durable edit; ' +
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +

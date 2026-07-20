@@ -1398,7 +1398,7 @@ const doctrine =
                   ROOT_LAW +
                       '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Read ' +
                       '`docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. ' +
-                      'Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                      'Load the `docgen` skill via the Skill tool BEFORE any durable edit; load ' +
                       "`mermaid-diagramming` before touching any diagram. NOMINATIONS (unverified, biased toward their authors' own " +
                       'work — refute by default): ' +
                       JSON.stringify(POOLED_HARVEST) +

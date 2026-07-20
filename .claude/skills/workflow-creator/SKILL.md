@@ -1,15 +1,13 @@
 ---
 name: workflow-creator
 description: >-
-    Owns Claude Code workflows end to end — the deterministic multi-agent orchestrators in
-    `.claude/workflows/`: authoring `meta`, `agent()`, `pipeline()`, `parallel()`, and
-    schemas; editing, validating, and dry-running an existing script; launching a run,
-    writing its ledger, and `/workflows` live progress; and recovering one through run IDs,
-    `resumeFromRunId`, the `journal.jsonl` result cache, cross-session transplant, and
-    continuation scripts. Use for "make a workflow", "turn this into a workflow", "run the
-    workflow", "resume it", "why did the run stall", for any edit under `.claude/workflows/`,
-    and when a repeatable multi-step or parallel job wants packaging as a workflow. Whether a
-    workflow beats a subagent, fork, team, or background task belongs to agent-dispatch.
+    Owns Claude Code workflows end to end, the multi-agent orchestrators in `.claude/workflows/`:
+    authoring `meta`, `agent()`, `pipeline()`, `parallel()`, and schemas; editing, validating,
+    and dry-running an existing script; launching a run, writing its ledger; recovering one
+    through run IDs, `resumeFromRunId`, the `journal.jsonl` result cache, cross-session
+    transplant, and continuation scripts. Use for "make a workflow", "run the workflow",
+    for any edit under `.claude/workflows/`. Whether a workflow beats a subagent, fork, team,
+    or background task belongs to agent-dispatch.
 ---
 
 # [WORKFLOW_CREATOR]

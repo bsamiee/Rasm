@@ -142,15 +142,15 @@ An impossibility claim — unspellable, structurally impossible, can never — w
 - Reason: The enforcing structure is the subject and the impossibility its stated consequence, in one clause.
 - Reframe: Name the structure or delete the claim — an impossibility with no nameable enforcer is not a fact.
 
-## [15]-[DELETED_FORM_LITANY]
+## [15]-[NEGATION_ONLY]
 
-Law stated as an inventory of forbidden alternatives with the positive rule buried after the corpses or absent. Every enumerated strawman anchors a future agent to the anti-shape instead of the law.
+Law stated as prohibition with the positive rule absent or buried: a lone `never X` leaving the correct form unwritten, or an inventory of forbidden alternatives with the ruling stranded after the corpses. A bare negation defines a hole, not a target — the reader knows one rejected point in an unbounded space and guesses the rest, and every enumerated strawman anchors the next rebuild to the anti-shape.
 
-- Detection: A sentence whose subject is a forbidden alternative, or a negation roster longer than one clause.
-- Rejected: Zero new surface — a per-extension package, a second engine, an open-per-query connection, inline credentials, or a raw-string identifier is the deleted form.
+- Detection: A sentence whose subject is a forbidden alternative, a negation roster longer than one clause, or a single prohibition with no positive form naming what to do instead.
+- Rejected: Never open a second engine, add a per-extension package, hold an open-per-query connection, or inline credentials.
 - Accepted: The broker fold owns permission, cost, and consent for every operation.
-- Reason: The total positive claim forecloses every listed corpse by construction; one genuinely non-obvious trap survives as one tight positive invariant.
-- Reframe: One total ownership claim with an owning verb, then stop; a single prohibition with its enforcing mechanism in-clause is the house register, not this defect.
+- Reason: The total positive claim forecloses every prohibited form by construction; a bare `never` leaves the correct shape unspecified and the reader guesses it.
+- Reframe: State the positive form that forecloses the prohibited one; keep a negation only where it guards a rule violated under pressure and carries its enforcing mechanism in-clause.
 
 ## [16]-[IMPORTED_POSTURE]
 
@@ -201,3 +201,53 @@ One decision spread across a passage as near-similar restatements: N sentences i
 - Accepted: Slices stay small so freed capacity deepens the fix, never finishing early.
 - Reason: Four spellings carry two decisions — small slices buy depth, freed capacity never funds early finish; the merge keeps each as its own clause and the two pure restatements die.
 - Reframe: Restructure, never brute-delete: collapse the run into fewer, higher-resolution rulings where every distinct decision survives as its own clause or entry and only restatements merge — a nuance lost in the collapse is the same defect as the accumulation. A merged form is never a concatenated mega-entry and never unstructured prose where a structured container serves; resolution and coherence rise while lines fall.
+
+## [21]-[CHAIN_RESTATEMENT]
+
+Prose restates law the instruction chain already binds — root manifests, harness behavior, resident tool availability, system-injected obedience — forking a fact no page owns onto a surface that cannot keep it current.
+
+- Detection: A sentence naming root instructions, load order, skill loading, available tooling, or standing obedience the harness injects every session; a rule true for every agent regardless of this page is the tell.
+- Rejected: Follow CLAUDE.md, use the available tools, obey the system instructions, and run the standard checks before returning.
+- Accepted: (silence — the chain already binds; the page states only the law it owns.)
+- Reason: A restatement forks a fact the chain owns and buries the page's incremental law under duplicated ambient rule; TWIN_TRUTH owns the fork inside the corpus, this class the fork against the resident chain.
+- Reframe: Delete the restatement; keep only the law this page owns and the chain does not carry.
+
+## [22]-[QUALITY_LADDER]
+
+Subjective good/better/best, minimum/ideal, or basic/advanced tiers with no observable predicate selecting a tier, so a reader shops the level by time and confidence where a contract admits none.
+
+- Detection: Escalation vocabulary — good/better/best, minimum/ideal, basic/advanced — with no predicate binding one tier; a contract has no tiers.
+- Rejected: Good: state the rule. Better: state the rule with an example. Best: state the rule, an example, and a counter-example.
+- Accepted: Every rule carries the example a reader copies wrong without it; a counter-example rides only where the rule breaks under pressure.
+- Reason: A graded ladder invites tier-shopping and legislates no single binding law; an unconditional floor or a predicate-selected mode is the only form that holds.
+- Reframe: State the floor as one unconditional contract, or make each mode a row with the observable predicate that selects it.
+
+## [23]-[COMMAND_CATALOG]
+
+A tool, command, or capability inventory whose rows carry no task trigger and no acceptance signal — a brochure spending the reader's attention on entries no decision consumes.
+
+- Detection: A list of tools, commands, or capabilities where no row binds to a task that demands it or a signal that accepts it, presence justified by the surface existing rather than a decision needing it. ENUMERATION_ANCHOR owns the roster-as-contract drift; this class owns the untriggered brochure.
+- Rejected: Useful tools: `rg`, `fd`, `jq`, `yq`, `shellcheck`, `shfmt`, `tree`.
+- Accepted: (the one command a task demands, stated at that task with the signal that accepts it.)
+- Reason: An untriggered inventory teaches no branch and drifts as the surface grows; a command earns prose only where a decision selects it.
+- Reframe: Bind each surviving command to the task that demands it and the signal that accepts it; delete the brochure.
+
+## [24]-[CHECKLIST_TAIL]
+
+A closing recital of soft reminders — ensure quality, validate, document, summarize — standing where a machine gate or owned law belongs, so completion is paraphrasable and skipped under pressure.
+
+- Detection: A closing section of soft imperatives with no command and no exit signal; a reminder a reader ticks without executing anything. A progress tracker a fragile run works visibly and gates each step against is not this class.
+- Rejected: Before returning: ensure quality and consistency, validate the output, document any changes.
+- Accepted: Completion binds on the owning gate returning clean for every touched surface.
+- Reason: A reminder is paraphrased or skipped under pressure; a gate with an exit signal is executed or visibly failed.
+- Reframe: Replace the tail with the concrete gate invocation, or delete it.
+
+## [25]-[SEDIMENT]
+
+Prose accretes one defensive guard per past incident until dead threats outweigh live law — a rule explainable only by a failure the current surface, tooling, or agent no longer commits.
+
+- Detection: A rule justified by a past incident rather than the deliverable — a guard against a failure nothing on the page can still produce; an `always re-check` or `never do X twice` line with no live failure condition.
+- Rejected: Never run the formatter twice. Always re-read the file after every edit. Double-check the output directory exists before writing.
+- Accepted: (the guard folded into the gate or script that makes the failure unspellable, then the sentence deleted.)
+- Reason: Every scar taxes every read forever and buries the branch the page exists to teach; a mechanized guard costs nothing and cannot be skipped. PROCESS_LEDGER owns the explicit marker, HEDGE the defensive qualifier, this class the accreted guard.
+- Reframe: Fold each guard into the tool or gate that forecloses the failure, then delete the sentence; a guard that cannot be mechanized names its live failure condition or dies.

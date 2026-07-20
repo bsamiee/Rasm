@@ -1,13 +1,12 @@
 ---
 name: rhino-mcp
 description: >-
-    Drives a live Rhino 3D session: host bring-up via `forge-rhino-up` and `rhino-mcp-platform`
+    Drives a live Rhino session: host bring-up via `forge-rhino-up` and `rhino-mcp-platform`
     reconnect, slot lifecycle, RhinoCommon scripting in C# and Python, `.3dm` open/save, scene and
     selection queries, layer materials, camera framing, cost-bounded viewport capture, and
-    Grasshopper2 canvas authoring. Use when a task must inspect, script, or build geometry inside a
-    running Rhino, when its MCP tools are absent, or when a call silently no-ops — "is Rhino
-    running", "show me the viewport", "what's in the scene", "the Rhino tools aren't connected",
-    "the capture came back empty".
+    Grasshopper2 canvas authoring. Use when working within Rhino for code development, or dedicated
+    Rhino session work, creating Grasshopper scripts and layouts, or when its MCP tools are absent
+    — "work in Rhino", "work in Grasshopper', "show me the viewport", "what's in the scene".
 ---
 
 # [RHINO_MCP]

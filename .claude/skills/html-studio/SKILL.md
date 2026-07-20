@@ -4,12 +4,9 @@ description: >-
     Authors single-file interactive HTML artifacts — reports, dashboards, roadmaps, plans,
     decision docs, and variants: diff-reviews, quizzes, wargames, decks, boards, walkthroughs,
     prototypes — validated headless and optionally served so reader verdicts, edits, and
-    annotations return as data.
-    Use when a comparison, dataset, architecture, or UI mock reads better as a page than
-    markdown, when a page must return the reader's judgment, or on "make this an HTML page",
-    "build me a dashboard", "turn this into a deck".
-    Mermaid fences belong to mermaid-diagramming, durable markdown to
-    docgen, and content elicitation to interviewing; not the Artifact tool's hosted fragments.
+    annotations return as data. Use when a comparison, dataset, architecture, or UI mock
+    reads better as a page than markdown, when a page must return the reader's judgment,
+    or on "make this an HTML page", "build me a dashboard", "turn this into a deck".
 ---
 
 # [HTML_STUDIO]
@@ -47,4 +44,3 @@ Every artifact is one self-contained file: a deliverable type fixes its composit
 - A durable artifact homes at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; a session artifact stays in scratch and never commits.
 - Chart form, mark, and palette selection precedes realization; this bundle owns the page shell and the SVG once the form is chosen.
 - Mermaid fences defer to `mermaid-diagramming`, whose render lane delivers a mermaid-sourced figure as pre-rendered inline SVG the page hosts.
-- Interview method, kind contracts, and the durable-versus-ephemeral ruling defer to the `interviewing` skill.
