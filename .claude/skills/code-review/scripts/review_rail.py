@@ -143,6 +143,7 @@ SELF: Final = Path(__file__).resolve()
 REGISTRY_PATH: Final = SELF.parent.parent / "templates" / "refuted-classes.yaml"
 CR_META_NAMES: Final = frozenset({"git.json", "internalState.json", "diff.json", "incrementalDiff.json"})
 GT_ORACLE_FILES: Final[tuple[str, ...]] = (".greptile/config.json", ".greptile/rules.md")
+MS_HOME: Final = ".macroscope"
 ROSTER_KEYS: Final = ("members", "roster", "symbols")
 SEVERITIES: Final[tuple[Severity, ...]] = ("critical", "major", "minor", "trivial", "info")
 RANK: Final[Mapping[Severity, int]] = MappingProxyType({level: rank for rank, level in enumerate(SEVERITIES)})
@@ -1647,14 +1648,18 @@ def partitioned(rows: tuple[Finding, ...], lanes: int, weigh: Weigh, /) -> tuple
 
 
 def corpus_of(files: tuple[str, ...], /) -> str:
-    paths = tuple(PurePosixPath(file) for file in files if file)  # repo-root markdown is estate prose; libs/** markdown carries code fences and stays code
-    return "prose" if paths and all(path.suffix in PROSE_SUFFIXES and (len(path.parts) == 1 or path.parts[0] in PROSE_ROOTS) for path in paths) else "code"
+    paths = tuple(
+        PurePosixPath(file) for file in files if file
+    )  # repo-root markdown is estate prose; libs/** markdown carries code fences and stays code
+    return (
+        "prose"
+        if paths and all(path.suffix in PROSE_SUFFIXES and (len(path.parts) == 1 or path.parts[0] in PROSE_ROOTS) for path in paths)
+        else "code"
+    )
 
 
 def rulings_of(registry: Registry, corpus: str, /) -> tuple[str, ...]:
-    return tuple(
-        f"{row.class_id}: {row.refuting_citation}".rstrip(": ") for row in registry.classes if not row.corpus or row.corpus == corpus
-    )
+    return tuple(f"{row.class_id}: {row.refuting_citation}".rstrip(": ") for row in registry.classes if not row.corpus or row.corpus == corpus)
 
 
 def sliced(rows: tuple[Finding, ...], lanes: int, balance: Balance, repo: Path, round_no: int, registry: Registry, /) -> tuple[LaneSlice, ...]:
@@ -1792,11 +1797,7 @@ def digest_rendered(digest: Digest, /) -> str:
             f"  {cut.folder} — {cut.count} findings / {cut.files} files" + (f" / {cut.criticals} critical" if cut.criticals else "")
             for cut in digest.folders
         ),
-        *(
-            line
-            for level, held in digest.top.items()
-            for line in (f"top {level}:", *(f"  {line_rendered(row)}" for row in held))
-        ),
+        *(line for level, held in digest.top.items() for line in (f"top {level}:", *(f"  {line_rendered(row)}" for row in held))),
     )
     return "\n".join(lines)
 
@@ -2150,7 +2151,10 @@ def gt_verified(repo: Path, rule: str, path: str, /) -> VerifyReceipt:
 
     oracles: tuple[tuple[str, Callable[[], str]], ...] = (
         (shlex.join(argv), lambda: sh(argv, cwd=repo).map(lambda held: ANSI_RE.sub("", held)).default_with(lambda _f: "")),
-        *((name, lambda file=repo / name: read_bytes(file).map(lambda raw: raw.decode(errors="replace")).default_with(lambda _f: "")) for name in GT_ORACLE_FILES),
+        *(
+            (name, lambda file=repo / name: read_bytes(file).map(lambda raw: raw.decode(errors="replace")).default_with(lambda _f: ""))
+            for name in GT_ORACLE_FILES
+        ),
     )
 
     def probed(source: str, texted: Callable[[], str], /) -> Option[VerifyReceipt]:
@@ -2163,16 +2167,21 @@ def gt_verified(repo: Path, rule: str, path: str, /) -> VerifyReceipt:
 
 
 def ms_verified(repo: Path, guard: SurfaceGuard, /) -> VerifyReceipt:
-    home = repo / ".macroscope"
-    target = home / guard.path if guard.path else home
+    # Ledger paths are repo-relative like every other surface; a topic-file path written relative to `.macroscope/` resolves the same target.
+    home = repo / MS_HOME
+    held = PurePosixPath(guard.path)
+    target = home / guard.path if guard.path and held.parts[0] != MS_HOME else repo / guard.path if guard.path else home
     text = read_bytes(target).map(lambda raw: raw.decode(errors="replace")).default_with(lambda _f: "") if target.is_file() else ""
-    effective = bool(guard.path) and target.is_file() and (not guard.text or guard.text.casefold() in text.casefold())
+    effective = bool(guard.path) and bool(guard.text) and target.is_file() and guard.text.casefold() in text.casefold()
     return VerifyReceipt(
         rule=guard.text, path=str(target), effective=effective, matched=str(target) if effective else "", source="macroscope-topic-file"
     )
 
 
 def surface_checked(repo: Path, guard: SurfaceGuard, /) -> VerifyReceipt:
+    # A textless row proves nothing on any oracle; naming it malformed keeps `effective: false` meaning failed wording alone.
+    if not guard.text.strip():
+        return VerifyReceipt(rule=guard.text, path=guard.path, effective=False, matched="row carries no guard text", source="surface-ledger")
     match REVIEWER_ALIASES.get(guard.surface.strip().lower()):
         case "coderabbit":
             return cr_verified(repo, guard)
@@ -2220,10 +2229,12 @@ def matcher_faults(row: RefutedClass, /) -> tuple[Fault, ...]:
     # Loud complement of lenient_pattern: classification degrades an invalid matcher to a literal, so this gate is where a broken regex surfaces.
     return tuple(
         Block.of_seq(row.matchers).choose(
-            lambda matcher: catch(exception=re.PatternError)(re.compile)(matcher, re.IGNORECASE)
-            .swap()
-            .to_option()
-            .map(lambda broken: Fault(code="bad-matcher", detail=f"{matcher!r}: {broken}"))
+            lambda matcher: (
+                catch(exception=re.PatternError)(re.compile)(matcher, re.IGNORECASE)
+                .swap()
+                .to_option()
+                .map(lambda broken: Fault(code="bad-matcher", detail=f"{matcher!r}: {broken}"))
+            )
         )
     )
 
@@ -2280,13 +2291,15 @@ def registry_checked(rows_spec: str, /) -> Result[RegistryCheckReceipt, Fault]:
         )
     path = Path(rows_spec)
     return registry_loaded().bind(
-        lambda registry: yaml_loaded(path)
-        .bind(lambda parsed: class_entries(parsed, str(path)))
-        .bind(
-            lambda entries: (
-                Ok(check_built(path, frozenset(row.class_id for row in registry.classes), entries))
-                if entries
-                else Error(Fault(code="no-payload", detail=f"{path}: zero proposed rows under classes:"))
+        lambda registry: (
+            yaml_loaded(path)
+            .bind(lambda parsed: class_entries(parsed, str(path)))
+            .bind(
+                lambda entries: (
+                    Ok(check_built(path, frozenset(row.class_id for row in registry.classes), entries))
+                    if entries
+                    else Error(Fault(code="no-payload", detail=f"{path}: zero proposed rows under classes:"))
+                )
             )
         )
     )
@@ -2297,7 +2310,9 @@ def registry_applied(rows_path: Path, /) -> Result[RegistryApplyReceipt, Fault]:
         verdicts = rows_checked(entries, frozenset(row.class_id for row in registry.classes))
         faulted = tuple(verdict for verdict in verdicts if verdict.faults)
         if faulted:
-            roster = "; ".join(f"row {held.at} ({held.class_id or '<unnamed>'}): {', '.join(fault.code for fault in held.faults)}" for held in faulted)
+            roster = "; ".join(
+                f"row {held.at} ({held.class_id or '<unnamed>'}): {', '.join(fault.code for fault in held.faults)}" for held in faulted
+            )
             return Error(
                 Fault(
                     code="malformed",
@@ -2326,14 +2341,18 @@ def registry_applied(rows_path: Path, /) -> Result[RegistryApplyReceipt, Fault]:
         return held.bind(grown)
 
     return registry_loaded().bind(
-        lambda registry: yaml_loaded(rows_path)
-        .bind(lambda parsed: class_entries(parsed, str(rows_path)))
-        .bind(
-            lambda entries: (
-                admitted(entries, registry) if entries else Error(Fault(code="no-payload", detail=f"{rows_path}: zero proposed rows under classes:"))
+        lambda registry: (
+            yaml_loaded(rows_path)
+            .bind(lambda parsed: class_entries(parsed, str(rows_path)))
+            .bind(
+                lambda entries: (
+                    admitted(entries, registry)
+                    if entries
+                    else Error(Fault(code="no-payload", detail=f"{rows_path}: zero proposed rows under classes:"))
+                )
             )
+            .bind(landed)
         )
-        .bind(landed)
     )
 
 
@@ -2355,10 +2374,7 @@ def selftest_fixture() -> tuple[bytes, bytes]:
             {"page": "libs/<file-b>.py", "pattern": "<pattern-b>", "what": "<upgrade-b>", "axis": ""},
         ],
         "refuted": [{"claim": "<claim-a>", "evidence": "<citation-a>"}],
-        "capability": [
-            {"page": "docs/<file-a>.md", "pattern": "<roster-a>", "members": ["<member-a>", "<member-b>"]},
-            "<capability-line>",
-        ],
+        "capability": [{"page": "docs/<file-a>.md", "pattern": "<roster-a>", "members": ["<member-a>", "<member-b>"]}, "<capability-line>"],
         "routing": [{"target_file": "libs/<file-c>.py", "needed_change": "<change>"}],
         "uncertain": ["<open-question>"],
         "gate_clean": True,
@@ -2422,10 +2438,7 @@ def selftest_proofs() -> tuple[tuple[str, bool], ...]:
 
     def empty_proofs(report: LaneReport, /) -> tuple[tuple[str, bool], ...]:
         drained = (report.ledger, report.improvements, report.refuted, report.capability, report.routing, report.uncertain)
-        return (
-            ("null-collections-default-empty", not any(drained)),
-            ("null-gate-clean-none", report.gate_clean is None),
-        )
+        return (("null-collections-default-empty", not any(drained)), ("null-gate-clean-none", report.gate_clean is None))
 
     return (
         ("primary-decodes", full.is_ok()),
@@ -3170,11 +3183,7 @@ def findings(
             pass
     outcome = context_resolved(directory, round_no).bind(
         lambda context: (
-            findings_normalized(context, dedup_against)
-            if normalize
-            else read_mode(context)
-            if lens.digest or lens.filtered
-            else summarized(context)
+            findings_normalized(context, dedup_against) if normalize else read_mode(context) if lens.digest or lens.filtered else summarized(context)
         )
     )
     match outcome:
@@ -3187,20 +3196,12 @@ def findings(
 
 @APP.command(name="slice")
 def slice_cmd(
-    *,
-    lanes: Annotated[int, Parameter(name="--lanes")] = 3,
-    balance: Balance = "count",
-    round_no: _RoundNo = None,
-    directory: _Dir = None,
+    *, lanes: Annotated[int, Parameter(name="--lanes")] = 3, balance: Balance = "count", round_no: _RoundNo = None, directory: _Dir = None
 ) -> int:
     def carved_round(context: Context, /) -> Result[SliceReceipt, Fault]:
         if not 1 <= lanes <= LANES_CAP:
             return Error(Fault(code="bad-lane", detail=f"lanes must be 1..{LANES_CAP}, got {lanes}"))
-        stale = (
-            *context.round_dir.glob("lane-?.json"),
-            *context.round_dir.glob("lane-?-report.json"),
-            *context.round_dir.glob("lane-?-brief.md"),
-        )
+        stale = (*context.round_dir.glob("lane-?.json"), *context.round_dir.glob("lane-?-report.json"), *context.round_dir.glob("lane-?-brief.md"))
         return unlinked(stale).bind(
             lambda cleared: registry_loaded().bind(
                 lambda registry: findings_read(context).bind(
