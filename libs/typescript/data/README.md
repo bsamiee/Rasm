@@ -50,6 +50,9 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 - `sharp`
 - `chokidar`
 
+[INTERCHANGE]:
+- `cloudevents` — the relay deliverable's wire-neutral egress envelope: `journal/append.md` mints strict-validated `CloudEvent` values at the claim seam; core owns the catalog and the carrier dialect table, runtime owns carriage and binding mode.
+
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting TypeScript substrate this folder consumes; the canonical registry and charters live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` folder.

@@ -11,6 +11,8 @@ ui/
 │   │   ├── token.ts           # Design-token authority computing color and dimension as decode-gated data
 │   │   ├── act.ts             # Motion and interaction, discrete accessible events split from continuous gestures
 │   │   ├── atom.ts            # One state binding standing the app Layer graph behind the registry
+│   │   ├── hook.ts            # Typed hook registry — the rasm.ui fact rail, modality rows, tap isolation
+│   │   ├── vital.ts           # Browser performance evidence folded into probe-shaped metric rows
 │   │   ├── intl.ts            # Zero-package locale plane riding native Intl behind one cache
 │   │   └── primitive.ts       # Headless spine: the one styled recipe and the sanitize gate
 │   └── view/                  # View plane composing the system owners into four dense surfaces
@@ -29,9 +31,9 @@ ui/
 
 ## [02]-[STRATA]
 
-- S0 `system` — the capability floor: `atom` the one store bridge (`AtomRef`, `Atom.subscribable`), `act` the gesture and motion owner, `intl` the `Format` plane, `token` the `Theme` authority whose `cn` composer `primitive`'s recipes compose.
+- S0 `system` — the capability floor: `atom` the one store bridge (`AtomRef`, `Atom.subscribable`), `act` the gesture and motion owner, `intl` the `Format` plane, `token` the `Theme` authority whose `cn` composer `primitive`'s recipes compose, `hook` the per-app `rasm.ui.<domain>.<point>` fact rail every plane taps, `vital` the performance-evidence fold minting probe-shaped rows.
 - S1 `view` — dense surfaces over the floor: `form` binds draft cursors through `AtomRef`, `table` folds `TableState` on the one store and formats bands through `Format`, `overlay` and `chart` ride `act` gesture and motion rows under the same recipes.
-- S2 `viewer` — the spatial Nx project atop both: `scene` parks its frame loop on `act`, binds color through the `token` authority, and rides its `Machine` lifecycle on the atom bridge; `mark` and `scene` compose `geo`'s `Camera` inside the wave — one camera vocabulary, per-backend adapters; `probe` renders its claim board through `view/table`'s `Grid` rows and `view/chart` series while `panel` folds receipts on the store.
+- S2 `viewer` — the spatial Nx project atop both: `scene` parks its frame loop on `act`, binds color through the `token` authority, and rides its `Machine` lifecycle on the atom bridge; `mark` and `scene` compose `geo`'s `Camera` inside the wave — one camera vocabulary, per-backend adapters; `probe` renders its claim board through `view/table`'s `Grid` rows and `view/chart` series while `panel` folds receipts on the store; evidence taps and browser vitals arrive through the `hook` and `vital` floor owners.
 
 ```mermaid
 ---
@@ -56,18 +58,24 @@ flowchart TB
         Act[act]
         Atom[atom]
         Intl[intl]
+        Hook[hook]
+        Vital[vital]
     end
     View e1@-->|"[IMPORT]: AtomRef"| Atom
     View e2@-->|"[IMPORT]: Format"| Intl
     View e3@-->|"[IMPORT]: Theme"| Token
     View e4@-->|"[IMPORT]: Motion"| Act
+    View e12@-->|"[IMPORT]: Hook.publish"| Hook
     Scene e5@--> Token
     Scene e6@--> Act
     Scene e7@--> Atom
+    Scene e13@--> Hook
     Board e8@--> Atom
     Board e9@--> Intl
     Board e10@--> Token
     Board e11@-->|"[IMPORT]: Grid"| View
+    Board e14@-->|"[IMPORT]: Vital.board"| Vital
+    Board e15@--> Hook
     S0 f1@-->|"forbidden: upward import"| S2
 ```
 
@@ -121,3 +129,4 @@ flowchart LR
 - A browser composition root — `GlbViewport` from Depot arrivals, host planes bound into atoms — is app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
 - History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.
+- Telemetry leaves through app-composed hook taps — the folder mints no OTel instrument and imports no collector; the bridge layer subscribes `system/hook` points at app composition and carries rows to the estate spine.

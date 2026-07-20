@@ -6,11 +6,11 @@ Tier-0 graph-analytics substrate owning the reducer-return algebra both graph-an
 
 ## [01]-[INDEX]
 
-- [01]-[ANALYTIC]: `AnalyticValue` union with its dual projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
+- [01]-[ANALYTIC]: `AnalyticValue` union with its scalar, peak, and columnar projections, the polymorphic `ranked` fold, and the `peak_of`/`scalar_of` census projections.
 
 ## [02]-[ANALYTIC]
 
-- Owner: `AnalyticValue` is the one carrier for every graph-analytic reducer return; each projection closes with `assert_never`, so a new return shape breaks every census at type-check.
+- Owner: `AnalyticValue` is the one carrier for every graph-analytic reducer return; each projection closes with `assert_never`, so a new return shape breaks every census at type-check. `tabled` is the columnar third projection — the shape the graduation `EvidenceFrame` port admits — so an analytic board crosses the geometry-to-data seam through the producing page's frame row while this substrate stays graduation-free.
 - Packages: `expression` and `numpy` per the fence imports; `msgspec`-free — this owner carries no wire shape, the consuming pages serialize.
 - Growth: a new return shape is one case and one arm per projection; a new census read is a consumer-side `peak_of`/`scalar_of` call, never a new projection here; a provider whose scores arrive keyed by string node ids extends `ranked`'s probe by one arm.
 - Boundary: no analytics tables, no graph construction, no receipts, no graduation — the producing pages own those; no parallel `AnalyticValue` twin authored beside this one, no module-level `_peak` fold beside the union, and no msgspec subclass family for the same bounded variant set.
@@ -71,6 +71,25 @@ class AnalyticValue:
                 return float(np.asarray([score for _, score in rows]).max(initial=0.0))
             case AnalyticValue(tag="groups", groups=partition):
                 return float(len(partition))
+            case _ as unreachable:
+                assert_never(unreachable)
+
+    def tabled(self) -> dict[str, np.ndarray]:
+        # Columnar projection the graduation frame port consumes — dict order IS the column order; the producing
+        # pages key the frame's subject, so this substrate stays receipt- and graduation-free.
+        match self:
+            case AnalyticValue(tag="scalar", scalar=v):
+                return {"value": np.asarray([v], dtype=np.float64)}
+            case AnalyticValue(tag="leaderboard", leaderboard=rows):
+                return {
+                    "node": np.asarray([node for node, _ in rows], dtype=np.int64),
+                    "score": np.asarray([score for _, score in rows], dtype=np.float64),
+                }
+            case AnalyticValue(tag="groups", groups=partition):
+                return {
+                    "group": np.arange(len(partition), dtype=np.int64),
+                    "members": np.asarray([len(group) for group in partition], dtype=np.int64),
+                }
             case _ as unreachable:
                 assert_never(unreachable)
 

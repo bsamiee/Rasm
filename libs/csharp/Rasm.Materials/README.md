@@ -37,6 +37,9 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [PROJECTION]:
 - [24]-[PROJECTION](.planning/Projection/component.md): One `ComponentProjector` minting Type Objects and material subgraphs.
+- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact` signal tap — hooks, instruments, fault log, descriptors.
+- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): `BenchKernel` workload corpus and the gated benchmark-receipt composition.
+- [27]-[ANALYTICS](.planning/Projection/analytics.md): Columnar `AnalyticsSchema` rows and the catalogue projection folds.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -63,6 +66,7 @@ Domain packages admitted by this folder; versions centralize in the one C# manif
 
 [PROJECTS]:
 - `Rasm` — geometry kernel: value-objects, the admission floor, and the seed-zero content-hash entry.
+- `Rasm.AppHost` — observability spine: hook points, instrument rows, the receipt fan capsule, and the benchmark gate.
 - `Rasm.Element` — projected element seam: graph algebra, material vocabulary, and `IElementProjection`.
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -80,6 +84,11 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `UnitsNet`
 - `MathNet.Numerics` — overdetermined least-squares rail for the measured-BRDF GGX fit.
 - `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
+
+[OBSERVABILITY]:
+- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` contract and the generated `[LoggerMessage]` fault records.
+- `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
+- `NodaTime` — `Duration` fact columns and the `LocalDate` evidence expiry.
 
 [MAPPING_GRAPH]:
 - `Riok.Mapperly` — source-generated boundary transcription under the completeness gate.

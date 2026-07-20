@@ -1253,6 +1253,7 @@ public readonly record struct ContentReceipt : IDetachedDocumentResult {
 - Law: callback delivery transfers the original fact to the sink and prepares a detached ledger copy first. Success releases the spare copy; failure retains it with the fault and releases the delivered original before the host delegate returns.
 - Law: the failure ledger is capacity-bounded by the injected `RetentionPolicy`; an overflow evicts the oldest retained failures, releases each evicted fact on the owner's existing `Release` rail, and folds its fault into typed `RetentionOverflow` evidence, so a full ledger sheds resources without a silent drop and its `Overflow` count-and-fault read survives the eviction.
 - Law: one locked lifecycle cell admits delivery, counts in-flight callbacks, mutates failure retention, and publishes close; detachment, sinks, and release execute outside it. Close blocks new sink entry, drains every admitted callback before capturing the subscription and ledger, and publishes completion only after release; reentrant close delegates capture to the final callback instead of waiting on itself.
+- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `HookRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
 - Growth: a new host content event is one `ContentPulse` row with its bind column; a new evidence axis is one `ContentSignal` case.
 
 ```csharp signature
@@ -1449,6 +1450,34 @@ public sealed partial class ContentPulse {
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed record ContentStreamFailure(ContentFact Fact, Error Fault) : IDisposable, IDetachedDocumentResult {
     public void Dispose() => Fact.Dispose();
+}
+
+public sealed record ContentObservation(
+    EventScope Scope,
+    Seq<ContentPulse> Pulses,
+    PulseFilter Filter,
+    RetentionPolicy Retention,
+    Func<ContentFact, Fin<Unit>> Sink);
+
+public static class ContentHooks {
+    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
+        HookRegistry.Mount(
+            mount: new HookMount(
+                Point: HookPoint.RenderContent,
+                Plugin: plugin,
+                Ask: typeof(ContentObservation),
+                Grant: typeof(ContentStream),
+                Bind: static ask => ask switch {
+                    ContentObservation request => ContentStream.Of(
+                            scope: request.Scope,
+                            pulses: request.Pulses,
+                            filter: request.Filter,
+                            retention: request.Retention,
+                            sink: request.Sink)
+                        .Map(static stream => (object)stream),
+                    _ => Fin.Fail<object>(error: Op.Of(name: nameof(ContentHooks)).InvalidInput()),
+                }),
+            key: key.OrDefault());
 }
 
 public sealed class ContentStream : IDisposable {
@@ -1678,4 +1707,5 @@ public sealed class ContentStream : IDisposable {
 |  [07]   | receipts        | `ContentReceipt`                  | additive fact rows                | `RegistryResult`   |
 |  [08]   | content events  | `ContentPulse`                    | verified event rows               | `ContentStream.Of` |
 |  [09]   | event evidence  | `ContentSignal`                   | payload and failure ledger        | `ContentStream.Of` |
-|  [10]   | failure ledger  | `RetentionPolicy`                 | bounded ledger, overflow evidence | `Of` / `Admit`     |
+|  [10]   | hook point      | `ContentHooks`                    | `rasm.rhino.render.content` mount | `ContentHooks.Mount` |
+|  [11]   | failure ledger  | `RetentionPolicy`                 | bounded ledger, overflow evidence | `Of` / `Admit`     |

@@ -4,10 +4,11 @@ The GPU render pipeline for the infinite viewport: one `RenderGraph` pass-DAG dr
 
 ## [01]-[INDEX]
 
-- [01]-[RENDER_GRAPH]: Frame pass-DAG, the `GpuBackend` target-factory column over `GpuBinding`, resolve ladder, frame-budget invariant, fallback.
-- [02]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes off the Compute receipts.
-- [03]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection projecting onto the `Rasm.Bim` `BcfViewpoint` exchange contract; the isolate/hide/x-ray/reset action fold and the version-diff ghost projection on the one override vocabulary.
-- [04]-[TS_PROJECTION]: Viewpoint, frame-evidence, and content-keyed geometry-residency wire contract.
+- [02]-[RENDER_GRAPH]: Frame pass-DAG, the `GpuBackend` target-factory column over `GpuBinding`, resolve ladder, frame-budget invariant, fallback.
+- [03]-[SIM_VISUAL]: Isosurface, volume, streamline, glyph, deformation field render passes off the Compute receipts.
+- [04]-[VIEWPOINT_CODEC]: Camera, section-box, visibility, override, selection projecting onto the `Rasm.Bim` `BcfViewpoint` exchange contract; the isolate/hide/x-ray/reset action fold and the version-diff ghost projection on the one override vocabulary.
+- [05]-[TS_PROJECTION]: Viewpoint, frame-evidence, and content-keyed geometry-residency wire contract.
+- [06]-[GPU_AND_WIRE_BOUNDARY]: Viewport GPU lease law, the wgpu presentation arms, and the web residency mint.
 
 ## [02]-[RENDER_GRAPH]
 

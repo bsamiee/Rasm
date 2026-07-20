@@ -30,7 +30,7 @@
 
 - Owner: `DatumPolicy` closes assigned transform, best-fit registration, and primitive substitution over the current `DatumReceipt` wire.
 - Auto: `AlignKind.AlignDetailed` projects a transform only through `AlignmentReceipt.Project<Transform>`; `Fit.Apply` retains per-feature and datum-substitution `FitReceipt` evidence, and a group thinned below its kind's `MinimalSamples` carries no fit rather than a fabricated one; transformed measured points precede every `ResidualSample`.
-- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection.
+- Receipt: `ProbeReport` closes the pre-egress evidence fold, while the frozen `InspectionResult` projects only `InspectionFeature` atoms and drops cycle, datum, fit, capability, source, and time evidence. `Probe.Inspect` mints `FabricationFact.Probe` beside the frozen result — conformance counts and worst deviation onto `rasm.fabrication.probe.features` and `rasm.fabrication.probe.deviation` through `Process/telemetry#FACT_PROJECTION` as kind `probe` — because `ProbeReport` is file-scoped and the fact is its one telemetry projection; the fact fires through the `FabricationTap` the run spine passes, defaulting silent for headless callers, and the whole fold runs inside the `EngineSpan.ProbeFit` span with datum registration and feature fitting as phase events.
 - Boundary: `Capability.Assess(new CapabilityStudy.Variables(...), tolerance)` consumes the residual tranche; no local QIF-shaped record claims a standard contract the package does not admit.
 
 ```csharp signature
@@ -674,36 +674,39 @@ public static class Probe {
 
     internal static readonly Op ProbeOp = Op.Of(name: "fabrication:probe");
 
-    public static Fin<FabricationResult> Inspect(InspectPolicy policy, FabricationInput input) =>
-        from admitted in Admit(policy, input)
-        from context in Context.Millimeters().ToFin()
-        from targets in Targets(admitted.Policy, context)
-        from _targets in AdmitTargets(admitted.Policy, targets)
-        let observed = Index(admitted.Policy.Source.Rows, static row => row.Address.Target)
-        let cycles = targets.Bind(target => Evaluate(target, observed, admitted.Policy))
-        let contacted = Index(cycles, static row => row.Target.Key)
-        from measured in (
-            targets.Traverse(target => Aggregate(target, contacted, admitted.Policy).ToValidation()),
-            RequiredContacts(targets, contacted).ToValidation())
-            .Apply(static (rows, _) => rows).As().ToFin()
-        let unregistered = measured.Bind(static row => row.ToSeq())
-        from datum in unregistered.Head
-            .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:no-measurements").ToError())
-            .Bind(_ => Reconcile(admitted.Policy.Datum, unregistered, context))
-        let transformed = TransformFeatures(unregistered, datum)
-        from features in Fits(transformed, admitted.Policy.FeatureFit, context)
-        from capability in admitted.Policy.Capability
-            .Traverse(demand => Capability.Assess(new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand))
-            .As()
-        let report = new ProbeReport(
-            admitted.Policy.Source.EvidenceKey,
-            cycles,
-            datum,
-            features,
-            capability,
-            admitted.Policy.Clock.GetCurrentInstant())
-        from result in ToResult(report, admitted.Input.Sources + admitted.Input.ParentRuns)
-        select result;
+    public static Fin<FabricationResult> Inspect(InspectPolicy policy, FabricationInput input, FabricationTap? tap = null) =>
+        EngineSpan.ProbeFit.Traced(span =>
+            from admitted in Admit(policy, input)
+            from context in Context.Millimeters().ToFin()
+            from targets in Targets(admitted.Policy, context)
+            from _targets in AdmitTargets(admitted.Policy, targets)
+            let observed = Index(admitted.Policy.Source.Rows, static row => row.Address.Target)
+            let cycles = targets.Bind(target => Evaluate(target, observed, admitted.Policy))
+            let contacted = Index(cycles, static row => row.Target.Key)
+            from measured in (
+                targets.Traverse(target => Aggregate(target, contacted, admitted.Policy).ToValidation()),
+                RequiredContacts(targets, contacted).ToValidation())
+                .Apply(static (rows, _) => rows).As().ToFin()
+            let unregistered = measured.Bind(static row => row.ToSeq())
+            from datum in unregistered.Head
+                .ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "probe:no-measurements").ToError())
+                .Bind(_ => Reconcile(admitted.Policy.Datum, unregistered, context))
+            let _registered = EngineSpan.Event(span, "datum-registered")
+            let transformed = TransformFeatures(unregistered, datum)
+            from features in Fits(transformed, admitted.Policy.FeatureFit, context)
+            let _fitted = EngineSpan.Event(span, "features-fitted")
+            from capability in admitted.Policy.Capability
+                .Traverse(demand => Capability.Assess(new CapabilityStudy.Variables(features.Map(static row => row.Residual)), demand))
+                .As()
+            let report = new ProbeReport(
+                admitted.Policy.Source.EvidenceKey,
+                cycles,
+                datum,
+                features,
+                capability,
+                admitted.Policy.Clock.GetCurrentInstant())
+            from result in ToResult(report, admitted.Input.Sources + admitted.Input.ParentRuns, tap ?? FabricationTap.Silent)
+            select result);
 
     private static Fin<Seq<ProbeTarget>> Targets(InspectPolicy policy, Context context) =>
         policy.Plans.TraverseM(plan =>
@@ -977,9 +980,16 @@ public static class Probe {
             .As()
             .Map(static groups => groups.Bind(identity));
 
-    private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects) =>
+    // The Probe fact mints beside the frozen result because `ProbeReport` is file-scoped; conformance and
+    // worst deviation read off the projected atoms so the fact and the result derive from one fold.
+    private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects, FabricationTap tap) =>
         report.Features.TraverseM(ToAtom).As()
-            .Map(atoms => (FabricationResult)new FabricationResult.InspectionResult(atoms, subjects.Distinct()));
+            .Map(atoms => (
+                tap.Fire(new FabricationFact.Probe(
+                    atoms.Count,
+                    atoms.Filter(static row => row.Pass.IfNone(false)).Count,
+                    atoms.Map(static row => row.DeviationMm).Fold(0.0, double.Max))),
+                (FabricationResult)new FabricationResult.InspectionResult(atoms, subjects.Distinct())).Item2);
 
     private static Fin<InspectionFeature> ToAtom(MeasuredFeature feature) =>
         InspectionFeature.Admit(

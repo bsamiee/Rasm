@@ -35,37 +35,38 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 - [20]-[DASHBOARDS](.planning/Charts/dashboards.md): Chart series and axis rows with downsampled stream binding and brushing.
 - [21]-[CUSTOM](.planning/Charts/custom.md): Custom-visual Skia layout algebra with a keyed color-policy projection.
 - [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, EditManager redlining, and camera verbs beside the viewport.
+- [23]-[TELEMETRY](.planning/Charts/telemetry.md): Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles.
 
 [EDITING]:
-- [23]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
-- [24]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
-- [25]-[FORMS](.planning/Editing/forms.md): Form-schema wizard through the control factory, batch-edit folding one receipt.
-- [26]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder and a durable-ledger arm.
-- [27]-[LIVEDATA](.planning/Editing/livedata.md): Reactive data spine over closed data-source cases and change-set operators.
-- [28]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas with an admission gate and co-edit merge.
+- [24]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
+- [25]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
+- [26]-[FORMS](.planning/Editing/forms.md): Form-schema wizard through the control factory, batch-edit folding one receipt.
+- [27]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder and a durable-ledger arm.
+- [28]-[LIVEDATA](.planning/Editing/livedata.md): Reactive data spine over closed data-source cases and change-set operators.
+- [29]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas with an admission gate and co-edit merge.
 
 [DOCUMENT]:
-- [29]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
-- [30]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows materialized for the one `Surfaces.Mount` crossing.
-- [31]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, an Office arm, and a print arm.
+- [30]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
+- [31]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows materialized for the one `Surfaces.Mount` crossing.
+- [32]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, an Office arm, and a print arm.
 
 [COLLAB]:
-- [32]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
-- [33]-[ISSUES](.planning/Collab/issues.md): openBIM issue board projection over the Bim BCF contract.
-- [34]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
+- [33]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
+- [34]-[ISSUES](.planning/Collab/issues.md): openBIM issue board projection over the Bim BCF contract.
+- [35]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
 
 [DIAGNOSTICS]:
-- [35]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, telemetry spine, correlation join, and the 6xxx fault registry.
-- [36]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, goldens, and a typed proof fault.
-- [37]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
-- [38]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
+- [36]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, telemetry spine, correlation join, and the 6xxx fault registry.
+- [37]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, goldens, and a typed proof fault.
+- [38]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
+- [39]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
 
 [THEME]:
-- [39]-[TOKENS](.planning/Theme/tokens.md): Design-token engine with an OKLab ramp mix and atomic theme swap.
-- [40]-[TYPOGRAPHY](.planning/Theme/typography.md): Type roles, embedded-font admission, and one live-front-matter shaping rail.
-- [41]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
-- [42]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing.
-- [43]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, and time with a typed locale fault and live captioning.
+- [40]-[TOKENS](.planning/Theme/tokens.md): Design-token engine with an OKLab ramp mix and atomic theme swap.
+- [41]-[TYPOGRAPHY](.planning/Theme/typography.md): Type roles, embedded-font admission, and one live-front-matter shaping rail.
+- [42]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
+- [43]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing.
+- [44]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, and time with a typed locale fault and live captioning.
 
 ## [02]-[DOMAIN_PACKAGES]
 

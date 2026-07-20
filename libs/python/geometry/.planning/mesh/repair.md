@@ -13,6 +13,7 @@ Robust mesh algebra: the canonical owner of the `manifold3d.Manifold` 3D boolean
 - Owner: `MeshRepairOp` — one union over the two kinds; `RepairStep` makes the conditioning pass a selected step-set parameterizing input and output, never a fixed three-call hardcode behind a bare `weld: bool`; `BooleanOp` makes the CSG verb one row feeding the single `batch_boolean` owner; `MeshResult` is the carrier-contributor and `MeshRepairReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share.
 - Cases: `Condition(mesh, steps)` is the one reconstruction-hop entry the `scan/reconstruction.md#RECONSTRUCTION` consumer reads, selecting `STEPS_WATERTIGHT` (re-weld) or `STEPS_ORIENT` (orientation-only) as a named `Steps` value, so a new reconstruction surface composes a step tuple rather than racing a second factory; `Boolean(meshes, op)` cross-checks the exact kernel `volume()` against the re-wrapped `Trimesh.volume` as the `closure_gap` agreement, a kernel-vs-mesh verdict rather than a single-source claim.
 - Auto: `batch_boolean(manifolds, op)` is the single n-ary CSG owner (empty folds to the identity `Manifold`, a singleton is a no-op) — the deprecated `Manifold.compose`, the `trimesh.boolean` facade, and a manual `+`/`-`/`^` left-fold rebuilding the kernel N-1 times never enter.
+- Bench: `benched` rides the graduation `bench_seam` fold over the whole `apply` crossing — offload, kernel, weave — subject-keyed `rasm.geometry.mesh.repair.<tag>`, so the conditioning and boolean kernels carry latency and throughput rows beside the per-call evidence-duration histogram with zero instrument rows; the pulse boundary bars any in-kernel probe, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Packages: `trimesh` (the `repair` verbs and cached validity/mass axes), `manifold3d` (the robust CSG kernel, reached directly), `numpy`, `expression`, `msgspec`, and the runtime rails per the fence imports.
 - Growth: a new conditioning pass is one `RepairStep` row and one `_CONDITION` entry; a new CSG verb is one `BooleanOp` row and one `_OPTYPES` entry — never a parallel per-operation class.
 - Boundary: point-cloud registration is `scan/registration.md#REGISTRATION`'s; IFC tessellation is `mesh/daemon.md#DAEMON`'s; exact OCCT B-rep Boolean is `mesh/brep.md#BREP`'s — robust triangle-mesh CSG here, exact B-rep CSG there, two kernels on two owners; decimation/subdivision/smoothing/metrics are `mesh/quality.md#QUALITY`'s; proximity/ray/contains/sampling are `mesh/spatial.md#SPATIAL`'s; the compas half-edge algebra is `graph/algebra.md#ALGEBRA`'s.
@@ -27,12 +28,13 @@ from typing import TYPE_CHECKING, Final, Literal, Self, assert_never
 import numpy as np
 import trimesh
 from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometrySubject, bench_seam, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -167,6 +169,13 @@ async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]"
     # silently lift PURE onto a subinterpreter the native band never imports under, so the kernel names the warm
     # process pool and its trait-default WORKER death retry.
     return await evidence_run(EvidenceScope.MESH_REPAIR, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
+
+
+def benched(op: MeshRepairOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+    # kernel macro-bench beside the per-call evidence-duration row: the subject keys the op kind under the
+    # MESH_REPAIR scope, and each round drives the whole apply crossing — offload, kernel, weave — never an
+    # in-kernel probe (the pulse boundary); the warm process lane amortizes across rounds.
+    return bench_seam(f"{EvidenceScope.MESH_REPAIR.value}.{op.tag}", partial(apply, op, lane), rounds=rounds, warmup=warmup)
 
 
 # keeps the table-miss folds and the status-gate rail one-expression thunks; converts on the lane boundary.

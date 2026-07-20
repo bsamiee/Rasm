@@ -13,6 +13,9 @@ A quantity is constructed through its `From<Unit>(QuantityValue)` factory and pr
 [ENERGY_COMPOSITION]:
 `Power.FromWatts(value) * Duration.FromSeconds(seconds)` returns `Energy`; `Energy.FromJoules(value)` admits known work, and `Energy.Joules` projects the canonical scalar without local unit arithmetic.
 
+[SUSTAINABILITY_SCALARS]:
+`Mass.FromKilograms(QuantityValue)` and `Mass.Kilograms` carry embodied-carbon and waste evidence, and `Volume.Liters` projects water-use evidence — the scalar legs `FabricationFact.QualitySeal.Of` folds off `SustainabilityEvidence`; `new Mass(double, MassUnit)` with `UnitParser`-resolved units admits provider mass tokens on the tool-evidence rail.
+
 [RAIL_LAW]:
 - Package: `UnitsNet`
 - Owns: `PhysicsQuantity` textual admission, canonical machining scalar projection, and typed energy composition

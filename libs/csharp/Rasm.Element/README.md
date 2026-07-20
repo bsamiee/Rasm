@@ -36,6 +36,7 @@ Every AEC peer projects its foreign source through `IElementProjection` and neve
 - [13]-[PROJECTION](.planning/Projection/projection.md): `IElementProjection` and graph-constraint floors and the assemble composition apps wire.
 - [14]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec and order-independent graph addressing over the kernel seed-zero hash.
 - [15]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry and the `ElementFault` union lowered onto the result rail.
+- [16]-[OBSERVE](.planning/Projection/observe.md): `ElementHookRail` typed graph-fact tap and the `GraphInstrument` meter-and-span projection off it.
 
 ## [02]-[DOMAIN_PACKAGES]
 

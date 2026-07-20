@@ -293,22 +293,29 @@ public sealed record ResidencyBudget(
 
     public const string EvictInstrument = "rasm.appui.viewport.residency.evict";
     public const string PrefetchInstrument = "rasm.appui.viewport.residency.prefetch";
+    public const string PoolInstrument = "rasm.appui.viewport.residency.pool";
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version,
             new(EvictInstrument, InstrumentKind.Level, "{page}", "tiles the current plan marked for eviction",
                 Level: static () => ResidencyCells.Live.Evict.Value),
             new(PrefetchInstrument, InstrumentKind.Level, "{page}", "tiles the current plan queued for prefetch",
-                Level: static () => ResidencyCells.Live.Prefetch.Value));
+                Level: static () => ResidencyCells.Live.Prefetch.Value),
+            new(PoolInstrument, InstrumentKind.Levels, "By", "planned VRAM bytes by residency pool",
+                Levels: UiLevelCells.Reader(UiLevelCells.Live.PoolVram, "pool")));
 }
 
-// Level cells beside their writer: the caller threads every accepted plan through Observe, so the two
-// residency gauges read the live plan at collection cadence and never re-derive a scan.
+// Level cells beside their writer: the caller threads every accepted plan through Observe, so the
+// residency gauges — evict, prefetch, and the per-pool byte levels — read the live plan at collection
+// cadence and never re-derive a scan.
 public sealed record ResidencyCells(Atom<long> Evict, Atom<long> Prefetch) {
     public static readonly ResidencyCells Live = new(Atom(0L), Atom(0L));
 
     public ResidencyPlan Observe(ResidencyPlan plan) =>
-        (Evict.Swap(_ => plan.Evict.Count), Prefetch.Swap(_ => plan.Prefetch.Count), plan).Item3;
+        (Evict.Swap(_ => plan.Evict.Count), Prefetch.Swap(_ => plan.Prefetch.Count),
+         UiLevelCells.Live.PoolVram.Swap(state => state
+             .AddOrUpdate("resident", plan.ResidentBytes)
+             .AddOrUpdate("prefetch", plan.PrefetchBytes)), plan).Item4;
 }
 ```
 

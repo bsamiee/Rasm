@@ -14,77 +14,78 @@
 - [05]-[NORMALIZATION](.planning/Domain/normalization.md): Rhino-kind taxonomy and coercion owner — coercion lattice and its projection carrier.
 - [06]-[EVALUATION](.planning/Domain/evaluation.md): Closest-point evaluation lattice — `ClosestHit` over frames, sampling, signed distance.
 - [07]-[STATS](.planning/Domain/stats.md): Statistics substrate — streaming moments, tolerance-banded extrema, and distribution quantiles.
+- [08]-[TELEMETRY](.planning/Domain/telemetry.md): Kernel signal owner — receipt-tap hook rail, UCUM instrument spine, span band, op-cost capsule, and the bench-claim ledger.
 
 [NUMERICS]:
-- [08]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
-- [09]-[FAULTS](.planning/Numerics/faults.md): Consolidated `GeometryFault` union every geometry rail routes through and lowers onto the error rail.
-- [10]-[ATOMS](.planning/Numerics/atoms.md): Typed vector-algebra floor and the raw-to-typed projection dispatch every projection routes through.
-- [11]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex linear-algebra owner and the `MatrixKernel` solve and eigen family.
-- [12]-[INTEGRATE](.planning/Numerics/integrate.md): ODE integration floor — data-driven tableau vocabulary and `FieldIntegrator` adaptive stepper.
-- [13]-[SPECTRAL](.planning/Numerics/spectral.md): Mesh-free spectral algebra — `DiscreteCalculus` with transfer-function and descriptor algebra.
-- [14]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — central-difference stencils, noise lattices, and falloff profiles.
+- [09]-[PREDICATES](.planning/Numerics/predicates.md): Exact-predicate floor — orientation, in-circle, and constructed-point tests up the ladder.
+- [10]-[FAULTS](.planning/Numerics/faults.md): Consolidated `GeometryFault` union every geometry rail routes through and lowers onto the error rail.
+- [11]-[ATOMS](.planning/Numerics/atoms.md): Typed vector-algebra floor and the raw-to-typed projection dispatch every projection routes through.
+- [12]-[MATRIX](.planning/Numerics/matrix.md): Dense/sparse/complex linear-algebra owner and the `MatrixKernel` solve and eigen family.
+- [13]-[INTEGRATE](.planning/Numerics/integrate.md): ODE integration floor — data-driven tableau vocabulary and `FieldIntegrator` adaptive stepper.
+- [14]-[SPECTRAL](.planning/Numerics/spectral.md): Mesh-free spectral algebra — `DiscreteCalculus` with transfer-function and descriptor algebra.
+- [15]-[CALCULUS](.planning/Numerics/calculus.md): Sample-anywhere math floor — central-difference stencils, noise lattices, and falloff profiles.
 
 [SPATIAL]:
-- [15]-[INDEX](.planning/Spatial/index.md): Polymorphic `SpatialIndex` behind one apply entry — queries, refit, and compute node-array wire.
-- [16]-[NAMING](.planning/Spatial/naming.md): Persistent topological naming — lineage algebra, name registry, and the re-anchor-by-signature fold.
-- [17]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence — canonical byte streams onto `NamingHash` Persistence consumes.
-- [18]-[SUPPORT](.planning/Spatial/support.md): Proximity boundary adapter — capability-gated `SupportProjection` behind its projection gate.
-- [19]-[CLOUD](.planning/Spatial/cloud.md): Point-cloud owner — `VectorCloud` union with lazy indexed admission, metric surface, and hull rail.
-- [20]-[NEIGHBORS](.planning/Spatial/neighbors.md): One neighborhood substrate — queries, orientation, curvature, and rotation-minimizing frame.
-- [21]-[TRANSPORT](.planning/Spatial/transport.md): Optimal-transport owner — log-domain Sinkhorn with plan projections and cloud correspondences.
-- [22]-[FIELDS](.planning/Spatial/fields.md): Implicit-field algebra — scalar/vector/tensor unions, the SDF family, and status-tagged sampling seam.
+- [16]-[INDEX](.planning/Spatial/index.md): Polymorphic `SpatialIndex` behind one apply entry — queries, refit, and compute node-array wire.
+- [17]-[NAMING](.planning/Spatial/naming.md): Persistent topological naming — lineage algebra, name registry, and the re-anchor-by-signature fold.
+- [18]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence — canonical byte streams onto `NamingHash` Persistence consumes.
+- [19]-[SUPPORT](.planning/Spatial/support.md): Proximity boundary adapter — capability-gated `SupportProjection` behind its projection gate.
+- [20]-[CLOUD](.planning/Spatial/cloud.md): Point-cloud owner — `VectorCloud` union with lazy indexed admission, metric surface, and hull rail.
+- [21]-[NEIGHBORS](.planning/Spatial/neighbors.md): One neighborhood substrate — queries, orientation, curvature, and rotation-minimizing frame.
+- [22]-[TRANSPORT](.planning/Spatial/transport.md): Optimal-transport owner — log-domain Sinkhorn with plan projections and cloud correspondences.
+- [23]-[FIELDS](.planning/Spatial/fields.md): Implicit-field algebra — scalar/vector/tensor unions, the SDF family, and status-tagged sampling seam.
 
 [PARAMETRIC]:
-- [23]-[NURBS](.planning/Parametric/nurbs.md): Vendored in-kernel NURBS engine — one `Nurbs.Of` admission over evaluation, fitting, and identity.
-- [24]-[CURVE](.planning/Parametric/curve.md): Host-neutral curve op rail — one `ParametricOp` union folded over the vendored curve form.
-- [25]-[SURFACE](.planning/Parametric/surface.md): Host-neutral surface rail — `SurfaceOp` union with UV-provenance tessellation and pullback.
-- [26]-[SUBDIVIDE](.planning/Parametric/subdivide.md): Subdivision surfaces as stencil rows over sparse-operator refinement with limit evaluation.
-- [27]-[DEVELOP](.planning/Parametric/develop.md): Isometric developable strips — geodesic rails, rigid unroll, and per-strip isometry witness.
-- [28]-[PANELIZE](.planning/Parametric/panelize.md): Cross-field-guided panelization — family rows, placement frames, and `PanelField` SoA wire.
-- [29]-[PATTERNMAP](.planning/Parametric/patternmap.md): Pattern-to-surface instancing — wallpaper fold, log-map inversion, transported frames.
-- [30]-[PROJECTIONS](.planning/Parametric/projections.md): Rhino-native selector/motion owner — easing, cycle, and spring under monotonic timing.
-- [31]-[LOCATE](.planning/Parametric/locate.md): Curve/surface location algebra — curvature, orientation, containment, and perpendicular frames.
+- [24]-[NURBS](.planning/Parametric/nurbs.md): Vendored in-kernel NURBS engine — one `Nurbs.Of` admission over evaluation, fitting, and identity.
+- [25]-[CURVE](.planning/Parametric/curve.md): Host-neutral curve op rail — one `ParametricOp` union folded over the vendored curve form.
+- [26]-[SURFACE](.planning/Parametric/surface.md): Host-neutral surface rail — `SurfaceOp` union with UV-provenance tessellation and pullback.
+- [27]-[SUBDIVIDE](.planning/Parametric/subdivide.md): Subdivision surfaces as stencil rows over sparse-operator refinement with limit evaluation.
+- [28]-[DEVELOP](.planning/Parametric/develop.md): Isometric developable strips — geodesic rails, rigid unroll, and per-strip isometry witness.
+- [29]-[PANELIZE](.planning/Parametric/panelize.md): Cross-field-guided panelization — family rows, placement frames, and `PanelField` SoA wire.
+- [30]-[PATTERNMAP](.planning/Parametric/patternmap.md): Pattern-to-surface instancing — wallpaper fold, log-map inversion, transported frames.
+- [31]-[PROJECTIONS](.planning/Parametric/projections.md): Rhino-native selector/motion owner — easing, cycle, and spring under monotonic timing.
+- [32]-[LOCATE](.planning/Parametric/locate.md): Curve/surface location algebra — curvature, orientation, containment, and perpendicular frames.
 
 [MESHING]:
-- [32]-[DELAUNAY](.planning/Meshing/delaunay.md): Constrained Delaunay owner — predicate-guarded insertion with constraint recovery.
-- [33]-[ARRANGEMENT](.planning/Meshing/arrangement.md): Exact-arithmetic mesh and polygon arrangement — boolean cell welds and the typed receipt.
-- [34]-[INTERSECT](.planning/Meshing/intersect.md): Predicate-exact intersection lattice — one `IntersectOp` over an exact-sign crossing carrier.
-- [35]-[SLICE](.planning/Meshing/slice.md): Slice-stack owner — the section fold over a generated plane family into the `SliceStack` SoA wire.
-- [36]-[OFFSET](.planning/Meshing/offset.md): Predicate-exact offsetting — `OffsetOp` union over the wavefront with loop assembly via arrangement.
-- [37]-[SKELETON](.planning/Meshing/skeleton.md): MCF skeleton owner — contraction and collapse into `CurveSkeleton` wire and clearance family.
-- [38]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — the `MeshSpace` snapshot, Laplacian memoization, and intrinsic triangulation.
-- [39]-[EDIT](.planning/Meshing/edit.md): Mutable-arena tier — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
-- [40]-[DEC](.planning/Meshing/dec.md): Mesh-bound DEC assembly owner — connection heat, holonomy, and the Hodge decomposition family.
-- [41]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — signed-heat spine, mesh-SDF methods, and iso-extraction.
+- [33]-[DELAUNAY](.planning/Meshing/delaunay.md): Constrained Delaunay owner — predicate-guarded insertion with constraint recovery.
+- [34]-[ARRANGEMENT](.planning/Meshing/arrangement.md): Exact-arithmetic mesh and polygon arrangement — boolean cell welds and the typed receipt.
+- [35]-[INTERSECT](.planning/Meshing/intersect.md): Predicate-exact intersection lattice — one `IntersectOp` over an exact-sign crossing carrier.
+- [36]-[SLICE](.planning/Meshing/slice.md): Slice-stack owner — the section fold over a generated plane family into the `SliceStack` SoA wire.
+- [37]-[OFFSET](.planning/Meshing/offset.md): Predicate-exact offsetting — `OffsetOp` union over the wavefront with loop assembly via arrangement.
+- [38]-[SKELETON](.planning/Meshing/skeleton.md): MCF skeleton owner — contraction and collapse into `CurveSkeleton` wire and clearance family.
+- [39]-[MESH](.planning/Meshing/mesh.md): Mesh substrate owner — the `MeshSpace` snapshot, Laplacian memoization, and intrinsic triangulation.
+- [40]-[EDIT](.planning/Meshing/edit.md): Mutable-arena tier — the single-writer `MeshEdit` SoA build arena and the publish-by-freeze seam.
+- [41]-[DEC](.planning/Meshing/dec.md): Mesh-bound DEC assembly owner — connection heat, holonomy, and the Hodge decomposition family.
+- [42]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): Implicit-reconstruction owner — signed-heat spine, mesh-SDF methods, and iso-extraction.
 
 [PROCESSING]:
-- [42]-[REPAIR](.planning/Processing/repair.md): Repair rail — closed `HealOp` algebra over the mesh arena with the typed rebuild-receipt chain.
-- [43]-[RECEIPTS](.planning/Processing/receipts.md): Typed `RebuildReceipt` family and the heal-session fold feeding the naming re-anchor.
-- [44]-[DECIMATE](.planning/Processing/decimate.md): Predicate-guarded decimation and LOD — one `SimplifyOp` union over the quadric collapse queue.
-- [45]-[REMESH](.planning/Processing/remesh.md): Remesh substrate — isotropic and cross-field rewriting minting quad provenance panelize consumes.
-- [46]-[FLATTEN](.planning/Processing/flatten.md): Robust UV-flattening — one `ParamOp` over the DEC substrate returning the typed chart atlas.
-- [47]-[INTENT](.planning/Processing/intent.md): Kernel consumer rail — `VectorIntent` union with admission dispatching the owning pages.
-- [48]-[SAMPLE](.planning/Processing/sample.md): Point-sampling owner — `SampleKind` union with grouped preset policies over the sampling domains.
-- [49]-[EXTRACT](.planning/Processing/extract.md): Extraction/projection rail — ingress, native-first sectioning, and typed projection rows.
-- [50]-[FLOW](.planning/Processing/flow.md): Streamline/trace owner — dense-output event localization over any vector field.
-- [51]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
-- [52]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
-- [53]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host-capture tier.
+- [43]-[REPAIR](.planning/Processing/repair.md): Repair rail — closed `HealOp` algebra over the mesh arena with the typed rebuild-receipt chain.
+- [44]-[RECEIPTS](.planning/Processing/receipts.md): Typed `RebuildReceipt` family and the heal-session fold feeding the naming re-anchor.
+- [45]-[DECIMATE](.planning/Processing/decimate.md): Predicate-guarded decimation and LOD — one `SimplifyOp` union over the quadric collapse queue.
+- [46]-[REMESH](.planning/Processing/remesh.md): Remesh substrate — isotropic and cross-field rewriting minting quad provenance panelize consumes.
+- [47]-[FLATTEN](.planning/Processing/flatten.md): Robust UV-flattening — one `ParamOp` over the DEC substrate returning the typed chart atlas.
+- [48]-[INTENT](.planning/Processing/intent.md): Kernel consumer rail — `VectorIntent` union with admission dispatching the owning pages.
+- [49]-[SAMPLE](.planning/Processing/sample.md): Point-sampling owner — `SampleKind` union with grouped preset policies over the sampling domains.
+- [50]-[EXTRACT](.planning/Processing/extract.md): Extraction/projection rail — ingress, native-first sectioning, and typed projection rows.
+- [51]-[FLOW](.planning/Processing/flow.md): Streamline/trace owner — dense-output event localization over any vector field.
+- [52]-[REGISTER](.planning/Processing/register.md): Registration owner — the `AlignKind` ICP dispatcher behind one alignment policy record.
+- [53]-[GEODESICS](.planning/Processing/geodesics.md): On-mesh distance suite — heat-method and geodesics, log/exp maps, and parallel transport.
+- [54]-[SEGMENT](.planning/Processing/segment.md): Spectral shape-analysis owner — descriptors, segmentation, cross-fields, and host-capture tier.
 
 [SOLVING]:
-- [54]-[SOLVER](.planning/Solving/solver.md): One nonlinear least-squares owner — `Lm.Minimize` and island-decomposed geometric constraint solver.
-- [55]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `FitReceipt`.
+- [55]-[SOLVER](.planning/Solving/solver.md): One nonlinear least-squares owner — `Lm.Minimize` and island-decomposed geometric constraint solver.
+- [56]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — the MLESAC sampler and orthogonal-distance refine returning the typed `FitReceipt`.
 
 [DRAWING]:
-- [56]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
-- [57]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
+- [57]-[VIEW](.planning/Drawing/view.md): Exact hidden-line and silhouette projection — invisibility kernel returning `DrawingProjection` carrier.
+- [58]-[PACK](.planning/Drawing/pack.md): Canonical encoding owner — `PackOp` into the dtype-strided byte arena with a lossless round-trip witness.
 
 [ANALYSIS]:
-- [58]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one `AnalysisQuery` request algebra and facade.
-- [59]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
-- [60]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
-- [61]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
-- [62]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection lattice beside the meshing altitude.
+- [59]-[QUERY](.planning/Analysis/query.md): Measured-query runtime and the public analysis entry — one `AnalysisQuery` request algebra and facade.
+- [60]-[MEASURE](.planning/Analysis/measure.md): Metrology owner — mass properties, enclosing bounds, and conformance residual sampling.
+- [61]-[INSPECT](.planning/Analysis/inspect.md): Diagnostics owner — genus and Euler topology folds with the full mesh defect and quality capture.
+- [62]-[SELECT](.planning/Analysis/select.md): Selection/extraction owner — the edge taxonomy, silhouette and draft capture, and PCA spread.
+- [63]-[RELATIONS](.planning/Analysis/relations.md): Pairwise-relation owner — RhinoCommon intersection lattice beside the meshing altitude.
 
 ## [02]-[DOMAIN_PACKAGES]
 

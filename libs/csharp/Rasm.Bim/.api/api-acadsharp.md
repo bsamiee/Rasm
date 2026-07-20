@@ -33,7 +33,8 @@
 |  [08]   | `DxfReaderConfiguration`   | DXF config      | adds `ClearCache` (default true), `CreateDefaults`                           |
 |  [09]   | `NotificationEventHandler` | delegate        | `NotificationEventArgs` carrier — `Message`, `NotificationType`, `Exception` |
 |  [10]   | `NotificationType`         | enum            | `NotImplemented`/`None`/`NotSupported`/`Warning`/`Error` severity            |
-|  [11]   | `ProgressEventHandler`     | delegate        | `ProgressEventArgs` read-progress stream (optional)                          |
+|  [11]   | `ProgressEventHandler`     | delegate        | `(object sender, ProgressEventArgs e)` read-progress stream                  |
+|  [12]   | `ProgressEventArgs`        | progress args   | `Stage` (`ReadStage`) + `Current` (`CadObjectData`) per progress event       |
 
 [PUBLIC_TYPE_SCOPE]: document root and tables — the `CadDocument` model
 - rail: geometry
@@ -90,6 +91,7 @@
 |  [08]   | `DwgReader.Read(string filename)`                                | static read     | DWG file read by path → `CadDocument`             |
 |  [09]   | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()` | partial read    | summary/preview/header without full entity parse  |
 |  [10]   | `DxfReader.ReadEntities()` / `ReadTables()`                      | partial read    | section-scoped DXF read → `List<Entity>`          |
+|  [11]   | `new DxfReader(Stream)` / `new DwgReader(Stream)`                | instance read   | `ICadReader.Read()` with the `OnProgress` event   |
 
 [ENTRYPOINT_SCOPE]: document traversal — `CadDocument` → mesh-bearing entities
 - rail: geometry
@@ -127,7 +129,7 @@
 - A mesh-only ingress that needs neither header nor non-graphical objects reads the DXF ENTITIES section alone through the instance `DxfReader.ReadEntities()` (`List<Entity>`) rather than the full `Read()` — the section-scoped read skips the header/objects/classes parse, then the same mesh-family discrimination folds the entity list onto the soup. The DWG path has no section-scoped entity read (`DwgReader` partial reads are header/preview/summary only), so DWG always takes the full `Read()`.
 
 [BOUNDARY_AND_NOTIFICATION]:
-- The reader is configured at the boundary: `CadReaderConfiguration.Failsafe` (default true) keeps recoverable section/entity errors as `OnNotification` events rather than throws; `KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` (default false) drop proxy/unknown objects the soup never reads; `DwgReaderConfiguration.ReadSummaryInfo` is set false when only geometry is needed; `DxfReaderConfiguration.ClearCache`/`CreateDefaults` tune DXF section reuse. The `BimIo.Boundary` subscribes `ICadReader.OnNotification` and folds the `NotificationEventArgs` stream — `NotificationType` severity (`Warning`/`Error`/`NotSupported`/`NotImplemented`), `Message`, and the optional carried `Exception` (the recovered defect's detail under `Failsafe`) — into its degradation log without aborting the read; the `OnProgress` (`ProgressEventArgs`) stream is optional read-progress, not folded.
+- The reader is configured at the boundary: `CadReaderConfiguration.Failsafe` (default true) keeps recoverable section/entity errors as `OnNotification` events rather than throws; `KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` (default false) drop proxy/unknown objects the soup never reads; `DwgReaderConfiguration.ReadSummaryInfo` is set false when only geometry is needed; `DxfReaderConfiguration.ClearCache`/`CreateDefaults` tune DXF section reuse. The `BimIo.Boundary` subscribes `ICadReader.OnNotification` and folds the `NotificationEventArgs` stream — `NotificationType` severity (`Warning`/`Error`/`NotSupported`/`NotImplemented`), `Message`, and the optional carried `Exception` (the recovered defect's detail under `Failsafe`) — into its degradation log without aborting the read; the `OnProgress` (`ProgressEventArgs` — `Stage` `ReadStage`, `Current` `CadObjectData`, no fraction) stream rides the instance readers only (`new DxfReader(Stream)`/`new DwgReader(Stream)`, never the static `Read` facades) and fires the `Model/observability#HOOK_RAIL` `rasm.bim.exchange.progress` observe point when a composition mounts `BimHooks`.
 - The `DxfReader.Read`/`DwgReader.Read` facade (and `CadReaderFactory.CreateReader().Read()`) THROWS on a malformed/unreadable file (`CadNotSupportedException`, DXF/DWG parse exceptions) — the Bim arm wraps the call in the `BimIo.Boundary` funnel and lowers the caught exception to `BimFault.ModelRejected` ONCE at admission (the reader exception never escapes the boundary); under `Failsafe` a non-fatal defect arrives as an `OnNotification` event, not a throw.
 
 [RAIL_LAW]:

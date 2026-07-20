@@ -39,6 +39,7 @@ import {
 import {
   Array, Config, Context, Data, DateTime, Duration, Effect, HashMap, Layer, Metric, Option, Predicate, Redacted, Ref, Schedule, Schema,
 } from "effect"
+import { SecurityFact, Witness } from "../access/audit.ts"
 
 const _reasons = [
   "digest", "mac", "rng", "seal", "open", "wrap", "throttled",
@@ -106,10 +107,10 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 - Owner: `Material` — the assembled key-material owner: `admit` folds one core `Credential` landing into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing credential and a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the URI form is the stable `cnf.jkt` subject for a key-bound principal. Its `Credential` landing arrives sealed from the core interchange decode — `material` is `Redacted` from the wire, `fingerprint` is the only audit identity — and this owner is its terminus: the handle never crosses back to a wire and never reaches a log.
 - Law: admission is one polymorphic fold — the PEM header sniffs the jose importer (`importPKCS8` private, `importSPKI`/`importX509` public), a JSON body decodes exactly once through the `_Jwk` `Schema.parseJson` owner and routes `importJWK`, the private discriminant is the decoded `d` field — never a re-parse — the private side lands `Signing` and the public side `Verify`, and there is no `admitSigning`/`admitVerify` twin; a symmetric `importJWK` result is `unsupported`.
 - Law: the validity window is enforced at admission — an instant outside `[notBefore, notAfter]` is `SignFault.window`; rotation is re-admission of a fresh `Credential`, and `Credential.rotated` is the sealed compare the custodian already carries.
-- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.instrument.securityJwksQuarantined` counter and a warning log, so one rotated-in bad key never collapses the verify set; an empty surviving set is the only `material` failure, and the synthetic verify carrier's horizon is the caller's policy `Duration`, never a buried literal.
+- Law: `ring` accumulates — `Effect.partition` admits every satisfying published key and quarantines each malformed entry onto the `Convention.instrument.securityJwksQuarantined` counter, a warning log, and an `Admission` fact through `Witness`, so one rotated-in bad key never collapses the verify set and the quarantine is receipt-truth; an empty surviving set is the only `material` failure, and the synthetic verify carrier's horizon is the caller's policy `Duration`, never a buried literal.
 - Growth: a new signature scheme is one `KeyAlg` row; a new material source (KMS, HSM) produces the same `Credential` value and terminates through the same `admit`; a detached-signature or co-signed-document surface is a `GeneralSign` row over the same handles.
 - Boundary: `crypt/secret` constructs `Credential` values from fetched material; the core interchange codec decodes the C#-minted `CredentialPemWire` into the same class; `Jwt` is the only consumer that unwraps `Signing`, and the external-verify page consumes `Verify` handles only through `jwks`.
-- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`/`calculateJwkThumbprintUri`); `@rasm/ts/core` (`Convention`, `Credential`).
+- Packages: `jose` (`importPKCS8`/`importSPKI`/`importX509`/`importJWK`, `exportJWK`, `generateKeyPair`, `calculateJwkThumbprint`/`calculateJwkThumbprintUri`); `@rasm/ts/core` (`Convention`, `Credential`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 type KeyHandle = Data.TaggedEnum<{
@@ -227,7 +228,10 @@ const Material = {
           ))
         }))
       yield* Effect.forEach(excluded, (fault) =>
-        Effect.zipRight(Metric.increment(_quarantined), Effect.logWarning("jwks entry quarantined", fault)), { discard: true })
+        Effect.zipRight(
+          Effect.zipRight(Metric.increment(_quarantined), Effect.logWarning("jwks entry quarantined", fault)),
+          Witness.publish(SecurityFact.Admission({ kid: Option.none(), detail: fault.detail })),
+        ), { discard: true })
       return yield* Array.isNonEmptyReadonlyArray(verify)
         ? Effect.succeed<Ring>({ active, verify })
         : Effect.fail(new SignFault({ reason: "material", detail: "empty verify set" }))
@@ -364,10 +368,10 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
 [SHREDDER]:
 - Owner: `Shredder` — the AES-GCM envelope and AES-KW key-wrap primitive the data wave's journal imports for per-subject crypto-shredding: `mint` issues a per-subject data key, `seal`/`open` run the envelope under a 96-bit IV drawn from the `Crypto` entropy port, `wrap`/`unwrap` carry the data key under the master KEK, and erasure is the store dropping the `WrappedKey` — `unwrap` then fails, `open` becomes impossible, and the ciphertext journal is never rewritten.
 - Law: the master KEK derives — `Crypto.derive("kek", passphrase, salt)` folds the `Config.redacted` passphrase and a pinned salt into 32 raw bytes imported once as a non-extractable AES-KW key — so KEK custody is one argon2id derivation under the whole-budget bulkhead permit, the passphrase never touches WebCrypto raw, and a KMS provider is a construction-row swap with the seal/open/wrap surface unchanged.
-- Law: the data key never leaves the layer except as a `WrappedKey`; `SealedEnvelope` carries IV and ciphertext as opaque base64 bytes; an `open` failure is `SignFault.open` — tamper or shredded-key evidence, class `breached` — and increments the `Convention.instrument.securityShredReject` counter before it surfaces; the S0 floor mints its own Convention row because the folder reject stream composes one stratum above.
+- Law: the data key never leaves the layer except as a `WrappedKey`; `SealedEnvelope` carries IV and ciphertext as opaque base64 bytes; an `open` failure is `SignFault.open` — tamper or shredded-key evidence, class `breached` — and increments the `Convention.instrument.securityShredReject` counter and publishes the `ShredOpen` fact through `Witness` before it surfaces; the crypto floor mints its own Convention row because the folder reject stream composes one stratum above, while the fact floor sits below it.
 - Growth: a second envelope suite (XChaCha via a future WebCrypto row) is one algorithm row on the same four-verb surface.
 - Boundary: which wrapped key belongs to which subject, and its destruction, is the data wave's journal; this owner holds only the envelope algebra. `@effect/experimental`'s `EventLogEncryption.layerSubtle` zero-knowledge lane consumes this page's key material at the app root — security is the key provider, never the sync engine.
-- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`); `@rasm/ts/core` (`Convention`).
+- Packages: WebCrypto `SubtleCrypto` (`generateKey`/`encrypt`/`decrypt`/`wrapKey`/`unwrapKey`/`importKey`); `Crypto` (`derive`, `plugin.randomBytes`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 class SealedEnvelope extends Schema.Class<SealedEnvelope>("SealedEnvelope")({
@@ -423,7 +427,7 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
         try: () => crypto.subtle.decrypt({ name: "AES-GCM", iv: envelope.iv }, Redacted.value(dataKey), envelope.ciphertext),
         catch: (cause) => new SignFault({ reason: "open", detail: String(cause) }),
       }).pipe(
-        Effect.tapError(() => Metric.increment(_openReject)),
+        Effect.tapError((fault) => Effect.zipRight(Metric.increment(_openReject), Witness.publish(SecurityFact.ShredOpen({ detail: fault.detail })))),
         Effect.map((buf) => new Uint8Array(buf)),
       )
     return { mint, wrap, unwrap, seal, open } as const

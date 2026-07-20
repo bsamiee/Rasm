@@ -81,7 +81,7 @@ config:
 ---
 flowchart LR
     accTitle: Geometry Python sibling seams
-    accDescr: Geometry sub-domain owners exchanging graduation receipts, tessellation registry rows, mesh payloads, point records, a recipe port, and result frames with the Python compute, runtime, data, and artifacts siblings, one labeled edge per contract family.
+    accDescr: Geometry sub-domain owners exchanging graduation receipts, tessellation registry rows, mesh payloads, point records, a recipe port, benchmark receipts, HOSTILE kernel crossings, and result frames with the Python compute, runtime, data, and artifacts siblings, one labeled edge per contract family.
     subgraph geometry[GEOMETRY]
         Graduation[Graduation spine]
         Mesh[Mesh tessellation]
@@ -93,6 +93,7 @@ flowchart LR
     Data{{python:data}}
     Artifacts{{python:artifacts}}
     Graduation e1@-->|"[GRADUATION]: GeometryHandoff"| Compute
+    Graduation e10@-->|"[SHAPE]: EvidenceFrame"| Data
     Mesh e2@<-->|"[WIRE]: TessellationRequest"| Runtime
     Mesh e3@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
     Data e4@-->|"[SHAPE]: MeshPayload"| Mesh
@@ -101,9 +102,12 @@ flowchart LR
     Data e7@-->|"[SHAPE]: PointRecordTable"| Scan
     Energy e8@-->|"[PORT]: RecipeInterface"| Runtime
     Energy e9@-->|"[SHAPE]: ResultFrame"| Data
+    Graduation e11@-->|"[RECEIPT]: BenchmarkReceipt"| Runtime
+    Mesh e12@-->|"[PORT]: Kernel"| Runtime
+    Scan e13@-->|"[PORT]: Kernel"| Runtime
 ```
 
-Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, and the per-contract wiring lives on the owning implementation pages. `GlbContentHash` spells from its Rasm.Element owner; geometry interior pages spell only the `ContentKey` mint beneath it. Scene facts cross one-way as glb bytes the artifacts `SceneGrid.of_glb` admits, and geometry receives nothing back on that boundary.
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, and the per-contract wiring lives on the owning implementation pages. The `BenchmarkReceipt` rail collapses the whole bench observability contract — the `Bench.run` measurement tier, the `Signals`-harvested receipt row, and the `bench_terminal` `JobRun.bounded` process-terminal envelope; the `Kernel` rail collapses the HOSTILE process-offload contract every compiled mesh and scan kernel crosses through `LanePolicy.offload`. `GlbContentHash` spells from its Rasm.Element owner; geometry interior pages spell only the `ContentKey` mint beneath it. Scene facts cross one-way as glb bytes the artifacts `SceneGrid.of_glb` admits, and geometry receives nothing back on that boundary.
 
 ## [03]-[INTERNAL]
 

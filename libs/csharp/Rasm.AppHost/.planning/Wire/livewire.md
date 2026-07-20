@@ -113,14 +113,14 @@ public static class TransportRows {
 
 ## [03]-[TRANSPORT_BINDING]
 
-- Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication` — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
+- Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `BacnetLane` the `BacnetClient` COV-subscription owner whose notification callback feeds the same bounded lane with `ReadPropertyRequest` the poll fallback; `MtconnectLane` the read-only `-Common` model-slice decode over the row's HTTP hop with the `MTConnectClientInformation` durable cursor; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication`, `Bacnet` the `BacnetClient`, `Mtconnect` the cursor — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime`/`BacnetRuntime`/`MtconnectRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
 - Cases: read dispatch is the ten-arm `Transport.Switch` — OPC-UA, MQTT, and OPC-UA-PubSub drain their lane's `ReadAllAsync` head, Modbus reads its register window through `ModbusClient.ReadHoldingRegistersAsync<short>`, serial reads its line frame through `SerialPort.ReadLine`/`ReadExisting`, BACnet drains its COV lane (with `ReadPropertyRequest` the poll fallback), MTConnect parses the `/sample` document through `ResponseDocumentFormatter` into the `Observation` stream over the row's HTTP hop, REST/GraphQL/spreadsheet/ERP-PLM read once through `OutboundHop.HttpApi`; write dispatch is the same ten-arm `Switch` — OPC-UA writes one `WriteValue`, MQTT publishes one `MqttApplicationMessage`, Modbus writes through `WriteMultipleRegistersAsync`, serial writes one `WriteLine`, the HTTP transports ride a `PutAsync` body, BACnet writes one confirmed `WritePropertyRequest`, the non-writable spreadsheet and MTConnect rows reject at the row.
 - Entry: `Subscribe(LiveWireRuntime runtime, TransportRow row, BindingSpec spec)` returns `IO<SubscriptionLane>` opening the held client and attaching the foreign callback (OPC-UA monitored-item, MQTT message-pump, `PubSubLane.Subscribe` dataset fan, `SerialLane.Attach` `DataReceived`); `Read` drains one value from the lane (subscribe rows) or runs one poll body over the row's hop (poll rows); `Write` renders the at-edge value and writes it through the row's protocol or hop.
 - Auto: the OPC-UA leg composes the high-level managed `Opc.Ua.Client` API — `Session.CreateAsync(configuration, reverseConnectManager, endpoint, updateBeforeConnect, checkDomain, sessionName, sessionTimeout, userIdentity, preferredLocales, ct)` mints the session over the configuration-loaded endpoint, a `Subscription(telemetry)` carries `PublishingInterval`, `KeepAliveCount`, and `LifetimeCount` as policy ints read off the row, `subscription.AddItem(new MonitoredItem(telemetry){ StartNodeId, AttributeId, MonitoringMode, SamplingInterval })` and `subscription.CreateAsync(ct)` arm the monitored node, and the `monitoredItem.Notification` event hands each `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `Value` is one `DataValue` — the callback projects `DataValue.Value`/`StatusCode`/`SourceTimestamp` into `ExternalValue` and `TryWrite`s it into the bounded lane, never running the interior on the foreign thread; the OPC-UA read-back and write-back ride `Session.ReadAsync(requestHeader, maxAge, TimestampsToReturn.Both, nodesToRead, ct)` and `Session.WriteAsync(requestHeader, nodesToWrite, ct)` inherited from `SessionClient`, building `ReadValueIdCollection`/`WriteValueCollection` from the binding's node id; the MQTT leg composes `MqttClientFactory.CreateMqttClient()` returning `IMqttClient` (v5 keeps the interface), `ConnectAsync(options, ct)` over a `MqttClientOptionsBuilder` carrying connection uri, client id, keep-alive, clean-start, session-expiry, and last-will as policy data, `SubscribeAsync(options, ct)` over one `WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)`, and the `ApplicationMessageReceivedAsync` handler decodes `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` (`ReadOnlySequence<byte>`) at the boundary and `TryWrite`s into the same bounded lane, with the inbound write-back as one `PublishAsync` over a `MqttApplicationMessageBuilder` carrying topic, payload, qos, and retain; QoS, retain, last-will, and session-expiry are policy columns on `TransportRow`, never new cases or transports; the Modbus leg composes the `FluentModbus` `ModbusClient` base surface (the TCP/RTU clients inherit the function-code operations) — `ReadHoldingRegistersAsync<short>(unitId, startAddress, count, ct)` (or `ReadInputRegistersAsync<short>` when the window is non-holding) reinterprets the register window as a `Task<Memory<short>>` the `Decode` fold collapses into one `double` under the row's `ModbusEndianness`, and `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)` writes one register block; the `ModbusWindow` (`unitId`/`startAddress`/`count`/`endianness`/`holding`) is `PollPolicy.Register` binding-spec policy data, never a per-read flag; the serial leg composes `System.IO.Ports.SerialPort` — `ReadLine`/`ReadExisting` for a line-framed protocol and `WriteLine` for the inbound write, the `SerialFraming` (`baudRate`/`parity`/`dataBits`/`stopBits`/`handshake`/`newLine`/`lineFramed`) carried as `PollPolicy.Line` binding-spec policy; the serial subscribe variant `SerialLane.Attach` opens the port, wires the `DataReceived` event (firing on a `ThreadPool` thread) to `TryWrite` one parsed `ExternalValue` into the bounded lane at the boundary and `ErrorReceived` to a not-good value, so a streaming serial line rides the SAME bounded lane the OPC-UA/MQTT subscriptions ride; the REST/GraphQL/spreadsheet/ERP-PLM legs compose the held `HttpClient` over `OutboundHop.HttpApi` — a `PollPolicy.Http` carries the resource path and the optional GraphQL query, REST a `GetAsync`, GraphQL a `PostAsync` of the query body, spreadsheet a read-only range fetch, each projecting the response body into one `ExternalValue`; the OPC-UA PubSub leg composes `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop` whose `DataReceived` `SubscribedDataEventArgs` dataset fan projects each `DataSet.Fields` field into one `ExternalValue` and `TryWrite`s into the SAME bounded lane the per-node OPC-UA subscription drains into — one PubSub application per process, the high-throughput fan-in path the per-item subscription cannot scale to, a `WireProtocol` row variant (mqtt-json/mqtt-uadp/udp-uadp) on the OPC-UA transport, never a parallel transport; the BACnet leg composes `BacnetClient` over `BacnetIpUdpProtocolTransport` — `Start()` opens the UDP line, `WhoIs` discovers devices, `SubscribeCOVRequest` arms the metered points and `OnCOVNotification` (firing on a transport thread) projects each `BacnetValue` into one `ExternalValue` and `TryWrite`s into the SAME bounded lane every subscribe transport rides, with `ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)` the poll fallback and the confirmed write the write arm — the point map (object id / property id / COV lifetime / unit) is binding-spec DATA; the MTConnect leg composes the `-Common` MODEL slice ONLY (no bundled HTTP/MQTT client — transport is firewalled to the row's `OutboundHop.HttpApi`): `ResponseDocumentFormatter` parses the `/sample` body into a `StreamsResponseDocument` whose traversal projects each `Observation` into one `ExternalValue`, and `MTConnectClientInformation` is the durable poll cursor (`InstanceId` + `LastSequence`, `Save` after each drain, an `InstanceId` change forcing re-`current`) mirroring the outbox watermark discipline.
 - Receipt: the OPC-UA `DataValue`, the MQTT decoded payload, the Modbus register window, the serial line frame, the HTTP response body, and the PubSub dataset field each mint one `ExternalValue` carrying raw value, declared unit, the source quality flag, and the source timestamp; the lane drain at `BINDING_SPEC` coerces the unit before the value enters the suite.
 - Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet, FluentModbus, System.IO.Ports, BACnet, MTConnect.NET-Common, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL `System.Net.Http`/`System.Text.Json`
 - Growth: a new subscribe transport is one `Subscribe`/`Attach` arm feeding the one lane shape; a new poll transport is one `Read`/`Write` arm over its hop; a new PubSub message mapping is one `WireProtocol` row; one bounded lane shape serves every subscribe transport; zero new surface.
-- Boundary: this cluster is the only protocol-client owner — a per-protocol binding service and a parallel poller are the deleted forms; the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `TryWrite`s into the bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` (boundaries.md SUBSCRIPTION_VALUE/HANDOFF_DRAIN), so producer back-pressure is the lane's declared drop policy and the reactive consumer drains at its own pace; the held session, client, port, Modbus connection, and PubSub application live in one `Atom<Gate>` token-gated state cell per binding carrying a `LiveClient.Opc`/`Mqtt`/`Serial`/`Modbus`/`PubSub` (boundaries.md TOKEN_LIFECYCLE) so a reconnect replaces the whole cell and a stale teardown that lost its token never disposes a fresh handle; the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and a poll transport's retry rides the `CompanionSpawn`/`HttpApi` hop, the one-retry-owner law the transport axis declares — never a FluentModbus or `SerialPort` reconnect loop; a `ModbusException`/`SerialError`/`ModbusFrameError` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior; the register-window decode reads the `ModbusEndianness` off the window, never a guessed byte order; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the row carries the publishing interval as the int `PublishingInterval` the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial/Modbus/HTTP read instant, and the PubSub `Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock.
+- Boundary: this cluster is the only protocol-client owner — a per-protocol binding service and a parallel poller are the deleted forms; the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `TryWrite`s into the bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` (boundaries.md SUBSCRIPTION_VALUE/HANDOFF_DRAIN), so producer back-pressure is the lane's declared drop policy and the reactive consumer drains at its own pace; the held session, client, port, Modbus connection, and PubSub application live in one `Atom<Gate>` token-gated state cell per binding carrying a `LiveClient.Opc`/`Mqtt`/`Serial`/`Modbus`/`PubSub` (boundaries.md TOKEN_LIFECYCLE) so a reconnect replaces the whole cell and a stale teardown that lost its token never disposes a fresh handle; the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and a poll transport's retry rides the `CompanionSpawn`/`HttpApi` hop, the one-retry-owner law the transport axis declares — never a FluentModbus or `SerialPort` reconnect loop; a `ModbusException`/`SerialError`/`ModbusFrameError` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior; the register-window decode reads the `ModbusEndianness` off the window, never a guessed byte order; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the row carries the publishing interval as the int `PublishingInterval` the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial/Modbus/HTTP read instant, and the PubSub `Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `MqttLane.Write` threads `TraceContext.Inject` over the message builder before `Build()` and the receive pump continues the propagated context through the `MqttRuntime.Properties` getter, consumer-kinded, so broker-hop trace continuity is the adapter's, never a hand-rolled header write; the BACnet point map (`BacnetObjectId`/`BacnetPropertyIds`/COV lifetime) is `PollPolicy.Point` binding-spec DATA and the COV/write request bindings are `BacnetRuntime` composition slots, so protocol-signature drift lands at one composition seat; the MTConnect cursor is durable poll state — `MTConnectClientInformation.Read(string deviceKey, string path = null)` restores it, `Save(string path = null)` commits it after each drain, and an `InstanceId` change forces a full re-current, the outbox watermark discipline at the machine edge.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -176,6 +176,9 @@ public sealed record MqttRuntime(
     MqttQualityOfServiceLevel Qos,
     bool Retain,
     Func<string, IMqttClient> Client,
+    // Receive-side v5 user-property getter the TraceContext carrier adapter reads; the concrete
+    // collection-member binding pins at composition per the terminal RESEARCH row.
+    Func<MqttApplicationMessage, string, IEnumerable<string>> Properties,
     Func<string, Channel<ExternalValue>> Lane);
 
 public sealed record ModbusRuntime(
@@ -193,6 +196,27 @@ public sealed record PubSubRuntime(
     Func<string, UaPubSubApplication> Held,
     Func<string, Channel<ExternalValue>> Lane);
 
+public sealed record BacnetPoint(
+    BacnetObjectId Object,
+    BacnetPropertyIds Property,
+    uint CovLifetime);
+
+public sealed record BacnetRuntime(
+    Func<string, BacnetClient> Held,
+    Func<string, BacnetAddress> Address,
+    // COV arm and confirmed-write bindings pin at composition; exact request/callback signatures
+    // ride the terminal RESEARCH row.
+    Action<BacnetClient, BacnetAddress, BacnetPoint, ChannelWriter<ExternalValue>> Cov,
+    Func<BacnetClient, BacnetAddress, BacnetPoint, double, bool> Write,
+    Func<string, Channel<ExternalValue>> Lane);
+
+public sealed record MtconnectRuntime(
+    Func<string, MTConnectClientInformation> Cursor,
+    // ResponseDocumentFormatter parse + StreamsResponseDocument/DeviceStream/ComponentStream
+    // Observation traversal pinned at composition; exact member spellings ride the RESEARCH row.
+    Func<string, string, Seq<ExternalValue>> Decode,
+    Action<string> Advance);
+
 public static class TransportRows {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, CancellationToken token) =>
         row.Transport.Switch(
@@ -200,6 +224,8 @@ public static class TransportRows {
             mqtt: static (s, _) => MqttLane.Read(s.Runtime, s.Spec, s.Token),
             modbus: static (s, _) => ModbusLane.Read(s.Runtime, s.Row, s.Spec, s.Token),
             serial: static (s, _) => SerialLane.Read(s.Runtime, s.Row, s.Spec, s.Token),
+            bacnet: static (s, _) => BacnetLane.Read(s.Runtime, s.Spec, s.Token),
+            mtconnect: static (s, _) => MtconnectLane.Read(s.Runtime, s.Row, s.Spec, s.Token),
             rest: static (s, _) => HttpPoll.Read(s.Runtime, s.Row, s.Spec, s.Token),
             graphQl: static (s, _) => HttpPoll.Read(s.Runtime, s.Row, s.Spec, s.Token),
             spreadsheet: static (s, _) => HttpPoll.Read(s.Runtime, s.Row, s.Spec, s.Token),
@@ -214,6 +240,8 @@ public static class TransportRows {
                 mqtt: static (s, _) => MqttLane.Write(s.Runtime, s.Spec, s.Value, s.Token),
                 modbus: static (s, _) => ModbusLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
                 serial: static (s, _) => SerialLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
+                bacnet: static (s, _) => BacnetLane.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
+                mtconnect: static (s, _) => IO.fail<HopReceipt>(new WireFault.WriteRejected(s.Spec.ExternalAddress)),
                 rest: static (s, _) => HttpPoll.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
                 graphQl: static (s, _) => HttpPoll.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
                 spreadsheet: static (s, _) => HttpPoll.Write(s.Runtime, s.Row, s.Spec, s.Value, s.Token),
@@ -441,7 +469,7 @@ public static class MqttLane {
             .WithCleanStart(runtime.Mqtt.CleanStart)
             .WithSessionExpiryInterval(runtime.Mqtt.SessionExpiry)
             .Build()
-        from _ in IO.lift(() => Attach(client, spec, lane.Writer))
+        from _ in IO.lift(() => Attach(client, spec, lane.Writer, runtime))
         from __ in IO.liftAsync(() => client.ConnectAsync(options, runtime.Spine.Token))
         from ___ in IO.liftAsync(() => client.SubscribeAsync(
             runtime.Mqtt.Factory.CreateSubscribeOptionsBuilder()
@@ -453,22 +481,27 @@ public static class MqttLane {
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
         SubscriptionLane.Drain(runtime.Mqtt.Lane(spec.BindingId), token);
 
+    // Publish edge: TraceContext.Inject threads traceparent/tracestate and baggage as v5 user
+    // properties before Build(), so a broker hop continues the W3C trace the gRPC legs carry.
     public static IO<HopReceipt> Write(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value, CancellationToken token) =>
         OutboundSurface.Run(runtime.Outbound, spec.Transport.Row.Hop, async ct =>
             await runtime.Mqtt.Client(spec.BindingId).PublishAsync(
-                runtime.Mqtt.Factory.CreateApplicationMessageBuilder()
-                    .WithTopic(spec.ExternalAddress)
-                    .WithPayload(value.Raw.ToString(CultureInfo.InvariantCulture))
-                    .WithQualityOfServiceLevel(runtime.Mqtt.Qos)
-                    .WithRetainFlag(runtime.Mqtt.Retain)
+                TraceContext.Inject(runtime.Mqtt.Factory.CreateApplicationMessageBuilder()
+                        .WithTopic(spec.ExternalAddress)
+                        .WithPayload(value.Raw.ToString(CultureInfo.InvariantCulture))
+                        .WithQualityOfServiceLevel(runtime.Mqtt.Qos)
+                        .WithRetainFlag(runtime.Mqtt.Retain))
                     .Build(),
                 ct) is { IsSuccess: true }
                     ? new HopOutcome.Delivered()
                     : new HopOutcome.Faulted(new WireFault.WriteRejected(spec.ExternalAddress)));
 
-    static Unit Attach(IMqttClient client, BindingSpec spec, ChannelWriter<ExternalValue> sink) {
+    // Receive edge: the message-pump callback continues the propagated trace through the
+    // MqttRuntime.Properties getter before the value enters the lane, consumer-kinded.
+    static Unit Attach(IMqttClient client, BindingSpec spec, ChannelWriter<ExternalValue> sink, LiveWireRuntime runtime) {
         client.ApplicationMessageReceivedAsync += args => {
             args.AutoAcknowledge = true;
+            using var span = TraceContext.Continue(args.ApplicationMessage, runtime.Mqtt.Properties, $"mqtt-receive:{spec.BindingId}", ActivityKind.Consumer);
             ignore(sink.TryWrite(new ExternalValue(
                 Raw: double.Parse(Encoding.UTF8.GetString(args.ApplicationMessage.Payload), CultureInfo.InvariantCulture),
                 Unit: spec.Family.Canonical.ToString(),
@@ -506,6 +539,64 @@ public static class PubSubLane {
         return unit;
     }
 }
+
+public static class BacnetLane {
+    public static IO<SubscriptionLane> Subscribe(LiveWireRuntime runtime, TransportRow row, BindingSpec spec) =>
+        spec.Poll is PollPolicy.Point { Map: var point }
+            ? from client in IO.lift(() => runtime.Bacnet.Held(spec.BindingId))
+              let lane = SubscriptionLane.Open()
+              from _ in IO.lift(() => { runtime.Bacnet.Cov(client, runtime.Bacnet.Address(spec.ExternalAddress), point, lane.Writer); return unit; })
+              from __ in IO.lift(() => { client.Start(); client.WhoIs(); return unit; })
+              select new SubscriptionLane(lane, () => client.Dispose(), Atom<Gate>(new Gate.Live(Guid.NewGuid(), new LiveClient.Bacnet(client))))
+            : IO.fail<SubscriptionLane>(new WireFault.ConnectRejected($"bacnet-point-missing:{spec.BindingId}"));
+
+    public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
+        SubscriptionLane.Drain(runtime.Bacnet.Lane(spec.BindingId), token);
+
+    // ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)
+    // is the poll fallback when a COV lane runs dry past the staleness window.
+    public static IO<ExternalValue> Fallback(LiveWireRuntime runtime, BindingSpec spec) =>
+        spec.Poll is PollPolicy.Point { Map: var point }
+            ? IO.lift(() => runtime.Bacnet.Held(spec.BindingId).ReadPropertyRequest(
+                    runtime.Bacnet.Address(spec.ExternalAddress), point.Object, point.Property, out IList<BacnetValue> values, 0)
+                && values is [{ } head, ..]
+                    ? new ExternalValue(Convert.ToDouble(head.Value, CultureInfo.InvariantCulture), spec.Family.Canonical.ToString(), Good: true, runtime.Clocks.Now)
+                    : new ExternalValue(0d, spec.Family.Canonical.ToString(), Good: false, runtime.Clocks.Now))
+            : IO.fail<ExternalValue>(new WireFault.ReadFailed($"bacnet-point-missing:{spec.BindingId}"));
+
+    public static IO<HopReceipt> Write(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue value, CancellationToken token) =>
+        spec.Poll is PollPolicy.Point { Map: var point }
+            ? OutboundSurface.Run(runtime.Outbound, row.Hop, _ => Task.FromResult<HopOutcome>(
+                  runtime.Bacnet.Write(runtime.Bacnet.Held(spec.BindingId), runtime.Bacnet.Address(spec.ExternalAddress), point, value.Raw)
+                      ? new HopOutcome.Delivered()
+                      : new HopOutcome.Faulted(new WireFault.WriteRejected(spec.ExternalAddress))))
+            : IO.fail<HopReceipt>(new WireFault.WriteRejected($"bacnet-point-missing:{spec.BindingId}"));
+}
+
+public static class MtconnectLane {
+    public static IO<ExternalValue> Read(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, CancellationToken token) =>
+        OutboundSurface.Run(runtime.Outbound, row.Hop, async ct => {
+            using var response = await runtime.Http(spec.BindingId)
+                .GetAsync($"{spec.ExternalAddress}/sample?from={runtime.Mtconnect.Cursor(spec.BindingId).LastSequence + 1}", ct)
+                .ConfigureAwait(false);
+            return response.IsSuccessStatusCode
+                ? new HopOutcome.Delivered()
+                : new HopOutcome.Faulted(Error.New(new WireFault.ReadFailed($"mtconnect:{(int)response.StatusCode}")));
+        }).Bind(receipt => receipt.Outcome is HopOutcome.Delivered
+            ? Drain(runtime, spec, token)
+            : IO.fail<ExternalValue>(new WireFault.ReadFailed($"mtconnect:{spec.BindingId}")));
+
+    // Decode parses the fetched /sample body through the -Common model slice and projects each
+    // Observation into one ExternalValue; Advance commits the durable cursor (LastSequence save,
+    // InstanceId change forcing re-current) mirroring the outbox watermark discipline.
+    static IO<ExternalValue> Drain(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
+        IO.liftAsync(async () => await runtime.LastBody(spec.BindingId, token).ConfigureAwait(false))
+            .Map(body => runtime.Mtconnect.Decode(spec.BindingId, body))
+            .Bind(observations => observations.Last.Match(
+                Some: static value => IO.pure(value),
+                None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"mtconnect-empty:{spec.BindingId}"))))
+            .Map(value => (fun(() => runtime.Mtconnect.Advance(spec.BindingId))(), value).Item2);
+}
 ```
 
 ```mermaid
@@ -514,8 +605,10 @@ flowchart LR
     Mqtt[MQTT IMqttClient ApplicationMessageReceivedAsync] -->|message-pump thread| Lane
     PubSub[OPC-UA PubSub UaPubSubApplication DataReceived] -->|interval-runner thread| Lane
     Serial[SerialPort DataReceived] -->|ThreadPool thread| Lane
+    Bacnet[BacnetClient OnCOVNotification] -->|transport thread| Lane
     Lane -->|ReadAllAsync drain| Coerce[BINDING_SPEC unit coercion]
     Modbus[FluentModbus ReadHoldingRegistersAsync] -->|CompanionSpawn hop| Coerce
+    Mtconnect[MTConnect /sample decode + cursor] -->|HttpApi hop| Coerce
     Http[REST/GraphQL/spreadsheet/ERP-PLM HttpClient] -->|HttpApi hop| Coerce
 ```
 
@@ -528,7 +621,7 @@ flowchart LR
 - Receipt: `CoercedValue` carries the canonical value, the canonical unit, the unit evidence, and the source timestamp; each inbound push mints one binding receipt fanned through the sink.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one binding is one `BindingSpec` row; a new direction is impossible — the flags are closed; a new coercion rule rides the Compute unit algebra, never a binding-page coercion; zero new surface.
-- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are the deleted forms; unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite, so the suite's interior never sees an unconverted external unit, deleting every interior unit guess; the binding reads the Compute `QuantityFamily.Admit` overload that takes a value and a unit string, so the coercion is the suite's single unit-conversion truth and the binding never re-implements unit math; a bidirectional binding's feedback-loop guard is the source-timestamp staleness check — an outbound write the binding itself caused does not re-trigger an inbound read because the write-back records its own timestamp; the internal target is a `CapabilityDescriptor` so the inbound push is brokered, metered, and audited exactly as any command, and a binding gains no privileged write path.
+- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are the deleted forms; unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite, so the suite's interior never sees an unconverted external unit, deleting every interior unit guess; the binding admits through the Compute `QuantityFamily.Admit(QuantityInput, UnitPolicy, CorrelationId)` primary with the `QuantityInput.Abbreviated(value.Raw, value.Unit)` case and renders the write leg through `Render(double, UnitPolicy)` returning `Fin<string>`, so the coercion is the suite's single unit-conversion truth and the binding never re-implements unit math; a bidirectional binding's feedback-loop guard is the source-timestamp staleness check — an outbound write the binding itself caused does not re-trigger an inbound read because the write-back records its own timestamp; the internal target is a `CapabilityDescriptor` so the inbound push is brokered, metered, and audited exactly as any command, and a binding gains no privileged write path.
 
 ```csharp signature
 [Flags]
@@ -561,6 +654,7 @@ public abstract partial record PollPolicy {
     public sealed record Register(ModbusWindow Window) : PollPolicy;
     public sealed record Line(SerialFraming Framing) : PollPolicy;
     public sealed record Http(string ResourcePath, Option<string> GraphQlQuery) : PollPolicy;
+    public sealed record Point(BacnetPoint Map) : PollPolicy;
 }
 
 public sealed record BindingSpec(
@@ -598,6 +692,8 @@ public sealed record LiveWireRuntime(
     ModbusRuntime Modbus,
     SerialRuntime Serial,
     PubSubRuntime PubSub,
+    BacnetRuntime Bacnet,
+    MtconnectRuntime Mtconnect,
     Func<string, HttpClient> Http,
     Func<string, CancellationToken, Task<string>> LastBody,
     OutboundRuntime Outbound,
@@ -606,8 +702,8 @@ public sealed record LiveWireRuntime(
 public static class LiveWire {
     public static Fin<CoercedValue> Coerce(QuantityFamily family, ExternalValue value, UnitPolicy policy, CorrelationId correlation) =>
         value.Good
-            ? family.Admit(value.Raw, value.Unit, policy, correlation).Match(
-                Succ: evidence => Fin.Succ(new CoercedValue(evidence.Canonical, family.Canonical.ToString(), evidence, value.SourceAt)),
+            ? family.Admit(new QuantityInput.Abbreviated(value.Raw, value.Unit), policy, correlation).Match(
+                Succ: evidence => Fin.Succ(new CoercedValue(evidence.CanonicalValue, family.Canonical.ToString(), evidence, value.SourceAt)),
                 Fail: error => Fin.Fail<CoercedValue>(new WireFault.UnitRejected($"{value.Unit}->{family.Canonical}:{error.Message}")))
             : Fin.Fail<CoercedValue>(new WireFault.StaleSource($"{value.Unit}@{value.SourceAt}"));
 
@@ -669,7 +765,7 @@ public static class WriteBackSurface {
     public static IO<WriteReceipt> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
         spec.Transport.Row is var row && !row.Writable
             ? Mint(runtime, spec, canonicalValue, 0d, new WriteBack.Rejected(new WireFault.WriteRejected(spec.ExternalAddress)))
-            : from rendered in IO.lift(() => spec.Family.Render(canonicalValue, runtime.Units))
+            : from rendered in IO.lift(() => spec.Family.Render(canonicalValue, runtime.Units)).Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<string>))
               from prior in ReadPrior(runtime, spec, row)
               from value in IO.pure(new ExternalValue(double.Parse(rendered, runtime.Units.Culture), row.Transport.Key, Good: true, runtime.Clocks.Now))
               from receipt in TransportRows.Write(runtime, row, spec, value, runtime.Spine.Token)
@@ -867,6 +963,7 @@ interface WriteReceiptWire {
 
 ## [08]-[RESEARCH]
 
-- [TRANSPORT_CLIENTS]: the MQTT member surface at `TRANSPORT_BINDING` is settled fence code verified against the pinned `MQTTnet` 5.1.0.1559 catalogue `.api/api-mqtt.md` — `MqttClientFactory.CreateMqttClient()` returning `IMqttClient`, `CreateClientOptionsBuilder`/`CreateSubscribeOptionsBuilder`/`CreateApplicationMessageBuilder`, `ConnectAsync(MqttClientOptions, ct)`/`SubscribeAsync(MqttClientSubscribeOptions, ct)`/`PublishAsync(MqttApplicationMessage, ct)`/`ApplicationMessageReceivedAsync`, `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` a `ReadOnlySequence<byte>` decoded through the `System.Text.EncodingExtensions.GetString(this Encoding, in ReadOnlySequence<byte>)` overload, the `WithTopicFilter(string, MqttQualityOfServiceLevel, bool, bool, MqttRetainHandling)` subscribe filter, and `MqttClientPublishResult.IsSuccess` — all rows present in the catalogue. The high-level managed `Opc.Ua.Client` surface the OPC-UA leg composes (`Session.CreateAsync(ApplicationConfiguration, ReverseConnectManager, ConfiguredEndpoint, bool, bool, string, uint, IUserIdentity, IList<string>, CancellationToken)`, `bool Session.AddSubscription`, `Subscription(ITelemetryContext)` with `int PublishingInterval`/`uint KeepAliveCount`/`uint LifetimeCount`/`double CurrentPublishingInterval` plus `void AddItem` and `Subscription.CreateAsync`, `MonitoredItem(ITelemetryContext)` with `NodeId StartNodeId`/`uint AttributeId`/`MonitoringMode`/`int SamplingInterval`, the `event MonitoredItemNotificationEventHandler Notification` and `void DetachNotificationEventHandlers`, `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `DataValue Value` carries `object Value`/`StatusCode`/`DateTime SourceTimestamp`, the inherited `SessionClient.ReadAsync`/`WriteAsync` with `WriteResponse.Results` a `StatusCodeCollection`, and `NodeId.Parse(string)`/`new Variant(double)`/`new DataValue(Variant)`/`Attributes.Value`/`StatusCode.IsGood`) is settled fence code against the `OPCFoundation.NetStandard.Opc.Ua` 1.5.378.145 catalogue `.api/api-opcua.md`, which now carries the `Opc.Ua.Client` managed-client cluster (the `Session`/`Subscription`/`MonitoredItem` member tables, the address-space/value primitive scope, and the `[MANAGED_CLIENT_LAW]` rail) promoted by `TASKLOG#T-OPCUA-MANAGED-CLIENT-CATALOG`, so the `OpcUaLane` member spellings are catalogue-of-record (decompile correction: `CurrentPublishingInterval` is `double`). The `ModbusLane` body is settled fence code against `.api/api-modbus.md` — `ModbusClient.ReadHoldingRegistersAsync<short>(unitId, startAddress, count, ct)` returning `Task<Memory<short>>`, `ReadInputRegistersAsync<short>`, `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)`, the `ModbusEndianness` byte-order column the `Decode` fold reads, and the `ModbusException` boundary projection — the register-read/write surface declares on the `ModbusClient` BASE (rows [1]/[4]) and the TCP/RTU clients inherit it, so the bind references the base-typed surface; the synchronous reads return `Span<T>` and the async reads return `Task<Memory<T>>`, the arity the `[GENERIC_SPAN_ARITY]` `.api/api-modbus.md` residual confirms at the assay binder. The `SerialLane` body is settled fence code against `.api/api-serialport.md` — `new SerialPort(portName, baudRate, parity, dataBits, stopBits)`, `Open`/`Close`/`ReadLine`/`ReadExisting`/`WriteLine`, the `DataReceived`/`ErrorReceived` events, and the `BaudRate`/`Parity`/`DataBits`/`StopBits`/`Handshake`/`NewLine` line-policy properties carried as `PollPolicy.Line`. The `PubSubLane` body is settled fence code against `.api/api-opcua.md` — `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop`, the `DataReceived` `SubscribedDataEventArgs` dataset fan, and the `WireProtocol` (mqtt-json/mqtt-uadp/udp-uadp) profile column over `UaPubSubApplication.SupportedTransportProfiles`. The `FluentModbus` transitive `System.IO.Ports` declaration (5.0.0) is floated to the explicit `Directory.Packages.props` pin (10.0.9) — the explicit pin is retained, never aligned down to the transitive. The `BacnetLane` body is settled fence code against `.api/api-bacnet.md` — `BacnetClient` over `BacnetIpUdpProtocolTransport`, `Start()`, `WhoIs`, `ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)`, `SubscribeCOVRequest`, `OnCOVNotification`, and `BacnetValue` — with the named forward consumer the Compute inverse-UQ/twin-calibration lane's metered-data ingress, decoded at the seam; KNX stays a recorded growth line (no OSS-admissible maintained owner). The `MtconnectLane` body is settled fence code against `.api/api-mtconnect.md` — `MTConnect.Formatters.ResponseDocumentFormatter`, `MTConnect.Streams.StreamsResponseDocument`, the `Observation` traversal, `MTConnect.Clients.MTConnectClientInformation.Read(string, string)`/`Save(string)` durable cursor — the `-Common` model slice only, transport firewalled to the row's hop; the named demanding consumers are `Rasm.Fabrication` `Tooling/magazine` mid-job tool-life reload (`CuttingToolAsset`) and `Verify/probing` measured-feature/work-offset observations. A missing protocol is one `ExternalTransport` row plus its admitted client, never a transport-page client reimplementation.
-- [UNIT_COERCION]: the `QuantityFamily.Admit(double value, string unit, UnitPolicy policy, CorrelationId correlation)` value-plus-unit overload and the `Render` projection the edge coercion and write rendering read resolve against the finalized `Rasm.Compute/Symbolic/units#QUANTITY_TABLE` surface (`Admit` primary `(IQuantity, UnitPolicy, CorrelationId) -> Fin<UnitEvidence>` with typed-quantity/text/value-plus-unit overloads; the correlation is the owner's `CorrelationId`, never a bare `Guid`; the `Render` arity confirms against the owner's `Render(CanonicalValue, policy)` projection at the assay gate), so the binding's coercion is the suite's single unit truth and carries no unit math of its own.
+- [MQTT_PROPERTY_READ]: the receive-side MQTT v5 user-property collection member on the received application message and its entry name/value accessors — the `MqttRuntime.Properties` getter binding — and the full `WithTopicFilter` tail-parameter spellings past the catalog's `(topic, qos, flags)` shorthand; route: `.api/api-mqtt.md` extension via `tools.assay api query` over `MQTTnet` at the central pin.
+- [BACNET_REQUEST_SIGNATURES]: the exact `SubscribeCOVRequest` arity, the `OnCOVNotification` callback delegate signature, the confirmed `WritePropertyRequest` overload, and the client teardown member behind the `BacnetRuntime.Cov`/`Write` composition slots and the `BacnetLane` detach; route: `.api/api-bacnet.md` extension via `tools.assay api query` over `BACnet` at the central pin.
+- [MTCONNECT_DECODE_MEMBERS]: the exact `ResponseDocumentFormatter` parse member and the `StreamsResponseDocument`/`DeviceStream`/`ComponentStream`/`Observation` traversal property spellings behind the `MtconnectRuntime.Decode` composition slot, and the `LastSequence` numeric type; route: `.api/api-mtconnect.md` extension via `tools.assay api query` over `MTConnect.NET-Common` at the central pin.
 - [FEEDBACK_GUARD]: the bidirectional feedback-loop guard — a write-back the binding itself caused not re-triggering an inbound read — confirms against the source-timestamp staleness semantics at the live industrial source, the open distinction the integrated edge resolves.

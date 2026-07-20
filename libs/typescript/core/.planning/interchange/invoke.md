@@ -475,13 +475,14 @@ const Capability: {
 - Law: the gateway's shape is app-parameterized, so the capability arrives as a constructor, not a Tag — `Gateway.make(rows)` is an Effect requiring `AvailabilityGate`, and the app root wraps the built value in its own Layer against its own Tag; core owns the fold, the contract, and the frame vocabulary, never the serving edge's service identity — one table type per app is a fact no fixed core Tag can carry without erasing the receipt union back to `unknown`.
 - Law: `submit` is an `Effect.fn` definition seam — the span opens per dispatch, the gateway timer and the outcome counter ride the declaration tail with names from `observe/convention` rows, the verb stamps the current span, and the outcome tag is the `Exit`-folded `Gateway.Emission` union: the `Dispatched` tags by derivation, `rejected:` keyed by the `WireFault` reason axis, `invalid` for decode skew on the envelope or the body band, `halted`/`crashed` from the interrupt-first cause fold — so every dispatch lands in the counter exactly once, faulted dispatches included, and inbound telemetry policy is recoverable from the declaration.
 - Law: the gate types against `state` vocabulary, never re-declares it — the port answers `Availability.Verdict`, refusal transports the verdict whole (`Gated` keeps its `until`, `Withheld` its level), and gating is read-then-dispatch: staleness policy belongs to the providing Layer.
-- Law: the support verb is one row on the same plane — the evidence band crosses opaque, interpretation belongs to the intake's consumer, and the port is declared here and satisfied at the root so the observe unit and this plane stay ledger-clean; the receipt travels back to the reporter so a support report is never fire-and-forget.
+- Law: the support verb is one row on the same plane — the evidence band crosses opaque, interpretation belongs to the intake's consumer, and the port is declared here and satisfied at the root so the observe unit and this plane stay ledger-clean; the receipt travels back to the reporter so a support report is never fire-and-forget, and the delivered capture is the branch's `rasm.core.interchange.support` tap point — the `observe/tap` name row a subscription targets.
 - Law: the duplex channel derives from the same contract — `outbound` is the `Schema.Union` over the table's own receipt schemas, `duplex(socket, frame)` takes no caller-supplied schema, and the frame row is a `_frames` vocabulary lookup over the fused transformers — `MsgPack.duplexSchema`/`Ndjson.duplexSchema`/`Ndjson.duplexSchemaString` collapse the frame codec and the asymmetric schema pair (commands inbound, receipts outbound, backpressure carried) into one channel transformer, and each row owns the socket lift its frame demands — `Socket.toChannelWith` under the byte frames, `Socket.toChannelString` under the text frame, because the string transformer types a `Chunk<string>` channel a byte lift can never satisfy — so the two-stage frame-then-`ChannelSchema` sandwich, the frame ternary, and the free outbound schema are all deleted spellings; refusal delivery over a wire is the serving edge's own outcome spelling over these values.
+- Law: the duplex lives under one scoped span — `duplex` is a scoped acquisition: `Effect.makeSpanScoped` opens `gateway/duplex` with the frame row stamped as the `Convention.rasm.gatewayFrame` attribute and the channel returns beside it, so the span ends with the serving scope that acquired it — the long-lived correlation anchor profile links and tap facts annotate while per-dispatch `submit` spans stay the request-grain trace; the serving edge acquires the channel inside its own socket scope, so no second boot edge and no hand span pair exists.
 - Law: the msgpack row is the command lane's standing frame — the `Hlc` halves are `bigint` and JSON owns no bigint spelling, so both ndjson rows are legal only over JSON-safe encoded schemas on both directions; `ndjson-text` is `Ndjson.duplexSchemaString` over the string channel, the text-frame lane for text-only transports, under the same JSON-safety law — a serving edge that must frame commands as text lands its JSON stamp spelling first, and swapping a row under a bigint-carrying receipt is the precision defect the frame discriminant cannot absorb.
 - Law: the verb correlation seals before key erasure — `_make` compiles each mapped row into one uniform closure that captures its body decoder and handler together; the runtime table stores those closures, so lookup needs neither an assertion nor a non-null pin and cannot pair one verb's decoder with another verb's handler.
 - Growth: a new verb is one row in the app's table — body schema, receipt schema, handler — with the outbound union and the emission counter inheriting it; a new outcome kind is one tagged case every exhaustive consumer breaks on; a fourth frame row is one `_frames` row.
 - Boundary: the `CommandPayloadWire`/`SupportCaptureWire` census rows home here; the availability vocabulary and the total `admits` fallback are `state/evidence.ts`'s; the socket Layer and the serving loop are the runtime wave's.
-- Packages: `@effect/platform` (`MsgPack`, `Ndjson`, `Socket`); `effect` (`Cause`, `Context`, `Data`, `Effect`, `Exit`, `HashMap`, `Metric`, `Option`, `Schema`, `Struct`); `./codec.ts` (`WireFault`); `./format.ts` (`Proto`); `../observe/convention.ts` (`Convention`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../state/evidence.ts` (`Availability`).
+- Packages: `@effect/platform` (`MsgPack`, `Ndjson`, `Socket`); `effect` (`Cause`, `Context`, `Data`, `Effect`, `Exit`, `HashMap`, `Metric`, `Option`, `Schema`, `Scope`, `Struct`); `./codec.ts` (`WireFault`); `./format.ts` (`Proto`); `../observe/convention.ts` (`Convention`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../state/evidence.ts` (`Availability`).
 
 ```typescript signature
 class CommandPayload extends Schema.Class<CommandPayload>("CommandPayload")({
@@ -562,7 +563,7 @@ declare namespace Gateway {
     unknown
   >
   type Shape<A, I> = {
-    readonly duplex: (socket: Socket.Socket, frame: Frame) => Duplex<A>
+    readonly duplex: (socket: Socket.Socket, frame: Frame) => Effect.Effect<Duplex<A>, never, Scope.Scope>
     readonly outbound: Schema.Schema<A, I>
     readonly submit: (octets: Uint8Array) => Effect.Effect<Dispatched<A>, ParseResult.ParseError | WireFault>
   }
@@ -623,7 +624,11 @@ const _make = <
     ) // the duplex outbound IS the table's receipt column: no caller-supplied schema exists to disagree with dispatch
     return {
       outbound,
-      duplex: (socket: Socket.Socket, frame: Gateway.Frame): Gateway.Duplex<A[keyof B]> => _frames[frame](outbound)(socket),
+      duplex: (socket: Socket.Socket, frame: Gateway.Frame): Effect.Effect<Gateway.Duplex<A[keyof B]>, never, Scope.Scope> =>
+        Effect.as(
+          Effect.makeSpanScoped("gateway/duplex", { attributes: { [Convention.rasm.gatewayFrame]: frame } }),
+          _frames[frame](outbound)(socket),
+        ), // the scoped acquisition: the lifetime span ends with the serving scope, the channel rides beside it
       submit: Effect.fn("gateway.submit")(
         function* (octets: Uint8Array) {
           const payload = yield* Schema.decodeUnknown(CommandPayload.FromBytes)(octets)

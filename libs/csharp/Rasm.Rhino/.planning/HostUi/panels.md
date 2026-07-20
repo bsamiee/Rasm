@@ -464,6 +464,7 @@ public static class PanelHost {
 - Owner: `PanelObserve` chooses the owned callback ledger or the host-wide `DocumentStream` projection.
 - Entry: `PanelObservation.Observe` returns one symmetric `Subscription` for either row and delivers projection failures through the sink rail.
 - Law: owned callbacks update `PanelHost.Facts`; host-wide projection never re-stamps the owned ledger.
+- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `HookRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan — and the point's replay modality is the `PanelHost.Facts` latest-per-panel ledger a binder reads before its first delivery.
 - Boundary: each delivery crosses `CallbackObserver<PanelFact>`; delivery and rejection faults accumulate without starving sibling observers.
 
 ```csharp signature
@@ -506,6 +507,18 @@ public static class PanelObservation {
                     Receipts: held.Receipts))
                 .Map(watch => Subscription.Of(detach: watch.Dispose)));
     }
+}
+
+public static class PanelHooks {
+    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
+        HookRegistry.Mount(
+            mount: new HookMount(
+                Point: HookPoint.HostUiPanel,
+                Plugin: plugin,
+                Ask: typeof(CallbackObserver<PanelFact>),
+                Grant: typeof(Subscription),
+                Bind: static ask => Fin.Succ<object>(value: PanelHost.Watch((CallbackObserver<PanelFact>)ask))),
+            key: key.OrDefault());
 }
 ```
 

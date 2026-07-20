@@ -11,7 +11,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Geometry.cs     # Native GeometryBase custody crossing and kernel transform
 │   ├── Tables.cs       # Table mutation and redraw compensation
 │   ├── Layers.cs       # Layer-tree topology, face and override programs, and the layer commit rail
-│   └── Events.cs       # Event observation and the transactional DocumentStream
+│   └── Events.cs       # Event observation, the transactional DocumentStream, and the hook-point registry
 ├── Persistence/        # Typed serialization, settings custody, attached data, user text, saved-state presets
 │   ├── Dictionary.cs   # ArchiveValue slot-registry carrier and the ArchiveMap detach/mint round trip
 │   ├── Settings.cs     # Settings custody scopes, typed value rail, guards, and the change ledger
@@ -26,7 +26,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Materials.cs    # Object materials, mappings, and mesh caches behind one commit
 │   ├── Lights.cs       # Closed world light-kind family: seed, gated edits, and the table commit rail
 │   ├── History.cs      # History record/replay triad, linkage topology, and governance
-│   └── Authoring.cs    # Custom-object, grip, and render-mesh programs; ObjectsTelemetry egress and host log/exception taps
+│   └── Authoring.cs    # Custom-object, grip, and render-mesh programs; ObjectsTelemetry egress, host taps, classification, instrument rows
 ├── Commands/           # Native command lifecycle, input acquisition, and picked-reference projection
 │   ├── Command.cs      # Staged command algebra over one immutable model and its host adapter
 │   ├── Acquisition.cs  # Parameterized input-acquisition matrix and its receipt

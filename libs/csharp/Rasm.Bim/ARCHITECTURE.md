@@ -13,7 +13,8 @@ Rasm.Bim/
 │   ├── Zones.cs           # Many-to-many zone and program overlay
 │   ├── Systems.cs         # MEP connectivity view, directed system trace, interference check
 │   ├── Structural.cs      # Structural reader lowering restraints and loads onto neutral edges
-│   └── Faults.cs          # BimFault closed-union entrypoint rail
+│   ├── Faults.cs          # BimFault closed-union entrypoint rail
+│   └── Observability.cs   # Composition-scoped hook rail, meter owner, benchmark claim roster
 ├── Semantics/             # Element-bound semantic enrichment
 │   ├── Properties.cs      # Pset/Qto template authority and bSDD-typed property classifier
 │   ├── Classification.cs  # bSDD-bound classification axis over a live dictionary
@@ -54,7 +55,7 @@ Sub-domain dependency graph is acyclic: every sub-domain projects onto or reads 
 
 Strata order the sub-domains under the acyclic law — every cross-stratum consumption edge points down; `Review` and `Planning` co-seat on the delivery stratum, coordination reading the estimate and the schedule as same-stratum input, never a return edge.
 
-- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, and the `IfcRepresentation` content key.
+- S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, the `IfcRepresentation` content key, and the `BimHooks`/`BimTelemetry`/`BimBenchClaim` observability rail whose `BimFact` payloads carry closed-vocabulary KEY strings so no upper stratum type leaks down.
 - S1 `Semantics` — element-bound enrichment over the vocabulary: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, and the `GeoModel` geospatial algebra.
 - S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, the Materials-implemented `IIfcTypeReconciler` port, and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
 - S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, and the `TessellationRequest`/`TessellationOutcome` bridge.
@@ -166,7 +167,7 @@ config:
 ---
 flowchart LR
     accTitle: Bim cross-runtime, presentation, and host seams
-    accDescr: Bim sub-domain owners exchanging wires, receipts, and boundaries with the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary — one edge per contract family labeled by kind, bidirectional peers as hexagons, one-way partners as stadiums.
+    accDescr: Bim sub-domain owners exchanging wires, receipts, and boundaries with the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root, and the host boundary — one edge per contract family labeled by kind, bidirectional peers as hexagons, one-way partners as stadiums.
     subgraph bim[RASM.BIM]
         Model[Object model]
         Semantics[Semantic enrichment]
@@ -177,6 +178,7 @@ flowchart LR
     end
     Geometry{{python:geometry}}
     AppUi([Rasm.AppUi])
+    AppHost([Rasm.AppHost])
     Host([Host boundary])
     Data([python:data])
     Core([typescript:core])
@@ -188,6 +190,8 @@ flowchart LR
     Semantics -->|"[SHAPE]: GeoTiles"| AppUi
     Planning -->|"[RECEIPT]: CostSchedule"| AppUi
     Review -->|"[PORT]: IssueBoard"| AppUi
+    Model -->|"[SHAPE]: BimHooks"| AppHost
+    Model -->|"[RECEIPT]: BimBenchReceipt"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
     Semantics <-->|"[WIRE]: GeoFeatureWkb"| Data
     Review -->|"[WIRE]: BcfTopicWire"| Core
@@ -201,7 +205,7 @@ flowchart LR
     Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 
-Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoFeatureWkb` is the frozen wire spelling of the `GeoFeature`-row WKB crossing the `GeoWkb` bridge encodes toward the Python data peer, and `GeoFeatureWire` the frozen spelling of the `GeoFeature` crossing the TypeScript peers decode; `GeoWire` stays the interior projection owner behind both.
+Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root (`Rasm.AppHost` composes the `BimHooks` rail per instance and admits the `Rasm.Bim` meter and source at its telemetry root), and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoFeatureWkb` is the frozen wire spelling of the `GeoFeature`-row WKB crossing the `GeoWkb` bridge encodes toward the Python data peer, and `GeoFeatureWire` the frozen spelling of the `GeoFeature` crossing the TypeScript peers decode; `GeoWire` stays the interior projection owner behind both.
 
 `[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page joining the federation, solver, cache, or diff lane derives a typed `UInt128` through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a downward `InterchangeIdentity` reference from Bim. A second scheme, a per-page hash, or a `Guid`-keyed join is the named cross-folder drift defect. Per-page key tuples and the pages carrying no parallel key live on the owning implementation pages.
 

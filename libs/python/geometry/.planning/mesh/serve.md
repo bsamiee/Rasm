@@ -14,6 +14,7 @@ Geometry authors NO wire vocabulary: `TessellationRequest`/`TessellationReceipt`
 - Cases: one route row per served method — `Tessellate` answers the receipt floor, the `ArtifactSync` `Sync` leg folds a parked GLB back as its framed rows; a new geometry-served method is one route row binding an existing registry codec pair to a railed handler — a new field floor is the runtime registry's one C#-minted row-pair growth, never a geometry-authored shape.
 - Entry: `mount` is the runtime `Entrypoint` fold's install step, so lifecycle — bind, credentials, health, graceful drain — stays runtime-owned and geometry contributes only rows; `_tessellate` returns through the graduation weave seeded `EvidenceScope.MESH_SERVE`, its span nested INTERNAL under the host interceptor's SERVER span, so serve latency is the geometry evidence-duration row and pool depth stays the lane spine's own gauges.
 - Receipt: serve emits nothing of its own — the `@receipted` harvest reads the daemon's accumulated `contribute` stream once per drive, so the chain carries every tessellation fact exactly once; serve mints no graduation subject, since the daemon's product is wire geometry, not evidence.
+- Bench: `bench` rides the graduation `bench_seam` fold over the whole `_tessellate` entry — decode, daemon drive, receipt floor, the real tessellation seam the C# rail pays — under subject `rasm.geometry.mesh.serve.tessellate`; latency and throughput rows land beside the per-call evidence-duration histogram with zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Packages: the daemon, cad, and graduation-weave vocabulary from geometry, the wire shapes and serve surface from runtime, `msgspec.to_builtins`, `zlib.crc32`, and `expression` per the fence imports.
 - Growth: a new framed artifact class is the runtime registry's one row pair and one `sync`-style producer here; a per-element streaming fan is one `create_memory_object_stream` composition over the same `_frames` fold.
 - Boundary: the C# `Rasm.Compute/Runtime` owns the `ComputeService`/`ArtifactSync` proto contract both ends compile; the daemon owns the cache and the kernel.
@@ -28,14 +29,15 @@ from expression import Error, Ok, Result, Some
 from expression.collections import Block, Map
 from msgspec import to_builtins
 
-from rasm.geometry.graduation import EvidenceScope, evidence_run
+from rasm.geometry.graduation import EvidenceScope, bench_seam, evidence_run
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, TessellationPolicy
 from rasm.geometry.mesh.daemon import TessellationDaemon, TessellationResult, TessellationSource
 from rasm.runtime.admission import RuntimeContext
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.profiles import BenchmarkReceipt
+from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.serve import Route, RouteArity, ServerHost
 from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, TessellationRequest
 
@@ -43,7 +45,6 @@ from rasm.runtime.shapes import ArtifactFrame, TessellationReceipt, Tessellation
 
 # C#'s ARTIFACT_FRAMES FrameEdge both ends hold; framing is data over this edge, never a hand-rolled message loop.
 FRAME_EDGE: Final[int] = 64 * 1024
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # tessellation facts carry no secret field
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -155,7 +156,7 @@ class GeometryServe:
         self._harvest(daemon)
         return rail.map(self._park)
 
-    @receipted(_REDACTION)
+    @receipted(OPEN)  # tessellation facts carry no secret field, so the runtime keep-all policy binds
     def _harvest(self, daemon: TessellationDaemon) -> TessellationDaemon:
         # one harvest point — receipts stay on the daemon, serve adds no parallel receipt rail.
         return daemon
@@ -176,6 +177,11 @@ class GeometryServe:
             .map(lambda result: Ok(_frames(_wire_hash(result.glb), result.glb)))
             .default_value(Error(BoundaryFault(wire=(f"serve.sync.{artifact_id.hex()}", 0))))
         )
+
+    def bench(self, request: TessellationRequest, context: RuntimeContext, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+        # macro-bench over the real tessellation entry — _tessellate whole: decode, daemon drive, receipt floor — the
+        # same seam the C# rail pays; the canonical daemon stays warm across rounds, so the cache tier prices in.
+        return bench_seam(f"{EvidenceScope.MESH_SERVE.value}.tessellate", partial(self._tessellate, request, context), rounds=rounds, warmup=warmup)
 ```
 
 ## [03]-[RESEARCH]

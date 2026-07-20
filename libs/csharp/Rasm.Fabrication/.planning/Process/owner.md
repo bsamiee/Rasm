@@ -8,8 +8,8 @@
 
 ## [01]-[INDEX]
 
-- [01]-[ATOM_ADMISSION]: geometry, motion, tool, inspection, state, and identity owners admitted once.
-- [02]-[RUN_FOLD]: request, policy, result, evidence, lineage, and parameterized egress.
+- [02]-[ATOM_ADMISSION]: geometry, motion, tool, inspection, state, and identity owners admitted once.
+- [03]-[RUN_FOLD]: request, policy, result, evidence, lineage, and parameterized egress.
 
 ## [02]-[ATOM_ADMISSION]
 
@@ -29,7 +29,7 @@
 - Auto: generated total dispatch routes each policy case; `FabricationPolicy.Egress` declares admissible artifact alternatives and request cardinality once, and `FabricationResult.Evidence` proves the produced keys cover the request while centralizing consumed and produced content projection.
 - Receipt: `RunEvidence` carries requested and produced artifacts, required motion diagnostics, inspection outcomes, verification state, and content keys. `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
 - Growth: a production modality adds one policy case, one result case, and one dispatch arm; an artifact adds one `EgressKind` row, one entry on the owning `FabricationPolicy.Egress` arm, and its enrollment counterpart.
-- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; document codec, clock, cancellation, and the `FabricationTap` telemetry port enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, and domain kernels stay tap-free — facts fire only where receipts settle on the run spine.
+- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; clock, cancellation, the `FabricationTap` telemetry port, and the `FabricationHooks` point roster enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -1685,9 +1685,14 @@ public sealed partial class FabricationRuntime {
     public IClock Clock { get; }
     public CancellationToken Cancel { get; }
     public FabricationTap Telemetry { get; }
+    public FabricationHooks Hooks { get; }
 
-    public static Fin<FabricationRuntime> Admit(IClock clock, CancellationToken cancel, FabricationTap? telemetry = null) =>
-        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, out FabricationRuntime runtime) is { } error
+    public static Fin<FabricationRuntime> Admit(
+        IClock clock,
+        CancellationToken cancel,
+        FabricationTap? telemetry = null,
+        FabricationHooks? hooks = null) =>
+        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), out FabricationRuntime runtime) is { } error
             ? Fin.Fail<FabricationRuntime>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
             : Fin.Succ(runtime);
 }
@@ -1695,11 +1700,13 @@ public sealed partial class FabricationRuntime {
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Fabrication {
     public static Fin<RunEvidence> Run(FabricationInput input, FabricationRuntime runtime) =>
-        from admitted in Optional(input).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:input").ToError())
+        from candidate in Optional(input).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:input").ToError())
         from context in Optional(runtime).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:runtime").ToError())
         from _ in context.Cancel.IsCancellationRequested
             ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:cancelled").ToError())
             : Fin.Succ(unit)
+        let started = context.Clock.GetCurrentInstant()
+        from admitted in context.Hooks.Admission.Fire(candidate)
         from result in admitted.Policy.Switch(
             state:      (Input: admitted, Runtime: context),
             hiddenLine: static (state, policy) => Hlr.Solve(
@@ -1707,10 +1714,10 @@ public static class Fabrication {
                 state.Input,
                 projection => new FabricationResult.HiddenLineResult(projection, projection.Sources)),
             cam:        static (state, policy) => Cam.Solve(policy, state.Input),
-            nest:       static (state, policy) => Nest.Solve(policy, state.Input),
+            nest:       static (state, policy) => Nest.Solve(policy, state.Input, state.Runtime.Telemetry),
             additive:   static (state, policy) => Slice.Solve(policy, state.Input),
             verify:     static (state, policy) => Removal.Verify(policy.Policy, state.Input),
-            inspect:    static (state, policy) => Probe.Inspect(policy.Policy, state.Input),
+            inspect:    static (state, policy) => Probe.Inspect(policy.Policy, state.Input, state.Runtime.Telemetry),
             post:       static (state, policy) => Post.Lower(policy.Source, policy.Dialect, state.Input, policy.Policy)
                 .Map(static result => (FabricationResult)result),
             document:   static (state, policy) => Traveler.Assemble(
@@ -1724,6 +1731,10 @@ public static class Fabrication {
                 from bends in BendSequence.Plan(unfold, policy.Policy, policy.Envelope)
                 select FlatPattern.Formed(unfold, bends))
         from evidence in result.Evidence(admitted, Consumed(admitted))
+        from _mint in evidence.Produced.TraverseM(key => context.Hooks.EgressMint.Fire(key)).As().Map(static _ => unit)
+        let _points = Fired(context.Hooks, result)
+        let _handoff = context.Hooks.Delivery.Fire(evidence)
+        let _fact = context.Telemetry.Fire(FabricationFact.Run.Of(evidence, context.Clock.GetCurrentInstant() - started))
         select evidence;
 
     public static Fin<RunLineage> Lineage(RunEvidence run) => Optional(run)
@@ -1744,6 +1755,14 @@ public static class Fabrication {
         + input.ParentRuns
         + input.Sources
         + input.MaterialCertificate.ToSeq();
+
+    // Result-shaped hook projection, not routing: only the plan and verification shapes carry a point
+    // payload, so the unmatched arm is the declared no-point floor, never a swallowed case.
+    private static Unit Fired(FabricationHooks hooks, FabricationResult result) => result switch {
+        FabricationResult.FabricationPlan plan => plan.Steps.Iter(step => ignore(hooks.StageAdvance.Fire(step))),
+        FabricationResult.VerificationResult verification => ignore(hooks.VerifyVerdict.Fire(verification)),
+        _ => unit,
+    };
 }
 ```
 

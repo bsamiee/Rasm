@@ -143,6 +143,7 @@ flowchart LR
     Ai e12@-->|"[PORT]: Embedder"| Data
     Data e15@-->|"[PORT]: Journal.census"| Otel
     Security e16@-->|"[PROJECTION]: rasm.tenant"| Otel
+    Core e17@-->|"[SHAPE]: Tap"| Otel
 ```
 
 ```mermaid
@@ -174,6 +175,7 @@ flowchart LR
     Browser e6@-->|"[PORT]: Atom.subscribable"| Ui
     Browser e7@-->|"[PORT]: GlbViewport"| Ui
     Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
+    Otel e9@-->|"[SHAPE]: Pulse.Board"| Iac
 ```
 
 ## [04]-[ORGANIZATION]

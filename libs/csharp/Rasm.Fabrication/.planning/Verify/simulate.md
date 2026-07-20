@@ -12,7 +12,7 @@
 
 - Owner: `SimulatePolicy` composes `MotionDynamics`, `AxisMotion`, assessed `MachineMatch` envelope and power truth, power-on modal defaults, work offsets, tool lengths, controller timing, nesting depth, and energy policy. `ControllerState` carries one canonical modal map with physical registers and the active local frame. `SimulationReceipt` carries the derived clock, energy, per-band motion tallies, per-kind delay tallies, ledger, and terminal state.
 - Cases: `CommandEffect` reduces a word to motion, dwell, tool change, halt, constant-surface-speed, spindle, auxiliary, thermal, frame, or modal admission. `SimulationSlice` distinguishes motion, controller delay, additive deposition, specialized toolpath evidence, and state evidence. Specialized envelopes retain their typed rows; a direct specialized program contributes envelope duration and machine energy, while evidence attached to realized motion contributes no duplicate clock.
-- Entry: `public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy)` admits the aggregate program once, consumes the generated policy admission, folds executable `GNode` leaves through one `ControllerState`, and fails before ledger mutation on malformed inverse-time feed, inconsistent offset- or radius-defined arcs, unbanded motion role, missing rotary truth, envelope breach, nesting beyond the admitted depth, or execution after terminal stop.
+- Entry: `public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy, FabricationTap? tap = null)` admits the aggregate program once, consumes the generated policy admission, folds executable `GNode` leaves through one `ControllerState`, and fails before ledger mutation on malformed inverse-time feed, inconsistent offset- or radius-defined arcs, unbanded motion role, missing rotary truth, envelope breach, nesting beyond the admitted depth, or execution after terminal stop; the whole fold runs inside the `EngineSpan.SimulateRun` span, and the settled receipt fires `FabricationFact.Cycle.Of` through the supplied tap, defaulting silent for headless callers.
 - Auto: `GCommand.Grammar.Admit` validates address shape and `GCommand.Role` selects the clock band. `ArcEvidence.Validate` admits start/end radius consistency and derives machine-axis extrema after the active work transform. `AxisMotion` supplies bounded or cyclic rotary truth, per-axis velocity, acceleration, and jerk in radians. `MotionDynamics` supplies rapid, linear, arc, and rotary feed ceilings with acceleration and jerk already stamped by `Posting/program`.
 - Receipt: `SimulationReceipt.Cycle` sums `SimulationSlice.Elapsed` over the whole ledger and `EnergyKwh` sums `SimulationSlice.EnergyKwh`, so no projection can disagree with the ledger. `Bands` and `Delays` are folds keyed by `ClockBand` and `DelayKind`, so a new band or delay row reports without a receipt edit. `FabricationFact.Cycle.Of` projects `Cycle`, `EnergyKwh`, and `DistanceMm` onto `rasm.fabrication.cycle.duration`, `rasm.fabrication.cycle.energy`, and `rasm.fabrication.cycle.distance` through `Process/telemetry#FACT_PROJECTION` as kind `cycle`, so the authoritative cycle-time owner is the one histogram source.
 - Packages: `Posting/program` (`CutProgram`, `GNode`, `GCommand`, `GParam`, `ModalGroup`, `MotionRole`, `FeedMode`); `Kinematics/machine` (`MotionDynamics`, `AxisMotion`, `AxisPeriodicity`); `Kinematics/fleet` (`MachineMatch.PowerKw`, `MachineInstance.Envelope`, `MachineInstance.IdlePowerKw`); `Process/faults` (`FabricationFault.EnvelopeExceeded`, `FabricationFault.SimulatedOvertravel`); `NodaTime` (`Duration`); `UnitsNet` (`Angle`, `Power`, `Duration`, `Energy`); `Rhino.Geometry`; Thinktecture.Runtime.Extensions; LanguageExt.Core.
@@ -471,13 +471,16 @@ public static class Simulate {
         .Concat(toSeq(FrameEffect.Items).Map(static effect => (effect.Command, CommandEffect.Frame)))
         .Fold(Map<GCommand, CommandEffect>(), static (table, row) => table.AddOrUpdate(row.Item1, row.Item2));
 
-    public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy) =>
-        from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:policy-missing").ToError())
-        from steps in AdmitProgram(program, admittedPolicy)
-        from folded in steps.FoldM<Fin, SimulationFold>(
-            new SimulationFold(ControllerState.PowerOn(admittedPolicy), Seq<SimulationSlice>()),
-            (state, step) => ExecuteStep(state, step, admittedPolicy)).As()
-        select new SimulationReceipt(folded.Ledger, folded.State);
+    public static Fin<SimulationReceipt> Execute(CutProgram program, SimulatePolicy policy, FabricationTap? tap = null) =>
+        EngineSpan.SimulateRun.Traced(_ =>
+            from admittedPolicy in Optional(policy).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:policy-missing").ToError())
+            from steps in AdmitProgram(program, admittedPolicy)
+            from folded in steps.FoldM<Fin, SimulationFold>(
+                new SimulationFold(ControllerState.PowerOn(admittedPolicy), Seq<SimulationSlice>()),
+                (state, step) => ExecuteStep(state, step, admittedPolicy)).As()
+            let receipt = new SimulationReceipt(folded.Ledger, folded.State)
+            let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Cycle.Of(receipt))
+            select receipt);
 
     private static Fin<Seq<(ProgramLocus Locus, GNode Node)>> AdmitProgram(CutProgram program, SimulatePolicy policy) =>
         Optional(program).ToFin(new GeometryFault.DegenerateInput(Kind.Mesh, -1, "simulate:program-missing").ToError()).Bind(value =>

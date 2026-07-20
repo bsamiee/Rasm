@@ -53,3 +53,5 @@ Shared TypeScript substrate consumed from the registry; `libs/typescript/.planni
 
 [TYPING_RAILS]:
 - `effect`
+- `@effect/platform` — the `FileSystem`/`KeyValueStore`/`Path` contracts the evidence sinks and sweep cursor ride
+- `@effect/platform-node` — the deploy-host boot edge: `NodeContext.layer` and `NodeRuntime.runMain` at the composition root

@@ -10,6 +10,7 @@ The latency lane, correctness-neutral by law: a cache node vanishing costs a col
 |  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the request-dedup plane                |
 |  [03]   | `PERSISTED`    | the restart-surviving cache — the mint, the store assembly, the tenant partition   |
 |  [04]   | `POOLS`        | reference-counted handles, keyed resource maps, the bounded origin-connection pool |
+|  [05]   | `INSTRUMENT_ROWS` | the Convention projections — cacheStats sampling, pool occupancy, the assembled export |
 
 ## [02]-[TIER_ROWS]
 
@@ -44,7 +45,7 @@ declare namespace CacheLane {
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction`, structural key equality); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. The keyed single-flight row is `Cache.make` consumed at the package surface directly — a rename-forward alias adds no domain value and is refused here.
 - Packages: `effect` (`Cache`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request.makeCache`, `Layer.setRequestCache`, `Duration`).
 - Entry: a read surface with stampede exposure mints `Cache.make` once at construction and yields `cache.get(key)` thereafter; a pure recompute memoizes through `memo`; the projection and retrieval read paths compose `dedup` at the root so their `RequestResolver`-batched loads share one cache per request graph — the resolver machinery is the SQL tier's, the cache Layer is this row.
-- Receipt: `cacheStats` — hits, misses, size — read on demand and emitted through the fact stream's meter row by the composition that owns the cache; the lane never self-reports.
+- Receipt: `cacheStats` — hits, misses, size — read on demand by the composition that owns the cache, which samples it through `CacheLane.observed` onto the lane gauges and the fact stream's meter row; the lane never self-reports.
 - Growth: a new cached surface is one mint with its own spec; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
 - Law: concurrent same-key lookups COLLAPSE to one execution — the single-flight guarantee is the constructor's, so no consumer wraps a semaphore around a cache; a hand-rolled in-flight map beside this row is the named reinvention.
 - Law: capacity is a hard bound and eviction is the cache's own policy — an unbounded memo over unbounded keys is unspellable because `capacity` is a required field of the spec; `memo` over a function is bounded by its argument space and admits only where that space is provably small.
@@ -121,9 +122,11 @@ const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
 - Law: `RcMap` and `KeyedPool` divide by cardinality — `RcMap` shares ONE live instance per key among concurrent holders, `KeyedPool` holds up to N instances per key for exclusive leases; a protocol whose control connection carries one transfer at a time (the FTP law) is exactly why the origin row is the pool, never the map.
 - Law: lifetime is reference-counted or pool-owned, never manual — the resource releases when the last scope closes plus the idle window, so a leak is unspellable and a hot handle survives bursts without churn.
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
+- Law: occupancy rides the pool's own acquire bracket — each leased item increments the `Convention.instrument.poolHeld` up-down counter tagged by the key's closed scheme vocabulary and its release finalizer decrements it, so held-connection pressure is dashboard-visible with zero consumer wiring and the pool's lifetime discipline stays the truth.
 
 ```typescript signature
-import { Data, KeyedPool, type Scope } from "effect"
+import { Data, KeyedPool, Metric, type Scope } from "effect"
+import { Convention } from "@rasm/ts/core"
 
 const _ORIGIN_POOL = { min: 0, max: 4, ttl: Duration.minutes(5) } as const
 
@@ -134,16 +137,54 @@ class OriginKey<Scheme extends string = string> extends Data.Class<{
   readonly username: string
 }> {}
 
+const _held = Metric.counter(Convention.instrument.poolHeld.name, {
+  description: Convention.instrument.poolHeld.description,
+  incremental: false, // up-down: the lease increments, the release finalizer decrements
+})
+
+const _counted = (scheme: string) => Metric.tagged(_held, Convention.rasm.poolScheme, scheme)
+
 const _origins = <Scheme extends string, A, E, R>(
   acquire: (key: OriginKey<Scheme>) => Effect.Effect<A, E, R | Scope.Scope>,
   policy?: Partial<{ readonly min: number; readonly max: number; readonly ttl: Duration.DurationInput }>,
 ) =>
   KeyedPool.makeWithTTL({
-    acquire,
+    acquire: (key: OriginKey<Scheme>) =>
+      Effect.tap(acquire(key), () =>
+        Effect.zipRight(
+          Metric.incrementBy(_counted(key.scheme), 1),
+          Effect.addFinalizer(() => Metric.incrementBy(_counted(key.scheme), -1)), // rides the item's own Scope: eviction, TTL, and release all decrement
+        )),
     min: () => policy?.min ?? _ORIGIN_POOL.min,
     max: () => policy?.max ?? _ORIGIN_POOL.max,
     timeToLive: policy?.ttl ?? _ORIGIN_POOL.ttl,
   })
+```
+
+## [06]-[INSTRUMENT_ROWS]
+
+- Owner: the lane's Convention projections and the assembled `CacheLane` export — `_observed`, the ONE sampling entry projecting any cache's own `cacheStats` counters onto the three lane gauges tagged by cache name, consumed by the composition that owns each cache on its existing drain cadence.
+- Packages: `effect` (`Metric`, `Cache`); `@rasm/ts/core` (`Convention` — the instrument and tag rows).
+- Entry: the runtime meter bridge or the owning composition samples `CacheLane.observed(name)(cache)` on its cadence beside the fact stream's meter row — the lane never self-reports, and no per-effect decorator exists on any read path.
+- Growth: a new sampled evidence axis is one gauge row here reading its `Convention.instrument` entry; a new sampled surface is one `observed` call at its owning composition.
+- Law: receipts stay the truth — `cacheStats` is the cache's own evidence read and the gauges are its lossy dashboard projection; instrument name, description, and tag key all read off the `Convention` rows, so no signal-site literal exists anywhere on the lane.
+- Law: the tag is a bounded cache-name vocabulary — each composition names its caches from its own closed roster, never an identifier-grade value; identifier context rides span attributes on the read path that missed.
+
+```typescript signature
+import { Cache } from "effect"
+
+const _hits = Metric.gauge(Convention.instrument.cacheHits.name, { description: Convention.instrument.cacheHits.description })
+const _misses = Metric.gauge(Convention.instrument.cacheMisses.name, { description: Convention.instrument.cacheMisses.description })
+const _size = Metric.gauge(Convention.instrument.cacheSize.name, { description: Convention.instrument.cacheSize.description })
+
+const _observed = (name: string) =>
+  <K, A, E>(cache: Cache.Cache<K, A, E>): Effect.Effect<void> =>
+    Effect.flatMap(cache.cacheStats, (stats) =>
+      Effect.all([
+        Metric.set(Metric.tagged(_hits, Convention.rasm.cacheName, name), stats.hits),
+        Metric.set(Metric.tagged(_misses, Convention.rasm.cacheName, name), stats.misses),
+        Metric.set(Metric.tagged(_size, Convention.rasm.cacheName, name), stats.size),
+      ], { discard: true }))
 
 const CacheLane = {
   tiers: _tiers,
@@ -154,6 +195,7 @@ const CacheLane = {
   backing: _backing,
   scoped: _scoped,
   origins: _origins,
+  observed: _observed,
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

@@ -13,7 +13,7 @@
 - Owner: `IfcSelector` — `@staticmethod` boundary capsule whose `@cache`-memoized `_engine` builds the `Lark` parser and `SelectorTransformer` once, exposing polymorphic `parse`, the `filter` leg, and the private `@receipted` `_emit` point. `Facet` `@tagged_union(frozen=True)` collapses the upstream facets onto four shared-shape cases — `identified` a negatable `instance` GlobalId or `entity` IfcClass, `attribute` a capital-initial name and a comparison, `keyed` the `keyword comparison value` facets, `qualified` a `property`/`query` dotted-path predicate — never a parallel case per facet or a flat `axis`-tagged bag. `SelectorComparison` frozen value object owns the operator/negate/value triple and its `render`, one carrier every comparing facet shares rather than three fold-positional children re-discriminated per case. `SelectorQuery` frozen fold product holds the facet groups, owns the `filter_string`/`axes`/`span_facts` projections, and implements `ReceiptContributor` itself — no parallel `SelectorReceipt`. `SelectorOperator`/`IdentifyAxis`/`QualifyAxis`/`SelectorKeyword` closed `StrEnum` vocabularies; `SelectorTransformer` the `Transformer_NonRecursive` folding the wide `+`/`,` spine iteratively, no Python recursion limit.
 - Cases: grammar `start` is one `filter_group` — a `+`-union of `,`-chained `facet_list`s over upstream's two operators: `+` unions groups (`|=` across the appended lists), `,` chains additive/subtractive facets against a running set. Contains is `*=`, negation the `!` prefix on an identifier or comparison. Each `facet` folds to one `Facet` case matched by `match`/`assert_never` on both the fold and the `render` re-serialization, mirroring the `geometry:ifc/analysis.md#ANALYSIS` `AnalysisRow.facts` self-projecting row.
 - Entry: `IfcSelector.parse` is polymorphic — a `str` parses one query, an `Iterable[str]` folds through `traversed(..., by=Disposition.ABORT)` into one `RuntimeRail[Block[SelectorQuery]]` so a batch validates under one rail short-circuiting on the first malformed member, never a per-arm loop. Single-string arm runs `parser.parse` then `transformer.transform` under `boundary(f"selector.parse:{text}", ...)`, so the offending query rides the fence `subject` the rejected receipt's `BoundaryFault.facts()["subject"]` carries — a `CLASSIFY` `(subject, cause)` builder never sees the source `text`.
-- Auto: parser is `Lark(SelectorGrammar, start="start", parser="earley")` — Earley for the ambiguous `+`/`,`/predicate grammar, the algorithm upstream itself builds. `cache=` stays unset: `lark` raises `ConfigurationError` on parser-cache serialization for any parser but `lalr`, so the `@cache`-memoized `_engine` compiling the EBNF once on first parse is the build-once mechanism. `@receipted(_REDACTION)` decorates the private `_emit`; `filter` emits transitively because it composes `parse`, never a second decorated leg.
+- Auto: parser is `Lark(SelectorGrammar, start="start", parser="earley")` — Earley for the ambiguous `+`/`,`/predicate grammar, the algorithm upstream itself builds. `cache=` stays unset: `lark` raises `ConfigurationError` on parser-cache serialization for any parser but `lalr`, so the `@cache`-memoized `_engine` compiling the EBNF once on first parse is the build-once mechanism. `@receipted(OPEN)` decorates the private `_emit`; `filter` emits transitively because it composes `parse`, never a second decorated leg.
 - Packages: `lark` (`Lark(..., parser="earley")`, `Transformer_NonRecursive().transform`, `v_args(inline=True)`, `UnexpectedInput` — `cache=` excluded, `lalr`-only), `ifcopenshell` (`util.selector.filter_elements` consuming `filter_string`, the only selection engine), `rasm.runtime.faults` (`RuntimeRail`/`boundary`/`traversed`/`Disposition`/`FAULT_CONF` — no dedicated `lark` `CLASSIFY` row, since the universal faults owner never imports a geometry-domain grammar and a parse failure is exactly the message-carrying catch-all case), `rasm.runtime.receipts`, `expression` (`tagged_union` the `Facet` algebra, `Block` the batch carrier), `msgspec` (`Struct` the frozen `SelectorComparison`/`SelectorQuery`), `beartype` (`@beartype(conf=FAULT_CONF)` on `parse`).
 - Growth: a new upstream facet is one EBNF alternative, one `Facet` case (or one `SelectorKeyword`/`IdentifyAxis`/`QualifyAxis` row when it folds onto an existing shape), one transformer method, and one `render` arm; a new operator is one `SelectorOperator` row and one `OP` alternative — no second parser, no per-facet sibling class, no receipt edit. Threading the lexer's raw `pos_in_stream` into the rejected receipt needs the source `text` at a classifier the `(subject, cause)` builder cannot reach — a faults-owner edit, never a runtime→`lark` coupling.
 - Boundary: no privately re-invented dialect — `SelectorGrammar` mirrors `filter_elements_grammar` rule-by-rule, so fabricated operators, prefixes, and qualifiers upstream rejects never enter; no hand-rolled regex/split parser; no second selection engine past the `filter_string` round-trip; no stringly passthrough of the raw query past admission; no `cache=True` on an Earley parser, and no `SelectorOperator(str(token))` or `raise UnexpectedInput` in a fold body where the grammar terminal already bounds the children. `parse` and `filter` stay caller-floor by charter — parse is a short pure fold and `filter_elements` an attribute walk over the live in-process model, a pybind11 handle no pickle seam carries, so no lane crossing exists here; any future kernel wrapping a mutating script declares `idempotent=False`.
@@ -26,12 +26,12 @@ from typing import TYPE_CHECKING, Final, assert_never, overload
 
 from beartype import beartype
 from expression import case, tag, tagged_union
-from expression.collections import Block, Map
+from expression.collections import Block
 from lark import Lark, Token, Transformer_NonRecursive, v_args
 from msgspec import Struct
 
 from rasm.runtime.faults import FAULT_CONF, Disposition, RuntimeRail, boundary, traversed
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 if TYPE_CHECKING:
     import ifcopenshell
@@ -106,7 +106,6 @@ SelectorGrammar: Final[str] = r"""
 """
 
 # keep-all redaction — no classified field on the selector facts.
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
 # render re-serialization: SPECIAL and `/.../` regex render verbatim, an UNQUOTED-clean run bare; a token carrying a
 # delimiter re-quotes as ESCAPED_STRING to round-trip. Delimiter set is upstream's `[^,.=><*!\s]` and `"` — `.` delimits
@@ -289,7 +288,7 @@ class IfcSelector:
         return transformer.transform(parser.parse(text))
 
     @staticmethod
-    @receipted(_REDACTION)
+    @receipted(OPEN)  # selector facts carry no secret field, so the runtime keep-all policy binds
     def _emit(query: SelectorQuery) -> SelectorQuery:
         # @receipted harvest point — the aspect emits `query.contribute()` on the Ok exit, so `parse` threads no emit.
         return query

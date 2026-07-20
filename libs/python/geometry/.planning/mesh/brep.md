@@ -13,6 +13,7 @@ Exact B-rep evaluation on one `BrepOp` union: parametric solid construction, n-a
 - Owner: `BrepOp` — one `@tagged_union` over the operation kinds with verbs as `StrEnum` rows, never a per-operation class family; `JoinPolicy` maps to `manifold3d.JoinType` through `_JOINS`, so the join is a policy value, never a verb-keyed hardcode; `BrepResult` carries the contributor and `BrepReceipt` the leaf evidence, the carrier/leaf split the mesh siblings share. Shape-bearing cases carry `Brep` sealed octets, never a live handle — `sealed`/`unsealed` is the one STEP `AsIs` codec pair both seam directions resolve through, so the union pickles whole across the process crossing and a native-floor consumer unseals where its own OCCT work begins.
 - Cases: linear extrusion/revolution of a profile is the `Offset` arm's `EXTRUDE`/`REVOLVE` row, never a duplicate `Construct` primitive — `MakePrism`/`MakeRevol` are reached once, through the profile leg; `Boolean.section` yields a wire/edge result the consumer re-feeds as a profile, and no downstream owner re-discriminates the operation past this union.
 - Auto: `BRepAlgoAPI_*` is the robust BOPAlgo kernel (the legacy `BRepAlgo_*` family never enters) and its operators are n-ary — one `SetArguments`/`SetTools` build, never a pairwise fold rebuilding the kernel N-1 times; a Boolean operand requires triangulation absent, so a `Boolean` always precedes any `Tessellate` over its result.
+- Bench: `benched` rides the graduation `bench_seam` fold over the whole `apply` crossing — sealed-brep codec, offload, OCCT kernel, weave — subject-keyed `rasm.geometry.mesh.brep.<tag>`, so a boolean row prices the STEP seal beside the solve; latency and throughput rows per operation kind, zero instrument rows, and graduation's `bench_terminal` wraps the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Packages: `cadquery-ocp` (the `OCP.*` band — the retired conda-only `pythonocc-core` `OCC.Core.*` path never enters), `manifold3d` (`CrossSection`/`JoinType`, the 2D leg only — the 3D `Manifold` CSG backend belongs to `mesh/repair.md#MESH`), `trimesh`, `numpy`, `expression`, and `msgspec` per the fence imports; `TessellationPolicy`/`CANONICAL_TESSELLATION` and `GeometrySubject` arrive from the geometry owners, the rails from runtime.
 - Growth: a new primitive, set verb, offset mode, feature, or join is one `StrEnum` row and one `Map` entry; a spine-following `SWEEP` verb is the `BRepOffsetAPI_MakePipeShell` landing site, staged behind a real spine-wire payload field rather than aliased to the linear `EXTRUDE` prism it cannot distinguish without one.
 - Boundary: mesh-file/GLB codec is the data `MeshPayload` owner's (`rasm.data.spatial.mesh`); scene/USD/GLTF/OBJ export is `artifacts` figures/scene; the STEP-read-to-GLB hop is `mesh/cad.md#BRIDGE`'s `StepBridge`, a distinct OCCT consumer meeting this evaluator only at the shared `cadquery-ocp` band, never a shared function; triangle-soup repair and mesh CSG are `mesh/repair.md#MESH`'s — exact OCCT B-rep Boolean here, robust triangle-mesh Boolean there, two kernels on two owners.
@@ -32,7 +33,7 @@ import trimesh
 from manifold3d import CrossSection, JoinType
 from msgspec import Struct
 from expression import case, tag, tagged_union
-from expression.collections import Map
+from expression.collections import Block, Map
 
 from OCP.BRep import BRep_Tool
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse, BRepAlgoAPI_Section
@@ -70,10 +71,11 @@ from OCP.TopoDS import TopoDS, TopoDS_Face, TopoDS_Shape, TopoDS_Wire
 from OCP.TColgp import TColgp_Array1OfPnt
 from OCP.TopTools import TopTools_IndexedMapOfShape, TopTools_ListOfShape
 
-from rasm.geometry.graduation import EvidenceScope, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometrySubject, bench_seam, evidence_run
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, TessellationPolicy
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -282,6 +284,12 @@ async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
     # declared trait because the OCCT band holds process-global native state, so the kernel rides the warm process
     # pool with the WORKER death retry.
     return await evidence_run(EvidenceScope.MESH_BREP, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
+
+
+def benched(op: BrepOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+    # kernel macro-bench: each round drives the whole apply crossing — sealed-brep codec, offload, OCCT kernel,
+    # weave — so a boolean row prices the STEP seal beside the solve; never an in-kernel probe (the pulse boundary).
+    return bench_seam(f"{EvidenceScope.MESH_BREP.value}.{op.tag}", partial(apply, op, lane), rounds=rounds, warmup=warmup)
 
 
 def sealed(shape: TopoDS_Shape) -> Brep:

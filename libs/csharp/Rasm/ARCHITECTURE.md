@@ -13,7 +13,8 @@ Rasm/
 │   ├── Validation.cs        # Readiness algebra and the one validity oracle
 │   ├── Normalization.cs     # Topology/kind taxonomy and coercion lattice
 │   ├── Evaluation.cs        # Closest-hit evaluation over frames, sampling, and signed distance
-│   └── Stats.cs             # Scalar-metric statistics vocabulary
+│   ├── Stats.cs             # Scalar-metric statistics vocabulary
+│   └── Telemetry.cs         # Receipt-tap signal fabric, op-cost capsule, and bench-claim ledger
 ├── Numerics/                # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs        # Exact geometric-predicate precision ladder
 │   ├── Faults.cs            # Consolidated band-2400 geometry fault family
@@ -83,7 +84,7 @@ Rasm/
 
 Four strata order the sub-domains; a co-recursive pair co-seats one stratum, so every cross-stratum consumption edge points down the ladder.
 
-- S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, and `CurveForm` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
+- S0 `Domain` + `Numerics` — co-recursive floor: `Op`, `Context`, `ContentHash`, `CurveForm`, and `TelemetrySink` beside `MatrixKernel`, `GeometryFault`, `PerceptualColor`, and `AtomProjection`; every sibling threads the rail and the exact-predicate floor, and the pair's mutual reach (`Op` into integration, `AtomProjection` into evaluation) is same-stratum fact.
 - S1 `Spatial` + `Meshing` — co-recursive lattice composing the floor alone: `SpatialIndex`, `VectorCloud`, `GeometryHash`, and `ScalarField` beside `MeshSpace`, `MeshEdit`, `SliceStack`, and `CurveSkeleton`; intersection reads the index and reconciliation reads the mesh, both interior to the stratum.
 - S2 `Processing` + `Solving` — co-recursive rails over the lattice: `HealOp`, `RemeshOp`, `ChartAtlas`, `VectorIntent`, and `SampleKind` beside the `Lm` solver and `FitReceipt`; the registration optimizer instantiating the `Lm` functor is the pair's same-stratum reach, and everything else consumes S0-S1 below.
 - S3 `Parametric` + `Drawing` + `Analysis` — terminal producers nothing composes: `NurbsForm`, `MonotonicTimeline`, and `PanelField`; `DrawingProjection` and `EncodedGeometry`; `AnalysisQuery` and `Measure`.
@@ -178,6 +179,8 @@ flowchart LR
     Processing e13@-->|"[SHAPE]: RemeshOp"| Compute
     Drawing e14@-->|"[WIRE]: EncodedGeometry"| Compute
     Drawing e15@-->|"[WIRE]: EncodedGeometry"| AppHost
+    Domain e17@-->|"[SHAPE]: TelemetrySink"| AppHost
+    Domain e18@-->|"[WIRE]: BenchClaim"| AppHost
 ```
 
 ```mermaid
@@ -243,7 +246,7 @@ flowchart LR
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
 
-Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Two invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, and `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency.
+Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Three invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency — and the signal fabric exits once: `TelemetrySink` is the kernel arm the AppHost `InstrumentFan` mounts by name (`rasm.kernel` meter, `rasm.rasm.<domain>` sources) while `BenchClaim` rows are the enumeration its corpus gate ingests.
 
 ## [04]-[NAMESPACES]
 

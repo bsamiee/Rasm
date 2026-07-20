@@ -76,6 +76,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `System.Threading.Tasks.Dataflow` — carries the drainable-queue dataflow blocks, framework-provided with no package row.
 
 [OBSERVABILITY]:
+- `Microsoft.Extensions.Diagnostics` — `AddMetrics` mints the per-ALC `IMeterFactory` the plugin capsule provider resolves for `PluginTelemetryHost.Meters`.
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.

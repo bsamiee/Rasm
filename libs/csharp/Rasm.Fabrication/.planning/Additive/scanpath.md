@@ -39,11 +39,11 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 
 ## [05]-[SCHEDULING]
 
-- Entry: `Scan.Plan` runs audit, region projection, candidate generation, clipping, field assignment, ordering, machine-event projection, canonicalization, and receipt construction in one flat query.
+- Entry: `Scan.Plan` runs audit, region projection, candidate generation, clipping, field assignment, ordering, machine-event projection, canonicalization, and receipt construction in one flat query inside the `EngineSpan.ScanpathDerive` span, so a long derivation traces and its histogram measurements carry exemplars.
 - Law: exposure dwell, jump, layer delay, source synchronization, remelt, and recoater delay are executable values, never receipt-only estimates.
 - Law: gas bearing, layer rotation, thermal separation, source overlap, skywriting, pulse, focus, spot, and distortion compensation are policy values consumed before identity.
 - Law: `Scan.Waves` buckets scheduled vectors by separation cell, so wave election probes only the neighbourhood a vector can contend with and searches at most one wave past the blocked set.
-- Receipt: `ScanReceipt` retains audit, source loads, thermal moments, plume conflicts, overlap stitches, field cells, event census, energy, path, and build time.
+- Receipt: `ScanReceipt` retains audit, source loads, thermal moments, plume conflicts, overlap stitches, field cells, event census, energy, path, and build time; the settled receipt fires the `FabricationFact.Engine.Of` exposure, jump, remelt, and stitch rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
 
 ## [06]-[IDENTITY]
 
@@ -65,6 +65,7 @@ using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
+using Rasm.Fabrication.Process;
 using Rasm.Geometry;
 using Rhino.Geometry;
 using Thinktecture;
@@ -368,7 +369,9 @@ public static class Scan {
         SliceStack stack,
         ScanPolicy policy,
         ProcessBudget.Powder budget,
-        Option<SupportPlan> support) =>
+        Option<SupportPlan> support,
+        FabricationTap? tap = null) =>
+        EngineSpan.ScanpathDerive.Traced(_ =>
         from _policy in (
             Gate(policy.Rotation.Cycle > 0
                 && double.IsFinite(policy.Rotation.LayerIncrement.Radians)
@@ -432,7 +435,8 @@ public static class Scan {
         from _plume in receipt.Thermal.PlumeConflicts == 0
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, -1, $"scan:plume-conflicts:{receipt.Thermal.PlumeConflicts}").ToError())
-        select new ScanPlan(layers, bytes, key, receipt);
+        let _fact = FabricationFact.Engine.Of(receipt).Map((tap ?? FabricationTap.Silent).Fire).Strict()
+        select new ScanPlan(layers, bytes, key, receipt));
 
     internal static Fin<T> Capture<T>(Func<Fin<T>> callback, string locus) =>
         Try.lift(callback).Run()

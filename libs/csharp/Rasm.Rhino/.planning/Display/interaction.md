@@ -6,9 +6,10 @@
 
 ## [01]-[INDEX]
 
-- [01]-[POINTERS]: callback phase projection, overflow policy, and pointer lease.
-- [02]-[GUMBALL]: geometry seating, pick/update fold, and transform evidence.
-- [03]-[WIDGETS]: registered grip, label, SVG, and slider families over one fact channel.
+- [02]-[POINTERS]: callback phase projection, overflow policy, and pointer lease.
+- [03]-[GUMBALL]: geometry seating, pick/update fold, and transform evidence.
+- [04]-[WIDGETS]: registered grip, label, SVG, and slider families over one fact channel.
+- [05]-[HOOKS]: `DisplayHooks` mounts the pointer and widget hook points onto the registry.
 
 ## [02]-[POINTERS]
 
@@ -891,5 +892,49 @@ public sealed class WidgetHost : IDisposable {
         settle: () => ReleaseAll(Op.Of(nameof(WidgetHost))),
         key: Op.Of(nameof(WidgetHost)))
         .IfFail(error => ignore(faults.Swap(rows => rows.Add(error))));
+}
+```
+
+## [05]-[HOOKS]
+
+- Owner: `DisplayHooks.Mount` registers the two display hook points — `rasm.rhino.display.pointer` granting a `PointerLease` and `rasm.rhino.display.widget` granting a `WidgetHost` — each bind minting a fresh owner so no two consumers contend for one bounded channel.
+- Law: one ask shape serves both points — `PointerRequest.Mount` already carries capacity, overflow, and settle policy, and `WidgetHost.Of` consumes the identical triple, so the widget point reuses the admitted request instead of a parallel ask record.
+- Law: display modality is observe — `MouseCallbackEventArgs` exposes no cancel member and widget `MouseState` callbacks run post-hoc; the two veto-capable display seams (`CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`) belong to the conduit owner, so no row here mints a veto.
+- Law: gumball evidence returns on the `Gumballs.Configure` request rail, never as a detached stream, so no gumball point exists — a detached fact stream is the point prerequisite, and gumball occupancy already rides every `PointerFact`.
+
+```csharp signature
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+public static class DisplayHooks {
+    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
+        Op op = key.OrDefault();
+        return Seq(
+                new HookMount(
+                    Point: HookPoint.DisplayPointer,
+                    Plugin: plugin,
+                    Ask: typeof(PointerRequest.Mount),
+                    Grant: typeof(PointerLease),
+                    Bind: static ask => ask switch {
+                        PointerRequest.Mount request => Pointers.Configure(request).Bind(static receipt => receipt switch {
+                            PointerReceipt.Mounted mounted => Fin.Succ<object>(value: mounted.Lease),
+                            _ => Fin.Fail<object>(error: Op.Of(name: nameof(DisplayHooks)).InvalidResult()),
+                        }),
+                        _ => Fin.Fail<object>(error: Op.Of(name: nameof(DisplayHooks)).InvalidInput()),
+                    }),
+                new HookMount(
+                    Point: HookPoint.DisplayWidget,
+                    Plugin: plugin,
+                    Ask: typeof(PointerRequest.Mount),
+                    Grant: typeof(WidgetHost),
+                    Bind: static ask => ask switch {
+                        PointerRequest.Mount request => WidgetHost.Of(
+                                capacity: request.Capacity,
+                                overflow: request.Overflow,
+                                settleWithin: request.SettleWithin)
+                            .Map(static host => (object)host),
+                        _ => Fin.Fail<object>(error: Op.Of(name: nameof(DisplayHooks)).InvalidInput()),
+                    }))
+            .TraverseM(mount => HookRegistry.Mount(mount: mount, key: op))
+            .As();
+    }
 }
 ```

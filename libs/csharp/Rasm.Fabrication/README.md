@@ -12,7 +12,7 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [03]-[PHYSICS](.planning/Process/physics.md): State-dependent material laws, coolant-coupled cutting response, and energy budgets.
 - [04]-[FAULTS](.planning/Process/faults.md): `FabricationFault` typed-rejection registry partitioned by owning concern.
 - [05]-[DERIVATION](.planning/Process/derivation.md): Aggregate-admitted plan derivation with lot scheduling and critical-path evidence.
-- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, and classification rows.
+- [06]-[TELEMETRY](.planning/Process/telemetry.md): `FabricationFact` union, instrument roster, projection fan, classification rows, engine spans, hook roster, and SLO rows.
 
 [TOOLING]:
 - [07]-[MAGAZINE](.planning/Tooling/magazine.md): ISO-13399 tool-assembly magazine and the minimal-swap tool-life schedule.
@@ -155,7 +155,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Compliance.Redaction` — classification attribute surface for the classified receipt members; redactor binding stays at the app root.
-- In-box `System.Diagnostics.Metrics` owns the instrument surface; the OpenTelemetry SDK tier composes at `Rasm.AppHost` roots, never here.
+- In-box `System.Diagnostics.Metrics` owns the instrument surface and in-box `System.Diagnostics.ActivitySource` the engine spans; the OpenTelemetry SDK tier composes at `Rasm.AppHost` roots, never here.
 
 [TEST]:
 - `xunit.v3.assert`

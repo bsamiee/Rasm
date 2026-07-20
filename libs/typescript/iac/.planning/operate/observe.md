@@ -19,7 +19,7 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 
 [STORE_ROWS]:
 - Owner: the interior `_stores` family — one row per metrics store carrying `chart`/`repo`, the `write` (OTLP/remote-write ingest path) and `read` (query API path) projections, the `exemplars` column, the `tenancy` column (`label | org`), and the `degrade` declaration — with `spec.profile.observe.store` selecting the row and `spec.profile.observe.retention` flowing into the row's values; the family is Mimir-SHAPED: every coordinate an escalation needs is a column on every row, so promotion edits the spec, never a tier.
-- Law: `prometheus` is the reference row — its decisive column is `exemplars: true`: native exemplar storage (`--enable-feature=exemplar-storage` and native histograms in the row's values) powers the metric→trace click-through into Tempo that the whole board plane links on; tenant stays the `rasm.tenant` label (`tenancy: "label"`), and retention is the row's server retention value.
+- Law: `prometheus` is the reference row — its decisive column is `exemplars: true`: native exemplar storage (`--enable-feature=exemplar-storage` and native histograms in the row's values) powers the metric→trace click-through into Tempo that the whole board plane links on; tenant stays the `rasm.tenant` label (`tenancy: "label"`), retention is the row's server retention value, and its OTLP receiver stamps `Convention.wire.translation` so ingested dotted names survive with type and unit suffixes.
 - Law: `mimir` is the fleet escalation — multi-component and memory-heavy, earned only past the single-store ceiling; its object-store binding reuses the object plane's endpoint and bucket coordinates (one storage truth, never a second store config), its ruler runs in-store so the burn rules the `Boards` fold applies can escalate to store-side evaluation as one values row, and `tenancy: "org"` stamps the stack's org id as the `X-Scope-OrgID` header on the collector's metrics exporter.
 - Law: `victoriametrics` is the resource-pressure escape — `exemplars: false` is its declared degradation: the metric→trace click-through drops to trace-search-by-time, a posture the row states so selecting it is an informed trade, never a surprise; every other projection column holds.
 - Law: degradation is a row declaration — each row's `degrade` column states what the estate loses on that row, so the store decision reads as data at the spec seam and the dashboards' exemplar links gate on the selected row's `exemplars` column.
@@ -72,7 +72,7 @@ const _stores = {
 - Entry: `new Lgtm("observe", { spec, namespace, versions, auth, dsn, keyring? }, opts)` inside the k8s arm.
 - Growth: a new signal backend is one `_charts` row with its endpoint projections; a collector pipeline axis is one values row.
 - Boundary: the app-side OTLP export composition is the runtime telemetry plane's and arrives only as the env row; board content is `[06]`'s upstream data.
-- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`, `all`, `asset`); `effect` (`Array`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumi/kubernetes` (`helm.v4.Chart`); `@pulumi/pulumi` (`Input`, `Output`, `interpolate`, `all`, `asset`); `effect` (`Array`); `@rasm/ts/core` (`Convention`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import * as k8s from "@pulumi/kubernetes"
@@ -152,6 +152,7 @@ class Lgtm extends Tier {
         retention: args.spec.profile.observe.retention, // retention rides the row's own dialect key; drifts only with the pin
         ...(args.spec.profile.observe.store === "prometheus" && {
           server: { extraFlags: ["enable-feature=exemplar-storage", "enable-feature=native-histograms", "web.enable-otlp-receiver"] },
+          serverFiles: { "prometheus.yml": { otlp: { translation_strategy: Convention.wire.translation } } }, // the one owned OTLP-receiver strategy: dotted names survive with type/unit suffixes; the enclosing helm key rides the [STORE_CHARTS] research row
         }),
         ...(args.spec.profile.observe.store === "mimir" && {
           // one storage truth: ruler_storage and blocks_storage bind args.objects' endpoint/bucket; the dialect keys inside ride the [STORE_CHARTS] research row
@@ -337,9 +338,9 @@ const _urls = (release: string, namespace: pulumi.Input<string>, store: (typeof 
 - Law: the compile leg is the Foundation-SDK builder fold — `_compiled` decodes each model once, lands `uid`/`title`/`tags`/`refresh` member-for-member with `since` on `time`, folds every `variables` row through `withVariable` and every annotation row through `annotation` (slug as the name, tone as the marker color), and `.build()` emits the Grafana JSON `pulumi.jsonStringify` posts as `configJson` — compiled once per model and applied to every org that carries it.
 - Law: the panel fold is an exhaustive record dispatch — `_minted` mints each laid panel through its tag's `Match.valueTags` arm carrying the tag's own payload (gauge `ceiling` on `max`, `steps` sorted onto the thresholds builder above the wire's mandatory `-Infinity` base row, `unit` where the row carries it, the Logs display rows on `showTime`/`wrapLogMessage`/`sortOrder`/`dedupStrategy`), and the shared fields land on the members every subpath inherits (`title`, `description`, `transparent`, `repeat`, `gridPos` from the model's own shelf fold) — a new panel tag fails compilation at the record until its arm exists.
 - Law: targets ride the `_POSTURE` row — the row names the query module (`loki` for Logs, prometheus for the rest), the wire form (`table` for the Table/Geomap/Nodes facet frames, `heatmap` for Heatmap), and the instant flag; every panel binds its datasource `{ type, uid }` from the `_SOURCES` row key, every panel emits at least one target (Logs its `filter`, Nodes its `nodes`/`edges` pair), `legend` lands on `legendFormat`, and `exemplar(true)` rides only range series gated on the selected store row; the model rows the fold does not yet land ride the `[PANEL_OPTIONS]` research row.
-- Law: the alert compile is total over the spec — `_expr` is the one `Match.valueTags` record fold from SLI case to PromQL, every arm a breach-rate `> factor × budget` verdict joined over the short and long windows with `and` through the `_burned` seam, the multiwindow guard that keeps a burst and a slow burn both honest: the `Ratio` case compiles the good-ratio complement, the `Latency` case the `le`-share complement at the spec's own `ceiling` over the bucket/count series, and the `Saturation`/`Freshness` cases the bool-comparison time shares — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
+- Law: the alert compile is total over the spec — `_expr` folds each spec through `_burned`, joining the short and long breach-rate `> factor × budget` verdicts with `and` (the multiwindow guard that keeps a burst and a slow burn both honest), while the breach spelling itself is core-owned: `Query.breach(spec.sli, window)` renders the quoted dotted series and folds the `Latency` `le` bound through `Convention.duration`, so this fold never reconstructs `${metric}_bucket`/`${metric}_count` nor re-derives units and the board burn panels and these alert rules read one breach projection — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
 - Law: delivery routes by severity as data — the `contacts` record carries one receiver row per severity kind (`page`, `ticket`); each present row realizes one `alerting.ContactPoint`, one `NotificationPolicy` matcher route on the `severity` label, and one `alerting.MessageTemplate` rendering the spec's annotation keys into the notification body, and a row carrying a `quiet` calendar realizes one `alerting.MuteTiming` bound onto its route — paging posture, wording, and quiet hours are all contact-row data the spec's severity row keys.
-- Law: SLOs compile from objectives, never from alerts — `_slos` maps the suite's own `Slo.Objective` values (name, target, window, SLI) onto `slo.SLO` rows with the plain error-ratio query, so the alert fold and the SLO fold read one upstream vocabulary and cannot disagree.
+- Law: SLOs compile from objectives, never from alerts — `_slos` maps the suite's own `Slo.Objective` values (name, target, window, SLI) onto `slo.SLO` rows whose SLI observable `_query` renders through the same core `Query` family the panels and alerts use, so every dotted series quotes and reads its native histogram and no store-series string is hand-spelled; the alert fold and the SLO fold read one upstream vocabulary and cannot disagree.
 - Law: tenancy is organizations, realized org-scoped — one `oss.Organization` per `spec.tenants` slug with the per-tenant folder, source set, and board fleet threaded `orgId` from the realized org's own output, so a tenant's boards and sources scope to its org while the default org carries the operator fleet, alerts, and machine identity.
 - Law: the deployment annotates itself — one `oss.Annotation` carries the deploy plane's time-ordered identity and stack coordinates as board-visible text, so every dashboard reads deploys against its own series; richer run evidence stays receipt material on the automation plane.
 - Law: the machine identity is minted least-privilege — one `oss.ServiceAccount` (`role: "Editor"`) holds exactly the folder-Admin grant one `oss.FolderPermissionItem` lands, and one `oss.ServiceAccountRotatingToken` (rotation window as `_ROTATION` policy data, `deleteOnDestroy` so a torn-down stack leaves no live credential) realizes the durable automation credential; the token key egresses as the tier's `automation` output for the composing arm to land in a Doppler `{ value }` entry, and the chart-seeded `admin:password` binding remains the one in-graph provider auth.
@@ -347,7 +348,7 @@ const _urls = (release: string, namespace: pulumi.Input<string>, store: (typeof 
 - Entry: `new Boards("boards", { spec, urls, auth, boards, alerts, objectives, contacts, deploy }, opts)` — the k8s arm feeds `lgtm.urls`, the docker arm `dev.urls`; `boards`/`alerts`/`objectives` produced by the app's core observe suite call.
 - Growth: a new panel family is one model row upstream with its `_minted` arm and `_POSTURE` row here; a new severity route is one `contacts` row; a new SLI case is one `_expr` match arm beside its upstream `Sli` case; a new tenant is one `spec.tenants` slug realizing its whole org-scoped fleet.
 - Boundary: `DashboardModel`/`Alert`/`Slo` shapes are the core observe plane's owners consumed as encoded values; folder placement conventions live here, board content never does; drift interpretation is `operate/policy.md`'s.
-- Packages: `@pulumiverse/grafana` (`Provider`, `oss.Folder`, `oss.DataSource`, `oss.Dashboard`, `oss.Organization`, `oss.Annotation`, `oss.ServiceAccount`, `oss.ServiceAccountRotatingToken`, `oss.FolderPermissionItem`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `alerting.MessageTemplate`, `alerting.MuteTiming`, `slo.SLO`); `@grafana/grafana-foundation-sdk` (`dashboard` `DashboardBuilder`/`QueryVariableBuilder`/`AnnotationQueryBuilder`/`ThresholdsConfigBuilder`/`ThresholdsMode`, the per-tag panel builders, `prometheus` `DataqueryBuilder`/`PromQueryFormat`, `loki` `DataqueryBuilder`, `common` `LogsSortOrder`/`LogsDedupStrategy`); `@rasm/ts/core` (`DashboardModel`, `Alert`, `Sli`, `Slo`); `effect` (`Array`, `Duration`, `Match`, `Option`, `Order`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumiverse/grafana` (`Provider`, `oss.Folder`, `oss.DataSource`, `oss.Dashboard`, `oss.Organization`, `oss.Annotation`, `oss.ServiceAccount`, `oss.ServiceAccountRotatingToken`, `oss.FolderPermissionItem`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `alerting.MessageTemplate`, `alerting.MuteTiming`, `slo.SLO`); `@grafana/grafana-foundation-sdk` (`dashboard` `DashboardBuilder`/`QueryVariableBuilder`/`AnnotationQueryBuilder`/`ThresholdsConfigBuilder`/`ThresholdsMode`, the per-tag panel builders, `prometheus` `DataqueryBuilder`/`PromQueryFormat`, `loki` `DataqueryBuilder`, `common` `LogsSortOrder`/`LogsDedupStrategy`); `@rasm/ts/core` (`Alert`, `Convention`, `DashboardModel`, `Query`, `Sli`, `Slo`); `effect` (`Array`, `Duration`, `Match`, `Option`, `Order`, `Record`, `Schema`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import { LogsDedupStrategy, LogsSortOrder } from "@grafana/grafana-foundation-sdk/common"
@@ -365,7 +366,7 @@ import { PanelBuilder as Stat } from "@grafana/grafana-foundation-sdk/stat"
 import { PanelBuilder as Table } from "@grafana/grafana-foundation-sdk/table"
 import { PanelBuilder as Timeseries } from "@grafana/grafana-foundation-sdk/timeseries"
 import * as grafana from "@pulumiverse/grafana"
-import { Alert, DashboardModel, type Sli, type Slo } from "@rasm/ts/core"
+import { Alert, Convention, DashboardModel, Query, type Sli, type Slo } from "@rasm/ts/core"
 import { Array, Duration, Match, Option, Order, Record, Schema } from "effect"
 
 declare namespace Boards {
@@ -498,25 +499,24 @@ const _burned = (spec: Alert.Spec, breach: (window: Duration.DurationInput) => s
   )
 
 const _expr = (spec: Alert.Spec): string =>
-  Match.valueTags(spec.sli, {
-    Freshness: ({ horizon, metric }) =>
-      _burned(spec, (window) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[${_window(window)}:])`),
-    Latency: ({ ceiling, metric }) =>
-      _burned(spec, (window) =>
-        `(1 - (sum(rate(${metric}_bucket{le="${Duration.toSeconds(ceiling)}"}[${_window(window)}])) / sum(rate(${metric}_count[${_window(window)}]))))`),
-    Ratio: ({ good, total }) =>
-      _burned(spec, (window) => `(1 - (sum(rate(${good}[${_window(window)}])) / sum(rate(${total}[${_window(window)}]))))`),
-    Saturation: ({ ceiling, metric }) =>
-      _burned(spec, (window) => `avg_over_time((${metric} > bool ${ceiling})[${_window(window)}:])`),
-  })
+  // the breach spelling is core-owned: Query.breach quotes every dotted series and folds the Latency le bound through Convention.duration, so this fold never reconstructs `${metric}_bucket`/`${metric}_count` nor re-derives units
+  _burned(spec, (window) => Query.render(Query.breach(spec.sli, Query.span(Duration.decode(window)))))
+
+const _rateSum = (metric: Convention.MetricName): Query =>
+  Query.Aggregate({ by: [], of: Query.Windowed({ fn: "rate", of: Query.Instant({ labels: {}, metric }), window: Query.interval.rate }), op: "sum" })
 
 const _query = (sli: Sli): string =>
-  Match.valueTags(sli, {
-    Freshness: ({ horizon, metric }) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[$__rate_interval:])`,
-    Latency: ({ metric, quantile }) => `histogram_quantile(${quantile}, sum by (le) (rate(${metric}_bucket[$__rate_interval])))`,
-    Ratio: ({ good, total }) => `sum(rate(${good}[$__rate_interval])) / sum(rate(${total}[$__rate_interval]))`,
-    Saturation: ({ ceiling, metric }) => `avg_over_time((${metric} > bool ${ceiling})[$__rate_interval:])`,
-  })
+  // the SLI observable renders through the same core Query family: dotted series quote and the Latency histogram reads native buckets, so no store-series string is hand-spelled
+  Query.render(
+    Match.valueTags(sli, {
+      Freshness: ({ horizon, metric }) =>
+        Query.Windowed({ fn: "avg", of: Query.Binary({ left: Query.Instant({ labels: {}, metric }), op: "gt", right: Query.Const({ value: Query.finite(Duration.toMillis(horizon) / 1000) }) }), window: Query.interval.rate }),
+      Latency: ({ metric, quantile }) => Query.Quantile({ labels: {}, metric, q: Query.quantile(quantile), window: Query.interval.rate }),
+      Ratio: ({ good, total }) => Query.Binary({ left: _rateSum(good), op: "div", right: _rateSum(total) }),
+      Saturation: ({ ceiling, metric }) =>
+        Query.Windowed({ fn: "avg", of: Query.Binary({ left: Query.Instant({ labels: {}, metric }), op: "gt", right: Query.Const({ value: Query.finite(ceiling) }) }), window: Query.interval.rate }),
+    }),
+  )
 
 const _alerted = (
   alerts: ReadonlyArray<Alert.Spec>,
@@ -667,4 +667,4 @@ export { Boards, Dev, Lgtm }
 - [STORE_CHARTS]-[OPEN]: exact chart names, rendered service DNS, and ingest/query path suffixes for the `prometheus`/`mimir-distributed`/`victoria-metrics-single` rows at the pinned versions, and each row's retention values key; verify against each repository's helm index and rendered manifests before the store fences settle.
 - [PG_RECEIVER]-[OPEN]: whether the pinned collector's `postgresqlreceiver` surfaces pg18 `pg_stat_io` byte and WAL columns; verify against the collector-contrib receiver documentation — until confirmed, that depth rides a `sqlqueryreceiver` custom-query row beside the `native` arm.
 - [DEV_PORTS]-[OPEN]: query-plane listen ports of the all-in-one dev image (`prometheus`/`loki`/`tempo` rows on `_DEV.query`); verify against the pinned image's published service manifest before the dev fences settle.
-- [PANEL_OPTIONS]-[OPEN]: builder member spellings for the model rows `_minted` does not yet land — `_PanelFields` axes/interaction/links/transformations, Table sort and pagination, the Geomap layer mapping, the nodegraph frame-option members; verify against the foundation-sdk module declarations, then fold each verified member beside its mint arm.
+- [PANEL_OPTIONS]-[OPEN]: the folder catalog (`iac/.api/grafana-grafana-foundation-sdk.md`) verifies the shared option members `.links(rows)`, `.withTransformation(t)`, `.tooltip(b)`, and `.legend(b)` on every `PanelBuilder`, but neither their argument shapes (the `DataLink`/`DataTransformerConfig`/`common.VizTooltipOptions` sub-builders) nor the per-visualization members the model rows `_minted` still omits — timeseries `_Axis` builders (`.axisLabel`/`.axisPlacement`/`.axisScaleType`/`.axisSoftMin`/`.axisSoftMax`), Table sort and `pageSize`, the Geomap layer `mapping`, the nodegraph frame-option members; resolve each against the pinned package's per-domain `dist/<domain>/*Builder.gen` declarations (assay probe or source read), then fold the confirmed member beside its `_minted` arm and the `_compiled` shared-field pass.

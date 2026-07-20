@@ -38,7 +38,9 @@
 |  [14]   | `Deck.getCanvas`           | `() => HTMLCanvasElement \| null`            | ref wiring                                                   |
 |  [15]   | `Deck.isInitialized`       | `boolean`                                    | `onLoad` gate before public calls                            |
 |  [16]   | `DeckProps<ViewsT>`        | props record (below)                         | full prop contract; `MapboxOverlayProps` minus camera        |
-|  [17]   | `DeckMetrics`              | `{fps,gpuTime,cpuTime,pickTime,gpuMemory,…}` | `_onMetrics` payload → `probe/benchmark` perf sink           |
+|  [17]   | `DeckMetrics`              | full 19-member payload, [17]                 | `_onMetrics` payload → `probe/benchmark` perf sink           |
+
+- [17]-[METRICS_PAYLOAD]: the shipped payload is exactly the typed member set — timing `fps`/`gpuTime`/`gpuTimePerFrame`/`cpuTime`/`cpuTimePerFrame`/`pickTime`/`setPropsTime`/`updateAttributesTime`, counters `framesRedrawn`/`pickCount`/`pickLayersCount`/`updateAttributesCount`/`layersCount`/`drawLayersCount`/`updateLayersCount`, memory `gpuMemory` split into `bufferMemory`/`textureMemory`/`renderbufferMemory`; no untyped members ride the callback.
 
 [TYPE_SCOPE]: `DeckProps` axes — canvas/device, data-flow, interaction, and lifecycle callbacks; one callback family carries `PickingInfo`.
 - interaction callbacks `onHover`/`onClick`/`onDragStart`/`onDrag`/`onDragEnd` all receive `(info: PickingInfo, event: MjolnirEvent)` — one pointer-event family, not five shapes. `getTooltip(info) => TooltipContent` and `getCursor(state) => string` are the declarative HUD hooks. `onViewStateChange(p: ViewStateChangeParameters) => ViewStateT|null|void` intercepts camera changes.

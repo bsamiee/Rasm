@@ -13,7 +13,7 @@ Frame column discipline is load-bearing: `output`/`unit`/`period`/`zone`/`step`/
 - Owner: `Simulation` holds the admitted `BuildingModel`, the `LanePolicy` its CPU legs offload under, and the `RecipeExecution` handle — constructed once at the composition edge, never per call. `TranslateTarget` keys the `WRITERS` row, so a format is a row, never a parallel translator; `SimPar` folds onto one `SimulationParameter` document through the owned `add_*` request rows, never a hand-stitched JSON.
 - Entry: `translate` probes the native SDK once (`find_spec("openstudio")`) — present, the in-process writer row; absent, the OSW + OpenStudio CLI fall-through, which serves OSM/IDF alone, so an EPJSON/GBXML request without the SDK is a typed fault naming the constraint, never a silently wrong artifact; the SDK leg loads the native-hostile `openstudio` band in-process, so the whole kernel crosses as `Kernel.of(_translated, KernelTrait.HOSTILE, idempotent=False)` onto the warm process pool, never the event loop and never a thread arm whose trait the SDK load falsifies. `simulate` hands execution to the runtime `RecipeExecution` — engine gates, handler coercion, the `queenbee local run` subprocess, the luigi verdict — and geometry receives the typed `RecipeProduct`, never re-parsing a log. `job()` is queenbee schema only, zero execution — the submission document for a consumer submitting to the Pollination API rather than running locally.
 - Auto: `simulate`/`job` delegate to the runtime owner's own span and receipt — never a doubled page-level weave over the delegated leg; the translate crossing declares `idempotent=False`, dropping the `HOSTILE` trait's `WORKER` retry default — deterministic translation owns no transiency AND the kernel writes artifacts, so a worker death rails typed instead of re-running the write, while the runtime recipe owner retries its own engine gate; `DetailedHVAC` models route through the OpenStudio measure path by construction, and the pure-EnergyPlus IDF row rejects one with a typed fault; the `outputs` census is the router — a requested name absent from the census is a typed fault naming the name and the census size, never a guessed output.
-- Receipt: measured graduation fact is the total EUI (kWh/m2) against the caller's compliance ceiling — real building-physics evidence crossing to compute, never a row count.
+- Receipt: measured graduation fact is the total EUI (kWh/m2) against the caller's compliance ceiling — real building-physics evidence crossing to compute, never a row count; the eui decode arm records the same total onto the `rasm.geometry.energy.eui` charter distribution at the producing fold, parent-side under the sync evidence weave.
 - Packages: `honeybee-openstudio` wraps the BSD `openstudio` SDK behind the `find_spec` gate; `honeybee-energy` carries the CLI pair, the `SimulationParameter` family, and the result parsers; ladybug `SQLiteResult` is the ONLY EnergyPlus SQL decode path; `queenbee` is schema only; `pyarrow` is module-level-banned and defers inside the crossing kernel; the data `tabular/columnar` Arrow-bytes fold is the one canonical serialization, composed at the consumer edge.
 - Growth: a new translation format is one `WRITERS` row; a new output family one `SimPar` policy row over its `add_*` method; a new result decode is one `ResultQuery` case — `loadbalance`/`emissions`/`generation`/`component_sizes` the named next rows over their `honeybee_energy.result` parsers; daylight/comfort-map recipes ride the SAME `simulate` shape — one more `RecipeName` row, the `ladybug_comfort.map` kernels composing over those matrices through the climate owner's vocabulary; a cloud submission consumes `job()` when a consumer names it.
 - Boundary: execution is the runtime `execution/recipe` owner's; model semantics are `energy/model`'s, weather algebra `energy/climate`'s; a result frame missing its `unit`/`period`/`zone`/`content_key` columns is the deleted form — the C# decoder can neither attribute nor dedupe it.
@@ -33,7 +33,7 @@ from msgspec import json as msgjson
 
 from rasm.data.tabular.columnar import arrow_bytes
 from rasm.geometry.energy.model import BuildingModel
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, charter_record, evidence_run
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
@@ -223,6 +223,14 @@ class Simulation(Struct, frozen=True):
                 case ResultQuery(tag="eui", eui=None):
                     breakdown = eui_from_sql(str(sql))
                     rows = tuple((use, "kWh/m2", "annual", "", 0, value) for use, value in breakdown["end_uses"].items())
+                    # charter row at the producing fold, spelling derived from BUILDING_ENERGY: total EUI is the
+                    # end-use sum by definition, so no second parser member is claimed; the record runs parent-side
+                    # inside the sync evidence weave.
+                    charter_record(
+                        GeometrySubject.BUILDING_ENERGY,
+                        {"eui_total": sum(row[5] for row in rows)},
+                        EvidenceScope.ENERGY_SIMULATE.value,
+                    )
                 case ResultQuery(tag="tabular", tabular=name):
                     rows = tuple((name, "", "", str(key), 0, value) for key, values in reader.tabular_data_by_name(name).items() for value in values)
                 case ResultQuery(tag="outputs", outputs=None):

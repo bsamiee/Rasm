@@ -8,6 +8,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 - [03]-[TWEENS]: kernel-aware interpolators, exact `Animated<T>` composition, and flex-frame evidence
 - [04]-[GLYPHS]: animated feedback paths and one time-parameterized draw
 - [05]-[PACER]: one lease-owned `UiClock`, shared drive sampling, conditional repaint, and terminal stop
+- [06]-[BUDGET]: budget rows per phase, layer, and drive, one polymorphic judgment gate, and typed breach evidence
 
 ## [02]-[VOCAB]
 
@@ -471,4 +472,77 @@ flowchart LR
     class Repaint,Stop success
     class Kernel data
     class Consumer,Display,Clock,Pacer,Write boundary
+```
+
+## [06]-[BUDGET]
+
+- Owner: `BudgetRow` `[SmartEnum<string>]` — the closed budget vocabulary: one row per judged cost axis (the paint pass, the flex draw window, the full frame, each `FramePulse` layer, and the sampled drive step) with its `Bound` policy column, so every threshold is a declared row a dashboard, gate, and receipt share, never a literal re-derived at a call site.
+- Owner: `BudgetSubject` `[Union]` — the judgment ingress: one polymorphic gate discriminates on the receipt shape (`FrameWindow`, `FramePulse`, `PaintReceipt`, or a row-addressed raw cost), so singular and multi-axis judgments are one call. `BudgetBreach` — the violation evidence: the breached row, the measured cost, the bound, and the derived `Overrun`, valid only when the cost genuinely exceeds a positive bound.
+- Entry: `BudgetGate.Judge(BudgetSubject subject, Op? key = null)` → `Fin<Seq<BudgetBreach>>` — an empty sequence IS the pass verdict; violations project through `Shell/telemetry.md` `GhEvidence.BreachCase` and land in the `Shell/journal.md` record, so a regression is typed evidence before it is user-visible jank.
+- Law: judgment happens at read time over receipts already minted — the gate never samples, never owns a clock, and never mutates the receipt; a breach is shaped for the estate benchmark-claim fold, so the app-root benchmark rail consumes `BudgetBreach` rows as regression claims without re-measuring.
+- Law: the host-free kernel families this boundary exercises — the `Components` tree algebra, `Canvas/wires.md` route geometry, and `Canvas/paint.md` mark culling — carry corpus benchmark rows in the tests estate; this gate owns the live-session judgment, the corpus owns the regression floor, and both read the same row bounds.
+- Packages: LanguageExt.Core (`Fin`, `Seq`, `Choose`), Thinktecture.Runtime.Extensions, `Rasm.Domain` (`Op`, `ValidityClaim`), `Canvas/paint.md` (`PaintReceipt`), `Canvas/canvas.md` (`FramePulse`).
+- Growth: a new judged axis is one `BudgetRow` with one `BudgetSubject` arm edit; a tuned bound is a row value change with every consumer untouched.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Csp;
+using System.Runtime.InteropServices;
+
+namespace Rasm.Grasshopper.Canvas;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class BudgetRow {
+    public static readonly BudgetRow PaintPass = new(key: "paint.pass", bound: TimeSpan.FromMilliseconds(6.0));
+    public static readonly BudgetRow FrameDraw = new(key: "frame.draw", bound: TimeSpan.FromMilliseconds(8.0));
+    public static readonly BudgetRow FrameFull = new(key: "frame.full", bound: TimeSpan.FromMilliseconds(17.0));
+    public static readonly BudgetRow LayerGrid = new(key: "layer.grid", bound: TimeSpan.FromMilliseconds(2.0));
+    public static readonly BudgetRow LayerWire = new(key: "layer.wire", bound: TimeSpan.FromMilliseconds(4.0));
+    public static readonly BudgetRow LayerText = new(key: "layer.text", bound: TimeSpan.FromMilliseconds(3.0));
+    public static readonly BudgetRow LayerIcon = new(key: "layer.icon", bound: TimeSpan.FromMilliseconds(2.0));
+    public static readonly BudgetRow LayerShape = new(key: "layer.shape", bound: TimeSpan.FromMilliseconds(5.0));
+    public static readonly BudgetRow LayerLayout = new(key: "layer.layout", bound: TimeSpan.FromMilliseconds(3.0));
+    public static readonly BudgetRow DriveStep = new(key: "drive.step", bound: TimeSpan.FromMilliseconds(2.0));
+
+    public TimeSpan Bound { get; }
+}
+
+[Union]
+public abstract partial record BudgetSubject {
+    private BudgetSubject() { }
+    public sealed record WindowCase(FrameWindow Window) : BudgetSubject;
+    public sealed record PulseCase(FramePulse Pulse) : BudgetSubject;
+    public sealed record PaintCase(PaintReceipt Receipt) : BudgetSubject;
+    public sealed record StepCase(BudgetRow Row, TimeSpan Cost) : BudgetSubject;
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct BudgetBreach(BudgetRow Row, TimeSpan Cost, TimeSpan Bound) : IValidityEvidence {
+    public TimeSpan Overrun => Cost - Bound;
+    public bool IsValid => ValidityClaim.Of(holds: Row is not null && Bound > TimeSpan.Zero && Cost > Bound);
+}
+
+// --- [OPERATIONS] ---------------------------------------------------------------------------
+[BoundaryAdapter]
+public static class BudgetGate {
+    public static Fin<Seq<BudgetBreach>> Judge(BudgetSubject subject, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(subject).Bind(valid => op.Catch(body: () => Fin.Succ(valid.Switch(
+            windowCase: static c => Judged(rows: Seq1((BudgetRow.FrameDraw, c.Window.Cost))),
+            pulseCase: static c => Judged(rows: Seq(
+                (BudgetRow.LayerGrid, c.Pulse.Grid), (BudgetRow.LayerWire, c.Pulse.Wire),
+                (BudgetRow.LayerText, c.Pulse.Text), (BudgetRow.LayerIcon, c.Pulse.Icon),
+                (BudgetRow.LayerShape, c.Pulse.Shape), (BudgetRow.LayerLayout, c.Pulse.Layout),
+                (BudgetRow.FrameFull, c.Pulse.FullFrame))),
+            paintCase: static c => Judged(rows: Seq1((BudgetRow.PaintPass, c.Receipt.Latency))),
+            stepCase: static c => Judged(rows: Seq1((c.Row, c.Cost)))))));
+    }
+
+    private static Seq<BudgetBreach> Judged(Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
+        rows.Choose(static row => row.Cost > row.Row.Bound
+            ? Some(new BudgetBreach(Row: row.Row, Cost: row.Cost, Bound: row.Row.Bound))
+            : Option<BudgetBreach>.None).Strict();
+}
 ```

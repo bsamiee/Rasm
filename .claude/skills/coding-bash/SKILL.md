@@ -1,9 +1,8 @@
 ---
 name: coding-bash
 description: >-
-    Authors, hardens, reviews, and debugs Bash and shell scripts. Use for any
-    .sh/.bash file, or ShellCheck remediation. osascript and JXA automation
-    belongs to applescript.
+    Authors, hardens, reviews, and debugs Bash and shell scripts. Use whenever
+    creating, editing, or reading any .sh/.bash file, and ShellCheck remediation.
 ---
 
 # [CODING_BASH]

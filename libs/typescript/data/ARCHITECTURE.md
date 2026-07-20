@@ -34,11 +34,11 @@ data/
 
 ## [02]-[STRATA]
 
-- S0 floor — independent mints, none importing a data sibling: `lane/postgres` guarantee rows (`Pg.rows`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
-- S1 `lane/tenant` + `lane/sqlite` — `tenant` pins the tenancy write path over `Capability` and `Pg`; `sqlite` degrades the `Pg` contract through a type-only read.
-- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps; `retain` ages and `fact` meters over `Journal` inside the wave.
-- S3 `object` — every byte plane binds `Journal` custody under the one content identity: `store` roots, `stream`/`file`/`remote` compose it, `remote` alone reaching `CacheLane`.
-- S4 `read` — consumption over everything below: `query`/`batch`/`search`/`fold` compose `Journal`, `ObjectStore`, `Live`, and the rails; `lane/olap` sits beside them composing `ObjectStore` alone.
+- S0 floor — independent mints, none importing a data sibling: `lane/postgres` guarantee rows and the shared profile-receipt band (`Pg.rows`, `Pg.Profile`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
+- S1 `lane/tenant` + `lane/sqlite` — `tenant` pins the tenancy write path over `Capability` and `Pg`; `sqlite` degrades the `Pg` contract through the grant-key type read and harvests query evidence into `Pg.Profile`, its one value read.
+- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps, mints the CloudEvents relay envelope, and owns the `Hook` point registry; `retain` ages and `fact` meters over `Journal` inside the wave, `retain` fanning its erase tombstone through `Hook`.
+- S3 `object` — every byte plane binds `Journal` custody under the one content identity: `store` roots, `stream`/`file`/`remote` compose it, `stream`/`file` tapping `Hook` at their admission seams, `remote` alone reaching `CacheLane`.
+- S4 `read` — consumption over everything below: `query`/`batch`/`search`/`fold` compose `Journal`, `ObjectStore`, `Live`, and the rails; `lane/olap` sits beside them composing `ObjectStore` and the `Pg.Profile` harvest band.
 
 ```mermaid
 ---
@@ -50,7 +50,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto the mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite holding a dashed type-only Pg read beside the tenant write path, and one forbidden upward edge styled red.
+    accDescr: Five interior waves — read and olap over object over journal over the tenant write path onto the mint floor — every import downward, labeled edges naming one sourced type each, remote alone reaching the cache lane, sqlite and olap reading the Pg profile band beside the tenant write path, and one forbidden upward edge styled red.
     subgraph S4["S4 READ"]
         Olap[olap]
         Read["query · batch · search · fold"]
@@ -88,7 +88,9 @@ flowchart TB
     Read e13@--> Capability
     Read e14@-->|"[IMPORT]: Snapshot"| Evolve
     Olap e15@-->|"[IMPORT]: ObjectStore"| Object
-    Sqlite e16@-.->|"[TYPE]: Pg"| Postgres
+    Olap e17@-->|"[IMPORT]: Pg"| Postgres
+    Sqlite e16@-->|"[IMPORT]: Pg"| Postgres
+    Object e18@-->|"[IMPORT]: Hook"| Journal
     S0 f1@-->|"forbidden: upward import"| S4
 ```
 
@@ -104,7 +106,7 @@ config:
 ---
 flowchart LR
     accTitle: Data package seam registry
-    accDescr: Data sub-domain owners exchanging content keys, tenancy, custody, and reactive shapes with the core, security, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Data sub-domain owners exchanging content keys, tenancy, custody, reactive shapes, Convention instrument vocabulary, and the CloudEvents envelope with the core, security, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
     subgraph data[DATA]
         Fold[Projection fold]
         Store[Object store]
@@ -115,6 +117,10 @@ flowchart LR
         Stream[Resumable stream]
         Search[Retrieval fusion]
         Postgres[Pg lane]
+        Fact[Fact journal]
+        Batch[Request batching]
+        Cache[Cache lane]
+        Olap[Analytical lane]
     end
     Core{{core}}
     Security{{security}}
@@ -136,6 +142,13 @@ flowchart LR
     Core e14@-->|"[SHAPE]: Convention"| Fold
     Append e15@-->|"[PORT]: Journal.census"| Runtime
     Tenant e16@-->|"[PORT]: ClaimStore"| Security
+    Core e17@-->|"[SHAPE]: Convention"| Fact
+    Core e18@-->|"[SHAPE]: Convention"| Batch
+    Core e19@-->|"[SHAPE]: Convention"| Store
+    Core e20@-->|"[SHAPE]: Convention"| Stream
+    Core e21@-->|"[SHAPE]: Convention"| Cache
+    Core e22@-->|"[SHAPE]: Convention"| Olap
+    Append e23@-->|"[SHAPE]: Journal.envelope"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]

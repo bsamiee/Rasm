@@ -9,6 +9,7 @@ ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and c
 |  [01]   | `DEGRADATION_TABLE` | the grant-total capability-to-fallback matrix — the lane's whole difference as data |
 |  [02]   | `PROFILE_ROWS`      | the five Layer constructors and their runtime coordinates                           |
 |  [03]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
+|  [04]   | `PROFILE_HARVEST`   | the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats   |
 
 ## [02]-[DEGRADATION_TABLE]
 
@@ -23,7 +24,7 @@ ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and c
 - Law: the D1 column additionally refuses the interactive transaction — the atomic-publish path is batch-shaped or routed to the pg spine; the refusal is a row, not a code fork.
 
 ```typescript signature
-import type { Pg } from "./postgres.ts"
+import { Pg } from "./postgres.ts" // the grant keys stay type-plane reads; the profile-receipt schema is the one value this lane consumes
 
 const _degrades = {
   rls: { server: "filePerApp", wasm: "originScope", libsql: "databasePerTenant", d1: "databasePerTenant" },
@@ -198,6 +199,90 @@ const _bytes = (io: SqliteIo) =>
     Dump: () => Effect.flatMap(WasmSqlite.SqliteClient.SqliteClient, (client) => client.export),
   })
 
+```
+
+## [05]-[PROFILE_HARVEST]
+
+- Owner: the lane's arm of the one engine-profile receipt family — the `_harvest` availability table pricing what each profile can measure, `_profiled`, the timed harvest folding a statement's wall span, `EXPLAIN QUERY PLAN` structure, and page-statistics counters into `Pg.Profile`, and the `_dbstat` construction-time probe answering the virtual-table question at runtime instead of asserting a build fact — plus the assembled `Sqlite` export.
+- Packages: `@effect/sql` (`SqlClient`, `SqlSchema`, `Statement` — the profiled statement is a `Fragment` value); `effect` (`Duration`, `Effect`, `Schema`); `./postgres.ts` (`Pg.Profile` — the shared receipt schema, the lane's one value read beside the type-only grant vocabulary).
+- Entry: an explicit diagnosis call runs `Sqlite.profile.of(sql, statement, label)` on any profile; the maintenance composition projects `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` exactly as the pg and DuckDB arms do — receipts stay the truth, the instrument the lossy channel.
+- Receipt: `Pg.Profile` with `engine` selected by the live profile (`sqliteServer` | `sqliteWasm` | `libsql` | `d1`), operators from the `EXPLAIN QUERY PLAN` rows carrying `Option.none()` timing — the engine exposes plan structure without per-operator clocks, and an absent measure is omission, never a zero — and `counters` holding `pageCount`, `freelistCount`, and the `dbstat` aggregates where the probe granted them.
+- Growth: a new evidence source is one `_harvest` row plus its harvest line; a sixth profile is one more availability column — the guard breaks until it answers.
+- Law: availability is priced as row data — `explainPlan` and the page pragmas are `builtIn` everywhere, `dbstat` is `probe` on the server and wasm profiles (the virtual table is a compile-time engine fact `_dbstat` answers per deployment, never a static claim) and `none` on the edge rows, and `stmtStatus` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the refusal is a recorded verdict, and no arm fabricates a zero where a counter is absent.
+- Law: wall span is harness-measured — the engine exposes no per-query clock through any admitted driver, so `_profiled` times the statement's own run with `Effect.timed` and the span covers exactly the profiled execution; the diagnosis therefore EXECUTES the statement, scoping the arm to explicit calls like the pg EXPLAIN arm.
+- Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on the admission rail.
+
+```typescript signature
+import { Pg } from "./postgres.ts"
+import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
+import { Array, Duration, Schema } from "effect"
+
+const _harvest = {
+  explainPlan: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "builtIn" },
+  pageStats: { server: "builtIn", wasm: "builtIn", libsql: "builtIn", d1: "none" },
+  dbstat: { server: "probe", wasm: "probe", libsql: "none", d1: "none" },
+  stmtStatus: { server: "none", wasm: "none", libsql: "none", d1: "none" },
+} as const
+
+declare namespace Sqlite {
+  type Evidence = keyof typeof _harvest
+  type Availability = (typeof _harvest)[Evidence][keyof (typeof _harvest)[Evidence]]
+  type ProfileEngine = Extract<Pg.ProfileEngine, "sqliteServer" | "sqliteWasm" | "libsql" | "d1">
+  type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, string>> = typeof _harvest> = T
+}
+
+const _PlanRow = Schema.Struct({ id: Schema.Number, parent: Schema.Number, detail: Schema.String })
+
+const _PageRow = Schema.Struct({ pages: Schema.Number, freelist: Schema.Number })
+
+const _DbstatRow = Schema.Struct({ btrees: Schema.Number, unusedBytes: Schema.Number })
+
+const _dbstat = (sql: SqlClient.SqlClient): Effect.Effect<boolean> =>
+  Effect.match(sql`SELECT count(*) AS probed FROM dbstat LIMIT 1`, { onFailure: () => false, onSuccess: () => true })
+
+const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
+  (statement: Statement.Fragment, label: string) =>
+    Effect.gen(function* () {
+      const plan = yield* SqlSchema.findAll({
+        Request: Schema.Void,
+        Result: _PlanRow,
+        execute: () => sql`EXPLAIN QUERY PLAN ${statement}`,
+      })(void 0)
+      const [span, rows] = yield* Effect.timed(sql`${statement}`)
+      const pages = yield* SqlSchema.single({
+        Request: Schema.Void,
+        Result: _PageRow,
+        execute: () => sql`SELECT pragma_page_count() AS pages, pragma_freelist_count() AS freelist`,
+      })(void 0)
+      const granted = yield* _dbstat(sql)
+      const space = yield* granted
+        ? Effect.map(
+            SqlSchema.single({
+              Request: Schema.Void,
+              Result: _DbstatRow,
+              execute: () => sql`SELECT count(*) AS btrees, coalesce(sum(unused), 0) AS unusedBytes FROM dbstat`,
+            })(void 0),
+            Option.some,
+          )
+        : Effect.succeed(Option.none<typeof _DbstatRow.Type>())
+      return new Pg.Profile({
+        engine,
+        statement: label,
+        wallMillis: Duration.toMillis(span),
+        rows: rows.length,
+        operators: Array.map(plan, (step) => ({ name: step.detail, millis: Option.none(), rows: Option.none() })),
+        counters: {
+          pageCount: pages.pages,
+          freelistCount: pages.freelist,
+          ...Option.match(space, {
+            onNone: () => ({}), // dbstat refused: the counters stay absent, never zero-forged
+            onSome: (held) => ({ dbstatBtrees: held.btrees, dbstatUnusedBytes: held.unusedBytes }),
+          }),
+        },
+        window: Option.none(),
+      })
+    })
+
 const Sqlite = {
   degrades: _degrades,
   filename: _filename,
@@ -210,6 +295,7 @@ const Sqlite = {
   d1: _d1,
   Io: _Io,
   bytes: _bytes,
+  profile: { harvest: _harvest, dbstat: _dbstat, of: _profiled },
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

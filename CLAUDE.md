@@ -70,8 +70,8 @@ Use the route-owned standard for the file being edited:
 
 [IMPORTANT]:
 - [ALWAYS] start open-web research with `exa` for neural discovery — the right page, repo, paper, or entity — replacing a blind `WebFetch`.
-- [ALWAYS] reach for `tavily` on known targets — extract or crawl a site, or run a cited multi-source report.
-- [ALWAYS] resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner.
+- [ALWAYS] reach for the `tavily-search` skill on known targets — extract or crawl a site, or run a cited multi-source report.
+- [ALWAYS] resolve external library, framework, SDK, or host-API usage through the `context7-search` skill before internalizing into a canonical owner.
 - [ALWAYS] use `nuget` MCP to validate the existence of a package and newest version available.
 - [ALWAYS] read `tests/README.md` before touching any testing surface.
 - [ALWAYS] open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry verified traps the `.api` catalogs omit, and dispatched agents reach them only through this route.

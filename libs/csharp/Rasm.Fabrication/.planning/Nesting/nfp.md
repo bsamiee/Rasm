@@ -43,9 +43,9 @@
 
 ## [05]-[DELIVERY]
 
-- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search.
+- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search inside the `EngineSpan.NestSolve` span; the run spine passes the `FabricationTap`, defaulting silent for headless callers.
 - Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle.
-- Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis.
+- Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, and rejected rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
 - Receipt: `FabricationResult.Placement` projects transforms, utilization, unplaced count, remnants, and the evidence-derived content key.
 - Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses collision envelopes; only consumed stock enters the area and cost denominators.
@@ -618,20 +618,27 @@ internal sealed record NestReceipt(Seq<PartTransform> Placements, Seq<Remnant> R
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Nest {
-    public static Fin<FabricationResult> Solve(FabricationPolicy.Nest policy, FabricationInput input) =>
-        from parts in input.Profiles.IsEmpty
-            ? Fin.Fail<Arr<Loop>>(FabricationFault.Nest(NestFault.EmptyCutList, 0).ToError())
-            : input.Profiles.ToSeq().Map((loop, index) => (loop, index))
-                .TraverseM(row => Admit(row.loop, row.index)).As().Map(static rows => rows.ToArr())
-        from result in input.Plan.Match(
-            Some: plan => Honor(parts, plan),
-            None: () => input.Inventory.IsEmpty
-                ? Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError())
-                : input.Inventory.Filter(static stock => stock.Nestable && !stock.Region.IsEmpty) is Seq<Stock> inventory
-                    && !inventory.IsEmpty
-                    ? Place(parts, inventory, policy.Nesting).Map(Project)
-                    : Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))
-        select result;
+    public static Fin<FabricationResult> Solve(FabricationPolicy.Nest policy, FabricationInput input, FabricationTap? tap = null) =>
+        EngineSpan.NestSolve.Traced(_ =>
+            from parts in input.Profiles.IsEmpty
+                ? Fin.Fail<Arr<Loop>>(FabricationFault.Nest(NestFault.EmptyCutList, 0).ToError())
+                : input.Profiles.ToSeq().Map((loop, index) => (loop, index))
+                    .TraverseM(row => Admit(row.loop, row.index)).As().Map(static rows => rows.ToArr())
+            let port = tap ?? FabricationTap.Silent
+            from result in input.Plan.Match(
+                Some: plan => Honor(parts, plan),
+                None: () => input.Inventory.IsEmpty
+                    ? Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError())
+                    : input.Inventory.Filter(static stock => stock.Nestable && !stock.Region.IsEmpty) is Seq<Stock> inventory
+                        && !inventory.IsEmpty
+                        ? Place(parts, inventory, policy.Nesting).Map(receipt => Projected(receipt, port))
+                        : Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))
+            select result);
+
+    // Engine rows fire where the evidence settles, so the true-shape search reports its census once and
+    // the honored-plan path, which searches nothing, stays fact-free.
+    private static FabricationResult Projected(NestReceipt receipt, FabricationTap tap) =>
+        (FabricationFact.Engine.Of(receipt.Evidence).Map(tap.Fire).Strict(), Project(receipt)).Item2;
 
     public static Fin<Arr<Loop>> Charts(ChartAtlas atlas, double maxAreaStretch, Context tolerance) =>
         !double.IsFinite(maxAreaStretch) || maxAreaStretch < 1.0 || !atlas.Receipt.FlipFreeBijective

@@ -64,3 +64,4 @@ The `tests/contracts` corpus drivers (TS readers in `tests/typescript/_testkit`)
 |  [10]   | fanout engine       | `runtime/net/pubsub` engine rows               | one engine row; the port stays engine-blind               |
 |  [11]   | coordination engine | `runtime/net/coordinate` engine rows           | one engine row on the `Accord` port; reads stay versioned |
 |  [12]   | dashboard pack      | `core/observe/board` pack rows                 | one pack row realized by `iac/operate/observe`            |
+|  [13]   | hook point          | `core/observe/tap` rows + owning registry      | one name row + one registry row; a modality widens a row  |

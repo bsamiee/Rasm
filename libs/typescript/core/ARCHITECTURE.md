@@ -32,14 +32,15 @@ core/
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
         ├── convention.ts # Typed semconv attribute, metric, and event vocabulary
         ├── slo.ts        # Objective/SLI algebra and the burn-rate alert derivation
-        └── board.ts      # Dashboard model, query, pack/suite dispatch, and the live metric snapshot
+        ├── board.ts      # Dashboard model, query, pack/suite dispatch, and the live metric snapshot
+        └── tap.ts        # Hook-point name rows, the veto/observe/replay modality table, and the tap contract
 ```
 
 ## [02]-[STRATA]
 
 - S0 `value` — mints the floor exactly once (`Refined` brands, `Hlc`, `ContentKey` under the `Digest` engine, `Quantity`/`Dimension`, `AppIdentity`/`TenantContext`, `Budget`) and imports no sibling sub-domain; `identity` and `fault` compose `schema`'s `Refined` vocabulary alone.
 - S1 `state` — pure algebra over the value floor: `causal` composes `merge` and `Hlc`, `fold` composes `causal`, `evidence` mints `ProgressMark` over `fold` and `TenantContext`, `feed` orders `evidence` by `Hlc` under a `Dimension` band; `commit` rides with `causal` on `ContentKey`, `presence` with `merge`, and `machine` composes no interior sibling — the merge↔fold cycle never forms because `Fold.run` arrives as a caller parameter, never an import.
-- S1 `observe` — vocabulary and derivation over `AppIdentity` alone: `convention` roots, `slo` derives `Alert`, `board` composes both into `DashboardModel`; peer to state with no edge between them.
+- S1 `observe` — vocabulary and derivation over the value floor alone: `convention` roots, `slo` derives `Alert`, `board` composes both into `DashboardModel`, and `tap` stands beside them composing `AppIdentity` and `FaultClass` into the hook-rail registry; peer to state with no edge between them.
 - S2 `interchange` — the decode boundary composing all three: `format` proto engines under `codec`'s keyed registry, `frame`/`contract`/`invoke` over `Wire`, `frame` admitting under `Ingress`, `codec` landing `ProgressMark`, `invoke` landing `Convention`.
 
 ```mermaid
@@ -61,6 +62,7 @@ flowchart TB
         Frame[frame]
     end
     subgraph S1["S1 STATE + OBSERVE"]
+        Tap[tap]
         Board[board]
         Slo[slo]
         Convention[convention]
@@ -96,6 +98,8 @@ flowchart TB
     Slo i8@--> Convention
     Board i9@--> Slo
     Convention e9@-->|"[IMPORT]: AppIdentity"| Identity
+    Tap e10@-->|"[IMPORT]: FaultClass"| Fault
+    Tap e11@-->|"[IMPORT]: AppIdentity"| Identity
     Identity i10@--> Schema
     Fault i11@--> Schema
     Invoke ~~~ Board
@@ -172,6 +176,7 @@ flowchart LR
         Convention[Semconv]
         Slo[SLO derivation]
         Board[Dashboard]
+        Tap[Hook rail]
     end
     Runtime{{runtime}}
     Data[(data)]
@@ -194,6 +199,7 @@ flowchart LR
     Slo e14@-->|"[PROJECTION]: Alert.Spec"| Iac
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
     Slo e16@-->|"[PROJECTION]: Slo.Objective"| Iac
+    Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]

@@ -12,7 +12,7 @@
 
 - `Store/provisioning#STORE_PROFILE` carries the observability row — `AddNpgsql()` on the tracer builder and `AddNpgsqlInstrumentation()` on the meter builder — as registration data the AppHost root consumes, two altitudes on the same registration stack the `StoreInterceptor` rail composes, never code inside an operation body.
 - Tracing depth binds at the Persistence-owned `NpgsqlDataSourceBuilder.ConfigureTracing` seam and pool identity at `NpgsqlDataSourceBuilder.Name`, so the driver-layer knobs stay on the data-source builders the store profiles own.
-- Driver spans compose beside EF Core's native `Activity` emission into one trace, so the beta EF instrumentation package stays rejected — native emission already carries those spans.
+- `AddEntityFrameworkCoreInstrumentation` admits beside `AddNpgsql` at the same root — the ORM-layer EF command span (the LINQ-translated command as EF issues it, `libs/csharp/.api/api-otel-instrumentation-entityframeworkcore.md`) nests over the ADO-layer driver span (the same statement at the wire); the pair partitions by layer, complementary never redundant, and the `Npgsql` meter stays the only relational instrument roster because the EF package is trace-only.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
@@ -28,5 +28,5 @@
 [RAIL_LAW]:
 - Package: `Npgsql.OpenTelemetry`
 - Owns: the Persistence registration-row contribution and the data-source-level depth seam
-- Accept: composition-root tracer and meter admission as registration-stack altitudes; `ConfigureTracing`/`Name` depth on Persistence builders
-- Reject: telemetry calls inside store profiles; a beta EF instrumentation package where native `Activity` emission already carries the spans
+- Accept: composition-root tracer and meter admission as registration-stack altitudes; `ConfigureTracing`/`Name` depth on Persistence builders; `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql` as the complementary ORM-layer trace admission
+- Reject: telemetry calls inside store profiles; a second relational meter roster beside the `Npgsql` meter — the EF instrumentation is trace-only and its spans complement, never replace, the driver spans

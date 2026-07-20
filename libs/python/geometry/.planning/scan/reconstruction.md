@@ -14,6 +14,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 - Cases: `POISSON` is watertight by construction and the default; `BALL_PIVOTING` preserves detail over the oriented samples yet never closes; `ALPHA_SHAPE` is the concave-hull surface for sparse or open scans. Each resolves as one `_CONSTRUCT[method].build(cloud, policy)` row read binding the STATIC open3d constructor, never a `match` over three near-identical arms.
 - Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately.
 - Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and `.export(file_type="glb")`, the only GLB encode path — open3d `io` writes PLY/OBJ/STL/OFF only), `numpy` (the density trim and cluster split), `beartype` + `vale.Is` (the `DensityField` finiteness refinement), `expression` (`Block.fold` cluster merge, `Map` table and redaction), `msgspec` carriers, the geometry graduation spine (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`, `closure_fold`/`QualityMetrics`), and the runtime rails per the fence imports.
+- Bench: `bench` rides the graduation `bench_seam` fold over the whole `reconstruct` crossing — normal estimation, `_CONSTRUCT` row, closure fold, weave — cloud-size-parameterized: the subject keys the method and the input point count as `rasm.geometry.scan.reconstruction.<method>.p<points>`; latency and throughput rows per row, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Growth: a new reconstruction algorithm is one `ReconstructionMethod` member and one `_CONSTRUCT` row; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
 - Boundary: raw-scan ingestion and decimation route `scan/ingestion.md#INGESTION`; watertight repair and hole-fill route the `mesh/repair.md#MESH` `MeshRepairOp.Condition` arm, the only path from a non-watertight ball-pivoting or alpha surface to a valid solid; scan-vs-model deviation routes `scan/deviation.md#DEVIATION`; the closure algebra is `mesh/quality.closure_fold`'s. No IFC tessellation, no durable store, no Rhino/GH mutation.
 
@@ -30,13 +31,14 @@ from beartype.vale import Is
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, bench_seam, evidence_run
 from rasm.geometry.mesh.quality import QualityMetrics, closure_fold
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.profiles import BenchmarkReceipt
+from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # type-only: each runtime open3d/trimesh call self-imports at boundary scope, so the module loads clean
@@ -60,7 +62,6 @@ type DensityField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all()
 
 # zero ceiling per closure residual.
 _CEILING: Final[dict[str, float]] = {"nonwatertight": 0.0, "noncontiguous": 0.0}
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # reconstruction facts carry no secret field
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -102,7 +103,7 @@ class ReconReceipt(Struct, frozen=True):
         return ReconReceipt(method, int(input_points), int(clusters), closure_fold(body))
 
     @staticmethod
-    @receipted(_REDACTION)
+    @receipted(OPEN)  # reconstruction facts carry no secret field, so the runtime keep-all policy binds
     def _emit(receipt: "ReconReceipt") -> "ReconReceipt":
         return receipt
 
@@ -228,6 +229,12 @@ class ScanReconstruction(Struct, frozen=True):
             partial(self.lane.offload, Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE), cloud, method, self.policy),
         )
         return rail.map(lambda pair: (pair[0], ReconReceipt._emit(pair[1])))
+
+    def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+        # cloud-size-parameterized macro-bench per _CONSTRUCT row: the subject keys the method and the input point
+        # count; each round drives the whole reconstruct crossing — normal estimation, constructor row, closure
+        # fold, weave — never an in-kernel probe (the pulse boundary).
+        return bench_seam(f"{EvidenceScope.SCAN_RECONSTRUCTION.value}.{method}.p{len(cloud)}", partial(self.reconstruct, cloud, method), rounds=rounds, warmup=warmup)
 ```
 
 ## [03]-[RESEARCH]

@@ -91,7 +91,9 @@ artifacts/
 ├── core/                # production spine
 │   ├── plan.py          # ArtifactPipeline content-keyed sub-graph-elision plan over the runtime session lane
 │   ├── issue.py         # the constructing owner: issue(IssueRequest) over the modality union into pipeline and drain
-│   └── receipt.py       # the one ArtifactReceipt union, ConformanceVerdict, and the Metrics.record seam
+│   ├── receipt.py       # the one ArtifactReceipt union, ConformanceVerdict, and the Metrics.record + hook-tap seam
+│   ├── hooks.py         # ArtifactHook production-fact point table, payload projections, and the latched Production registrar
+│   └── bench.py         # CORPUS producer benchmark subjects, seeded recipes, and threshold policy over the runtime bench tier
 └── package/             # content-addressed compression, archive, and delta over one shared bundle vocabulary
     ├── bundle.py        # shared Bundle/CodecProfile/BundleManifest vocabulary and the BundleEvidence projection
     ├── codec.py         # single-blob compression composing bundle, with the parallel block-fan band
@@ -142,9 +144,11 @@ flowchart LR
     Geometry e12@-->|"[BOUNDARY]: SceneGrid"| Scene
     Exchange e13@-->|"[CONTENT_KEY]: SignedArtifact"| Persistence
     Runtime e14@-->|"[PORT]: Kernel"| Scene
+    Core e15@-->|"[HOOK]: HookPoint"| Runtime
+    Core e16@-->|"[BENCH]: BenchmarkReceipt"| Runtime
 ```
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits, and nothing crosses back on that boundary.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits, and nothing crosses back. Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing.
 
 ## [03]-[INTERNAL]
 
@@ -173,11 +177,11 @@ flowchart LR
 
 Spine order above answers stage sequence; the strata below answer which plane may import which. Every plane composes the A0 floor (`ArtifactWork`, `ArtifactReceipt`) — the fence absorbs that universal rung and draws each plane's discriminating imports, with same-stratum interleaves held to the bullets.
 
-- A0 `core/plan` + `core/receipt` — the spine floor: `PipelinePlan`/`ArtifactWork` and the one `ArtifactReceipt` union import no artifacts sibling; receipt composes runtime and the compute `HandoffAxis` alone.
+- A0 `core/plan` + `core/receipt` + `core/hooks` — the spine floor: `PipelinePlan`/`ArtifactWork`, the one `ArtifactReceipt` union, and the `ARTIFACT_POINTS` production-hook rows import no artifacts sibling above the floor; hooks composes the runtime registry alone, and receipt composes runtime, the compute `HandoffAxis`, and the hooks `Production` fire as its one same-stratum interleave.
 - A1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone: `PositionedGlyphRun`, the metadata/credential/conformance boundary, the `Bundle` vocabulary, and the `SceneGrid` parse floor.
 - A2 `graphic` + `drawing` + `visualization` + `export` — one visual band, module-acyclic interleave: `drawing/regime` composes `graphic/color/derive` and `vector/pattern` while `graphic/layer` and `style` compose the regime back; `drawing/schedule` lowers into `visualization/table` while `visualization/chart/export` composes `export/layered` and the DXF owner hops back — no cycle survives at module grain.
 - A3 `document`, `media`, `composition`, `specification` — composer planes over the band; `specification/section` composes the document `BlockKind` tree inside the stratum, and media rides the scene `framed` parse floor and the raster save hop.
-- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor and conductor, never one stratum.
+- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor and conductor, never one stratum. `core/bench` rides the conductor stratum without conducting — it composes the package recipes and the receipt `ArtifactKind` downward and takes every native-offload kernel as a caller value, so no producer imports it and no producer import cycles through it.
 
 ```mermaid
 ---
@@ -192,6 +196,7 @@ flowchart TB
     accDescr: Six import strata — the issue conductor over delivery over the composer planes over the visual band over the substrate onto the plan-receipt floor — each labeled downward edge naming its one sourced type, the universal floor rung absorbed to prose, and one edge marking the forbidden upward import.
     subgraph A5["A5 CONDUCTOR"]
         Issue[core/issue]
+        Bench[core/bench]
     end
     subgraph A4["A4 DELIVERY"]
         Delivery[delivery]
@@ -217,6 +222,7 @@ flowchart TB
     subgraph A0["A0 FLOOR"]
         Plan[core/plan]
         Receipt[core/receipt]
+        Hooks[core/hooks]
     end
     Issue s1@-->|"[IMPORT]: Transmittal"| Delivery
     Issue s2@-->|"[IMPORT]: DocumentPlan"| Document
@@ -241,6 +247,9 @@ flowchart TB
     Drawing s21@-->|"[IMPORT]: PositionedGlyphRun"| Typography
     Visualization s22@-->|"[IMPORT]: Formula"| Typography
     Plan s23@-->|"[IMPORT]: ArtifactReceipt"| Receipt
+    Issue s24@-->|"[IMPORT]: Production"| Hooks
+    Bench s25@-->|"[IMPORT]: Codec"| Package
+    Bench s26@-->|"[IMPORT]: ArtifactKind"| Receipt
     Typography ~~~ Plan
     Receipt f1@-->|"forbidden: upward import"| A5
 ```
@@ -257,6 +266,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Dual-license provider pairs split by import reachability: no copyleft module is reachable from the permissive footing.
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
+- Production facts fire on the `core/hooks` point rows at the issue seams and the contribute fold; observability subscribes through `Production.subscribed` at the app root, never in producer code, and the issue-scope baggage the issue bracket binds attributes every signal with tenant promotion staying runtime-owned.
+- `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier; timing, quantiles, and the bench instruments stay runtime-owned, and a regression is a graded verdict, never a fault.
 - Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.
 - Projection keys by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding.
 - Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.

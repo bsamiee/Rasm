@@ -11,7 +11,7 @@
 - namespace: `HealthChecks.Nats`
 - namespace: `Microsoft.Extensions.DependencyInjection`
 - target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset, nullable-annotated
-- dependency floor: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`/`HealthCheckResult`/`HealthCheckRegistration`), `NATS.Net` (`INatsConnection`/`INatsClient`/`NatsConnection`/`NatsOpts`) — both admitted in this folder, `NATS.Net` at the central `2.8.2` pin
+- dependency floor: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`/`HealthCheckResult`/`HealthCheckRegistration`) admitted in this folder; `NATS.Net` (`INatsConnection`/`INatsClient`/`NatsConnection`/`NatsOpts`) arrives transitively with this probe package at the central pin — the folder holds no direct `NATS.Net` reference, and the pooled connection it probes is the Persistence-owned egress connection resolved from DI
 - asset: runtime library
 - rail: health
 

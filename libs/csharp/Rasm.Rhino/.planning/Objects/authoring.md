@@ -1,10 +1,10 @@
 # [RASM_RHINO_OBJECTS_AUTHORING]
 
-Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. This page also holds the folder's one structured-log egress: `ObjectsTelemetry` publishes every host-callback fault and the process-wide host exception and cloud-log taps through one guarded sink. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
+Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassing stays inside the custom geometry and grip adapters, every verified virtual forwards to an immutable program, and live grip editing resolves value facts inside a document grant. This page also holds the folder's one structured-log egress: `ObjectsTelemetry` publishes every host-callback fault and the process-wide host exception and cloud-log taps through plugin-keyed sinks behind one guarded fan, and `RhinoInstrumentPartition` declares the boundary's instrument projection as data the app root executes. `Display/interaction.md` exclusively owns in-viewport widgets, registration, hit testing, and widget event streams.
 
 ## [01]-[INDEX]
 
-- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` egress with its host taps, and the forwarding kernel every adapter shares.
+- [02]-[OBJECT_PROGRAM]: `ObjectProgram`, `RenderMeshProgram`, the `ObjectsTelemetry` keyed-sink egress with its `HostTap` seat, the `HostSensitivity` classification taxonomy, the `RhinoInstrumentPartition` rows, and the forwarding kernel every adapter shares.
 - [03]-[ADAPTERS]: the `ClassId`-ready host derivations.
 - [04]-[GRIP_PROGRAM]: `GripSeed`, `GripProgram`, `RasmGrip`, `RasmGrips`, and the enabler rig.
 - [05]-[GRIP_EDIT]: `GripMove`, `GripEdit`, `GripFacts`, and the `Grips` entry pair.
@@ -12,12 +12,15 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ## [02]-[OBJECT_PROGRAM]
 
-- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the one guarded sink, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` mounts the host's process-wide exception and cloud-log streams into that same egress; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
+- Owner: `ObjectProgram` carries every verified draw, duplicate, transform, morph, document, pick, selection, viewport, bounding-box, tight-bounds, and render-mesh hook; `RenderMeshProgram` folds the five-virtual mesh-cache family into one program slot; `ObjectsTelemetry` is the folder's one structured-log egress — every host-callback fault publishes under its `FaultSite` row through the keyed-sink fan, and a new fault seam is one `FaultSite` row with one `Publish` call; `HostTap` seats the host's process-wide exception and cloud-log streams onto that same egress; `HostSensitivity` is the classification taxonomy; `RhinoInstrumentPartition` declares the receipt-to-instrument projection as kind-keyed data; `HostForward` centralizes lifting, the `Fallback`/`Probe` inherited-value recovery pair, and pick capture.
 - Law: `ObjectProgram` exposes only callbacks backed by a `RhinoObject` virtual, and each adapter forwards the same algebra; unsupported geometry kinds cannot mint phantom hooks.
 - Law: cloud-log severity is data — `Streamed` takes `LogLevel` as a parameter projected once from `HostUtils.LogMessageType` at the tap seam, so one generated event carries every host severity; the host exception rides `Reported`'s typed `Exception` channel, never a stringified hole.
-- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on the compliance classification surface arriving with `Microsoft.Extensions.Telemetry.Abstractions` — so the app-root redactor map resolves them without this folder naming a second taxonomy; `Error` messages and host log messages classify `user-content`, `FaultTags` projects the foreign `Error` as classified tags, and redactor binding stays app-root policy outside the adapters.
-- Law: enrichment splits by cost class — `HostStaticEnricher` stamps process constants once per provider, registered app-root through `AddStaticLogEnricher<HostStaticEnricher>` under `EnableEnrichment` beside `ObjectsTelemetry.Configure`; a per-record enricher reading live host statics is rejected, because `ObjectsTelemetry` publishes from arbitrary host threads and the per-fault context already rides each event's own parameters.
-- Law: `HostTap.Mount` attaches both host delegates with one detacher holding the exact delegate identities, disposal is idempotent, and an app root mounts it exactly once beside `ObjectsTelemetry.Configure`.
+- Law: sinks key on plugin identity — `ObjectsTelemetry.Configure` admits one `(PluginKey, ILogger)` row per plugin, `Publish` fans every event over the live rows with a per-sink guard so one faulted sink never starves siblings, an empty roster is the `NullLogger` no-op composition, and teardown removes only the caller's row; a later plugin can never shadow an earlier plugin's sink, and the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` hook points bind onto this fan as telemetry-as-tap.
+- Law: classification rows mint the suite taxonomy pair — `new DataClassification(nameof(DataClassification), "<row>")` on `Microsoft.Extensions.Compliance.Abstractions`, the contract assembly owning `DataClassification` and `DataClassificationAttribute` — so the app-root redactor map resolves them without this folder naming a second taxonomy; redactor binding stays app-root policy outside the adapters.
+- Law: the classification sweep is total over the egress — `Error` and host log messages classify `UserContent` (they embed document names and user text), file and directory payloads classify `HostPath`, process, machine, and version evidence classifies `MachineIdentity`, license and lease facts classify `AccountIdentity`; `FaultSite` keys, host source tokens, and event codes stay unclassified public evidence; exception message and stack admission ride the app-root `LoggerEnrichmentOptions` knobs, never a boundary re-scrub.
+- Law: enrichment splits by cost class — `HostStaticEnricher` stamps process constants once per provider, registered app-root through `AddStaticLogEnricher<HostStaticEnricher>` under `EnableEnrichment` beside `ObjectsTelemetry.Configure`; its rows carry `MachineIdentity`-classified evidence whose redactor resolves at the app-root map; a per-record enricher reading live host statics is rejected, because `ObjectsTelemetry` publishes from arbitrary host threads and the per-fault context already rides each event's own parameters.
+- Law: `HostTap.Mount` is seat arbitration — the first plugin attaches both host delegates and holds the seat, later plugins ride the seat as keyed rows, a rider's disposal removes only its row, and the owner's disposal hands the seat to the senior rider with the delegates still attached or detaches both and returns the seat vacant; delegate identity stays exact, disposal is idempotent, and every plugin mounts beside its own `ObjectsTelemetry.Configure`.
+- Law: instrument projection is declared, never executed, in-boundary — `RhinoInstrumentPartition.Rows` maps each receipt kind to `rasm.rhino.<domain>.<measure>` instruments with UCUM units, the source receipt field, and attribution tags, the app root transcribes the kinds into its contributed arm table and merges them into the branch instrument fan, and a row names only a field its receipt already carries — the partition is projection truth, never a second measurement; tenant attribution is app-root baggage promotion, never a boundary field; marshal-seam latency rides the `MarshalLatency` checkpoints on `HostUi/shell.md`.
 - Law: the render-mesh surface is the five-virtual cache family — `IsMeshable`, `MeshCount`, `CreateMeshes`, `GetMeshes`, and `DestroyMeshes` refine base-first through one `RenderMeshProgram`; no `OnGetRenderMeshes` virtual exists to forward, the non-virtual RDK accessor trio (`HasCustomRenderMeshes`, `CustomRenderMeshesBoundingBox`, the `RenderMeshes` delegator) stays the Display and Render owners' viewport-and-pipeline context, and the `Rhino.Render.CustomRenderMeshes.RenderMeshProvider` registration adapter belongs to that seam, never an object hook.
 - Law: replacement cache meshes are kernel-built — a `Cached` or `Built` hook supplying geometry composes `Meshes.Build` over the `MeshOp` and `MeshEdit` algebra, never a hand-assembled native `Mesh` or a `Mesh.CreateFromSurface` grid; roster meshes handed back become host-owned at the return, and the live `MeshingParameters` each virtual receives crosses to hooks encoded as `MeshPolicy`, never as the native carrier.
 - Law: a hook fault never escapes and never degrades to transcript text — every `Fin` refusal publishes the `ObjectCallbackFaulted` event with its `FaultSite` and typed `Error` before the host fallback returns; `NullLogger` is the logger-less composition, and provider policy remains outside the adapters.
@@ -27,6 +30,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Compliance.Classification;
@@ -69,9 +73,21 @@ public sealed partial class FaultSite {
 public static class HostSensitivity {
     public static readonly DataClassification UserContent =
         new(taxonomyName: nameof(DataClassification), value: "user-content");
+    public static readonly DataClassification HostPath =
+        new(taxonomyName: nameof(DataClassification), value: "host-path");
+    public static readonly DataClassification MachineIdentity =
+        new(taxonomyName: nameof(DataClassification), value: "machine-identity");
+    public static readonly DataClassification AccountIdentity =
+        new(taxonomyName: nameof(DataClassification), value: "account-identity");
 }
 
 public sealed class UserContentAttribute() : DataClassificationAttribute(HostSensitivity.UserContent);
+
+public sealed class HostPathAttribute() : DataClassificationAttribute(HostSensitivity.HostPath);
+
+public sealed class MachineIdentityAttribute() : DataClassificationAttribute(HostSensitivity.MachineIdentity);
+
+public sealed class AccountIdentityAttribute() : DataClassificationAttribute(HostSensitivity.AccountIdentity);
 
 public sealed record HostLogFact(string Class, string Description, [property: UserContent] string Message);
 
@@ -114,11 +130,19 @@ internal static class FaultTags {
 
 public static partial class ObjectsTelemetry {
     private const int Band = 6400;
-    private static readonly Atom<ILogger<ObjectProgram>> Sink =
-        Atom<ILogger<ObjectProgram>>(NullLogger<ObjectProgram>.Instance);
+    private static readonly Atom<HashMap<PluginKey, ILogger>> Sinks = Atom(HashMap<PluginKey, ILogger>());
 
-    public static Unit Configure(ILogger<ObjectProgram> sink) =>
-        ignore(Sink.Swap(_ => sink ?? NullLogger<ObjectProgram>.Instance));
+    public static Fin<IDisposable> Configure(PluginKey plugin, ILogger sink, Op? key = null) {
+        Op op = key.OrDefault();
+        return from row in Optional(sink).ToFin(Fail: op.InvalidInput())
+               from seat in Sinks.Swap(held => held.TryAdd(plugin, row)).Find(plugin)
+                   .Filter(live => ReferenceEquals(live, row))
+                   .ToFin(Fail: op.InvalidContext())
+               select (IDisposable)Subscription.Of(detach: () => ignore(Sinks.Swap(held =>
+                   held.Find(plugin).Filter(live => ReferenceEquals(live, row)).Match(
+                       Some: _ => held.Remove(plugin),
+                       None: () => held))));
+    }
 
     [LoggerMessage(
         EventId = Band + 1,
@@ -147,22 +171,57 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] HostLogFact fact);
 
     internal static Unit Publish(FaultSite site, Error error) =>
-        Guarded(() => Faulted(Sink.Value, site: site, error: error));
+        Fan(sink => Faulted(sink, site: site, error: error));
 
     internal static Unit Publish(FaultSite site, string source, Exception cause) =>
-        Guarded(() => Reported(Sink.Value, site: site, source: source, cause: cause));
+        Fan(sink => Reported(sink, site: site, source: source, cause: cause));
 
     internal static Unit Publish(HostLogFact fact, LogLevel level) =>
-        Guarded(() => Streamed(Sink.Value, level: level, fact: fact));
+        Fan(sink => Streamed(sink, level: level, fact: fact));
 
-    // A logging failure never re-enters host callback flow; the guard swallows after the generated emit.
-    private static Unit Guarded(Action emit) =>
-        Try.lift(() => {
-                emit();
-                return unit;
-            })
-            .Run()
-            .IfFail(static _ => unit);
+    // Per-sink guard: one faulted sink never starves siblings; a logging failure never re-enters host callback flow.
+    private static Unit Fan(Action<ILogger> emit) {
+        HashMap<PluginKey, ILogger> rows = Sinks.Value;
+        return rows.IsEmpty
+            ? unit
+            : ignore(toSeq(rows.Values).Iter(sink => Try.lift(() => {
+                    emit(sink);
+                    return unit;
+                })
+                .Run()
+                .IfFail(static _ => unit)));
+    }
+}
+
+public sealed record InstrumentSlice(string Instrument, string Unit, string Source, Seq<string> Tags);
+
+public static class RhinoInstrumentPartition {
+    public const string FaultKind = "rhino.fault";
+    public const string HostLogKind = "rhino.host-log";
+    public const string StreamLossKind = "rhino.stream-loss";
+    public const string PointerKind = "rhino.pointer";
+    public const string PanelKind = "rhino.panel";
+    public const string ContentKind = "rhino.content";
+    public const string MarshalKind = "rhino.marshal";
+
+    public static readonly FrozenDictionary<string, Seq<InstrumentSlice>> Rows = new Dictionary<string, Seq<InstrumentSlice>> {
+        [FaultKind] = Seq(
+            new InstrumentSlice("rasm.rhino.objects.callback.faults", "{fault}", "ObjectCallbackFaulted", Seq("site", "code"))),
+        [HostLogKind] = Seq(
+            new InstrumentSlice("rasm.rhino.host.cloud.logs", "{record}", "HostCloudLog", Seq("level", "class"))),
+        [StreamLossKind] = Seq(
+            new InstrumentSlice("rasm.rhino.document.stream.loss", "{fact}", nameof(StreamReceipt.PacedLoss), Seq("watch", "lane", "loss"))),
+        [PointerKind] = Seq(
+            new InstrumentSlice("rasm.rhino.display.pointer.submitted", "{fact}", "PointerReceipt.Retired.Submitted", Seq<string>()),
+            new InstrumentSlice("rasm.rhino.display.pointer.rejected", "{fact}", "PointerReceipt.Retired.Rejected", Seq<string>())),
+        [PanelKind] = Seq(
+            new InstrumentSlice("rasm.rhino.hostui.panel.facts", "{fact}", "PanelFact.Ordinal", Seq("panel", "change", "document"))),
+        [ContentKind] = Seq(
+            new InstrumentSlice("rasm.rhino.render.content.facts", "{fact}", "ContentFact", Seq("pulse", "document")),
+            new InstrumentSlice("rasm.rhino.render.content.failures", "{fault}", "ContentStreamFailure", Seq("pulse"))),
+        [MarshalKind] = Seq(
+            new InstrumentSlice("rasm.rhino.hostui.marshal.duration", "s", "MarshalLatency", Seq("work", "outcome"))),
+    }.ToFrozenDictionary(StringComparer.Ordinal);
 }
 
 public sealed class HostStaticEnricher : IStaticLogEnricher {
@@ -175,14 +234,24 @@ public sealed class HostStaticEnricher : IStaticLogEnricher {
 }
 
 public sealed class HostTap : IDisposable {
-    private readonly Seq<Action> detachers;
+    private static readonly Atom<SeatState> Seat = Atom<SeatState>(new SeatState.Vacant());
+    private readonly PluginKey plugin;
     private int released;
 
-    private HostTap(Seq<Action> detachers) => this.detachers = detachers;
+    private HostTap(PluginKey plugin) => this.plugin = plugin;
 
-    public static Fin<IDisposable> Mount(Op? key = null) {
+    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
+        return Seat.Swap(current => current is SeatState.Held held
+                ? held with { Riders = held.Riders.Filter(row => row != plugin).Add(plugin) }
+                : current) is SeatState.Held
+            ? Fin.Succ<IDisposable>(new HostTap(plugin: plugin))
+            : Claim(plugin: plugin, op: op);
+    }
+
+    // Delegates attach before the CAS commit; a lost race detaches its own pair and rides the winner's seat.
+    private static Fin<IDisposable> Claim(PluginKey plugin, Op op) =>
+        op.Catch(() => {
             HostUtils.ExceptionReportDelegate reported = static (source, ex) =>
                 ObjectsTelemetry.Publish(
                     site: FaultSite.HostException,
@@ -194,11 +263,19 @@ public sealed class HostTap : IDisposable {
                     level: Severity(kind: kind));
             HostUtils.OnExceptionReport += reported;
             HostUtils.OnSendLogMessageToCloud += streamed;
-            return Fin.Succ<IDisposable>(new HostTap(detachers: Seq<Action>(
+            Seq<Action> detachers = Seq<Action>(
                 () => HostUtils.OnExceptionReport -= reported,
-                () => HostUtils.OnSendLogMessageToCloud -= streamed)));
+                () => HostUtils.OnSendLogMessageToCloud -= streamed);
+            SeatState committed = Seat.Swap(current => current switch {
+                SeatState.Vacant => new SeatState.Held(Owner: plugin, Riders: Seq<PluginKey>(), Detachers: detachers),
+                SeatState.Held held => held with { Riders = held.Riders.Filter(row => row != plugin).Add(plugin) },
+                var other => other,
+            });
+            _ = committed is SeatState.Held won && won.Owner == plugin && ReferenceEquals(won.Detachers, detachers)
+                ? unit
+                : ignore(detachers.Iter(static detach => detach()));
+            return Fin.Succ<IDisposable>(new HostTap(plugin: plugin));
         });
-    }
 
     // Severity `_` floor covers `unknown` and every future host value; the host enum is open foreign wire.
     private static LogLevel Severity(HostUtils.LogMessageType kind) => kind switch {
@@ -211,7 +288,27 @@ public sealed class HostTap : IDisposable {
 
     public void Dispose() {
         if (Interlocked.CompareExchange(ref released, 1, 0) != 0) { return; }
-        _ = detachers.Iter(static detach => detach());
+        SeatState prior = new SeatState.Vacant();
+        _ = Seat.Swap(current => (prior = current, Departed(current)).Item2);
+        _ = prior is SeatState.Held held && held.Owner == plugin && held.Riders.IsEmpty
+            ? ignore(held.Detachers.Iter(static detach => detach()))
+            : unit;
+    }
+
+    // Owner departure hands the seat to the senior rider with the delegates still attached; the last holder detaches.
+    private SeatState Departed(SeatState current) => current switch {
+        SeatState.Held held when held.Owner == plugin => held.Riders.Head.Match<SeatState>(
+            Some: next => held with { Owner = next, Riders = held.Riders.Tail },
+            None: () => new SeatState.Vacant()),
+        SeatState.Held held => held with { Riders = held.Riders.Filter(row => row != plugin) },
+        var other => other,
+    };
+
+    [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+    private abstract partial record SeatState {
+        private SeatState() { }
+        internal sealed record Vacant : SeatState;
+        internal sealed record Held(PluginKey Owner, Seq<PluginKey> Riders, Seq<Action> Detachers) : SeatState;
     }
 }
 
@@ -799,5 +896,7 @@ public static class Grips {
 |  [04]   | grip shims       | `RasmGrip`/`RasmGrips` | sentinel-weight repair and roster forwarding           | `GripRig.Register<TGrips>`      |
 |  [05]   | grip value edits | `GripEdit`             | rig and move over `GripMove` verbs, detached receipts  | `Grips.Touch` / `Census`        |
 |  [06]   | render-mesh cache | `RenderMeshProgram`   | base-first refinement over the five cache virtuals     | adapter mesh overrides          |
-|  [07]   | telemetry egress | `ObjectsTelemetry`     | generated fault and host-stream events over one sink   | `Publish` overloads             |
-|  [08]   | host taps        | `HostTap`              | both host taps behind one idempotent detacher          | `HostTap.Mount`                 |
+|  [07]   | telemetry egress | `ObjectsTelemetry`     | generated fault and host-stream events over keyed sinks | `Publish` / `Configure`         |
+|  [08]   | host taps        | `HostTap`              | seat arbitration with rider handoff over both host taps | `HostTap.Mount`                 |
+|  [09]   | classification   | `HostSensitivity`      | suite taxonomy rows and member annotation attributes   | payload attributes              |
+|  [10]   | instrument rows  | `RhinoInstrumentPartition` | kind-keyed projection data the app root executes   | `Rows`                          |

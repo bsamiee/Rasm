@@ -9,6 +9,7 @@
 - [04]-[GLIDES]: `GlidePlan` + `TimingCurve` + `Glides` + `Curves` — host-owned animation attachment and the standard timing-function vocabulary.
 - [05]-[EFFECTS]: `FilterKind` + `HapticCue` + `VibrancyPane` + `Effects` — CoreImage filter minting, haptic feedback, and visual-effect views.
 - [06]-[WIDE_COLOR]: `WideColor` — profile-aware kernel projection crossing into AppKit as an owned `NSColor` only.
+- [07]-[TELEMETRY_ROOT]: `PlatformTelemetry` — the per-ALC telemetry capsule opened at the GH2 plugin app root with the plugin resource discriminator.
 
 ## [02]-[GRAPH]
 
@@ -57,6 +58,44 @@
 - Boundary: `NSColor` is the only native colour object minted here, returned as owned custody. All profile selection, chromatic adaptation, transfer encoding, and gamut mapping remain kernel operations.
 - Packages: Microsoft.macOS (`NSColor`), `Rasm.Numerics` (`PerceptualColor`, `RgbProfile`), `Rasm.Domain` (`Op`, `Lease<T>`), `Platform/native.md` (`MacGate`).
 - Growth: a new display profile is one kernel `RgbProfile` row; the AppKit projection remains unchanged while the selected row varies.
+
+## [07]-[TELEMETRY_ROOT]
+
+- Owner: `PlatformTelemetry` — the GH2 plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per canvas or component.
+- Entry: `PlatformTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC (the RhinoCode collectible context under isolated loading) from the root assembly and opens the capsule under `HostProfile.Gh2Plugin`.
+- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Grasshopper` — no `Rasm.Grasshopper` package source names an AppHost or OpenTelemetry type, so the strata law holds while the composition realizes at the root.
+- Law: resource identity is the estate triple plus the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.grasshopper`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so a GH2 plugin and a Rhino plugin co-resident in one process separate downstream by resource, never by meter name.
+- Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — the load-bearing bound for a collectible context, because an unflushed batch tail dies with the ALC; the capsule needs no `MacGate` admission because telemetry composition touches no AppKit surface.
+- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `HostProfile`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
+- Growth: a new resource dimension is one attribute row in the identity delegate; zero new surface.
+
+```csharp signature
+// App-root composition: the GH2 plugin root assembly references Rasm.AppHost beside Rasm.Grasshopper
+// and owns this seam; no Rasm.Grasshopper package source composes AppHost or OpenTelemetry types.
+public static class PlatformTelemetry {
+    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, string plugin, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(pluginRoot);
+        Op op = key.OrDefault();
+        return from name in op.AcceptText(value: plugin)
+               from alc in Optional(AssemblyLoadContext.GetLoadContext(pluginRoot)).ToFin(op.MissingContext())
+               from version in Optional(pluginRoot.GetName().Version).ToFin(op.MissingContext())
+               from capsule in op.Catch(body: () => Fin.Succ(value: PluginTelemetryHost.Open(
+                   alc: alc,
+                   profile: HostProfile.Gh2Plugin,
+                   identity: resource => resource
+                       .AddService(
+                           serviceName: "rasm.grasshopper",
+                           serviceNamespace: "rasm",
+                           serviceVersion: version.ToString(),
+                           autoGenerateServiceInstanceId: false,
+                           serviceInstanceId: Guid.CreateVersion7().ToString())
+                       .AddAttributes([
+                           new KeyValuePair<string, object>("rasm.plugin", name),
+                       ]))))
+               select capsule;
+    }
+}
+```
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------

@@ -20,6 +20,7 @@ This folder is stateless over ports by construction — every durable obligation
 [ACCESS]:
 - [08]-[CLAIM](.planning/access/claim.md): entitlement vocabulary and the RBAC-union-ReBAC fold resolved once per request into a tagged verdict.
 - [09]-[TENANT](.planning/access/tenant.md): ambient `TenantScope` reference, the session-GUC RLS contract, and the tenant metric-tag aspect.
+- [10]-[AUDIT](.planning/access/audit.md): security fact rail — `SecurityFact` vocabulary, app-scoped `Witness` publish seam, `AuditJournal` port, pseudonymized egress, snapshot and board/alert projections.
 
 ## [02]-[DOMAIN_PACKAGES]
 

@@ -42,6 +42,7 @@ Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag a
 |  [04]   | `UUID`                        | handle (`createUUID()`/`toUUID(string)`); `WorkspaceObject` identity, `getObject(UUID)` key              |
 |  [05]   | `OpenStudioUtilitiesCore`     | SWIG global-function host (`toPath`/`toString`/`createUUID`/`toUUID`); not the `*PINVOKE` shims          |
 |  [06]   | `Logger` / `LogMessageVector` | native log sink; `LogLevel` verbosity, translator `warnings()`/`errors()` → `LogMessageVector`           |
+|  [07]   | `ProgressBar`                 | SWIG director — `protected ProgressBar()` subclass ctor, `virtual onPercentageUpdated(double percentage)` |
 
 [PUBLIC_TYPE_SCOPE]: model + IDF/IDD object store
 - package: `NREL.OpenStudio.macOS-arm64`
@@ -65,7 +66,7 @@ Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag a
 - namespace: `OpenStudio`
 - rail: energy
 
-Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessageVector`, and takes an optional `ProgressBar`. "Forward" = `Model` → external format; "Reverse" = external → `Model`/`OptionalModel`.
+Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessageVector`, and takes an optional `ProgressBar` — a managed subclass over the `[07]` director row receives native progress through its `onPercentageUpdated(double)` override (`translateModel(Model, ProgressBar)`, `modelToGbXML(Model, Path, ProgressBar)`/`modelToGbXMLString(Model, ProgressBar)`, `loadModel(Path, ProgressBar)` on both reverse translators). "Forward" = `Model` → external format; "Reverse" = external → `Model`/`OptionalModel`.
 
 | [INDEX] | [SYMBOL]                                                       | [CAPABILITY]                                                          |
 | :-----: | :------------------------------------------------------------- | :-------------------------------------------------------------------- |
@@ -82,7 +83,7 @@ Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessag
 |  [11]   | `VersionTranslator`                                            | robust OSM loader — upgrades an older `.osm`; roster `[11]-[VERSION]` |
 
 - [01]-[E+FWD]: `translateModelObject(ModelObject)` → `Workspace`; `forwardTranslatorOptions()`/`setForwardTranslatorOptions(ForwardTranslatorOptions)`; `setKeepRunControlSpecialDays`; `setIPTabularOutput`.
-- [11]-[VERSION]: `loadModel(Path[, ProgressBar])` → `OptionalModel`; `loadModelFromString(string)` → `OptionalModel`; `loadComponent(Path)` → `OptionalComponent`; `originalVersion` → `VersionString`. It supersedes `Model.load` whenever the file version is not guaranteed current.
+- [11]-[VERSION]: `loadModel(Path[, ProgressBar])` → `OptionalModel`; `loadModelFromString(string[, ProgressBar])` → `OptionalModel`; `loadComponent(Path)` → `OptionalComponent`; `originalVersion` → `VersionString`. It supersedes `Model.load` whenever the file version is not guaranteed current.
 
 [PUBLIC_TYPE_SCOPE]: files, results, workflow
 - package: `NREL.OpenStudio.macOS-arm64`

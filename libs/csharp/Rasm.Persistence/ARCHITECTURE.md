@@ -37,7 +37,7 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
     ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
     ├── Provisioning.cs      # Verification-first extension tier and provider-binding rows
     ├── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
-    └── Observability.cs     # Engine-stat harvests, the receipt-slot registry, and the store instrument contributor
+    └── Observability.cs     # Engine-stat and plan harvests, slot registry, hook rail, usage census, instrument contributor
 ```
 
 Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects — and clock, correlation, and tenant ride the injected `ProjectionContext` frame. Marten owns the durable append and the rebuildable views, the version engine projects from its events, and public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
@@ -163,6 +163,7 @@ flowchart LR
     Query e11@<-->|"[PORT]: HybridCache"| AppHost
     Store e12@<-->|"[PORT]: CoordinationOp"| AppHost
     Store e18@<-->|"[PORT]: TelemetryContributorPort"| AppHost
+    AppHost e19@-->|"[PORT]: HookPoint"| Store
     Store e13@-->|"[RECEIPT]: ProvisionVerdict"| AppHost
     AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
     AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store

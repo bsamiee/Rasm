@@ -33,10 +33,14 @@ from beartype.vale import Is
 from expression import Error, Ok, case, tag, tagged_union
 from expression.collections import Map
 from msgspec import Struct, convert, json
+from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.receipts import Receipt, Redaction, measured
+
+lazy from rasm.compute.graduation.observability import ADMITTED, REJECTED, GraduationAdmitted, GraduationRejected, fired, ledgered  # lazy breaks the hub<->observability stratum cycle; proxies reify at first dispatch
 
 # --- [TYPES] --------------------------------------------------------------------------------
 
@@ -123,14 +127,18 @@ REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # hub-exported:
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _GeometryWire(Struct, frozen=True, gc=False):
+class _GeometryWire(Struct, frozen=True, gc=False, forbid_unknown_fields=True):
     # frozen `GeometryHandoff.wire()` projection — decode-only mirror of the geometry mint;
-    # field names are wire law, re-shaped only by a geometry ripple.
+    # field names are wire law, re-shaped only by a geometry ripple, and `forbid_unknown_fields`
+    # is the widen tripwire: a geometry band shipped without its compute row rails a typed
+    # ValidationError on both decode arms instead of admitting silently. The optional W3C band
+    # defaults None, so a band-free crossing decodes byte-identically to the pre-band wire.
     subject: str
     key: str
     measured: dict[str, float]
     ceilings: dict[str, float]
     admitted: bool
+    traceparent: str | None = None
 
 
 _GEOMETRY_DECODER: Final[json.Decoder[_GeometryWire]] = json.Decoder(_GeometryWire)
@@ -144,13 +152,19 @@ class GraduationReceipt(Struct, frozen=True):
 
     @staticmethod
     def graduates(
-        source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float]
+        source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
+        upstream: str | None = None,
     ) -> RuntimeRail[GraduationReceipt]:
         # two-stage rail: `boundary(_admit)` mints exactly one `RuntimeRail` over the refinement check, `.bind(_clear)`
-        # threads the pure ceiling fold — admission, ceiling rejection, and emission stay one rail with no escape path.
+        # threads the pure ceiling fold — admission, ceiling rejection, and emission stay one rail with no escape path;
+        # both arms fire their `graduation/observability.md` admission fact, taps projecting it without touching the rail.
         def rail() -> RuntimeRail[GraduationReceipt]:
-            return boundary(f"graduation.{axis.tag}", lambda: GraduationReceipt._admit(measured, ceiling)).bind(
-                lambda validated: GraduationReceipt._clear(source_package, axis, evidence_key, validated)
+            _linked(upstream)  # producer-chain join at the rail head — the weave's live graduate span carries the Link on both arms
+            return (
+                boundary(f"graduation.{axis.tag}", lambda: GraduationReceipt._admit(measured, ceiling))
+                .bind(lambda validated: GraduationReceipt._clear(source_package, axis, evidence_key, validated))
+                .map(GraduationReceipt._witnessed)
+                .map_error(GraduationReceipt._refused)
             )
 
         floor: SpanFacts = {"axis": axis.tag, "evidence_key": evidence_key.hex, "residual_count": len(measured)}
@@ -168,7 +182,9 @@ class GraduationReceipt(Struct, frozen=True):
             if wire.subject not in GEOMETRY_SUBJECTS:
                 return Error(BoundaryFault(boundary=("graduation.geometry", "unknown-subject")))
             return _key(wire.key).bind(
-                lambda key: GraduationReceipt.graduates(source_package, HandoffAxis(geometry=wire.subject), key, wire.measured, wire.ceilings)
+                lambda key: GraduationReceipt.graduates(
+                    source_package, HandoffAxis(geometry=wire.subject), key, wire.measured, wire.ceilings, upstream=wire.traceparent
+                )
             )
 
         return boundary("graduation.geometry", decode).bind(admit)
@@ -206,6 +222,20 @@ class GraduationReceipt(Struct, frozen=True):
         )
 
     @staticmethod
+    def _witnessed(receipt: "GraduationReceipt") -> "GraduationReceipt":
+        # admission fact: one tee fire off the cleared receipt — the observability taps project it
+        # onto metrics and receipts, and the rail passes untouched.
+        fired(ADMITTED, GraduationAdmitted(axis=receipt.axis.tag, subject=receipt.subject, evidence_key=receipt.evidence_key.hex, residual_count=len(receipt.residuals)))
+        return receipt
+
+    @staticmethod
+    def _refused(fault: BoundaryFault) -> BoundaryFault:
+        # rejection fact on the replay ring: a late diagnostic subscriber drains the recent refusals
+        # on attach; refinement breach and ceiling rejection both land, discriminated by the boundary pair.
+        fired(REJECTED, GraduationRejected(boundary=fault.boundary[0], reason=fault.boundary[1]))
+        return fault
+
+    @staticmethod
     def _subject(axis: HandoffAxis) -> str:
         # one or-pattern binds the carried subject off every case; `assert_never` makes a new handoff kind a compile gap. The fold
         # is the single place the union is read — `subject`, `span_facts`, and `contribute` all route through it.
@@ -230,6 +260,19 @@ class GraduationReceipt(Struct, frozen=True):
 
 
 _WIRE_KEY: Final[re.Pattern[str]] = re.compile(r"\A(?P<digest>[0-9a-f]{32}):(?P<fmt>[^:]+)\Z")
+_TRACE_WIRE: Final[TraceContextTextMapPropagator] = TraceContextTextMapPropagator()  # decode half of the geometry-minted W3C band
+
+
+def _linked(traceparent: str | None) -> None:
+    # consumer half of the co-shipped trace band: the W3C codec decodes the producer's serialized context and the live
+    # consumer span folds it as a Link — cross-producer click-through without a second trace or a wire re-shape. A
+    # malformed render extracts an invalid context and folds nothing, so trace metadata never rails the crossing; the
+    # telemetry SPAN_LIMITS max_links row bounds the fan a hostile payload could stamp.
+    if traceparent is None:
+        return
+    linked = trace.get_current_span(_TRACE_WIRE.extract({"traceparent": traceparent})).get_span_context()
+    if linked.is_valid:
+        trace.get_current_span().add_link(linked, {"rasm.link.kind": "geometry-graduation"})
 
 
 def _key(render: str) -> RuntimeRail[ContentKey]:
@@ -251,7 +294,9 @@ def evidence_run[T](
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
     # hub's one policy binding of the runtime measured weave: compute's scope vocabulary, the hub REDACTION row, and the caller's
     # call-time discriminating facts stamped on the recording span beside {scope, subject} — span and receipt carry parallel evidence.
-    return measured(scope.value, subject, REDACTION, dispatch, facts)
+    # `ledgered` wraps the dispatch, so every producer's kernel fires its domain lifecycle points and the two-block resource band
+    # with zero producer edits.
+    return measured(scope.value, subject, REDACTION, ledgered(scope, subject, dispatch), facts)
 ```
 
 ## [03]-[EVIDENCE_WEAVE]
@@ -259,6 +304,7 @@ def evidence_run[T](
 - Owner: `evidence_run` binds the runtime `measured` weave to compute policy — the `EvidenceScope` seed table names the span scope, `REDACTION` the emit policy — and every producer composes this binding, so a page-local tracer mint, a page-local redaction declaration, or an inline span open beside it has no owner. Span, fence, rail flatten, fenced harvest, and OK close are the `runtime/observability/receipts#RECEIPT` owner's mechanics, composed here, never re-authored.
 - Cases: every `EvidenceScope` member holds at least one composed consumer — a span emitter through this weave, a receipt `source_package` spelling through `.value`, or both; a member with neither is deleted, so the seed table can never carry dead vocabulary.
 - Entry: one entry discriminating modality on the dispatch shape, never an `evidence_run_async` sibling; `facts` threads each producer's call-time discriminants — problem size, route, backend, precision — onto the recording span, so a trace filters on the same evidence the receipt carries; emission binds through its own fence at the runtime owner — the no-escape guarantee the hub's admission rail demands, granted to every producer.
+- Ledger: the binding weaves the `graduation/observability.md` `ledgered` leg around every dispatch — enter fact, two-`oneshot` resource band, exit fact — so the point rail and the resource ledger reach every producer through the one binding; point rows, payload family, measure mapping, and taps are that page's, composed here, never re-authored.
 
 ## [04]-[CROSS_OWNER]
 
@@ -271,7 +317,7 @@ Each axis crosses under the one admission gate, and no `planned` receipt is emit
 - `unit_law`/`uncertainty_law`: policy evidence only — the pint dimensional-consistency subject and the posterior-diagnostics subject gated on the rhat-and-ess residual check.
 - `array_layout`: crosses once the `numerics/array.md#PAYLOAD` content key reproduces bit-identically across backends.
 - `artifact`: stays the artifacts-side producer, never a compute-side obligation.
-- `geometry`: ARRIVES as `GeometryHandoff.wire()` data through the one carrier-decode ingress; compute decodes every literal off the geometry-minted union and implements none of the geometry kernels — the producing geometry owners are geometry's own ledger rows, read there, never mirrored here.
+- `geometry`: ARRIVES as `GeometryHandoff.wire()` data through the one carrier-decode ingress; compute decodes every literal off the geometry-minted union and implements none of the geometry kernels — the producing geometry owners are geometry's own ledger rows, read there, never mirrored here. The wire's optional `traceparent` band decodes through `_linked` into a `Link` on the live consumer span, so a compute span joins its upstream producer trace on every crossing that carries one; the band is geometry-minted wire law — absent means no link, and a band re-shape is a geometry ripple landing on `_GeometryWire`.
 
 ## [05]-[RESEARCH]
 

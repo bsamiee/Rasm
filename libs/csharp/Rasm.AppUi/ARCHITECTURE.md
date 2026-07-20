@@ -30,7 +30,8 @@ Rasm.AppUi/
 ├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Dashboards.cs     # Chart series and axis rows with downsampled stream binding and brushing
 │   ├── Custom.cs         # Custom-visual Skia layout algebra with a keyed color-policy projection
-│   └── Basemap.cs        # Tiled basemap with Bim-owned overlays and EditManager redlining beside the viewport
+│   ├── Basemap.cs        # Tiled basemap with Bim-owned overlays and EditManager redlining beside the viewport
+│   └── Telemetry.cs      # Telemetry board over instrument, SLO burn-rate, store-profile, and evidence-track tiles
 ├── Editing/              # Typed-edit surfaces over the model
 │   ├── Inspector.cs      # Typed property inspection with ranked editor rows and diff3 conflict hunks
 │   ├── Tables.cs         # Tabular and hierarchical projection routed through the virtual window
@@ -148,6 +149,7 @@ flowchart LR
     Rasm -->|"[CONTENT_KEY]: ContentHash"| Render
     Bim -->|"[SHAPE]: GeoTiles"| Charts
     Bim -->|"[RECEIPT]: CostSchedule"| Charts
+    Persistence -->|"[RECEIPT]: DuckProfileReceipt"| Charts
     Bim -->|"[PORT]: IssueBoard"| Collab
     Collab -->|"[PROJECTION]: ReplayWindow"| Persistence
     Collab -->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
@@ -192,6 +194,9 @@ flowchart LR
 - `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only.
 - `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read.
 - `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
+- `[RECEIPT]: DuckProfileReceipt` into `Charts` is the store-profile board feed: `Charts/telemetry.md` tiles consume the Persistence `Store/observability` profile receipts as values over the analytical query lane — profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
+- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed: `Collab/sync` frames each broadcast delta as a `CollabFrame` (W3C carrier + Loro bytes) and extracts the originating correlation on merge, but the W3C injection/extraction adapter pair is AppHost `TraceContext`'s — AppUi holds only the composition-bound `Inject`/`Extract` delegates; the reciprocal `Rasm.AppHost [COLLAB-WIRE-CONTEXT]` (the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema) is the deferred counterpart.
+- `[FEED]: ProfileSample` into `Diagnostics/devloop` is the host profile-sample flame join: AppHost owns capture (Pyroscope span profiles, EventPipe CPU stacks) and delivers correlation-keyed samples through the composition-bound `ProfileSampleSource`, which `FlameNode.Of` folds into the frame tree — the feed rides an existing AppHost port (a registration row, never an eighth `PortCardinality` port), and the reciprocal `Rasm.AppHost [PROFILE-FLAME-JOIN]` is the deferred counterpart.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 

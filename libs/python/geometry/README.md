@@ -118,6 +118,7 @@ Branch-wide substrate this folder consumes; the canonical registry and API evide
 
 [OBSERVABILITY]:
 - `opentelemetry-api` — graduation-spine tracer surface; SDK and exporters stay runtime-owned.
+- `psutil` — graduation cost bracket: one `oneshot` cpu/rss sample pair per evidence crossing.
 
 [WIRE_CODEGEN]:
 - `grpcio`

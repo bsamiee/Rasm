@@ -2,7 +2,7 @@
 
 `Pulse` is the work-plane meter bridge — one lossy projection from durable-work evidence onto Convention-keyed Effect instruments, so queue depth, drain lag, and relay throughput read as OTel series while every dispute settles against the journal. `mark` folds a settlement fact into its counter row at the emitting call site, and `live` runs the sampled census sweep setting the outbox and queue gauges from one `Probe` port the app root satisfies with the data journal's census statement — fact rows stay the billing truth, instruments stay bounded, and neither plane re-derives the other.
 
-Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `tenants` contributes the tenant metric-stream view row through the `Hooks` registry the export lanes drain — an allow-list attributes processor under the cardinality ceiling, so per-tenant series ride the same governor every reader inherits. Its module is `runtime/src/otel/meter.ts`.
+Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `tenants` contributes the tenant metric-stream view row through the `Hooks` registry the export lanes drain — an allow-list attributes processor under the cardinality ceiling, so per-tenant series ride the same governor every reader inherits. `engine` is the same contribution shape guarding the runtime-node series fan with a deny list, and `board` projects the instrument and budget rows into the typed `Pulse.Board` pack the iac dashboard compile leg decodes — so a budget edit moves the emission grade and the board panel in one place. Its module is `runtime/src/otel/meter.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -12,6 +12,8 @@ Two policy seams close at the same altitude: `verbosity` wires the config tier t
 |  [02]   | `CENSUS`     | the `Probe` port and the sampled gauge sweep Layer                        | `Pulse`  |
 |  [03]   | `VERBOSITY`  | the tier-table→`Logger.minimumLogLevel` wiring                            | `Pulse`  |
 |  [04]   | `TENANT`     | the tenant metric-stream view row under the cardinality governor         | `Pulse`  |
+|  [05]   | `ENGINE`     | the `v8js.*` deny-list view guard for the runtime-node series fan        | `Pulse`  |
+|  [06]   | `BOARD`      | the typed dashboard-feed pack folding instrument rows and vital budgets  | `Pulse`  |
 
 ## [02]-[PROJECTION]
 
@@ -26,21 +28,23 @@ Two policy seams close at the same altitude: `verbosity` wires the config tier t
 - Packages: `effect` (`Metric`); `@rasm/ts/core` (`Convention`).
 
 ```typescript
-import { createAllowListAttributesProcessor } from "@opentelemetry/sdk-metrics"
-import { Convention } from "@rasm/ts/core"
-import { Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Schedule } from "effect"
+import { createAllowListAttributesProcessor, createDenyListAttributesProcessor } from "@opentelemetry/sdk-metrics"
+import { type AppIdentity, Convention } from "@rasm/ts/core"
+import { Array, Context, Duration, Effect, Layer, Logger, LogLevel, Metric, Option, Record, Schedule, Schema } from "effect"
 import { Setting } from "../proc/config.ts"
 import { Hooks } from "./emit.ts"
+import { Vital } from "./vital.ts"
 
-const _counter = (row: { readonly name: string; readonly description: string }) =>
-  Metric.counter(row.name, { description: row.description, incremental: true })
+type _Row = { readonly description: string; readonly name: string; readonly unit: string }
 
-const _gauge = (row: { readonly name: string; readonly description: string }) =>
-  Metric.gauge(row.name, { description: row.description })
+const _counter = (row: _Row) => ({ counter: Metric.counter(row.name, { description: row.description, incremental: true }), row })
+
+const _gauge = (row: _Row) => ({ gauge: Metric.gauge(row.name, { description: row.description }), row })
 
 const _WORK = {
-  drained: { counter: _counter(Convention.instrument.relayDrained) },
-  parked: { counter: _counter(Convention.instrument.queueParked) },
+  // the Convention row rides beside its instrument: the board fold reads the row, the mark fold reads the counter
+  drained: _counter(Convention.instrument.relayDrained),
+  parked: _counter(Convention.instrument.queueParked),
 } as const
 
 declare namespace Pulse {
@@ -51,9 +55,11 @@ declare namespace Pulse {
   }
   type Policy = {
     readonly cadence: Duration.Duration
+    readonly engine: { readonly deny: ReadonlyArray<string>; readonly limit: number }
     readonly tenant: { readonly keys: ReadonlyArray<string>; readonly limit: number }
   }
-  type _Rows<T extends Record<Work, { readonly counter: ReturnType<typeof _counter> }> = typeof _WORK> = T
+  type Board = _Board
+  type _Rows<T extends Record<Work, ReturnType<typeof _counter>> = typeof _WORK> = T
 }
 
 const _marked = (kind: Pulse.Work, channel: string, count: number): Effect.Effect<void> =>
@@ -86,10 +92,10 @@ const _GAUGES = {
 const _swept: Effect.Effect<void, never, Probe> = Effect.flatMap(Probe, (probe) =>
   Effect.flatMap(probe.census, (census) =>
     Effect.all([
-      Metric.set(_GAUGES.outboxAge, Duration.toSeconds(census.outbox.age)),
-      Metric.set(_GAUGES.outboxDepth, census.outbox.depth),
-      Metric.set(_GAUGES.outboxRedelivered, census.outbox.redelivered),
-      Metric.set(_GAUGES.queueDepth, census.queue.depth),
+      Metric.set(_GAUGES.outboxAge.gauge, Duration.toSeconds(census.outbox.age)),
+      Metric.set(_GAUGES.outboxDepth.gauge, census.outbox.depth),
+      Metric.set(_GAUGES.outboxRedelivered.gauge, census.outbox.redelivered),
+      Metric.set(_GAUGES.queueDepth.gauge, census.queue.depth),
     ], { discard: true })))
 ```
 
@@ -125,16 +131,102 @@ const _tenants = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
       attributesProcessors: [createAllowListAttributesProcessor([...policy.tenant.keys, Convention.rasm.tenant])],
       aggregationCardinalityLimit: policy.tenant.limit,
     }))
+```
+
+## [06]-[ENGINE]
+
+[ENGINE]:
+- Owner: `Pulse.engine(policy)` — the deny-list view guard for the runtime-node series the emit plane's `_vitals` registers: one `Hooks.contribute` view row over the `v8js.*` instrument space whose `createDenyListAttributesProcessor` drops the policy's deny keys (the `v8js.heap.space.name`/`v8js.gc.type` fan) with `aggregationCardinalityLimit` as the per-view ceiling, so engine-health series stay bounded where a heap-space or gc-type dimension would fan.
+- Law: the guard mirrors the tenant view's three-tier stack — deny-list primary, per-view limit breaker, reader-level `cardinality.tenant` ceiling above — declared at three owners and composed without restatement; a deployment reading only aggregate engine series carries the two default deny keys, and one reading per-space heap detail narrows the deny roster instead of forking a second view.
+- Entry: `Pulse.engine(policy)` merged among the `Hooks.contribute` nodes, before `Export.live` drains; pairs with the emit plane's `_vitals` registration node.
+- Growth: a new guarded instrument space is one more contributed view row.
+- Packages: `@opentelemetry/sdk-metrics` (`createDenyListAttributesProcessor`); `./emit.ts` (`Hooks`).
+
+```typescript
+const _engine = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
+  Hooks.contribute((hooks) =>
+    hooks.add("views", {
+      aggregationCardinalityLimit: policy.engine.limit,
+      attributesProcessors: [createDenyListAttributesProcessor([...policy.engine.deny])],
+      instrumentName: "v8js.*",
+    }))
+```
+
+## [07]-[BOARD]
+
+[BOARD]:
+- Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed dashboard-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the Convention rows; `budgets` carry each vital kind's good/poor thresholds and unit; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the iac compile leg derives panels, thresholds, and burn alerts from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
+- Law: the pack is runtime's mint and the compile leg decodes, never redefines — the Schema class is the wire contract, so the iac ingest is one decode beside its sibling packs and board truth cannot drift from emission truth.
+- Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the iac observe plane's.
+- Entry: `Pulse.board(identity)` at the app's deploy-feed seam — a pure value mint, no Layer.
+- Growth: a new burn family is one `burn` row; a new panel axis is one field on the panel struct every producer inherits.
+- Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/ts/core` (`Convention`, `AppIdentity`).
+
+```typescript
+class _Board extends Schema.Class<_Board>("Pulse/Board")({
+  app: Schema.NonEmptyString,
+  panels: Schema.Array(Schema.Struct({
+    description: Schema.String,
+    instrument: Schema.Literal("counter", "gauge"),
+    name: Schema.NonEmptyString,
+    tags: Schema.Array(Schema.String),
+    unit: Schema.String,
+  })),
+  budgets: Schema.Array(Schema.Struct({
+    good: Schema.Number,
+    kind: Schema.NonEmptyString,
+    poor: Schema.Number,
+    unit: Schema.String,
+  })),
+  burn: Schema.Array(Schema.Struct({
+    bad: Schema.NonEmptyString,
+    slice: Schema.optionalWith(Schema.Struct({ tag: Schema.NonEmptyString, value: Schema.NonEmptyString }), { as: "Option" }),
+    total: Schema.NonEmptyString,
+  })),
+}) {}
+
+const _board = (identity: AppIdentity): _Board =>
+  new _Board({
+    app: identity.app,
+    panels: [
+      ...Array.map(Record.values(_WORK), ({ row }) => ({
+        description: row.description,
+        instrument: "counter" as const,
+        name: row.name,
+        tags: [Convention.rasm.workChannel],
+        unit: row.unit,
+      })),
+      ...Array.map(Record.values(_GAUGES), ({ row }) => ({
+        description: row.description,
+        instrument: "gauge" as const,
+        name: row.name,
+        tags: [],
+        unit: row.unit,
+      })),
+    ],
+    budgets: Array.map(Record.toEntries(Vital.rows), ([kind, row]) => ({ good: row.good, kind, poor: row.poor, unit: row.unit })),
+    burn: [
+      // burn inputs as data: the algebra, objectives, and window ladders are the iac observe plane's
+      { bad: Convention.metric.vitalObserved, slice: Option.some({ tag: Convention.rasm.vitalGrade, value: "poor" }), total: Convention.metric.vitalObserved },
+      { bad: _WORK.parked.row.name, slice: Option.none(), total: _WORK.drained.row.name },
+    ],
+  })
 
 const Pulse: {
+  readonly Board: typeof _Board
   readonly Probe: typeof Probe
+  readonly board: (identity: AppIdentity) => _Board
+  readonly engine: (policy: Pulse.Policy) => Layer.Layer<never, never, Hooks>
   readonly live: (policy: Pulse.Policy) => Layer.Layer<never, never, Probe>
   readonly mark: (kind: Pulse.Work, channel: string, count?: number) => Effect.Effect<void>
   readonly tenants: (policy: Pulse.Policy) => Layer.Layer<never, never, Hooks>
   readonly verbosity: Layer.Layer<never, never, Setting>
   readonly work: typeof _WORK
 } = {
+  Board: _Board,
   Probe,
+  board: _board,
+  engine: _engine,
   live: (policy) => Layer.scopedDiscard(Effect.forkScoped(Effect.repeat(_swept, Schedule.spaced(policy.cadence)))),
   mark: (kind, channel, count = 1) => _marked(kind, channel, count),
   tenants: _tenants,
@@ -147,6 +239,6 @@ const Pulse: {
 export { Pulse }
 ```
 
-## [06]-[RESEARCH]
+## [08]-[RESEARCH]
 
 (none)

@@ -77,8 +77,10 @@ Every row is consumed by `viewer/scene/glb`.
 |  [03]   | `renderer.setAnimationLoop(fn)` / `.render(s, c)` / `.renderAsync(s, c)`                 | frame loop           | RAF loop, submit      |
 |  [04]   | `renderer.outputColorSpace` / `.toneMapping` / `.toneMappingExposure` / `.setClearColor` | output policy        | display contract      |
 |  [05]   | `renderer.compileAsync(s, c)` / `renderer.dispose()` / `computeAsync(node)`              | precompile / dispose | pre-warm, dispose     |
+|  [06]   | `renderer.info` — `.render` / `.compute` / `.memory` / `.autoReset` / `.reset()`         | counter surface      | probe metric sink, [06] |
 
 - [02]-[WEBGPU_UPGRADE]: `hasFeature` (post-`init()`; `hasFeatureAsync` deprecated) gates the upgrade, resolving to `GPUDevice.features.has(name)` (`.api/webgpu-types.md`); the `null` loop pauses under `<Activity>` hidden.
+- [06]-[COUNTER_SURFACE]: the unified `Renderer` base (so `WebGPURenderer` included) carries `info.render` `{calls, frameCalls, drawCalls, triangles, points, lines, timestamp}`, `info.compute` `{calls, frameCalls, timestamp}`, and `info.memory` `{geometries, textures, texturesSize, attributes, attributesSize, programs, renderTargets, readbackBuffers, uniformBuffers, total, …}` — the legacy `render.calls`/`render.triangles`/`memory.geometries`/`memory.textures` spellings hold, widened by per-frame and byte-grade members; an app-managed loop sets `info.autoReset = false` and calls `info.reset()` once per frame.
 
 [ENTRYPOINT_SCOPE]: GLB ingestion — the plugin-configured decode pipeline
 - rail: scene

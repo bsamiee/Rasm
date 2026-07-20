@@ -4,13 +4,14 @@
 
 ## [01]-[INDEX]
 
-- [02]-[HOST_THREAD]: `HostWork<T>` and `HostThread.Run` own affine execution, queued delivery, affinity-required work, provenance-guarded work, and document-scoped work.
+- [02]-[HOST_THREAD]: `HostWork<T>` and `HostThread.Run` own affine execution, queued delivery, affinity-required work, provenance-guarded work, and document-scoped work; `MarshalLatency` seats the marshal-seam checkpoint ledger.
 - [03]-[STATUS]: `StatusProgram` folds prompt, pane, point, and toast intent into one crossing and preserves every toast outcome.
 - [04]-[PROGRESS]: `ProgressPolicy`, `ProgressMove`, and `ProgressLease` own admission, movement, projection, contention evidence, and release.
 - [05]-[WINDOWS]: `WindowScope`, `WindowPolicy`, `ShellWindows`, and `ShellTheme` own host parents, adoption, typed and untyped modal presentation, discovery, placement, and theme transitions.
 - [06]-[RUNTIME]: `HostFacts`, `HostAssemblies`, and `ShellSkin` own capability probes, resolver receipts, collectible loading, and the skin load-phase hook.
 - [07]-[CALLBACKS]: `CallbackObserver<T>`, `NamedKind`, `NamedBag`, and `NamedCallbacks` close guarded delivery and the typed named-parameter wire; `NodeFunctions` projects the node-in-code table onto the same crossing.
 - [08]-[NOTICES]: `NoticeSpec`, `NoticeLease`, and `Notices` mint, present, annotate, and observe host notifications under the assembly-restriction guard.
+- [09]-[TELEMETRY_ROOT]: `ShellTelemetry` opens the per-ALC telemetry capsule at the plugin app root and derives resource identity from the host snapshot.
 
 ## [02]-[HOST_THREAD]
 
@@ -19,6 +20,7 @@
 - Entry: `HostThread.Run<T>(HostWork<T>, Op?)` admits the operation once and returns `Fin<T>`.
 - Law: `Session` carries every `SessionNeed` in the request value; a consumer never opens a second document demand beside the host operation.
 - Law: provenance is a case, never a caller flag — `Guarded` marshals exactly like `Execute` and adds only the `RiskyAction` bracket around the body.
+- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, every off-thread crossing records queued and settled checkpoints with work and outcome tags on one frozen `ILatencyContext`, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root.
 - Boundary: `HostThread` owns Rhino command-thread affinity, while `UiThread` owns Eto control-tree affinity.
 
 ```csharp signature
@@ -27,6 +29,7 @@ using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Reflection;
 using Eto.Forms;
+using Microsoft.Extensions.Diagnostics.Latency;
 using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -142,7 +145,7 @@ public static class HostThread {
             op,
             execute: static (held, request) => RhinoApp.IsOnMainThread
                 ? held.Catch(request.Body)
-                : Marshalled(body: request.Body, op: held),
+                : Marshalled(body: request.Body, op: held, work: nameof(HostWork<T>.Execute)),
             posted: static (held, request) => RhinoApp.IsOnMainThread
                 ? held.Catch(request.Body)
                 : Posted(request: request, op: held),
@@ -151,7 +154,7 @@ public static class HostThread {
                 : Fin.Fail<T>(error: new UiFault.OffThread(Key: held)),
             guarded: static (held, request) => RhinoApp.IsOnMainThread
                 ? Bracketed(request: request, op: held)
-                : Marshalled(body: () => Bracketed(request: request, op: held), op: held),
+                : Marshalled(body: () => Bracketed(request: request, op: held), op: held, work: nameof(HostWork<T>.Guarded)),
             session: static (held, request) => Session(work: request, op: held));
     }
 
@@ -176,15 +179,15 @@ public static class HostThread {
             return request.Body();
         });
 
-    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op) =>
-        op.Catch(() => {
+    private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op, string work) =>
+        MarshalLatency.Measured(work: work, run: () => op.Catch(() => {
             Fin<T>? captured = null;
             RhinoApp.InvokeAndWait(action: () => captured = op.Catch(body));
             return Settled(captured: captured, op: op, capability: nameof(RhinoApp.InvokeAndWait));
-        });
+        }));
 
     private static Fin<T> Posted<T>(HostWork<T>.Posted request, Op op) =>
-        op.Catch(() => {
+        MarshalLatency.Measured(work: nameof(HostWork<T>.Posted), run: () => op.Catch(() => {
             int state = (int)PostedState.Pending;
             TaskCompletionSource<Fin<T>> completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
             RhinoApp.InvokeOnUiThread(
@@ -204,7 +207,7 @@ public static class HostThread {
                 value: (int)PostedState.Expired,
                 comparand: (int)PostedState.Pending);
             return Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: nameof(RhinoApp.InvokeOnUiThread)));
-        });
+        }));
 
     private static Fin<T> Session<T>(HostWork<T>.Session work, Op op) {
         Fin<T>? captured = null;
@@ -223,6 +226,54 @@ public static class HostThread {
         captured is { } result
             ? result
             : Fin.Fail<T>(error: new UiFault.Unavailable(Key: op, Capability: capability));
+}
+
+public static class MarshalLatency {
+    public const string QueuedCheckpoint = "rasm.rhino.marshal.queued";
+    public const string SettledCheckpoint = "rasm.rhino.marshal.settled";
+    public const string WorkTag = "rasm.rhino.marshal.work";
+    public const string OutcomeTag = "rasm.rhino.marshal.outcome";
+
+    private static readonly Atom<Option<SeatRow>> Seat = Atom(Option<SeatRow>.None);
+
+    // App root registers the four names through RegisterCheckpointNames/RegisterTagNames before mounting; tokens resolve once here.
+    public static Fin<IDisposable> Mount(ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, Op? key = null) {
+        Op op = key.OrDefault();
+        return from live in Optional(provider).ToFin(Fail: op.InvalidInput())
+               from mint in Optional(issuer).ToFin(Fail: op.InvalidInput())
+               from row in op.Catch(() => Fin.Succ(value: new SeatRow(
+                   Provider: live,
+                   Queued: mint.GetCheckpointToken(QueuedCheckpoint),
+                   Settled: mint.GetCheckpointToken(SettledCheckpoint),
+                   Work: mint.GetTagToken(WorkTag),
+                   Outcome: mint.GetTagToken(OutcomeTag))))
+               from seat in Seat.Swap(held => held.IsNone ? Some(row) : held)
+                   .Filter(held => ReferenceEquals(held, row))
+                   .ToFin(Fail: op.InvalidContext())
+               select (IDisposable)Subscription.Of(detach: () => ignore(Seat.Swap(held =>
+                   held.Filter(live2 => ReferenceEquals(live2, row)).IsSome ? Option<SeatRow>.None : held)));
+    }
+
+    internal static Fin<T> Measured<T>(string work, Func<Fin<T>> run) =>
+        Seat.Value.Match(
+            None: run,
+            Some: seat => {
+                ILatencyContext ledger = seat.Provider.CreateContext();
+                ledger.SetTag(seat.Work, work);
+                ledger.AddCheckpoint(seat.Queued);
+                Fin<T> outcome = run();
+                ledger.AddCheckpoint(seat.Settled);
+                ledger.SetTag(seat.Outcome, outcome.IsSucc ? "succ" : "fail");
+                ledger.Freeze();
+                return outcome;
+            });
+
+    private sealed record SeatRow(
+        ILatencyContextProvider Provider,
+        CheckpointToken Queued,
+        CheckpointToken Settled,
+        TagToken Work,
+        TagToken Outcome);
 }
 ```
 
@@ -1019,6 +1070,7 @@ public static class HostAssemblies {
 
 - Owner: `NamedValue` closes the typed-parameter vocabulary, `NamedKind` rows carry read dispatch, and `NamedBag` serializes native common objects into detached payloads before they enter the map.
 - Entry: `NamedCallbacks.Register` seats one host callback under a wire name; `NamedCallbacks.Execute` mints, executes, and detaches the response in one crossing.
+- Law: wire names are plugin-claimed custody — `HostUtils.RegisterNamedCallback` silently replaces a prior handler, so `Register` claims the name in the process registry keyed on `PluginKey` before the host call, a foreign plugin's claim faults typed instead of shadowing, the owning plugin re-registers only itself, and detach releases the claim with the host row.
 - Law: `NamedSlot.Admit` revalidates one complete schema before native arguments exist; a callback handler detaches the request, runs the typed body, and writes the reply into the live dictionary before returning.
 - Law: execution cancellation reads the kernel `Env`, never an ambient token; a cancelled execution is a typed `UiFault.Cancelled`, never a swallowed skip.
 - Boundary: geometry, viewport, and meshing rows cross as serialized values; `NamedLease` owns every rehydrated common object until the synchronous host call ends, and the read-only viewport row refuses `Write`.
@@ -1306,7 +1358,10 @@ public sealed record NamedBag {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class NamedCallbacks {
+    private static readonly Atom<HashMap<string, PluginKey>> Names = Atom(HashMap<string, PluginKey>());
+
     public static Fin<Subscription> Register(
+        PluginKey plugin,
         string name,
         Seq<NamedSlot> request,
         Func<NamedBag, Fin<NamedBag>> body,
@@ -1317,6 +1372,9 @@ public static class NamedCallbacks {
         Op op = key.OrDefault();
         return from admitted in op.AcceptText(value: name)
                from schema in NamedSlot.Admit(slots: request, op: op)
+               from claim in Names.Swap(held => held.TryAdd(admitted, plugin)).Find(admitted)
+                   .Filter(holder => holder == plugin)
+                   .ToFin(Fail: op.InvalidContext())
                from seated in op.Catch(() => {
                    EventHandler<NamedParametersEventArgs> handler = (_, args) => ignore(op.Catch(() => {
                        Fin<Unit> served = NamedBag.Detach(args: args, slots: schema, op: op)
@@ -1327,7 +1385,17 @@ public static class NamedCallbacks {
                        return served;
                    }));
                    HostUtils.RegisterNamedCallback(name: admitted, callback: handler);
-                   return Fin.Succ(value: Subscription.Of(detach: () => HostUtils.RemoveNamedCallback(name: admitted)));
+                   return Fin.Succ(value: Subscription.Of(detach: () => {
+                       HostUtils.RemoveNamedCallback(name: admitted);
+                       _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder == plugin).Match(
+                           Some: _ => held.Remove(admitted),
+                           None: () => held));
+                   }));
+               }).MapFail(error => {
+                   _ = Names.Swap(held => held.Find(admitted).Filter(holder => holder == plugin).Match(
+                       Some: _ => held.Remove(admitted),
+                       None: () => held));
+                   return error;
                })
                select seated;
     }
@@ -1632,6 +1700,51 @@ public static class Notices {
                     op: op));
             })),
             key: op);
+    }
+}
+```
+
+## [09]-[TELEMETRY_ROOT]
+
+- Owner: `ShellTelemetry` — the plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per feature.
+- Entry: `ShellTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC from the root assembly, folds one `HostFacts` process probe into the resource identity, and opens the capsule under `HostProfile.RhinoPlugin`.
+- Law: the app root alone references `Rasm.AppHost` beside `Rasm.Rhino` — no `Rasm.Rhino` package source names an AppHost or OpenTelemetry type, so the strata law holds while the composition realizes at the root.
+- Law: resource identity is the estate triple plus the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.rhino`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so co-resident plugins in one `Rhino.exe` separate downstream by resource, never by meter name.
+- Law: `HostSnapshot` supplies the host-identity evidence — process name and version cross as `host.process`/`host.version` attributes, read through one `HostFacts.Probe(new HostProbe.Process())` at open, never re-probed per signal.
+- Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — so the shell registers no second unload path; every Rasm meter in the plugin process reaches the capsule `IMeterFactory`, and a process-static `Meter` stays the named defect.
+- Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `HostProfile`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
+- Growth: a new resource dimension is one attribute row in the identity delegate; a second plugin is a second `Open` call with its own discriminator; zero new surface.
+
+```csharp signature
+// App-root composition: the plugin root assembly references Rasm.AppHost beside Rasm.Rhino and owns
+// this seam; no Rasm.Rhino package source composes AppHost or OpenTelemetry types.
+public static class ShellTelemetry {
+    public static Fin<PluginTelemetryHost> Open(Assembly pluginRoot, string plugin, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(pluginRoot);
+        Op op = key.OrDefault();
+        return from name in op.AcceptText(value: plugin)
+               from alc in Optional(AssemblyLoadContext.GetLoadContext(pluginRoot)).ToFin(Fail: op.MissingContext())
+               from version in Optional(pluginRoot.GetName().Version).ToFin(Fail: op.MissingContext())
+               from fact in HostFacts.Probe(probe: new HostProbe.Process(), key: op)
+               from snapshot in fact is HostFact.ProcessCase process
+                   ? Fin.Succ(value: process.Snapshot)
+                   : Fin.Fail<HostSnapshot>(error: op.InvalidResult())
+               from capsule in op.Catch(() => Fin.Succ(value: PluginTelemetryHost.Open(
+                   alc: alc,
+                   profile: HostProfile.RhinoPlugin,
+                   identity: resource => resource
+                       .AddService(
+                           serviceName: "rasm.rhino",
+                           serviceNamespace: "rasm",
+                           serviceVersion: version.ToString(),
+                           autoGenerateServiceInstanceId: false,
+                           serviceInstanceId: Guid.CreateVersion7().ToString())
+                       .AddAttributes([
+                           new KeyValuePair<string, object>("rasm.plugin", name),
+                           new KeyValuePair<string, object>("host.process", snapshot.ProcessName),
+                           new KeyValuePair<string, object>("host.version", snapshot.ProcessVersion.ToString()),
+                       ]))))
+               select capsule;
     }
 }
 ```

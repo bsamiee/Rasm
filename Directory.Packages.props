@@ -193,6 +193,7 @@
         <PackageVersion Include="Microsoft.Extensions.Configuration.Json"                 Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets"          Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection"                Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics"                        Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks"           Version="10.0.10" />
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring"     Version="10.8.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting"                            Version="10.0.10" />

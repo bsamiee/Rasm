@@ -1,6 +1,6 @@
 # [TS_IAC_API_PULUMI_PULUMI]
 
-`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` async-dependency algebra, the `Resource`/`ComponentResource` model the `stack` tiers extend, `Config`/`StackReference` state access, and the full Automation API (`LocalWorkspace` inline programs, `Stack` up|preview|refresh|destroy) whose `EngineEvent` stream and `OpType`/`OpMap` deltas feed the typed run-receipt ledger. `iac` composes it as ONE Effect rail — a `Match.exhaustive` ledger dispatch over `Effect.async`-wrapped `Stack` methods whose `AbortSignal` is Effect interruption, whose `onEvent` callback is an Effect `Stream`, and whose `OutputMap` decodes through `Schema` into StackOutputs. No `Pulumi.yaml`, no CLI shell-out — the pulumi CLI-binary is one `PulumiCommand` deploy-host fact and the self-managed state backend is one `ProjectSettings.backend.url`.
+`@pulumi/pulumi` is the deploy-plane engine: the `Output<T>`/`Input<T>` async-dependency algebra, the `Resource`/`ComponentResource` model the `stack` tiers extend, `Config`/`StackReference` state access, and the full Automation API (`LocalWorkspace` inline programs, `Stack` up|preview|refresh|destroy) whose `EngineEvent` stream and `OpType`/`OpMap` deltas feed the typed run-receipt ledger. `iac` composes it as ONE Effect rail — a mapped-record ledger dispatch over the `Stack` methods, the `onEvent` callback bridged through `Stream.asyncPush` whose acquire/release owns an `AbortController` so Effect interruption aborts the run, one `Stream.runFold` pass folding summary, steps, diagnostics, violations, stdout, and the timestamp band, and the `OutputMap` decoding through `Schema` into StackOutputs. No `Pulumi.yaml`, no CLI shell-out — the pulumi CLI-binary is one `PulumiCommand` deploy-host fact and the self-managed state backend is one `ProjectSettings.backend.url`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -216,45 +216,51 @@ Receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substrate 
 
 [RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
 
-| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                             |
-| :-----: | :------------------------------------ | :---------------------------------------------------------- |
-|  [01]   | `Stack.up/preview/refresh/destroy` op | `Match.value(op).pipe(Match.exhaustive)`                    |
-|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.async((resume, signal)=>…)`                         |
-|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` / `Queue.unbounded` + `Stream.fromQueue` |
-|  [04]   | `EngineEvent` / `StepEventMetadata`   | `Schema.decodeUnknown(StepReceipt)`                         |
-|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.redacted` + `Layer.effect`                          |
-|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + `Redacted.make`                    |
-|  [07]   | `CommandError` family + `RunError`    | `Data.TaggedError` in `catch`                               |
-|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                                     |
+| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                       |
+| :-----: | :------------------------------------ | :---------------------------------------------------- |
+|  [01]   | `Stack.up/preview/refresh/destroy` op | `_LEDGER` mapped record, one generic indexed call     |
+|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.acquireRelease` over an `AbortController`     |
+|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` + `Stream.runFold` over `_folded`  |
+|  [04]   | `EngineEvent` fold product            | `Schema.decodeUnknown(RunReceipt)`                    |
+|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.unwrap` + `Config.redacted`                   |
+|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + secret-refusal gate          |
+|  [07]   | `CommandError` family + `RunError`    | `Match.instanceOf` triage → `Data.TaggedError`        |
+|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                               |
 
-- [01]-[LEDGER_DISPATCH]: ONE ledger dispatch over the op tag → the method; not four drivers.
-- [02]-[INTERRUPT]: `Effect.interrupt`/scope-close aborts the pulumi run — no orphan updates.
-- [03]-[EVENT_STREAM]: engine steps become an Effect `Stream`; `Stream.runFold` buckets the `OpMap`.
-- [04]-[STEP_DECODE]: each step decodes to a typed receipt row; drift fold reconciles vs `changeSummary`.
+- [01]-[LEDGER_DISPATCH]: `_LEDGER` maps each op (`reconcile` included) to its `Stack` method under a mapped contract — a sixth op is a compile error at the record, not four drivers.
+- [02]-[INTERRUPT]: the bridge acquires an `AbortController` and releases by aborting — interruption, scope close, and budget exhaustion all cancel the run; no orphan updates.
+- [03]-[EVENT_STREAM]: engine events become one Effect `Stream`; `Stream.runFold` drives the single `_folded` pass on the live path and `Array.reduce` drives the same fold on the batch path.
+- [04]-[RECEIPT_DECODE]: the fold product decodes once into `RunReceipt` — summary, steps, diagnostics, violations, stdout lines, and the first/last-timestamp band; the drift fold reconciles vs `changeSummary`.
 - [05]-[HOST_CONFIG]: `pulumiCommand`/`backend.url`/`secretsProvider`/`envVars` from Effect `Config`, not literals.
-- [06]-[SECRET_OUTPUTS]: secret-flagged outputs → `Redacted`; typed StackOutputs → `ShardingConfig`.
-- [07]-[TAGGED_FAULTS]: `ConcurrentUpdateError`/`StackNotFoundError`/input errors → tagged domain faults.
+- [06]-[SECRET_OUTPUTS]: secret-flagged outputs refuse at the gate; typed StackOutputs → `ShardingConfig`.
+- [07]-[TAGGED_FAULTS]: `ConcurrentUpdateError`/`StackNotFoundError`/input errors triage through one `Match.instanceOf` ladder into the reason-discriminated fault family.
 - [08]-[SCOPED_LIFECYCLE]: `createOrSelectStack` acquired, `destroy` released — scoped teardown.
 
 ```ts signature
 // iac/program/automation.ts — the one wrap; every consumer sees a typed Effect
-const run = (stack: Stack, op: LedgerOp, spec: StackSpec) =>
-  Effect.async<RunReceipt, DeployFault>((resume, signal) => {
-    const steps: StepReceipt[] = []
-    const onEvent = (e: EngineEvent) =>
-      e.resourcePreEvent && steps.push(decodeStep(e.resourcePreEvent.metadata))
-    const opts = { signal, onEvent, onOutput: sink }            // signal ← Effect interruption
-    Match.value(op).pipe(                                       // the up|preview|refresh|destroy ledger
-      Match.tag("up", () => stack.up(opts)),
-      Match.tag("preview", () => stack.preview(opts)),
-      Match.tag("refresh", () => stack.refresh(opts)),
-      Match.tag("destroy", () => stack.destroy(opts)),
-      Match.exhaustive,
-    )().then(
-      (r) => resume(Effect.succeed(foldReceipt(op, r, steps))),
-      (e) => resume(Effect.fail(toFault(e))),                   // CommandError → Data.TaggedError
-    )
-  })
+const _LEDGER: { readonly [K in RunReceipt.Op]: (stack: Stack, opts: _RunOpts) => Promise<unknown> } = {
+  up: (stack, opts) => stack.up(opts),
+  preview: (stack, opts) => stack.preview(opts),
+  refresh: (stack, { signal, onEvent, parallel }) => stack.refresh({ signal, onEvent, parallel }),
+  destroy: (stack, { signal, onEvent, parallel }) => stack.destroy({ signal, onEvent, parallel }),
+  reconcile: (stack, { signal, onEvent, parallel }) => stack.previewRefresh({ signal, onEvent, parallel }),
+}
+
+const _streamed = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automation.Options) =>
+  Stream.asyncPush<EngineEvent, DeployFault>((emit) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const abort = new AbortController()
+        _LEDGER[op](stack, { ...options, signal: abort.signal, onEvent: (event) => void emit.single(event) }).then(
+          () => emit.end(),
+          (caught) => emit.fail(DeployFault.triaged(name)(caught)),
+        )
+        return abort
+      }),
+      (abort) => Effect.sync(() => abort.abort()),              // release aborts the engine run: no orphan update
+    ))
+
+// one pass, both paths: Stream.runFold(_streamed(…), _SEED, _folded) live; Array.reduce(events, _SEED, _folded) batch
 ```
 
 ## [07]-[IMPLEMENTATION_LAW]
@@ -266,11 +272,11 @@ const run = (stack: Stack, op: LedgerOp, spec: StackSpec) =>
 
 [AUTOMATION_TOPOLOGY]:
 - `LocalWorkspace` is the sole workspace for inline programs; `PulumiFn` returns the outputs record. Configure the CLI wrap, `backend.url`, and `secretsProvider` through `LocalWorkspaceOptions` — never author `Pulumi.yaml`.
-- `Match.exhaustive` over the op tag is the whole ledger; `previewRefresh` is the non-mutating drift leg; `expectNoChanges`/`plan` gate CI runs; `policyPacks` attach CrossGuard.
+- The `_LEDGER` mapped record over the op vocabulary is the whole ledger; `previewRefresh` is the non-mutating drift leg; `expectNoChanges`/`plan` gate CI runs; `policyPacks` attach CrossGuard.
 - Adopt existing cloud resources with `Stack.import`; back up state with `exportStack`; attach ESC with `addEnvironments`.
 
 [RAIL_LAW]:
 - Package: `@pulumi/pulumi`
 - Owns: output algebra, resource model, config, stack references, Automation API, engine-event stream, error rails
-- Accept: `Output<T>` for all inter-resource value flow; `Effect.async` signal for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
-- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; four parallel op drivers where one `Match.exhaustive` ledger owns them
+- Accept: `Output<T>` for all inter-resource value flow; the acquire/release `AbortController` for cancellation; `Config.redacted` for host secrets; `Schema` for `OutputMap` decode
+- Reject: authored `Pulumi.yaml`; raw `pulumi` CLI shell-out; promise chaining across resource boundaries; `Config.get` for secrets; four parallel op drivers where the one `_LEDGER` mapped record owns them

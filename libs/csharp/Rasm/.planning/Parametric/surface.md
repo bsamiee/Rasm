@@ -14,8 +14,8 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 - Cases: `TessellateRule` 2; `IsolineRule` 3; `GeodesicGrade` rows 2; `SurfaceOp` cases `Tessellate` · `Isolines` · `Geodesics` · `NormalOffset` · `CurvatureSample` · `Pullback` (6); `SurfaceResult` cases `UvTessellation` · `Isolines` · `GeodesicField` · `Offsets` · `CurvatureField` · `Pulled` (6 — one typed carrier per request family; `GeodesicField` and `CurvatureField` are offset-column SoA wires, never row-object walks).
 - Entry: `public static Fin<SurfaceResult> Apply(SurfaceOp op, Op? key = null)` — the ONE entry discriminating on the op case through the generated total `Switch`; no `TessellateSurface`/`ExtractIsolines`/`OffsetSurface` sibling family. `Geodesics` takes the `SurfaceResult.UvTessellation` CARRIER, not a bare surface — the provenance proof is the parameter type.
 - Auto: `Tessellate` derives the parameter lattice from the rule (`Adaptive` samples `CurvatureAt` along each axis, integrates mean `|κ₁|+|κ₂|` per span, and distributes the line budget by the cumulative integral), evaluates `PointAt(u, v)` per node, splits each cell into two triangles on the shorter diagonal, CULLS degenerate cells (pairwise-coincident corners at a pole — faces skipped, vertices kept, so the UV column stays index-aligned), builds through the `MeshEdit.Of(vertices, faces)` soup arena, and freezes through `ToSpace(context, key)` → `MeshSpace.Of` — the tessellation kills no arena faces, so the freeze preserves vertex order and the per-vertex `Arr<Point2d>` UV column indexes the frozen vertices 1:1 (the invariant every downstream pullback rides); `Isolines` derives the parameter rows per rule (interior knots read off `KnotsU`/`KnotsV` for `AtKnots`) and contracts ONE `IsoCurve(parameter, direction)` per row — exact basis-row contraction, never a sampled polyline; `Geodesics` maps each UV source to its nearest tessellation vertex through the UV column, fields per-vertex distances — `heat` through `GeodesicKernel.EnsureGeodesicDistances(space, sources, key)`, `exact` through `space.Cache.IntrinsicMeshSnapshot` + per-source `GeodesicKernel.PropagateWindows(imesh, source, WindowPropagationPolicy.Default)` min-folded over sources (`+∞` unreached honesty preserved) — then marches triangle crossings per level (edge lerp weight applied to BOTH the world vertices and the UV column, so the pullback is the tessellation's own provenance, NEVER a `ClosestParameter` re-projection), chains segments into polylines, and emits offset-column SoA; `NormalOffset` samples the base at the Greville abscissae `γᵢ = (kᵢ₊₁+…+kᵢ₊ₚ)/p` per direction, displaces each sample `distance` along the unit `NormalAt(γᵤ, γᵥ)` (a degenerate normal routes `Evaluation`), refits through `Nurbs.Of(NurbsWire.SurfaceThrough(countU, samples, refit))` — the G5 Piegl-Tiller lane whose banded solves ride the landed `matrix.md` owners inside the engine — probes inter-sample deviation against the exact offset locus `S + d·N̂`, and densifies breaching rows/columns through `curve.md`'s ONE `Refine.Fold` driver over its `RefinePolicy` row — this lane supplies only the seed/probe/densify arms; `CurvatureSample` sweeps `CurvatureAt(u, v)` over the `Nu × Nv` lattice into the SoA field (principal values/directions, Gaussian, mean, the `√(EG−F²)` area element) with pole nodes counted, never silently dropped, and integrates TOTAL AREA as `Integrate.OnRectangle((u, v) → |∂u×∂v|, 0, 1, 0, 1, order)` — the metric-true first-fundamental-form integral over the raw `RationalDerivatives`, never the packaged metric-blind evaluation; `Pullback` routes on probe count — under `DenseFloor` each probe runs the engine `ClosestParameter(probe, Projection)` (its own polygon-sampled seed), at or over it ONE `SuperClusterKDTree` `KDTree.Create(seedPoints, seedUv, DistanceMetrics.EuclideanDistance)` over a `SeedU × SeedV` `PointAt` grid answers `NearestNeighbors(probe, 1)` per probe and the engine Newton REFINES from that seed (`ClosestParameter(probe, Projection, seed)`) — the kd-tree amortizes the seed across the batch, the engine owns the projection arithmetic, and the squared-L2 metric semantics stay inside the seed step.
-- Receipt: `RefineReceipt` on `Offsets` (target versus achieved deviation, rounds, terminal sample count); `CurvatureField.Area` + `DegenerateNodes` the sampling evidence (the SoA min/max/mean reductions over the curvature columns are the benchmark-gated `TensorPrimitives` lane); `GeodesicField.Grade` records which distance lane produced the polylines — the honesty marker a consumer dispatches on. `UvTessellation` carries no receipt — the carrier IS the provenance evidence.
-- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `PointAt`/`RationalDerivatives`/`NormalAt`/`FundamentalForms`/`CurvatureAt`/`IsoCurve`/`ClosestParameter` carrier members, `Nurbs.Of` + `NurbsWire.SurfaceThrough` + `FitPolicy` the G5 refit, `NurbsPolicy` the G7 knobs, `KnotVector` the Greville/knot reads, `ParametricDirection`), MathNet.Numerics (`Integrate.OnRectangle` — the 2D Gauss-Legendre surface-area quadrature; parametric-domain quadrature is otherwise unowned in the kernel), Supercluster.KDTree.Net (`SuperClusterKDTree` `KDTree.Create`/`NearestNeighbors` — the dense pullback seed; squared-L2 metric), `Rasm.Meshing` (`MeshEdit.Of` soup arena + `ToSpace` freeze), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` the frozen substrate), `Rasm.Processing` (`GeodesicKernel.EnsureGeodesicDistances`/`PropagateWindows` + `WindowPropagationPolicy` the landed distance lanes), `Rasm.Spatial` (`ScalarField.Geodesic` the fields rail these lanes surface through), `Rasm.Spatial` (`EncodeForm` — the identity projection target the carrier owns), `Rasm.Numerics` (`GeometryFault.ParametricFault` + `ParametricStage`), `Rasm.Domain` (`Op`, `Context`, `ValidityClaim`/`IValidityEvidence`), Rhino.Geometry (`Point3d`/`Vector3d`/`Point2d` carriers), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Numerics.Tensors (SoA field reductions, benchmark-gated).
+- Receipt: `RefineReceipt` on `Offsets` (target versus achieved deviation, rounds, terminal sample count); `CurvatureField.Area` + `DegenerateNodes` the sampling evidence, with `K1Band`/`K2Band` the `FieldExtrema` principal-band reductions whose `TensorPrimitives.Min`/`Max`/`Average` lane is the registered `Surfaces.CurvatureSummaryClaim` ledger row (`Domain/telemetry.md` `BenchClaim`) the corpus gate proves; `GeodesicField.Grade` records which distance lane produced the polylines — the honesty marker a consumer dispatches on. `UvTessellation` carries no receipt — the carrier IS the provenance evidence.
+- Packages: `Rasm.Parametric` `nurbs.md` (the vendored engine — `PointAt`/`RationalDerivatives`/`NormalAt`/`FundamentalForms`/`CurvatureAt`/`IsoCurve`/`ClosestParameter` carrier members, `Nurbs.Of` + `NurbsWire.SurfaceThrough` + `FitPolicy` the G5 refit, `NurbsPolicy` the G7 knobs, `KnotVector` the Greville/knot reads, `ParametricDirection`), MathNet.Numerics (`Integrate.OnRectangle` — the 2D Gauss-Legendre surface-area quadrature; parametric-domain quadrature is otherwise unowned in the kernel), Supercluster.KDTree.Net (`SuperClusterKDTree` `KDTree.Create`/`NearestNeighbors` — the dense pullback seed; squared-L2 metric), `Rasm.Meshing` (`MeshEdit.Of` soup arena + `ToSpace` freeze), `Rasm.Meshing` (`MeshSpace`/`MeshSpace.Of` the frozen substrate), `Rasm.Processing` (`GeodesicKernel.EnsureGeodesicDistances`/`PropagateWindows` + `WindowPropagationPolicy` the landed distance lanes), `Rasm.Spatial` (`ScalarField.Geodesic` the fields rail these lanes surface through), `Rasm.Spatial` (`EncodeForm` — the identity projection target the carrier owns), `Rasm.Numerics` (`GeometryFault.ParametricFault` + `ParametricStage`), `Rasm.Domain` (`Op`, `Context`, `ValidityClaim`/`IValidityEvidence`/`BenchClaim` — the ledger row beside the gated lane), Rhino.Geometry (`Point3d`/`Vector3d`/`Point2d` carriers), Thinktecture.Runtime.Extensions, LanguageExt.Core, System.Numerics.Tensors (SoA field reductions, claim-registered).
 - Growth: a new tessellation density law is one `TessellateRule` case read by the same grid fold; a new isoline selection is one `IsolineRule` case; a second distance lane (a spectral-distance grade) is one `GeodesicGrade` row; a new field quantity (a shape-operator eigen-ratio column) is one `CurvatureField` column off the SAME `CurvatureAt` sweep; a lofted/swept/revolved construction is a `NurbsWire`/`FitKind` growth row on the ENGINE admission (a loft is a surface fit through section samples), never a factory family here; zero new entry surfaces, zero new carriers.
 - Boundary: this page is OP altitude and `nurbs.md` is ENGINE altitude — a basis/derivative/projection re-derivation here is the altitude violation, and the ONE seeded-Newton projection is the engine's member (the kd-tree supplies SEEDS, never a parallel projector); `UvTessellation` is THE tier seam — a `MeshSpace` handed downstream without its UV column and surface binding is the named provenance defect, and the geodesic pullback reads the tessellation's OWN column (a `ClosestParameter` re-projection of a point the tessellation already parameterized is the named re-projection defect — slower and non-identical near cut loci); the G3 lane is the non-Rhino runtime counterpart of `projections.md`'s shape-operator rows — one anchor, runtime split, never a second `k·d⊗d` assembly inside one runtime; a TRIMMED region tessellates through `curve.md`'s `Fill` overlay on the UV plane with the result lifted through `PointAt` at the consumer — this owner tessellates the full tensor-product domain and mints no second constrained substrate; the surface-intersection TRIPLE is host-deferred to `relations.md` (one anchor, probe-widened) — no case here re-attempts it; `NormalOffset` emits a REAL `NurbsForm.Surface` (the G5 strong branch) and a tessellated offset standing in for the refit is the named re-scope regression; every case is total over the `Fin` rail — refusals route 2448 with the stage row naming the failing concern, and pole nodes are counted evidence, never silent drops.
 
@@ -23,6 +23,8 @@ Every reachable failure routes `GeometryFault.ParametricFault(stage, carrier, wi
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
+using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics;
@@ -88,6 +90,20 @@ public sealed record PullbackPolicy(int DenseFloor, int SeedU, int SeedV, NurbsP
         ValidityClaim.Evidence(evidence: Projection));
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------------
+// Band extrema off ONE vectorized pass per survivor plane — TensorPrimitives.Min/Max/Average run
+// before the plane wraps into Arr; the Surfaces.CurvatureSummaryClaim lane, scalar folds its reference.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FieldExtrema(double Min, double Max, double Mean) {
+    public static FieldExtrema Of(ReadOnlySpan<double> plane) =>
+        plane.Length == 0
+            ? new FieldExtrema(Min: 0.0, Max: 0.0, Mean: 0.0)
+            : new FieldExtrema(
+                Min: TensorPrimitives.Min<double>(plane),
+                Max: TensorPrimitives.Max<double>(plane),
+                Mean: TensorPrimitives.Average<double>(plane));
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SurfaceOp {
@@ -116,15 +132,24 @@ public abstract partial record SurfaceResult {
 
     public sealed record Offsets(NurbsForm.Surface Surface, RefineReceipt Receipt) : SurfaceResult;
 
-    // G3 field + the OnRectangle first-fundamental-form area integral; pole nodes counted, never dropped.
+    // G3 field + the OnRectangle first-fundamental-form area integral; pole nodes counted, never
+    // dropped; K1Band/K2Band are the vectorized principal-band extrema off the survivor planes.
     public sealed record CurvatureField(
         Arr<Point2d> Uv, Arr<double> K1, Arr<double> K2, Arr<double> Gaussian, Arr<double> Mean,
-        Arr<Vector3d> Dir1, Arr<Vector3d> Dir2, Arr<double> AreaElement, double Area, int DegenerateNodes) : SurfaceResult;
+        Arr<Vector3d> Dir1, Arr<Vector3d> Dir2, Arr<double> AreaElement, FieldExtrema K1Band, FieldExtrema K2Band, double Area, int DegenerateNodes) : SurfaceResult;
 
     public sealed record Pulled(Arr<Point2d> Uv, Arr<Point3d> Feet, Arr<double> Distances) : SurfaceResult;
 }
 
 public static class Surfaces {
+    // Registered speed claim (Domain/telemetry.md BenchClaim): the curvature-band extrema reductions
+    // prove themselves under the corpus gate; correctness never rides the claim.
+    public static readonly BenchClaim CurvatureSummaryClaim = new(
+        Claim: Op.Of(name: nameof(SurfaceResult.CurvatureField)),
+        VectorizedLane: "TensorPrimitives.Min/Max/Average<double> over the survivor curvature planes",
+        ReferenceLane: "scalar LINQ Min/Max/Average folds over the same planes",
+        SpeedupFloor: 1.0);
+
     public static Fin<SurfaceResult> Apply(SurfaceOp op, Op? key = null) =>
         op.Switch(
             state: key,
@@ -205,7 +230,7 @@ public static class Surfaces {
         return SweepCurvature(op, area);
     }
 
-    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);                  // CurvatureAt per node; survivors fill the SoA columns, pole refusals count
+    static Fin<SurfaceResult> SweepCurvature(SurfaceOp.CurvatureSample op, double area);                  // CurvatureAt per node; survivors fill the SoA columns, pole refusals count; K1Band/K2Band = FieldExtrema.Of over the survivor planes before the Arr wrap
 
     // --- [PULLBACK]
     // Sparse: the engine's own polygon-seeded Newton per probe. Dense: ONE kd-tree over a

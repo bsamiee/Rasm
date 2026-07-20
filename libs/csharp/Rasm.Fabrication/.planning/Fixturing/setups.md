@@ -254,6 +254,7 @@ public sealed record SetupEvidence(
 - Admission: identity, relation references, WCS slots, carrier stations, part instances, machine keys, fixture keys, mounting frames, objective values, and operation payloads accumulate before graph construction.
 - Search: branch-and-bound expands existing and new setups over one `SearchSpace` carrying the admission-derived operation index, and `BoundOf` derives each admissible remainder from the same nonnegative duration term used by `Cost`; ingress cannot falsify optimality.
 - Proof: `Cut` records the least bound the search refused, so present `ProvenLowerBound` states the real optimality gap. Search without a refused branch proves its incumbent optimal; rebase clears proof presence, and `NodeBudget` exhaustion fails typed.
+- Receipt: the scheduled arm fires the `FabricationFact.Engine.Of` decision-count row through the `FabricationTap` `Apply` accepts, defaulting silent for headless callers, so branch-and-bound cost attribution rides the telemetry rail with zero kernel writes.
 - Candidate: one applicative evidence fan-in composes machine or robot-cell reach, rebuilt workholding restraint and corridor checks, guard, machined-stock, datum transfer, probing, and resource availability.
 - Allocation: controller and carrier-station WCS rows come from the unconsumed admitted roster remainder; setup indices never derive controller syntax, array position, or offset availability, and makespan accumulates per machine so setups on distinct machines do not serialize.
 - Rebase: a measured frame re-enters through the same evidence boundary that admitted the setup, and a correction exceeding the tightest datum tolerance the setup's operations carry rejects rather than stamping traceability.
@@ -338,12 +339,14 @@ public sealed partial record SetupSchedule(
     double Cost,
     Option<double> ProvenLowerBound,
     ContentKey Key) {
-    public static Fin<SetupResult> Apply(SetupOp? candidate) =>
+    public static Fin<SetupResult> Apply(SetupOp? candidate, FabricationTap? tap = null) =>
         Optional(candidate).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()).Bind(op => op.Switch(
-            admit: static row => Admit(row.Plan).Map<SetupResult>(static plan => new SetupResult.Admitted(plan)),
-            schedule: static row => Admit(row.Plan).Bind(Solve).Map<SetupResult>(static schedule => new SetupResult.Scheduled(schedule)),
-            rebase: static row => Rebase(row.Schedule, row.Setup, row.Measured).Map<SetupResult>(static schedule => new SetupResult.Rebased(schedule)),
-            project: static row => Project(row.Schedule, row.Projection).Map<SetupResult>(static artifact => new SetupResult.Projected(artifact))));
+            state: tap ?? FabricationTap.Silent,
+            admit: static (_, row) => Admit(row.Plan).Map<SetupResult>(static plan => new SetupResult.Admitted(plan)),
+            schedule: static (port, row) => Admit(row.Plan).Bind(Solve).Map<SetupResult>(schedule =>
+                (FabricationFact.Engine.Of(schedule).Map(port.Fire).Strict(), new SetupResult.Scheduled(schedule)).Item2),
+            rebase: static (_, row) => Rebase(row.Schedule, row.Setup, row.Measured).Map<SetupResult>(static schedule => new SetupResult.Rebased(schedule)),
+            project: static (_, row) => Project(row.Schedule, row.Projection).Map<SetupResult>(static artifact => new SetupResult.Projected(artifact))));
 
     static Fin<SetupPlan> Admit(SetupPlan? candidate) =>
         Optional(candidate).ToFin(new FabricationFault.FixtureInadmissible(new FixturingWitness.Absent()).ToError()).Bind(plan =>

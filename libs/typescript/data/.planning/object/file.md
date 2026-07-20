@@ -14,7 +14,7 @@ The filesystem plane and the derivative codec, both over the one content identit
 ## [02]-[FILE_PLANE]
 
 - Owner: `Disk` — the file-side verbs over the platform capability Tags: `intake` (file → identity fold → conditional put → reference row, owner parameterized), `stage` (scoped temp file whose teardown rides the `Scope`), `watch` (a settle-guarded drop directory as a `Stream` of intake admissions), `egress` (content object → file sink, streamed).
-- Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs).
+- Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs); `journal/append.md` (`Hook` — the `objectAdmit` admission taps).
 - Entry: an artifact producer lands its output through `Disk.intake(path, retention)`; a peer-runtime handoff directory rides `Disk.watch(dir)` feeding the same intake; a served export streams out through `Disk.egress(key, path)` — every verb yields the platform Tags on `R` and the runtime binding stays a root row.
 - Receipt: intake answers the object receipt plus the file's `stat` evidence — `{ key, bytes, written, path }` — so a producer logs one row tying the filesystem coordinate to the durable key.
 - Growth: a new intake posture (move-after-intake, verify-only) is an options field; a new source (an archive member walk) is one more lift into the same fold.
@@ -23,12 +23,14 @@ The filesystem plane and the derivative codec, both over the one content identit
 - Law: the watch stream is admission, not truth — a watched drop directory emits candidate paths, each admitted through the same gated intake, and every candidate settles as an `Either` element on the success channel: `Either.right` the intake receipt (412 dedup included), `Either.left` the candidate's own `ObjectFault` — so one malformed file never ends the long-lived source, and only watcher transport failure fails the stream itself.
 - Law: intake watching rides chokidar with the settle guard MANDATORY — `awaitWriteFinish` holds `add`/`change` until size stabilizes so a half-written file is never digested into a wrong content key, `atomic` absorbs editor rename-swap artifacts, selection is `ignored` predicate rows (never glob strings), the `all` listener lifts through `Stream.asyncPush`, and release AWAITS `close()`; `poll` and `depth` ride the options row for network mounts and bounded trees, and platform `FileSystem.watch` survives only for non-intake observation where a raw event suffices.
 - Law: direct `node:fs` imports are banned on this plane — capability rides the Tag, the tracing and error rail come with it; chokidar and the platform binding are the only places a filesystem module name exists.
+- Law: the gated intake carries the `rasm.data.object.admit` hook point — the veto runs on the path candidate with its `stat` size before a byte is hashed, so app policy refuses at the admission seam, and the observe fan runs on the landed receipt after the reference row commits; both compose the optional registry, so a composition without hooks pays nothing.
 
 ```typescript signature
-import { Effect, Either, Stream } from "effect"
+import { Effect, Either, Option, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
 import { ContentKey } from "@rasm/ts/core"
+import { Hook } from "../journal/append.ts"
 import { ObjectFault, ObjectStore } from "./store.ts"
 import { Rail } from "./stream.ts"
 import type { Retain } from "../journal/retain.ts"
@@ -52,6 +54,11 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const store = yield* ObjectStore
+    const held = yield* Effect.mapError(fs.stat(path), (fault) => new ObjectFault({ reason: "io", key: path, detail: fault.message }))
+    yield* Effect.mapError(
+      Hook.gated("objectAdmit", { key: path, owner: owner ?? `disk:${path}`, bytes: Option.some(Number(held.size)) }),
+      (veto) => new ObjectFault({ reason: "io", key: path, detail: veto.detail }),
+    ) // app policy refuses at the admission seam, before a byte is hashed
     const flow = fs.stream(path).pipe(
       Stream.mapError((fault) => new ObjectFault({ reason: "io", key: path, detail: fault.message })),
     )
@@ -62,6 +69,7 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
       identity.bytes,
     )
     yield* store.refer(identity.key, owner ?? `disk:${path}`, retention) // the derived retention tag lands with the reference row
+    yield* Hook.tapped("objectAdmit", { key: identity.key, owner: owner ?? `disk:${path}`, bytes: Option.some(identity.bytes) }) // observe fan on the landed receipt
     return { key: identity.key, bytes: identity.bytes, written: landed.written, path } satisfies Disk.Intake
   })
 

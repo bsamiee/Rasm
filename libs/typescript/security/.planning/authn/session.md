@@ -25,6 +25,7 @@ import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { Cookies, HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { FaultClass, TenantContext } from "@rasm/ts/core"
 import { Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { SecurityFact, Witness } from "../access/audit.ts"
 import { AccessClaims, Crypto, Jwt, Probe } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 
@@ -109,13 +110,13 @@ class IdentityJournal extends Context.Tag("security/authn/IdentityJournal")<Iden
 [ROTATION_LAW]:
 - Owner: `Token` — `establish` resolves-or-enrolls a `CredentialRef` into a `Subject` and mints the first pair, `refresh` rotates through the `RotationStep` statechart with reuse detection, `revoke` ends a session. `RotationStep` is the transition family — `Rotate` (live session, fingerprint matched), `Expired` (window elapsed), `Reused` (live session, fingerprint rejected — a replayed rotated token) — folded by the pure `_step` and dispatched by `$match`, so protocol position is a case value and a new lifecycle rule (idle timeout, device binding) is a new tagged arm, never another inline guard. `CurrentClaims`/`BearerGuard` are the declarative auth seam: the middleware Tag carries `HttpApiSecurity.bearer`, its implementation folds `Jwt.verify` over the decoded credential, and the runtime serve wave mounts it so every bearer-protected endpoint receives `AccessClaims` through the requirement channel.
 - Law: the access token is a `crypt/sign` `AccessClaims` JWT; the refresh is a `Crypto` opaque token whose SHA-256 fingerprint alone is stored; the wire form is `${sid}.${secret}` decoded through the `_RefreshWire` `Schema.TemplateLiteralParser` owner so `refresh` reads the session before touching the secret and a malformed frame is one typed `mismatch`.
-- Law: the `Reused` arm is the breach arm and it is loud — `Reject.mark("reuse")` lands on the folder reject stream, the error log lands with the subject annotation, `revokeSubject` collapses the whole family, and only then does `reuse` surface; every `refresh` runs under the per-`sid` token-bucket budget and an exhausted budget is `throttled`, so an offline brute-force of a stolen `sid` is bounded by the store-backed limiter across every app sharing the library.
+- Law: the `Reused` arm is the breach arm and it is loud — `Reject.mark("reuse")` lands on the folder reject stream, the `Reuse` fact publishes through `Witness` beside it so breach evidence reaches the audit rail as receipt-truth, the error log lands with the subject annotation, `revokeSubject` collapses the whole family, and only then does `reuse` surface; every `refresh` runs under the per-`sid` token-bucket budget and an exhausted budget is `throttled`, so an offline brute-force of a stolen `sid` is bounded by the store-backed limiter across every app sharing the library.
 - Law: a refused presented bearer is counted — `BearerGuard` taps `Reject.mark("bearer")` before re-spelling the verify fault to `mismatch`, so the folder's highest-traffic rejection path rides the same stream as every sibling surface.
 - Law: rotation is mandatory per `refresh` — a fresh secret, a bumped `generation`, a replaced session; ids mint through `Crypto.uuid` over the folder entropy port, never the ambient global, so a seeded reader makes the whole lifecycle deterministic under test. Access and refresh TTLs are `Config` `Duration` policy values.
 - Law: a `Jwt` mint fault re-spells to `store` at this seam — the caller sees one session fault family; `Jwt` rides the requirement channel — `Jwt.Default` is a Layer factory over a `Keyset`, so the composition root satisfies it with the `Reloadable`-wrapped ring layer, never a static dependency row here.
 - Receipt: `TokenPair` — access and refresh both `Redacted`, the `Session` embedded so the caller frames it or audits it without a second read.
 - Boundary: `authn/*` resolves a `CredentialRef` and calls `establish`; `Cookie` frames the pair; the ports carry state; the `RateLimiter` store is a data-wave-satisfied Layer; the runtime serve wave mounts `BearerGuard`.
-- Packages: `crypt/sign` (`Jwt.mint`/`verify`, `Crypto.token`/`.uuid`/`.fingerprint`/`.matches`); `crypt/verify` (`Reject`); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`Config`, `DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
+- Packages: `crypt/sign` (`Jwt.mint`/`verify`, `Crypto.token`/`.uuid`/`.fingerprint`/`.matches`); `crypt/verify` (`Reject`); `access/audit` (`Witness`, `SecurityFact`); `@effect/experimental` (`RateLimiter`); `@effect/platform` (`HttpApiMiddleware`, `HttpApiSecurity`); `effect` (`Config`, `DateTime`, `Duration`, `Effect`, `Option`, `Redacted`, `Schema`).
 
 ```typescript
 type RotationStep = Data.TaggedEnum<{
@@ -222,6 +223,7 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
               Expired: ({ session: held }) => Effect.fail(new SessionFault({ reason: "expired", detail: held.id })),
               Reused: ({ session: held }) =>
                 Reject.mark("reuse").pipe(
+                  Effect.zipRight(Witness.publish(SecurityFact.Reuse({ subject: held.subject, sid: held.id, tenant: held.tenant }))),
                   Effect.zipRight(Effect.logError("refresh reuse detected")),
                   Effect.annotateLogs("subject", held.subject),
                   Effect.zipRight(store.revokeSubject(held.subject)),

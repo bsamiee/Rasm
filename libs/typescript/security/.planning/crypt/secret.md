@@ -22,6 +22,7 @@ Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped`, of
 import DopplerSDK from "@dopplerhq/node-sdk"
 import { Convention, Credential, FaultClass } from "@rasm/ts/core"
 import { Cache, Config, DateTime, Duration, Effect, Equal, HashMap, Metric, Option, Predicate, Record, Redacted, Ref, Schedule, Schema, SubscriptionRef } from "effect"
+import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto } from "./sign.ts"
 
 type SecretSet = HashMap.HashMap<string, Redacted.Redacted<string>>
@@ -81,10 +82,10 @@ const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
 - Law: two schedules are orthogonal and both explicit — the outer `Schedule.spaced` cadence paces refresh across ticks, and the inner `Effect.retry` (jittered exponential, bounded by `Schedule.recurs`, gated on `FaultClass.retryable`) re-drives a transient fault inside the tick, so a Doppler blip costs milliseconds, never a full stale interval; a tick whose retries exhaust keeps the last good set.
 - Law: the download de-dupes — an `effect` `Cache` keyed by the one `(project, config)` coordinate with a TTL at half the refresh cadence collapses a concurrent `probe`-storm or refresh overlap to one in-flight request; every SDK promise carries the per-call deadline, so a hung transport is a typed `transient`, never a wedged fiber.
 - Law: the boot probe (`auth.me`) and the first fetch gate construction under a bounded jittered retry — a transient boot blip re-drives, a dead token fails the layer, not the first read; the composition root wraps `Secret.Default` in `Layer.retry` under the branch boot budget.
-- Law: a rotation is observed, never silent — a refreshed set that differs structurally from the held set increments `Convention.instrument.securitySecretRotation` and logs the audit line before republication, and `probe` folds its single value into the same cell so consumers observe one rotation stream regardless of refresh grain.
+- Law: a rotation is observed, never silent — a refreshed set that differs structurally from the held set increments `Convention.instrument.securitySecretRotation`, publishes the `Rotation` fact through `Witness` with the custody coordinate, and logs the audit line before republication, and `probe` folds its single value into the same cell so consumers observe one rotation stream regardless of refresh grain.
 - Receipt: `SecretSet` — a missing key is a `SecretFault`, never `undefined`; every value is `Redacted`, so a log or error never carries plaintext.
 - Growth: a new fetched secret is a new name in the same response; a new refresh grain is a caller-composed diff over `names` and `probe`, never a second custody service.
-- Packages: `@dopplerhq/node-sdk` (`secrets.download`/`get`/`names`, `dynamicSecrets.issueLease`/`revokeLease`, `auth.me`/`revoke`); `effect` (`Cache`, `Schedule`, `SubscriptionRef`, `Metric`); `@rasm/ts/core` (`Convention`).
+- Packages: `@dopplerhq/node-sdk` (`secrets.download`/`get`/`names`, `dynamicSecrets.issueLease`/`revokeLease`, `auth.me`/`revoke`); `effect` (`Cache`, `Schedule`, `SubscriptionRef`, `Metric`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 const _rotation = Metric.counter(Convention.instrument.securitySecretRotation.name, {
@@ -120,7 +121,10 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
         Effect.zipRight(
           Equal.equals(prior, set)
             ? Effect.void
-            : Effect.zipRight(Metric.increment(_rotation), Effect.logInfo("secret rotation observed")),
+            : Effect.zipRight(
+                Effect.zipRight(Metric.increment(_rotation), Effect.logInfo("secret rotation observed")),
+                Witness.publish(SecurityFact.Rotation({ coordinate: `${project}/${config}` })),
+              ),
           SubscriptionRef.set(cell, set)))
     yield* Effect.forkScoped(Effect.repeat(
       fetch.pipe(

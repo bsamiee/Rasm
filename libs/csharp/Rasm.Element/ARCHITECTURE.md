@@ -26,10 +26,11 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 ├── Geospatial/           # Georeferenced coverage and CRS
 │   ├── Coverage.cs       # By-ref raster coverage grid over a band schema and affine placement
 │   └── Reference.cs      # GeoReference record over the three-state projected-CRS identity
-└── Projection/           # Cross-stratum contracts, the content codec, and the fault band
+└── Projection/           # Cross-stratum contracts, the content codec, the fault band, and the observability tap
     ├── Projection.cs     # IElementProjection and IGraphConstraint floors plus the assemble composition
     ├── Address.cs        # Order-independent ContentAddress codec over the kernel seed-zero hash
-    └── Fault.cs          # Cross-federation FaultBand registry and the ElementFault union
+    ├── Fault.cs          # Cross-federation FaultBand registry and the ElementFault union
+    └── Observe.cs        # ElementHookRail typed fact tap and the GraphInstrument meter-and-span projection
 ```
 
 `Graph` is the spine every other sub-domain feeds: each owns a `Node` case payload or a cross-cutting value the one `ElementGraph` composes, and the `Graph/Element` `Bake` applies both the type→occurrence inheritance and the `Properties/Property` `InheritanceMode` bag merge. Seam identity re-mints nothing the kernel owns — the content-identity seed, the op-key, and the fault base are the kernel `XxHash128` seed-zero entry, `Op`, and `Expected`. Per-page declarations, the shared `Projection/Address` codec fan-in, and the inheritance merge rules live on the owning implementation pages.
@@ -42,7 +43,7 @@ Interior is one strongly-connected component at folder grain — `Graph/Element`
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` georeference record.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, the `CoverageGrid` raster descriptor, and the `AssessmentPayload` receipt; each folds vocabulary into node payloads.
 - S3 graph — `ElementGraph`, `GraphDelta`, and the `Relationship` edge algebra composing every value family; `Relations` co-seats because objectified edges and the graph key each other mutually.
-- S4 contracts and codec — `IElementProjection` and `IGraphConstraint` name the graph aggregate in their signatures, and the `ContentAddress` codec folds graph headers, so the cross-stratum contract tier seats above the graph it projects.
+- S4 contracts and codec — `IElementProjection` and `IGraphConstraint` name the graph aggregate in their signatures, and the `ContentAddress` codec folds graph headers, so the cross-stratum contract tier seats above the graph it projects; the `ElementHookRail` fact tap and its `GraphInstrument` projection seat here too, observing every lower stratum without entering one.
 
 ```mermaid
 ---
@@ -59,6 +60,7 @@ flowchart TB
         IProjection[IElementProjection]
         IConstraint[IGraphConstraint]
         Address[ContentAddress]
+        HookRail[ElementHookRail]
     end
     subgraph L3["S3 GRAPH"]
         ElementGraph[ElementGraph]
@@ -82,6 +84,8 @@ flowchart TB
     end
     IProjection -->|"[IMPORT]: ElementGraph"| ElementGraph
     IConstraint -->|"[IMPORT]: GraphDelta"| Delta
+    HookRail -->|"[IMPORT]: GraphDelta"| Delta
+    HookRail -->|"[IMPORT]: ElementFault"| Fault
     Address -->|"[IMPORT]: NodeId"| NodeId
     ElementGraph -->|"[IMPORT]: PropertyValue"| Property
     ElementGraph -->|"[IMPORT]: MaterialComposition"| Composition
@@ -162,9 +166,11 @@ flowchart LR
     Core{{typescript:core}}
     Projection <-->|"[CONTENT_KEY]: XxHash128"| Rasm
     AppHost -->|"[PORT]: ProjectionContext"| Projection
+    AppHost -->|"[PORT]: IMeterFactory"| Projection
     Projection -->|"[CONTENT_KEY]: ContentAddress"| Persistence
     Graph -->|"[SHAPE]: ElementGraph"| Persistence
     Graph -->|"[SHAPE]: GraphDelta"| Persistence
+    Graph -->|"[SHAPE]: GraphEventEnvelope"| Persistence
     Persistence -->|"[WIRE]: ElementGraph"| Graph
     Graph <-->|"[CONTENT_KEY]: RepresentationContentHash"| Compute
     Composition -->|"[SHAPE]: AssemblyAggregator"| Compute

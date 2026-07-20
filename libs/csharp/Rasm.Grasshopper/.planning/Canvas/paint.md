@@ -13,7 +13,7 @@ Declarative painting for the Grasshopper boundary folds through one owner set �
 
 ## [02]-[PHASES]
 
-- Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects. Its delegate column attaches a contained `Func<PaintScene, Fin<Unit>>`, creates and disposes one scene per raise, records every callback failure, and returns the exact inverse subscription.
+- Owner: `PaintPhase` `[SmartEnum<int>]` — the ordered before/after rows for background, groups, wires, and objects. Its delegate column attaches a contained `Func<PaintScene, Fin<Unit>>`, creates and disposes one scene per raise, records every callback failure, and returns the exact inverse subscription. Both background rows mirror the host `event CanvasBackgroundPaintEventArgs` delegate family with the `OverrideDefaultPainting` suppression action; the six layer rows mirror `event CanvasPaintEventArgs` — each fence spells its exact installed delegate family, which is what makes a wrong wire a compile failure.
 - Owner: `PaintFrame` `readonly record struct` — declarative snapshot data: interpolated `Skin` and admitted content-frame `Visible` bounds. `PaintScene` sealed `IDisposable` — the raw event capability over the raising canvas, `ControlGraphics`, frame, and optional background suppression action. Every getter rejects a closed scene, and disposal clears every live reference and action.
 - Entry: `PaintAnchor.Mount(PaintPhase phase, Func<PaintFrame, Seq<Mark>> plan, MonotonicTimeline timeline, Op? key = null)` → `Fin<Lease<PaintHook>>`; `PaintAnchor.MountRaw(PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, Op? key = null)` → `Fin<Lease<PaintHook>>`. `PaintHook.LastReceipt` and `LastFault` preserve outcomes that event delegates cannot return.
 - Law: attachment and hook release are UI-affine. A subscription established before mount construction completes rolls back through the same inverse and aggregates rollback refusal with the construction fault. Plan-scoped stock releases inside each callback before its monotonic settlement stamp; hook release owns only the exact inverse subscription and records a typed detachment failure.
@@ -24,6 +24,7 @@ Declarative painting for the Grasshopper boundary folds through one owner set �
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Microsoft.Extensions.Logging;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
 using Rasm.Grasshopper.Shell;
@@ -35,20 +36,8 @@ namespace Rasm.Grasshopper.Canvas;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PaintPhase {
-    public static readonly PaintPhase BeforeBackground = new(key: 0, hook: static (surface, body, operation, faults) => {
-        EventHandler<CanvasBackgroundPaintEventArgs> handler = (_, e) => operation.Catch(body: () => {
-            using PaintScene scene = new(
-                surface: e.Canvas,
-                skin: e.Skin,
-                graphics: e.Graphics,
-                visible: e.Canvas.VisibleFrame,
-                suppressDefault: Some<Action>(e.OverrideDefaultPainting));
-            return body(arg: scene);
-        }).IfFail(error => ignore(faults.Swap(_ => Some(error))));
-        surface.BeforePaintBackground += handler;
-        return () => surface.BeforePaintBackground -= handler;
-    });
-    public static readonly PaintPhase AfterBackground = Fence(key: 1, attach: static (s, h) => s.AfterPaintBackground += h, detach: static (s, h) => s.AfterPaintBackground -= h);
+    public static readonly PaintPhase BeforeBackground = BackgroundFence(key: 0, attach: static (s, h) => s.BeforePaintBackground += h, detach: static (s, h) => s.BeforePaintBackground -= h);
+    public static readonly PaintPhase AfterBackground = BackgroundFence(key: 1, attach: static (s, h) => s.AfterPaintBackground += h, detach: static (s, h) => s.AfterPaintBackground -= h);
     public static readonly PaintPhase BeforeGroups = Fence(key: 2, attach: static (s, h) => s.BeforePaintGroups += h, detach: static (s, h) => s.BeforePaintGroups -= h);
     public static readonly PaintPhase AfterGroups = Fence(key: 3, attach: static (s, h) => s.AfterPaintGroups += h, detach: static (s, h) => s.AfterPaintGroups -= h);
     public static readonly PaintPhase BeforeWires = Fence(key: 4, attach: static (s, h) => s.BeforePaintWires += h, detach: static (s, h) => s.BeforePaintWires -= h);
@@ -63,6 +52,27 @@ public sealed partial class PaintPhase {
         Op operation,
         Atom<Option<Error>> faults);
 
+    private static PaintPhase BackgroundFence(
+        int key,
+        Action<HostCanvas, EventHandler<CanvasBackgroundPaintEventArgs>> attach,
+        Action<HostCanvas, EventHandler<CanvasBackgroundPaintEventArgs>> detach) =>
+        new(key: key, hook: (surface, body, operation, faults) => {
+            EventHandler<CanvasBackgroundPaintEventArgs> handler = (_, e) => operation.Catch(body: () => {
+                using PaintScene scene = new(
+                    surface: e.Canvas,
+                    skin: e.Skin,
+                    graphics: e.Graphics,
+                    visible: e.Canvas.VisibleFrame,
+                    suppressDefault: Some<Action>(e.OverrideDefaultPainting));
+                return body(arg: scene);
+            }).IfFail(error => {
+                ignore(faults.Swap(_ => Some(error)));
+                PaintLog.PaintFault(logger: GhLog.For(category: nameof(PaintAnchor)), detail: error.Message);
+            });
+            attach(surface, handler);
+            return () => detach(surface, handler);
+        });
+
     private static PaintPhase Fence(
         int key,
         Action<HostCanvas, EventHandler<CanvasPaintEventArgs>> attach,
@@ -76,7 +86,10 @@ public sealed partial class PaintPhase {
                     visible: e.Canvas.VisibleFrame,
                     suppressDefault: Option<Action>.None);
                 return body(arg: scene);
-            }).IfFail(error => ignore(faults.Swap(_ => Some(error))));
+            }).IfFail(error => {
+            ignore(faults.Swap(_ => Some(error)));
+            PaintLog.PaintFault(logger: GhLog.For(category: nameof(PaintAnchor)), detail: error.Message);
+        });
             attach(surface, handler);
             return () => detach(surface, handler);
         });
@@ -174,10 +187,19 @@ public sealed class PaintHook : IDisposable {
             Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
             Fail: error => {
                 ignore(faults.Swap(_ => Some(error)));
+                PaintLog.ReleaseFault(logger: GhLog.For(category: nameof(PaintAnchor)), detail: error.Message);
                 Volatile.Write(location: ref releaseState, value: 0);
                 return unit;
             });
     }
+}
+
+internal static partial class PaintLog {
+    [LoggerMessage(EventId = 4701, Level = LogLevel.Error, Message = "Paint callback faulted: {Detail}")]
+    internal static partial void PaintFault(ILogger logger, string detail);
+
+    [LoggerMessage(EventId = 4711, Level = LogLevel.Error, Message = "Paint hook release faulted: {Detail}")]
+    internal static partial void ReleaseFault(ILogger logger, string detail);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -281,9 +303,12 @@ public static class PaintAnchor {
 - Owner: `PaintLifetime` internal service — one fallible `Acquire` gate transfers a minted disposable into `Lease<T>.Owned`, while one `Use` gate contains projection and release independently and aggregates both failures. Paths, text layouts, icon rasters, and saved graphics states compose this rail instead of language `using` masking a primary failure with disposal refusal.
 - Owner: `PaintStock` sealed `IDisposable` — one locked spec-to-resource registry and reverse-creation release ledger for brush, pen, and font resources. Minting is fallible, a failed insertion disposes the just-created resource, release attempts every resource even after an earlier failure, and `LastFault` preserves disposal refusal. Construction is internal to `PaintPlan`; callers never hoist an unowned stock.
 - Owner: `PaintPlan` — the one fallible execution fold. `Execute(PaintScene, Seq<Mark>, MonotonicTimeline, Op)` captures entry and settlement from the injected timeline, admits scene/frame evidence, resolves stock-aware extents, culls only proven misses, draws through owned temporary leases, restores clip and transform state, and returns an accepted `PaintReceipt` carrying monotonic stamps, elapsed time, and operational drawn/culled evidence.
-- Law: state restoration is structural. Scope cases are the ONLY sites that mutate transform or clip; each acquires the host `Graphics.SaveTransformState()` scope before mutation, and releasing that scope restores the preceding transform and clip even when opening or drawing fails. A clip path remains owned across the complete child fold and closes only after the graphics state restores.
+- Law: state restoration is structural. Scope cases are the ONLY sites that mutate transform or clip; a pose scope brackets `Graphics.SaveTransform()` before mutation and `RestoreTransform()` after the child fold, a clip scope brackets `SetClip` and `ResetClip`, and the close arrow runs even when opening or drawing fails. `ResetClip` restores the surface default, so nested clip regions compose at plan level through one intersected `PathSpec`, never through nested clip scopes. A clip path remains owned across the complete child fold and closes only after the graphics state restores.
+- Law: settlement is raster truth — `Execute` calls `Graphics.Flush()` after the mark fold and before the settlement capture, so `PaintReceipt.Latency` covers real raster completion, never command buffering.
+- Law: paint cost judges at read time — a consumer folds `PaintReceipt` through `Canvas/motion.md` `BudgetGate.Judge` under the `paint.pass` row, and a violation lands as `BudgetBreach` evidence projected through `Shell/telemetry.md`, never a threshold re-derived at a call site.
+- Law: a fault landing on `PaintHook.LastFault` emits once through the generated `PaintLog.PaintFault` partial under the `GhLog.For` category logger at the record site, so retained paint faults are observable without polling the cell.
 - Law: resource release is structural. Paths, measured text, icon rasters, and saved graphics states close through `PaintLifetime`; cached resources close before the execution settlement stamp; borrowed input images are never closed here.
-- Packages: Eto.Drawing (`Graphics.DrawPath`/`FillPath`/`DrawText`/`DrawImage`/`SetClip`/`SaveTransformState`/`TranslateTransform`/`RotateTransform`/`ScaleTransform`/`MultiplyTransform`), Grasshopper2 (`ControlGraphics.Content`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Eto.Drawing (`Graphics.DrawPath`/`FillPath`/`DrawText`/`DrawImage`/`SetClip`/`ResetClip`/`SaveTransform`/`RestoreTransform`/`TranslateTransform`/`RotateTransform`/`ScaleTransform`/`MultiplyTransform`/`Flush`), Grasshopper2 (`ControlGraphics.Content`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core, `Rasm.Domain`, `Shell/telemetry.md` (`GhLog`).
 - Growth: a new `Mark` case is one dispatch arm here — the compile break IS the growth contract; the stock's cache axes never widen past the three spec kinds.
 
 ```csharp signature
@@ -696,6 +721,7 @@ public static class PaintPlan {
             frame: frame,
             marks: marks,
             key: key)
+        from flushed in key.Catch(body: () => Fin.Succ(Op.Side(action: activeScene.Graphics.Content.Flush)))
         from settled in clock.Capture(key: key)
         from latency in clock.Elapsed(start: entered, end: settled, key: key)
         let receipt = new PaintReceipt(
@@ -821,8 +847,8 @@ public static class PaintPlan {
         clipCase: static (s, c) =>
             from path in c.Region.Build(key: s.Key)
             from tally in PaintLifetime.Use(lease: path, body: value => Scoped(
-                graphics: s.Graphics,
                 open: () => s.Graphics.SetClip(value),
+                close: s.Graphics.ResetClip,
                 body: () => Walk(
                     graphics: s.Graphics,
                     skin: s.Skin,
@@ -833,31 +859,37 @@ public static class PaintPlan {
                 key: s.Key), key: s.Key)
             select tally,
         poseCase: static (s, c) => Scoped(
-            graphics: s.Graphics,
-            open: () => c.Pose.Switch(
-                shiftCase: shift => Op.Side(action: () => s.Graphics.TranslateTransform(shift.Dx, shift.Dy)),
-                spinCase: spin => Op.Side(action: () => s.Graphics.RotateTransform(spin.Angle)),
-                stretchCase: stretch => Op.Side(action: () => s.Graphics.ScaleTransform(stretch.Sx, stretch.Sy)),
-                matrixCase: matrix => Op.Side(action: () => s.Graphics.MultiplyTransform(matrix.Matrix))),
-            body: () => Walk(
-                graphics: s.Graphics,
-                skin: s.Skin,
-                visible: s.Visible,
-                stock: s.Stock,
-                marks: c.Children,
-                key: s.Key),
+            open: s.Graphics.SaveTransform,
+            close: s.Graphics.RestoreTransform,
+            body: () => {
+                c.Pose.Switch(
+                    shiftCase: shift => Op.Side(action: () => s.Graphics.TranslateTransform(shift.Dx, shift.Dy)),
+                    spinCase: spin => Op.Side(action: () => s.Graphics.RotateTransform(spin.Angle)),
+                    stretchCase: stretch => Op.Side(action: () => s.Graphics.ScaleTransform(stretch.Sx, stretch.Sy)),
+                    matrixCase: matrix => Op.Side(action: () => s.Graphics.MultiplyTransform(matrix.Matrix)));
+                return Walk(
+                    graphics: s.Graphics,
+                    skin: s.Skin,
+                    visible: s.Visible,
+                    stock: s.Stock,
+                    marks: c.Children,
+                    key: s.Key);
+            },
             key: s.Key));
 
     private static Fin<PaintTally> Draw(Action action, Op key) =>
         key.Catch(body: () => Fin.Succ(Op.Side(action: action))).Map(static _ => PaintTally.DrawnOne);
 
-    private static Fin<T> Scoped<T>(Graphics graphics, Action open, Func<Fin<T>> body, Op key) =>
-        from state in PaintLifetime.Acquire(mint: graphics.SaveTransformState, key: key)
-        from projected in PaintLifetime.Use(
-            lease: state,
-            body: _ => { open(); return body(); },
-            key: key)
-        select projected;
+    private static Fin<T> Scoped<T>(Action open, Action close, Func<Fin<T>> body, Op key) =>
+        key.Catch(body: () => Fin.Succ(Op.Side(action: open))).Bind(_ => {
+            Fin<T> projected = key.Catch(body: body);
+            Fin<Unit> closed = key.Catch(body: () => Fin.Succ(Op.Side(action: close)));
+            return projected.Match(
+                Succ: value => closed.Map(_ => value),
+                Fail: primary => closed.Match(
+                    Succ: _ => Fin.Fail<T>(error: primary),
+                    Fail: cleanup => Fin.Fail<T>(error: primary + cleanup)));
+        });
 
     [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
     private readonly record struct PaintTally(int Drawn, int Culled) {
@@ -971,5 +1003,6 @@ flowchart LR
 |  [04]   | paint intent      | `Mark` + specs                 | one exhaustive dispatch case                   |
 |  [05]   | resource lifetime | `PaintLifetime` + `PaintStock` | one acquired lease or spec-to-resource mint    |
 |  [06]   | colour crossing   | `Pigment`                      | one mapped kernel egress or blend-policy value |
+|  [07]   | fault emission    | `PaintLog`                     | one generated `[LoggerMessage]` partial        |
 
 `GhSession`, `EtoDispatch`, `Lease<T>`, `Op`, `ValidityClaim`, `MonotonicTimeline`, the host skin algebra, and the kernel colour owner are composed upstream.

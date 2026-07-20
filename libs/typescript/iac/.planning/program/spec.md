@@ -155,24 +155,47 @@ declare namespace StackSpec {
 ## [04]-[TIER_BASE]
 
 [TIER_BASE]:
-- Owner: `Tier`, the abstract `pulumi.ComponentResource` subclass every grouped concern extends — the constructor stamps the type token `rasm:iac:<Kind>`, `child(overrides?)` folds `{ parent: this }` into per-resource overrides through `pulumi.mergeOptions` so ownership is inherited and never restated, and `seal(outputs)` is the mandatory terminal `registerOutputs` call.
+- Owner: `Tier`, the abstract `pulumi.ComponentResource` subclass every grouped concern extends — the constructor stamps the type token `rasm:iac:<Kind>`, `child(overrides?)` folds `{ parent: this }` into per-resource overrides through `pulumi.mergeOptions` so ownership is inherited and never restated, `hooked(rows, overrides?)` folds the named lifecycle-hook binding onto the same channel, and `seal(outputs)` is the mandatory terminal `registerOutputs` call.
 - Law: the constructor is the platform seam — Pulumi's model is class heritage with field assignment, so `super(...)`, child construction, and readonly field assignment are the exemption's whole extent; a tier member beyond the constructor is an expression-shaped projection over already-constructed outputs.
-- Law: options are algebra, not assembly — `child()` is the only way a child receives options: `parent` rides the fold, an explicit `provider`/`providers` set at tier construction flows down the chain, `dependsOn` states only genuine extra-graph edges (an `Output` reference already is one), `protect: true` marks tiers owning irreplaceable state, `aliases` accompany a rename so state survives it, `ignoreChanges` quarantines fields an operator mutates out-of-band, and a `ResourceHook`/`ErrorHook` binding is one more `child()` override row when a tier earns lifecycle interception — the fold is the single channel every option class travels.
+- Law: options are algebra, not assembly — `child()` is the only way a child receives options: `parent` rides the fold, an explicit `provider`/`providers` set at tier construction flows down the chain, `dependsOn` states only genuine extra-graph edges (an `Output` reference already is one), `protect: true` marks tiers owning irreplaceable state, `aliases` accompany a rename so state survives it, and `ignoreChanges` quarantines fields an operator mutates out-of-band — the fold is the single channel every option class travels.
+- Law: lifecycle interception is registry data — `hooked(rows, overrides?)` is the one hook spelling: each `_HOOKS` point row binds a named `ResourceHook` as `rasm.iac.<tier>.<point>`, `onError` binds the named `ErrorHook` the same way, and the assembled `ResourceHookBinding` rides the same `child()` fold as every option class, so a tier earning interception states rows, never callbacks at call sites; the engine demands named instances for the delete points and error hooks, which the registry grammar satisfies for every point uniformly, and a `before<Point>` row that rejects fails the action while an `after<Point>` row only warns — posture is the engine's, the name is the registry's.
 - Law: `seal` closes every constructor — an unsealed tier reports no outputs and its dependents race construction; the sealed record is the tier's public evidence and mirrors the readonly fields the class exposes.
 - Law: adoption is not composition — a `ComponentResource` has no `static get`; a pre-existing cloud object adopts through its own resource class `get` or `opts.import` inside the owning tier, and the tier remains the sole author thereafter.
 - Law: the tier tree is closed and page-owned — `Bootstrap` (`provider.md`), `Source` (`program/source.md`), `Secrets`/`Certs` (`operate/secret.md`), `ObjectStore`/`Nats`/`Postgres` (`kube/data.md`), `Workload` (`kube/workload.md`), `Traffic` (`kube/traffic.md`), `Tenants` (`kube/tenant.md`), `Lgtm`/`Boards` (`operate/observe.md`), `Reconcile` (`operate/policy.md`), `CloudPlane` (`operate/cloud.md`) — each a subclass whose declaration and invariants live on its owning page; a concern with no tier row composes inside an existing tier before a new subclass is minted, and a rename travels as an `aliases` row, never a silent replacement.
-- Growth: a new tier is one subclass row on its owning page with its roster mention here; the base never grows knobs.
-- Packages: `@pulumi/pulumi` (`ComponentResource`, `ComponentResourceOptions`, `CustomResourceOptions`, `mergeOptions`, `Inputs`).
+- Growth: a new tier is one subclass row on its owning page with its roster mention here; a new interception point is one `_HOOKS` entry; the base never grows knobs.
+- Packages: `@pulumi/pulumi` (`ComponentResource`, `ComponentResourceOptions`, `CustomResourceOptions`, `mergeOptions`, `Inputs`, `ResourceHook`, `ErrorHook`, `ResourceHookBinding`, `ResourceHookFunction`, `ErrorHookFunction`); `effect` (`Record`).
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi"
+import { Record } from "effect"
+
+const _HOOKS = ["beforeCreate", "afterCreate", "beforeUpdate", "afterUpdate", "beforeDelete", "afterDelete"] as const
+
+declare namespace Tier {
+  type Point = (typeof _HOOKS)[number]
+  type Hooks = { readonly [P in Point]?: pulumi.ResourceHookFunction } & { readonly onError?: pulumi.ErrorHookFunction }
+}
 
 abstract class Tier extends pulumi.ComponentResource {
+  readonly #kind: string
   constructor(kind: string, name: string, opts?: pulumi.ComponentResourceOptions) {
     super(`rasm:iac:${kind}`, name, {}, opts)
+    this.#kind = kind
   }
   protected child(overrides?: pulumi.CustomResourceOptions): pulumi.CustomResourceOptions {
     return pulumi.mergeOptions({ parent: this }, overrides)
+  }
+  protected hooked(rows: Tier.Hooks, overrides?: pulumi.CustomResourceOptions): pulumi.CustomResourceOptions {
+    return this.child(pulumi.mergeOptions({
+      hooks: {
+        // every point mints a NAMED instance under the registry grammar, satisfying the engine's named-hook demand on delete and error points uniformly
+        ...Record.fromEntries(_HOOKS.flatMap((point) =>
+          rows[point] === undefined
+            ? []
+            : [[point, [new pulumi.ResourceHook(`rasm.iac.${this.#kind}.${point}`, rows[point])]] as const])),
+        ...(rows.onError !== undefined && { onError: [new pulumi.ErrorHook(`rasm.iac.${this.#kind}.onError`, rows.onError)] }),
+      },
+    }, overrides))
   }
   protected seal(outputs: pulumi.Inputs): void {
     this.registerOutputs(outputs)
@@ -183,7 +206,7 @@ abstract class Tier extends pulumi.ComponentResource {
 ## [05]-[OUTPUT_PLANES]
 
 [OUTPUT_PLANES]:
-- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
+- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (the content-addressed asset path per ui roster slug, `program/source.md`'s serving derivation), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, `served` alone an open `Schema.Record` because its keys are the ui roster's slugs; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
 - Law: `pairsOf(planes, render)` is the one channel-flatten — the `<plane>.<field>` spelling and the plane iteration exist exactly here, parameterized on the value renderer; the decoded `pairs` getter rides it with `String`, the in-program live assembly rides it with `pulumi.output(value).apply(String)`, and the plane set feeding the getter derives from the class's own field record through `Record.getSomes`, so no hand-listed plane tuple exists, a new field cannot be silently dropped, and the two modalities cannot drift.
 - Law: `read(stack, name)` is the one exit from the engine's `OutputMap` — `stack.outputs()` converts at this seam with the `DeployFault` triage, one entries scan yields both the secret-refusal verdict and the leaked-key evidence (the gate refuses any `{ secret: true }` entry naming the keys in the fault detail), the `{ value, secret }` envelope strips to plain values, and the record decodes through the class; the `Object` reads sit inside the boundary because the map is FFI material, and no decoded value is re-checked downstream.
 - Law: coordinates, never material — a role name, host, port, origin, or URL is publishable; a password, token, or key is not, and the fix for a refused output is moving the value into the Doppler store, never widening the gate.
@@ -215,6 +238,7 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
   otlp: Schema.optionalWith(Schema.Struct({ endpoint: Schema.NonEmptyString }), { as: "Option" }),
   grafana: Schema.optionalWith(Schema.Struct({ url: Schema.NonEmptyString }), { as: "Option" }),
   sharding: Schema.optionalWith(Schema.Struct({ host: Schema.NonEmptyString, port: _Port }), { as: "Option" }),
+  served: Schema.optionalWith(Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyString }), { as: "Option" }),
   deploy: Schema.optionalWith(Schema.Struct({ id: Schema.UUID }), { as: "Option" }),
 }) {
   static readonly pairsOf = <V, R>(

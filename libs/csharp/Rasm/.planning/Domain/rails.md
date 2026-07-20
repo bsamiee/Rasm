@@ -11,7 +11,7 @@ Namespace mirrors the folder path and is consumer-pinned: the union-ops generato
 - [04]-[FAULT_BAND]: `Expected` + `Fault` — the closed kernel fault union, `FaultExtensions.Category`, and the explicit two-family seam against the robust-core `GeometryFault` band 2400.
 - [05]-[RESOURCE_RAIL]: `Lease<T>` — Owned/Borrowed disposal discipline with `Use`/`Resource`/`Dispose` folds.
 - [06]-[VALIDITY_FOLD]: `IValidityEvidence` + `ValidityClaim` — the one receipt-validity mechanism that retires the corpus-wide hand-rolled `IsValid` predicate swarm.
-- [07]-[THREADING_LAW]: the ONE Op-threading law — `Op` as explicit value key, `Eff<Env>` as runtime carriage, no dual paradigm.
+- [07]-[THREADING_LAW]: the ONE Op-threading law — `Op` as explicit value key, `Eff<Env>` as runtime carriage, the telemetry tap law, no dual paradigm.
 
 ## [02]-[OPERATION_KEY]
 
@@ -246,8 +246,9 @@ public readonly record struct ValidityClaim(bool Holds) {
 One Op-threading law rules every kernel page; no page re-decides it.
 
 - Law: `Op` is an explicit VALUE — minted once at the public entry through `Op.Of()` caller-member-name or read off a union case's generated `SelfOp`, threaded as the trailing parameter of every fallible kernel (`Op key` required on internal kernels, `Op? key = null` resolved through `OrDefault()` on public polymorphic surfaces), and read by every fault factory. This key identifies the failed operation; it is never runtime capability. Repeated `OrDefault()` inside ONE member is value-identical, never a split key: `Op` is a string-keyed `[ValueObject<string>]` and `[CallerMemberName]` resolves lexically to the enclosing member (lambdas included), so every resolution in that member mints the equal value — bind `Op op = key.OrDefault();` once for read clarity, but the law is value identity, not call count.
-- Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`; `Env` carries `Context`, `IProgress<double>?`, and `CancellationToken`, and nothing else rides it. No `Op` key enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists anywhere in the kernel.
+- Law: `Eff<Env>` is the runtime CARRIAGE — a pipeline needing tolerance context, progress, or cancellation is `Eff<Env, T>` composing `Env.Asks`/`Env.EnvAsks`; `Env` carries `Context`, `IProgress<double>?`, `CancellationToken`, and the optional `TelemetrySink` tap, and nothing else rides it. No `Op` key enters `Env`, and no ambient static, `AsyncLocal`, or second key mechanism exists anywhere in the kernel.
 - Law: below the `Eff` floor, the synchronous rails thread `Context` and `CancellationToken` as explicit parameters (`Requirement.Apply(context, value, cancel)` is the canonical shape); at the floor and above, `Env` carries both. One operation is written in exactly one paradigm — a kernel is a `Fin`/`Validation` body with a key tail, or an `Eff<Env, T>` pipeline threading the same key as a value — never both, never a hybrid.
+- Law: telemetry is a TAP, never a rail — the `TelemetrySink` capsule (`Domain/telemetry.md`) rides `Env` at the `Eff` floor, and a synchronous kernel hosting a gate point takes the sink as one explicit trailing parameter beside `Context`/`CancellationToken`; facts publish through the sink's one `Tap`, no kernel page spells an instrument create or write, and only the `Veto` modality consulted BEFORE a guarded action can refuse work — an observe-side subscriber fault isolates onto the tap receipt and never fails the tapped operation.
 - Boundary: `Env` is `Analysis/query.md`'s frozen record — the Grasshopper binding constructs it directly; this page legislates the carriage law, that page owns the record and demonstrates the pipeline shape.
 
 ## [08]-[DENSITY_BAR]

@@ -57,12 +57,14 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Owner: the submit round-trip riding `Form` — the action writes through `useAtomSet(mutation, { mode: "promise" })` inside `startTransition`; pending state reads `useFormStatus` (the row's submit affordance disables and spins from it, never from a local flag); a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
 - Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `react` (`startTransition`); `effect` (`Exit`); `@effect-atom/atom-react` (write modality, `system/atom` law).
 - Law: submit awaits the store — the mutation's `Result` is the completion evidence; polling an atom to detect completion marks a missing write mode, and a `try`/`catch` around the awaited promise restates the boundary rail.
+- Law: pre-flight rides the hook rail — the action consults the `rasm.ui.form.submit` veto point (`system/hook`) before the mutation write, a veto refusal folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point so history and telemetry taps consume one rail.
 - Law: the refusal fold reads the Cause tree through `Cause.failureOption` — the tagged `DraftRefused` arm projects its path-keyed errors, and a `Die`/`Interrupt`/composite cause preserves its evidence through `Cause.pretty` on the form-level row instead of collapsing to a blind sentinel; probing `cause._tag` by hand is the named defect.
 - Law: a blocking submit failure lands in the form's error rows; a non-blocking outcome (a saved draft, a queued write) lands as a `Primitive.toasts` note — the two sinks never swap.
+- Law: the trip is woven at the mutation effect — `_observed` states `Effect.withSpan("rasm.ui.form.submit")` with the form id as span attribute and log annotation, and `_SUBMITTED` ticks once per settled trip through `Effect.onExit`, tagged by the bounded outcome vocabulary (`resolved`/`refused`/`torn`) the refusal fold already discriminates — so metrics and error rows cannot disagree, field paths ride log annotations, and the app bridge (`system/atom#STORE_ROOT`'s seam) exports the trip with zero form edits.
 - Boundary: the `await` inside the transition body is the React-19 form-action platform seam (`useFormStatus`/`requestFormReset` are Promise-shaped); the fence below is the app-side action shape this page legislates — the `promiseExit` write and the form element arrive from the consuming row.
 
 ```typescript
-import { Cause, Exit, Option } from "effect"
+import { Cause, Effect, Exit, Metric, Option } from "effect"
 import { startTransition } from "react"
 import { requestFormReset } from "react-dom"
 
@@ -71,6 +73,21 @@ declare namespace Submit {
   type Refusal = { readonly _tag: "DraftRefused"; readonly errors: Form.Errors }
   type Write = (draft: Draft) => Promise<Exit.Exit<void, Submit.Refusal>>
 }
+
+const _SUBMITTED = Metric.counter("rasm.ui.form.submit", { description: "settled submit trips", incremental: true })
+
+const _observed = <A, E, R>(write: Effect.Effect<A, E, R>, form: string): Effect.Effect<A, E, R> =>
+  write.pipe(
+    Effect.withSpan("rasm.ui.form.submit", { attributes: { "form.id": form } }),
+    Effect.annotateLogs({ form }),
+    Effect.onExit((exit) =>
+      Metric.increment(Metric.tagged(_SUBMITTED, "outcome",
+        Exit.match(exit, {
+          onFailure: (cause) => (Option.isSome(Cause.failureOption(cause)) ? "refused" : "torn"),
+          onSuccess: () => "resolved",
+        }))),
+    ),
+  )
 
 const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form.Errors) => void) =>
   (draft: Submit.Draft): void =>

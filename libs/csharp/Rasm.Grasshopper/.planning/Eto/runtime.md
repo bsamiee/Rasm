@@ -6,7 +6,7 @@ Every fallible operation rides an `Op`-keyed `Fin<T>` rail through the `Op.Catch
 
 ## [01]-[INDEX]
 
-- [02]-[DISPATCH]: `EtoDispatch` — the one UI-thread seam over `Application.Instance` (`Invoke`/`AsyncInvoke`/`InvokeAsync`) with on-thread short-circuit and `DispatchLane`, the two-row marshal-policy vocabulary command-shaped consumers carry as data.
+- [02]-[DISPATCH]: `EtoDispatch` — the one UI-thread seam over `Application.Instance` (`Invoke`/`AsyncInvoke`/`InvokeAsync`) with on-thread short-circuit, `DispatchLane`, the two-row marshal-policy vocabulary command-shaped consumers carry as data, and the stall watchdog: `PulseLane` budgets, `DispatchPulse` receipts, and the token-addressed pulse tap.
 - [03]-[CLOCK]: `UiCadence` + `ClockBeat` + `UiClock` — the `UITimer` lifecycle owner: validated cadence admission, typed beat evidence, `Lease<UiClock>` ownership, and fault-posture policy for beat bodies.
 - [04]-[TRANSFER]: `TransferSurface` + `TransferPayload` + `PayloadShape` + `Transfer` — one algebra over the clipboard/drag accessor family: typed write, shaped read, probe, clear, and `DoDragDrop` behind one `Apply` gate.
 - [05]-[HOST_FACTS]: `DisplayMetrics` + `Display`, `PointerSnapshot` + `InputState`, `Notice` + `NoticeMount` + `TrayMount` + `NoticeSurface` — per-display density projection, ambient input reads, and lease-owned OS alerts and tray surfaces.
@@ -15,15 +15,19 @@ Every fallible operation rides an `Op`-keyed `Fin<T>` rail through the `Op.Catch
 
 - Owner: `EtoDispatch` — THE one UI-thread seam in the package. `Run<T>` marshals a `Fin<T>` body synchronously (`Application.Instance.Invoke<T>`), `RunAsync<T>` marshals awaitably (`InvokeAsync<T>`), and `Post` always queues a `Fin<Unit>` body through `AsyncInvoke`; the value-bearing carriers short-circuit when `Application.Instance.IsUIThread` already holds, while the queued lane preserves its deferred ordering on every caller thread. `Post` publishes the deferred result as `DispatchEcho` through one latest-value cell and token-addressed observers, while its return value proves queue admission only. `Pump` wraps `RunIteration` as the named platform-forced run-loop boundary. `DispatchLane` `[SmartEnum<int>]` carries the marshal choice as a policy row — `Blocking` (key 0) and `Queued` (key 1) over one `[UseDelegateFromConstructor]` `Marshal(Func<Fin<Unit>>, Op)` column — so a command-shaped consumer (`Shell/session.md` `SessionOp.ExecuteCase`) stores the lane as data instead of forking call sites.
 - Entry: `EtoDispatch.Run<T>(Func<Fin<T>> body, Op? key = null)` → `Fin<T>`; `RunAsync<T>(Func<Fin<T>> body, Op? key = null)` → `Task<Fin<T>>`; `Post(Func<Fin<Unit>> body, Op? key = null)` → `Fin<Unit>`; `Tap(Action<DispatchEcho> observer, Op? key = null)` → `Fin<IDisposable>`. Three carriers are one owner: the carrier IS the modality (value now, value later, deferred receipt), never a name-suffixed sibling family.
+- Entry: `EtoDispatch.Watch(Action<DispatchPulse> observer, Op? key = null)` → `Fin<IDisposable>` — the watchdog tap; `Tune(StallPolicy policy, Op? key = null)` → `Fin<Unit>` — per-lane budget overrides and the injected clock; `LastPulse`/`LastStall` — the latest-value receipt cells.
+- Law: every marshaled body is gauged — `PulseLane` closes the four capture points (`Blocking`, `Awaitable`, `Queued`, `Pump`) with a per-row `Budget` column, the active `StallPolicy` supplies overrides and the `TimeProvider` timestamp pair, and each body exit mints one `DispatchPulse` carrying its `Op`, lane, elapsed wall time, and breach verdict. A breached pulse retains on `LastStall` — the hang evidence correlating the stalled body with the operation that submitted it — and every pulse publishes to individually contained watch observers; span-profile correlation composes at the app root, never here.
 - Law: every body crosses the seam inside `Op.Catch` — a host callback that throws lands as `Fault.InvalidResult` with the raising key, a cancellation surfaces as `Fault.Cancelled`, and no bare `try`/`catch` exists on the marshal path. `Post` catches the body inside its deferred window, stores the exact `Fin<Unit>` outcome, and publishes it to individually contained observers; no queued failure disappears and no observer can escape into the pump. A `SynchronizationContext` capture, a raw `Thread` hop, or a second scheduler beside `Application.Instance` is the deleted form.
 - Law: absence of a live application is a typed refusal — `Optional(Application.Instance).ToFin(key.MissingContext())` gates every marshal, so a headless or pre-boot call fails as `Fault.MissingContext`, never as a null dereference inside Eto.
 - Boundary: `Application.EnsureUIThread`, `UIThreadCheckMode`, `Quit`, `Open`, and `Localize` stay host verbs consumed at the seam by the shell owner; this floor owns only the marshal and the pump. `Application` lifecycle events (`Initialized`/`Terminating`/`UnhandledException`/`NotificationActivated`/`IsActiveChanged`) are `Shell/events.md` source rows, never subscribed here.
-- Packages: Eto (`Application.Instance`, `IsUIThread`, `Invoke`, `AsyncInvoke`, `InvokeAsync`, `RunIteration`), LanguageExt.Core (`Fin`, `Optional`), `Rasm.Domain` (`Op`, `Fault`).
-- Growth: a new marshal posture (throttled, coalesced) is one `DispatchLane` row; the `Run`/`RunAsync`/`Post` trio never widens.
+- Packages: Eto (`Application.Instance`, `IsUIThread`, `Invoke`, `AsyncInvoke`, `InvokeAsync`, `RunIteration`), .NET (`TimeProvider.GetTimestamp`/`GetElapsedTime`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), LanguageExt.Core (`Fin`, `Optional`), `Rasm.Domain` (`Op`, `Fault`), `Shell/telemetry.md` (`GhLog` — same-stratum floor reach).
+- Growth: a new marshal posture (throttled, coalesced) is one `DispatchLane` row; a new capture point is one `PulseLane` row; the `Run`/`RunAsync`/`Post` trio never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Microsoft.Extensions.Logging;
 using Rasm.Csp;
+using Rasm.Grasshopper.Shell;
 
 namespace Rasm.Grasshopper.Eto;
 
@@ -36,7 +40,36 @@ public sealed partial class DispatchLane {
     internal Fin<Unit> Dispatch(Func<Fin<Unit>> body, Op key) => Marshal(body: body, key: key);
 }
 
+[SmartEnum<int>]
+public sealed partial class PulseLane {
+    public static readonly PulseLane Blocking = new(key: 0, budget: TimeSpan.FromMilliseconds(50.0));
+    public static readonly PulseLane Awaitable = new(key: 1, budget: TimeSpan.FromMilliseconds(50.0));
+    public static readonly PulseLane Queued = new(key: 2, budget: TimeSpan.FromMilliseconds(100.0));
+    public static readonly PulseLane Pump = new(key: 3, budget: TimeSpan.FromMilliseconds(17.0));
+    public TimeSpan Budget { get; }
+}
+
+public sealed record StallPolicy(TimeProvider Clock, HashMap<int, TimeSpan> Bounds) {
+    public static readonly StallPolicy Default = new(Clock: TimeProvider.System, Bounds: HashMap<int, TimeSpan>());
+    public TimeSpan Bound(PulseLane lane) => Bounds.Find(lane.Key).IfNone(lane.Budget);
+}
+
 public sealed record DispatchEcho(Op Operation, Fin<Unit> Outcome);
+
+// --- [MODELS] -------------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DispatchPulse(Op Operation, PulseLane Lane, TimeSpan Elapsed, bool Breached) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Of(holds: Lane is not null && Elapsed >= TimeSpan.Zero);
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+internal static partial class RuntimeLog {
+    [LoggerMessage(EventId = 4703, Level = LogLevel.Error, Message = "UiClock beat faulted: {Detail}")]
+    internal static partial void ClockFault(ILogger logger, string detail);
+
+    [LoggerMessage(EventId = 4704, Level = LogLevel.Warning, Message = "Dispatch lane {Lane} breached its budget after {ElapsedMs}ms on {Operation}")]
+    internal static partial void DispatchStall(ILogger logger, int lane, double elapsedMs, string operation);
+}
 
 internal sealed class TapHandle<T>(Guid token, Atom<HashMap<Guid, Action<T>>> taps) : IDisposable {
     private int released;
@@ -50,22 +83,29 @@ internal sealed class TapHandle<T>(Guid token, Atom<HashMap<Guid, Action<T>>> ta
 public static class EtoDispatch {
     private static readonly Atom<Option<DispatchEcho>> LatestCell = Atom(Option<DispatchEcho>.None);
     private static readonly Atom<HashMap<Guid, Action<DispatchEcho>>> Taps = Atom(HashMap<Guid, Action<DispatchEcho>>());
+    private static readonly Atom<StallPolicy> Pacing = Atom(StallPolicy.Default);
+    private static readonly Atom<Option<DispatchPulse>> LastPulseCell = Atom(Option<DispatchPulse>.None);
+    private static readonly Atom<Option<DispatchPulse>> LastStallCell = Atom(Option<DispatchPulse>.None);
+    private static readonly Atom<HashMap<Guid, Action<DispatchPulse>>> PulseTaps = Atom(HashMap<Guid, Action<DispatchPulse>>());
 
     public static Option<DispatchEcho> Latest => LatestCell.Value;
+    public static Option<DispatchPulse> LastPulse => LastPulseCell.Value;
+    public static Option<DispatchPulse> LastStall => LastStallCell.Value;
 
     public static Fin<T> Run<T>(Func<Fin<T>> body, Op? key = null) {
         Op op = key.OrDefault();
         return from app in Optional(Application.Instance).ToFin(op.MissingContext())
                from valid in op.Need(body)
+               let gauged = Gauged(lane: PulseLane.Blocking, op: op, body: valid)
                from output in app.IsUIThread
-                   ? op.Catch(body: valid)
-                   : op.Catch(body: () => app.Invoke(func: () => op.Catch(body: valid)))
+                   ? op.Catch(body: gauged)
+                   : op.Catch(body: () => app.Invoke(func: () => op.Catch(body: gauged)))
                select output;
     }
     public static Task<Fin<T>> RunAsync<T>(Func<Fin<T>> body, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(Application.Instance).ToFin(op.MissingContext())
-            .Bind(app => op.Need(body).Map(valid => (App: app, Body: valid)))
+            .Bind(app => op.Need(body).Map(valid => (App: app, Body: Gauged(lane: PulseLane.Awaitable, op: op, body: valid))))
             .Match(
                 Succ: seam => seam.App.IsUIThread
                     ? Task.FromResult(op.Catch(body: seam.Body))
@@ -76,9 +116,10 @@ public static class EtoDispatch {
         Op op = key.OrDefault();
         return from app in Optional(Application.Instance).ToFin(op.MissingContext())
                from valid in op.Need(body)
+               let gauged = Gauged(lane: PulseLane.Queued, op: op, body: valid)
                from queued in op.Catch(body: () => Fin.Succ(Op.Side(action: () => app.AsyncInvoke(action: () => {
                    ignore(op.Catch(body: () => {
-                       Fin<Unit> outcome = op.Catch(body: valid);
+                       Fin<Unit> outcome = op.Catch(body: gauged);
                        DispatchEcho echo = new(Operation: op, Outcome: outcome);
                        ignore(LatestCell.Swap(_ => Some(echo)));
                        Taps.Value.Values.Iter(observer => ignore(op.Catch(body: () => Fin.Succ(Op.Side(action: () => observer(obj: echo))))));
@@ -95,12 +136,40 @@ public static class EtoDispatch {
             return (IDisposable)new TapHandle<DispatchEcho>(token: token, taps: Taps);
         });
     }
+    public static Fin<IDisposable> Watch(Action<DispatchPulse> observer, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Need(observer).Map(valid => {
+            Guid token = Guid.NewGuid();
+            ignore(PulseTaps.Swap(rows => rows.Add(token, valid)));
+            return (IDisposable)new TapHandle<DispatchPulse>(token: token, taps: PulseTaps);
+        });
+    }
+    public static Fin<Unit> Tune(StallPolicy policy, Op? key = null) =>
+        key.OrDefault().Need(policy).Map(valid => ignore(Pacing.Swap(_ => valid)));
     public static Fin<Unit> Pump(Op? key = null) {
         Op op = key.OrDefault();
         return from app in Optional(Application.Instance).ToFin(op.MissingContext())
-               from pumped in op.Catch(body: () => Fin.Succ(Op.Side(action: app.RunIteration)))
+               from pumped in op.Catch(body: Gauged(
+                   lane: PulseLane.Pump, op: op, body: () => Fin.Succ(Op.Side(action: app.RunIteration))))
                select pumped;
     }
+
+    private static Func<Fin<T>> Gauged<T>(PulseLane lane, Op op, Func<Fin<T>> body) => () => {
+        StallPolicy pacing = Pacing.Value;
+        long start = pacing.Clock.GetTimestamp();
+        Fin<T> outcome = body();
+        TimeSpan elapsed = pacing.Clock.GetElapsedTime(startingTimestamp: start);
+        DispatchPulse pulse = new(Operation: op, Lane: lane, Elapsed: elapsed, Breached: elapsed > pacing.Bound(lane: lane));
+        ignore(LastPulseCell.Swap(_ => Some(pulse)));
+        Op.SideWhen(condition: pulse.Breached, action: () => {
+            ignore(LastStallCell.Swap(_ => Some(pulse)));
+            RuntimeLog.DispatchStall(
+                logger: GhLog.For(category: nameof(EtoDispatch)),
+                lane: lane.Key, elapsedMs: elapsed.TotalMilliseconds, operation: op.ToString());
+        });
+        PulseTaps.Value.Values.Iter(observer => ignore(op.Catch(body: () => Fin.Succ(Op.Side(action: () => observer(obj: pulse))))));
+        return outcome;
+    };
 }
 ```
 
@@ -117,6 +186,7 @@ public static class EtoDispatch {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using Rasm.Grasshopper.Shell;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Eto;
@@ -251,6 +321,7 @@ public sealed class UiClock : IDisposable {
 
     private void Settle(Fin<Unit> outcome, FaultPosture posture) => outcome.IfFail(error => {
         ignore(lastFault.Swap(_ => Some(error)));
+        RuntimeLog.ClockFault(logger: GhLog.For(category: nameof(UiClock)), detail: error.Message);
         Op.SideWhen(condition: posture.HaltsOnFault, action: timer.Stop);
     });
 
@@ -740,8 +811,9 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 | [INDEX] | [CONCERN]         | [OWNER]                                    | [RAIL]                                                     | [CASES] |
 | :-----: | :---------------- | :----------------------------------------- | :--------------------------------------------------------- | :-----: |
 |  [01]   | UI-thread marshal | `EtoDispatch` / `DispatchLane`             | `Run<T>` / `RunAsync<T>` / `Post`                          |    2    |
-|  [02]   | repeating tick    | `UiClock` / `ClockBeat`                    | `Of → Fin<Lease<UiClock>>`                                 |    2    |
-|  [03]   | typed transfer    | `Transfer` / transfer unions               | `Apply → Fin<TransferResult>`                              |   29    |
-|  [04]   | host facts        | `Display` / `InputState` / `NoticeSurface` | `Resolve` / `Snapshot → Fin`; `Post` / `Tray → Fin<Lease>` |    3    |
+|  [02]   | stall watchdog    | `PulseLane` / `DispatchPulse`              | gauged bodies → `Watch` tap + `LastStall` evidence         |    4    |
+|  [03]   | repeating tick    | `UiClock` / `ClockBeat`                    | `Of → Fin<Lease<UiClock>>`                                 |    2    |
+|  [04]   | typed transfer    | `Transfer` / transfer unions               | `Apply → Fin<TransferResult>`                              |   29    |
+|  [05]   | host facts        | `Display` / `InputState` / `NoticeSurface` | `Resolve` / `Snapshot → Fin`; `Post` / `Tray → Fin<Lease>` |    3    |
 
 `Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `IValidityEvidence` are composed kernel owners; `Application`, `UITimer`, `Clipboard`, `DataObject`, `Screen`, `Mouse`, `Keyboard`, `Notification`, and `TrayIndicator` are host surfaces composed direct — nothing on this page re-derives either side.

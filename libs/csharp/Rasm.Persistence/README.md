@@ -41,7 +41,7 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [24]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
 - [25]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
 - [26]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [27]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat harvest receipts, the receipt-slot registry, and the instrument contributor.
+- [27]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the receipt-slot registry, the hook rail, usage attribution, and the instrument contributor.
 
 ## [02]-[DOMAIN_PACKAGES]
 

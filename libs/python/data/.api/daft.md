@@ -171,6 +171,8 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 |  [34]   | `DataFrame.agg_list`        | global list/set/concat aggregations       |
 |  [35]   | `DataFrame.explain`         | print the logical/physical plan           |
 |  [36]   | `DataFrame.schema`          | resolved output schema                    |
+|  [37]   | `DataFrame.metrics`         | materialized per-operator statistics frame |
+|  [38]   | `DataFrame.num_partitions`  | resolved partition count post-execution   |
 
 - [01]-[SELECT]: `select(*columns, **projections) -> DataFrame`
 - [02]-[WHERE]: `where(predicate) -> DataFrame`
@@ -208,6 +210,8 @@ Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`
 - [34]-[AGG_LIST]: `agg_list(*cols)` / `agg_set(*cols)` / `agg_concat(*cols) -> DataFrame`
 - [35]-[EXPLAIN]: `explain(show_all=False, format='ascii', simple=False, file=None)`
 - [36]-[SCHEMA]: `schema() -> Schema`
+- [37]-[METRICS]: `metrics -> RecordBatch | None` — property; the structured per-operator execution-statistics frame (`id`/`name`/`type`/`category`/`duration` plus a `stats` map keyed by `duration`/`rows.in`/`rows.out`/`bytes.*`), raising until the frame is materialized through `collect`, `None` when the runner attaches no metadata
+- [38]-[NUM_PARTITIONS]: `num_partitions() -> int | None` — the resolved partition count after materialization, `None` on the single-partition native runner
 
 [ENTRYPOINT_SCOPE]: `DataFrame` streaming and framework egress
 - rail: distributed dataframe

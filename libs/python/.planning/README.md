@@ -37,7 +37,7 @@ Every folder composes this cross-domain foundation. One root manifest owns versi
 - `structlog` — Processor-chain structured logging; the branch's in-process log face.
 - `opentelemetry-api` — Vendor-neutral tracer/meter/propagation surface; the only OTel import a library makes.
 - `opentelemetry-sdk` — Provider, `Resource`, processor, and reader wiring; composition roots alone touch it.
-- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the sole estate export protocol.
+- `opentelemetry-exporter-otlp-proto-http` — OTLP HTTP+protobuf egress; the estate default transport, its sidecar-only gRPC companion homing folder-local to `runtime`.
 - `psutil` — Whole-process accounting batched through one `Process.oneshot` collection.
 
 [NUMERIC_SUBSTRATE]:

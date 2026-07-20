@@ -114,13 +114,14 @@ const _groom = (relation: string, column: string) =>
 - Law: the ledger stores ONLY the wrapped form — `Shredder.mint` issues the data key, `wrap` seals it under the master KEK, and the raw `CryptoKey` never crosses this seam; `seal` is one atomic upsert realizing the `conflictClaim` primitive: the fresh mint inserts, a concurrent or replayed subject keeps the stored wrapped key through the `coalesce` arm and the loser seals under the winner's key by unwrapping the RETURNING row, and a destroyed subject resurrects under a NEW key (old envelopes stay unreadable forever) because the `CASE` arm clears the tombstone only when `wrapped` was NULL.
 - Law: `open` is total — a destroyed or absent key folds to `Option.none`, never a fault, because erasure is a lawful state every reader renders, not an error to recover from; a genuine unwrap failure on live material is the security fault it already is.
 - Law: erasure is key destruction ONLY — `UPDATE subject_key SET wrapped = NULL, destroyed_at = …` — no journal row is touched, no payload rewritten; the append-only invariant survives the right to erasure because unreadable IS erased.
+- Law: the tombstone carries the `rasm.data.retain.erase` observe point — a landed erasure fans the app-armed taps with the tenant-scoped subject coordinate after the destroying statement returns, so compliance observers subscribe to the fact instead of instrumenting this fold, and an absent registry costs nothing.
 - Law: the envelope travels as `SealedEnvelope` — IV and ciphertext as opaque encoded bytes inside the payload field; the field is `Model.Sensitive`-classed on any projection row so the sealed form never leaks into a JSON variant.
 
 ```typescript signature
 import { Effect, Option } from "effect"
 import { SqlClient, SqlSchema, type SqlError } from "@effect/sql"
 import { SealedEnvelope, Shredder, WrappedKey } from "@rasm/ts/security"
-import { Journal } from "./append.ts"
+import { Hook, Journal } from "./append.ts"
 
 declare namespace Retain {
   type Tombstone = {
@@ -213,7 +214,12 @@ const _erase = (key: SubjectKey) =>
         subject: new SubjectKey({ app: row.app, tenant: row.tenant, subject: row.subject }),
         destroyedAt: row.destroyed_at,
       }) satisfies Retain.Tombstone),
-    ))
+    )).pipe(
+      Effect.tap(Option.match({
+        onNone: () => Effect.void, // no live key existed: nothing was destroyed, nothing fans
+        onSome: (tombstone) => Hook.tapped("retainErase", { tenant: tombstone.subject.tenant, subject: tombstone.subject.subject }),
+      })),
+    )
 ```
 
 ## [04]-[DSAR_EXPORT]

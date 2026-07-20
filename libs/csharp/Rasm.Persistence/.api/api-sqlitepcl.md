@@ -58,7 +58,8 @@ embedded profile shares one bound `e_sqlite3` provider with the raw call surface
 [ENTRYPOINT_SCOPE]: raw interop surface — `SQLitePCL.raw` static class, `SQLitePCLRaw.core`
 - rail: store-provider
 
-The handle types are `sqlite3` (connection), `sqlite3_backup`, and `sqlite3_snapshot`; every member
+The handle types are `sqlite3` (connection), `sqlite3_stmt` (statement — a `SafeHandle` whose
+`IsInvalid` reads `handle == IntPtr.Zero`), `sqlite3_backup`, and `sqlite3_snapshot`; every member
 below is a `public static` on `SQLitePCL.raw` and is reached via `SqliteConnection.Handle`
 (`sqlite3?`). Status is an `int` return checked against the `[RAW_CONSTANTS]` codes.
 
@@ -77,6 +78,8 @@ int sqlite3_extended_errcode(sqlite3 db)                                     // 
 utf8z sqlite3_errstr(int rc)                                                 // human text for a result code (.utf8_to_string() to materialize)
 int sqlite3_limit(sqlite3 db, int id, int newVal)                           // get/set a per-connection SQLITE_LIMIT_* cap (newVal < 0 reads the prior, returns it)
 int sqlite3_db_status(sqlite3 db, int op, out int current, out int highest, int resetFlg)  // per-connection runtime metric (current + highwater)
+int sqlite3_stmt_status(sqlite3_stmt stmt, int op, int resetFlg)             // per-statement SQLITE_STMTSTATUS_* counter; resetFlg 1 clears after read
+sqlite3_stmt sqlite3_next_stmt(sqlite3 db, sqlite3_stmt stmt)                // walks the connection's prepared statements (null seeds; an invalid handle ends the walk)
 
 // --- WAL checkpoint ---
 int sqlite3_wal_checkpoint(sqlite3 db, string dbName)
@@ -142,6 +145,21 @@ int sqlite3_load_extension(sqlite3 db, utf8z file, utf8z proc, out utf8z errmsg)
 |  [29]   | `SQLITE_LIMIT_ATTACHED`                 |       7 | `sqlite3_limit` id — max attached databases                            |
 |  [30]   | `SQLITE_LIMIT_VARIABLE_NUMBER`          |       9 | `sqlite3_limit` id — max bound parameters                              |
 |  [31]   | `SQLITE_LIMIT_TRIGGER_DEPTH`            |      10 | `sqlite3_limit` id — max trigger recursion depth                       |
+|  [32]   | `SQLITE_DBSTATUS_CACHE_USED`            |       1 | `sqlite3_db_status` op — page-cache bytes in use                       |
+|  [33]   | `SQLITE_DBSTATUS_SCHEMA_USED`           |       2 | `sqlite3_db_status` op — schema bytes in use                           |
+|  [34]   | `SQLITE_DBSTATUS_STMT_USED`             |       3 | `sqlite3_db_status` op — prepared-statement bytes in use               |
+|  [35]   | `SQLITE_DBSTATUS_CACHE_HIT`             |       7 | `sqlite3_db_status` op — page-cache hits                               |
+|  [36]   | `SQLITE_DBSTATUS_CACHE_MISS`            |       8 | `sqlite3_db_status` op — page-cache misses                             |
+|  [37]   | `SQLITE_DBSTATUS_CACHE_WRITE`           |       9 | `sqlite3_db_status` op — page-cache writes                             |
+|  [38]   | `SQLITE_STMTSTATUS_FULLSCAN_STEP`       |       1 | `sqlite3_stmt_status` op — full-scan steps, the plan-regression tell   |
+|  [39]   | `SQLITE_STMTSTATUS_SORT`                |       2 | `sqlite3_stmt_status` op — sort operations                             |
+|  [40]   | `SQLITE_STMTSTATUS_AUTOINDEX`           |       3 | `sqlite3_stmt_status` op — transient-index rows                        |
+|  [41]   | `SQLITE_STMTSTATUS_VM_STEP`             |       4 | `sqlite3_stmt_status` op — virtual-machine steps                       |
+
+The declared status vocabulary stops there — no `SQLITE_DBSTATUS_CACHE_SPILL`, `SQLITE_STMTSTATUS_REPREPARE`, or
+`SQLITE_STMTSTATUS_RUN` constant ships in the core assembly, so a status receipt widens only when the interop
+grows the row. The bundled `e_sqlite3` build ships no `SQLITE_ENABLE_DBSTAT_VTAB` (verified over
+`PRAGMA compile_options`), so the `dbstat` virtual table is unreachable on this provider.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -157,6 +175,7 @@ int sqlite3_load_extension(sqlite3 db, utf8z file, utf8z proc, out utf8z errmsg)
 - `Store/provisioning#EMBEDDED_FLOOR` folds the open ritual's `DbConfig` set through `raw.sqlite3_db_config(Handle, Op, Value, out _)` (the int-flag overload): `SQLITE_DBCONFIG_DEFENSIVE = 1`, `SQLITE_DBCONFIG_DQS_DDL`/`DQS_DML = 0`, applied once per physical open before any user statement — so defensive mode and double-quoted-literal rejection are connection policy, not connection-string knobs, while the loader stays OFF (`SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` is absent from the set, so the SQL-level `load_extension()` function and the C-API loader are both disabled by default)
 - the SQLCipher profile swaps the provider: SQLCipher keying (`PRAGMA key`/`cipher_migrate`/`rekey`, keyed by the DEK the `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring.Unwrap` recovers) runs over `SQLite3Provider_sqlcipher`, a different bundle, not this `e_sqlite3` provider — this catalog owns the `e_sqlite3` loadable-extension and db-config posture only
 - `sqlite3_serialize`/`sqlite3_deserialize` move a whole-schema byte image in/out of an in-memory database without file IO — the snapshot rail's path for a memory-backed store image distinct from the `byte[]` content-chunk frame
+- `Store/observability#SQLITE_STATUS_HARVEST` walks `sqlite3_next_stmt` over `Handle` and folds the read-and-reset `sqlite3_stmt_status` counters plus the `sqlite3_db_status` gauges into the `store.stat.sqlite.statements`/`store.stat.sqlite.connection` receipts — the same shared native connection, no second bridge
 
 [LOCAL_ADMISSION]:
 - native SQLite provider setup belongs to the SQLite store profile; init is explicit and cannot hide in unrelated startup code

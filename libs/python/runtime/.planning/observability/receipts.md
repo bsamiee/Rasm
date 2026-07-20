@@ -6,22 +6,22 @@ This owner produces local evidence — typed receipts and structured log facts �
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT]: the minted drain taxonomy, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
+- [01]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
 
 ## [02]-[RECEIPT]
 
 - Owner: `Receipt` owns its own projection — every case folds to a `(LogLevel, name, EventDict)` triple through one total `project`, the event name its own slot, never packed under an `"event"` key the sink re-pops — so `Signals.emit` is a renderer-agnostic fold, never three hand-built dict arms. Case log disposition is data: the `fact` case reads its level off `PHASE_LEVEL`, so a new phase is one row, never a phase branch.
 - Cases: the three lifecycle phases share the one `fact` case as a `Phase` value, never three identical-payload sibling cases. `rejected` carries the whole fault and spreads the `reliability/faults#FAULT`-owned `BoundaryFault.facts()` projection — the subject is never a pre-extracted slot beside the fault, and no private fault walk re-implements the owner's fold. Correlation flows through `merge_contextvars`, never a per-case field.
-- Entry: `Signals.emit`/`emit_async` are polymorphic on both axes — input normalized through one `_stream`, output any `FilteringBoundLogger`, so a `capture_logs` test or `wrap_logger` consumer drives the same fold without a second emit surface. `emit_async` awaits the `a*` mirror, so a high-volume async serve path offloads render-and-sink to a worker thread rather than blocking the event loop. This `continue_inbound`/`attach` split is load-bearing at the `execution/lanes#LANE` offload stitch — the loop side injects, the worker kernel extracts then attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes neither: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
+- Entry: `Signals.emit`/`emit_async` are polymorphic on both axes — input normalized through one `_stream`, output any `FilteringBoundLogger`, so a `capture_logs` test or `wrap_logger` consumer drives the same fold without a second emit surface. This page mints the folder's composition-scope vocabulary — `ScopeKey` and the pinned `DEFAULT_SCOPE` spelling every scope-keyed custody surface (hooks tables, metrics state, the install-receipt maps) imports from here, receipts being the observability tier below every consumer — and the default-sink resolution is its first custody surface: the default scope resolves the bare global logger preserving the standing call shape, a non-default scope resolves a `composition`-bound logger, so two compositions' lines partition and self-identify with no second emit surface. `emit_async` awaits the `a*` mirror, so a high-volume async serve path offloads render-and-sink to a worker thread rather than blocking the event loop. This `continue_inbound`/`attach` split is load-bearing at the `execution/lanes#LANE` offload stitch — the loop side injects, the worker kernel extracts then attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes neither: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
 - Auto: `@receipted` is parameterized over the concrete contributor type through the `R: ReceiptContributor` bound, so a decorated operation statically returns its concrete receipt rather than collapsing to the bare Protocol, and a consumer's `Ok` arm reads concrete members without a static error. Span creation belongs to the measured operation, never to emission — emit writes under whatever span is active, and `measured` is that operation-owned weave stated once: one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span, a rail-returning dispatch flattened so an offload composes without double-nesting, emission fenced so a render or sink raise folds onto the rail, and the status close two-sided — OK set exactly once on the clean exit, ERROR with the fault-fact event landing at the rail lift, so a pre-railed fault marks the same span the raise path marks through the faults-owned conversion and the OTLP trace carries every fault the receipt stream reports. Its drained projection reads the outcome counts per column off `DRAIN_COLUMNS` — a full `asdict` allocates the receipt's containers per emit only to drop them — and the metrics counter keys the identical columns, so the line and the counter cannot disagree. A `hash`-class field renders a stable correlation token, so two lines carrying the same secret correlate without leaking the value. Receipts' RSS slot is a point fact and the metrics gauge the stream over one `psutil` source, each owner holding its own handle.
-- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line, the metrics counter, and the lanes fold through the one `DRAIN_COLUMNS` derivation with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method.
+- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line, the metrics counter, and the lanes fold through the one `DRAIN_COLUMNS` derivation with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method; a new composition one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
 - Boundary: the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge this fold renders through — this page emits and never configures; no private `LogRecordProcessor`/`OTLPLogExporter` beside the composition-root egress, and no second drain vocabulary or upward `lanes` import beside the taxonomy this page mints.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
-from functools import cache, wraps
+from functools import cache, partial, wraps
 from hashlib import blake2b
 from inspect import isawaitable, iscoroutinefunction
 from typing import Final, Literal, Protocol, assert_never, get_args, runtime_checkable
@@ -41,6 +41,7 @@ from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type ScopeKey = str
 type DrainOutcome = Literal["accepted", "completed", "cancelled", "rejected", "hit"]
 type Phase = Literal["admitted", "planned", "emitted"]
 type LogLevel = Literal["debug", "info", "warning", "error"]
@@ -54,6 +55,10 @@ type LevelSelector = Callable[[BoundLogger], Callable[..., object]]
 type LevelBinding = tuple[int, LevelSelector, LevelSelector]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
+
+# pinned composition-scope default: every scope-keyed custody surface (hooks tables, metrics state, install-receipt
+# maps, this page's default-sink resolution) imports this one spelling, so the bare call shape stays scope-free.
+DEFAULT_SCOPE: Final[ScopeKey] = "default"
 
 # column set IS the DrainOutcome literal, so the drained line, the metrics counter, and the lanes fold can never disagree.
 DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
@@ -194,9 +199,11 @@ def _rss() -> EventDict:
     return {}
 
 
-# one default-sink resolution both emit arms share: absent folds to the global get_logger fetched per emit, never cached.
-def _sink(sink: BoundLogger | None) -> BoundLogger:
-    return Option.of_optional(sink).default_with(structlog.get_logger)
+# one default-sink resolution both emit arms share: absent folds to the scope-resolved get_logger fetched per emit, never
+# cached — the default scope keeps the bare global logger (today's line shape), a composition scope binds its own key.
+def _sink(sink: BoundLogger | None, scope: ScopeKey) -> BoundLogger:
+    fetched = structlog.get_logger if scope == DEFAULT_SCOPE else partial(structlog.get_logger, composition=scope)
+    return Option.of_optional(sink).default_with(fetched)
 
 
 def _stream(source: Streamable) -> Iterable[Receipt]:
@@ -222,14 +229,14 @@ def _render(source: Streamable, redaction: Redaction) -> Iterator[tuple[LevelBin
 
 class Signals:
     @staticmethod
-    def emit(source: Streamable, redaction: Redaction, sink: BoundLogger | None = None) -> None:
-        log = _sink(sink)
+    def emit(source: Streamable, redaction: Redaction, sink: BoundLogger | None = None, *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
+        log = _sink(sink, scope)
         for (_, sync, _), name, fields in _render(source, redaction):
             sync(log)(name, **fields)
 
     @staticmethod
-    async def emit_async(source: Streamable, redaction: Redaction, sink: BoundLogger | None = None) -> None:
-        log = _sink(sink)
+    async def emit_async(source: Streamable, redaction: Redaction, sink: BoundLogger | None = None, *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
+        log = _sink(sink, scope)
         for (_, _, amirror), name, fields in _render(source, redaction):
             await amirror(log)(name, **fields)
 

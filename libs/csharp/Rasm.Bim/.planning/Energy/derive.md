@@ -29,6 +29,7 @@ using System.Text;
 using LanguageExt;
 using NodaTime;
 using Rasm;
+using Rasm.Bim.Model;
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Composition;
@@ -311,7 +312,7 @@ public static class EnergyDerive {
 ## [03]-[TRANSLATE_MATRIX]
 
 - Owner: `EnergyTranslate` the OSM-centric translator matrix — one frozen `(source, target)` row table over the OpenStudio translators, never a per-pair method family.
-- Entry: `EnergyTranslate.Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key)` → `Fin<EnergyOutcome.Emitted>` resolves the `(source, target)` matrix row — `osm→gbxml` (`GbXMLForwardTranslator.modelToGbXMLString`), `osm→idf` (`EnergyPlusForwardTranslator.translateModel` + `Workspace.save`), `gbxml→osm`/`idf→osm` (the reverse readers + `Model.save`), `osm→osm` (the `VersionTranslator` version-upgrade row) — and emits the translated bytes as an `EnergyArtifact` (no graph pedigree — a translation never touched the graph) with the translator `warnings()`/`errors()` tallied into the `Translated` receipt.
+- Entry: `EnergyTranslate.Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key, Option<BimHooks> hooks = default)` → `Fin<EnergyOutcome.Emitted>` resolves the `(source, target)` matrix row — `osm→gbxml` (`GbXMLForwardTranslator.modelToGbXMLString`), `osm→idf` (`EnergyPlusForwardTranslator.translateModel` + `Workspace.save`), `gbxml→osm`/`idf→osm` (the reverse readers + `Model.save`), `osm→osm` (the `VersionTranslator` version-upgrade row) — and emits the translated bytes as an `EnergyArtifact` (no graph pedigree — a translation never touched the graph) with the translator `warnings()`/`errors()` tallied into the `Translated` receipt; a hook-bearing composition threads one `ProgressBar` director subclass per run onto the verified translator overloads (`loadModelFromString(string, ProgressBar)`, `translateModel(Model, ProgressBar)`, `modelToGbXMLString(Model, ProgressBar)`, `loadModel(Path, ProgressBar)`), its `onPercentageUpdated(double)` override firing the `Model/observability#HOOK_RAIL` `rasm.bim.energy.progress` observe point, so a long translation surfaces percentage facts with zero translator coupling.
 - Packages: NREL.OpenStudio.macOS-arm64, Rasm, LanguageExt.Core, NodaTime
 - Growth: a new translation is one `Matrix` row over a verified translator member (SDD via `SddForwardTranslator`/`SddReverseTranslator` is the named next row); the graph→OSM/gbXML egress lands as ONE matrix column fed by the lowered honeybee leg the moment an in-process HBJSON→OSM translation is admitted.
 - Boundary: the translate temp-path crossings and the SWIG handle brackets are the named platform-forced statement seam; `Workspace.save`/`Model.save` path-bound emits cross a bracketed scratch file exactly as the decode arms do; a matrix miss rails `CodecReject` (`energy-translate-miss`), an unreadable source `ModelRejected` (`energy-decode`).
@@ -321,43 +322,57 @@ public static class EnergyDerive {
 // The OSM-centric translator matrix: (source, target) rows over verified OpenStudio members; a translation
 // is one row, never a per-pair method family. Path-bound emits cross a bracketed scratch file.
 public static class EnergyTranslate {
-    static readonly FrozenDictionary<(InterchangeFormat Source, InterchangeFormat Target), Func<EnergyDoc, Op, Fin<(byte[] Bytes, int Warnings)>>> Matrix =
-        new KeyValuePair<(InterchangeFormat, InterchangeFormat), Func<EnergyDoc, Op, Fin<(byte[], int)>>>[] {
-            new((InterchangeFormat.Osm,   InterchangeFormat.GbXml), static (doc, key) => OsmTo(doc, key, static (model, tally) => {
+    static readonly FrozenDictionary<(InterchangeFormat Source, InterchangeFormat Target), Func<EnergyDoc, Op, Os.ProgressBar?, Fin<(byte[] Bytes, int Warnings)>>> Matrix =
+        new KeyValuePair<(InterchangeFormat, InterchangeFormat), Func<EnergyDoc, Op, Os.ProgressBar?, Fin<(byte[], int)>>>[] {
+            new((InterchangeFormat.Osm,   InterchangeFormat.GbXml), static (doc, key, progress) => OsmTo(doc, key, progress, static (model, tally, bar) => {
                 using Os.GbXMLForwardTranslator gb = new();
-                string xml = gb.modelToGbXMLString(model);
+                string xml = bar is null ? gb.modelToGbXMLString(model) : gb.modelToGbXMLString(model, bar);
                 return (Encoding.UTF8.GetBytes(xml), tally + Tally(gb.warnings(), gb.errors()));
             })),
-            new((InterchangeFormat.Osm,   InterchangeFormat.Idf),   static (doc, key) => OsmTo(doc, key, static (model, tally) => {
+            new((InterchangeFormat.Osm,   InterchangeFormat.Idf),   static (doc, key, progress) => OsmTo(doc, key, progress, static (model, tally, bar) => {
                 using Os.EnergyPlusForwardTranslator ep = new();
-                using Os.Workspace idf = ep.translateModel(model);
+                using Os.Workspace idf = bar is null ? ep.translateModel(model) : ep.translateModel(model, bar);
                 return (Saved(w => idf.save(w, true)), tally + Tally(ep.warnings(), ep.errors()));
             })),
-            new((InterchangeFormat.Osm,   InterchangeFormat.Osm),   static (doc, key) => OsmTo(doc, key, static (model, tally) =>
+            new((InterchangeFormat.Osm,   InterchangeFormat.Osm),   static (doc, key, progress) => OsmTo(doc, key, progress, static (model, tally, _) =>
                 (Saved(w => model.save(w, true)), tally))),   // the VersionTranslator upgrade row: decode already upgraded
-            new((InterchangeFormat.GbXml, InterchangeFormat.Osm),   static (doc, key) => ReverseTo(doc, key)),
-            new((InterchangeFormat.Idf,   InterchangeFormat.Osm),   static (doc, key) => ReverseTo(doc, key)),
+            new((InterchangeFormat.GbXml, InterchangeFormat.Osm),   static (doc, key, progress) => ReverseTo(doc, key, progress)),
+            new((InterchangeFormat.Idf,   InterchangeFormat.Osm),   static (doc, key, progress) => ReverseTo(doc, key, progress)),
         }.ToFrozenDictionary();
 
-    internal static Fin<EnergyOutcome.Emitted> Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key) =>
-        Matrix.TryGetValue((source.Format, target), out var row)
-            ? row(source, key).Map(result => {
-                EnergyArtifact artifact = EnergyArtifact.Of(target, result.Bytes, None, at);
-                return new EnergyOutcome.Emitted(artifact, new EnergyReceipt(
-                    EnergyLeg.Translated, source.Format, Some(target), 0, 0, 0, 0, result.Warnings, artifact.ContentKey, at));
-            })
-            : Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CodecReject(key, $"energy-translate-miss:{source.Format.Key}->{target.Key}"));
+    internal static Fin<EnergyOutcome.Emitted> Run(EnergyDoc source, InterchangeFormat target, Instant at, Op key, Option<BimHooks> hooks = default) {
+        if (!Matrix.TryGetValue((source.Format, target), out var row)) {
+            return Fin.Fail<EnergyOutcome.Emitted>(new BimFault.CodecReject(key, $"energy-translate-miss:{source.Format.Key}->{target.Key}"));
+        }
+        // One director bar per run, bracketed with the SWIG seam; a hook-less run passes null and every
+        // translator call takes its ProgressBar-free overload.
+        using TranslateProgress? progress = hooks.Case is BimHooks h ? new TranslateProgress(h, key) : null;
+        return row(source, key, progress).Map(result => {
+            EnergyArtifact artifact = EnergyArtifact.Of(target, result.Bytes, None, at);
+            return new EnergyOutcome.Emitted(artifact, new EnergyReceipt(
+                EnergyLeg.Translated, source.Format, Some(target), 0, 0, 0, 0, result.Warnings, artifact.ContentKey, at));
+        });
+    }
 
-    // Decode-then-emit over the version-upgrading in-string read; the emit lambda owns its translator brackets.
-    static Fin<(byte[], int)> OsmTo(EnergyDoc doc, Op key, Func<Os.Model, int, (byte[], int)> emit) {
+    // The SWIG director subclass: OpenStudio calls the virtual onPercentageUpdated across the native boundary,
+    // and the override fires the Model/observability#HOOK_RAIL rasm.bim.energy.progress observe point —
+    // the 0..100 percentage normalized onto the [0,1] Fraction the Progress fact carries.
+    sealed class TranslateProgress(BimHooks hooks, Op key) : Os.ProgressBar {
+        public override void onPercentageUpdated(double percentage) =>
+            ignore(hooks.EnergyProgress.Fire(new BimFact.Progress(key, "energy", "translate", Some(percentage / 100.0))));
+    }
+
+    // Decode-then-emit over the version-upgrading in-string read; the emit lambda owns its translator brackets
+    // and threads the optional director bar onto the verified ProgressBar overloads.
+    static Fin<(byte[], int)> OsmTo(EnergyDoc doc, Op key, Os.ProgressBar? progress, Func<Os.Model, int, Os.ProgressBar?, (byte[], int)> emit) {
         try {
             using Os.VersionTranslator vt = new();
-            using Os.OptionalModel optional = vt.loadModelFromString(doc.Text);
+            using Os.OptionalModel optional = progress is null ? vt.loadModelFromString(doc.Text) : vt.loadModelFromString(doc.Text, progress);
             if (!optional.is_initialized()) {
                 return Fin.Fail<(byte[], int)>(new BimFault.ModelRejected(key, "energy-decode:<osm-unreadable>"));
             }
             using Os.Model model = optional.get();
-            return Fin.Succ(emit(model, Tally(vt.warnings(), vt.errors())));
+            return Fin.Succ(emit(model, Tally(vt.warnings(), vt.errors()), progress));
         }
         catch (Exception ex) when (ex is SystemException or ApplicationException) {
             return Fin.Fail<(byte[], int)>(new BimFault.ModelRejected(key, $"energy-translate:{ex.Message}"));
@@ -365,20 +380,20 @@ public static class EnergyTranslate {
     }
 
     // gbXML/IDF -> OSM: the Path-bound reverse readers over a bracketed temp file, saved back as .osm bytes.
-    static Fin<(byte[], int)> ReverseTo(EnergyDoc doc, Op key) {
+    static Fin<(byte[], int)> ReverseTo(EnergyDoc doc, Op key, Os.ProgressBar? progress) {
         string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try {
             File.WriteAllBytes(temp, doc.Bytes.ToArray());
             using Os.Path path = Os.OpenStudioUtilitiesCore.toPath(temp);
             if (doc.Format == InterchangeFormat.GbXml) {
                 using Os.GbXMLReverseTranslator gb = new();
-                using Os.OptionalModel fromGb = gb.loadModel(path);
+                using Os.OptionalModel fromGb = progress is null ? gb.loadModel(path) : gb.loadModel(path, progress);
                 return fromGb.is_initialized()
                     ? Save(fromGb.get(), Tally(gb.warnings(), gb.errors()))
                     : Fin.Fail<(byte[], int)>(new BimFault.ModelRejected(key, "energy-decode:<gbxml-unreadable>"));
             }
             using Os.EnergyPlusReverseTranslator ep = new();
-            using Os.OptionalModel fromIdf = ep.loadModel(path);
+            using Os.OptionalModel fromIdf = progress is null ? ep.loadModel(path) : ep.loadModel(path, progress);
             return fromIdf.is_initialized()
                 ? Save(fromIdf.get(), Tally(ep.warnings(), ep.errors()))
                 : Fin.Fail<(byte[], int)>(new BimFault.ModelRejected(key, "energy-decode:<idf-unreadable>"));
@@ -406,6 +421,4 @@ public static class EnergyTranslate {
 
 ## [04]-[RESEARCH]
 
-- [AUTHORING_STACK]: the lower authors against the decompile-verified honeybee/dragonfly surface — the required-`properties` `Model` ctor (`identifier, ModelProperties, …, Units units = Meters, double tolerance = 0.01`), `Room(identifier, List<Face>, RoomPropertiesAbridged, …)`, `Face(identifier, Face3D, FaceType, AnyOf<Ground,Outdoors,Adiabatic,Surface,OtherSideTemperature>, FacePropertiesAbridged, …)`, `Aperture(identifier, Face3D, AnyOf<Outdoors,Surface>, AperturePropertiesAbridged, …)`/`Door(…, DoorPropertiesAbridged, …)` with `ApertureEnergyPropertiesAbridged(string construction = null, …)`/`DoorEnergyPropertiesAbridged(string construction = null, …)`, `Face3D(List<List<double>> boundary, …)`, `EnergyMaterial(identifier, thickness, conductivity, density, specificHeat, …)`, `EnergyWindowMaterialGlazing(identifier, …, thickness, solarTransmittance, solarReflectance, solarReflectanceBack, visibleTransmittance, visibleReflectance, visibleReflectanceBack, infraredTransmittance, emissivity, emissivityBack, conductivity, …)` (the `AnyOf<Autocalculate,double>` back-reflectance slots take the double through the generated implicit conversion), `OpaqueConstructionAbridged(identifier, List<string>)`/`WindowConstructionAbridged(identifier, List<string>)` (both `IConstruction`, the glazing an `IMaterial`, so the identifier-dedup `ModelEnergyProperties`-extension `AddMaterial`/`AddConstruction` mutators admit both families through one call), `Validate()` the authoring-side DataAnnotations tally, and `Story(identifier, List<Room2D>, StoryPropertiesAbridged, …, int multiplier = 1, …)`/`Room2D(identifier, floorBoundary, floorHeight, floorToCeilingHeight, Room2DPropertiesAbridged, …)` on the dragonfly leg.
-- [TRANSLATOR_MATRIX]: the OSM-family members ground against the OpenStudio 3.11.0 decompile — `VersionTranslator.loadModelFromString(string) → OptionalModel` (the version-upgrading in-string read; `loadModel(Path)`/`originalVersion()` beside it), `GbXMLForwardTranslator.modelToGbXML(Model, Path) → bool` / `modelToGbXMLString(Model) → string`, `EnergyPlusForwardTranslator.translateModel(Model) → Workspace`, `GbXMLReverseTranslator.loadModel(Path) → OptionalModel`, `EnergyPlusReverseTranslator.loadModel(Path) → OptionalModel` / `translateWorkspace(Workspace) → Model`, every translator carrying `warnings()`/`errors()` `LogMessageVector`, and the `Workspace.save`/`Model.save(Path, bool overwrite)` path-bound emits — the SWIG `Path` is built through `OpenStudioUtilitiesCore.toPath` (no `Path(string)` ctor exists).
-- [SEAM_ALIGNMENT]: the lower reads `CompositionOf`/`Material`/`MaterialPropertySet.Thermal` plus the `Mechanical` density (1000 kg/m³ fallback) exactly as the Compute OSM build does, and the glazing lower reads the SAME seam `Optical` case (`Discipline.Energy`) the Compute `StandardGlazing` build consumes — so the honeybee document a graph lowers and the OSM model Compute builds from that graph agree on the layer physics by construction, and a mixed opaque+glazing set degrades identically on both sides (Compute rails, the lower warns) rather than authoring a construction EnergyPlus rejects; the `Qto_SpaceBaseQuantities` `Height` and `Pset_EnergyModel`/`StoryMultiplier` reads consume the evidence the `Energy/projector` dragonfly arm lands, closing the DFJSON round trip; the graph→OSM/gbXML/IDF DIRECT egress stays deliberately absent — `honeybee-openstudio` is the python peer's leg, and a second graph→OSM builder beside Compute's simulation-scoped `BuildModel` would be the duplicate-fold defect.
+- [SEAM_ALIGNMENT]: the lower reads `CompositionOf`/`Material`/`MaterialPropertySet.Thermal` plus the `Mechanical` density (1000 kg/m³ fallback) exactly as the Compute OSM build does, and the glazing lower reads the SAME seam `Optical` case (`Discipline.Energy`) the Compute `StandardGlazing` build consumes — so the honeybee document a graph lowers and the OSM model Compute builds from that graph agree on the layer physics by construction, and a mixed opaque+glazing set degrades identically on both sides (Compute rails, the lower warns) rather than authoring a construction EnergyPlus rejects; the `Qto_SpaceBaseQuantities` `Height` and `Pset_EnergyModel`/`StoryMultiplier` reads consume the evidence the `Energy/projector` dragonfly arm lands, closing the DFJSON round trip; re-verify the Compute-side member spellings (`BuildConstruction`, `StandardGlazing`, the density fallback row) against `csharp:Rasm.Compute` `Runtime` energy-build pages when the Compute OSM build page next rebuilds — the seam `Rasm.Element` reads confirm against `Graph/element` and `Composition` owners already.

@@ -196,6 +196,14 @@ public abstract partial record ParamOp {
 }
 
 public static class Flatten {
+    // Registered speed claim (Domain/telemetry.md BenchClaim): the vectorized distortion-receipt folds
+    // prove themselves under the corpus gate; correctness never rides the claim.
+    public static readonly BenchClaim DistortionClaim = new(
+        Claim: Op.Of(name: nameof(DistortionReceipt)),
+        VectorizedLane: "TensorPrimitives.Max/Sum/MaxMagnitude over the per-face distortion planes",
+        ReferenceLane: "scalar element loops over the same planes",
+        SpeedupFloor: 1.0);
+
     // Modality dispatch is the union's TOTAL generated Switch: a new ParamOp case breaks Apply at
     // compile time — the kind-keyed dictionary whose missing row compiled silently (and whose rows
     // hard-cast the op back to its case) is the deleted form.

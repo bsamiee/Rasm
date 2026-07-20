@@ -25,7 +25,8 @@
 - Owner: `MonitorPlan` carries mask, publication, and absorption policy. `NativeMonitor.Receive` projects the event and executes both delegates inside `Op.Catch`; a callback fault records in `LastFault` and returns the original event, preserving the responder chain rather than swallowing on uncertainty.
 - Entry: `NativeSeam.Observe(MonitorPlan, Op?)` → `Fin<Lease<NativeMonitor>>` attaches one local monitor. Its owned lease marshals its idempotent inverse, calls `NSEvent.RemoveMonitor`, and disposes the returned token even when one inverse step faults.
 - Law: monitor publication projects and returns. Downstream host mutation enters through its own owning session or dispatch gate, so the native callback never becomes an unbounded application-work window.
-- Packages: Microsoft.macOS (`NSEvent`, `NSEventMask`, `NSEventType`, `NSEventPhase`, `NSEventModifierMask`, `NFloat`, `NSObject`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Eto/runtime.md` (`EtoDispatch`).
+- Law: this owner is the events-algebra mirror from above — `Shell/events.md` carries no native row because the floor never imports upward, so a platform consumer composes `NativeSeam.Observe` here and publishes its projected facts under the same containment contract the `UiSource` rows carry (`Op.Catch`, exact idempotent inverse, fault retention); the `NSEventMask` vocabulary, the monitor lifetime, and the macOS gate never cross into the Shell page.
+- Packages: Microsoft.macOS (`NSEvent`, `NSEventMask`, `NSEventType`, `NSEventPhase`, `NSEventModifierMask`, `NFloat`, `NSObject`), Microsoft.Extensions.Logging.Abstractions (`[LoggerMessage]`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Eto/runtime.md` (`EtoDispatch`), `Shell/telemetry.md` (`GhLog` — every native lease fault emits once at its `Record` site).
 - Growth: a new event axis is one ABI-faithful field on `NativeInput`; a new monitor scope is data in `NSEventMask`.
 
 ## [04]-[GESTURE_AND_PRESSURE]
@@ -53,8 +54,10 @@ using AppKit;
 using CoreGraphics;
 using Eto.Mac.Forms;
 using Foundation;
+using Microsoft.Extensions.Logging;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
+using Rasm.Grasshopper.Shell;
 
 namespace Rasm.Grasshopper.Platform;
 
@@ -169,6 +172,11 @@ public readonly record struct PaceBounds(
 public sealed record WorkspaceFact(AccessibilityPosture Posture, PaceBounds Pace);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
+internal static partial class NativeLog {
+    [LoggerMessage(EventId = 4705, Level = LogLevel.Error, Message = "Native lease faulted: {Detail}")]
+    internal static partial void LeaseFault(ILogger logger, string detail);
+}
+
 public abstract class UiNativeLease : IDisposable {
     private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
     private int releaseState;
@@ -177,7 +185,10 @@ public abstract class UiNativeLease : IDisposable {
 
     public void Dispose() => ignore(Release(key: Op.Of(name: nameof(Dispose))));
 
-    protected void Record(Error error) => ignore(lastFault.Swap(_ => Some(error)));
+    protected void Record(Error error) {
+        ignore(lastFault.Swap(_ => Some(error)));
+        NativeLog.LeaseFault(logger: GhLog.For(category: nameof(NativeSeam)), detail: error.Message);
+    }
 
     protected abstract Fin<Unit> ReleaseOnUi(Op key);
 

@@ -8,7 +8,7 @@ Its bar is one-truth rendering: every state fact binds through the one atom brid
 
 ## [01]-[ROUTER]
 
-- [01]-[SYSTEM](.planning/system/): One token authority dual-sunk to CSS and viewer linear space, one motion vocabulary, one atom binding.
+- [01]-[SYSTEM](.planning/system/): One token authority dual-sunk to CSS and viewer linear space, one motion vocabulary, one atom binding, one hook fact rail, one vital evidence plane.
 - [02]-[VIEW](.planning/view/): Dense surfaces instantiating the floor — forms, grid, overlay, and chart, each one owner where variation is rows.
 - [03]-[VIEWER](.planning/viewer/): Spatial tier — content-keyed residency behind the `GlbViewport` port and the one `GlobalId` selection plane.
 

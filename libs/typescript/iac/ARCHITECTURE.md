@@ -15,7 +15,7 @@ iac/
     ├── operate/          # Secrets, observability realization, policy, and the hosted control plane
     │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
     │   ├── observe.ts    # Store-row metrics family, signal backends, collector ingest, dev estate, board compile
-    │   ├── policy.ts     # Guard policies, drift projection, and the in-cluster PKO reconcile loop
+    │   ├── policy.ts     # Guard policies, drift projection, the evidence sink spine, and the in-cluster PKO reconcile loop
     │   └── cloud.ts      # Hosted control-plane twin set, gated on the cloud backend
     └── kube/             # K8s estate tiers realized on either plane
         ├── workload.ts   # One spec row realized as the full typed workload set with its _LIFE anchor
@@ -83,7 +83,7 @@ config:
 ---
 flowchart LR
     accTitle: IaC package seam registry
-    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, leased secrets, and observability projections with the runtime, data, security, and core packages, one labeled edge per contract family.
+    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, leased secrets, served-asset identities, and observability projections with the runtime, data, security, core, and ui packages, one labeled edge per contract family.
     subgraph iac[IAC]
         Program[Program plane]
         Operate[Operate plane]
@@ -93,6 +93,7 @@ flowchart LR
     Data[(data)]
     Security([security])
     Core([core])
+    Ui([ui])
     Program e1@-->|"[PORT]: StackOutputs"| Runtime
     Data e2@-->|"[SHAPE]: Pg.rows"| Kube
     Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
@@ -103,6 +104,7 @@ flowchart LR
     Core e8@-->|"[PROJECTION]: Alert.Spec"| Operate
     Core e9@-->|"[PROJECTION]: Slo.Objective"| Operate
     Runtime e10@-->|"[TRANSPORT]: Export.live"| Program
+    Ui e11@-->|"[SHAPE]: ServedAsset.roster"| Program
 ```
 
 ## [04]-[ORGANIZATION]
@@ -114,5 +116,5 @@ One `StackSpec` decodes into an arm, and the arm realizer proves every spec coor
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
 - iac applies DDL and extensions; data verifies at startup, runtime never mutates schema, so divergence fails closed, never a pulumi read-back.
 - Object-engine vocabulary is `minio | ceph`; Garage carries no spelling, unable to honor an `If-None-Match: *` conditional put.
-- Viewer transcoder assets ship with the app shell, byte-identical through the runtime asset rows; a foreign-CDN side-load is a CSP breach.
+- Viewer transcoder and engine wasm assets ship same-origin with the app shell: the ui served-asset roster is the sole identity source, each row realized on the static-distribution plane at the content-addressed immutable path `assets/<digest>/<file>` and sealed through the `served` output plane the ui `codec-absent` gate arms on; a foreign-CDN side-load stays a CSP breach.
 - No queue extension is provisioned; the data matrix carries none, and SKIP-LOCKED outbox statements with the runtime relay own the class.

@@ -42,8 +42,11 @@ It references no sibling package, admitting the kernel only as a boundary contra
 - [23]-[CHROME](.planning/Shell/chrome.md): `Chrome` folds toolbar, input-panel, tooltip, floating-button intent onto GH2 chrome hosts through gate.
 - [24]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, mutates boolean posture, returns state, owns Rhino getter.
 - [25]-[EVENTS](.planning/Shell/events.md): `UiEvents` binds GH2 and Eto streams to typed fact cases, minting one leased subscription in sink order.
-- [26]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, filter chain, modalities, composing rasters into recency.
-- [27]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts, bounding projections and keying session cache.
+- [26]-[HOOKS](.planning/Shell/hooks.md): `GhHooks` folds scoped subscribers through ruled veto/observe/replay points with fault isolation.
+- [27]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, filter chain, modalities, composing rasters into recency.
+- [28]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts and receipts into stamped per-document partitions with export.
+- [29]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts, bounding projections and keying session cache.
+- [30]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits meter and logger factories, folding receipt families into attributed instruments.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -74,3 +77,6 @@ Shared substrate consumed from the C# registry with the folder-specific recency 
 
 [RECENCY_CACHE]:
 - `Microsoft.Extensions.Caching.Hybrid` — tagged L1/L2 recency and stampede control for document-scoped `SessionCache` values
+
+[TELEMETRY]:
+- `Microsoft.Extensions.Logging.Abstractions` — app-neutral logger admission for the `GhTelemetry` capsule; the metric surface (`IMeterFactory`, `Meter`) ships BCL inbox

@@ -82,19 +82,25 @@ public sealed record DeadLetterRow(
 - Owner: `OutboxRelay` the static sweep-and-relay surface over the one `SchedulePort` cadence, advancing the `(ConsumerId, Hlc)` watermark.
 - Entry: `Sweep(OutboxRelay.Runtime runtime, TenantContext tenant, ulong watermark)` returns `IO<Seq<DeliveryReceipt>>` — reads the pending outbox rows past the `watermark` cursor, relays each through the in-process `EventBus.Dispatch` and the durable `OutboundHop`, advances the watermark on each success, and defers or dead-letters a failed row; `Replay(OutboxRelay.Runtime runtime, string outboxId)` returns `IO<DeliveryReceipt>` — re-enqueues a dead-letter row for one more dispatch attempt.
 - Auto: the sweep rides one `ScheduleEntry.Spread` row on the one `SchedulePort` so the dispatch cadence is one schedule row, never a second scheduler — the fleet-spread seed distributes the sweep across nodes so two nodes do not relay the same row simultaneously, and the `FencingToken` fences the watermark advance so a stale node cannot rewind it; each pending row relays through `EventBus.Dispatch` to feed the in-process bus and through `OutboundSurface.Run` over its topic's `OutboundHop` for a durable subscriber, so the in-process and durable delivery legs ride one relay; a successful relay advances the `(ConsumerId, Hlc)` watermark monotonically so a relayed row never re-relays — the at-least-once-with-watermark guarantee that, with the consumer-side dedup, is exactly-once-effective; a failed relay increments the row's attempt and PERSISTS the deferred row through the `Park` port — the retry budget is durable, so exhaustion actually trips across sweeps — routing to dead-letter on budget exhaustion so a poison row leaves the lane and its dead-lettered status leaves the pending set.
-- Receipt: each relayed row mints one `DeliveryReceipt` carrying the topic, the dispatched flag, and the ADVANCED watermark — the fenced advance THREADS into the returned receipt so delivery accounting is wired, never notional (a bound-then-discarded advance is the deleted form); a dead-letter transition fans one `SpineLog` event; no parallel per-row relay receipt — the sweep itself seals with one `OutboxSweepReceipt` fanned under `InstrumentFan.SweepKind`, carrying lag, oldest-undelivered age, the advanced cursor, and the relayed/deferred split, so the outbox gauges read sweep evidence, never a store scan.
+- Receipt: each relayed row mints one `DeliveryReceipt` carrying the topic, the dispatched flag, and the ADVANCED watermark — the fenced advance THREADS into the returned receipt so delivery accounting is wired, never notional (a bound-then-discarded advance is the deleted form); a dead-letter transition fans one `SpineLog` event; no parallel per-row relay receipt — the sweep itself seals with one `OutboxSweepReceipt` fanned under `InstrumentFan.SweepKind`, carrying lag, oldest-undelivered age, the advanced cursor, the relayed/deferred split, and the per-topic `Lanes` rows the partitioned outbox gauges read, so the outbox gauges read sweep evidence, never a store scan.
 - Packages: LanguageExt.Core, NodaTime, System.IO.Hashing, BCL inbox
 - Growth: a new relay target is one `OutboundHop` the topic binds; the sweep cadence is one `ScheduleEntry.Spread` row column; zero new surface.
 - Boundary: the dispatch sweep is the only outbox-relay owner — a per-row background loop, a second scheduler for the sweep, and a parallel relay are the deleted forms; the sweep rides the one `SchedulePort` so the cadence is one schedule row and the fleet-spread seed distributes it; the relay registers as one keyed `OutboundHop` consumer advancing its own `(ConsumerId, Hlc)` watermark over the `ONE_OUTBOX_EGRESS_SPINE` op-log, never re-minting the Persistence-owned `CdcEnvelope` CloudEvents projection or a second egress table; the watermark advance fences through `FencingToken.Admits` so two nodes cannot both advance it past one row; the consumer-side dedup reuses the `DeliveryFanout` cell so at-least-once dispatch plus idempotent-key dedup is exactly-once-effective, never an exactly-once distributed-transaction protocol.
 
 ```csharp signature
+public sealed record OutboxLaneRow(
+    string Topic,
+    long Lag,
+    double OldestAgeSeconds);
+
 public sealed record OutboxSweepReceipt(
     long Lag,
     double OldestAgeSeconds,
     ulong Watermark,
     int Relayed,
     int Deferred,
-    Instant At);
+    Instant At,
+    Seq<OutboxLaneRow> Lanes);
 
 public static class OutboxRelay {
     public sealed record Runtime(
@@ -128,7 +134,9 @@ public static class OutboxRelay {
                 Watermark: advanced,
                 Relayed: receipts.Filter(static receipt => receipt.Watermark.IsSome).Count,
                 Deferred: receipts.Filter(static receipt => receipt.Watermark.IsNone).Count,
-                At: now);
+                At: now,
+                Lanes: toSeq(pending.GroupBy(static row => row.Topic).Select(group =>
+                    new OutboxLaneRow(group.Key, group.Count(), group.Max(row => (now - row.Physical).TotalSeconds)))));
             return runtime.Sink.Send(Correlation.Mint(), tenant, TelemetrySource.AppHost.Key, InstrumentFan.SweepKind,
                 JsonSerializer.SerializeToElement(receipt, AppHostWireContext.Default.OutboxSweepReceipt));
         });
@@ -205,6 +213,12 @@ interface DeadLetterRowWire {
   readonly at: string;
 }
 
+interface OutboxLaneWire {
+  readonly topic: string;
+  readonly lag: number;
+  readonly oldestAgeSeconds: number;
+}
+
 interface OutboxSweepWire {
   readonly lag: number;
   readonly oldestAgeSeconds: number;
@@ -212,6 +226,7 @@ interface OutboxSweepWire {
   readonly relayed: number;
   readonly deferred: number;
   readonly at: string;
+  readonly lanes: readonly OutboxLaneWire[];
 }
 ```
 

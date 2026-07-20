@@ -25,6 +25,7 @@ One authorization owner: the entitlement vocabulary a verified token resolves in
 import { AppIdentity, Convention, FaultClass, TenantContext } from "@rasm/ts/core"
 import { Array, Config, Context, Data, Effect, HashMap, HashSet, Metric, Option, Schema } from "effect"
 import { AccessClaims } from "../crypt/sign.ts"
+import { SecurityFact, Witness } from "./audit.ts"
 import { type Principal, TenantScope } from "./tenant.ts"
 
 const _roles = ["admin", "member", "viewer"] as const
@@ -196,11 +197,11 @@ class FlagGate extends Context.Tag("security/access/FlagGate")<FlagGate, {
 
 [POLICY_EVALUATION]:
 - Owner: `Policy.check` folds RBAC and ReBAC into a decision under the flag gate; `Policy.grant`/`Policy.revoke` write relation tuples. `RoleGrant` is the derived closure — one module-load fold expands each role's transitive inheritance through the cycle-guarded `_closure` and flattens it into a permission `HashSet` per role — so inheritance is derived data, `_granted` is O(held roles) membership, and the recursion, its re-expansion cost, and its cycle risk exist nowhere at request time.
-- Law: a permission is granted when RBAC or ReBAC grants it and the flag gate is open — the gate subtracts, never grants; a missing relation defaults to no ReBAC grant; only an unreachable store or verdict is a `PolicyFault`, a denial is a `PolicyDecision`; every `Deny` increments `Convention.instrument.securityPolicyDeny` tagged under `Convention.rasm.securityReason` — a denial is a decision, never an authenticity reject, so it mints its own Convention row rather than a `Reject` kind.
+- Law: a permission is granted when RBAC or ReBAC grants it and the flag gate is open — the gate subtracts, never grants; a missing relation defaults to no ReBAC grant; only an unreachable store or verdict is a `PolicyFault`, a denial is a `PolicyDecision`; every `Deny` increments `Convention.instrument.securityPolicyDeny` tagged under `Convention.rasm.securityReason` and publishes the `Deny` fact through `Witness` so the denial reaches the audit rail as receipt-truth — a denial is a decision, never an authenticity reject, so it mints its own Convention row rather than a `Reject` kind.
 - Receipt: `PolicyDecision` — `Allow` or `Deny({ reason })`, the reason distinguishing an ungranted action from a closed flag so the edge renders a 403 with cause.
 - Growth: a new grant source (an attribute condition) is one fold arm; a new role's grants land in `RoleGrant` at module load with zero fold edits; the receipt never changes.
 - Boundary: `RelationStore` carries ReBAC, `FlagGate` carries the runtime verdict; `access/claim`'s `Role`/`ClaimSet` supply the RBAC input; the edge maps the decision to a status.
-- Packages: `effect` (`Array`, `Effect`, `HashMap`, `HashSet`, `Metric`, `Option`); `@rasm/ts/core` (`Convention`).
+- Packages: `effect` (`Array`, `Effect`, `HashMap`, `HashSet`, `Metric`, `Option`); `@rasm/ts/core` (`Convention`); `access/audit` (`Witness`, `SecurityFact`).
 
 ```typescript
 const _PolicyDecision = Data.taggedEnum<PolicyDecision>()
@@ -239,7 +240,12 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
             : _PolicyDecision.Deny({ reason: "no-grant" })
       }).pipe(
         Effect.tap((decision) =>
-          decision._tag === "Deny" ? Metric.increment(_deny.pipe(Metric.tagged(Convention.rasm.securityReason, decision.reason))) : Effect.void),
+          decision._tag === "Deny"
+            ? Effect.zipRight(
+                Metric.increment(_deny.pipe(Metric.tagged(Convention.rasm.securityReason, decision.reason))),
+                Witness.publish(SecurityFact.Deny({ subject: claims.subject, action: request.action, reason: decision.reason, tenant: claims.tenant })),
+              )
+            : Effect.void),
         Effect.withSpan("security.policy.check"),
       )
     const grant = (tuple: RelationTuple): Effect.Effect<void, PolicyFault> => relations.write(tuple)

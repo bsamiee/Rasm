@@ -31,6 +31,7 @@ import {
 } from "@simplewebauthn/server"
 import { FaultClass } from "@rasm/ts/core"
 import { Config, Context, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { SecurityFact, Witness } from "../access/audit.ts"
 import { Crypto, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 import { CredentialRef, type SessionFault, type Subject, Token, type TokenPair } from "./session.ts"
@@ -118,13 +119,13 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
 
 [RP_VERIFICATION]:
 - Owner: `WebAuthn.enrollStart`/`enrollFinish` register a passkey, `WebAuthn.assertStart`/`assertFinish` authenticate one. Its `verified` discriminant is matched so the credential is extracted only on the true arm, `newCounter` is the replay defense, and `enrollFinish` enriches the stored `Passkey` with the MDS `getStatement` projection when an attestation policy is active.
-- Law: the challenge is minted server-side through `Crypto.token` — one RNG owner across the folder — sealed as a `CeremonyPhase` under the ceremony TTL, and consumed single-use on the rail at finish with intent and freshness gated, every refusal landing `Reject.mark("ceremony")` so challenge replay is counted with the same weight as the oauth state replay; the response is `Schema`-decoded before verify; the resolved passkey belongs to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
+- Law: the challenge is minted server-side through `Crypto.token` — one RNG owner across the folder — sealed as a `CeremonyPhase` under the ceremony TTL, and consumed single-use on the rail at finish with intent and freshness gated, every refusal landing `Reject.mark("ceremony")` beside a `Ceremony` fact through `Witness` so challenge replay is counted with the same weight as the oauth state replay and rides the audit rail as receipt-truth; the response is `Schema`-decoded before verify; the resolved passkey belongs to the ceremony's subject — a cross-subject assertion is `verification`, so one subject's challenge can never complete against another subject's credential.
 - Law: policy is pinned at the options mint — `supportedAlgorithmIDs` spreads the `_ALGORITHMS` `[-8, -7]` roster on both registration and verification so an algorithm-confusion downgrade is unspellable, and `authenticatorSelection` carries the trust row's discoverable-credential and user-verification demands; the caller never writes the format switch — attestation dispatches inside the verifier keyed by the decoded `fmt`, parameterized by `WebAuthnTrust.attestationType` and the pinned root certs.
-- Law: a non-increasing counter is a cloned authenticator — `Reject.mark("clone")` lands on the folder reject stream and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the per-subject token-bucket budget and an exhausted budget is `throttled`.
+- Law: a non-increasing counter is a cloned authenticator — `Reject.mark("clone")` lands on the folder reject stream, the `breached`-class `Clone` fact publishes through `Witness`, and the error log lands with the passkey annotation before the `counter` fault (class `breached`) surfaces; a `newCounter` of zero from a fresh authenticator is admitted only when the stored counter is also zero; `assertFinish` runs under the per-subject token-bucket budget and an exhausted budget is `throttled`.
 - Receipt: `Passkey` on registration, `TokenPair` on assertion — never a raw `VerifiedRegistrationResponse` past the seam.
 - Growth: a new transport hint is one `_transports` entry; a new ceremony option is one options-bag field.
 - Boundary: `WebAuthnTrust` supplies the attestation and selection policy; the browser half collects the response; `authn/session` `Token.establish` mints the session; the ports carry state; the `RateLimiter` store is data-wave-satisfied.
-- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`); `@effect/experimental` (`RateLimiter`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`); `authn/session` (`Token.establish`, `CredentialRef`).
+- Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`); `@effect/experimental` (`RateLimiter`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`); `access/audit` (`Witness`, `SecurityFact`); `authn/session` (`Token.establish`, `CredentialRef`).
 
 ```typescript
 const _ALGORITHMS: ReadonlyArray<number> = [-8, -7]
@@ -160,7 +161,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           Effect.filterOrFail((held) => DateTime.lessThanOrEqualTo(now, held.expiresAt), () => new WebAuthnFault({ reason: "challenge", detail: "ceremony expired" })),
           Effect.map((held) => held.challenge),
         )
-      }).pipe(Effect.tapError(() => Reject.mark("ceremony"))) // replay, intent mismatch, and staleness all count; the detail stays log material
+      }).pipe(Effect.tapError(() => Effect.zipRight(Reject.mark("ceremony"), Witness.publish(SecurityFact.Ceremony({ subject, intent }))))) // replay, intent mismatch, and staleness all count; the detail stays log material
     const _challenge = cipher.token(_CHALLENGE_ALPHABET, 43).pipe(
       Effect.mapBoth({
         onFailure: (cause) => new WebAuthnFault({ reason: "ceremony", detail: cause.detail }),
@@ -247,6 +248,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           yield* next > passkey.counter || (next === 0 && passkey.counter === 0)
             ? Effect.void
             : Reject.mark("clone").pipe(
+                Effect.zipRight(Witness.publish(SecurityFact.Clone({ subject, passkey: passkey.id }))),
                 Effect.zipRight(Effect.logError("webauthn counter regression — cloned authenticator")),
                 Effect.annotateLogs("passkey", passkey.id),
                 Effect.zipRight(Effect.fail(new WebAuthnFault({ reason: "counter", detail: passkey.id }))),

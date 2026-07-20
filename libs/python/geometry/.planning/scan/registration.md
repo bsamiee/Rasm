@@ -15,6 +15,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 - Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span.
 - Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
+- Bench: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Packages: `kiss_matcher`, `open3d`, `small_gicp` (the three compiled registration backends, each imported function-local at boundary scope under `# noqa: PLC0415`, never module-top), `numpy` (transform assembly via `np.eye`/`np.ravel`/`np.reshape`, never the uncatalogued `np.identity`/`ndarray.flatten`), `expression` (`Block.mapi` the per-edge multiway fold), `msgspec`, and the geometry graduation spine and runtime rails per the fence imports.
 - Growth: a new registration engine is one `RegistrationMode` row and one kernel arm; a new bootstrap backend is one `BootstrapEngine` member and one `_bootstrap` arm; a stricter graduation bar is a `RegistrationPolicy` ceiling the caller passes. `registration_ransac_based_on_feature_matching` is the named next `BootstrapEngine` row when a scene defeats both standing engines.
 - Boundary: the cleaned input `Cloud` is `scan/ingestion.md#INGESTION`'s product and carrier mint; deviation against a reference is `scan/deviation.md#DEVIATION`; surface reconstruction is `scan/reconstruction.md#RECONSTRUCTION`. No mesh repair, tessellation, or durable store here.
@@ -22,6 +23,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from enum import StrEnum
+from functools import partial
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, assert_never
 
@@ -30,11 +32,12 @@ from expression import Error
 from expression.collections import Block
 from msgspec import Struct, field
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, bench_seam, evidence_run
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -353,6 +356,12 @@ class ScanRegistration(Struct, frozen=True):
             return await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy)
 
         return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch)
+
+    def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+        # cloud-size-parameterized macro-bench: the subject keys the exact mode row and the source point count, so
+        # a latency row compares like-for-like across scan densities; each round drives the whole register crossing
+        # — arity re-proof, offload, solver, weave — never an in-kernel probe (the pulse boundary).
+        return bench_seam(f"{EvidenceScope.SCAN_REGISTRATION.value}.{mode}.p{len(session[0])}", partial(self.register, session, mode), rounds=rounds, warmup=warmup)
 ```
 
 ## [03]-[RESEARCH]

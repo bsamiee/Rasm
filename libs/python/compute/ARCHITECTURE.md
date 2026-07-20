@@ -37,7 +37,8 @@ compute/                    # Offline scientific evidence, graduating outward th
 │   └── spatial.py          # SpatialQuery — neighbour, hull, Delaunay, Voronoi, and alpha-shape folds
 └── graduation/             # Multi-domain graduation hub and C# stub codegen
     ├── handoff.py          # GraduationReceipt/HandoffAxis — outward egress, geometry decode, evidence weave
-    └── codegen.py          # StubCodegen — EvidenceBundle decode into typed stubs and schema under the drift gate
+    ├── codegen.py          # StubCodegen — EvidenceBundle decode into typed stubs and schema under the drift gate
+    └── observability.py    # COMPUTE_POINTS/ResourceUsage — hook rail, measure taps, hub-woven resource band
 ```
 
 ## [02]-[SEAMS]
@@ -78,6 +79,7 @@ flowchart LR
     Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
     Runtime e11@-->|"[PORT]: Kernel"| Solvers
     Runtime e12@-->|"[PORT]: measured"| Graduation
+    Runtime e16@-->|"[PORT]: Hooks"| Graduation
     Runtime e13@-->|"[PORT]: Kernel"| Experiments
     Runtime e14@-->|"[PORT]: Kernel"| Analysis
     Runtime e15@-->|"[PORT]: Kernel"| Optimization
@@ -114,7 +116,7 @@ flowchart LR
 
 Convergence above answers what folds where; the strata below answer which sub-domain may import which.
 
-- S0 `graduation` — mints the outward rail exactly once (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) and imports no compute sibling; `codegen` composes `handoff` inside the stratum, and every producer returns through the hub.
+- S0 `graduation` — mints the outward rail exactly once (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) and imports no compute sibling; `codegen` and `observability` compose `handoff` inside the stratum — the hub weave re-enters `observability` through one lazy seam, so the point rail and resource ledger ride every producer dispatch — and every producer returns through the hub.
 - S1 `numerics` + `solvers` — one band: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail, `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes; the interleave is module-acyclic — `quadrature` composes `jit`, `interval` composes the receipt `graduate` fold — so no stratum cycle exists at module grain.
 - S2 `analysis` + `experiments` + `optimization` — the producer tier no sibling imports: analysis composes `ArrayPayload`, experiments the `JitBackend` capture and the study spine, optimization the `SolveStatus` verdicts and the receipt `graduate` fold; all three stream receipts through the hub weave under their `EvidenceScope` rows, and their axis owners project `GraduationReceipt`.
 

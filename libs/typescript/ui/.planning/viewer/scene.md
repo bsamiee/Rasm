@@ -176,13 +176,14 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 - Law: codec injection is capability wiring — the loader constructs over one `LoadingManager` whose `onProgress`/`onError` fold per-graft dependency progress into the residency telemetry tap; `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
 - Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam, marked on its first line, and no reference escapes it.
 - Law: the graft lane outlives any refusal — a per-arrival `GlbFault` (`decode-refused`, `codec-absent`) folds into the bounded refusal channel (`PubSub.bounded` → `Glb.Loop.refusals`) and the lane keeps consuming; an arrival stream that dies on one bad mesh is the named defect, the policy table's `evict` column governs the ledger consequence, and the telemetry/probe taps subscribe `refusals` beside the surplus lane.
+- Law: the graft lane is woven — each arrival's graft effect carries `Effect.withSpan("rasm.ui.scene.residency")` with the content key and byte count as log-and-span material, `_GRAFTED` counts committed grafts, and `_REFUSED` folds refusal reasons through `Metric.trackErrorWith` over the closed `GlbFault.Reason` vocabulary (bounded tags by construction — the key never a tag); the surplus and refusal lanes are the adopted source behind the `rasm.ui.scene.residency` hook point (`system/hook`), so the app bridge (`system/atom#STORE_ROOT`'s seam) and probe boards consume rows, never wrap the fold.
 - Law: `preload`/`preinit` hints warm decoder wasm and imminent GLB fetches ahead of first frame (`react-dom` hint family), issued from the ledger's `pending` census, never per-mesh at draw time.
 - Exemption: the frame-loop tick is the platform-forced synchronous seam — `advance` reads the ledger through `Effect.runSync(Ref.get(held))` inside the marked kernel (a pure sync read, total by construction) and only immutable snapshots leave the fold.
 - Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one more broadcast lane, never a second port subscription.
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/core"
-import { Context, Effect, HashMap, Option, PubSub, Ref, Scope, Stream } from "effect"
+import { Context, Effect, HashMap, Metric, Option, PubSub, Ref, Scope, Stream } from "effect"
 import { AnimationMixer, Clock, LoadingManager, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
@@ -197,6 +198,10 @@ declare namespace Glb {
     readonly refusals: Stream.Stream<GlbFault>
   }
 }
+
+const _GRAFTED = Metric.counter("rasm.ui.scene.grafts", { description: "committed graft arrivals", incremental: true })
+
+const _REFUSED = Metric.frequency("rasm.ui.scene.refusals") // value set = the closed GlbFault.Reason vocabulary
 
 const _dispose = (node: Object3D): void => {
   // BOUNDARY ADAPTER
@@ -238,7 +243,13 @@ const _graft = (
             )
         yield* Effect.sync(() => root.add(gltf.scene))
         yield* Ref.update(held, HashMap.set(arrival.key, { node: gltf.scene, mixer }))
-      }).pipe(Effect.catchAll((fault) => PubSub.publish(refused, fault))))
+        yield* Metric.increment(_GRAFTED)
+      }).pipe(
+        Metric.trackErrorWith(_REFUSED, (fault: GlbFault) => fault.reason),
+        Effect.withSpan("rasm.ui.scene.residency", { attributes: { "glb.bytes": arrival.octets.byteLength } }),
+        Effect.annotateLogs({ mesh: `${arrival.key}` }),
+        Effect.catchAll((fault) => PubSub.publish(refused, fault)),
+      )))
     const evict = Stream.runForEach(port.ledger.changes, (rows) =>
       Effect.gen(function* () {
         const grafts = yield* Ref.get(held)

@@ -15,7 +15,7 @@ The one analytic-visualization owner: three rendering regimes behind one `Chart`
 
 [REGIME_LAW]:
 - Owner: `Chart` — one owner whose members are the three regime brackets and the columnar bus fold; regime selection is a decision row, never a component fork: DECLARED (the chart states a statistical claim — distribution, regression, facet, small multiple) renders through `[3]`; STREAMING (a telemetry/sensor/simulation series where point count breaks SVG) renders through `[4]`'s canvas; PIVOT (the USER drives group/split/aggregate/filter over a live feed) renders through `[5]`'s engine.
-- Law: Arrow is the inter-engine bus — `Chart.columns(table, x, series)` projects an `apache-arrow` `Table` into uplot's aligned columns through `getChild(...).toArray()` (the zero-copy typed-array view), Plot marks take the `Table` directly with column-name channels, and perspective ingests the SAME frame's IPC bytes with `format: "arrow"`; a JSON re-materialization between Arrow-capable engines is the named defect. A named column absent from the table folds the whole projection to `Option.none` — the consumer renders no chart; a fabricated flat series standing in for a missing column is the named defect.
+- Law: Arrow is the inter-engine bus — `Chart.columns(source, x, series)` projects an `apache-arrow` `Table` OR one `RecordBatch` into uplot's aligned columns through the shared `getChild(...).toArray()` spelling (`RecordBatch.getChild` carries the `Table` projection batch-direct, so the continuous-body reader lane never materializes a per-frame `Table`), Plot marks take the `Table` directly with column-name channels, and perspective ingests the SAME frame's IPC bytes with `format: "arrow"`; a JSON re-materialization between Arrow-capable engines is the named defect. A named column absent from the source folds the whole projection to `Option.none` — the consumer renders no chart; a fabricated flat series standing in for a missing column is the named defect.
 - Law: color obeys the token split — series strokes, categorical palettes, and axis inks resolve from `Theme.ramp`/`Theme` rows (canvas engines take resolved values rebuilt on theme flip; SVG takes classes through `cn`); `d3-scale-chromatic` colormaps appear ONLY where the color IS the datum's value (`scaleSequential(interpolateViridis)` density/heat), and a `scheme*` categorical array standing in for the token palette is the split-brain defect.
 - Law: `d3` is substrate, never surface — `rollup`/`bin`/`extent` folds prepare data beside a spec, scale/curve/format vocabularies pass through, and the DOM-coupled modules (`d3-selection`/`d3-zoom`/`d3-axis`) never appear; React owns chart DOM, `system/act` owns gesture.
 - Law: measurement flows one way — a panel measures ONCE through `useParentSize` (`debounceTime` as policy) and fans `{ width, height }` to every resident chart: Plot receives them in its options, uplot through `setSize`, visx through scale ranges; a chart measuring itself mid-render is the named defect.
@@ -23,17 +23,18 @@ The one analytic-visualization owner: three rendering regimes behind one `Chart`
 - Growth: a new chart need selects a regime row; a new regime is a fourth bracket member on the one owner — never a sibling chart component family.
 
 ```typescript
-import type { Table } from "apache-arrow"
+import type { RecordBatch, Table } from "apache-arrow"
 import { Array, Option } from "effect"
 import type uPlot from "uplot"
 
 declare namespace Chart {
   type Aligned = uPlot.AlignedData
+  type Source = RecordBatch | Table // both carry getChild(name) — the batch lane projects with zero Table construction
 }
 
-const _columns = (table: Table, x: string, series: ReadonlyArray<string>): Option.Option<Chart.Aligned> =>
+const _columns = (source: Chart.Source, x: string, series: ReadonlyArray<string>): Option.Option<Chart.Aligned> =>
   Option.map(
-    Option.all(Array.map([x, ...series], (name) => Option.fromNullable(table.getChild(name)))),
+    Option.all(Array.map([x, ...series], (name) => Option.fromNullable(source.getChild(name)))),
     (children) => {
       // BOUNDARY ADAPTER
       return Array.map(children, (child) => child.toArray() as Float64Array)
@@ -83,7 +84,7 @@ const _distribution = (table: Table, field: string, width: number): ReturnType<t
 - Owner: `Chart.series(container, options, seed)` — the canvas bracket: `new uPlot(options, seed, container)` acquires, `destroy()` releases, and the ONLY per-tick write is `Chart.feed(chart, next)` — `setData` inside an atom subscription with the fold owning cadence (high-frequency feeds coalesce to animation frames before the call); React never reconciles a point, and rebuilding the instance per data tick is the named defect.
 - Packages: `uplot` (the `uPlot` class, `AlignedData`, the options tree — `series`/`scales`/`axes`/`cursor`/`legend`/`bands` — `uPlot.sync`, `uPlot.paths.{linear,spline,stepped,bars,points}`, the hook-array plugin bus, `setSize`/`batch`); `system/token` (resolved stroke values — canvas reads no custom property); `apache-arrow` (`tableFromIPC` per-frame decode, `RecordBatchReader.from` for a single continuous IPC body).
 - Law: the data contract is aligned columns — one x column, N y columns, typed arrays first-class, `null` the one gap marker with `spanGaps` per series; `Chart.columns` feeds it from the Arrow bus, and `uPlot.join` outer-joins tables that disagree on x.
-- Law: an unbounded series streams frame by frame — `Chart.stream(x, series)` decodes each incoming Arrow IPC frame through `tableFromIPC`, projects it through `Chart.columns`, and appends the columns to a bounded aligned ring (the `_STREAM.points` cap), handing the next window to `Chart.feed`; the transport chunks the series into frames, so a single continuous body decodes incrementally through `RecordBatchReader.from` instead, and rebuilding a whole `Table` over an unbounded series per frame is the named defect.
+- Law: an unbounded series streams frame by frame — `Chart.stream(x, series)` decodes each incoming Arrow IPC frame through `tableFromIPC`, projects it through `Chart.columns`, and appends the columns to a bounded aligned ring (the `_STREAM.points` cap), handing the next window to `Chart.feed`; the transport chunks the series into frames, so a single continuous body decodes incrementally through `RecordBatchReader.from` instead — each yielded `RecordBatch` projects through the SAME `Chart.columns` batch-direct — and rebuilding a whole `Table` over an unbounded series per frame is the named defect.
 - Law: dashboard cohorts sync by key — `uPlot.sync(key)` + `cursor.sync: { key }` link crosshair, focus, and zoom across a panel cohort; the key is a chart-group value from the owning fold, never a literal per chart.
 - Law: extension is a hook row — annotations, threshold shading, and tooltips ride the closed hook roster (`draw`/`drawSeries`/`setCursor`/…) as plugin hook arrays drawing into `u.ctx` or mounting into `u.over`; a fork of the draw loop is the named defect.
 - Law: the stylesheet imports once — `uPlot.min.css` rides the token stylesheet; theme flips rebuild the options value from `Theme.ramp`-resolved strokes, and the canvas's missing per-point ARIA is compensated by an accessible summary row beside the chart (the consumer's obligation this card names).
@@ -147,6 +148,7 @@ const _stream = (x: string, series: ReadonlyArray<string>) =>
 - Law: a derived feed is a scoped view lane — `Chart.derive(pivot, config)` opens `table.view(config)`, emits the `to_arrow` seed frame then every row-mode delta, and release runs `view.delete()`; each emitted frame is exactly `Chart.stream`'s input, so pivot-derived series feed the streaming regime with no re-materialization.
 - Law: expression columns validate before shipping — `table.validate_expressions(exprs)` gates an ExprTK column; the aggregate vocabulary (`sum`/`distinct count`/`weighted mean`/`min by`/…) is the engine's roster referenced as data in the config value.
 - Law: React reaches the element by ref only — mount runs the bracket in the effect seam, props never flow inside, config does; the element is the boundary.
+- Law: the bracket is woven — acquisition carries `Effect.withSpan("rasm.ui.chart.pivot")` with the feed name as a log annotation, and every derived frame ticks `_FRAMES`, so engine spin-up latency and delta throughput reach the app bridge (`system/atom#STORE_ROOT`'s seam) with zero collector import; feed names stay log material, never metric tags.
 - Growth: a new exploration surface is one bracket call with its own config atom; a headless consumer (export, alert, derived feed) rides `Chart.derive`'s view lane — never a second engine.
 
 ```typescript
@@ -156,7 +158,7 @@ import "@perspective-dev/viewer-datagrid"
 import "@perspective-dev/viewer-charts"
 import type { ViewConfigUpdate } from "@perspective-dev/client"
 import type { HTMLPerspectiveViewerElement } from "@perspective-dev/viewer"
-import { Effect, Stream } from "effect"
+import { Effect, Metric, Stream } from "effect"
 
 declare namespace Chart {
   type PivotOptions = { readonly name?: string; readonly index?: string; readonly limit?: number; readonly pageToDisk?: boolean }
@@ -194,7 +196,10 @@ const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, optio
         table,
         append: (delta: ArrayBuffer) => Effect.promise(() => table.update(delta)),
       } satisfies Chart.Pivot
-    }),
+    }).pipe(
+      Effect.withSpan("rasm.ui.chart.pivot"),
+      Effect.annotateLogs({ pivot: options.name ?? "<inline>" }),
+    ),
     (pivot) =>
       Effect.promise(async () => {
         await element.delete()
@@ -202,6 +207,8 @@ const _pivot = (element: HTMLPerspectiveViewerElement, frame: ArrayBuffer, optio
         pivot.client.terminate()
       }),
   )
+
+const _FRAMES = Metric.counter("rasm.ui.chart.frames", { description: "pivot delta frames delivered", incremental: true })
 
 const _derive = (pivot: Chart.Pivot, config: ViewConfigUpdate): Stream.Stream<Uint8Array> =>
   Stream.asyncScoped<Uint8Array>((emit) =>
@@ -217,7 +224,7 @@ const _derive = (pivot: Chart.Pivot, config: ViewConfigUpdate): Stream.Stream<Ui
       }),
       (view) => Effect.promise(() => view.delete()),
     ),
-  )
+  ).pipe(Stream.tap(() => Metric.increment(_FRAMES)))
 
 const Chart: Chart.Shape = {
   columns: _columns,
@@ -233,7 +240,3 @@ const Chart: Chart.Shape = {
 
 export { Chart }
 ```
-
-## [06]-[RESEARCH]
-
-- [BATCH_COLUMNS]-[OPEN]: which member projects a named column from one `RecordBatch` (the `getChild` spelling on `RecordBatch` versus a `Table` constructed over one batch) for the `RecordBatchReader.from` continuous-body lane; verify against `.api/apache-arrow.md`, then land the per-batch projection through `Chart.columns`.

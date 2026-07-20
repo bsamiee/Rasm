@@ -36,16 +36,19 @@ Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 └── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
     ├── Chrome.cs       # Toolbar, input-panel, tooltip, and floating-button demand onto GH2 chrome hosts
     ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state receipt, Rhino getter
-    ├── Events.cs       # UI fact/event evidence, anchor/source rows, and transactional subscription
+    ├── Events.cs       # UI fact/event evidence, anchor/source rows, transactional subscription, bounded drain
+    ├── Hooks.cs        # Scoped veto/observe/replay hook rail with subscriber-fault isolation and taps
     ├── Icons.cs        # Vector-icon owner — host origins, a pose machine, filter chain, and catalog
-    └── Session.cs      # Live-scope acquisition, apply/run gates, repaint receipts, and the session cache
+    ├── Journal.cs      # Monotone-stamped per-document session journal and its export projection
+    ├── Session.cs      # Live-scope acquisition, apply/run gates, repaint receipts, and the session cache
+    └── Telemetry.cs    # Meter/logger admission and the receipt-to-instrument projection fold
 ```
 
 ## [02]-[STRATA]
 
 Four strata order the six sub-domains; `Eto` and `Shell` are one co-recursive UI-thread floor — the `EtoDispatch` marshal and the `GhSession` scope gate each compose the other — and `Components` is the island: pure host-plus-kernel authoring with no interior edge either direction; every cross-stratum consumption edge points down.
 
-- S0 `Eto` + `Shell` — the co-recursive floor: `EtoDispatch`, `UiClock`, `ControlForge`, and `WindowHost` beside `GhSession`, `SessionOp`, `UiEvents`, and `DocumentToken`; the pair's mutual reach is same-stratum fact.
+- S0 `Eto` + `Shell` — the co-recursive floor: `EtoDispatch`, `UiClock`, `ControlForge`, and `WindowHost` beside `GhSession`, `SessionOp`, `UiEvents`, `DocumentToken`, `GhTelemetry`, `GhHooks`, and `SessionJournal`; the pair's mutual reach is same-stratum fact. `Shell/Telemetry` is the receipt-projection sink: evidence records from every stratum flow down into its `GhEvidence` fold as inert data — a model-only edge the capability strata never count, so the forbidden direction stays capability imports upward — and `Shell/Hooks` plus `Shell/Journal` sit on the same floor as the tap rail and the drained record over that evidence.
 - S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other: `DocumentScope`, `GraphScope`, `HistoryLedger`, and `SolutionControl` beside `MacGate`, `MacAnchor`, `MotionDrive`, and `PlatformSeam`.
 - S2 `Canvas` — the live host-surface owner nothing composes: `CanvasOperator`, `PaintScene`, `CanvasLayout`, and `CanvasPacer` over session scope, dispatch marshal, undo seal, and the display-link drive.
 - Island `Components` — `GardenData`, `Ports`, `ComponentSpec`, and `GhFault` speak GH2 `IDataAccess` and the kernel alone; no UI-thread sibling imports it and it imports none.
@@ -94,7 +97,7 @@ flowchart TB
 
 ## [03]-[SEAMS]
 
-Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting its own receipts and drives home-side rather than re-deriving kernel math. Kernel geometry stays a pure upstream source — every command receipt seals home-side from an injected timeline, so no contract flows back down.
+Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting its own receipts and drives home-side rather than re-deriving kernel math. Kernel geometry stays a pure upstream source — every command receipt seals home-side from an injected timeline, so no contract flows back down. `GhTelemetry` admits the composing app root's `IMeterFactory` and `ILoggerFactory` the same way — injected capability in, `rasm.grasshopper.*` instrument writes out, zero provider or exporter reference inside the boundary.
 
 ```mermaid
 ---
@@ -150,8 +153,18 @@ flowchart LR
     Events[[UI events]]
     Native[[Platform native]]
     Composition[[Layer compositor]]
+    Telemetry[[Telemetry fan]]
+    Hooks[[Hook rail]]
+    Journal[[Session journal]]
     Runtime -->|"dispatch marshal"| Session
     Runtime -->|"UiClock lease"| Motion
+    Runtime -->|"DispatchPulse tap"| Telemetry
+    Session -->|"SessionReceipt"| Telemetry
+    Paint -->|"PaintReceipt"| Telemetry
+    Motion -->|"FrameWindow"| Telemetry
+    Hooks -->|"fault tap"| Telemetry
+    Events -->|"bounded drain"| Journal
+    Journal -->|"captured signals"| Hooks
     Runtime -->|"native marshal"| Native
     Runtime -->|"clock beat"| Events
     Session -->|"live canvas"| Interaction

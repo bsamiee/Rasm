@@ -20,13 +20,13 @@ The statechart owner: a closed transition system is data — one `Transition.Spe
 - Law: the internal-versus-external distinction is one row flag — `internal: true` shrinks the transition domain from the LCCA to the source (SCXML `type="internal"`), the whole semantic difference; external is the default posture.
 - Law: `Machine.serializable.add` is the pipeable dual — data-last `(schema, handler) => (self) => self` — with `Machine.serializable.addPrivate` its interior twin whose request never reaches `sendUnknown`; `Machine.procedures.add` is a differently-shaped curried type application, and the two namespaces never substitute.
 - Growth: a new state, transition, deadline, or child activity is one row in the owning table; a new machine is one spec value; dynamic child registries beyond node-scoped invoke ride the context's id-addressed `forkOne` — or its state-returning `forkOneWith` twin when the registration itself must advance state — under the same arming law.
-- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `Either`, `HashSet`, `Option`, `Order`, `ParseResult`, `PubSub`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`).
+- Packages: `@effect/experimental` (`Machine`); `effect` (`Array`, `Duration`, `Effect`, `Either`, `HashSet`, `Option`, `Order`, `ParseResult`, `PubSub`, `Schedule`, `Schema`, `Scope`, `Stream`, `Struct`, `Subscribable`, `Tracer`).
 
 ```typescript signature
 import { Machine } from "@effect/experimental"
 import {
   Array, type Duration, Effect, Either, HashSet, Option, Order, type ParseResult, pipe, PubSub, type Schedule, Schema,
-  type Scope, Stream, Struct, Subscribable,
+  type Scope, Stream, Struct, Subscribable, type Tracer,
 } from "effect"
 
 declare namespace Transition {
@@ -422,7 +422,8 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
 - Law: a spent macrostep never lands — `step` has no success tuple for exhaustion, and the `Feed` handler lifts its `Either` directly onto the request rail before any arming or state return, so the machine keeps its pre-signal configuration, no pure, stream, or actor consumer can observe a half-drained active set or partial action program as settled, and the authoring defect surfaces as `Spent` instead of a corrupted actor.
 - Law: the entered/exited wave is the arming law — every macrostep disarms all keyed watch and invoke fibers of exited nodes and arms every row on entered nodes: each watch `forkReplace`s a keyed delayed self-`Feed`, and each invoke `forkReplace`s the child activity whose typed failure emits its declared failure signal while success `unsafeSend`s the private `Finalize` then its declared success signal or `done.invoke.${id}` — entry-start, exit-stop, exactly the SCXML invoke lifecycle on fiber primitives, with `Schedule`/`TestClock` beating hand timers on testability.
 - Law: `finalize` is SCXML `<finalize>` on the request plane — the child result and invoke key ride the private `Finalize` request, its handler folds that invoke row's `finalize` function into extended state, and because one fiber serializes the queue the fold lands BEFORE the success signal is processed, so a done row's guard and `assign` read the already-folded result; the signal plane stays a literal vocabulary and never carries payloads, and a row without `finalize` discards the result by construction.
-- Law: a fact is the macrostep's own receipt, never an inference — `boot` mints one `PubSub.sliding(spec.lag)` hub, `feed` publishes `{ config, macro }` after each settled send, and `feedUnknown` taps its encoded exit through the interior settled-macro decode so the wire lane publishes the identical fact; because the fact carries the macro's `entered`/`exited` directly, an external self-transition reports its exit-and-reentry wave exactly where an active-set diff reports nothing, and `facts` is `Stream.fromPubSub` over the hub — the machine still forks zero fibers, publication rides the send path, and a lagging inspector sheds oldest facts by the `lag` policy; actor span tracing is the `traced` policy row applied through `Machine.withTracingEnabled` at boot.
+- Law: a fact is the macrostep's own receipt, never an inference — `boot` mints one `PubSub.sliding(spec.lag)` hub, `feed` publishes `{ config, macro }` after each settled send, and `feedUnknown` taps its encoded exit through the interior settled-macro decode so the wire lane publishes the identical fact; because the fact carries the macro's `entered`/`exited` directly, an external self-transition reports its exit-and-reentry wave exactly where an active-set diff reports nothing, and `facts` is `Stream.fromPubSub` over the hub — the machine still forks zero fibers, publication rides the send path, and a lagging inspector sheds oldest facts by the `lag` policy; actor span tracing is the `traced` policy row applied through `Machine.withTracingEnabled` at boot. Its hub is the branch's `rasm.core.state.macrostep` tap point — the `observe/tap` name row a subscription targets — and the machine imports nothing of the rail: publication stays the send path, dispatch stays the runtime executor's.
+- Law: the actor lifetime is one scoped span — `boot` and `restore` each open `Effect.makeSpanScoped` named `machine/<name>` with the lane stamped (`boot` or `restore`), the span ends with the actor `Scope`, and every `feed`/`feedUnknown` send parents under it through `Effect.withParentSpan`, so `Machine.withTracingEnabled` request spans nest beneath one long-lived correlation anchor profile links and tap facts annotate; the name and lane spellings stay machine-local strings because state composes no observe vocabulary, and the runtime bridge re-stamps `convention` rows at export.
 - Law: recovery and durability are definition facts — `Machine.retry(spec.recover)` re-initializes through the initialize slot carrying the last live configuration, `freeze` is `Machine.snapshot` (the schema-encoded pair carried opaque, history values inside), and `restore` re-admits through the machine's own schemas so a forged snapshot fails as `ParseError`, never a corrupted boot. A fresh boot drains the origin's eventless closure before actor creation, fails with `Spent` instead of exposing an unstable actor, arms every service in the settled active closure, and exposes the combined origin-entry and stabilization program through `actor.initial`; restore re-arms the restored active closure but returns the empty initial receipt, so process recovery cannot replay entry actions as new domain output.
 - Law: the PUBLIC request surface is closed at feed/poll — signals ARE the wire protocol, and `sendUnknown` admits only the public list, so the private `Finalize` lane is unreachable from any frame; a public request demanding its own payload and reply contract is evidence the concern outgrew the transition altitude and belongs to the runtime branch's workflow plane.
 - Boundary: the `Persistence`-backed snapshot store, durable-execution replay, and cluster sharding are runtime-branch concerns; this owner fixes the in-process actor and its vocabulary.
@@ -555,19 +556,23 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   const surfaced = (
     actor: Machine.SerializableActor<typeof machine>,
     hub: PubSub.PubSub<Transition.Fact<Id, V, X>>,
+    span: Tracer.Span,
     initial: Transition.Macro<Id, V>,
   ): Transition.Actor<Id, S, V, X> => {
     const published = (macro: Transition.Macro<Id, V>): Effect.Effect<void> =>
       Effect.asVoid(Effect.flatMap(actor.get, (config) => PubSub.publish(hub, { config, macro })))
     return {
       initial,
-      feed: (signal) => Effect.tap(actor.send(new Feed({ signal })), published),
+      feed: (signal) => Effect.withParentSpan(Effect.tap(actor.send(new Feed({ signal })), published), span), // every send parents under the lifetime span: request spans nest beneath one correlation anchor
       feedUnknown: (frame) =>
-        Effect.tap(actor.sendUnknown(frame), (outcome) =>
-          Option.match(_settled(outcome), {
-            onNone: () => Effect.void,
-            onSome: (exit) => published(exit.value),
-          })),
+        Effect.withParentSpan(
+          Effect.tap(actor.sendUnknown(frame), (outcome) =>
+            Option.match(_settled(outcome), {
+              onNone: () => Effect.void,
+              onSome: (exit) => published(exit.value),
+            })),
+          span,
+        ),
       config: actor.get,
       state: actor,
       facts: Stream.fromPubSub(hub),
@@ -577,7 +582,11 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
   const risen = (
     live: Effect.Effect<Machine.SerializableActor<typeof machine>, ParseResult.ParseError, Scope.Scope>,
     initial: Transition.Macro<Id, V>,
-  ) => Effect.zipWith(live, PubSub.sliding<Transition.Fact<Id, V, X>>(spec.lag), (actor, hub) => surfaced(actor, hub, initial))
+    lane: "boot" | "restore",
+  ) =>
+    Effect.flatMap(Effect.makeSpanScoped(`machine/${spec.name}`, { attributes: { "machine.lane": lane } }), (span) =>
+      Effect.zipWith(Effect.withParentSpan(live, span), PubSub.sliding<Transition.Fact<Id, V, X>>(spec.lag), (actor, hub) =>
+        surfaced(actor, hub, span, initial))) // the scoped span ends with the actor Scope: one lifetime anchor per boot or restore
   const entered = facts.closure(origin.active)
   const initial: Transition.Macro<Id, V> = {
     program: Array.flatMap(entered, (id) => _face(spec.nodes[id], "entry")),
@@ -594,6 +603,7 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
         entered: [...initial.entered, ...settled.entered],
         exited: settled.exited,
       },
+      "boot",
     ),
   })
   const restored = (frozen: Transition.Frozen) =>
@@ -609,7 +619,7 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
     origin,
     step,
     boot: fresh,
-    restore: (frozen) => risen(restored(frozen).pipe(Machine.withTracingEnabled(spec.traced)), resumed),
+    restore: (frozen) => risen(restored(frozen).pipe(Machine.withTracingEnabled(spec.traced)), resumed, "restore"),
   }
 }
 

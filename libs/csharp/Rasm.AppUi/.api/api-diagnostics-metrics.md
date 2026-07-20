@@ -11,7 +11,7 @@
 ## [02]-[APPUI_BINDINGS]
 
 - `TelemetryIdentity.Mint` is the only AppUi meter mint, and `InstrumentRow.Bind` is the delegate slot every create call lives in; `AppUiTelemetry.Mount` freezes the contributions with duplicate-name collision at build.
-- `InstrumentKind` derives each 5-param roster row into its bind delegate — `Count`, `Distribution` over `UiBuckets` advice, `Level` over `UiLevelCells` cell readers — so an emitting page declares `InstrumentSpec` rows and never spells a create or write call.
+- `InstrumentKind` derives each `InstrumentSpec` roster row into its bind delegate — `Count`, `Distribution` over `UiBuckets` advice, `Level` over scalar `UiLevelCells` readers, `Levels` over keyed `UiLevelCells` families projected as tagged `Measurement<long>` batches through the multi-measurement observe overload — so an emitting page declares `InstrumentSpec` rows and never spells a create or write call.
 - `MetricCollector<T>` (`tests/csharp/.api/diagnostics-testing.md`) observes one instrument's measurement stream for the proof lane; `ProofLaw.InstrumentFold` is the collector rail.
 
 ## [03]-[IMPLEMENTATION_LAW]

@@ -5,7 +5,7 @@ Domain map of `Rasm.Materials` — host-neutral AEC-domain projector onto the `R
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element}; VividOrange in-folder; no host geometry
+Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.Element, Rasm.AppHost}; VividOrange in-folder; no host geometry
 ├── Component/             # One polymorphic Component over the closed component-family axis, class-discriminated
 │   ├── Component.cs       # Component owner and the one section solver over the profile algebra
 │   ├── Masonry.cs         # Masonry family
@@ -32,8 +32,11 @@ Rasm.Materials/            # AEC-DOMAIN materials projector; refs {Rasm, Rasm.El
 ├── Properties/            # Typed engineering-property source lowered onto the seam property sets
 │   ├── Properties.cs      # Intrinsic mechanical, thermal, acoustic, and fire measurements
 │   └── Sustainability.cs  # Lifecycle impact, unit-cost basis, and classification rows
-└── Projection/            # One IElementProjection onto the Rasm.Element seam
-    └── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
+└── Projection/            # One IElementProjection onto the Rasm.Element seam + the observability, benchmark, and analytics projections
+    ├── Component.cs       # ComponentProjector minting Type Objects and material subgraphs
+    ├── Observability.cs   # MaterialsFact tap, MaterialsHookRail roster, MaterialsInstrumentFan, banded fault log, descriptor rows
+    ├── Benchmarks.cs      # BenchKernel workload corpus and the gated BenchmarkReceipt composition
+    └── Analytics.cs       # AnalyticsSchema column rows and the catalogue-to-row projection folds
 ```
 
 VividOrange grounds the structural section, capacity, and rebar data in-folder, never a hand-keyed literal; the per-page consumption law lives on the owning pages. Return type names the rail: a `SurfaceShade`/`Unicolour` carrier where the result is total, `Fin<T>` where a banded fault routes, the seam `Fin<GraphDelta>` from the projector. C# is the sole producer of the material wire — `Appearance/Interchange` mints the OpenPBR-vector `MaterialWire` and the MaterialX `.mtlx` document once, and the TypeScript and Python peers decode both.
@@ -44,7 +47,7 @@ Three strata order the four sub-domains; `Component` and `Appearance` are true p
 
 - S0 `Component` + `Appearance` — peers consuming no sibling: `ComponentFamily`, `ComponentClass`, `QuantityRow`, and the `SectionCapacity` rail beside `MaterialGraph`, `MaterialLibrary`, `BsdfLobe`, and the `MaterialWire` mint; alignment between the pair travels the seam `MaterialId`, never an import.
 - S1 `Properties` — `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, and `Published<T>` source rows; engineering dimensional mints pass through the S0 `QuantityRow`, and sustainability lowers basis-relative scalars straight to the seam factories.
-- S2 `Projection` — the one `ComponentProjector : IElementProjection` folding `Component`, `Properties`, and `Appearance` owners into `Fin<GraphDelta>`; nothing composes it.
+- S2 `Projection` — the one `ComponentProjector : IElementProjection` folding `Component`, `Properties`, and `Appearance` owners into `Fin<GraphDelta>`, beside the `MaterialsFact` signal tap, the benchmark corpus, and the analytics projection reading every lower owner; nothing composes it.
 
 ```mermaid
 ---
@@ -118,17 +121,21 @@ config:
 ---
 flowchart LR
     accTitle: Materials platform, compute, and cross-runtime seams
-    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, and capture wires with compute, the render host, the Python data peer, and the TypeScript core and viewer peers, one edge per contract family labeled by kind.
+    accDescr: Materials sub-domain owners exchanging capacity, property, appearance, capture, telemetry, benchmark, analytics, and descriptor wires with compute, the app host spine, the persistence store plane, the render host, the Python data peer, and the TypeScript core, viewer, and IaC peers, one edge per contract family labeled by kind.
     subgraph materials[RASM.MATERIALS]
         Component[Component families]
         Properties[Property source]
         Appearance[Appearance engine]
+        Projection[Projection contracts]
     end
     Compute{{Rasm.Compute}}
+    AppHost{{Rasm.AppHost}}
     AppUi([Rasm.AppUi])
+    Persistence([Rasm.Persistence])
     DataPeer([python:data])
     Core([typescript:core])
     Ui([typescript:ui])
+    Iac([typescript:iac])
     Host([Host boundary])
     Component e1@-->|"[WIRE]: SectionCapacity"| Compute
     Properties e2@-->|"[WIRE]: MaterialPropertySet"| Compute
@@ -137,6 +144,10 @@ flowchart LR
     Appearance e5@-->|"[WIRE]: MaterialWire"| Core
     Appearance e6@-->|"[WIRE]: OpenPbrGroupsWire"| Ui
     Host e7@-->|"[WIRE]: CaptureSource"| Appearance
+    Projection e8@-->|"[PORT]: TelemetryContributorPort"| AppHost
+    Projection e9@-->|"[WIRE]: BenchmarkReceipt"| AppHost
+    Projection e10@-->|"[WIRE]: AnalyticsSchema"| Persistence
+    Projection e11@-->|"[WIRE]: PanelRow + AlertRow"| Iac
 ```
 
 ## [04]-[DOMAIN_LAW]
@@ -162,3 +173,5 @@ Canonical-collapse law the sub-domains share — one owner per axis, one entrypo
 - Standards data is in-fence C# under `SEED_ROW_LAW`: a table is `REFLECTED`, `DELEGATED`, or `AUTHORED`.
 - Every seed column carries `VENDOR`, `DEFINED`, or `PUBLISHED` provenance.
 - Policy vocabularies stay `[SmartEnum]`, standards enums become frozen row tables, and every seed row flows the one catalogue-to-solver rail.
+- Telemetry is a tap: `MaterialsTap` decorators fire typed `MaterialsFact` cases at composition, so domain owners emit nothing.
+- Benchmark truth is a gate-stamped `BenchmarkReceipt`; analytics truth is a columnar projection of registered rows and typed facts.

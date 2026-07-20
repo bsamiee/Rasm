@@ -2,21 +2,21 @@
 
 `Profiles` pushes continuous CPU profiles beside the OTLP rails and links them to traces: the pyroscope push agent streams samples to the profile store, and `PyroscopeSpanProcessor` stamps every root span with `pyroscope.profile.id` so a trace click-through lands on its flame graph. This page also owns the benchmark-receipt family — the macro-latency and throughput evidence the request-duration histogram cannot carry — and the offline-job envelope that makes a short-lived process export completely before it exits.
 
-Install rides the imported `latched` one-shot and the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SCHEMA_URL`, `SignalProfile`, and the flush-then-shutdown drain arrive settled from the telemetry owner; `Metrics.record` from `observability/metrics#METRIC`; `Receipt`/`Signals` from `observability/receipts#RECEIPT`. Job identity is hand-built — no detector carries job semantics — and the job lane's delta-temporality preference rides one launcher-environment knob.
+Install custody is two-tier — per-composition `ProfilesReceipt`s key by the receipts-owned `ScopeKey` (a same-scope re-install returns `REENTRANT`, a later composition `ADOPTED`) while the imported `latched` guards the one process push agent, `pyroscope.configure` being process-global — and rides the `execution/admission#CONTEXT` `emit_otel` gate, sequenced after `observability/telemetry#TELEMETRY` so the span processor attaches to the registered SDK provider. `SCHEMA_URL`, `SignalProfile`, and the flush-then-shutdown drain arrive settled from the telemetry owner; `Metrics.record` from `observability/metrics#METRIC`; `Receipt`/`Signals` from `observability/receipts#RECEIPT`. Job identity is hand-built — no detector carries job semantics — and the job lane's delta-temporality preference rides one launcher-environment knob.
 
 ## [01]-[INDEX]
 
-- [01]-[PROFILES]: the profile-gated pyroscope push install and the span-profile link.
+- [01]-[PROFILES]: the scope-keyed, profile-gated pyroscope push install and the span-profile link.
 - [02]-[BENCH]: the benchmark-receipt family and its instrument projection.
 - [03]-[JOB]: the offline-job envelope — hand-built resource, high-interval safety net, and the flush-then-shutdown boundary.
 
 ## [02]-[PROFILES]
 
 - Owner: `Profiles.install` configures the push agent once — application name from the faults-owned `SCOPES[Scope.SERVICE]` row, server address, static tags, and tenant caller-supplied — and attaches `PyroscopeSpanProcessor` to the registered SDK `TracerProvider`, so every root span carries `pyroscope.profile.id` and the profiler's thread tags carry `span_id`/`span_name`/`trace_id` for the reverse jump. `tenant_id` threads the folder's first-class tenant dimension onto the push, so a multi-tenant profile store slices flame graphs by the same org routing every measurement already carries; `Profiles.phase` scopes sample tags to a bounded window — a recipe stage, a worker kernel window — so a flame graph slices by phase while static dimensions stay install-time `tags=`.
-- Entry: a silent profile caches a `SILENT` receipt and starts no agent, so PACKAGE/TEST processes pay nothing; a re-entrant install returns the cached receipt stamped `REENTRANT` through the imported `latched`. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the receipt records `linked=False`.
+- Entry: a silent profile caches a `SILENT` receipt per scope and starts no agent, so PACKAGE/TEST processes pay nothing; a same-scope re-install returns its cached receipt stamped `REENTRANT` off the `_receipts` map fold, and a later composition arriving after the push agent exists receives `ADOPTED` through the `latched` reentrant closure — the agent never doubles. `PyroscopeSpanProcessor` attaches only when the global resolves to the SDK `TracerProvider` the telemetry install registered — the API no-op provider matches no arm and the receipt records `linked=False`. `shutdown` is scope-keyed custody: only the scope holding the `INSTALLED` receipt stops the push thread and clears every scope receipt; a `SILENT`/`ADOPTED` scope retires its own receipt alone.
 - Auto: `oncpu=True` and `gil_only=True` keep samples on-CPU and GIL-holding so the flame graph reads interpreter work, not idle waits; `shutdown` stops the push thread through `pyroscope.shutdown()` on the drain fold beside the telemetry providers.
 - Packages: `pyroscope-otel` (`PyroscopeSpanProcessor` and its bundled push agent `pyroscope.configure`/`shutdown`/`tag_wrapper`/`add_thread_tag`), `opentelemetry-sdk` (the `TracerProvider` match arm — composition-root altitude), runtime (`latched`, `SCOPES`, admission gate).
-- Growth: a new static profile dimension is one entry in the caller's `tags` mapping; a bounded-window dimension one entry in a `Profiles.phase` mapping; a new agent knob is one `configure` keyword threaded through `install`.
+- Growth: a new static profile dimension is one entry in the caller's `tags` mapping; a bounded-window dimension one entry in a `Profiles.phase` mapping; a new agent knob is one `configure` keyword threaded through `install`; a new composition is one `ScopeKey` value threaded through the `scope` keyword.
 - Boundary: profiles egress through the pyroscope push wire alone — the OTLP trio stays the telemetry owner's, and no library module below the composition root imports this page.
 
 ```python signature
@@ -30,7 +30,8 @@ from typing import ClassVar, Final
 from uuid import uuid4
 
 import pyroscope
-from expression.collections import Block
+from expression import Option
+from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
 from opentelemetry import trace
@@ -42,16 +43,19 @@ from pyroscope.otel import PyroscopeSpanProcessor
 from rasm.runtime.admission import PROFILE_POLICY, RuntimeProfile
 from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary, latched
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.telemetry import NAMESPACE, SCHEMA_URL, SignalProfile, Telemetry
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
+# INSTALLED started the process push agent; SILENT kept the gate closed; REENTRANT is a same-scope re-install;
+# ADOPTED is a later composition riding the standing agent with its own receipt.
 class ProfilesOutcome(StrEnum):
     INSTALLED = "installed"
     SILENT = "silent"
     REENTRANT = "reentrant"
+    ADOPTED = "adopted"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -69,14 +73,15 @@ class ProfilesReceipt(Struct, frozen=True):
 
 
 class Profiles:
-    _receipt: ClassVar[ProfilesReceipt | None] = None
+    # two-tier custody: per-composition receipts key by ScopeKey; `latched` guards the one process push agent,
+    # pyroscope.configure being process-global — the first emitting install owns the push pipeline.
+    _receipts: ClassVar[Map[ScopeKey, ProfilesReceipt]] = Map.empty()
+    _process: ClassVar[ProfilesReceipt | None] = None
 
     @classmethod
-    @latched(lambda: Profiles._receipt, lambda r: setattr(Profiles, "_receipt", r), lambda prior: replace(prior, outcome=ProfilesOutcome.REENTRANT))
-    def install(cls, profile: RuntimeProfile, endpoint: str, tags: Mapping[str, str] = {}, tenant: str | None = None) -> ProfilesReceipt:
+    @latched(lambda: Profiles._process, lambda r: setattr(Profiles, "_process", r), lambda prior: replace(prior, outcome=ProfilesOutcome.ADOPTED))
+    def _pushed(cls, endpoint: str, tags: Mapping[str, str], tenant: str | None) -> ProfilesReceipt:
         application = SCOPES[Scope.SERVICE]
-        if not PROFILE_POLICY[profile].emit_otel:
-            return ProfilesReceipt(ProfilesOutcome.SILENT, application, endpoint, linked=False, tenant=tenant)
         # tenant_id carries the store's org routing when a multi-tenant store fronts the push — the profile-store
         # half of the folder's tenant dimension, matching the rasm.tenant fold on every measurement.
         pyroscope.configure(application_name=application, server_address=endpoint, tags=dict(tags), tenant_id=tenant, oncpu=True, gil_only=True)
@@ -87,6 +92,28 @@ class Profiles:
             case _:
                 return ProfilesReceipt(ProfilesOutcome.INSTALLED, application, endpoint, linked=False, tenant=tenant)
 
+    @classmethod
+    def install(
+        cls,
+        profile: RuntimeProfile,
+        endpoint: str,
+        tags: Mapping[str, str] | None = None,
+        tenant: str | None = None,
+        *,
+        scope: ScopeKey = DEFAULT_SCOPE,
+    ) -> ProfilesReceipt:
+        match cls._receipts.try_find(scope):
+            case Option(tag="some", some=prior):
+                return replace(prior, outcome=ProfilesOutcome.REENTRANT)
+            case _:
+                receipt = (
+                    ProfilesReceipt(ProfilesOutcome.SILENT, SCOPES[Scope.SERVICE], endpoint, linked=False, tenant=tenant)
+                    if not PROFILE_POLICY[profile].emit_otel
+                    else cls._pushed(endpoint, tags if tags is not None else {}, tenant)
+                )
+                cls._receipts = cls._receipts.add(scope, receipt)
+                return receipt
+
     @staticmethod
     def phase(tags: Mapping[str, str]) -> AbstractContextManager[None]:
         # bounded-window sample tagging: a recipe stage or worker kernel window scopes its flame samples, and the
@@ -94,9 +121,17 @@ class Profiles:
         return pyroscope.tag_wrapper(dict(tags))
 
     @classmethod
-    def shutdown(cls) -> None:
-        pyroscope.shutdown()
-        cls._receipt = None
+    def shutdown(cls, scope: ScopeKey = DEFAULT_SCOPE) -> None:
+        # custody law: only the scope holding the INSTALLED receipt stops the push thread, clearing every scope receipt
+        # (an ADOPTED receipt over a stopped agent is stale) and re-arming a clean re-install; any other scope retires
+        # its own receipt alone.
+        match cls._receipts.try_find(scope).map(lambda r: r.outcome is ProfilesOutcome.INSTALLED).default_value(False):
+            case True:
+                pyroscope.shutdown()
+                cls._process = None
+                cls._receipts = Map.empty()
+            case _:
+                cls._receipts = cls._receipts.remove(scope) if cls._receipts.contains_key(scope) else cls._receipts
 ```
 
 ## [03]-[BENCH]

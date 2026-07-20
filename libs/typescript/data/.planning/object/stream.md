@@ -233,12 +233,14 @@ const _identity = (
 ## [05]-[RESUME_RAIL]
 
 - Owner: the tus assembly — the staging `S3Store` under one part-policy row, the `Server` with every hook seam armed (`onUploadCreate` admission, `onIncomingRequest` gate, `onUploadFinish` finalize, `onResponseError` observation, the `MemoryLocker` PATCH exclusivity), the finalize re-home, and the staging groom — plus the protocol growth row: the IETF resumable-upload draft swaps in on RFC with identical offset/complete semantics and zero store or hook edits.
-- Packages: `@tus/server` (`Server`, `EVENTS`, `MemoryLocker`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Layer`, `Schedule`).
+- Packages: `@tus/server` (`Server`, `EVENTS`, `MemoryLocker`, `ServerOptions` — `onUploadCreate`/`onIncomingRequest`/`onResponseError`/`lockDrainTimeout`/`postReceiveInterval`); `@tus/s3-store` (`S3Store` — `partSize`/`minPartSize`/`maxConcurrentPartUploads`/`useTags`/`cache`); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Layer`, `Metric`, `Schedule`); `@rasm/ts/core` (`Convention` — the throughput instrument row); `journal/append.md` (`Hook` — the `objectAdmit` veto and observe taps).
 - Entry: the serving plane mounts `rail.node` (node req/res) or `rail.web` (fetch Request→Response) under its route; the browser leg is `tus-js-client` driving POST/PATCH/HEAD against this mount — a ui-branch consumer of the wire protocol, never of this module.
 - Receipt: `onUploadFinish` returns the finalize receipt onto the reply — `{ key, bytes, written }` — so the client learns its content key in the completing response; the 412 case reads `written: false`, the dedup success.
 - Growth: a per-caller quota is the `maxSize` function reading the caller's admission; a second staging band (media versus artifact) is a second `Rail.of` with its own cut policy and retention row; RUFH lands as the protocol row swap.
 - Law: staging and content never share keys — tus ids are random staging identity, `namingFunction` prefixes the staging band, and identity exists only after the finalize fold; a staging key leaking as a content coordinate is the named defect.
 - Law: the hook seams are the admission and gate rows — `onUploadCreate` stamps the staging owner into the upload metadata before creation, `onIncomingRequest` runs the spec's `gate` (the serving plane's admission handoff) per request, `onResponseError` folds every error reply into one structured log, and `postReceiveInterval` paces the progress events the `EVENTS` taps observe — every seam a `Rail.Spec` value, never a fork of the handler classes.
+- Law: the create seam IS the `rasm.data.object.admit` veto point — after the spec's `admit` enriches metadata, `Hook.gated("objectAdmit", ...)` runs the app-armed veto with the staging id, resolved owner, and declared length (`Option`-carried because a deferred-length upload declares none), and a refusal rejects the bridge as the tus-conformant error reply; the finalize fold fans the same point's observe taps with the landed content key AFTER the conditional re-home and reference row commit, so no subscriber sees a key that is not yet durable.
+- Law: resumable-upload throughput projects from the finalize receipt — the landed span increments the `Convention.instrument.streamBytes` counter once per completed upload, so the rate IS throughput while the receipt stays the truth; a per-PATCH byte meter would double-count retried offsets and is the rejected spelling.
 - Law: finalize is fold-then-conditional — read the staged object as a stream, run the chunk stage and the identity fold, re-home through the streaming conditional put (`putKeyed` carrying the proven span), record the reference row through `store.refer` (the derived retention tag lands with it), remove the staging upload; the whole fold is idempotent because the re-home lands 412 on replay, the reference upsert re-arms, and the staging removal is the only destructive step, ordered last.
 - Law: finalize is TWO bounded staging reads by the same law that governs disk intake — the content key cannot exist before the last byte is hashed, so the identity pass precedes the re-home pass and memory stays constant at any size; a buffering tee that halves staging egress buys bytes with unbounded memory and is the rejected trade.
 - Law: every provider promise on the resume rail converts through `Effect.tryPromise` into `ObjectFault` — the staged read, the re-home, the staging removal, the dispatch members, and the groom alike — so a failed staging read or removal is a typed rail outcome, never a bare rejection; `Effect.promise` is unspellable on this page because no tus or store promise is rejection-free.
@@ -304,13 +306,20 @@ sequenceDiagram
 ```
 
 ```typescript signature
-import { Duration, Redacted, Runtime } from "effect"
+import { Duration, Metric, Redacted, Runtime } from "effect"
 import { EVENTS, MemoryLocker, Server } from "@tus/server"
 import { S3Store } from "@tus/s3-store"
 import { Readable } from "node:stream"
 import type http from "node:http"
+import { Convention } from "@rasm/ts/core"
+import { Hook } from "../journal/append.ts"
 import { ObjectStore } from "./store.ts"
 import type { Retain } from "../journal/retain.ts"
+
+const _streamed = Metric.counter(Convention.instrument.streamBytes.name, {
+  description: Convention.instrument.streamBytes.description,
+  incremental: true,
+})
 
 declare namespace Rail {
   type Admission = { readonly id: string; readonly metadata: Readonly<Record<string, string | null>> }
@@ -370,7 +379,11 @@ const _rail = (spec: Rail.Spec) =>
         const admitted = spec.admit === undefined
           ? {}
           : await Runtime.runPromise(runtime)(spec.admit(req, { id: upload.id, metadata: supplied }))
-        return { metadata: { ...supplied, ...admitted, owner: admitted.owner ?? supplied.owner ?? `tus:${spec.staging}` } }
+        const owner = admitted.owner ?? supplied.owner ?? `tus:${spec.staging}`
+        await Runtime.runPromise(runtime)(
+          Hook.gated("objectAdmit", { key: upload.id, owner, bytes: Option.fromNullable(upload.size) }),
+        ) // the app-armed veto: a refusal rejects the bridge as the tus-conformant error reply
+        return { metadata: { ...supplied, ...admitted, owner } }
       },
       onIncomingRequest: async (req, uploadId) => {
         if (spec.gate !== undefined) await Runtime.runPromise(runtime)(spec.gate(req, uploadId))
@@ -391,6 +404,12 @@ const _rail = (spec: Rail.Spec) =>
               identity.bytes,
             )
             yield* store.refer(identity.key, upload.metadata?.owner ?? `tus:${spec.staging}`, spec.retention)
+            yield* Metric.incrementBy(_streamed, identity.bytes) // throughput projects once per completed upload: retried offsets never double-count
+            yield* Hook.tapped("objectAdmit", {
+              key: identity.key,
+              owner: upload.metadata?.owner ?? `tus:${spec.staging}`,
+              bytes: Option.some(identity.bytes),
+            }) // observe fan after the durable re-home and reference commit
             yield* Effect.tryPromise({
               try: () => staging.remove(upload.id),
               catch: (caught) => new ObjectFault({ reason: "io", key: upload.id, detail: String(caught) }),

@@ -11,10 +11,11 @@ Eight canvas paint fences are `Canvas/paint.md`'s executor and never appear as r
 - [02]-[FACTS]: `CanvasSignal`/`DocumentSignal`/`GraphSignal`/`SolutionSignal`/`UndoSignal`/`LifecycleStage` + `UiFact` + `UiEvent` — the signal vocabularies, the one payload union, and the published envelope.
 - [03]-[SOURCES]: `EventAnchor` + `UiSource` — the anchor union and the source-row vocabulary with its attach/detach column and per-anchor row-factory folds.
 - [04]-[SUBSCRIPTION]: `UiSubscription` + `UiEvents` — transactional multi-row attachment behind one `Observe` gate returning `Fin<Lease<UiSubscription>>`.
+- [05]-[DRAIN]: `DrainPolicy` + `EvidenceDrain` — the bounded off-thread evidence channel with drop accounting and the publish-callback bridge.
 
 ## [02]-[FACTS]
 
-- Owner: `UiFact` `[Union]` — the one payload family every source row publishes into. Cases carry typed evidence, never provider argument objects: `PointerCase` (location, buttons, modifiers, wheel delta, pressure — the full `MouseEventArgs` evidence set), `KeyCase` (key, modifiers, pressed, composed character), `TextCase` (composed text), `DragCase` (location, effect mask), `FocusCase` (gained), `EnabledCase` (live enabled state), `BoundsCase` (bounds), `DensityCase` (logical pixel size), `StateCase` (window state), `LifeCase` (a `LifecycleStage` row), `ModifierCase` (live modifier mask), `CanvasCase` (signal row with the dwell content point where the raising event carries one), `DocumentCase` (signal row with the owning document's `DocumentToken` id), `GraphCase` (signal row with the subject's `InstanceId`), `SolutionCase` (signal row, the host `SolutionId` run identity, and the `Faulted` row's `Error`), `UndoCase` (signal row), `BeatCase` (a `ClockBeat`), `NoticeCase` (activation id and user data, both host strings), `FaultCase` (an `Error` from the unhandled-exception stream, lowered through the kernel fault vocabulary). Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows — `CanvasSignal` (6), `DocumentSignal` (3), `GraphSignal` (10, the full `ObjectList` event set), `SolutionSignal` (6, in lifecycle order `AboutToStart`→`Started`→`Stopped`→`Cancelled`→`Completed`→`Faulted`), `UndoSignal` (7, the full `History` event set), `LifecycleStage` (Eto `PreLoad`/`Load`/`LoadComplete`/`Shown`/`UnLoad`/`Closing`/`Closed` and app `Initialized`/`Terminating`/`ActiveChanged`).
+- Owner: `UiFact` `[Union]` — the one payload family every source row publishes into. Cases carry typed evidence, never provider argument objects: `PointerCase` (location, buttons, modifiers, wheel delta, pressure — the full `MouseEventArgs` evidence set), `KeyCase` (key, modifiers, pressed, composed character), `TextCase` (composed text), `DragCase` (location, effect mask), `FocusCase` (gained), `EnabledCase` (live enabled state), `BoundsCase` (bounds), `DensityCase` (logical pixel size), `StateCase` (window state), `LifeCase` (a `LifecycleStage` row), `ModifierCase` (live modifier mask), `CanvasCase` (signal row with the dwell content point where the raising event carries one), `DocumentCase` (signal row with the owning document's `DocumentToken` id), `GraphCase` (signal row with the subject's `InstanceId`), `SolutionCase` (signal row, the host `SolutionId` run identity, and the `Faulted` row's `Error`), `UndoCase` (signal row), `BeatCase` (a `ClockBeat`), `NoticeCase` (activation id and user data, both host strings), `FaultCase` (an `Error` from the unhandled-exception stream, lowered through the kernel fault vocabulary). Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows — `CanvasSignal` (6), `DocumentSignal` (3), `GraphSignal` (10, the full `ObjectList` event set), `SolutionSignal` (6, in lifecycle order `AboutToStart`→`Started`→`Stopped`→`Cancelled`→`Completed`→`Faulted`), `UndoSignal` (7, the full `History` event set), `LifecycleStage` (Eto `PreLoad`/`Load`/`LoadComplete`/`Shown`/`UnLoad`/`Closing`/`Closed` and app `Initialized`/`Terminating`).
 - Owner: `UiEvent` readonly record struct — the published envelope carries the raising `UiSource`, `UiFact`, and sink-local `Stamp` publication ordinal; it implements `IValidityEvidence` through the claim fold and validates nested `ClockBeat` evidence when the fact is `BeatCase`. Consumers receive `UiEvent` values only — a host `EventArgs` object never crosses the algebra. `Stamp` proves serialized event order, carries no elapsed-time meaning, and never competes with `MonotonicTimeline`.
 - Law: facts are evidence, never live resources — a `DocumentCase` carries the `DocumentToken` `Guid` (`Shell/session.md`'s per-instance identity mint, because GH2 `Document` carries no cheap host id), never the `Document`; a `GraphCase` carries `IDocumentObject.InstanceId`; a `SolutionCase` carries the host `SolutionId` value identity; a consumer needing the live object re-enters through `GhSession.Run`, so a stale fact can never hand out a disposed host reference.
 - Law: sparse projection is the contract by decision — a fact carries what its source row verifiably reads, and a consumer needing more evidence extends the CASE with a field, never mints a sibling snapshot record.
@@ -93,7 +94,6 @@ public sealed partial class LifecycleStage {
     public static readonly LifecycleStage Closed = new(key: 6);
     public static readonly LifecycleStage Initialized = new(key: 7);
     public static readonly LifecycleStage Terminating = new(key: 8);
-    public static readonly LifecycleStage ActiveChanged = new(key: 9);
 }
 
 [Union]
@@ -138,15 +138,16 @@ public readonly record struct UiEvent(UiSource Source, UiFact Fact, long Stamp) 
 - Owner: `UiSource` `[SmartEnum<string>]` — the source-row vocabulary, string-keyed for wire/diagnostic identity, over ONE `[UseDelegateFromConstructor]` `Attach(EventAnchor, EventSink, Op)` column returning `Fin<IDisposable>` whose disposable IS the inverse detachment. Rows are constructed by per-anchor factory folds so no row hand-rolls its subscription mechanics: `CanvasRow`/`DocumentRow`/`SolutionRow`/`HistoryRow` wire the GH2 families, `ControlRow`/`WindowRow` wire the Eto families, `AmbientRow` wires application and keyboard statics, and the clock row bridges the `UiClock` beat. Rows whose family differs only in which host event the wire touches collapse through shared-args sub-folds — `Pointer`/`Keystroke`/`DragRow`/`Stage` on the Eto side, `Subject` (the six `ObjectEventArgs` object-list rows), `Pulse` (the four `SolutionEventArgs` lifecycle rows), and `Ledger`/`LedgerNode` (the `UndoEventArgs`/`UndoNodeEventArgs` triplets) on the GH2 side — the event choice is row data, never a sibling body.
 - Entry: rows are data — the only executable surface is the internal `Attach` column the `[04]` gate drains; no per-row public subscribe method exists.
 - Law: every host-event attach body registers a stored handler and returns a `Detachment` capturing the exact `-=` inverse; the clock row returns `UiClock.Tap`'s token handle directly. A subscription without its inverse is unconstructible.
-- Law: `EventSink` contains the entire deferred callback — host-argument projection, fact construction, envelope construction, and consumer publication cross one `Op.Catch`, and the exact failure persists on `UiSubscription.LastFault` without escaping into the raising host. Publication never re-enters the host; consumer mutation re-enters through `GhSession`, so event storms cannot recurse into the surface that raised them.
+- Law: `EventSink` contains the entire deferred callback — host-argument projection, fact construction, envelope construction, and consumer publication cross one `Op.Catch`, and the exact failure persists on `UiSubscription.LastFault` without escaping into the raising host while emitting once through the generated `UiEventsLog.PublicationFault` partial under the `GhLog.For` category logger, so a retained fault is observable without polling the cell. Publication never re-enters the host; consumer mutation re-enters through `GhSession`, so event storms cannot recurse into the surface that raised them.
 - Law: `ClockBeats` attaches through `UiClock.Tap` and returns that token-addressed observer handle as its sole detachment. Observation never starts or stops the shared clock; the clock lease owner controls lifecycle, multiple subscriptions coexist independently, and `BeatCase` carries the exact `ClockBeat`/`MonotonicBeat` emitted by the runtime without sampling another clock.
 - Law: every wire spells its host delegate exactly — `Canvas.DocumentChanged`/`DocumentModified` are bare `EventHandler`; the flex-seam four carry typed args (`ProjectionChangedEventArgs`, `WindowSelectionEventArgs`, `MouseDwellEventArgs` with `ControlPoint`/`ContentPoint`, `ControlDrawEventArgs`); the document three carry `DocumentModifiedEventArgs`/`DocumentStateEventArgs`/`BeforeAfterEventArgs<Document, IDocumentParent>`; the object-list ten carry `AfterAddObjectEventArgs`/`AfterRemoveObjectEventArgs`/`ObjectEventArgs`/`ObjectNameEventArgs`/`ObjectGuidEventArgs`; the solution six carry `SolutionIdEventArgs`/`SolutionEventArgs`/`SolutionExceptionEventArgs`; the undo seven carry `UndoEventArgs`/`UndoNodeEventArgs`/`UndoNodeMovedEventArgs`. A wire assuming a wrong delegate family fails at compile, which is the property the exact spellings buy.
-- Boundary: the native-monitor row family (`AppKit` local event monitors, `NSWorkspace` accessibility observation) is declared by `Platform/native.md` and registers into this vocabulary through the same attach-column contract — the platform owner supplies the gated attach delegate; this page owns no `#if` and no AppKit spelling.
+- Boundary: native-monitor streams (`AppKit` local event monitors, `NSWorkspace` accessibility observation) are `Platform/native.md`'s — the platform owner adapts its gated monitors onto this algebra from above, publishing projected facts under the same containment contract the rows carry (`Op.Catch`, exact inverse, fault retention); `UiSource` itself carries no native row because the floor never imports upward, and this page owns no `#if` and no AppKit spelling.
 - Packages: Grasshopper2 (the canvas/document/object-list/solution/history event families and their args types), Eto (the control/window/application/keyboard event families), `Rasm.Domain` (`Op`, `Fault`), `Eto/runtime.md` (`UiClock`, `ClockBeat`, `EtoDispatch`), `Shell/session.md` (`DocumentToken`).
 - Growth: a new host stream is one row through an existing fold; a new anchor kind is one `EventAnchor` case with one fold — the column and the gate never change.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Microsoft.Extensions.Logging;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
 
@@ -172,6 +173,14 @@ internal sealed class Detachment(Action release) : IDisposable {
     public void Dispose() => Op.SideWhen(condition: Interlocked.Exchange(location1: ref released, value: 1) == 0, action: release);
 }
 
+internal static partial class UiEventsLog {
+    [LoggerMessage(EventId = 4702, Level = LogLevel.Error, Message = "UI event publication faulted on {Source}: {Detail}")]
+    internal static partial void PublicationFault(ILogger logger, string source, string detail);
+
+    [LoggerMessage(EventId = 4712, Level = LogLevel.Error, Message = "UI subscription teardown faulted: {Detail}")]
+    internal static partial void TeardownFault(ILogger logger, string detail);
+}
+
 internal sealed class EventSink(Action<UiEvent> publish, Atom<Option<Error>> lastFault, Op operation) {
     private readonly object gate = new();
     private long nextStamp;
@@ -192,7 +201,10 @@ internal sealed class EventSink(Action<UiEvent> publish, Atom<Option<Error>> las
                        select published;
             }
         });
-        outcome.IfFail(error => ignore(lastFault.Swap(_ => Some(error))));
+        outcome.IfFail(error => {
+            ignore(lastFault.Swap(_ => Some(error)));
+            UiEventsLog.PublicationFault(logger: GhLog.For(category: nameof(UiEvents)), source: source.Key, detail: error.Message);
+        });
     }
 }
 
@@ -304,8 +316,6 @@ public sealed partial class UiSource {
         wire: static (application, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Initialized)); application.Initialized += h; return new Detachment(release: () => application.Initialized -= h); });
     public static readonly UiSource AppTerminating = AmbientRow(key: "app.terminating",
         wire: static (application, emit) => { EventHandler<CancelEventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Terminating)); application.Terminating += h; return new Detachment(release: () => application.Terminating -= h); });
-    public static readonly UiSource AppActiveChanged = AmbientRow(key: "app.active-changed",
-        wire: static (application, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.ActiveChanged)); application.IsActiveChanged += h; return new Detachment(release: () => application.IsActiveChanged -= h); });
     public static readonly UiSource AppUnhandledFault = AmbientRow(key: "app.unhandled-fault",
         wire: static (application, emit) => { EventHandler<UnhandledExceptionEventArgs> h = (_, args) => emit(() => new UiFact.FaultCase(Failure: Error.New(args.ExceptionObject as Exception ?? new InvalidOperationException()))); application.UnhandledException += h; return new Detachment(release: () => application.UnhandledException -= h); });
     public static readonly UiSource AppNotificationActivated = AmbientRow(key: "app.notification-activated",
@@ -435,6 +445,7 @@ public sealed partial class UiSource {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Microsoft.Extensions.Logging;
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
 
@@ -478,6 +489,7 @@ public sealed class UiSubscription : IDisposable {
             Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return Fin.Succ(unit); },
             Fail: error => {
                 ignore(lastFault.Swap(_ => Some(error)));
+                UiEventsLog.TeardownFault(logger: GhLog.For(category: nameof(UiEvents)), detail: error.Message);
                 Volatile.Write(location: ref releaseState, value: entered ? 2 : 0);
                 return Fin.Fail<Unit>(error: error);
             });
@@ -505,6 +517,82 @@ public static class UiEvents {
                    .Map(attached => (Lease<UiSubscription>)new Lease<UiSubscription>.Owned(Value: new UiSubscription(
                        detachments: attached, lastFault: lastFault))), key: op)
                select lease;
+    }
+}
+```
+
+## [05]-[DRAIN]
+
+- Owner: `DrainPolicy` sealed record — capacity and full-mode as one policy value; `Default` bounds the buffer and sheds the oldest element, and admission refuses `BoundedChannelFullMode.Wait` because the publish bridge lives on host callback paths that never park.
+- Owner: `EvidenceDrain` sealed `IDisposable` — one bounded `Channel<UiEvent>` minted through `Channel.CreateBounded<UiEvent>(BoundedChannelOptions, Action<UiEvent>? itemDropped)` under `SingleReader = true`, `SingleWriter = false`, and `AllowSynchronousContinuations = false`, so a UI or host callback never runs a consumer continuation inline. The drop observer is the loss-evidence seam: every evicted element counts on `Shed`, keys its `UiSource`, and forwards to the optional shed callback the composition wires into `GhEvidence.DropCase` — `TryWrite` reports admission, never delivery, so loss evidence rides `itemDropped` alone.
+- Entry: `EvidenceDrain.Open(Option<DrainPolicy> policy = default, Option<Action<UiEvent>> onShed = default, Op? key = null)` → `Fin<EvidenceDrain>`; `Publish(UiEvent fact)` — the non-blocking bridge handed to `Observe` as its publish callback; `Reader` — the observation half a single consumer drains; `Complete(Op? key = null)` — idempotent writer completion.
+- Law: the bridge is one `TryWrite` and returns — a `false` admission (completed channel) counts as shed with the same accounting, and no publish path awaits, locks past the write, or retains the event; `Shell/journal.md` `SessionJournal.Mount` is the one structural reader the `SingleReader` promise names.
+- Packages: System.Threading.Channels (`Channel.CreateBounded`, `BoundedChannelOptions`, `BoundedChannelFullMode`, `ChannelReader<T>`, `ChannelWriter<T>`), LanguageExt.Core, `Rasm.Domain` (`Op`).
+- Growth: a new consumer is another drain instance over the same rows — the channel, its policy record, and the bridge never widen.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using System.Threading.Channels;
+using Rasm.Csp;
+
+namespace Rasm.Grasshopper.Shell;
+
+// --- [CONSTANTS] ----------------------------------------------------------------------------
+public sealed record DrainPolicy(int Capacity, BoundedChannelFullMode FullMode) {
+    public static readonly DrainPolicy Default = new(Capacity: 1024, FullMode: BoundedChannelFullMode.DropOldest);
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class EvidenceDrain : IDisposable {
+    private readonly Channel<UiEvent> channel;
+    private readonly Atom<long> shedCount = Atom(0L);
+    private int releaseState;
+
+    private EvidenceDrain(Channel<UiEvent> channel) => this.channel = channel;
+
+    public ChannelReader<UiEvent> Reader => channel.Reader;
+    public long Shed => shedCount.Value;
+
+    public static Fin<EvidenceDrain> Open(
+        Option<DrainPolicy> policy = default, Option<Action<UiEvent>> onShed = default, Op? key = null) {
+        Op op = key.OrDefault();
+        DrainPolicy bound = policy.IfNone(DrainPolicy.Default);
+        return from admitted in guard(
+                   bound.Capacity > 0 && bound.FullMode != BoundedChannelFullMode.Wait,
+                   op.InvalidInput()).ToFin()
+               from drain in op.Catch(body: () => {
+                   EvidenceDrain? minted = null;
+                   Channel<UiEvent> bounded = Channel.CreateBounded<UiEvent>(
+                       options: new BoundedChannelOptions(capacity: bound.Capacity) {
+                           SingleReader = true,
+                           SingleWriter = false,
+                           AllowSynchronousContinuations = false,
+                           FullMode = bound.FullMode,
+                       },
+                       itemDropped: dropped => minted?.Account(fact: dropped, onShed: onShed, key: op));
+                   minted = new EvidenceDrain(channel: bounded);
+                   return Fin.Succ(minted);
+               })
+               select drain;
+    }
+
+    public Unit Publish(UiEvent fact) {
+        Op.SideWhen(
+            condition: !channel.Writer.TryWrite(item: fact),
+            action: () => Account(fact: fact, onShed: Option<Action<UiEvent>>.None, key: Op.Of(name: nameof(EvidenceDrain))));
+        return unit;
+    }
+
+    public Fin<Unit> Complete(Op? key = null) =>
+        key.OrDefault().Catch(body: () => Fin.Succ(Op.Side(action: () => ignore(channel.Writer.TryComplete()))));
+
+    public void Dispose() => Op.SideWhen(
+        condition: Interlocked.Exchange(location1: ref releaseState, value: 1) == 0,
+        action: () => ignore(channel.Writer.TryComplete()));
+
+    private void Account(UiEvent fact, Option<Action<UiEvent>> onShed, Op key) {
+        ignore(shedCount.Swap(static count => count + 1L));
+        onShed.Iter(observer => ignore(key.Catch(body: () => Fin.Succ(Op.Side(action: () => observer(obj: fact))))));
     }
 }
 ```
@@ -553,7 +641,7 @@ flowchart TB
   Clock -->|"ClockBeat · MonotonicBeat"| Sink["EventSink · Op.Catch"]
   GH2 -->|"project callback"| Sink
   EtoHost -->|"project callback"| Sink
-  Native["Gated native rows"] -.->|"same attach contract"| Rows
+  Native["Gated native monitors"] -.->|"projected facts from above"| Sink
   Sink -->|"publishes UiEvent · records LastFault"| Subscription["Lease&lt;UiSubscription&gt;"]
   Subscription -->|"typed publication"| Consumer["Boundary consumer"]
   Rows -->|"stores reverse-order inverses"| Subscription
@@ -566,14 +654,15 @@ flowchart TB
   linkStyle 9 stroke:#FF5555,stroke-width:2.5px
 ```
 
-## [05]-[DENSITY_BAR]
+## [06]-[DENSITY_BAR]
 
 | [INDEX] | [CONCERN]           | [OWNER]                         | [SHAPE_RAIL]                                | [CASES] |
 | :-----: | :------------------ | :------------------------------ | :------------------------------------------ | :-----: |
-|  [01]   | signal vocabularies | `CanvasSignal`…`LifecycleStage` | six keyed smart-enum row sets               |   42    |
+|  [01]   | signal vocabularies | `CanvasSignal`…`LifecycleStage` | six keyed smart-enum row sets               |   41    |
 |  [02]   | payload evidence    | `UiFact` + `UiEvent`            | closed union → validated event              |   19    |
 |  [03]   | attachment anchors  | `EventAnchor`                   | closed union → attach admission             |    8    |
-|  [04]   | source rows         | `UiSource`                      | smart-enum rows → `Fin<IDisposable>`        |   68    |
+|  [04]   | source rows         | `UiSource`                      | smart-enum rows → `Fin<IDisposable>`        |   67    |
 |  [05]   | subscription        | `UiSubscription` + `UiEvents`   | kernel lease → `Fin<Lease<UiSubscription>>` |    1    |
+|  [06]   | bounded drain       | `EvidenceDrain` + `DrainPolicy` | drop-mode channel → accounted loss evidence |    1    |
 
-`Op`, `Fault`, `Lease<T>`, `ValidityClaim`, `EtoDispatch`, `UiClock`, and `DocumentToken` are composed upstream owners. A new host stream lands as one row through an existing fold with zero consumer impact.
+`Op`, `Fault`, `Lease<T>`, `ValidityClaim`, `EtoDispatch`, `UiClock`, `GhLog`, and `DocumentToken` are composed upstream owners. A new host stream lands as one row through an existing fold with zero consumer impact.

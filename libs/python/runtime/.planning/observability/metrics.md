@@ -1,21 +1,21 @@
 # [PY_RUNTIME_METRICS]
 
-`Metrics` is the async-observable metric spine, registering the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns both instrument disciplines and every derived surface, so a new signal is one row. `install` rides the imported `latched` one-shot aspect, so a re-bootstrap returns the cached `MeterReceipt` stamped `REENTRANT` and the SDK never holds a doubled callback set.
+`Metrics` is the async-observable metric spine, registering the measured instrument set against the `observability/telemetry#TELEMETRY`-installed `MeterProvider` — it constructs no provider, reader, or exporter, minting its meter once from the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row — and one `INSTRUMENTS` table owns both instrument disciplines and every derived surface, so a new signal is one row. Install custody is two-tier: per-composition `MeterReceipt`s key by the receipts-owned `ScopeKey` — a same-scope re-bootstrap returns its cached receipt stamped `REENTRANT`, a second composition after enrollment receives `ADOPTED` — while the imported `latched` guards the one process enrollment, so the SDK never holds a doubled callback set.
 
-Instruments read a frozen `MetricState` swapped under one atomic reference store, so the export thread reads the latest complete fold and the serve leg publishes lock-free. Every recording path threads `context=` because Python exemplars attach only from a supplied span context, and the telemetry install wires `exemplar_filter=TraceBasedExemplarFilter()` — without it the SDK default drops every exemplar. Names spell `rasm.<domain>.<measure>` with UCUM units and no pre-baked `_total` or unit suffix, scope stays the package id off the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row, and the `schema_url` pin is the telemetry owner's. Tenant folds on as the `rasm.tenant` baggage entry the W3C composite carries; a single-tenant process carries no entry. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner registers, the drain taxonomy imports from `observability/receipts#RECEIPT`, and provider install, `View`/exemplar machinery, product export, and health stay telemetry-, resilience-, and AppHost-owned.
+Instruments read frozen `MetricState` snapshots keyed per composition scope and swapped under one atomic reference store, so the export thread reads each scope's latest complete fold and the serve leg publishes lock-free; a non-default scope's observations carry a `composition` attribute, the default scope staying attribute-free exactly as the tenant law spells absence. Every recording path threads `context=` because Python exemplars attach only from a supplied span context, and the telemetry install wires `exemplar_filter=TraceBasedExemplarFilter()` — without it the SDK default drops every exemplar. Names spell `rasm.<domain>.<measure>` with UCUM units and no pre-baked `_total` or unit suffix, scope stays the package id off the `reliability/faults#FAULT` `SCOPES[Scope.METER]` row, and the `schema_url` pin is the telemetry owner's. Tenant folds on as the `rasm.tenant` baggage entry the W3C composite carries; a single-tenant process carries no entry. Retry attempts ride the metrics-owned `retry_hook` the `reliability/resilience#RESILIENCE` owner registers, the drain taxonomy imports from `observability/receipts#RECEIPT`, and provider install, `View`/exemplar machinery, product export, and health stay telemetry-, resilience-, and AppHost-owned.
 
 ## [01]-[INDEX]
 
-- [01]-[METRIC]: the one `INSTRUMENTS` table, the atomic-swap `MetricState` snapshot, the `latched` install, the polymorphic `record`, the composed `retry_hook`, and the `measured` serve aspect.
-- [02]-[INSTRUMENTATION]: the composition-root instrumentor train over the contrib packages, with the system-metrics slice ruling.
+- [01]-[METRIC]: the one `INSTRUMENTS` table, the scope-keyed atomic-swap `MetricState` snapshots, the two-tier `latched` install custody, the polymorphic `record`, the composed `retry_hook`, and the `measured` serve aspect.
+- [02]-[INSTRUMENTATION]: the composition-root instrumentor train over the contrib packages, the generic PEP-249 `DbapiSeam` wrap arm, and the system-metrics slice ruling.
 
 ## [02]-[METRIC]
 
-- Owner: `INSTRUMENTS` is the one table every derived surface reads — the `slot` rows mint the `SyncInstruments` carrier by comprehension, the `slot=None` rows register through the typed `ObservableFactory` dispatch, the `domain` rows derive `_DOMAIN_SLOT`, and `MeterReceipt.instruments` names the same rows — no per-instrument `create_*` call, seed function, or name-to-field map beside it. `latched` imports from `reliability/faults#FAULT` and closes over the `_receipt` accessor pair — one definition, two latches with the telemetry owner, never a re-pinned local guard.
+- Owner: `INSTRUMENTS` is the one table every derived surface reads — the `slot` rows mint the `SyncInstruments` carrier by comprehension, the `slot=None` rows register through the typed `ObservableFactory` dispatch, the `domain` rows derive `_DOMAIN_SLOT`, and `MeterReceipt.instruments` names the same rows — no per-instrument `create_*` call, seed function, or name-to-field map beside it. `latched` imports from `reliability/faults#FAULT` and guards the process enrollment `_enrolled` beside the telemetry owner's pipeline latch — one definition, its `reentrant` closure stamping `ADOPTED` for a later composition — while the per-scope latch is the `_receipts` map fold, never a re-pinned local guard.
 - Entry: under a `PACKAGE`/`TEST` profile no provider is set, so `get_meter` resolves the API no-op meter and the fold mints no-op instruments — the gate is the installed provider, never a profile argument here. `record` is one polymorphic entrypoint: a scalar records the request-duration histogram, a `Mapping` records each named measure onto its `_DOMAIN_SLOT`-resolved row — the artifacts emit-harvest seam records under `domain="artifact"`, the data query-receipt projection under `domain="query"`, the geometry evidence weave under `domain="geometry"`, the bench family under `domain="bench"` — both arms under the active context so every measurement exemplar-correlates to its span, and both arms fold the `rasm.tenant` baggage entry onto the attributes through `_attributed`. `measured` folds a resolved rail through `FAULT_OUTCOME` at one site — `deadline` lands `cancelled`, every other fault `rejected`, an `Ok` rail `completed` — never a lossy ok/error bool per handler.
-- Auto: the frozen carriers turn over under atomic reference stores — a callback load reads either the prior or the next complete snapshot, immutability the correctness guarantee rather than a mutex. Its `psutil.Process` handle mints at install and carries through every swap, and the reading samples once per `observe`, so gauge callbacks read a cached fold rather than firing syscalls on the export thread; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. `rasm.lane.in_flight` carries the lane-computed went-live-but-unresolved cardinality — this owner never reads the lane's `CapacityLimiter` directly. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the receipts-owned `PROCESS_FAULTS` tuple, never a second local mint.
-- Growth: a new measured signal is one `InstrumentSpec` row — a synchronous row adds its `SyncInstruments` field, a domain row carries `domain`, an observable row registers through the one dispatch — and the receipt names itself from the table; a new instrument family is one `InstrumentKind` member and one dispatch entry; a new process probe one `ProbeField` literal with its `ProcessReading` field and `_gauge` row inside the batched `oneshot`; a new drain dimension one `DrainOutcome` member at the receipts owner, reaching this counter through the imported `DRAIN_COLUMNS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`; a new metric dimension one attribute in the `_attributed` fold.
-- Boundary: no second `MeterProvider`, no SDK provider/reader/exporter/`View`/exemplar construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — the histogram ships the API-level bucket advisory the SDK honors, and `View` ownership stays telemetry's.
+- Auto: the frozen carriers turn over under atomic reference stores — a callback load reads either the prior or the next complete snapshot, immutability the correctness guarantee rather than a mutex — and every observable callback folds across the scope-keyed state map, stamping `composition` on a non-default scope's observations so two embedded compositions' drains stay distinguishable on one instrument set. Its `psutil.Process` handle mints at install and carries through every swap, and the reading samples once per `observe`, so gauge callbacks read a cached fold rather than firing syscalls on the export thread; `cpu_percent(interval=None)` is the non-blocking since-last-call delta, the first sample the `0.0` seed. `rasm.lane.in_flight` carries the lane-computed went-live-but-unresolved cardinality — this owner never reads the lane's `CapacityLimiter` directly. `ProcessReading.sample`'s `suppress` is the one admitted raw-except site: the OTel observable-callback contract returns `Iterable[Observation]` and forbids a railed `Result`, so a dead-process race drops the reading and the gauges yield empty for that cycle; its vanished-process fence rides the receipts-owned `PROCESS_FAULTS` tuple, never a second local mint.
+- Growth: a new measured signal is one `InstrumentSpec` row — a synchronous row adds its `SyncInstruments` field, a domain row carries `domain`, an observable row registers through the one dispatch — and the receipt names itself from the table; a new instrument family is one `InstrumentKind` member and one dispatch entry; a new process probe one `ProbeField` literal with its `ProcessReading` field and `_gauge` row inside the batched `oneshot`; a new drain dimension one `DrainOutcome` member at the receipts owner, reaching this counter through the imported `DRAIN_COLUMNS` with no edit here; a new fault-to-outcome mapping one `FAULT_OUTCOME` row, unmapped tags defaulting `rejected`; a new metric dimension one attribute in the `_attributed` fold; a new composition one `ScopeKey` value threaded through `install`/`observe`'s `scope` keyword.
+- Boundary: no second `MeterProvider`, no SDK provider/reader/exporter/`View`/exemplar construction, no `set_on_retry_hooks` registration, and no AppHost telemetry envelope, health status, or product export — histogram wire shape is the telemetry owner's base2-exponential `WIRE_AGGREGATION` default, the advisory rows here staying the explicit-shape fallback a deployment `View` re-arms, and `View` ownership stays telemetry's.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -24,9 +24,11 @@ from contextlib import suppress
 from enum import StrEnum
 from functools import wraps
 from time import perf_counter
+from types import ModuleType
 from typing import ClassVar, Final, Literal, Protocol, overload
 
 import psutil
+from expression import Option
 from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
@@ -37,9 +39,10 @@ from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Ob
 from stamina.instrumentation import RetryDetails, RetryHook
 
 from rasm.runtime.faults import SCOPES, BoundaryFault, FaultTag, RuntimeRail, Scope, latched
-from rasm.runtime.receipts import DRAIN_COLUMNS, PROCESS_FAULTS, DrainOutcome, DrainReceipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, DRAIN_COLUMNS, PROCESS_FAULTS, DrainOutcome, DrainReceipt, ScopeKey
 
 lazy from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor  # train rows reify on first install, never at import
+lazy from opentelemetry.instrumentation.dbapi import instrument_connection, wrap_connect  # generic PEP-249 seam, reified at the first dbapi wrap
 lazy from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 lazy from opentelemetry.instrumentation.jinja2 import Jinja2Instrumentor
 lazy from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
@@ -74,14 +77,18 @@ class Instrumentor(Protocol):
     def instrument(self, **kwargs: object) -> None: ...
 
 
+# INSTALLED enrolled the process instrument set; REENTRANT is a same-scope re-install; ADOPTED is a later
+# composition riding the standing enrollment with its own state slot and receipt.
 class MeterOutcome(StrEnum):
     INSTALLED = "installed"
     REENTRANT = "reentrant"
+    ADOPTED = "adopted"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# request-duration bucket advisory (ms); the SDK honors it without a View, View ownership stays telemetry.
+# request-duration bucket advisory (ms) — the explicit-shape fallback: inert under telemetry's base2-exponential wire
+# default, it supplies the boundaries where a deployment View re-selects the explicit aggregation; View ownership stays telemetry.
 DURATION_BUCKETS_MS: Final[tuple[float, ...]] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 5000.0)
 
 # tenant dimension: the W3C Baggage entry the C#-parented context carries; absent entry = single-tenant, no attribute.
@@ -236,15 +243,18 @@ def _attributed(base: Mapping[str, object], context: "otel_context.Context") -> 
 
 
 class Metrics:
-    _state: ClassVar[MetricState] = MetricState(ZERO_DRAIN, psutil.Process(), None)
+    # two-tier custody: `_state`/`_receipts` key per-composition snapshots and evidence by ScopeKey; `_sync` and the
+    # observable enrollment are the process pipeline the `latched` `_enrolled` guards — instruments are SDK process
+    # singletons, so a doubled callback set stays structurally impossible while every composition owns its state slot.
+    _state: ClassVar[Map[ScopeKey, MetricState]] = Map.of_seq([(DEFAULT_SCOPE, MetricState(ZERO_DRAIN, psutil.Process(), None))])
     _sync: ClassVar[SyncInstruments] = _sync_carrier(metrics.get_meter(SCOPES[Scope.METER]))
-    _receipt: ClassVar[MeterReceipt | None] = None
+    _receipts: ClassVar[Map[ScopeKey, MeterReceipt]] = Map.empty()
+    _process: ClassVar[MeterReceipt | None] = None
 
     @classmethod
-    @latched(lambda: Metrics._receipt, lambda r: setattr(Metrics, "_receipt", r), lambda prior: replace(prior, outcome=MeterOutcome.REENTRANT))
-    def install(cls) -> MeterReceipt:
+    @latched(lambda: Metrics._process, lambda r: setattr(Metrics, "_process", r), lambda prior: replace(prior, outcome=MeterOutcome.ADOPTED))
+    def _enrolled(cls) -> MeterReceipt:
         meter = metrics.get_meter(SCOPES[Scope.METER])
-        process = psutil.Process()
         observable: dict[InstrumentKind, ObservableFactory] = {
             InstrumentKind.OBSERVABLE: meter.create_observable_counter,
             InstrumentKind.UP_DOWN: meter.create_observable_up_down_counter,
@@ -255,14 +265,25 @@ class Metrics:
             observable[spec.kind](spec.name, callbacks=[cls._callback(spec)], unit=spec.unit)
 
         INSTRUMENTS.filter(lambda spec: spec.slot is None).fold(enroll, None)
-        cls._state = MetricState(ZERO_DRAIN, process, ProcessReading.sample(process))
         cls._sync = _sync_carrier(meter)
         return MeterReceipt(MeterOutcome.INSTALLED, tuple(spec.name for spec in INSTRUMENTS), DRAIN_COLUMNS)
 
     @classmethod
-    def observe(cls, drain: DrainReceipt[object], in_flight: int = 0) -> None:
-        process = cls._state.process
-        cls._state = MetricState(drain, process, ProcessReading.sample(process), in_flight)
+    def install(cls, scope: ScopeKey = DEFAULT_SCOPE) -> MeterReceipt:
+        match cls._receipts.try_find(scope):
+            case Option(tag="some", some=prior):
+                return replace(prior, outcome=MeterOutcome.REENTRANT)
+            case _:
+                receipt = cls._enrolled()
+                process = psutil.Process()
+                cls._state = cls._state.add(scope, MetricState(ZERO_DRAIN, process, ProcessReading.sample(process)))
+                cls._receipts = cls._receipts.add(scope, receipt)
+                return receipt
+
+    @classmethod
+    def observe(cls, drain: DrainReceipt[object], in_flight: int = 0, *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
+        held = cls._state.try_find(scope).default_with(lambda: MetricState(ZERO_DRAIN, psutil.Process(), None))
+        cls._state = cls._state.add(scope, MetricState(drain, held.process, ProcessReading.sample(held.process), in_flight))
 
     @overload
     @classmethod
@@ -317,20 +338,46 @@ class Metrics:
 
     @classmethod
     def _callback(cls, spec: InstrumentSpec) -> ObservableCallback:
-        return lambda _: () if spec.project is None else spec.project(cls._state)
+        # one callback folds every composition's snapshot: the default scope's observations pass untouched (today's
+        # shape), a non-default scope's re-wrap with the `composition` attribute so embedded compositions never merge.
+        def observed(_: CallbackOptions) -> Iterable[Observation]:
+            match spec.project:
+                case None:
+                    return ()
+                case project:
+                    return [
+                        obs if scope == DEFAULT_SCOPE else Observation(obs.value, {**dict(obs.attributes or {}), "composition": scope})
+                        for scope, state in cls._state.items()
+                        for obs in project(state)
+                    ]
+
+        return observed
 ```
 
 ## [03]-[INSTRUMENTATION]
 
-- Owner: `Instrumentation.install` activates the contrib instrumentor train once — one `TRAIN` table of thunk rows over the module-scope `lazy from` imports, so the cold contrib modules reify on first install, never at import, and a table row never dereferences a lazy proxy at module scope.
+- Owner: `Instrumentation.install` activates the contrib instrumentor train once — one `TRAIN` table of thunk rows over the module-scope `lazy from` imports, so the cold contrib modules reify on first install, never at import, and a table row never dereferences a lazy proxy at module scope. `Instrumentation.dbapi` is the generic PEP-249 arm beside it: one `DbapiSeam` row names the driver module, connect callable, and `db.system` token, and one polymorphic entry either patches the connect callable forward through `wrap_connect` or retrofits a pre-patch live connection through `instrument_connection`, discriminating on whether a connection is handed in.
 - Cases: the DBAPI rows (`PsycopgInstrumentor`, `SQLite3Instrumentor`) patch the drivers the data query surfaces ride; `HTTPXClientInstrumentor` spans the transport client legs; `Jinja2Instrumentor` spans the artifacts template render/compile/load legs — renders happen at artifacts altitude, activation stays here; `ThreadingInstrumentor` and `AsyncioInstrumentor` propagate context across the thread and coroutine crossings the worker fabric drives; `SystemMetricsInstrumentor` runs the `_SYSTEM_SLICE` — the `system.*` and `cpython.gc.*` families alone, because the `rasm.process.*` gauges own the process family off the cached `MetricState` fold and one fact keeps one owner.
-- Entry: `install()` rides the imported `latched` and takes no profile argument — the gate is the installed provider, the same law the instrument fold holds — so a PACKAGE/TEST process patches against the no-op providers at zero export cost, and activation happens once at the composition root, never at library altitude.
-- Growth: a new instrumentor is one `lazy from` line and one `TRAIN` thunk row; a new system-metrics family is one `_SYSTEM_SLICE` key.
-- Boundary: the gRPC legs stay the serve interceptor's — the serve page's context authority forbids a second server-leg patch — and no sibling package activates an instrumentor.
+- Entry: `install(scope=)` latches per composition over the one `latched`-guarded train activation and takes no profile argument — the gate is the installed provider, the same law the instrument fold holds — so a PACKAGE/TEST process patches against the no-op providers at zero export cost, a later composition's receipt truthfully records zero newly activated rows, and activation happens once at the composition root, never at library altitude. The dbapi wrap likewise activates at the composition root alone: the data-side consumer hands its own admitted driver module in (duckdb, ADBC DBAPI), so this folder imports and patches nothing it does not admit.
+- Growth: a new instrumentor is one `lazy from` line and one `TRAIN` thunk row; a new system-metrics family is one `_SYSTEM_SLICE` key; a new dedicated-instrumentor-less driver is one `DbapiSeam` value the composition root threads through `Instrumentation.dbapi`.
+- Boundary: the gRPC legs stay the serve interceptor's — the serve page's context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the receipts data plane, never replace it: `QueryReceipt.profile` stays the data owner's truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
 
 ```python signature
 class TrainReceipt(Struct, frozen=True):
     activated: tuple[str, ...]
+
+
+# a driver with no dedicated contrib instrumentor rides the generic PEP-249 seam: the data-side consumer hands its own
+# admitted driver module in, so this folder patches nothing it does not admit and the wrap activates at composition only.
+class DbapiSeam(Struct, frozen=True):
+    name: str  # instrumenting scope the emitted spans carry
+    connect_module: ModuleType  # consumer-admitted driver module (duckdb, adbc_driver_manager.dbapi)
+    connect_method_name: str  # the module's connect callable name, "connect" on every PEP-249 driver
+    database_system: str  # db.system semconv token the spans carry
+
+
+# export posture fixed as data: statement parameters never captured outside an explicit redacted diagnostic opt-in.
+_DBAPI_POSTURE: Final[dict[str, bool]] = {"capture_parameters": False}
 
 
 # system.* + cpython.gc.* alone: the rasm.process.* gauges own the process family, so one fact keeps one owner.
@@ -370,17 +417,46 @@ TRAIN: Final[Block[tuple[str, Callable[[], Instrumentor]]]] = Block.of_seq([
 
 
 class Instrumentation:
-    _receipt: ClassVar[TrainReceipt | None] = None
+    _receipts: ClassVar[Map[ScopeKey, TrainReceipt]] = Map.empty()
+    _process: ClassVar[TrainReceipt | None] = None
 
+    # reentrant closure returns the empty roster: a later composition activated nothing, and its receipt says so.
     @classmethod
-    @latched(lambda: Instrumentation._receipt, lambda r: setattr(Instrumentation, "_receipt", r), lambda prior: prior)
-    def install(cls) -> TrainReceipt:
+    @latched(lambda: Instrumentation._process, lambda r: setattr(Instrumentation, "_process", r), lambda _prior: TrainReceipt(activated=()))
+    def _activated(cls) -> TrainReceipt:
         def enroll(names: tuple[str, ...], row: tuple[str, Callable[[], Instrumentor]]) -> tuple[str, ...]:
             name, thunk = row
             thunk().instrument()
             return (*names, name)
 
         return TrainReceipt(activated=TRAIN.fold(enroll, ()))
+
+    @classmethod
+    def install(cls, scope: ScopeKey = DEFAULT_SCOPE) -> TrainReceipt:
+        match cls._receipts.try_find(scope):
+            case Option(tag="some", some=prior):
+                return prior
+            case _:
+                receipt = cls._activated()
+                cls._receipts = cls._receipts.add(scope, receipt)
+                return receipt
+
+    @overload
+    @classmethod
+    def dbapi(cls, seam: DbapiSeam) -> None: ...
+    @overload
+    @classmethod
+    def dbapi[C](cls, seam: DbapiSeam, connection: C) -> C: ...
+    @classmethod
+    def dbapi[C](cls, seam: DbapiSeam, connection: C | None = None) -> C | None:
+        # one polymorphic wrap seam: absent connection patches the seam's connect callable forward, so every later
+        # connect returns a traced connection; a connection built before the patch retrofits through the returned proxy.
+        match connection:
+            case None:
+                wrap_connect(seam.name, seam.connect_module, seam.connect_method_name, seam.database_system, **_DBAPI_POSTURE)
+                return None
+            case live:
+                return instrument_connection(seam.name, live, seam.database_system, **_DBAPI_POSTURE)
 ```
 
 ## [04]-[RESEARCH]

@@ -12,6 +12,10 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
+    <ItemGroup Label="Telemetry">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Host Usings">
         <Using Include="Eto.Drawing" />
         <Using Include="Eto.Forms" />

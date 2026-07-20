@@ -50,7 +50,7 @@ One intent rail admits every execution request once, a substrate axis routes it 
 - [31]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
 - [32]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
 - [33]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
-- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union, its instrument projection, and the benchmark-claim table.
+- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union, its instrument projection, the benchmark-claim table, the compute hook roster, the tenant cost ledger, and the dashboard-and-alert descriptor.
 - [35]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
 - [36]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
 - [37]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.

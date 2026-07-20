@@ -283,7 +283,7 @@ public sealed partial class Substrate {
 - Second custody: the Remote `WireFault` 4520..4532 wire sub-band (`Runtime/wire#FAULT_PROJECTION`) is Compute's SECOND custody — distinct from this 2200 band and from the AppHost `HopFault` 4500 hop band — recorded here beside the primary map and pinned reciprocally in the sibling registries.
 - Foreign neighborhoods (PINNED mirror rows — a foreign band change is a row edit on both ends, never prose): AppHost 1xxx lifecycle + 4100..4810 wire/coordination (its `CoordinationFault` re-banded to 4540 around Compute's 4520..4532); AppUi 6xxx; Persistence 5xxx / 771x / 82xx..83xx; the AEC 23xx..27xx registry — each registry pins Compute's two custodies (2200..2223, 4520..4532), so cross-package band disjointness is checkable from both ends.
 - Entry: `public static Fin<Seq<SelectionReceipt>> Plan(AdmittedIntent admitted, SelectionContext context)` — `Fin<T>` aborts; the pipeline case folds its stages sequentially with short-circuit and the stage receipts share the parent correlation and digest.
-- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides.
+- Auto: every selection walk materializes one `SelectionReceipt` — evaluated rows, rejection reasons, fallback hops, forced bypass, warm-affinity influence, final route — and the receipts page carries it to the sink as the Selection case of the package receipt union, so a farm hop proves itself on the same receipt rail every other hop rides; the composition root threads the `Runtime/receipts#HOOK_POINTS` `ComputeHookRail` around this spine — `Planned` runs the `rasm.compute.runtime.admit` veto fold over the `AdmittedIntent` before `Plan` so an app-composed policy gate transforms or refuses on the emitter's own rail, and `Ran` fires the `rasm.compute.runtime.dispatch` observe tap with the `SelectionReceipt` before `DispatchTable.Run` — domain code fires evidence, subscribers attach at composition, and a subscriber fault lands on the AppHost hook fault band, never on this spine.
 - Receipt: `SelectionReceipt` — correlation, digest, route, hop evidence, forced `Option`, warm-affinity flag, `Instant` stamp.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one fault case breaks every total Switch at compile time; one new substrate row costs one delegate field on `DispatchTable` and the generated row Switch breaks until it exists; zero new surface.
@@ -405,10 +405,12 @@ public sealed record DispatchTable(
 flowchart LR
     ComputeIntent -- Admit --> AdmittedIntent
     AdmittedIntent -- PayloadOverBounds --> ComputeFault
-    AdmittedIntent -- Plan --> SubstrateSelection
+    AdmittedIntent -- Planned --> ComputeHookRail
+    ComputeHookRail -- Plan --> SubstrateSelection
     Substrate -- Veto --> SubstrateSelection
     SubstrateSelection -- SubstrateUnavailable --> ComputeFault
     SubstrateSelection -- Select --> SelectionReceipt
+    SelectionReceipt -- Ran --> ComputeHookRail
     SelectionReceipt -- Run --> DispatchTable
 ```
 

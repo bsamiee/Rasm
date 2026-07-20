@@ -12,7 +12,7 @@ Rasm.Fabrication/
 │   ├── Physics.cs           # Material identity carrying per-modality physics and the removal budget
 │   ├── Faults.cs            # FabricationFault registry over the FaultBand.Fabrication band
 │   ├── Derivation.cs        # Derivation.Apply plan orchestrator
-│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, classification rows
+│   └── Telemetry.cs         # FabricationFact union, rasm.fabrication.* instrument roster, projection fan, classification rows, engine spans, hook roster, SLO rows
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
 │   ├── Magazine.cs          # Provider-detached ToolAssembly owner, correspondence tables, typed-shortfall kitting, and ordered life scheduling
 │   ├── CuttingData.cs       # Kienzle seeds, evidence-domain guard, power-law fit, and cutter-form projection on typed evidence rails
@@ -204,6 +204,7 @@ flowchart LR
     Spec e8@-->|"[WIRE]: IToleranceEncoder bytes"| Artifacts
     Telemetry e9@-->|"[RECEIPT]: FabricationFact"| AppHost
     AppHost e10@-->|"[PORT]: TelemetryContributorPort"| Telemetry
+    Telemetry e11@-->|"[HOOK]: FabricationHooks points"| AppHost
 ```
 
 ```mermaid
@@ -262,4 +263,7 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
 - An absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
 - Machine telemetry enters through the AppHost decode lane, never a direct transport reference; every telemetry read consumes the one decoded slice.
-- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes; the `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition, and classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
+- Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes; the `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition, the `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms, and classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
+- Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster; modality and payload close at declaration, and subscribers attach only at app roots.
+- Engine spans ride the `ActivitySource` named by `TelemetrySource.Fabrication`, admitted at the AppHost root source roster; trace-based exemplars join the fabrication histograms to their solve traces.
+- `FabricationSlos` rows feed the AppHost alert rail and the deploy-plane dashboard compile from one row set; burn thresholds stay the core multi-window burn table, never re-decided here.

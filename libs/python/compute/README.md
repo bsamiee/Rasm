@@ -43,6 +43,7 @@ It imports no host runtime and re-owns no peer interior — geometry, columnar d
 [GRADUATION]:
 - [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and evidence weave.
 - [26]-[CODEGEN](.planning/graduation/codegen.md): `StubCodegen` decoding the C# evidence bundle into typed stubs and schema under the drift gate.
+- [27]-[OBSERVABILITY](.planning/graduation/observability.md): `COMPUTE_POINTS` hook rail and `ResourceUsage` ledger woven through the hub evidence binding.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -115,7 +116,10 @@ Shared substrate consumed from the `libs/python/.planning/README.md` registry; t
 - `meshio`
 
 [OBSERVABILITY]:
-- `rasm.runtime.receipts` — `measured` weave the hub `evidence_run` binding composes; compute imports no OTel symbol, and SDK binding stays at the composition root.
+- `rasm.runtime.receipts` — `measured` weave the hub `evidence_run` binding composes; compute constructs no SDK surface, and provider binding stays at the composition root.
+- `rasm.runtime.hooks` — `HookPoint` registry, `fire`, and the built-in receipt/metric taps the compute point rail registers on.
+- `psutil` — two-block `oneshot` resource band beneath the hub weave, own-process handle only.
+- `opentelemetry-api` — hub-only trace surface: the `_linked` W3C band decode folding the geometry producer context as a `Link` on the live consumer span; no SDK construction.
 
 [RESOURCES]:
 - `universal-pathlib`

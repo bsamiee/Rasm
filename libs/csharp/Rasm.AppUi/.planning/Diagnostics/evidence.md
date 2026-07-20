@@ -1,14 +1,14 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail: a sixteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, the telemetry spine declares every `rasm.appui.*` instrument as a kind-typed row and mounts the one AppUi meter the evidence fan writes onto, one correlation join projects per-package envelope streams into deterministic uncertainty-grouped timelines with symmetric skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. This page owns the evidence union with the package wire context, the telemetry spine, the join fold, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract; `InstrumentRow`, `InstrumentSet`, `TelemetryIdentity.Mint`, `Buckets.Advised`, `HookRail`, and the AppHost ports compose as settled sibling vocabulary. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail: a sixteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, the telemetry spine declares every `rasm.appui.*` instrument as a kind-typed row and mounts the one AppUi meter the evidence fan writes onto, one correlation join projects per-package envelope streams into deterministic uncertainty-grouped timelines with symmetric skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. This page owns the evidence union with the package wire context, the telemetry spine, the join fold with its tenant-usage projection, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract with the viewport SLO coordinate rows; `InstrumentRow`, `InstrumentSet`, `TelemetryIdentity.Mint`, `Buckets.Advised`, `HookRail`, and the AppHost ports compose as settled sibling vocabulary. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
 
 ## [01]-[INDEX]
 
 - [02]-[RECEIPT_UNION]: Sixteen-case evidence union sealed through the HLC sink envelope.
-- [03]-[TELEMETRY_SPINE]: Kind-typed instrument declarations, the AppUi meter mount, and the receipt-to-instrument fan.
-- [04]-[CORRELATION_JOIN]: Causal timeline join keyed correlation and HLC with skew bands; the report-block projection.
+- [03]-[TELEMETRY_SPINE]: Kind-typed instrument declarations, keyed level families, the AppUi meter mount, and the receipt-to-instrument fan.
+- [04]-[CORRELATION_JOIN]: Causal timeline join keyed correlation and HLC with skew bands; the report-block and tenant-usage projections.
 - [05]-[FAULT_TABLES]: Type-enforced AppUi 6xxx band registry with pinned foreign mirror rows.
-- [06]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
+- [06]-[TS_PROJECTION]: Evidence, timeline, and usage wire shapes with the viewport SLO coordinates for dashboard ingestion.
 
 ## [02]-[RECEIPT_UNION]
 
@@ -173,18 +173,19 @@ public static class EvidenceOps {
 [JsonSerializable(typeof(CommandPayload))]
 [JsonSerializable(typeof(EvidenceReceipt))]
 [JsonSerializable(typeof(EvidenceTimeline))]
+[JsonSerializable(typeof(TenantUsage))]
 public partial class AppUiWireContext : JsonSerializerContext;
 ```
 
 ## [03]-[TELEMETRY_SPINE]
 
-- Owner: `InstrumentKind` — the kind vocabulary carrying the bind derivation; `InstrumentSpec` — the per-instrument declaration row; `UiBuckets` — the explicit-bucket advice policy; `UiLevelCells` — the fan-written level cells; `AppUiTelemetry` — the contribution and mount owner; `EvidenceFan` — the receipt-to-instrument projection.
-- Cases: kind rows `Count` (`Counter<long>`), `Distribution` (`Histogram<double>` under declared `Bounds` advice), `Level` (`ObservableGauge` over a live cell reader); three write modalities — a fan arm where the fact rides a sealed envelope, a composition-bound `InstrumentSet.Count`/`Record` delegate where the owner holds the typed value in hand, a level cell where the fact is a current level.
+- Owner: `InstrumentKind` — the kind vocabulary carrying the bind derivation; `InstrumentSpec` — the per-instrument declaration row; `UiBuckets` — the explicit-bucket advice policy; `UiLevelCells` — the fan-written scalar and keyed level cells; `AppUiTelemetry` — the contribution and mount owner; `EvidenceFan` — the receipt-to-instrument projection.
+- Cases: kind rows `Count` (`Counter<long>`), `Distribution` (`Histogram<double>` under declared `Bounds` advice), `Level` (`ObservableGauge` over a scalar cell reader), `Levels` (`ObservableGauge` over a keyed cell family projected as tagged `Measurement<long>` batches through the multi-measurement observe overload); three write modalities — a fan arm where the fact rides a sealed envelope, a composition-bound `InstrumentSet.Count`/`Record` delegate where the owner holds the typed value in hand, a level cell where the fact is a current level, scalar or keyed.
 - Entry: `AppUiTelemetry.Contribute(string version, params ReadOnlySpan<InstrumentSpec> instruments)` — the one page-side declaration surface every `TelemetryRow` composes; `AppUiTelemetry.Mount(IMeterFactory factory, string version, CorrelationId root, Seq<TelemetryContributorPort> contributions)` — mints the AppUi meter through the sibling identity entry and materializes every contributed row into one `InstrumentSet`; `EvidenceFan.Tap(HookRail rail, InstrumentSet set)` — registers the fan as one observe row on the AppHost receipt hook point, so projection is call-site-free.
-- Auto: `Row` derives each bind delegate from the kind row, so a page declares name, kind, UCUM unit, and description and never spells a meter call; the fan guards on the AppUi package key and folds only kinds its table carries — an unmapped kind stays receipt-only by declaration; the quality and pending cells swap inside fan arms, so the level gauges read a current level at collection cadence, never a re-derived scan.
+- Auto: `Row` derives each bind delegate from the kind row, so a page declares name, kind, UCUM unit, and description and never spells a meter call; the fan guards on the AppUi package key and folds only kinds its table carries — an unmapped kind stays receipt-only by declaration; the quality cell and the keyed families swap inside fan arms, so the level gauges read a current level at collection cadence, never a re-derived scan; a keyed family reads through `UiLevelCells.Reader`, projecting each map entry as one tagged `Measurement<long>` so per-key cardinality rides one instrument and a per-key instrument mint is the deleted form.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one instrument is one `InstrumentSpec` row on its owning page's `TelemetryRow`; one projected kind is one fan arm; a new instrument kind is one `InstrumentKind` row whose bind delegate lands at the declaration.
-- Boundary: instrument names are dotted `rasm.appui.<domain>.<measure>` with UCUM units (`s`, `By`, `1`, `{thing}`), never pre-baked `_total` or unit suffixes; `Mount` is the single write surface and its frozen-dictionary build throws on a duplicate name at composition — the same structural-collision law the identity registry carries; exemplar filtering, tenant cardinality caps, and export governance ride the AppHost signal-governance rows, so a measurement recorded inside an active span carries its trace identity with zero wiring here; the fan reads payload fields inside its arms alone — the one place wire names meet instrument writes — and never re-validates what the typed owner admitted.
+- Growth: one instrument is one `InstrumentSpec` row on its owning page's `TelemetryRow`; one projected kind is one fan arm; a new instrument kind is one `InstrumentKind` row whose bind delegate lands at the declaration; a new keyed level family is one `UiLevelCells` map plus one `Levels` row on its declaring page.
+- Boundary: instrument names are dotted `rasm.appui.<domain>.<measure>` with UCUM units (`s`, `By`, `1`, `{thing}`), never pre-baked `_total` or unit suffixes; `Mount` is the single write surface and its frozen-dictionary build throws on a duplicate name at composition — the same structural-collision law the identity registry carries; exemplar filtering, tenant cardinality caps, and export governance ride the AppHost signal-governance rows, so a measurement recorded inside an active span carries its trace identity with zero wiring here; the fan reads payload fields inside its arms alone — the one place wire names meet instrument writes — and never re-validates what the typed owner admitted; keyed families keep declaration beside their producer — per-doc collab pending declares at `Collab/sync.md`, per-screen disposables at `Shell/screens.md`, per-pool resident bytes at `Render/meshlets.md` — each a `Levels` row over its `UiLevelCells` map, the fan or the plan fold swapping entries and the reader projecting tags, so the tenant-cardinality caps the AppHost signal-governance rows apply govern one instrument per family.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -197,6 +198,8 @@ public sealed partial class InstrumentKind {
         static spec => (meter, name, unit, text) => Buckets.Advised(meter, name, unit, text, spec.Bounds));
     public static readonly InstrumentKind Level = new("level",
         static spec => (meter, name, unit, text) => meter.CreateObservableGauge(name, spec.Level!, unit, text));
+    public static readonly InstrumentKind Levels = new("levels",
+        static spec => (meter, name, unit, text) => meter.CreateObservableGauge(name, spec.Levels!, unit, text));
 
     [UseDelegateFromConstructor]
     public partial Func<Meter, string, string, string, Instrument> Bind(InstrumentSpec spec);
@@ -214,17 +217,31 @@ public sealed record InstrumentSpec(
     string Unit,
     string Description,
     ImmutableArray<double> Bounds = default,
-    Func<double>? Level = null);
+    Func<double>? Level = null,
+    Func<IEnumerable<Measurement<long>>>? Levels = null);
 
-public sealed record UiLevelCells(Atom<long> QualityRank, Atom<long> CollabPending) {
-    public static readonly UiLevelCells Live = new(Atom(0L), Atom(0L));
+// QualityRank stays scalar — one active tier is one level; the keyed families carry per-key levels as
+// tagged measurements of one instrument, swapped entry-wise and read whole at collection cadence.
+public sealed record UiLevelCells(
+    Atom<long> QualityRank,
+    Atom<HashMap<string, long>> CollabPending,
+    Atom<HashMap<string, long>> PoolVram,
+    Atom<HashMap<string, long>> ScreenDisposables) {
+    public static readonly UiLevelCells Live =
+        new(Atom(0L), Atom(HashMap<string, long>()), Atom(HashMap<string, long>()), Atom(HashMap<string, long>()));
+
+    public static Func<IEnumerable<Measurement<long>>> Reader(Atom<HashMap<string, long>> family, string tag) =>
+        () => toSeq(family.Value).Map(pair =>
+            new Measurement<long>(pair.Value, new KeyValuePair<string, object?>(tag, pair.Key)));
 }
 
 public static class AppUiTelemetry {
     // Construction guard, not rail flow: an under-specified declaration fails when the owning page's
     // TelemetryRow first materializes at composition, never at scrape time.
     public static InstrumentRow Row(InstrumentSpec spec) =>
-        (spec.Kind == InstrumentKind.Distribution && spec.Bounds.IsDefault) || (spec.Kind == InstrumentKind.Level && spec.Level is null)
+        (spec.Kind == InstrumentKind.Distribution && spec.Bounds.IsDefault)
+            || (spec.Kind == InstrumentKind.Level && spec.Level is null)
+            || (spec.Kind == InstrumentKind.Levels && spec.Levels is null)
             ? throw new InvalidOperationException($"{spec.Name}: {spec.Kind.Key} row missing bounds or cell reader")
             : new(TelemetrySource.AppUi, spec.Name, spec.Unit, spec.Description, spec.Kind.Bind(spec));
 
@@ -262,6 +279,9 @@ public static class EvidenceFan {
                 if (name is not null)
                     ignore(set.Count(name, 1L, new KeyValuePair<string, object?>("surface", payload.GetProperty("surface").GetString())));
             },
+            ["disposal"] = static (_, cells, payload) =>
+                ignore(cells.ScreenDisposables.Swap(state => state.AddOrUpdate(
+                    payload.GetProperty("screenId").GetString()!, payload.GetProperty("disposables").GetInt64()))),
             ["command"] = static (set, _, payload) =>
                 ignore(set.Count(CommandExecution.OutcomeInstrument, 1L,
                     new KeyValuePair<string, object?>("outcome", payload.GetProperty("receipt").GetProperty("outcome").GetProperty("kind").GetString()))),
@@ -281,7 +301,8 @@ public static class EvidenceFan {
                 ignore(set.Count(payload.GetProperty("applied").GetBoolean() ? LiveWire.AppliedInstrument : LiveWire.RejectedInstrument, 1L, doc));
                 ignore(set.Count(LiveWire.DeltasInstrument, payload.GetProperty("deltas").GetInt64(), doc));
                 ignore(set.Count(LiveWire.BytesInstrument, long.Parse(payload.GetProperty("bytes").GetString()!, System.Globalization.CultureInfo.InvariantCulture), doc));
-                ignore(cells.CollabPending.Swap(_ => payload.GetProperty("pending").GetInt64()));
+                ignore(cells.CollabPending.Swap(state => state.AddOrUpdate(
+                    payload.GetProperty("docKey").GetString()!, payload.GetProperty("pending").GetInt64())));
             },
             ["media"] = static (set, _, payload) =>
                 ignore(set.Count(payload.GetProperty("outcome").GetString() == "ready" ? MediaSurfaces.MountedInstrument : MediaSurfaces.FailedInstrument,
@@ -306,13 +327,13 @@ public static class EvidenceFan {
 
 ## [04]-[CORRELATION_JOIN]
 
-- Owner: `SkewBand` — the HLC uncertainty band; `EvidenceRow` — the ordered row carrying its overlap-component identity; `EvidenceTimeline` — the deterministic uncertainty projection; `EvidenceJoin` — the cross-package fold; `EvidenceReport` — the timeline-to-report-block projection the document plane paginates.
-- Entry: `public static Seq<EvidenceTimeline> Correlate(Seq<ReceiptEnvelope> envelopes, Option<string> package = default)` — pure fold; the package filter value is the model-result provenance projection over the Compute stream; `public static Seq<ReportBlock> Blocks(EvidenceTimeline timeline)` — projects a timeline into `Document/export.md#FLOW_REPORT` `ReportBlock` rows, so the diagnostics report-PDF is `FlowReport.Render` over this projection and a diagnostics-local PDF writer is the deleted form.
+- Owner: `SkewBand` — the HLC uncertainty band; `EvidenceRow` — the ordered row carrying its overlap-component identity; `EvidenceTimeline` — the deterministic uncertainty projection; `EvidenceJoin` — the cross-package fold; `EvidenceReport` — the timeline-to-report-block projection the document plane paginates; `TenantUsage` with `TenantUsageFold` — the per-tenant-window cost-attribution projection over the same envelope stream.
+- Entry: `public static Seq<EvidenceTimeline> Correlate(Seq<ReceiptEnvelope> envelopes, Option<string> package = default)` — pure fold; the package filter value is the model-result provenance projection over the Compute stream; `public static Seq<ReportBlock> Blocks(EvidenceTimeline timeline)` — projects a timeline into `Document/export.md#FLOW_REPORT` `ReportBlock` rows, so the diagnostics report-PDF is `FlowReport.Render` over this projection and a diagnostics-local PDF writer is the deleted form; `public static Seq<TenantUsage> Fold(Seq<ReceiptEnvelope> envelopes, Duration window)` — the envelope-partition usage fold, deriving cost truth from sealed evidence and never re-measuring.
 - Auto: rows order by the HLC pair physical-then-logical with the package name as the deterministic tiebreaker; every row derives the symmetric interval `Physical ± SkewBound`, and the fold assigns transitively overlapping intervals to one `UncertaintyGroup`, so presentation never invents a causal order inside an overlap component; the report projection includes that group identity beside the ordinal, package, kind, physical instant, and skew band.
-- Receipt: `EvidenceTimeline` serializes through the package wire context for dashboard export.
+- Receipt: `EvidenceTimeline` and `TenantUsage` serialize through the package wire context for dashboard export; a usage row is derived evidence — every field folds from sealed envelope payloads, so chargeback carries envelope-grade provenance.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; zero new surface.
-- Boundary: the join consumes only `ReceiptEnvelope` — no Compute or Persistence receipt shape enters the fold, and each per-package payload stays an opaque `JsonElement` decoded against its owning wire contract at the view edge; a second correlation vocabulary beside `CorrelationId` and the HLC stamp is the rejected form; `Overlaps` is the band algebra — a causal-order claim between rows whose bands overlap is structurally unrepresentable, so the timeline renders overlapping bands as one uncertainty region; the report-PDF crossing composes the export plane's `ReportBlock` vocabulary and `FlowReport.Render` — the projection produces blocks, the export owner paginates, and neither side re-mints the other's shapes.
+- Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; one usage axis is one `TenantUsage` field plus one accrual arm; zero new surface.
+- Boundary: the join consumes only `ReceiptEnvelope` — no Compute or Persistence receipt shape enters the fold, and each per-package payload stays an opaque `JsonElement` decoded against its owning wire contract at the view edge; a second correlation vocabulary beside `CorrelationId` and the HLC stamp is the rejected form; `Overlaps` is the band algebra — a causal-order claim between rows whose bands overlap is structurally unrepresentable, so the timeline renders overlapping bands as one uncertainty region; the report-PDF crossing composes the export plane's `ReportBlock` vocabulary and `FlowReport.Render` — the projection produces blocks, the export owner paginates, and neither side re-mints the other's shapes; the usage fold partitions on the envelope's own `Tenant` field and reads payload fields inside kind arms alone — the same one-seam law the fan carries — so per-tenant GPU time, path-trace samples, render and export bytes, and collab deltas derive from evidence and a second measurement path is the deleted form; the tenant crosses outward as the invariant-decimal `TenantId.Value` text the `rasm.tenant` baggage already carries, and the estate cost-attribution join over that dimension is the cross-libs consumer's, never re-derived here.
 
 ```csharp signature
 public readonly record struct SkewBand(Instant Earliest, Instant Latest) {
@@ -365,13 +386,73 @@ public static class EvidenceReport {
 }
 ```
 
+```csharp signature
+// Usage truth is derived evidence: every column folds from sealed envelope payloads inside kind arms —
+// the one seam where wire names meet accrual — and the tenant key is the same invariant-decimal
+// TenantId.Value text the rasm.tenant baggage dimension carries.
+public sealed record TenantUsage(
+    string Tenant,
+    Instant WindowStart,
+    Instant WindowEnd,
+    Duration Gpu,
+    long PathTraceSamples,
+    long RenderBytes,
+    long ExportBytes,
+    int ExportedFrames,
+    long CollabDeltas,
+    long CollabBytes,
+    int Envelopes);
+
+public static class TenantUsageFold {
+    public static Seq<TenantUsage> Fold(Seq<ReceiptEnvelope> envelopes, Duration window) =>
+        envelopes
+            .Filter(static envelope => envelope.Package == TelemetrySource.AppUi.Key)
+            .GroupBy(envelope => (envelope.Tenant, Bucket: Floor(envelope.Physical, window)))
+            .AsIterable()
+            .Map(group => group.Fold(
+                new TenantUsage(
+                    group.Key.Tenant.TenantId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    group.Key.Bucket, group.Key.Bucket + window,
+                    Duration.Zero, 0L, 0L, 0L, 0, 0L, 0L, 0),
+                static (usage, envelope) => Accrue(usage, envelope)))
+            .ToSeq();
+
+    static Instant Floor(Instant at, Duration window) =>
+        Instant.FromUnixTimeTicks(at.ToUnixTimeTicks() - (at.ToUnixTimeTicks() % window.ToTimeSpan().Ticks));
+
+    static TenantUsage Accrue(TenantUsage usage, ReceiptEnvelope envelope) =>
+        (envelope.Kind switch {
+            "gpu-frame" => usage with {
+                Gpu = usage.Gpu + Duration.FromNanoseconds(long.Parse(
+                    envelope.Payload.GetProperty("measuredNanoseconds").GetString()!, System.Globalization.CultureInfo.InvariantCulture)),
+            },
+            "quality" => usage with { PathTraceSamples = usage.PathTraceSamples + envelope.Payload.GetProperty("pathTraceSamples").GetInt32() },
+            "render" => long.Parse(envelope.Payload.GetProperty("bytes").GetString()!, System.Globalization.CultureInfo.InvariantCulture) switch {
+                var bytes => envelope.Payload.GetProperty("destination").ValueKind == JsonValueKind.Null
+                    ? usage with { RenderBytes = usage.RenderBytes + bytes }
+                    : usage with { ExportBytes = usage.ExportBytes + bytes, ExportedFrames = usage.ExportedFrames + 1 },
+            },
+            "collab-sync" => usage with {
+                CollabDeltas = usage.CollabDeltas + envelope.Payload.GetProperty("deltas").GetInt64(),
+                CollabBytes = usage.CollabBytes + long.Parse(
+                    envelope.Payload.GetProperty("bytes").GetString()!, System.Globalization.CultureInfo.InvariantCulture),
+            },
+            _ => usage,
+        }) switch {
+            var accrued => accrued with { Envelopes = accrued.Envelopes + 1 },
+        };
+}
+```
+
 ```mermaid
 flowchart LR
     EvidenceReceipt --> ReceiptEnvelope
     ReceiptEnvelope --> EvidenceJoin
+    ReceiptEnvelope --> TenantUsageFold
     EvidenceJoin --> EvidenceTimeline
     EvidenceTimeline --> EvidenceRow
     EvidenceRow --> SkewBand
+    TenantUsageFold --> TenantUsage
 ```
 
 ## [05]-[FAULT_TABLES]
@@ -407,7 +488,7 @@ public sealed partial class AppUiFaultBand {
     public static readonly AppUiFaultBand Animation    = new(6150, 10, "AnimationFault",   "Render/animation",      mirror: false);
     public static readonly AppUiFaultBand Visual       = new(6160, 10, "VisualFault",      "Render/capture",        mirror: false);
     // --- [CHARTS_62XX]
-    public static readonly AppUiFaultBand Chart        = new(6200, 10, "ChartFault",       "Charts/dashboards+custom+basemap", mirror: false);
+    public static readonly AppUiFaultBand Chart        = new(6200, 10, "ChartFault",       "Charts/dashboards+custom+basemap+telemetry", mirror: false);
     // --- [EDITING_63XX]
     public static readonly AppUiFaultBand Edit         = new(6300, 10, "EditFault",        "Editing/inspector",     mirror: false);
     public static readonly AppUiFaultBand Form         = new(6310, 10, "FormFault",        "Editing/forms",         mirror: false);
@@ -465,10 +546,10 @@ public sealed partial class AppUiFaultBand {
 
 ## [06]-[TS_PROJECTION]
 
-- Owner: `EvidenceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
-- Packages: BCL inbox
-- Growth: one wire member row per new case field and one kind literal per new evidence case; zero new surface.
-- Boundary: shapes transcribe the camelCase strict emission — kind literals discriminate the union, instants and durations cross as text, and every 64-bit counter or handle crosses as invariant decimal text so JavaScript never rounds evidence identity or byte counts; skew bands cross as instant pairs and timeline rows carry `UncertaintyGroup`, so the dashboard renders server-owned overlap components without recomputing the HLC fold.
+- Owner: `EvidenceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire`, `TenantUsageWire` — the evidence wire contract; `SloCoordinate` — the viewport SLO coordinate rows the telemetry board's burn-rate tiles consume; the command case composes the settled command receipt wire shape.
+- Packages: LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one wire member row per new case or usage field and one kind literal per new evidence case; a new SLO objective is one `SloCoordinate` row; zero new surface.
+- Boundary: shapes transcribe the camelCase strict emission — kind literals discriminate the union, instants and durations cross as text, and every 64-bit counter or handle crosses as invariant decimal text so JavaScript never rounds evidence identity or byte counts; skew bands cross as instant pairs and timeline rows carry `UncertaintyGroup`, so the dashboard renders server-owned overlap components without recomputing the HLC fold; usage rows cross with the tenant as the same invariant-decimal text the `rasm.tenant` baggage carries and byte totals as decimal text; SLO coordinates are process-local projection rows — their instrument names are the `RenderGraph` constants, burn math lives on the row, `Charts/telemetry.md` tiles consume them in-process, and the estate crossing stays `EvidenceTimelineWire` with zero new wire shape.
 
 ```ts signature
 type EvidenceReceiptWire =
@@ -511,6 +592,42 @@ interface EvidenceRowWire {
 interface EvidenceTimelineWire {
   readonly correlation: string;
   readonly rows: readonly EvidenceRowWire[];
+}
+
+interface TenantUsageWire {
+  readonly tenant: string;
+  readonly windowStart: string;
+  readonly windowEnd: string;
+  readonly gpu: string;
+  readonly pathTraceSamples: number;
+  readonly renderBytes: string;
+  readonly exportBytes: string;
+  readonly exportedFrames: number;
+  readonly collabDeltas: number;
+  readonly collabBytes: string;
+  readonly envelopes: number;
+}
+```
+
+```csharp signature
+// Burn-rate algebra over the viewport instruments: objective and window are row data, burn is the row's
+// own fold, and the breach census reads the declared histograms — the OverrunInstrument counter where a
+// row carries one, the FrameSeconds budget-edge bucket where it does not. The board consumes these rows
+// in-process; the estate crossing stays EvidenceTimelineWire.
+public sealed record SloCoordinate(
+    string Instrument,
+    Option<string> BreachInstrument,
+    double Objective,
+    Duration Window,
+    double BurnThreshold) {
+    public static readonly Seq<SloCoordinate> Viewport = Seq(
+        new SloCoordinate(RenderGraph.FrameInstrument, Some(RenderGraph.OverrunInstrument), 0.99, Duration.FromMinutes(5), 14.4),
+        new SloCoordinate(RenderGraph.FrameInstrument, Some(RenderGraph.OverrunInstrument), 0.99, Duration.FromHours(1), 6.0),
+        new SloCoordinate(RenderGraph.GpuInstrument, None, 0.99, Duration.FromMinutes(5), 14.4),
+        new SloCoordinate(RenderGraph.GpuInstrument, None, 0.99, Duration.FromHours(1), 6.0));
+
+    public double Burn(long breaching, long total) =>
+        total == 0L ? 0d : breaching / (double)total / (1d - Objective);
 }
 ```
 

@@ -13,7 +13,8 @@ ONE write owner of the record of truth: journal, outbox, and idempotency ledger 
 |  [03]   | `LEDGER_CLAIM`      | the idempotency ledger — scoped key, explicit first-writer marker, replay receipt |
 |  [04]   | `ATOMIC_PUBLISH`    | the one publish transaction — claim, append, outbox, slots, settle, wake          |
 |  [05]   | `READ_SURFACE`      | `head` and the windowed `read` stream lifted through the evolve plan              |
-|  [06]   | `RELAY_ROWS`        | the deliverable model, the SKIP-LOCKED claim/complete pair, the overlay bindings  |
+|  [06]   | `RELAY_ROWS`        | the deliverable model, the SKIP-LOCKED claim/complete pair, the CloudEvents envelope, the overlay bindings |
+|  [07]   | `HOOK_POINTS`       | the closed data hook-point vocabulary — veto and observe taps keyed per app       |
 
 ## [02]-[STREAM_VOCABULARY]
 
@@ -112,7 +113,7 @@ class VersionConflict extends Data.TaggedError("VersionConflict")<{
 }> {}
 
 class JournalFault extends Data.TaggedError("JournalFault")<{
-  readonly reason: "unknownTag" | "landing" | "replay"
+  readonly reason: "unknownTag" | "landing" | "replay" | "envelope"
   readonly stream: StreamKey
   readonly detail: string
 }> {}
@@ -304,7 +305,8 @@ const _ledgerDdl: Capability.Ensure = {
 - Growth: a new atomic participant is one step inside the transaction fold, never a second publish; a new wake consumer composes `Journal.wake(app)` — the channel derives from the app key bounded to the NOTIFY identifier cap, parameterized ingress.
 - Law: ordering inside the transaction is load-bearing — claim first (a replay short-circuits before any write), append second, outbox third, slots fourth, settle last; the pg arm invokes `pg_notify(channel, payload)` through the transaction-bound `SqlClient`, so PostgreSQL delivers at commit and a rolled-back publish wakes nobody. `PgClient.notify` is rejected here because its published body calls the pool directly and does not enlist in this transaction.
 - Law: the NOTIFY payload is the last landed global `sequence` — a drain daemon compares it against its checkpoint and skips the claim transaction when no work exists, so a high-fanout deployment pays zero empty wake cycles; the payload is an accelerator only, and a garbled payload costs one probing cycle, never correctness. `Journal.wake` catches only `SqlError` into the empty stream because the relay's lease-width tick is the durable fallback; a listener loss delays the next claim and cannot lose a deliverable.
-- Law: publish is total over its faults — `VersionConflict`, `JournalFault`, `SqlError`, `ParseError`; an unknown plan tag, incomplete `RETURNING` roster, or duplicate claim lacking its settled receipt fails typed and rolls back whole.
+- Law: publish is total over its faults — `VersionConflict`, `JournalFault`, `HookVeto`, `SqlError`, `ParseError`; an unknown plan tag, incomplete `RETURNING` roster, duplicate claim lacking its settled receipt, or app-armed admission veto fails typed and rolls back whole.
+- Law: the hook points bracket the commit from both sides — the `journalPublish` veto runs pre-append inside the transaction after the replay short-circuit (a replay is already-settled truth no policy re-adjudicates), and the observe fan rides `Tenant.afterCommit` beside the Live stamp, so a subscriber can never see pre-commit state, join the commit, or slow the write path beyond the post-commit drain it subscribed to.
 - Law: each slot returns the read owner's exact `Live.Keys` value; publish composes the roster through `Live.merged` and registers one `Reactivity.invalidate` through `Tenant.afterCommit`. `Tenant.within` drains the invocation-local roster only after its outer transaction commits. A savepoint release, rollback, and ledger replay stamp nothing, so no reader can wake into pre-commit state and no duplicate commit emits a second mutation.
 
 ```mermaid conceptual
@@ -442,8 +444,13 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
               Effect.succeed<Journal.Published>({ journal: held, key: intent.key, replay: true }),
             onNone: () =>
               Effect.gen(function* () {
-                const journal = yield* _append(spec)(intent.stream, intent.events, intent.occ)
                 const batch = Array.ensure(intent.events)
+                yield* Hook.gated("journalPublish", {
+                  stream: intent.stream,
+                  count: batch.length,
+                  tags: Array.map(batch, (event) => event._tag),
+                }) // pre-commit veto: a refusal rolls the whole transaction back before any row lands
+                const journal = yield* _append(spec)(intent.stream, intent.events, intent.occ)
                 yield* sql`INSERT INTO outbox ${sql.insert(_deliverables(intent.stream, journal))}`
                 yield* Effect.forEach(intent.slots, (slot) => slot.project(intent.stream, batch, journal), { discard: true })
                 yield* Effect.transposeOption(Option.map(intent.key, (key) => _settle(sql, intent.stream, key, journal)))
@@ -464,8 +471,15 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             ? Effect.void
             : Effect.flatMap(Tenant, (tenant) =>
                 tenant.afterCommit(
-                  Reactivity.invalidate(
-                    Live.merged(Array.map(intent.slots, (slot) => slot.keys(intent.stream))).coordinates,
+                  Effect.zipRight(
+                    Reactivity.invalidate(
+                      Live.merged(Array.map(intent.slots, (slot) => slot.keys(intent.stream))).coordinates,
+                    ),
+                    Hook.tapped("journalPublish", {
+                      stream: intent.stream,
+                      count: published.journal.count,
+                      tags: Array.map(published.journal.rows, (row) => row.tag),
+                    }), // observe fan beside the Live stamp: post-durable-completion, never inside the commit
                   ),
                 ))),
       ))
@@ -506,19 +520,27 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
 
 ## [07]-[RELAY_ROWS]
 
-- Owner: the `outbox` ensure row, the `_Deliverable` result model, the three decoded statements the work plane composes — `Journal.claimBatch` (SKIP LOCKED with attempts increment), `Journal.complete`, and `Journal.census` (the one aggregate read over undelivered rows: depth, oldest age, redelivered count) — the wake channel name, the EventLog overlay bindings, and the assembled `Journal` export.
-- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`).
+- Owner: the `outbox` ensure row, the `_Deliverable` result model, the three decoded statements the work plane composes — `Journal.claimBatch` (SKIP LOCKED with attempts increment), `Journal.complete`, and `Journal.census` (the one aggregate read over undelivered rows: depth, oldest age, redelivered count) — the wake channel name, `Journal.envelope` (the CloudEvents projection every runtime transport carries unchanged), the EventLog overlay bindings, and the assembled `Journal` export.
+- Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`); `cloudevents` (`CloudEvent` — strict-validated envelope construction; core owns the catalog and the carrier dialect table).
 - Entry: the work plane drains through its `SqlClient` port with these statement values — `claimBatch(sql, request)` takes the decoded `_ClaimBatch` carrier, and `complete(sql, ids)` requires a non-empty bigint identity roster; this page publishes the vocabulary, the drain owns fan-out policy, retry budgets, and egress quota; the async projection lane listens on the same channel.
 - Growth: a new deliverable dimension (priority, deliver-at) is a column and a `claimBatch` ORDER BY term — the drain contract never widens.
 - Law: `claimBatch` is the competing-consumer claim realizing the `skipLocked` primitive row — attempts increment on every claim so poison rows surface as data, and the visibility-timeout redelivery idiom is the `claimed_at` lease predicate: a claimed row is invisible for `leaseSeconds`, so a crashed claimant's rows redeliver only after the lease lapses and a live claimant is never raced; the sqlite arm serializes on the single writer and drops the lock clause while keeping the lease predicate. `SqlSchema.findAll` decodes every returned identity and payload through `_Deliverable`; raw driver rows never cross the data seam.
 - Law: each deliverable carries the journal's global `sequence` beside its stream version, so a drain receipt, checkpoint, or forensic join names the exact source fact without re-querying by payload coordinates.
 - Law: outbox observability is the census projected across the seam — `Journal.census` answers `{ depth, oldest, redelivered }` in one decoded aggregate, the runtime meter bridge samples it through its `Probe` port and sets the `Convention.metric.outboxDepth`/`outboxAge`/`outboxRedelivered` gauges, and this page mints no instrument: the outbox rows stay the evidence truth and the gauges stay the lossy dashboard projection.
+- Law: the envelope is a projection fold over the claimed deliverable, never a second record of truth — `type` is the event tag, `source` is the `StreamKey` spelled as one URI path, `id` is the landed global `sequence` so a redelivered claim replays the SAME envelope id and consumer dedup is structural, `data` is the decoded payload under `application/json`, and construction runs strict validation with `ValidationError` folding to the `envelope` fault reason — a malformed projection is a typed rail outcome, never a raw throw.
+- Law: extension attributes bend to the CloudEvents naming constraint — attribute names admit lowercase alphanumerics only, so the `rasm.tenant` convention row rides as the `rasmtenant` extension attribute and the W3C pair rides as `traceparent`/`tracestate`; the trace strings arrive from the draining runtime's carrier folds as values, because span context exists at claim time, not in the outbox row.
+- Law: binding mode is the carrier's fact across the claim seam — the runtime transport selects structured versus binary through its own dialect row and serializes the envelope VALUE this page mints; no `Binding`, `Mode`, or emitter surface is reached here, and the process-global `Emitter` singleton stays banned estate-wide.
 - Law: the overlay bindings are overlay ONLY — the EventLog journal and sync-server storage persist onto this owning `SqlClient`, accelerate local-first reads, and are never the record of truth; a record whose loss corrupts state lives in THIS journal and projects outward, never the reverse.
 - Law: `layerStorageSubtle` is the default overlay posture — zero-knowledge storage for the untrusted multi-tenant deployment, where the server persists ciphertext it cannot read; the plain `layerStorage` row is the explicit single-tenant opt-in, selected at the composition root.
 - Law: the overlay backings are adopted only while their table bootstrap is verifiably ensure-shaped — idempotent, additive, provision-runnable; otherwise their DDL is owned locally beside these rows and the layers still bind.
 
 ```typescript signature
 import { SqlEventJournal, SqlEventLogServer } from "@effect/sql"
+import { CloudEvent } from "cloudevents"
+
+declare namespace Journal {
+  type Trace = { readonly traceparent: string; readonly tracestate: Option.Option<string> }
+}
 
 class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   id: Model.Generated(_Sequence),
@@ -602,6 +624,32 @@ const _overlay = {
   serverSubtle: SqlEventLogServer.layerStorageSubtle,
 } as const
 
+const _envelope = (deliverable: _Deliverable, trace: Option.Option<Journal.Trace>): Effect.Effect<CloudEvent<unknown>, JournalFault> =>
+  Effect.try({
+    try: () =>
+      new CloudEvent({
+        id: String(deliverable.sequence), // the landed global sequence: a redelivered claim replays the SAME id, so consumer dedup is structural
+        type: deliverable.tag,
+        source: `rasm://journal/${deliverable.app}/${deliverable.tenant}/${deliverable.aggregate}`,
+        datacontenttype: "application/json",
+        data: deliverable.payload,
+        rasmtenant: deliverable.tenant, // rasm.tenant bent to the CloudEvents lowercase-alphanumeric attribute law
+        ...Option.match(trace, {
+          onNone: () => ({}),
+          onSome: (held) => ({
+            traceparent: held.traceparent,
+            ...Option.match(held.tracestate, { onNone: () => ({}), onSome: (state) => ({ tracestate: state }) }),
+          }),
+        }),
+      }),
+    catch: (caught) =>
+      new JournalFault({
+        reason: "envelope",
+        stream: new StreamKey({ app: deliverable.app, tenant: deliverable.tenant, aggregate: deliverable.aggregate }),
+        detail: String(caught),
+      }),
+  })
+
 const _claimBatch = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
     Request: _ClaimBatch,
@@ -635,6 +683,7 @@ const Journal = {
   wake: _wake,
   claimBatch: (sql: SqlClient.SqlClient, request: typeof _ClaimBatch.Type) =>
     _claimBatch(sql)(request),
+  envelope: _envelope,
   census: (sql: SqlClient.SqlClient, app: typeof AppIdentity.fields.app.Type) =>
     _census(sql)(app),
   complete: (sql: SqlClient.SqlClient, ids: Array.NonEmptyReadonlyArray<bigint>) =>
@@ -648,8 +697,101 @@ const Journal = {
   Conflict: VersionConflict,
   Fault: JournalFault,
 } as const
+```
+
+## [08]-[HOOK_POINTS]
+
+- Owner: the closed data hook-point vocabulary and its registry — `_points`, the four-row point table with veto legality as a column; `Hook`, the app-scoped `Effect.Service` whose Layer factory takes the owning app so co-resident apps hold disjoint registries by construction and never collide; `HookVeto`, the typed admission refusal; and the two optional-service combinators `Hook.gated`/`Hook.tapped` every tap seam composes, so an app that composes no registry pays nothing and refuses nothing.
+- Packages: `effect` (`Effect.Service`, `Ref`, `Record`, `Option`, `Data`); `@rasm/ts/core` (`AppIdentity` — the constructor's app key).
+- Entry: an app arms policy at its composition root — `hook.arm(point, mode, tap)` is a scoped registration that self-evicts with its Scope; the seams dispatch: this page's publish transaction (`journalPublish` veto pre-append, observe post-commit), `object/stream.md`'s tus admission and finalize (`objectAdmit`), `object/file.md`'s gated intake (`objectAdmit`), `journal/retain.md`'s erase tombstone (`retainErase` observe), and `lane/olap.md`'s probe evidence fanning `laneEscalate` at the maintenance composition.
+- Growth: a new domain seam is one `_points` row plus its `Payload` field and the `Hook.gated`/`tapped` line at the owning seam — the mapped payload contract breaks every registry consumer until the row exists; a fan-width posture is the `_FAN` row.
+- Law: veto legality is row data made type pressure — `Hook.VetoPoint` derives from the table's `veto` column by key remap, so arming a veto on an observe-only point is a compile error, and veto points stay bounded to admission seams: the journal's atomicity is untouched because a veto runs before any row lands and an observe tap runs only after durable completion.
+- Law: observe taps never join the commit — the fan runs each subscriber under `Effect.ignoreLogged` at the bounded `_FAN.flight` degree, so a slow subscriber costs fan-out latency and a faulting subscriber costs one structured log line, never write availability; veto taps run sequentially and the first refusal aborts with its evidence.
+- Law: telemetry and policy subscribe to domain facts, never instrument domain code — a compliance observer, an admission quota, or an audit mirror is an armed tap over the point vocabulary, and forking an owner page to intercept its seam is the defect this registry deletes.
+
+```typescript signature
+import { Record, Ref } from "effect"
+
+const _points = {
+  journalPublish: { key: "rasm.data.journal.publish", veto: true },
+  objectAdmit: { key: "rasm.data.object.admit", veto: true },
+  retainErase: { key: "rasm.data.retain.erase", veto: false },
+  laneEscalate: { key: "rasm.data.lane.escalate", veto: false },
+} as const
+
+class HookVeto extends Data.TaggedError("HookVeto")<{
+  readonly point: Hook.Key
+  readonly detail: string
+}> {}
+
+declare namespace Hook {
+  type Point = keyof typeof _points
+  type Key = (typeof _points)[Point]["key"]
+  type VetoPoint = { [P in Point]: (typeof _points)[P]["veto"] extends true ? P : never }[Point]
+  type Mode = "veto" | "observe"
+  type Payload = {
+    readonly journalPublish: { readonly stream: StreamKey; readonly count: number; readonly tags: ReadonlyArray<string> }
+    readonly objectAdmit: { readonly key: string; readonly owner: string; readonly bytes: Option.Option<number> }
+    readonly retainErase: { readonly tenant: string; readonly subject: string }
+    readonly laneEscalate: { readonly engine: string; readonly trigger: string; readonly delta: number }
+  }
+  type Tap<P extends Point> = (payload: Payload[P]) => Effect.Effect<void, HookVeto>
+  type Taps = { readonly [P in Point]: { readonly [M in Mode]: ReadonlyArray<Tap<P>> } }
+  type _Rows<T extends Record<Point, { readonly key: `rasm.data.${string}.${string}`; readonly veto: boolean }> = typeof _points> = T
+}
+
+const _FAN = { flight: 4 } as const
+
+const _EMPTY: Hook.Taps = {
+  journalPublish: { veto: [], observe: [] },
+  objectAdmit: { veto: [], observe: [] },
+  retainErase: { veto: [], observe: [] },
+  laneEscalate: { veto: [], observe: [] },
+}
+
+class Hook extends Effect.Service<Hook>()("data/Hook", {
+  effect: (app: typeof AppIdentity.fields.app.Type) =>
+    Effect.gen(function* () {
+      const taps = yield* Ref.make(_EMPTY)
+      return {
+        app,
+        arm: <P extends Hook.Point>(point: P, mode: P extends Hook.VetoPoint ? Hook.Mode : "observe", tap: Hook.Tap<P>) =>
+          Effect.acquireRelease(
+            Ref.update(taps, (held) =>
+              Record.modify(held, point, (row) => ({ ...row, [mode]: [...row[mode], tap] }))).pipe(Effect.as(tap)),
+            (armed) =>
+              Ref.update(taps, (held) =>
+                Record.modify(held, point, (row) => ({
+                  veto: Array.filter(row.veto, (held) => held !== armed),
+                  observe: Array.filter(row.observe, (held) => held !== armed),
+                }))), // scoped registration: the tap dies with its Scope, a leaked subscriber is unspellable
+          ),
+        veto: <P extends Hook.VetoPoint>(point: P, payload: Hook.Payload[P]) =>
+          Effect.flatMap(Ref.get(taps), (held) =>
+            Effect.forEach(held[point].veto, (tap) => tap(payload), { discard: true })), // sequential: the first refusal aborts the admission with its evidence
+        fan: <P extends Hook.Point>(point: P, payload: Hook.Payload[P]) =>
+          Effect.flatMap(Ref.get(taps), (held) =>
+            Effect.forEach(held[point].observe, (tap) => Effect.ignoreLogged(tap(payload)), {
+              concurrency: _FAN.flight,
+              discard: true,
+            })), // isolated: a subscriber fault logs and never reaches the caller
+      }
+    }),
+}) {
+  static readonly points = _points
+  static readonly gated = <P extends Hook.VetoPoint>(point: P, payload: Hook.Payload[P]): Effect.Effect<void, HookVeto> =>
+    Effect.flatMap(Effect.serviceOption(Hook), Option.match({
+      onNone: () => Effect.void, // no composed registry: no app policy exists and the seam admits
+      onSome: (hook) => hook.veto(point, payload),
+    }))
+  static readonly tapped = <P extends Hook.Point>(point: P, payload: Hook.Payload[P]): Effect.Effect<void> =>
+    Effect.flatMap(Effect.serviceOption(Hook), Option.match({
+      onNone: () => Effect.void,
+      onSome: (hook) => hook.fan(point, payload),
+    }))
+}
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Journal, JournalFault, StreamKey }
+export { Hook, HookVeto, Journal, JournalFault, StreamKey }
 ```

@@ -2,7 +2,7 @@
 
 The measured-query runtime — the kernel's public analysis entry. `AnalysisQuery` `[Union]` is THE one request algebra: twenty-five cases in four bands — geometry, family, relation, spatial — with the call arity recovered from the case through the `Single`/`Pair`/`Service` virtual dispatch, never a name suffix, a verb sibling, or a mode knob. The geometry band IS the absorbed geometry-request vocabulary: `Coerce`/`CurveForm`/`Vertices`/`SamplePoints`/`SurfaceUv`/`Closest`/`SignedDistance` are first-class cases and `Kind`/`Bounds`/`SurfaceForm`/`BrepForm` are factory spellings onto their dispatch-equivalent cases — a second request ADT beside this union, re-dispatched through a mapping switch into the same operations, is the killed form; one vocabulary, one dispatch. The family band forwards to the owning family unions (`Bounds`/`Measure`/`Location`/`Curves`/`Faces`/`Topologies`/`Meshes`/`Points`) through the ONE seam law: every family union exposes `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()`, and the `AnalysisQuery` case forwards to it — `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` plug in as operation builders, never as parallel entry surfaces. The relation band routes the `Analysis/relations` pairwise lattice (`Intersections`/`Classification`/`CurveDeviation`/`SelfIntersection`/`Ray`/`Conformance`); the spatial band carries the `Spatial/neighbors` substrate (`NeighborIndex`/`NeighborQuery` box/sphere search, index overlaps, KNN/radius point-pairs) as `Service` operations over `Unit`. The union name, the factory spellings (`Measure(…)`/`Bounds(…)`/`Selection(…)`/`MeshPointSpatial(…)`/`Location(…)`/`Intersections`/`Classification`/`CurveDeviation`/`SelfIntersection`/`Ray(…)`/`Conformance(…)`/`Search(…)`/`Overlaps(…)`/`PointPairs(…)`), and the `Analyze`/`Env`/`Operation` runtime shapes are the frozen host contract — the Grasshopper output binding constructs `Analyze.Query<object, TOut>(query)` and `new Env(Context: …, Progress: …, Cancellation: …)`, the Rhino command context exposes `Analyze.In(context: …)` as a public `Analyze.Scope`, and the overlay runs `Analyze.Run<object, BoundingBox>(query: AnalysisQuery.Bounds(Bounds.AxisAligned), …)`; the host boundary re-enters against these exact spellings.
 
-`Operation<TGeometry, TOut>` is the effect-carrying operation algebra: a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) behind `Build`/`Reject`/`Service` constructors, a `Prepare` gate that folds cancellation, null-geometry admission, and the `Domain/validation` `Requirement` readiness matrix over every item before evaluation — geometry always earns at least the validity-oracle admission even under an empty requirement — and one `Apply(Seq<TGeometry>) → Eff<Env, Seq<TOut>>` fold that traverses per-item bodies, feeds aggregate bodies the whole prepared sequence, and runs service bodies input-free. `Env` is the reader record (`Context` + `IProgress<double>?` + `CancellationToken`) with the `EnvAsks`/`Asks` runtime projections — the Op-threading law holds corpus-wide: `Op` travels as the explicit value key in operation state, `Eff<Env>` carries the ambient runtime, and no operation smuggles context through a second channel. `Analyze` is the one facade (a `static partial class` — each family page contributes its operation builders to this single owner): `Scope` binds context/progress/cancellation with `With` combinators and its own `Run`; `From(RhinoDoc)` is the ONE doc-coupled boundary adapter beside `Context.Of(RhinoDoc)`; `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)` are the host-neutral scope builders; `Run`/`Query` close the three arities over `Validation<Error, Seq<TOut>>`. `AnalysisOutput<TOut>` projects raw evaluator values onto the typed output rail with acceptance DELEGATING to the ONE `Domain/validation` oracle — `Op.AcceptValue` — because every Analysis receipt implements the `Domain/rails` `IValidityEvidence` contract and the oracle's evidence arm admits it with zero Analysis-side switch; a second acceptance oracle that re-declares per-receipt validity arms beside the Domain owner is the killed parallel rail.
+`Operation<TGeometry, TOut>` is the effect-carrying operation algebra: a private `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) behind `Build`/`Reject`/`Service` constructors, a `Prepare` gate that folds cancellation, null-geometry admission, and the `Domain/validation` `Requirement` readiness matrix over every item before evaluation — geometry always earns at least the validity-oracle admission even under an empty requirement — and one `Apply(Seq<TGeometry>) → Eff<Env, Seq<TOut>>` fold that traverses per-item bodies, feeds aggregate bodies the whole prepared sequence, and runs service bodies input-free. `Env` is the reader record (`Context` + `IProgress<double>?` + `CancellationToken` + the optional `TelemetrySink` tap) with the `EnvAsks`/`Asks`/`Taps` runtime projections — the Op-threading law holds corpus-wide: `Op` travels as the explicit value key in operation state, `Eff<Env>` carries the ambient runtime, and no operation smuggles context through a second channel; `Apply` marks a `CostMark` before its body fold and charges the `OpCost` capsule on both exits through the sink, so kernel-grain cost and fault evidence flow with zero emit calls in domain code. `Analyze` is the one facade (a `static partial class` — each family page contributes its operation builders to this single owner): `Scope` binds context/progress/cancellation with `With` combinators and its own `Run`; `From(RhinoDoc)` is the ONE doc-coupled boundary adapter beside `Context.Of(RhinoDoc)`; `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)` are the host-neutral scope builders; `Run`/`Query` close the three arities over `Validation<Error, Seq<TOut>>`. `AnalysisOutput<TOut>` projects raw evaluator values onto the typed output rail with acceptance DELEGATING to the ONE `Domain/validation` oracle — `Op.AcceptValue` — because every Analysis receipt implements the `Domain/rails` `IValidityEvidence` contract and the oracle's evidence arm admits it with zero Analysis-side switch; a second acceptance oracle that re-declares per-receipt validity arms beside the Domain owner is the killed parallel rail.
 
 ## [01]-[INDEX]
 
@@ -211,12 +211,12 @@ public static partial class Analyze {
 
 ## [03]-[OPERATION_RUNTIME]
 
-- Owner: `Env` `[BoundaryAdapter]` — the `Eff` reader runtime (`Context` + `IProgress<double>?` + `CancellationToken`) with the two static projections `EnvAsks` (the whole runtime) and `Asks` (the `Context` alone); the record shape is host-frozen — the Grasshopper binding constructs it positionally. `Operation<TGeometry, TOut>` — the operation algebra: private `Body` `[Union]` (`Rejected(Error)` / `PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>>)` / `Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>)` / `Service(Func<Eff<Env, Seq<TOut>>>)`); public `Key`, internal `Requirement`/`RequiresContext`/`IsSupported`/`IsAggregate`/`NeedsContext`; one constructor per `Body` case — `Build` wires the `Prepare` gate ahead of every per-item evaluator, `Aggregate` folds the same gate across the whole input before its one sequence projection, `Reject` carries a build-time fault, `Service` runs input-free — no constructor argument another constructor silently discards; `Apply(Seq<TGeometry>)` is the ONE execution fold over the `Body` `Switch`. `Analyze` — the facade: `Scope` (a `Fin<Context>`-carrying record with `With(IProgress<double>)`/`With(CancellationToken)` and its own `Run`), `From(RhinoDoc?)`, `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)`, the three `Query` arities resolving an `AnalysisQuery?` onto typed operations, the three `Run` arities executing them, and the internal `Unsupported`/`As`/`Native` lifts every family page composes. `AnalysisOutput<TOut>` `[BoundaryAdapter]` — the typed projection gate (`One`/`Many`/`Objects`) admitting every value through `Op.AcceptValue`, the one oracle; enumerable host ingress is `Op.Accept(values:)`'s job, never a second arm here.
+- Owner: `Env` `[BoundaryAdapter]` — the `Eff` reader runtime (`Context` + `IProgress<double>?` + `CancellationToken` + `TelemetrySink?`) with the three static projections `EnvAsks` (the whole runtime), `Asks` (the `Context` alone), and `Taps` (the sink as `Option<TelemetrySink>`); the record shape is host-frozen — the Grasshopper binding constructs it positionally, and the sink is the defaulted trailing parameter so every frozen construction spelling survives unchanged. `Operation<TGeometry, TOut>` — the operation algebra: private `Body` `[Union]` (`Rejected(Error)` / `PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>>)` / `Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>)` / `Service(Func<Eff<Env, Seq<TOut>>>)`); public `Key`, internal `Requirement`/`RequiresContext`/`IsSupported`/`IsAggregate`/`NeedsContext`; one constructor per `Body` case — `Build` wires the `Prepare` gate ahead of every per-item evaluator, `Aggregate` folds the same gate across the whole input before its one sequence projection, `Reject` carries a build-time fault, `Service` runs input-free — no constructor argument another constructor silently discards; `Apply(Seq<TGeometry>)` is the ONE execution fold over the `Body` `Switch`, opening a `CostMark` before the fold and charging the `OpCost` capsule through the `Env` tap on both exits — the fail exit also publishes the fault fact, and an absent sink costs one null test. `Analyze` — the facade: `Scope` (a `Fin<Context>`-carrying record with `With(IProgress<double>)`/`With(CancellationToken)`/`With(TelemetrySink)` and its own `Run`), `From(RhinoDoc?)`, `In(UnitSystem)`/`In(double, double, double, UnitSystem)`/`In(Context)`, the three `Query` arities resolving an `AnalysisQuery?` onto typed operations, the three `Run` arities executing them, and the internal `Unsupported`/`As`/`Native` lifts every family page composes. `AnalysisOutput<TOut>` `[BoundaryAdapter]` — the typed projection gate (`One`/`Many`/`Objects`) admitting every value through `Op.AcceptValue`, the one oracle; enumerable host ingress is `Op.Accept(values:)`'s job, never a second arm here.
 - Entry: `Analyze.Run<TGeometry, TOut>(AnalysisQuery, params ReadOnlySpan<TGeometry>)` / `Run<TA, TB, TOut>(AnalysisQuery, params ReadOnlySpan<(TA A, TB B)>)` / `Run<TOut>(AnalysisQuery)` → `Validation<Error, Seq<TOut>>`; scoped execution through `Analyze.In(…).With(progress).With(cancel).Run(operation, input)`; operation construction through `Analyze.Query<…>(query, key)`. One entry family, three arities discriminated by the input shape — no `RunMany`/`RunPair`/`RunService` verb siblings.
 - Auto: `Prepare` folds — cancellation first (`Fault.Cancelled`), null-admission second (`Fault.MissingGeometry`), then the `Requirement` matrix; an EMPTY requirement still routes `GeometryBase` values through `Requirement.Apply`'s validity-oracle admission, so no geometry reaches an evaluator unvetted while non-geometry service payloads pass untouched. Scope-less `Run` resolves context by need: an operation with `NeedsContext` and no scope fails `Fault.MissingContext`; a context-free operation defaults to `Context.Of(units: UnitSystem.Millimeters)`. `Apply` flattens per-item chunks (`TraverseM` + `Bind`), feeds aggregates the whole prepared `Seq`, and lifts a `Rejected` body's fault onto the effect rail — rejection is data until execution.
 - Receipt: none on a dedicated rail — `Validation<Error, Seq<TOut>>` IS the public result carrier; faults accumulate the `Domain/rails` `Fault` union, and `Fault.Unsupported` (code 9104) is the probe discriminant the host binding branches on.
 - Packages: LanguageExt.Core (`Eff` reader via `Eff.runtime<Env>()`, `Validation`/`Fin` rails, `TraverseM` applicative traversal), Thinktecture.Runtime.Extensions (`Body` `[Union]` + generated `Switch`), `Rasm.Domain` (`Context.Of` builders, `Requirement.Apply`, the `Op`/`Fault` rail), RhinoCommon (`RhinoDoc` at the ONE `From` adapter, `UnitSystem`).
-- Growth: a new execution modality is one `Body` case plus one constructor on the SAME owner (a streaming body, a batched-chunk body) — never a second operation class; a new scope source is one `In`/`From` overload minting a `Context`; a new runtime capability (a deadline, a telemetry sink) is one field on `Env` threaded by the reader, zero operation edits.
+- Growth: a new execution modality is one `Body` case plus one constructor on the SAME owner (a streaming body, a batched-chunk body) — never a second operation class; a new scope source is one `In`/`From` overload minting a `Context`; a new runtime capability (a deadline) is one field on `Env` threaded by the reader with zero operation edits — the telemetry sink landed exactly this way, one defaulted trailing field plus one `Taps` projection.
 - Boundary: `Analyze.From(RhinoDoc)` is the ONE document-coupled adapter in the folder — every other scope builder is unit- or context-driven, and a second `RhinoDoc` reach anywhere in the analysis surface is the seam violation; acceptance delegates to `Op.AcceptValue` — the `Domain/validation` oracle extended by `IValidityEvidence` registration — and a folder-local `ValidityOf` switch re-declaring receipt arms is the killed parallel oracle; `Operation.Build`'s evaluator receives state BY VALUE (`static` lambdas, no closure capture) so operations stay allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge for object-typed host pipelines — it rejects onto `Fault.Unsupported`, never casts unsafely; `ValidationLifts.ToEff` is the one `Validation → Eff` rail bridge; exceptions never cross — host machinery that throws is wrapped at the owning boundary through `Op.Catch`.
 
 ```csharp signature
@@ -237,9 +237,10 @@ namespace Rasm.Analysis;
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter]
-public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
+public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation, TelemetrySink? Telemetry = null) {
     public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
     public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
+    public static readonly Eff<Env, Option<TelemetrySink>> Taps = Eff.runtime<Env>().Map(static env => Optional(env.Telemetry)).As();
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -281,6 +282,12 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     internal bool IsSupported => Execution is not Body.Rejected;
     internal bool IsAggregate => Execution is Body.Aggregate;
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
+    private static Error Charge(Env runtime, Op key, CostMark mark, int items, Error error) =>
+        (Charge(runtime: runtime, key: key, mark: mark, items: items, succeeded: false), runtime.Telemetry is { } sink ? ignore(sink.Tap(fact: SignalFact.Fault(domain: KernelDomain.Analysis, key: key, fault: error))) : unit, error).Item3;
+    private static Unit Charge(Env runtime, Op key, CostMark mark, int items, bool succeeded) =>
+        runtime.Telemetry is { } sink
+            ? ignore(sink.Tap(fact: SignalFact.Cost(cost: mark.Stop(key: key, domain: KernelDomain.Analysis, items: items, succeeded: succeeded))))
+            : unit;
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false) {
         Requirement active = requirement ?? Requirement.None;
         return new Operation<TGeometry, TOut>(key: key, requirement: active, requiresContext: requiresContext,
@@ -301,7 +308,16 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
     internal static Operation<TGeometry, TOut> Service(Op key, Func<Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
         new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: evaluate));
+    // Cost capsule: the mark opens before the body fold (Prepare runs inside the window), both exits
+    // charge through the Env tap, and the fail exit also publishes the fault fact — sink absent, zero cost.
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
+        from runtime in Env.EnvAsks
+        from mark in Fin.Succ(CostMark.Start()).ToEff()
+        from result in Folded(geometry: geometry)
+            .MapFail(error => Charge(runtime: runtime, key: Key, mark: mark, items: geometry.Count, error: error))
+        from _ in Fin.Succ(Charge(runtime: runtime, key: Key, mark: mark, items: geometry.Count, succeeded: true)).ToEff()
+        select result;
+    private Eff<Env, Seq<TOut>> Folded(Seq<TGeometry> geometry) =>
         Execution.Switch(
             state: geometry,
             rejected: static (_, r) => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
@@ -335,9 +351,11 @@ public static partial class Analyze {
         public Fin<Context> Context { get; }
         public IProgress<double>? Progress { get; init; }
         public CancellationToken Cancellation { get; init; }
+        public TelemetrySink? Telemetry { get; init; }
         internal Scope(Fin<Context> context) => Context = context;
         public Scope With(IProgress<double> progress) => this with { Progress = progress };
         public Scope With(CancellationToken cancellation) => this with { Cancellation = cancellation };
+        public Scope With(TelemetrySink telemetry) => this with { Telemetry = telemetry };
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(Operation<TGeometry, TOut>? operation, params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
             Analyze.Run(operation: operation, scope: Some(this), input: input);
     }
@@ -385,9 +403,9 @@ public static partial class Analyze {
 
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(Operation<TGeometry, TOut>? operation, Option<Scope> scope, ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
         TGeometry[] inputValues = input.ToArray();
-        (IProgress<double>? progress, CancellationToken cancellation) = scope.Case switch {
-            Scope active => (active.Progress, active.Cancellation),
-            _ => (null, CancellationToken.None),
+        (IProgress<double>? progress, CancellationToken cancellation, TelemetrySink? telemetry) = scope.Case switch {
+            Scope active => (active.Progress, active.Cancellation, active.Telemetry),
+            _ => (null, CancellationToken.None, null),
         };
         return (
             from active in Optional(operation).ToFin(new Fault.MissingOperation())
@@ -399,7 +417,7 @@ public static partial class Analyze {
                     false => Context.Of(units: UnitSystem.Millimeters).ToFin(),
                 },
             }
-            from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
+            from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation, Telemetry: telemetry))
             select result).ToValidation();
     }
 }
@@ -416,7 +434,8 @@ flowchart LR
     FamilyUnions -->|internal Operation builder| Operation
     Operation -->|Prepare: cancel → admit → Requirement| Requirement
     Operation -->|Apply| Eff[Eff Env Seq TOut]
-    Env -->|Context · Progress · Cancellation| Eff
+    Operation -->|CostMark → OpCost on both exits| Sink[TelemetrySink tap]
+    Env -->|Context · Progress · Cancellation · Telemetry| Eff
     Eff -->|AnalysisOutput → Op.AcceptValue| Oracle[one validity oracle]
     Analyze -->|Scope / From RhinoDoc / In / Run| Operation
     Eff -.->|Fault union · Unsupported 9104| Validation[Validation Error Seq TOut]
@@ -430,7 +449,7 @@ One owner per axis; capability is a case, a factory row, or a body arm, never a 
 | :-----: | :------------------ | :--------------------------- | :------------------------------------ | :----------------------------- | :-----: |
 |  [01]   | Request vocabulary  | `AnalysisQuery`              | `[Union]` — 4 bands, arity-dispatched | dispatch; build-time `Reject`  |   25    |
 |  [02]   | Operation algebra   | `Operation<TGeometry, TOut>` | `Body` `[Union]` + `Prepare` gate     | `Apply → Eff<Env, Seq<TOut>>`  |    4    |
-|  [03]   | Runtime environment | `Env`                        | reader record + `EnvAsks`/`Asks`      | `Eff<Env, _>` carriage         |    —    |
+|  [03]   | Runtime environment | `Env`                        | reader + `EnvAsks`/`Asks`/`Taps`      | `Eff<Env, _>` carriage         |    —    |
 |  [04]   | Execution facade    | `Analyze`                    | `static partial class`                | `Validation<Error, Seq<TOut>>` |    —    |
 |  [05]   | Output projection   | `AnalysisOutput<TOut>`       | `readonly record struct`              | `Fin<Seq<TOut>>`, one oracle   |    3    |
 

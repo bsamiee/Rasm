@@ -9,7 +9,8 @@ The content-addressed object plane: the object key IS the core `ContentKey` — 
 |  [01]   | `CLIENT_SEAM`  | the scoped client, the one typed send, the fault fold, config, the engine table   |
 |  [02]   | `CONDITIONAL`  | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads |
 |  [03]   | `REFERENCE_GC` | the reference ledger, the derived retention tag, If-Match CAS sweep, lifecycle, multipart reap |
-|  [04]   | `GRANT_MINT`   | the one presign entry, TTL narrowing, header policy, the typed grant              |
+|  [04]   | `INSTRUMENT_ROWS` | the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts |
+|  [05]   | `GRANT_MINT`   | the one presign entry, TTL narrowing, header policy, the typed grant              |
 
 ## [02]-[CLIENT_SEAM]
 
@@ -518,7 +519,42 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
   })
 ```
 
-## [05]-[GRANT_MINT]
+## [05]-[INSTRUMENT_ROWS]
+
+- Owner: the object plane's Convention projections — `_measured`, the one receipt fold every write leg taps, and `_reclaimed`, the sweep-mark projection — instruments the runtime meter bridge exports like every other series while the receipts stay the billing and evidence truth.
+- Packages: `effect` (`Metric`); `@rasm/ts/core` (`Convention` — the instrument and tag rows).
+- Entry: the service construction composes `_measured` as an `Effect.tap` on `put`, `putKeyed`, and `rekey`, and the sweep tail taps `_reclaimed` — zero call-site wiring, and no consumer can write an object the instruments miss.
+- Growth: a new receipt axis is one instrument row here reading its `Convention.instrument` entry plus its tap line on the owning leg.
+- Law: dedup rate DERIVES on the dashboard — the write counter tags each receipt's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `swept` census.
+- Law: instrument name, description, and tag key read off the `Convention` rows — no signal-site literal exists on the object plane, and identifier-grade context (the content key) rides span attributes on `data.sweep`/`data.grant`, never a metric tag.
+
+```typescript signature
+import { Metric } from "effect"
+import { Convention } from "@rasm/ts/core"
+
+const _written = Metric.counter(Convention.instrument.objectWritten.name, {
+  description: Convention.instrument.objectWritten.description,
+  incremental: true,
+})
+
+const _weight = Metric.counter(Convention.instrument.objectBytes.name, {
+  description: Convention.instrument.objectBytes.description,
+  incremental: true,
+})
+
+const _reclaimed = Metric.counter(Convention.instrument.objectReclaimed.name, {
+  description: Convention.instrument.objectReclaimed.description,
+  incremental: true,
+})
+
+const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
+  Effect.zipRight(
+    Metric.increment(Metric.tagged(_written, Convention.rasm.objectOutcome, receipt.written ? "written" : "dedup")),
+    receipt.written ? Metric.incrementBy(_weight, receipt.bytes) : Effect.void, // a 412 noop moved no bytes
+  )
+```
+
+## [06]-[GRANT_MINT]
 
 - Owner: `store.grant(key, command, policy?)` — one polymorphic mint over any command value: the command discriminates upload, download, part, or probe; the policy row narrows the TTL and carries the signed and hoisted header sets; the reply is the typed `{ url, expiresAt, key }` capability, never a bare string.
 - Packages: `@aws-sdk/s3-request-presigner` (`getSignedUrl`, `signableHeaders`, `hoistableHeaders`); `effect` (`DateTime`, `Duration`).
@@ -605,16 +641,18 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
             bytes.byteLength <= setting.multipartThreshold
               ? _putPlain(client, setting.bucket, key, bytes)
               : _putMultipart(client, setting.bucket, key, bytes, setting.partBytes, setting.partFlight),
-          )),
+          )).pipe(Effect.tap(_measured)),
       putKeyed: (key: ContentKey, body: ReadableStream<Uint8Array>, span: number, step?: (loaded: number) => void) =>
-        _putStreaming(client, setting.bucket, key, body, setting.partBytes, setting.partFlight, span, step),
+        _putStreaming(client, setting.bucket, key, body, setting.partBytes, setting.partFlight, span, step).pipe(Effect.tap(_measured)),
       get: (key: ContentKey) => shield(key)(_got(client, setting.bucket, key)),
       head: (key: ContentKey) => shield(key)(_headed(client, setting.bucket, key)),
       attributes: (key: ContentKey) => shield(key)(_attributes(client, setting.bucket, key)),
       rekey: (source: ContentKey, target: ContentKey) =>
-        shield(target)(_rekey(client, setting.bucket, source, target)),
+        shield(target)(_rekey(client, setting.bucket, source, target)).pipe(Effect.tap(_measured)),
       settled: (key: ContentKey) => _settled(client, setting.bucket, key, setting.settleSeconds),
-      sweep: _sweep(client, setting.bucket, setting.settleSeconds),
+      sweep: _sweep(client, setting.bucket, setting.settleSeconds).pipe(
+        Effect.tap((mark) => Metric.incrementBy(_reclaimed, mark.swept)), // GC reclaim projects from the sweep mark the span already carries
+      ),
       reap: _reap(client, setting.bucket),
       grant: (key: ContentKey, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
         shield(key)(_grant(client, setting.presignTtl)(key, command, policy)),

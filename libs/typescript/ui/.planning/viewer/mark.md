@@ -103,6 +103,7 @@ const _marquee = (
 - Law: reveal is a camera intent — selecting from the grid emits `Camera.Intent.FitBounds`/`EaseTo` over the selected features' bbox; reveal never reaches into a map instance directly.
 - Law: the selection count and id list surface through `system/primitive` rows — status text via `Message` plural forms, `announce` as polite SR feedback on large marquee results.
 - Law: non-view echo consumers subscribe through one bounded channel — `Selection.echoes` is a `PubSub.bounded<Selection.Op>` every applied op publishes into, so a wire egress, a probe evidence tap, or a sibling app's mirror consumes the op stream under backpressure without touching the atom registry; a second subscription protocol beside it is the named defect, and per-app soundness holds because each app scopes its own channel.
+- Law: `Selection.echoes` is the adopted source behind the `rasm.ui.mark.op` hook point (`system/hook`, replay modality) — the registry pumps this one channel, so history capture, the app OTel bridge, and late-mounted evidence boards receive the replay window from the same publish path the echoes already ride, and no second op publisher exists.
 
 ```typescript
 import { Effect, HashSet, PubSub } from "effect"

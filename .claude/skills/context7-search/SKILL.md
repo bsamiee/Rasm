@@ -1,5 +1,5 @@
 ---
-name: context7-mcp
+name: context7-search
 description: >-
     External-package truth: any signature, member, or capability of an imported library
     resolves through Context7 over memory or a guessed git tag. Load before the first lookup.
@@ -7,7 +7,7 @@ description: >-
     and before coding against an uninstalled member. Un-indexed sources belong to tavily-search.
 ---
 
-# [CONTEXT7_MCP]
+# [CONTEXT7_SEARCH]
 
 Two MCP tools and a REST lane: `resolve-library-id` ranks indexed sources, `query-docs` returns cited code per scoped question, REST adds ranked metadata and budgeted pulls.
 

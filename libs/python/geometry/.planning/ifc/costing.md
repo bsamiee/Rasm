@@ -14,7 +14,7 @@ Every selecting phase admits its query through `IfcSelector` (`ifc/selector.md#S
 - Cases: `QUANTITY` (rule-driven take-off over `ifc5d.qto`), `COST` (`ifcopenshell.api.cost` rollup over each `IfcCostItem`), `SCHEDULE` (`ifc4d` `<Format>2Ifc` parser populating `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence`), `PATCH` (`ifcpatch.execute` named recipe over the `recipes` namespace), `DIFF` (`ifcdiff` revision comparison over `deepdiff`) — matched by `match`/`assert_never`, each dispatching to the ecosystem sibling that owns it.
 - Entry: `IfcLifecycle.run` takes SPF source bytes, a `LifecyclePhase`, a `spec` whose meaning is phase-fixed — validated selector for `QUANTITY`, cost-schedule GlobalId and report token for `COST`, `<format>:<path>` for `SCHEDULE`, `<recipe>:<json-args>` for `PATCH`, revision path for `DIFF` — and the lane, returning `RuntimeRail[tuple[bytes, LifecycleReceipt]]` through the `evidence_run` weave over the `HOSTILE` kernel crossing: mutating phases ride home as the successor model's SPF bytes (`PATCH` serializes the file `ifcpatch.execute` minted, never the pre-patch input), `DIFF` (read-only) rides `b""`, and a kernel-side `_dispatch` fault crosses home as the typed `BoundaryFault` on the kernel's own rail — the caller flattens the nested rail once, so tag, subject, and fields survive the seam whole. `_dispatch` partitions the `spec` once on the `PHASE_DELIMITER` table keyed by every phase including `DIFF`'s empty-delimiter row (whole `spec` as revision path, no `partition("")` fault), never a `.get` default that silently drops a phase. `QUANTITY` binds the `#<rule-set>` token AND the validated selector monadically, so both fault before `quantify` runs. Each arm derives its own `subjects` from the phase's true subject set; `DIFF`'s `population` field separately carries the full compared element count the drift fraction divides against.
 - Auto: `QUANTITY`'s `ifc5d.qto.quantify`/`edit_qtos` answers the whole base-quantity schedule keyed by the `qto.rules` table and writes it back as `IfcElementQuantity`, superseding the `get_psets(qtos_only=True)`/`NetFloorArea` single-key fold the sibling owner shed. `COST`, `PATCH`, and `DIFF` each carry the phase's product as a typed token on the receipt subject — the `CostReport` writer key, the patch product type, the diff change class — so the durable write stays the data boundary's. No phase carries an `if/else` value ladder or mints a per-phase class: one fold arm and one helper per row, the owning package bound directly.
-- Receipt: kind-specific `evidence` ledger keys the empty-row fraction for `QUANTITY`/`COST`/`SCHEDULE`/`PATCH` (a phase producing no rows for a non-empty subject set is a degenerate run keyed `1.0`) and the changed-over-`population` drift fraction for `DIFF` (never changed-over-changed, which clears every ceiling), so a model breaching the caller's ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates()` returns `GeometryHandoff.of(BIM_LIFECYCLE, …)` against the per-key ceiling; the typed `LifecycleRow` is the carry, its per-field `facts` the lossless projection.
+- Receipt: kind-specific `evidence` ledger keys the empty-row fraction for `QUANTITY`/`COST`/`SCHEDULE`/`PATCH` (a phase producing no rows for a non-empty subject set is a degenerate run keyed `1.0`) and the changed-over-`population` drift fraction for `DIFF` (never changed-over-changed, which clears every ceiling), so a model breaching the caller's ceiling fails the carrier's `admitted` verdict rather than crossing clean. `graduates()` returns `GeometryHandoff.of(BIM_LIFECYCLE, …)` against the per-key ceiling; the typed `LifecycleRow` is the carry, its per-field `facts` the lossless projection, and `frame()` re-projects the same facts as one phase-homogeneous `EvidenceFrame` through the graduation port so the data plane aggregates lifecycle rollups without receipt re-parsing.
 - Packages: `ifc5d` (`qto.rules`/`quantify`/`edit_qtos` take-off surface only — the `ifc5Dspreadsheet` writer family is the data boundary's), `ifcopenshell` (`api.cost` rollup and in-process model access; selector filtering is the validated gate, never a direct `util.selector.filter_elements` call here), `ifc4d` (`<Format>2Ifc` named parsers), `ifcpatch` (`execute` over the `recipes` namespace; the durable `write` is the data boundary's), `ifcdiff` (`IfcDiff`/`change_register`/`added_elements`/`deleted_elements`; the `export` JSON is the data boundary's), and `geometry`/`expression`/`beartype`/`runtime` per the fence imports; `IfcSelector` is the only `filter_elements` caller.
 - Growth: a new quantity rule set is one `RuleSet` row over the upstream `qto.rules` key; a new cost format one `CostReport` row the data boundary binds to its `ifc5Dspreadsheet` writer subclass; a new schedule format one `ScheduleFormat` row binding its `<Format>2Ifc` parser; a new model transformation one `recipe` name in the `ifcpatch.execute` directive; a new diff classification one `DiffChange` row and one `of_register` arm — zero new surface, no parallel per-phase class family.
 - Boundary: no re-derivation of the C# `IfcSemanticModel` spatial hierarchy; no durable store — cost spreadsheet, `ifcpatch.write` serialization, and diff `export` JSON all defer to `python:data/spatial` as the token or product carried on the receipt; no Rhino/GH mutation. Ecosystem siblings import function-local under `# noqa: PLC0415` at boundary scope per the manifest import policy, and the `spec` selector crosses the `IfcSelector.filter` validated gate, never a raw `util.selector.filter_elements` passthrough.
@@ -33,12 +33,12 @@ from expression.collections import Map
 from msgspec import Struct
 from msgspec.json import decode
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.geometry.ifc.selector import IfcSelector
 from rasm.runtime.faults import FAULT_CONF, BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.lanes import LanePolicy
-from rasm.runtime.receipts import Receipt, Redaction, receipted
+from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.workers import Kernel, KernelTrait
 
 if TYPE_CHECKING:  # every runtime ifcopenshell use is a function-local boundary import, so the module loads clean
@@ -152,9 +152,6 @@ class LifecycleRow:
 # Lifecycle output crosses on BIM_LIFECYCLE; an unlisted subject fails at the boundary under `ty`.
 LIFECYCLE_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_LIFECYCLE
 
-# keep-all policy: lifecycle facts carry no secret field.
-_REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
-
 # One delimiter row is the partition vocabulary key per phase, never a parse-per-phase ladder and never
 # a `.get` default that drops a phase; `DIFF`'s empty-delimiter row passes the whole spec as the revision path.
 PHASE_DELIMITER: Map[LifecyclePhase, str] = Map.of_seq([
@@ -197,12 +194,22 @@ class LifecycleReceipt(Struct, frozen=True, gc=False):
         # local carrier residual-over-ceiling `admitted` verdict gates; `wire()` is the compute crossing.
         return GeometryHandoff.of(LIFECYCLE_SUBJECT, evidence_key, self.evidence(), ceiling)
 
+    def frame(self, evidence_key: ContentKey) -> EvidenceFrame:
+        # phase rows are homogeneous, so the first row's fact keys ARE the column set; the rollup crosses the
+        # geometry-to-data seam as one columnar frame per run — an empty phase frames zero rows, never a fault.
+        names = tuple(self.rows[0].facts) if self.rows else ()
+        table: dict[str, list[object]] = {
+            "phase": [self.phase.value] * len(self.rows),
+            **{name: [row.facts[name] for row in self.rows] for name in names},
+        }
+        return EvidenceFrame.of(LIFECYCLE_SUBJECT, evidence_key, table)
+
     def contribute(self) -> "Iterable[Receipt]":
         facts = {f"{self.phase}.{i}.{k}": v for i, row in enumerate(self.rows) for k, v in row.facts.items()}
         yield Receipt.of("rasm.geometry.ifc.costing", ("emitted", self.phase.value, facts | {"subjects": len(self.subjects)} | self.evidence()))
 
     @staticmethod
-    @receipted(_REDACTION)
+    @receipted(OPEN)  # lifecycle facts carry no secret field, so the runtime keep-all policy binds
     def _emit(receipt: "LifecycleReceipt") -> "LifecycleReceipt":
         # explicit harvest point: the kernel's cleared value is a (bytes, receipt) tuple the weave's own harvest
         # passes through plain, so the receipt slot threads this aspect on the Ok path — the reconstruction convention.

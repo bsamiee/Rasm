@@ -45,7 +45,7 @@
 - Guide: the component's medial chain orders from its maximum-clearance node outward and enters `ArcOp` as the guide loop, so emission follows the admitted skeleton.
 - Projection: each component's emitted moves become one `CutElement` per contiguous cutting run, with rapid delimiters dropped, so branch and component travel stays absent from the cutting owner.
 - Evidence: `ElementVariant` carries the walk's own rotation penalty, thermal exposure, and pierce count derived from emitted motion, never a placeholder.
-- Receipt: `SkeletonReceipt` carries per-component passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers.
+- Receipt: `SkeletonReceipt` carries per-component passes with their limit tables and binding rows, the graph census, and the flattened element projection `Cam` lowers; the settled census fires the `FabricationFact.Engine.Of` node, arc, and pass rows through the caller-supplied `FabricationTap`, defaulting silent for headless callers.
 - Packages: `LanguageExt.Core` owns accumulation, keyed lookup, and traversal; `Thinktecture.Runtime.Extensions` owns demand construction and the delegate-bearing rows; `QuikGraph` owns component topology; `System.Numerics.Tensors` owns batch finiteness; `CavalierContours` arrives through `ArcAlgebra.Apply`; `MTConnect.NET-Common` arrives through `CutterForm` admission.
 - Boundary: `ArcAlgebra` owns exact-arc path generation, `Cam` owns axial repetition and safety composition, and `Link` owns travel.
 
@@ -221,7 +221,7 @@ public sealed record SkeletonReceipt(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Skeleton {
-    public static Fin<SkeletonReceipt> Walk(SkeletonDemand demand) =>
+    public static Fin<SkeletonReceipt> Walk(SkeletonDemand demand, FabricationTap? tap = null) =>
         from tolerance in Tolerance.Apply(new ToleranceRequest.Scallop(demand.Engagement.Finish, demand.Cutter))
         from scallop in tolerance is ToleranceReceipt.Scallop receipt
             ? Fin.Succ(receipt.StepMm)
@@ -234,13 +234,15 @@ public static class Skeleton {
             .Map(component => Component(demand, budget, cutterRadius, scallop, component))
             .TraverseM(identity)
             .As()
-        select new SkeletonReceipt(
+        let walked = new SkeletonReceipt(
             passes,
             demand.Topology.Components,
             demand.Topology.ComponentCount,
             demand.Graph.Nodes.Count,
             demand.Graph.Arcs.Count,
-            cutterRadius);
+            cutterRadius)
+        let _fact = FabricationFact.Engine.Of(walked).Map((tap ?? FabricationTap.Silent).Fire).Strict()
+        select walked;
 
     private static Fin<SkeletonPass> Component(
         SkeletonDemand demand,

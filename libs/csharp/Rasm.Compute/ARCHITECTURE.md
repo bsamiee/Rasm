@@ -45,7 +45,7 @@ Rasm.Compute/
 │   ├── Admission.cs       # Typed intent admission with substrate axis and total dispatch
 │   ├── Scheduling.cs      # Bounded work-lanes and the dependency job-graph scheduler
 │   ├── Progress.cs        # Monotonic phase family and the progress capsule
-│   ├── Receipts.cs        # ComputeReceipt fact union, instrument projection and traces, replay folds, wire stamps, claim table
+│   ├── Receipts.cs        # ComputeReceipt fact union, instrument projection and traces, replay folds, wire stamps, claim table, hook rail, tenant cost ledger, dashboard descriptor
 │   ├── Wire.cs            # Wire contract: proto vocabulary, evolution, and fault projection
 │   ├── Transport.cs       # Channel mechanics: transport rows, tuning, and the artifact frame law
 │   ├── Codecs.cs          # Field, result, and geometry-delta codecs and the tessellation bridge
@@ -216,8 +216,11 @@ flowchart LR
     Runtime e11@-->|"[WIRE]: GraduationEvidence"| Compute
     Symbolic e12@<-->|"[WIRE]: QuantityFamily"| Compute
     Solver e13@-->|"[SHAPE]: DoeDataset"| Data
+    Iac{{typescript:iac}}
     Runtime e14@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
-    Symbolic e15@<-->|"[WIRE]: QuantityFamily"| Core
+    Runtime e15@-->|"[PORT]: ComputeHookRail"| AppHost
+    Symbolic e16@<-->|"[WIRE]: QuantityFamily"| Core
+    Runtime e17@-->|"[WIRE]: SloAlertRow"| Iac
 ```
 
 ## [04]-[INTERNAL]
@@ -270,6 +273,7 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Closed-form ISO/EN folds and the multi-ply `AssemblyAggregator` live in `Analysis`; single-material folds stay seam-owned, composed here.
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` request payload — its content key folds the assessment content key so a re-shaded site re-keys — and site evidence is the EPW header or the request's explicit `SolarSite`, never a fabricated site.
+- `Runtime/receipts` descriptor and chargeback rows are data the `typescript:iac` compile leg consumes; Compute owns no IaC surface, and the tenant partition every ledger fold reads is the AppHost `TenantContext` stamped on the envelope, never a Compute-minted tenancy.
 
 ## [06]-[OWNER_LAW]
 
