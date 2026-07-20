@@ -228,6 +228,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: `[SOLVER_MEMO_CACHE]` lands on its hottest lane.
 - Anchors: `Nesting/nfp.md`, `libs/csharp/.api/api-hybrid-cache.md`, IDEAS `[SOLVER_MEMO_CACHE]`.
 
+[SCHEDULE_BAG_FOLDS]-[QUEUED]: Pin the schedule derivation folds over the realization bags.
+- Capability: bar-bending, weld-map, and stud-layout fold rows, each naming its realization-bag inputs and deliverable shape; the deliverable wire registers at the `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]` counterpart in the same change — folds landed with the wire unregistered leave this task open.
+- Shape: fold rows on `libs/csharp/Rasm.Fabrication/.planning/Documentation/report.md`; projector-fact reads per `libs/csharp/Rasm.Fabrication/.planning/Process/derivation.md`.
+- Unlocks: `[SHOP_SCHEDULE_DERIVATION]` lands deliverable by deliverable.
+- Anchors: `DetailSchema.Realization` seam bags, `FabricationProjector`, IDEAS `[SHOP_SCHEDULE_DERIVATION]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

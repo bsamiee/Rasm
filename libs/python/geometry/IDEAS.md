@@ -85,7 +85,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [EVIDENCE_TRACE_LINKS]-[BLOCKED]: cross-producer trace links over the content-keyed crossings.
 - Capability: `Span.add_link` joins a consumer span — deviation's reference-GLB read, reconstruction's transform compose — to the upstream producer's trace.
-- Shape: a `SpanContext` field beside the `ContentKey` on `GeometryHandoff.wire()`, folded as a `Link` at `evidence_run` span open; lands on `libs/python/geometry/.planning/graduation.md` and `libs/python/geometry/.planning/scan/deviation.md`.
+- Shape: an optional serialized W3C `traceparent` string beside the `ContentKey` on `GeometryHandoff.wire()` (absent = no link), decoded to a `SpanContext` and folded as a `Link` at `evidence_run` span open; lands on `libs/python/geometry/.planning/graduation.md` and `libs/python/geometry/.planning/scan/deviation.md`.
 - Unlocks: backend metric-to-trace-to-upstream-trace click-through across the scan plane's producer chain.
 - Anchors: the `evidence_run` weave on the graduation spine; `Link`/`Span.add_link` on the branch `opentelemetry-api` catalogue.
 - Tension: blocker — does the compute `rasm.compute.graduation.handoff` decode admit a widened `wire()` carrying a W3C `traceparent` field, and which co-ship lands both ends; resolution route: the compute graduation handoff owner page and the cross-libs `[UNIFIED_SIGNAL_FABRIC]` frozen-wire ruling.
@@ -96,6 +96,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: live progress taps for the C# rail and the TS viewer without polling receipts.
 - Anchors: the runtime `Hooks` registry and its telemetry taps; `Span.add_event` on the branch `opentelemetry-api` catalogue.
 - Tension: blocker — does the runtime lane spine expose a parent-side streaming drain a worker kernel can pulse through mid-run, a `pebble` map-iterator or pipe conduit; resolution route: runtime `execution/lanes.md` lane surface and the branch `libs/python/.api/pebble.md` member truth.
+
+[DAYLIGHTING_SCENE_DESCRIPTOR]-[QUEUED]: host-minted daylighting scene descriptors decode into the energy simulation plane.
+- Capability: the C#-minted content-keyed scene descriptor — `SunState` astronomy, photometric light roster with distribution payloads, GLB shading tessellation — decodes into the building-model admission so radiation, shading, and daylight-autonomy studies run from the live host scene with zero host dependency.
+- Shape: a descriptor decode fold ahead of the `translate` pair on `libs/python/geometry/.planning/energy/simulate.md` — sun state onto the climate owner's solar vocabulary at `libs/python/geometry/.planning/energy/climate.md`, light roster onto the model admission at `libs/python/geometry/.planning/energy/model.md`, GLB shading through the standing tessellation rail; daylight recipes ride the existing `RecipeName` row shape, results returning as the page's self-describing frames keyed by the descriptor's content identity.
+- Unlocks: closed-loop solar and daylight studies from the live Rhino scene; the estate scene-descriptor vocabulary gains its first consumer.
+- Anchors: `energy/simulate.md` recipe binding and frame discipline; `energy/climate.md` solar vocabulary; the content-keyed crossing law and the GLB rail.
+- Tension: descriptor schema is the shared wire owner's mint — this plane decodes it and never widens it; tessellation-fidelity policy arrives as a descriptor axis, never a local default.
+- Ripple: `libs/.planning` `[DAYLIGHTING_SCENE_DESCRIPTOR]`.
 
 ## [02]-[CLOSED]
 

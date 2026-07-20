@@ -21,10 +21,10 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: Receipts stay the truth and instruments/logs/spans are projections — C# `InstrumentFan` over the receipt fan, Python `Metrics.record` folds, TS `Pulse` Fact-to-Metric bridge; per-branch hook registries (`rasm.<pkg>.<domain>.<point>`) make telemetry a tap on domain facts; `core/observe` Convention, SLO, and `DashboardModel` compile through the Foundation-SDK leg into the iac-realized Grafana stack with Prometheus as the exemplar-bearing reference store row.
 - Unlocks: Any future app composes exporters at its root and inherits the full metric/trace/log/profile plane; dashboards and burn-rate alerts derive from the same typed vocabulary the emitters use, breaking at type-check instead of drifting.
 - Anchors: `csharp:Rasm.AppHost/Observability`; `python:runtime/observability`; `typescript:core/observe`, `typescript:runtime/otel`, `typescript:iac/operate/observe.md`; the `OtelExport`/`TraceContext`/`DashboardModel`/`StackOutputs` seams.
-- Tension: The three SDK trains move on split stable/experimental channels, so the wire-law constants are the only shared surface — conformance rides transcription of the same rows in each branch, never a shared library.
+- Tension: Three SDK trains move on split maturity channels, so the wire-law constants are the only shared surface — conformance rides transcription of the same rows in each branch, never a shared library.
 - Ripple: `typescript:data` `[OBJECT_PLANE_INSTRUMENT_PROJECTION]`.
 
-[FLEET_TELEMETRY_SCALE_ROWS]-[QUEUED]: The named fleet-escalation row set flips the estate telemetry plane to fleet scale without new surfaces.
+[FLEET_TELEMETRY_SCALE_ROWS]-[QUEUED]: Named fleet-escalation rows flip the estate telemetry plane to fleet scale without new surfaces.
 - Capability: Broker-buffered OTLP transport (Kafka/NATS collector legs), tail-based sampling at the gateway, the Mimir scale-out store row, and per-app agent topology form one closed escalation family — each a row on an axis the corpus already models, armed only when a deployment placement earns it.
 - Shape: Collector pipeline rows and the iac store/topology coordinates carry the family; apps and libraries change nothing — the same OTLP egress and Convention vocabulary serve both scales.
 - Unlocks: Multi-host fleets, tenant isolation at volume, and lossless telemetry under backpressure, all as deploy-time row flips.
@@ -32,18 +32,18 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: Every row is currently ruled OFF at estate scale (file-storage queue covers durability, one gateway suffices, Prometheus reference row holds exemplars) — the card exists so fleet pressure re-arms rows instead of re-deriving the design.
 
 [COST_ATTRIBUTION_BAGGAGE]-[QUEUED]: Tenant baggage joined to grant-cost vectors yields per-tenant cost and usage boards from the standing signal fabric.
-- Capability: The W3C baggage tenant dimension, the C# grant/cost spend instruments, and trace-based exemplars compose into per-tenant cost attribution — usage, spend, and burn boards keyed by the same `TenantContext` every runtime already stamps.
+- Capability: W3C baggage's tenant dimension, the C# grant/cost spend instruments, and trace-based exemplars compose into per-tenant cost attribution — usage, spend, and burn boards keyed by the same `TenantContext` every runtime already stamps.
 - Shape: C# mints the cost facts (`GrantBroker` vectors projected through the instrument fan), the collector routes tenant baggage onto metric dimensions, and the board models derive tenant cost views compiled through the Foundation-SDK leg.
 - Unlocks: Metered multi-tenant products, per-agent/per-model AI spend governance, and chargeback-grade evidence without a second metering pipeline.
 - Anchors: `csharp:Rasm.AppHost/Agent/capability.md` grant/cost vectors; `csharp:Rasm.AppHost/Observability/instruments.md` spend rows; `typescript:core/observe/board.md`; the `rasm.tenant` baggage law.
 - Tension: Tenant cardinality caps on metric streams bound the attribution grain; above the cap, attribution rides exemplar-sampled traces, not per-tenant series.
 
 [PROFILE_SIGNAL_OTLP]-[QUEUED]: Continuous profiles migrate from vendor push onto the OTLP profiles signal the moment it stabilizes.
-- Capability: The fourth signal rides the same gateway, resource identity, and scope law as traces/metrics/logs — Pyroscope push SDKs in all three runtimes retire into OTLP exporters, and profile-to-span correlation becomes wire-native.
-- Shape: One exporter-row swap per runtime composition root plus a collector pipeline row; the span-profile correlation processors and dashboards survive unchanged.
+- Capability: Profiles, the fourth signal, ride the same gateway, resource identity, and scope law as traces/metrics/logs — Pyroscope push SDKs in all three runtimes retire into OTLP exporters, and profile-to-span correlation becomes wire-native.
+- Shape: One exporter-row swap per runtime composition root and one collector pipeline row; the span-profile correlation processors and dashboards survive unchanged.
 - Unlocks: Vendor-neutral profiling, one ingress for all four signals, and profile exemplar links alongside the metric-trace jumps.
 - Anchors: `csharp` Pyroscope span-profile correlation; `python:runtime/observability/profiles.md`; `typescript:iac/operate/observe.md` Pyroscope row; the collector gateway.
-- Tension: The OTLP profiles signal is pre-stable across all three SDKs — the card arms on signal stabilization, never before.
+- Tension: OTLP profiles stay pre-stable across all three SDKs — the card arms on signal stabilization, never before.
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Shared `LayerTopologyFact` wire rows carry host organization into every `ElementGraph` peer.
 - Capability: `LayerTopologyFact` projects `LayerStamp` identity, `LayerPath` nesting, membership, and per-viewport overrides as detached entity and containment facts, so each runtime answers layer organization without a host handle.
@@ -54,12 +54,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: `python:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]`; `typescript:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
 
 [DAYLIGHTING_SCENE_DESCRIPTOR]-[QUEUED]: Owned sun astronomy, scene lights, and GLB tessellation compose one daylighting scene descriptor the Python analysis companion consumes for EnergyPlus/OpenStudio-grade solar and daylight studies.
-- Capability: A content-keyed, host-free scene descriptor — sun state (`SunSolver` astronomy), photometric light roster (`LightStamp` rows with `Radiance` power and the `PhotometricWeb` distribution payload), shading geometry as GLB tessellation — emitted from the C# host and folded by the Python compute owner into radiation, shading, and daylight-autonomy analyses.
-- Shape: A descriptor emitter on the `Rasm.Rhino` Render/Exchange surface stacking `SunState` + `Objects/lights.md` stamps + the GLB rail over the content-keyed wire; a Python consumer in the compute branch driving the machine's `energyplus`/`openstudio` engines; results return as wire receipts keyed by the same content identity.
+- Capability: A content-keyed, host-free scene descriptor — sun state (`SunSolver` astronomy), photometric light roster (`LightStamp` rows with `Radiance` power and the `PhotometricWeb` distribution payload), shading geometry as GLB tessellation — emitted from the C# host and folded by the Python geometry energy owner into radiation, shading, and daylight-autonomy analyses.
+- Shape: A descriptor emitter on the `Rasm.Rhino` Render/Exchange surface stacking `SunState` + `Objects/lights.md` stamps + the GLB rail over the content-keyed wire; a Python consumer on `python:geometry/energy/simulate.md` driving the machine's `energyplus`/`openstudio` engines through the runtime recipe binding; results return as wire receipts keyed by the same content identity.
 - Unlocks: Closed-loop environmental analysis from the live model — solar exposure, shading studies, daylight metrics — without a host dependency in the analysis runtime, and a reusable scene-descriptor vocabulary for any future physics consumer.
-- Anchors: `Rasm.Rhino` `Render/settings.md` `SunSolver.Solve`/`SunState`; `Objects/lights.md` `LightStamp`/`Radiance`; `Render/kinds.md` `PhotometricWeb`; `libs/.planning/architecture.md` `[04]` geometry-flow law (kernel and Python geometry meet only at the wire: content identity plus the GLB tessellation rail) and `[06]` per-language roles (Python as the host-free science/compute companion).
+- Anchors: `Rasm.Rhino` `Render/settings.md` `SunSolver.Solve`/`SunState`; `Objects/lights.md` `LightStamp`/`Radiance`; `Render/kinds.md` `PhotometricWeb`; `libs/.planning/architecture.md` `[04]` geometry-flow law (kernel and Python geometry meet only at the wire: content identity and the GLB tessellation rail) and `[06]` per-language roles (Python as the host-free science/compute companion).
 - Tension: Descriptor schema is a new shared wire owner — C# mints it, Python decodes it, and the schema lands in the wire vocabulary before either end builds; tessellation fidelity policy remains an explicit descriptor axis.
-- Ripple: `python:compute` `[DAYLIGHTING_SCENE_DESCRIPTOR]`.
+- Ripple: `python:geometry` `[DAYLIGHTING_SCENE_DESCRIPTOR]`.
 
 [HOST_OPLOG_CRDT_PRODUCER]-[QUEUED]: Committed host transactions become a replayable, mergeable causal op-log — the host end of the shared op-log CRDT wire owner.
 - Capability: Every sealed commit folds into an `OperationId`-keyed causal log, so equal payloads remain distinct operations and cross-runtime sync, collaborative merge, and checkpoint replay become wire operations instead of file exchanges.

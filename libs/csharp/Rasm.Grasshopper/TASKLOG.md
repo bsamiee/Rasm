@@ -18,7 +18,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 -->
 
 [0003]-[QUEUED]: Receipt-to-instrument mapping pins every `rasm.grasshopper.*` row.
-- Capability: exact field-to-instrument table — `PaintReceipt` elapsed/drawn/culled, `FrameWindow` draw window, `SessionReceipt` acknowledgement latency, `RunPulse`/`RunEvidence` counts and progress, drain drop counts — each with UCUM unit and its `gh-doc` plus plugin-identity tag set.
+- Capability: exact field-to-instrument table — `PaintReceipt` elapsed/drawn/culled, `FrameWindow` draw window, `SessionReceipt` acknowledgement latency, `RunPulse`/`RunEvidence` counts and progress, drain drop counts — each with UCUM unit and its `gh-doc` and plugin-identity tag set.
 - Shape: instrument roster and kind table on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`.
 - Unlocks: idea [0001] lands with a closed roster, and the AppHost arm mount consumes fixed kind spellings.
 - Anchors: receipt owners on `Canvas/paint.md`, `Canvas/motion.md`, `Shell/session.md`, `Document/solution.md`; branch `api-diagnostics-metrics.md`.

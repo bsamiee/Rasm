@@ -23,10 +23,12 @@
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
         <PackageReference Include="Npgsql.NetTopologySuite" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="pocketken.H3" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3mc" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
     </ItemGroup>
 
@@ -70,6 +72,7 @@
 
     <ItemGroup Label="Append And Egress">
         <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="CloudNative.CloudEvents.Amqp" />
         <PackageReference Include="CloudNative.CloudEvents.Kafka" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
         <PackageReference Include="Confluent.Kafka" />
@@ -99,6 +102,8 @@
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="Minio" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.AWS" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" />
         <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 

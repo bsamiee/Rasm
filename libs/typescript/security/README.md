@@ -32,7 +32,8 @@ Folder-specific libraries admitted here; versions centralize in `pnpm-workspace.
 - `@oslojs/encoding`
 
 [CEREMONY]:
-- `arctic`
+- `arctic` — browser authorization-code redirect and provider rows.
+- `openid-client` — certified OIDC RP: machine grants (client-credentials, token exchange), DPoP, introspection.
 - `@simplewebauthn/server`
 - `@simplewebauthn/browser`
 - `@otplib/core` — OTP substrate `otplib` composes.

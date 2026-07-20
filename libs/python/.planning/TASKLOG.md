@@ -17,12 +17,22 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
 -->
 
-[WORKER_TELEMETRY_CONTINUITY]-[QUEUED]: Design the worker-process telemetry seam on the runtime observability owners.
-- Capability: Trace-context inject/extract across the task-submit pickle seam and a per-process provider lifecycle for the worker fabric.
-- Shape: Rows on the runtime `observability/telemetry` install (worker bootstrap, flush-at-retirement law) and the `lanes`/`workers` pages (submit-side context capture); flame tags follow the profiles owner.
-- Unlocks: Compute and geometry kernel spans join the parent trace; a worker crash leaves flushed evidence.
-- Anchors: runtime telemetry install; workers/lanes owners; `propagate.inject`/`propagate.extract` over the `cloudpickle`/`tblib` submit seam; `TracerProvider.force_flush` at retirement; profiles push owner.
-- Tension: HOSTILE kernels bar in-process registry reach.
+[WIRE_TRACE_RULING]-[QUEUED]: resolve the crossing-wire trace band and land the co-ship pair.
+- Capability: verdict on the widened `GeometryHandoff.wire()` band against the compute decode owner and the cross-libs frozen-wire law; on admit, the geometry mint arm and the compute decode arm land and both folder `[EVIDENCE_TRACE_LINKS]` cards unblock.
+- Shape: verdict recorded on both folder BLOCKED cards, mint and decode arms on `libs/python/geometry/.planning/graduation.md` and `libs/python/compute/.planning/graduation/handoff.md`.
+- Unlocks: cross-producer trace links on every graduation crossing.
+- Anchors: cross-libs `[UNIFIED_SIGNAL_FABRIC]` frozen-wire law; `SpanContext`/`Link` on `libs/python/.api/opentelemetry-api.md`; idea `[HANDOFF_TRACE_WIRE]`.
+
+[PULSE_CONDUIT_DESIGN]-[QUEUED]: design the mailbox drain and its worker conduit on the lane spine.
+- Capability: conduit member verdict — `pebble` map-iterator against pipe conduit — the per-lane `MailboxProcessor` drain fold posting hook facts, and the back-pressure law.
+- Shape: drain-actor rows on `libs/python/runtime/.planning/execution/lanes.md`; the verdict answers geometry's `[PULSE_DRAIN_PROBE]`.
+- Unlocks: mid-operation pulse taps for every folder's long-running kernels.
+- Anchors: `libs/python/.api/expression.md` `MailboxProcessor`; `libs/python/.api/pebble.md`; runtime `observability/hooks#HOOKS`; idea `[PULSE_DRAIN_ACTOR]`.
+
+[EXEMPLAR_FILTER_ROW]-[QUEUED]: land the trace-based exemplar row on the meter build.
+- Capability: `TraceBasedExemplarFilter` at meter-provider construction on `libs/python/runtime/.planning/observability/telemetry.md`, beside the exponential-aggregation default row.
+- Anchors: `libs/python/.api/opentelemetry-sdk.md`; idea `[EXEMPLAR_CLICKTHROUGH]`.
+- Atomic: one exemplar-filter row on one existing page.
 
 ## [02]-[CLOSED]
 
@@ -31,3 +41,5 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 -->
 
 [TENANT_SPAN_PROMOTION]-[COMPLETE]: landed as the `_tracer_provider`/`_log_attach` promotion pair on `runtime/observability/telemetry#TELEMETRY` — `PROMOTED_BAGGAGE` closed predicate, registration before batch attach and global set, research row resolved against the installed distribution.
+
+[WORKER_TELEMETRY_CONTINUITY]-[DROPPED]: collapsed into `runtime` `[WORKER_INSTALL_SEAM]` (idea grain: `runtime` `[WORKER_TELEMETRY_PARENTING]`) — the per-arm install-seam task carries the same scope with exact landing pages.

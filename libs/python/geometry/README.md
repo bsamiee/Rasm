@@ -53,6 +53,7 @@ Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES
 - `ifcclash` — BCF-producing clash detection
 - `bcf-client` — buildingSMART BCF I/O
 - `ifc5d` — Quantity take-off and cost-schedule rollup
+- `ifccsv` — IFC to CSV/ODS/XLSX/Pandas schedule round-trip
 - `ifc4d` — Construction scheduling
 - `ifcpatch` — Recipe transformation
 - `ifcdiff` — Model revision comparison
@@ -62,6 +63,7 @@ Domain libraries the folder admits; substrate lives in `[03]-[SUBSTRATE_PACKAGES
 - `open3d` — Point-cloud registration and reconstruction
 - `small-gicp` — Fine point-cloud registration
 - `kiss-matcher` — Global initialization-free registration
+- `probreg` — Probabilistic CPD/FilterReg/SVR non-rigid registration
 - `pye57` — E57 I/O
 - `pdal` — Scan-ingestion filter graph
 

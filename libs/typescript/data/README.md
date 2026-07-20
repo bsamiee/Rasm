@@ -25,6 +25,8 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 - `@effect/sql-sqlite-wasm`
 - `@effect/sql-libsql`
 - `@effect/sql-d1`
+- `@effect/sql-mysql2` — read-oriented interop lane binding `SqlClient` to `mysql2`; its compiler reports the `mysql` dialect, lighting the otherwise-idle `sql.onDialect` `mysql` arm.
+- `@effect/sql-mssql` — read-oriented interop lane binding `SqlClient` to SQL Server over `tedious`; its compiler reports the `mssql` dialect, lighting the idle `sql.onDialect` `mssql` arm, and adds the typed `param` fragment and strongly-typed stored-procedure `call`.
 
 [ANALYTICAL]:
 - `@effect/sql-clickhouse`
@@ -32,6 +34,7 @@ Data-specific libraries admitted by this folder; versions centralize in `pnpm-wo
 - `@duckdb/duckdb-wasm`
 - `@qualithm/arrow-flight-client` — Flight SQL wire for remote columnar engines over the `@connectrpc/connect` transport, decoding to Arrow tables.
 - `apache-arrow` — carries the zero-copy columnar format shared with the interface plane.
+- `parquet-wasm` — engine-free Parquet codec round-tripping `apache-arrow` Tables over IPC or the Arrow C Data Interface; the durable lake format at rest the Arrow wire lacks.
 
 [OBJECT_TRANSPORT]:
 - `@aws-sdk/client-s3`

@@ -55,6 +55,27 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: a dashboard reads which probe degraded and which channel lags with zero metrics re-architecture, and the branch `Measurement<T>` substrate member stops being admitted-but-unexploited.
 - Anchors: `api-diagnostics-metrics.md` `Measurement<T>`, `LevelCells.Live` atoms, `DriverProbe` and delivery-channel vocabularies, the `AddView` series caps.
 
+[CONTRIBUTED_ARM_ROSTER]-[QUEUED]: `InstrumentFan` mounts every sibling arm — kernel, Bim, Element, Grasshopper, Materials, and Rhino kind partitions join the AppUi/Compute/Persistence rows under the composition-fatal duplicate law.
+- Capability: each emitting package hands one contributed kind-arm table and one `TelemetryContributorPort` mint — `rasm.kernel.*`, `rasm.bim.*`, `rasm.element.*`, `rasm.grasshopper.*`, `rasm.materials.*`, and the `rasm.rhino.<domain>.<measure>` receipt-kind partition with document/command/tenant attribution tags — merged at `InstrumentFan.Mount` beside the Persistence `StoreInstruments.Arms` precedent; the kernel hook-tap subscriber registers on the hook rail at the same composition point.
+- Shape: six contributed-arm rows on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#RECEIPT_PROJECTION` naming each package's arm table and port; plugin-hosted processes take the same arms through `PluginTelemetryHost.Open`, whose per-ALC `IMeterFactory` and `Unloading` ForceFlush/Dispose custody covers the Rhino and Grasshopper load contexts.
+- Unlocks: every branch package reads on estate dashboards through one fan; a duplicate kind faults at merge instead of double-counting; each folder signal-tap card lands against a named mount.
+- Anchors: `InstrumentFan.Mount` contributed-element merge, `TelemetryIdentity.Mint`, the `StoreInstruments.Arms` row precedent, `PluginTelemetryHost` ALC custody.
+- Ripple: `Rasm` `[KERNEL_SIGNAL_FABRIC]`, `Rasm.Bim` `[BIM_TELEMETRY_TAP]`, `Rasm.Element` `[GRAPH_INSTRUMENT_PROJECTION]`, `Rasm.Grasshopper` `[0001]`, `Rasm.Materials` `[MATERIALS_SIGNAL_TAP]`, `Rasm.Rhino` `[HOST_INSTRUMENT_PARTITION]`.
+
+[CORPUS_GATE_INGEST]-[QUEUED]: Benchmark corpus gate ingests every sibling claim family — kernel `BenchClaim` rows, Materials kernel workloads, and the Rhino in-host harvest resolve to `BenchmarkReceipt` verdicts.
+- Capability: three sibling evidence sources fold through the gate — the kernel claim ledger enumerating speed-gated lanes with their scalar reference rows, the Materials deterministic workload rows over its hot kernels, and bridge-run benchmark-grade evidence harvested from measured Rasm.Rhino operations that cannot cross the native boundary into the managed harness.
+- Shape: ingestion rows on `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#BENCHMARK_RECEIPT` — each claim family folds to `BenchmarkReceipt` cases judged under `GatePolicy` with `HostEvidence` binding; the bridge-run harvest enters as a lane beside the BenchmarkDotNet corpus, its receipts stamped from in-host capture instead of harness artifacts.
+- Unlocks: every speed claim in the branch resolves to one gated receipt; host-boundary operations gain regression proof without faking a managed benchmark.
+- Anchors: `BenchmarkGate.Gate`/`Judge`, `HostEvidence.Current`, the Persistence `BENCHMARK_INDEX` claim custody, the kernel/Materials/Rhino origin cards.
+- Ripple: `Rasm` `[BENCH_CLAIM_LEDGER]`, `Rasm.Materials` `[KERNEL_BENCH_PROFILE_CORPUS]`, `Rasm.Rhino` `[HOST_BENCH_HARVEST]`.
+
+[MACHINE_OBSERVATION_LANE]-[QUEUED]: Machine-telemetry decode lane — transport bytes fold to one typed `MachineObservation` slice with freshness stamps, the single decoded truth Fabrication's measured consumers read.
+- Capability: broker- and protocol-carried machine telemetry (MTConnect observation streams, controller state) decodes once at the wire tier into typed observation records — value, unit, machine identity, freshness instant — so wear, fleet-performance, and engagement consumers read one slice, never three decoders.
+- Shape: one decode lane on `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md` beside the `MqttLane` legs, its observation slice crossing to Fabrication as a typed port record per the Fabrication ARCHITECTURE law — machine telemetry enters through the AppHost lane, never a direct transport reference.
+- Unlocks: the Fabrication measured-fleet, engagement-feedback, and wear consumers rebind onto decoded truth; a transport swap never touches a consumer.
+- Anchors: the Fabrication decode-lane invariant, the `Wire/livewire.md` lane owners, the MTConnect observation model admitted at the Fabrication tier, the freshness-stamp law.
+- Ripple: `Rasm.Fabrication` `[MACHINE_TELEMETRY_DECODE]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

@@ -109,6 +109,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `lane/olap.md` one-wire law and `_wire` family; `object/store.md` content-addressed put; `.api/apache-arrow.md` Table interchange.
 - Tension: the codec is interchange, never a query engine — querying stays with the engine rows; `parquet-wasm` admission rides the serialized admission lane.
 
+[0017]-[QUEUED]: AuditJournal satisfaction rows land on the journal and retain pages — realizes `[AUDIT_JOURNAL_SATISFACTION]`.
+- Capability: a port-satisfaction row mapping `AuditJournal.append` onto the one atomic write, the audit retention class joining the policy table, sealed subject-field wiring through the `Shredder` algebra, and the DSAR fold widened over audit facts.
+- Shape: rows on `libs/typescript/data/.planning/journal/append.md` and `libs/typescript/data/.planning/journal/retain.md`.
+- Anchors: security `access/audit.md` port shape (carded); `retain.md` `SubjectKey`/`WrappedKey` folds; `append.md` publish transaction.
+- Tension: append-only law holds — no update or delete verb enters the satisfaction; erasure is key destruction, never row mutation.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

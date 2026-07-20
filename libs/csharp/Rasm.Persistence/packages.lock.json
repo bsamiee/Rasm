@@ -181,6 +181,16 @@
         "resolved": "2.9.0",
         "contentHash": "Qh8/MS3YBI78Q5+AVXN/hNQZkhFW5OyDHdn4Wi05ZzlylKOsTypBiQQ1u0U8iOZ24HMe8Hc0VH2CIwnY4YTGEA=="
       },
+      "CloudNative.CloudEvents.Amqp": {
+        "type": "Direct",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "O2paRiapktdrZ4jF9QbNZEA0YXNpgcpmGsUlISVed/WN3tU5QYy5KrJCJH+9sobRCddEp8bqSaVydjNOBaNo8w==",
+        "dependencies": {
+          "AMQPNetLite.Core": "2.5.3",
+          "CloudNative.CloudEvents": "2.9.0"
+        }
+      },
       "CloudNative.CloudEvents.Kafka": {
         "type": "Direct",
         "requested": "[3.9.0, )",
@@ -662,6 +672,18 @@
           "OpenTelemetry.API": "1.15.3"
         }
       },
+      "OpenTelemetry.Instrumentation.AWS": {
+        "type": "Direct",
+        "requested": "[1.16.0, )",
+        "resolved": "1.16.0",
+        "contentHash": "wTM1bqODlZX5StyTmD7LgLjr5FGnmcBtPktnpa+VYk4ZO/gDn08afwepcaVgX+eFOtA9d5u4me3gqQaWrCYoFQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.3, 5.0.0)",
+          "AWSSDK.SQS": "[4.0.2.5, 5.0.0)",
+          "AWSSDK.SimpleNotificationService": "[4.0.2.7, 5.0.0)",
+          "OpenTelemetry.Extensions.AWS": "1.16.0"
+        }
+      },
       "OpenTelemetry.Instrumentation.ConfluentKafka": {
         "type": "Direct",
         "requested": "[0.2.0-alpha.2, )",
@@ -671,6 +693,29 @@
           "Confluent.Kafka": "2.4.0",
           "Microsoft.Extensions.Options": "10.0.0",
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.EntityFrameworkCore": {
+        "type": "Direct",
+        "requested": "[1.17.0-beta.1, )",
+        "resolved": "1.17.0-beta.1",
+        "contentHash": "BPSv1rk6qEkGZUGTNBfk7XmYqBAWdF3FBdjXEjVClp0bKUl6VCumlaosT84qvlK7YnHLCv5FFqJHx2N62TbKEw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
+        }
+      },
+      "OpenTelemetry.Instrumentation.StackExchangeRedis": {
+        "type": "Direct",
+        "requested": "[1.17.0-beta.1, )",
+        "resolved": "1.17.0-beta.1",
+        "contentHash": "ZRRKG1yNfLf2N3+CvZ3zQqcdpYLB8/D+srrpvIhIoAOaqq931SDc5lVjHjfKwsBr49ozEorYfDbLf3Jm64VxOQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.0",
+          "Microsoft.Extensions.Options": "10.0.0",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)",
+          "StackExchange.Redis": "2.6.122"
         }
       },
       "ParquetSharp": {
@@ -829,6 +874,16 @@
           "SourceGear.sqlite3": "3.50.4.5"
         }
       },
+      "SQLitePCLRaw.bundle_e_sqlite3mc": {
+        "type": "Direct",
+        "requested": "[2.1.11, )",
+        "resolved": "2.1.11",
+        "contentHash": "gHV54qtGLG8DRbOGUeK/rZHlBIWPMLi73lLuvC6csFpMvoLyEHlwc+FlpAdJg1X2+VZRPw/PC/2/nOWm1SUtHQ==",
+        "dependencies": {
+          "SQLitePCLRaw.lib.e_sqlite3mc": "2.1.11",
+          "SQLitePCLRaw.provider.e_sqlite3mc": "2.1.11"
+        }
+      },
       "StackExchange.Redis": {
         "type": "Direct",
         "requested": "[3.0.7, )",
@@ -904,6 +959,11 @@
         "resolved": "0.8.8",
         "contentHash": "UIDFkA5DC3en3tOJ3Mof11yBx9kUQLsaeo/oFdvN6Bbkr9E9+VCqfIadHci8cu+I51K2Sl7XYWVl2R/mA75NBQ=="
       },
+      "AMQPNetLite.Core": {
+        "type": "Transitive",
+        "resolved": "2.5.3",
+        "contentHash": "oFWIBOa6z2PPcOIh2mHct6mHT4QpzBljzYtA24bjCtuSaKwaKZFt9Uae4jLSEOdQB6If22CuktaCFTvXR9ex1w=="
+      },
       "Apache.Arrow.Adbc.Telemetry.Traces.Listeners": {
         "type": "Transitive",
         "resolved": "0.23.0",
@@ -930,6 +990,22 @@
         "type": "Transitive",
         "resolved": "4.0.100.2",
         "contentHash": "1hz6lB2Meymkv9rdOy30p5pIbGpYLK0H4O8XUMGwEMmXUB4FJhyTNk69dLWIFdDUrY66h0NyKy9maHKXMRTwJA=="
+      },
+      "AWSSDK.SimpleNotificationService": {
+        "type": "Transitive",
+        "resolved": "4.0.2.7",
+        "contentHash": "WO0xjj2demSh3hPKQtSS3XyncITIUlENCeLv/FZsteMJh4HpfGwxp1dbq8YnaR90ddzvyPU6uj675WGuMf6zgg==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.3, 5.0.0)"
+        }
+      },
+      "AWSSDK.SQS": {
+        "type": "Transitive",
+        "resolved": "4.0.2.5",
+        "contentHash": "bHA9m/2RZHNKt6NGvQ56rfEDj/pfUlcwPeCg2HmPJ3jZPyoerBuEsYvFkMP3YJNv3aoycNWZoiDk0/ULP0tEyA==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.3, 5.0.0)"
+        }
       },
       "Azure.Core": {
         "type": "Transitive",
@@ -1754,6 +1830,14 @@
           "OpenTelemetry.Api": "1.17.0"
         }
       },
+      "OpenTelemetry.Extensions.AWS": {
+        "type": "Transitive",
+        "resolved": "1.16.0",
+        "contentHash": "ZA75afTsi2L3ASTVSONgHQ+SeLq0CWhzRfCCaBI7/qmoyLXC4HrvEbRQsNBmsHCDprVDwU2nlrP0A30shjCW5Q==",
+        "dependencies": {
+          "OpenTelemetry": "[1.16.0, 2.0.0)"
+        }
+      },
       "Pollination.Logger": {
         "type": "Transitive",
         "resolved": "1.1.4",
@@ -1823,12 +1907,25 @@
         "resolved": "3.0.3",
         "contentHash": "bjm6FY4lZyP+t7GmiuvSM0QXpFihAvyE0Y9O2yibm3g95AAWJPNnHOKVNJGyPTGIKuK7Pr4Wh8Rd8/aOtAclQw=="
       },
+      "SQLitePCLRaw.lib.e_sqlite3mc": {
+        "type": "Transitive",
+        "resolved": "2.1.11",
+        "contentHash": "z7vGnW2SeVC3az+gBWFHM16gnKed8/p91WCyCe9Al2BtY3mnGJ+dk4rUzW5zm/Kz7fM7lXhUhRI6Nexm1PAVAg=="
+      },
       "SQLitePCLRaw.provider.e_sqlite3": {
         "type": "Transitive",
         "resolved": "3.0.3",
         "contentHash": "wd+fGvZTrr3BJNe48opSczmC176Okd61ZgoZNQcdvZwkek6to978ccdpcFmNo5GHxCnk29KwT+f+lAZYgfLVZg==",
         "dependencies": {
           "SQLitePCLRaw.core": "3.0.3"
+        }
+      },
+      "SQLitePCLRaw.provider.e_sqlite3mc": {
+        "type": "Transitive",
+        "resolved": "2.1.11",
+        "contentHash": "v0Y7yjzDwLsoM922PReXZcAAZJ2ekZaorulQB5yhXzEHkXCHcLJ/Rcd8NPESBrS/PMxgaKtJ1BjQkorRJH7AEA==",
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.11"
         }
       },
       "System.ClientModel": {
@@ -2530,6 +2627,18 @@
         "dependencies": {
           "Google.Api.CommonProtos": "[2.1.0, 3.0.0)",
           "NodaTime": "[3.0.0, 4.0.0)"
+        }
+      },
+      "OpenTelemetry": {
+        "type": "CentralTransitive",
+        "requested": "[1.17.0, )",
+        "resolved": "1.17.0",
+        "contentHash": "rMLOTftlMlTm7+MSrvXDHnJRjVkROFNKXHZrYjOsX+LankaFG7QSflx7qRRGjoqZoirohnxmJQ7GEb9occO4Gg==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.EnvironmentVariables": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.0",
+          "Microsoft.Extensions.Logging.Configuration": "10.0.0",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "1.17.0"
         }
       },
       "Parquet.Net": {

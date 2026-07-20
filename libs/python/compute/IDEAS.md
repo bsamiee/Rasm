@@ -51,14 +51,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [CONVEX_BACKEND_FAMILY]-[QUEUED]: the conic backend axis completes and the power cone becomes a first-class constraint row.
 - Capability: `PowCone3D` membership joins the cone-constraint family, and SCS, HiGHS, and ProxSuite land as selectable solve-backend rows beside the Clarabel arm — every backend recovering the same primal/dual pair the KKT certificate grades, so backend choice never weakens the proof.
-- Shape: one cone row plus backend rows on `libs/python/compute/.planning/optimization/convex.md`, backend selection one policy value on the existing solve dispatch.
+- Shape: one cone row and the backend rows on `libs/python/compute/.planning/optimization/convex.md`, backend selection one policy value on the existing solve dispatch.
 - Unlocks: geometric-mean and power-utility programs; LP-heavy conic programs on HiGHS; real-time QP re-solves on ProxSuite under DPP warm starts.
 - Anchors: folder `cvxpy` catalog `PowCone3D`, multi-backend `solve`, and the `ARGS`/`DUAL_VALUE` recovery laws; `optimization/convex#CONVEX` dual-certificate fold; candidates `scs`, `highspy`, `proxsuite` (pypi-verified) through the admission lane.
 
 [DIFFERENTIAL_STIFF_POLICY]-[QUEUED]: the stiff route gains its implicit floor and bounded step control.
 - Capability: `ImplicitEuler` joins the solver table as the order-1 DIRK floor beneath the Kvaerno family, and `ClipStepSizeController` lands as a wrapping-controller policy row bounding any adaptive controller's steps to a range.
 - Shape: one solver row and one controller policy row on `libs/python/compute/.planning/solvers/differential.md`, both resolved off the gated `dfx` carrier like every sibling row.
-- Unlocks: robust integration of very stiff problems where high-order SDIRK stages fail; step clamping across event-adjacent integration windows.
+- Unlocks: robust integration of severely stiff problems where high-order SDIRK stages fail; step clamping across event-adjacent integration windows.
 - Anchors: folder `diffrax` catalog `ImplicitEuler` (implicit DIRK) and `ClipStepSizeController` (wrapping controller); the optimistix/lineax implicit-step seam the Kvaerno rows already thread.
 
 [INFERENCE_SCALE_SCORING]-[QUEUED]: posterior scoring stays tractable at large draw counts.
@@ -75,11 +75,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: solver receipts hold no benchmark authority and graduation admits no Python-only benchmark conclusion — the projection is observability evidence only, never a handoff verdict; `RESULT` mode contributes nothing.
 
 [EVIDENCE_TRACE_LINKS]-[BLOCKED]: `SpanContext` decode on the `GeometryHandoff` wire when geometry lands trace links.
-- Capability: the graduation decode admits an optional `SpanContext` beside the `ContentKey` and folds it as a `Link` on the consuming evidence span.
+- Capability: the graduation decode admits the optional serialized W3C `traceparent` string beside the `ContentKey` (absent = no link), decodes it to a `SpanContext`, and folds it as a `Link` on the consuming evidence span.
 - Shape: one decode arm on the compute side of the `GeometryHandoff` wire and one `Link` fold at the `evidence_run` span open, on `libs/python/compute/.planning/graduation/handoff.md`.
 - Unlocks: backend trace click-through from compute evidence spans to the upstream geometry producer trace.
 - Anchors: the graduation `HandoffAxis` spine; `Link`/`Span.add_link` on the branch `opentelemetry-api` catalogue.
-- Tension: blocker question — does `GeometryHandoff.wire()` widen to carry a serialized `SpanContext` beside the `ContentKey`? Resolution route: the geometry origin card `[EVIDENCE_TRACE_LINKS]` on `libs/python/geometry/IDEAS.md` rules the widened wire; that frozen-wire change is geometry's, and this decode co-ships it.
+- Tension: blocker question — does `GeometryHandoff.wire()` widen to carry the serialized W3C `traceparent` string beside the `ContentKey`? Resolution route: the branch ruling `[HANDOFF_TRACE_WIRE]` on `libs/python/.planning/IDEAS.md` owns the wire representation; that frozen-wire change is geometry's to land, and this decode co-ships it.
 - Ripple: `geometry` `[EVIDENCE_TRACE_LINKS]`.
 
 ## [02]-[CLOSED]

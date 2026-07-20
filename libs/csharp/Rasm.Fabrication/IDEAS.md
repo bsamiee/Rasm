@@ -209,6 +209,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: interactive re-nest and re-probe latency, cross-run reuse of pair geometry, and cache-efficiency evidence for capacity planning.
 - Anchors: `Nesting/nfp.md` pair algebra, `Verify/probing.md` ICP, `libs/csharp/.api/api-hybrid-cache.md`, and the kernel `ContentHash.Of` single mint.
 
+[SHOP_SCHEDULE_DERIVATION]-[QUEUED]: Shop-deliverable schedules derive from realized detail bags — bar bending schedules, weld maps, and stud layouts off the projected realization vocabulary.
+- Capability: the projected `DetailSchema.Realization` bags over the registered `FabricationProjector : IElementProjection` row carry the realized Materials scalar vocabularies — schedule derivation folds them into shop deliverables without re-resolving materials.
+- Shape: derivation folds on `libs/csharp/Rasm.Fabrication/.planning/Documentation/report.md` reading the projector facts of `libs/csharp/Rasm.Fabrication/.planning/Process/derivation.md`; each schedule kind one fold row.
+- Unlocks: shop paperwork generates from the seam graph; the Materials realization vocabularies gain their consuming end.
+- Anchors: the `FabricationProjector` registration row, the seam `DetailSchema.Realization` bags, the Documentation traveler and report owners.
+- Ripple: `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

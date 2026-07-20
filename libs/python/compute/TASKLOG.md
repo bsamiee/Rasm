@@ -28,7 +28,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: measure-mapping rows on the new observability page.
 
 [RESOURCE_SAMPLE_FOLD]-[QUEUED]: pin the `[SOLVE_RESOURCE_LEDGER]` band and its sampling fold on `libs/python/compute/.planning/graduation/observability.md`.
-- Capability: one sampling fold wrapping a measured kernel — a `Process.oneshot()` block reading `cpu_times()` and `memory_info()` before and after — folding user and system deltas plus peak RSS beside wallclock into `ResourceUsage` facts on the weave.
+- Capability: one sampling fold wrapping a measured kernel — a `Process.oneshot()` block reading `cpu_times()` and `memory_info()` before and after — folding user and system deltas with peak RSS beside wallclock into `ResourceUsage` facts on the weave.
 - Anchors: branch `psutil` catalog `Process.oneshot()`, `Process.cpu_times() -> pcputimes`, `Process.memory_info() -> pmem`; the `_timed` fold precedent on `experiments/study#STUDY`.
 - Tension: the fold reads the worker's own process handle inside the lane; cross-process aggregation stays the runtime lanes owner's.
 
@@ -37,7 +37,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: folder `numba` catalog `CPUDispatcher` inspect surface; `numerics/jit#JIT` `Capture` rows.
 
 [JAX_PROFILER_SURFACE]-[BLOCKED]: which jax profiling members are cataloged truth for `[SOLVE_PROFILE_PARITY]`?
-- Capability: verdict on whether `jax.profiler` trace and device-memory members plus lowered `cost_analysis` exist on the installed distribution, then the XLA leg of the profile band admits on those exact spellings.
+- Capability: verdict on whether `jax.profiler` trace and device-memory members and lowered `cost_analysis` exist on the installed distribution, then the XLA leg of the profile band admits on those exact spellings.
 - Anchors: resolution route — repair `libs/python/compute/.api/jax.md` against the installed distribution through `tools/assay`, then pin the members on `libs/python/compute/.planning/numerics/jit.md`.
 
 [STIFF_ROWS]-[QUEUED]: land the `[DIFFERENTIAL_STIFF_POLICY]` rows on `libs/python/compute/.planning/solvers/differential.md`.
@@ -47,10 +47,10 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [CONE_BACKEND_ROWS]-[QUEUED]: land the `[CONVEX_BACKEND_FAMILY]` rows on `libs/python/compute/.planning/optimization/convex.md`.
 - Capability: `PowCone3D` constraint row with its `args` dual-recovery read; SCS, HiGHS, and ProxSuite backend rows as policy values on the existing solve dispatch, each graded by the same KKT certificate.
-- Anchors: folder `cvxpy` catalog `PowCone3D` plus the `ARGS`/`DUAL_VALUE` laws; admission lane rows for `scs`, `highspy`, `proxsuite`.
+- Anchors: folder `cvxpy` catalog `PowCone3D` and the `ARGS`/`DUAL_VALUE` laws; admission lane rows for `scs`, `highspy`, `proxsuite`.
 
 [LOO_SUBSAMPLE_ROW]-[QUEUED]: land the `[INFERENCE_SCALE_SCORING]` row on `libs/python/compute/.planning/experiments/inference.md`.
-- Capability: `loo_subsample` plus `update_subsample` scoring row with a draw-count policy selecting it over the full fold; `ELPDData.kind` discriminates on read.
+- Capability: `loo_subsample` with `update_subsample` refinement as one scoring row, a draw-count policy selecting it over the full fold; `ELPDData.kind` discriminates on read.
 - Anchors: folder `arviz` catalog LOO family; the residual-extractor table.
 - Atomic: one scoring row and one policy threshold.
 

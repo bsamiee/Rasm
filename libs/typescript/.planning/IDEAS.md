@@ -17,11 +17,31 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 -->
 
 [BRANCH_SIGNAL_PLANE]-[ACTIVE]: One signal plane spans the branch — every folder emits through the core `Convention` vocabulary, runtime alone bridges the OTLP wire, iac compiles the backend.
-- Capability: Folder-blind observability — instruments, spans, and logs minted in owning folders correlate estate-wide, with raw `@opentelemetry/*` imports confined to `runtime` and the core semconv vocabulary.
-- Shape: `core/observe` wire rows (dotted `rasm.*` names, UCUM units, scope = package id, pinned semconv schema, `NoUTF8EscapingWithSuffixes` translation), the `runtime/otel` emit/crash/vital/meter bridge projecting work-plane Facts to `Convention`-keyed instruments, and `iac/operate/observe` realizing stores, dashboards, and alerts from the same `DashboardModel` rows.
+- Capability: Folder-blind observability — instruments, spans, and logs minted in owning folders correlate estate-wide, with raw `@opentelemetry/*` imports confined to `runtime` and the core semconv vocabulary; typed pack feeds now close the loop — runtime's `BoardPack` census and security's board/alert pack arrive at the compile leg as data, so boards derive from the rows the emitters write.
+- Shape: `core/observe` wire rows (dotted `rasm.*` names, UCUM units, scope = package id, pinned semconv schema, `NoUTF8EscapingWithSuffixes` translation), the `runtime/otel` emit/crash/vital/meter bridge projecting work-plane Facts to `Convention`-keyed instruments, profile and bench vocabulary tiers joining through the core board pack dispatch, and `iac/operate/observe` realizing stores, dashboards, and alerts from the same `DashboardModel` rows and pack feeds.
 - Unlocks: Dashboards and SLO burn alerts compiled from the vocabulary the emitters use, breaking at type-check instead of drifting; any app inherits the full signal plane by composing the export layer at its root.
-- Anchors: `core/observe/convention.md`; `runtime/otel/emit.md`; `runtime/otel/meter.md`; `iac/operate/observe.md`; the `dataflow-system.md` `AppIdentity` resource law.
+- Anchors: `core/observe/convention.md`; `core/observe/board.md` pack dispatch; `runtime/otel/emit.md`; `runtime/otel/meter.md` census projection (carded); `iac/operate/observe.md` pack-ingest rows (carded); the `dataflow-system.md` `AppIdentity` resource law.
 - Ripple: `libs` `[UNIFIED_SIGNAL_FABRIC]`.
+
+[BRANCH_HOOK_RAIL]-[QUEUED]: One tap law spans the branch — core mints the hook vocabulary, runtime runs the one dispatch engine, every folder registry executes the same shape.
+- Capability: `rasm.<pkg>.<domain>.<point>` point brand, closed veto/observe/replay modality vocabulary, `AppIdentity` scoping, and subscriber-fault isolation spell once in core; the data, ui, security, and iac registries mount their point sets on runtime's dispatch engine unchanged, so telemetry, audit, and app policy subscribe branch-wide with zero scattered emit sites and co-resident apps never contend over points.
+- Shape: core `observe/tap.md` as the vocabulary owner, runtime's dispatch engine in the Hooks plane, folder point sets as registry rows — conformance holds when every folder registry names its points in the core brand grammar.
+- Unlocks: one hook rail from browser ui to deploy plane; a new observation concern is a subscriber, never an owner edit in any folder.
+- Anchors: core `observe/tap.md` (carded); runtime `otel/emit.md` dispatch engine (carded); data `[DATA_HOOK_TAP_REGISTRY]`; ui `[HOOK_RAIL]`; security `[0003]`; iac `[0004]`.
+- Tension: iac's `rasm.iac.<tier>.<point>` rows bind pulumi `ResourceHook` lifecycles rather than the runtime engine — the brand grammar still governs, the execution substrate differs by ruled boundary.
+
+[BRANCH_CONTEXT_CARRIAGE]-[QUEUED]: Causal context survives every hop — one carrier codec, one envelope projection, carriers binding both, foreign spans continued.
+- Capability: core's W3C carrier codec owns every header dialect, data's CloudEvents envelope carries journal facts wire-neutral, runtime carriers bind codec and envelope per transport row, and a foreign `traceparent` entering the branch continues as an external span through `Tracer.externalSpan` — trace and tenant context cross Connect, NATS, MQTT, Kafka, and webhook boundaries with zero forks.
+- Shape: the carrier, envelope, and binding cards already open in their owning folders, joined here by the external-span continuation rows landing where ingress decodes a foreign context — carrier ingress, webhook intake, EventLog sync.
+- Unlocks: end-to-end causality across the C#, python, and TS peers over any transport; cost attribution rides tenant baggage through broker hops by construction.
+- Anchors: core `interchange/carrier.md` dialect table (carded); data `[RELAY_CLOUDEVENTS_PROJECTION]`; runtime `[CARRIER_CODEC_BINDING]`/`[JOURNAL_ENVELOPE_CARRIAGE]`; `Tracer.externalSpan` (`libs/typescript/.api/effect.md`), the unexploited substrate member this concert exploits.
+
+[BRANCH_SCHEMA_VARIANTS]-[QUEUED]: One schema declaration yields every variant — `VariantSchema` derivation collapses parallel wire/domain/patch spellings branch-wide.
+- Capability: multi-variant schema construction derives wire, domain, insert/update, and json forms from one field-level declaration, so a family spelling each variant by hand — read-side relations, wire rows and their domain twins, config admission shapes — declares once and projects each variant totally.
+- Shape: a derivation law beside core's vocabulary-table owner, with adoption rows where parallel spellings exist — data read models and journal wire rows first, config admission second.
+- Unlocks: variant drift becomes impossible by construction; a new projection form is one variant key, never a re-spelled schema.
+- Anchors: `VariantSchema.*` (`libs/typescript/.api/effect-experimental.md`), the unexploited substrate member this concert exploits; core `value/schema.md` vocabulary-table owner (carded); data `read/query.md` `Model.Class` relations.
+- Tension: a variant is a projection of one declaration, never a second truth — families whose forms differ semantically rather than structurally stay separate declarations.
 
 ## [02]-[CLOSED]
 

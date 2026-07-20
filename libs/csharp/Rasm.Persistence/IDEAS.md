@@ -45,8 +45,9 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [PERS-Q1]-[QUEUED]: Telemetry census egress — instrument roster, slot roster, and threshold hints project as one wire census the dashboard plane compiles from.
 - Capability: everything Persistence emits — `InstrumentRow` names/units/descriptions, `StoreSlot` census, projection-arm keys, and alert-relevant threshold hints — folds into one typed census document, so store dashboards and burn-rate alert rules generate from declared truth instead of hand-listed metric names.
 - Shape: one census projection member on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#STORE_INSTRUMENTS` folding `StoreInstruments.Rows`, `SlotRegistry.Mounted()`, and `Arms` keys into a wire JSON record the estate ships beside the package.
-- Unlocks: the Foundation-SDK compile leg consumes `rasm.persistence.*` as data — a new instrument row appears on the board with zero dashboard edits.
-- Anchors: `StoreInstruments.Rows` roster, `SlotRegistry` census, the estate dashboard-compile leg over the Foundation-SDK.
+- Unlocks: the Foundation-SDK compile leg consumes `rasm.persistence.*` as data — a new instrument row appears on the board with zero dashboard edits; the AppUi telemetry board reads the same census beside the `store.stat.*` profile receipts (`DuckProfileReceipt` and the harvest rows) as one typed dashboard-ingestion wire.
+- Anchors: `StoreInstruments.Rows` roster, `SlotRegistry` census, the estate dashboard-compile leg over the Foundation-SDK, the AppUi `Charts/telemetry.md` board plane.
+- Ripple: `Rasm.AppUi` `[TELEMETRY-BOARD-PAGE]`.
 
 [PERS-S2]-[QUEUED]: Storage cost attribution — per-tenant, per-retention-class, per-tier durable-usage accounting turns storage truth into chargeback evidence.
 - Capability: identity-tier tenancy rows, blob object sizes, retention classes, and egress delivery counts fold into usage receipts — bytes, objects, deliveries keyed `(tenant, class, tier)` — projected as `rasm.persistence.usage.*` instruments; journal rows stay billing truth, instruments stay the lossy dashboard channel.
@@ -65,7 +66,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [PERS-S5]-[QUEUED]: Store client instrumentation set completion — Redis, EF, and cloud-SDK span trains join the settled Npgsql pattern.
 - Capability: every held store client emits provider spans under the AppHost root — Redis command spans off the cache backplane, EF command spans over the relational tier, S3/KMS client-call spans over the object-store and custody paths — closing the train the Kafka and Npgsql legs opened.
-- Shape: settled-composition rows on the `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` lead naming `OpenTelemetry.Instrumentation.StackExchangeRedis`, `OpenTelemetry.Instrumentation.EntityFrameworkCore`, and `OpenTelemetry.Instrumentation.AWS` with their AppHost-root subscription posture, plus registry rows on `libs/csharp/Rasm.Persistence/README.md`.
+- Shape: settled-composition rows on the `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` lead naming `OpenTelemetry.Instrumentation.StackExchangeRedis`, `OpenTelemetry.Instrumentation.EntityFrameworkCore`, and `OpenTelemetry.Instrumentation.AWS` with their AppHost-root subscription posture and registry rows on `libs/csharp/Rasm.Persistence/README.md`.
 - Unlocks: cache, ORM, and object-store hops join the one trace the driver spans already carry; the instrumentation family finishes as a set.
 - Anchors: `Npgsql.OpenTelemetry` AppHost-root precedent, `OpenTelemetry.Instrumentation.ConfluentKafka` admission, held `StackExchange.Redis`, EF providers, `AWSSDK.S3`, `AWSSDK.KeyManagementService`.
 - Tension: all three packages ride the admission lane; cards assume the admissions land.
@@ -95,6 +96,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: scan-to-BIM verification; the heaviest residence-demanding payload class gains an entry point.
 - Anchors: Store/blobstore#CONTENT_CHUNKING (FastCDC), Element/identity H3Cell, Ingest/geospatial and Ingest/issue (the [A.4] codec-page pattern).
 - Tension: BLOCKED on one answerable question — which managed E57/LAS/LAZ codec package admits under the gate (license, maintenance signal, net10 asset)? Resolution route: nuget MCP survey over the E57/LAS candidate family; hand-rolling the E57 XML+binary layout without that ruling is the forbidden alternative.
+
+[PERS-L1]-[QUEUED]: Columnar landing spine — sibling record batches land through one Arrow lane into Parquet/DuckDB residence served over Flight SQL.
+- Capability: four producer families hand typed record-batch schemas — kernel `EncodedGeometry` schema-identity wires keyed by the kernel `ContentHash`, Compute `DoeDataset` and receipt archives pushed over the Flight seam, Element `Tabulate` analytic rows, Materials catalogue schemas — and Persistence owns writers, residence, slots, `ArtifactIndexRow` registration, and content-key batch-metadata preservation; a producer owns only its batch shape.
+- Shape: one landing spine on `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md#FLAT_TABLE_EGRESS` composing the `ParquetSharp.Dataset` writers and DuckDB residence, served through the `libs/csharp/Rasm.Persistence/.planning/Query/federation.md#FLIGHT_RESULT_PLANE` arm; per-producer slots land under the `store.<domain>.<verb>` grammar (`store.materials.<verb>` among them) on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`.
+- Unlocks: screening corpora, kernel wires, analytic tables, and seed catalogues become lake-queryable estate-wide; `python:data` reads them over one Flight SQL plane; a new producer is one schema handoff, zero new storage code.
+- Anchors: `api-arrow.md` Flight surface, `api-parquetsharp.md` dataset writers, the kernel `ContentHash` schema-identity law, the `[0004]`/`[0005]` Flight and dataset tasks this spine composes.
+- Ripple: `Rasm` `[COLUMNAR_WIRE_SCHEMA]`, `Rasm.Compute` `[DOE_LAKE_EGRESS]`, `Rasm.Element` `[ANALYTIC_TABLE_PROJECTION]`, `Rasm.Materials` `[CATALOGUE_ANALYTICS_EGRESS]`.
 
 ## [02]-[CLOSED]
 

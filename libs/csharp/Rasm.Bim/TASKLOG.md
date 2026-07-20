@@ -42,7 +42,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: `libs/csharp/Rasm.Bim/.planning/Exchange/import.md` DWG arm registers `ICadReader.OnProgress` onto the import progress point; `libs/csharp/Rasm.Bim/.planning/Energy/derive.md` translate matrix registers the OpenStudio `ProgressBar` callback onto the energy progress point.
 - Unlocks: cancellable imports and UI progress without codec coupling.
 - Anchors: `IDEAS.md` `[BIM_HOOK_RAIL]`; `.api/api-acadsharp.md`; `.api/api-openstudio.md`.
-- Atomic: two wiring rows plus fence touch-ups on landed pages.
+- Atomic: two wiring rows and fence touch-ups on landed pages.
 
 [T5]-[QUEUED]: Land the instrument roster and meter owner on the observability page.
 - Capability: `rasm.bim.<domain>.<measure>` instrument table — name, kind, UCUM unit, tag set, receipt source — and one meter owner over injected `IMeterFactory`.
@@ -58,7 +58,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Atomic: law rows on the landed page.
 
 [T7]-[QUEUED]: Author `BimEvent` and the CloudEvents envelope projection on the new events page.
-- Capability: closed `[Union]` domain-fact family plus one envelope projection stamping type, source, subject, and the distributed-tracing extension.
+- Capability: closed `[Union]` domain-fact family with one envelope projection stamping type, source, subject, and the distributed-tracing extension.
 - Shape: `libs/csharp/Rasm.Bim/.planning/Exchange/events.md` gains the event union, the `CloudNative.CloudEvents.SystemTextJson` formatter fence, and the `rasm.bim.<domain>.<fact>` type-naming law.
 - Unlocks: `[T8]` mint-point wiring and app-tier transport bindings.
 - Anchors: `IDEAS.md` `[BIM_EVENT_FABRIC]`.
@@ -72,7 +72,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [T9]-[QUEUED]: Author the progress comparison fold and evidence receipt on the new progress page.
 - Capability: capture-epoch occurrences joined to `TaskAssignment` element sets, minting per-task observed completion, variance band, and the unmatched-occurrence residue.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` gains the comparison fold over `Exchange/reconstruct#RECONSTRUCTION` occurrences, `ConstructionState.At` expectations, and the `Model/query#ELEMENT_SET` join, plus the typed evidence receipt.
+- Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` gains the comparison fold over `Exchange/reconstruct#RECONSTRUCTION` occurrences, `ConstructionState.At` expectations, and the `Model/query#ELEMENT_SET` join, and the typed evidence receipt.
 - Unlocks: `[T10]` earned-value actuals and reality-capture dashboards.
 - Anchors: `IDEAS.md` `[PROGRESS_VERIFICATION]`.
 
@@ -81,7 +81,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: `libs/csharp/Rasm.Bim/.planning/Planning/cost.md` `[EARNED_VALUE]` gains the observed-completion source row and its precedence over the authored percent and the actual-interval fraction.
 - Unlocks: dispute-grade earned value.
 - Anchors: `IDEAS.md` `[PROGRESS_VERIFICATION]`.
-- Atomic: one source row plus precedence law.
+- Atomic: one source row and precedence law.
 
 [T11]-[QUEUED]: Author the results admission fold on the new energy results page.
 - Capability: Compute results receipt admitted onto zone/space quantity rows, re-emittable as Psets, readable by the AppUi report.
@@ -120,6 +120,21 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: BMS-aware coordination and operations-phase handover beyond COBie.
 - Anchors: `IDEAS.md` `[BRICK_SYSTEMS_OPERATIONS_OVERLAY]`; `.api/api-brickschema-net.md`.
 - Tension: which app-platform owner lands the live-point binding resolver (`BACnetReference`/`ModbusDevice` rows)? Route: `libs/csharp/Rasm.AppHost/.planning/` capability pages and the AppHost growth register.
+
+[T17]-[QUEUED]: Project reconciled type objects into Materials candidate rows — the reverse type-minting export off the IFC ingest.
+- Capability: reconciled `IfcElementType` data — identity, property sets, classification — projects into a typed candidate export the Materials `ComponentRow` railed `Of` factories admit, provenance-marked as imported-library rows; the provenance-marking decision co-signs with the Materials owner.
+- Shape: one projection member on `libs/csharp/Rasm.Bim/.planning/Exchange/import.md` at the type-object reconciliation end, emitting candidate rows keyed by source-library identity; admission folds stay Materials-side.
+- Unlocks: an ingested manufacturer IFC library seeds the Materials catalogue instead of dying at occurrence projection; the Materials `[IFC_ADMISSION_FOLD_MAP]` route gains its ingest-side surface.
+- Anchors: the import type-object reconciliation, the `Projection/semantic` property flatten, the Materials railed `Of` factory family.
+- Ripple: `Rasm.Materials` `[IFC_PRODUCT_LIBRARY_ADMISSION]`.
+
+[T18]-[QUEUED]: Reconcile the seam registry to the page-owned wire spellings — the interchange census counterpart.
+- Capability: `ARCHITECTURE.md` seam rows for the IFC interchange wire, the kind-discriminated model diff, and the BCF wire re-anchor to the spellings the Exchange and Review pages own, so the frozen names carry one authority and the TypeScript core wire census decodes current mints.
+- Shape: seam-registry rows on `libs/csharp/Rasm.Bim/ARCHITECTURE.md` aligned against `libs/csharp/Rasm.Bim/.planning/Exchange/export.md`, `libs/csharp/Rasm.Bim/.planning/Exchange/import.md`, and the Review pages; page spellings win, registry follows.
+- Unlocks: unblocks the core codec-registry reconciliation — census rows and landing classes re-anchor to settled owners.
+- Anchors: the seam-registry disagreement the core census names; the Exchange and Review wire clusters.
+- Ripple: `typescript:core` `[0004]`.
+- Atomic: registry-row alignment, no wire redesign.
 
 ## [02]-[CLOSED]
 

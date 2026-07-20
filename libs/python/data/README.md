@@ -45,12 +45,14 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `narwhals`
 - `pyarrow`
 - `arro3-core`
+- `arro3-compute` — Arrow compute over the `arro3.core` memory model.
+- `arro3-io` — pyarrow-free Arrow codec and object-store transport.
 - `nanoarrow`
 - `fastexcel`
 - `dataframely`
 - `pointblank`
 - `pandera`
-- `pandas` — Boundary lowering only: external frames arrive at the wire, `read_fwf` the fixed-width decode; no internal owner constructs one.
+- `pandas` — boundary-only external frame lowering.
 
 [LAKEHOUSE_QUERY]:
 - `deltalake`
@@ -61,10 +63,14 @@ Data-domain libraries admitted by this folder; versions centralize in the one br
 - `ibis-framework`
 - `sqlglot`
 - `datafusion`
+- `substrait` — typed plan admission IR.
 - `connectorx`
 - `adbc-driver-manager`
 - `adbc-driver-flightsql`
-- `obspec-utils` — multi-store `ObjectStoreRegistry` router companion to `obstore`.
+- `adbc-driver-postgresql` — native ADBC PostgreSQL transport.
+- `adbc-driver-snowflake` — native ADBC Snowflake transport.
+- `adbc-driver-sqlite` — native ADBC SQLite transport.
+- `obspec-utils` — multi-store object-store routing.
 
 DuckDB loadable extensions back the plan and table-format rows without a pip dependency, all riding the one `DuckDbSession` rail: `substrait`, `ducklake`, `iceberg`, `httpfs`, and `spatial`/`h3`, provisioned through the Forge DuckDB-extensions catalog.
 
@@ -75,9 +81,13 @@ DuckDB loadable extensions back the plan and table-format rows without a pip dep
 - `pyogrio`
 - `rasterio`
 - `rioxarray`
+- `geoarrow-pyarrow` — pyarrow-native GeoArrow interop.
 - `geoarrow-rust-compute`
+- `geoarrow-rust-core` — GeoArrow-native geometry memory.
+- `geoarrow-rust-io` — GDAL-free geospatial file and object-store transport.
 - `h3ronpy`
 - `xarray-spatial`
+- `xvec` — geometry-indexed xarray data cubes.
 - `pystac`
 - `pystac-client`
 - `stac-geoparquet`

@@ -80,6 +80,13 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: the BenchmarkDotNet corpus-gate rows over the graph hot paths and the cross-runtime parity anchors.
 - Anchors: `ElementGraph.Of`/`Genesis`; `ContentAddress.OfGraph` order-independent snapshot key.
 
+[TYPE_QUANTITY_SEAM_ROWS]-[QUEUED]: Admit the type-level quantity rows and the substance-density accessor the QTO mint reads.
+- Capability: a Type-level quantity property-set row family — linear mass, surface area per length, volume per length — joins the `DetailSchema` property vocabulary as unit-carried quantities (typed value with unit identity per the kernel unit-bridge law, canonical SI encoding), and `MaterialPropertySet` gains one typed substance-density accessor returning the density quantity, never a bare double: the two seam surfaces the Materials type-quantity receipt consumes whole instead of re-deriving numeric semantics.
+- Shape: canonical detail `PropertyName` rows on `libs/csharp/Rasm.Element/.planning/Properties/property.md#DETAIL_SCHEMA` and one density accessor member on `libs/csharp/Rasm.Element/.planning/Composition/material.md#MATERIAL_PROPERTY`.
+- Unlocks: unblocks the Materials `[QTO_MINT_PINS]` route; type-level takeoff reads seam-owned vocabulary instead of re-deriving it.
+- Anchors: the `DetailSchema` vocabulary owner, the `MaterialPropertySet.Mechanical` density column, the accumulating `Of` admission law.
+- Ripple: `Rasm.Materials` `[TYPE_QUANTITY_RECEIPT]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

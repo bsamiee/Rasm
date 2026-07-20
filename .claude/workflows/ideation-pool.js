@@ -910,10 +910,14 @@ const admitPrompt = (row, origin) =>
     'pnpm-workspace.yaml cluster). (3) Prove the install gate green (dotnet restore Workspace.slnx / uv lock plus uv sync / pnpm install), ' +
     'self-healing or reverting what cannot resolve — a reverted admission returns admitted=false with the resolver evidence. (4) Author the ' +
     '.api catalog at the correct tier — folder overlay vs language-root substrate per the two-tier law, overlays never copying substrate — ' +
-    'with verified members only. (5) Land the README registry row at the consuming folder. (6) Land the csproj reference where consumed ' +
+    'with verified members only; an isolation or app-scoped claim lands ONLY with per-instance member evidence verified on the installed ' +
+    'surface, and a process-global surface states its host-wide scope honestly and the single-owner admission it demands. (5) Land the ' +
+    'README registry row at the consuming folder. (6) Land the csproj reference where consumed ' +
     '(csharp). (7) Run the docgen gate script at ' +
     REPO +
-    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Write your full ' +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Any chain step ' +
+    '(1)-(7) failing unrecoverably after one self-heal attempt returns admitted=false with the step named and its evidence, the manifest ' +
+    'row and partial artifacts of this admission reverted so the install gate stays green. Write your full ' +
     'admission report to ' +
     OUT +
     '/admit-' +
@@ -1150,6 +1154,7 @@ log(admissions.length + ' admission(s): ' + admissions.filter((a) => a.ok && a.a
 // --- [AUDIT]
 
 const ros = await rosterP;
+// Docgen gates DURABLE repo files only — campaign receipts under CAMP are non-durable and never batch into the audit.
 const touched = [
     ...new Set(
         [
@@ -1157,7 +1162,7 @@ const touched = [
             ...langOut.flatMap((o) => (o.lang && o.lang.filesTouched) || []),
             ...((crossR && crossR.filesTouched) || []),
             ...admissions.flatMap((a) => a.filesTouched || []),
-        ].filter(Boolean),
+        ].filter((p) => p && !String(p).startsWith(CAMP)),
     ),
 ].sort();
 const audit = await guard(

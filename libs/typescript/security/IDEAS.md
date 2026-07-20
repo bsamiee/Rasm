@@ -60,6 +60,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `WebAuthnTrust` layer, `.api/simplewebauthn-server.md` trust-service members, mandate app-neutrality law.
 - Tension: blocked on one answerable question — does `@simplewebauthn/server` expose instance-scoped `SettingsService`/`MetadataService` construction, or only module-global mutation? Route: `.api/simplewebauthn-server.md` trust section, then the installed package source under `node_modules/@simplewebauthn/server`.
 
+[0010]-[QUEUED]: LeaseSpec deploy-realization contract — the encoded lease shape publishes as the boundary value the deploy plane decodes into custody cells.
+- Capability: `LeaseSpec` — scope, keys, TTL, renewal posture — gains its one encoded owner on the crypt plane, so lease semantics have a single spelling and the iac workload estate decodes each lease into a config-scoped Doppler `ServiceToken` and namespace-`Secret` custody cell as pure data; renewal posture and epoch-keyed rotation read from the spec, never from deploy-side convention.
+- Shape: encoded `LeaseSpec` schema and boundary row on `libs/typescript/security/.planning/crypt/secret.md` beside the `_ACCESS` custody law; the `ARCHITECTURE.md` `[BOUNDARY]: LeaseSpec` seam keeps its spelling with the schema now real.
+- Unlocks: a leased credential's blast radius is the lease by construction; per-app lease custody composes without collision; the deploy plane consumes lease semantics with zero security knowledge.
+- Anchors: `crypt/secret.md` custody and rotation rows; `ARCHITECTURE.md` Crypt-to-Iac `[BOUNDARY]: LeaseSpec` edge; iac `kube/workload.md` lease realization (carded).
+- Tension: iac realizes custody cells — this folder owns only the encoded shape and its semantics; a deploy concern leaking into the spec is a boundary breach.
+- Ripple: `iac` `[0009]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

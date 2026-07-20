@@ -22,6 +22,8 @@ Folder-specific libraries admitted by core; versions centralize in `pnpm-workspa
 - `cbor-x`
 - `@msgpack/msgpack`
 - `rfc6902`
+- `cloudevents`
+- `mqtt`
 - `hash-wasm`
 
 [FOLD_ALGEBRA]:
@@ -31,6 +33,9 @@ Folder-specific libraries admitted by core; versions centralize in `pnpm-workspa
 
 [OBSERVE_VOCABULARY]:
 - `@opentelemetry/semantic-conventions`
+
+[BENCHMARK_STATISTICS]:
+- `mitata`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 

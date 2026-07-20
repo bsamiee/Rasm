@@ -47,9 +47,12 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 - `keyring`
 - `google-cloud-secret-manager` — cloud secret-manager read arm behind settings admission.
 - `google-crc32c` — secret-payload transport-integrity digest.
+- `hvac` — HashiCorp Vault read arm closing the `SecretTier.cloud` provider family beside the GCP arm.
+- `azure-keyvault-secrets` — Azure Key Vault read arm completing the `SecretTier.cloud` provider family beside the GCP and Vault arms.
 
 [TRANSPORT]:
 - `httpx`
+- `hishel[httpx]` — RFC-9111 HTTP cache over the httpx transport rail.
 - `asyncssh`
 - `watchfiles`
 - `stamina`
@@ -59,6 +62,7 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 [OBSERVABILITY]:
 - `opentelemetry-exporter-otlp-proto-grpc` — daemon-selectable OTLP gRPC egress row; proto-http stays the estate default.
 - `opentelemetry-instrumentation-asyncio` — coroutine and `to_thread` context propagation on the train.
+- `opentelemetry-instrumentation-dbapi` — generic PEP-249 wrap seam giving duckdb and ADBC DBAPI drivers db-semconv spans without a dedicated instrumentor.
 - `opentelemetry-instrumentation-httpx` — client spans on the httpx transport legs.
 - `opentelemetry-instrumentation-jinja2` — template render, compile, and load spans on the train.
 - `opentelemetry-instrumentation-psycopg` — psycopg DBAPI spans the data query surfaces ride.
@@ -67,6 +71,7 @@ Domain libraries this folder admits directly; versions centralize in the one roo
 - `opentelemetry-instrumentation-threading` — cross-thread context propagation on the train.
 - `opentelemetry-processor-baggage` — baggage-to-span and baggage-to-log promotion pair behind the telemetry `PROMOTED_BAGGAGE` predicate.
 - `opentelemetry-resource-detector-containerid` — `container.id` resource detector on the telemetry detector list.
+- `pyroscope-io` — native continuous-profiling push agent.
 - `pyroscope-otel` — continuous-profiling push and the root-span profile link.
 
 [EXECUTION]:

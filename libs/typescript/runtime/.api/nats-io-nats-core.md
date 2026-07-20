@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_NATS_IO_NATS_CORE]
 
-`@nats-io/nats-core` is the catalog-bound modular NATS client's transport-agnostic core: the `NatsConnection` surface (publish/subscribe/request over subject hierarchies, `drain`/`close`/`closed` lifecycle, `status` events), the `headers()`/`MsgHdrs` message-header codec (the carrier of `Nats-Msg-Id` dedup identity), subject wildcard algebra (`.`-tokenized, `*`/`>` wildcards), and the `wsconnect` WebSocket transport that runs on node, bun, and browsers without a native transport package. It is pure client substrate — `net/pubsub`'s jetstream engine row composes it for the connection capability, and `@nats-io/jetstream` layers the persistence surface over the same connection. The TCP transport lives in `@nats-io/transport-node`, which this branch does not admit: the websocket listener is the one dial surface, a server deployment fact the deploy plane provisions.
+`@nats-io/nats-core` is the catalog-bound modular NATS client's transport-agnostic core: the `NatsConnection` surface (publish/subscribe/request over subject hierarchies, `drain`/`close`/`closed` lifecycle, `status` events), the `headers()`/`MsgHdrs` message-header codec (the carrier of `Nats-Msg-Id` dedup identity), subject wildcard algebra (`.`-tokenized, `*`/`>` wildcards), and the `wsconnect` WebSocket transport that runs on node, bun, and browsers without a native transport package. It is pure client substrate — `net/pubsub`'s jetstream engine row composes it for the connection capability, and `@nats-io/jetstream` layers the persistence surface over the same connection. `wsconnect` is the browser-lane dial; the native TCP/TLS dial lives in `@nats-io/transport-node` (`.api/nats-io-transport-node.md`), the node-lane sibling — one connection capability behind two transports, the server's listener a deployment fact the deploy plane provisions.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -53,7 +53,7 @@
 - Acquire exactly one connection per process inside the engine Layer; a second connection is a root decision, never a per-call dial.
 - Release through `drain()`, never bare `close()` — in-flight subscription delivery completes before the socket drops.
 - Core publish/subscribe is not the engine row — a fanout that may not lose subscribed work rides the JetStream surface; core delivery is fire-and-forget by contract.
-- The TCP transport (`@nats-io/transport-node`) is unadmitted — a latency case that outgrows websockets is a manifest decision with its own catalogue, never a silent import.
+- `@nats-io/transport-node` (`.api/nats-io-transport-node.md`) owns the node/bun lane's native TCP/TLS `connect`; `wsconnect` here is the browser lane — the transport is a boot-time platform choice per `Setting`, never a per-call or mixed import.
 
 [RAIL_LAW]:
 - Package: `@nats-io/nats-core`

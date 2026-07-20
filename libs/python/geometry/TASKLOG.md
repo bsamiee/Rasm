@@ -102,6 +102,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: runtime `execution/lanes.md` lane surface; branch `libs/python/.api/pebble.md` member truth; idea `[MID_OPERATION_PULSE]`.
 - Tension: blocker — every candidate loop runs inside a HOSTILE worker kernel; without a parent-side drain no live span or hook registry is reachable mid-operation.
 
+[SCENE_DESCRIPTOR_DECODE]-[QUEUED]: land the descriptor decode fold on the energy plane.
+- Capability: decode rows mapping descriptor bands to their owners — `SunState` onto the climate solar vocabulary, light roster onto the model admission, GLB shading through the tessellation rail — with the daylight `RecipeName` rows joining the simulate shape.
+- Shape: rows on `libs/python/geometry/.planning/energy/simulate.md`, `libs/python/geometry/.planning/energy/climate.md`, and `libs/python/geometry/.planning/energy/model.md`.
+- Anchors: idea `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the estate `[SCENE_DESCRIPTOR_SCHEMA]` schema pin as the field authority.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

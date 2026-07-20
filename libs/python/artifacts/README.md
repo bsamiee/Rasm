@@ -203,6 +203,9 @@ Domain libraries admitted by this folder; versions centralize in the one Python 
 - `python-magic` — libmagic format-ID power path
 - `pyexiftool` — cross-format descriptive-metadata read/write
 
+[DELIVERY]:
+- `cloudevents` — CloudEvents structured/binary envelope with distributed-tracing extension for the transmittal notice
+
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation
 - `PhotoshopAPI` — native PSD/PSB layered writer

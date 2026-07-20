@@ -31,7 +31,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: profile push rides the Pyroscope wire, not OTLP — the lane stays its own owner so the OTLP wire owner never forks.
 
 [NODE_VITALS]-[QUEUED]: Engine health joins the emit plane as first-class series.
-- Capability: event-loop delay and utilization histograms plus GC-duration series stream from the node lane through the same Hooks registry the SDK drains, and a deny-list view row suppresses the high-cardinality attributes those instrumentations stamp — a saturated event loop or GC storm reads on the board before it reads in latency.
+- Capability: event-loop delay and utilization histograms and GC-duration series stream from the node lane through the same Hooks registry the SDK drains, and a deny-list view row suppresses the high-cardinality attributes those instrumentations stamp — a saturated event loop or GC storm reads on the board before it reads in latency.
 - Shape: an instrumentation row in `libs/typescript/runtime/.planning/otel/emit.md` — the runtime-node instrumentation registered against the `Hooks.Meter` provider beside `HostMetrics` — and a contributed `createDenyListAttributesProcessor` view row in `libs/typescript/runtime/.planning/otel/meter.md` guarding the series fan.
 - Unlocks: work-plane saturation attribution — queue lag distinguishes from event-loop stall; the iac alert set gains engine-health burn rows.
 - Anchors: `.api/opentelemetry-host-metrics.md`; `.api/opentelemetry-sdk-metrics.md` (`createDenyListAttributesProcessor`); `otel/emit.md` Hooks plane; `@opentelemetry/instrumentation-runtime-node` (candidate).
@@ -91,6 +91,37 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: a census projection on `libs/typescript/runtime/.planning/otel/meter.md` — `Pulse` folds the `_WORK`/`_GAUGES` rows and `Vital.rows` budgets into the pack the iac counterpart consumes.
 - Unlocks: zero-drift dashboards; a new instrument appears on the board by construction.
 - Anchors: `otel/meter.md` instrument rows; `otel/vital.md` `Vital.rows`; iac `operate/observe.md` Foundation-SDK compile leg.
+
+[HOOK_DISPATCH]-[QUEUED]: Hook-rail dispatch engine realizes the core tap vocabulary.
+- Capability: subscriber scheduling, veto arbitration, replay journal, and fault-isolated subscriber fibers execute the `observe/tap.md` registry shape — core defines every shape, this plane runs dispatch: veto resolves as a pure decision before the emitting fold proceeds, observe fans out on isolated fibers whose faults land on the fault rail, replay drains the journal into late subscribers.
+- Shape: a dispatch-engine owner in `libs/typescript/runtime/.planning/otel/emit.md`'s Hooks plane — point-keyed subscriber tables scoped by `AppIdentity`, modality dispatch arms, a bounded replay journal row; folder registries mount their point sets against it unchanged.
+- Unlocks: every folder hook registry runs on one engine with zero dispatch forks; telemetry-as-tap holds branch-wide because subscription is the only observation seam.
+- Anchors: core `observe/tap.md` point brand, modality vocabulary, and fault-isolation contract (carded); `otel/emit.md` `Hooks.add` keyed append; `proc/life.md` ranked drain registry as the scheduling precedent.
+- Tension: veto feeds a verdict back into the emitting fold — the engine types it as a pure decision so dispatch never re-opens the zero-exporter boundary.
+- Ripple: `core` `[C3]`.
+
+[CARRIER_CODEC_BINDING]-[QUEUED]: Transport clients inject and extract W3C context through the core carrier codec.
+- Capability: Connect interceptors, NATS headers, MQTT v5 UserProperties, and CloudEvents extension attributes all read and write trace context through core's one dialect table — `traceparent`/`tracestate`/`baggage` parse and print exactly once, the `rasm.tenant` promotion law included, zero per-transport propagation forks.
+- Shape: carrier-binding rows across `libs/typescript/runtime/.planning/net/pubsub.md`, `libs/typescript/runtime/.planning/net/channel.md`, `libs/typescript/runtime/.planning/net/client.md`, and `libs/typescript/runtime/.planning/serve/live.md` — each transport row names its dialect-table row and composes `Propagation` over the core codec instead of a local header spelling.
+- Unlocks: tenant baggage survives every broker hop; a new transport is one dialect row in core and one binding row here.
+- Anchors: core `interchange/carrier.md` dialect table (carded); `otel/emit.md` `Propagation` string-keyed contract; TASKLOG `[0007]`/`[0013]`/`[0014]`/`[0015]` carrier tasks this card re-anchors onto the one codec.
+- Ripple: `core` `[C4]`.
+
+[WORKLOAD_CREDENTIAL]-[QUEUED]: Workload-identity credential projection mounts on the transport lanes.
+- Capability: per-call transport credentials — gRPC metadata, NATS auth header — source from the security machine principal and refresh on its grant lifecycle, so a fleet worker authenticates every outbound call without a hand-carried static token and credential rotation never restarts a lane.
+- Shape: a credential-projection row on `libs/typescript/runtime/.planning/net/client.md`'s lane table and the NATS auth row in `libs/typescript/runtime/.planning/net/pubsub.md`, both reading a `Redacted`-typed principal the security plane resolves; refresh rides the grant lifecycle, never a lane timer.
+- Unlocks: service-to-service auth on every transport axis with one principal source; the C# gRPC host accepts TS calls under one credential law.
+- Anchors: security `authn/workload.md` machine-principal projection (carded); `net/client.md` lane table budget and circuit rows; `net/pubsub.md` connection rows.
+- Tension: principal mint and refresh are security's — this plane mounts the projection and never touches grant grammar.
+- Ripple: `security` `[0004]`.
+
+[JOURNAL_ENVELOPE_CARRIAGE]-[QUEUED]: Transport carriers bind the journal CloudEvents envelope as a first-class payload row.
+- Capability: Connect, NATS, and MQTT carriers accept the data-plane CloudEvents envelope — W3C distributed-tracing extension, `rasm.tenant` extension attribute — as a payload row with structured/binary binding mode as carrier policy, completing the transport half of the journal egress pair.
+- Shape: envelope payload rows on `libs/typescript/runtime/.planning/net/pubsub.md` and `libs/typescript/runtime/.planning/net/channel.md` beside the opaque-octet default, binding-mode policy as a carrier column; webhook carriage stays `[CLOUDEVENTS_ENVELOPE]`'s.
+- Unlocks: journal facts deliver on any transport as standard events; the C# and python peers decode one envelope shape.
+- Anchors: data `journal/append.md` envelope projection (carded); `net/pubsub.md` envelope law; `[CLOUDEVENTS_ENVELOPE]` webhook counterpart sharing the one SDK vocabulary.
+- Tension: data owns the envelope projection — carriers bind and never re-project; binding mode is the carrier's fact.
+- Ripple: `data` `[RELAY_CLOUDEVENTS_PROJECTION]`.
 
 ## [02]-[CLOSED]
 

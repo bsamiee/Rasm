@@ -25,6 +25,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - Domain packages: the folder-specific libraries it uses, planned or implemented, grouped into `[CONCERN]` cards under `## [2]-[DOMAIN_PACKAGES]`.
 - A card carries no version pin and no `.api/` link; versions centralize in the owning manifest, and coupling the README to the catalogue is fragile.
 - New admissions land here from the folder's ideas and tasks.
+- License gate: this estate is fully OSS with zero commercial intent — any license granting full free use to an OSS project admits, copyleft included; a package requiring payment or gating capability behind paid tiers rejects; no deeper license analysis.
 - Package-card row form: `- ` with the backticked package id, optionally one concise dash-led line of prose — never parentheses — within 150 columns.
 - Depth beyond the one line belongs to the package's `.api/` catalogue, never the card.
 - Substrate packages: a `## [3]-[SUBSTRATE_PACKAGES]` section after the domain list names the language substrate the folder consumes.

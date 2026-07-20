@@ -51,7 +51,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: a `BaggageSpanProcessor` row keyed to the `rasm.*` promotion set replaces the described-but-unshipped `onStart` bridge; drives from IDEAS `[TENANT_SIGNAL]`.
 - Shape: one `Hooks.contribute` span row in `libs/typescript/runtime/.planning/otel/emit.md`; the promotion key set admits as a `Setting.otel` row in `libs/typescript/runtime/.planning/proc/config.md`.
 - Anchors: `otel/emit.md` `[04]` tenant-isolation law; `@opentelemetry/baggage-span-processor` (candidate).
-- Atomic: one processor row plus one config row.
+- Atomic: one processor row and one config row.
 
 [0011]-[QUEUED]: SDK lanes gain protobuf serialization through the `-proto` exporter trio.
 - Capability: `_sdk` and `_meter` exporter construction dispatches on `policy.serialization` between the json `-http` and protobuf `-proto` families for traces, metrics, and logs; drives from IDEAS `[WIRE_PROTOBUF]`.
@@ -95,6 +95,34 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: one census-projection cluster on `libs/typescript/runtime/.planning/otel/meter.md`.
 - Anchors: `otel/meter.md` `Pulse`; `otel/vital.md` `Vital.rows`; iac `operate/observe.md` Foundation-SDK compile leg.
 - Atomic: one projection cluster on one page.
+
+[0019]-[QUEUED]: Hook dispatch engine rows land on the Hooks plane.
+- Capability: a point-keyed subscriber table scoped by `AppIdentity`, veto/observe/replay dispatch arms, fault-isolated subscriber fibers, and a bounded replay journal; drives from IDEAS `[HOOK_DISPATCH]`.
+- Shape: one dispatch-engine cluster in `libs/typescript/runtime/.planning/otel/emit.md`'s Hooks plane.
+- Anchors: core `observe/tap.md` registry shape (carded); `proc/life.md` ranked registry precedent.
+
+[0020]-[QUEUED]: Carrier bindings re-anchor onto the core dialect table.
+- Capability: NATS, MQTT, Connect, and CloudEvents carrier rows compose the core carrier codec through `Propagation`, and local header spellings delete; drives from IDEAS `[CARRIER_CODEC_BINDING]`.
+- Shape: binding rows across `libs/typescript/runtime/.planning/net/pubsub.md`, `libs/typescript/runtime/.planning/net/channel.md`, `libs/typescript/runtime/.planning/net/client.md`, and `libs/typescript/runtime/.planning/serve/live.md`.
+- Anchors: core `interchange/carrier.md` dialect rows (carded); `otel/emit.md` `Propagation`.
+
+[0021]-[QUEUED]: Credential-projection rows mount the machine principal.
+- Capability: gRPC per-call metadata rows and the NATS connection-authentication row read the security-resolved principal with grant-lifecycle refresh — NATS credentials live on `ConnectionOptions` at dial (handshake and reconnect authentication, rotation replaces the connection), never message headers, which stay app metadata; drives from IDEAS `[WORKLOAD_CREDENTIAL]`.
+- Shape: one row on `libs/typescript/runtime/.planning/net/client.md`; one row on `libs/typescript/runtime/.planning/net/pubsub.md`.
+- Anchors: security `authn/workload.md` principal projection (carded); `net/client.md` lane table.
+- Atomic: two credential rows.
+
+[0022]-[QUEUED]: Envelope payload rows land on the broker and channel carriers.
+- Capability: the CloudEvents envelope is accepted as a payload row with structured/binary binding-mode policy columns; drives from IDEAS `[JOURNAL_ENVELOPE_CARRIAGE]`.
+- Shape: one payload row in `libs/typescript/runtime/.planning/net/pubsub.md`; one in `libs/typescript/runtime/.planning/net/channel.md`.
+- Anchors: data `journal/append.md` envelope codec (carded); `cloudevents` (candidate).
+- Atomic: two payload rows.
+
+[0023]-[QUEUED]: Environment detector rows — admitted cloud and browser detectors join the detector roster behind placement policy.
+- Capability: `@opentelemetry/resource-detector-aws` and `@opentelemetry/resource-detector-gcp` land as policy-armed rows on the node lane's detector fold beside the platform roster, arming only when the placement declares that cloud; `@opentelemetry/opentelemetry-browser-detector` lands on the web lane's RUM identity where `emit.md` routes browser detection — three admitted packages gaining their exploitation rows.
+- Shape: detector rows on `libs/typescript/runtime/.planning/otel/emit.md` — node rows through the `Hooks` detector registry, the browser row on the web lane projection.
+- Anchors: `emit.md` `_resource` fold and platform detector roster; `Hooks.contribute` `ResourceDetector` rows; the three `.api/` catalogs under `libs/typescript/runtime/.api/`.
+- Atomic: three detector rows behind placement policy.
 
 ## [02]-[CLOSED]
 

@@ -89,6 +89,14 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `journal/append.md` publish-transaction slots and post-commit registrar; `object/stream.md` `onUploadCreate`/`onIncomingRequest`/`onUploadFinish` armed seams as `Rail.Spec` values; `object/file.md` codec-gated intake; `lane/tenant.md` `Tenant.afterCommit` roster as the post-commit fan template.
 - Tension: Observe taps never join the commit — a slow subscriber costs fan-out latency, never write availability; veto points are bounded to admission seams so the journal's atomicity is untouched.
 
+[AUDIT_JOURNAL_SATISFACTION]-[QUEUED]: Security `AuditJournal` port lands on the durable plane — append-only audit-fact store with retention rows and per-subject crypto-shred integration.
+- Capability: Security-published fact rows persist through an append-only port satisfaction keyed by the standing `(app, tenant, subject)` custody spine — retention classes from the one policy table, subject-bearing fields sealed under the `SealedEnvelope`/`WrappedKey` algebra the retain page already composes, DSAR export and erasure riding the same subject spine — so breach evidence is durable receipt-truth aging under the same law as every journal fact.
+- Shape: An `AuditJournal` port-satisfaction row in `libs/typescript/data/.planning/journal/append.md` beside the existing port grammar, with the audit retention-class row and crypto-shred wiring in `libs/typescript/data/.planning/journal/retain.md`.
+- Unlocks: Compliance export, session forensics, and the security board pack read one durable audit plane; erasing a subject shreds audit payloads without breaking the append-only log.
+- Anchors: security `access/audit.md` `AuditJournal` port (carded); `journal/retain.md` `SubjectKey` custody and `WrappedKey` erasure folds; `journal/append.md` publish transaction; `ARCHITECTURE.md` `[SHAPE]: SealedEnvelope` seam.
+- Tension: Audit facts are security's mint — this plane persists and ages them, never re-derives or reinterprets a fact.
+- Ripple: `security` `[0003]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

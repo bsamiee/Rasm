@@ -55,6 +55,7 @@ PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relatio
 - `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - `Npgsql.NetTopologySuite`
 - `Npgsql.OpenTelemetry`
+- `OpenTelemetry.Instrumentation.EntityFrameworkCore` — trace-only ORM-layer command spans off the `Microsoft.EntityFrameworkCore` diagnostic source, complementing the ADO-layer `Npgsql.OpenTelemetry` spans at the AppHost root
 - `EFCore.NamingConventions`
 - `linq2db.EntityFrameworkCore`
 - `Microsoft.EntityFrameworkCore.Design`
@@ -67,6 +68,7 @@ PostgreSQL/EF managed stack and the embedded-SQLite floor — the closed relatio
 - `Microsoft.EntityFrameworkCore.Sqlite`
 - `Microsoft.Data.Sqlite`
 - `SQLitePCLRaw.bundle_e_sqlite3`
+- `SQLitePCLRaw.bundle_e_sqlite3mc` — SQLite3 Multiple Ciphers native bundle; the encrypted embedded floor keying `Store/provisioning#EMBEDDED_FLOOR` under a KMS-custodied data key, superseding the plain bundle where the cipher floor mounts
 
 [SERVER_EXTENSIONS]:
 PostgreSQL 18 SQL-provisioned extensions carrying no managed assembly; the `Store/provisioning#SERVER_EXTENSIONS` `ServerExtension` roster is authoritative and supersets this consumer-facing list with the base-bridge rows only the verification fold admits. Roster keys carry the server `CREATE EXTENSION` spelling; cards here carry the package spelling. Each carries a folder `.api/` catalogue of its SQL surface.
@@ -143,6 +145,7 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`
 - `Confluent.SchemaRegistry.Serdes.Json`
 - `CloudNative.CloudEvents`
+- `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding over AMQPNetLite's `Amqp.Message`; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg
 - `CloudNative.CloudEvents.Kafka`
 - `CloudNative.CloudEvents.SystemTextJson`
 - `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`
@@ -152,11 +155,13 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 [OBJECT_CACHE_KMS]:
 Cloud object stores, the Redis cache backplane, and KMS custody.
 - `AWSSDK.S3`
+- `OpenTelemetry.Instrumentation.AWS` — one root registration spanning both AWSSDK legs: the `AWSSDK.S3` object-store transfers and the `AWSSDK.KeyManagementService` custody calls, hooking the shared `AWSSDK.Core` pipeline into the AppHost-root trace
 - `Azure.Storage.Blobs`
 - `Google.Cloud.Storage.V1`
 - `Minio` — endpoint-agnostic S3-compatible client for the self-hosted lane
 - `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
+- `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the held cache and egress multiplexers into the AppHost-root trace
 - `Microsoft.Extensions.Caching.Hybrid`
 - `AWSSDK.KeyManagementService`
 - `Azure.Security.KeyVault.Keys`

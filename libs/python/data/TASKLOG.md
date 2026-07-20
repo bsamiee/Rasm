@@ -91,10 +91,37 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `.planning/impact/impact.md` Growth staged rows naming exactly this deferred set; the four provider catalog files under `.api/`; idea `[IMPACT_PLANE_BUILDOUT]`.
 - Tension: sibling pages feed `ImpactSource` cases — one normalization fold, one matrix owner.
 
+[FRAME_ADMISSION_ROWS]-[QUEUED]: land the geometry frame admission rows on the scan plane.
+- Capability: one admission row per geometry frame family on `.planning/tabular/columnar.md` — `GeometrySubject` discriminant, `ContentKey` join keys, `domain="query"` projection at contribute.
+- Anchors: geometry frame port on `libs/python/geometry/.planning/graduation.md`; `tabular/columnar#SCAN`; idea `[GEOMETRY_FRAME_ADMISSION]`.
+- Ripple: `geometry` `[ANALYTIC_FRAME_EGRESS]`.
+- Atomic: admission rows on one existing page.
+
+[CRS_SOURCE_ROW]-[QUEUED]: land the IFC georeference CRS-source row on the reproject prelude.
+- Capability: georeference-fact decode — CRS identity, map-conversion transform, true north — as one typed CRS source on `.planning/spatial/geospatial.md` `VectorGeoClaim.reproject`.
+- Anchors: `spatial/geospatial.md` CRS law; `.api/pyproj.md`; idea `[IFC_CRS_SOURCE]`.
+- Ripple: `geometry` `[IFC_GEOREFERENCE]`.
+- Atomic: one CRS-source row on one existing page.
+
+[DRIVER_WRAP_THREADS]-[QUEUED]: name the driver connection factories the composition root threads through the runtime wrap.
+- Capability: threading rows for the duckdb session factory and the ADBC `dbapi.connect` legs on `.planning/tabular/query.md`, each naming its factory and the composition-root activation; connectorx exclusion stated at the row.
+- Anchors: runtime wrap seam beside `TRAIN`; `.api/adbc-driver-manager.md`; idea `[DBAPI_SPAN_THREADING]`.
+- Ripple: `runtime` `[DBAPI_TRAIN_ROW]`.
+- Atomic: threading rows on one existing page.
+
+[ENSEMBLE_TREE_OWNER]-[QUEUED]: author the scenario-tree page over the CF field plane.
+- Capability: `libs/python/data/.planning/gridded/ensemble.md` — `DataTree` constructor rows, scenario-axis vocabulary, group-wise map/reduce/difference folds, `FieldReceipt` content-keyed egress.
+- Anchors: branch `.api/xarray.md` `DataTree`; `gridded/field.md` `FieldDataset`; idea `[SCENARIO_FIELD_TREES]`.
+
 [NETWORK_FLOW_PAGE]-[QUEUED]: land the capacity-network page on the graph plane.
 - Capability: `libs/python/data/.planning/graph/network.md` — capacity-annotated network owner over the networkx codec lane, `maximum_flow`/`min_cost_flow`/`network_simplex` rows, flow results lowering through `GraphResult.frame` onto the columnar join, `domain="graph"` projection.
 - Anchors: `.planning/graph/graph.md` codec lane; branch `.api/networkx.md` flow family; idea `[GRAPH_NETWORK_ANALYSIS]`.
 - Tension: networkx carries the flow family only — rustworkx stays the kernel for everything it spells.
+
+[EPD_WIRE_ROWS]-[QUEUED]: land the registry-source arm and the Assessment record schema rows.
+- Capability: provider fetch rows for EC3/Ökobaudat/EPD-Norge folding into `MaterialImpact` with declared unit, module coverage, and expiry columns; the record schema stated once as the `Assessment` seam payload the Materials end decodes.
+- Shape: rows on `libs/python/data/.planning/impact/impact.md`; schema co-sign recorded at the seam cluster.
+- Anchors: idea `[EPD_RECORD_WIRE]`; `openepd`/`epdx` declaration arms; the content-keyed Arrow-bytes crossing.
 
 ## [02]-[CLOSED]
 

@@ -106,6 +106,7 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `SharpGLTF.Ext.3DTiles` — 3D Tiles egress extension.
 - `SharpGLTF.Toolkit` — mesh-building toolkit.
 - `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding twin sensor envelopes onto the `capture-ingest` lane.
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.

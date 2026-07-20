@@ -24,8 +24,8 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [0004]-[QUEUED]: publish `SecurityFact` beside every existing loud arm — `session.md` `Reused`, `webauthn.md` clone and ceremony refusals, `secret.md` `_publish` rotation, `claim.md` `Deny` tap, `sign.md` shred-open reject (idea `IDEAS.md` `[0003]`).
 - Capability: each arm gains one fact-publish line composed through `Effect.tap*` beside its `Reject.mark`/log call; verdict paths stay byte-identical.
-- Shape: five page edits, each one arm-local line plus the fact row import; no new owner, no new metric.
-- Anchors: exact arms pinned — `session.md` `[03]` `Reused` dispatch, `webauthn.md` `[03]` counter law, `secret.md` `[03]` `_publish`, `claim.md` `[05]` deny tap, `sign.md` `[05]` `_openReject`.
+- Shape: six arm edits across five pages (`webauthn.md` carries two), each one arm-local line with the fact row import; no new owner, no new metric.
+- Anchors: exact arms pinned — `session.md` `[03]` `Reused` dispatch, `webauthn.md` `[03]` counter law (clone) and its ceremony-refusal arm, `secret.md` `[03]` `_publish`, `claim.md` `[05]` deny tap, `sign.md` `[05]` `_openReject`.
 
 [0005]-[QUEUED]: land the `Metric.snapshot` support-bundle projection on `libs/typescript/security/.planning/access/audit.md` — the local board snapshot an app dumps without an exporter (ideas `IDEAS.md` `[0003]`/`[0005]`).
 - Capability: one projection folding `Metric.snapshot` over the folder instrument set into a typed snapshot receipt for support bundles and tests.
@@ -74,7 +74,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 [0014]-[BLOCKED]: prove or refute instance-scoped `SettingsService`/`MetadataService` construction in `@simplewebauthn/server`, then land the trust-isolation ruling on `libs/typescript/security/.planning/authn/webauthn.md` (idea `IDEAS.md` `[0009]`).
 - Capability: on proof, `WebAuthnTrust` becomes a per-layer configuration with zero process-global mutation; on refute, the page states the single-policy-per-process law as a composition constraint with the deployment-split remedy.
 - Anchors: `.api/simplewebauthn-server.md` trust section, installed source under `node_modules/@simplewebauthn/server`.
-- Atomic: one probe plus one ruling edit.
+- Atomic: one probe and one ruling edit.
+
+[0015]-[QUEUED]: encode the `LeaseSpec` boundary schema on `libs/typescript/security/.planning/crypt/secret.md` — scope, keys, TTL, and renewal posture as the one lease spelling (idea `IDEAS.md` `[0010]`).
+- Capability: Schema-encoded lease shape beside `_ACCESS`, a closed renewal-posture vocabulary, epoch-keyed rotation semantics stated on the spec; the seam edge gains its real type.
+- Anchors: `crypt/secret.md` `_ACCESS` record; `ARCHITECTURE.md` `[BOUNDARY]: LeaseSpec` edge; iac `kube/workload.md` `leases` args (carded).
+- Atomic: one schema and one boundary row.
 
 ## [02]-[CLOSED]
 

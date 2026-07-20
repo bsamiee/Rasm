@@ -79,6 +79,7 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
 - `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - `Microsoft.Diagnostics.NETCore.Client` — process-dump and EventPipe capture feeding the support-bundle fan.
+- `Microsoft.Diagnostics.Runtime` — ClrMD `DataTarget.LoadDump` post-capture heap/thread/stack triage projecting the captured dump into support-bundle receipts.
 - `Microsoft.Diagnostics.Tracing.TraceEvent` — decodes the EventPipe event stream off the diagnostics session.
 - `AspNetCore.HealthChecks.NpgSql`
 - `AspNetCore.HealthChecks.Redis`
@@ -92,12 +93,14 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `Microsoft.Extensions.Telemetry`
 - `Microsoft.Extensions.Telemetry.Abstractions`
 - `OpenTelemetry`
+- `OpenTelemetry.Extensions` — `BaggageActivityProcessor` promoting predicate-scoped tenant/cost baggage onto spans for cost attribution; `RateLimitingSampler` per-second head cap.
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.AspNetCore` — service-root inbound request spans and the built-in hosting meters.
 - `OpenTelemetry.Instrumentation.GrpcNetClient` — client-span semconv over the `Grpc.Net.Client` hops.
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
 - `OpenTelemetry.Exporter.OpenTelemetryProtocol` — projects the OTLP exporter at the composition root.
+- `OpenTelemetry.PersistentStorage.FileSystem` — file-system-backed `FileBlobProvider` offline queue for failed OTLP export batches; replays on reconnection.
 - `OpenTelemetry.Resources.Container` — `container.id` resource detector at the identity seam.
 - `OpenTelemetry.Resources.Host` — `host.name`/`host.id`/`host.arch` resource detector at the identity seam.
 - `OpenTelemetry.Resources.OperatingSystem` — `os.*` resource detector at the identity seam.

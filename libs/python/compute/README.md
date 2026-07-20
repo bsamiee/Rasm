@@ -59,6 +59,7 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 [SOLVERS]:
 - `scipy`
 - `scikit-fem`
+- `gmsh`
 - `lineax`
 - `optimistix`
 - `diffrax`
@@ -71,6 +72,8 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 - `optax`
 - `cvxpy`
 - `clarabel`
+- `scs`
+- `highspy`
 
 [CERTIFIED_NUMERICS]:
 - `python-flint`
@@ -84,6 +87,7 @@ Scientific and solver libraries admitted by this folder; versions centralize in 
 
 [EXPERIMENTS]:
 - `SALib`
+- `pyDOE3` — classical design-of-experiments matrix generation.
 - `scikit-learn`
 - `onnx`
 - `onnxruntime`

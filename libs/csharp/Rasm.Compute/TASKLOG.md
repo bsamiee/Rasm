@@ -167,6 +167,21 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: `[DOE_LAKE_EGRESS]` transport half without a Compute store client.
 - Anchors: `Apache.Arrow.Flight.Sql` Persistence `.api` custody, `ArtifactIndexRow` landing precedent, tessellation two-hop seam law.
 
+[BASIS_VERDICT_COSIGN]-[QUEUED]: Co-sign the `DesignBasis` re-cut of the design-check verdict vocabulary the structural consumer reads.
+- Capability: the Materials basis axis renames the `SectionCapacity` case family; the `(DesignCode, LimitState)` capacity table and the `MemberCheck` carriers re-read the re-cut vocabulary in the same pass, so consumer and owner never hold two spellings.
+- Shape: verdict-vocabulary alignment rows on `libs/csharp/Rasm.Compute/.planning/Analysis/structural.md#DESIGN_CHECK`; the re-cut itself lands Materials-side.
+- Unlocks: EC3/EN 1994/EN 1996 basis rows flow through the standing capacity table without a parallel verdict family.
+- Anchors: `DesignCode`/`LimitState` SmartEnum rows, `SectionCapacity`/`MemberCheck` carriers, the Materials capacity rail.
+- Ripple: `Rasm.Materials` `[DESIGN_BASIS_AXIS]`.
+- Atomic: verdict-vocabulary alignment on one section.
+
+[ENERGY_RESULTS_WIRE]-[QUEUED]: Mint the typed energy-results receipt wire — zone and space result rows keyed by the `EnergyArtifact` content key.
+- Capability: the `SqlFile` result read emits a typed receipt — annual and peak loads, comfort hours, EUI per zone and space — keyed by the `EnergyArtifact` content key, the record the Bim results-admission fold consumes; `SqlFile` decode stays Compute's per the standing simulation ruling.
+- Shape: one receipt record and emit row on `libs/csharp/Rasm.Compute/.planning/Analysis/energy.md#SIMULATION_RUN` beside `ReadResults`.
+- Unlocks: results survive the run directory — Bim annotates zones and re-exports Psets from the receipt.
+- Anchors: `EnergySimulation.Run` fact stream, the `SqlFile` readers, `AssessmentSink` content-keyed landing.
+- Ripple: `Rasm.Bim` `[ENERGY_RESULTS_ANNOTATION]`.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

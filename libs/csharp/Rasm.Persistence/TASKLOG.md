@@ -51,7 +51,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [0008]-[BLOCKED]: E57/LAS/LAZ codec admission survey — resolve the one question blocking the reality-capture page.
 - Capability: a ruled managed codec admission (or a ruled non-existence verdict) arms `[PERS-I3]` and pins the `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` package roster.
-- Shape: nuget MCP survey over the managed E57/LAS/LAZ candidate family scoring license, maintenance signal, and net10 asset; verdict lands as the `[PERS-I3]` arming edit plus its packageNeeds row.
+- Shape: nuget MCP survey over the managed E57/LAS/LAZ candidate family scoring license, maintenance signal, and net10 asset; verdict lands as the `[PERS-I3]` arming edit and its packageNeeds row.
 - Unlocks: the blocked reality-capture codec becomes buildable.
 - Anchors: `IDEAS.md` `[PERS-I3]`; the admission-gate law (supersession-only rejection).
 - Tension: BLOCKED as the survey itself — this task IS the resolution route.
@@ -89,7 +89,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 [0014]-[QUEUED]: Binding sink rows — the `Mqtt` case and the AMQP re-bind land on the sink table.
 - Capability: `EgressSink.Mqtt` with MQTT v5 UserProperties carrying the tracing extension and QoS-1 packet identity as its dedup column; `RabbitMq` `Deliver` leg re-bound through the AMQP protocol binding.
-- Shape: case row plus dedup-honesty column on `libs/csharp/Rasm.Persistence/.planning/Version/egress.md#EGRESS_SINK`; pump, envelope, and cursor untouched.
+- Shape: case row with its dedup-honesty column on `libs/csharp/Rasm.Persistence/.planning/Version/egress.md#EGRESS_SINK`; pump, envelope, and cursor untouched.
 - Unlocks: `[PERS-V5]` transport-family closure.
 - Anchors: `IDEAS.md` `[PERS-V5]`; the sink growth law, `MQTTnet` manifest row.
 
@@ -126,6 +126,50 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: schema-aware backends read `rasm.persistence.*` scopes with pinned semantics.
 - Anchors: branch `api-diagnostics-metrics.md` `MeterOptions.TelemetrySchemaUrl` law row, `TelemetryContributorPort` on the AppHost port vocabulary.
 - Atomic: one mint-signature coordinate.
+
+[0020]-[QUEUED]: Landing arm rows — per-producer batch-schema registration, writers, slots, and index custody pin the columnar spine.
+- Capability: each producer family lands one arm row — schema registration keyed by its content identity, dataset-writer binding, `ArtifactIndexRow` custody, and batch-metadata preservation — so four sibling egress cards converge on one landing discipline.
+- Shape: arm rows on `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md#FLAT_TABLE_EGRESS` and contributed slot rows on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`.
+- Unlocks: realizes `[PERS-L1]` — the landing spine names every producer.
+- Anchors: `IDEAS.md` `[PERS-L1]`; `ParquetSharp.Dataset` writers, the Flight result plane, the slot grammar.
+
+[0021]-[QUEUED]: Shop-state slot rows — `store.fabrication.<domain>.<verb>` registers remnant inventory, fleet performance horizons, magazine slot state, and capability history.
+- Capability: each row carries a typed read and write receipt pair federating Fabrication shop state onto the store rail; contributed rows enter the `SlotRegistry` mount census under its uniqueness law.
+- Shape: contributed slot rows on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`.
+- Unlocks: shop state survives the process — the Fabrication in-memory registries gain a durable rail.
+- Anchors: `SlotRegistry.Mounted()` census, the contributed-row pattern, the Fabrication receipt owners.
+- Ripple: `Rasm.Fabrication` `[SHOP_STATE_SLOTS]`.
+- Atomic: contributed slot rows and their receipt pairs.
+
+[0022]-[QUEUED]: Solver-memo band — content-keyed NFP pair and ICP fit memos persist beside the benchmark index and replay across runs.
+- Capability: a durable memo band keyed by the Fabrication content keys — NFP pair geometry, ICP fit results — with hit accounting, so expensive solver truth computes once and replays across processes.
+- Shape: one memo band on `libs/csharp/Rasm.Persistence/.planning/Query/cache.md` beside `#BENCHMARK_INDEX`, reads on the synchronous lane, publication through the standing residence law.
+- Unlocks: nesting and registration solves warm-start from durable memos instead of recomputing per run.
+- Anchors: the `#BENCHMARK_INDEX` content-address and recency precedent, the Fabrication memo-key origin.
+- Ripple: `Rasm.Fabrication` `[SOLVER_MEMO_CACHE]`.
+
+[0023]-[QUEUED]: Search wire projection — the retrieval lane exposes one typed query/result wire with corpus-coverage rows for the document-search plane.
+- Capability: the landed BM25/tsquery retrieval owner projects a typed query/result wire — query union in, ranked hits with branch lineage out — and coverage rows admit the notebook-cell, issue-text, and evidence-payload corpora onto the indexed set.
+- Shape: wire members on `libs/csharp/Rasm.Persistence/.planning/Query/retrieval.md` beside the fusion fold; one coverage row per corpus naming its indexed columns.
+- Unlocks: the AppUi `Document/search.md` plane queries every durable text corpus through one wire.
+- Anchors: the retrieval predicate family and `LexicalRank` arms, the fusion lineage receipt, the `key_field` anchor law.
+- Ripple: `Rasm.AppUi` `[DOCUMENT-SEARCH]`.
+
+[0024]-[QUEUED]: Delta envelope composition — `GraphDelta` publications stamp the seam event vocabulary on the egress envelope.
+- Capability: when the published op is a `GraphDelta` crossing, `Egress.Envelope` populates the Element event-type token, subject `ContentAddress`, `Instant`, and `traceparent` slot — one envelope, seam vocabulary honored, never a second projection.
+- Shape: one mapping row on `libs/csharp/Rasm.Persistence/.planning/Version/egress.md#EGRESS_SINK` envelope projection.
+- Unlocks: broker consumers of graph deltas read the seam-declared vocabulary without decoding payload bytes.
+- Anchors: `Egress.Envelope` one-projection law, the Element envelope vocabulary card.
+- Ripple: `Rasm.Element` `[DELTA_EVENT_ENVELOPE]`.
+- Atomic: one envelope mapping row.
+
+[0025]-[QUEUED]: Compressed-carrier decode arm — lz4/zstd Arrow IPC streams decode on ingest with identity keyed on uncompressed bytes.
+- Capability: Python-minted content-key wires may arrive with transport-band IPC block compression; the Arrow ingest arm sets `IpcOptions.CompressionCodecFactory = new CompressionCodecFactory()` so `Lz4Frame`/`Zstd` streams decode, while every `ContentAddress` derivation reads the decompressed canonical bytes — transport framing never enters identity.
+- Shape: one decode-arm row on `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md#FLAT_TABLE_EGRESS` ingest side; the `Element/codec.md` law that Arrow-compressed bodies pair with `CompressionPolicy.None` already anticipates the arm.
+- Unlocks: sibling scan-scale frames cross compressed with zero identity drift; the python carrier's codec vocabulary gains its C# decode end.
+- Anchors: `api-arrow.md` `CompressionCodecFactory` truth (codec factory required at read of compressed streams); `Apache.Arrow.Compression` admitted manifest row.
+- Ripple: `python:data` `[COMPRESSED_CARRIER_BAND]`.
+- Atomic: one ingest decode-arm row.
 
 ## [02]-[CLOSED]
 

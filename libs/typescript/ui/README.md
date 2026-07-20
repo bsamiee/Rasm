@@ -72,11 +72,15 @@ UI-specific libraries admitted by this folder; versions centralize in `pnpm-work
 - `@visx/responsive`
 - `@visx/scale`
 - `@visx/shape`
-- `tus-js-client` — drives `view/form`'s resumable upload lane, one session per source
+- `tus-js-client` — owns resumable upload transport
+
+[TELEMETRY]:
+- `web-vitals` — supplies browser vital measurements
 
 [SPATIAL]:
 - `three`
 - `@types/three`
+- `three-mesh-bvh` — accelerates viewer spatial queries
 - `@google/model-viewer`
 - `maplibre-gl`
 - `@deck.gl/core`
@@ -85,6 +89,9 @@ UI-specific libraries admitted by this folder; versions centralize in `pnpm-work
 - `@deck.gl/mesh-layers`
 - `@deck.gl/extensions`
 - `@deck.gl/mapbox`
+- `@loaders.gl/3d-tiles` — decodes tiled spatial content
+- `@loaders.gl/core` — owns the viewer loader registry
+- `@loaders.gl/las` — decodes point-cloud content
 - `@geoarrow/deck.gl-geoarrow`
 - `@turf/turf`
 - `@lume/kiwi`

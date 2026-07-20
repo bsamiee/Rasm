@@ -109,12 +109,47 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `.planning/impact/impact.md` `ImpactSource`/`_normalize`/Growth staged rows; `.api/bw2io.md`, `.api/bw2calc.md`, `.api/olca-ipc.md`, `.api/premise.md` member depth.
 - Tension: the carrier page keeps the one normalization fold — sibling pages feed `ImpactSource` cases, never a second EN 15804 matrix.
 
+[GEOMETRY_FRAME_ADMISSION]-[QUEUED]: geometry's analytic frame band admits into the analytics plane beside `ResultFrame`.
+- Capability: subject-keyed columnar frames minted by geometry's frame port — deviation bands, quality metrics, analytic boards, section properties, lifecycle rollups — land as admitted frame families on the scan plane, duckdb- and lake-queryable beside every other columnar source.
+- Shape: one admission row family on `libs/python/data/.planning/tabular/columnar.md` keyed by the `GeometrySubject` discriminant, joins keyed on `ContentKey`, receipts on the standing `domain="query"` projection; the crossing rides the existing geometry-to-data seam beside `ResultFrame`.
+- Unlocks: estate analytics over geometry evidence — cross-model deviation trends, quality rollups, section-property queries — with zero bespoke receipt parsing.
+- Anchors: geometry frame port on `libs/python/geometry/.planning/graduation.md`; `tabular/columnar#SCAN`; runtime `ContentKey`.
+- Ripple: `geometry` `[ANALYTIC_FRAME_EGRESS]`.
+
+[IFC_CRS_SOURCE]-[QUEUED]: IFC-minted georeference admits as a first-class CRS source on the reproject prelude.
+- Capability: CRS identity and local-to-map transform extracted by geometry's IFC georeference band enter `VectorGeoClaim`'s pyproj prelude as a typed CRS source, so site-local claims lift to map frames off model truth instead of caller-supplied CRS guesses.
+- Shape: one CRS-source row on `libs/python/data/.planning/spatial/geospatial.md` decoding the georeference fact — CRS name, map-conversion transform, true north — into the reproject prelude beside the existing CRS inputs.
+- Unlocks: scan-vs-model claims, vector egress, and map-frame joins keyed to the model's own georeference; the python data leg of the estate geospatial root move.
+- Anchors: geometry georeference band on `libs/python/geometry/.planning/ifc/analysis.md`; `VectorGeoClaim.reproject` and the CRS law on `spatial/geospatial.md`; `.api/pyproj.md`.
+- Ripple: `geometry` `[IFC_GEOREFERENCE]`.
+
+[DBAPI_SPAN_THREADING]-[QUEUED]: unwrapped query drivers thread the runtime PEP-249 wrap seam at composition.
+- Capability: duckdb and ADBC DBAPI connection legs gain query spans through the runtime train's generic wrap — spans landing beside the `QueryReceipt.profile` band with zero data-side instrumentor import.
+- Shape: per-arm threading rows on `libs/python/data/.planning/tabular/query.md` naming which connection factory the composition root registers through the wrap seam; connectorx stays outside the seam — its read surface exposes no PEP-249 connection.
+- Unlocks: span coverage for every store the folder rides without a dedicated contrib instrumentor; receipts stay the profile truth.
+- Anchors: runtime wrap seam beside `TRAIN` on `libs/python/runtime/.planning/observability/metrics.md`; `.api/adbc-driver-manager.md` `dbapi.connect`; `.api/duckdb.md`.
+- Ripple: `runtime` `[DBAPI_TRAIN_ROW]`.
+
+[SCENARIO_FIELD_TREES]-[QUEUED]: scenario and ensemble families land as one labelled tree over the CF field plane.
+- Capability: a `DataTree` hierarchy carries multi-scenario simulation families — design options, climate years, IAM prospective backgrounds — as parent/child groups whose leaves are `FieldDataset` cubes, so cross-scenario map, reduce, and difference run group-wise in one call instead of N hand-looped cubes.
+- Shape: one new page `libs/python/data/.planning/gridded/ensemble.md` owning the tree constructor, the scenario-axis vocabulary, group-wise operation folds, and content-keyed egress on the `FieldReceipt` family; composes the CF owner, never a second labelled-array store.
+- Unlocks: scenario-set interchange for energy and impact result families; per-scenario deltas queryable beside the vector-cube and claims planes.
+- Anchors: `xarray.DataTree` on branch `libs/python/.api/xarray.md`; `FieldDataset`/`FieldReceipt` on `gridded/field.md`; the `[IMPACT_PLANE_BUILDOUT]` scenario page family.
+
 [GRAPH_NETWORK_ANALYSIS]-[QUEUED]: capacity-constrained network analysis lands as the graph plane's flow page.
 - Capability: building-service networks — duct, pipe, cable, egress circulation — answer max-flow, min-cost flow, and network-simplex questions over the graph plane's payloads, results lowering to the same node-keyed frame the columnar plane joins.
 - Shape: `libs/python/data/.planning/graph/network.md` — a capacity-annotated network owner riding the existing networkx codec lane for the flow family the rustworkx kernel does not spell, flow dictionaries lowering through `GraphResult.frame`, receipts on the standing `domain="graph"` projection.
 - Unlocks: MEP sizing and circulation evidence over interchange graphs, and the graph stub folder deepened with real capability.
 - Anchors: `.planning/graph/graph.md` codec lane and `GraphResult.frame`; branch `.api/networkx.md` `maximum_flow`/`min_cost_flow`/`network_simplex`; `rustworkx` capability line proving the flow-family absence.
 - Tension: rustworkx stays the kernel for everything it spells — the networkx leg exists only for the flow family, never a parallel analysis kernel.
+
+[EPD_RECORD_WIRE]-[QUEUED]: registry-sourced EPD records carry the Assessment edge — declared units, module coverage, and expiry keyed to the Materials identity.
+- Capability: EC3, Ökobaudat, and EPD-Norge records normalize through the standing `openepd`/`epdx` declaration arms into `MaterialImpact` rows carrying declared unit, EN 15804 module coverage, and expiry, keyed to `MaterialId`/component designation so the C# Materials assessment landing decodes real product vectors in place of its authored generic-EPD constants.
+- Shape: a registry-source arm on `libs/python/data/.planning/impact/impact.md` beside the declaration fold — provider fetch discriminated by payload shape, never a provider knob — with the record schema and transport co-signed as the `Discipline.Environmental` `Assessment` seam payload the page already routes; redistribution follows the `[IMPACT_PAGE_SPLIT]` landing when the provider pages mint.
+- Unlocks: audited whole-life carbon on the C# side from evidence-dated records; one EPD sourcing plane serving every estate consumer.
+- Anchors: `impact.md` `MaterialImpact` eight-column frame and `Assessment` crossing; `openepd`/`epdx` wire parsers; the `tabular/columnar` content-keyed Arrow-bytes fold.
+- Tension: provenance stays with the registry record — expiry and declared-unit facts cross untranslated, and the Materials end demotes its authored constants to declared fallback per its own card.
+- Ripple: `csharp:Rasm.Materials` `[EPD_DATA_INGESTION]`.
 
 ## [02]-[CLOSED]
 

@@ -6,12 +6,14 @@ dependencies = [
     # --- [GENERAL]
     "anyio",
     "apscheduler",                             # [RUNTIME]: cron, interval, and date triggers
+    "azure-keyvault-secrets",                  # [RUNTIME]: Azure Key Vault secret backend closing the SecretTier.cloud provider family beside the GCP and Vault arms
     "beartype",
     "cloudpickle",                             # [RUNTIME]: kernel and closure shipping across the worker process/subinterpreter seams
     "cyclopts",
     "expression",
     "google-cloud-secret-manager",             # [RUNTIME]: cloud secret backend for SecretTier.cloud admission
     "google-crc32c",                           # [RUNTIME]: SecretPayload.data_crc32c integrity digest for the admission cloud arm
+    "hvac",                                    # [RUNTIME]: HashiCorp Vault secret backend closing the SecretTier.cloud provider family beside the GCP arm
     "jinja2",                                  # [ARTIFACTS]: report templating between visual and document outputs
     "keyring",                                 # [RUNTIME]: OS keychain credential boundary
     "lark",                                    # [GEOMETRY]: IDS and selector parsing grammar
@@ -22,6 +24,7 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-grpc",  # [RUNTIME]: daemon-selectable OTLP gRPC egress row beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-instrumentation-asyncio",   # [RUNTIME]: coroutine/to_thread/future trace-context propagation for the worker fabric
+    "opentelemetry-instrumentation-dbapi",     # [RUNTIME]: generic PEP-249 wrap seam for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
     "opentelemetry-instrumentation-grpc",      # [RUNTIME]: gRPC server/client span instrumentation for server/serve
     "opentelemetry-instrumentation-httpx",     # [TRANSPORT]: httpx client spans carrying W3C trace context
     "opentelemetry-instrumentation-jinja2",    # [RUNTIME]: jinja2 template render spans, composed by the runtime instrumentor train
@@ -35,6 +38,7 @@ dependencies = [
     "pebble",                                  # [RUNTIME]: terminal-deadline worker kill and per-worker task recycling
     "psutil",
     "pydantic",
+    "pyroscope-io",                            # [RUNTIME]: continuous-profiling agent feeding the pyroscope-otel span-link rail
     "pyroscope-otel",                          # [RUNTIME]: continuous-profiling span links beside the OTLP rails
     "pydantic-settings",
     "ruamel-yaml",
@@ -58,6 +62,7 @@ dependencies = [
     "grpcio",                                  # [RUNTIME]: gRPC transport for ServerHost serve paths
     "grpcio-health-checking",                  # [RUNTIME]: gRPC health servicer wired into ServerHost lifecycle
     "grpcio-tools",                            # [RUNTIME]: gRPC protoc codegen companion
+    "hishel[httpx]",                           # [TRANSPORT]: RFC-9111 HTTP cache layer over the httpx transport legs with a persistent sqlite store
     "httpx",                                   # [TRANSPORT]: approved HTTP client surface for typed adapters
     "lz4",                                     # [ARTIFACTS]: compression
     "obspec-utils",                            # [DATA]: multi-store ObjectStoreRegistry companion to obstore
@@ -77,6 +82,8 @@ dependencies = [
     "diffrax; python_version<'3.15'",          # [COMPUTE]: JAX differential-equation solvers
     "equinox; python_version<'3.15'",          # [COMPUTE]: JAX PyTree modules
     "findiff",                                 # [COMPUTE]: finite-difference operators for solvers and sensitivity
+    "gmsh",                                    # [COMPUTE]: 1/2/3-D unstructured mesh generation with physical groups feeding scikit-fem assembly and the meshio round-trip
+    "highspy",                                 # [COMPUTE]: HiGHS LP/MIP/QP simplex + interior-point solver; cvxpy backend beside the Clarabel/SCS conic arms
     "interpax; python_version<'3.15'",         # [COMPUTE]: JAX interpolation and splines
     "jax; python_version<'3.15'",              # [COMPUTE]: XLA accelerator
     "jaxtyping",                               # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
@@ -92,6 +99,7 @@ dependencies = [
     "quadax; python_version<'3.15'",           # [COMPUTE]: JAX adaptive quadrature
     "scikit-fem",                              # [COMPUTE]: FEM assembly
     "scipy",                                   # [COMPUTE]: numerical algorithms
+    "scs",                                     # [COMPUTE]: SCS first-order operator-splitting conic solver beside Clarabel; cvxpy SCS backend
     "sectionproperties",                       # [GEOMETRY]: cross-section property solver enrichment
     "sparse; python_version<'3.15'",           # [COMPUTE]: sparse n-D arrays
     "sympy",                                   # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
@@ -103,6 +111,7 @@ dependencies = [
     "nutpie",                                  # [COMPUTE]: Rust NUTS sampler for PyMC
     "onnx",                                    # [COMPUTE]: model graph IR
     "onnxruntime; python_version<'3.15'",      # [COMPUTE]: model runtime
+    "pyDOE3",                                  # [COMPUTE]: classical DOE design matrices — factorial, fractional-factorial, Box-Behnken, central-composite, Plackett-Burman, and GSD response-surface designs beside the SALib samplers and scipy.qmc floors
     "pymc<5.27",                               # [COMPUTE]: probabilistic programming; ceiling holds pytensor 2 — pytensor 3 hard-requires numba (no cp315)
     "salib",                                   # [COMPUTE]: global sensitivity analysis
     "scikit-learn",                            # [COMPUTE]: classical ML and ONNX export
@@ -123,10 +132,16 @@ dependencies = [
     "pointblank",                              # [DATA]: graded data-quality observability tier above pass/fail checks
     "polars",                                  # [DATA]: dataframe engine
     "sqlglot",                                 # [DATA]: SQL parser, transpiler, optimizer, and lineage engine
+    "substrait[extensions]",                   # [DATA]: typed Substrait plan IR — protobuf Plan model, extension registry, and validator gating Persistence plan bytes pre-execution
     # --- [ARROW_LAKEHOUSE]
     "adbc-driver-flightsql",                   # [DATA]: Arrow Flight SQL distributed remote driver
     "adbc-driver-manager",                     # [DATA]: ADBC driver manager for Arrow Flight SQL and DuckDB
+    "adbc-driver-postgresql",                  # [DATA]: native ADBC PostgreSQL driver — bulk COPY ingest and partitioned Arrow reads
+    "adbc-driver-snowflake",                   # [DATA]: native ADBC Snowflake driver — cloud warehouse federation, result-chunk partitioning, and Arrow bulk ingest
+    "adbc-driver-sqlite",                      # [DATA]: native ADBC SQLite driver — local-file federation and in-memory Arrow ingest
+    "arro3-compute",                           # [DATA]: Arrow compute kernels — closes the pa.table re-import hop on the materialize CDF path
     "arro3-core",                              # [DATA]: Arrow core bridge
+    "arro3-io",                                # [DATA]: pyarrow-free Arrow IPC/Parquet/CSV/JSON/NDJSON readers-writers — the slim carrier-leg codec over the arro3.core memory model
     "deltalake",                               # [DATA]: lakehouse tables
     "nanoarrow",                               # [DATA]: Arrow C Data Interface interop
     "pyarrow<24",                              # [DATA]: Arrow C++ bridge; ceiling tracks the Forge arrow-cpp major
@@ -145,7 +160,10 @@ dependencies = [
     "xarray",                                  # [DATA_COMPUTE]: labelled field datasets; the compute DataTree/labelled-array arms
     "zarr",                                    # [DATA]: chunked n-D arrays
     # --- [GEOSPATIAL]
+    "geoarrow-pyarrow",                        # [DATA]: pyarrow-native GeoArrow ExtensionType registration and geopandas/pandas ExtensionDtype interop bridge
     "geoarrow-rust-compute",                   # [DATA]: GeoRust operations on GeoArrow memory
+    "geoarrow-rust-core",                      # [DATA]: GeoArrow geometry array memory model under the GeoRust compute kernels
+    "geoarrow-rust-io",                        # [DATA]: GeoArrow-native FlatGeobuf/GeoParquet/shapefile/GeoJSON readers-writers, the GDAL-free fast path
     "geopandas",                               # [DATA]: geospatial frames
     "h3ronpy",                                 # [DATA]: Arrow-native H3 cell ops on polars frames
     "kiss-matcher; python_version<'3.15'",     # [GEOMETRY]: global point-cloud registration
@@ -166,6 +184,7 @@ dependencies = [
     "shapely",                                 # [DATA]: planar operations
     "stac-geoparquet; python_version<'3.15'",  # [DATA]: STAC item GeoParquet table interchange; hard orjson dep — orjson compiles against pre-3.15 CPython internals (no cp315 wheel)
     "xarray-spatial; python_version<'3.15'",   # [DATA]: raster terrain analytics
+    "xvec",                                    # [DATA]: shapely-geometry-indexed xarray dimensions — vector data cubes backing the zone-cube owner
     # --- [GEOMETRY_CAD]
     "cadquery-ocp; python_version<'3.15'",     # [GEOMETRY]: OpenCASCADE STEP/AP242 kernel
     "compas",                                  # [GEOMETRY]: algebra toolkit
@@ -174,6 +193,7 @@ dependencies = [
     "manifold3d",                              # [GEOMETRY]: robust mesh booleans
     "meshio",                                  # [DATA_COMPUTE]: mesh format codec IO; scikit-fem physical-group round-trip
     "open3d; python_version<'3.15'",           # [GEOMETRY]: point-cloud and mesh processing; wheels cap at cp312 (no cp315 wheel)
+    "probreg; python_version<'3.15'",          # [GEOMETRY]: probabilistic CPD/FilterReg/SVR/GMMTree/BCPD non-rigid registration; sdist-only native (Eigen/OpenMP/pybind11) build with a hard open3d dep (no cp315 wheel)
     "python-fcl; python_version<'3.15'",       # [GEOMETRY]: FCL collision and distance queries for the CORE-clearance arm
     "rhino3dm",                                # [DATA]: Rhino mesh and 3DM IO
     "rtree",                                   # [GEOMETRY]: R-tree spatial index for the Bounds worker lane
@@ -193,6 +213,7 @@ dependencies = [
     "ifc4d",                                   # [GEOMETRY]: IFC 4D construction-sequence scheduling exchange
     "ifc5d",                                   # [GEOMETRY]: IFC 5D quantity and cost extraction
     "ifcclash",                                # [GEOMETRY]: IFC clash-detection sets
+    "ifccsv",                                  # [GEOMETRY]: IFC to CSV/ODS/XLSX/Pandas schedule round-trip
     "ifcdiff",                                 # [GEOMETRY]: IFC revision diff
     "ifcopenshell",                            # [GEOMETRY]: IFC kernel for parse, geometry iteration, and authoring
     "ifcpatch",                                # [GEOMETRY]: IFC patch and migration recipes
@@ -369,6 +390,14 @@ name =            "colour-cxf"
 version =         "0.1.1"
 requires-python = ">=3.10"
 requires-dist =   ["typing-extensions<5,>=4", "xsdata>25.4"]
+
+# substrait 0.29.0 declares Requires-Python <3.15 on a pure-Python py3-none-any wheel (spurious cap): corrected static metadata drops it so the typed Plan IR resolves on the >=3.15 floor with its protobuf runtime deps intact.
+[[tool.uv.dependency-metadata]]
+name =            "substrait"
+version =         "0.29.0"
+requires-python = ">=3.10"
+requires-dist =   ["protobuf<7,>=5", "substrait-protobuf==0.85.0", "substrait-extensions==0.85.0", "antlr4-python3-runtime; extra == 'extensions'", "substrait-antlr==0.85.0; extra == 'extensions'", "pyyaml; extra == 'extensions'"]
+provides-extras = ["extensions"]
 
 # --- [TY] ------------------------------------------------------------------
 
@@ -762,7 +791,7 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports =        "all"
 banned-module-level-imports = [
-  "adbc_driver_flightsql", "daft", "dataframely", "datafusion", "fastexcel",
+  "adbc_driver_flightsql", "adbc_driver_snowflake", "daft", "dataframely", "datafusion", "fastexcel",
   "geoarrow.rust.compute", "h3ronpy", "igraph", "laszip", "lazrs",
   "odc.stac", "planetary_computer", "pointblank", "polars_st",
   "pystac", "pystac_client", "stac_geoparquet", "tensorstore", "xarray", "xrspatial",

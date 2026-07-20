@@ -1004,15 +1004,25 @@ const admitPrompt = (row, origin) =>
     ' You are the SINGLE writer on the ' +
     row.language +
     ' central manifest for this call. Execute the FULL admission chain: (1) LIVE-VERIFY the newest stable version — nuget MCP ' +
-    'get_latest_package_version for csharp, the live registry for python/typescript; supersession-only rejection: reject ONLY when an ' +
-    'already-admitted package supersedes the capability, returning admitted=false with the ruling. (2) Land the central manifest row in its ' +
+    'get_latest_package_version for csharp, the live registry for python/typescript; rejection vocabulary is closed: reject ONLY when an ' +
+    'already-admitted package supersedes the capability, when existence or installability fails verification, when the license gate ' +
+    'fails — this estate is fully OSS with zero commercial intent, any license granting full free use to an OSS project admits (copyleft ' +
+    'included) and only payment-required or paid-tier-gated capability rejects — or when any chain step below fails unrecoverably after ' +
+    'one self-heal attempt (EXECUTION FAILURE — the failed step named with its evidence), returning admitted=false with the ruling. (2) Land the ' +
+    'central manifest row in its ' +
     'owning group (Directory.Packages.props label group / pyproject.toml lean unpinned / pnpm-workspace.yaml cluster). (3) Prove the ' +
     'install gate green (dotnet restore over the consuming closure / uv sync / pnpm install), self-healing or reverting what cannot ' +
     'resolve — a reverted admission returns admitted=false with the resolver evidence. (4) Author the .api catalog at the correct tier — ' +
-    'folder overlay vs language-root substrate per the two-tier law — with verified members only. (5) Land the README registry row at the ' +
+    'folder overlay vs language-root substrate per the two-tier law — with verified members only; an isolation or app-scoped claim lands ' +
+    'ONLY with per-instance member evidence (a per-instance handle, factory, or scope parameter verified on the decompiled/installed ' +
+    'surface), a process-global surface stating its host-wide scope honestly and the single-owner admission it demands. (5) Land the README registry row at the ' +
     'consuming folder. (6) Land the csproj reference where consumed (csharp). (7) Run the docgen gate script at ' +
     REPO +
-    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Write your full ' +
+    '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) over the new files, repaired to zero FAIL. Any of steps ' +
+    '(4)–(7) failing unrecoverably after one self-heal attempt is an EXECUTION FAILURE that REVERTS this admission whole — the manifest ' +
+    'row and every partial artifact landed this call (catalog, README row, csproj reference) removed so the install gate stays green — ' +
+    'returning admitted=false with the failed step named and its evidence; a reverted admission is a clean rejection, never a ' +
+    'half-landed package. Write your full ' +
     'admission report to ' +
     OUT +
     '/admit-' +
@@ -1042,7 +1052,8 @@ const critPrompt = (f, u, impl, mapR, admitted) =>
     ' Run the named checklists as a FLOOR and hunt past them: collapse scan (repeated shapes, parallel spellings, enumerable families an ' +
     'algebra, table, fold, or generator can own); owner choice; knob test (entry-point sprawl, boolean knobs); rail unification; language ' +
     'modernity; capability + illusion (a name promising capability the fence omits); fence transcription-completeness; member truth against ' +
-    'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); card-closure truth (a ' +
+    'both .api tiers (a cited member that fails verification is a phantom you delete or convert to a RESEARCH row); isolation-claim truth ' +
+    '(an app-scoped claim without per-instance member evidence is a defect you correct to the honest scope); card-closure truth (a ' +
     'closed card whose fence is partial REOPENS; a [BLOCKED] re-card without an arming trigger gains one); ripple-ledger truth (every unit ' +
     'rippleSurface endpoint carries a rippleLedger row in the implement receipt whose disposition holds against disk — a landed endpoint ' +
     'proven, a deferred endpoint present as a crossFolderRows row, an out-of-theme endpoint carrying its hint; a silent or false endpoint ' +

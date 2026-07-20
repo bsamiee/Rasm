@@ -30,6 +30,25 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: co-resident Rasm plugins in one Rhino process without Meter collision or dropped batch tails.
 - Anchors: `api-opentelemetry` and `api-opentelemetry-exporter-otlp` branch catalogs; AppHost Observability telemetry; the two host-boundary roots.
 
+[KAFKA_CONSUMER_INSTRUMENTATION]-[QUEUED]: AppHost-root Kafka consumer instrumentation over the Persistence-owned ingress leg.
+- Capability: `AddKafkaConsumerInstrumentation<TKey,TValue>` registers at the signal root over the Persistence `InstrumentedConsumerBuilder` consume leg — the PORT-peer arbitration mirroring the Npgsql row, closing the producer-only Kafka telemetry asymmetry.
+- Shape: one registration row in the AppHost signal root beside the producer row; the Persistence ingress owner (`libs/csharp/Rasm.Persistence/.planning/Version/ingress.md`) names the builder it hands.
+- Unlocks: CDC ingress spans and consumer metrics join the drain trace end to end.
+- Anchors: `libs/csharp/.api/api-otel-instrumentation-confluentkafka.md` `AddKafkaConsumerInstrumentation<TKey,TValue>`; Persistence `[PERS-V4]`/`[0007]`; the `[NPGSQL_ROOT_COMPOSITION]` precedent.
+- Atomic: one registration-row arbitration.
+
+[BATCH_SEAM_LEDGER]-[QUEUED]: Ledger the producer→landing record-batch seams with their custody split.
+- Capability: one seam table naming each producer wire, its batch-shape owner, its landing slot, and its content-key metadata columns — the arbitration keeping four folder pairs on one discipline.
+- Shape: seam rows on `libs/csharp/.planning/ARCHITECTURE.md#SEAMS`, each pair mirrored at BOTH endpoint registries with identical `[KIND]` and direction — `libs/csharp/Rasm/ARCHITECTURE.md`, `libs/csharp/Rasm.Compute/ARCHITECTURE.md`, `libs/csharp/Rasm.Element/ARCHITECTURE.md`, and `libs/csharp/Rasm.Materials/ARCHITECTURE.md` each against `libs/csharp/Rasm.Persistence/ARCHITECTURE.md` — closure holds only when all five endpoint pages carry their edges.
+- Unlocks: `[ANALYTICS_LAKE_CONCERT]` holds as one discipline instead of four bespoke handoffs.
+- Anchors: the kernel/Compute/Element/Materials egress cards, Persistence `[PERS-L1]`, the seam-registry grammar.
+
+[CLAIM_FIELD_MAP]-[QUEUED]: Map each folder claim family onto the `BenchmarkReceipt` fields.
+- Capability: one mapping table — family to suite/case/`HostEvidence`/duration/allocation/verdict columns, where `HostEvidence` binds as the whole typed projection (fingerprint, determinism tag, environment), never a bare host name — with divergent fields named for re-cut instead of tolerated as sibling grammars.
+- Shape: mapping rows beside the AppHost gate ingestion rows at `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#BENCHMARK_RECEIPT`, each folder family citing its origin card.
+- Unlocks: `[BENCH_PROOF_CONCERT]` verdict-grammar law becomes checkable per family.
+- Anchors: `BenchmarkReceipt` field roster, the folder claim-family cards, the Persistence claim custody.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

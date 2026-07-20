@@ -76,6 +76,39 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: realizes `[PARTITIONED_OBSERVABLE_LEVELS]` — partitioned dashboards inside the existing series budget.
 - Anchors: `api-diagnostics-metrics.md` `Measurement<T>`, `DriverProbe.Items`, the `*` `AddView` cardinality row.
 
+[0012]-[QUEUED]: Contributed-arm rows — six sibling kind partitions and their contributor ports pin onto the fan mount.
+- Capability: arm-table and port rows for kernel, Bim, Element, Grasshopper, Materials, and Rhino beside the Persistence precedent; the duplicate-kind fault law restates per row; the kernel hook-tap subscriber row lands at the same composition point.
+- Shape: rows on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#RECEIPT_PROJECTION`; plugin-profile custody rows at `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#PROVIDER_LIFETIME` name the Grasshopper and Rhino ALC capsules.
+- Unlocks: realizes `[CONTRIBUTED_ARM_ROSTER]` — the fan mount names every branch contributor.
+- Anchors: `InstrumentFan.Mount`, `TelemetryContributorPort`, `PluginTelemetryHost.Open`.
+
+[0013]-[QUEUED]: Claim-ingest rows — the kernel ledger, Materials workloads, and the Rhino harvest lane fold to gate cases.
+- Capability: each sibling claim family maps to `BenchmarkReceipt` fields and judges under the standing `GatePolicy`; the bridge-run harvest lane declares its in-host capture provenance beside the BenchmarkDotNet corpus rows.
+- Shape: ingestion rows on `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#BENCHMARK_RECEIPT`.
+- Unlocks: realizes `[CORPUS_GATE_INGEST]` — one verdict grammar over every sibling family.
+- Anchors: `BenchmarkGate.Gate`/`Judge`, `HostEvidence` binding, the Persistence claim custody.
+
+[0014]-[QUEUED]: Profile-sample feed port — capture stacks keyed by correlation expose as one composition-bound delegate.
+- Capability: Pyroscope span profiles and EventPipe stacks keyed by correlation surface through one delegate port the AppUi devloop `FlameNode` fold consumes as samples.
+- Shape: one port record on `libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md#WIRE_LAW` and its capture binding at `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#PROFILE_CORRELATION`.
+- Unlocks: host CPU stacks and receipt durations merge into one flame surface on the dev loop.
+- Anchors: `api-pyroscope.md` agent surface, EventPipe capture seam, the AppUi FlameNode fold.
+- Ripple: `Rasm.AppUi` `[PROFILE-FLAME-JOIN]`.
+
+[0015]-[QUEUED]: Schema-pinned meter mint — the contributor port carries the semconv schema coordinate and the mint stamps it.
+- Capability: `TelemetryContributorPort` gains the schema coordinate; `TelemetryIdentity.Mint` applies `MeterOptions.TelemetrySchemaUrl` at every contributor mint, so each contributed roster satisfies the wire law's schema pin.
+- Shape: one port field and one mint row on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#RECEIPT_PROJECTION` beside the `TelemetryIdentity` owner.
+- Unlocks: schema-aware backends read every `rasm.*` scope with pinned semantics.
+- Anchors: branch `api-diagnostics-metrics.md` `MeterOptions.TelemetrySchemaUrl` law row, the Persistence contributor-side coordinate.
+- Ripple: `Rasm.Persistence` `[0019]`.
+- Atomic: one port field and one mint stamp.
+
+[0016]-[QUEUED]: Observation decode rows — the `MachineObservation` record, decode fold, freshness stamps, and the Fabrication port crossing.
+- Capability: transport bytes fold to typed observation records with machine identity and freshness instants; the crossing record joins the port vocabulary so Fabrication consumes one slice.
+- Shape: decode-lane rows on `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md` and one port record on `libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md#WIRE_LAW`.
+- Unlocks: realizes `[MACHINE_OBSERVATION_LANE]` — wear, fleet, and engagement consumers rebind onto decoded truth.
+- Anchors: the Fabrication decode-lane invariant, the MTConnect observation model, the wire lane owners.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:

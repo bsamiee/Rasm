@@ -180,6 +180,7 @@
         <PackageVersion Include="FluentValidation.DependencyInjectionExtensions"          Version="12.1.1" />
         <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="10.0.10" />
         <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson"           Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Diagnostics.Runtime"                           Version="4.0.732401" />
         <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent"                Version="3.2.4" />
         <PackageVersion Include="Microsoft.Extensions.AI"                                 Version="10.8.0" />
         <PackageVersion Include="Microsoft.Extensions.AI.Abstractions"                    Version="10.8.0" />
@@ -222,12 +223,15 @@
         <PackageVersion Include="OpenIddict.Client"                                       Version="7.5.0" />
         <PackageVersion Include="OpenTelemetry"                                           Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.17.0" />
+        <!-- Extensions (BaggageActivityProcessor / RateLimitingSampler contrib) ships beta-only; pinned to the sole published channel. -->
+        <PackageVersion Include="OpenTelemetry.Extensions"                                 Version="1.17.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore"                Version="1.17.0" />
         <!-- GrpcNetClient instrumentation ships beta-only; pinned to the sole published channel. -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.17.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.17.0" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.17.0" />
+        <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem"              Version="1.1.1" />
         <!-- Resource detectors ship prerelease-only; each pinned to its sole published channel. -->
         <PackageVersion Include="OpenTelemetry.Resources.Container"                       Version="1.16.0-beta.1" />
         <PackageVersion Include="OpenTelemetry.Resources.Host"                            Version="1.16.0-beta.2" />
@@ -271,7 +275,9 @@
         <PackageVersion Include="Chr.Avro.Confluent"                                      Version="10.13.1" />
         <PackageVersion Include="ClickHouse.Driver"                                       Version="1.3.0" />
         <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Amqp"                            Version="2.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.Kafka"                           Version="3.9.0" />
+        <PackageVersion Include="CloudNative.CloudEvents.Mqtt"                            Version="3.9.0" />
         <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                  Version="2.9.0" />
         <!-- Confluent family held: Chr.Avro.Confluent caps Confluent.Kafka/SchemaRegistry below 2.15.0; lift on its next release. -->
         <PackageVersion Include="Confluent.Kafka"                                         Version="2.14.2" />
@@ -308,8 +314,13 @@
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"          Version="10.0.2" />
         <PackageVersion Include="Npgsql.NetTopologySuite"                                 Version="10.0.3" />
         <PackageVersion Include="Npgsql.OpenTelemetry"                                    Version="10.0.3" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.AWS"                       Version="1.16.0" />
         <!-- ConfluentKafka instrumentation ships alpha-only; the sole OTel-native Kafka client path. -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka"            Version="0.2.0-alpha.2" />
+        <!-- EntityFrameworkCore instrumentation ships beta-only; pinned to the sole published channel. -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore"       Version="1.17.0-beta.1" />
+        <!-- StackExchangeRedis instrumentation ships beta-only; pinned to the sole published channel. -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis"        Version="1.17.0-beta.1" />
         <PackageVersion Include="ParquetSharp"                                            Version="24.0.0" />
         <PackageVersion Include="ParquetSharp.Dataset"                                    Version="0.4.0" />
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />
@@ -321,6 +332,7 @@
         <PackageVersion Include="ScyllaDBCSharpDriver"                                    Version="3.22.0.4" />
         <PackageVersion Include="Sep"                                                     Version="0.15.0" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                           Version="3.0.3" />
+        <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3mc"                         Version="2.1.11" />
         <PackageVersion Include="StackExchange.Redis"                                     Version="3.0.7" />
         <PackageVersion Include="System.Formats.Cbor"                                     Version="10.0.10" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.4.0" />

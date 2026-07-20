@@ -23,9 +23,12 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 - `@effect/workflow`
 - `@effect/rpc`
 - `@nats-io/nats-core`
+- `@nats-io/transport-node` — native TCP/TLS `connect` for the node/bun lane; re-exports the core surface, sibling to the browser lane's `wsconnect`
 - `@nats-io/jetstream`
 - `@nats-io/kv`
 - `@nats-io/obj`
+- `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row, TypeScript counterpart of the C# host's `Confluent.Kafka` on the shared broker plane
+- `@connectrpc/connect-node` — Node gRPC/Connect server adapter and `http2` client transports; the `serve/live.md` Mount port and `net/client.md` lane counterpart of core's browser-only `@connectrpc/connect-web`, conversing with the C# gRPC host under one W3C interceptor pair
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -52,11 +55,16 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 - `@opentelemetry/sdk-trace-base`
 - `@opentelemetry/sdk-trace-node` — `NodeSdk` facade substrate on the node lane; no direct import
 - `@opentelemetry/sdk-trace-web`
+- `@opentelemetry/baggage-span-processor` — `BaggageSpanProcessor` promotes `rasm.*` baggage entries onto span attributes through a key predicate, the contributed `Hooks` row replacing the tenant `onStart` bridge
 - `@opentelemetry/exporter-trace-otlp-http`
+- `@opentelemetry/exporter-trace-otlp-proto` — protobuf-wire sibling of the http trace exporter; the SDK-bridge span leg when the collector demands OTLP/HTTP protobuf, one `OTLPTraceExporter` binding the `ProtobufTraceSerializer`
 - `@opentelemetry/exporter-metrics-otlp-http`
+- `@opentelemetry/exporter-metrics-otlp-proto` — protobuf-wire sibling of the http metric exporter; the SDK-bridge metric leg satisfying the OTLP/HTTP+protobuf sole-egress mandate, one `OTLPMetricExporter` binding the `ProtobufMetricsSerializer` and inheriting the http row's temporality algebra
 - `@opentelemetry/exporter-logs-otlp-http`
+- `@opentelemetry/exporter-logs-otlp-proto` — protobuf-wire sibling of the http log exporter; the SDK-bridge log leg completing the three-signal protobuf set, one `OTLPLogExporter` binding the `ProtobufLogsSerializer` and wrapped by `BatchLogRecordProcessor`
 - `@opentelemetry/context-zone`
 - `@opentelemetry/instrumentation` — `registerInstrumentations` activation and the `InstrumentationBase` contract under the browser rows
+- `@opentelemetry/instrumentation-runtime-node` — `RuntimeNodeInstrumentation` registers event-loop delay/utilization, GC-duration, and V8 heap series on the node lane's meter provider beside `HostMetrics`
 - `@opentelemetry/instrumentation-fetch`
 - `@opentelemetry/instrumentation-document-load`
 - `@opentelemetry/instrumentation-user-interaction`

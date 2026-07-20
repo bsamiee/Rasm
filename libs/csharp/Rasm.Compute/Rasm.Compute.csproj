@@ -49,6 +49,7 @@
 
     <ItemGroup Label="Interchange Transport">
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
         <PackageReference Include="Grpc.Net.Client.Web" />
         <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
