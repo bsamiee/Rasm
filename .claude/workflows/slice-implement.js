@@ -1480,7 +1480,7 @@ const testsImplPrompt = (L, mapR) =>
     L.key +
     ': reason" plus genuinely blocked items), headline, failure.';
 
-const auditTask = (roots, selected, residuals, report) =>
+const auditTask = (roots, selected, residuals, receipts, report) =>
     'Goal: prove slice closure for theme "' +
     THEME.title +
     '". Count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
@@ -1492,10 +1492,15 @@ const auditTask = (roots, selected, residuals, report) =>
     'page under these roots: ' +
     JSON.stringify(roots) +
     ' — remaining rows are expected (future slices own non-pertinent debt); report total and per language as "language: N". RIPPLE PROOF: ' +
-    'sweep the rippleLedger arrays across the stage receipt documents under ' +
-    OUT +
+    'sweep the rippleLedger arrays across exactly these stage receipt documents (this run product set — a receipt file in the same ' +
+    'directory but off this roster is a stale prior-run artifact, never swept): ' +
+    JSON.stringify(receipts) +
     ' — a "deferred" endpoint no drain or red-team document shows applied and current disk does not satisfy joins openCards as {file: the ' +
-    'endpoint, card: "ripple: " + its source}. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
+    'endpoint, card: "ripple: " + its source}; the drain and red-team documents are ' +
+    OUT +
+    '/drain-{csharp,python,typescript,cross}.md and ' +
+    OUT +
+    '/redteam-{csharp,python,typescript}.md, read where present. UNCONSUMED DRAIN RESIDUALS (no language tree consumed them): ' +
     JSON.stringify(residuals) +
     ' — verify each against current disk; one still unapplied joins openCards as {file: its targetFile, card: "residual: " + its change}. ' +
     'Constraints: read only; edit no file other than the product; no git command; counts only, no verdicts beyond the rosters.\n' +
@@ -1505,12 +1510,12 @@ const auditTask = (roots, selected, residuals, report) =>
     '["language: N"]} and nothing else — no prose, no code fence. An unreachable card file is rostered in openCards with the failed probe ' +
     'as its card value, never silently dropped.';
 
-const auditWrapPrompt = (roots, selected, residuals) => {
+const auditWrapPrompt = (roots, selected, residuals, receipts) => {
     const report = OUT + '/audit.json';
     return relayPrompt({
         report,
         law: AUDIT_LAW,
-        task: auditTask(roots, selected, residuals, report),
+        task: auditTask(roots, selected, residuals, receipts, report),
         verify: { jq: 'has("openCards") and has("researchRows")' },
         effort: 'medium',
         ret: 'Return openCards, blockedNoTrigger, blockedCards, researchRows, researchByLanguage exactly as the landed product reports them.',
@@ -1740,9 +1745,11 @@ const sealP = receiptPaths.length
           const drainOf = (key) => drainRs[DRAINS.findIndex((D) => D.key === key)] || null;
           const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
           const residualFor = (D) => allResiduals.filter((r) => String(r).includes('/' + D.root + '/'));
-          const routed = new Set(DRAINS.flatMap((D) => residualFor(D)));
+          // Routed means a redteam consumes it: only the language trees have terminal consumers, so a cross-targeted
+          // residual (the cross drain already finished when it was emitted) falls through to the audit, never drops.
+          const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
           drainUnrouted = allResiduals.filter((r) => !routed.has(r));
-          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) target no drained tree — carried to the audit');
+          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) have no terminal consumer — carried to the audit');
           // Arming is evidence, not label: a cross-libs batch edits language trees directly, so the receipts decide.
           const touchedTree = (root) =>
               batchRecs.some((x) =>
@@ -1843,6 +1850,7 @@ const audit = await guard(
                 folders.map((f) => f.path),
                 selectedCards,
                 drainUnrouted,
+                receiptPaths,
             ),
             {
                 label: 'relay:audit',
