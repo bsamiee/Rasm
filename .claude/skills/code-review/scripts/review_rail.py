@@ -24,6 +24,7 @@ import re
 import shlex
 import shutil
 import signal
+from statistics import median
 import string
 import subprocess
 import sys
@@ -99,6 +100,7 @@ type FaultCode = Literal[
     "no-payload",
     "already-sliced",
     "already-closed",
+    "routing-undrained",
 ]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -142,7 +144,15 @@ STATE_DIR: Final = Path(".cache/review")
 CR_STORE: Final = Path.home() / ".coderabbit" / "reviews"
 GREPTILE_LEDGER: Final = Path.home() / ".greptile" / "reviews.json"
 SELF: Final = Path(__file__).resolve()
-REGISTRY_PATH: Final = SELF.parent.parent / "templates" / "refuted-classes.yaml"
+# REVIEW_RAIL_BUNDLE relocates every bundle-owned data surface (registry, prompt templates) so the rail runs from any copy of this one file.
+BUNDLE: Final = Path(os.environ.get("REVIEW_RAIL_BUNDLE", "") or SELF.parent.parent).resolve()
+REGISTRY_PATH: Final = BUNDLE / "templates" / "refuted-classes.yaml"
+CODEX_SESSIONS: Final = Path.home() / ".codex" / "sessions"
+PROMPT_TEMPLATES: Final[tuple[str, ...]] = ("fix.md", "close.md", "harvest.md")
+AGENT_DEFINITION: Final = ".claude/agents/reviewer-harvest.md"
+PROMPT_PRINT_WIDTH: Final = 12
+SPAWN_TOOL: Final = "spawn_agent"
+WALL_OUTLIER_FACTOR: Final = 2.0  # a lane is a wall-time outlier above this multiple of the lane median
 CR_META_NAMES: Final = frozenset({"git.json", "internalState.json", "diff.json", "incrementalDiff.json"})
 GT_ORACLE_FILES: Final[tuple[str, ...]] = (".greptile/config.json", ".greptile/rules.md")
 MS_HOME: Final = ".macroscope"
@@ -309,6 +319,7 @@ class LedgerRow(msgspec.Struct, frozen=True):
     severity: str = ""
     verdict: str = ""
     note: str = ""
+    shape: str = ""  # fixer-stamped capability shape (substitution|collapse|completion); the rollup never infers it from prose
 
 
 class Improvement(msgspec.Struct, frozen=True):
@@ -330,9 +341,39 @@ class LaneReport(msgspec.Struct, frozen=True):
     capability: tuple[msgspec.Raw, ...] = ()
     routing: tuple[msgspec.Raw, ...] = ()
     uncertain: tuple[msgspec.Raw, ...] = ()
+    files: tuple[str, ...] = ()  # files the lane actually edited, fixer-reported; the manifest carries the assigned set
     gate_clean: bool | None = None
     model: str = ""
     wall_s: float = 0.0
+
+
+class CloserReport(msgspec.Struct, frozen=True):
+    # Closer intake per templates/close.md: one verdict row per routed demand plus the edited-file roster.
+    rows: tuple[LedgerRow, ...] = ()
+    files: tuple[str, ...] = ()
+
+
+class RoutingRow(msgspec.Struct, frozen=True):
+    lane: str
+    target_file: str
+    needed_change: str
+    key: str  # "<lane-letter>:<target_file>" — the id spelling closer verdict rows answer with
+
+
+class RoutingDrain(msgspec.Struct, frozen=True):
+    # Oracle: lane-report routing[] rows matched against close-*-report.json verdict rows by key or bare target_file.
+    total: int = 0
+    drained: int = 0
+    deferred: bool = False
+    verdicts: dict[str, int] = msgspec.field(default_factory=dict)
+    pending: tuple[RoutingRow, ...] = ()
+
+
+class WallSpread(msgspec.Struct, frozen=True):
+    # Oracle: LaneStat.wall_s; an outlier lane exceeds WALL_OUTLIER_FACTOR x median.
+    median_s: float = 0.0
+    max_s: float = 0.0
+    outliers: tuple[str, ...] = ()
 
 
 class RefutedClass(msgspec.Struct, frozen=True):
@@ -410,6 +451,9 @@ class LaneStat(msgspec.Struct, frozen=True):
     report_valid: bool
     gate_clean: bool | None = None
     fault: str = ""
+    files: tuple[str, ...] = ()  # fixer-reported touched files
+    strays: tuple[str, ...] = ()  # reported files outside the lane manifest — the cross-lane-write signal
+    shapes: dict[str, int] = msgspec.field(default_factory=dict)  # fixer-stamped shape histogram; blank stamps count as "unstamped"
 
 
 class LaneGrade(msgspec.Struct, frozen=True):
@@ -443,6 +487,10 @@ class RoundRow(msgspec.Struct, frozen=True):
     hunt_axis_fire: dict[str, int] = msgspec.field(default_factory=dict)
     by_model: dict[str, dict[str, int]] = msgspec.field(default_factory=dict)
     grades: dict[str, LaneGrade] = msgspec.field(default_factory=dict)
+    shape_fire: dict[str, int] = msgspec.field(default_factory=dict)  # fixer-stamped LedgerRow.shape counts, stamped rows only
+    routing: RoutingDrain = msgspec.field(default_factory=RoutingDrain)
+    wall_spread: WallSpread = msgspec.field(default_factory=WallSpread)
+    prompts: dict[str, str] = msgspec.field(default_factory=dict)  # content hashes of dispatch templates + agent definition
 
 
 class Delta(msgspec.Struct, frozen=True):
@@ -577,10 +625,61 @@ class SliceReceipt(msgspec.Struct, frozen=True):
     cleared: int
 
 
+class PackageTier(msgspec.Struct, frozen=True):
+    root: str
+    api: str = ""  # blank when the package ships no .api overlay
+
+
+class LaneFill(msgspec.Struct, frozen=True):
+    lane: str
+    files: tuple[str, ...]
+    packages: tuple[PackageTier, ...] = ()
+    substrate: tuple[str, ...] = ()  # language-root .api tiers beside the package overlays
+    doctrine: tuple[str, ...] = ()  # docs/stacks/<language> roots owning the lane's files
+    unplaced: tuple[str, ...] = ()  # files outside every tiered root — no package, no .api, no stack doctrine
+
+
+class FillReceipt(msgspec.Struct, frozen=True):
+    round: int
+    lanes: tuple[LaneFill, ...]
+
+
+class EventHead(msgspec.Struct, frozen=True):
+    type: str = ""
+    thread_id: str = ""
+
+
+class RolloutCall(msgspec.Struct, frozen=True):
+    type: str = ""
+    name: str = ""
+    arguments: str = ""
+
+
+class RolloutLine(msgspec.Struct, frozen=True):
+    type: str = ""
+    payload: RolloutCall | None = None
+
+
+class SpawnRow(msgspec.Struct, frozen=True):
+    lane: str
+    session: str = ""
+    rollout: str = ""
+    spawns: int = 0
+    agents: tuple[str, ...] = ()
+    fault: str = ""  # no-events | no-session | no-rollout — a per-lane fact, never a refusal
+
+
+class SpawnReceipt(msgspec.Struct, frozen=True):
+    round: int
+    oracle: str  # the rollout store queried; the per-lane events stream false-negatives spawns and is never consulted
+    lanes: tuple[SpawnRow, ...]
+
+
 class ReconcileReceipt(msgspec.Struct, frozen=True):
     round: int
     lanes: tuple[LaneStat, ...]
-    bijective: bool
+    bijective: bool  # proves id bijection alone; routing states the closer drain
+    routing: RoutingDrain = msgspec.field(default_factory=RoutingDrain)
 
 
 class HarvestReceipt(msgspec.Struct, frozen=True):
@@ -646,8 +745,8 @@ class Fault(msgspec.Struct, frozen=True):
 
 APP: Final = App(
     help=(
-        "One verb rail over CodeRabbit, Greptile, and Macroscope: launch, status, kill, findings, slice, reconcile, harvest, gather, round,"
-        " registry, verify, selftest."
+        "One verb rail over CodeRabbit, Greptile, and Macroscope: launch, status, kill, findings, slice, reconcile, lanes, harvest, gather,"
+        " round, registry, verify, selftest."
     )
 )
 ENCODER: Final = msgspec.json.Encoder()
@@ -739,17 +838,17 @@ def null_scrubbed(value: object, /) -> object:
             return value
 
 
-def report_decoded(payload: bytes, origin: str, /) -> Result[LaneReport, Fault]:
-    # Lane reports are agent-written: the contract spells null for empty collections, so nulls scrub to absent keys before the strict tuple decode.
+def report_decoded[T](payload: bytes, shape: type[T], origin: str, /) -> Result[T, Fault]:
+    # Reports are agent-written: the contract spells null for empty collections, so nulls scrub to absent keys before the strict tuple decode.
     return json_value(payload, origin).bind(
         lambda value: catch(exception=msgspec.ValidationError)(
-            lambda: msgspec.json.decode(msgspec.json.encode(null_scrubbed(value)), type=LaneReport, strict=False)
+            lambda: msgspec.json.decode(msgspec.json.encode(null_scrubbed(value)), type=shape, strict=False)
         )().map_error(lambda drift: Fault(code="malformed", detail=f"{origin}: {drift}"))
     )
 
 
-def report_shaped(path: Path, /) -> Result[LaneReport, Fault]:
-    return read_bytes(path).bind(lambda payload: report_decoded(payload, str(path)))
+def report_shaped[T](path: Path, shape: type[T], /) -> Result[T, Fault]:
+    return read_bytes(path).bind(lambda payload: report_decoded(payload, shape, str(path)))
 
 
 def yaml_loaded(path: Path, /, *, codec: YAML = YAML_SAFE) -> Result[object, Fault]:
@@ -1757,17 +1856,20 @@ def rulings_of(registry: Registry, corpus: str, /) -> tuple[str, ...]:
     return tuple(f"{row.class_id}: {row.refuting_citation}".rstrip(": ") for row in registry.classes if not row.corpus or row.corpus == corpus)
 
 
-def sliced(rows: tuple[Finding, ...], lanes: int, balance: Balance, repo: Path, round_no: int, registry: Registry, /) -> tuple[LaneSlice, ...]:
-    weigh = row_weigher(balance, repo, rows)
-    weighted = sorted(partitioned(rows, min(lanes, LANES_CAP), weigh), key=lambda held: held.weight, reverse=True)
-
+def packed_into(bundles: tuple[Bundle, ...], lanes: int, /) -> tuple[tuple[Bundle, ...], ...]:
     def packed(acc: tuple[tuple[float, tuple[Bundle, ...]], ...], entry: Bundle, /) -> tuple[tuple[float, tuple[Bundle, ...]], ...]:
         slot = min(range(len(acc)), key=lambda at: acc[at][0])
         weight, held = acc[slot]
         return (*acc[:slot], (weight + entry.weight, (*held, entry)), *acc[slot + 1 :])
 
-    seeds: tuple[tuple[float, tuple[Bundle, ...]], ...] = tuple((0.0, ()) for _ in range(min(lanes, LANES_CAP)))
-    packs = reduce(packed, weighted, seeds)
+    seeds: tuple[tuple[float, tuple[Bundle, ...]], ...] = tuple((0.0, ()) for _ in range(lanes))
+    ordered = sorted(bundles, key=lambda held: held.weight, reverse=True)
+    return tuple(held for _weight, held in reduce(packed, ordered, seeds))
+
+
+def sliced(rows: tuple[Finding, ...], lanes: int, balance: Balance, repo: Path, round_no: int, registry: Registry, /) -> tuple[LaneSlice, ...]:
+    weigh = row_weigher(balance, repo, rows)
+    packs = packed_into(partitioned(rows, min(lanes, LANES_CAP), weigh), min(lanes, LANES_CAP))
 
     def lane_carved(at: int, pack: tuple[Bundle, ...], /) -> LaneSlice:
         letter = LANE_ALPHABET[at]
@@ -1788,7 +1890,46 @@ def sliced(rows: tuple[Finding, ...], lanes: int, balance: Balance, repo: Path, 
             findings=stamped,
         )
 
-    return tuple(lane_carved(at, pack) for at, (_, pack) in enumerate(packs) if pack)
+    return tuple(lane_carved(at, pack) for at, pack in enumerate(packs) if pack)
+
+
+def closer_sliced(rows: tuple[RoutingRow, ...], lanes: int, reviewer: Reviewer, /) -> tuple[LaneSlice, ...]:
+    # One bundle per target file keeps closer territories file-disjoint by construction — concurrent closers never share a write target.
+    def fabricated(row: RoutingRow, /) -> Finding:
+        return Finding(
+            id=row.key,
+            fingerprint=fingerprinted(row.target_file, Range(), f"{row.key}|{row.needed_change}"),
+            reviewer=reviewer,
+            file=row.target_file,
+            range=Range(),
+            severity="major",
+            claim=row.needed_change,
+            fix_instructions=f"grep lane-{row.lane}-report.json routing[] for this target's full demand before editing",
+            class_match="",
+        )
+
+    ordered = sorted(rows, key=lambda row: (row.target_file, row.key))
+    bundles = tuple(
+        bundled(file, tuple(fabricated(row) for row in bunch), lambda _row: 1.0) for file, bunch in groupby(ordered, key=lambda row: row.target_file)
+    )
+    packs = packed_into(bundles, max(1, min(lanes, len(bundles), LANES_CAP)))
+
+    def carved(at: int, pack: tuple[Bundle, ...], /) -> LaneSlice:
+        picked = sorted((row for held in pack for row in held.rows), key=finding_order)
+        files = tuple(sorted({row.file for row in picked}))
+        return LaneSlice(
+            manifest=LaneManifest(
+                lane=f"close-{LANE_ALPHABET[at]}",
+                files=files,
+                count=len(picked),
+                criticals=0,
+                suggested_scope_line=f"{', '.join(files)} — {len(picked)} routed rows",
+            ),
+            settled_rulings=(),
+            findings=tuple(picked),
+        )
+
+    return tuple(carved(at, pack) for at, pack in enumerate(packs) if pack)
 
 
 def span_of(span: Range, /) -> str:
@@ -1923,14 +2064,55 @@ def lane_slices(round_dir: Path, /) -> tuple[tuple[Path, LaneSlice], ...]:
     return tuple(Block.of_seq(sorted(round_dir.glob("lane-?.json"))).choose(lambda path: shaped(path, LaneSlice).map(lambda held: (path, held))))
 
 
+def report_pairs(round_dir: Path, /) -> tuple[tuple[str, LaneReport], ...]:
+    return tuple(
+        Block.of_seq(sorted(round_dir.glob("lane-?-report.json"))).choose(
+            lambda path: report_shaped(path, LaneReport).to_option().map(lambda held: (path.name.removesuffix("-report.json"), held))
+        )
+    )
+
+
 def lane_reports(round_dir: Path, /) -> tuple[LaneReport, ...]:
-    return tuple(Block.of_seq(sorted(round_dir.glob("lane-?-report.json"))).choose(lambda path: report_shaped(path).to_option()))
+    return tuple(report for _lane, report in report_pairs(round_dir))
+
+
+def closer_reports(round_dir: Path, /) -> tuple[CloserReport, ...]:
+    return tuple(Block.of_seq(sorted(round_dir.glob("close-*-report.json"))).choose(lambda path: report_shaped(path, CloserReport).to_option()))
+
+
+def routing_mined(pairs: tuple[tuple[str, LaneReport], ...], /) -> tuple[RoutingRow, ...]:
+    def mined(lane: str, raw: msgspec.Raw, /) -> Option[RoutingRow]:
+        body = json_value(bytes(raw), "routing-row").map(stringly).default_with(lambda _f: {})
+        target = str(body.get("target_file", ""))
+        letter = lane.removeprefix("lane-")
+        change = headline(str(body.get("needed_change", "")))
+        return Some(RoutingRow(lane=letter, target_file=target, needed_change=change, key=f"{letter}:{target}")) if target else Nothing
+
+    return tuple(Block.of_seq(tuple((lane, raw) for lane, report in pairs for raw in report.routing)).choose(lambda pair: mined(*pair)))
+
+
+def routing_drained(rows: tuple[RoutingRow, ...], closers: tuple[CloserReport, ...], /) -> RoutingDrain:
+    # A verdict row answers by the stamped "<lane-letter>:<target_file>" key, a bare target path in id, or its file field.
+    answered = frozenset(name for report in closers for row in report.rows for name in (row.id, row.file) if name)
+    pending = tuple(row for row in rows if row.key not in answered and row.target_file not in answered)
+    return RoutingDrain(
+        total=len(rows),
+        drained=len(rows) - len(pending),
+        verdicts=dict(Counter(row.verdict or "<blank>" for report in closers for row in report.rows)),
+        pending=pending,
+    )
+
+
+def round_drain(round_dir: Path, /) -> RoutingDrain:
+    return routing_drained(routing_mined(report_pairs(round_dir)), closer_reports(round_dir))
 
 
 def reports_complete(round_dir: Path, /) -> Result[tuple[LaneReport, ...], Fault]:
     # An undecodable or absent report must refuse, never shrink the pool — a partial harvest poisons the class census and grades irreversibly.
     slices = lane_slices(round_dir)
-    decodable = frozenset(path.name.removesuffix("-report.json") for path in round_dir.glob("lane-?-report.json") if report_shaped(path).is_ok())
+    decodable = frozenset(
+        path.name.removesuffix("-report.json") for path in round_dir.glob("lane-?-report.json") if report_shaped(path, LaneReport).is_ok()
+    )
     missing = tuple(sorted(slice_.manifest.lane for _path, slice_ in slices if slice_.manifest.lane not in decodable))
     if missing:
         return Error(
@@ -1941,10 +2123,11 @@ def reports_complete(round_dir: Path, /) -> Result[tuple[LaneReport, ...], Fault
 
 def lane_stat(lane_path: Path, slice_: LaneSlice, round_dir: Path, /) -> LaneStat:
     report_path = round_dir / f"{slice_.manifest.lane}-report.json"
-    outcome = report_shaped(report_path)
+    outcome = report_shaped(report_path, LaneReport)
     report = outcome.to_option()
     ids = {row.id for row in slice_.findings}
     ledger_ids = tuple(row.id for row in report.map(lambda held: held.ledger).default_value(()))
+    touched = report.map(lambda held: held.files).default_value(())
     sliced_at = catch(exception=OSError)(lane_path.stat)().map(lambda held: held.st_mtime).default_with(lambda _f: 0.0)
     reported_at = catch(exception=OSError)(report_path.stat)().map(lambda held: held.st_mtime).default_with(lambda _f: sliced_at)
     wall = report.bind(lambda held: Some(held.wall_s) if held.wall_s > 0 else Nothing).default_with(lambda: reported_at - sliced_at)
@@ -1964,6 +2147,9 @@ def lane_stat(lane_path: Path, slice_: LaneSlice, round_dir: Path, /) -> LaneSta
         report_valid=report.is_some(),
         gate_clean=gate,
         fault=outcome.swap().to_option().map(lambda held: f"{held.code}: {held.detail}").default_value(""),
+        files=tuple(sorted(touched)),
+        strays=tuple(sorted(set(touched) - set(slice_.manifest.files))),
+        shapes=report.map(lambda held: dict(Counter(row.shape or "unstamped" for row in held.ledger))).default_value({}),
     )
 
 
@@ -1972,6 +2158,105 @@ def reconciled(round_dir: Path, /) -> Result[tuple[LaneStat, ...], Fault]:
     if not slices:
         return Error(Fault(code="no-lanes", detail=f"no lane-?.json under {round_dir}; slice first"))
     return Ok(tuple(lane_stat(path, slice_, round_dir) for path, slice_ in slices))
+
+
+# --- [SPAWN_AUDIT]
+
+
+def session_of(events: Path, /) -> str:
+    lines = read_bytes(events).map(bytes.splitlines).default_with(lambda _f: [])
+    heads = Block.of_seq([line for line in lines if b"thread.started" in line]).choose(lambda line: decoded(line, EventHead, str(events)).to_option())
+    return next((head.thread_id for head in heads if head.type == "thread.started" and head.thread_id), "")
+
+
+def rollout_of(session: str, /) -> str:
+    hits = sorted(CODEX_SESSIONS.glob(f"*/*/*/rollout-*-{session}.jsonl")) if session else []
+    return str(hits[-1]) if hits else ""
+
+
+def spawn_scanned(lines: list[bytes], /) -> tuple[int, tuple[str, ...]]:
+    # A bare string grep over-matches: the tool name also rides developer-message text and event_msg echoes,
+    # while the per-lane events stream records zero spawns outright — only a rollout response_item function_call is a real dispatch.
+    def called(line: bytes, /) -> Option[RolloutCall]:
+        if SPAWN_TOOL.encode() not in line:
+            return Nothing
+        return (
+            decoded(line, RolloutLine, "<rollout>")
+            .to_option()
+            .bind(
+                lambda row: (
+                    Some(row.payload)
+                    if row.type == "response_item"
+                    and row.payload is not None
+                    and row.payload.type == "function_call"
+                    and row.payload.name == SPAWN_TOOL
+                    else Nothing
+                )
+            )
+        )
+
+    def agent_of(call: RolloutCall, /) -> Option[str]:
+        named = json_value(call.arguments.encode(), "<spawn-args>").to_option().map(stringly)
+        return named.bind(lambda body: Some(str(body["task_name"])) if body.get("task_name") else Nothing)
+
+    calls = tuple(Block.of_seq(lines).choose(called))
+    return len(calls), tuple(Block.of_seq(calls).choose(agent_of))
+
+
+def spawn_rows(round_dir: Path, /) -> tuple[SpawnRow, ...]:
+    def audited(events: Path, /) -> SpawnRow:
+        lane = events.name.removesuffix("-events.jsonl")
+        session = session_of(events)
+        if not session:
+            return SpawnRow(lane=lane, fault="no-session")
+        rollout = rollout_of(session)
+        if not rollout:
+            return SpawnRow(lane=lane, session=session, fault="no-rollout")
+        spawns, agents = spawn_scanned(read_bytes(Path(rollout)).map(bytes.splitlines).default_with(lambda _f: []))
+        return SpawnRow(lane=lane, session=session, rollout=rollout, spawns=spawns, agents=agents)
+
+    events_files = sorted((*round_dir.glob("lane-?-events.jsonl"), *round_dir.glob("close-*-events.jsonl"), *round_dir.glob("harvest-events.jsonl")))
+    named = {path.name.removesuffix("-events.jsonl") for path in events_files}
+    silent = tuple(
+        SpawnRow(lane=slice_.manifest.lane, fault="no-events")
+        for _path, slice_ in lane_slices(round_dir)
+        if slice_.manifest.lane not in named  # a claude-transport lane writes no events stream; its spawn story is a per-lane fact, not a refusal
+    )
+    return tuple(sorted((*map(audited, events_files), *silent), key=lambda row: row.lane))
+
+
+# --- [LANE_FILL]
+
+LANGS: Final[frozenset[str]] = frozenset({"csharp", "python", "typescript"})
+
+
+def tiers_of(file: str, /) -> tuple[str, str, str]:
+    # (package_root, substrate_api, doctrine_root); "" marks a tier the path does not carry — package .api existence resolves at the verb.
+    match PurePosixPath(file).parts:
+        case ("libs", lang, package, _leaf, *_) if lang in LANGS:
+            return (f"libs/{lang}/{package}", f"libs/{lang}/.api", f"docs/stacks/{lang}")
+        case ("libs", lang, *_) if lang in LANGS:
+            return ("", f"libs/{lang}/.api", f"docs/stacks/{lang}")
+        case ("tests", lang, *_) if lang in LANGS:
+            return ("", f"tests/{lang}/.api", f"docs/stacks/{lang}")
+        case _:
+            return ("", "", "")
+
+
+def lane_filled(repo: Path, manifest: LaneManifest, /) -> LaneFill:
+    placed = tuple((file, *tiers_of(file)) for file in manifest.files)
+    packages = tuple(
+        PackageTier(root=root, api=f"{root}/.api" if (repo / root / ".api").is_dir() else "")
+        for root in dict.fromkeys(root for _file, root, _sub, _doc in placed if root)
+    )
+    return LaneFill(
+        lane=manifest.lane,
+        files=manifest.files,
+        packages=packages,
+        substrate=tuple(dict.fromkeys(sub for _file, _root, sub, _doc in placed if sub and (repo / sub).is_dir())),
+        doctrine=tuple(dict.fromkeys(doc for _file, _root, _sub, doc in placed if doc)),
+        unplaced=tuple(file for file, root, sub, _doc in placed if not root and not sub),
+    )
 
 
 # --- [RECURRENCE]
@@ -2194,6 +2479,27 @@ def convergence_shares(hist: Mapping[str, int], survivors: int, pushed_back: int
     return round((pushed_back + hist.get("refuted_remint", 0)) / pool, 3), round(hist.get("relitigation", 0) / pool, 3)
 
 
+def prompt_prints(repo: Path, /) -> dict[str, str]:
+    # Content hashes of the dispatch prompt surfaces, so a behavior delta between rounds is attributable to a prompt edit rather than asserted.
+    sources = (*((name, BUNDLE / "templates" / name) for name in PROMPT_TEMPLATES), (PurePosixPath(AGENT_DEFINITION).name, repo / AGENT_DEFINITION))
+    return {
+        name: read_bytes(path).map(lambda payload: hashlib.sha256(payload).hexdigest()[:PROMPT_PRINT_WIDTH]).default_value("absent")
+        for name, path in sources
+    }
+
+
+def wall_spread_of(stats: tuple[LaneStat, ...], /) -> WallSpread:
+    walls = tuple(stat.wall_s for stat in stats if stat.wall_s > 0)
+    if not walls:
+        return WallSpread()
+    mid = float(median(walls))
+    return WallSpread(
+        median_s=round(mid, 1),
+        max_s=round(max(walls), 1),
+        outliers=tuple(stat.lane for stat in stats if mid > 0 and stat.wall_s > WALL_OUTLIER_FACTOR * mid),
+    )
+
+
 def graded(stats: tuple[LaneStat, ...], reports: tuple[LaneReport, ...], /) -> dict[str, LaneGrade]:
     grouped = groupby(sorted((stat for stat in stats if stat.model), key=lambda stat: stat.model), key=lambda stat: stat.model)
     lanes_by_model = {model: tuple(bunch) for model, bunch in grouped}
@@ -2204,7 +2510,13 @@ def graded(stats: tuple[LaneStat, ...], reports: tuple[LaneReport, ...], /) -> d
 
 
 def row_built(
-    context: Context, rows: tuple[Finding, ...], stats: tuple[LaneStat, ...], reports: tuple[LaneReport, ...], registry: Registry, /
+    context: Context,
+    rows: tuple[Finding, ...],
+    stats: tuple[LaneStat, ...],
+    reports: tuple[LaneReport, ...],
+    registry: Registry,
+    drain: RoutingDrain,
+    /,
 ) -> RoundRow:
     recurred, fresh = recurrence(registry, rows, reports)
     hist = shaped(context.round_dir / PROVENANCE_NAME, dict[str, int]).default_value({})
@@ -2238,6 +2550,10 @@ def row_built(
         hunt_axis_fire=dict(Counter(entry.axis for report in reports for entry in report.improvements if entry.axis)),
         by_model=by_model,
         grades=graded(stats, reports),
+        shape_fire=dict(Counter(entry.shape for report in reports for entry in report.ledger if entry.shape)),
+        routing=drain,
+        wall_spread=wall_spread_of(stats),
+        prompts=prompt_prints(context.repo),
     )
 
 
@@ -2498,10 +2814,17 @@ def selftest_fixture() -> tuple[bytes, bytes]:
     # one primary, so a contract change edits one site and both variants follow.
     primary: dict[str, object] = {
         "ledger": [
-            {"id": "r9a-01", "file": "docs/<file-a>.md", "severity": "major", "verdict": "fixed", "note": "<repair>"},
+            {"id": "r9a-01", "file": "docs/<file-a>.md", "severity": "major", "verdict": "fixed", "note": "<repair>", "shape": "substitution"},
             {"id": "r9a-02", "file": "libs/<file-b>.py", "severity": "minor", "verdict": "pushed-back", "note": "<refusal>"},
-            {"id": "r9a-03", "file": "libs/<file-b>.py", "severity": "critical", "verdict": "already_resolved", "note": "<prior-pass>"},
-            {"id": "r9a-04", "file": "libs/<file-b>.py", "severity": "trivial", "verdict": "upgraded", "note": "<collapse>"},
+            {
+                "id": "r9a-03",
+                "file": "libs/<file-b>.py",
+                "severity": "critical",
+                "verdict": "already_resolved",
+                "note": "<prior>",
+                "shape": "completion",
+            },
+            {"id": "r9a-04", "file": "libs/<file-b>.py", "severity": "trivial", "verdict": "upgraded", "note": "<collapse>", "shape": "collapse"},
         ],
         "improvements": [
             {"page": "docs/<file-a>.md", "pattern": "<pattern-a>", "what": "<upgrade-a>", "axis": "hunt-axis:<axis-a>"},
@@ -2511,11 +2834,12 @@ def selftest_fixture() -> tuple[bytes, bytes]:
         "capability": [{"page": "docs/<file-a>.md", "pattern": "<roster-a>", "members": ["<member-a>", "<member-b>"]}, "<capability-line>"],
         "routing": [{"target_file": "libs/<file-c>.py", "needed_change": "<change>"}],
         "uncertain": ["<open-question>"],
+        "files": ["docs/<file-a>.md", "libs/<file-b>.py"],
         "gate_clean": True,
         "model": "<model>",
         "wall_s": 1.5,
     }
-    nulled = {**primary, **dict.fromkeys(("ledger", "improvements", "refuted", "capability", "routing", "uncertain", "gate_clean"))}
+    nulled = {**primary, **dict.fromkeys(("ledger", "improvements", "refuted", "capability", "routing", "uncertain", "files", "gate_clean"))}
     return ENCODER.encode(primary), ENCODER.encode(nulled)
 
 
@@ -2615,6 +2939,71 @@ def stream_proofs() -> tuple[tuple[str, bool], ...]:
     )
 
 
+def routing_proofs() -> tuple[tuple[str, bool], ...]:
+    pairs = (
+        ("lane-a", LaneReport(routing=(msgspec.Raw(b'{"target_file": "libs/<file-c>.py", "needed_change": "<change-a>"}'),))),
+        ("lane-b", LaneReport(routing=(msgspec.Raw(b'{"target_file": "docs/<file-d>.md", "needed_change": "<change-b>"}'),))),
+    )
+    rows = routing_mined(pairs)
+    closers = (CloserReport(rows=(LedgerRow(id="a:libs/<file-c>.py", verdict="landed"),), files=("libs/<file-c>.py",)),)
+    drain = routing_drained(rows, closers)
+    bare = routing_drained(rows, (CloserReport(rows=(LedgerRow(id="docs/<file-d>.md", verdict="refuted"),)),))
+    cut = closer_sliced(rows, 2, "coderabbit")
+    flat = tuple(file for slice_ in cut for file in slice_.manifest.files)
+    deferred = replace(drain, deferred=True)
+    return (
+        ("routing-rows-mined-keyed", tuple(row.key for row in rows) == ("a:libs/<file-c>.py", "b:docs/<file-d>.md")),
+        ("routing-drain-counts", (drain.total, drain.drained) == (2, 1) and tuple(row.key for row in drain.pending) == ("b:docs/<file-d>.md",)),
+        ("routing-drain-verdicts", drain.verdicts == {"landed": 1}),
+        ("routing-drain-bare-file-id", bare.drained == 1 and tuple(row.key for row in bare.pending) == ("a:libs/<file-c>.py",)),
+        ("closer-territories-disjoint", len(cut) == 2 and len(flat) == len(set(flat))),
+        ("closer-cut-keeps-keys", tuple(sorted(row.id for slice_ in cut for row in slice_.findings)) == ("a:libs/<file-c>.py", "b:docs/<file-d>.md")),
+        ("routing-deferral-recorded", deferred.deferred and deferred.pending == drain.pending),
+    )
+
+
+def spawn_proofs() -> tuple[tuple[str, bool], ...]:
+    true_call = (
+        b'{"timestamp":"<t>","type":"response_item",'
+        b'"payload":{"type":"function_call","name":"spawn_agent","arguments":"{\\"task_name\\":\\"miner_a\\"}"}}'
+    )
+    echo = b'{"type":"response_item","payload":{"type":"message","text":"plan: call spawn_agent twice"}}'
+    event = b'{"type":"event_msg","payload":{"type":"function_call","name":"spawn_agent","arguments":"{}"}}'
+    head = decoded(b'{"type":"thread.started","thread_id":"<uuid-a>"}', EventHead, "<selftest>")
+    return (
+        ("spawn-grep-filters-echoes", spawn_scanned([true_call, echo, event]) == (1, ("miner_a",))),
+        ("spawn-thread-head-decodes", head.map(lambda held: held.thread_id) == Ok("<uuid-a>")),
+    )
+
+
+def fill_proofs() -> tuple[tuple[str, bool], ...]:
+    return (
+        (
+            "tiers-package-resolves",
+            tiers_of("libs/csharp/<package-a>/<file>.cs") == ("libs/csharp/<package-a>", "libs/csharp/.api", "docs/stacks/csharp"),
+        ),
+        ("tiers-substrate-only", tiers_of("libs/python/<file>.py") == ("", "libs/python/.api", "docs/stacks/python")),
+        ("tiers-tests-substrate", tiers_of("tests/typescript/<file>.ts") == ("", "tests/typescript/.api", "docs/stacks/typescript")),
+        ("tiers-unplaced", tiers_of("docs/<file>.md") == ("", "", "")),
+    )
+
+
+def rollup_proofs() -> tuple[tuple[str, bool], ...]:
+    def stat_of(lane: str, wall: float, /) -> LaneStat:
+        return LaneStat(lane=lane, model="<model-a>", findings=1, verdicts={}, missing=(), phantom=(), wall_s=wall, report_valid=True)
+
+    spread = wall_spread_of((stat_of("lane-a", 10.0), stat_of("lane-b", 12.0), stat_of("lane-c", 40.0)))
+    prints = prompt_prints(Path("<no-repo>"))
+    hex_digits = set("0123456789abcdef")
+    return (
+        ("wall-spread-outlier-rule", spread == WallSpread(median_s=12.0, max_s=40.0, outliers=("lane-c",))),
+        ("wall-spread-empty-total", wall_spread_of(()) == WallSpread()),
+        ("prompt-prints-keyed", set(prints) == {*PROMPT_TEMPLATES, PurePosixPath(AGENT_DEFINITION).name}),
+        ("prompt-prints-hash-or-absent", all(v == "absent" or (len(v) == PROMPT_PRINT_WIDTH and set(v) <= hex_digits) for v in prints.values())),
+        ("bundle-registry-derives", REGISTRY_PATH == BUNDLE / "templates" / "refuted-classes.yaml"),
+    )
+
+
 def grade_proofs() -> tuple[tuple[str, bool], ...]:
     def stat_of(lane: str, verdicts: dict[str, int], phantom: tuple[str, ...], /, *, gate: bool) -> LaneStat:
         return LaneStat(
@@ -2639,9 +3028,9 @@ def grade_proofs() -> tuple[tuple[str, bool], ...]:
 
 def selftest_proofs() -> tuple[tuple[str, bool], ...]:
     primary, nulled = selftest_fixture()
-    full = report_decoded(primary, "<selftest-primary>")
-    empty = report_decoded(nulled, "<selftest-null>")
-    broken = report_decoded(b'{"ledger": 7}', "<selftest-broken>")
+    full = report_decoded(primary, LaneReport, "<selftest-primary>")
+    empty = report_decoded(nulled, LaneReport, "<selftest-null>")
+    broken = report_decoded(b'{"ledger": 7}', LaneReport, "<selftest-broken>")
 
     def full_proofs(report: LaneReport, /) -> tuple[tuple[str, bool], ...]:
         rosters = tuple(Block.of_seq(report.capability).choose(roster_row))
@@ -2655,13 +3044,19 @@ def selftest_proofs() -> tuple[tuple[str, bool], ...]:
             ("capability-roster-mined", len(rosters) == 1),
             ("routing-populated", bool(report.routing)),
             ("uncertain-populated", bool(report.uncertain)),
+            ("report-files-surface", report.files == ("docs/<file-a>.md", "libs/<file-b>.py")),
+            (
+                "ledger-shape-mix",
+                dict(Counter(row.shape or "unstamped" for row in report.ledger))
+                == {"substitution": 1, "unstamped": 1, "completion": 1, "collapse": 1},
+            ),
             ("gate-clean-true", report.gate_clean is True),
             ("fresh-refutations-surface", not recurred and len(fresh) == len(report.refuted)),
             ("improvements-group-by-axis", any(line.startswith("### [hunt-axis:") for line in lines) and "### [general]" in lines),
         )
 
     def empty_proofs(report: LaneReport, /) -> tuple[tuple[str, bool], ...]:
-        drained = (report.ledger, report.improvements, report.refuted, report.capability, report.routing, report.uncertain)
+        drained = (report.ledger, report.improvements, report.refuted, report.capability, report.routing, report.uncertain, report.files)
         return (("null-collections-default-empty", not any(drained)), ("null-gate-clean-none", report.gate_clean is None))
 
     return (
@@ -2675,6 +3070,10 @@ def selftest_proofs() -> tuple[tuple[str, bool], ...]:
         *query_proofs(),
         *slice_proofs(),
         *stream_proofs(),
+        *routing_proofs(),
+        *spawn_proofs(),
+        *fill_proofs(),
+        *rollup_proofs(),
         *grade_proofs(),
     )
 
@@ -3481,10 +3880,11 @@ def slice_cmd(
     lanes: Annotated[int | None, Parameter(name="--lanes")] = None,
     balance: Balance = "count",
     recut: bool = False,
+    closers: bool = False,
     round_no: _RoundNo = None,
     directory: _Dir = None,
 ) -> int:
-    """Cut normalized findings into balanced per-lane manifests and dispatch-ready briefs; an omitted --lanes derives the count."""
+    """Cut normalized findings into balanced per-lane manifests and briefs (--lanes omitted derives the count); --closers instead cuts the lane reports' routing rows into file-disjoint closer territories."""
 
     def carved_round(context: Context, /) -> Result[SliceReceipt, Fault]:
         if lanes is not None and not 1 <= lanes <= LANES_CAP:
@@ -3506,12 +3906,41 @@ def slice_cmd(
                         context,
                         sliced(rows, auto_lanes(len(rows)) if lanes is None else lanes, balance, context.repo, context.run.round, registry),
                         cleared,
+                        restamped=True,
                     )
                 )
             )
         )
 
-    def slices_written(context: Context, packs: tuple[LaneSlice, ...], cleared: int, /) -> Result[SliceReceipt, Fault]:
+    def carved_closers(context: Context, /) -> Result[SliceReceipt, Fault]:
+        if lanes is not None and not 1 <= lanes <= LANES_CAP:
+            return Error(Fault(code="bad-lane", detail=f"lanes must be 1..{LANES_CAP}, got {lanes}"))
+        landed = tuple(context.round_dir.glob("close-*-report.json"))
+        if landed and not recut:
+            return Error(
+                Fault(
+                    code="already-sliced",
+                    detail=f"{len(landed)} closer report(s) exist under {context.round_dir}; a re-cut destroys closer output — pass --recut to proceed",
+                )
+            )
+        rows = routing_mined(report_pairs(context.round_dir))
+        stale = (*context.round_dir.glob("close-?.json"), *landed, *context.round_dir.glob("close-?-brief.md"))
+        return reports_complete(context.round_dir).bind(
+            lambda _reports: (
+                Error(Fault(code="no-findings", detail=f"round {context.run.round} lane reports carry zero routing rows; nothing to close"))
+                if not rows
+                else unlinked(stale).bind(
+                    lambda cleared: slices_written(
+                        context,
+                        closer_sliced(rows, auto_lanes(len(rows)) if lanes is None else lanes, context.run.reviewer),
+                        cleared,
+                        restamped=False,
+                    )
+                )
+            )
+        )
+
+    def slices_written(context: Context, packs: tuple[LaneSlice, ...], cleared: int, /, *, restamped: bool) -> Result[SliceReceipt, Fault]:
         if not packs:
             return Error(Fault(code="no-findings", detail=f"round {context.run.round} has zero findings to slice; close it with `round` and rotate"))
         briefed = tuple(
@@ -3521,7 +3950,7 @@ def slice_cmd(
         writes = (
             *((context.round_dir / f"{pack.manifest.lane}.json", ENCODER.encode(pack)) for pack in briefed),
             *((Path(pack.manifest.brief), brief_rendered(pack, context.run.round).encode()) for pack in briefed),
-            (context.round_dir / FINDINGS_NAME, ENCODER.encode(stamped)),
+            *(((context.round_dir / FINDINGS_NAME, ENCODER.encode(stamped)),) if restamped else ()),  # closer cuts never rewrite the finding ids
         )
         outcome: Result[Path, Fault] = reduce(lambda acc, job: acc.bind(lambda _done: written(*job)), writes, Ok(context.round_dir))
         return outcome.map(
@@ -3534,14 +3963,14 @@ def slice_cmd(
             )
         )
 
-    return delivered(context_resolved(directory, round_no).bind(carved_round))
+    return delivered(context_resolved(directory, round_no).bind(carved_closers if closers else carved_round))
 
 
 @APP.command
 def reconcile(
     lane: str = "", /, *, all_lanes: Annotated[bool, Parameter(name="--all")] = False, round_no: _RoundNo = None, directory: _Dir = None
 ) -> int:
-    """Prove per-lane id bijection against the lane reports; exit 0 only when every covered lane is bijective."""
+    """Prove per-lane id bijection against the lane reports and surface the routing drain; exit 0 only when every covered lane is bijective."""
 
     def resolved(context: Context, /) -> Result[ReconcileReceipt, Fault]:
         if all_lanes and lane:
@@ -3556,6 +3985,7 @@ def reconcile(
                         round=context.run.round,
                         lanes=(kept := tuple(stat for stat in stats if not wanted or stat.lane == f"lane-{wanted}")),
                         bijective=all(stat.report_valid and not stat.missing and not stat.phantom for stat in kept),
+                        routing=round_drain(context.round_dir),
                     )
                 )
             )
@@ -3564,6 +3994,33 @@ def reconcile(
     return delivered(
         context_resolved(directory, round_no).bind(resolved), clean=lambda receipt: not isinstance(receipt, ReconcileReceipt) or receipt.bijective
     )
+
+
+@APP.command
+def lanes(*, fill: bool = False, spawns: bool = False, lane: str = "", round_no: _RoundNo = None, directory: _Dir = None) -> int:
+    """Read per-lane facts: --fill emits each lane's resolved territory tiers (owning packages, .api overlays, substrate, doctrine roots); --spawns audits the codex rollouts for real spawn_agent dispatches."""
+    if fill == spawns:
+        return refused(Fault(code="bad-flag", detail="pass exactly one of --fill (territory tier data) or --spawns (rollout spawn audit)"))
+    wanted = f"lane-{lane}" if len(lane) == 1 else lane
+
+    def empty(round_dir: Path, /) -> Fault:
+        named = f" matching {wanted!r}" if wanted else ""
+        return Fault(code="no-lanes", detail=f"no lanes{named} under {round_dir}; slice and dispatch first")
+
+    def filled(context: Context, /) -> Result[object, Fault]:
+        rows = tuple(
+            lane_filled(context.repo, slice_.manifest)
+            for _path, slice_ in lane_slices(context.round_dir)
+            if not wanted or slice_.manifest.lane == wanted
+        )
+        return Ok(FillReceipt(round=context.run.round, lanes=rows)) if rows else Error(empty(context.round_dir))
+
+    def audited(context: Context, /) -> Result[object, Fault]:
+        rows = tuple(row for row in spawn_rows(context.round_dir) if not wanted or row.lane == wanted)
+        oracle = f"{CODEX_SESSIONS} rollout response_item function_call name={SPAWN_TOOL}"
+        return Ok(SpawnReceipt(round=context.run.round, oracle=oracle, lanes=rows)) if rows else Error(empty(context.round_dir))
+
+    return delivered(context_resolved(directory, round_no).bind(filled if fill else audited))
 
 
 def harvest_built(context: Context, /) -> Result[HarvestReceipt, Fault]:
@@ -3603,8 +4060,14 @@ def harvest(*, round_no: _RoundNo = None, directory: _Dir = None) -> int:
 
 
 @APP.command(name="round")
-def round_cmd(*, harvest: bool = False, round_no: _RoundNo = None, directory: _Dir = None) -> int:
-    """Close the round: append its rounds.jsonl row with computed grades and print the delta; --harvest runs the feed assembly first."""
+def round_cmd(
+    *,
+    harvest: bool = False,
+    defer_routing: Annotated[bool, Parameter(name="--defer-routing")] = False,
+    round_no: _RoundNo = None,
+    directory: _Dir = None,
+) -> int:
+    """Close the round: append its rounds.jsonl row with computed grades and print the delta; --harvest runs the feed assembly first, and --defer-routing records undrained routing rows as a deliberate deferral instead of refusing."""
 
     def closed(context: Context, /) -> Result[RoundReceipt, Fault]:
         if any(row.round == context.run.round for row in rounds_read(context.repo)):
@@ -3613,14 +4076,33 @@ def round_cmd(*, harvest: bool = False, round_no: _RoundNo = None, directory: _D
 
     def assembled(context: Context, rows: tuple[Finding, ...], registry: Registry, /) -> Result[RoundReceipt, Fault]:
         if not rows:
-            return appended(context, row_built(context, rows, (), (), registry))
+            return appended(context, row_built(context, rows, (), (), registry, RoutingDrain()))
         return reports_complete(context.round_dir).bind(
             lambda reports: (
                 Error(Fault(code="no-report", detail=f"round {context.run.round} has findings but no lane-?-report.json; fix lanes before closing"))
                 if not reports
-                else reconciled(context.round_dir).bind(lambda stats: appended(context, row_built(context, rows, stats, reports, registry)))
+                else drain_gated(context, rows, reports, registry)
             )
         )
+
+    def drain_gated(
+        context: Context, rows: tuple[Finding, ...], reports: tuple[LaneReport, ...], registry: Registry, /
+    ) -> Result[RoundReceipt, Fault]:
+        # Drain computes only over the proven-complete report set, so a missing lane report never shrinks the routing pool the gate reads.
+        drain = round_drain(context.round_dir)
+        if drain.pending and not defer_routing:
+            roster = ", ".join(row.key for row in drain.pending[:8]) + (" ..." if len(drain.pending) > 8 else "")
+            return Error(
+                Fault(
+                    code="routing-undrained",
+                    detail=(
+                        f"{len(drain.pending)}/{drain.total} routing rows carry no closer verdict ({roster}); cut territories with"
+                        " `slice --closers`, dispatch closers, and re-run — or record the deferral with --defer-routing"
+                    ),
+                )
+            )
+        marked = replace(drain, deferred=defer_routing and bool(drain.pending))
+        return reconciled(context.round_dir).bind(lambda stats: appended(context, row_built(context, rows, stats, reports, registry, marked)))
 
     def appended(context: Context, row: RoundRow, /) -> Result[RoundReceipt, Fault]:
         prior = next((held for held in reversed(rounds_read(context.repo)) if held.round < row.round), None)

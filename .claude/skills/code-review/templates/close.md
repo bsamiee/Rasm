@@ -37,7 +37,7 @@ A landed row fixes at the root, then exceeds where the owner admits; extensions 
 
 <output_contract>
 Your final message is JSON only — no prose outside it, no code fences:
-{"rows": [{"id": "<id-or-file>", "verdict": "landed"|"refuted"|"already-landed"|"blocked", "note": ""}], "files": ["<path>"]}
-One row per routed demand; charter-refused and already-canonical return "refuted", already-realized returns "already-landed", each with its citation in the note.
+{"rows": [{"id": "<stamped-key>", "verdict": "landed"|"refuted"|"already-landed"|"blocked", "note": ""}], "files": ["<path>"]}
+One row per routed demand; "id" echoes the stamped key its brief row carries (`<lane-letter>:<target-file>`) so the routing-drain join resolves — a bare target path joins as fallback, an invented id strands the row undrained. Charter-refused and already-canonical return "refuted", already-realized returns "already-landed", each with its citation in the note.
 </output_contract>
 ```
