@@ -81,7 +81,7 @@ Rules that break runs, each carried in depth by its owning reference:
 - [10]-[WAIT_ROUNDS]: A wait past one call is orchestration — the agent returns a receipt, `setTimeout` holds time, a fresh agent runs the next round.
 - [11]-[HARD_STOP]: Every open-ended loop carries a hard stop — a counter, a budget guard (`budget.total && budget.remaining() > N`), a progress gate.
 - [12]-[PROGRESS_GATE]: A fix-verify loop gates on file-changing progress, never the round cap alone.
-- [13]-[ARGS_STRUCTURED]: `args` is structured data — read it directly, never `JSON.parse` it.
+- [13]-[ARGS_STRUCTURED]: `args` is structured data — read it directly; the tool boundary can hand a JSON-encoded string, so `[INPUTS]` normalizes once with the guarded parse-if-string shim (api reference) and the body never parses again.
 - [14]-[SAFE_DEFAULT]: A no-args run defaults to a safe no-op, never a full-corpus sweep.
 - [15]-[PROMPT_CONCAT]: Wrap long prompt strings with adjacent `+`, the space kept on the left segment.
 - [16]-[NO_TEMPLATE_LITERAL]: Never a multi-line template literal in a prompt — it injects `\n` and changes both the value and the resume key.

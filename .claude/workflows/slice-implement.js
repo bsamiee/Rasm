@@ -103,18 +103,29 @@ const DEFAULT_THEME = {
 
 // --- [INPUTS] ------------------------------------------------------------------------
 
-const CAMP = typeof args?.camp === 'string' && args.camp.trim() ? args.camp.trim().replace(/\/+$/, '') : '';
-const SCOPE = Array.isArray(args?.scope)
-    ? args.scope.filter(Boolean).map(String)
-    : typeof args?.scope === 'string' && args.scope.trim()
-      ? [args.scope.trim()]
+// Tool-boundary normalization: the Workflow tool's untyped args input can deliver a JSON-encoded string.
+const ARGS = (() => {
+    if (typeof args === 'string') {
+        try {
+            return JSON.parse(args) || {};
+        } catch {
+            return {};
+        }
+    }
+    return args && typeof args === 'object' ? args : {};
+})();
+const CAMP = typeof ARGS.camp === 'string' && ARGS.camp.trim() ? ARGS.camp.trim().replace(/\/+$/, '') : '';
+const SCOPE = Array.isArray(ARGS.scope)
+    ? ARGS.scope.filter(Boolean).map(String)
+    : typeof ARGS.scope === 'string' && ARGS.scope.trim()
+      ? [ARGS.scope.trim()]
       : [];
 const slugOf = (s) =>
     String(s)
         .toLowerCase()
         .replace(/[^a-z0-9.-]+/g, '-');
 const THEME = (() => {
-    const t = args?.theme;
+    const t = ARGS.theme;
     return t && typeof t === 'object'
         ? {
               title: String(t.title || ''),
@@ -124,7 +135,7 @@ const THEME = (() => {
           }
         : DEFAULT_THEME;
 })();
-const TESTS_ON = args?.tests === true || (!SCOPE.length && THEME.tests === true); // theme-gated: the tests estate rides the themes that claim it
+const TESTS_ON = ARGS.tests === true || (!SCOPE.length && THEME.tests === true); // theme-gated: the tests estate rides the themes that claim it
 const OUT = CAMP + '/implement/' + slugOf(THEME.title || 'slice'); // per-theme product directory — successive slices never mix receipts
 
 // --- [MODELS] ------------------------------------------------------------------------

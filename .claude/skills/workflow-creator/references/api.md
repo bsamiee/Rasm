@@ -146,7 +146,7 @@ const scope = Array.isArray(args) ? args : []; // array input
 const task = typeof args === 'string' ? args : 'the change described in TASK.md';
 ```
 
-Never `JSON.parse(args)` — it is already a live value, and parsing an object throws; default the no-args run to a safe no-op, never a full-corpus sweep. ONE carve-out: a saved-command invocation handing a JSON-looking string takes a single guarded normalizer at `[INPUTS]` — `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args`. A saved workflow receives `args` via `Workflow({ scriptPath, args })`; a launch that drops it relaunches with an inline `script` or encodes the scope in the file.
+Never `JSON.parse(args)` in the body — it is already a live value, and parsing an object throws; default the no-args run to a safe no-op, never a full-corpus sweep. ONE carve-out: the tool boundary can hand a JSON-encoded string (a saved-command invocation, or a launch whose args crossed as text), so every workflow reading object args takes a single guarded normalizer at `[INPUTS]` — `(typeof args === 'string' && /^\s*[\[{]/.test(args)) ? JSON.parse(args) : args` — and the body reads only the normalized value. A saved workflow receives `args` via `Workflow({ scriptPath, args })`; a launch that drops it relaunches with an inline `script` or encodes the scope in the file.
 
 ## [05]-[AGENT]
 

@@ -135,6 +135,12 @@ if (!metaMatch) {
             // pure-literal heuristics — high-confidence violations only
             if (/\.\.\./.test(metaBody)) errors.push('meta contains a spread `...` — it must be a pure literal');
             if (/`/.test(rawMeta)) errors.push('meta contains a template literal — it must be a pure literal');
+            if (/~\s*\+|\+\s*~/.test(metaBody)) {
+                errors.push('meta contains string concatenation — the engine rejects BinaryExpression; collapse to one single-line string literal');
+            }
+            if (/:\s*(?!true\b|false\b|null\b|['"[{\d-])[A-Za-z_$]/.test(metaBody)) {
+                errors.push('meta references an identifier value — the engine requires a pure literal');
+            }
             if (/[A-Za-z_$][\w$]*\s*\(/.test(metaBody)) {
                 errors.push('meta appears to contain a function call — it must be a pure literal');
             }

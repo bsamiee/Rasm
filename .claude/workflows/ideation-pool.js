@@ -1,21 +1,13 @@
 export const meta = {
     name: 'ideation-pool',
     description:
-        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a ' +
-        'git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off ' +
-        'its own dossier (typed per-axis verdicts make thin output a visible lane failure), a per-language fable landing same-branch ripple ' +
-        'counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, ' +
-        'streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder ' +
-        'verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; ' +
-        'products land under camp/ideation/.',
+        'Build the four-altitude IDEAS/TASKLOG card estate to the depth slice-implement.js ingests: a disk-derived folder roster plus a git-history admitted-package roster, one codex sol dossier per folder/branch/cross tier, one fable card writer per folder streaming off its own dossier (typed per-axis verdicts make thin output a visible lane failure), a per-language fable landing same-branch ripple counterparts, dedup, and the language-root pair, one cross-libs fable landing cross-language ripples both ends plus the coherence pass, streaming single-writer package admissions per central manifest, and a terminal audit proving no-silent-drops, decomposition, per-folder verdicts, and docgen-zero. args = {camp: absolute campaign home (required), scope?: folder subset, base?: pre-campaign commit-ish}; products land under camp/ideation/.',
     whenToUse: 'After an implementation campaign empties the OPEN pools, to rebuild card depth before the next slice-implement run',
     phases: [
         { title: 'Roster', detail: 'folder roster with open-card counts from disk; git-history admitted-package roster via a read-only sol lane' },
         {
             title: 'Map',
-            detail:
-                'per-folder, per-branch, and cross-libs codex sol dossiers (pages, cards, two-tier .api mining, axis gaps, strata) and one opus ' +
-                'adjacent-package research lane per branch',
+            detail: 'per-folder, per-branch, and cross-libs codex sol dossiers (pages, cards, two-tier .api mining, axis gaps, strata) and one opus adjacent-package research lane per branch',
         },
         {
             title: 'Ideate',
@@ -78,13 +70,24 @@ const FOCUS = {
 
 // --- [INPUTS] ------------------------------------------------------------------------
 
-const CAMP = typeof args?.camp === 'string' && args.camp.trim() ? args.camp.trim().replace(/\/+$/, '') : '';
-const SCOPE = Array.isArray(args?.scope)
-    ? args.scope.filter(Boolean).map(String)
-    : typeof args?.scope === 'string' && args.scope.trim()
-      ? [args.scope.trim()]
+// Tool-boundary normalization: the Workflow tool's untyped args input can deliver a JSON-encoded string.
+const ARGS = (() => {
+    if (typeof args === 'string') {
+        try {
+            return JSON.parse(args) || {};
+        } catch {
+            return {};
+        }
+    }
+    return args && typeof args === 'object' ? args : {};
+})();
+const CAMP = typeof ARGS.camp === 'string' && ARGS.camp.trim() ? ARGS.camp.trim().replace(/\/+$/, '') : '';
+const SCOPE = Array.isArray(ARGS.scope)
+    ? ARGS.scope.filter(Boolean).map(String)
+    : typeof ARGS.scope === 'string' && ARGS.scope.trim()
+      ? [ARGS.scope.trim()]
       : [];
-const BASE = typeof args?.base === 'string' && args.base.trim() ? args.base.trim() : '';
+const BASE = typeof ARGS.base === 'string' && ARGS.base.trim() ? ARGS.base.trim() : '';
 const OUT = CAMP + '/ideation';
 const MANDATE = CAMP + '/ideation-pool-mandate.md';
 const HANDOFF = CAMP + '/HANDOFF.md';
