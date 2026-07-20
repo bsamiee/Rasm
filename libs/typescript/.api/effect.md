@@ -6,7 +6,7 @@
 
 [PACKAGE_SURFACE]: `effect`
 - package: `effect` (MIT, © Effectful Technologies)
-- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) plus the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
+- module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; per-module deep-import subpaths (`effect/Effect`, `effect/Schema`, …) and the flat `effect` barrel — the module boundary graph imports the barrel, deep-imports only where tree-shaking a single module matters
 - runtime target: isomorphic (node, bun, browser, worker); zero runtime dependencies; no native addon
 - asset: pure-TypeScript runtime library shipping `.js` + `.d.ts`; the type-level surface (`typeof schema.Type`, `keyof typeof`, branded refinements) is load-bearing, so `tsc`/`tsgo` are the real gate
 - rail: substrate (every folder types against it; catalogued once at the branch tier)
@@ -200,7 +200,7 @@
 [STACKS_WITH]:
 - `@effect/platform` (`.api/effect-platform.md`): the platform contracts are `Effect`-returning services keyed by `Context.Tag` — `HttpClient` yields `Effect<HttpClientResponse, HttpClientError>`, `HttpApiEndpoint` bodies are `Schema`-typed handlers, and `FileSystem`/`Command`/`Worker` are Tags a `Layer` satisfies. One Schema decodes the request and encodes the response; the same tagged error family flows the `Effect` error channel to the `edge` problem-detail mapping.
 - `@effect/platform-node` (`.api/effect-platform-node.md`): the `Node*` `Layer`s satisfy the platform Tags this substrate's `Layer` graph requires; `NodeRuntime.runMain` is the `Effect.runFork` edge for a node process, draining fibers and finalizers on signal.
-- `@effect/opentelemetry` (`.api/effect-opentelemetry.md`): `Metric`, `Logger`, and `Tracer` are the vendor-neutral signal owners; the OTel `Layer` swaps the `Tracer`/`MetricRegistry`/`Logger` services under the whole graph via `Layer.setTracer`, so `Effect.withSpan`/`withMetric` on any rail export through OTLP with no call-site change.
+- `@effect/opentelemetry`: `Metric`, `Logger`, and `Tracer` are the vendor-neutral signal owners; the OTel `Layer` swaps the `Tracer`/`MetricRegistry`/`Logger` services under the whole graph via `Layer.setTracer`, so `Effect.withSpan`/`withMetric` on any rail export through OTLP with no call-site change.
 - `@effect/vitest` (dev-tool tier, `tests/typescript/.api/effect-vitest.md`): `it.effect`/`it.scoped` run an `Effect` under `TestServices` (deterministic `TestClock`/`TestRandom`); `it.prop` consumes `Schema`-derived `FastCheck.Arbitrary`s; `it.layer` shares a `Layer` across a spec block — the testkit needs no hand-rolled harness.
 - folder-local substrate (catalogued at `libs/typescript/<folder>/.api/`): `@effect/sql` `SqlClient` and `@effect/cluster` `MessageStorage` are `Context.Tag`s `work`/`store` compose and the app root satisfies; `@effect-atom` binds an `Effect`/`SubscriptionRef` into a React atom (`ui`); `@electric-sql/d2ts` folds a `state` dataflow; `hash-wasm` sits behind the `kernel` `ContentKey` mint — each is `Effect`-wrapped at its owner, never leaked raw.
 

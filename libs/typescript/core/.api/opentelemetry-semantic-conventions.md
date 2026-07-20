@@ -1,6 +1,10 @@
 # [TS_CORE_API_OPENTELEMETRY_SEMANTIC_CONVENTIONS]
 
-`@opentelemetry/semantic-conventions` is a CODE-GENERATED vocabulary of literal-typed string constants — one flat `const` per OpenTelemetry attribute key, metric name, event name, and bounded attribute value — with ZERO runtime dependency and ZERO peer (not even `@opentelemetry/api`). It is the ONE `@opentelemetry/*` package that survives the `[R3]` collapse: when native `Otlp` retires the SDK/exporter block, this stays as the standing name source, because it is pure data, not SDK machinery. Mechanism is not a roster — it is a two-tier × four-family generated pattern: a STABLE entrypoint (`.`) of API-frozen names and an INCUBATING entrypoint (`./incubating`) of overlay names that can churn between minor releases, each carrying the `ATTR_*` (attribute key), `*_VALUE_*` (bounded value), `METRIC_*` (instrument name), and `EVENT_*` (event name) families. Inside Rasm `observe/convention` imports these as data rows so every span/metric/log names its fields through a typed constant, never a string literal (root policy bans stringy attribute keys); `otlp/export` stamps them on egress, and the `Resource` identity spine, `signal/vital` RUM, and `signal/crash` fault capture each fold the relevant namespace.
+`@opentelemetry/semantic-conventions` is a CODE-GENERATED vocabulary of literal-typed string constants — one flat `const` per OpenTelemetry attribute key, metric name, event name, and bounded attribute value — with ZERO runtime dependency and ZERO peer (not even `@opentelemetry/api`). It is the ONE `@opentelemetry/*` package that survives the `[R3]` collapse: when native `Otlp` retires the SDK/exporter block, this stays as the standing name source, because it is pure data, not SDK machinery.
+
+Mechanism is a two-tier × four-family generated pattern: a STABLE entrypoint (`.`) of API-frozen names and an INCUBATING entrypoint (`./incubating`) of overlay names that churn between minor releases, each carrying the `ATTR_*` (attribute key), `*_VALUE_*` (bounded value), `METRIC_*` (instrument name), and `EVENT_*` (event name) families.
+
+Inside Rasm exactly two owners import it — `observe/convention`, the re-export hub whose typed rows every telemetry node names fields through, and `value/fault`, whose `FaultCapture.Forensic` anchors the crash vocabulary directly; runtime's `otel/emit`, `otel/vital`, and `otel/crash` consume the `Convention` rows, never a second semconv import, and a raw string literal at any signal site is the stringy-key defect root policy bans.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -32,11 +36,15 @@ export declare const ATTR_URL_FULL: "url.full"
 export declare const ATTR_SERVICE_NAME: "service.name"
 export declare const METRIC_HTTP_SERVER_REQUEST_DURATION: "http.server.request.duration"
 export declare const EVENT_EXCEPTION: "exception"
-// Crash forensic vocabulary (stable) — value/fault FaultCapture.Forensic anchors exactly these four:
+// Crash forensic vocabulary (stable) — value/fault FaultCapture.Forensic anchors the exception/error set and the code.* frame quartet:
 export declare const ATTR_ERROR_TYPE: "error.type"
 export declare const ATTR_EXCEPTION_MESSAGE: "exception.message"
 export declare const ATTR_EXCEPTION_STACKTRACE: "exception.stacktrace"
 export declare const ATTR_EXCEPTION_TYPE: "exception.type"
+export declare const ATTR_CODE_FUNCTION_NAME: "code.function.name"
+export declare const ATTR_CODE_FILE_PATH: "code.file.path"
+export declare const ATTR_CODE_LINE_NUMBER: "code.line.number"
+export declare const ATTR_CODE_COLUMN_NUMBER: "code.column.number"
 // A bounded-value attribute exposes its closed set as *_VALUE_* constants — the smart-enum values a Match fold discriminates over:
 export declare const HTTP_REQUEST_METHOD_VALUE_GET: "GET"          // + _POST/_PUT/_DELETE/_HEAD/_OPTIONS/_PATCH/_CONNECT/_TRACE/__OTHER
 export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql" // + _MYSQL/_MARIADB/_MICROSOFT_SQL_SERVER/…
@@ -56,15 +64,15 @@ STABLE (`.`) namespaces — API-frozen, safe for durable dashboards, SLO rows, a
 |  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`                                        | SDK/distro resource attrs                                |
 |  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                             |
 |  [04]   | `url.*`, `network.*`, `server.*`/`client.*`                                   | `host/net` client span attrs                             |
-|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`, `otel.*`            | `signal/crash` fault capture → `FaultDetail`             |
-|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `store` DB-client spans             |
+|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`, `otel.*`            | `value/fault` `FaultCapture.Forensic` crash anchors      |
+|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `db` rows feed `board#QUERY` only   |
 
 INCUBATING (`./incubating`) namespaces — overlay, imported behind the churn-absorbing alias row:
 
-| [INDEX] | [RASM_NAMESPACES]                                         | [CONSUMER_BOUNDARY]                                  |
-| :-----: | :-------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `browser.*` (brands/language/mobile/platform), `device.*` | `signal/vital` browser RUM enrichment                |
-|  [02]   | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`  | resource infra enrichment; `iac/observe` correlation |
+| [INDEX] | [RASM_NAMESPACES]                                         | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :-------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `browser.*` (brands/language/mobile/platform), `device.*` | vital RUM enrichment through the `Convention` aliases |
+|  [02]   | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`  | resource infra enrichment; iac correlation queries    |
 
 ## [04]-[DEPRECATED_LEGACY]
 
@@ -77,16 +85,16 @@ INCUBATING (`./incubating`) namespaces — overlay, imported behind the churn-ab
 
 ## [05]-[STACKING]
 
-- Stack with `observe/convention` (the primary consumer): the vocabulary spine of the whole plane. `convention.ts` imports the Rasm-relevant `ATTR_*`/`METRIC_*`/`EVENT_*` + `*_VALUE_*` constants (stable by default, incubating behind a churn-absorbing alias row) and re-exports them as typed convention rows; every other `telemetry` node names its fields through these rows, never a string literal. `*_VALUE_*` families become `Match`-discriminated union values, not free strings.
-- Stack with `.api/effect-opentelemetry.md` `Otlp` export + `Resource`: `otlp/export` stamps convention keys on span/metric/log attributes at egress; `Resource.layer({ serviceName, serviceVersion, attributes })` keys the identity resource with `ATTR_SERVICE_NAME`/`ATTR_SERVICE_VERSION`/`ATTR_SERVICE_INSTANCE_ID` (stable) + `telemetry.sdk.*`, derived from the one `AppIdentity` value. Egress-redaction policy rows scrub PII by attribute key using these constants as the allow/deny vocabulary.
-- Stack with `signal/vital` + `.api/opentelemetry-sdk-trace-web.md` RUM: browser RUM spans name their fields with `browser.*` (incubating) + `http.*`/`url.*` (stable); the `sdk-trace-web` resource-timing folds attach `*_body_size`/network attrs by these keys. `signal/vital` reads native `PerformanceObserver` (zero web-vitals) and stamps convention keys on the vital facts.
-- Stack with `signal/crash` fault capture: crash capture reconstructs `FaultDetail` and names it with `exception.type`/`exception.message`/`exception.stacktrace` + `error.type` (stable) and the `EVENT_EXCEPTION` event name — the `value/fault` `FaultCapture.Forensic` vocabulary — through the kernel fault-enricher contract, no `wire` import.
-- Stack with Rasm-owned vocab that is NOT semconv: the fact-journal audit actor/action/target vocabulary and the meter (app, tenant)-keyed request/compute/storage/token counters (`data` `journal/fact`) are DOMAIN rows Rasm owns, not OTel conventions; they live as `observe/convention` Rasm rows beside the semconv imports. semconv supplies the standard namespaces; the audit/meter fact families are the project's own name space.
+- Stack with `observe/convention` (the primary consumer): the vocabulary spine of the whole plane. `convention.ts` imports the Rasm-relevant `ATTR_*`/`METRIC_*`/`EVENT_*` + `*_VALUE_*` constants (stable by default, incubating behind a churn-absorbing alias row) and re-exports them as typed convention rows; every other telemetry node names its fields through these rows, never a string literal. `*_VALUE_*` families become `Match`-discriminated union values, not free strings.
+- Stack with runtime `otel/emit`: the OTLP export lane stamps `Convention` rows on span/metric/log attributes at egress and keys the identity `Resource` from the one `Convention.identity` projection; egress-redaction policy rows scrub PII by attribute key using the same vocabulary as the allow/deny roster.
+- Stack with runtime `otel/vital`: browser RUM spans name their fields through the `Convention` incubating alias rows (`browser.*`, `device.*`, `session.*`) beside stable `http.*`/`url.*`; the vital owner reads native `PerformanceObserver` and stamps `Convention` keys on the vital facts.
+- Stack with `value/fault` + runtime `otel/crash`: `FaultCapture.Forensic` anchors `exception.*`/`error.type` and the `code.*` frame quartet, `FaultCapture.event` anchors `EVENT_EXCEPTION` — a shared-import boundary beside `observe/convention`, two owners over one spec vocabulary, never a re-export hop; the runtime crash owner constructs captures and parses frames.
+- Stack with Rasm-owned vocab that is NOT semconv: the fact-journal audit actor/action/target vocabulary and the meter (app, tenant)-keyed request/compute/storage/token counters (`data` `journal/fact`) are DOMAIN rows Rasm owns, not OTel conventions; they live as `observe/convention` Rasm rows beside the semconv imports. semconv supplies the standard namespaces; the `rasm.*` families are the project's own name space.
 - Stack with cross-language parity — C# `Rasm.AppHost/Observability/Telemetry`: the C# OTLP egress emits the SAME OTel attribute names (the wire is OTel, not this package); parity is name-level against the OpenTelemetry spec, so a Rasm span from either language carries `service.name`/`http.route`/`exception.type` identically. This TS package is the JS-side name source, not a shared artifact.
 
 ## [06]-[RAIL_LAW]
 
 - Owns: the OpenTelemetry attribute-key / metric-name / event-name / bounded-value vocabulary as code-generated literal-typed constants, split into the stable (`.`) and incubating (`./incubating`) tiers across the `ATTR_*`/`*_VALUE_*`/`METRIC_*`/`EVENT_*` families.
 - Accept: the flat `ATTR_*`/`METRIC_*`/`EVENT_*` constants imported into `observe/convention` as typed rows; the `*_VALUE_*` bounded sets as `Match`-discriminated values; stable-tier names by default, incubating names behind a Rasm churn-absorbing alias row; the constant referenced everywhere a field is named, never the string literal.
-- Reject: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling (superseded by flat `ATTR_*`); a raw string literal where a constant exists (the stringy-key defect root policy bans); embedding an incubating name directly in a durable dashboard/SLO row without the churn-absorbing alias; treating this package as an `[R3]`-collapse member (it is the survivor); re-declaring OTel standard names as Rasm-owned rows (only genuinely-Rasm vocab — audit/meter — is a project row).
+- Reject: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling (superseded by flat `ATTR_*`); a raw string literal where a constant exists (the stringy-key defect root policy bans); embedding an incubating name directly in a durable dashboard/SLO row without the churn-absorbing alias; treating this package as an `[R3]`-collapse member (it is the survivor); re-declaring OTel standard names as Rasm-owned rows (only genuinely-Rasm vocabulary is a project row).
 - Boundary: pure data, zero deps — the standing name source the `[R3]` SDK-block retirement leaves behind. Rasm-owned fact vocabularies (audit actor/action/target, meter counters) are NOT semconv and live as project convention rows beside these imports. Cross-language parity is name-level against the OTel spec, not a shared package.

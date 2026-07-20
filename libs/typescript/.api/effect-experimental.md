@@ -101,7 +101,7 @@
 
 [ENTRYPOINT_SCOPE]: EventLog sync transport + mountable server
 - rail: overlay/local-first
-- Client sync is one Layer: `layerWebSocketBrowser(url)` is self-contained (needs only `EventLog`); `layerWebSocket(url)` needs a `Socket.WebSocketConstructor` (from `BrowserSocket`/`BunSocket`) plus `EventLogEncryption`. `makeHandlerHttp` mounts the server as an `HttpApp` at the `edge/live` protocol-handler port; `makeHandler` serves it over a raw `Socket`.
+- Client sync is one Layer: `layerWebSocketBrowser(url)` is self-contained (needs only `EventLog`); `layerWebSocket(url)` needs a `Socket.WebSocketConstructor` (from `BrowserSocket`/`BunSocket`) and `EventLogEncryption`. `makeHandlerHttp` mounts the server as an `HttpApp` at the `edge/live` protocol-handler port; `makeHandler` serves it over a raw `Socket`.
 - call: `EventLogRemote.layerWebSocketBrowser(url, { disablePing? }): Layer<never, never, EventLog>`
 - call: `EventLogRemote.layerWebSocket(url, opts): Layer<never, never, WebSocketConstructor | EventLog | EventLogEncryption>`
 - call: `EventLogServer.makeHandlerHttp: Effect<Effect<HttpServerResponse, …>, never, Storage>`

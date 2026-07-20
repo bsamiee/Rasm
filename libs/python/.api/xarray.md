@@ -1,4 +1,4 @@
-# [PY_DATA_API_XARRAY]
+# [PY_BRANCH_API_XARRAY]
 
 `xarray` supplies `DataArray`, `Dataset`, `Variable`, `Coordinates`, and `DataTree` labelled named-axis containers with label-based selection, grouping, reduction, interpolation, polynomial/curve fitting, dask/cubed-backed chunking, the `.dt`/`.str`/`.plot` computed accessors, a custom-accessor registration hook, and netCDF/Zarr IO. It is the canonical owner surface for the `field-dataset` CF labelled-field dataset: the `FieldDataset` owner addresses CF coordinates by dimension name through `sel`/`isel`, reads and writes CF field cubes through `open_dataset(engine=)`/`open_zarr`/`to_netcdf`/`to_zarr` over the netcdf4/h5netcdf/zarr engines, opts a cube into the lazy chunked path through `chunk`, and defers grouped reductions to the installed `flox` lowering. xarray is on `banned-module-level-imports`, so every `FieldDataset` body binds it function-local under `# noqa: PLC0415`.
 
@@ -9,10 +9,10 @@
 - import: `import xarray as xr`
 - version: `2025.x`
 - license: Apache-2.0
-- owner: `data` (field-dataset), `compute` (`DataTree`, `experiments/inference`; `numerics/array` — the `ArraySource.Labelled` arm extracting `.data` plus coords into `NamedAxis` rows, structural reads only)
+- owner: `data` (field-dataset), `compute` (`DataTree`, `experiments/inference`; `numerics/array` — the `ArraySource.Labelled` arm extracting `.data` with coords into `NamedAxis` rows, structural reads only)
 - rail: field-dataset
 - entry points: backend plugins register through the `xarray.backends` entry-point group (`netcdf4`, `h5netcdf`, `zarr`, `scipy`, `rasterio` via rioxarray); library use is import-only
-- capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and nodata fill, polynomial and non-linear curve fitting, numerical integration/differentiation, the `.dt`/`.str`/`.plot` computed accessors plus custom-accessor registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO over the netcdf4/h5netcdf/zarr engines with per-variable `encoding`, and a dask/cubed-backed lazy/chunked path
+- capability: CF-conventioned labelled n-dimensional field cubes — named dimensions, coordinate indexes, CF-aware label selection, grouped/binned/resampled/rolling/coarsen/weighted reductions, interpolation and nodata fill, polynomial and non-linear curve fitting, numerical integration/differentiation, the `.dt`/`.str`/`.plot` computed accessors with custom-accessor registration, hierarchical `DataTree` with `map_over_datasets`, netCDF/Zarr/Icechunk IO over the netcdf4/h5netcdf/zarr engines with per-variable `encoding`, and a dask/cubed-backed lazy/chunked path
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -58,7 +58,7 @@
 [PUBLIC_TYPE_SCOPE]: computed accessors and registration
 - rail: field-dataset
 
-`obj.dt`/`obj.str` materialize only for the matching dtype; `register_dataarray_accessor`/`register_dataset_accessor`/`register_datatree_accessor` are the class decorators that bind a custom namespace (e.g. `ds.rio` from rioxarray). The grouped/rolling/etc. members in `[04]` return reduction *objects* (`DataArrayRolling`, `DatasetCoarsen`, `Weighted`, `DataArrayResample`, `GroupBy`) carrying their own `.mean`/`.sum`/`.reduce`/`.construct`/`.map` surface.
+`obj.dt`/`obj.str` materialize only for the matching dtype; `register_dataarray_accessor`/`register_dataset_accessor`/`register_datatree_accessor` are the class decorators that bind a custom namespace (e.g. `ds.rio` from rioxarray). Grouped, rolling, and windowed members in `[04]` return reduction *objects* (`DataArrayRolling`, `DatasetCoarsen`, `Weighted`, `DataArrayResample`, `GroupBy`) carrying their own `.mean`/`.sum`/`.reduce`/`.construct`/`.map` surface.
 
 | [INDEX] | [ACCESSOR]            | [MEMBERS]                                                                                                 |
 | :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------------- |
@@ -145,8 +145,8 @@ Every combine surface carries `compat`/`join` conflict-resolution knobs and the 
 [NAMING_TOPOLOGY]:
 - A CF field cube is a `Dataset` of `DataArray`s carrying CF dimension names, coordinate labels, and CF metadata (`units`/`standard_name`/`grid_mapping`); `open_dataset(engine=)`/`open_mfdataset`/`open_zarr` materialise it, `decode_cf` applies the CF mask/scale/time decode, and the `FieldDataset` owner keys the cube by one runtime `ContentIdentity`.
 - Label-based `sel`/`isel` address CF coordinates by name (`FieldSelection.Sel`/`Isel`); `interp` is the CF-aware interpolation arm and `groupby`/`groupby_bins`/`resample`/`rolling`/`coarsen`/`weighted` the grouped/binned/resampled/windowed/weighted reductions, each a `FieldSelection` case rather than a sibling method, returning a reduction object whose `.mean`/`.sum`/`.reduce`/`.map` lowers to the kernel.
-- the `.dt`/`.str` computed accessors are the time-component and string-vector arms; custom accessors register through `register_dataarray_accessor`/`register_dataset_accessor` (the mechanism `rioxarray` uses for `.rio`), never a bare monkeypatch.
-- `chunk` opts a cube into the lazy chunked path; `compute`/`load`/`persist` materialise it, and `unify_chunks`/`map_blocks` operate over the chunked graph. The chunked backend is `dask` by default or `cubed` via `chunked_array_type="cubed"` for the bounded-memory path.
+- `.dt`/`.str` computed accessors are the time-component and string-vector arms; custom accessors register through `register_dataarray_accessor`/`register_dataset_accessor` (the mechanism `rioxarray` uses for `.rio`), never a bare monkeypatch.
+- `chunk` opts a cube into the lazy chunked path; `compute`/`load`/`persist` materialise it, and `unify_chunks`/`map_blocks` operate over the chunked graph. `dask` backs the chunked path by default; `chunked_array_type="cubed"` selects the bounded-memory executor.
 - `apply_ufunc` is the boundary for arbitrary NumPy-style functions over labelled cubes; `input_core_dims`/`output_core_dims` declare the broadcasting contract and `dask='parallelized'` lifts it onto the chunked graph. `polyfit`/`curvefit` own polynomial and non-linear fitting; `integrate`/`differentiate` own coordinate calculus.
 - IO flows through `open_dataset`/`open_zarr`/`open_datatree` at the boundary and `to_netcdf`/`to_zarr` at egress with per-variable `encoding`; the `FieldDataset` egress materialises to the same content-keyed `pyarrow`/Zarr surface the `tensor`/`columnar` owners speak.
 
@@ -161,7 +161,7 @@ Every combine surface carries `compat`/`join` conflict-resolution knobs and the 
 [LOCAL_ADMISSION]:
 - `open_dataset(engine=)`/`open_zarr` reads and `to_netcdf`/`to_zarr` writes bind function-local under `# noqa: PLC0415`; egress carries per-variable `encoding` for compression/chunking/fill, never a side-channel metadata write.
 - `decode_cf` for CF metadata; `sel`/`isel`/`interp`/`groupby`/`groupby_bins`/`resample`/`rolling`/`coarsen`/`weighted` as `FieldSelection` cases discriminating on selection shape, never sibling methods.
-- the dask/cubed path via `chunk`; `compute`/`load`/`persist` to materialise; `chunked_array_type="cubed"` for the bounded-memory executor.
+- `chunk` opts into the dask/cubed path; `compute`/`load`/`persist` materialise; `chunked_array_type="cubed"` selects the bounded-memory executor.
 - `set_options`/`get_options` for global decode/display policy; custom domain accessors via `register_*_accessor`, never a monkeypatch.
 
 [RAIL_LAW]:

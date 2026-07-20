@@ -1,6 +1,6 @@
 # [TS_BRANCH_API_EFFECT_PLATFORM_BUN]
 
-`@effect/platform-bun` satisfies the abstract `@effect/platform` service Tags with Bun-native implementations, so a Node↔Bun runtime change is a Layer selection in the app root, never a fork. It owns `BunRuntime.runMain` + the `BunContext` aggregate (FileSystem + Path + CommandExecutor + Terminal + WorkerManager); `BunHttpServer` over `Bun.serve` (the `edge/api/serve` row) plus `BunHttpPlatform` file-serving and `BunMultipart` inbound-body parsing; `BunCommandExecutor` subprocess exec and `BunWorker`/`BunWorkerRunner` worker pools (`proc/exec/process`); `BunKeyValueStore` filesystem KV; `BunSocket`/`BunSocketServer` transport; and the `BunClusterHttp`/`BunClusterSocket` `@effect/cluster` runners (`work/engine`). It is the `runtime:node` lane the edge ledger fences against `runtime:browser`.
+`@effect/platform-bun` satisfies the abstract `@effect/platform` service Tags with Bun-native implementations, so a Node↔Bun runtime change is a Layer selection in the app root, never a fork. It owns `BunRuntime.runMain` + the `BunContext` aggregate (FileSystem + Path + CommandExecutor + Terminal + WorkerManager); `BunHttpServer` over `Bun.serve` (the `edge/api/serve` row) with `BunHttpPlatform` file-serving and `BunMultipart` inbound-body parsing; `BunCommandExecutor` subprocess exec and `BunWorker`/`BunWorkerRunner` worker pools (`proc/exec/process`); `BunKeyValueStore` filesystem KV; `BunSocket`/`BunSocketServer` transport; and the `BunClusterHttp`/`BunClusterSocket` `@effect/cluster` runners (`work/engine`). It is the `runtime:node` lane the edge ledger fences against `runtime:browser`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -52,7 +52,7 @@
 - rail: platform/bun
 - `BunSocket`/`BunSocketServer` are the socket transport satisfying `Socket.WebSocketConstructor`; `BunClusterHttp`/`BunClusterSocket` are the `@effect/cluster` sharding runners over Bun — the `work/engine` runner entrypoint on the Bun runtime. `BunSink`/`BunStream`/`BunSocketServer` re-export `@effect/platform-node-shared`.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                            |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                           |
 | :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------------- |
 |  [01]   | `BunSocket.layerWebSocket` / `layerWebSocketConstructor` | socket layer   | `net/client/channel`, EventLog WS sync        |
 |  [02]   | `BunSocketServer.*` (`node-shared`)                      | socket server  | inbound socket server                         |

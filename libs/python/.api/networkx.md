@@ -1,6 +1,6 @@
-# [PY_DATA_API_NETWORKX]
+# [PY_BRANCH_API_NETWORKX]
 
-`networkx` supplies `Graph`, `DiGraph`, `MultiGraph`, and `MultiDiGraph` payload classes with shared mutation, inspection, and derivation members, plus tabular/array/dict conversion bridges, file-format codecs, and shortest-path, DAG, component, spanning-tree, centrality, and flow algorithm families. The `create_using` argument discriminates graph kind across one polymorphic call, and `backend`/`**backend_kwargs` select the dispatch backend.
+`networkx` supplies `Graph`, `DiGraph`, `MultiGraph`, and `MultiDiGraph` payload classes with shared mutation, inspection, and derivation members; tabular/array/dict conversion bridges, file-format codecs, and shortest-path, DAG, component, spanning-tree, centrality, and flow algorithm families. `create_using` discriminates graph kind across one polymorphic call, and `backend`/`**backend_kwargs` select the dispatch backend.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -140,7 +140,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GRAPH_TOPOLOGY]:
-- The graph payload owner threads `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
+- Graph payload owners thread `create_using=` to select directedness and multiplicity; one entry discriminates on graph kind instead of branching per subtype.
 - Node and edge attributes live in per-element dicts; `nodes`, `edges`, `adj`, and `degree` return live views over the graph.
 - Directed classes add `successors`/`predecessors` and `in_edges`/`out_edges`; multi-edge classes key parallel edges through `new_edge_key`.
 - `backend`/`**backend_kwargs` is the dispatch-backend axis; the receipt records the backend and never forks parallel call sites per backend.
@@ -148,12 +148,12 @@
 [BACKEND_DISPATCH]:
 - Every algorithm decorated `@nx._dispatchable` accepts `*, backend=None, **backend_kwargs`; `backend='cugraph'|'graphblas'|'parallel'|...` selects an installed entry-point backend without changing the call site.
 - `nx.config` (a `NetworkXConfig`) owns process-global dispatch policy: `nx.config.backend_priority` (ordered fallback list), `nx.config.backends` (per-backend config namespaces), `nx.config.cache_converted_graphs`, `nx.config.fallback_to_nx`, `nx.config.warnings_to_ignore`.
-- The graph rail sets dispatch policy once on `nx.config` at boundary scope and threads `backend=` only when one call must override the global priority; it never branches per-backend call sites.
+- Graph rails set dispatch policy once on `nx.config` at boundary scope and threads `backend=` only when one call must override the global priority; it never branches per-backend call sites.
 
 [ALGORITHM_RAIL]:
-- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the receipt captures the algorithm name plus the typed failure, and the domain rail translates the raised exception at the boundary into the Result rail.
+- Algorithm failures raise typed `NetworkX*` exceptions on the `NetworkXException` base; the receipt captures the algorithm name with the typed failure, and the domain rail translates the raised exception at the boundary into the Result rail.
 - `shortest_path` discriminates `method='dijkstra'`/`'bellman-ford'` and source/target presence to return a single path, per-target dict, or all-pairs dict from one entry; `floyd_warshall` is the dense all-pairs alternative.
-- The community family is namespaced under `nx.community` (alias of `networkx.algorithms.community`): `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition; partitions return `list[set]`/`list[frozenset]`/an iterator of nested community tuples.
+- Community algorithms namespace under `nx.community` (alias of `networkx.algorithms.community`): `louvain_communities`/`greedy_modularity_communities`/`girvan_newman` partition, `modularity` scores a partition; partitions return `list[set]`/`list[frozenset]`/an iterator of nested community tuples.
 
 [INTEGRATION]:
 - node-link JSON is the canonical wire form: `node_link_data(G)` emits `{nodes, edges, ...}` (the `edges='edges'` key is the settled 3.x default — `links` is the removed legacy spelling, never pin it) and `node_link_graph(data, directed=, multigraph=)` rebuilds, discriminating graph kind from the two positional flags rather than a per-kind reader; `adjacency`/`cytoscape`/`tree` JSON are sibling shapes for the same round-trip.

@@ -13,39 +13,41 @@
 
 `./dashboard` carries the root builder and the shared companion builders (`RowBuilder`, `QueryVariableBuilder` and the variable-builder family, `ThresholdsConfigBuilder`, `TimePickerBuilder`, `DashboardLinkBuilder`, `AnnotationQueryBuilder`). `DashboardBuilder` members, verified against the shipped declarations:
 
-| [INDEX] | [MEMBER]                                        | [ROLE]                                            |
-| :-----: | :----------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `new DashboardBuilder(title)` / `.build()`       | root construction and JSON emission                 |
-|  [02]   | `.uid(uid)` / `.title(title)` / `.tags(tags)`    | identity — the core model's `uid`/`title`/`tags`    |
-|  [03]   | `.refresh(refresh)` / `.time({ from, to })`      | cadence and range — the model's `refresh`/`since`   |
-|  [04]   | `.withPanel(panel)` / `.withRow(rowPanel)`       | panel composition from the per-tag builders         |
-|  [05]   | `.withVariable(variable)` / `.variables(rows)`   | template variables — the tenant row lands here      |
-|  [06]   | `.annotation(row)` / `.annotations(rows)`        | annotation queries — the slo spec annotations       |
-|  [07]   | `.link(row)` / `.timepicker(row)` / `.editable()` / `.readonly()` | presentation policy rows           |
+| [INDEX] | [MEMBER]                                                          | [ROLE]                                            |
+| :-----: | :---------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `new DashboardBuilder(title)` / `.build()`                        | root construction and JSON emission               |
+|  [02]   | `.uid(uid)` / `.title(title)` / `.tags(tags)`                     | identity — the core model's `uid`/`title`/`tags`  |
+|  [03]   | `.refresh(refresh)` / `.time({ from, to })`                       | cadence and range — the model's `refresh`/`since` |
+|  [04]   | `.withPanel(panel)` / `.withRow(rowPanel)`                        | panel composition from the per-tag builders       |
+|  [05]   | `.withVariable(variable)` / `.variables(rows)`                    | template variables — the tenant row lands here    |
+|  [06]   | `.annotation(row)` / `.annotations(rows)`                         | annotation queries — the slo spec annotations     |
+|  [07]   | `.link(row)` / `.timepicker(row)` / `.editable()` / `.readonly()` | presentation policy rows                          |
+
+Companion-builder members, verified against the module reference: `ThresholdsConfigBuilder.mode(mode)` (`ThresholdsMode.Absolute | .Percentage`) and `.steps(steps)` over `Threshold { value: number | null, color: string }` rows sorted ascending by `value` with the first row `value: null` — the mandatory -Infinity base; `AnnotationQueryBuilder.name(name)` / `.iconColor(color)` / `.enable(enable)` — the rows the core model's annotation slug/tone land on.
 
 ## [02]-[PANEL_MODULES]
 
 One `PanelBuilder` per visualization subpath; the shared members below ride every panel module, verified on the `timeseries` declaration — the shared surface the core panel family's `_PanelFields` maps onto:
 
-| [INDEX] | [MEMBER]                                          | [ROLE]                                             |
-| :-----: | :------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `new PanelBuilder()` / implements `cog.Builder<dashboard.Panel>` | one panel row; feeds `.withPanel`       |
-|  [02]   | `.title(t)` / `.description(d)` / `.transparent(b)` | the shared emission fields                          |
-|  [03]   | `.gridPos({ h, w, x, y })` / `.span(w)` / `.height(h)` | placement — `DashboardModel.laid` positions land on `gridPos` |
-|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`      | query binding — prometheus `DataqueryBuilder` rows   |
-|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)` | value display — the model's unit/steps columns    |
-|  [06]   | `.legend(b)` / `.tooltip(b)`                       | common-options builders from `./common`              |
+| [INDEX] | [MEMBER]                                                         | [ROLE]                                                        |
+| :-----: | :--------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `new PanelBuilder()` / implements `cog.Builder<dashboard.Panel>` | one panel row; feeds `.withPanel`                             |
+|  [02]   | `.title(t)` / `.description(d)` / `.transparent(b)`              | the shared emission fields                                    |
+|  [03]   | `.gridPos({ h, w, x, y })` / `.span(w)` / `.height(h)`           | placement — `DashboardModel.laid` positions land on `gridPos` |
+|  [04]   | `.withTarget(dataquery)` / `.datasource(ref)`                    | query binding — prometheus `DataqueryBuilder` rows            |
+|  [05]   | `.unit(u)` / `.min(n)` / `.max(n)` / `.thresholds(b)`            | value display — the model's unit/steps columns                |
+|  [06]   | `.legend(b)` / `.tooltip(b)`                                     | common-options builders from `./common`                       |
 
 ## [03]-[PROMETHEUS_MODULE]
 
 `./prometheus` `DataqueryBuilder` — the query row every panel target rides:
 
-| [INDEX] | [MEMBER]                                       | [ROLE]                                              |
-| :-----: | :----------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `.expr(expr)` / `.refId(id)`                    | the rendered `Query` string and its slot letter      |
-|  [02]   | `.exemplar(bool)`                               | exemplar overlay — gated on the store row's column    |
-|  [03]   | `.legendFormat(f)` / `.instant()` / `.range()`  | series labeling and query mode                        |
-|  [04]   | `.datasource(ref)` / `.format(f)` / `.hide(b)`  | binding and display posture                           |
+| [INDEX] | [MEMBER]                                       | [ROLE]                                             |
+| :-----: | :--------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `.expr(expr)` / `.refId(id)`                   | the rendered `Query` string and its slot letter    |
+|  [02]   | `.exemplar(bool)`                              | exemplar overlay — gated on the store row's column |
+|  [03]   | `.legendFormat(f)` / `.instant()` / `.range()` | series labeling and query mode                     |
+|  [04]   | `.datasource(ref)` / `.format(f)` / `.hide(b)` | binding and display posture                        |
 
 ## [04]-[INTEGRATION]
 

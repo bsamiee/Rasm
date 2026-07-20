@@ -86,7 +86,7 @@ transaction by the `Query/retrieval#SEARCH_PROVISIONING_PROBE` binder, distinct 
 
 [SEARCH_LANE_STACK]:
 - Transparent route: a `vector(N)` distance query ordered by the catalogued pgvector distance function (`CosineDistance`/`L2Distance`/`MaxInnerProduct`, `api-pgvector-ef.md`) is planner-routed through the diskann index with no query rewrite — the `VectorMetric.Order` `Switch` projects the `ORDER BY` distance `Expression` and the planner picks diskann over the exact scan.
-- Route observability: the `search.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
+- Route observability: the `store.vector.route` fact discriminates exact-scan vs HNSW vs IVFFlat vs diskann; the always-present exact brute-force scan stays the correctness baseline so a route degradation is observable. diskann complements, never replaces, RAM-resident HNSW — it scales disk-backed ANN beyond memory.
 - Hybrid fusion: `FusionRank.Fuse` (`Query/retrieval#FUSION_AND_REUSE`) composes the diskann vector branch and the `pg_search` BM25 branch (`api-pg-search.md`) in one reciprocal-rank-fusion CTE — `SUM(1.0 / (rrfConstant + rank))` with `rrfConstant=60` — projecting identities (not re-materializing both payloads) and needing no learned reranker. The dense embedding the vector branch probes is generated upstream at `Compute/models#INFERENCE_MODES`.
 
 [RAIL_LAW]:

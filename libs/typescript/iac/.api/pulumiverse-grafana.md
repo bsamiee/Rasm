@@ -2,7 +2,7 @@
 
 [PACKAGE_SURFACE]:
 - package: `@pulumiverse/grafana` · license `Apache-2.0`
-- module: CJS (`type: commonjs`); barrel `index.d.ts` re-exports `provider` flat, one `import * as ns` per resource namespace, plus `config` and `types`.
+- module: CJS (`type: commonjs`); barrel `index.d.ts` re-exports `provider` flat, one `import * as ns` per resource namespace, with `config` and `types`.
 - asset: `index.d.ts` (barrel), `provider.d.ts` (the `Provider` + `ProviderArgs`), one `.d.ts` per resource under each namespace folder (class + `Args` + `State`, or a `get*` data-source fn).
 - target: a Pulumi bridged provider (Terraform-bridge over the Grafana TF provider). JS package is the typed SDK ONLY; the `pulumi-resource-grafana` plugin binary is a deploy-host fact resolved by the Pulumi CLI / `LocalWorkspace.installPlugin` at `up` time — never a JS import.
 - plane: `plane:deploy` — the generated ban list scopes `@pulumi/*` and `@pulumiverse/*` to `iac` alone; depended on by nothing at runtime.
@@ -64,10 +64,10 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 
 ## [03]-[NAMESPACE_ROSTER]
 
-Resource namespaces plus `types` and `config` are SEED DATA on the [02] pattern; a new namespace is a new row, never a new mechanism. Telemetry consumers touch `oss`, `alerting`, and `slo` (rosters below); every other namespace is a prepared row a future capability finalizes.
+Resource namespaces with `types` and `config` are SEED DATA on the [02] pattern; a new namespace is a new row, never a new mechanism. Telemetry consumers touch `oss`, `alerting`, and `slo` (rosters below); every other namespace is a prepared row a future capability finalizes.
 
 [CONSUMED]: the three telemetry-touched namespaces and their resource rosters
-- [01]-`oss` (boards): `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `OrganizationPreferences`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `ServiceAccountRotatingToken`, `SsoSettings`, `Annotation`, plus a `<resource>Permission`/`<resource>PermissionItem` RBAC grant pair per dashboard, folder, and service account, and `get*` data sources.
+- [01]-`oss` (boards): `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `OrganizationPreferences`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `ServiceAccountRotatingToken`, `SsoSettings`, `Annotation`, with a `<resource>Permission`/`<resource>PermissionItem` RBAC grant pair per dashboard, folder, and service account, and `get*` data sources.
 - [02]-`alerting` (alerts): `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1`.
 - [03]-`slo` (SLOs): `SLO` + `getSlos`.
 
@@ -100,6 +100,6 @@ Resource namespaces plus `types` and `config` are SEED DATA on the [02] pattern;
 ## [05]-[RAIL_LAW]
 
 - Owns: the Grafana resource vocabulary (dashboards, folders, data sources, alert rule groups, contact points, notification policies, SLOs) as Pulumi `CustomResource` rows applied by the deploy plane.
-- Accept: one Doppler-sourced `Provider` per stack; resources fed LGTM-stack `Output<T>` URLs, not literals; construction inside the Automation-API inline program with `{ provider }` on every resource; `storeDashboardSha256` for content-hash drift.
-- Reject: an inline `auth` token (Doppler-canonical); authored `Pulumi.yaml` or dashboard-JSON files on disk (the `telemetry/board` functions emit the model); importing this package outside `iac` (banned by the generated scope list); a `get*` data source where a managed resource with `Output` wiring belongs.
+- Accept: one Doppler-sourced `Provider` per stack; resources fed LGTM-stack `Output<T>` URLs, not literals; construction inside the Automation-API inline program with `{ provider }` on every resource; `storeDashboardSha256` for content-hash drift; `oss.ServiceAccountRotatingToken` as the durable automation credential over an Editor-role account scoped by one `oss.FolderPermissionItem`; tenant scoping threaded as `orgId` (`Input<string>`) from the realized `oss.Organization`'s `orgId: Output<number>`.
+- Reject: an inline `auth` token (Doppler-canonical); authored `Pulumi.yaml` or dashboard-JSON files on disk (the `telemetry/board` functions emit the model); importing this package outside `iac` (banned by the generated scope list); a `get*` data source where a managed resource with `Output` wiring belongs; `alerting.AlertEnrichment` — a Grafana Cloud preview surface with no self-hosted OSS target.
 - Boundary: this is the typed SDK only — the `pulumi-resource-grafana` plugin binary is a deploy-host fact the Pulumi CLI installs; a bridged provider surfaces Grafana-API errors as `DiagnosticEvent`s in the engine stream, matched on `severity`, never on message text.

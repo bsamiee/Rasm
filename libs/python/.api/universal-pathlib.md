@@ -1,4 +1,4 @@
-# [PY_RUNTIME_API_UNIVERSAL_PATHLIB]
+# [PY_BRANCH_API_UNIVERSAL_PATHLIB]
 
 `universal-pathlib` supplies `UPath`: a `pathlib`-shaped path object over any fsspec backend built on the `pathlib_abc` `JoinablePath`/`ReadablePath`/`WritablePath` protocol stack. Protocol and `storage_options` resolve at construction so local, memory, S3, GCS, HTTP, zip, tar, ftp, sftp, smb, webdav, github, hdfs, and data-uri roots share one path API. A metaclass dispatches `UPath(url)` to the registered subclass for the detected protocol, `upath.registry` owns the protocol-to-class table, `upath.extensions.ProxyUPath` is the backend-agnostic extension base, and `UPath.__get_pydantic_core_schema__` makes any `UPath` a first-class pydantic field. It is the runtime path-object face over the fsspec filesystem surface owned by `libs/python/.api/fsspec.md`, with data-specific scan law carried by `libs/python/data/.api/fsspec.md`.
 
@@ -13,7 +13,7 @@
 - rail: resources
 - depends-on: `fsspec` (filesystem surface), `pathlib_abc` (`JoinablePath`/`ReadablePath`/`WritablePath` protocol stack); `pydantic`/`pydantic_core` are optional (schema hook is import-deferred), `s3fs`/`gcsfs`/`adlfs`/`paramiko`/`smbprotocol` are per-protocol extras pulled by the backend filesystem, not by `upath`.
 - namespaces: `upath`, `upath.registry`, `upath.extensions`, `upath.types`, `upath.implementations`
-- capability: fsspec-backed `pathlib`-shaped path objects with protocol/`storage_options` resolution at construction, metaclass protocol dispatch, a registry of protocol implementations, a `ProxyUPath` extension base, pydantic-core schema integration, and the modern `info`/`walk`/`copy`/`move` `pathlib_abc` surface
+- capability: fsspec-backed `pathlib`-shaped path objects with protocol/`storage_options` resolution at construction, metaclass protocol dispatch, a registry of protocol implementations, a `ProxyUPath` extension base, pydantic-core schema integration, and the `info`/`walk`/`copy`/`move` `pathlib_abc` surface
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -28,7 +28,7 @@
 
 [PUBLIC_TYPE_SCOPE]: protocol typing (`upath.types`)
 - rail: resources
-- The `pathlib_abc` protocol stack and the upath flavour duck-type; downstream code types path-like inputs as `JoinablePathLike` and the flavour as `UPathParser` rather than `str`/`Path`.
+- `pathlib_abc` protocol stack and the upath flavour duck-type; downstream code types path-like inputs as `JoinablePathLike` and the flavour as `UPathParser` rather than `str`/`Path`.
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [RAIL]                                                    |
 | :-----: | :------------------------------------- | :------------ | :-------------------------------------------------------- |
@@ -44,7 +44,7 @@
 
 [ENTRYPOINT_SCOPE]: construction and resolution; surfaces are `UPath.*` unless qualified
 - rail: resources
-- `UPath(*args, protocol=None, chain_parser=DEFAULT_CHAIN_PARSER, **storage_options)` detects the protocol from `args[0]` (or `protocol=`), parses inline url `storage_options`, and dispatches to the registered subclass; `args[0]` may be a `str`, a `UPath`, or any `__fspath__`/`__vfspath__` object. `protocol=`/`**storage_options` carry credentials and endpoints with the path value. `scheme=` is deprecated in favour of `protocol=`. The metaclass collapses `UPath(existing_upath)` to a copy.
+- `UPath(*args, protocol=None, chain_parser=DEFAULT_CHAIN_PARSER, **storage_options)` detects the protocol from `args[0]` (or `protocol=`), parses inline url `storage_options`, and dispatches to the registered subclass; `args[0]` may be a `str`, a `UPath`, or any `__fspath__`/`__vfspath__` object. `protocol=`/`**storage_options` carry credentials and endpoints with the path value. `scheme=` is deprecated in favour of `protocol=`. Metaclass dispatch collapses `UPath(existing_upath)` to a copy.
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                  |
 | :-----: | :----------------------------------------------- | :------------- | :------------------------------------------------------ |
@@ -59,7 +59,7 @@
 
 [ENTRYPOINT_SCOPE]: path arithmetic and traversal; surfaces are `UPath.*`
 - rail: resources
-- Path arithmetic (`/`, `joinpath`, `with_segments`, `with_name`/`with_stem`/`with_suffix`, `parent`/`parents`/`parts`) is backend-agnostic and identical across local and cloud roots. `joinuri` applies urljoin semantics (a fresh protocol short-circuits to a new `UPath`). `glob`/`rglob`/`walk` enumerate via `fs.glob`/`fs.listdir`; `case_sensitive`/`recurse_symlinks` are currently warned-and-ignored.
+- Path arithmetic (`/`, `joinpath`, `with_segments`, `with_name`/`with_stem`/`with_suffix`, `parent`/`parents`/`parts`) is backend-agnostic and identical across local and cloud roots. `joinuri` applies urljoin semantics (a fresh protocol short-circuits to a new `UPath`). `glob`/`rglob`/`walk` enumerate via `fs.glob`/`fs.listdir`; `case_sensitive`/`recurse_symlinks` are warned-and-ignored.
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                        |
 | :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------- |
@@ -75,7 +75,7 @@
 
 [ENTRYPOINT_SCOPE]: byte access and mutation; surfaces are `UPath.*`
 - rail: resources
-- `open`/`read_bytes`/`read_text`/`write_bytes`/`write_text` route to `fs.open(self.path, ...)`; `buffering` maps to the fsspec `block_size`, and extra `**fsspec_kwargs` pass through to the backend open. `stat`/`exists`/`is_file`/`is_dir`/`is_symlink` route to `fs.info`/`fs.exists`/`fs.isdir`; `follow_symlinks=False` is warned-and-ignored. `copy`/`copy_into`/`move`/`move_into` are the modern `pathlib_abc` transfer surface (`copy` streams via `_copy_from`, `move` = copy then `fs.rm`).
+- `open`/`read_bytes`/`read_text`/`write_bytes`/`write_text` route to `fs.open(self.path, ...)`; `buffering` maps to the fsspec `block_size`, and extra `**fsspec_kwargs` pass through to the backend open. `stat`/`exists`/`is_file`/`is_dir`/`is_symlink` route to `fs.info`/`fs.exists`/`fs.isdir`; `follow_symlinks=False` is warned-and-ignored. `copy`/`copy_into`/`move`/`move_into` are the `pathlib_abc` transfer surface (`copy` streams via `_copy_from`, `move` = copy then `fs.rm`).
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                    |
 | :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------- |
@@ -92,7 +92,7 @@
 
 [ENTRYPOINT_SCOPE]: registry and extension (`upath.registry`, `upath.extensions`)
 - rail: resources
-- The registry is a `ChainMap` over `_Registry.known_implementations` (the protocol-to-FQN table); a protocol resolves to a `UPath` subclass lazily, and an unregistered-but-fsspec-known protocol falls back to a dynamically generated `_<Proto>Path` (with a `UserWarning`). `ProxyUPath` wraps a `UPath` in `__wrapped__`, mirrors the full path interface returning `Self`, and is virtually registered (`UPath.register(ProxyUPath)`) so `isinstance(proxy, UPath)` holds; it supersedes the deprecated `_protocol_dispatch = False` subclassing route.
+- `upath.registry` holds a `ChainMap` over `_Registry.known_implementations` (the protocol-to-FQN table); a protocol resolves to a `UPath` subclass lazily, and an unregistered-but-fsspec-known protocol falls back to a dynamically generated `_<Proto>Path` (with a `UserWarning`). `ProxyUPath` wraps a `UPath` in `__wrapped__`, mirrors the full path interface returning `Self`, and is virtually registered (`UPath.register(ProxyUPath)`) so `isinstance(proxy, UPath)` holds; it supersedes the deprecated `_protocol_dispatch = False` subclassing route.
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                  |
 | :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
@@ -106,8 +106,8 @@
 
 [RESOURCES_TOPOLOGY]:
 - path law: a resource reference is one `UPath` carrying its protocol and `storage_options`; path arithmetic (`/`, `joinpath`, `with_segments`, `glob`, `walk`) is backend-agnostic and the same code serves local, memory, zip, and cloud roots. No per-scheme `os.path`/`Path` branching.
-- dispatch law: protocol selection is the `_UPathMeta` metaclass plus `upath.registry`; `UPath(url)` resolves the subclass once at construction. A new backend is one `register_implementation` entry or a `universal_pathlib.implementations` entry-point, never a hand-rolled scheme switch in the consumer.
-- resolution law: `UPath.fs` is the cached fsspec `AbstractFileSystem`; the filesystem surface and dispatch law arrive settled from `libs/python/.api/fsspec.md`, with data-specific DuckDB registration captured by `libs/python/data/.api/fsspec.md`. `UPath` is the path face, fsspec is the filesystem face — one backend, two views. The cloud backends (`s3fs`/`gcsfs`) are reached only through their protocol, never instantiated alongside the path.
+- dispatch law: protocol selection is the `_UPathMeta` metaclass with `upath.registry`; `UPath(url)` resolves the subclass once at construction. A new backend is one `register_implementation` entry or a `universal_pathlib.implementations` entry-point, never a hand-rolled scheme switch in the consumer.
+- resolution law: `UPath.fs` is the cached fsspec `AbstractFileSystem`; the filesystem surface and dispatch law arrive settled from `libs/python/.api/fsspec.md`, with data-specific DuckDB registration captured by `libs/python/data/.api/fsspec.md`. `UPath` is the path face, fsspec is the filesystem face — one backend, two views. Cloud backends (`s3fs`/`gcsfs`) are reached only through their protocol, never instantiated alongside the path.
 - option law: `protocol=`/`storage_options` resolution at construction is load-bearing; credentials and endpoints travel with the path value as a read-only `MappingProxyType`, never a separate global filesystem handle. Inline url query parameters fold into `storage_options` via `_parse_storage_options`.
 - info law: filesystem metadata is one `UPath.info` (`PathInfo`) backed by a single `fs.info` call, not repeated `exists`/`is_dir`/`stat` round-trips; type predicates and `stat` reuse the same backend info.
 - transfer law: cross-root copies use `copy`/`move`/`copy_into`/`move_into`; cross-protocol transfer streams through `_copy_from` (`vfsopen` read/write), never a backend-specific bulk client the consumer must select.

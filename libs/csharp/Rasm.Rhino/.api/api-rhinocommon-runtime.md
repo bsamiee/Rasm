@@ -16,26 +16,26 @@
 [PUBLIC_TYPE_SCOPE]: host environment and platform services
 - rail: host
 
-| [INDEX] | [SYMBOL]                     | [KIND]    | [CAPABILITY]                                                                |
-| :-----: | :--------------------------- | :-------- | :------------------------------------------------------------------------- |
-|  [01]   | `HostUtils`                  | static    | runtime environment, assembly loading, named callbacks, compute endpoints  |
-|  [02]   | `Interop`                    | static    | managed-handle to native-pointer marshal seam across every host type       |
-|  [03]   | `AssemblyResolver`           | static    | search-folder/search-file assembly resolution hooks                        |
-|  [04]   | `IPlatformServiceLocator`    | interface | platform-service provider `HostUtils.GetPlatformService<T>` resolves        |
-|  [05]   | `IShrinkWrapService`         | interface | shrink-wrap mesh service contract resolved through the locator             |
-|  [06]   | `IZooClientUtilities`        | interface | Zoo network-license client-utility service contract                        |
-|  [07]   | `CommonObject`               | class     | abstract const/non-const native-lifetime base for geometry and doc handles |
-|  [08]   | `RiskyAction`                | class     | disposable caller-scoped guard bracketing a native call that may fault     |
-|  [09]   | `NamedParametersEventArgs`   | class     | disposable typed named-parameter dictionary for host named callbacks       |
-|  [10]   | `Mode`                       | enum      | runtime execution mode (`NormalMode`/`ViewerMode`/`BetaMode`)              |
-|  [11]   | `AdvancedSetting`            | enum      | advanced-settings key vocabulary for `HostUtils` advanced reads           |
-|  [12]   | `ImportOptionsSections`      | enum      | options-dialog section discriminant for import-options routing            |
-|  [13]   | `HostUtils.LogMessageType`   | enum      | cloud log-message severity (`information`/`warning`/`error`/`assert`)      |
+| [INDEX] | [SYMBOL]                   | [KIND]    | [CAPABILITY]                                                                    |
+| :-----: | :------------------------- | :-------- | :------------------------------------------------------------------------------ |
+|  [01]   | `HostUtils`                | static    | runtime environment, assembly loading, named callbacks, compute endpoints       |
+|  [02]   | `Interop`                  | static    | managed-handle to native-pointer marshal seam across every host type            |
+|  [03]   | `AssemblyResolver`         | static    | search-folder/search-file assembly resolution hooks                             |
+|  [04]   | `IPlatformServiceLocator`  | interface | platform-service provider `HostUtils.GetPlatformService<T>` resolves            |
+|  [05]   | `IShrinkWrapService`       | interface | shrink-wrap mesh service contract resolved through the locator                  |
+|  [06]   | `IZooClientUtilities`      | interface | Zoo network-license client-utility service contract                             |
+|  [07]   | `CommonObject`             | class     | abstract const/non-const native-lifetime base for geometry and doc handles      |
+|  [08]   | `RiskyAction`              | class     | disposable caller-scoped guard bracketing a native call that may fault          |
+|  [09]   | `NamedParametersEventArgs` | class     | disposable typed named-parameter dictionary for host named callbacks            |
+|  [10]   | `Mode`                     | enum      | runtime execution mode (`NormalMode`/`ViewerMode`/`BetaMode`)                   |
+|  [11]   | `AdvancedSetting`          | enum      | advanced-settings key vocabulary for `HostUtils` advanced reads                 |
+|  [12]   | `ImportOptionsSections`    | enum      | options-dialog section discriminant for import-options routing                  |
+|  [13]   | `HostUtils.LogMessageType` | enum      | cloud log-message severity (`unknown`/`information`/`warning`/`error`/`assert`) |
 
 [PUBLIC_TYPE_SCOPE]: scripting, skin, capture, and licensing
 - rail: host
 
-| [INDEX] | [SYMBOL]                       | [KIND] | [CAPABILITY]                                                              |
+| [INDEX] | [SYMBOL]                       | [KIND] | [CAPABILITY]                                                             |
 | :-----: | :----------------------------- | :----- | :----------------------------------------------------------------------- |
 |  [01]   | `PythonScript`                 | class  | abstract Python host — compile, variable scope, execute, evaluate        |
 |  [02]   | `PythonCompiledCode`           | class  | abstract compiled-script handle executed against a `PythonScript` scope  |
@@ -55,61 +55,61 @@
 [PUBLIC_TYPE_SCOPE]: in-process host boot (`Rhino.Runtime.InProcess`)
 - rail: host
 
-| [INDEX] | [SYMBOL]          | [KIND] | [CAPABILITY]                                                             |
-| :-----: | :---------------- | :----- | :---------------------------------------------------------------------- |
-|  [01]   | `RhinoCore`       | class  | disposable in-process headless Rhino boot with host-context marshalling |
-|  [02]   | `Interop`         | static | `StartupInProcess`/`LaunchInProcess` native startup extern surface      |
-|  [03]   | `Interop.HRESULT` | static | native `S_OK`/`E_*` result constants                                    |
-|  [04]   | `Interop.StartupInfo` | struct | Win32 `STARTUPINFO` mirror passed into `StartupInProcess`            |
-|  [05]   | `WindowStyle`     | enum   | boot window style (`NoWindow`/`Normal`/`Hidden`/`Minimized`/`Maximized`) |
-|  [06]   | `StartupOrigin`   | enum   | boot origin (`NotStarted`/`Application`/`Library`)                       |
+| [INDEX] | [SYMBOL]              | [KIND] | [CAPABILITY]                                                             |
+| :-----: | :-------------------- | :----- | :----------------------------------------------------------------------- |
+|  [01]   | `RhinoCore`           | class  | disposable in-process headless Rhino boot with host-context marshalling  |
+|  [02]   | `Interop`             | static | `StartupInProcess`/`LaunchInProcess` native startup extern surface       |
+|  [03]   | `Interop.HRESULT`     | static | native `S_OK`/`E_*` result constants                                     |
+|  [04]   | `Interop.StartupInfo` | struct | Win32 `STARTUPINFO` mirror passed into `StartupInProcess`                |
+|  [05]   | `WindowStyle`         | enum   | boot window style (`NoWindow`/`Normal`/`Hidden`/`Minimized`/`Maximized`) |
+|  [06]   | `StartupOrigin`       | enum   | boot origin (`NotStarted`/`Application`/`Library`)                       |
 
 [PUBLIC_TYPE_SCOPE]: native marshal family (`Rhino.Runtime.InteropWrappers`)
 - rail: host
 
 `SimpleArray*` and `StdVector*` are the disposable managed↔native array bridges every host P/Invoke threads geometry, primitive, and pointer collections through; each holds a `ConstPointer()`/`NonConstPointer()` pair, admits `Add`, and materializes a managed `ToArray()`. `StringHolder`/`StringWrapper` bridge native `ON_wString` text, `ClassArray*` bridge managed reference collections, and the value structs carry native measurement payloads.
 
-| [INDEX] | [SYMBOL]                | [KIND]  | [CAPABILITY]                                                        |
-| :-----: | :---------------------- | :------ | :----------------------------------------------------------------- |
-|  [01]   | `SimpleArray<T>` family | class   | disposable primitive/geometry/pointer native-array marshal bridges |
-|  [02]   | `StdVector<T>` family   | class   | disposable `std::vector` marshal bridges                           |
-|  [03]   | `ClassArrayString`      | class   | disposable native string-array bridge                              |
-|  [04]   | `ClassArrayObjRef`      | class   | disposable native `ObjRef`-array bridge                            |
-|  [05]   | `ClassArrayOnObjRef`    | class   | disposable native `ON_ObjRef`-array bridge                         |
-|  [06]   | `StringHolder`          | class   | disposable native `ON_wString` reader                              |
-|  [07]   | `StringWrapper`         | class   | disposable read/write native `ON_wString` bridge                   |
-|  [08]   | `CurveSegment`          | struct  | curve-region segment (`Index`/`SubDomain`/`Reversed`)              |
-|  [09]   | `MeshPointDataStruct`   | struct  | native mesh-point evaluation payload                               |
-|  [10]   | `RhDisplayPoint`        | struct  | native display-point marshal payload                               |
+| [INDEX] | [SYMBOL]                | [KIND] | [CAPABILITY]                                                       |
+| :-----: | :---------------------- | :----- | :----------------------------------------------------------------- |
+|  [01]   | `SimpleArray<T>` family | class  | disposable primitive/geometry/pointer native-array marshal bridges |
+|  [02]   | `StdVector<T>` family   | class  | disposable `std::vector` marshal bridges                           |
+|  [03]   | `ClassArrayString`      | class  | disposable native string-array bridge                              |
+|  [04]   | `ClassArrayObjRef`      | class  | disposable native `ObjRef`-array bridge                            |
+|  [05]   | `ClassArrayOnObjRef`    | class  | disposable native `ON_ObjRef`-array bridge                         |
+|  [06]   | `StringHolder`          | class  | disposable native `ON_wString` reader                              |
+|  [07]   | `StringWrapper`         | class  | disposable read/write native `ON_wString` bridge                   |
+|  [08]   | `CurveSegment`          | struct | curve-region segment (`Index`/`SubDomain`/`Reversed`)              |
+|  [09]   | `MeshPointDataStruct`   | struct | native mesh-point evaluation payload                               |
+|  [10]   | `RhDisplayPoint`        | struct | native display-point marshal payload                               |
 
 [PUBLIC_TYPE_SCOPE]: notifications and node-in-code
 - rail: host
 
-| [INDEX] | [SYMBOL]                       | [KIND]    | [CAPABILITY]                                                          |
-| :-----: | :----------------------------- | :-------- | :------------------------------------------------------------------- |
-|  [01]   | `Notifications.NotificationCenter` | static | application notification set observed by the host UI                 |
-|  [02]   | `Notifications.Notification`   | class     | assembly-restricted notification with modal show/hide and metadata   |
-|  [03]   | `Notifications.NotificationButtonClickedArgs` | class | payload naming the notification and clicked `ButtonType`     |
-|  [04]   | `Notifications.ButtonType`     | enum      | notification button (`CancelOrClose`/`Confirm`/`Alternate`)         |
-|  [05]   | `Notifications.IAssemblyRestrictedObject` | interface | assembly-restriction contract guarding notification mutation |
-|  [06]   | `NodeInCode.Components`         | class     | abstract node-in-code component root exposing the function table     |
-|  [07]   | `NodeInCode.ComponentFunctionInfo` | class  | callable Grasshopper-component descriptor with typed IO metadata     |
-|  [08]   | `NodeInCode.NodeInCodeTable`   | class     | dynamic dispatch table of component functions keyed by full name     |
+| [INDEX] | [SYMBOL]                                      | [KIND]    | [CAPABILITY]                                                       |
+| :-----: | :-------------------------------------------- | :-------- | :----------------------------------------------------------------- |
+|  [01]   | `Notifications.NotificationCenter`            | static    | application notification set observed by the host UI               |
+|  [02]   | `Notifications.Notification`                  | class     | assembly-restricted notification with modal show/hide and metadata |
+|  [03]   | `Notifications.NotificationButtonClickedArgs` | class     | payload naming the notification and clicked `ButtonType`           |
+|  [04]   | `Notifications.ButtonType`                    | enum      | notification button (`CancelOrClose`/`Confirm`/`Alternate`)        |
+|  [05]   | `Notifications.IAssemblyRestrictedObject`     | interface | assembly-restriction contract guarding notification mutation       |
+|  [06]   | `NodeInCode.Components`                       | class     | abstract node-in-code component root exposing the function table   |
+|  [07]   | `NodeInCode.ComponentFunctionInfo`            | class     | callable Grasshopper-component descriptor with typed IO metadata   |
+|  [08]   | `NodeInCode.NodeInCodeTable`                  | class     | dynamic dispatch table of component functions keyed by full name   |
 
 [PUBLIC_TYPE_SCOPE]: account tokens (`Rhino.Runtime.RhinoAccounts`)
 - rail: host
 
-| [INDEX] | [SYMBOL]                  | [KIND]    | [CAPABILITY]                                                   |
-| :-----: | :------------------------ | :-------- | :------------------------------------------------------------- |
-|  [01]   | `RhinoAccountsManager`    | static    | secret-key-scoped OAuth2/OpenID token acquisition and revoke   |
-|  [02]   | `IRhinoAccountsManager`   | interface | accounts-manager service contract                             |
-|  [03]   | `IOAuth2Token`            | interface | OAuth2 access-token handle                                    |
-|  [04]   | `IOpenIDConnectToken`     | interface | OpenID Connect identity-token handle                         |
-|  [05]   | `SecretKey`               | class     | scoped secret-key capability handed to protected code         |
-|  [06]   | `RhinoAccountsGroup`      | class     | account group identity (`Id`/`Name`)                          |
-|  [07]   | `RhinoAccoountsProgressInfo` | class  | login-progress payload (host-misspelled type name)            |
-|  [08]   | `ProgressState`           | enum      | login progress (`AwaitingLogin`/`RetrievingTokens`/`Other`)   |
-|  [09]   | `RhinoAccountsException`  | class     | base of the accounts fault hierarchy                          |
+| [INDEX] | [SYMBOL]                     | [KIND]    | [CAPABILITY]                                                 |
+| :-----: | :--------------------------- | :-------- | :----------------------------------------------------------- |
+|  [01]   | `RhinoAccountsManager`       | static    | secret-key-scoped OAuth2/OpenID token acquisition and revoke |
+|  [02]   | `IRhinoAccountsManager`      | interface | accounts-manager service contract                            |
+|  [03]   | `IOAuth2Token`               | interface | OAuth2 access-token handle                                   |
+|  [04]   | `IOpenIDConnectToken`        | interface | OpenID Connect identity-token handle                         |
+|  [05]   | `SecretKey`                  | class     | scoped secret-key capability handed to protected code        |
+|  [06]   | `RhinoAccountsGroup`         | class     | account group identity (`Id`/`Name`)                         |
+|  [07]   | `RhinoAccoountsProgressInfo` | class     | login-progress payload (host-misspelled type name)           |
+|  [08]   | `ProgressState`              | enum      | login progress (`AwaitingLogin`/`RetrievingTokens`/`Other`)  |
+|  [09]   | `RhinoAccountsException`     | class     | base of the accounts fault hierarchy                         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -156,7 +156,7 @@
 [ENTRYPOINT_SCOPE]: skin, vector capture, and risky-call guard
 - rail: host
 
-- `Skin.ActiveSkin : Skin` — process skin singleton; `protected virtual MainRhinoIcon : Bitmap` / `ApplicationName : string`; the load-phase overrides `OnMainFrameWindowCreated`/`OnLicenseCheckCompleted`/`OnBuiltInCommandsRegistered`/`OnBeginLoadAtStartPlugIns(int expectedCount)`/`OnBeginLoadPlugIn(string description)`/`OnEndLoadPlugIn`/`OnEndLoadAtStartPlugIns`, plus `ShowSplash`/`HideSplash`/`ShowHelp`
+- `Skin.ActiveSkin : Skin` — process skin singleton; `protected virtual MainRhinoIcon : Bitmap` / `ApplicationName : string`; the load-phase overrides `OnMainFrameWindowCreated`/`OnLicenseCheckCompleted`/`OnBuiltInCommandsRegistered`/`OnBeginLoadAtStartPlugIns(int expectedCount)`/`OnBeginLoadPlugIn(string description)`/`OnEndLoadPlugIn`/`OnEndLoadAtStartPlugIns`, with `ShowSplash`/`HideSplash`/`ShowHelp`
 - `ViewCaptureWriter(double dpi, Size pageSize)` / `Draw(nint constPtrPrintInfo, RhinoDoc doc) : void` — subclass and override the `protected abstract` primitive sinks `DrawPath`/`DrawCircle`/`DrawRectangle`/`DrawBitmap`/`DrawScreenText`/`FillPolygon`/`SetClipPath`/`DrawGradientHatch`, with `SupportsArc()` gating arc primitives and nested `Pen`/`PathPoint`/`ViewCaptureBrush`/`PointType` carriers
 - `new RiskyAction(string description, [CallerFilePath] string file = "", [CallerMemberName] string member = "", [CallerLineNumber] int line = 0)` / `Dispose() : void` — brackets a native call that may fault so the host records provenance
 
@@ -207,7 +207,7 @@
 - `LanguageExt`(`libs/csharp/.api/api-languageext.md`): every `HostUtils`/`Interop` call returning a nullable handle or an out-`bool` folds to `Fin<A>`/`Option<A>` at the boundary, `NamedParametersEventArgs.TryGet<T>` out-parameters lift to `Option<A>`, and a host call raising `CorruptGeometryException`/`NotLicensedException`/`RdkNotLoadedException` wraps through `Try.lift(...).Run()` so exception control flow never enters domain code
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `Mode`, `LicenseTypes`, `Notifications.ButtonType`, `RhinoAccounts.ProgressState`, `InProcess.WindowStyle`, and `AdvancedSetting` map at the edge to keyed `SmartEnum` owners, and a plugin or product `Guid` handed to `RhinoAccountsManager` wraps as a `ValueObject<Guid>` so the bare host `Guid` never leaks
 - `Hashing`(`libs/csharp/.api/api-hashing.md`): a `CommonObject.ToJSON`/`FromBase64String` serialization projects into the `XxHash128` content key the persistence artifact index dedupes host objects on
-- `api-macos-native.md`: the in-process `RhinoCore.InvokeInHostContext` marshal composes the Rasm host main-thread rail rather than a bespoke dispatcher, and `ViewCaptureWriter` primitive sinks feed the kernel vector-drawing owner, never a host-side re-derivation
+- `api-macos-native.md`: in-process `RhinoCore.InvokeInHostContext` marshal composes the Rasm host main-thread rail rather than a bespoke dispatcher, and `ViewCaptureWriter` primitive sinks feed the kernel vector-drawing owner, never a host-side re-derivation
 
 [LOCAL_ADMISSION]:
 - native-pointer traffic enters through `Interop` and the `InteropWrappers` disposable family; a raw `nint` never appears in domain code, and every marshal wrapper is disposed on its owning scope

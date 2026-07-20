@@ -7,7 +7,7 @@
 [PACKAGE_SURFACE]: `@duckdb/duckdb-wasm`
 - package: `@duckdb/duckdb-wasm`
 - license: `MIT`
-- peer: `apache-arrow` (`../../ui/.api/apache-arrow.md`) — the result and ingest wire
+- peer: `apache-arrow` (`.api/apache-arrow.md`) — the result and ingest wire
 - runtime: browser Web Worker (`AsyncDuckDB` protocol over `postMessage`); the node row is `@duckdb/node-api` (`.api/duckdb-node-api.md`)
 - rail: `lane/olap` wasm row — no Effect peer; boundary-kernel wrap is the lane's
 
@@ -29,7 +29,7 @@
 
 [ENTRYPOINT_SCOPE]: scoped engine acquire, query, and ingest
 - rail: lane/olap
-- The engine acquires as `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)`; every read and ingest below is a `conn` member.
+- Engine acquisition runs `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)`; every read and ingest below is a `conn` member.
 
 | [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CONSUMER]                                          |
 | :-----: | :------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
@@ -46,7 +46,7 @@
 
 [INTEGRATION_LAW]:
 - Boundary-kernel wrap: instantiation and connections ride `Effect.acquireRelease` under `Scope`; queries lift through `Effect.tryPromise`; `send` batches lift to `Stream` at the lane seam.
-- Arrow is the wire (`../../ui/.api/apache-arrow.md`): `query()` results land as `arrow.Table` and flow to the viewer's geoarrow plane without row materialization; IPC-stream ingest mirrors it inbound.
+- Arrow is the wire (`.api/apache-arrow.md`): `query()` results land as `arrow.Table` and flow to the viewer's geoarrow plane without row materialization; IPC-stream ingest mirrors it inbound.
 - Deployment law: bundles self-host beside the app shell — `selectBundle` over owned artifact URLs; the CDN pattern is rejected by CSP.
 
 [LOCAL_ADMISSION]:
