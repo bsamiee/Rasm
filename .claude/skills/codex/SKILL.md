@@ -108,13 +108,13 @@ Before <anchor>, spawn exactly <N> parallel sub-agents with collaboration.spawn_
 
 ## [03]-[INVOCATION]
 
-Model and effort deviate by flag — `-m` in the CLI, `model` and `config` on the MCP tool; an unstated axis runs the config, and `-m gpt-5.6-terra` is the sole model deviation.
+Model and effort deviate by flag — `-m` in the CLI, `model` and `config` on the MCP tool; an unstated axis runs the config, and `-m gpt-5.6-terra` and `-m gpt-5.6-sol` are the model deviations.
 
 [MCP_SURFACE] — server `codex`, tools `codex` and `codex-reply`; the prompt rides a tool argument, no shell quoting:
 - `base-instructions` (MCP) / `model_instructions_file` (CLI) REPLACE the shipped system prompt — deliberate use only, never a lane-law channel.
 - MCP tool calls serialize within a lane; CLI lanes with native tools parallelize reads.
 - Nested lookups from INSIDE a codex turn pin to `get_latest_package_version`.
-- Parameters: `prompt`, `model`, `cwd`, `approval-policy`, `config` (object — effort deviates via `{"model_reasoning_effort": "..."}`), `developer-instructions`, `base-instructions`, `compact-prompt`. A headless dispatch passes `approval-policy: "never"`.
+- Parameters: `prompt`, `model`, `cwd`, `sandbox` (`read-only`|`workspace-write`|`danger-full-access` — a read lane pins `read-only`, a writing review lane `workspace-write`), `approval-policy`, `config` (object — effort deviates via `{"model_reasoning_effort": "..."}`), `developer-instructions`, `base-instructions`, `compact-prompt`. A headless dispatch passes `approval-policy: "never"`.
 - Result envelope `{threadId, content}`: parse `content` for the final message — a consumer treating the raw result as the product double-encodes every downstream read; `threadId` feeds `codex-reply` (`conversationId` is its deprecated alias).
 
 [DEFAULT_CLI]:
@@ -154,6 +154,7 @@ codex exec [-m <model>] [-c 'model_reasoning_effort="<tier>"'] [-c developer_ins
 - Default at `medium` covers menial file writes — api catalogs and their kin — over terra at any tier.
 - Default at `low` covers volume extraction and classification.
 - Terra at `medium` carries navigation, exploration, and research.
+- Sol (`gpt-5.6-sol`) carries the estate workflow relay lanes — recon maps, censuses, write-review legs — pinned explicitly per call by the dispatching workflow.
 
 | [INDEX] | [TIER] | [SELECT]                             | [USE]                                                                                |
 | :-----: | :----- | :----------------------------------- | :----------------------------------------------------------------------------------- |

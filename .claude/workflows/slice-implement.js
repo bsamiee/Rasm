@@ -10,9 +10,18 @@ export const meta = {
         { title: 'Critique', detail: 'per-batch conformance and capability verification, repaired in place' },
         { title: 'Admit', detail: 'full admission chain per discovered missing package, single writer per central manifest' },
         { title: 'Compose', detail: 'conditional integration pass composing admitted packages into the batch fences' },
-        { title: 'Drain', detail: 'cross-folder row application per language tree and the cross tier, refute-first' },
-        { title: 'Census', detail: 'per-language closure census across manifest, catalogs, registries, and project manifests' },
-        { title: 'Redteam', detail: 'one terminal adversarial lane per language tree, acting on the closure census' },
+        {
+            title: 'Drain',
+            detail: 'cross-folder row application per language tree and the cross tier, refute-first; a terminal residual closer takes unrouted rows',
+        },
+        {
+            title: 'Census',
+            detail: 'per-language closure census: aggregate name sweeps across manifest, catalogs, registries, and project manifests',
+        },
+        {
+            title: 'Redteam',
+            detail: 'read-only finder fan over touched pages, then one terminal adversarial lane per language tree acting on census and findings',
+        },
         {
             title: 'Tests',
             detail: 'tests-estate build-out per language: _testkits, harness rails, root spine, gate to green',
@@ -31,8 +40,11 @@ const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and revie
 const STAGGER_MS = 1500;
 const STALL_MS = 900000; // delegated MCP legs and ground-up writers run many minutes without visible progress
 const BATCH_PAGES = 16; // page target for one implement batch — the writer fan-width knob
+const BATCH_LOC = 10000; // tonnage ceiling beside the page count — card-weighted realization holds more than a whole-page rebuild, but a batch of huge pages still overflows one writer
 const BATCH_OVERFLOW = 1.25; // a starved tail folds into its predecessor while the merge stays inside this multiple of the target
-const MAP_SECTIONS = ['FACTS', 'DEFECTS', 'CAPABILITY', 'RESEARCH', 'SEAMS', 'COVERAGE'];
+const FINDER_PAGES = 8; // touched pages per pre-redteam finder lane — the size-derived fan knob, language-agnostic
+const MAP_SECTIONS = ['FACTS', 'DEFECTS', 'CAPABILITY', 'DECLARATION', 'DOMAIN_GAPS', 'RESEARCH', 'SEAMS', 'COVERAGE'];
+const FIND_SECTIONS = ['FINDINGS', 'COVERAGE'];
 const TMAP_SECTIONS = ['FACTS', 'CAPABILITY', 'GAPS', 'DRIFT', 'SPINE', 'COVERAGE'];
 const CENSUS_SECTIONS = ['SURFACES', 'ORPHANS', 'DUPLICATES', 'UNEXPLOITED', 'COVERAGE'];
 const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
@@ -185,11 +197,12 @@ const UNITS = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['order', 'title', 'heavy', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
+                required: ['order', 'title', 'heavy', 'loc', 'cards', 'pages', 'anchors', 'packages', 'rippleSurface', 'blockers'],
                 properties: {
                     order: { type: 'integer' },
                     title: { type: 'string' },
                     heavy: { type: 'boolean' },
+                    loc: { type: 'integer' },
                     cards: { type: 'array', items: { type: 'string' } },
                     pages: { type: 'array', items: { type: 'string' } },
                     anchors: { type: 'array', items: { type: 'string' } },
@@ -292,13 +305,14 @@ const ADMITR = {
 const DRAINR = {
     type: 'object',
     additionalProperties: false,
-    required: ['language', 'ok', 'report', 'applied', 'residualRows', 'headline', 'failure'],
+    required: ['language', 'ok', 'report', 'applied', 'residualRows', 'unreached', 'headline', 'failure'],
     properties: {
         language: { type: 'string' },
         ok: { type: 'boolean' },
         report: { type: 'string' },
         applied: { type: 'integer' },
         residualRows: { type: 'array', items: { type: 'string' } },
+        unreached: { type: 'array', items: { type: 'string' } },
         headline: { type: 'string' },
         failure: { type: 'string' },
     },
@@ -307,12 +321,13 @@ const DRAINR = {
 const REDTEAMR = {
     type: 'object',
     additionalProperties: false,
-    required: ['language', 'ok', 'report', 'filesTouched', 'defectsFixed', 'cardsReopened', 'residualRows', 'headline', 'failure'],
+    required: ['language', 'ok', 'report', 'filesTouched', 'armed', 'defectsFixed', 'cardsReopened', 'residualRows', 'headline', 'failure'],
     properties: {
         language: { type: 'string' },
         ok: { type: 'boolean' },
         report: { type: 'string' },
         filesTouched: { type: 'array', items: { type: 'string' } },
+        armed: { type: 'array', items: { type: 'string' } },
         defectsFixed: { type: 'integer' },
         cardsReopened: { type: 'integer' },
         residualRows: { type: 'array', items: { type: 'string' } },
@@ -324,12 +339,13 @@ const REDTEAMR = {
 const TESTSR = {
     type: 'object',
     additionalProperties: false,
-    required: ['language', 'ok', 'report', 'filesTouched', 'gate', 'gateClean', 'residualRows', 'headline', 'failure'],
+    required: ['language', 'ok', 'report', 'filesTouched', 'armed', 'gate', 'gateClean', 'residualRows', 'headline', 'failure'],
     properties: {
         language: { type: 'string' },
         ok: { type: 'boolean' },
         report: { type: 'string' },
         filesTouched: { type: 'array', items: { type: 'string' } },
+        armed: { type: 'array', items: { type: 'string' } },
         gate: { type: 'string' },
         gateClean: { type: 'boolean' },
         residualRows: { type: 'array', items: { type: 'string' } },
@@ -434,32 +450,54 @@ const TESTKIT_LAW =
     REPO +
     '/tests/README.md first and execute tests-INFRASTRUCTURE ripples only — root spine, _testkits, imports — never test authoring.';
 
-const MAP_LAW =
-    '<role>\nYou are a read-only recon mapper for one work batch of the Rasm planning corpus.\nTreat the task-listed batch pages and the ' +
+const DEPTH_LAW =
+    'DEPTH: the card is the FLOOR of the unit, the theme its boundary. Within the batch pages, depth is unbounded — replace naivety on ' +
+    'both axes, collapse flat and parallel code into the owning algebra, stack BOTH .api tiers AND the lower-strata owners the page ' +
+    'composes to operator depth (an owner re-deriving what a lower-stratum owner or an admitted package provides is flat code collapsed ' +
+    'into composition), and extend the owner beyond card scope where the page concept plainly admits it — as if the capability had been ' +
+    'there from the start. Non-theme cards on shared files stay byte-untouched.';
+
+const TRIPWIRE =
+    ' TRIPWIRE: a pass whose diff maps one-to-one onto the map rows has failed — the map covers a minority of what the work demands, and ' +
+    'the majority of your diff comes from your own attack.';
+
+const NATIVE_DISCIPLINE =
+    'WORK DISCIPLINE: a stable input — doctrine, map, receipt, catalog — is read ONCE in large windows (400+ lines per command), never ' +
+    '200-line paging, and re-opened only at the exact span behind an edit. Work item by item: derive one item, land its edits, advance — ' +
+    'edits land as derived and never pool toward the end; your context compacts on a long lane, and a fact left only in context is lost. ' +
+    'One verification pass per file after its LAST edit, never between edits. Budget: at most 250 tool calls; at the budget, land what is ' +
+    'derived and record the remainder honestly in residuals.';
+'<role>\nYou are a read-only recon mapper for one work batch of the Rasm planning corpus.\nTreat the task-listed batch pages and the ' +
     'required owner, catalog, and seam sources below as read territory.\nEdit nothing.\nRun no git command.\n</role>\n\n' +
     '<completion_bar>\nDone requires one complete markdown map as the final message.\nObservable completion requires every output-contract ' +
     'section in order, an on-disk source and anchor for every settled row, and [COVERAGE] accounting for every required read.\nThe map is ' +
-    'the whole verified substrate the writer consumes: a writer holding it re-derives no fact and re-opens no catalog.\nEvery [CAPABILITY] ' +
-    'row carries the exact transcribed declaration of its member.\nPlace every unverified member, page, claim, or seam in [COVERAGE] with ' +
-    'the failed probe.\nExclude unverified claims from settled sections.\n</completion_bar>\n\n' +
-    '<context_gathering>\nRead fully through EOF in this order:\n1. Every batch page the task lists.\n2. Each batch page folder README.md ' +
-    'and ARCHITECTURE.md.\n3. Each named package .api catalog, folder tier first and language-root tier second.\n4. Only the anchors ' +
+    'the whole verified substrate the writer consumes: a writer holding it re-derives no fact and re-opens no catalog.\nPlace every ' +
+    'unverified member, page, claim, or seam in [COVERAGE] with the failed probe.\nExclude unverified claims from settled ' +
+    'sections.\n</completion_bar>\n\n' +
+    '<context_gathering>\nRead fully through EOF in this order:\n1. Every batch page the task lists.\n2. The OWNING PACKAGE root ' +
+    'README.md and ARCHITECTURE.md of the batch pages — one pair per package, never a per-sub-folder probe.\n3. Each named package .api ' +
+    'catalog, folder tier first and language-root tier second.\n4. Only the anchors ' +
     'explicitly named at each seam-counterpart page.\n\nTreat explicit seam references as the only authority for expanding beyond the ' +
-    'batch.\nDo not follow inferred counterparts or adjacent pages.\nTranscribe each catalog declaration you cite at the point of reading; ' +
-    'a member recorded as a bare name costs a second read the budget does not carry.\nRecord an absent task-named or required path in ' +
-    '[COVERAGE] with its absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nCount a row ' +
+    'batch.\nDo not follow inferred counterparts or adjacent pages.\nThe doctrine corpus under docs/stacks is the writer read, never ' +
+    'this lane — do not list, probe, or account for it.\nRecord an absent task-named or card-named path in [COVERAGE] with its absolute ' +
+    'attempted path and filesystem probe; an enumerated speculative path earns no row.\nDo not substitute a likely path for a missing ' +
+    'path.\nCount a row ' +
     'under a batch page terminal [RESEARCH] section as live when it remains on disk without an explicit resolved, closed, or removed ' +
     'marker.\nRecord a required research field absent from its source as "missing on disk".\nUse at most 110 tool calls across discovery ' +
     'and verification.\nCount every tool invocation against the single budget.\nRead in small batches that preserve complete output.\nDo ' +
     'not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor and every transcribed declaration ' +
     'during verification.\nStop discovery when the map is complete.\nWhen the remaining budget is required for verification, route ' +
     'unresolved discovery to [COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
-    '<verification>\nRe-open every source anchor cited by a settled row.\nRe-check every cited member against both applicable .api tiers ' +
-    'by exact textual spelling.\nRe-open the catalog row behind every [CAPABILITY] declaration and confirm the transcription character for ' +
-    'character across owning type, member name, generic parameters, every parameter name and type, and the return type.\nTreat a ' +
-    '[CAPABILITY] row carrying a bare member name, a catalog heading, or a paraphrased declaration as an incomplete-signature defect: ' +
-    'complete it from the catalog or move it to [COVERAGE] as unverified.\nTreat a substring, fuzzy match, or paraphrase as unverified.\n' +
-    'Classify a cited member absent from both .api tiers as a phantom in [DEFECTS].\nExclude every phantom from [FACTS] and ' +
+    '<verification>\nRe-open every source anchor cited by a settled row.\nRe-check every cited member by exact textual spelling against ' +
+    'the tier its row cites; consult the second tier only when the cited tier does not carry the member.\nRe-open the catalog row behind ' +
+    'every fully-transcribed [CAPABILITY] declaration and confirm it character for character across owning type, member name, generic ' +
+    'parameters, every parameter name and type, and the return type; a present-at row is confirmed by re-opening its cited anchor and ' +
+    'matching the member name only.\nTreat a substring, fuzzy match, or paraphrase as unverified.\n' +
+    'MEMBER TRUTH ROUTES BY OWNER: a member owned by an EXTERNAL admitted package verifies against the two .api tiers; a member owned by ' +
+    'a sibling Rasm package (a Rasm.*, @rasm/*, or rasm.* type — absent from every .api catalog by the two-tier law) verifies against the ' +
+    'owning package design pages and its ARCHITECTURE.md [SEAMS] edge; a missing .api catalog for a Rasm package is never phantom ' +
+    'evidence.\nClassify a cited EXTERNAL member absent from both .api tiers, or a cited Rasm member absent from its owning page fence, ' +
+    'as a phantom in [DEFECTS].\nExclude every phantom from [FACTS] and ' +
     '[CAPABILITY].\nVerify each absence claim against the complete census boundary named by its row.\nAdmit a seam to [SEAMS] only when ' +
     'both endpoints, the kind, and the label re-confirm on disk.\nRoute a one-ended or mismatched seam to [DEFECTS] and [COVERAGE].\n' +
     'Remove any settled row whose evidence fails re-confirmation.\nRecord the removed claim and failed probe in [COVERAGE].\n' +
@@ -469,31 +507,52 @@ const MAP_LAW =
     '## [FACTS]\nUse one "- " row per page capability composed by a fence.\nShape each row as: page: <absolute path> | anchor: <symbol or ' +
     'heading> | owner: <owner> | fence: <fence identifier> | fact: <verified capability>.\n\n' +
     '## [DEFECTS]\nUse one "- " row per verified defect.\nAdmit these classes: facade, seam mirror missing, seam mirror mismatched, ' +
-    'registry drift, phantom member, stale card claim.\nShape each row as: class: <class> | source: <absolute path and anchor> | evidence: ' +
+    'registry drift, phantom member, stale card claim, catalog under-specified, research-section rot.\nA catalog under-specified row is ' +
+    'one row per CATALOG recording batch-composed members at heading depth, naming the catalog and the package.\nShape each row as: ' +
+    'class: <class> | source: <absolute path and anchor> | evidence: ' +
     '<observed mismatch> | law: <violated planning law>.\nName the defect and its law.\nDo not state resulting code or remediation.\n\n' +
-    '## [CAPABILITY]\nUse one "- " row per .api member the batch composes or should compose.\nSet status "required" when a batch card, ' +
-    'anchor, or package names the member, and "unexploited" when the batch concept admits the member and no batch-page fence composes ' +
-    'it.\nShape each row as: status: required|unexploited | member: <exact name> | owner: <declaring type or module> | signature: ' +
-    '<complete declaration transcribed from the catalog, carrying generic parameters, every parameter name and type, and the return type> ' +
+    '## [CAPABILITY]\nThis section is the writer compose queue; a member the batch pages will realize belongs here, never in ' +
+    '[COVERAGE].\nUse one "- " row per .api member the batch composes or should compose.\nSet status "required" when a batch-page fence ' +
+    'composes the member, when a batch card, anchor, or package names it, or when a card realization will compose it (the card targets a ' +
+    'concept the member owns).\nSet status "shallow" when a fence composes the member below the family depth its surface carries — one ' +
+    'call where the surface carries a family, a default-arg call where the policy axis matters, a scalar use of a batch or stream ' +
+    'member.\nSet status "unexploited" when the batch concept admits the member and no required row carries it.\nShape each row as: ' +
+    'status: required|shallow|unexploited | member: <exact name> | owner: <declaring type or module> | signature: ' +
+    '<complete declaration transcribed from the catalog, carrying generic parameters, every parameter name and type, and the return type ' +
+    '— OR "present-at: <catalog path and anchor>" when the member is confirmed on disk but the budget did not allow full transcription> ' +
     '| catalog: <absolute .api path and anchor> | tier: folder|language-root | admitted-by: <absolute batch-page path and anchor, or the ' +
-    'card naming it> | absence-boundary: <fences checked, unexploited rows only>.\nTranscribe each declaration exactly as its catalog ' +
-    'states it.\nA row without a complete signature is a defect, not a row.\n\n' +
-    '## [RESEARCH]\nUse one "- " row per live row under any batch page terminal [RESEARCH] section.\nShape each row as: page: <absolute ' +
-    'path> | anchor: <row anchor> | question: <source text> | route: <source text or "missing on disk">.\n\n' +
+    'card naming it>.\nTranscribe each declaration exactly as its catalog states it; a member the budget cannot fully transcribe still ' +
+    'lands as a row carrying its verified present-at anchor — never dropped to [COVERAGE], where it reads as unverifiable.\nState the ' +
+    'absence boundary once at the section head — the fences and owners checked to ground the shallow and unexploited rows — never per ' +
+    'row.\nAn empty section states its cause: "- none: batch composes only page-owned members" or the catalog under-specified [DEFECTS] ' +
+    'row that explains it.\n\n' +
+    '## [DECLARATION]\nUse one "- " row per batch page.\nShape each row as: page: <absolute path> | namespace: <the namespace or module ' +
+    'its owners declare> | imports: <the exact spelling of every namespace, alias, or extern-alias its fences import> | stratum: <the ' +
+    'stratum the page sits in with the direction its dependencies run>.\nA writer that must rediscover a namespace spells it wrong or ' +
+    'invents a parallel one.\n\n' +
+    '## [DOMAIN_GAPS]\nUse one "- " row per batch page carrying a verified gap.\nShape each row as: page: <absolute path> | gap: <the ' +
+    'attributes, sub-kinds, states, relationships, or operations the real concept demands that the page omits, named as gaps, never as ' +
+    'designs> | ground: <the domain or catalog fact proving the demand>.\n\n' +
+    '## [RESEARCH]\nUse one "- " row per live row under any batch page terminal [RESEARCH] section that is an OPEN QUESTION with a ' +
+    'route.\nShape each row as: page: <absolute ' +
+    'path> | anchor: <row anchor> | question: <source text> | route: <source text or "missing on disk">.\nA routeless row of settled ' +
+    'design narration is never mirrored here — it lands as one research-section rot row in [DEFECTS] naming the page and anchor.\n\n' +
     '## [SEAMS]\nUse one "- " row per verified cross-folder or cross-language seam.\nShape each row as: endpoint-a: <absolute path and ' +
     'anchor> | endpoint-b: <absolute path and anchor> | kind: <exact disk spelling> | label: <exact disk spelling>.\n\n' +
-    '## [COVERAGE]\nUse one "- " row per file read, file skipped, or entry left unverified.\nShape each row as: status: read|skipped|' +
-    'unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
+    '## [COVERAGE]\nOpen with one lead line "read: N sources fully".\nThen use one "- " row per file SKIPPED, entry left UNVERIFIED, or ' +
+    'card-named path ABSENT — the exceptions a consumer acts on; never a row for a clean full read.\nWhen a package names no catalog at ' +
+    'either tier, record ONE row naming the package and both probed tier paths, never a row per member.\nShape each row as: status: ' +
+    'skipped|unverified|absent | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
     'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
 const GUIDE_LAW =
     '<role>\nYou are a blocker-resolution researcher for one BLOCKED planning card.\nTreat the repo and the verification routes named by the ' +
-    'task as read territory.\nEdit nothing.\nRun no git command.\nPropose no code.\n</role>\n\n' +
+    'task as read territory.\nEdit nothing.\nRun no git command.\n</role>\n\n' +
     '<completion_bar>\nDone requires one guidance section resolving the blocker into decision inputs.\nObservable completion requires every ' +
     'output-contract heading in order, one supported verdict, an evidence-backed answer for every route question, and a source for every ' +
     'decision-critical fact.\nPreserve exact member spellings.\nName the decision the unblocking writer must take and the verified ' +
     'constraints that determine it.\nKeep guidance at the level of facts, constraints, and decision boundaries.\nPlace every unverified ' +
-    'fact under [UNRESOLVED] with the exact failed probe.\nInclude no fence, snippet, or proposed declaration.\n</completion_bar>\n\n' +
+    'fact under [UNRESOLVED] with the exact failed probe.\n</completion_bar>\n\n' +
     '<context_gathering>\nRead or execute the required evidence in this order:\n1. Read the blocked card and every page it anchors fully ' +
     'through EOF.\n2. Follow each route named by the task.\n3. Follow only the evidence dependencies required to answer that route.\n\n' +
     'For a .api route, read the applicable catalog entry in context and preserve its exact spelling.\nFor an assay route, run the exact ' +
@@ -502,16 +561,20 @@ const GUIDE_LAW =
     'anchor.\nTreat verified route evidence as authority for member and external-API facts.\nTreat the planning card as authority for the ' +
     'decision it requires.\nWhen two sources governing the same fact conflict, record both under [UNRESOLVED].\nDo not select a preferred ' +
     'value without route evidence establishing precedence.\nRecord a missing path, unavailable document, blocked network request, or failed ' +
-    'assay target as an exact failed probe.\nDo not substitute an inferred route for a missing named route.\nUse at most 40 tool calls ' +
+    'assay target as an exact failed probe.\nWhen a named route fails STRUCTURALLY (a missing tool key, an absent file, an unregistered ' +
+    'source), one DOCUMENTED adjacent route is in scope: a route the repo memory index, the tool own --help, or the owning catalog ' +
+    'records for the same fact — record the substitution in [FACTS]; an invented route stays out of scope.\nUse at most 40 tool calls ' +
     'across research and verification.\nCount every tool invocation against the single budget.\nStop research when every decision-critical ' +
     'route is answered or when the remaining uncertainty proves the blocker externally blocked.\nDo not broaden into adjacent design ' +
     'questions.\n</context_gathering>\n\n' +
     '<verification>\nRe-open every repo, catalog, seam-owner, and live-document source cited in the guidance.\nRe-run every decisive assay ' +
     'probe cited in the guidance.\nMatch every named member by exact textual spelling.\nTreat a substring, fuzzy result, or paraphrase as ' +
-    'unverified.\nVerify that every route question appears once under [ROUTE_ANSWERS].\nAssign RESOLVABLE only when every decision-critical ' +
-    'fact has route evidence.\nAssign EXTERNALLY-BLOCKED only when a decision-critical fact remains unavailable after every named route has ' +
-    'been attempted.\nSupport EXTERNALLY-BLOCKED with the exact failed probe and its observed result.\nRemove every fact that fails ' +
+    'unverified.\nVerify that every route question appears once under [ROUTE_ANSWERS].\nRemove every fact that fails ' +
     're-confirmation.\nMove the removed fact and failed probe to [UNRESOLVED].\n</verification>\n\n' +
+    '<decision_procedure>\nAssign RESOLVABLE only when every decision-critical ' +
+    'fact has route evidence.\nAssign EXTERNALLY-BLOCKED only when a decision-critical fact remains unavailable after every named route ' +
+    'and the documented adjacent route have been attempted, supported by the exact failed probe and its observed result.\nWhen two ' +
+    'sources governing one fact conflict, assign neither value and record both under [UNRESOLVED].\n</decision_procedure>\n\n' +
     '<output_contract>\nReturn one markdown section with nothing before or after it.\nUse exactly these headings in this order.\nAdd no ' +
     'other H2 or H3 heading.\n\n## [BLOCKER] <card id>\n\n### [VERDICT]\nWrite one line in this shape: RESOLVABLE|EXTERNALLY-BLOCKED — ' +
     '<deciding fact> | source: <verification source>.\n\n### [FACTS]\nUse one "- " row per verified fact.\nShape each row as: fact: ' +
@@ -521,7 +584,8 @@ const GUIDE_LAW =
     'per required decision input.\nShape each row as: decision: <decision the writer must take> | constraint: <verified determining ' +
     'constraint> | admitted boundary: <verified value or limit> | evidence: <verification source>.\nState facts and constraints.\nDo not ' +
     'state design, code, snippets, fences, or declarations.\n\n### [UNRESOLVED]\nUse one "- " row per unverified item.\nShape each row as: ' +
-    'item: <decision-critical fact> | probe: <exact failed probe> | result: <observed failure>.\nWrite "none" when every decision-critical ' +
+    'item: <decision-critical fact> | probe: <exact failed probe> | result: <observed failure>.\nIdentical probes over several members ' +
+    'collapse to ONE row carrying the member list.\nWrite "none" when every decision-critical ' +
     'fact is verified.\n</output_contract>';
 
 const CRIT_LAW =
@@ -529,11 +593,11 @@ const CRIT_LAW =
     'markdown design pages are the product, and their code fences carry the real, compilable design.\nYour write territory is exactly the ' +
     'territory the task names plus its IDEAS.md/TASKLOG.md card files.\nEdit no source-tree file, central manifest ' +
     '(Directory.Packages.props, pyproject.toml, pnpm-workspace.yaml), or path outside that territory.\nRun no git command.\n</role>\n\n' +
-    '<completion_bar>\nDone means all of these observable states hold:\n1. Every audit dimension below ran against current disk and every ' +
-    'finding it produced is FIXED in place; a finding recorded as a note instead of a fix is an incomplete pass.\n2. Every member the ' +
-    'batch pages cite is confirmed against the folder-tier or language-root .api catalog, or removed from settled fence code and re-cast ' +
+    '<completion_bar>\nDone means all of these observable states hold:\n1. Every mandate dimension below ran against current disk and every ' +
+    'finding it produced is FIXED in place.\n2. Every member the ' +
+    'batch pages cite is confirmed against its owner truth route, or removed from settled fence code and re-cast ' +
     'as a [RESEARCH] row carrying its question and exact route.\n3. Every card the task names carries a terminal marker whose evidence ' +
-    'holds on current disk; a closed card whose fence is partial REOPENS with the defect named.\n4. Every task-named rippleSurface ' +
+    'holds on current disk.\n4. Every task-named rippleSurface ' +
     'endpoint carries a rippleLedger row whose disposition holds against disk.\n5. The receipt document exists at the exact absolute path ' +
     'the task names.\n\nFix, never annotate. An edit requires a named violated law and the concrete case that breaks it; churn without one ' +
     'is a defect. The work ends objectively denser than the implement stage left it, or the attack proves the strongest form already ' +
@@ -541,42 +605,50 @@ const CRIT_LAW =
     'through the simplest interpretation consistent with current disk, the doctrine, and the owning page charter; do not ask questions. ' +
     'Route each required out-of-territory change to crossFolderRows. Route each missing package to packagesMissing and perform no ' +
     'installation or manifest edit.\n</completion_bar>\n\n' +
-    '<context_gathering>\nComplete this ladder in this exact order; the order is the integrity of this lane.\n1. Read every doctrine root ' +
-    'file the task names in full.\n2. Read every batch page in full and derive your OWN defect list from current disk. Complete this step ' +
+    '<context_gathering>\nComplete this ladder in this exact order; the order is the integrity of this lane.\n1. Read the doctrine ' +
+    'SCOPED TO THE AUDIT, each law at its source site: the stack README doctrine laws and its collapse-scan table, the owner-chooser and ' +
+    'rail-chooser sections, the aspect sections, and the file-organization law; another doctrine page opens only when a defect turns on ' +
+    'law outside these sites.\n2. Read every batch page in full and derive your OWN defect list from current disk. Complete this step ' +
     'before opening any prior-stage product; a defect list seeded by a prior claim is not a cold pass.\n3. Only then read the task-named ' +
     'fact map and implement receipt in full. Treat both as UNVERIFIED prior claims to refute against current disk, never as findings to ' +
     'accept.\n4. Read the card file of every card the task names.\n5. Before confirming or writing a member, read its exact .api catalog ' +
     'row at the folder tier, then at the language-root tier.\n\nThe task-named files-touched roster is navigation only: look there first, ' +
     'bound nothing by it.\nBudget: at most 120 tool calls total across the lane. Read in bounded batches whose outputs do not truncate; ' +
-    'never concatenate the territory into one command. At the budget, stop searching: keep every member absent from both .api tiers out ' +
+    'never concatenate the territory into one command. At the budget, stop searching: keep every member failing its owner truth route out ' +
     'of settled fence code, sharpen its [RESEARCH] row with the unresolved question and exact route, and record the blocked claim in ' +
     'residuals.\n</context_gathering>\n\n' +
-    '<audit_dimensions>\nRun every dimension as a FLOOR and hunt past it.\nCOLLAPSE SCAN: repeated shapes, parallel spellings, and ' +
+    '<capability_mandate>\nRun every dimension as a FLOOR and hunt past it.\nCOLLAPSE SCAN: repeated shapes, parallel spellings, and ' +
     'enumerable families an algebra, table, fold, or generator can own.\nOWNER CHOICE: capability landed on the wrong owner, or a new ' +
     'surface created where an existing owner admits a row, case, field, operation, or policy value.\nKNOB TEST: entry-point sprawl and ' +
     'boolean knobs an internalized policy row collapses.\nRAIL UNIFICATION: dual paradigms where one monadic spine per concern belongs.\n' +
     'LANGUAGE MODERNITY: a construct the owning doctrine supersedes.\nCAPABILITY AND ILLUSION: a name promising capability its fence ' +
     'omits.\nFENCE TRANSCRIPTION-COMPLETENESS: a fence carrying an elision, a placeholder, or an omitted body the card requires.\nMEMBER ' +
-    'TRUTH: every cited member re-verified against both .api tiers; a member failing verification is a phantom you delete or convert to a ' +
-    '[RESEARCH] row.\nISOLATION-CLAIM TRUTH: an app-scoped or per-instance claim without per-instance member evidence corrects to the ' +
+    'TRUTH BY OWNER ROUTE: a member owned by an external admitted package re-verifies against both .api tiers; a member owned by a ' +
+    'sibling Rasm package (absent from every .api catalog by the two-tier law) re-verifies against the owning package design pages and ' +
+    'its ARCHITECTURE.md [SEAMS] edge; a member failing ITS route is a phantom you delete or convert to a ' +
+    '[RESEARCH] row — a missing .api catalog for a Rasm package is never phantom evidence.\nPAGE-GRAIN DEPTH: the audit covers every ' +
+    'batch page WHOLE, never the card deltas alone — a page left naive beside a completed card is an incomplete pass.\nSTRATA LEVERAGE: ' +
+    'an owner re-deriving what a lower-stratum owner or an admitted package already provides is flat code you collapse into ' +
+    'composition.\nISOLATION-CLAIM TRUTH: an app-scoped or per-instance claim without per-instance member evidence corrects to the ' +
     'honest scope.\nCARD-CLOSURE TRUTH: a closed card whose fence is partial REOPENS with the defect named; a re-carded blocked entry ' +
     'without an arming trigger gains one.\nRIPPLE-LEDGER TRUTH: every task-named rippleSurface endpoint carries a ledger row whose ' +
     'disposition holds against disk — a landed endpoint proven on disk, a deferred endpoint present as a crossFolderRows row, an ' +
     'out-of-theme endpoint carrying its future-slice hint; a silent or false endpoint you land or ledger yourself.\nRESEARCH-ROW ' +
     'DISCIPLINE: a resolved row deleted whole, a sharpened row carrying question and route, a hard non-pertinent row left byte-untouched ' +
-    'and never dispositioned.\nAPI ULTRA-STACKING: both catalog tiers enumerated for the batch packages; an admitted capability the ' +
+    'and never dispositioned; a row that is settled design narration rather than an open question deletes whole as ' +
+    'resolved-by-realization.\nAPI ULTRA-STACKING: both catalog tiers enumerated for the batch packages; an admitted capability the ' +
     'concept admits and no fence composes is a defect you compose in.\nFRESH-PAGE DEPTH: a page minted this run meets the density and ' +
     'coverage bar of a mature page.\nCARD-ASSUMED EXISTENCE: an owner a card assumed exists on disk at the full bar; a missing or stubbed ' +
-    'assumed owner is a defect you fix.\n</audit_dimensions>\n\n' +
+    'assumed owner is a defect you fix.\n</capability_mandate>\n\n' +
     '<verification>\nRe-read each changed region immediately after landing its edit and compare it with the card and the law that ' +
-    'motivated the change.\nAccept a member spelling only when an exact row in the folder-tier or language-root .api catalog confirms ' +
+    'motivated the change.\nAccept a member spelling only when its owner truth route confirms ' +
     'it.\nRun no build, test, or compile command against the planning pages.\nWhere the pass minted a new markdown file, run the docgen ' +
     'gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help), batched once over the new files after the final edit, and ' +
     'repair the FAILs it reports on those files.\nAfter the final content edit, re-open every card the task names and confirm one terminal ' +
-    'marker whose citation or arming trigger matches current disk.\nRe-open each batch page terminal [RESEARCH] section and confirm every ' +
-    'row is removed, corrected at its owner, sharpened with an exact route, or left byte-untouched as a hard non-pertinent row.\n' +
+    'marker whose citation or arming trigger matches current disk.\nRe-open each batch page terminal [RESEARCH] section and confirm each ' +
+    'row disposition matches the RESEARCH-ROW DISCIPLINE dimension.\n' +
     'Reconcile filesTouched against the actual edit roster, cardsClosed against the task-card roster, rippleLedger against the task-named ' +
     'rippleSurface, researchResolved against the final research outcomes, and every routing, package, and residual row against current ' +
     'disk before writing the receipt.\n</verification>\n\n' +
@@ -603,16 +675,21 @@ const CENSUS_LAW =
     'carries the exact transcribed declaration of its member.\nPlace every unverified row, package, or claim in [COVERAGE] with the failed ' +
     'probe.\nExclude unverified claims from settled sections.\nRecord findings only; prescribe no change and state no remediation.\n' +
     '</completion_bar>\n\n' +
-    '<context_gathering>\nRead fully through EOF in this order:\n1. The central manifest the task names.\n2. Every .api catalog under the ' +
-    'language-root tier.\n3. Every .api catalog under each folder tier the task names.\n4. Each folder README.md package-registry ' +
-    'section.\n5. Each project manifest the task names.\n\nTreat the task-named manifest, catalog tiers, registries, and project ' +
-    'manifests as the complete census boundary.\nDo not expand into design pages except to confirm an [UNEXPLOITED] absence boundary.\n' +
-    'Transcribe each catalog declaration you cite at the point of reading.\nRecord an absent task-named or required path in [COVERAGE] ' +
-    'with its absolute attempted path and filesystem probe.\nDo not substitute a likely path for a missing path.\nUse at most 120 tool ' +
-    'calls across discovery and verification.\nCount every tool invocation against the single budget.\nRead in small batches that preserve ' +
-    'complete output.\nDo not concatenate the territory into one command.\nReserve enough calls to re-open every cited anchor during ' +
-    'verification.\nWhen the remaining budget is required for verification, route unresolved discovery to [COVERAGE] instead of ' +
-    're-reading.\n</context_gathering>\n\n' +
+    '<context_gathering>\nResolve the surfaces at NAME GRAIN first, then open to member depth only where a closure question requires ' +
+    'it:\n1. Read the central manifest, every folder README package-registry section, and every project manifest the task names in full ' +
+    '— these are small and bound the admitted-package set.\n2. For [SURFACES], [ORPHANS], and [DUPLICATES] — package-name presence across ' +
+    'surfaces — run ONE aggregate ripgrep sweep per surface family (manifest, catalog trees, registries, project manifests) capturing ' +
+    'package name plus its anchor; this aggregate presence sweep is the one exemption to the no-concatenate rule.\n3. Open a catalog to ' +
+    'member depth ONLY to ground an [UNEXPLOITED] candidate, and confine those opens to the catalogs of manifest-admitted packages; read ' +
+    'only the design-page owners needed to confirm that member absence.\n\nHost-assembly catalog sets (RhinoCommon, Grasshopper2, Eto, ' +
+    'macOS-native — catalogue-only surfaces with no manifest row by design) are a standing exclusion recorded ONCE in [COVERAGE] as a ' +
+    'class, never per file.\nTreat the manifest, registries, project manifests, the aggregate catalog-name sweep, and the opened ' +
+    'candidate catalogs as the census boundary.\nThe doctrine corpus under docs/stacks is the writer read, never this lane — do not ' +
+    'list, probe, or account for it.\nRecord an absent task-named path in [COVERAGE] with its absolute attempted path and filesystem ' +
+    'probe.\nDo not substitute a likely path for a missing path.\nUse at most 220 tool calls across enumeration, member-depth opens, and ' +
+    'verification.\nCount every tool invocation against the single budget.\nRead per-file opens in small batches that preserve complete ' +
+    'output.\nReserve enough calls to re-open every cited anchor during verification.\nWhen the remaining budget is required for ' +
+    'verification, route unresolved discovery to [COVERAGE] instead of re-reading.\n</context_gathering>\n\n' +
     '<verification>\nRe-open every source anchor cited by a settled row.\nMatch every package name across surfaces by exact textual ' +
     'spelling; treat a substring, casing variant, or paraphrase as a distinct name and record both.\nSupport each [ORPHANS] row by naming ' +
     'the surface carrying the package, the owning surface that does not, and the probe proving the absence across the complete boundary ' +
@@ -636,9 +713,12 @@ const CENSUS_LAW =
     'owner: <declaring type or module> | signature: <complete declaration transcribed from the catalog, carrying generic parameters, every ' +
     'parameter name and type, and the return type> | catalog: <absolute .api path and anchor> | tier: folder|language-root | ' +
     'candidate-owner: <absolute page path and anchor whose concept admits the member> | absence-boundary: <owners checked>.\nTranscribe ' +
-    'each declaration exactly as its catalog states it.\nA row without a complete signature is a defect, not a row.\n\n' +
-    '## [COVERAGE]\nUse one "- " row per file read, file skipped, or entry left unverified.\nShape each row as: status: read|skipped|' +
-    'unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
+    'each declaration exactly as its catalog states it — OR carry "present-at: <catalog path and anchor>" when the member is confirmed ' +
+    'on disk but the budget did not allow full transcription; never drop a confirmed member for transcription depth alone.\n\n' +
+    '## [COVERAGE]\nOpen with one lead line "read: N sources fully; swept: N catalogs at name grain".\nThen use one "- " row per file ' +
+    'SKIPPED, entry left UNVERIFIED, or task-named path ABSENT — never a row for a clean read; the host-assembly exclusion is one class ' +
+    'row.\nShape each row as: status: skipped|' +
+    'unverified|absent | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
     'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
 const TMAP_LAW =
@@ -688,8 +768,9 @@ const TMAP_LAW =
     '<verified libs fact>.\n\n' +
     '## [SPINE]\nUse one "- " row per root-config test row misaligned with the estate.\nShape each row as: spine-source: <absolute path and ' +
     'anchor> | row: <exact row identity> | estate-source: <absolute path and anchor> | mismatch: <verified misalignment>.\n\n' +
-    '## [COVERAGE]\nUse one "- " row per file read, file skipped, or entry left unverified.\nShape each row as: status: read|skipped|' +
-    'unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
+    '## [COVERAGE]\nOpen with one lead line "read: N sources fully".\nThen use one "- " row per file SKIPPED, entry left UNVERIFIED, or ' +
+    'task-named path ABSENT — never a row for a clean full read.\nShape each row as: status: skipped|' +
+    'unverified|absent | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>.\n\n' +
     'Use "- none" when a section has no qualifying rows.\nKeep every row factual and anchored.\nDo not prescribe changes.\n</output_contract>';
 
 // --- [OPERATIONS] --------------------------------------------------------------------
@@ -736,18 +817,20 @@ const packBatches = (f, units) => {
     for (const u of units.slice().sort((a, b) => a.order - b.order)) {
         const last = bins[bins.length - 1];
         const merged = last ? uniq(last.pages.concat(u.pages || [])) : null;
-        if (last && merged.length <= BATCH_PAGES) {
+        if (last && merged.length <= BATCH_PAGES && last.loc + (u.loc | 0) <= BATCH_LOC) {
             last.units.push(u);
             last.pages = merged;
-        } else bins.push({ units: [u], pages: uniq(u.pages || []) });
+            last.loc += u.loc | 0;
+        } else bins.push({ units: [u], pages: uniq(u.pages || []), loc: u.loc | 0 });
     }
     if (bins.length > 1) {
         const tail = bins[bins.length - 1];
         const prev = bins[bins.length - 2];
         const merged = uniq(prev.pages.concat(tail.pages));
-        if (tail.pages.length * 2 < BATCH_PAGES && merged.length <= BATCH_PAGES * BATCH_OVERFLOW) {
+        if (tail.pages.length * 2 < BATCH_PAGES && merged.length <= BATCH_PAGES * BATCH_OVERFLOW && prev.loc + tail.loc <= BATCH_LOC) {
             prev.units.push(...tail.units);
             prev.pages = merged;
+            prev.loc += tail.loc;
             bins.pop();
         }
     }
@@ -795,7 +878,9 @@ const territoryOf = (f) =>
 const memoryClause = (f) =>
     f.language === 'csharp' || f.language === 'cross'
         ? ', and the memory index at /Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md — ' +
-          'open every reference_* entry naming a surface this batch composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, telemetry traps)'
+          'open every reference_* entry naming a surface this batch composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, telemetry ' +
+          'traps). CURATION DUTY: a consulted entry verifies against current disk before use — a drifted entry repairs in place, a dead or ' +
+          'repo-derivable entry deletes (the file AND its MEMORY.md index line); an unconsulted entry stays untouched'
         : '';
 const pyGuard = (k) =>
     k === 'python'
@@ -806,12 +891,13 @@ const mapClause = (mapR) =>
     mapR && mapR.ok
         ? 'at ' +
           mapR.report +
-          ' IN FULL from disk. Every settled row arrives twice-verified against disk, and its [CAPABILITY] rows carry exact transcribed ' +
-          'declarations — owning type, generic parameters, parameter list with types, return type. Compose those spellings straight into ' +
-          'fences; re-open a catalog ONLY where a fence settles a member the map routed to [COVERAGE] unverified. Its status:required ' +
-          '[CAPABILITY] rows are the members your cards name, its status:unexploited rows your composition queue, [DEFECTS] your repair ' +
-          'queue, [RESEARCH] your debt queue, [SEAMS] your both-ends obligation. Re-deriving what the map already settled is wasted ' +
-          'budget, not diligence.'
+          ' IN FULL from disk. Every settled row arrives twice-verified against disk. Its status:required [CAPABILITY] rows are your ' +
+          'compose-straight-in queue — a full signature composes verbatim; a present-at row is a verified member whose declaration detail ' +
+          'you open ONCE at its cited anchor. Its status:shallow rows are your deepening queue (composed below the family depth the ' +
+          'surface carries), status:unexploited your composition queue, [DECLARATION] the namespace/import/stratum facts your fences ' +
+          'compile against, [DOMAIN_GAPS] the coverage the concept demands, [DEFECTS] your repair queue, [RESEARCH] your debt queue, ' +
+          '[SEAMS] your both-ends obligation. Re-open a catalog ONLY at a present-at anchor or where a fence settles a member the map ' +
+          'routed to [COVERAGE] unverified. Re-deriving what the map already settled is wasted budget, not diligence.'
         : '— NONE landed for this batch; your own full territory read replaces it.';
 const guideClause = (u, guideR) =>
     u.blockers.length
@@ -895,7 +981,10 @@ const relayPrompt = (o) => {
         (many ? 'that row ONCE, then record it failed and continue' : 'ONCE with a sharpened prompt — your whole recovery budget') +
         '. (3) ' +
         (authored
-            ? 'The delegate lands the product itself at ' + o.report + ' as its final act.'
+            ? 'Delete any leftover file at ' +
+              o.report +
+              ' first with one Bash rm -f (a stale product there passes the verify probe as a false success), then the delegate lands ' +
+              'the product itself at that path as its final act.'
             : 'Each tool result is a JSON envelope {threadId, content}; ' +
               (many
                   ? 'concatenate the CONTENT texts (never the envelopes) in row order and Write the result'
@@ -935,7 +1024,7 @@ const AUDIT_LAW =
     'current on-disk marker, never from a prior receipt claim.\nAn unreachable card file is rostered with its failed probe, never silently ' +
     'dropped.\nCounts only: state no verdict beyond the rosters the output contract names.\n</completion_bar>\n\n' +
     '<context_gathering>\nRead the card file of every selected card the task names, then sweep the terminal research sections across the ' +
-    'roots the task names, then the receipt documents the task names.\nUse at most 90 tool calls.\nCount every tool invocation against the ' +
+    'roots the task names, then the receipt documents the task names.\nUse at most 130 tool calls.\nCount every tool invocation against the ' +
     'single budget.\nBatch each sweep rather than probing one file per call.\n</context_gathering>\n\n' +
     '<verification>\nRe-open every card admitted to a roster and confirm its current leader marker.\nConfirm each deferred-endpoint and ' +
     'residual claim against current disk before admitting it.\nDrop any entry whose evidence fails re-confirmation.\n</verification>\n\n' +
@@ -980,7 +1069,8 @@ const planPrompt = (f) =>
     f.path +
     '/README.md (registry) and ' +
     f.path +
-    '/ARCHITECTURE.md ([SEAMS]) for the packages and seams units compose. (4) Research debt: sweep the terminal [RESEARCH] section of every ' +
+    (f.language === 'cross' ? '/architecture.md' : '/ARCHITECTURE.md') +
+    ' ([SEAMS]) for the packages and seams units compose. (4) Research debt: sweep the terminal [RESEARCH] section of every ' +
     'design page under ' +
     planningRootOf(f) +
     ' and note pages carrying live rows. The reads are the FULL pool — ingestion never narrows by theme; selection does. ' +
@@ -1000,13 +1090,16 @@ const planPrompt = (f) =>
     'order (dependency position, 1 first — a unit consuming another unit fence output orders after it, and a unit that MINTS a page or ' +
     'sub-folder orders before every unit extending it; the packer preserves this order inside and across batches, so it is load-bearing); ' +
     'title; heavy (true when the ' +
-    'unit spans 3+ pages or creates any page); cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the unit edits, index docs ' +
+    'unit spans 3+ pages or creates any page); loc (total line count of the unit pages via one batched wc -l sweep — a page absent on ' +
+    'disk counts 500; the packer bounds writer tonnage on this); cards (exact "FILE [ID]" spellings); pages (ABSOLUTE page paths the ' +
+    'unit edits, index docs ' +
     'included when touched); anchors (owner symbols and fence names); packages (admitted package names the unit composes); rippleSurface — ' +
     'the unit ripple contract: for each selected card, every consumer, unlock endpoint, or counterpart the card NAMES in its Unlocks, ' +
     'Shape, Ripple, or thesis lands one row {endpoint (the folder or page it names, absolute where resolvable — cross-folder and ' +
     'cross-language included), source ("FILE [ID] Unlocks|Shape|Ripple")} — [] only when no selected card names one; blockers — every ' +
     'BLOCKED card in the unit lands one row {card, question (the blocker restated as an answerable question), route (the resolution route: ' +
-    'an assay api member target, a .api catalog, a live doc, a seam-owner page)} — [] when none.' +
+    'an assay api member target, a .api catalog, a live doc, a seam-owner page; an assay route names only a key you confirm resolvable ' +
+    'via assay resolve or doctor — an unresolvable key routes to a live-doc or seam-owner alternative instead)} — [] when none.' +
     (f.language === 'cross'
         ? ' CROSS-LIBS DECOMPOSITION: a cross-libs card is a multi-folder work unit — decompose it into per-folder ripple executions inside ' +
           'ONE unit: pages list every touchpoint page across libs/ grouped by folder, anchors name both ends of every seam, the title names ' +
@@ -1015,7 +1108,11 @@ const planPrompt = (f) =>
     ' LEFTOVERS: every non-theme OPEN card lands one row {item (exact "FILE [ID]" spelling), hint (one short phrase naming the future ' +
     'functionality set it belongs to)}; a hard non-pertinent research cluster on pages no unit touches lands {item: "RESEARCH <absolute ' +
     'page path>", hint}. Zero theme-relevant work = units [] (leftovers still rostered) with note naming what you checked. Units are ' +
-    'navigation facts, never verdicts or designs.';
+    'navigation facts, never verdicts or designs. Write your COMPLETE product as one JSON object to ' +
+    OUT +
+    '/plan-' +
+    fid(f) +
+    '.json (Write tool, absolute path) before returning; the return carries the same object.';
 
 const discoverWrapPrompt = () => {
     const report = OUT + '/discover.json';
@@ -1046,9 +1143,8 @@ const mapTask = (f, b) =>
     apiTiersOf(f) +
     '. FOLDER: ' +
     f.path +
-    '. The writer consuming this map composes from it directly and does not re-open what you settle: transcribe every member the batch ' +
-    'cards will compose at exact declaration depth, and route every member you could not verify to [COVERAGE] rather than settling it. A ' +
-    'row that restates a catalog heading without its signature costs the writer a re-read and is a lane defect.';
+    '. The writer consuming this map composes from it directly: settle every member the batch cards will compose in [CAPABILITY], and ' +
+    'route the rest per the output contract.';
 
 const mapWrapPrompt = (f, b) =>
     relayPrompt({
@@ -1059,7 +1155,8 @@ const mapWrapPrompt = (f, b) =>
         effort: b.heavy ? '' : 'medium',
         ret:
             'Return ok, report, entries = the "- " row count under [DEFECTS], research = the "- " row count under [RESEARCH] (Read the ' +
-            'file to count per section; "- none" counts zero), headline = "<defects>d <unexploited>u <research>r", failure empty — or ' +
+            'file to count per section; "- none" counts zero), headline = "<defects>d <capability>c <research>r" with capability = the ' +
+            '"- " row count under [CAPABILITY], failure empty — or ' +
             'ok=false with the error text VERBATIM.',
     });
 
@@ -1088,6 +1185,8 @@ const implPrompt = (f, b, mapR, guideR) =>
     territoryOf(f) +
     '. ' +
     PATH_LAW +
+    ' ' +
+    NATIVE_DISCIPLINE +
     ' Read AT SOURCE, in full, before any edit: ' +
     doctrineOf(f) +
     memoryClause(f) +
@@ -1096,10 +1195,14 @@ const implPrompt = (f, b, mapR, guideR) =>
     'and research debt arrive settled; read the fact map ' +
     mapClause(mapR) +
     guideClause(b, guideR) +
+    TRIPWIRE +
     ' Realize every card into transcription-complete code FENCES inside the owning design pages — the real declaration with members, cases, ' +
-    'fields, signatures, and bodies in exact verified spellings; a member unverifiable against a .api tier lands as a RESEARCH row, never ' +
+    'fields, signatures, and bodies in exact verified spellings; a member unverifiable against its owner truth route (.api tiers for an ' +
+    'external package; the owning design-page fence for a sibling Rasm type) lands as a RESEARCH row, never ' +
     'settled fence code. ' +
     FENCE_LAW +
+    ' ' +
+    DEPTH_LAW +
     ' ' +
     CARD_LAW +
     ' ' +
@@ -1163,11 +1266,12 @@ const critTask = (f, b, impl, mapR) =>
     JSON.stringify((impl && impl.filesTouched) || []) +
     '.\n' +
     'Derive your own defect list from the pages on disk BEFORE opening either prior product. The map and the implement receipt are ' +
-    'unverified prior claims to refute against current disk; the touched-file list is navigation only and bounds nothing.\n' +
+    'unverified prior claims to refute against current disk; the touched-file list is navigation only and bounds nothing.' +
+    TRIPWIRE +
+    '\n' +
     'A non-theme open card sharing a card file with batch cards stays byte-untouched — an expected leftover for a future slice, never ' +
     'dispositioned, never reworded.\n' +
-    'Constraints: absolute paths everywhere; no source-tree file; no central manifest; no package install; no git command.\n' +
-    'Done when: every defect your audit confirms is FIXED in place — never noted — and the receipt document is written to ' +
+    'Done when: the receipt document is written to ' +
     OUT +
     '/' +
     b.id +
@@ -1179,7 +1283,7 @@ const critWrapPrompt = (f, b, impl, mapR) =>
         law: CRIT_LAW,
         task: critTask(f, b, impl, mapR),
         sandbox: 'workspace-write',
-        verify: { jq: '.filesTouched and .cardsClosed' },
+        verify: { jq: '(.cardsClosed | length > 0) and (.rippleLedger | type == "array") and (.summary | length > 0)' },
         ret:
             'Return the thin receipt: folder ' +
             f.path +
@@ -1242,7 +1346,8 @@ const composePrompt = (f, b, landed) =>
     'batch concept admits them — as rows, cases, fields, operations, or policy values on existing owners, at the campaign bar. ' +
     FENCE_LAW +
     ' A package whose capability the batch concept does not admit records one residuals row naming the ruling; edit nothing the admitted ' +
-    'catalogs do not motivate. ' +
+    'catalogs do not motivate. This pass composes already-admitted catalogs only — a further package this composition exposes lands as a ' +
+    'residuals row naming it, never a packagesMissing row (no admission lane follows you). ' +
     ROW_LAW +
     ' BATCH pages: ' +
     JSON.stringify(b.pages) +
@@ -1273,15 +1378,19 @@ const drainPrompt = (L, receiptPaths) =>
     'the edit exposes in the same pass. Rows targeting outside your territory RETURN as residualRows ("targetFile :: change"), never apply — ' +
     'and a NEW cross-territory need an application exposes (second-order splash) joins residualRows the same way, never dropped. ' +
     pyGuard(L.key) +
-    ' Write your full drain document (drained / verified-satisfied / not-applied-with-reason / escalated) to ' +
+    ' ' +
+    NATIVE_DISCIPLINE +
+    ' COMPLETENESS: every rostered row ends applied, verified-satisfied, not-applied-with-reason, or residual; a row you never opened ' +
+    'returns in unreached ("targetFile :: change") — an honest remainder costs nothing, a silent drop removes the row from the run. ' +
+    'Write your full drain document (drained / verified-satisfied / not-applied-with-reason / escalated) to ' +
     OUT +
     '/drain-' +
     L.key +
     '.md, then return: language "' +
     L.key +
-    '", ok, report, applied count, residualRows, headline, failure.';
+    '", ok, report, applied count, residualRows, unreached, headline, failure.';
 
-const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
+const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR, findReports) =>
     'TERMINAL RED-TEAM over ' +
     REPO +
     '/' +
@@ -1291,20 +1400,29 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
     ' central manifest for closure repairs only. THEME SLICE "' +
     THEME.title +
     '": this run realized one functionality set; non-theme open cards are expected leftovers — never close, edit, or attack them; ' +
-    'card-closure truth applies to the cards the stage receipts disposition. ' +
+    'card-closure truth applies to the cards the stage receipts disposition, and card closure is the FLOOR of the attack, never its ' +
+    'grain — every page a receipt touched is attacked WHOLE. ' +
     STANCE +
+    ' ' +
+    NATIVE_DISCIPLINE +
     ' Pre-mortem that REBUILDS rather than annotates, every fix landed in place: (1) COUNTERFACTUAL on core owners the campaign touched — ' +
     'remove the chosen owner kind, hand-enumerated space, call-site dispatch, or hand-rolled kernel; derive the form without it; build the ' +
-    'stronger form where one exists (the current shape also working is never a refutation). (2) DIFF-OF-NEXT-FEATURE — the next case, ' +
+    'stronger form where one exists, with full-page rebuild authority where the stronger form demands it (the current shape also working ' +
+    'is never a refutation). (1b) STRATA LEVERAGE — an owner re-deriving what a lower-stratum owner or an admitted package provides is ' +
+    'flat code you collapse into composition. (2) DIFF-OF-NEXT-FEATURE — the next case, ' +
     'dimension, or modality lands as one row with every consumer untouched or loudly broken; where it cannot, restructure the owner. (3) ' +
-    'PHANTOM HUNT — campaign-cited members verified against both .api tiers; an unverifiable member is deleted or converted to a RESEARCH ' +
+    'PHANTOM HUNT — campaign-cited members verified by OWNER ROUTE: an external-package member against both .api tiers, a sibling Rasm ' +
+    'member against its owning design-page fence (a missing .api catalog for a Rasm package is never phantom evidence); an unverifiable ' +
+    'member is deleted or converted to a RESEARCH ' +
     'row. (4) BOUNDARY INTEGRITY — every concern graded against ' +
     REPO +
     '/' +
     L.root +
     '/.planning/ARCHITECTURE.md: a concern owned twice, scattered, or coupled to a sibling interior instead of a [SEAMS] edge is fixed or ' +
     'recorded. (5) .API ULTRA-STACKING and (6) FOUR-SURFACE CLOSURE both ACT ON the closure census at ' +
-    ((censusR && censusR.ok && censusR.report) || '(no census document — enumerate the surfaces yourself)') +
+    ((censusR && censusR.ok && censusR.report) ||
+        '(no census landed — closure dimensions (5) and (6) narrow to the surfaces the stage receipts touched; return the unswept ' +
+            'boundary in residualRows)') +
     ', read IN FULL from disk — verified inventory, not a lead: do not re-enumerate the catalogs, registries, or manifests it covers. Its ' +
     '[UNEXPLOITED] rows are admitted capability no owner composes, each carrying its exact transcribed declaration — close each in the ' +
     'owning fence or record the ruling that refuses it. Its [SURFACES], [ORPHANS], and [DUPLICATES] rows are the manifest <-> .api ' +
@@ -1312,7 +1430,8 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
     'surface. A census row you refute against current disk records refuted with its citation; a drift the census missed and your own pass ' +
     'exposes you fix and name. A folder .api file duplicating a branch-substrate catalog collapses to a folder-specific overlay or deletes ' +
     'per the two-tier law. Closure repairs on the central manifest are yours (orphan and duplicate rows only, surgical anchored Edits — a ' +
-    'tests-estate lane may hold test rows in the same file); a NEW admission routes as a residual row. (7) DOCGEN-ZERO PROOF — run the ' +
+    'tests-estate lane may hold test rows in the same file); re-read the manifest span immediately before each manifest Edit — an Edit ' +
+    'rejected on drifted content re-reads and re-derives, never forces; a NEW admission routes as a residual row. (7) DOCGEN-ZERO PROOF — run the ' +
     'docgen gate script at ' +
     REPO +
     '/.claude/skills/docgen/scripts/prose_gate.py (invocation per its --help) batched over every index doc your pass touched, repaired to ' +
@@ -1328,6 +1447,9 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
     ((drainR && drainR.report) || '(no drain document)') +
     ' and the stage receipts ' +
     JSON.stringify(receiptPaths) +
+    '. PRE-VERIFIED FINDER QUEUE — read-only finder lanes swept the touched pages ahead of you; their findings documents are your ' +
+    'primary attack queue, each finding a SIGNAL you re-open at its anchor before editing, never law: ' +
+    ((findReports && findReports.length && JSON.stringify(findReports)) || '(none landed — your own sweep is the whole hunt)') +
     '. MID-RUN ADMISSIONS to compose-check under (5) and (6): ' +
     JSON.stringify(admitRows) +
     ' — an admitted row whose catalog capability no owner composes is an ultra-stacking defect; a rejected row stays out of every fence. ' +
@@ -1349,7 +1471,8 @@ const rtPrompt = (L, drainR, receiptPaths, admitRows, residualRows, censusR) =>
     L.key +
     '.md, then return: language "' +
     L.key +
-    '", ok, report, filesTouched, defectsFixed, cardsReopened, residualRows, headline, failure.';
+    '", ok, report, filesTouched, armed (the exact paths you read IN FULL per the read mandate — a file absent from armed was not read), ' +
+    'defectsFixed, cardsReopened, residualRows, headline, failure.';
 
 const censusTask = (L) =>
     'Census the ' +
@@ -1368,7 +1491,9 @@ const censusTask = (L) =>
     L.root +
     ', the README package-registry section of every package folder under that root, and the project manifests (' +
     (L.key === 'csharp' ? 'every .csproj under the root' : L.key === 'python' ? 'the pyproject tool sections' : 'each package.json under the root') +
-    '). Grade [UNEXPLOITED] against the owners on the design pages under that root: an admitted member no owner composes is a row.';
+    '). Grade [UNEXPLOITED] against the owners on the design pages under that root: an admitted member no owner composes is a row. ' +
+    '[UNEXPLOITED] member-depth opens are confined to manifest-admitted package catalogs; the [SURFACES]/[ORPHANS]/[DUPLICATES] name ' +
+    'census rides one aggregate ripgrep sweep per surface family, never per-file reads.';
 
 const censusWrapPrompt = (L) =>
     relayPrompt({
@@ -1379,8 +1504,67 @@ const censusWrapPrompt = (L) =>
         effort: 'medium',
         ret:
             'Return ok, report, entries = the "- " row count under [ORPHANS] plus [DUPLICATES], research = 0, headline = "<orphans>o ' +
-            '<duplicates>d <unexploited>u", failure empty — or ok=false with the error text VERBATIM.',
+            '<duplicates>d <unexploited>u" with unexploited = the "- " row count under [UNEXPLOITED], failure empty — or ok=false with ' +
+            'the error text VERBATIM.',
     });
+
+const FINDER_LAW =
+    '<role>\nYou are a read-only defect finder over one slice of campaign-touched design pages.\nTreat the task-listed pages and the ' +
+    'owners they compose as read territory.\nEdit nothing.\nRun no git command.\n</role>\n\n' +
+    '<completion_bar>\nDone requires one complete markdown findings document as the final message.\nObservable completion requires both ' +
+    'output-contract sections in order, an on-disk anchor for every finding, and [COVERAGE] accounting for the pages read.\nRecord ' +
+    'findings only; prescribe no change and state no remediation.\n</completion_bar>\n\n' +
+    '<context_gathering>\nRead every task-listed page fully through EOF, with the sibling owners each composes and the .api catalogs its ' +
+    'fences cite opened at the cited members.\nHunt these classes: missing (a capability the card or charter demands with no counterpart ' +
+    'on disk), wrong (contradicting doctrine or charter), faked (prose asserting what the fence body omits), naive (a thin slice of the ' +
+    'concept, or an enumerated roster where a generator belongs), drift (two surfaces disagreeing), phantom (a cited member failing its ' +
+    'owner truth route — an external-package member against the .api tiers, a sibling Rasm member against its owning page fence).\nThe ' +
+    'doctrine corpus under docs/stacks is the fixer read, never this lane — do not list, probe, or account for it.\nUse at most 80 tool ' +
+    'calls.\nCount every tool invocation against the single budget.\nDo not concatenate the territory into one command.\n' +
+    '</context_gathering>\n\n' +
+    '<verification>\nRe-open the anchor behind every finding and confirm it states what the finding claims.\nDrop any finding current ' +
+    'disk already resolves.\nTreat a substring or fuzzy match as unverified.\n</verification>\n\n' +
+    '<output_contract>\nReturn one markdown document with nothing before or after it.\nUse exactly these H2 sections in this order.\nAdd ' +
+    'no other H2 section.\n\n' +
+    '## [FINDINGS]\nUse one "- " row per verified finding.\nShape each row as: class: missing|wrong|faked|naive|drift|phantom | page: ' +
+    '<absolute path> | anchor: <symbol or heading> | claim: <the defect as fact> | law: <the violated law or catalog member>.\nDo not ' +
+    'state resulting code.\n\n' +
+    '## [COVERAGE]\nOpen with one lead line "read: N pages fully".\nThen one "- " row per page skipped or claim unverified.\n\n' +
+    'Use "- none" when a section has no qualifying rows.\n</output_contract>';
+
+const findWrapPrompt = (L, pages, i) =>
+    relayPrompt({
+        report: OUT + '/find-' + L.key + '-s' + (i + 1) + '.md',
+        law: FINDER_LAW,
+        task:
+            'Hunt defects over these campaign-touched ' +
+            L.key +
+            ' pages (read each in full): ' +
+            JSON.stringify(pages) +
+            '. Slice ' +
+            (i + 1) +
+            ' of the ' +
+            L.key +
+            ' touched set.',
+        verify: { sections: FIND_SECTIONS },
+        effort: 'medium',
+        ret:
+            'Return ok, report, entries = the "- " row count under [FINDINGS] ("- none" counts zero), research = 0, headline = ' +
+            '"<findings>f", failure empty — or ok=false with the error text VERBATIM.',
+    });
+
+const residualCloserPrompt = (rows) =>
+    'TERMINAL RESIDUAL CLOSER — cross-folder rows no tree drain consumed (cross-tier and out-of-root targets). Write territory: EXACTLY ' +
+    'the targetFile of each row below, nothing else; never a central manifest. ' +
+    PATH_LAW +
+    ' Rows ("targetFile :: change"): ' +
+    JSON.stringify(rows) +
+    '. Per row, REFUTE FIRST against current disk: a row already satisfied records verified-satisfied with the citation; a row ' +
+    'conflicting with a landed page law records not-applied with the citation; the remainder APPLIES at root, both seam ends where the ' +
+    'edit exposes one. A row you cannot land returns in residualRows with its blocker; a row you never opened returns in unreached. ' +
+    'Write your full document to ' +
+    OUT +
+    '/drain-residual.md, then return: language "cross", ok, report, applied count, residualRows, unreached, headline, failure.';
 
 const testsMapTask = (L) =>
     'Map the ' +
@@ -1409,8 +1593,7 @@ const testsMapTask = (L) =>
     L.root +
     ' README registries and observability pages). BUILD-OUT AXES to grade [GAPS] and [CAPABILITY] against: ' +
     AXES[L.key] +
-    '. The build-out consuming this map composes from it directly and does not re-open what you settle: transcribe every testing-package ' +
-    'member the spine cites or an axis admits at exact declaration depth.';
+    '. The build-out consuming this map composes from it directly.';
 
 const testsMapWrapPrompt = (L) =>
     relayPrompt({
@@ -1448,6 +1631,8 @@ const testsImplPrompt = (L, mapR) =>
     '/.config, and the central manifests where your spine rows live) sequence LAST, surgical anchored Edits only, full re-read immediately ' +
     'before the first edit — sibling language lanes and the per-language seal lanes run beside you. ' +
     STANCE +
+    ' ' +
+    NATIVE_DISCIPLINE +
     ' Read AT SOURCE in full first: ' +
     REPO +
     '/tests/README.md, every root file of ' +
@@ -1476,7 +1661,8 @@ const testsImplPrompt = (L, mapR) =>
     L.key +
     '.md, then return: language "' +
     L.key +
-    '", ok, report, filesTouched, gate (the exact command run), gateClean, residualRows (missing packages as "package@' +
+    '", ok, report, filesTouched, armed (the exact paths you read IN FULL per the read mandate), gate (the exact command run), gateClean, ' +
+    'residualRows (missing packages as "package@' +
     L.key +
     ': reason" plus genuinely blocked items), headline, failure.';
 
@@ -1486,7 +1672,9 @@ const auditTask = (roots, selected, residuals, receipts, report) =>
     '". Count, fix nothing, edit nothing. SELECTED CARDS (this slice contract, exact "FILE [ID]" rows): ' +
     JSON.stringify(selected) +
     '. Verify each selected card CURRENT leader marker in its named card file: roster every one still [ACTIVE] or [QUEUED] as openCards ' +
-    '{file (absolute), card}; roster every selected [BLOCKED] card whose body states no arming trigger or condition as blockedNoTrigger; ' +
+    '{file (absolute), card}. FENCE PROOF: for each selected card now [COMPLETE], open its cited landing anchor and confirm the named ' +
+    'owner or fence exists on disk — a citation that does not resolve rosters the card in openCards with card = "unresolved citation: " ' +
+    'plus the cited anchor. Roster every selected [BLOCKED] card whose body states no arming trigger or condition as blockedNoTrigger; ' +
     'count all remaining selected [BLOCKED] cards as blockedCards. Non-selected open cards are OUT of scope — expected leftovers for ' +
     'future slices, never a failure, never rostered. Then count live "- " rows under terminal [RESEARCH] sections across every design ' +
     'page under these roots: ' +
@@ -1526,18 +1714,31 @@ const auditWrapPrompt = (roots, selected, residuals, receipts) => {
 
 if (!CAMP) return { skipped: true, reason: 'args.camp (absolute campaign home) is required' };
 
-const disco = await guard(
-    slot(() =>
-        agent(discoverWrapPrompt(), {
-            label: 'relay:discover',
-            phase: 'Plan',
-            model: 'sonnet',
-            effort: 'low',
-            schema: DISCOVERY,
-            stallMs: STALL_MS,
-        }),
-    ),
-);
+// Discover failure no-ops the whole run, so a dead relay falls back to a native roster resolver — the one lane that earns it.
+const disco =
+    (await guard(
+        slot(() =>
+            agent(discoverWrapPrompt(), {
+                label: 'relay:discover',
+                phase: 'Plan',
+                model: 'sonnet',
+                effort: 'low',
+                schema: DISCOVERY,
+                stallMs: STALL_MS,
+            }),
+        ),
+    )) ||
+    (await guard(
+        slot(() =>
+            agent(
+                'NATIVE FALLBACK — the codex relay for this task failed; perform the complete task yourself with your own tools. ' +
+                    PATH_LAW +
+                    ' ' +
+                    discoverTask(OUT + '/discover.json'),
+                { label: 'discover:native', phase: 'Plan', model: 'opus', effort: 'low', schema: DISCOVERY, stallMs: STALL_MS },
+            ),
+        ),
+    ));
 let folders = (disco?.folders ?? []).filter((f) => f.path && f.language);
 if (SCOPE.length)
     folders = folders.filter((f) => SCOPE.some((s) => f.path === s || f.path.endsWith('/' + s.replace(/\/+$/, '')) || f.path.includes(s)));
@@ -1583,7 +1784,11 @@ const missingOf = (rec) => (rec && rec.ok && rec.packagesMissing) || [];
 const runAdmissions = async (rows, origin) => {
     const seen = new Set();
     const wanted = (rows || []).filter((r) => {
-        if (!r || !r.package || !LANGS.some((L) => L.key === r.language)) return false;
+        if (!r || !r.package) return false;
+        if (!LANGS.some((L) => L.key === r.language)) {
+            log('admission row dropped (unknown language): ' + r.package + '@' + r.language + ' from ' + origin);
+            return false;
+        }
         const k = r.language + ':' + slugOf(r.package);
         if (seen.has(k)) return false;
         seen.add(k);
@@ -1595,7 +1800,7 @@ const runAdmissions = async (rows, origin) => {
 const runFolderChain = async (f, plan) => {
     const batches = packBatches(f, plan?.units ?? []);
     if (!batches.length) {
-        log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path);
+        log((plan ? 'no-op' : 'PLAN FAILED') + ': ' + f.path + (plan?.note ? ' — ' + plan.note : ''));
         return { folder: f.path, language: f.language, planOk: !!plan, batches: [], leftovers: plan?.leftovers ?? [] };
     }
     log(f.path + ': ' + (plan?.units ?? []).length + ' unit(s) packed into ' + batches.length + ' batch(es)');
@@ -1743,13 +1948,28 @@ const sealP = receiptPaths.length
               ),
           );
           const drainOf = (key) => drainRs[DRAINS.findIndex((D) => D.key === key)] || null;
-          const allResiduals = drainRs.flatMap((dr) => (dr && dr.residualRows) || []);
+          // Never-opened rows route like residuals — a drain's honest unreached remainder re-enters the routing pool.
+          const allResiduals = drainRs.flatMap((dr) => ((dr && dr.residualRows) || []).concat((dr && dr.unreached) || []));
           const residualFor = (D) => allResiduals.filter((r) => String(r).includes('/' + D.root + '/'));
           // Routed means a redteam consumes it: only the language trees have terminal consumers, so a cross-targeted
-          // residual (the cross drain already finished when it was emitted) falls through to the audit, never drops.
+          // residual (the cross drain already finished when it was emitted) runs through one terminal closer instead.
           const routed = new Set(LANGS.flatMap((L) => residualFor(L)));
           drainUnrouted = allResiduals.filter((r) => !routed.has(r));
-          if (drainUnrouted.length) log(drainUnrouted.length + ' drain residual(s) have no terminal consumer — carried to the audit');
+          if (drainUnrouted.length) {
+              log(drainUnrouted.length + ' drain residual(s) have no tree drain — terminal residual closer takes them');
+              const rc = await guard(
+                  slot(() =>
+                      agent(residualCloserPrompt(drainUnrouted), {
+                          label: 'drain:residual',
+                          phase: 'Drain',
+                          model: 'fable',
+                          schema: DRAINR,
+                          stallMs: STALL_MS,
+                      }),
+                  ),
+              );
+              if (rc && rc.ok) drainUnrouted = (rc.residualRows || []).concat(rc.unreached || []).filter(Boolean);
+          }
           // Arming is evidence, not label: a cross-libs batch edits language trees directly, so the receipts decide.
           const touchedTree = (root) =>
               batchRecs.some((x) =>
@@ -1780,6 +2000,43 @@ const sealP = receiptPaths.length
               )
           ).filter(Boolean))
               censusRs[x.key] = x.r;
+          // Pre-redteam finder fan: read-only lanes sweep the touched pages at bounded depth so the terminal redteam
+          // fixes a pre-verified find set instead of hunting a whole tree; lane count derives from touched-page volume.
+          const touchedPagesOf = (root) =>
+              uniq(
+                  batchRecs.flatMap((x) =>
+                      [x.impl, x.crit, x.comp]
+                          .flatMap((r) => (r && r.ok && r.filesTouched) || [])
+                          .filter((p) => String(p).includes('/' + root + '/') && String(p).endsWith('.md')),
+                  ),
+              );
+          const findRs = {};
+          for (const x of (
+              await parallel(
+                  armed.flatMap((L) => {
+                      const t = touchedPagesOf(L.root);
+                      const chunksL = [];
+                      for (let i = 0; i < t.length; i += FINDER_PAGES) chunksL.push(t.slice(i, i + FINDER_PAGES));
+                      return chunksL.map(
+                          (pages, i) => () =>
+                              guard(
+                                  slot(() =>
+                                      agent(findWrapPrompt(L, pages, i), {
+                                          label: 'relay:find:' + L.key + '-s' + (i + 1),
+                                          phase: 'Redteam',
+                                          model: 'sonnet',
+                                          effort: 'low',
+                                          schema: RECEIPT,
+                                          stallMs: STALL_MS,
+                                      }),
+                                  ),
+                              ).then((r) => ({ key: L.key, r })),
+                      );
+                  }),
+              )
+          ).filter(Boolean))
+              (findRs[x.key] = findRs[x.key] || []).push(x.r);
+          const findReportsOf = (key) => (findRs[key] || []).filter((r) => r && r.ok && r.report).map((r) => r.report);
           const seals = await parallel(
               LANGS.map((L) => () => {
                   const dr = drainOf(L.key);
@@ -1789,7 +2046,7 @@ const sealP = receiptPaths.length
                       .map((a) => ({ package: a.package, admitted: !!(a.ok && a.admitted), catalog: a.report || '' }));
                   return guard(
                       slot(() =>
-                          agent(rtPrompt(L, dr, receiptPaths, admitRows, residualFor(L), censusRs[L.key] || null), {
+                          agent(rtPrompt(L, dr, receiptPaths, admitRows, residualFor(L), censusRs[L.key] || null, findReportsOf(L.key)), {
                               label: 'rt:' + L.key,
                               phase: 'Redteam',
                               model: 'fable',
