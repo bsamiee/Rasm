@@ -22,6 +22,8 @@ classes:
       - '(null|none|invalid|bounds|range).{0,20}(check|guard).{0,60}(smart ?enum|value ?(object|struct)|generated (enum|case)|by construction)'
       - '(second|re-?run|re-?check)\w*.{0,40}(isvalid|validation|admission) (check|call)'
       - '(verify|re-?check).{0,50}(issuer|signature|acceptance).{0,50}inside'
+      - 'ThrowIfNull'
+      - 'null \w+s? (is|are) (rejected|checked|guarded)'
     refuting_citation: 'templates/fix.md trichotomy — generated-enum instances and value-struct payloads are valid by construction; interior re-validation of admitted values is pushed back'
     landed_surfaces:
       - '.coderabbit.yaml'
