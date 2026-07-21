@@ -1,6 +1,6 @@
 # [CLAUDE_MANIFEST]
 
-MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/architecture.md`
+MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 
 Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
 - All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesitate to do considerable rebuilding of content within `libs/` while all content is still being planned.
