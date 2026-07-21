@@ -1608,17 +1608,43 @@ def cr_store_rows(epoch: Path, /) -> tuple[Finding, ...]:
     return tuple(Block.of_seq(sorted(epoch.glob("*.json"))).choose(lambda path: Nothing if path.name in CR_META_NAMES else cr_admitted(path)))
 
 
+CR_LOC_RE: Final[re.Pattern[str]] = re.compile(
+    r"In @(?P<file>\S+?)\s+(?:at line (?P<one>\d+)|around lines (?P<low>\d+)\s*-\s*(?P<high>\d+))[,:]?\s*", re.IGNORECASE
+)
+
+
+def cr_stream_rows(log: Path, /) -> tuple[Finding, ...]:
+    # Salvage mint for a dead engine: the liveness stream's finding lines carry severity, file, and the whole codegen instruction —
+    # the rich store never lands when the service kills the review, so the stream is the only surviving findings source.
+    def salvaged(raw: bytes, /) -> Option[Finding]:
+        doc = json_value(raw, "<stream-finding>").to_option().map(stringly).default_value({})
+        if doc.get("type") != "finding":
+            return Nothing
+        body = depreambled(str(doc.get("codegenInstructions") or "")).strip()
+        met = CR_LOC_RE.search(body)
+        span = Range() if met is None else Range(start=int(met["one"] or met["low"] or 0), end=int(met["one"] or met["high"] or 0))
+        rest = body[met.end() :].strip() if met else body
+        file = str(doc.get("fileName") or "") or (met["file"].lstrip("@") if met else "")
+        return minted("coderabbit", file, span, headline(rest), rest, str(doc.get("severity") or "")).map(
+            lambda row: replace(row, id=row.fingerprint[:12])
+        )
+
+    return tuple(Block.of_seq(read_bytes(log).map(bytes.splitlines).default_with(lambda _f: [])).choose(salvaged))
+
+
 def cr_harvested(context: Context, /) -> Result[tuple[Finding, ...], Fault]:
-    return (
-        cr_epoch(context.repo, context.run, time.time())
-        .map(lambda epoch: Ok(cr_store_rows(epoch)))
-        .default_with(
-            lambda: Error(
-                Fault(
-                    code="store-missing",
-                    detail=f"no {CR_STORE} epoch matched the run window (workingDirectory==repo, timestamp within ±{STORE_SLACK_S:.0f}s)",
-                )
-            )
+    held = cr_epoch(context.repo, context.run, time.time()).map(lambda epoch: Ok(cr_store_rows(epoch)))
+    if held.is_some():
+        return held.value
+    # No store epoch: a run the service killed mid-review never writes one — salvage the stream for a non-completed round only,
+    # so a completed run with a missing store still fails loud as the correlation defect it is.
+    salvage = cr_stream_rows(context.round_dir / LOG_NAME) if observed(context).phase != "completed" else ()
+    if salvage:
+        return Ok(salvage)
+    return Error(
+        Fault(
+            code="store-missing",
+            detail=f"no {CR_STORE} epoch matched the run window (workingDirectory==repo, timestamp within ±{STORE_SLACK_S:.0f}s)",
         )
     )
 
@@ -3748,7 +3774,7 @@ def gather(*, all_live: _AllLive = False, reviewer: str = "", rounds: str = "", 
     return delivered(repo_root(directory).bind(lambda repo: gather_targets(repo, all_live, reviewer, rounds).bind(lambda held: gathered(repo, held))))
 
 
-def findings_normalized(context: Context, dedup_against: int | None, /) -> Result[FindingsReceipt, Fault]:
+def findings_normalized(context: Context, dedup_against: int | None, /, *, partial: bool = False) -> Result[FindingsReceipt, Fault]:
     adapter = ADAPTERS[context.run.reviewer]
     if context.run.kind == "gather":
         return Error(Fault(code="no-process", detail=f"round {context.run.round} is a gather round; its findings.json lands normalized at gather"))
@@ -3760,9 +3786,14 @@ def findings_normalized(context: Context, dedup_against: int | None, /) -> Resul
             )
         )
     terminal = observed(context)
-    if terminal.phase != "completed":
+    if terminal.phase != "completed" and not (partial and terminal.phase in TERMINAL):
         return Error(
-            Fault(code="not-completed", detail=f"round {context.run.round} is {terminal.phase}: {terminal.detail or 'wait for the terminal phase'}")
+            Fault(
+                code="not-completed",
+                detail=f"round {context.run.round} is {terminal.phase}: "
+                + (terminal.detail or "wait for the terminal phase")
+                + ("" if terminal.phase in TERMINAL else "; a dead engine's store harvests with --partial once terminal"),
+            )
         )
 
     def landed(
@@ -3821,12 +3852,13 @@ def findings_read(context: Context, /) -> Result[tuple[Finding, ...], Fault]:
 def findings(
     *,
     normalize: bool = False,
+    partial: bool = False,
     dedup_against: Annotated[int | None, Parameter(name="--dedup-against")] = None,
     lens: Lens = WIDE_LENS,
     round_no: _RoundNo = None,
     directory: _Dir = None,
 ) -> int:
-    """Normalize a completed round's findings, or read them back: bare summary, --digest round read, --file/--severity/--claim/--in query."""
+    """Normalize a completed round's findings, or read them back: bare summary, --digest round read, --file/--severity/--claim/--in query. --normalize --partial harvests a dead engine's store — whatever landed before a terminal failure."""
 
     def summarized(context: Context, /) -> Result[FindingsReceipt, Fault]:
         return findings_read(context).map(lambda rows: findings_receipt(context, rows, admitted=len(rows)))
@@ -3865,6 +3897,8 @@ def findings(
         return refused(Fault(code="bad-flag", detail="--in scopes the --claim regex; pass --claim with it"))
     if dedup_against is not None and not normalize:
         return refused(Fault(code="bad-flag", detail="--dedup-against rides --normalize"))
+    if partial and not normalize:
+        return refused(Fault(code="bad-flag", detail="--partial rides --normalize"))
     match normalize, lens.digest or lens.filtered, lens.as_json:
         case (True, True, _) | (True, _, True):
             return refused(Fault(code="bad-flag", detail="--normalize excludes --digest, --json, and the query filters; normalize first, then read"))
@@ -3874,7 +3908,7 @@ def findings(
             pass
     outcome = context_resolved(directory, round_no).bind(
         lambda context: (
-            findings_normalized(context, dedup_against) if normalize else read_mode(context) if lens.digest or lens.filtered else summarized(context)
+            findings_normalized(context, dedup_against, partial=partial) if normalize else read_mode(context) if lens.digest or lens.filtered else summarized(context)
         )
     )
     match outcome:
