@@ -29,6 +29,7 @@ Each check-run agent is one cross-cutting lens over the whole diff — boundary 
 
 - `.macroscope/correctness/**/*.md`: frontmatter is optional and carries only `include`/`exclude` glob arrays; omitting both applies the file globally.
 - Macroscope walks `correctness/` recursively — subfolders are purely organizational (globs alone decide targeting, never the folder path), only `*.md` is processed, `README.md` is ignored, and every matching file stacks cumulatively onto a changed file.
+- One topic per file with room to grow: `general/` carries only law that bites every language and concern, and a file accumulating a distinct defect family's cluster — or one the sediment law can no longer shrink — spins that cluster into a family-named sibling under the owning subfolder, split at the family grain, never per-rule; the source file keeps its concern-spanning residue, and the sibling's globs carry any targeting the move sharpens.
 - Body shape: one `# [UPPERCASE_LABEL]` H1 and markdown instructions.
 
 ## [05]-[IGNORE]
