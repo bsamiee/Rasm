@@ -1,6 +1,6 @@
 # [MONOREPO_ARCHITECTURE]
 
-Canonical monorepo hierarchy law: the strata, the dependency direction, the universal-vs-Rhino-capture rule, the geometry/mesh/IFC flow, the `.planning/` lifecycle, the per-language roles, and the cross-language wire seams. This Tier-0 law owns the cross-cutting topology that no single branch or package can own; it is distinct from the authoring standard (`README.md`, which owns the doc-set tiers and page grammar) and the campaign method (`campaign-method.md`, which owns the planning loop). Per-package detail — owner registries, source trees, intra-package seams — lives in each folder `ARCHITECTURE.md` and is never restated here. Tier-0 is the only tier that names a language; branches and folders consume this topology as settled vocabulary.
+Canonical monorepo hierarchy law: the strata, the dependency direction, the universal-vs-Rhino-capture rule, the geometry/mesh/IFC flow, the `.planning/` lifecycle, the per-language roles, the cross-language wire seams, and the four-signal telemetry wire law. This Tier-0 law owns the cross-cutting topology that no single branch or package can own; it is distinct from the authoring standard (`README.md`, which owns the doc-set tiers and page grammar) and the campaign method (`campaign-method.md`, which owns the planning loop). Per-package detail — owner registries, source trees, intra-package seams — lives in each folder `ARCHITECTURE.md` and is never restated here. Tier-0 is the only tier that names a language; branches and folders consume this topology as settled vocabulary.
 
 ## [01]-[STRATA]
 
@@ -113,3 +113,37 @@ Branches couple ONLY through the wire contracts and the companion/offline seams;
 - Content identity reproduces bit-identically in all three runtimes from the one C#-owned seed, so any runtime's artifact is reusable by the others.
 - A second mint of a shared concept in any branch is the named cross-language drift defect.
 - Cross-`libs/` `IDEAS.md` and `TASKLOG.md` carry the cross-language concert; each branch states only its own owner of a shared concept.
+
+## [08]-[TELEMETRY_WIRE_LAW]
+
+Four-signal telemetry — metrics, logs, traces, profiles — correlates across the three runtimes through rows each branch transcribes identically in meaning: canonical here, transcribed at `csharp:Rasm.AppHost/Observability/telemetry#TELEMETRY_IDENTITY` with `#SIGNAL_GOVERNANCE`, `python:runtime/observability/telemetry#TELEMETRY`, and `typescript:runtime/otel/emit#POLICY`, the name vocabulary at `typescript:core/observe/convention`. A drifted row repairs at its owning branch page, never through a shared library — transcription is the conformance mechanism because the three SDK trains move on split maturity channels.
+
+- Resource triple: `service.namespace` is `rasm`, `service.name` the service row, `service.instance.id` a per-process mint; detector rows enrich the minted triple and never replace it, and deployment-time resource overrides win the merge.
+- Metric names: dotted `rasm.<domain>.<measure>` under UCUM units with no pre-baked `_total` or unit suffixes; the metrics store's OTLP receiver pins the `NoUTF8EscapingWithSuffixes` translation, so dotted names survive byte-identical from every runtime.
+- Scope: instrumentation scope is the emitting package id, version-stamped and pinned to one semconv schema coordinate on tracer, meter, and logger alike; each branch spells the coordinate once and the three bump together.
+- Egress: OTLP over HTTP+protobuf with gzip, one collector base endpoint fanned per signal on `/v1/<signal>`; the endpoint is deploy-plane data — `typescript:iac/program/spec#OUTPUT_PLANES` `StackOutputs.otlp` into the workload env — never an in-code literal.
+- Propagation: one W3C composite — trace-context beside baggage — registers as the global propagator in every runtime; parent-based sampling honors the minted parent, so one distributed trace never fractures at a language boundary.
+- Exemplars: trace-based admission — a measurement recorded inside a sampled active span carries its trace and span ids; the metric-to-trace click-through gates on the selected store row's exemplar column at `typescript:iac/operate/observe#STORE_ROWS`.
+- Histograms: base2 exponential aggregation is the wire default in every branch; explicit-bucket advisory rows are the per-instrument fallback a backend or deployment view re-arms.
+- Tenant: `rasm.tenant` is the one tenant dimension — a W3C baggage entry promoted onto spans and logs through allowlisted processors and folded onto metric attributes under per-view cardinality caps; an absent entry is single-tenant, never a sentinel value.
+- Receipts stay the truth: instruments, spans, and log records are projections of typed receipts through per-branch projection owners — `csharp` `InstrumentFan`, `python` `Metrics.record`, `typescript` `Pulse` — and a metric minted beside a receipt fan is a second truth, the named defect.
+
+[TENANT_COST_JOIN]: per-tenant cost attribution is one three-pin join — the C# grant spend family (`rasm.apphost.grant.spend.<unit>` off `GrantBroker` cost vectors through the instrument fan), the SDK-side `rasm.tenant` promotion every runtime registers (the one gate; no collector processor re-mints the dimension), and the iac cost read (OpenCost against the selected store row, boards compiled into the default and tenant organizations). Past a store row's tenant series cap, attribution rides exemplar-sampled traces — trace-scoped spend evidence, never a second metering pipeline.
+
+[FLEET_ESCALATION]: every escalation row is OFF at estate scale by ruling; re-arming is the named coordinate flip against `typescript:iac/operate/observe#CHART_ROWS`, never a re-design.
+
+| [INDEX] | [ESCALATION]           | [ARM_COORDINATE]                                                     | [STANDING_RULING]                     |
+| :-----: | :--------------------- | :------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | Mimir scale-out store  | `spec.profile.observe.store: "mimir"` + `Lgtm.Args.objects`          | `prometheus` row holds at estate load |
+|  [02]   | Broker-buffered leg    | contrib image row + paired `kafka` exporter/receiver pipeline rows   | `file_storage` queue owns durability  |
+|  [03]   | Tail-sampling gateway  | `tail_sampling` processor row on the collector traces pipeline       | head sampling rides SDK parent ratios |
+|  [04]   | Per-app agent topology | second collector row, `mode: "daemonset"`, aimed at the gateway door | one `deployment` gateway serves all   |
+
+[PROFILE_SWAP]: profiles migrate from vendor push onto the OTLP profiles signal by row replacement, armed only when the signal reaches stable across the three SDK trains; span-profile correlation processors, the Pyroscope store row, and every dashboard survive the swap unchanged. Swap-point owners: `csharp:Rasm.AppHost/Observability/telemetry#SIGNAL_GOVERNANCE`, `python:runtime/observability/profiles#PROFILES` with `telemetry#TELEMETRY`, `typescript:runtime/otel/profile`, and `typescript:iac/operate/observe#CHART_ROWS`.
+
+| [INDEX] | [RUNTIME]  | [PUSH_ROW_TODAY]                                          | [SWAP_POINT]                                           |
+| :-----: | :--------- | :-------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | C#         | `AddProcessor<PyroscopeSpanProcessor>()` + agent env rows | OTLP profiles exporter row on the same otelExport arm  |
+|  [02]   | Python     | `Profiles.install` `pyroscope.configure` push             | one `EGRESS` profiles factory row + `SignalSpec` row   |
+|  [03]   | TypeScript | `Profile.live` push bracket over the node profiler        | a profiles lane row beside the `Export.live` exporters |
+|  [04]   | Collector  | `otlphttp/profiles` exporter + `profiles` pipeline        | already OTLP-shaped; the ingest door holds unchanged   |
