@@ -7,50 +7,42 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
-
-[BRANCH_SIGNAL_PLANE]-[ACTIVE]: One signal plane spans the branch — every folder emits through the core `Convention` vocabulary, runtime alone bridges the OTLP wire, iac compiles the backend.
-- Capability: Folder-blind observability — instruments, spans, and logs minted in owning folders correlate estate-wide, with raw `@opentelemetry/*` imports confined to `runtime` and the core semconv vocabulary; typed pack feeds now close the loop — runtime's `BoardPack` census and security's board/alert pack arrive at the compile leg as data, so boards derive from the rows the emitters write.
-- Shape: `core/observe` wire rows (dotted `rasm.*` names, UCUM units, scope = package id, pinned semconv schema, `NoUTF8EscapingWithSuffixes` translation), the `runtime/otel` emit/crash/vital/meter bridge projecting work-plane Facts to `Convention`-keyed instruments, profile and bench vocabulary tiers joining through the core board pack dispatch, and `iac/operate/observe` realizing stores, dashboards, and alerts from the same `DashboardModel` rows and pack feeds.
-- Unlocks: Dashboards and SLO burn alerts compiled from the vocabulary the emitters use, breaking at type-check instead of drifting; any app inherits the full signal plane by composing the export layer at its root.
-- Anchors: `core/observe/convention.md`; `core/observe/board.md` pack dispatch; `runtime/otel/emit.md`; `runtime/otel/meter.md` census projection (carded); `iac/operate/observe.md` pack-ingest rows (carded); the `dataflow-system.md` `AppIdentity` resource law.
-- Ripple: `libs` `[UNIFIED_SIGNAL_FABRIC]`.
-
-[BRANCH_HOOK_RAIL]-[QUEUED]: One tap law spans the branch — core mints the hook vocabulary, runtime runs the one dispatch engine, every folder registry executes the same shape.
-- Capability: `rasm.<pkg>.<domain>.<point>` point brand, closed veto/observe/replay modality vocabulary, `AppIdentity` scoping, and subscriber-fault isolation spell once in core; the data, ui, security, and iac registries mount their point sets on runtime's dispatch engine unchanged, so telemetry, audit, and app policy subscribe branch-wide with zero scattered emit sites and co-resident apps never contend over points.
-- Shape: core `observe/tap.md` as the vocabulary owner, runtime's dispatch engine in the Hooks plane, folder point sets as registry rows — conformance holds when every folder registry names its points in the core brand grammar.
-- Unlocks: one hook rail from browser ui to deploy plane; a new observation concern is a subscriber, never an owner edit in any folder.
-- Anchors: core `observe/tap.md` (carded); runtime `otel/emit.md` dispatch engine (carded); data `[DATA_HOOK_TAP_REGISTRY]`; ui `[HOOK_RAIL]`; security `[0003]`; iac `[0004]`.
-- Tension: iac's `rasm.iac.<tier>.<point>` rows bind pulumi `ResourceHook` lifecycles rather than the runtime engine — the brand grammar still governs, the execution substrate differs by ruled boundary.
-
-[BRANCH_CONTEXT_CARRIAGE]-[QUEUED]: Causal context survives every hop — one carrier codec, one envelope projection, carriers binding both, foreign spans continued.
-- Capability: core's W3C carrier codec owns every header dialect, data's CloudEvents envelope carries journal facts wire-neutral, runtime carriers bind codec and envelope per transport row, and a foreign `traceparent` entering the branch continues as an external span through `Tracer.externalSpan` — trace and tenant context cross Connect, NATS, MQTT, Kafka, and webhook boundaries with zero forks.
-- Shape: the carrier, envelope, and binding cards already open in their owning folders, joined here by the external-span continuation rows landing where ingress decodes a foreign context — carrier ingress, webhook intake, EventLog sync.
-- Unlocks: end-to-end causality across the C#, python, and TS peers over any transport; cost attribution rides tenant baggage through broker hops by construction.
-- Anchors: core `interchange/carrier.md` dialect table (carded); data `[RELAY_CLOUDEVENTS_PROJECTION]`; runtime `[CARRIER_CODEC_BINDING]`/`[JOURNAL_ENVELOPE_CARRIAGE]`; `Tracer.externalSpan` (`libs/typescript/.api/effect.md`), the unexploited substrate member this concert exploits.
 
 [BRANCH_SCHEMA_VARIANTS]-[QUEUED]: One schema declaration yields every variant — `VariantSchema` derivation collapses parallel wire/domain/patch spellings branch-wide.
 - Capability: multi-variant schema construction derives wire, domain, insert/update, and json forms from one field-level declaration, so a family spelling each variant by hand — read-side relations, wire rows and their domain twins, config admission shapes — declares once and projects each variant totally.
 - Shape: a derivation law beside core's vocabulary-table owner, with adoption rows where parallel spellings exist — data read models and journal wire rows first, config admission second.
 - Unlocks: variant drift becomes impossible by construction; a new projection form is one variant key, never a re-spelled schema.
-- Anchors: `VariantSchema.*` (`libs/typescript/.api/effect-experimental.md`), the unexploited substrate member this concert exploits; core `value/schema.md` vocabulary-table owner (carded); data `read/query.md` `Model.Class` relations.
-- Tension: a variant is a projection of one declaration, never a second truth — families whose forms differ semantically rather than structurally stay separate declarations.
+- Anchors: `VariantSchema.*` (`libs/typescript/.api/effect-experimental.md`), the unexploited substrate member this concert exploits; core `value/schema.md` vocabulary-table owner (carded); data `read/query.md` `Model.Class` relations; the derivation bound at `libs/typescript/.planning/RULINGS.md` `[02]-[COLLAPSE]`.
+
+[CONFIG_FAMILY_SCOPE]-[QUEUED]: One config-contract law binds the branch — the `Setting`-shaped family claim is decided and aligned.
+- Capability: environment custody reads one ruled scope — every folder and app resolves its variables through a boot-proven `Setting`-shaped contract, or the family claim narrows to the runtime and app planes; scattered per-site `Config` reads stop being an undecided middle.
+- Shape: the scope decision graduates to `libs/typescript/.planning/RULINGS.md`; alignment rows follow on the security ceremony pages (inline `Config.duration`/`Config.string` reads folding into a folder contract) and `libs/typescript/iac/.planning/program/spec.md`/`libs/typescript/iac/.planning/operate/secret.md` — or the claim narrows in place at `libs/typescript/runtime/.planning/proc/config.md` `[04]`.
+- Unlocks: a malformed environment fails one boot proof per folder instead of surfacing at first read mid-request; config custody has one law branch-wide.
+- Anchors: `libs/typescript/runtime/.planning/proc/config.md` `[04]` family claim; `libs/typescript/security/.planning/crypt/sign.md` inline `Config.duration` reads; the `authn/oauth.md`/`authn/webauthn.md` ceremony config rows.
+- Tension: per-folder contracts buy boot-time proof at the cost of a `Setting`-shaped owner per folder; narrowing the claim leaves ceremony config ad-hoc — the ruling decides which cost the branch prices.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[CONTENT_IDENTITY]-[COMPLETE]: one seed-zero `XxHash128` mint at `core/value/contentKey`, every verifying and keying site delegating; law settled at `dataflow-system.md`.
-[INTERCHANGE_DECODE_ONCE]-[COMPLETE]: one keyed codec census at `core/interchange/codec` decodes every C#-minted family exactly once; law settled at `dataflow-system.md`.
-[JOURNAL_SPINE]-[COMPLETE]: `data/journal/append` owns the one atomic write with ledger and outbox in-commit, the read side folding through `data/read/fold`; law settled at `dataflow-system.md`.
-[TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `AppIdentity`, isolation a scope value never a fork; law settled at `dataflow-system.md`.
-[CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `tests/contracts` corpus assertion; law settled at `dataflow-system.md`.
+[BRANCH_SIGNAL_PLANE]-[COMPLETE]: five legs settled — `core/observe/convention.md` wire rows, `core/observe/board.md` packs, `runtime/otel/emit.md` lanes, `runtime/otel/meter.md` bridge, `iac/operate/observe.md` compile leg; the census feed landed as `Pulse.Board` filling `DashboardModel` payloads at the app deploy-feed seam and reaching iac as the `runtime.pulse` pack row — `BoardPack` never existed as an owner.
+[BRANCH_HOOK_RAIL]-[COMPLETE]: core `observe/tap.md` owns brand and modality vocabulary, runtime `otel/emit.md#HOOKS` runs the one dispatch engine, data `journal/append.md#HOOK_POINTS` conformed to `Tap.point` rows over a publisher port; tap seams mirror as `[SHAPE]: Tap.Registry` (data/ui/security↔runtime) with the ruled iac substrate boundary as `[SHAPE]: Tap.Point` (core↔iac).
+[BRANCH_CONTEXT_CARRIAGE]-[COMPLETE]: core `Carrier.Current` retains admitted tracestate and scrubbed baggage under the live span, runtime `Propagation` continues each dialect-decoded ingress through `OtelBridge.makeExternalSpan`/`withSpanContext`, data `Journal.envelope`/`Journal.carrier` round-trip the CloudEvents context with `rasmtenant`→baggage reconstruction, and fanout and MQTT inject their exact NATS/Kafka/MQTT rows.
+[CONTENT_IDENTITY]-[COMPLETE]: one seed-zero `XxHash128` mint at `core/value/contentKey`, every verifying and keying site delegating; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[INTERCHANGE_DECODE_ONCE]-[COMPLETE]: one keyed codec census at `core/interchange/codec` decodes every C#-minted family exactly once; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[JOURNAL_SPINE]-[COMPLETE]: `data/journal/append` owns the one atomic write with ledger and outbox in-commit, the read side folding through `data/read/fold`; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[TENANCY_SCOPE]-[COMPLETE]: `Tenant.within` is the single scoped write path over `AppIdentity`, isolation a scope value never a fork; law settled at `ARCHITECTURE.md` `[04]-[INTERNAL]`.
+[CROSS_LANGUAGE_INVARIANTS]-[COMPLETE]: wire ownership, content identity, clock, quantity, and receipt-family invariants frozen under `tests/contracts` corpus assertion; law settled at `ARCHITECTURE.md` `[03]-[SEAMS]`/`[04]-[INTERNAL]`.

@@ -28,7 +28,9 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 - `@nats-io/kv`
 - `@nats-io/obj`
 - `@confluentinc/kafka-javascript` — librdkafka client backing the Kafka broker engine row, TypeScript counterpart of the C# host's `Confluent.Kafka` on the shared broker plane
-- `@connectrpc/connect-node` — Node gRPC/Connect server adapter and `http2` client transports; the `serve/live.md` Mount port and `net/client.md` lane counterpart of core's browser-only `@connectrpc/connect-web`, conversing with the C# gRPC host under one W3C interceptor pair
+- `@connectrpc/connect-node` — catalog-confirmed Node gRPC/Connect client transport factories; `net/client.md` owns transport dispatch, while its interceptor pair and `serve/live.md` mount remain blocked research
+- `mqtt` — admitted manifest package with no applicable catalog; `net/channel.md` owns the armed MQTT v5 research route
+- `cloudevents` — admitted manifest package with no applicable catalog; `work/deliver.md` and `serve/route.md` own the armed HTTP-binding routes, while `net/pubsub.md` transports the data owner's opaque envelope
 
 [INTELLIGENCE]:
 - `@effect/ai`
@@ -69,7 +71,10 @@ Runtime-specific libraries admitted by this folder; versions centralize in `pnpm
 - `@opentelemetry/instrumentation-document-load`
 - `@opentelemetry/instrumentation-user-interaction`
 - `@opentelemetry/instrumentation-xml-http-request`
-- `@pyroscope/nodejs` — continuous-profiling push over the native pprof sampler; composes only at the node root and drains with the process
+- `@pyroscope/nodejs` — continuous-profiling push over the native pprof sampler; `otel/profile.md` owns the lifecycle, composed only at the node root and drained with the process
+
+[BENCH]:
+- `mitata` — admitted manifest package with no applicable catalog; `proc/exec.md` owns the armed engine-composition route while its package-independent receipt producer remains settled
 
 [TERMINAL]:
 - `@effect/cli`

@@ -77,6 +77,7 @@ flowchart LR
     Runtime e8@-->|"[CONTENT_KEY]: ParityReceipt"| Numerics
     Experiments e9@-->|"[BOUNDARY]: ResourceRef"| Runtime
     Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
+    Experiments e17@-->|"[PROJECTION]: BenchmarkReceipt"| Runtime
     Runtime e11@-->|"[PORT]: Kernel"| Solvers
     Runtime e12@-->|"[PORT]: measured"| Graduation
     Runtime e16@-->|"[PORT]: Hooks"| Graduation
@@ -117,7 +118,7 @@ flowchart LR
 Convergence above answers what folds where; the strata below answer which sub-domain may import which.
 
 - S0 `graduation` — mints the outward rail exactly once (`HandoffAxis`, `GraduationReceipt`, `EvidenceScope`) and imports no compute sibling; `codegen` and `observability` compose `handoff` inside the stratum — the hub weave re-enters `observability` through one lazy seam, so the point rail and resource ledger ride every producer dispatch — and every producer returns through the hub.
-- S1 `numerics` + `solvers` — one band: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail, `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes; the interleave is module-acyclic — `quadrature` composes `jit`, `interval` composes the receipt `graduate` fold — so no stratum cycle exists at module grain.
+- S1 `numerics` + `solvers` — one band: `solvers` folds `SolverReceipt`/`SolveStatus` onto the rail, `numerics` admits `ArrayPayload` and the `JitBackend`/`LoweredSpec` compile routes; the interleave is module-acyclic — `quadrature` composes `jit`, `receipt` mounts the `jit` `EngineProfile` band, `interval` composes the receipt `graduate` fold — so no stratum cycle exists at module grain.
 - S2 `analysis` + `experiments` + `optimization` — the producer tier no sibling imports: analysis composes `ArrayPayload`, experiments the `JitBackend` capture and the study spine, optimization the `SolveStatus` verdicts and the receipt `graduate` fold; all three stream receipts through the hub weave under their `EvidenceScope` rows, and their axis owners project `GraduationReceipt`.
 
 ```mermaid

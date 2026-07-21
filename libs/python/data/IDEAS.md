@@ -7,28 +7,24 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[ENGINE_PROFILE_PARITY]-[QUEUED]: engine-native profiling depth beyond the DuckDB arm.
-- Capability: polars, daft, and datafusion arms harvest engine-native profile evidence into the shared `QueryReceipt.profile` band beside the DuckDB `EngineProfile`.
-- Shape: per-engine harvest rows — `polars` `LazyFrame.profile()` node timings, `datafusion` `EXPLAIN ANALYZE` operator metrics, daft runner statistics — decoded into the one profile band; the instrument projection keeps firing at the receipt's own `contribute`.
-- Unlocks: engine-uniform query telemetry and cross-engine comparison over one `QuerySpec` without a DuckDB-only depth asymmetry.
-- Anchors: `tabular/columnar#SCAN` `EngineProfile`/`QueryReceipt.profile`; `tabular/query#QUERY` `_provenance` fold; the `polars`/`daft`/`datafusion` catalogues.
-- Tension: each engine spells its own profile schema — the band stays one decoded shape with per-engine adapters, never three parallel receipt fields.
-
-[QUERY_BENCH_LANE]-[QUEUED]: repeatable engine benchmarks on the query plane.
-- Capability: one `QuerySpec` benchmarked across engines through the runtime bench runner — warmup-disciplined latency and throughput receipts keyed by the engine discriminant.
-- Shape: a bench lane wrapping `QueryEngine.run` under runtime `Bench.run` subjects; throughput mode for scan-bound specs, latency for point queries; receipts beside `QueryReceipt` with projection through the standing `domain="bench"` rows.
-- Unlocks: engine A/B evidence over identical specs and regression tracking across engine upgrades.
-- Anchors: runtime `observability/profiles#BENCH` `Bench.run`/`BenchmarkReceipt`; `tabular/query#QUERY` `QuerySpec` axis; the bench growth law absorbing new subjects with zero runtime edits.
-- Tension: a bench lane re-executes its spec — mutation specs never ride it, and a process-terminal bench run rides the runtime job envelope.
+[ENGINE_PROFILE_PARITY]-[BLOCKED]: Native profile payloads converge on the shared query profile band.
+- Capability: DuckDB and Polars native operator evidence joins the settled scalar band and Daft operator rows through `EngineProfile.of`.
+- Shape: one `ProfileHarvest` case per proven native payload; portable scalar harvest remains the truthful floor for every engine.
+- Unlocks: engine-native operator evidence joins the shared profile band, cost comparison across DuckDB, Polars, and Daft reading one receipt shape.
+- Anchors: `.planning/tabular/columnar.md` `[DUCKDB_PROFILE_PAYLOAD]` and `[POLARS_PROFILE_PAYLOAD]`; `QueryReceipt.profile`.
+- Arms: both folder-tier catalog rows carry exact return types and payload schemas for `get_profiling_information()` and `LazyFrame.profile()`.
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows fold into a containment graph the graph plane analyzes for host organization.
 - Capability: Wire-carried layer and relation keys decode into a `GraphPayload` whose nodes are layer identities and whose edges are layer-path nesting and membership, so topology analysis — containment ancestry, nesting depth, membership closure — answers layer organization over the decoded graph with no host handle; per-viewport overrides ride the decoded rows as detached facts.
@@ -37,21 +33,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `graph/graph.md` `GraphPayload`/`analyze`/`NodeId`/`GraphResult.frame`; `rasm.runtime.identity` `ContentIdentity`/`ContentKey` for the stable wire identity; `README.md` host-free interchange role meeting C# only at the content-identity wire.
 - Tension: Wire schema and codec mint in C#; this plane decodes and never re-mints, and the containment graph carries only detached fact rows, never a host layer handle.
 - Ripple: `libs/.planning` `[LAYER_TOPOLOGY_GRAPH_FACTS]`.
-
-[DATA_HOOK_POINTS]-[QUEUED]: mutation edges across the data planes fire typed hook points on the runtime `Hooks` registry.
-- Capability: lakehouse commits, object-store writes, materialize refreshes, and contract verdicts fire `rasm.data.<domain>.<point>` facts — veto governance on the write edges, observe taps for telemetry, replay for late-attaching consumers — so an app gates and observes data mutations with zero emit-calls scattered in domain code.
-- Shape: registered `HookPoint` rows beside each owner — `rasm.data.lakehouse.commit` (veto: an app rejects an uncontracted write pre-commit), `rasm.data.egress.put` and `rasm.data.egress.delete` (veto: immutability governance), `rasm.data.materialize.refresh` (replay: a late dashboard drains the ring), `rasm.data.contract.verdict` (observe) — payloads the pages' existing receipt structs, taps the built-in `tap_receipts`/`tap_metrics` so hook facts and receipts cannot disagree.
-- Unlocks: app-composable data governance without forking an owner, and the telemetry-as-tap law realized on the data planes — observability subscribes to fired facts instead of emit-call sprawl.
-- Anchors: runtime `observability/hooks#HOOKS` `HookPoint`/`Hooks.register`/`fire`/`Modality`; `.planning/tabular/lakehouse.md` commit path; `.planning/tabular/egress.md` `StoreOp`; `.planning/tabular/materialize.md` `refresh`; `.planning/tabular/contract.md` verdicts.
-- Tension: a library registers points while only the app root registers subscribers — no data page ever wires a subscriber, exporter, or provider.
-
-[DATASET_COST_LEDGER]-[QUEUED]: receipt-derived cost facts fold into one content-keyed, tenant-attributed cost frame.
-- Capability: scan and query volumes off `QueryReceipt`, egress byte volume, lakehouse commit sizes, and gridded chunk IO fold into per-`ContentKey` cost facts carrying the `rasm.tenant` dimension, priced by a caller-supplied rate policy — dataset-grain showback over the frames this folder already keys.
-- Shape: `libs/python/data/.planning/tabular/cost.md` — `CostFact` rows harvested off the existing receipt families, a `CostLedger` fold grouping by content key, tenant, and domain, and a priced Arrow frame egress the artifacts renderer and the estate boards consume; rates arrive as a parameterized policy row set, never constants.
-- Unlocks: per-tenant and per-dataset cost boards from evidence already emitted, and a python realization leg for the estate cost move.
-- Anchors: `.planning/tabular/columnar.md` `QueryReceipt`; `.planning/tabular/egress.md` `rasm.egress.byte_volume`; `.planning/tabular/materialize.md` `rasm.materialize.rows`; runtime `Metrics.record` tenant fold; `.planning/gridded/store.md` `PlanReceipt`.
-- Tension: journal and evidence rows stay billing truth — the ledger is a projection over receipts, never a second metering pipeline.
-- Ripple: `libs/.planning` `[COST_ATTRIBUTION_BAGGAGE]`.
 
 [ADBC_DRIVER_SET]-[QUEUED]: ADBC driver family completes with native Postgres, SQLite, and Snowflake arms beside the admitted manager and Flight SQL rows.
 - Capability: `QuerySpec.Remote` reaches Postgres, SQLite files, and Snowflake warehouses through native ADBC drivers on the one `RemoteOp` sub-axis — same DBAPI bracket, same retry class, same receipt fold — closing the partial-family state where only the manager and Flight SQL arms exist.
@@ -86,7 +67,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Shape: `libs/python/data/.planning/spatial/cube.md` — an `xvec`-backed vector-cube owner bridging `FieldDataset` cubes and `VectorGeoClaim` frames, geometry-predicate selection lowering to the claims plane's CRS law, egress through the existing content-keyed field receipt family.
 - Unlocks: simulation-result interchange keyed by building geometry — the missing bridge between the gridded and spatial planes.
 - Anchors: `.planning/gridded/field.md` `FieldDataset` CF owner; `.planning/spatial/geospatial.md` `VectorGeoClaim.reproject`; branch `xarray` substrate; `shapely`.
-- Tension: field.md stays the pure CF owner by ruling — the cube owner is a distinct page composing it, never a second labelled-array store inside `gridded`.
+- Tension: field.md stays the pure CF owner by its own charter law — the cube owner is a distinct page composing it, never a second labelled-array store inside `gridded`.
 
 [COMPRESSED_CARRIER_BAND]-[QUEUED]: transport-band IPC compression with content identity preserved on uncompressed bytes.
 - Capability: large frames crossing to siblings, C# peers, or object storage ride lz4- or zstd-compressed Arrow IPC on the transport band while every `ContentKey` keeps deriving off the uncompressed serialization — wire volume drops without a single identity changing.
@@ -123,13 +104,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: geometry georeference band on `libs/python/geometry/.planning/ifc/analysis.md`; `VectorGeoClaim.reproject` and the CRS law on `spatial/geospatial.md`; `.api/pyproj.md`.
 - Ripple: `geometry` `[IFC_GEOREFERENCE]`.
 
-[DBAPI_SPAN_THREADING]-[QUEUED]: unwrapped query drivers thread the runtime PEP-249 wrap seam at composition.
-- Capability: duckdb and ADBC DBAPI connection legs gain query spans through the runtime train's generic wrap — spans landing beside the `QueryReceipt.profile` band with zero data-side instrumentor import.
-- Shape: per-arm threading rows on `libs/python/data/.planning/tabular/query.md` naming which connection factory the composition root registers through the wrap seam; connectorx stays outside the seam — its read surface exposes no PEP-249 connection.
-- Unlocks: span coverage for every store the folder rides without a dedicated contrib instrumentor; receipts stay the profile truth.
-- Anchors: runtime wrap seam beside `TRAIN` on `libs/python/runtime/.planning/observability/metrics.md`; `.api/adbc-driver-manager.md` `dbapi.connect`; `.api/duckdb.md`.
-- Ripple: `runtime` `[DBAPI_TRAIN_ROW]`.
-
 [SCENARIO_FIELD_TREES]-[QUEUED]: scenario and ensemble families land as one labelled tree over the CF field plane.
 - Capability: a `DataTree` hierarchy carries multi-scenario simulation families — design options, climate years, IAM prospective backgrounds — as parent/child groups whose leaves are `FieldDataset` cubes, so cross-scenario map, reduce, and difference run group-wise in one call instead of N hand-looped cubes.
 - Shape: one new page `libs/python/data/.planning/gridded/ensemble.md` owning the tree constructor, the scenario-axis vocabulary, group-wise operation folds, and content-keyed egress on the `FieldReceipt` family; composes the CF owner, never a second labelled-array store.
@@ -153,8 +127,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
 [EMBEDDED_ENGINE_OBSERVABILITY]-[COMPLETE]: embedded engines carry no scrape surface, so the profiled session bracket became the DuckDB observability owner — harvest folded onto the one `QueryReceipt` stream, instruments projected through the runtime metric spine, DBAPI spans owned by the root-composed instrumentor train.
+[QUERY_BENCH_LANE]-[COMPLETE]: landed — `tabular/query#QUERY` `QueryEngine.bench` drives runtime `Bench.run` per `QuerySpec` tag under the `_BENCH_MODE` rows, refuses the mutation `Remote` INGEST spec, and rides `anyio.run` per round.
+[DATA_HOOK_POINTS]-[COMPLETE]: `.planning/tabular/materialize.md` `DATA_HOOK_POINTS` and `register_data_hooks(scope)` consume every registration rail at composition; each emitting owner carries the same `ScopeKey` into `Hooks.fire`.
+[DATASET_COST_LEDGER]-[COMPLETE]: `.planning/tabular/cost.md` `CostFact.of` normalizes receipts, wire mappings, and facts; `CostLedger.of` harvests that mixed stream before the content-keyed priced-frame fold.
+[DBAPI_SPAN_THREADING]-[COMPLETE]: landed — `tabular/query#QUERY` `dbapi_seams()` declares the duckdb/ADBC/Flight SQL `DbapiSeam` rows the composition root threads through `Instrumentation.dbapi`; ConnectorX excluded by shape.

@@ -12,47 +12,48 @@ It projects GeometryGym models into canonical `ElementGraph` deltas over the `Ra
 - [03]-[PROJECTOR](.planning/Energy/projector.md): `EnergyProjector` raise landing every energy format in the shape the Compute runner reads.
 
 [EXCHANGE]:
-- [04]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one total codec switch over scene, IFC, COBie, and tile targets.
-- [05]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
-- [06]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
-- [07]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): Scan-to-BIM folding segmented clouds into seam occurrences over the LAS/LAZ ingest front.
-- [08]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
-- [09]-[WIRE](.planning/Exchange/wire.md): Host-free content-keyed `IfcWire` interchange artifact the Python and TypeScript peers decode.
+- [04]-[EVENTS](.planning/Exchange/events.md): `BimEvent` model-mutation fact union and its CloudEvents envelope with W3C trace continuity.
+- [05]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one total codec switch over scene, IFC, COBie, and tile targets.
+- [06]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
+- [07]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
+- [08]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): Scan-to-BIM folding segmented clouds into seam occurrences over the LAS/LAZ ingest front.
+- [09]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
+- [10]-[WIRE](.planning/Exchange/wire.md): Host-free content-keyed `IfcWire` interchange artifact the Python and TypeScript peers decode.
 
 [MODEL]:
-- [10]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
-- [11]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
-- [12]-[OBSERVABILITY](.planning/Model/observability.md): `BimHooks` composition-scoped hook rail, `BimTelemetry` receipt-projected instruments, corpus-gated `BimBenchReceipt` claims.
-- [13]-[QUERY](.planning/Model/query.md): Set-algebraic `ElementSet` query over a closed predicate union, `PredicateWire`, `StorePlan` push-down.
-- [14]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary, containment tree over seam compose edges, adjacency, and linear positioning.
-- [15]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
-- [16]-[SYSTEMS](.planning/Model/systems.md): Derived MEP connectivity — port flow edges, directed system trace, demand folds, interference check.
-- [17]-[ZONES](.planning/Model/zones.md): Cross-cutting `BimZone` many-to-many overlay distinct from the single-parent containment tree.
+- [11]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
+- [12]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
+- [13]-[OBSERVABILITY](.planning/Model/observability.md): `BimHooks` composition-scoped hook rail, `BimTelemetry` receipt-projected instruments, corpus-gated `BimBenchReceipt` claims.
+- [14]-[QUERY](.planning/Model/query.md): Set-algebraic `ElementSet` query over a closed predicate union, `PredicateWire`, `StorePlan` push-down.
+- [15]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary, containment tree over seam compose edges, adjacency, and linear positioning.
+- [16]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
+- [17]-[SYSTEMS](.planning/Model/systems.md): Derived MEP connectivity — port flow edges, directed system trace, demand folds, interference check.
+- [18]-[ZONES](.planning/Model/zones.md): Cross-cutting `BimZone` many-to-many overlay distinct from the single-parent containment tree.
 
 [PLANNING]:
-- [18]-[COST](.planning/Planning/cost.md): 5D `CostItem` resource network and 6D `CarbonEstimate` carbon rollup over the material-true takeoff.
-- [19]-[SCHEDULE](.planning/Planning/schedule.md): 4D `ConstructionTask` network with task-time intervals, lags, and phase-partitioned snapshots.
+- [19]-[COST](.planning/Planning/cost.md): 5D `CostItem` resource network and 6D `CarbonEstimate` carbon rollup over the material-true takeoff.
+- [20]-[SCHEDULE](.planning/Planning/schedule.md): 4D `ConstructionTask` network with task-time intervals, lags, and phase-partitioned snapshots.
 
 [PROJECTION]:
-- [20]-[EGRESS](.planning/Projection/egress.md): `SemanticProjector.Emit` IFC re-author — release raise, per-token admission gate, scoped emit.
-- [21]-[RELATIONS](.planning/Projection/relations.md): `IfcRelKind` roster folding every relationship family onto the seam edge algebra.
-- [22]-[SEMANTIC](.planning/Projection/semantic.md): `SemanticProjector` GeometryGym-to-seam lowering under `IfcLegality`, fidelity-drop ledger.
+- [21]-[EGRESS](.planning/Projection/egress.md): `SemanticProjector.Emit` IFC re-author — release raise, per-token admission gate, scoped emit.
+- [22]-[RELATIONS](.planning/Projection/relations.md): `IfcRelKind` roster folding every relationship family onto the seam edge algebra.
+- [23]-[SEMANTIC](.planning/Projection/semantic.md): `SemanticProjector` GeometryGym-to-seam lowering under `IfcLegality`, fidelity-drop ledger.
 
 [REVIEW]:
-- [23]-[COORDINATION](.planning/Review/coordination.md): Clash rule engine, impact report, and sign-off machine owning the BCF issue board.
-- [24]-[DIFF](.planning/Review/diff.md): `ModelDiff` folding two graph snapshots into typed added, modified, removed, and moved arms.
-- [25]-[ISSUES](.planning/Review/issues.md): BCF topic, comment, and viewpoint family over the `.bcfzip` codec and the BCF-API request projection.
-- [26]-[VALIDATION](.planning/Review/validation.md): Two-tier model-QA — template-audit baseline beneath the authored IDS facet fold.
-- [27]-[VERSIONING](.planning/Review/versioning.md): Content-addressed model history — commit DAG and three-way merge with typed conflicts.
+- [24]-[COORDINATION](.planning/Review/coordination.md): Clash rule engine, impact report, and sign-off machine owning the BCF issue board.
+- [25]-[DIFF](.planning/Review/diff.md): `ModelDiff` folding two graph snapshots into typed added, modified, removed, and moved arms.
+- [26]-[ISSUES](.planning/Review/issues.md): BCF topic, comment, and viewpoint family over the `.bcfzip` codec and the BCF-API request projection.
+- [27]-[VALIDATION](.planning/Review/validation.md): Two-tier model-QA — template-audit baseline beneath the authored IDS facet fold.
+- [28]-[VERSIONING](.planning/Review/versioning.md): Content-addressed model history — commit DAG and three-way merge with typed conflicts.
 
 [SEMANTICS]:
-- [28]-[APPEARANCE](.planning/Semantics/appearance.md): Surface-style lowering onto the seam PBR summary reconciled at the Materials content key.
-- [29]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD classification axis — live resolution, association round-trip, enrichment.
-- [30]-[COMPOSITION](.planning/Semantics/composition.md): Bidirectional material projector between IFC material selects and seam composition.
-- [31]-[CONNECTION](.planning/Semantics/connection.md): `ConnectionProjection` lowering realizing elements onto seam detail bags and edges.
-- [32]-[GEOREFERENCE](.planning/Semantics/georeference.md): Map-conversion and CRS lowering onto seam `GeoReference` with federation preflight.
-- [33]-[GEOSPATIAL](.planning/Semantics/geospatial.md): Site-context projector — Simple-Features algebra and universal vector/raster ingest.
-- [34]-[PROPERTIES](.planning/Semantics/properties.md): Pset/Qto template authority, inheritance classifier, quantity derivation, conformance audit.
+- [29]-[APPEARANCE](.planning/Semantics/appearance.md): Surface-style lowering onto the seam PBR summary reconciled at the Materials content key.
+- [30]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD classification axis — live resolution, association round-trip, enrichment.
+- [31]-[COMPOSITION](.planning/Semantics/composition.md): Bidirectional material projector between IFC material selects and seam composition.
+- [32]-[CONNECTION](.planning/Semantics/connection.md): `ConnectionProjection` lowering realizing elements onto seam detail bags and edges.
+- [33]-[GEOREFERENCE](.planning/Semantics/georeference.md): Map-conversion and CRS lowering onto seam `GeoReference` with federation preflight.
+- [34]-[GEOSPATIAL](.planning/Semantics/geospatial.md): Site-context projector — Simple-Features algebra and universal vector/raster ingest.
+- [35]-[PROPERTIES](.planning/Semantics/properties.md): Pset/Qto template authority, inheritance classifier, quantity derivation, conformance audit.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -103,6 +104,10 @@ BIM-domain libraries admitted by this folder; versions centralize in the C# mani
 - `HoneybeeSchema` — HBJSON object graph composed to operator depth.
 - `DragonflySchema` — DFJSON massing composing honeybee by identifier.
 - `NREL.OpenStudio.macOS-arm64` — OSM/IDF store and translators; simulation is Compute's half.
+
+[EVENT_ENVELOPE]:
+- `CloudNative.CloudEvents` — CloudEvents 1.0 envelope and typed attribute model.
+- `CloudNative.CloudEvents.SystemTextJson` — structured-mode JSON event formatter; transport bindings stay app-tier.
 
 [GEOSPATIAL]:
 - `NetTopologySuite.IO.Esri.Shapefile`

@@ -45,56 +45,57 @@ Every manufacturing process folds through a single `FabricationPolicy` dispatch 
 - [26]-[CELL](.planning/Kinematics/cell.md): Robot-cell target compilation and batch placement search over one loaded cell.
 - [27]-[MACHINE](.planning/Kinematics/machine.md): Parameterized machine-chain inverse with TCP/RTCP and dynamics-true timing.
 - [28]-[FLEET](.planning/Kinematics/fleet.md): Shop registry ranking capability over stations, tooling state, and measured performance.
+- [29]-[OBSERVATION](.planning/Kinematics/observation.md): Decoded machine-telemetry slice — the one observation vocabulary every measured consumer reads.
 
 [ADDITIVE]:
-- [29]-[SLICING](.planning/Additive/slicing.md): FFF/DED planar slicing — shells, infill, and the bead-section flow law.
-- [30]-[IMPLICIT](.planning/Additive/implicit.md): Implicit-voxel TPMS, lattice, and cellular infill firebreaked from the mesh world.
-- [31]-[PRODUCTION](.planning/Additive/production.md): Build orientation, machine profiles, and 3MF egress.
-- [32]-[SCANPATH](.planning/Additive/scanpath.md): LPBF hatch strategies emitting the scan-vector egress.
-- [33]-[SUPPORT](.planning/Additive/support.md): Overhang census, tree accumulation, and interface carve.
+- [30]-[SLICING](.planning/Additive/slicing.md): FFF/DED planar slicing — shells, infill, and the bead-section flow law.
+- [31]-[IMPLICIT](.planning/Additive/implicit.md): Implicit-voxel TPMS, lattice, and cellular infill firebreaked from the mesh world.
+- [32]-[PRODUCTION](.planning/Additive/production.md): Build orientation, machine profiles, and 3MF egress.
+- [33]-[SCANPATH](.planning/Additive/scanpath.md): LPBF hatch strategies emitting the scan-vector egress.
+- [34]-[SUPPORT](.planning/Additive/support.md): Overhang census, tree accumulation, and interface carve.
 
 [NESTING]:
-- [34]-[NFP](.planning/Nesting/nfp.md): True-shape NFP-feasibility nesting over stock inventory with the rectangle fast-path.
-- [35]-[STOCK](.planning/Nesting/stock.md): Rectangular cutting-stock yield engine over the nesting-strategy union.
-- [36]-[REMNANT](.planning/Nesting/remnant.md): Offcut lifecycle — reconcile, claim, release, and re-mint.
-- [37]-[LINKING](.planning/Nesting/linking.md): Collision-checked cut linking — common-line, chain-cut, bridge, skeleton.
+- [35]-[NFP](.planning/Nesting/nfp.md): True-shape NFP-feasibility nesting over stock inventory with the rectangle fast-path.
+- [36]-[STOCK](.planning/Nesting/stock.md): Rectangular cutting-stock yield engine over the nesting-strategy union.
+- [37]-[REMNANT](.planning/Nesting/remnant.md): Offcut lifecycle — reconcile, claim, release, and re-mint.
+- [38]-[LINKING](.planning/Nesting/linking.md): Collision-checked cut linking — common-line, chain-cut, bridge, skeleton.
 
 [FIXTURING]:
-- [38]-[WORKHOLDING](.planning/Fixturing/workholding.md): Clamp and exclusion-zone planning with contact-wrench closure rank.
-- [39]-[SETUPS](.planning/Fixturing/setups.md): Setup scheduling with WCS lineage and bounded branch-and-bound optimality evidence.
-- [40]-[ASSEMBLY](.planning/Fixturing/assembly.md): Join-precedence planning with a `JoinProgram` lifecycle discriminant.
+- [39]-[WORKHOLDING](.planning/Fixturing/workholding.md): Clamp and exclusion-zone planning with contact-wrench closure rank.
+- [40]-[SETUPS](.planning/Fixturing/setups.md): Setup scheduling with WCS lineage and bounded branch-and-bound optimality evidence.
+- [41]-[ASSEMBLY](.planning/Fixturing/assembly.md): Join-precedence planning with a `JoinProgram` lifecycle discriminant.
 
 [POSTING]:
-- [41]-[PROGRAM](.planning/Posting/program.md): Dialect-neutral `CutProgram` AST with modal interpretation and cut conditioning.
-- [42]-[DIALECT](.planning/Posting/dialect.md): `CutProgram`-to-`PostImage` emission with block, checksum, and frame lowering.
-- [43]-[OPTIMIZATION](.planning/Posting/optimization.md): Admitted recursive optimization with machine-minute evidence and pattern folding.
+- [42]-[PROGRAM](.planning/Posting/program.md): Dialect-neutral `CutProgram` AST with modal interpretation and cut conditioning.
+- [43]-[DIALECT](.planning/Posting/dialect.md): `CutProgram`-to-`PostImage` emission with block, checksum, and frame lowering.
+- [44]-[OPTIMIZATION](.planning/Posting/optimization.md): Admitted recursive optimization with machine-minute evidence and pattern folding.
 
 [VERIFY]:
-- [44]-[REMOVAL](.planning/Verify/removal.md): Voxel material-removal verify into gouge, uncut, overcut, and residual receipts.
-- [45]-[PROBING](.planning/Verify/probing.md): In-process metrology — probe cycles, ICP datum best-fit, conformance verdicts.
-- [46]-[SIMULATE](.planning/Verify/simulate.md): Modal-state execution walk — the authoritative cycle-time owner.
-- [47]-[ESTIMATION](.planning/Verify/estimation.md): Cost and carbon estimation into parallel signed ledgers.
-- [48]-[AUDIT](.planning/Verify/audit.md): Additive layer-stack pre-flight censused by `AuditRisk`.
+- [45]-[REMOVAL](.planning/Verify/removal.md): Voxel material-removal verify into gouge, uncut, overcut, and residual receipts.
+- [46]-[PROBING](.planning/Verify/probing.md): In-process metrology — probe cycles, ICP datum best-fit, conformance verdicts.
+- [47]-[SIMULATE](.planning/Verify/simulate.md): Modal-state execution walk — the authoritative cycle-time owner.
+- [48]-[ESTIMATION](.planning/Verify/estimation.md): Cost and carbon estimation into parallel signed ledgers.
+- [49]-[AUDIT](.planning/Verify/audit.md): Additive layer-stack pre-flight censused by `AuditRisk`.
 
 [SPEC]:
-- [49]-[TOLERANCE](.planning/Spec/tolerance.md): GD&T frames, ISO fits, general tolerances, datums, texture, and ranked stackup.
-- [50]-[CAPABILITY](.planning/Spec/capability.md): Variable and attribute capability, MSA, generated SPC, and identity-scoped plan gates.
-- [51]-[MANUFACTURABILITY](.planning/Spec/manufacturability.md): Provenance-graded DfM evidence and multi-objective ranked routing.
+- [50]-[TOLERANCE](.planning/Spec/tolerance.md): GD&T frames, ISO fits, general tolerances, datums, texture, and ranked stackup.
+- [51]-[CAPABILITY](.planning/Spec/capability.md): Variable and attribute capability, MSA, generated SPC, and identity-scoped plan gates.
+- [52]-[MANUFACTURABILITY](.planning/Spec/manufacturability.md): Provenance-graded DfM evidence and multi-objective ranked routing.
 
 [DOCUMENTATION]:
-- [52]-[PROJECTION](.planning/Documentation/projection.md): Multi-view drafting projection with pose, convention, scale, and characteristic anchors.
-- [53]-[TRAVELER](.planning/Documentation/traveler.md): Content-keyed shop-execution document with the immutable as-run amendment chain.
-- [54]-[REPORT](.planning/Documentation/report.md): Signed as-built quality records and the attested passport egress.
+- [53]-[PROJECTION](.planning/Documentation/projection.md): Multi-view drafting projection with pose, convention, scale, and characteristic anchors.
+- [54]-[TRAVELER](.planning/Documentation/traveler.md): Content-keyed shop-execution document with the immutable as-run amendment chain.
+- [55]-[REPORT](.planning/Documentation/report.md): Signed as-built quality records and the attested passport egress.
 
 [FORMING]:
-- [55]-[SHEET](.planning/Forming/sheet.md): One unfold owner — bend-allowance flat patterning over the kernel development.
-- [56]-[BRAKE](.planning/Forming/brake.md): Best-first bend-sequence planning over the reach, collision, and occlusion matrix.
-- [57]-[TUBE](.planning/Forming/tube.md): Tube centerline folding, elongation carry, and analytic cope development.
+- [56]-[SHEET](.planning/Forming/sheet.md): One unfold owner — bend-allowance flat patterning over the kernel development.
+- [57]-[BRAKE](.planning/Forming/brake.md): Best-first bend-sequence planning over the reach, collision, and occlusion matrix.
+- [58]-[TUBE](.planning/Forming/tube.md): Tube centerline folding, elongation carry, and analytic cope development.
 
 [JOINING]:
-- [58]-[WELD](.planning/Joining/weld.md): Joint-by-prep bead-stack composition over the typed `JointPrep` groove law.
-- [59]-[SEQUENCE](.planning/Joining/sequence.md): Depth-interleaved distortion-control weld ordering with inherent-strain evidence.
-- [60]-[PROCEDURE](.planning/Joining/procedure.md): Profile-generated WPS/PQR, personnel qualification, and derived inspection scope.
+- [59]-[WELD](.planning/Joining/weld.md): Joint-by-prep bead-stack composition over the typed `JointPrep` groove law.
+- [60]-[SEQUENCE](.planning/Joining/sequence.md): Depth-interleaved distortion-control weld ordering with inherent-strain evidence.
+- [61]-[PROCEDURE](.planning/Joining/procedure.md): Profile-generated WPS/PQR, personnel qualification, and derived inspection scope.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -156,6 +157,9 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Compliance.Redaction` — classification attribute surface for the classified receipt members; redactor binding stays at the app root.
 - In-box `System.Diagnostics.Metrics` owns the instrument surface and in-box `System.Diagnostics.ActivitySource` the engine spans; the OpenTelemetry SDK tier composes at `Rasm.AppHost` roots, never here.
+
+[CACHING]:
+- `Microsoft.Extensions.Caching.Hybrid` — solver memo tier behind the runtime-carried `HybridCache`; the pair-polygon memo keys on the kernel content mint, and the durable L2 federates at the Persistence cache seam.
 
 [TEST]:
 - `xunit.v3.assert`

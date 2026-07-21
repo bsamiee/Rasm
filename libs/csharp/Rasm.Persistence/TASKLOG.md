@@ -7,175 +7,120 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[0003]-[QUEUED]: Egress context carriers — NATS and CloudEvents legs continue the envelope trace the Kafka leg already carries.
-- Capability: the `Nats` sink injects `traceparent` and baggage onto `NatsHeaders` beside `Nats-Msg-Id`; the webhook, Pulsar, and wire-native legs stamp the CloudEvents `traceparent`/`tracestate` extension attributes — every delivery joins the drain trace, never only the Kafka leg.
-- Shape: carrier rows on `Version/egress.md#EGRESS_SINK` delegating to the AppHost `TraceContext` adapter family; the dedup-honesty column stays untouched.
-- Unlocks: broker-hop trace continuity for the spine sink and CDC lanes; delivery evidence joins outbox drain spans across every sink case.
-- Anchors: the `Version/egress.md` sink table, AppHost `telemetry.md#CORRELATION_SPINE` carrier growth row, `CloudNative.CloudEvents` extension attributes.
-- Ripple: `Rasm.AppHost` `[WIRE_CARRIER_ADAPTERS]`.
-
-[0004]-[QUEUED]: Flight SQL result plane — the federation producer speaks Flight SQL so ADBC-native consumers redeem without a bespoke descriptor contract.
-- Capability: `FederationFlight` gains the `FlightSqlServer` arm — statement execution, prepared statements, and the catalog/schema metadata verbs over the same listener; the plain-Flight `GetFlightInfo`/`DoGet` ticket lane stands unchanged.
-- Shape: one server arm on `Query/federation.md#FLIGHT_RESULT_PLANE` — `FlightSqlServer` beside the existing `FlightServer` subclass, Substrait plan bytes as the statement payload, results streaming through the held `ReplayKey` ticket registry; slots extend `store.federation.flight.*`.
-- Unlocks: `python:data` `RemoteDriver.FLIGHTSQL` consumes the C# result plane directly through `adbc-driver-flightsql` — one cross-runtime analytics wire, no custom client.
-- Anchors: the `api-arrow.md` Flight SQL surface (`FlightSqlClient` `ExecuteAsync`/`PrepareAsync` and the metadata verb family), the landed `FederationFlight` ticket registry, `FlowtideDotNet.Substrait` plan ingress.
-
-[0005]-[QUEUED]: Partitioned dataset scan — `ParquetSharp.Dataset` reads multi-file hive-partitioned lake layouts as one Arrow stream.
-- Capability: dataset scan with partition pruning and schema unification over directory datasets — the lake-scan counterpart to the single-file `ParquetSharp.Arrow` codec lane, batches feeding the same egress and query lanes.
-- Shape: one scan row beside `Query/columnar.md#FLAT_TABLE_EGRESS` — `DatasetReader` over `HivePartitioning`/`IPartitioningFactory`, filter pushdown through `Col` and `FilterExtensions`, egress through `ToBatches()` yielding `IArrowArrayStream`; slot `store.columnar.scan` under the grammar.
-- Unlocks: lake-resident history — Parquet daemon materializations and Delta-log generations queryable without a DuckDB mount in the loop.
-- Anchors: the `api-parquetsharp.md` dataset surface, the async Parquet daemon materialization, the `store.columnar.*` slot roster.
-
-[0006]-[QUEUED]: Model-qualified element sets — re-cut the `ElementSet` preimage over `(ModelId, NodeId)` and re-freeze its parity vector in the same pass.
+[MODEL_QUALIFIED_SETS]-[QUEUED]: Model-qualified element sets — re-cut the `ElementSet` preimage over `(ModelId, NodeId)` and re-freeze its parity vector in the same pass.
 - Capability: set membership carries the owning model, evaluation resolves across the `ProjectGraph` roster, and the multi-graph topology view answers federation-altitude selections.
 - Shape: preimage re-frame on `libs/csharp/Rasm.Persistence/.planning/Query/lane.md#ELEMENT_SET_ALGEBRA`, the `ContentParityCorpus` `ParitySlot.ElementSet` vector re-cut beside it, and the multi-graph view case on `libs/csharp/Rasm.Persistence/.planning/Query/topology.md#GRAPH_TOPOLOGY` over the durable `ModelLink` edges.
 - Unlocks: cross-model clash sets and whole-project QTO subjects as one content-addressed currency.
-- Anchors: `IDEAS.md` `[PERS-E2]`; `ModelLink`/`ProjectGraph` on `Element/graph`, the length-framed preimage discipline.
+- Anchors: `IDEAS.md` `[PERS_E2]`; `ModelLink`/`ProjectGraph` on `Element/graph`, the length-framed preimage discipline.
 - Tension: the frozen parity vector binds the `NodeId`-only preimage — both cut in one pass or cross-runtime keys diverge.
 
-[0007]-[QUEUED]: Inbound CDC ingress owner — one new page drains foreign broker topics onto the durable rail.
-- Capability: foreign Kafka events admit through the instrumented consumer, dedup by content key, continue W3C context off message headers, and fold onto the op-log as first-class ops.
-- Shape: one new page at `libs/csharp/Rasm.Persistence/.planning/Version/ingress.md` — `InstrumentedConsumerBuilder` consume leg with `TryExtractPropagationContext` and `ConsumeAndProcessMessageAsync`, content-key dedup against the envelope `id`, consumer registration riding the AppHost root; the `EGRESS_SINK` family stays egress-only.
-- Unlocks: a sibling deployment's egress stream replays into this store as a source.
-- Anchors: `IDEAS.md` `[PERS-V4]`; the `api-otel-instrumentation-confluentkafka` consumer twins, `Version/egress#EGRESS_SINK` dedup-honesty column.
-
-[0008]-[BLOCKED]: E57/LAS/LAZ codec admission survey — resolve the one question blocking the reality-capture page.
-- Capability: a ruled managed codec admission (or a ruled non-existence verdict) arms `[PERS-I3]` and pins the `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` package roster.
-- Shape: nuget MCP survey over the managed E57/LAS/LAZ candidate family scoring license, maintenance signal, and net10 asset; verdict lands as the `[PERS-I3]` arming edit and its packageNeeds row.
+[POINTCLOUD_CODEC_SURVEY]-[BLOCKED]: E57/LAS/LAZ codec admission survey — resolve the one question blocking the reality-capture page.
+- Capability: a ruled managed codec admission (or a ruled non-existence verdict) arms `[PERS_I3]` and pins the `libs/csharp/Rasm.Persistence/.planning/Ingest/pointcloud.md` package roster.
+- Shape: nuget MCP survey over the managed E57/LAS/LAZ candidate family scoring license, maintenance signal, and net10 asset; verdict lands as the `[PERS_I3]` arming edit and its packageNeeds row.
 - Unlocks: the blocked reality-capture codec becomes buildable.
-- Anchors: `IDEAS.md` `[PERS-I3]`; the admission-gate law (supersession-only rejection).
-- Tension: BLOCKED as the survey itself — this task IS the resolution route.
+- Anchors: `IDEAS.md` `[PERS_I3]`; the admission-gate law (supersession-only rejection).
+- Arms: the nuget survey verdict — a ruled managed E57/LAS/LAZ codec admission or a ruled non-existence verdict.
 
-[0009]-[QUEUED]: Hook-point roster — mint the `HookPoint` registry and the six lifecycle point rows.
-- Capability: `rasm.persistence.<domain>.<point>` names with veto/observe/replay modality columns, mount-census uniqueness, subscriber-fault isolation onto `StatFault`.
-- Shape: registry owner beside `SlotRegistry` on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`, contributed point rows on `libs/csharp/Rasm.Persistence/.planning/Element/graph.md`, `libs/csharp/Rasm.Persistence/.planning/Version/egress.md`, `libs/csharp/Rasm.Persistence/.planning/Version/retention.md`, `libs/csharp/Rasm.Persistence/.planning/Version/merge.md`, and `libs/csharp/Rasm.Persistence/.planning/Version/recovery.md`.
-- Unlocks: `[PERS-S1]` realization surface pinned page by page.
-- Anchors: `IDEAS.md` `[PERS-S1]`; `SlotRegistry.Mount` collision law, per-composition scoping.
-
-[0010]-[QUEUED]: Usage fold — join the reachability walk, class rows, and tenancy into `(tenant, class, tier)` usage receipts.
-- Capability: bytes, object counts, and delivery counts per tenant/class/tier as one receipt family under a `store.cost.usage` slot, with `rasm.persistence.usage.*` instrument rows and arms.
-- Shape: usage census joining `libs/csharp/Rasm.Persistence/.planning/Store/blobstore.md#BLOB_GC` walk output with `libs/csharp/Rasm.Persistence/.planning/Version/retention.md#RETENTION_CLASSES` bindings; instrument and arm rows on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#STORE_INSTRUMENTS`.
-- Unlocks: `[PERS-S2]` chargeback evidence lands on the standing projection rail.
-- Anchors: `IDEAS.md` `[PERS-S2]`; identity-tier tenancy rows, the arms one-place law.
-
-[0011]-[QUEUED]: Plan harvest members — three engine capture legs, one digest baseline, one regression verdict.
-- Capability: `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` over the pooled data source, DuckDB `EXPLAIN ANALYZE` JSON through the standing parse fold, SQLite `EXPLAIN QUERY PLAN` off the raw bridge; digests baselined by statement identity, compare folding to a typed verdict.
-- Shape: one `PLAN_PROFILE` section on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` beside the engine harvests, slot `store.stat.plan`, baseline rows in the relational identity tier.
-- Unlocks: `[PERS-S3]` regression gates on hot lanes.
-- Anchors: `IDEAS.md` `[PERS-S3]`; `DuckProfileHarvest.Decode` fold, `PgStatHarvest` pooled-source pattern.
-
-[0012]-[QUEUED]: Cipher floor row — swap the encrypted bundle in and thread the KMS data key through the open ritual.
-- Capability: `PRAGMA key` application inside the idempotent open, data-key mint/unwrap through the custody tier, classification ceilings extended to the offline lane.
-- Shape: cipher row on `libs/csharp/Rasm.Persistence/.planning/Store/provisioning.md#EMBEDDED_FLOOR` composing `SQLitePCLRaw.bundle_e_sqlite3mc`; key custody members on `libs/csharp/Rasm.Persistence/.planning/Element/identity.md#KMS_CUSTODY`.
-- Unlocks: `[PERS-S4]` at-rest guarantee on every embedded store.
-- Anchors: `IDEAS.md` `[PERS-S4]`; the open-ritual idempotence law, envelope-key algebra.
-
-[0013]-[QUEUED]: Instrumentation subscription rows — Redis, EF, and AWS span trains named with their root posture.
-- Capability: each package's AppHost-root subscription posture stated beside the settled Npgsql row, so composition is a copyable row, not tribal knowledge.
-- Shape: settled-composition rows on the `libs/csharp/Rasm.Persistence/.planning/Store/observability.md` lead; registry rows on `libs/csharp/Rasm.Persistence/README.md` under the owning label groups.
-- Unlocks: `[PERS-S5]` closes the store span train as a set.
-- Anchors: `IDEAS.md` `[PERS-S5]`; `Npgsql.OpenTelemetry` row precedent.
-- Atomic: composition-lead and README rows only.
-
-[0014]-[QUEUED]: Binding sink rows — the `Mqtt` case and the AMQP re-bind land on the sink table.
-- Capability: `EgressSink.Mqtt` with MQTT v5 UserProperties carrying the tracing extension and QoS-1 packet identity as its dedup column; `RabbitMq` `Deliver` leg re-bound through the AMQP protocol binding.
-- Shape: case row with its dedup-honesty column on `libs/csharp/Rasm.Persistence/.planning/Version/egress.md#EGRESS_SINK`; pump, envelope, and cursor untouched.
-- Unlocks: `[PERS-V5]` transport-family closure.
-- Anchors: `IDEAS.md` `[PERS-V5]`; the sink growth law, `MQTTnet` manifest row.
-
-[0015]-[QUEUED]: Census projection member — fold rows, slots, arms, and thresholds into the wire census record.
-- Capability: one projection folding `StoreInstruments.Rows`, `SlotRegistry.Mounted()`, `Arms` keys, and threshold hints into a typed wire document.
-- Shape: one member on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#STORE_INSTRUMENTS` beside `Telemetry(version)`.
-- Unlocks: `[PERS-Q1]` dashboard compilation from declared truth.
-- Anchors: `IDEAS.md` `[PERS-Q1]`; the roster and census owners already on the page.
-- Atomic: one projection member and its record.
-
-[0016]-[QUEUED]: Corpus family rows — name each benchmark family, its subject owner, and its claim slot on the index.
-- Capability: codec chunk/compress/hash, store append and AS-OF fold, structural merge, columnar aggregate, ANN route, and blob multipart as standing families minting fingerprint-gated claims.
-- Shape: family rows on `libs/csharp/Rasm.Persistence/.planning/Query/cache.md#BENCHMARK_INDEX` naming `SnapshotCodec`, `GraphStoreOp`, `StructuralMerge`, the columnar lane, `VectorCodebook` routing, and multipart transfer.
-- Unlocks: `[PERS-Q2]` regression gates over the durable spine.
-- Anchors: `IDEAS.md` `[PERS-Q2]`; the claim-admission and recency owners on the page.
-
-[0017]-[QUEUED]: Manifest projection member — fold the expectation set into the desired-state wire record.
-- Capability: extension roster, server postures, cron and partition job rosters, and embedded pragma set as one typed manifest the deploy plane converges on.
-- Shape: one projection member on `libs/csharp/Rasm.Persistence/.planning/Store/provisioning.md#SERVER_EXTENSIONS` folding the `ServerExtension` roster; store-axis coordinates from `libs/csharp/Rasm.Persistence/.planning/Store/provisioning.md#STORE_AXIS_MAP` ride along.
-- Unlocks: `[PERS-S6]` drift-as-diff and derived fleet provisioning.
-- Anchors: `IDEAS.md` `[PERS-S6]`; the verification-first fold this projection reuses.
-- Atomic: one projection member and its record.
-
-[0018]-[QUEUED]: Partitioned ADBC redemption — `ExecutePartitioned()` fans a federation result across parallel partition readers.
-- Capability: the ADBC tabular arm executes partitioned, each `PartitionDescriptor` redeems through `ReadPartition` on its own reader, and the lowered plan streams as parallel Arrow partitions instead of one cursor.
-- Shape: one partitioned-execution row on `libs/csharp/Rasm.Persistence/.planning/Query/federation.md#PLAN_LOWERING` over the `AdbcStatement` partition surface the folder catalog carries.
-- Unlocks: distributed warehouse reads saturate instead of serializing; the cataloged member stops being shelf inventory.
-- Anchors: `api-arrow.md` `ExecutePartitioned()` and `ReadPartition(PartitionDescriptor)` rows, the ADBC arm on the lowering table.
-- Atomic: one lowering-table row.
-
-[0019]-[QUEUED]: Schema-pinned contributor mint — the semconv schema pin rides the contributor port so the meter mint stamps it.
-- Capability: `StoreInstruments.Telemetry` carries the schema coordinate and the composition-root mint applies `MeterOptions.TelemetrySchemaUrl`, so scope identity satisfies the wire law's schema pin without a folder OTel reference.
-- Shape: schema coordinate on the contributor mint at `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#STORE_INSTRUMENTS`; the port-side slot and mint stamp land on the AppHost counterpart.
-- Unlocks: schema-aware backends read `rasm.persistence.*` scopes with pinned semantics.
-- Anchors: branch `api-diagnostics-metrics.md` `MeterOptions.TelemetrySchemaUrl` law row, `TelemetryContributorPort` on the AppHost port vocabulary.
-- Atomic: one mint-signature coordinate.
-
-[0020]-[QUEUED]: Landing arm rows — per-producer batch-schema registration, writers, slots, and index custody pin the columnar spine.
-- Capability: each producer family lands one arm row — schema registration keyed by its content identity, dataset-writer binding, `ArtifactIndexRow` custody, and batch-metadata preservation — so four sibling egress cards converge on one landing discipline.
-- Shape: arm rows on `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md#FLAT_TABLE_EGRESS` and contributed slot rows on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`.
-- Unlocks: realizes `[PERS-L1]` — the landing spine names every producer.
-- Anchors: `IDEAS.md` `[PERS-L1]`; `ParquetSharp.Dataset` writers, the Flight result plane, the slot grammar.
-
-[0021]-[QUEUED]: Shop-state slot rows — `store.fabrication.<domain>.<verb>` registers remnant inventory, fleet performance horizons, magazine slot state, and capability history.
-- Capability: each row carries a typed read and write receipt pair federating Fabrication shop state onto the store rail; contributed rows enter the `SlotRegistry` mount census under its uniqueness law.
-- Shape: contributed slot rows on `libs/csharp/Rasm.Persistence/.planning/Store/observability.md#SLOT_REGISTRY`.
-- Unlocks: shop state survives the process — the Fabrication in-memory registries gain a durable rail.
-- Anchors: `SlotRegistry.Mounted()` census, the contributed-row pattern, the Fabrication receipt owners.
-- Ripple: `Rasm.Fabrication` `[SHOP_STATE_SLOTS]`.
-- Atomic: contributed slot rows and their receipt pairs.
-
-[0022]-[QUEUED]: Solver-memo band — content-keyed NFP pair and ICP fit memos persist beside the benchmark index and replay across runs.
+[SOLVER_MEMO_BAND]-[QUEUED]: Solver-memo band — content-keyed NFP pair and ICP fit memos persist beside the benchmark index and replay across runs.
 - Capability: a durable memo band keyed by the Fabrication content keys — NFP pair geometry, ICP fit results — with hit accounting, so expensive solver truth computes once and replays across processes.
 - Shape: one memo band on `libs/csharp/Rasm.Persistence/.planning/Query/cache.md` beside `#BENCHMARK_INDEX`, reads on the synchronous lane, publication through the standing residence law.
 - Unlocks: nesting and registration solves warm-start from durable memos instead of recomputing per run.
 - Anchors: the `#BENCHMARK_INDEX` content-address and recency precedent, the Fabrication memo-key origin.
 - Ripple: `Rasm.Fabrication` `[SOLVER_MEMO_CACHE]`.
 
-[0023]-[QUEUED]: Search wire projection — the retrieval lane exposes one typed query/result wire with corpus-coverage rows for the document-search plane.
+[SEARCH_WIRE_PROJECTION]-[QUEUED]: Search wire projection — the retrieval lane exposes one typed query/result wire with corpus-coverage rows for the document-search plane.
 - Capability: the landed BM25/tsquery retrieval owner projects a typed query/result wire — query union in, ranked hits with branch lineage out — and coverage rows admit the notebook-cell, issue-text, and evidence-payload corpora onto the indexed set.
 - Shape: wire members on `libs/csharp/Rasm.Persistence/.planning/Query/retrieval.md` beside the fusion fold; one coverage row per corpus naming its indexed columns.
 - Unlocks: the AppUi `Document/search.md` plane queries every durable text corpus through one wire.
 - Anchors: the retrieval predicate family and `LexicalRank` arms, the fusion lineage receipt, the `key_field` anchor law.
-- Ripple: `Rasm.AppUi` `[DOCUMENT-SEARCH]`.
+- Ripple: `Rasm.AppUi` `[DOCUMENT_SEARCH]`.
 
-[0024]-[QUEUED]: Delta envelope composition — `GraphDelta` publications stamp the seam event vocabulary on the egress envelope.
-- Capability: when the published op is a `GraphDelta` crossing, `Egress.Envelope` populates the Element event-type token, subject `ContentAddress`, `Instant`, and `traceparent` slot — one envelope, seam vocabulary honored, never a second projection.
-- Shape: one mapping row on `libs/csharp/Rasm.Persistence/.planning/Version/egress.md#EGRESS_SINK` envelope projection.
-- Unlocks: broker consumers of graph deltas read the seam-declared vocabulary without decoding payload bytes.
-- Anchors: `Egress.Envelope` one-projection law, the Element envelope vocabulary card.
-- Ripple: `Rasm.Element` `[DELTA_EVENT_ENVELOPE]`.
-- Atomic: one envelope mapping row.
+[TRACE_STAMP_PORT]-[QUEUED]: Egress trace stamping becomes port-injected — the envelope arrives propagator-stamped and no transport leg formats wire headers.
+- Capability: trace context reaches the broker egress through a composition-injected stamp, so spec revisions and tracestate flow through with zero Persistence edits and the ledger's never-re-mint law holds by construction.
+- Shape: `libs/csharp/Rasm.Persistence/.planning/Version/egress.md` — `EgressPorts` gains the trace-stamp delegate pair and `Egress.Envelope` deletes its hand-formatted traceparent interpolation.
+- Unlocks: the one live violation of the propagator custody law dies at its root.
+- Anchors: `Version/ledger.md` propagator custody clause; `libs/csharp/.planning/RULINGS.md` causal-frame row.
+- Ripple: follows `Rasm.AppHost` `[EGRESS_CARRIER_SETTERS]`.
+- Atomic: one port pair, one literal deletion.
 
-[0025]-[QUEUED]: Compressed-carrier decode arm — lz4/zstd Arrow IPC streams decode on ingest with identity keyed on uncompressed bytes.
-- Capability: Python-minted content-key wires may arrive with transport-band IPC block compression; the Arrow ingest arm sets `IpcOptions.CompressionCodecFactory = new CompressionCodecFactory()` so `Lz4Frame`/`Zstd` streams decode, while every `ContentAddress` derivation reads the decompressed canonical bytes — transport framing never enters identity.
-- Shape: one decode-arm row on `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md#FLAT_TABLE_EGRESS` ingest side; the `Element/codec.md` law that Arrow-compressed bodies pair with `CompressionPolicy.None` already anticipates the arm.
-- Unlocks: sibling scan-scale frames cross compressed with zero identity drift; the python carrier's codec vocabulary gains its C# decode end.
-- Anchors: `api-arrow.md` `CompressionCodecFactory` truth (codec factory required at read of compressed streams); `Apache.Arrow.Compression` admitted manifest row.
-- Ripple: `python:data` `[COMPRESSED_CARRIER_BAND]`.
-- Atomic: one ingest decode-arm row.
+[CDC_ENVELOPE_SPELLING]-[QUEUED]: Egress envelope vocabulary aligns to the one realized owner spelling.
+- Capability: every catalog and comment names the realized CloudEvents projection owner, so the seam vocabulary carries one spelling and a phantom type never anchors a consumer.
+- Shape: `libs/csharp/Rasm.Persistence/.api/api-cloudevents.md` (`CdcEnvelope` charter and boundary rows, `CdcEnvelopeWire` at the three-consumer row), the `libs/csharp/Rasm.Persistence/.api/api-nats.md` snapshot-codec row, and the `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md` projection comment — each re-spells to the `Version/egress.md` `Egress.Envelope` projection.
+- Unlocks: the three-consumer drain law reads against a spelling the owning page carries.
+- Anchors: `Version/egress.md` `Egress.Envelope` fence; the decoded-never-re-minted boundary law both ends carry.
+- Ripple: mirrors `Rasm.AppHost` `[OUTBOX_ENVELOPE_SPELLING]`.
+- Atomic: spelling alignment, no shape change.
+
+[RECEIPT_PORT_KERNEL_TYPES]-[QUEUED]: Receipt-seam spellings re-anchor to the kernel causal-frame owners.
+- Capability: the receipt seam names kernel-owned identity, tenancy, and envelope types; a receipt consumer reads one type family with no strata caveat.
+- Shape: `libs/csharp/Rasm.Persistence/.planning/Element/codec.md` and `libs/csharp/Rasm.Persistence/.planning/Version/timetravel.md` — `ReceiptEnvelope`/`CorrelationId`/`TenantContext` mentions re-anchor to the kernel capsule spellings.
+- Unlocks: the strata-inversion caveats those pages carry dissolve.
+- Anchors: `libs/csharp/.planning/RULINGS.md` causal-frame row; kernel `Domain/telemetry.md`.
+- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`.
+- Atomic: spelling re-anchors, no shape change.
+
+[PARITY_SLOT_PROSE_ALIGN]-[QUEUED]: Parity-corpus prose derives slot membership from the fence instead of legislating a count.
+- Capability: the corpus prose states the contribute rule; the fence roster owns membership, so a new slot lands without falsifying a sentence.
+- Shape: `libs/csharp/Rasm.Persistence/.planning/Version/commits.md` — the "four parity slots" sentence restates over the fence-owned `ParitySlot` roster covering `CrdtOpSet`.
+- Unlocks: slot growth with zero prose debt.
+- Anchors: the `ParitySlot` fence roster; `RULINGS.md` parity re-freeze row.
+- Atomic: one sentence.
+
+[FLIGHT_SQL_SUBCLASS]-[BLOCKED]: Flight SQL subclass completes over the shared `ReplayKey` hold.
+- Capability: a transcription-complete `FlightSqlServer` subclass joins the landed plain-Flight serving, every handler typed over the shared hold.
+- Shape: a restored `libs/csharp/Rasm.Persistence/.planning/Query/federation.md` `#RESEARCH` fence.
+- Unlocks: `[PERS_L1]` — Flight SQL serving settles over the columnar plane.
+- Anchors: `.api/api-arrow.md` `FlightSqlServer` roster; `Query/federation.md` `ReplayKey` hold.
+- Arms: `.api/api-arrow.md` gains every exact protected abstract `FlightSqlServer` handler row.
+
+[MQTT_SINK_MEMBERS]-[BLOCKED]: MQTT sink members compose into the egress family.
+- Capability: verified message, publish, header, and QoS members compose into `EgressSink.Mqtt` beside the landed AMQP sink.
+- Shape: a restored `libs/csharp/Rasm.Persistence/.planning/Version/egress.md` `#RESEARCH` fence.
+- Unlocks: `[PERS_V5]` — MQTT egress settles on the one sink rail.
+- Anchors: `MQTTnet` and `CloudNative.CloudEvents.Mqtt` packages; `Version/egress.md` sink family.
+- Arms: both packages gain exact folder-tier `.api` catalogs.
+
+[ARROW_PARTITIONS_RESTORE]-[BLOCKED]: `ArrowPartitions` restores over the descriptor-enumeration spelling.
+- Capability: partitioned ADBC execution and redemption serve the columnar plane typed, `ArrowPartitions` composed over the exact `PartitionedResult` descriptor enumeration.
+- Shape: a restored `libs/csharp/Rasm.Persistence/.planning/Query/columnar.md` `#RESEARCH` fence.
+- Unlocks: partition-parallel consumers redeem descriptors against the durable plane with no raw ADBC surface.
+- Anchors: `.api/api-arrow.md` ADBC rows; `Query/columnar.md` columnar owner.
+- Arms: `.api/api-arrow.md` gains the exact `PartitionedResult` descriptor-enumeration row.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-- [0001]-[COMPLETE]: `Store/observability.md` landed — slot grammar and registry, `pg_stat_statements`/`pg_stat_io` harvest, DuckDB profiling harvest, SQLite status harvest; `OpenTelemetry.Instrumentation.ConfluentKafka` admitted with csproj row, README registry row, and `.api` catalog.
-- [0002]-[COMPLETE]: every emitting page carries its `Slots` roster on its primary owner and `SlotRegistry.Mounted()` spreads the census; the topology traversal slot collapsed to `store.topology.traverse` and the vector-route fact respelled `store.vector.route` under the grammar.
+[OBSERVABILITY_PAGE_LAND]-[COMPLETE]: `Store/observability.md` landed — slot grammar and registry, `pg_stat_statements`/`pg_stat_io` harvest, DuckDB profiling harvest, SQLite status harvest; `OpenTelemetry.Instrumentation.ConfluentKafka` admitted with csproj row, README registry row, and `.api` catalog.
+[SLOT_ROSTER_SPREAD]-[COMPLETE]: every emitting page carries its `Slots` roster on its primary owner and `SlotRegistry.Mounted()` spreads the census; the topology traversal slot collapsed to `store.topology.traverse` and the vector-route fact respelled `store.vector.route` under the grammar.
+[EGRESS_TRACE_ENVELOPE]-[COMPLETE]: egress context carriers landed — `Egress.Envelope` stamps the `traceparent`/`tracestate` composite on every sink and the `Nats` case row mirrors them onto `NatsHeaders` through the AppHost `TraceContext` carrier adapter.
+[DATASET_SCAN_LAND]-[COMPLETE]: partitioned dataset scan landed as `FlatTableEgress.ScanDataset` (`DatasetReader` + `HivePartitioning.Factory` + `ToBatches` pushdown) with the `store.columnar.scan` slot on `Query/columnar.md#FLAT_TABLE_EGRESS`.
+[CDC_INGRESS_OWNER]-[COMPLETE]: inbound CDC ingress owner minted at `Version/ingress.md` (`CdcIngress` — instrumented consume, envelope decode, source gate, content-key dedup, store-first offsets), registered in the README router, ARCHITECTURE codemap, `SlotRegistry.Mounted`, and the `FaultBand.Ingress` 8500 row.
+[HOOK_RAIL_ROSTER]-[COMPLETE]: hook-point roster landed as `Store/observability.md#HOOK_RAIL` `PersistenceHooks` — six typed lifecycle points with `Guarded`/`Swept` composition adapters and per-composition mounts.
+[USAGE_FOLD_LAND]-[COMPLETE]: usage fold landed as `Store/observability.md#USAGE_PROJECTION` `StoreUsage.Fold` over the `BLOB_GC` catalog and drain receipts, with the `rasm.persistence.usage.*` gauge rows and arm.
+[PLAN_HARVEST_LAND]-[COMPLETE]: plan harvest landed as `Store/observability.md#PLAN_PROFILE` — pg/DuckDB/SQLite capture legs, shape-only digests, `PlanBaselineRow` identity-tier persistence, `PlanVerdict` under `store.stat.plan`.
+[CIPHER_FLOOR_LAND]-[COMPLETE]: cipher floor landed on `Store/provisioning.md#EMBEDDED_FLOOR` — `bundle_e_sqlite3mc` provider, `raw.sqlite3_key` first-crossing key application in `Open`, `Rekey` rotation, DEK custody through the landed `Element/identity#KMS_CUSTODY` envelope algebra.
+[INSTRUMENTATION_ROWS_LAND]-[COMPLETE]: instrumentation subscription rows landed — the Redis/EF/AWS settled-composition rows on the `Store/observability.md` lead and the README registry rows under their owning label groups.
+[CENSUS_PROJECTION_LAND]-[COMPLETE]: census projection landed as `StoreInstruments.Census(version, registry)` folding rows, bucket thresholds, mounted slots, and projected-arm keys into `StoreTelemetryCensus`.
+[BENCH_FAMILY_ROWS]-[COMPLETE]: corpus family rows landed as `BenchmarkFamily` on `Query/cache.md#BENCHMARK_INDEX` — codec/store-append/merge/columnar/vector-route/multipart suites with subject owners and suite-owned claim keys.
+[PROVISION_MANIFEST_LAND]-[COMPLETE]: manifest projection landed as `ClusterProvision.Manifest` folding roster, settings, jobs, and the embedded ritual into `ProvisionManifest` with `#STORE_AXIS_MAP` axis coordinates.
+[SCHEMA_PINNED_MINT]-[COMPLETE]: schema-pinned contributor mint landed as `StoreInstruments.Telemetry(version, schemaUrl)` filling the port `SchemaUrl` slot the AppHost mint stamps as `MeterOptions.TelemetrySchemaUrl`.
+[LANDING_ARM_ROWS]-[COMPLETE]: landing arm rows landed as `LandingArm` (geometry/doe/tabulate/materials) + `FlatTableEgress.Land` with the four `store.<domain>.land` slots in the mounted census.
+[SHOP_STATE_SLOTS_SPAN]-[COMPLETE]: shop-state slot rows land through the `SlotRegistry.Mounted` contributed span — the `store.fabrication.<domain>.<verb>` family is call-site data under the uniqueness law; the Fabrication-side receipt pairs ride `Rasm.Fabrication` `[SHOP_STATE_SLOTS]`.
+[DELTA_ENVELOPE_SUBJECT]-[COMPLETE]: delta envelope composition landed — `Egress.Envelope` stamps `Subject` with the entity identity beside `Type`/`Time`/`traceparent`, honoring the Element seam vocabulary on `GraphDelta` crossings.
+[IPC_DECODE_ARM]-[COMPLETE]: compressed-carrier decode arm landed as `FlatTableEgress.ReadIpcFrames` over the one `CompressionCodecFactory` (`ArrowStreamReader(Stream, ICompressionCodecFactory)` assay-verified); identity reads decompressed canonical bytes.

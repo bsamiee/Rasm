@@ -49,10 +49,12 @@
 
     <ItemGroup Label="Interchange Transport">
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
+        <PackageReference Include="Apache.Arrow" />
         <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
         <PackageReference Include="Grpc.Net.Client.Web" />
         <PackageReference Include="Grpc.Net.Common" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
+        <PackageReference Include="NATS.Net" />
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Toolkit" />

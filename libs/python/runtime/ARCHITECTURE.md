@@ -12,7 +12,8 @@ runtime/
 │   ├── metrics.py      # One MeterProvider's instruments, the record mapping, and the instrumentor train
 │   ├── hooks.py        # Scoped hook registry: point rows, modalities, and telemetry taps
 │   ├── profiles.py     # Pyroscope push, benchmark receipts, and the offline-job envelope
-│   └── telemetry.py    # Profile-gated OTLP install owner
+│   ├── telemetry.py    # Profile-gated OTLP install owner
+│   └── bundle.py       # Pull-driven support-bundle capsule: fenced collectors and the content-keyed archive fold
 ├── reliability/        # One fault family and resilience policy every sibling returns through
 │   ├── faults.py       # Boundary-fault union and its exception-to-fault projector
 │   └── resilience.py   # Retry policy table, one row per retryable class
@@ -117,8 +118,8 @@ Interior composition is one acyclic import rail: `faults` roots the graph, every
 
 - S0 `faults` — mints the one boundary-fault union and rail (`BoundaryFault`, `RuntimeRail`) exactly once and imports no runtime sibling; every module above returns through it.
 - S1–S3 identity band — `clock` (`Hlc`/`ElementId`/`Tenant`), `identity` (`ContentKey`), and `shapes` (`PROTO_VOCABULARY`) sit directly on faults; `receipts` composes identity, and `logging` (`LogShip`), `metrics`, `hooks`, `reproduction` (`ParityReceipt`), and `evidence` fold through receipts — `hooks` through the metrics spine it taps.
-- S4–S6 execution band — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through resilience while `wire` (`CrdtOp`) sits on shapes and clock; `workers` (`Kernel`) composes roots, and `telemetry` gates on admission and carries the `logging`-owned ship policy.
-- S7–S9 composition tier — `lanes` (`StagePlan`) drives admission and workers, `recipe` (`RecipeInterface`) composes lanes and roots, `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine, and `serve` (`DiscoveryResult`/`CommandReceipt`) is the terminal tier wiring recipe, telemetry, profiles, and the wire codec.
+- S4–S6 execution band — `resilience` (the `RetryClass` policy table) composes metrics; `roots` (`ResourceRef`) and `admission` return through resilience while `wire` (`CrdtOp`) sits on shapes and clock; `telemetry` gates on admission and carries the `logging`-owned ship policy, and `profiles` (`BenchmarkReceipt`/`JobRun`) drives the telemetry install beside the metrics spine.
+- S7–S9 composition tier — `workers` (`Kernel`) composes roots and boots its floors through profiles and telemetry, `lanes` (`StagePlan`) drives admission and workers, `recipe` (`RecipeInterface`) composes lanes and roots, `bundle` (`SupportBundle`) folds the install receipts, hook rings, and admitted context beside profiles, and `serve` (`DiscoveryResult`/`CommandReceipt`) is the terminal tier wiring recipe, bundle, and the wire codec.
 
 ```mermaid
 ---
@@ -130,8 +131,9 @@ config:
 ---
 flowchart TB
     accTitle: Runtime interior import rail
-    accDescr: Transitive-reduced module import rail descending from the serve and profiles composition tiers through recipe, lanes, and workers onto roots, telemetry joining at admission and logging, the wire codec at shapes and clock, converging through hooks, metrics, logging, and receipts onto identity and the faults root, with reproduction and evidence joining at receipts and shapes and clock at faults.
+    accDescr: Transitive-reduced module import rail descending from the serve tier through recipe, lanes, and workers onto roots and the profiles-telemetry install band, the bundle capsule joining at profiles, hooks, and shapes, the wire codec at shapes and clock, converging through hooks, metrics, logging, and receipts onto identity and the faults root, with reproduction and evidence joining at receipts and shapes and clock at faults.
     Serve[serve]
+    Bundle[bundle]
     Profiles[profiles]
     Recipe[recipe]
     Telemetry[telemetry]
@@ -152,9 +154,12 @@ flowchart TB
     Identity[identity]
     Faults[faults]
     Serve r1@--> Recipe
-    Serve r2@--> Telemetry
+    Serve r2@--> Bundle
     Serve r3@--> Wire
-    Serve r28@--> Profiles
+    Bundle r28@--> Profiles
+    Bundle r29@--> Hooks
+    Bundle r30@--> Shapes
+    Workers r31@--> Profiles
     Profiles r23@--> Telemetry
     Profiles r24@--> Metrics
     Recipe r4@--> Lanes
@@ -190,6 +195,8 @@ Each sub-domain charter is the codemap comment; the boundary law below fixes the
 - Structured JSON events ship to stdout and the collector promotes them to OTLP log records; the telemetry root alone names the in-process log escape hatch.
 - Hook points register composition-unique package-qualified ids, and telemetry subscribes to hook facts as taps.
 - Contrib instrumentors and the pyroscope push activate once at the composition root; offline jobs drain every provider at the job boundary.
+- Support-bundle capture is pull-driven and bounded — every archive fact passes the receipts-owned redaction before a byte lands, and the capsule serves only through the registered diagnostic route.
+- Worker floors boot the parent-captured install post-spawn and drain at exit; kernel-grain cost records where it is spent, under the tenant the carrier promotes.
 - `reliability` — owns the one boundary-fault surface and the single retry policy; every failure returns as a typed fault, never a sentinel.
 - `execution` — admits host facts caller-owned, reads secrets through the settings-admitted boundary, and mints no stamp beside the inbound frame.
 - Concurrency stays bounded under `StagePlan` and the one scheduler owner, every lane draining to a `DrainReceipt`.

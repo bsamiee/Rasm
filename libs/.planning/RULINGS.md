@@ -1,0 +1,15 @@
+# [LIBS_RULINGS]
+
+Cross-libs decision registry — the settled rulings spanning every language branch that agents re-litigate for lack of a home. A row is one decision with the one why that guards its re-litigation: an owner-choice discriminant true in all three trees, or a doc-class ruling no branch may override. Append-mostly; a row earns its seat while its why stays homeless and dies only when fact and why both live at one durable surface; a decision scoped to one branch or folder homes at that tier, never here.
+
+## [01]-[SHAPE]
+
+- Every cross-runtime measurement, stamp, and board is single-writer — one runtime authors the truth, every other end projects it: the C# host alone mints physical time (the python companion advances only the logical half), a board carries no content outside the owning runtime's projection, and each endpoint of a shared seam carries only its own half; a second authoring end forks convergence — clock order, replay join, board state — in ways no gate detects.
+- Library tiers stay app-neutral — instrumentation binds the API surface only, and no exporter, SDK wiring, correlation/tenant/host envelope, or ambient sink enters below the composition root; the composing app alone laces cross-cutting evidence — an app-bound library tier couples every consumer to one composition and manufactures per-folder twins of the app's lacing.
+- Columnar-lake query ends ride one Flight SQL plane in every runtime — a per-runtime second query transport re-derives the lake's admission, auth, and typing at every end and drifts them independently; a runtime needing a new query capability extends the one plane's surface, never mints a sidecar transport.
+- Retrieval fusion stays host-local per runtime — the C# store and the typescript data end each fold reciprocal-rank fusion in one database statement, and no cross-language fusion parity or projection seam exists; a ripple sweep seeing the two fusion owners side by side re-proposes the removed cross-runtime projection, the refuted fabrication; the row reopens only if retrieval federation stops being host-local.
+- Content identity federates through one frozen-name hash entry — seed-zero `XxHash128` over caller-canonical bytes, owned at the C# kernel `ContentHash` with the python and typescript peers projecting the identical algorithm and seed — and the name reservation binds every branch: a runtime-local hasher, a digest minted under the reserved name, or a one-branch algorithm swap forks content identity silently across every cross-runtime join — dedup, replay chains, artifact index, provenance lineage; a new hashing need composes the owning entry, and re-keying the federation is a coordinated estate migration, never a branch decision.
+
+## [02]-[STRUCTURE]
+
+- `<concept>-system.md` earns no existence at any planning altitude — a subsystem spine's flow and routing home in the owner `ARCHITECTURE.md` and its folder owners, and a second auto-loaded seat doubles the drift surface at equal reading moment; re-litigation opens only for a branch carrying five or more genuine subsystem spines whose `ARCHITECTURE.md` overflows, proven by LOC evidence.

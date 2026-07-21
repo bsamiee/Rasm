@@ -7,93 +7,20 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[0003]-[QUEUED]: Receipt-to-instrument mapping pins every `rasm.grasshopper.*` row.
-- Capability: exact field-to-instrument table — `PaintReceipt` elapsed/drawn/culled, `FrameWindow` draw window, `SessionReceipt` acknowledgement latency, `RunPulse`/`RunEvidence` counts and progress, drain drop counts — each with UCUM unit and its `gh-doc` and plugin-identity tag set.
-- Shape: instrument roster and kind table on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`.
-- Unlocks: idea [0001] lands with a closed roster, and the AppHost arm mount consumes fixed kind spellings.
-- Anchors: receipt owners on `Canvas/paint.md`, `Canvas/motion.md`, `Shell/session.md`, `Document/solution.md`; branch `api-diagnostics-metrics.md`.
-
-[0004]-[QUEUED]: Per-ALC meter custody pins the plugin-root composition seam.
-- Capability: `IMeterFactory` injection shape, meter flush and disposal on `AssemblyLoadContext.Unloading`, and the contributed-arm handshake with the AppHost mount.
-- Shape: custody rows on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`, with app-root obligations recorded beside the existing session-cache obligation pattern.
-- Unlocks: Rhino plugin unload never strands instruments; idea [0001] composes at any app shape.
-- Anchors: AppHost `PluginTelemetryHost.Open`; TASKLOG [0001] app-root obligation precedent.
-- Atomic: one custody row set.
-
-[0005]-[QUEUED]: Hook-point census rules veto capability per host surface.
-- Capability: enumerated `rasm.grasshopper.<domain>.<point>` rows across the document transaction gate, solution lifecycle, interaction verdicts, and paint phases — each ruled veto-capable or observe-only from the host event's actual cancellation surface.
-- Shape: point registry on `libs/csharp/Rasm.Grasshopper/.planning/Shell/hooks.md`.
-- Unlocks: idea [0002] lands with a closed, host-truthful registry.
-- Anchors: `Shell/events.md` `UiSource` rows; `.api/api-gh2-document.md` and `.api/api-gh2-canvas.md` event members.
-
-[0006]-[QUEUED]: Bounded drain policy pins capacity, drop accounting, and the observe-to-channel bridge.
-- Capability: `Channel.CreateBounded` options (capacity, single-reader, full-mode) with `itemDropped` accounting surfaced as drop evidence, and one bridge from the `UiEvents.Observe` publish callback into the channel writer.
-- Shape: drain rows on `libs/csharp/Rasm.Grasshopper/.planning/Shell/events.md`.
-- Unlocks: idea [0003]'s journal reads a lossless-or-accounted stream.
-- Anchors: branch `api-bcl-channels.md` bounded factory with drop callback.
-- Atomic: one policy row set and one bridge.
-
-[0007]-[QUEUED]: Journal fold shape pins rows, partitions, and export projection.
-- Capability: monotone-stamped journal rows keyed per document, folding facts and receipts, with an export projection for support bundles and analytics.
-- Shape: journal owner on the new page `libs/csharp/Rasm.Grasshopper/.planning/Shell/journal.md`.
-- Unlocks: idea [0003] session journal.
-- Anchors: `SolutionTrace` monotone-claim fold; `DocumentToken` identity; `MonotonicTimeline`.
-
-[0008]-[QUEUED]: Budget rows and violation evidence pin the frame-budget rail.
-- Capability: per-phase and per-drive budget rows judging `FrameWindow`/`FramePulse`/`PaintReceipt` costs, violation receipts shaped to the estate benchmark-claim families, and the host-free kernel list for corpus rows (tree algebra, route geometry, mark culling).
-- Shape: budget owners on `libs/csharp/Rasm.Grasshopper/.planning/Canvas/motion.md` and `libs/csharp/Rasm.Grasshopper/.planning/Canvas/paint.md`.
-- Unlocks: idea [0004].
-- Anchors: `FlexDrive.Window`; `PaintReceipt`; estate `BenchmarkReceipt` families.
-
-[0009]-[QUEUED]: `Graphics.Flush` seals raster completion into the paint receipt stamp.
-- Capability: settlement stamp captured after an explicit flush so `PaintReceipt` elapsed covers real raster completion, never command buffering.
-- Shape: one executor row on `libs/csharp/Rasm.Grasshopper/.planning/Canvas/paint.md`.
-- Unlocks: honest paint-cost evidence for ideas [0001] and [0004].
-- Anchors: `.api/api-eto-drawing.md` `void Flush()`; `PaintPlan.Execute` settlement capture.
-- Atomic: one flush row before settlement.
-
-[0010]-[QUEUED]: Stall watchdog pins lane capture points, threshold policy, and hang evidence.
-- Capability: latency capture on each `EtoDispatch` lane, long-body threshold policy, and a hang-evidence receipt correlating stalled bodies with their `Op`.
-- Shape: watchdog rows on `libs/csharp/Rasm.Grasshopper/.planning/Eto/runtime.md`.
-- Unlocks: idea [0005].
-- Anchors: dispatch lane vocabulary; `UiClock`; `SessionReceipt` latency precedent.
-
-[0011]-[QUEUED]: Fault-cell census wires generated log emission per family.
-- Capability: enumerated retention cells (`PaintHook.LastFault`, `UiSubscription.LastFault`, `GhFault` construction sites, native release faults) each mapped to one `[LoggerMessage]` partial with event id, level, and structured fields, under an injected app-neutral `ILoggerFactory` admission.
-- Shape: emission partials beside each retaining owner on `libs/csharp/Rasm.Grasshopper/.planning/Canvas/paint.md`, `libs/csharp/Rasm.Grasshopper/.planning/Shell/events.md`, `libs/csharp/Rasm.Grasshopper/.planning/Eto/runtime.md`, and `libs/csharp/Rasm.Grasshopper/.planning/Platform/native.md`; shared admission on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`.
-- Unlocks: idea [0006].
-- Anchors: branch `api-logging-abstractions.md` generated emission.
-
-[0012]-[BLOCKED]: Which capture members does the shipped Microsoft.macOS assembly bind — ScreenCaptureKit (`SCStream`, `SCShareableContent`, `SCContentFilter`) or only `CGDisplayStream` and `CGWindowListCreateImage`?
-- Capability: verified member spellings for the capture surface idea [0007] composes.
-- Shape: verdict rows feeding `libs/csharp/Rasm.Grasshopper/.planning/Platform/capture.md` and the `.api/api-macos-native.md` catalog.
-- Unlocks: idea [0007] page landing.
-- Anchors: `tools/assay` api decompile over the RhinoWIP-bundled Microsoft.macOS assembly; `reference_microsoft_macos_in_rhinowip` memory route.
-
-[0013]-[QUEUED]: Capture lease shape pins session custody and frame egress.
-- Capability: leased capture session (acquire, frame callback, inverse release), timestamped raster egress, and the comparison seam for visual paint regression against `PaintReceipt` claims.
-- Shape: owners on the new page `libs/csharp/Rasm.Grasshopper/.planning/Platform/capture.md`.
-- Unlocks: idea [0007].
-- Anchors: `MacGate` lease pattern; `Lease<T>` inverse lifecycle; journal correlation from idea [0003].
-
-[0002]-[QUEUED]: Host `.api` catalogs for the Rhino-side assemblies close the folder's last unverified member routes.
-- Capability: folder `.api/` catalogs for `RhinoCommon`, `Rhino.UI`, `GrasshopperIO`, and `System.Drawing.Common` at the admitted-seam depth the GH2/Eto catalogs hold.
-- Shape: one catalog per assembly covering the members the design pages compose — `RhinoDoc`, `Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`, `EtoExtensions.UseRhinoStyle`, `IReader`/`IWriter`/`IStorable`, and the `Rhino.Geometry` port carriers.
-- Unlocks: every fence member on those seams verifies against a folder catalog instead of estate memory, and the README registry claim closes.
-- Anchors: `tools/assay` api decompile over the installed RhinoWIP assemblies; the landed `api-gh2-*`/`api-eto-*` catalog form.
-- Atomic: four catalog files.
-
-[0001]-[QUEUED]: GH plugin-root `HybridCache` registration discharges the session-cache app-root obligations.
+[HYBRID_CACHE_ROOT]-[QUEUED]: GH plugin-root `HybridCache` registration discharges the session-cache app-root obligations.
 - Capability: one composition-root cache profile for the GH plugin — raster-byte `IHybridCacheSerializer` admission, `MaximumPayloadBytes` sized to the largest admitted canvas raster, `ReportTagMetrics` enabled with `gh-doc:{documentId:N}` as the per-document hit/miss dimension.
 - Shape: one `AddHybridCache`/`IHybridCacheBuilder` registration block at the plugin root composing the `.api/api-hybrid-cache.md` `[APP_ROOT_OBLIGATIONS]` rows.
 - Unlocks: L1-only residency, sized raster caching, and per-document cache observability for every `SessionCache` consumer with zero folder edits.
@@ -101,10 +28,35 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: the APP stratum owning the GH plugin root carries no landed planning folder; this card holds the obligation until that stratum lands.
 - Atomic: one registration block.
 
+[SHELL_LOG_CLASSIFY]-[QUEUED]: Classify the log partial roster — sensitivity tags land on every boundary-produced payload parameter.
+- Capability: each `[LoggerMessage]` partial's payload parameters carry their `DataClassification` values, and the sweep proves no partial emits an untagged sensitive parameter.
+- Shape: classification attributes across the `PaintLog`/`UiEventsLog`/`RuntimeLog`/`NativeLog`/`CaptureLog` partials and the taxonomy clause on `libs/csharp/Rasm.Grasshopper/.planning/Shell/telemetry.md`.
+- Unlocks: IDEAS.md `[LOG_CLASSIFICATION_SWEEP]` — the redactor's fail-closed guarantee becomes real for GH egress.
+- Anchors: `libs/csharp/.planning/RULINGS.md` boundary-classification row; the landed log partials; the Rhino `LogProperties` seam as the sibling discipline.
+- Ripple: mirrors `Rasm.Rhino` `HostSensitivity` classification law.
+
+[PLUGIN_IDENTITY_ADMISSION]-[QUEUED]: Telemetry's plugin discriminator admits through the typed plugin key.
+- Capability: one typed plugin identity feeds every per-plugin surface — hook namespaces and the telemetry resource discriminator share one key space by construction.
+- Shape: `libs/csharp/Rasm.Grasshopper/.planning/Platform/composition.md` `[07]` — `PlatformTelemetry.Open`'s raw `string plugin` parameter re-types to `HookScope` admission, projecting its value into the `rasm.plugin` resource attribute.
+- Unlocks: `RULINGS.md` single-typed plugin-identity row holds with zero raw-string surfaces.
+- Anchors: `Shell/hooks.md` `HookScope` `[ValueObject<string>]`; the Rhino `PluginKey` sibling discipline.
+- Atomic: one parameter re-type.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[HOST_CATALOG_TRIAD]-[COMPLETE]: Rhino-side host catalogs landed — `api-rhino-common.md`, `api-rhino-ui.md`, `api-gh2-io.md` at admitted-seam depth, every member decompile-verified via `tools.assay`; `System.Drawing.Common` ruled a compile-time GH1 carrier and folded into `api-gh2-standard-components.md`, never a stub catalog.
+[TELEMETRY_ROSTER_TABLE]-[COMPLETE]: `Shell/telemetry.md` [03]-[ROSTER] landed the fifteen-row field-to-instrument kind table with UCUM units and `gh.doc`/`gh.plugin` tag sets.
+[METER_CUSTODY]-[COMPLETE]: `Shell/telemetry.md` [02]-[CUSTODY] landed per-ALC `IMeterFactory` custody and unload flush; the app root mints the string-scoped kernel `TelemetryContributorPort` over the roster and admits the meter by name — no app-root adapter member.
+[HOOK_POINT_ROWS]-[COMPLETE]: `Shell/hooks.md` [02]-[POINTS] landed the ten-row `rasm.grasshopper.<domain>.<point>` census, each modality ruled from the host cancellation surface.
+[EVIDENCE_DRAIN_LAND]-[COMPLETE]: `Shell/events.md` [05]-[DRAIN] landed `DrainPolicy`/`EvidenceDrain` with `itemDropped` accounting and the `Observe`-publish bridge.
+[SESSION_JOURNAL_LAND]-[COMPLETE]: `Shell/journal.md` landed `JournalFact`/`JournalRow`/`SessionJournal`/`JournalExport` with per-document ring partitions and the export projection.
+[BUDGET_GATE_LAND]-[COMPLETE]: `Canvas/motion.md` [06]-[BUDGET] landed `BudgetRow`/`BudgetSubject`/`BudgetGate` with the host-free kernel corpus law; `Canvas/paint.md` carries the read-time judgment law.
+[PAINT_FLUSH_SETTLEMENT]-[COMPLETE]: `Canvas/paint.md` `PaintPlan.Execute` flushes `Graphics.Content.Flush` before the settlement capture, so `PaintReceipt.Latency` covers raster completion.
+[DISPATCH_PULSE_LAND]-[COMPLETE]: `Eto/runtime.md` [02]-[DISPATCH] landed `PulseLane` budgets, `StallPolicy`, `DispatchPulse`, `Watch`, and `LastStall` hang evidence over an in-gauge `Op.Catch`.
+[LOG_PARTIALS_LAND]-[COMPLETE]: `PaintLog`/`UiEventsLog`/`RuntimeLog`/`NativeLog`/`CaptureLog` `[LoggerMessage]` partials landed beside their retention cells under `GhLog` admission.
+[SCREENCAPTURE_DECOMPILE_PROOF]-[COMPLETE]: ilspycmd over `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Microsoft.macOS.dll` proved the full ScreenCaptureKit binding (`SCStream`, `SCShareableContent`, `SCContentFilter`, `SCStreamConfiguration`, `SCScreenshotManager`, `ISCStreamOutput`/`ISCStreamDelegate`) beside the legacy `CGDisplayStream`/`CGWindowListCreateImage` names; verdict rows landed in `.api/api-macos-native.md`, ScreenCaptureKit admitted, the legacy pair rejected.
+[SESSION_CAPTURE_LAND]-[COMPLETE]: `Platform/capture.md` landed `SessionCapture` custody (open, frame callback, inverse release chain), stamped raster egress, and the `PaintProof.Judge`/`Correlate` regression and journal seams.

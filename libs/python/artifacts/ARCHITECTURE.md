@@ -35,9 +35,10 @@ artifacts/
 ├── specification/       # CSI construction-specification plane on the pub/print substrate
 │   ├── section.py       # CSI SectionFormat 3-part sections authored INTO DocumentNode; contributes the Spec receipt
 │   └── classify.py      # MasterFormat/UniFormat/OmniClass vocabularies and the drawing<->spec resolver; mints no receipt
-├── delivery/            # ISO 19650 delivery plane: container register and issue-for-construction transmittal
+├── delivery/            # ISO 19650 delivery plane: container register, issue-for-construction transmittal, and wire notice
 │   ├── register.py      # ISO 19650 register, sheet-index, and container-metadata owner; contributes the Register receipt
-│   └── transmittal.py   # issue-for-construction orchestrator over imposition, archive, credential, and conformance
+│   ├── transmittal.py   # issue-for-construction orchestrator over imposition, archive, credential, and conformance
+│   └── notice.py        # TransmittalNotice trace-continuous CloudEvents envelope sealing the settled issue close
 ├── graphic/             # 2D graphic-primitive toolkit every visual and document plane composes
 │   ├── raster/
 │   │   ├── io.py        # pillow/pyvips IO, convert, thumbnail, montage working surface
@@ -148,7 +149,7 @@ flowchart LR
     Core e16@-->|"[BENCH]: BenchmarkReceipt"| Runtime
 ```
 
-Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits, and nothing crosses back. Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing.
+Frozen names spell from the owner's endpoint page: `SignedArtifact` from Rasm.Persistence with the runtime `ContentKey` minting beneath it, `IToleranceEncoder` bytes from Rasm.Fabrication admitted into `GdtFrame` at dimensioning, and the graduation hub as `HandoffAxis`, C#-owned as `GraduationEvidence`. Geometry scene facts arrive one-way as glb bytes `SceneGrid.of_glb` admits, and nothing crosses back. Production-fact points register onto the runtime `Hooks` registry under the `rasm.artifacts.<domain>.<point>` grammar, and the bench corpus consumes the runtime `Bench` tier, minting no timing. The transmittal notice seals the settled close as a CloudEvents envelope whose transport stays the composing app's, so no broker edge joins this registry.
 
 ## [03]-[INTERNAL]
 
@@ -181,7 +182,7 @@ Spine order above answers stage sequence; the strata below answer which plane ma
 - A1 `typography`, `exchange`, `package`, `scene` — substrate planes composing the floor alone: `PositionedGlyphRun`, the metadata/credential/conformance boundary, the `Bundle` vocabulary, and the `SceneGrid` parse floor.
 - A2 `graphic` + `drawing` + `visualization` + `export` — one visual band, module-acyclic interleave: `drawing/regime` composes `graphic/color/derive` and `vector/pattern` while `graphic/layer` and `style` compose the regime back; `drawing/schedule` lowers into `visualization/table` while `visualization/chart/export` composes `export/layered` and the DXF owner hops back — no cycle survives at module grain.
 - A3 `document`, `media`, `composition`, `specification` — composer planes over the band; `specification/section` composes the document `BlockKind` tree inside the stratum, and media rides the scene `framed` parse floor and the raster save hop.
-- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor and conductor, never one stratum. `core/bench` rides the conductor stratum without conducting — it composes the package recipes and the receipt `ArtifactKind` downward and takes every native-offload kernel as a caller value, so no producer imports it and no producer import cycles through it.
+- A4 `delivery` then A5 `core/issue` — the transmittal orchestrator under the one conductor: `issue` alone imports upward-named producers (`Transmittal`, `DocumentPlan`, `Spec`, `DiagramDraw`, `Palette`), so the spine is floor and conductor, never one stratum. `delivery/notice` sits below `delivery/transmittal` inside the plane — the transmittal composes the notice seal downward and the notice fires the floor's `Production` row, so the delivery plane stays acyclic. `core/bench` rides the conductor stratum without conducting — it composes the package recipes, the receipt `ArtifactKind`, and the `media/synthesis` replay-signal vocabulary downward and takes every native-offload kernel as a caller value, so no producer imports it and no producer import cycles through it.
 
 ```mermaid
 ---
@@ -250,6 +251,8 @@ flowchart TB
     Issue s24@-->|"[IMPORT]: Production"| Hooks
     Bench s25@-->|"[IMPORT]: Codec"| Package
     Bench s26@-->|"[IMPORT]: ArtifactKind"| Receipt
+    Bench s27@-->|"[IMPORT]: SynthOp"| Media
+    Delivery s28@-->|"[IMPORT]: Production"| Hooks
     Typography ~~~ Plan
     Receipt f1@-->|"forbidden: upward import"| A5
 ```
@@ -267,7 +270,8 @@ High-order producer planes sit on a shared primitive substrate. `graphic` and `t
 - Derivable constants land as policy tables on the owner, and each footing's closure audits from its imports alone.
 - `contribute` records numeric facts through the runtime metrics arm; render duration stays a runtime fact, never a receipt's.
 - Production facts fire on the `core/hooks` point rows at the issue seams and the contribute fold; observability subscribes through `Production.subscribed` at the app root, never in producer code, and the issue-scope baggage the issue bracket binds attributes every signal with tenant promotion staying runtime-owned.
-- `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier; timing, quantiles, and the bench instruments stay runtime-owned, and a regression is a graded verdict, never a fault.
+- `core/bench` grades producer kernels against threshold policy rows through the runtime bench tier; timing, quantiles, and the bench instruments stay runtime-owned, each row's deterministic input is a typed `BenchFeed` edge, and a regression is a graded verdict, never a fault.
+- `delivery/notice` seals the settled transmittal close as one trace-continuous CloudEvents envelope fired on the `NOTICE_ISSUED` hook row; envelope bytes end at the wire value and transport stays the composing app's.
 - Outward figure handoff is landed, not re-minted: `core/receipt.graduates` projects any `ArtifactReceipt` into the compute graduation hub.
 - Projection keys by `ContentIdentity` under the governed residual-ceiling policy, a caller's tighter ceiling overriding.
 - Sources re-mint no canonical concept, so the runtime structural-drift query stays clean.

@@ -7,42 +7,24 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
 [DESIGN_BASIS_AXIS]-[QUEUED]: A jurisdiction axis across the capacity rail — EC3/EN 1994 steel and composite, EN 1996 masonry — beside the realized AISC/TMS verdicts.
 - Capability: Capacity receipt columns folded under the governing code's resistance and interaction spellings, so the EN-seeded half of the catalogue (IPE/HE/UPN at S355) receives an EC3 verdict instead of an AISC one.
-- Shape: A `DesignBasis` policy row selecting per-basis kernels (EC3 §6.3.1 buckling curves with per-class imperfection α, §6.3.2 χLT, γM0/γM1 partial factors over the typed `VividOrange.Standards` `En1993`/`En1994`/`En1996` rows with `NationalAnnex` threaded), the basis a column on the capacity receipt — never sibling per-code capacity surfaces; lands in `libs/csharp/Rasm.Materials/.planning/Component/capacity.md`, `libs/csharp/Rasm.Materials/.planning/Component/steel.md`, and `libs/csharp/Rasm.Materials/.planning/Component/masonry.md`.
+- Shape: A `DesignBasis` policy row selecting per-basis kernels (EC3 §6.3.1 buckling curves with per-class imperfection α, §6.3.2 χLT, γM0/γM1 partial factors over the typed `VividOrange.Standards` `En1993`/`En1994`/`En1996` rows with `NationalAnnex` threaded); lands in `libs/csharp/Rasm.Materials/.planning/Component/capacity.md`, `libs/csharp/Rasm.Materials/.planning/Component/steel.md`, and `libs/csharp/Rasm.Materials/.planning/Component/masonry.md`.
 - Unlocks: EU-deliverable member verdicts over the already-seeded two-region catalogue; the international sizing product the seed tables promise.
-- Anchors: `steel#STEEL_FAMILY` `SteelDesign`/`DesignCapacity`, `capacity#SECTION_CAPACITY` `SectionCapacity`/`CapacityReceipt`, `SteelGrade.YieldMpa` already reading the Table 3.1 registered `f_y` per annex.
-- Tension: Realized `SectionCapacity` case names encode the basis (`SteelLrfd`, `MasonryCompression` = TMS) and the utilisation verdict crosses to the `Rasm.Compute/structural#DESIGN_CHECK` consumer — the basis axis is a root-up rename of that closed verdict vocabulary the Compute counterpart must co-sign before the case family re-cuts.
-
-[MATERIALS_SIGNAL_TAP]-[QUEUED]: Telemetry-as-tap over the materials owners — a typed hook-point roster, a folder instrument fan over the receipt stream, and dashboard/alert descriptor rows, zero OTel reference at library altitude.
-- Capability: `rasm.materials.<domain>.<point>` typed hook registry (catalogue admission, section solve, capacity check, graph compile, acquisition fit, wire mint, projection) with veto/observe/replay modalities and subscriber-fault isolation onto the banded `ComponentFault`/`MaterialFault`/`ElementFault` rails; a `MaterialsInstrumentFan` projecting the typed receipts — `CapacityReceipt`, acquisition `Provenance`, `WireProvenance`, `ComponentResolution` — into `IMeterFactory`-minted UCUM instruments and `ILogger` banded-fault records, per-app scoped so two hosts never share a meter.
-- Shape: one new S2 page `libs/csharp/Rasm.Materials/.planning/Projection/observability.md` — roster rows, the fan arm table over `rasm.materials.*` kinds, `ILatencyContext` checkpoints on the eager catalogue and interaction-diagram constructions, and dashboard/alert descriptor rows as data.
-- Unlocks: materials solve/fit/wire activity on estate dashboards without one emit call in domain code; AppHost mounts Materials as a sibling arm beside the AppUi, Compute, and Persistence contributions.
-- Anchors: AppHost `InstrumentFan.Mount` contributed-arm law and `HookId` grammar (`libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md`), Compute `ComputeInstrumentFan` folder-fan precedent, branch `.api` `api-diagnostics-metrics.md` `IMeterFactory`, `api-logging-abstractions.md` `ILogger`, `api-extensions-telemetry.md` `ILatencyContext`, `capacity#COMPONENT_FAULT_RAIL` band-2300/2450 telemetry-reader banding.
-- Tension: the AppHost mount is the counterpart half of a cross-folder pair — the sibling-fan roster in `instruments.md` names AppUi, Compute, and Persistence today and must name Materials.
-
-[KERNEL_BENCH_PROFILE_CORPUS]-[QUEUED]: Deterministic benchmark workload rows and `BenchmarkReceipt` projections over the materials hot kernels, span-profile-correlated operation names included.
-- Capability: closed workload rows — `SectionSolver` over the catalogued profile algebra, `InteractionDiagram` strain sweep with fibre integration, thin-QR GGX fit, `MaterialGraph` topological compile and eval, spectral upsample, texture sampling fold, Kubelka-Munk mix — each pinned to catalogue/library inputs so a run is content-keyed reproducible; receipts join the branch `BenchmarkReceipt` family and carry the stable operation names a span-profile correlator labels.
-- Shape: one new S2 page `libs/csharp/Rasm.Materials/.planning/Projection/benchmarks.md` — the workload row table, receipt columns (kernel, input key, host-fingerprint slot), and the `BenchmarkKind` projection row on the Materials fan.
-- Unlocks: regression-gated kernel performance for the section and appearance engines; Pyroscope flame-graph attribution against named materials operations.
-- Anchors: AppHost `Observability/benchmarks.md` `BenchmarkReceipt` and corpus gate, `component#SECTION_SOLVER`, `capacity#SECTION_CAPACITY`, `acquisition#ACQUISITION` thin-QR fit, `graph#MATERIAL_GRAPH` `SourceFirstTopologicalSort`, branch `.api` `api-pyroscope-opentelemetry.md` (correlation composes at the root, never here).
-- Tension: corpus-gate registration is the AppHost counterpart's; Materials owns workload rows and receipts only.
-
-[CATALOGUE_ANALYTICS_EGRESS]-[QUEUED]: Seed catalogues and receipt streams as columnar analytics data — one Arrow-shaped schema family per catalogue, store-slot registered, parquet/DuckDB queryable.
-- Capability: `ComponentRow` families, `MaterialPropertyCatalogue`, `SustainabilityCatalogue`, `MaterialLibrary` rows, and `CapacityReceipt` streams project onto typed columnar record batches — schema as data, provenance columns carried — so takeoff, carbon, and capacity analytics run as queries instead of object walks, and `python:data` reads the same datasets for assessment round-trips.
-- Shape: one new S2 page `libs/csharp/Rasm.Materials/.planning/Projection/analytics.md` — per-catalogue columnar schema rows and the projection folds; writers and store custody stay Persistence-side behind `store.materials.<verb>` slots.
-- Unlocks: steel tonnage and carbon dashboards off DuckDB; EPD and property audits as SQL; lake parity for materials data.
-- Anchors: Persistence `store.<domain>.<verb>` SlotRegistry law (`Store/observability.md`), Persistence-owned `ParquetSharp.Dataset` and Arrow admissions, `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` registered-row database, `capacity#SECTION_CAPACITY` receipt columns.
-- Tension: slot rows and dataset writers are the Persistence counterpart's; Materials owns schema and projection only.
+- Anchors: `steel#STEEL_FAMILY` `SteelDesign`/`DesignCapacity`, `capacity#SECTION_CAPACITY` `SectionCapacity`/`CapacityReceipt`, `SteelGrade.YieldMpa` already reading the Table 3.1 registered `f_y` per annex; the folder `RULINGS.md` basis-column row.
+- Tension: the basis-tagged re-cut of the closed verdict vocabulary lands only with the `Rasm.Compute/structural#DESIGN_CHECK` co-sign.
 
 [ASSESSMENT_WIRE_INGESTION]-[QUEUED]: A real Materials end for the declared Assessment wire — typed in-situ assessment and declaration records lowered onto `Published<T>` evidence rows.
 - Capability: assessment record vocabulary — in-situ test results, condition grades, dated declarations — admitted with provenance and expiry onto `Published<T>`/`PropertyEvidence` and folded into `MaterialPropertyCatalogue`/`SustainabilityCatalogue` rows as evidence-dated overrides beside the seed rows, so the `[WIRE]: Assessment` edge gains its owning page.
@@ -62,8 +44,9 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: Fraction-tagged constituent rows derived from family data so a component's material truth stops flattening to one `SubstanceId` when the real product is a weighted composition (concrete mix, faced board, IGU frame-and-glass), and per-constituent carbon decomposes the EPD way.
 - Shape: A Materials mix/constituent vocabulary whose rows `CompositionOf` selects into the realized `CompositionAuthor.ConstituentSet`, the fourth seam case finally carrying traffic; lands in `libs/csharp/Rasm.Materials/.planning/Projection/component.md` and `libs/csharp/Rasm.Materials/.planning/Component/component.md`.
 - Unlocks: `IfcMaterialConstituentSet` egress for multi-substance components; constituent-resolved carbon accounting.
-- Anchors: `Projection/component#COMPOSITION_AUTHOR` `ConstituentSet` (realized, coerce-and-delegate), the seam `MaterialComposition.OfConstituentSet` fraction normalization.
-- Tension: No family's canonical composition is constituent-shaped today — the producer needs a mix-design vocabulary decision (which owner mints fraction rows) and EPD-grade constituent fractions, provenance-bound data no current table carries.
+- Anchors: `Projection/component#COMPOSITION_AUTHOR` `ConstituentSet` (realized, coerce-and-delegate), the seam `MaterialComposition.OfConstituentSet` fraction normalization owning the algebra — Materials mints instance rows at its own seam.
+- Arms: a provenance-bound constituent-fraction data source lands — family mix-design columns or EPD-grade ingestion rows.
+- Tension: no family's canonical composition is constituent-shaped today — the fraction data itself is the bet, not the vocabulary custody.
 
 [TYPE_QUANTITY_RECEIPT]-[BLOCKED]: Type-level quantity takeoff — linear mass, surface area per length, volume per length authored onto the projected Type subgraph.
 - Capability: Deterministic, content-keyed QTO facts (kg/m off `AreaMm2` × substance density, m²/m off `HeatedPerimeterMm`, m³/m off `AreaMm2`) minted once at projection from data already on the node pair — the costing/carbon substrate every BIM type library leads with.
@@ -93,10 +76,25 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `glazing#GLAZING_FAMILY` `GlazingGwp`/`GenericEpd`, the Properties sustainability rows, the `ARCHITECTURE` `[WIRE]: Assessment` edge.
 - Tension: Wire record schema and transport are the `python:data` peer's to co-sign via its counterpart card, and EPD records are external provenance-bound data — no Materials-local table can seed them.
 
+[KERNEL_BENCH_PROFILE_CORPUS]-[BLOCKED]: Materials kernel claims grade through the shared AppHost corpus gate.
+- Capability: content-bound benchmark workload rows join the corpus gate as receipt-bearing claims.
+- Shape: `BenchKernel`/`BenchInput`/`BenchWorkload` rows hold in `libs/csharp/Rasm.Materials/.planning/Projection/benchmarks.md`; the receipt composition lands on arming.
+- Unlocks: Materials kernel performance truth reaches the estate benchmark plane.
+- Anchors: `Projection/benchmarks.md` `[02]-[WORKLOAD_ROWS]`, `[03]-[GATE_COMPOSITION]`; the `Rasm.AppHost` project reference — this card's gate composition is its sole compile consumer, and the ref holds under the branch up-reference ruling while the card arms.
+- Arms: `libs/csharp/Rasm.Materials/.api/api-rasm-apphost.md` or `libs/csharp/.api/api-rasm-apphost.md` admits every member named by `[APPHOST_BENCHMARK_CATALOG]`, including the current receipt corpus slot.
+
+[CATALOGUE_ANALYTICS_EGRESS]-[BLOCKED]: Catalogue truth lands on the analytics plane as typed dataset rows.
+- Capability: composite-key dataset schemas with parameterized projection folds carry the catalogue onto the analytics egress.
+- Shape: schemas and folds hold in `libs/csharp/Rasm.Materials/.planning/Projection/analytics.md`.
+- Unlocks: catalogue analytics for costing, carbon, and coverage reads over the durable plane.
+- Anchors: `Projection/analytics.md` `[02]-[COLUMN_VOCABULARY]`, `[03]-[SCHEMA_ROWS]`, `[04]-[PROJECTION_FOLDS]`.
+- Arms: `libs/csharp/Rasm.Materials/.api/api-unitsnet.md` or `libs/csharp/.api/api-unitsnet.md` admits every dimensioned selector named by `[UNITSNET_ANALYTICS_SELECTORS]`.
+
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
 [CMU_SUBTYPE_CARRIER]-[COMPLETE]: Ruled a realization-bag row — `CmuSeed.Rows` seeds the `DetailSchema.ProfileSubtype` token off `CmuPhysics.IfcSubtypeOf` (the family widened to `DetailLane.Realization`), the `Rasm.Bim` egress profile lane resolves the subtype from the carried row, never a `CmuRow` seed column and never a cross-package call.
+[MATERIALS_SIGNAL_TAP]-[COMPLETE]: landed as kernel composition on `Projection/observability.md` — `MaterialsFact` family, the seven-point `MaterialsHooks` rail over the kernel capsule, `MaterialsInstruments` roster with the contributor port, `MaterialsLatency` checkpoint ledger, and `MaterialsDescriptors` rows; the fixed-severity log projection and the descriptor iac decode row stay open on `TASKLOG.md` `[SIGNAL_FAN_ARMS]`/`[SIGNAL_DESCRIPTOR_ROWS]`.

@@ -7,64 +7,52 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[ESTATE_OTLP_BACKEND]-[QUEUED]: A live estate backend receives the three runtimes' OTLP egress.
+[ESTATE_OTLP_BACKEND]-[BLOCKED]: A live estate backend receives the three runtimes' OTLP egress.
 - Capability: Collector gateway and store set per the iac observe page models — Prometheus reference row, log and trace stores, Pyroscope, Grafana — run as estate infrastructure, so the published OTLP endpoint resolves to a live sink for every runtime.
 - Shape: `typescript:iac/operate/observe.md#_stores` realizes the stack; app roots read the endpoint from stack outputs; the dev loop rides the single all-in-one row with byte-identical SDK export config.
+- Unlocks: every runtime's OTLP egress resolves to a live estate sink — queryable trace, metric, log, and profile stores plus Grafana boards — so an app reads the endpoint from stack outputs and embeds no backend.
 - Anchors: `typescript:iac/program/spec.md#_Observe`; `typescript:runtime/otel/emit.md#POLICY`; `python:runtime/observability/telemetry.md#TELEMETRY`; `csharp:Rasm.AppHost/Observability/telemetry.md#SIGNAL_GOVERNANCE` exporter seam.
+- Arms: an estate host repo declares the container placement composing the iac `Lgtm`/`Dev` rows and the published `StackOutputs.otlp` endpoint resolves live — libs-side design is landed whole and only the deployment leg remains.
 - Tension: Container placement lands in the estate host repos, never in libs; the iac package stays host-agnostic and the deployment consumes it.
-
-[WIRE_LAW_PARITY]-[QUEUED]: Per-branch wire-law transcriptions prove row-identical against the canonical table.
-- Capability: `[UNIFIED_SIGNAL_FABRIC]` holds only while the three transcriptions of the wire rows — resource triple, `rasm.<domain>.<measure>` naming, scope law, schema pin, propagators, exemplar filter — stay byte-equivalent in meaning; a drifted row is repaired at the owning branch page, never re-shared as a library.
-- Shape: Row-by-row compare of `csharp:Rasm.AppHost/Observability/telemetry.md#TELEMETRY_IDENTITY`, `python:runtime/observability/telemetry.md#TELEMETRY`, and `typescript:runtime/otel/emit.md#POLICY` against the `libs/.planning/architecture.md` wire rows.
-- Anchors: `[UNIFIED_SIGNAL_FABRIC]`; the wire-law-transcription Tension on that card.
-- Atomic: three-page row compare with in-place repairs.
-
-[FLEET_ROW_ARM_MAP]-[QUEUED]: Every fleet-escalation row names its arming coordinate.
-- Capability: `[FLEET_TELEMETRY_SCALE_ROWS]` decomposes into named row-to-coordinate pins — broker-buffered collector legs, the tail-sampling gateway row, the Mimir store row, per-app agent topology — so re-arming is a coordinate flip, never a re-design.
-- Shape: Arm-coordinate rows against `typescript:iac/operate/observe.md#_stores`, the collector rows, and the `csharp:Rasm.AppHost/Observability/telemetry.md#SIGNAL_GOVERNANCE` exporter seam.
-- Anchors: `[FLEET_TELEMETRY_SCALE_ROWS]`; the iac mimir and collector-depth cards carrying the store end.
-- Atomic: coordinate pin rows, no new surfaces.
-
-[TENANT_COST_JOIN]-[QUEUED]: Tenant baggage joins the grant-cost vectors into one attribution read.
-- Capability: `[COST_ATTRIBUTION_BAGGAGE]` decomposes into the join pins — `csharp:Rasm.AppHost/Agent/capability.md` grant/cost vectors projected with the `rasm.tenant` dimension, collector baggage promotion, and the iac cost-board compile consuming the joined series.
-- Shape: Join rows naming producer instruments, baggage promotion processors, and the `typescript:iac/operate/observe.md#BOARD_APPLY` OpenCost/cost-board consumer; cardinality-cap policy stated per the origin card's Tension.
-- Anchors: `[COST_ATTRIBUTION_BAGGAGE]`; `typescript:iac` `[0007]` tenant cost-attribution plane.
-
-[PROFILE_EXPORTER_SWAP_ROWS]-[QUEUED]: Per-runtime exporter-row swap points for the OTLP profiles signal.
-- Capability: `[PROFILE_SIGNAL_OTLP]` decomposes into three named composition-root swap points — the Pyroscope push rows each runtime holds today — and the collector profiles-pipeline row, so migration is row replacement with dashboards untouched.
-- Shape: Swap-point rows against `csharp:Rasm.AppHost/Observability/telemetry.md#SIGNAL_GOVERNANCE`, `python:runtime/observability/profiles.md#PROFILES`, and `typescript:iac/operate/observe.md#CHART_ROWS` Pyroscope rows.
-- Anchors: `[PROFILE_SIGNAL_OTLP]`.
-- Tension: Rows map now; the swap arms only on profiles-signal stabilization per the origin card.
 
 [LAYER_FACT_SCHEMA]-[QUEUED]: Canonical `LayerTopologyFact` schema and codec pin at the producing end.
 - Capability: `[LAYER_TOPOLOGY_GRAPH_FACTS]` decomposes into the schema pin — identity, nesting, membership, and override fields with their typed keys — owned beside the `csharp:Rasm.Rhino/Document/layers.md#TREE_SNAPSHOT` emitter before any peer decodes.
 - Shape: Schema and codec rows at the C# owner; decode landings stay with the `python:data` `[LAYER_TOPOLOGY_DECODER]` and `typescript:data` `[LAYER_TOPOLOGY_GRAPH_FACTS]` counterpart cards.
+- Unlocks: IDEAS.md [LAYER_TOPOLOGY_GRAPH_FACTS] — the Python and TypeScript decoders build against one pinned schema, host-organized element queries answered without a host handle.
 - Anchors: `[LAYER_TOPOLOGY_GRAPH_FACTS]`; `Layers.Ask` emission; `Rasm.Element` `IElementProjection` fold.
 
 [SCENE_DESCRIPTOR_SCHEMA]-[QUEUED]: Daylighting descriptor schema lands in the shared wire vocabulary.
 - Capability: `[DAYLIGHTING_SCENE_DESCRIPTOR]` decomposes into the descriptor field pin — sun state, photometric roster, GLB shading payload, tessellation-fidelity axis — ruled once before producer or consumer builds.
 - Shape: Descriptor schema rows in the wire vocabulary; producer pins on `csharp:Rasm.Rhino/Render/settings.md#SUN_ASTRONOMY` and `csharp:Rasm.Rhino/Objects/lights.md#SEED_AND_EDIT`; consumer pin on `python:geometry/energy/simulate.md#SIMULATE`.
+- Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — producer and consumer build against a settled descriptor, closing the loop on solar, shading, and daylight studies off the live model.
 - Anchors: `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the geometry-flow law crossing at content identity and the GLB rail.
 
 [OPLOG_ENTRY_SCHEMA]-[QUEUED]: `OperationId` and the op-log entry schema pin at the commit envelope.
 - Capability: `[HOST_OPLOG_CRDT_PRODUCER]` decomposes into the shared identity pin — the `OperationId` `[ComplexValueObject]` with sorted vector-clock encoding — and the entry schema over the sealed-commit facts, ruled before replay or merge lands anywhere.
 - Shape: Identity and entry rows at the C# wire owner; the `csharp:Rasm.Rhino/Document/events.md#STREAM_OWNER` tap and the `typescript:data` `[HOST_OPLOG_CRDT_CONSUMER]` decode consume the pinned schema.
+- Unlocks: IDEAS.md [HOST_OPLOG_CRDT_PRODUCER] — replay, merge, and cross-runtime sync build against one pinned identity, equal payloads staying distinct operations.
 - Anchors: `[HOST_OPLOG_CRDT_PRODUCER]`; `DocumentCommit.Sealed` as the single tap point.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[WIRE_LAW_PARITY]-[COMPLETE]: canonical rows landed at `libs/.planning/architecture.md` `[08]-[TELEMETRY_WIRE_LAW]`; the three branch transcriptions proved row-identical with one repair — python `runtime/observability/metrics.md` `_attributed` now spells the metric attribute `rasm.tenant`.
+[FLEET_ROW_ARM_MAP]-[COMPLETE]: arm-coordinate rows landed as the `architecture.md` `[FLEET_ESCALATION]` table; every row OFF at estate scale, re-arming a coordinate flip.
+[TENANT_COST_JOIN]-[COMPLETE]: three-pin join landed as the `architecture.md` `[TENANT_COST_JOIN]` row — producer spend family, SDK-side `rasm.tenant` promotion, iac OpenCost read — cap overflow riding exemplar-sampled traces.
+[PROFILE_EXPORTER_SWAP_ROWS]-[COMPLETE]: swap-point rows landed as the `architecture.md` `[PROFILE_SWAP]` table naming the four composition-root rows; the swap itself stays armed on `[PROFILE_SIGNAL_OTLP]`.

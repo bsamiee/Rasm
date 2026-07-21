@@ -7,109 +7,85 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[0002]-[ACTIVE]: Hook-point census maps every detached fact stream in the boundary onto `rasm.rhino.<domain>.<point>` rows.
-- Capability: Exact point roster — stream owner, page anchor, point name, payload type, and host-contract modality (observe, veto, replay) for every fact emission the folder owns.
-- Shape: Census table lands on `libs/csharp/Rasm.Rhino/.planning/Document/events.md` as the registry spine's row source.
-- Unlocks: `[HOST_HOOK_REGISTRY]` registry rows transcribe from verified census instead of re-derivation per page.
-- Anchors: `DocumentStream` fact families; `PointerFact`/gumball/widget channels on `libs/csharp/Rasm.Rhino/.planning/Display/interaction.md`; panel facts on `libs/csharp/Rasm.Rhino/.planning/HostUi/panels.md`; content events on `libs/csharp/Rasm.Rhino/.planning/Render/registry.md`.
-
-[0003]-[ACTIVE]: Modality ruling pins veto-capable seams from the host contract, point by point.
-- Capability: Per-point verdict — cancelable host callback (veto row), post-hoc notification (observe row), retained-evidence replay eligibility — each verdict citing the exact host member.
-- Shape: Verdicts fold into the registry rows on `libs/csharp/Rasm.Rhino/.planning/Document/events.md`.
-- Unlocks: Registry rows never promise a veto the native seam cannot honor.
-- Anchors: cancelable event args across `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-document.md` and `api-rhinocommon-commands.md`; `tools/assay` api query over the host assembly for ambiguous members.
-
-[0004]-[ACTIVE]: Process-global custody census classifies every collision surface for multi-plugin arbitration.
+[CUSTODY_CENSUS]-[ACTIVE]: Process-global custody census classifies every collision surface for multi-plugin arbitration.
 - Capability: Complete roster of process-global state — static host event subscriptions, `ObjectsTelemetry` sink, `HostTap` mounts, named shell callbacks, panel/page/command registrations, application settings writers — each with collision class and seat-arbitration shape.
 - Shape: Roster and arbitration rows land on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md`, `libs/csharp/Rasm.Rhino/.planning/Document/events.md`, and `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` per owner.
 - Unlocks: `[MULTI_PLUGIN_COEXISTENCE]` lands as verified rows, never a partial sweep.
 - Anchors: single-subscription-per-process event law; `HostTap.Mount` detacher identity; `AppSettings.Commit` static families on `libs/csharp/Rasm.Rhino/.planning/Persistence/appsettings.md`.
 
-[0005]-[ACTIVE]: Plugin lifecycle and census page spines transcribe the verified `Rhino.PlugIns` rosters.
+[PLUGIN_LIFECYCLE_SPINES]-[ACTIVE]: Plugin lifecycle and census page spines transcribe the verified `Rhino.PlugIns` rosters.
 - Capability: Staged lifecycle custody (`OnLoad`/`CreateCommands`/`OnShutdown`, ALC `Unloading` flush obligations, diagnostics capture window) and the installed-plugin census (id/path resolution, load protection) as page spines with exact member rosters.
 - Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/lifecycle.md` and `libs/csharp/Rasm.Rhino/.planning/Plugin/census.md` minted per `[PLUGIN_DOMAIN]`.
 - Unlocks: Boundary's missing domain folder opens with its two spine pages grounded in catalog truth.
 - Anchors: `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-plugins.md` lifecycle and census entrypoints; `SkinPhase` plugin-load phases on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md`.
 
-[0006]-[QUEUED]: License rail page pins the complete entitlement surface.
+[LICENSE_RAIL_PAGE]-[QUEUED]: License rail page pins the complete entitlement surface.
 - Capability: Acquisition, checkout/checkin, CloudZoo login and lease facts, state-change events, and capability flags as one typed rail with detached evidence records.
 - Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/licensing.md` minted per `[PLUGIN_DOMAIN]`.
 - Unlocks: Entitlement-gated capability rows for any Rasm plugin feature.
 - Anchors: `LicenseUtils`/`LicenseData`/`LicenseStatus`/`LicenseLease` rosters on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-plugins.md`; `ZooClientParameters` and `LicenseStateChangedEventArgs` rows on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md`.
 
-[0007]-[QUEUED]: Per-plugin document participation bridges onto the archive and settings rails.
+[DOCUMENT_PARTICIPATION_BRIDGE]-[QUEUED]: Per-plugin document participation bridges onto the archive and settings rails.
 - Capability: `ReadDocument`/`WriteDocument`/`ShouldCallWriteDocument` custody expressed over `ArchiveIo` framing, and `GetPluginSettings`/`SavePluginSettings`/`SettingsSaved` expressed as settings-rail facts.
 - Shape: `libs/csharp/Rasm.Rhino/.planning/Plugin/document.md` minted per `[PLUGIN_DOMAIN]`.
 - Unlocks: Plugin document data rides the same schema/integrity framing as every other archive crossing.
 - Anchors: `ArchiveIo` spine on `libs/csharp/Rasm.Rhino/.planning/Persistence/userdata.md`; `Settings.Commit` rail on `libs/csharp/Rasm.Rhino/.planning/Persistence/settings.md`.
 
-[0008]-[QUEUED]: Instrument partition rows enumerate receipt families with attribution keys and latency checkpoints.
-- Capability: Per-domain rows — receipt kind, instrument name and unit, source field, attribution tags (document key, command, op provenance, tenant) — and named `ILatencyContext` checkpoints across the `HostThread.Run` marshal seam.
-- Shape: Rows land on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md`; checkpoint names on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md`.
-- Unlocks: `[HOST_INSTRUMENT_PARTITION]` projection executes at app root from declared data.
-- Anchors: receipt families across the surface ledgers; `libs/csharp/.api/api-extensions-telemetry.md` latency rows.
+[PULSE_BEAT_RECOMPOSE]-[QUEUED]: Pulse beat evidence composes the kernel monotonic beat.
+- Capability: cadence receipts project the kernel's temporal identity — ordinal and elapsed read off the composed evidence while cadence columns stay host-local, so drift semantics never fork from the timeline owner.
+- Shape: `libs/csharp/Rasm.Rhino/.planning/Eto/runtime.md` `[03]` — `PulseBeat` re-shapes to compose `MonotonicBeat` with `Interval`/`Drift`/`Missed` as extension columns.
+- Unlocks: the branch host-beat composition row holds at both host boundaries.
+- Anchors: kernel `Parametric/projections.md` `MonotonicBeat`; the Grasshopper `ClockBeat` composed form as the sibling discipline.
+- Atomic: one receipt re-shape.
 
-[0009]-[QUEUED]: Bench evidence band pins its shape on the Modeling spine and capture run rail.
-- Capability: Operation identity, input scale, duration, allocation, and host fingerprint as one evidence band normalized to the corpus-gate benchmark-receipt shape.
-- Shape: Band lands on `libs/csharp/Rasm.Rhino/.planning/Modeling/solids.md` and `libs/csharp/Rasm.Rhino/.planning/Viewport/capture.md` per `[HOST_BENCH_HARVEST]`.
-- Unlocks: Bridge-run harvest sessions produce corpus-comparable rows without a second measurement path.
-- Anchors: `Built` spine receipts; capture run-rail timing; host-fingerprint evidence precedent.
+[HOST_PATH_VALUE_ADJUDICATION]-[QUEUED]: Adjudicate the `HostPath` app-root value — a distinct redaction class or a collapse into `UserContent`.
+- Capability: the sensitivity taxonomy's classification classes and its app-root value set agree — either path payloads earn their own redactor-map value or the distinct `HostPathAttribute` classification retires into `UserContent`.
+- Shape: one verdict on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md` `[02]` — a fourth app-root value widening the three-value roster, or the `HostPath` class and attribute deleted with its members reclassified.
+- Unlocks: the app-root redactor map keyed on value strings distinguishes exactly the classes the sweep law distinguishes.
+- Anchors: the classification sweep law and `HostSensitivity` roster on `Objects/authoring.md`; the app-root `DataClassification` value custody.
+- Tension: path redaction granularity is a redactor-map intent question — the taxonomy currently separates what the value space cannot express.
 
-[0010]-[QUEUED]: Census receipt pins its dimensions and composition across the snapshot, closure, and table owners.
-- Capability: Exact census dimension set — object kinds, layer-tree shape, block closure metrics, material and annotation usage, archive size — each dimension naming its composing owner and detachment path.
-- Shape: Receipt shape lands on `libs/csharp/Rasm.Rhino/.planning/Objects/state.md` per `[DOCUMENT_ANALYTICS_CENSUS]`.
-- Unlocks: Analytics egress lands one stable shape into the data plane.
-- Anchors: `Objects.Ask` snapshot; `BlockGraph.Ask` closure; `libs/csharp/Rasm.Rhino/.planning/Document/tables.md` table vocabulary.
+[MARSHAL_STALL_GAUGE]-[QUEUED]: A stall watchdog on the Rhino marshal seam — hang evidence at parity with the GH dispatch pulse.
+- Capability: UI-thread marshal stalls surface as typed pulse evidence with budgets and breach verdicts, beside the landed checkpoint-latency ledger, so a hung host thread is observable evidence rather than a silent freeze.
+- Shape: a pulse/stall band on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` beside `MarshalLatency` — budgets, stall policy, and last-stall evidence at the `UiThread` seat.
+- Unlocks: both host boundaries carry hang evidence; the app root reads one stall vocabulary across hosts.
+- Anchors: `libs/csharp/.planning/RULINGS.md` host-twins plural row (a twin capability, never a shared owner); the GH `DispatchPulse` discipline as the sibling shape; the `MarshalLatency` one-seat law.
+- Ripple: mirrors `Rasm.Grasshopper` `[DISPATCH_PULSE_WATCH]`.
 
-[0011]-[QUEUED]: Classification sweep annotates every log-egress payload member.
-- Capability: Taxonomy verdict per payload member — public, internal, private — with redactor registration named as the app-root contract.
-- Shape: Annotated rows land on `libs/csharp/Rasm.Rhino/.planning/Objects/authoring.md` per `[REDACTED_HOST_EGRESS]`.
-- Unlocks: Cloud-bound host logs carry enforceable classification.
-- Anchors: `libs/csharp/.api/api-redaction.md` taxonomy and redactor rosters; `ObjectsTelemetry` generated events.
-- Atomic: one-page annotation sweep.
-
-[0012]-[QUEUED]: Script-engine rows verify member truth then land on the shell runtime.
-- Capability: Verified compile/execute/census member spellings and result shapes for the host scripting engine, landed as guarded capability rows.
-- Shape: Rows land on `libs/csharp/Rasm.Rhino/.planning/HostUi/shell.md` `[06]-[RUNTIME]` per `[HOST_SCRIPT_ENGINE]`.
-- Unlocks: In-host scripting reachable through the boundary.
-- Anchors: `tools/assay` api query over the host assembly for `PythonScript`/`PythonCompiledCode`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md` rows.
-- Atomic: one runtime-section extension.
-
-[0013]-[BLOCKED]: Accounts rail arming question — can entitlement probe without interactive login?
-- Capability: Verdict on whether `CloudHostUtils.IsEntitled`/`DenyReason` and cached-token reads answer headless, which fixes how much of `[RHINO_ACCOUNTS_TOKEN_RAIL]` designs before a consuming feature exists.
-- Shape: Verdict folds into the blocked idea's Tension on `libs/csharp/Rasm.Rhino/IDEAS.md`.
-- Unlocks: Accounts card re-arms or stays parked on evidence instead of assumption.
-- Anchors: `tools/assay` api query over the host assembly for `RhinoAccountsManager` and `CloudHostUtils` members; live bridge probe for headless behavior.
-- Atomic: single blocker verdict.
-
-[0014]-[BLOCKED]: Headless boot arming question — does macOS WIP permit `RhinoCore` boot outside the bridge launch custody?
+[HEADLESS_BOOT_PROBE]-[BLOCKED]: Headless boot arming question — does macOS WIP permit `RhinoCore` boot outside the bridge launch custody?
 - Capability: Verdict on in-process boot viability under macOS launch constraints, the fact `[INPROCESS_HEADLESS_BOOT]` needs before an app-stratum shell is worth designing.
 - Shape: Verdict folds into the blocked idea's Tension on `libs/csharp/Rasm.Rhino/IDEAS.md`.
 - Unlocks: Headless boot card re-arms with a real boot-environment contract.
 - Anchors: `Rhino.Runtime.InProcess` rows on `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md`; bridge launch-custody facts in the estate memory route; live bridge probe.
-- Atomic: single blocker verdict.
-
-[0015]-[BLOCKED]: Compute endpoint arming question — what payload contract does `HostUtils.RegisterComputeEndpoint` bind?
-- Capability: Verified endpoint delegate signature, routing shape, and census behavior, the facts `[COMPUTE_ENDPOINT_ROWS]` needs to type its rows.
-- Shape: Verdict folds into the blocked idea's Anchors on `libs/csharp/Rasm.Rhino/IDEAS.md`.
-- Unlocks: Compute rows type against decompiled truth the moment a compute shell exists.
-- Anchors: `tools/assay` api query over the host assembly for `HostUtils.RegisterComputeEndpoint`/`GetCustomComputeEndpoints`; `libs/csharp/Rasm.Rhino/.api/api-rhinocommon-runtime.md` rows.
+- Arms: the boot-viability verdict — a live bridge probe or `Rhino.Runtime.InProcess` evidence answering whether macOS WIP permits `RhinoCore` boot outside the bridge launch custody.
 - Atomic: single blocker verdict.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-- [0001]-[COMPLETE]: host exception and cloud-log taps land as `HostTap` on `Objects/authoring.md` — severity projected onto `LogLevel`, classified payload, one detacher, one egress.
+[HOST_TAP_EGRESS]-[COMPLETE]: host exception and cloud-log taps land as `HostTap` on `Objects/authoring.md` — severity projected onto `LogLevel`, classified payload, one detacher, one egress.
+[HOOK_POINT_CENSUS]-[COMPLETE]: hook-point census table with owner entries and failure-symmetric `MountRegistry.MountAll` custody landed on `Document/events.md` `[06]-[HOOK_REGISTRY]`; every row names its payload, kernel-ruled modality, and owning mount.
+[MODALITY_VERDICT_FOLD]-[COMPLETE]: per-point modality verdicts folded into the census — veto rows cite `CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`, `RhinoObject.IsActiveInViewport`, `RhinoObject.OnPick`, and `CustomObjectGrips.NewGeometry`; all other points observe, panel adds replay.
+[SCRIPT_ENGINE_ROWS]-[COMPLETE]: script-engine rows landed on `HostUi/shell.md` `[06]-[RUNTIME]` — `HostScripts` compile/run custody, `ScriptRun`/`ScriptUnit`/`ScriptOutcome` family, engine census as `HostProbe.Scripting`; member truth decompile-verified via `tools.assay api query --key rhino-common`.
+[HEADLESS_ACCOUNTS_VERDICT]-[COMPLETE]: headless-accounts verdict folded into `[RHINO_ACCOUNTS_TOKEN_RAIL]` Tension — entitlement and cached-token reads answer headless at the API surface, interactive login confines to first acquisition; the residual live-provider fact rides the idea's bridge-probe obligation.
+[COMPUTE_ENDPOINT_VERDICT]-[COMPLETE]: compute-endpoint contract verdict folded into `[COMPUTE_ENDPOINT_ROWS]` Anchors — registration binds `(string endpointPath, Type t)` on an append-only roster, census is `GetCustomComputeEndpoints()`, no delegate or unregister surface exists; the idea stays blocked on the app-stratum compute shell alone.
+[INSTRUMENT_PARTITION_ROWS]-[COMPLETE]: `RhinoInstrumentPartition.Rows` partition (fault, host-log, stream-loss, pointer, panel, content, marshal, census, bench kinds) on `Objects/authoring.md`; `MarshalLatency` checkpoint and tag names with the `DurationInstrument` mirror on `HostUi/shell.md`; `RhinoInstruments` contributed rows land beside the partition as the adjudicated twin — kind partition and contributed meter rows stay separate concerns.
+[BENCH_EVIDENCE_SHAPE]-[COMPLETE]: `BenchEvidence` shape (operation-family identity, input scale, duration, allocation, `HostFingerprint`) with the `BenchBand.Measured` bracket landed on `Modeling/solids.md`; `Captures.Run` measures each request case inside `HostThread.Run` and stamps each artifact.
+[DOCUMENT_CENSUS_DIMENSIONS]-[COMPLETE]: `DocumentCensus` dimensions pinned on `Objects/state.md` — canonical `Objects.Ask` snapshot window, `Layers.Ask` tree shape, `BlockGraph.Ask` closure triple, `CountBy` histograms, `RandomAccess.GetLength` archive extent.
+[CLASSIFICATION_SWEEP]-[COMPLETE]: classification sweep landed on `Objects/authoring.md` — app-root-aligned `HostSensitivity` rows, member annotations on `HostFaultFact`, `HostLogFact`, and cached `HostStaticFact`, with unclassified-public site keys and codes.

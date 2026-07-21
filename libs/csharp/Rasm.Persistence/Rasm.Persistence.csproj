@@ -74,6 +74,7 @@
         <PackageReference Include="CloudNative.CloudEvents" />
         <PackageReference Include="CloudNative.CloudEvents.Amqp" />
         <PackageReference Include="CloudNative.CloudEvents.Kafka" />
+        <PackageReference Include="CloudNative.CloudEvents.Mqtt" />
         <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
         <PackageReference Include="Confluent.Kafka" />
         <PackageReference Include="Confluent.SchemaRegistry" />
@@ -84,6 +85,7 @@
         <PackageReference Include="Marten" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="MQTTnet" />
         <PackageReference Include="NATS.Net" />
         <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
         <PackageReference Include="PollinationSDK" />

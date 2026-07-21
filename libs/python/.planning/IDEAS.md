@@ -7,43 +7,28 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[HANDOFF_TRACE_WIRE]-[QUEUED]: content-keyed crossing wires gain an optional W3C trace band, ruled once and co-shipped across producers and consumers.
-- Capability: one branch ruling widens `GeometryHandoff.wire()` with ONE byte-level representation — an optional serialized W3C `traceparent` string beside the `ContentKey`, absent meaning no link, decoded at the consumer into a `SpanContext` and folded as a `Link` — so a consumer span joins its upstream producer trace and cross-producer click-through exists on every graduation crossing; counterpart cards spell this exact shape, never a raw `SpanContext` field on the wire.
-- Shape: one wire verdict resolved against the compute handoff decode owner and the cross-libs `[UNIFIED_SIGNAL_FABRIC]` frozen-wire law, then a geometry mint arm and a compute decode arm co-ship; landing files `libs/python/geometry/.planning/graduation.md` and `libs/python/compute/.planning/graduation/handoff.md`.
-- Unlocks: unblocks `geometry` `[EVIDENCE_TRACE_LINKS]` and `compute` `[EVIDENCE_TRACE_LINKS]`; backend metric-to-trace-to-upstream-trace navigation across the producer chain.
-- Anchors: `Link`/`Span.add_link`/`SpanContext` on `libs/python/.api/opentelemetry-api.md`; both folder BLOCKED cards naming this ruling as their resolution route.
-- Tension: data's landed observability ruling keeps `add_link` off the data planes — co-ship scope is geometry and compute only, and the wire stays frozen until the cross-libs ruling admits the widened band.
-- Ripple: `geometry` `[EVIDENCE_TRACE_LINKS]`.
-
-[PULSE_DRAIN_ACTOR]-[QUEUED]: parent-side serialized pulse drain on the lane spine — long-running kernels stream mid-operation facts through one mailbox actor.
-- Capability: worker kernels pulse progress, convergence, and phase facts through a lane conduit a parent-side `MailboxProcessor` drains serially into `Hooks.fire` on the emitter's registry, so mid-operation taps exist for every folder's HOSTILE kernels without in-worker registry reach.
-- Shape: one drain actor per lane on the runtime lane spine — conduit selection resolved against the `pebble` map-iterator and pipe members, mailbox fold posting each pulse as a hook fact — landing on `libs/python/runtime/.planning/execution/lanes.md`; folder pulse vocabularies stay folder-owned rows.
-- Unlocks: unblocks `geometry` `[MID_OPERATION_PULSE]`; live tessellation, solve, and query progress for the C# rail and the TS viewer without polling receipts.
-- Anchors: `MailboxProcessor` on `libs/python/.api/expression.md`; `libs/python/.api/pebble.md` member truth; runtime `observability/hooks#HOOKS` registry and taps.
-- Tension: drain stays parent-side and serialized — a worker kernel writes to the conduit only, and the geometry blocked pair holds until the drain verdict lands.
-- Ripple: `geometry` `[MID_OPERATION_PULSE]`.
-
-[EXEMPLAR_CLICKTHROUGH]-[QUEUED]: every branch histogram point carries a trace exemplar, so a dashboard spike clicks through to its exact trace.
-- Capability: trace-based exemplar sampling on the shared meter build attaches span context to every recorded `rasm.<domain>.<measure>` measurement across the five folder domains with zero producer edits, realizing the estate wire law's trace-based-exemplar ruling on the python leg.
-- Shape: one `TraceBasedExemplarFilter` row at meter-provider construction beside the histogram-aggregation default, landing on `libs/python/runtime/.planning/observability/telemetry.md`; exemplars ride the standing OTLP egress.
-- Unlocks: metric-to-trace click-through on every dashboard panel the branch feeds; exemplar parity with the C# and TS legs.
-- Anchors: `sdk.metrics.TraceBasedExemplarFilter` on `libs/python/.api/opentelemetry-sdk.md`; the meter build on runtime `observability/telemetry#TELEMETRY`.
+(none)
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[HANDOFF_TRACE_WIRE]-[COMPLETE]: landed as one optional W3C composite carrier — `GeometryHandoff.of`/`_trace`/`wire()` mint `traceparent`, `tracestate`, and baggage on `libs/python/geometry/.planning/graduation.md`; `_GeometryWire.trace`/`_linked` decode the same mapping on `libs/python/compute/.planning/graduation/handoff.md` and fold one `Link` under `rasm.link.kind: geometry-graduation`.
+[PULSE_DRAIN_ACTOR]-[COMPLETE]: landed on `libs/python/runtime/.planning/execution/lanes.md` — `LanePolicy.of` opens `pulses`, `drain` lifecycle-binds its actor, the manager-queue pump re-enters through `anyio.from_thread.run_sync`, `_pulse_fold` posts `Hooks.fire`, and non-blocking close preserves the lossy telemetry law; `MailboxProcessor` and the `pebble` map iterator remain refuted.
+[EXEMPLAR_CLICKTHROUGH]-[COMPLETE]: landed as `exemplar_filter=TraceBasedExemplarFilter()` in `_meter_provider` on `libs/python/runtime/.planning/observability/telemetry.md`, beside the `WIRE_AGGREGATION` base2-exponential histogram default; exemplars ride the standing OTLP egress.
 [TENANT_SPAN_PROMOTION]-[COMPLETE]: landed on the runtime telemetry install — `opentelemetry-processor-baggage` admitted, the `PROMOTED_BAGGAGE`-filtered `BaggageSpanProcessor`/`BaggageLogProcessor` pair registered at provider construction, producer pages untouched.
-
 [WORKER_TELEMETRY_CONTINUITY]-[DROPPED]: collapsed into `runtime` `[WORKER_TELEMETRY_PARENTING]` (task grain: `runtime` `[WORKER_INSTALL_SEAM]`) — the folder owner carries the worker-side install, context crossing, and flush law at per-arm grain with exact landing pages; the branch card held no work the folder owner lacks.

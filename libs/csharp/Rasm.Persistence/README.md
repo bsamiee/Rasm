@@ -21,27 +21,28 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
 - [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump minting one CloudEvents envelope per sink with dedup and replay.
+- [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, CloudEvents decode, content-key dedup, store-first offsets.
 
 [QUERY]:
-- [13]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
-- [14]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches.
-- [15]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
-- [16]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane and its flat-table projection.
-- [17]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
-- [18]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
-- [19]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.
+- [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
+- [15]-[RETRIEVAL](.planning/Query/retrieval.md): ANN retrieval subsystem fusing the vector and text branches.
+- [16]-[TOPOLOGY](.planning/Query/topology.md): In-process QuikGraph view owning default synchronous traversal.
+- [17]-[COLUMNAR](.planning/Query/columnar.md): DuckDB analytical lane and its flat-table projection.
+- [18]-[CYPHER](.planning/Query/cypher.md): Optional self-hosted openCypher and pgrouting lane.
+- [19]-[CACHE](.planning/Query/cache.md): Compute-result reuse index with its benchmark gate and invalidation.
+- [20]-[FEDERATION](.planning/Query/federation.md): Substrait federation router lowering portable plans onto the standing lanes.
 
 [INGEST]:
-- [20]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
-- [21]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
-- [22]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
-- [23]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements.
+- [21]-[TABULAR](.planning/Ingest/tabular.md): Delimited and spreadsheet source lane.
+- [22]-[SCHEDULE](.planning/Ingest/schedule.md): Schedule-file codec and its durable task-relation DAG.
+- [23]-[GEOSPATIAL](.planning/Ingest/geospatial.md): Geospatial feature source lane.
+- [24]-[ISSUE](.planning/Ingest/issue.md): BCF issue-file codec — topics, viewpoints, and comments keyed to durable elements.
 
 [STORE]:
-- [24]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
-- [25]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
-- [26]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [27]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the receipt-slot registry, the hook rail, usage attribution, and the instrument contributor.
+- [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
+- [26]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
+- [27]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
+- [28]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the receipt-slot registry, the hook rail, usage attribution, and the instrument contributor.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -139,7 +140,7 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `Speckle.Objects`
 - `PollinationSDK` — cloud-run transport, sidecar-only; the durable `Version/provenance` `CloudRunFact` half
 - `Confluent.Kafka`
-- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters over the Kafka egress sink.
+- `OpenTelemetry.Instrumentation.ConfluentKafka` — instrumented producer/consumer builders carrying messaging spans and meters; the producer twin binds at the `Version/egress` Kafka sink leg and the consumer twins at the `Version/ingress` CDC consume leg.
 - `Confluent.SchemaRegistry` — Schema Registry REST client, subject compatibility and evolution
 - `Confluent.SchemaRegistry.Serdes.Avro`
 - `Confluent.SchemaRegistry.Serdes.Protobuf` — registry-governed Protobuf serde over `Google.Protobuf`
@@ -147,10 +148,12 @@ Marten append substrate, the out-of-Rhino sync transports, and the CDC change-eg
 - `CloudNative.CloudEvents`
 - `CloudNative.CloudEvents.Amqp` — CloudEvents AMQP 1.0 binding over AMQPNetLite's `Amqp.Message`; the AMQP-native egress path distinct from the `RabbitMQ.Client` 0-9-1 leg
 - `CloudNative.CloudEvents.Kafka`
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT v5 binding mapping a `CloudEvent` onto MQTTnet's `MqttApplicationMessage`; backs `EgressSink.Mqtt`, the payload-body-only egress path with no header-route binary mode
 - `CloudNative.CloudEvents.SystemTextJson`
 - `NATS.Net` — Core pub/sub and JetStream durable streams; backs `EgressSink.Nats`
 - `RabbitMQ.Client` — AMQP 0-9-1 with publisher confirms; backs `EgressSink.RabbitMq`
 - `DotPulsar` — Apache Pulsar binary-protocol client; backs `EgressSink.Pulsar`
+- `MQTTnet` — MQTT v5 client with QoS-1 `PublishAsync` PUBACK evidence and the v5 UserProperties tracing carrier; backs `EgressSink.Mqtt`
 
 [OBJECT_CACHE_KMS]:
 Cloud object stores, the Redis cache backplane, and KMS custody.

@@ -42,72 +42,73 @@ It folds data, compute, and geometry outputs — and any structured payload — 
 [DELIVERY]:
 - [24]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 container-register, sheet-index, and container-metadata owner.
 - [25]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` issue-for-construction orchestrator over imposition, archive, and sign.
+- [26]-[NOTICE](.planning/delivery/notice.md): `TransmittalNotice` trace-continuous CloudEvents envelope sealing the transmittal close.
 
 [GRAPHIC]:
-- [26]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
-- [27]-[RASTER_PROCESS](.planning/graphic/raster/process.md): Raster vocabulary owner and produced-raster engine over pillow and scikit-image.
-- [28]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): scikit-image measured-score half producing perceptual and feature scalars.
-- [29]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
-- [30]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` boolean, offset, and stroke-to-outline owner with metric text-on-path.
-- [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over typed motif-aware lowerings.
-- [32]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
-- [33]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark owner composing generation with decode and verify inverses.
-- [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `DecodeScope.scan` decode substrate the generation arms cannot express, mark-rail-composed.
-- [35]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color source — CIE/CAM16/spectral, gamut, CVD, harmony, WCAG.
-- [36]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` downstream ICC/LUT/CCTF color-managed raster egress.
-- [37]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-data owner carrying type, stroke, palette, ground, and sheet-family rows.
-- [38]-[LAYER](.planning/graphic/layer.md): `LayerPlan` semantic layer tree every layered producer projects into and exporter composes.
+- [27]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
+- [28]-[RASTER_PROCESS](.planning/graphic/raster/process.md): Raster vocabulary owner and produced-raster engine over pillow and scikit-image.
+- [29]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): scikit-image measured-score half producing perceptual and feature scalars.
+- [30]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
+- [31]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` boolean, offset, and stroke-to-outline owner with metric text-on-path.
+- [32]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over typed motif-aware lowerings.
+- [33]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
+- [34]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark owner composing generation with decode and verify inverses.
+- [35]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `DecodeScope.scan` decode substrate the generation arms cannot express, mark-rail-composed.
+- [36]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color source — CIE/CAM16/spectral, gamut, CVD, harmony, WCAG.
+- [37]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` downstream ICC/LUT/CCTF color-managed raster egress.
+- [38]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-data owner carrying type, stroke, palette, ground, and sheet-family rows.
+- [39]-[LAYER](.planning/graphic/layer.md): `LayerPlan` semantic layer tree every layered producer projects into and exporter composes.
 
 [TYPOGRAPHY]:
-- [39]-[FONT](.planning/typography/font.md): `FontEngineering` font subset, instance, synthesis, and embed-audit owner.
-- [40]-[SHAPE](.planning/typography/shape.md): `Shaping` uharfbuzz text-shaping, bidi reorder, and COLRv1 glyph-render owner.
-- [41]-[MATH](.planning/typography/math.md): `Formula` one ziamath mathematical-typesetting owner every formula consumer routes through.
-- [42]-[LAYOUT](.planning/typography/layout.md): `LineLayout` line-break, hyphenation, and Knuth-Plass paragraph-fit owner.
+- [40]-[FONT](.planning/typography/font.md): `FontEngineering` font subset, instance, synthesis, and embed-audit owner.
+- [41]-[SHAPE](.planning/typography/shape.md): `Shaping` uharfbuzz text-shaping, bidi reorder, and COLRv1 glyph-render owner.
+- [42]-[MATH](.planning/typography/math.md): `Formula` one ziamath mathematical-typesetting owner every formula consumer routes through.
+- [43]-[LAYOUT](.planning/typography/layout.md): `LineLayout` line-break, hyphenation, and Knuth-Plass paragraph-fit owner.
 
 [COMPOSITION]:
-- [43]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure and section placement owner emitting flat SVG.
-- [44]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the `SheetSet` register-ready set owner.
-- [45]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up, booklet, and signature press-imposition owner.
+- [44]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure and section placement owner emitting flat SVG.
+- [45]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the `SheetSet` register-ready set owner.
+- [46]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up, booklet, and signature press-imposition owner.
 
 [EXPORT]:
-- [46]-[LAYERED](.planning/export/layered.md): `LayeredExport` editable layered-export owner over every layered container target.
-- [47]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off; contributes the Office receipt.
-- [48]-[DXF](.planning/export/dxf.md): `Dxf` ezdxf CAD-exchange owner over the DXF-op family and the geospatial bridge.
+- [47]-[LAYERED](.planning/export/layered.md): `LayeredExport` editable layered-export owner over every layered container target.
+- [48]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off; contributes the Office receipt.
+- [49]-[DXF](.planning/export/dxf.md): `Dxf` ezdxf CAD-exchange owner over the DXF-op family and the geospatial bridge.
 
 [EXCHANGE]:
-- [49]-[METADATA](.planning/exchange/metadata.md): `MetaCarrier` descriptive EXIF/IPTC/XMP/ICC read/write axis over raster, PDF, and media.
-- [50]-[CREDENTIAL](.planning/exchange/credential.md): `Provenance` content-credential sign/read/embed/ingredient-archive owner keyed by content.
-- [51]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` pyhanko PAdES sign/stamp/augment/audit owner folding one verdict.
-- [52]-[DETECT](.planning/exchange/detect.md): `Detect` format-identification gate over puremagic with a python-magic fallback.
+- [50]-[METADATA](.planning/exchange/metadata.md): `MetaCarrier` descriptive EXIF/IPTC/XMP/ICC read/write axis over raster, PDF, and media.
+- [51]-[CREDENTIAL](.planning/exchange/credential.md): `Provenance` content-credential sign/read/embed/ingredient-archive owner keyed by content.
+- [52]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` pyhanko PAdES sign/stamp/augment/audit owner folding one verdict.
+- [53]-[DETECT](.planning/exchange/detect.md): `Detect` format-identification gate over puremagic with a python-magic fallback.
 
 [MEDIA]:
-- [53]-[CONTAINER](.planning/media/container.md): `Media` container and codec spine from demux through adaptive-streaming egress.
-- [54]-[FILTERGRAPH](.planning/media/filtergraph.md): `FilterNode` capability-detected native-vs-substitute filter-routing core.
-- [55]-[AUDIO](.planning/media/audio.md): `_encode_audio` av audio-stream encode, resample, and master arm.
-- [56]-[TIMELINE](.planning/media/timeline.md): `Timeline` non-linear editing over the container and filtergraph spine.
-- [57]-[SUBTITLE](.planning/media/subtitle.md): `Subtitle` pysubs2 parse/convert/retime/restyle, passthrough-mux, and burn-in owner.
-- [58]-[ANALYSIS](.planning/media/analysis.md): `Analysis` read-side media measurement and thumbnail owner over the container spine.
-- [59]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` generated audio and video test-signal producer feeding the encode arms.
+- [54]-[CONTAINER](.planning/media/container.md): `Media` container and codec spine from demux through adaptive-streaming egress.
+- [55]-[FILTERGRAPH](.planning/media/filtergraph.md): `FilterNode` capability-detected native-vs-substitute filter-routing core.
+- [56]-[AUDIO](.planning/media/audio.md): `_encode_audio` av audio-stream encode, resample, and master arm.
+- [57]-[TIMELINE](.planning/media/timeline.md): `Timeline` non-linear editing over the container and filtergraph spine.
+- [58]-[SUBTITLE](.planning/media/subtitle.md): `Subtitle` pysubs2 parse/convert/retime/restyle, passthrough-mux, and burn-in owner.
+- [59]-[ANALYSIS](.planning/media/analysis.md): `Analysis` read-side media measurement and thumbnail owner over the container spine.
+- [60]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` generated audio and video test-signal producer feeding the encode arms.
 
 [SCENE]:
-- [60]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor seam vocabulary and the `WORKER_MODULE` floor anchor.
-- [61]-[RENDER](.planning/scene/render.md): `Scene3d` offscreen 3D render producer and rgb24 frame-egress owner on the worker lane.
-- [62]-[RENDER_WORKER](.planning/scene/render_worker.md): `_KERNELS` shipped worker kernel bodies the process lane resolves on the worker floor.
-- [63]-[EXPORT](.planning/scene/export.md): `ExportRow` correspondence over every scene export target with deterministic capture.
-- [64]-[STAGE](.planning/scene/stage.md): `StageOp` usd-core USD/USDZ stage-authoring owner.
+- [61]-[SPEC](.planning/scene/spec.md): `SceneGrid` parse-floor seam vocabulary and the `WORKER_MODULE` floor anchor.
+- [62]-[RENDER](.planning/scene/render.md): `Scene3d` offscreen 3D render producer and rgb24 frame-egress owner on the worker lane.
+- [63]-[RENDER_WORKER](.planning/scene/render_worker.md): `_KERNELS` shipped worker kernel bodies the process lane resolves on the worker floor.
+- [64]-[EXPORT](.planning/scene/export.md): `ExportRow` correspondence over every scene export target with deterministic capture.
+- [65]-[STAGE](.planning/scene/stage.md): `StageOp` usd-core USD/USDZ stage-authoring owner.
 
 [CORE]:
-- [65]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan over the runtime session lane.
-- [66]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and drain.
-- [67]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
-- [68]-[HOOKS](.planning/core/hooks.md): `ArtifactHook` production-fact point table and payload projections over the runtime hook registry.
-- [69]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark subjects and threshold policy over the runtime bench tier.
+- [66]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan over the runtime session lane.
+- [67]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and drain.
+- [68]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
+- [69]-[HOOKS](.planning/core/hooks.md): `ArtifactHook` production-fact point table and payload projections over the runtime hook registry.
+- [70]-[BENCH](.planning/core/bench.md): `CORPUS` producer benchmark subjects and threshold policy over the runtime bench tier.
 
 [PACKAGE]:
-- [70]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor; mints no receipt.
-- [71]-[CODEC](.planning/package/codec.md): `Codec` single-blob ZSTD/LZ4/BROTLI/GZIP compression producer composing the bundle.
-- [72]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file 7z/ZIP archive half and the reproducible-ZIP owner.
-- [73]-[DELTA](.planning/package/delta.md): `Delta` detools binary diff/patch arm over parent-keyed delta nodes.
+- [71]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor; mints no receipt.
+- [72]-[CODEC](.planning/package/codec.md): `Codec` single-blob ZSTD/LZ4/BROTLI/GZIP compression producer composing the bundle.
+- [73]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file 7z/ZIP archive half and the reproducible-ZIP owner.
+- [74]-[DELTA](.planning/package/delta.md): `Delta` detools binary diff/patch arm over parent-keyed delta nodes.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -206,7 +207,7 @@ Domain libraries admitted by this folder; versions centralize in the one Python 
 - `pyexiftool` — cross-format descriptive-metadata read/write
 
 [DELIVERY]:
-- `cloudevents` — CloudEvents structured/binary envelope with distributed-tracing extension for the transmittal notice
+- `cloudevents` — CloudEvents structured/binary envelope with W3C trace-and-baggage extensions for the transmittal notice
 
 [EDITABLE_EXPORT]:
 - `simpleidml` — IDML package and template mutation

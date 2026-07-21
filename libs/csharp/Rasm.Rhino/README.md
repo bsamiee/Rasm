@@ -10,7 +10,7 @@ It references no sibling package — every alignment travels down the one kernel
 - Route: [DOCUMENT_SESSION](.planning/Document/session.md): `DocumentSession.Of` admits borrowed or owned sources behind fresh handle and capability evidence.
 - Route: [DOCUMENT_GEOMETRY](.planning/Document/geometry.md): `GeometryHandle` owns geometry-custody crossing — inspection, motion, bounds, clipping, release.
 - Route: [DOCUMENT_TABLES](.planning/Document/tables.md): `Tables.Commit` executes a shaped table transaction through the undo bracket and redraw compensation.
-- Route: [DOCUMENT_EVENTS](.planning/Document/events.md): `DocumentStream.Observe` binds events into detached facts under scoped attach and symmetric release; `HookRegistry` addresses every detached stream as `rasm.rhino.<domain>.<point>` under first-mount-wins custody.
+- Route: [DOCUMENT_EVENTS](.planning/Document/events.md): `DocumentStream.Observe` binds events into detached facts under scoped attach and symmetric release; `MountRegistry` addresses every detached stream as `rasm.rhino.<domain>.<point>` under first-mount-wins custody.
 - Route: [DOCUMENT_LAYERS](.planning/Document/layers.md): `Layers.Commit` folds the layer-tree program under the shared undo bracket.
 
 [PERSISTENCE]:
@@ -23,7 +23,7 @@ It references no sibling package — every alignment travels down the one kernel
 - Route: [PERSISTENCE_SNAPSHOTS](.planning/Persistence/snapshots.md): `Snapshots.Commit` scripts snapshot state; `SnapshotParticipant` adapts the plugin seam.
 
 [OBJECTS]:
-- Route: [OBJECTS_STATE](.planning/Objects/state.md): `Objects.Ask` owns the live-object window — snapshot, frames, component touch, detached section custody.
+- Route: [OBJECTS_STATE](.planning/Objects/state.md): `Objects.Ask` owns the live-object window — snapshot, frames, component touch, detached section custody; `Objects.Census` folds the analytics-ready `DocumentCensus`.
 - Route: [OBJECTS_ATTRIBUTES](.planning/Objects/attributes.md): `AttributeProgram` closes attribute mutation as the typed payload of the table rail's `Amend`.
 - Route: [OBJECTS_MATERIALS](.planning/Objects/materials.md): `Materials.Ask` resolves materials, mappings, and mesh caches behind one shared-bracket commit.
 - Route: [OBJECTS_LIGHTS](.planning/Objects/lights.md): `Lights.Commit` runs the closed light-kind family under the shared bracket.
@@ -119,7 +119,7 @@ Host assemblies admitted by this folder bind as `Directory.Build.props` host ref
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Shared substrate consumed from the C# registry; the registry and its charters own the contracts, and `libs/csharp/.api/` holds the API evidence. This folder's observability axis is fault logging plus declared projection data — `ObjectsTelemetry` on `Objects/authoring.md` is the one structured-log egress behind plugin-keyed sinks, every measured surface mints the typed receipt carrying its own run evidence, `RhinoInstrumentPartition` and the `MarshalLatency` checkpoints declare the instrument projection as data, the `HookRegistry` on `Document/events.md` names every fact stream as a `rasm.rhino.<domain>.<point>` row, and instrument execution over those declarations is app-root altitude, never a second measurement truth inside the boundary.
+Shared substrate consumed from the C# registry; the registry and its charters own the contracts, and `libs/csharp/.api/` holds the API evidence. This folder's observability axis is fault logging plus declared projection data — `ObjectsTelemetry` on `Objects/authoring.md` is the one structured-log egress behind plugin-keyed sinks, every measured surface mints the typed receipt carrying its own run evidence, `RhinoInstrumentPartition` and the `MarshalLatency` checkpoints declare the instrument projection as data, the `MountRegistry` on `Document/events.md` names every fact stream as a `rasm.rhino.<domain>.<point>` row, `BenchEvidence` on `Modeling/solids.md` carries in-host benchmark harvest through the `ModelGate` spine and the capture run rail, `DocumentCensus` on `Objects/state.md` is the one analytics-ready document census, and instrument execution over those declarations is app-root altitude, never a second measurement truth inside the boundary.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -129,7 +129,6 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry.Abstractions`
-- `Microsoft.Extensions.Compliance.Abstractions`
 - `Microsoft.Extensions.Compliance.Abstractions`
 
 [GRAPH_ALGORITHM]:

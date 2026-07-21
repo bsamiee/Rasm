@@ -19,7 +19,8 @@ Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no
 │   ├── Provenance.cs        # W3C-PROV causal DAG and attested tamper-evidence ledger
 │   ├── Retention.cs         # Retention-class sweep and full-history reachability GC
 │   ├── Recovery.cs          # Backup-substrate routes and verified PITR choreography
-│   └── Egress.cs            # CDC egress pump: one CloudEvents envelope with per-sink dedup and replay
+│   ├── Egress.cs            # CDC egress pump: one CloudEvents envelope with per-sink dedup and replay
+│   └── Ingress.cs           # Inbound CDC consume door: instrumented Kafka leg, content-key dedup, store-first offsets
 ├── Query/                   # Read lanes split by consistency demand
 │   ├── Lane.cs              # Read router: authoritative vs analytical over the selection algebra
 │   ├── Retrieval.cs         # ANN subsystem: fusion rank over the vector and text branches

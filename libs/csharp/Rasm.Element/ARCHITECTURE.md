@@ -10,6 +10,7 @@ Rasm.Element/             # refs ../Rasm ONLY; no GeometryGym; no host geometry 
 │   ├── Element.cs        # Frozen property-graph spine and the memoized Bake fold every consumer reads flat
 │   ├── Delta.cs          # Live working-graph mutation algebra and the persistable GraphDelta body
 │   ├── Wire.cs           # Content-key-preserving rasm.element.v1 crossing every peer runtime decodes
+│   ├── Corpus.cs         # Deterministic GraphForge and the graded benchmark-and-parity corpus roster
 │   └── element.proto     # Language-neutral rasm.element.v1 oneof contract
 ├── Relations/            # Neutral objectified-edge algebra
 │   └── Relation.cs       # Closed neutral edge kinds plus a Generic passthrough so no foreign relation drops
@@ -43,7 +44,7 @@ Interior is one strongly-connected component at folder grain — `Graph/Element`
 - S1 vocabulary — `Classification` and `Discipline`, the `MeasureValue`/`Dimension` quantity signature, and the `GeoReference` georeference record.
 - S2 values — `PropertyValue` with `InheritanceMode`, `MaterialComposition` with `ProfileRef`, the `CoverageGrid` raster descriptor, and the `AssessmentPayload` receipt; each folds vocabulary into node payloads.
 - S3 graph — `ElementGraph`, `GraphDelta`, and the `Relationship` edge algebra composing every value family; `Relations` co-seats because objectified edges and the graph key each other mutually.
-- S4 contracts and codec — `IElementProjection` and `IGraphConstraint` name the graph aggregate in their signatures, and the `ContentAddress` codec folds graph headers, so the cross-stratum contract tier seats above the graph it projects; the `ElementHookRail` fact tap and its `GraphInstrument` projection seat here too, observing every lower stratum without entering one.
+- S4 contracts and codec — `IElementProjection` and `IGraphConstraint` name the graph aggregate in their signatures, and the `ContentAddress` codec folds graph headers, so the cross-stratum contract tier seats above the graph it projects; the `ElementHookRail` fact tap and its `GraphInstrument` projection seat here too, observing every lower stratum without entering one, and the `GraphForge` corpus mint seats beside them, realizing whole graphs through the S3 admission rail it consumes.
 
 ```mermaid
 ---
@@ -61,6 +62,8 @@ flowchart TB
         IConstraint[IGraphConstraint]
         Address[ContentAddress]
         HookRail[ElementHookRail]
+        Instrument[GraphInstrument]
+        Forge[GraphForge]
     end
     subgraph L3["S3 GRAPH"]
         ElementGraph[ElementGraph]
@@ -86,6 +89,8 @@ flowchart TB
     IConstraint -->|"[IMPORT]: GraphDelta"| Delta
     HookRail -->|"[IMPORT]: GraphDelta"| Delta
     HookRail -->|"[IMPORT]: ElementFault"| Fault
+    Instrument -->|"[TAP]: ElementFact"| HookRail
+    Forge -->|"[IMPORT]: GraphDelta"| Delta
     Address -->|"[IMPORT]: NodeId"| NodeId
     ElementGraph -->|"[IMPORT]: PropertyValue"| Property
     ElementGraph -->|"[IMPORT]: MaterialComposition"| Composition
@@ -190,7 +195,7 @@ Each provider mints its own `Object` identity under the owner-mints-its-identity
 [CONTENT_KEY_IDIOM]:
 - Every lane derives its typed `UInt128` through the `Projection/address` seed-zero entry over the one `CanonicalWriter` projection.
 - Content space is shared with the kernel `GeometryHash` and the Python and TypeScript peers; a second hasher or non-zero seed is the named drift.
-- `Graph/wire` carries every content key verbatim; the codec re-derives no identity, and the parity corpus anchors byte-for-byte agreement.
+- `Graph/wire` carries every content key verbatim; `Graph/corpus` supplies deterministic snapshot fingerprints, and its terminal research row owns the exact parity-pin route until literal addresses exist.
 - `GlbContentHash` is the wire spelling of the `RepresentationContentHash` `Body` entry crossing the python:geometry GLB seam.
 - Non-rooted `NodeId` is the self-hash of the node's own canonical bytes.
 - Rooted `Object` ids carry one regime with two `ObjectKind`-keyed seedings — Guid-v7 placement identity and the exclusion-seeded Type derivation.

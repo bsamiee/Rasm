@@ -14,7 +14,8 @@ data/
 │   ├── materialize.py    # CDC materialization composing lakehouse, query, and columnar downward
 │   ├── contract.py       # Structural admission, covenant, and quality gate folded on one ContractClaim
 │   ├── profile.py        # Quality-profile owner grading a frame the artifacts renderer renders
-│   └── egress.py         # Object-store egress owner over one StoreOp axis keyed by content identity
+│   ├── egress.py         # Object-store egress owner over one StoreOp axis keyed by content identity
+│   └── cost.py           # Cost ledger folding the receipt families into the priced tenant-attributed frame
 ├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
 │   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes
 │   ├── query.py          # DuckDB-spatial join, transform, and H3 engine on the shared session rail
@@ -51,6 +52,7 @@ flowchart LR
         Query[Query engine]
         Materialize[CDC materialize]
         Profile[Quality profile]
+        Cost[Cost ledger]
         Geospatial[Geospatial claims]
         Catalog[STAC catalog]
         Mesh[Mesh exchange]
@@ -85,6 +87,19 @@ flowchart LR
     Runtime e24@-->|"[BOUNDARY]: on_thread"| Impact
     Runtime e17@-->|"[BOUNDARY]: LanePolicy"| Materialize
     Runtime e18@-->|"[BOUNDARY]: on_thread"| Catalog
+    Cost e25@-->|"[SHAPE]: CostFrame"| Artifacts
+    class Tabular,Egress,Query,Materialize,Profile,Cost,Geospatial,Catalog,Mesh,Gridded,Impact primary
+    class Runtime data
+    class Artifacts,Geometry,Compute annotation
+    class e1,e2,e6,e8 edgeData
+    class e3,e7,e9,e10,e15,e19,e25 edgeSuccess
+    class e4,e5,e11,e12,e13,e14,e16,e17,e18,e20,e21,e22,e23,e24 edgeControl
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
 ```
 
 ```mermaid
@@ -118,6 +133,16 @@ flowchart LR
     Impact e7@-->|"[WIRE]: Assessment"| Materials
     Bim e8@<-->|"[WIRE]: GeoFeatureWkb"| Geospatial
     Persistence e9@-->|"[WIRE]: FlightTicket"| Query
+    class Tabular,Query,Geospatial,Virtual,Impact primary
+    class Persistence data
+    class Compute,Materials,Bim annotation
+    class e1,e2 edgeSuccess
+    class e3,e4,e5,e6,e7,e8,e9 edgeData
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
 ```
 
 Two fences partition by peer runtime: the Python siblings carry the in-process content, transport, receipt, and frame contracts, and the C# peers carry the cross-runtime wire, durable content keys, and the environmental set. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest. `GeoFeatureWkb` spells from its Rasm.Bim owner; the crossing carries raw WKB — `GeoDataFrame.to_wkb` outbound, `ST_GeomFromWKB` on admission — and no data-interior type re-mints the label.
@@ -128,8 +153,8 @@ Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `Conte
 
 ## [03]-[INTERNAL]
 
-- S0 `tabular` — the interchange floor: `interop` (`FrameInterop`/`FieldShape`/`ArrowCStream`) and `columnar` (`arrow_bytes`/`QueryReceipt`/`DuckDbSession`) import nothing from `rasm.data`; `contract` and `profile` compose interop, `query` and `lakehouse` compose columnar, `materialize` closes the apex, and `egress` (`StoreOp`) imports no sibling while serving the strata above.
-- S1 `gridded` + `impact` — gridded rides the interop carrier (`ArrowCStream`) for its ragged Arrow bridge, and its virtual owner mints the field owner's `FieldReceipt` family downward inside the folder; impact composes the contract, profile, interop, and columnar rows (`FrameAdmission`, `QualityProfile`, `FrameInterop`, `arrow_bytes`).
+- S0 `tabular` — interop and columnar form the floor; contract, profile, query, lakehouse, and egress own independent branches; materialize closes the operational apex and folds every hook point through one scope-keyed registration rail; cost closes the evidence apex by folding sibling receipt families into the priced frame.
+- S1 `gridded` + `impact` — gridded rides the interop carrier (`ArrowCStream`) for its ragged Arrow bridge, and its virtual owner mints the field owner's `FieldReceipt` family downward inside the folder; the tensor `PlanReceipt` lowering crosses into the tabular cost ledger as wire data, never an import; impact composes the contract, profile, interop, and columnar rows (`FrameAdmission`, `QualityProfile`, `FrameInterop`, `arrow_bytes`).
 - S1 `graph` — import-isolated: composes runtime alone, and its `GraphResult.frame` node table crosses into columnar as wire data over the pyarrow left-outer join, never an import.
 - S2 `spatial` — the apex consumer: composes columnar (`QueryReceipt`), the object egress (`ObjectEgress`/`StoreOp`), and gridded's virtual plane (`FieldVirtual`, `VirtualReference`).
 
@@ -143,7 +168,7 @@ config:
 ---
 flowchart TB
     accTitle: Data interior import strata
-    accDescr: Three import strata — spatial over the gridded, impact, and import-isolated graph tier over the eight-module tabular floor — each labeled downward edge naming its one sourced type, the graph node table crossing as dashed wire data, and one forbidden upward edge.
+    accDescr: Spatial composes the middle tier over the tabular floor; labeled edges name imported owners, and dashed edges carry wire data.
     subgraph D2["S2 SPATIAL"]
         Spatial[spatial]
     end
@@ -153,6 +178,7 @@ flowchart TB
         Gridded[gridded]
     end
     subgraph D0["S0 TABULAR"]
+        Cost[cost]
         Egress[egress]
         Materialize[materialize]
         Query[query]
@@ -173,11 +199,30 @@ flowchart TB
     Graph s9@-.->|"[WIRE]: GraphResult"| Columnar
     Materialize s10@-->|"[IMPORT]: QuerySpec"| Query
     Materialize s11@-->|"[IMPORT]: TableFormat"| Lakehouse
-    Query s12@-->|"[IMPORT]: DuckDbSession"| Columnar
-    Lakehouse s13@-->|"[IMPORT]: DatasetRef"| Columnar
-    Contract s14@-->|"[IMPORT]: FrameInterop"| Interop
-    Profile s15@-->|"[IMPORT]: FieldShape"| Interop
+    Materialize s12@-->|"[IMPORT]: LAKE_COMMIT_POINT"| Lakehouse
+    Materialize s13@-->|"[IMPORT]: VERDICT_POINT"| Contract
+    Materialize s14@-->|"[IMPORT]: PUT_POINT"| Egress
+    Materialize s15@-->|"[IMPORT]: DELETE_POINT"| Egress
+    Query s16@-->|"[IMPORT]: DuckDbSession"| Columnar
+    Lakehouse s17@-->|"[IMPORT]: DatasetRef"| Columnar
+    Contract s18@-->|"[IMPORT]: FrameInterop"| Interop
+    Profile s19@-->|"[IMPORT]: FieldShape"| Interop
+    Cost s20@-->|"[IMPORT]: QueryReceipt"| Columnar
+    Cost s21@-->|"[IMPORT]: LakeReceipt"| Lakehouse
+    Cost s22@-->|"[IMPORT]: PartitionBundle"| Materialize
+    Cost s23@-->|"[IMPORT]: EgressReceipt"| Egress
+    Gridded s24@-.->|"[WIRE]: PlanReceipt"| Cost
     Spatial ~~~ Impact
     Spatial ~~~ Graph
     Interop f1@-->|"forbidden: upward import"| D2
+    class Spatial,Graph,Impact,Gridded primary
+    class Cost,Egress,Materialize,Query,Lakehouse,Columnar,Contract,Profile,Interop recessed
+    class s1,s2,s3,s4,s5,s6,s7,s8,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23 edgeControl
+    class s9,s24 edgeData
+    class f1 edgeError
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef recessed fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
 ```

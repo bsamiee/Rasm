@@ -25,7 +25,7 @@ security/
 ## [02]-[STRATA]
 
 - S0 `access/audit` + `access/tenant` — two floor mints importing only core: `audit` mints the security fact plane (`SecurityFact`, the silent `Witness` seam, the `AuditJournal` port, the pseudonymized egress and board projections); `tenant` mints the `TenantScope` reference and the RLS shape.
-- S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope (`Crypto`, `Jwt`, `AccessClaims`, `Shredder`, `SealedEnvelope`), composing `Witness` from the fact floor so its shred-open and JWKS-quarantine arms publish facts.
+- S1 `crypt/sign` — the crypto authority originating every digest, signature, token, and envelope (`Crypto`, `Jwt`, `AccessClaims`, `Shredder`, `SealedEnvelope`, `Calibration`), composing `Witness` from the fact floor so its shred-open and JWKS-quarantine arms publish facts and its cost rows carry bench receipts.
 - S2 `crypt/verify` + `crypt/secret` + `authn/session` + `authn/credential` — each composes `sign`: `verify` folds `Crypto` over held octets, `secret` scopes the Doppler lease behind `Crypto` and publishes rotation facts, `session` mints `Jwt` tokens as the identity spine and publishes reuse facts, `credential` rides its private digest idiom over `Crypto`.
 - S3 `authn/oauth` + `authn/webauthn` + `access/claim` — ceremonies and decisions over the spine: `oauth` and `webauthn` compose `Token` from `session` beside `sign`, `webauthn` publishing clone and ceremony facts; `claim` folds `AccessClaims` with `TenantScope` and publishes deny facts; `authn` and `access` stay mutually independent peers.
 
@@ -112,6 +112,7 @@ flowchart LR
     Core e12@-->|"[SHAPE]: Convention"| Crypt
     Access e13@-->|"[PROJECTION]: rasm.tenant"| Runtime
     Data e14@-->|"[PORT]: AuditJournal"| Access
+    Access e15@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]
@@ -126,3 +127,4 @@ flowchart LR
 - Tenancy is declared here and enforced in the data wave; the folder opens no database transaction.
 - Flag evaluation is the `FlagGate` consumer port the runtime wave satisfies; the entitlement fold composes flag verdicts and owns no flag engine.
 - Audit facts persist through the `AuditJournal` port the data wave satisfies on its journal spine; analytics egress leaves only as the `AuditTrace` projection under the keyed `Pseudonym` mask, and board/alert compilation rides the core-to-iac `DashboardModel`/`Alert.Spec` seams over the folder's declared objectives.
+- KDF cost claims leave as core `Claim` receipts — the `BenchmarkClaimWire` landing under `Claim.admit` host admission; this folder measures against its own bulkhead and never persists or grades a claim.

@@ -7,36 +7,37 @@ One polymorphic owner per sub-domain mints the shared value shapes once, and eve
 ## [01]-[ROUTER]
 
 [OBSERVABILITY]:
-- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, and contributor-fold port.
+- [01]-[RECEIPTS](.planning/observability/receipts.md): Receipt union, drain taxonomy, cost evidence, and contributor-fold port.
 - [02]-[LOGGING](.planning/observability/logging.md): Structlog pipeline, stdout ship law, and the log-ship policy.
 - [03]-[METRICS](.planning/observability/metrics.md): One `MeterProvider`'s instruments, the record mapping, and the instrumentor train.
 - [04]-[HOOKS](.planning/observability/hooks.md): Scoped hook registry with modality rows and telemetry taps.
 - [05]-[PROFILES](.planning/observability/profiles.md): Pyroscope push, benchmark receipts, and the offline-job envelope.
 - [06]-[TELEMETRY](.planning/observability/telemetry.md): Profile-gated OTLP install owner.
+- [07]-[BUNDLE](.planning/observability/bundle.md): Support-bundle capsule — fenced collectors, content-keyed archive, and the diagnostic route.
 
 [RELIABILITY]:
-- [07]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union and its exception-to-fault projector.
-- [08]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy table, one row per retryable class.
+- [08]-[FAULTS](.planning/reliability/faults.md): Boundary-fault union and its exception-to-fault projector.
+- [09]-[RESILIENCE](.planning/reliability/resilience.md): Retry policy table, one row per retryable class.
 
 [TRANSPORT]:
-- [09]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
-- [10]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
-- [11]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
-- [12]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
+- [10]-[ROOTS](.planning/transport/roots.md): Resource roots and refs over fsspec and the remote transports.
+- [11]-[SERVE](.planning/transport/serve.md): gRPC server lifecycle, route roster, capability invoke, and the daemon entry.
+- [12]-[SHAPES](.planning/transport/shapes.md): Proto vocabulary and its descriptor drift gate.
+- [13]-[WIRE](.planning/transport/wire.md): Protobuf transcode, frame legs, and the CRDT-op codec.
 
 [EXECUTION]:
-- [13]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
-- [14]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
-- [15]-[WORKERS](.planning/execution/workers.md): Worker fabric — kind family, kernel crossing, warm pools, remote/device/guest arms, and supervision.
-- [16]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
+- [14]-[ADMISSION](.planning/execution/admission.md): Runtime context, causal frames, and settings admission.
+- [15]-[LANES](.planning/execution/lanes.md): Lane-policy task groups and the stage-plan DAG.
+- [16]-[WORKERS](.planning/execution/workers.md): Worker fabric — kind family, kernel crossing, warm pools, remote/device/guest arms, the parented worker emitter, and supervision.
+- [17]-[RECIPE](.planning/execution/recipe.md): Content-keyed recipe execution on the thread lane.
 
 [EVIDENCE]:
-- [17]-[IDENTITY](.planning/evidence/identity.md): Content identity and key reproducing the C# seed bit-identically.
-- [18]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
-- [19]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
+- [18]-[IDENTITY](.planning/evidence/identity.md): Content identity and key reproducing the C# seed bit-identically.
+- [19]-[REPRODUCTION](.planning/evidence/reproduction.md): Seed-reproduction corpus and its parity fold.
+- [20]-[EVIDENCE](.planning/evidence/evidence.md): Evidence union, catalogue member facts, and grammar registry.
 
 [CLOCK]:
-- [20]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
+- [21]-[CLOCK](.planning/clock/clock.md): HLC stamp, element id, tenant, and causal frame.
 
 ## [02]-[DOMAIN_PACKAGES]
 

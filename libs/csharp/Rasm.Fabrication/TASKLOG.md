@@ -7,14 +7,17 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
 [SPECIALIZED_ENVELOPE_ADMISSION]-[QUEUED]: Enforce `SpecializedToolpathEnvelope` admission at its owner and route every consumer through the admitted rail.
@@ -36,25 +39,21 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `Kinematics/fleet.md`, `libs/csharp/.api/api-nodatime.md` `YearMonth` and `AnnualDate`, IDEAS `[FABRICATION_FINITE_CAPACITY]`.
 - Atomic: two typed calendar rows on the fleet page.
 
-[PERFORMANCE_HORIZON_REFRESH]-[QUEUED]: Close the measured-performance refresh from the decoded observation slice.
-- Capability: `MachinePerformance` refreshes from admitted `MachineObservation` evidence under its `PerformanceHorizon` freshness fold, displacing nameplate rows.
-- Shape: fleet ranking and estimation projection read the measured row when fresh and fall back beside the stale-match count.
-- Unlocks: evidence-based routing, costing, and reliability decisions.
-- Anchors: `Kinematics/fleet.md`, `Verify/estimation.md`, `Kinematics/observation.md`, IDEAS `[FABRICATION_MEASURED_FLEET]`.
-
-[ENGINE_FACT_CASE]-[QUEUED]: Land the engine fact case over counters the solver receipts already hold.
-- Capability: one `FabricationFact` engine case with solver and phase dimensions covering nest branch-and-bound nodes, ICP iterations, engagement-walk steps, and bend-search expansions.
-- Shape: one case row, one `Of` projection, one `rasm.fabrication.engine.*` instrument row, one fan arm; counters ride existing receipt evidence, never per-iteration writes.
-- Unlocks: solver-regression detection and per-engine cost attribution without a profiler attach.
-- Anchors: `Process/telemetry.md`, `Nesting/nfp.md`, `Verify/probing.md`, `Toolpath/skeleton.md`, `Fixturing/setups.md`, IDEAS `[ENGINE_COUNTER_FACTS]`.
-
-[HATCH_EDGE_SPELLING]-[BLOCKED]: Resolve the nested hatch boundary-edge member spellings blocking hatch admission.
+[HATCH_EDGE_SPELLING]-[QUEUED]: Resolve the nested hatch boundary-edge member spellings blocking hatch admission.
 - Capability: exact leaf-member spellings for the `BoundaryPath.Edge` line, circular-arc, elliptic-arc, and polyline edge kinds answer whether each lowers under the OCS frame law with bulge preserved.
 - Shape: verified spellings extend `.api/api-acadsharp.md` and unblock the hatch admission rows on the profile page.
 - Unlocks: `[HATCH_BOUNDARY_INGRESS]` moves to QUEUED with its landing rows pinned.
 - Anchors: `Ingress/profile.md`, `.api/api-acadsharp.md`, IDEAS `[HATCH_BOUNDARY_INGRESS]`.
-- Tension: blocker question — which concrete edge types nest under `BoundaryPath.Edge` and what are their member names; route — `tools.assay api query` over the installed ACadSharp assembly.
+- Route: `tools.assay api query --key acadsharp` over the `BoundaryPath.Edge` nested types, then the catalog extension.
 - Atomic: one catalog extension and one card unblock.
+
+[RECEIPT_PORT_KERNEL_TYPES]-[QUEUED]: Fabrication's receipt seam names the kernel causal-frame owners.
+- Capability: receipt emission composes kernel-owned identity, tenancy, envelope, and sink types, so the L2 page names no app-platform declaration.
+- Shape: `libs/csharp/Rasm.Fabrication/.planning/Process/telemetry.md` `[03]` — the `ReceiptSinkPort`/`CorrelationId`/`TenantContext`/`ReceiptEnvelope` seam mentions re-anchor to the kernel capsule spellings, and the `[02]` fence's `TelemetrySource.Fabrication.Key` composition re-anchors to the capsule package-identity row it cannot reach at `Rasm.AppHost`.
+- Unlocks: the strata inversion at the fabrication receipt seam dissolves; the AppHost seam mirror stays byte-consistent.
+- Anchors: `libs/csharp/.planning/RULINGS.md` causal-frame row; kernel `Domain/telemetry.md`.
+- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`.
+- Atomic: seam-spelling re-anchors.
 
 [MARKING_ENTITY_ROWS]-[QUEUED]: Pin the profile-marking admission rows and their transform lowering.
 - Capability: `ProfileMarking` rows admit insert attributes through `Insert.HasAttributes`, text, and multiline-text content; array and nested instances lower through `Insert.ApplyTransform(Transform)`, and arc marks center through `Arc.GetCenter`.
@@ -133,13 +132,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: controller-neutral directive generation.
 - Anchors: `Process/owner.md`, `Toolpath/turning.md`, `Posting/dialect.md`, IDEAS `[FABRICATION_MOTION_DIRECTIVE_ATOM]`.
 
-[PACK_ARC_ATOM_SEAM]-[QUEUED]: Preserve analytic arcs across geometry publication.
-- Capability: `Post.Publish` emits analytic circular segments once the kernel `PackOp.Toolpath` carrier accepts an arc-bearing path atom; matching arc events fail typed until it lands.
-- Shape: one typed-failure guard now and one emission arm on kernel acceptance, with center and sense staying digest-bearing channels.
-- Unlocks: published geometry retains controller arc centers and senses.
-- Anchors: `Posting/program.md`, IDEAS `[ANALYTIC_ARC_TOOLPATH_PACKING]`.
-- Tension: the kernel counterpart lands the arc-bearing atom in `Rasm`; this task guards until it does.
-
 [EROSION_WIRE_ROUTING]-[QUEUED]: Route erosion boundary passes through the wire owner.
 - Capability: `EngagementPolicy` carries `WirePolicy`, and `Cam.Generate` sends erosion boundary passes into `WireEdm.Generate`, replacing cutter-radius compensation with spark-gap, overburn, taper-guide, and retention law.
 - Shape: one policy row and one dispatch rerouting with wire-specific refusal evidence.
@@ -154,12 +146,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `Toolpath/partition.md`, IDEAS `[PARTITION_DENSITY_CLOSURE]`.
 - Atomic: one derivation fold on the partition page.
 
-[MEASURED_LOAD_CEILING]-[QUEUED]: Rebind engagement ceilings from decoded spindle load.
-- Capability: `EngagementLimit` gains a measured-load row consuming the observation slice, and `EngagementSolution.Binding` still names the governing bound.
-- Shape: one limit row with no receipt change.
-- Unlocks: adaptive clearing justified by observed load.
-- Anchors: `Toolpath/skeleton.md`, `Process/physics.md`, `Kinematics/observation.md`, IDEAS `[ENGAGEMENT_FEEDBACK]`.
-- Atomic: one limit row.
 
 [QUANTITY_ARROW_COLLAPSE]-[QUEUED]: Collapse folder-local length parsers onto the atoms quantity arrow.
 - Capability: one caller-fault-parameterized arrow converts unit-bearing text to canonical machining scalars, and the wire, link, and bevel parser sites collapse onto it.
@@ -180,64 +166,48 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: customer and notified-body release gating before material advances.
 - Anchors: `Documentation/report.md`, `Documentation/traveler.md`, `Joining/procedure.md`, IDEAS `[INSPECTION_TEST_PLAN]`.
 
-[ENGINE_SPAN_FOLDS]-[QUEUED]: Wrap the four long-solve entries in scope-bound spans.
-- Capability: an `ActivitySource` family under `TelemetrySource.Fabrication` wraps nest solve, simulation run, scanpath derivation, and probe fit; phase transitions ride span events with `HasListeners()` gating tag cost.
-- Shape: one span per solve at the folds already minting facts; the AppHost root registers the source and the branch `PyroscopeSpanProcessor` joins flame graphs to the same traces.
-- Unlocks: exemplar click-through from a histogram bucket to the exact solve trace.
-- Anchors: `Process/telemetry.md`, `libs/csharp/.api/api-pyroscope-opentelemetry.md`, IDEAS `[FABRICATION_SPAN_SPINE]`.
-
-[BENCH_CASE_ROSTER]-[QUEUED]: Enumerate the solver benchmark cases and close the measured-claim loop.
-- Capability: gated bench cases for NFP placement, ICP probe fit, skeleton offset, and bend search, each folding one `BenchmarkReceipt` judged against the durable claim index, so `ProbeRoute.Measured` resolves its `BenchmarkKey` against minted claims.
-- Shape: cases ride the branch benchmark project tier, and this package's csproj never references the bench harness.
-- Unlocks: regression detection with host-evidence honesty and benchmark-authorized parallel probing.
-- Anchors: `Toolpath/guard.md` `ProbeRoute.Measured`, IDEAS `[SOLVER_BENCHMARK_CORPUS]`.
-
-[HOOK_POINT_ROSTER]-[QUEUED]: Enumerate the fabrication hook points with modality columns.
-- Capability: `rasm.fabrication.<domain>.<point>` roster rows — admission, stage advance, egress mint, verify verdict, delivery — each declaring veto, observe, and replay modality and its payload receipt.
-- Shape: roster beside the tap on the telemetry page, registered through the runtime instance at composition.
-- Unlocks: `[FABRICATION_HOOK_RAIL]` lands with its rows pinned.
-- Anchors: `Process/telemetry.md`, `Process/owner.md`, IDEAS `[FABRICATION_HOOK_RAIL]`.
-
-[OBSERVATION_PAGE_MINT]-[QUEUED]: Mint the machine-observation page and rebind its three consumers.
-- Capability: `Kinematics/observation.md` owns the `MachineObservation` vocabulary over verified MTConnect observation-model members, and wear observations, fleet refresh, and measured-load rows rebind onto it.
-- Shape: one new page as the fourth Kinematics file; member spellings verify via `tools.assay api query` over MTConnect.NET-Common and extend `.api/api-mtconnect-net-common.md`.
-- Unlocks: `[MACHINE_TELEMETRY_DECODE]` lands with one decode truth.
-- Anchors: `Kinematics/fleet.md`, `Tooling/wear.md`, `.api/api-mtconnect-net-common.md`, IDEAS `[MACHINE_TELEMETRY_DECODE]`.
-
-[STORE_SLOT_ROWS]-[QUEUED]: Pin the durable shop-state slot rows and their owning receipts.
-- Capability: `store.fabrication.<domain>.<verb>` rows for remnant inventory, fleet horizons, magazine state, and capability history, each naming its read and write receipt.
-- Shape: one seam row per owning page, with the Persistence counterpart registering the slots.
-- Unlocks: `[SHOP_STATE_SLOTS]` lands with slot custody stated at both ends.
-- Anchors: `Nesting/remnant.md`, `Kinematics/fleet.md`, `Tooling/magazine.md`, `Spec/capability.md`, IDEAS `[SHOP_STATE_SLOTS]`.
-
-[SLO_ROW_FAMILY]-[QUEUED]: Derive the SLO rows from the instrument roster.
-- Capability: SLO rows naming instrument, objective, window, and burn-rate policy for wear-critical rate, violation budget, gouge budget, stale-match ratio, and cycle envelope.
-- Shape: data rows beside `FabricationInstruments`, consumed by the alert rail and the dashboard compile leg from the same source.
-- Unlocks: `[FABRICATION_SLO_PACK]` lands as one derivation.
-- Anchors: `Process/telemetry.md`, IDEAS `[FABRICATION_SLO_PACK]`.
-
-[DELIVERY_FACT_CASE]-[QUEUED]: Land the delivery receipt and its fact case.
-- Capability: a delivery receipt binding `PostImage` content key, transfer digest, controller acknowledgment, and operator attestation, with the Robots remote channel carrying the robot arm.
-- Shape: one boundary row in the cell owner, one delivery demand row at dialect egress, one fact case with roster row and fan arm.
-- Unlocks: `[PROGRAM_DELIVERY_RECEIPTS]` lands with chain-of-custody evidence.
-- Anchors: `Kinematics/cell.md`, `Posting/dialect.md`, `Process/telemetry.md`, `.api/api-robots.md`, IDEAS `[PROGRAM_DELIVERY_RECEIPTS]`.
-
-[NFP_MEMO_KEYS]-[QUEUED]: Content-key the NFP pair memo and count its hits.
-- Capability: NFP pair polygons memoize under keys folded from exact pair geometry and separation policy, and hit and miss counts join the engine evidence.
-- Shape: per-runtime memo tier over the branch hybrid-cache surface, with the durable tier federating at the Persistence cache seam.
-- Unlocks: `[SOLVER_MEMO_CACHE]` lands on its hottest lane.
-- Anchors: `Nesting/nfp.md`, `libs/csharp/.api/api-hybrid-cache.md`, IDEAS `[SOLVER_MEMO_CACHE]`.
-
 [SCHEDULE_BAG_FOLDS]-[QUEUED]: Pin the schedule derivation folds over the realization bags.
 - Capability: bar-bending, weld-map, and stud-layout fold rows, each naming its realization-bag inputs and deliverable shape; the deliverable wire registers at the `Rasm.Materials` `[FABRICATION_SCHEDULE_WIRE]` counterpart in the same change — folds landed with the wire unregistered leave this task open.
 - Shape: fold rows on `libs/csharp/Rasm.Fabrication/.planning/Documentation/report.md`; projector-fact reads per `libs/csharp/Rasm.Fabrication/.planning/Process/derivation.md`.
 - Unlocks: `[SHOP_SCHEDULE_DERIVATION]` lands deliverable by deliverable.
 - Anchors: `DetailSchema.Realization` seam bags, `FabricationProjector`, IDEAS `[SHOP_SCHEDULE_DERIVATION]`.
 
+[ENGINE_SPAN_FOLDS]-[BLOCKED]: Land long-solve span brackets after the diagnostics catalog admits their exact member family.
+- Capability: nest, simulation, scanpath, and probe folds share one listener-gated, fault-stamping trace bracket.
+- Shape: one package span vocabulary and one AppHost adapter; no kernel-local provider.
+- Unlocks: exemplar and profile correlation on the same trace rail.
+- Anchors: `Process/telemetry.md#[06]-[SPANS]`, `Process/telemetry.md#[09]-[RESEARCH]`, IDEAS `[FABRICATION_SPAN_SPINE]`.
+- Arms: exact diagnostics members are absent from both applicable catalogs; arm when `libs/csharp/.api/api-diagnostics-metrics.md` catalogs them and `libs/csharp/Rasm.AppHost` lands the bracket adapter.
+- Atomic: one catalog family, one adapter, and four fold bindings.
+
+[OBSERVATION_PAGE_MINT]-[BLOCKED]: Complete the provider decode adapter against cataloged MTConnect observation members.
+- Capability: provider rows map exhaustively into `MachineObservationIngress`; wear, fleet, and engagement consumers remain bound to `MachineObservations`.
+- Shape: one AppHost adapter and one provider-neutral package ingress.
+- Unlocks: measured consumers receive verified machine state without transport coupling.
+- Anchors: `Kinematics/observation.md#[02]-[MACHINE_OBSERVATION]`, `Kinematics/observation.md#[03]-[RESEARCH]`, IDEAS `[MACHINE_TELEMETRY_DECODE]`.
+- Arms: observation-model members are absent from both applicable catalogs; arm when `libs/csharp/Rasm.Fabrication/.api/api-mtconnect-net-common.md` catalogs them and `libs/csharp/Rasm.AppHost` lands the adapter.
+- Atomic: one catalog family and one adapter.
+
+[BENCH_CASE_ROSTER]-[BLOCKED]: Mint accepted receipts for every solver benchmark row before a measured route consumes one.
+- Capability: branch cases produce durable receipts, AppHost judges them, and the accepted projection enters `ProbeRoute.Measured`.
+- Shape: `AcceptedBenchmarkClaim` closes the package boundary over the roster and durable receipt key.
+- Unlocks: measured clearance claims carry evidence instead of claim-key possibility.
+- Anchors: `Toolpath/guard.md#[02]-[GUARD]`, `Toolpath/guard.md#[03]-[RESEARCH]`, IDEAS `[SOLVER_BENCHMARK_CORPUS]`.
+- Arms: case producers and claim projection are absent; arm when `tests/csharp/_benchmarks` mints every case and `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md` projects accepted receipts.
+- Atomic: one case family and one claim adapter.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ENGINE_FACT_CASE]-[COMPLETE]: `FabricationFact.Engine` case with solver/phase dimensions fans nest, skeleton, setup, scan, probe (`AlignmentReceipt.Iterations`), and bend-search (`BendSequenceReceipt`) rows onto `rasm.fabrication.engine.steps`; counters ride settled receipt evidence.
+[HOOK_POINT_ROSTER]-[COMPLETE]: `FabricationHooks` roster with modality columns landed at `Process/telemetry.md#[07]-[HOOK_ROSTER]`; the run spine fires every point per `Process/owner.md#[03]-[RUN_FOLD]`.
+[SLO_ROW_FAMILY]-[COMPLETE]: `FabricationSlos` five rows landed at `Process/telemetry.md#[08]-[SLO_ROWS]`; the fleet-stale row's `measured=false` selector matches its emitted tag.
+[PERFORMANCE_HORIZON_REFRESH]-[COMPLETE]: `MachinePerformance.Of(MachineObservations, ratedPowerKw, declared, prior)` refreshes measured rows under `PerformanceHorizon`; `PerformanceBaseline` supplies honest cold-start performance and quality ratios, and matching falls back to declared OEE.
+[MEASURED_LOAD_CEILING]-[COMPLETE]: one `EngagementLimit.MeasuredLoad` row over the demand-carried `LoadWindow`; `EngagementSolution.Binding` unchanged.
+[STORE_SLOT_ROWS]-[COMPLETE]: `store.fabrication.<domain>.<verb>` rows landed as `RemnantSlots`, `FleetSlots`, `MagazineSlots`, and `CapabilitySlots` on their owning pages; the Persistence registry's contributed span already reserves the family at the counterpart.
+[DELIVERY_FACT_CASE]-[COMPLETE]: `ProgramDelivery` carries upload custody, `TravelerAmendment.Released` requires its verified receipt, and `Delivery.ProgramKind` avoids the polymorphic `kind` discriminator while its fan arm projects the roster row.
+[NFP_MEMO_KEYS]-[COMPLETE]: `PairMemo` memoizes pair polygons under `PairTable.Key` content identities through the runtime-carried `HybridCache`; hit and miss counts settle on `NestEvidence` and fan as engine rows.
 [FABRICATION_FACT_RAIL]-[COMPLETE]: `Process/telemetry.md` landed the fact union, instrument roster, contributor port, projection fan, and classification rows; `FabricationRuntime` carries the `FabricationTap` port and the AppHost seam is mirrored at `[03]-[SEAMS]`.

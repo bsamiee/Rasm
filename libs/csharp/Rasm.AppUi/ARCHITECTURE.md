@@ -42,14 +42,14 @@ Rasm.AppUi/
 ├── Document/             # Reproducible document plane
 │   ├── Notebook.cs       # Capability-pinned cells composing the recompute graph; co-editing; replay
 │   ├── Media.cs          # Markdown inlines and codec rows materialized for the one Surfaces.Mount crossing
-│   └── Export.cs         # Paginated flow reports, PDF security and forms, an Office arm, a print arm
+│   └── Export.cs         # Paginated flow reports, PDF security and forms, Office and print arms, support-bundle rows
 ├── Collab/               # Live-collaboration plane over the durable Persistence spine
 │   ├── Sync.cs           # Live-merge authority and the typed edit-intent stream onto the durable ledger
 │   ├── Issues.cs         # openBIM issue board projection over the Bim BCF contract
 │   └── Tour.cs           # Review tour as a camera-track projection with presenter-follow presence
 ├── Diagnostics/          # Evidence, proof, dev loop, and quality governance
 │   ├── Evidence.cs       # Evidence-receipt union, telemetry spine and fan, correlation join, 6xxx fault registry
-│   ├── Proof.cs          # Capture lanes, headless proof matrix, goldens, and a typed proof fault
+│   ├── Proof.cs          # Capture lanes, headless proof matrix, frame-bench lanes, goldens, and a typed proof fault
 │   ├── DevLoop.cs        # Hot-reload knobs, inspector, HUD, flamegraph, solve scrub, and a REPL
 │   └── Governor.cs       # Perf-budget quality governor with timestamp attribution
 └── Theme/                # Pure vocabulary tier: tokens, typography, motion, assets, locale
@@ -195,8 +195,8 @@ flowchart LR
 - `[PROJECTION]: ReplayWindow` also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read.
 - `[RECEIPT]: ConstructionState` carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
 - `[RECEIPT]: DuckProfileReceipt` into `Charts` is the store-profile board feed: `Charts/telemetry.md` tiles consume the Persistence `Store/observability` profile receipts as values over the analytical query lane — profiling custody, the pg_stat slots, and the `store.<domain>.<verb>` grammar stay Persistence-side.
-- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed: `Collab/sync` frames each broadcast delta as a `CollabFrame` (W3C carrier + Loro bytes) and extracts the originating correlation on merge, but the W3C injection/extraction adapter pair is AppHost `TraceContext`'s — AppUi holds only the composition-bound `Inject`/`Extract` delegates; the reciprocal `Rasm.AppHost [COLLAB-WIRE-CONTEXT]` (the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema) is the deferred counterpart.
-- `[FEED]: ProfileSample` into `Diagnostics/devloop` is the host profile-sample flame join: AppHost owns capture (Pyroscope span profiles, EventPipe CPU stacks) and delivers correlation-keyed samples through the composition-bound `ProfileSampleSource`, which `FlameNode.Of` folds into the frame tree — the feed rides an existing AppHost port (a registration row, never an eighth `PortCardinality` port), and the reciprocal `Rasm.AppHost [PROFILE-FLAME-JOIN]` is the deferred counterpart.
+- `[CARRIER]: CollabWireContext` rides the AppHost collab-delta feed: `Collab/sync` frames each broadcast delta as a `CollabFrame` (W3C carrier + Loro bytes) and extracts the originating correlation on merge, but the W3C injection/extraction adapter pair is AppHost `TraceContext`'s — AppUi holds only the composition-bound `Inject`/`Extract` delegates; the reciprocal `Rasm.AppHost [COLLAB_WIRE_CONTEXT]` (the `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema) is the deferred counterpart.
+- `[FEED]: ProfileSample` into `Diagnostics/devloop` is the host profile-sample flame join: AppHost owns capture (Pyroscope span profiles, EventPipe CPU stacks) and delivers correlation-keyed samples through the composition-bound `ProfileSampleSource`, which `FlameNode.Of` folds into the frame tree — the feed rides an existing AppHost port (a registration row, never an eighth `PortCardinality` port), and the reciprocal `Rasm.AppHost [PROFILE_FLAME_JOIN]` is the deferred counterpart.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 

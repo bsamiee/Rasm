@@ -29,7 +29,8 @@ Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 │   ├── Controls.cs     # Recursive control realization over the Eto.Forms surface with field capture
 │   ├── Runtime.cs      # UI-thread dispatch floor — leased clock, transfer algebra, display/input facts
 │   └── Windows.cs      # Command deck, recursive menu fold, and window/dialog/picker construction
-├── Platform/           # Eto handler seam, gated macOS AppKit touch, CoreAnimation compositor
+├── Platform/           # Eto handler seam, gated macOS AppKit touch, CoreAnimation compositor, capture
+│   ├── Capture.cs      # Leased ScreenCaptureKit recording — frame ring, one-shot still, paint proof
 │   ├── Composition.cs  # Layer custody, compose transactions, motion drives, and wide-colour compositing
 │   ├── Handlers.cs     # Eto handler seam, widget-to-handler substrate, frozen stylers, embedding
 │   └── Native.cs       # Gated macOS AppKit — monitor/gesture leases, pressure restore, workspace pacing
@@ -48,8 +49,8 @@ Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel mat
 
 Four strata order the six sub-domains; `Eto` and `Shell` are one co-recursive UI-thread floor — the `EtoDispatch` marshal and the `GhSession` scope gate each compose the other — and `Components` is the island: pure host-plus-kernel authoring with no interior edge either direction; every cross-stratum consumption edge points down.
 
-- S0 `Eto` + `Shell` — the co-recursive floor: `EtoDispatch`, `UiClock`, `ControlForge`, and `WindowHost` beside `GhSession`, `SessionOp`, `UiEvents`, `DocumentToken`, `GhTelemetry`, `GhHooks`, and `SessionJournal`; the pair's mutual reach is same-stratum fact. `Shell/Telemetry` is the receipt-projection sink: evidence records from every stratum flow down into its `GhEvidence` fold as inert data — a model-only edge the capability strata never count, so the forbidden direction stays capability imports upward — and `Shell/Hooks` plus `Shell/Journal` sit on the same floor as the tap rail and the drained record over that evidence.
-- S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other: `DocumentScope`, `GraphScope`, `HistoryLedger`, and `SolutionControl` beside `MacGate`, `MacAnchor`, `MotionDrive`, and `PlatformSeam`.
+- S0 `Eto` + `Shell` — co-recursive floor: dispatch, clock, control, window, session, event, identity, telemetry, hook, and journal owners share same-stratum reach. `GhTelemetry` consumes inert `GhEvidence` from every stratum under the model-only exemption; `GhHooks` and `SessionJournal` own the fault-evidence cell and drained record.
+- S1 `Document` + `Platform` — parallel composers over the floor, cross-blind to each other: `DocumentScope`, `GraphScope`, `HistoryLedger`, and `SolutionControl` beside `MacGate`, `MacAnchor`, `MotionDrive`, `PlatformSeam`, and `SessionCapture`. `Platform/Capture`'s `PaintProof` reads `PaintReceipt` and `JournalExport` as inert evidence under the same model-only exemption the telemetry sink carries, so the forbidden direction stays capability imports upward.
 - S2 `Canvas` — the live host-surface owner nothing composes: `CanvasOperator`, `PaintScene`, `CanvasLayout`, and `CanvasPacer` over session scope, dispatch marshal, undo seal, and the display-link drive.
 - Island `Components` — `GardenData`, `Ports`, `ComponentSpec`, and `GhFault` speak GH2 `IDataAccess` and the kernel alone; no UI-thread sibling imports it and it imports none.
 
@@ -153,6 +154,7 @@ flowchart LR
     Events[[UI events]]
     Native[[Platform native]]
     Composition[[Layer compositor]]
+    Capture[[Session capture]]
     Telemetry[[Telemetry fan]]
     Hooks[[Hook rail]]
     Journal[[Session journal]]
@@ -175,6 +177,9 @@ flowchart LR
     Paint -->|"paint scene"| Wires
     Composition -->|"MotionDrive.Step"| Motion
     Native -->|"anchor custody"| Composition
+    Native -->|"MacGate admission"| Capture
+    Paint -->|"PaintReceipt proof"| Capture
+    Journal -->|"export correlation"| Capture
 ```
 
 ## [05]-[NAMESPACES]

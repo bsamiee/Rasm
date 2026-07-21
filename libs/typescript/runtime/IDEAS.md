@@ -7,72 +7,17 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
-
-[BENCH_CLAIM_PRODUCER]-[QUEUED]: Node-side benchmark runs mint wire-grade claims.
-- Capability: measured workload runs fold into the same suite/metrics/host claim shape the C# host mints — quantile folds under `Clock`, hardware-counter and GC statistics from a measured sampling engine, a node host-fingerprint mirror of the browser probe's, app-egress delivery through wire encode — so cross-runtime performance comparison rides one admitted claim plane.
-- Shape: a measured-run owner landing in `libs/typescript/runtime/.planning/proc/exec.md` — bracketed runs at `Proc.Receipt`-grade timing, warmup and iteration policy as row data, `mitata` `bench`/`run` as the sampling engine with its counter and GC columns folded into the claim's metric rows, host fingerprint minted from process facts; heavy bodies execute off-thread on the worker pool.
-- Unlocks: TS engines and work-plane paths gain admissible benchmark evidence on the claim board beside the C# claims; a regression reads as a claim delta.
-- Anchors: core `interchange/codec` claim landing with its host-fingerprint admission gate; `proc/exec.md` measured receipts; `proc/worker.md` off-thread pool; ui `viewer/probe` claim-board join; `mitata` (candidate — hardware counters, GC statistics).
-- Tension: the tests tier owns corpus benchmarking — this owner mints in-product claims, and the two never share a harness.
-
-[PROFILE_SIGNAL]-[QUEUED]: Continuous profiling joins the signal plane as its fourth lane.
-- Capability: always-on wall and heap profiles pushed from the node lane, labeled by the estate resource identity and correlated to spans, symbolicated through `SourceMapper` so transpiled frames resolve to source, path-stripped through `StripFilenamesMode` where a deployment's posture demands it — a burn alert walks metric to trace to profile in one pane.
-- Shape: an `otel/profile.md` owner at `libs/typescript/runtime/.planning/otel/profile.md` — `init`/`start`/`stop` lifecycle over `@pyroscope/nodejs`, `SourceMapper.create` and the strip-mode policy as init rows, label bands via `wrapWithLabels` around work-plane workloads, a `Life` drain row joining the telemetry flush, `Setting`-fed backend origin.
-- Unlocks: cpu and allocation attribution for the work plane and AI lanes; the iac Pyroscope ingest row gains its runtime producer.
-- Anchors: `otel/emit.md` lane law and the rank-90 drain idiom; `proc/config.md` `Setting.otel` admission rows; iac `operate/observe.md` profile ingest row; `.api/pyroscope-nodejs.md` (`SourceMapper`, `StripFilenamesMode`, `wrapWithLabels`).
-- Tension: profile push rides the Pyroscope wire, not OTLP — the lane stays its own owner so the OTLP wire owner never forks.
-
-[NODE_VITALS]-[QUEUED]: Engine health joins the emit plane as first-class series.
-- Capability: event-loop delay and utilization histograms and GC-duration series stream from the node lane through the same Hooks registry the SDK drains, and a deny-list view row suppresses the high-cardinality attributes those instrumentations stamp — a saturated event loop or GC storm reads on the board before it reads in latency.
-- Shape: an instrumentation row in `libs/typescript/runtime/.planning/otel/emit.md` — the runtime-node instrumentation registered against the `Hooks.Meter` provider beside `HostMetrics` — and a contributed `createDenyListAttributesProcessor` view row in `libs/typescript/runtime/.planning/otel/meter.md` guarding the series fan.
-- Unlocks: work-plane saturation attribution — queue lag distinguishes from event-loop stall; the iac alert set gains engine-health burn rows.
-- Anchors: `.api/opentelemetry-host-metrics.md`; `.api/opentelemetry-sdk-metrics.md` (`createDenyListAttributesProcessor`); `otel/emit.md` Hooks plane; `@opentelemetry/instrumentation-runtime-node` (candidate).
-
-[TENANT_SIGNAL]-[QUEUED]: Tenant identity rides every span without a hand-rolled bridge.
-- Capability: the `rasm.tenant` baggage entry promotes onto span attributes through a shipped filter-keyed processor row, closing the loop `Propagation.ingress` opens — tenant cost attribution walks baggage to span to metric view under the standing three-tier cardinality governor, and a key predicate refuses foreign baggage promotion by construction.
-- Shape: a contributed `BaggageSpanProcessor` row admitting exactly the `rasm.*` promotion key set in `libs/typescript/runtime/.planning/otel/emit.md`'s Hooks plane, replacing the described-but-unshipped `onStart` bridge; the promotion key set admits as a `Setting.otel` row in `libs/typescript/runtime/.planning/proc/config.md`.
-- Unlocks: per-tenant traces and cost slices with zero emit-site changes; the C# and python branches mirror one promotion law.
-- Anchors: `otel/emit.md` `[04]` tenant-isolation law; `otel/meter.md` `Pulse.tenants` view row; `@opentelemetry/baggage-span-processor` (candidate).
-- Ripple: `libs` `[COST_ATTRIBUTION_BAGGAGE]`.
-
-[WIRE_PROTOBUF]-[QUEUED]: Protobuf egress holds on every lane, not only the native one.
-- Capability: the wire law names OTLP/HTTP+protobuf the sole egress, yet the SDK lanes serialize JSON — the `-proto` exporter trio closes the gap so `policy.serialization` selects protobuf identically on the native and SDK lanes, and a compliance deployment selecting the scrub-capable lane loses nothing on the wire.
-- Shape: the `_sdk`/`_meter` exporter constructors in `libs/typescript/runtime/.planning/otel/emit.md` dispatch on `policy.serialization` between the held `-http` json family and the `-proto` families — trace, metrics, logs — under the same headers, temporality, and cardinality rows.
-- Unlocks: one collector contract across every lane and branch; the C# host's protobuf-only collector posture needs no JSON side door.
-- Anchors: `otel/emit.md` `[05]` lane rows; the estate wire law; `@opentelemetry/exporter-trace-otlp-proto`, `@opentelemetry/exporter-metrics-otlp-proto`, `@opentelemetry/exporter-logs-otlp-proto` (candidates).
-
-[BROKER_ENGINE_SET]-[QUEUED]: Fanout's engine roster completes — NATS runs on Node, Kafka joins as a row.
-- Capability: the JetStream engine row gains its missing Node TCP/TLS transport binding — the modular core is transport-agnostic and holds no node binding today — and Kafka lands as a second durable engine row on the same engine-blind `Broker` port: delivery, dedup, replay, and retention guarantees stated per row, payloads staying opaque octets.
-- Shape: a NATS transport binding member on the node runtime row in `libs/typescript/runtime/.planning/proc/exec.md`; a Kafka engine row in `libs/typescript/runtime/.planning/net/pubsub.md` mirroring the JetStream row's guarantee columns over the librdkafka client, W3C headers riding message headers per the queued carrier task.
-- Unlocks: broker choice becomes root data; the C# Confluent lane and the TS lane converse over one topic law.
-- Anchors: `net/pubsub.md` `Broker` port and JetStream row; `.api/nats-io-nats-core.md`; TASKLOG `[0007]` carrier task; `@nats-io/transport-node`, `@confluentinc/kafka-javascript` (candidates).
-- Tension: KIP-714 broker telemetry is a broker-ops lane, never this row's concern.
-
-[CHANNEL_MQTT]-[QUEUED]: MQTT v5 joins the framed-channel vocabulary.
-- Capability: device-plane telemetry ingest and command egress ride the same frame vocabulary sockets and SSE speak — QoS, retained messages, and shared subscriptions as row data, W3C trace context in v5 UserProperties — so device causality joins the estate traces.
-- Shape: an MQTT binding row in `libs/typescript/runtime/.planning/net/channel.md` over the v5 client — connect and reconnect folded into the existing reconnection fold, the UserProperties carrier injected at publish and extracted through `Propagation.ingress` at receive.
-- Unlocks: device fleets — sensors, shop-floor machines, capture rigs — join the estate's traces and command rails without a bespoke bridge.
-- Anchors: `net/channel.md` frame rows; `otel/emit.md` `Propagation` string-keyed carrier contract; `mqtt` (candidate).
-
-[CLOUDEVENTS_ENVELOPE]-[QUEUED]: Webhook egress and intake speak CloudEvents with causal identity.
-- Capability: outbound webhooks and inbound event intake carry one self-describing envelope — id, source, type, time per the spec, the distributed-tracing extension carrying `traceparent`/`tracestate` — so a foreign consumer joins the estate's traces and a foreign producer's causality survives intake.
-- Shape: an envelope codec row in `libs/typescript/runtime/.planning/work/deliver.md`'s webhook channel with structured and binary content modes as row data, and an intake decode row on the webhook ceremony in `libs/typescript/runtime/.planning/serve/route.md`, both folding the tracing extension through `Propagation`.
-- Unlocks: estate webhooks interoperate with any CloudEvents-aware bus; delivery receipts gain the envelope id as correlation evidence.
-- Anchors: `work/deliver.md` hook row and settlement vocabulary; `serve/route.md` webhook ceremony; `cloudevents` (candidate).
-
-[GRPC_LANE]-[QUEUED]: Connect opens the gRPC axis server- and client-side.
-- Capability: Connect/gRPC serving mounts through the foreign-protocol Mount port and outbound Connect calls ride a client lane row — a hand-written W3C interceptor pair carries trace context both directions because no TS otelconnect exists — so the C# gRPC host and TS services converse with unbroken causality under the branch budget posture.
-- Shape: a Connect-node router mount row in `libs/typescript/runtime/.planning/serve/live.md`'s Mount port; an outbound Connect dispatch row in `libs/typescript/runtime/.planning/net/client.md` inheriting the lane table's budget and circuit rows; one interceptor pair injecting and extracting via `Propagation`.
-- Unlocks: the transport inventory's gRPC axis lands in TS; rpc traffic inherits lane budgets instead of bespoke clients.
-- Anchors: `serve/live.md` `[07]` mount port; `net/client.md` lane table; `otel/emit.md` `Propagation`; `@connectrpc/connect-node` (candidate).
 
 [EVENTLOG_SYNC]-[QUEUED]: Offline-first closes its loop — the EventLog overlay gains its server half.
 - Capability: browser EventLog writes replicate through a mounted server handler so the persist overlay stops being a client-only diary — encrypted event sync, remote flush on reconnect, and multi-device convergence ride the shipped protocol instead of a bespoke sync endpoint.
@@ -84,28 +29,7 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Capability: request admission and tenant egress inherit persistent token-cost rate limits — window, tokens, cost-per-route as policy rows over a store-backed limiter — so a burst tenant degrades to a `Problem`-rendered refusal instead of starving peers, and the durable-queue throttles and the serving gate share one limiter vocabulary.
 - Shape: a limiter ceremony row in `libs/typescript/runtime/.planning/serve/route.md` with per-principal and per-route cost columns, and a `RateLimiter.makeWithRateLimiter`-backed policy row beside the keyed throttles in `libs/typescript/runtime/.planning/work/queue.md`.
 - Unlocks: multi-tenant fairness as data; the app-neutrality law holds under contention.
-- Anchors: branch `.api/effect-experimental.md` (`RateLimiter.makeWithRateLimiter`); `serve/route.md` ceremony rows; `work/queue.md` throttle cluster.
-
-[BOARD_FEED]-[QUEUED]: Instruments carry their own board — the census projects as a typed dashboard feed.
-- Capability: every Convention instrument row, vital budget threshold, and work-plane series this folder emits projects into one typed `BoardPack` value — panels, units, thresholds, and burn-rate inputs as data — so the iac dashboard compile leg derives panels and alerts from the same rows the emitters write, and a budget edit moves the emission grade and the board panel in one place.
-- Shape: a census projection on `libs/typescript/runtime/.planning/otel/meter.md` — `Pulse` folds the `_WORK`/`_GAUGES` rows and `Vital.rows` budgets into the pack the iac counterpart consumes.
-- Unlocks: zero-drift dashboards; a new instrument appears on the board by construction.
-- Anchors: `otel/meter.md` instrument rows; `otel/vital.md` `Vital.rows`; iac `operate/observe.md` Foundation-SDK compile leg.
-
-[HOOK_DISPATCH]-[QUEUED]: Hook-rail dispatch engine realizes the core tap vocabulary.
-- Capability: subscriber scheduling, veto arbitration, replay journal, and fault-isolated subscriber fibers execute the `observe/tap.md` registry shape — core defines every shape, this plane runs dispatch: veto resolves as a pure decision before the emitting fold proceeds, observe fans out on isolated fibers whose faults land on the fault rail, replay drains the journal into late subscribers.
-- Shape: a dispatch-engine owner in `libs/typescript/runtime/.planning/otel/emit.md`'s Hooks plane — point-keyed subscriber tables scoped by `AppIdentity`, modality dispatch arms, a bounded replay journal row; folder registries mount their point sets against it unchanged.
-- Unlocks: every folder hook registry runs on one engine with zero dispatch forks; telemetry-as-tap holds branch-wide because subscription is the only observation seam.
-- Anchors: core `observe/tap.md` point brand, modality vocabulary, and fault-isolation contract (carded); `otel/emit.md` `Hooks.add` keyed append; `proc/life.md` ranked drain registry as the scheduling precedent.
-- Tension: veto feeds a verdict back into the emitting fold — the engine types it as a pure decision so dispatch never re-opens the zero-exporter boundary.
-- Ripple: `core` `[C3]`.
-
-[CARRIER_CODEC_BINDING]-[QUEUED]: Transport clients inject and extract W3C context through the core carrier codec.
-- Capability: Connect interceptors, NATS headers, MQTT v5 UserProperties, and CloudEvents extension attributes all read and write trace context through core's one dialect table — `traceparent`/`tracestate`/`baggage` parse and print exactly once, the `rasm.tenant` promotion law included, zero per-transport propagation forks.
-- Shape: carrier-binding rows across `libs/typescript/runtime/.planning/net/pubsub.md`, `libs/typescript/runtime/.planning/net/channel.md`, `libs/typescript/runtime/.planning/net/client.md`, and `libs/typescript/runtime/.planning/serve/live.md` — each transport row names its dialect-table row and composes `Propagation` over the core codec instead of a local header spelling.
-- Unlocks: tenant baggage survives every broker hop; a new transport is one dialect row in core and one binding row here.
-- Anchors: core `interchange/carrier.md` dialect table (carded); `otel/emit.md` `Propagation` string-keyed contract; TASKLOG `[0007]`/`[0013]`/`[0014]`/`[0015]` carrier tasks this card re-anchors onto the one codec.
-- Ripple: `core` `[C4]`.
+- Anchors: branch `.api/effect-experimental.md` (`RateLimiter.makeWithRateLimiter`); `serve/route.md` ceremony rows; `work/queue.md` throttle cluster; the limiter-posture ruling at `libs/typescript/.planning/RULINGS.md` `[02]-[COLLAPSE]` — shared row shape, three site-owned postures, never one owner.
 
 [WORKLOAD_CREDENTIAL]-[QUEUED]: Workload-identity credential projection mounts on the transport lanes.
 - Capability: per-call transport credentials — gRPC metadata, NATS auth header — source from the security machine principal and refresh on its grant lifecycle, so a fleet worker authenticates every outbound call without a hand-carried static token and credential rotation never restarts a lane.
@@ -113,20 +37,43 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: service-to-service auth on every transport axis with one principal source; the C# gRPC host accepts TS calls under one credential law.
 - Anchors: security `authn/workload.md` machine-principal projection (carded); `net/client.md` lane table budget and circuit rows; `net/pubsub.md` connection rows.
 - Tension: principal mint and refresh are security's — this plane mounts the projection and never touches grant grammar.
-- Ripple: `security` `[0004]`.
+- Ripple: `security` `[WORKLOAD_IDENTITY]`.
 
-[JOURNAL_ENVELOPE_CARRIAGE]-[QUEUED]: Transport carriers bind the journal CloudEvents envelope as a first-class payload row.
-- Capability: Connect, NATS, and MQTT carriers accept the data-plane CloudEvents envelope — W3C distributed-tracing extension, `rasm.tenant` extension attribute — as a payload row with structured/binary binding mode as carrier policy, completing the transport half of the journal egress pair.
-- Shape: envelope payload rows on `libs/typescript/runtime/.planning/net/pubsub.md` and `libs/typescript/runtime/.planning/net/channel.md` beside the opaque-octet default, binding-mode policy as a carrier column; webhook carriage stays `[CLOUDEVENTS_ENVELOPE]`'s.
-- Unlocks: journal facts deliver on any transport as standard events; the C# and python peers decode one envelope shape.
-- Anchors: data `journal/append.md` envelope projection (carded); `net/pubsub.md` envelope law; `[CLOUDEVENTS_ENVELOPE]` webhook counterpart sharing the one SDK vocabulary.
-- Tension: data owns the envelope projection — carriers bind and never re-project; binding mode is the carrier's fact.
-- Ripple: `data` `[RELAY_CLOUDEVENTS_PROJECTION]`.
+[BENCH_CLAIM_PRODUCER]-[BLOCKED]: Measured-run receipts gain the mitata deep-sampling modality.
+- Capability: benchmark claims ride one typed receipt producer whose sampling evidence carries no `Unknown` evidence bag.
+- Shape: the sampling modality row on `libs/typescript/runtime/.planning/proc/exec.md` `[05]-[MEASURED_RUN]`, gated by its `[06]-[RESEARCH]` `[TRIAL_ENGINE]` row.
+- Unlocks: package-independent benchmark claims with typed deep-sampling evidence on the measured-run rail.
+- Anchors: `proc/exec.md` `[05]-[MEASURED_RUN]` receipts; `.api/mitata.md` at the folder and branch tiers.
+- Arms: an applicable mitata catalog carries exact rows for every composed member — `measure`, `do_not_optimize`, result fields, batch and GC controls.
+
+[CLOUDEVENTS_ENVELOPE]-[BLOCKED]: Delivery egress and serving intake speak verified CloudEvents HTTP bindings.
+- Capability: one CloudEvents codec pair — egress preserving structured content type, binary data bytes, and W3C extension attributes; intake auto-detecting binary versus structured mode with decode evidence on the `Problem` rail.
+- Shape: the egress codec on `libs/typescript/runtime/.planning/work/deliver.md`, gated by its `[07]-[RESEARCH]` `[CLOUDEVENTS_EGRESS]` row; the intake codec on `libs/typescript/runtime/.planning/serve/route.md`, gated by its `[07]-[RESEARCH]` `[CLOUDEVENTS_INTAKE]` row.
+- Unlocks: standards-shaped event crossings on both HTTP directions without an unverified fence.
+- Anchors: `.api/cloudevents.md` at the folder and branch tiers; `work/deliver.md` `HookPayload` signing seam; `serve/route.md` `Problem` rail.
+- Arms: an applicable CloudEvents catalog carries exact rows for both HTTP binding directions.
+
+[GRPC_LANE]-[BLOCKED]: Connect transport completes — the W3C interceptor pair and the guarded server mount.
+- Capability: immutable W3C injection and extraction ride the runtime `Propagation` owner on both Connect directions, and the server handler mounts behind `Seam.guard` with context continued before the handler.
+- Shape: the interceptor pair on `libs/typescript/runtime/.planning/net/client.md` `[06]-[CONNECT_ROW]`, gated by its `[07]-[RESEARCH]` `[CONNECT_INTERCEPTORS]` row; the guarded mount on `libs/typescript/runtime/.planning/serve/live.md`, gated by its `[08]-[RESEARCH]` `[CONNECT_MOUNT]` row.
+- Unlocks: gRPC lanes carry trace context and mount under the one guard law with no call-site header thunk.
+- Anchors: `.api/connectrpc-connect-node.md` at the folder and branch tiers; core `.api/connectrpc-connect.md` peer contract; `.api/effect-platform-node.md` host interop rows; the rpc admission boundary at `libs/typescript/runtime/RULINGS.md` `[01]-[PACKAGES]` — dial admitted, serving only through the `Mount` port.
+- Arms: the client and server interceptor members, the composite carrier setter, and the `connectNodeAdapter` handler lift all carry exact catalog rows.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-- [0001]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact→instrument projection, census gauges, log-floor wiring, tenant views.
+[WORK_METER_BRIDGE]-[COMPLETE]: work-plane meter bridge — realized as `otel/meter.md` (`Pulse`): fact→instrument projection, census gauges, log-floor wiring, tenant views.
+[CHANNEL_MQTT]-[COMPLETE]: `net/channel.md` `Mqtt` composes the catalog-verified v5 members (`connectAsync`, `subscribeAsync`, `publishAsync`, `endAsync`, the `userProperties` carrier frame) under scoped acquisition; the `[MQTT_V5]` research row resolved against `libs/typescript/core/.api/mqtt.md` and is deleted.
+[PROFILE_SIGNAL]-[COMPLETE]: realized as the minted `otel/profile.md` — `Profile.live` init/start/stop bracket over `@pyroscope/nodejs` with `SourceMapper.create` symbolication, `StripFilenamesMode` posture, rank-91 `Life` drain, and `Setting.otel.profile` admission.
+[NODE_VITALS]-[COMPLETE]: already landed — `emit.md` `_vitals` binds `HostMetrics` and `RuntimeNodeInstrumentation` on the raw `Hooks.Meter` provider, `meter.md` `[06]-[ENGINE]` guards `v8js.*` with `createDenyListAttributesProcessor`.
+[TENANT_SIGNAL]-[COMPLETE]: already landed — `emit.md` `_sdk` wires `BaggageSpanProcessor(_admitted(policy.promote))` before the shared scrub, `Propagation.ingress` carries the Effect-side promotion half, `config.md` admits `Setting.otel.promote`.
+[WIRE_PROTOBUF]-[COMPLETE]: already landed — `emit.md` `_wire` dispatches `policy.serialization` across the json/protobuf exporter trios for traces, metrics, and logs under one policy row set.
+[BROKER_ENGINE_SET]-[COMPLETE]: realized — `exec.md` runtime rows carry the `nats` TCP/TLS `connect` binding `Broker.live(dial)` consumes, and `pubsub.md` `[07]-[KAFKA_ROW]` lands `Fanout.kafka` with honest guarantee-ledger degradation over the librdkafka promise surface.
+[BOARD_FEED]-[COMPLETE]: `meter.md` `[07]-[BOARD]` mints `Pulse.Board`/`Pulse.board`, and iac `operate/observe.md` admits `runtime.pulse` in `_PACKS` through the shared producer-pack ingest arm.
+[HOOK_DISPATCH]-[COMPLETE]: already landed — `emit.md` `Hooks.Dispatch` executes the core `Tap` vocabulary with app-scoped rails, pure veto fold, isolated delivery fibers, and the bounded replay ring.
+[CARRIER_CODEC_BINDING]-[COMPLETE]: `emit.md` `Propagation.current` and `pubsub.md` local, tab, NATS, and Kafka rows compose core `Carrier` with matching `fanout`, `nats`, and `kafka` dialects; `core/.planning/interchange/carrier.md` owns the exact table.
+[JOURNAL_ENVELOPE_CARRIAGE]-[COMPLETE]: `pubsub.md` keeps `Envelope` opaque and preserves the projected body and band; `data/.planning/journal/append.md` owns strict CloudEvents construction and inverse carrier decode, so runtime carries the value without duplicating its codec.

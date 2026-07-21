@@ -7,13 +7,16 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[QUEUED]: Land the Bim lowering and re-materialization for the seam-landed `Connect.Interface` content key.
@@ -45,25 +48,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `BrickSchema.Net` admitted (README `[DOMAIN_VOCABULARY]`, `.api/api-brickschema-net.md` — `Aggregation.AggregateByInterval` the interval-rollup read the operations overlay exposes); `Model/systems` owns the static `SystemTrace` connectivity the overlay reads.
 - Tension: which app-platform owner lands the live-point binding resolver (`BACnetReference`/`BACnetDevice`/`ModbusDevice` rows) the overlay references? Route: `libs/csharp/Rasm.AppHost/.planning/` capability pages and the AppHost growth register — Bim owns only the static ontology projection, the overlay reads `SystemTrace`, never re-minting a second connectivity store beside it.
 
-[BIM_HOOK_RAIL]-[QUEUED]: Mint the `rasm.bim.<domain>.<point>` typed hook registry so every long-running Bim rail exposes veto/observe/replay points with zero emit calls in domain code.
-- Capability: composition-scoped hook points over the import/export codecs, the semantic projection, the legality gate, the review verdicts, and the energy translators — modalities veto/observe/replay, subscriber faults isolated onto the `BimFault` rail, telemetry-as-tap so observers subscribe to domain facts.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Model/observability.md` (new page) owns a closed point roster keyed `rasm.bim.<domain>.<point>`, a modality union, and the registry record an app composes PER INSTANCE — no process-global registry, so two apps built on the library never fight over hook slots; progress points wrap `ICadReader.OnProgress` (ACadSharp DWG decode) and the OpenStudio translator `ProgressBar` callback as observe-modality facts on the import and energy rails.
-- Unlocks: cancellable long imports, UI progress without codec coupling, replayable review pipelines, `[BIM_TELEMETRY_TAP]` as a registry subscriber.
-- Anchors: `Model/faults#FAULT_BAND` `BimFault` the subscriber-fault isolation target; `.api/api-acadsharp.md` `ICadReader.OnProgress`; `.api/api-openstudio.md` `ProgressBar`; `csharp:Rasm.AppHost/Observability/instruments.md` the branch registry pattern the point roster mirrors.
-
-[BIM_TELEMETRY_TAP]-[QUEUED]: Project every Bim receipt and fault onto `rasm.bim.<domain>.<measure>` instruments through one meter owner carrying zero OTel reference.
-- Capability: receipts stay billing truth; instruments are the lossy dashboard channel — import/export durations and byte folds, projection node/edge counts, legality rejects banded by `Category`, review verdict tallies, energy exchange counts — an `ActivitySource` span law attributing traces and span-profiles to Bim operations, and a baggage-sourced tenant/model tag law attributing every instrument row.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Model/observability.md` gains the instrument roster (name, kind, UCUM unit, tag set, receipt source) and one meter owner constructed over injected `IMeterFactory.Create(MeterOptions)` — histograms through `Meter.CreateHistogram<T>(name, unit, description, tags, advice)` with explicit-bound advice fallback, scope the package id; the owner subscribes to `[BIM_HOOK_RAIL]` points, never an emit call inside a projector; spans mint through one `ActivitySource` with the kernel `Op` as the span-name source.
-- Unlocks: Bim tiles on estate dashboards, span-profile correlation at the AppHost Pyroscope composition, per-tenant/model cost attribution over BIM workloads.
-- Anchors: `libs/csharp/.api/api-diagnostics-metrics.md` `IMeterFactory.Create(MeterOptions)` + `Meter.CreateHistogram<T>` advice member; `Model/faults#FAULT_BAND` `error.Category()` telemetry banding; typed receipts (`EnergyReceipt`, `TessellationOutcome`, `EarnedValueReport`, `ModelHealth`) as fact sources; `csharp:Rasm.AppHost/Observability/instruments.md` `InstrumentFan` merging the contributed arm.
-- Tension: library altitude forbids any OTel package reference — BCL `System.Diagnostics.Metrics` + `ActivitySource` only; SDK composition, exporters, and exemplars stay AppHost's.
-
-[BIM_EVENT_FABRIC]-[QUEUED]: Mint the `BimEvent` domain-fact union and its CloudEvents envelope so model mutations travel any transport with trace continuity.
-- Capability: commit landed, issue-board mutation, validation verdict, export artifact minted, energy artifact minted — one closed event family carrying content keys and GlobalId sets, never payload bytes; envelope projection stamps the CloudEvents distributed-tracing extension so W3C context rides brokers end to end.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Exchange/events.md` (new page) owns the `[Union]` `BimEvent` and the envelope projection over `CloudNative.CloudEvents` + `CloudNative.CloudEvents.SystemTextJson` — type `rasm.bim.<domain>.<fact>`, source the service instance, subject the content key; transport bindings (Kafka/MQTT/NATS) stay app-tier composition, Bim owns payload and envelope only.
-- Unlocks: CDE webhooks, cross-runtime model-sync notification to the Python and TypeScript peers, outbox rows the Persistence tier stores, event-driven review pipelines.
-- Anchors: `Review/versioning#VERSION_GRAPH` `CommitKey`; `Review/issues#BCF_ARCHIVE` board mutations; `Exchange/export#EXPORT_RAIL` artifact receipts; `Energy/exchange#ENERGY_EXCHANGE` content keys; CloudEvents packages admitted in the central manifest.
-
 [PROGRESS_VERIFICATION]-[QUEUED]: Close the 4D loop — scan-derived physical progress verifies the schedule and feeds earned value with observed actuals.
 - Capability: a reconstructed point-cloud epoch compares against the `ConstructionState` expectation at the capture instant — observed installed elements against planned — minting a typed progress-evidence receipt per task with observed completion, variance band, and the unmatched-occurrence residue.
 - Shape: `libs/csharp/Rasm.Bim/.planning/Planning/progress.md` (new page) owns the comparison fold joining `Exchange/reconstruct#RECONSTRUCTION` occurrences to `Planning/schedule#SCHEDULE` `TaskAssignment` element sets through the `Model/query#ELEMENT_SET` predicate algebra; observed completion feeds the `Planning/cost#EARNED_VALUE` fold as the actuals source beside authored `IfcTaskTime.Completion`.
@@ -76,18 +60,15 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: results-aware model QA (IDS facets over result thresholds), energy dashboards read from the model, results round-trip into IFC Psets.
 - Anchors: `Energy/exchange#ENERGY_EXCHANGE` content-keyed artifacts; `Semantics/properties#PROPERTY_TEMPLATES` Pset authority; `Model/zones#ZONE_GRAPH` overlay; `.api/api-openstudio.md` results-seam row naming `SqlFile` as Compute's reader.
 
-[BIM_BENCH_RECEIPTS]-[QUEUED]: Stand a `BimBenchReceipt` family so codec, projection, and query performance claims are typed evidence gated by the estate corpus.
-- Capability: per-operation benchmark claims — import decode per format, egress re-author, `ElementSet.Query` over graph scales, geospatial vector/raster ingest, tessellation round-trip — each a typed receipt carrying op, corpus fingerprint, and duration/allocation distributions, admitted through the corpus gate rather than prose numbers.
-- Shape: `libs/csharp/Rasm.Bim/.planning/Model/observability.md` gains the receipt family and the per-op claim roster; harness wiring rides the estate BenchmarkDotNet corpus gate at the tests estate, never a per-folder runner.
-- Unlocks: regression-proof codec changes, size-scaled query-planning evidence, `StorePlan` push-down against in-process fold comparisons.
-- Anchors: `csharp:Rasm.AppHost/Observability/benchmarks.md` `BenchmarkReceipt` family shape; import/export/query receipts already typed.
-
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[TEMPLATE_AUDIT_VALIDATION_TIER]-[COMPLETE]: Ruled — `Review/validation` widened to the two-tier QA owner: `ModelHealth`/`ModelFinding` compose the `TemplateFinding` stream as the baseline tier beneath authored IDS, the case the tier discriminant, one verdict surface for `Rasm.AppUi` and the review pipeline.
-
+[BIM_HOOK_RAIL]-[COMPLETE]: `Model/observability#HOOK_RAIL` landed — `BimHooks` per-composition registry record and the `BimFact` payload family over the kernel point capsule, with modality rows, id grammar, and subscriber-fault isolation arriving settled from the kernel signal capsule; progress points wired at `Exchange/import#IMPORT_RAIL` (ACadSharp `OnProgress`) and `Energy/derive#TRANSLATE_MATRIX` (OpenStudio `ProgressBar`).
+[BIM_TELEMETRY_TAP]-[COMPLETE]: `Model/observability#TELEMETRY_TAP` landed — `BimTelemetry` roster-and-projection owner over kernel `InstrumentRow`/`InstrumentSet`/`Buckets`, the kernel identity mint and contributor port, the `ActivitySource` span law, and baggage-sourced tenant/model attribution, zero OTel reference.
+[BIM_EVENT_FABRIC]-[COMPLETE]: `Exchange/events#EVENTS` landed — `BimEvent` closed union over the five model-mutating facts, `BimEnvelope` CloudEvents projection (`Seal`/`Encode`/`Open`, traceparent/tracestate extension rows), mint rows pinned on versioning, issues, validation, export, and energy exchange.
+[BIM_BENCH_RECEIPTS]-[COMPLETE]: `Model/observability#BENCH_RECEIPTS` landed — `BimBenchClaim` per-op claim roster with corpus columns and the `BimBenchReceipt` evidence record under the AppHost corpus-gate admission row.
+[TEMPLATE_AUDIT_VALIDATION_TIER]-[COMPLETE]: Ruled — `Review/validation` widened to the two-tier QA owner: `ModelHealth`/`ModelFinding` compose the `TemplateFinding` stream as the baseline tier beneath authored IDS, the case the tier discriminant, one verdict surface for `Rasm.AppUi` and the review pipeline
 [UNIT_SCHEME_BIM_COUNTERPART]-[COMPLETE]: `HeaderWire.unit_scheme = 7` is landed on the seam `Graph/wire` with both Mapper legs, and the Bim ingest (`UnitsOf`) and egress (`DeclareUnits`) ends read the field — the `Rasm.Element` counterpart card closed with it.

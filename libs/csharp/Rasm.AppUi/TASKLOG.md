@@ -7,104 +7,70 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[BOARD-TILE-ROWS]-[QUEUED]: Enumerate the telemetry-board tile rows and mint the `Charts/telemetry.md` spine.
-- Capability: each board tile pins to its exact feed — instrument stream rows, SLO burn-rate tiles, store-profile boards, and the evidence-timeline track — with the `dashboards.md` operator each composes.
-- Shape: section spine and tile-row table landing in `libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md`, feed anchors verified against `libs/csharp/Rasm.AppUi/.planning/Charts/dashboards.md` `[05]-[STREAM_BINDING]` and `[06]-[DASHBOARD_TILES]`.
-- Unlocks: the `[TELEMETRY-BOARD-PAGE]` write lands on a pinned structure instead of re-deriving feeds.
-- Anchors: `IDEAS.md` `[TELEMETRY-BOARD-PAGE]`; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `EvidenceFan` roster.
-
-[LEVEL-KIND-ROW]-[QUEUED]: Pin the `Levels` instrument-kind row and the keyed cell families it reads.
-- Capability: one `InstrumentKind` row binds `Meter.CreateObservableGauge` over `Measurement<T>` batches; keyed atom families replace the scalar `QualityRank`/`CollabPending` cells.
-- Shape: kind row, cell-family reader, and fan-arm swap edits landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`, with the keyed families enumerated (per-doc pending, per-pool VRAM, per-screen disposables).
-- Unlocks: `[MULTI-MEASUREMENT-LEVELS]` lands as one spine edit with verified member spellings.
-- Anchors: `IDEAS.md` `[MULTI-MEASUREMENT-LEVELS]`; `libs/csharp/.api/api-diagnostics-metrics.md` `Measurement<T>`.
-- Atomic: one kind row and cell-family enumeration.
-
-[WIRE-CONTEXT-FIELDS]-[QUEUED]: Pin the traceparent and baggage carriage fields on collab frames and the ingest edge.
-- Capability: outbound context rides `CommitWith(CommitOptions)` origin metadata; inbound frames decode context back into `CorrelationId`/`TenantContext` before sealing.
-- Shape: frame-metadata field rows landing in `libs/csharp/Rasm.AppUi/.planning/Collab/sync.md` `[04]-[LIVE_WIRE]` and the `Ingest` decode row in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md`.
-- Unlocks: `[COLLAB-WIRE-CONTEXT]` lands with exact member spellings and zero transport reference.
-- Anchors: `IDEAS.md` `[COLLAB-WIRE-CONTEXT]`; `libs/csharp/Rasm.AppUi/.api/api-loro.md` `CommitWith`/`ImportWith`.
-
-[PRECOMMIT-TAP]-[QUEUED]: Pin the pre-commit tap and JSON op-window export verbs on the dev loop.
-- Capability: `SubscribePreCommit(PreCommitCallback)` seals pre-commit facts as evidence; `ExportJsonUpdates(VersionVector, VersionVector)` exports a version window as readable JSON.
-- Shape: two verb rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` `[02]-[DEV_LOOP]` with the subscription-lifetime and evidence-case columns and the sync-owner anchor in `libs/csharp/Rasm.AppUi/.planning/Collab/sync.md`.
-- Unlocks: `[COLLAB-FORENSICS]` lands as two verb rows over verified members.
-- Anchors: `IDEAS.md` `[COLLAB-FORENSICS]`; `libs/csharp/Rasm.AppUi/.api/api-loro.md` subscriptions table.
-- Atomic: two verb rows over verified members.
-
-[SESSION-ROLE-ROWS]-[QUEUED]: Enumerate the session role and capability rows and the `EditIntent` admission seam.
+[SESSION_ROLE_ROWS]-[QUEUED]: Enumerate the session role and capability rows and the `EditIntent` admission seam.
 - Capability: role vocabulary, per-role capability table, membership lifecycle, and the admission-gate fold the merge authority composes — every rejection a registry-derived `AppUiFaultBand.Collab` code.
 - Shape: section spine and role/capability tables landing in `libs/csharp/Rasm.AppUi/.planning/Collab/session.md`, with the gate seam pinned against `libs/csharp/Rasm.AppUi/.planning/Collab/sync.md` `EditIntent`/`IntentLedger`.
-- Unlocks: `[COLLAB-SESSION-GOVERNANCE]` lands on a pinned vocabulary instead of inventing one mid-write.
-- Anchors: `IDEAS.md` `[COLLAB-SESSION-GOVERNANCE]`; envelope `Tenant` partition.
+- Unlocks: `[COLLAB_SESSION_GOVERNANCE]` lands on a pinned vocabulary instead of inventing one mid-write.
+- Anchors: `IDEAS.md` `[COLLAB_SESSION_GOVERNANCE]`; envelope `Tenant` partition.
 
-[SEARCH-QUERY-SHAPE]-[QUEUED]: Define the search query union, source-coverage rows, and the Persistence wire fields.
+[SEARCH_QUERY_SHAPE]-[QUEUED]: Define the search query union, source-coverage rows, and the Persistence wire fields.
 - Capability: one closed query shape answers cell, media, issue, and evidence searches with ranked source-attributed results routed through the virtual window.
 - Shape: query/result union and source rows landing in `libs/csharp/Rasm.AppUi/.planning/Document/search.md`, with the store-side query wire fields stated as the consumed contract.
-- Unlocks: `[DOCUMENT-SEARCH]` lands with its Persistence counterpart contract already explicit.
-- Anchors: `IDEAS.md` `[DOCUMENT-SEARCH]`; `libs/csharp/Rasm.AppUi/.planning/Editing/livedata.md` data-source axis; `libs/csharp/Rasm.AppUi/.planning/Shell/virtualization.md`.
+- Unlocks: `[DOCUMENT_SEARCH]` lands with its Persistence counterpart contract already explicit.
+- Anchors: `IDEAS.md` `[DOCUMENT_SEARCH]`; `libs/csharp/Rasm.AppUi/.planning/Editing/livedata.md` data-source axis; `libs/csharp/Rasm.AppUi/.planning/Shell/virtualization.md`.
 
-[BENCH-MATRIX-ROW]-[QUEUED]: Derive the benchmark row family from the proof-matrix catalog and pin the regression gate.
-- Capability: benchmark rows derive from the same catalog as proof rows; the gate folds measured-vs-baseline distributions under `UiBuckets.DivergenceRatio` and seals a benchmark receipt per lane.
-- Shape: row-family and gate-fold rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md` `[03]-[HEADLESS_DERIVATION]`, with the dashboards benchmark-layout feed anchor in `libs/csharp/Rasm.AppUi/.planning/Charts/dashboards.md`.
-- Unlocks: `[FRAME-BENCH-LANE]` lands with baseline custody and gate math settled.
-- Anchors: `IDEAS.md` `[FRAME-BENCH-LANE]`; `Avalonia.Headless` frame stepping; AppHost `BenchmarkReceipt` precedent.
-
-[FLAME-SOURCE-PORT]-[QUEUED]: Define the profile-sample source delegate and the `FlameNode` merge fold.
-- Capability: a composition-bound sample source delivers correlation-keyed CPU stacks; the fold merges them under the existing frame tree beside solve and pass children.
-- Shape: delegate shape and merge-fold rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` `[02]-[DEV_LOOP]`, sample members mapped from the AppHost capture catalogs.
-- Unlocks: `[PROFILE-FLAME-JOIN]` lands with the AppHost feed contract explicit for the counterpart card.
-- Anchors: `IDEAS.md` `[PROFILE-FLAME-JOIN]`; `libs/csharp/Rasm.AppHost/.api/api-pyroscope.md`; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/governor.md` `[03]-[GPU_TIMELINE]`.
-
-[USAGE-RECEIPT-SHAPE]-[QUEUED]: Define the per-tenant usage receipt fields and the envelope-partition fold.
-- Capability: GPU nanoseconds, path-trace samples, render/export bytes, collab deltas, and export pages fold per tenant-window from sealed envelopes into one typed receipt with a wire row.
-- Shape: receipt record, fold, and wire rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` beside `[04]-[CORRELATION_JOIN]`.
-- Unlocks: `[TENANT-USAGE-FOLD]` lands as one pure fold with the cross-libs baggage join stated.
-- Anchors: `IDEAS.md` `[TENANT-USAGE-FOLD]`; envelope `Tenant` field; cross-libs `[COST_ATTRIBUTION_BAGGAGE]`.
-- Atomic: one receipt record and one fold.
-
-[BUNDLE-MANIFEST]-[QUEUED]: Enumerate the support-bundle members and the archive proof rows.
-- Capability: bundle manifest names every member stream — evidence journal, HUD samples, GPU timelines, verdicts, native-asset facts, golden digests, collab JSON ops — with its serializer and content-hash column.
-- Shape: manifest row family on the destination union landing in `libs/csharp/Rasm.AppUi/.planning/Document/export.md` `[02]-[EXPORT_DESTINATIONS]` and `VerifyZip`/`VerifyDirectory` proof rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md`.
-- Unlocks: `[SUPPORT-BUNDLE]` lands with bundle completeness provable by construction.
-- Anchors: `IDEAS.md` `[SUPPORT-BUNDLE]`; `libs/csharp/Rasm.AppUi/.api/api-verify.md` file-and-archive entrypoints.
-
-[SLO-COORD-PIN]-[QUEUED]: Pin the SLO coordinate rows and the burn-rate fold over the viewport instruments.
-- Capability: p99 objectives against `FrameBudget` derive burn-rate rows from `viewport.frame.elapsed`/`viewport.gpu.elapsed` histograms with window and threshold columns.
-- Shape: SLO-coordinate projection rows landing in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[06]-[TS_PROJECTION]`, instrument names verified against `libs/csharp/Rasm.AppUi/.planning/Render/pipeline.md`.
-- Unlocks: `[FRAME-SLO-FEED]` lands on the settled wire with zero new shape.
-- Anchors: `IDEAS.md` `[FRAME-SLO-FEED]`; `EvidenceTimelineWire` crossing.
-- Atomic: one projection row family.
-
-[SPRING-PARITY-MAP]-[QUEUED]: Map the `SpringValue` members and the host surfaces the preset table binds.
+[SPRING_PARITY_MAP]-[QUEUED]: Map the `SpringValue` members and the host surfaces the preset table binds.
 - Capability: `Response`/`DampingFraction`/`Mass` and the `Stiffness`/`Damping` derivations enumerate verbatim beside every host canvas and overlay surface consuming them.
 - Shape: parity-map rows landing in `libs/csharp/Rasm.AppUi/.planning/Theme/motion.md` `[02]-[MOTION_AXIS]` boundary clause; AppUi stays the parity source with zero surface change.
-- Unlocks: `[HOST-SPRING-PARITY]` lands as a value-copy table with proof coordinates.
-- Anchors: `IDEAS.md` `[HOST-SPRING-PARITY]`; `SpringValue` `[ComplexValueObject]`.
+- Unlocks: `[HOST_SPRING_PARITY]` lands as a value-copy table with proof coordinates.
+- Anchors: `IDEAS.md` `[HOST_SPRING_PARITY]`; `SpringValue` `[ComplexValueObject]`.
 - Atomic: one parity-map table.
 
-[MATH-ENGINE-VERIFY]-[BLOCKED]: Verify the `CSharpMath.SkiaSharp` engine against the current SkiaSharp closure before the math arms land.
-- Capability: engine admission proves the TeX subset renders through the one shaping rail and the offscreen capsule without a second text pipeline.
-- Shape: verified member rows landing in `libs/csharp/Rasm.AppUi/.planning/Document/media.md` `MarkdownInlineRenderer` and `libs/csharp/Rasm.AppUi/.planning/Theme/typography.md` `[05]` `Math` arm after admission.
-- Unlocks: `[MATH-TYPESET-OWNER]` lands with a live-verified engine instead of an undecided bet.
-- Anchors: `IDEAS.md` `[MATH-TYPESET-OWNER]`; `libs/csharp/Rasm.AppUi/.api/api-markdig.md` `UseMathematics`.
-- Tension: blocker question — does `CSharpMath.SkiaSharp` resolve against the admitted SkiaSharp closure and render the required TeX subset? Resolution route: nuget MCP live-verify and the admission lane's install gate and `.api` catalog.
+[SIGNAL_CAPSULE_COMPOSE]-[QUEUED]: Diagnostics spine composes the kernel instrument spec and burn algebra — the folder twins retire.
+- Capability: instrument specs, their kind vocabulary, and the SLO burn windows arrive from the kernel capsule; the diagnostics spine keeps only its viewport tile and threshold projections.
+- Shape: `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]`/`[06]` — the folder spec records and the `SloCoordinate` window constants re-cut over the kernel `InstrumentSpec` and burn carrier.
+- Unlocks: a factor or vocabulary change lands once at the kernel; AppUi tiles and Compute rules stop diverging silently.
+- Anchors: `libs/csharp/.planning/RULINGS.md` instrument-spec and burn-rate rows; kernel `Domain/telemetry.md`.
+- Ripple: follows `Rasm` `[CAPSULE_EXTENSION_MINTS]`; mirrors `Rasm.Compute` `[SIGNAL_CAPSULE_COMPOSE]`.
+
+[MATH_ENGINE_VERIFY]-[QUEUED]: Prove the TeX-subset render through the admitted engine's painter path — the residual half of the math-engine question.
+- Capability: the required TeX subset renders through the one shaping rail and the offscreen capsule without a second text pipeline; closure resolution is settled — the engine is admitted and its binding draws into the leased `SKCanvas`.
+- Shape: render-proof rows landing in `libs/csharp/Rasm.AppUi/.planning/Document/media.md` `MarkdownInlineRenderer` and `libs/csharp/Rasm.AppUi/.planning/Theme/typography.md` `[05]` `Math` arm.
+- Unlocks: `[MATH_TYPESET_OWNER]` lands over a proven painter path.
+- Anchors: `IDEAS.md` `[MATH_TYPESET_OWNER]`; `.api/api-csharpmath-skia.md` painter and `LaTeXParser` rows; `.api/api-markdig.md` `UseMathematics`.
+- Route: the `LaTeXParser` to painter to headless-encode chain over the engineering-notation sample set, verdicts onto the `.api` catalog; a prerelease bump breaking the `SKCanvas` lease binding re-arms this leg.
+
+[BUNDLE_MANIFEST]-[BLOCKED]: AppUi declares and proves the bundle roster, but AppHost manifest entries omit content identity.
+- Capability: `BundleMember` carries classification and `ContentHash.Of` identity, and `ProofLaw.BundleShape` pins the zip roster and extracted tree.
+- Shape: AppUi rows are landed in `libs/csharp/Rasm.AppUi/.planning/Document/export.md` `[02]-[EXPORT_DESTINATIONS]` and `Diagnostics/proof.md` `[04]-[PROOF_LAW]`.
+- Unlocks: `[SUPPORT_BUNDLE]` lands with host-side manifest entries carrying content identity, the bundle roster verifiable end to end.
+- Anchors: `IDEAS.md` `[SUPPORT_BUNDLE]`; `libs/csharp/Rasm.AppUi/.planning/Document/export.md` `[02]-[EXPORT_DESTINATIONS]`; `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md` `[04]-[PROOF_LAW]`; `BundleMember`/`ContentHash.Of`/`ProofLaw.BundleShape`.
+- Tension: arming trigger — add the post-redaction, post-cap content key to `SupportManifest.Entry`, `Written`, and `Faulted` in `libs/csharp/Rasm.AppHost/.planning/Observability/bundles.md`, then pin that field in the manifest golden.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[BOARD_TILE_ROWS]-[COMPLETE]: tile-row table [01]-[10] and the `TelemetryBoard` spine landed in `libs/csharp/Rasm.AppUi/.planning/Charts/telemetry.md` `[02]-[BOARD_ROWS]`.
+[LEVEL_KIND_ROW]-[COMPLETE]: `InstrumentKind.Levels` row, keyed kernel `LevelCells` families, and fan-arm swaps landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[03]-[TELEMETRY_SPINE]`.
+[WIRE_CONTEXT_FIELDS]-[COMPLETE]: carriage landed as `CollabWireContext`/`CollabFrame` frame metadata in `libs/csharp/Rasm.AppUi/.planning/Collab/sync.md` `[04]-[LIVE_WIRE]` with the ingest edge re-emitting envelope-carried context unchanged; the `CommitWith` origin-metadata claim was refuted — `CommitOptions` seals only change origin, timestamp, and message.
+[PRECOMMIT_TAP]-[COMPLETE]: `SubscribePreCommit` tap and `ExportJsonUpdates` window export landed as `LiveWire.TapPreCommit`/`ExportJson` with the devloop `CollabPreCommit`/`CollabJson` verbs.
+[BENCH_MATRIX_ROW]-[COMPLETE]: `BenchLane` derivation and the `FrameBench`/`Divergence` gate landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/proof.md`, judged through the AppHost `BenchmarkGate` with the dashboards benchmark layout fed off the envelope stream.
+[FLAME_SOURCE_PORT]-[COMPLETE]: `ProfileSampleSource` reads the AppHost `UiSchedulerPort.ProfileSamples` feed by correlation, and `FlameNode.Of` prefix-merges its AppHost-owned `ProfileSample` values in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/devloop.md` `[02]-[DEV_LOOP]`.
+[USAGE_RECEIPT_SHAPE]-[COMPLETE]: `TenantUsage` record, envelope-partition fold, and `TenantUsageWire` landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[04]-[CORRELATION_JOIN]`.
+[SLO_COORD_PIN]-[COMPLETE]: the signal × window `SloCoordinate.Viewport` family with threshold columns and the `Burn` fold landed in `libs/csharp/Rasm.AppUi/.planning/Diagnostics/evidence.md` `[06]-[TS_PROJECTION]`.

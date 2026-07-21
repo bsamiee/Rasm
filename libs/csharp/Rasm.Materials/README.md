@@ -37,9 +37,9 @@ Component rows feed generated assemblies and fabrication physics, capacity recei
 
 [PROJECTION]:
 - [24]-[PROJECTION](.planning/Projection/component.md): One `ComponentProjector` minting Type Objects and material subgraphs.
-- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact` signal tap — hooks, instruments, fault log, descriptors.
-- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): `BenchKernel` workload corpus and the gated benchmark-receipt composition.
-- [27]-[ANALYTICS](.planning/Projection/analytics.md): Columnar `AnalyticsSchema` rows and the catalogue projection folds.
+- [25]-[OBSERVABILITY](.planning/Projection/observability.md): `MaterialsFact`, latency, and descriptor policy; signal rails stay blocked.
+- [26]-[BENCHMARKS](.planning/Projection/benchmarks.md): Content-bound `BenchKernel` workload corpus with catalog-blocked receipt gating.
+- [27]-[ANALYTICS](.planning/Projection/analytics.md): Composite-key schemas and parameterized folds; SI selectors stay blocked.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -86,7 +86,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `CommunityToolkit.HighPerformance` — dense appearance planes read as spans, never offsets.
 
 [OBSERVABILITY]:
-- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` contract and the generated `[LoggerMessage]` fault records.
+- `Microsoft.Extensions.Logging.Abstractions` — `ILogger` and generated-log contracts for the catalog-blocked fixed-severity fault projection.
 - `Microsoft.Extensions.Telemetry.Abstractions` — `ILatencyContext` checkpoint ledger over the eager constructions.
 - `NodaTime` — `Duration` fact columns and the `LocalDate` evidence expiry.
 

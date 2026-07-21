@@ -152,7 +152,7 @@ config:
 ---
 flowchart LR
     accTitle: AppHost C# platform seams
-    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, and faults with the kernel, Element, AppUi, Fabrication, Persistence, and Compute packages, one edge per contract family labeled by kind.
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, receipts, and faults with the kernel, Bim, Element, AppUi, Fabrication, Persistence, and Compute packages, one edge per contract family labeled by kind.
     subgraph apphost[RASM.APPHOST]
         Runtime[Runtime spine]
         Agent[Agent surface]
@@ -161,12 +161,17 @@ flowchart LR
         Observability[Observability signals]
     end
     Kernel{{Rasm}}
+    Bim{{Rasm.Bim}}
     Element([Rasm.Element])
     AppUi{{Rasm.AppUi}}
     Compute{{Rasm.Compute}}
     Fabrication{{Rasm.Fabrication}}
     Persistence[(Rasm.Persistence)]
     Kernel -->|"[WIRE]: EncodedGeometry"| Sandbox
+    Kernel e23@-->|"[SHAPE]: TelemetrySink"| Observability
+    Kernel e24@-->|"[WIRE]: BenchClaim"| Observability
+    Bim e25@-->|"[SHAPE]: BimHooks"| Observability
+    Bim e26@-->|"[RECEIPT]: BimBenchReceipt"| Observability
     Runtime -->|"[CONTENT_KEY]: ContentHash"| Kernel
     Runtime e3@-->|"[PORT]: ProjectionContext"| Element
     Runtime -->|"[PORT]: DeterminismContext"| AppUi
@@ -179,8 +184,10 @@ flowchart LR
     Observability e14@<-->|"[PORT]: TelemetryContributorPort"| Persistence
     Observability e19@-->|"[PORT]: ReceiptSinkPort + HookRail"| AppUi
     Runtime e20@<-->|"[FAULT]: FaultBand"| AppUi
+    Observability e27@-->|"[FEED]: ProfileSample"| AppUi
     Fabrication e21@-->|"[RECEIPT]: FabricationFact"| Observability
     Observability e22@-->|"[PORT]: TelemetryContributorPort"| Fabrication
+    Wire e28@-->|"[RECEIPT]: MachineObservationWire"| Fabrication
     Runtime -->|"[PORT]: ShedVerdict"| Compute
     Agent -->|"[PORT]: GoverningChatClient"| Compute
     Compute -->|"[RECEIPT]: HopReceipt"| Wire

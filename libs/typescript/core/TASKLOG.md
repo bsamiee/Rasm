@@ -7,82 +7,69 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
 
-[0007]-[QUEUED]: Author the observe hook-rail page owning point brand, modality table, and tap law.
-- Capability: `libs/typescript/core/.planning/observe/tap.md` — the `rasm.<pkg>.<domain>.<point>` point-name brand, the closed veto/observe/replay modality vocabulary, the typed subscription contract, and subscriber-fault isolation onto `FaultClass`; drives from IDEAS `[C3]`.
-- Shape: one new page; router row in `libs/typescript/core/README.md`, codemap and seam rows in `libs/typescript/core/ARCHITECTURE.md`.
-- Anchors: `value/fault.md#CLASS_VOCABULARY` dominance lattice; `value/identity.md` `AppIdentity` scope; the estate hook-rail law's per-branch typed registry shape.
-- Tension: core defines the registry shape and modality dispatch as data; runtime owns fibers, scheduling, and every executed subscription.
-
-[0008]-[QUEUED]: Re-anchor the existing fact publishers as named tap points.
-- Capability: tap-point rows for the publishers core already owns — the `state/machine.md` macrostep fact stream, the `interchange/invoke.md` `SupportIntake` capture, the `interchange/codec.md` quarantine divert — each spelled `rasm.core.<domain>.<point>` on the `observe/tap.md` registry; drives from IDEAS `[C3]`.
-- Shape: registry rows in `libs/typescript/core/.planning/observe/tap.md`; one publisher sentence per owning page naming its point.
-- Anchors: `state/machine.md#ACTOR` fact stream; `interchange/invoke.md#COMMAND_GATEWAY` support capture; `interchange/codec.md#FAULT_RAIL` divert.
-- Atomic: three registry rows and three one-line publisher anchors.
-
-[0009]-[QUEUED]: Author the interchange propagation-carrier page with the transport dialect table.
-- Capability: `libs/typescript/core/.planning/interchange/carrier.md` — typed `traceparent`/`tracestate`/`baggage` value, total parse/print folds, `rasm.tenant` baggage promotion, and the closed dialect row table (Connect ASCII, Connect `-bin`, NATS headers, MQTT v5 UserProperties, CloudEvents extension attributes, Kafka record headers); drives from IDEAS `[C4]`.
-- Shape: one new page; the `interchange/invoke.md` interceptor row composes it; codemap and seam rows in `libs/typescript/core/ARCHITECTURE.md`.
-- Anchors: `value/identity.md` `TenantContext`; `interchange/invoke.md` interceptor seam; the wire law's W3C composite ruling.
-- Tension: broker dialect rows state header shape as spec fact; the admission lane lands the runtime clients.
-
-[0010]-[QUEUED]: Pin the Connect `-bin` metadata dialect on the carrier.
-- Capability: `encodeBinaryHeader`/`decodeBinaryHeader` rows carrying the typed protobuf metadata families the invoke lanes attach — the two admitted members no page exploits today; drives from IDEAS `[C4]`.
-- Shape: dialect rows in `libs/typescript/core/.planning/interchange/carrier.md`; consuming interceptor sentence in `libs/typescript/core/.planning/interchange/invoke.md`.
-- Anchors: `.api/connectrpc-connect.md` entry rows for the `-bin` codec pair and `appendHeaders`.
-- Atomic: one dialect row pair and one interceptor anchor.
-
-[0011]-[QUEUED]: Profile signal Convention rows and the board profile arm.
-- Capability: `_rasm` profile-signal rows with identity-keyed profile-link attributes, the profile datasource arm on the board `_DIALECT` pair, and the `profile` pack with flamegraph and span-linked panels; drives from IDEAS `[C5]`.
-- Shape: rows in `libs/typescript/core/.planning/observe/convention.md`; dialect arm and pack rows in `libs/typescript/core/.planning/observe/board.md`.
-- Anchors: `libs/typescript/runtime/.api/pyroscope-nodejs.md`; `observe/board.md` pack dispatch; `observe/convention.md#IDENTITY_PROJECTION`.
-- Tension: the profile arm is a dialect row, never a `Query` expression kind.
-
-[0012]-[QUEUED]: Scoped spans on the actor and gateway lifetimes.
-- Capability: `Effect.makeSpanScoped` owning the machine actor boot/restore lifetime span and the invoke gateway duplex span — the long-lived correlation anchors profile links and tap facts annotate; drives from IDEAS `[C5]`.
-- Shape: lifetime-span sentences and fence wiring in `libs/typescript/core/.planning/state/machine.md#ACTOR` and `libs/typescript/core/.planning/interchange/invoke.md#COMMAND_GATEWAY`.
-- Anchors: branch `libs/typescript/.api/effect.md` `Effect.makeSpanScoped` row; the vendor-neutral signal altitude law.
-- Atomic: two lifetime spans, one member, zero new shapes.
-
-[0013]-[QUEUED]: Measurement band and regression verdicts on the benchmark claim.
-- Capability: percentile/GC/hardware-counter statistics band on the `BenchmarkClaimWire` landing and the pure baseline-versus-candidate fold yielding graded verdicts per host fingerprint; `bench` pack rows trend the claims; drives from IDEAS `[C6]`.
-- Shape: landing extension in `libs/typescript/core/.planning/interchange/codec.md#LANDING_WIRE`; verdict fold and pack rows in `libs/typescript/core/.planning/observe/board.md`.
-- Anchors: `interchange/codec.md` claim landing and foreign-host rejection; `mitata` statistic shape pending admission.
-- Tension: the fold compares only claims sharing one host print; a cross-host pair yields the refusal verdict, never a number.
-
-[0006]-[QUEUED]: Object-plane Convention rows with their board consumers.
-- Capability: `rasm.object.*` metric and instrument rows — dedup-write ratio, bytes written, GC reclaim, upload throughput — with UCUM units and receipt-derived tag axes; drives from IDEAS `[C2]`.
-- Shape: `_metric`/`_instrument`/`_rasm` rows in `libs/typescript/core/.planning/observe/convention.md` under the growth law; consumer rows in `libs/typescript/core/.planning/observe/board.md` so every new instrument keeps a pack projection.
-- Anchors: data `object/store.md` and `object/stream.md` receipt families; the `journal/fact.md` instrument-row idiom the emitters copy.
-- Ripple: `data` `[OBJECT_PLANE_INSTRUMENT_PROJECTION]`.
-
-[0003]-[QUEUED]: One generative vocabulary-table owner for the value floor.
+[VOCABULARY_TABLE_OWNER]-[QUEUED]: One generative vocabulary-table owner for the value floor.
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
-- Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the owner the six re-spelled assembly grammars become declarations of; drives from IDEAS `[C1]`.
+- Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the owner the six re-spelled assembly grammars become declarations of; drives from IDEAS `[VALUE_VOCABULARY_TABLE]`.
+- Unlocks: IDEAS.md [VALUE_VOCABULARY_TABLE] — the next value-floor vocabulary is one row-table declaration, the position-to-`Order` projection carrying one spelling branch-wide.
 - Anchors: `fault.md#CLASS_VOCABULARY`; the derivation vocabulary-table owner form.
-- Tension: the three-altitude fault law keeps vocabularies distinct, and the stated-annotation export gate constrains a generic assembled-owner annotation.
+- Tension: the fault-module collapse ruling keeps the three row families distinct, and the stated-annotation export gate constrains a generic assembled-owner annotation.
 
-[0004]-[BLOCKED]: Reconcile the interchange BIM/geo census to the post-rebuild C# wire owners.
+[BIM_CENSUS_RECONCILE]-[BLOCKED]: Reconcile the interchange BIM/geo census to the post-rebuild C# wire owners.
 - Capability: `codec.md#WIRE_CENSUS` rows and landings for the Bim families re-anchored to the wire owners the C# rebuild settled — the IFC interchange wire, the kind-discriminated model diff, the BCF wire — with each row's arm matching its owner's dialect.
 - Shape: census rows, `_landingRows`, and the landing classes in `interchange/codec.md`; the seam labels in `ARCHITECTURE.md` follow.
+- Unlocks: Bim interchange census decodes each C#-settled wire family — IFC interchange wire, kind-discriminated model diff, BCF wire — exactly once, each arm matching its owner's dialect.
+- Anchors: `interchange/codec.md#WIRE_CENSUS` rows and `_landingRows`; `ARCHITECTURE.md` seam labels; `csharp:Rasm.Bim` seam registry, `Exchange`, and `Review` pages holding the frozen wire spellings.
 - Tension: the frozen spellings are C#-owned and `csharp:Rasm.Bim`'s seam registry disagrees with its own Exchange and Review pages; core cannot pick unilaterally.
 - Ripple: `csharp:Rasm.Bim` seam-registry self-reconciliation.
+
+[COMMAND_GATE_LANDING]-[QUEUED]: `CommandGateWire` closes its guard pair — census, format suite, and landing agree.
+- Capability: the codec-homed command-gate family gains its landing line and byte-schema row, or leaves the census and format suite whole — either way the landing guard pair proves the table closed at the declaration.
+- Shape: one `_landingRows` line and one `_schemas` row in `libs/typescript/core/.planning/interchange/codec.md`; the `_census` row and the `interchange/format.md` `_names`/`_suite` entries stay or leave with it.
+- Unlocks: codec.md's own guard law holds — a codec-homed census row without a landing line is the compile error the page declares, live for this family.
+- Anchors: `codec.md` `_census` `CommandGateWire` row (`home: "codec"`, source `Rasm.AppUi/Shell`); `format.md` `_suite` `pb.CommandGateWireSchema`; the `_Landed`/`_LandingKeys` guard pair.
+- Atomic: one landing line and one schemas row, or two entry deletions.
+
+[EVIDENCE_TIMELINE_KIND]-[QUEUED]: `EvidenceTimelineWire` reconciles to one kind — census family or process-local composition, spelled identically at every seam.
+- Capability: the AppUi evidence-timeline crossing carries one truth: a census-plus-landing pair making it a decoded wire family, or every seam registry re-kinds it to the `ReceiptEnvelopeWire` reuse the feed page states — no `[WIRE]`-labeled family sits outside the closed census.
+- Shape: census and landing rows in `libs/typescript/core/.planning/interchange/codec.md`, or seam re-labeling on the AppUi edge in `libs/typescript/core/ARCHITECTURE.md` `[03]-[SEAMS]` and the branch companion-contract list.
+- Unlocks: decode-once reads consistently — every `[WIRE]`-kinded seam edge resolves to a census row.
+- Anchors: `state/feed.md` `Feed.Timeline` (`ReceiptEnvelope` wire-twin reuse); `codec.md` `_families` (no row); the core and branch seam registries naming the family as `[WIRE]`.
+- Atomic: one kind reconciliation across three surfaces.
+
+[CARRIER_OWNED_SPELLINGS]-[QUEUED]: Carrier reads its owned names — the tenancy baggage key and `-bin` family names stop re-spelling their owners.
+- Capability: the carrier's tenancy literal reads the observe convention owner and its typed-metadata family names tie to the codec census spellings — or a must-match co-ownership law is stated at both spelling sites, so a rename at either owner cannot silently orphan the twin.
+- Shape: import-or-law rows in `libs/typescript/core/.planning/interchange/carrier.md` (`_TENANT`, `_BIN`) against `libs/typescript/core/.planning/observe/convention.md`'s baggage-key row and `codec.md` `_families`.
+- Unlocks: one spelling site per owned name across the interchange and observe planes.
+- Anchors: `carrier.md` `_TENANT = "rasm.tenant"`; `convention.md` `tenant: "rasm.tenant"` row; `carrier.md` `_BIN` naming `TenantContextWire`/`HlcStampWire` beside the codec census rows; `invoke.md`'s convention import proving the edge is legal.
+- Atomic: two spelling-site repairs.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-- [0001]-[COMPLETE]: `observe/convention.md` gained the estate wire law as rows — `Convention.scope`/`Convention.wire`, the work-plane/lane/batch/security metric+instrument rows with descriptions, the dotted-name guard, and the log-signal ruling; `observe/board.md` aligned panel and model fields to the Foundation-SDK builder members.
-- [0002]-[COMPLETE]: `observe/board.md` gained the `work` and `security` packs with the crash fingerprint table, so every declared instrument has a board consumer; `value/fault.md` gained the stable `code.*` frame quartet on `FaultCapture.Forensic` with the `Evidence.frame` admission; the semconv catalog's consumer census reconciled to the `Convention` hub and the `otel/emit`/`otel/vital`/`otel/crash` owners.
-- [0005]-[COMPLETE]: `observe/board.md` gained the `_DIALECT` export-label pair with the invoke fault-reason and vital grade panels — the last instrument rows without board consumers; `ARCHITECTURE.md` seam labels reconciled to the page-owned wire spellings (`EvidenceTimelineWire`, `GeoFeatureWire`) and `Alert.Spec` re-sourced to its `slo` owner; `README.md` registered `@effect/experimental` and the interchange charter gained the capability dial.
+[CONVENTION_WIRE_ROWS]-[COMPLETE]: `observe/convention.md` gained the estate wire law as rows — `Convention.scope`/`Convention.wire`, the work-plane/lane/batch/security metric+instrument rows with descriptions, the dotted-name guard, and the log-signal ruling; `observe/board.md` aligned panel and model fields to the Foundation-SDK builder members.
+[BOARD_PACK_CONSUMERS]-[COMPLETE]: `observe/board.md` gained the `work` and `security` packs with the crash fingerprint table, so every declared instrument has a board consumer; `value/fault.md` gained the stable `code.*` frame quartet on `FaultCapture.Forensic` with the `Evidence.frame` admission; the semconv catalog's consumer census reconciled to the `Convention` hub and the `otel/emit`/`otel/vital`/`otel/crash` owners.
+[DIALECT_EXPORT_PAIR]-[COMPLETE]: `observe/board.md` gained the `_DIALECT` export-label pair with the invoke fault-reason and vital grade panels — the last instrument rows without board consumers; `ARCHITECTURE.md` seam labels reconciled to the page-owned wire spellings (`EvidenceTimelineWire`, `GeoFeatureWire`) and `Alert.Spec` re-sourced to its `slo` owner; `README.md` registered `@effect/experimental` and the interchange charter gained the capability dial.
+[OBJECT_CONVENTION_ROWS]-[COMPLETE]: object rows landed in `observe/convention.md` (`objectWritten`/`objectBytes`/`objectReclaimed`/`streamBytes`, the `bjectOutcome` axis) with `observe/board.md`'s `object` pack as their standing consumer.
+[TAP_PAGE]-[COMPLETE]: `observe/tap.md` landed with the point brand, modality table, subscription contract, and breach isolation; `README.md` routes OBSERVE to the hook rail and `ARCHITECTURE.md` carries the `tap.ts` codemap row and the `Tap.Registry` runtime seam.
+[TAP_POINT_ANCHORS]-[COMPLETE]: three standing tap points ride `tap.md`'s `_points` rows with publisher anchors at `state/machine.md#ACTOR`, `interchange/invoke.md#COMMAND_GATEWAY`, and `interchange/codec.md#FAULT_RAIL`.
+[CARRIER_PAGE]-[COMPLETE]: `interchange/carrier.md` landed — typed triple, total folds, `rasm.tenant` promotion, and the closed connect/nats/kafka/mqtt/cloudevents dialect table — with the codemap row and the `Carrier.Context` runtime seam in `ARCHITECTURE.md`.
+[BINARY_HEADER_LANE]-[COMPLETE]: `Carrier.bin` rows land the `-bin` lane at `carrier.md#DIALECT_TABLE` over `encodeBinaryHeader`/`decodeBinaryHeader` (`rasm-tenant-bin`/`rasm-stamp-bin`), consumed by `invoke#DIAL_AXIS`'s interceptor law.
+[PROFILE_CONVENTION_ROWS]-[COMPLETE]: `Convention.profile`/`Convention.profiled` landed in `observe/convention.md`; `observe/board.md` gained the `Flamegraph` row with the per-tag datasource arm and the `profile` pack.
+[SPAN_LIFETIME_ANCHORS]-[COMPLETE]: `Effect.makeSpanScoped` lifetime anchors landed — `machine/<name>` on the actor boot/restore path (`state/machine.md#ACTOR` `risen`) and `gateway/duplex` on the duplex acquisition (`interchange/invoke.md#COMMAND_GATEWAY`).
+[CLAIM_BAND_LANDING]-[COMPLETE]: `Claim.Band` landed on the `interchange/codec.md#LANDING_WIRE` claim landing mirroring the mitata `stats` record; `observe/board.md#BENCH` carries `Bench.graded` with the host-print refusal and the `bench` pack trends the bridged series.

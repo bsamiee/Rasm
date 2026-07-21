@@ -7,7 +7,7 @@ This folder is stateless over ports by construction — every durable obligation
 ## [01]-[ROUTER]
 
 [CRYPT]:
-- [01]-[SIGN](.planning/crypt/sign.md): one crypto authority — argon2id digest, HMAC egress, opaque tokens, `Shredder`, key admission, JWT/JWKS/JWE.
+- [01]-[SIGN](.planning/crypt/sign.md): one crypto authority — argon2id digest, HMAC egress, opaque tokens, `Shredder`, key admission, JWT/JWKS/JWE, bench-graded cost calibration.
 - [02]-[VERIFY](.planning/crypt/verify.md): inbound-signature dialect table, the throttled held-octet verify fold, and the folder `Reject` stream.
 - [03]-[SECRET](.planning/crypt/secret.md): Doppler leased-secret custody — rotation feed, lease lifecycle, `Credential` handoff.
 

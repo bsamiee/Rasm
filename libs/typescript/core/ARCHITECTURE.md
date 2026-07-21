@@ -28,6 +28,7 @@ core/
     │   ├── codec.ts      # One keyed-decode registry over the closed wire-family census
     │   ├── frame.ts      # Frame reassembly, geometry tensor views, and the residency ledger under the Ingress budget
     │   ├── contract.ts   # Descriptor-drift diff into graded verdicts
+    │   ├── carrier.ts    # W3C propagation-context value, its total folds, and the closed per-transport dialect table
     │   └── invoke.ts     # Capability dial and both directions of the command contract
     └── observe/          # Observability vocabulary and derivation; zero exporters live here
         ├── convention.ts # Typed semconv attribute, metric, and event vocabulary
@@ -41,7 +42,7 @@ core/
 - S0 `value` — mints the floor exactly once (`Refined` brands, `Hlc`, `ContentKey` under the `Digest` engine, `Quantity`/`Dimension`, `AppIdentity`/`TenantContext`, `Budget`) and imports no sibling sub-domain; `identity` and `fault` compose `schema`'s `Refined` vocabulary alone.
 - S1 `state` — pure algebra over the value floor: `causal` composes `merge` and `Hlc`, `fold` composes `causal`, `evidence` mints `ProgressMark` over `fold` and `TenantContext`, `feed` orders `evidence` by `Hlc` under a `Dimension` band; `commit` rides with `causal` on `ContentKey`, `presence` with `merge`, and `machine` composes no interior sibling — the merge↔fold cycle never forms because `Fold.run` arrives as a caller parameter, never an import.
 - S1 `observe` — vocabulary and derivation over the value floor alone: `convention` roots, `slo` derives `Alert`, `board` composes both into `DashboardModel`, and `tap` stands beside them composing `AppIdentity` and `FaultClass` into the hook-rail registry; peer to state with no edge between them.
-- S2 `interchange` — the decode boundary composing all three: `format` proto engines under `codec`'s keyed registry, `frame`/`contract`/`invoke` over `Wire`, `frame` admitting under `Ingress`, `codec` landing `ProgressMark`, `invoke` landing `Convention`.
+- S2 `interchange` — the decode boundary composing all three: `format` proto engines under `codec`'s keyed registry, `frame`/`contract`/`invoke` over `Wire`, `frame` admitting under `Ingress`, `codec` landing `ProgressMark`, `invoke` landing `Convention` and composing `carrier`, whose propagation context imports `TenantContext` off the floor.
 
 ```mermaid
 ---
@@ -56,6 +57,7 @@ flowchart TB
     accDescr: Three interior waves — interchange over the state and observe peer wave onto the value floor — every import downward or floor-interior, labeled edges naming one sourced type each, and one forbidden upward edge styled red.
     subgraph S2["S2 INTERCHANGE"]
         Invoke[invoke]
+        CarrierP[carrier]
         Contract[contract]
         Codec[codec]
         Format[format]
@@ -84,6 +86,8 @@ flowchart TB
     Frame e1@-->|"[IMPORT]: Wire"| Codec
     Contract i2@--> Codec
     Invoke i3@--> Codec
+    Invoke i12@--> CarrierP
+    CarrierP e18@-->|"[IMPORT]: TenantContext"| Identity
     Codec e2@-->|"[IMPORT]: ProgressMark"| Evidence
     Invoke e3@-->|"[IMPORT]: Convention"| Convention
     Frame e4@-->|"[IMPORT]: Ingress"| Schema
@@ -177,6 +181,7 @@ flowchart LR
         Slo[SLO derivation]
         Board[Dashboard]
         Tap[Hook rail]
+        Carrier[Propagation carrier]
     end
     Runtime{{runtime}}
     Data[(data)]
@@ -200,6 +205,9 @@ flowchart LR
     Frame e15@-->|"[SHAPE]: Residency.Ledger"| Ui
     Slo e16@-->|"[PROJECTION]: Slo.Objective"| Iac
     Tap e17@-->|"[SHAPE]: Tap.Registry"| Runtime
+    Carrier e18@-->|"[SHAPE]: Carrier.Context"| Runtime
+    Tap e19@-->|"[SHAPE]: Tap.Point"| Data
+    Tap e20@-->|"[SHAPE]: Tap.Point"| Iac
 ```
 
 ## [04]-[ORGANIZATION]

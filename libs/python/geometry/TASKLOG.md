@@ -7,110 +7,130 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
-
-[KERNEL_BENCH_LANE]-[QUEUED]: land the kernel bench lane on the mesh pages.
-- Capability: runtime `Bench.run` subjects for the tessellate, repair, and boolean kernels with latency and throughput rows on `libs/python/geometry/.planning/mesh/serve.md`, `libs/python/geometry/.planning/mesh/repair.md`, and `libs/python/geometry/.planning/mesh/brep.md`.
-- Anchors: runtime `observability/profiles#BENCH`; `mesh/serve#SYNC` tessellation entry; the graduation `EvidenceScope` vocabulary; idea `[KERNEL_BENCH_FAMILY]`.
-- Tension: bench at the entry seam only; a process-terminal run rides the runtime job envelope.
-- Atomic: bench subjects and card fields, zero new instrument rows.
-
-[SCAN_BENCH_SUBJECTS]-[QUEUED]: extend the bench family onto the scan kernels.
-- Capability: `Bench.run` subjects for the registration and reconstruction kernels — global, coarse, fine, and Poisson arms — with cloud-size-parameterized latency rows on `libs/python/geometry/.planning/scan/registration.md` and `libs/python/geometry/.planning/scan/reconstruction.md`.
-- Anchors: runtime `observability/profiles#BENCH`; the registration mode vocabulary; the reconstruction `_CONSTRUCT` rows; idea `[KERNEL_BENCH_FAMILY]`.
-- Atomic: bench subject rows only, no kernel edits.
 
 [GLB_STORE_SPILL]-[QUEUED]: map the daemon cache fold onto a content-addressed object-store spill.
 - Capability: pin the `obstore` members the spill band composes — `from_url` store dispatch, get/put, conditional put, the fsspec adapter — and design the store-key layout off the existing daemon cache-seed content key on `libs/python/geometry/.planning/mesh/daemon.md`.
+- Shape: one content-addressed spill band on the daemon cache fold of `libs/python/geometry/.planning/mesh/daemon.md` — `obstore` `from_url` store dispatch, get/put, conditional put on the cache-seed content key, the `fsspec`/`universal-pathlib` local tier.
+- Unlocks: IDEAS.md [GLB_ARTIFACT_STORE] — cross-process and cross-host tessellation reuse, cold-start latency dropping to a store read.
 - Anchors: branch `libs/python/.api/obstore.md`; `libs/python/.api/universal-pathlib.md`; the daemon cache-seed byte fold; idea `[GLB_ARTIFACT_STORE]`.
 
 [GLB_SERVE_READTHROUGH]-[QUEUED]: land the serve read-through row against the artifact store.
-- Capability: `ArtifactSync` answers from the store on a content-key hit before waking the daemon, with the store handle threaded as a servicer parameter on `libs/python/geometry/.planning/mesh/serve.md`.
+- Capability: serve answers unchanged models from the durable store before waking the daemon, the store handle arriving as a composition parameter.
+- Shape: one read-through row on `libs/python/geometry/.planning/mesh/serve.md` where `ArtifactSync` answers from the store on a content-key hit before waking the daemon, the store handle threaded as a servicer parameter.
+- Unlocks: IDEAS.md [GLB_ARTIFACT_STORE] — warm-restart and re-serve of an unchanged model answer from the store, the C# rail replaying with zero Python recompute.
 - Anchors: serve streaming fold; runtime `ContentKey`; idea `[GLB_ARTIFACT_STORE]`.
 - Atomic: one read-through row and its parameter thread.
 
-[COST_WEAVE_FOLD]-[QUEUED]: fold parent-observed resource cost into `evidence_run`.
-- Capability: `psutil.Process.oneshot` before/after capture — `cpu_times`, `memory_info` — folded as cost facts onto the crossing receipt and recorded as a cost measure beside the duration row on `libs/python/geometry/.planning/graduation.md`.
-- Anchors: branch `libs/python/.api/psutil.md`; the `_recorded` fold on the weave; runtime `observability/metrics.md` tenant fold; idea `[KERNEL_COST_LEDGER]`.
-
-[SPAN_SUBJECT_RENAME]-[QUEUED]: refine the weave span name with the graduated subject at close.
-- Capability: `Span.update_name` inside `_close` re-names the evidence span `{operation}:{subject}` when the cleared value carries a `GeometrySubject`, so trace search keys on subjects on `libs/python/geometry/.planning/graduation.md`.
-- Anchors: `Span.update_name(name)` on `libs/python/.api/opentelemetry-api.md`; the `_close` fold; idea `[KERNEL_COST_LEDGER]`.
-- Atomic: one `_close` edit, zero weave-shape change.
-
-[PROFILE_SUBJECT_MAP]-[QUEUED]: map kernel entry seams to profile subjects.
-- Capability: one profile-subject row per `KernelTrait.HOSTILE` entry seam — daemon tessellation, spatial batch kinds, quality manifold tier, registration arms — keyed by `EvidenceScope`, naming what the runtime worker-attach counterpart profiles, on `libs/python/geometry/.planning/graduation.md` and `libs/python/geometry/.planning/mesh/daemon.md`.
-- Anchors: runtime `observability/profiles.md`; `pyroscope-otel` span correlation; idea `[KERNEL_PROFILE_EVIDENCE]`.
-
-[CHARTER_MEASURE_TABLE]-[QUEUED]: land the subject-keyed measure charter table.
-- Capability: one table on `libs/python/geometry/.planning/graduation.md` — measure name under `rasm.geometry.<measure>`, UCUM unit, source receipt field, aggregation — covering deviation, closure, quality, registration-fitness, energy, and bench measures.
-- Anchors: wire-law UCUM naming; `GeometrySubject` keys; runtime `INSTRUMENTS` shape; idea `[DASHBOARD_CHARTER]`.
-
-[DISTRIBUTION_ROWS]-[QUEUED]: land one instrument row and one record call per charter measure.
-- Capability: runtime `INSTRUMENTS` rows for the charter measures and `Metrics.record` mapping-arm calls at the producing folds on `libs/python/geometry/.planning/scan/deviation.md`, `libs/python/geometry/.planning/mesh/quality.md`, and `libs/python/geometry/.planning/energy/simulate.md`.
-- Anchors: `_DOMAIN_SLOT` mapping arm; `[CHARTER_MEASURE_TABLE]` as the row authority; idea `[PRODUCER_DISTRIBUTIONS]`.
-- Tension: sequenced after the charter table lands — rows derive from charter data, never ad-hoc picks.
-
-[FRAME_SCHEMA_PORT]-[QUEUED]: mint the subject-keyed frame projection port on the graduation spine.
-- Capability: one frame-projection port beside `wire()` — per-subject columnar schema, numpy-backed columns, `GeometrySubject` discriminant — on `libs/python/geometry/.planning/graduation.md`.
-- Anchors: `GeometryHandoff` carrier; data-branch arrow plane as the consumer; idea `[ANALYTIC_FRAME_EGRESS]`.
-
-[FRAME_PRODUCER_ROWS]-[QUEUED]: land one frame projection row per receipt family.
-- Capability: deviation bands, quality metrics, analytic boards, section properties, and lifecycle rollups each gain a projection row through the frame port on `libs/python/geometry/.planning/scan/deviation.md`, `libs/python/geometry/.planning/mesh/quality.md`, `libs/python/geometry/.planning/graph/analytic.md`, `libs/python/geometry/.planning/ifc/structural.md`, and `libs/python/geometry/.planning/ifc/costing.md`.
-- Anchors: `[FRAME_SCHEMA_PORT]` port; the geometry-to-data seam beside `ResultFrame`; idea `[ANALYTIC_FRAME_EGRESS]`.
-
 [GEOREF_MEMBER_PIN]-[QUEUED]: pin the `ifcopenshell.util.geolocation` member spellings.
 - Capability: verify the geolocation transform helpers against the installed distribution and repair `libs/python/geometry/.api/ifcopenshell.md` with the confirmed members before any fence lands.
+- Shape: verified `ifcopenshell.util.geolocation` transform members pinned into `libs/python/geometry/.api/ifcopenshell.md` against the installed distribution, catalog pin only, no page fences.
+- Unlocks: IDEAS.md [IFC_GEOREFERENCE] — confirmed geolocation member spellings gate the georeference extraction and authoring fences before any lands.
 - Anchors: installed `ifcopenshell` distribution; the folder catalog repair law; idea `[IFC_GEOREFERENCE]`.
 - Atomic: catalog member pin only, no page fences.
 
 [GEOREF_BAND]-[QUEUED]: land the georeference extraction and authoring rows.
-- Capability: extraction projection minting CRS, local-to-map transform, and true north on `libs/python/geometry/.planning/ifc/analysis.md`; authoring verb row minting and updating `IfcMapConversion`/`IfcProjectedCRS` on `libs/python/geometry/.planning/ifc/authoring.md`.
+- Capability: georeference truth becomes first-class evidence — extraction mints the CRS fact and authoring writes it back into the model.
+- Shape: one extraction projection minting CRS, local-to-map transform, and true north on `libs/python/geometry/.planning/ifc/analysis.md`, and one authoring verb row minting and updating `IfcMapConversion`/`IfcProjectedCRS` on `libs/python/geometry/.planning/ifc/authoring.md`.
+- Unlocks: IDEAS.md [IFC_GEOREFERENCE] — scan-vs-model in shared map frames, geo-data planes consuming one geometry-minted georeference fact instead of re-deriving it.
 - Anchors: pinned geolocation members from `[GEOREF_MEMBER_PIN]`; the authoring verb table; idea `[IFC_GEOREFERENCE]`.
 
 [NONRIGID_ARM]-[QUEUED]: land the non-rigid registration arm and the deformation split.
-- Capability: `probreg` CPD/FilterReg arm on the registration mode vocabulary returning a deformation-field carrier on `libs/python/geometry/.planning/scan/registration.md`; deviation projection splitting rigid residual from deformation magnitude on `libs/python/geometry/.planning/scan/deviation.md`.
-- Anchors: the `Cloud` array carrier crossing worker seams; the registration session shape; idea `[NONRIGID_DEFORMATION_TRACK]`.
-- Tension: assumes the `probreg` admission lands.
+- Capability: registration distinguishes construction deviation from structural deformation through a per-point deformation field.
+- Shape: one `probreg` CPD/FilterReg arm on the registration mode vocabulary returning a deformation-field carrier on `libs/python/geometry/.planning/scan/registration.md`, and a deviation projection splitting rigid residual from deformation magnitude on `libs/python/geometry/.planning/scan/deviation.md`.
+- Unlocks: IDEAS.md [NONRIGID_DEFORMATION_TRACK] — monitoring-grade evidence (settlement, deflection, bowing) from repeat scans, completing the registration family beside the global, coarse, and fine arms.
+- Anchors: the `Cloud` array carrier crossing worker seams; the registration session shape; the admitted root-manifest `probreg` row; idea `[NONRIGID_DEFORMATION_TRACK]`.
+- Tension: `probreg` rides an interpreter marker in the root manifest, so the arm's fences stay floor-gated like every native-gated provider.
 
 [FPS_DOWNSAMPLE_ROW]-[QUEUED]: land the farthest-point downsample policy row on ingestion.
-- Capability: `PointCloud.farthest_point_down_sample` as a geometry-uniform downsample row bounding the non-rigid arm's point budget on `libs/python/geometry/.planning/scan/ingestion.md`.
+- Capability: geometry-uniform downsampling bounds the non-rigid arm's point budget at ingestion.
+- Shape: one `PointCloud.farthest_point_down_sample` policy row on the ingestion filter-stage tables of `libs/python/geometry/.planning/scan/ingestion.md`, geometry-uniform downsample bounding the non-rigid arm's point budget.
+- Unlocks: IDEAS.md [NONRIGID_DEFORMATION_TRACK] — a bounded point budget for the non-rigid registration arm through geometry-uniform downsampling.
 - Anchors: `libs/python/geometry/.api/open3d.md` member row; the ingestion filter-stage tables; idea `[NONRIGID_DEFORMATION_TRACK]`.
 - Atomic: one policy row on the ingestion stage table.
 
 [TABULAR_ROUNDTRIP_VERBS]-[QUEUED]: land the spreadsheet exchange verb pair on the lifecycle owner.
-- Capability: `ifccsv` export and re-import verbs on `libs/python/geometry/.planning/ifc/costing.md`, selector-grammar scoped, with the re-import writing attribute and Pset edits back through the authoring rail.
-- Anchors: `ifccsv` round-trip; `ifc/selector` grammar; the costing partition vocabulary; idea `[LIFECYCLE_TABULAR_EXCHANGE]`.
-- Tension: assumes the `ifccsv` admission lands.
+- Capability: lifecycle tables round-trip to estimator spreadsheets and back through the authoring rail.
+- Shape: one `ifccsv` export/re-import verb pair on the lifecycle verb table of `libs/python/geometry/.planning/ifc/costing.md`, selector-grammar scoped, the re-import writing attribute and Pset edits back through the authoring rail.
+- Unlocks: IDEAS.md [LIFECYCLE_TABULAR_EXCHANGE] — estimator and scheduler workflows without a BIM authoring tool in the loop, completing the ifcopenshell exchange family beside `ifcdiff`, `ifcpatch`, `ifc4d`, and `ifc5d`.
+- Anchors: the admitted root-manifest `ifccsv` row; `ifc/selector` grammar; the costing partition vocabulary; idea `[LIFECYCLE_TABULAR_EXCHANGE]`.
 - Atomic: one verb pair on the lifecycle verb table.
 
-[TRACE_LINK_WIRE_PROBE]-[BLOCKED]: answer the trace-link wire-widening question.
-- Capability: verdict on widening `GeometryHandoff.wire()` with a W3C `traceparent` field and the compute co-ship that decodes it, unblocking `[EVIDENCE_TRACE_LINKS]`.
-- Anchors: compute `rasm.compute.graduation.handoff` decode owner; cross-libs `[UNIFIED_SIGNAL_FABRIC]` frozen-wire ruling; idea `[EVIDENCE_TRACE_LINKS]`.
-- Tension: blocker — the crossing is frozen wire data; resolution route is the compute handoff page and the cross-libs ruling, never a unilateral geometry widen.
+[ENERGY_GRAPH_TYPED_FAULTS]-[QUEUED]: energy and graph refusals join the typed fault vocabulary.
+- Capability: every domain refusal crosses the converting fence as a structured fault whose kwargs survive into the boundary fault.
+- Shape: `EnergyFault` and `GraphFault` structured cases replace the bare `ValueError` f-strings on `libs/python/geometry/.planning/energy/model.md`, `energy/district.md`, `energy/simulate.md`, and `graph/analytic.md`, matching the `BrepFault`/`QualityFault`/`RepairFault`/`DeviationFault` shape.
+- Unlocks: the typed-refusal ruling realized; the mesh pages' fence comment stops being contradicted by peers.
+- Anchors: the typed-refusal ruling at `libs/python/geometry/RULINGS.md`; the mesh fault classes; the `evidence_run` converting fence.
 
-[PULSE_DRAIN_PROBE]-[BLOCKED]: answer the parent-side streaming-drain question.
-- Capability: verdict on whether the runtime lane spine surfaces a mid-run drain — `pebble` map-iterator or pipe conduit — a worker kernel can pulse through, unblocking `[MID_OPERATION_PULSE]`.
-- Anchors: runtime `execution/lanes.md` lane surface; branch `libs/python/.api/pebble.md` member truth; idea `[MID_OPERATION_PULSE]`.
-- Tension: blocker — every candidate loop runs inside a HOSTILE worker kernel; without a parent-side drain no live span or hook registry is reachable mid-operation.
+[IFC_HEAD_FENCE_ALIGN]-[QUEUED]: every ifc capsule shares the one dispatch fence.
+- Capability: peer capsules fence identically — the contract guard sits on the dispatch seam and the public head stays bare.
+- Shape: the plain `@beartype` on `run` in `libs/python/geometry/.planning/ifc/analysis.md` is deleted, leaving `@beartype(conf=FAULT_CONF)` on `_dispatch` as structural and costing already hold.
+- Unlocks: the capsule-fencing ruling realized; one fence idiom across the ifc plane.
+- Anchors: the capsule-fencing ruling at `libs/python/geometry/RULINGS.md`; the peer `_dispatch` fences.
+- Atomic: one decorator deletion.
+
+[COST_BRACKET_COMPOSE]-[QUEUED]: evidence costing composes the substrate bracket.
+- Capability: geometry samples process cost through the one runtime owner instead of a folder-local psutil bracket.
+- Shape: `_sampled` and the `EvidenceCost.of` delta on `libs/python/geometry/.planning/graduation.md` compose runtime `Cost.sampled`/`Cost.delta`; the wall-clock `perf_counter` timing and the `rasm.geometry.evidence.*` charter names stay folder-local.
+- Unlocks: one honest-RSS band and one sampling fix point; the folder `_PROCESS` handle dies.
+- Anchors: runtime `Cost` on `libs/python/runtime/.planning/observability/receipts.md`; the substrate-bracket ruling at `libs/python/.planning/RULINGS.md`.
+- Atomic: one bracket substitution on one page.
+
+[CHARTER_UNIT_SINGLE_WRITER]-[QUEUED]: measure units stay single-writer at the instrument owner.
+- Capability: a measure's UCUM unit is authored once at the runtime instrument row, the geometry charter carrying only the aggregation and source-field vocabulary it uniquely owns.
+- Shape: `MeasureRow` on `libs/python/geometry/.planning/graduation.md` drops its `unit` column; charter consumers derive the unit from the runtime `INSTRUMENTS` row by measure name.
+- Unlocks: the estate single-writer measure law holds on the unit axis; the forced dual edit dies.
+- Anchors: `InstrumentSpec.unit` on `libs/python/runtime/.planning/observability/metrics.md`; the geometry charter growth law.
+- Ripple: follows `runtime` `[GEOMETRY_MEASURE_CHARTER]`.
+- Atomic: one column drop and one derivation.
+
+[ARCH_FLOOR_SENTENCE]-[QUEUED]: the codemap floor sentence matches the verb pages' caller-floor law.
+- Capability: the architecture codemap states the worker lanes carry only the genuinely long native phases, matching every verb page's caller-floor default.
+- Shape: one sentence tightening on `libs/python/geometry/ARCHITECTURE.md` — "the IFC core" narrows to the long native IFC phases behind function-local gates.
+- Unlocks: an isolated codemap read no longer implies whole-core offload the verb pages refuse.
+- Anchors: the caller-floor ruling at `libs/python/geometry/RULINGS.md`; the runtime-lane/worker-lane split sentence on the codemap.
+- Atomic: one sentence on one index page.
+
+[GMSH_REGISTRY_ALIGN]-[BLOCKED]: the gmsh registry tag flips when the compute generation arm lands.
+- Capability: the folder registry reflects gmsh's branch role truthfully — deferred for geometry consumption, admitted at the branch for compute generation.
+- Shape: one README registry row touch on `libs/python/geometry/README.md` re-annotating the gmsh row against the landed compute arm.
+- Unlocks: registry truth for the shared mesher across the two charters.
+- Anchors: the root-manifest `gmsh` row; the compute generation-arm card the flip follows.
+- Arms: the compute `generate` route lands on `libs/python/compute/.planning/solvers/mesh.md`.
+- Ripple: mirrors `compute` `[GMSH_GENERATE_ARM]`.
+- Atomic: one registry row annotation.
 
 [SCENE_DESCRIPTOR_DECODE]-[QUEUED]: land the descriptor decode fold on the energy plane.
 - Capability: decode rows mapping descriptor bands to their owners — `SunState` onto the climate solar vocabulary, light roster onto the model admission, GLB shading through the tessellation rail — with the daylight `RecipeName` rows joining the simulate shape.
 - Shape: rows on `libs/python/geometry/.planning/energy/simulate.md`, `libs/python/geometry/.planning/energy/climate.md`, and `libs/python/geometry/.planning/energy/model.md`.
+- Unlocks: IDEAS.md [DAYLIGHTING_SCENE_DESCRIPTOR] — closed-loop solar and daylight studies from the live Rhino scene, the estate scene-descriptor vocabulary gaining its first consumer.
 - Anchors: idea `[DAYLIGHTING_SCENE_DESCRIPTOR]`; the estate `[SCENE_DESCRIPTOR_SCHEMA]` schema pin as the field authority.
 
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[KERNEL_BENCH_LANE]-[COMPLETE]: landed as `GeometryServe.bench` over the whole `_tessellate` entry (`rasm.geometry.mesh.serve.tessellate`) with repair and brep `benched` folds over their `apply` crossings, every row riding graduation `bench_seam` with zero geometry instrument rows.
+[SCAN_BENCH_SUBJECTS]-[COMPLETE]: landed as `ScanRegistration.bench` and `ScanReconstruction.bench` keying `bench_seam` by mode/method and source point count (`...<mode>.p<points>`), whole-crossing rounds only.
+[COST_WEAVE_FOLD]-[COMPLETE]: landed as the `EvidenceCost` `psutil` `oneshot` bracket (`_sampled`/`EvidenceCost.of`) closed by `_priced` inside `evidence_run` on `libs/python/geometry/.planning/graduation.md` — span facts, charter record, and one cost receipt.
+[SPAN_SUBJECT_RENAME]-[COMPLETE]: landed as the `span.update_name(f"{operation}:{subject.value}")` arm inside graduation `_priced` on the cleared `GeometrySubject`-carrying value.
+[PROFILE_SUBJECT_MAP]-[DROPPED]: runtime `Kernel.of` and `traced_kernel` already project `Kernel.name` through `Profiles.phase` on `libs/python/runtime/.planning/execution/workers.md`; no geometry subject map is admitted.
+[CHARTER_MEASURE_TABLE]-[COMPLETE]: landed as `MeasureRow`/`UNIVERSAL_MEASURES`/`CHARTER` with `charter_of`/`charter_record` on `libs/python/geometry/.planning/graduation.md`, UCUM units and aggregations per row.
+[DISTRIBUTION_ROWS]-[COMPLETE]: geometry record calls landed — deviation `_distributed`, quality `_metrics_outcome`, simulate eui `charter_record` — all deriving spellings from the charter; the runtime `INSTRUMENTS` counterpart rows stay the metrics owner's deferral.
+[FRAME_SCHEMA_PORT]-[COMPLETE]: landed as the subject-keyed, content-keyed, numpy-backed `EvidenceFrame` carrier beside `wire()` on `libs/python/geometry/.planning/graduation.md`.
+[FRAME_PRODUCER_ROWS]-[COMPLETE]: landed as `frame` rows on deviation (`DeviationResult.frame`), quality (`QualityMetrics.frame`), structural (`SectionReceipt.frame`), costing (`LifecycleReceipt.frame`), the analytic `tabled` projection, and the features board `frame` composing it.
+[TRACE_LINK_WIRE_PROBE]-[COMPLETE]: verdict admitted — `GeometryHandoff.of`/`_trace`/`wire()` mint the optional `traceparent`/`tracestate`/baggage mapping on `libs/python/geometry/.planning/graduation.md`, and `_GeometryWire.trace`/`_linked` decode it on `libs/python/compute/.planning/graduation/handoff.md`; `[EVIDENCE_TRACE_LINKS]` closes against both fences.
+[PULSE_DRAIN_PROBE]-[COMPLETE]: verdict landed on `libs/python/runtime/.planning/execution/lanes.md` — `LanePolicy.pulses` owns the spawn-context manager queue, structured `drain` custody starts and closes the actor, `anyio.from_thread.run_sync` relays into the single-consumer `Hooks.fire` fold, and `pulsed` stays lossy; `[MID_OPERATION_PULSE]` closed against the landed `GeometryPulse` rows and kernel beats.

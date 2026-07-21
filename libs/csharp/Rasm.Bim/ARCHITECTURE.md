@@ -32,7 +32,8 @@ Rasm.Bim/
 │   ├── Export.cs          # Emit fold across scene, IFC, and subtree-availability bitstream
 │   ├── Tessellation.cs    # Compute tessellation-companion bridge
 │   ├── Reconstruct.cs     # Scan-to-BIM reconstruction over dual-engine LAS/LAZ ingest
-│   └── Wire.cs            # Host-free IFC interchange artifact the Python and TypeScript peers decode
+│   ├── Wire.cs            # Host-free IFC interchange artifact the Python and TypeScript peers decode
+│   └── Events.cs          # BimEvent model-mutation fact union and its CloudEvents envelope
 ├── Energy/                # Building-energy-model exchange
 │   ├── Exchange.cs        # Energy-op union apply over the exchange rail
 │   ├── Projector.cs       # Raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
@@ -58,7 +59,7 @@ Strata order the sub-domains under the acyclic law — every cross-stratum consu
 - S0 `Model` — settled vocabulary consuming no sibling: the `BimFault` band-2600 union, the `ElementPredicate`/`ElementSet` query algebra, the generated `IfcClass` roster, the `IfcRepresentation` content key, and the `BimHooks`/`BimTelemetry`/`BimBenchClaim` observability rail whose `BimFact` payloads carry closed-vocabulary KEY strings so no upper stratum type leaks down.
 - S1 `Semantics` — element-bound enrichment over the vocabulary: `MaterialProjection`, `QuantityDerivation`, the bSDD `ClassificationSystem` axis, and the `GeoModel` geospatial algebra.
 - S2 `Projection` — the seam arm composing model and semantics: `SemanticProjector : IElementProjection`, `IfcLegality : IGraphConstraint`, the Materials-implemented `IIfcTypeReconciler` port, and the folder-internal `IIfcProfileStore` capture the egress re-author reads.
-- S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, and the `TessellationRequest`/`TessellationOutcome` bridge.
+- S3 `Exchange` — the interchange codec over the projection arm: the `InterchangeFormat` axis, the `IfcWire` cross-runtime artifact, the `TessellationRequest`/`TessellationOutcome` bridge, and the `BimEvent`/`BimEnvelope` event fabric whose case slots carry closed-vocabulary KEY strings so the S4 mint sites project down.
 - S4 `Energy` + `Review` + `Planning` — delivery tier over everything below: `EnergyProjector` and `EnergyArtifact`; `IdsSpecification`, `ModelDiff`, and `IssueBoard`; `ScheduleNetwork` and `CostSchedule` — coordination reads the estimate and the schedule as same-stratum input with no return edge.
 
 ```mermaid
@@ -152,9 +153,11 @@ flowchart LR
     Model -->|"[PROJECTION]: BimOpenSchema"| Persistence
     Model -->|"[CONTENT_KEY]: RepresentationContentHash"| Persistence
     Exchange <-->|"[CONTENT_KEY]: ArtifactKey"| Persistence
+    Exchange -->|"[WIRE]: BimEvent"| Persistence
     Review <-->|"[CONTENT_KEY]: CommitKey"| Persistence
     Energy -->|"[CONTENT_KEY]: EnergyArtifact"| Persistence
     Planning <-->|"[WIRE]: TaskRelation"| Persistence
+    Semantics -->|"[WIRE]: GeoWire"| Persistence
 ```
 
 ```mermaid
@@ -192,20 +195,20 @@ flowchart LR
     Review -->|"[PORT]: IssueBoard"| AppUi
     Model -->|"[SHAPE]: BimHooks"| AppHost
     Model -->|"[RECEIPT]: BimBenchReceipt"| AppHost
+    Exchange -->|"[WIRE]: BimEvent"| AppHost
     Host -->|"[BOUNDARY]: GlobalId"| Exchange
-    Semantics <-->|"[WIRE]: GeoFeatureWkb"| Data
-    Review -->|"[WIRE]: BcfTopicWire"| Core
+    Semantics -->|"[WIRE]: GeoWire"| Data
     Exchange -->|"[WIRE]: IfcWire"| Core
-    Semantics -->|"[WIRE]: GeoFeatureWire"| Core
+    Semantics -->|"[WIRE]: GeoWire"| Core
     Review -->|"[WIRE]: BcfTopicWire"| Ui
     Review -->|"[WIRE]: BcfViewpointWire"| Ui
-    Semantics -->|"[WIRE]: GeoFeatureWire"| Ui
+    Semantics -->|"[WIRE]: GeoWire"| Ui
     Model <-->|"[WIRE]: PredicateWire"| Ui
     Model -->|"[WIRE]: GlobalIdSet"| Ui
     Review -->|"[WIRE]: ModelDiff"| Ui
 ```
 
-Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root (`Rasm.AppHost` composes the `BimHooks` rail per instance and admits the `Rasm.Bim` meter and source at its telemetry root), and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoFeatureWkb` is the frozen wire spelling of the `GeoFeature`-row WKB crossing the `GeoWkb` bridge encodes toward the Python data peer, and `GeoFeatureWire` the frozen spelling of the `GeoFeature` crossing the TypeScript peers decode; `GeoWire` stays the interior projection owner behind both.
+Two fences partition by counterpart role: the same-branch AEC peers with Compute and Persistence carry domain construction, analysis, and storage; the Python geometry and data runtimes, the TypeScript peers, the app shell, the app composition root (`Rasm.AppHost` composes the `BimHooks` rail per instance, admits the `Rasm.Bim` meter and source at its telemetry root, and binds the sealed `BimEvent` envelope onto its broker transports), and the host boundary carry cross-runtime wire, presentation, and host interchange. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind, and the owning pages enumerate the rest. `GeoWire` owns both `GeoFeature` wire projections — the GeoJSON text the Python and TypeScript peers decode and the GeoPackage blob the Persistence geo-store persists; `GeoWkb` stays the interior OGR-to-NTS bridge, never a seam wire.
 
 `[CONTENT_KEY]` edges are one canonical idiom, not per-page schemes: every page joining the federation, solver, cache, or diff lane derives a typed `UInt128` through the ONE kernel seed-zero hasher — `ContentHash.Of` over the seam `CanonicalWriter` fold — and the Compute content-addressing lane joins the same content space, never a downward `InterchangeIdentity` reference from Bim. A second scheme, a per-page hash, or a `Guid`-keyed join is the named cross-folder drift defect. Per-page key tuples and the pages carrying no parallel key live on the owning implementation pages.
 

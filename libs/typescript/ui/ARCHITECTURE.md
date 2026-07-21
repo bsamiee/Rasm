@@ -117,6 +117,7 @@ flowchart LR
     Bim e10@-->|"[WIRE]: BcfViewpointWire"| Viewer
     Bim e11@-->|"[WIRE]: DiffWire"| Viewer
     Bim e14@-->|"[WIRE]: GeoFeatureWire"| Viewer
+    System e15@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]

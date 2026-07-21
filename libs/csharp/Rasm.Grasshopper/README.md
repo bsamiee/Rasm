@@ -34,23 +34,24 @@ It references no sibling package, admitting the kernel only as a boundary contra
 - [19]-[WINDOWS](.planning/Eto/windows.md): `CommandDeck` mints command rows and folds lease-owned menus, closing window, dialog, picker construction.
 
 [PLATFORM]:
-- [20]-[COMPOSITION](.planning/Platform/composition.md): `Compose` materializes layers into leased mounts: drives, effects, Display-P3 wide-colour.
-- [21]-[HANDLERS](.planning/Platform/handlers.md): `Handlers` owns Eto handler seam: demand, widget-to-handler mint, frozen stylers, native embedding.
-- [22]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
+- [20]-[CAPTURE](.planning/Platform/capture.md): `SessionCapture` leases ScreenCaptureKit recording into stamped frame rings, proving paint claims.
+- [21]-[COMPOSITION](.planning/Platform/composition.md): `Compose` materializes layers into leased mounts: drives, effects, Display-P3 wide-colour.
+- [22]-[HANDLERS](.planning/Platform/handlers.md): `Handlers` owns Eto handler seam: demand, widget-to-handler mint, frozen stylers, native embedding.
+- [23]-[NATIVE](.planning/Platform/native.md): `MacGate` gates macOS AppKit touch: monitor and gesture leases, pressure restore, conversion, pacing.
 
 [SHELL]:
-- [23]-[CHROME](.planning/Shell/chrome.md): `Chrome` folds toolbar, input-panel, tooltip, floating-button intent onto GH2 chrome hosts through gate.
-- [24]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, mutates boolean posture, returns state, owns Rhino getter.
-- [25]-[EVENTS](.planning/Shell/events.md): `UiEvents` binds GH2 and Eto streams to typed fact cases, minting one leased subscription in sink order.
-- [26]-[HOOKS](.planning/Shell/hooks.md): `GhHooks` folds scoped subscribers through ruled veto/observe/replay points with fault isolation.
-- [27]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, filter chain, modalities, composing rasters into recency.
-- [28]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts and receipts into stamped per-document partitions with export.
-- [29]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts, bounding projections and keying session cache.
-- [30]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits meter and logger factories, folding receipt families into attributed instruments.
+- [24]-[CHROME](.planning/Shell/chrome.md): `Chrome` folds toolbar, input-panel, tooltip, floating-button intent onto GH2 chrome hosts through gate.
+- [25]-[EDITOR](.planning/Shell/editor.md): `EditorShell` projects chrome-pane slots, mutates boolean posture, returns state, owns Rhino getter.
+- [26]-[EVENTS](.planning/Shell/events.md): `UiEvents` binds GH2 and Eto streams to typed fact cases, minting one leased subscription in sink order.
+- [27]-[HOOKS](.planning/Shell/hooks.md): `GhHooks` folds scoped subscribers through ruled veto/observe/replay points with fault isolation.
+- [28]-[ICONS](.planning/Shell/icons.md): `IconOwner` admits host icon origins, keyed poses, filter chain, modalities, composing rasters into recency.
+- [29]-[JOURNAL](.planning/Shell/journal.md): `SessionJournal` folds drained facts and receipts into stamped per-document partitions with export.
+- [30]-[SESSION](.planning/Shell/session.md): `GhSession` closes session work and repaint receipts, bounding projections and keying session cache.
+- [31]-[TELEMETRY](.planning/Shell/telemetry.md): `GhTelemetry` admits factories and projects receipts into attributed instruments.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Host assemblies resolve from the installed Rhino application; folder `.api/` catalogues carry the Grasshopper2, Eto, and macOS-native admitted surfaces, and the Rhino carriers cross at the getter, styling, geometry-pin, and GH1-icon seams.
+Host assemblies resolve from the installed Rhino application; folder `.api/` catalogues carry the Grasshopper2, GrasshopperIO, RhinoCommon, Rhino.UI, Eto, and macOS-native admitted surfaces, so every fence member verifies against a folder catalog. `System.Drawing.Common` stays a compile-time GDI carrier folded into the GH1-icon boundary of `api-gh2-standard-components`, never a standalone catalog.
 
 [MANAGED_HOST]:
 - `Grasshopper2` — hosts the component, canvas, document, and solution surface

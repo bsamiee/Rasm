@@ -36,7 +36,7 @@ data/
 
 - S0 floor — independent mints, none importing a data sibling: `lane/postgres` guarantee rows and the shared profile-receipt band (`Pg.rows`, `Pg.Profile`), `lane/capability` the fail-closed rail (`Capability`) fed by argument, never import, `lane/cache` the latency rows (`CacheLane`), `journal/evolve` the upcast chains (`Upcast`), `read/live` the reactivity keys (`Live`).
 - S1 `lane/tenant` + `lane/sqlite` — `tenant` pins the tenancy write path over `Capability` and `Pg`; `sqlite` degrades the `Pg` contract through the grant-key type read and harvests query evidence into `Pg.Profile`, its one value read.
-- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps, mints the CloudEvents relay envelope, and owns the `Hook` point registry; `retain` ages and `fact` meters over `Journal` inside the wave, `retain` fanning its erase tombstone through `Hook`.
+- S2 `journal` — `append` commits journal, outbox, and idempotency in one transaction composing `Upcast`, `Tenancy`, and `Live` invalidation stamps, mints the CloudEvents relay envelope, and owns the core-brand `Hook` point vocabulary with its publisher port; `retain` ages and `fact` meters over `Journal` inside the wave, `retain` fanning its erase tombstone through `Hook`.
 - S3 `object` — every byte plane binds `Journal` custody under the one content identity: `store` roots, `stream`/`file`/`remote` compose it, `stream`/`file` tapping `Hook` at their admission seams, `remote` alone reaching `CacheLane`.
 - S4 `read` — consumption over everything below: `query`/`batch`/`search`/`fold` compose `Journal`, `ObjectStore`, `Live`, and the rails; `lane/olap` sits beside them composing `ObjectStore` and the `Pg.Profile` harvest band.
 
@@ -149,6 +149,8 @@ flowchart LR
     Core e21@-->|"[SHAPE]: Convention"| Cache
     Core e22@-->|"[SHAPE]: Convention"| Olap
     Append e23@-->|"[SHAPE]: Journal.envelope"| Runtime
+    Core e24@-->|"[SHAPE]: Tap.Point"| Append
+    Append e25@-->|"[SHAPE]: Tap.Registry"| Runtime
 ```
 
 ## [04]-[ORGANIZATION]

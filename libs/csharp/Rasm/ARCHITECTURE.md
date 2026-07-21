@@ -14,7 +14,7 @@ Rasm/
 │   ├── Normalization.cs     # Topology/kind taxonomy and coercion lattice
 │   ├── Evaluation.cs        # Closest-hit evaluation over frames, sampling, and signed distance
 │   ├── Stats.cs             # Scalar-metric statistics vocabulary
-│   └── Telemetry.cs         # Receipt-tap signal fabric, op-cost capsule, and bench-claim ledger
+│   └── Telemetry.cs         # Branch signal capsule, receipt-tap fabric, op-cost capsule, bench-claim ledger
 ├── Numerics/                # Exact-predicate floor and host-neutral-shaped numerics
 │   ├── Predicates.cs        # Exact geometric-predicate precision ladder
 │   ├── Faults.cs            # Consolidated band-2400 geometry fault family
@@ -246,7 +246,7 @@ flowchart LR
 
 Content-key edges federate one hasher: `Domain/Identity` mints the seed-zero `XxHash128` entry every partner composes, and `Spatial/Reconciliation` reproduces that seed byte-for-byte with the Python and TypeScript peers so one content space addresses across runtimes. A second hasher or a non-zero seed is the named cross-folder drift.
 
-Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Three invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency — and the signal fabric exits once: `TelemetrySink` is the kernel arm the AppHost `InstrumentFan` mounts by name (`rasm.kernel` meter, `rasm.rasm.<domain>` sources) while `BenchClaim` rows are the enumeration its corpus gate ingests.
+Each partner edge carries its load-bearing shape on the graph; the owning sub-domain page enumerates the rest. Three invariants the graph cannot show: `Meshing` shares one 2D/3D clearance family with the fabrication toolpath planner rather than crossing a second boundary for it, `Drawing` encodes geometry once — one payload delivered as `EncodedGeometry` to the sandbox host and wrapped as `EncodedTensor` for compute residency, its `PackSchema` columnar identity (`ContentHash`-derived id over field/dtype/stride/null rows) riding the same wire as the one schema authority storage adapters read — and the signal fabric exits once: `Domain/Telemetry` owns the branch's one OTel-free signal capsule — hook point, modality, registry, instrument row and set, buckets, level cells, receipt fan, contributor port, identity mint — every stratum composes downward as instances, `TelemetrySink` is the kernel's own first-consumer arm the AppHost fan admits by name (`rasm.kernel` meter, `rasm.rasm.<domain>` sources), and `BenchClaim` rows are the enumeration its corpus gate ingests.
 
 ## [04]-[NAMESPACES]
 

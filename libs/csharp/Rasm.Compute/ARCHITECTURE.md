@@ -40,7 +40,8 @@ Rasm.Compute/
 │   └── Uncertainty.cs     # Forward-UQ and reliability over the shared evaluate oracle
 ├── Stats/                 # Classical statistics, statistical learning, and DSP
 │   ├── Estimator.cs       # One Fit/Predict estimator axis across the statistical families
-│   └── Signal.cs          # Spectral-transform axis and filter design
+│   ├── Signal.cs          # Spectral-transform axis and filter design
+│   └── Monitor.cs         # Streaming monitor capsules, receipt-channel extraction, and the drift verdict
 ├── Runtime/               # Admit-to-receipt boundary plane
 │   ├── Admission.cs       # Typed intent admission with substrate axis and total dispatch
 │   ├── Scheduling.cs      # Bounded work-lanes and the dependency job-graph scheduler
@@ -71,7 +72,7 @@ Five strata order the seven sub-domains; `Runtime` seats lowest as the vocabular
 
 - S0 `Runtime` — mints the admit-to-receipt substrate exactly once: `ComputeIntent`, `ComputeReceipt`, `ComputeFault`, `WorkLane`, and the `Substrate` axis; every lane lands here.
 - S1 `Tensor` + `Symbolic` — peers over the substrate: `TensorOps`, `OrtResidency`, and the `LowDiscrepancy` sampler beside `QuantityFamily`, `DimensionMonomial`, and the `CompiledExpr` cache.
-- S2 `Model` + `Stats` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate beside the `EstimatorKind` fit axis and the spectral rail.
+- S2 `Model` + `Stats` — `ModelIdentity`, `ModelSessions`, and the `GraduationEnvelope` admission gate beside the `EstimatorKind` fit axis, the spectral rail, and the `StreamMonitor` capsule family.
 - S3 `Solver` — the discretize-solve-optimize-sweep spine: `MeshKernel`, `OptimizerKind`, `SweepLane`, the `ClashScale` collision fold, and the `DoeDataset` wire shape over tensors, symbols, surrogates, and estimators.
 - S4 `Analysis` — the discipline-assessment rail nothing composes: `AssessmentRoute`, `AssemblyAggregator`, and the `SolarPosition` kernel reading the `ElementGraph` upward and writing content-keyed deltas.
 
@@ -274,6 +275,8 @@ Seam graph carries which owner exchanges which shape; the load-bearing cross-bou
 - Design codes ride the `DesignCode`×`LimitState` capacity table.
 - `Analysis/daylight` consumes the kernel `Spatial.Apply(SpatialOp.Wire)` decoded scene as the app-staged `ObstructionScene` request payload — its content key folds the assessment content key so a re-shaded site re-keys — and site evidence is the EPW header or the request's explicit `SolarSite`, never a fabricated site.
 - `Runtime/receipts` descriptor and chargeback rows are data the `typescript:iac` compile leg consumes; Compute owns no IaC surface, and the tenant partition every ledger fold reads is the AppHost `TenantContext` stamped on the envelope, never a Compute-minted tenancy.
+- `Runtime/transport` decodes typed MQTT and NATS CloudEvents and preserves the W3C pair (MQTT from composition, NATS inline from `NatsMsg.Headers`), the NATS Core subscription pump draining `SubscribeAsync<byte[]>` onto `WorkLane.CaptureIngest`; the MQTT subscription pump and activity restoration remain catalog-blocked research.
+- `Runtime/codecs#ARROW_BATCH` builds the `DoeDataset`/`ChargebackDataset` columnar `RecordBatch` Compute produces; the Persistence `api-arrow` overlay carries it (IPC, LZ4/Zstd, ADBC, Flight-SQL) and the `Query/columnar` `Land` port redeems it — Compute holds one core `Apache.Arrow` reference and opens no Flight listener.
 
 ## [06]-[OWNER_LAW]
 

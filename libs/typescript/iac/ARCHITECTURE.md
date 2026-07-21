@@ -29,7 +29,7 @@ iac/
 - S0 `program/spec` + `program/automation` — the co-base pair: `StackSpec`/`StackOutputs` decode the one deploy value, `DeployFault`/`RunReceipt` rail every run; the two compose mutually (spec reads `DeployFault`, automation reads `StackSpec`) and nothing sits below them.
 - S1 `operate` + `program/source` — each composes the base alone: `secret`/`observe`/`cloud` read `Tier`, `policy` drives `Automation` receipts, `source` shells read `Tier`; no operate module imports an operate sibling.
 - S2 `kube` — the estate tiers realized over `Tier` rows; `traffic` alone adds a type-only `Certs` read on `operate/secret`, its issue verb injected partially applied.
-- S3 `program/provider` — the `_estate` composition sink: the capability-by-arm map pulls every kube and operate tier, `StackOutputs`, and `DeployFault`; nothing imports it.
+- S3 `program/provider` — the `_estate` composition sink: the capability-by-arm map pulls every kube and operate tier, `Source.distribute`, `StackOutputs`, and `DeployFault`; nothing imports it.
 
 ```mermaid
 ---
@@ -68,6 +68,7 @@ flowchart TB
     Provider e9@-->|"[IMPORT]: Workload"| Kube
     Provider e10@-->|"[IMPORT]: Traffic"| Traffic
     Provider e11@-->|"[IMPORT]: Lgtm"| Operate
+    Provider e12@-->|"[IMPORT]: Source"| Source
     S0 f1@-->|"forbidden: upward import"| S3
 ```
 
@@ -83,7 +84,7 @@ config:
 ---
 flowchart LR
     accTitle: IaC package seam registry
-    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, leased secrets, served-asset identities, and observability projections with the runtime, data, security, core, and ui packages, one labeled edge per contract family.
+    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, board packs, observability projections, and lease custody with runtime, data, core, and security packages, one labeled edge per landed contract family.
     subgraph iac[IAC]
         Program[Program plane]
         Operate[Operate plane]
@@ -91,20 +92,20 @@ flowchart LR
     end
     Runtime{{runtime}}
     Data[(data)]
-    Security([security])
     Core([core])
-    Ui([ui])
+    Security([security])
     Program e1@-->|"[PORT]: StackOutputs"| Runtime
     Data e2@-->|"[SHAPE]: Pg.rows"| Kube
     Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
     Runtime e4@-->|"[BOUNDARY]: Fanout.jetstream"| Kube
     Runtime e5@-->|"[SHAPE]: Setting.life"| Kube
-    Security e6@-->|"[BOUNDARY]: LeaseSpec"| Kube
     Core e7@-->|"[PROJECTION]: DashboardModel"| Operate
     Core e8@-->|"[PROJECTION]: Alert.Spec"| Operate
     Core e9@-->|"[PROJECTION]: Slo.Objective"| Operate
     Runtime e10@-->|"[TRANSPORT]: Export.live"| Program
-    Ui e11@-->|"[SHAPE]: ServedAsset.roster"| Program
+    Runtime e11@-->|"[TRANSPORT]: Profile.live"| Operate
+    Core e12@-->|"[SHAPE]: Tap.Point"| Program
+    Security e13@-->|"[BOUNDARY]: LeaseSpec"| Operate
 ```
 
 ## [04]-[ORGANIZATION]
@@ -115,6 +116,6 @@ One `StackSpec` decodes into an arm, and the arm realizer proves every spec coor
 
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
 - iac applies DDL and extensions; data verifies at startup, runtime never mutates schema, so divergence fails closed, never a pulumi read-back.
-- Object-engine vocabulary is `minio | ceph`; Garage carries no spelling, unable to honor an `If-None-Match: *` conditional put.
-- Viewer transcoder and engine wasm assets ship same-origin with the app shell: the ui served-asset roster is the sole identity source, each row realized on the static-distribution plane at the content-addressed immutable path `assets/<digest>/<file>` and sealed through the `served` output plane the ui `codec-absent` gate arms on; a foreign-CDN side-load stays a CSP breach.
-- No queue extension is provisioned; the data matrix carries none, and SKIP-LOCKED outbox statements with the runtime relay own the class.
+- Object-engine admission requires conditional-create semantics; `minio | ceph` are the conforming rows.
+- Static distribution publishes caller-owned artifact rows at `assets/<digest>/<file>` on the `served` output plane and carries no UI codec semantics.
+- Queue durability is the SKIP-LOCKED outbox with the runtime relay owned by the data and runtime planes.

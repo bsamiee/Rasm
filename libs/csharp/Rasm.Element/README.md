@@ -10,33 +10,34 @@ Every AEC peer projects its foreign source through `IElementProjection` and neve
 - [01]-[GRAPH](.planning/Graph/element.md): Property-graph spine — the frozen graph and the memoized `Bake` every consumer reads flat.
 - [02]-[DELTA](.planning/Graph/delta.md): Mutation algebra — the live working graph, the edge law, and the persistable `GraphDelta` body.
 - [03]-[WIRE](.planning/Graph/wire.md): `rasm.element.v1` content-key-preserving crossing every peer runtime decodes under the seam admission gate.
+- [04]-[CORPUS](.planning/Graph/corpus.md): Deterministic `GraphForge` model forge and the graded benchmark-and-parity corpus roster it anchors.
 
 [RELATIONS]:
-- [04]-[RELATION](.planning/Relations/relation.md): Neutral objectified-edge algebra and the sub-kind vocabularies the graph spine composes.
+- [05]-[RELATION](.planning/Relations/relation.md): Neutral objectified-edge algebra and the sub-kind vocabularies the graph spine composes.
 
 [CLASSIFICATION]:
-- [05]-[CLASSIFICATION](.planning/Classification/classification.md): Generic `Classification` system-and-code pair and the shared discipline axis.
+- [06]-[CLASSIFICATION](.planning/Classification/classification.md): Generic `Classification` system-and-code pair and the shared discipline axis.
 
 [PROPERTIES]:
-- [06]-[PROPERTY](.planning/Properties/property.md): Typed IFC-value vocabulary and the `InheritanceMode` type→occurrence precedence fold.
-- [07]-[QUANTITY](.planning/Properties/quantity.md): Seven-SI-exponent signature and the `MeasureValue` carrier with neutral uncertainty bounds.
+- [07]-[PROPERTY](.planning/Properties/property.md): Typed IFC-value vocabulary and the `InheritanceMode` type→occurrence precedence fold.
+- [08]-[QUANTITY](.planning/Properties/quantity.md): Seven-SI-exponent signature and the `MeasureValue` carrier with neutral uncertainty bounds.
 
 [COMPOSITION]:
-- [08]-[MATERIAL](.planning/Composition/material.md): `MaterialComposition` family and the discipline-keyed engineering-property rows.
-- [09]-[ACOUSTIC](.planning/Composition/acoustic.md): Banded acoustic carrier and the shared `RatingContour` single-number contour-fit kernel.
+- [09]-[MATERIAL](.planning/Composition/material.md): `MaterialComposition` family and the discipline-keyed engineering-property rows.
+- [10]-[ACOUSTIC](.planning/Composition/acoustic.md): Banded acoustic carrier and the shared `RatingContour` single-number contour-fit kernel.
 
 [ASSESSMENT]:
-- [10]-[ASSESSMENT](.planning/Assessment/assessment.md): Generic `AssessmentPayload` analysis receipt keyed by discipline, route, and input.
+- [11]-[ASSESSMENT](.planning/Assessment/assessment.md): Generic `AssessmentPayload` analysis receipt keyed by discipline, route, and input.
 
 [GEOSPATIAL]:
-- [11]-[COVERAGE](.planning/Geospatial/coverage.md): By-ref `CoverageGrid` raster and field descriptor over a band schema and affine grid.
-- [12]-[REFERENCE](.planning/Geospatial/reference.md): Map-conversion-and-CRS `GeoReference` record over the three-state projected-CRS identity.
+- [12]-[COVERAGE](.planning/Geospatial/coverage.md): By-ref `CoverageGrid` raster and field descriptor over a band schema and affine grid.
+- [13]-[REFERENCE](.planning/Geospatial/reference.md): Map-conversion-and-CRS `GeoReference` record over the three-state projected-CRS identity.
 
 [PROJECTION]:
-- [13]-[PROJECTION](.planning/Projection/projection.md): `IElementProjection` and graph-constraint floors and the assemble composition apps wire.
-- [14]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec and order-independent graph addressing over the kernel seed-zero hash.
-- [15]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry and the `ElementFault` union lowered onto the result rail.
-- [16]-[OBSERVE](.planning/Projection/observe.md): `ElementHookRail` typed graph-fact tap and the `GraphInstrument` meter-and-span projection off it.
+- [14]-[PROJECTION](.planning/Projection/projection.md): `IElementProjection` and graph-constraint floors and the assemble composition apps wire.
+- [15]-[ADDRESS](.planning/Projection/address.md): `ContentAddress` codec and order-independent graph addressing over the kernel seed-zero hash.
+- [16]-[FAULTS](.planning/Projection/fault.md): Cross-federation band registry and the `ElementFault` union lowered onto the result rail.
+- [17]-[OBSERVE](.planning/Projection/observe.md): `ElementHookRail` typed graph-fact tap and the `GraphInstrument` meter-and-span projection off it.
 
 ## [02]-[DOMAIN_PACKAGES]
 

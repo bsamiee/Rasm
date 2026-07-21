@@ -20,8 +20,6 @@ Package roots in strata order; each root README routes its own design pages.
 - [10]-[HOST-BOUNDARY]: [Rasm.Rhino](../Rasm.Rhino/README.md) — RhinoCommon + Eto host boundary; references only `Rasm`.
 - [11]-[HOST-BOUNDARY]: [Rasm.Grasshopper](../Rasm.Grasshopper/README.md) — GH2 + Eto host boundary; references only `Rasm`.
 
-Branch-level pages beside this router: [component-system.md](component-system.md) — the Element/Materials/Bim triad: thing model, projection seams, and the recipes for adding a family, section shape, IFC category, or property under one paradigm.
-
 ## [02]-[SUBSTRATE_PACKAGES]
 
 Cross-folder substrate every C# package composes; each folder README names the rows it consumes and its own domain additions, and `libs/csharp/.api/` holds the shared API evidence. Libraries emit telemetry through the in-box `System.Diagnostics` surface, so the OpenTelemetry SDK, exporter, and instrumentation train composes at app roots alone — those packages carry branch-tier catalogs without registry rows. Host SDK assemblies are not packages: `RhinoCommon` evidence homes at the branch tier catalogue-only because the kernel and both host-boundary folders compose one surface.

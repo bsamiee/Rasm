@@ -45,26 +45,27 @@ One intent rail admits every execution request once, a substrate axis routes it 
 [STATS]:
 - [29]-[ESTIMATOR](.planning/Stats/estimator.md): One Fit/Predict estimator axis across the statistical families.
 - [30]-[SIGNAL](.planning/Stats/signal.md): Spectral-transform axis and filter design.
+- [31]-[MONITOR](.planning/Stats/monitor.md): Streaming monitor capsules — EWMA limits, P² quantile sketch, detector rows, drift verdict.
 
 [RUNTIME]:
-- [31]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
-- [32]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
-- [33]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
-- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union, its instrument projection, the benchmark-claim table, the compute hook roster, the tenant cost ledger, and the dashboard-and-alert descriptor.
-- [35]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
-- [36]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
-- [37]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.
-- [38]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
+- [32]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
+- [33]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
+- [34]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
+- [35]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union projecting instruments, benchmarks, hooks, cost, alerts.
+- [36]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
+- [37]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
+- [38]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.
+- [39]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
 
 [ANALYSIS]:
-- [39]-[ASSESSMENT](.planning/Analysis/assessment.md): Lifecycle-aware assessment spine and reconciler.
-- [40]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
-- [41]-[STRUCTURAL](.planning/Analysis/structural.md): Frame solve and the design-code capacity table.
-- [42]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
-- [43]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
-- [44]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
-- [45]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
-- [46]-[DAYLIGHT](.planning/Analysis/daylight.md): Solar-position kernel and sky-model daylight rows.
+- [40]-[ASSESSMENT](.planning/Analysis/assessment.md): Lifecycle-aware assessment spine and reconciler.
+- [41]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
+- [42]-[STRUCTURAL](.planning/Analysis/structural.md): Frame solve and the design-code capacity table.
+- [43]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
+- [44]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
+- [45]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
+- [46]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
+- [47]-[DAYLIGHT](.planning/Analysis/daylight.md): Solar-position kernel and sky-model daylight rows.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -106,7 +107,10 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `SharpGLTF.Ext.3DTiles` — 3D Tiles egress extension.
 - `SharpGLTF.Toolkit` — mesh-building toolkit.
 - `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
-- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding twin sensor envelopes onto the `capture-ingest` lane.
+- `CloudNative.CloudEvents.Mqtt` — structured-mode CloudEvents MQTT binding decoding typed twin sensor envelopes; the capture lane accepts the result through its existing writer.
+- `MQTTnet` — MQTT v5 carrier beneath the admitted CloudEvents message decoder; subscription members remain catalog-blocked.
+- `NATS.Net` — NATS Core subscription seam for broker sensor ingest; `INatsClient.SubscribeAsync<byte[]>`, `NatsMsg.Data`, and `NatsHeaders` W3C lookup arm `BrokerChannels.Nats<T>` beside the MQTT adapter (folder-tier `api-nats` overlay).
+- `Apache.Arrow` — columnar-table construction seam projecting `DoeDataset`/`ChargebackDataset` into a self-describing `RecordBatch` for surrogate-training and billing egress; `RecordBatch.Builder`/`Schema.Builder`, the `PrimitiveArrayBuilder<T,…>` bulk-span appends, and per-lane `MemoryAllocator` arm `Runtime/codecs#ARROW_BATCH` (folder-tier `api-arrow` overlay; IPC/ADBC/Flight egress stays the Persistence overlay's).
 - `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
 - `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
 - `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.

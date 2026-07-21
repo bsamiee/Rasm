@@ -7,53 +7,18 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open task card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
-- Atomic: <present only on a minor-scope task; one short phrase naming the small unit so a later session does not overscope its turn>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+- Atomic: <present only on a minor-scope task; names the small unit so a later session sizes its turn>.
+Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic included; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Tasks state landing-grain work decomposing an idea.
 -->
-
-[SIGNAL_TAP_OWNER]-[ACTIVE]: Author the kernel signal owner — hook registry, instrument projection, and fault-band metrics on one new `Domain` page.
-- Capability: `libs/csharp/Rasm/.planning/Domain/telemetry.md` (`Domain/Telemetry.cs`) — typed hook registry with `rasm.rasm.<domain>.<point>` points and veto/observe/replay modalities, subscriber-fault isolation onto the `Fin` rail, receipt-fact taps, `rasm.kernel.<measure>` UCUM instruments minted through `IMeterFactory.Create(MeterOptions)`, per-namespace `ActivitySource` rows, and one band-2400 fault counter partitioned by `GeometryFault` case.
-- Shape: registry and instruments are instance-owned and composition-entered — no static registry, no ambient meter; instruments project receipt facts, never scatter emit calls into domain kernels.
-- Unlocks: `[KERNEL_SIGNAL_FABRIC]` — the kernel arm the branch `InstrumentFan` merges.
-- Anchors: `libs/csharp/.api/api-diagnostics-metrics.md` mint/create/write rows, `Domain/rails.md` fault-band and threading law, HANDOFF hook-rail law.
-
-[ENV_TELEMETRY_FIELD]-[QUEUED]: Thread the telemetry sink through the operation runtime.
-- Capability: `Env` gains the telemetry-sink field beside `Context`/`Progress`/`Cancellation`; `Analyze` scope builders accept it; `Domain/rails.md` threading law names the sink capsule so synchronous rails below the `Eff` floor stay explicit-parameter.
-- Shape: edits to `libs/csharp/Rasm/.planning/Analysis/query.md` (host-frozen `Env` record extension per its growth law) and `libs/csharp/Rasm/.planning/Domain/rails.md`.
-- Unlocks: `[KERNEL_SIGNAL_FABRIC]` runtime carriage without a second rail.
-- Anchors: `Analysis/query.md` growth row "a telemetry sink is one field on `Env`", positional Grasshopper construction noted as the frozen-shape ripple to re-verify.
-- Atomic: one `Env` field with its scope-builder and law rows.
-
-[OP_COST_CAPSULE]-[QUEUED]: Uniform op-cost evidence captured at the operation runtime.
-- Capability: elapsed time, allocated bytes, and iteration counts captured once at `Operation.Apply`/`Prepare` and projected as a cost fact per `Op` key through the signal tap — the kernel-side billing-truth feed app strata attribute to tenants.
-- Shape: a cost-capsule band on `libs/csharp/Rasm/.planning/Analysis/query.md` and its projection row on `libs/csharp/Rasm/.planning/Domain/telemetry.md`.
-- Unlocks: `[KERNEL_SIGNAL_FABRIC]` cost-attribution channel.
-- Anchors: `Analysis/query.md` `Apply` effect fold, `Domain/rails.md` `Op` value law.
-
-[BENCH_CLAIM_ROWS]-[QUEUED]: Mint the `BenchClaim` vocabulary and thread the three settled speed-gated lanes.
-- Capability: `BenchClaim` typed row (claim `Op` key, vectorized lane, reference lane, admission threshold) with its ledger fold on `libs/csharp/Rasm/.planning/Domain/telemetry.md`; claims threaded at the `libs/csharp/Rasm/.planning/Processing/decimate.md` Hausdorff `TensorPrimitives.Max` lane and the `libs/csharp/Rasm/.planning/Parametric/curve.md` / `libs/csharp/Rasm/.planning/Parametric/surface.md` tensor-reduction lanes, then one sweep for unregistered vectorized claims.
-- Shape: ledger rows beside the instrument bands — one signal owner, two evidence families.
-- Unlocks: `[BENCH_CLAIM_LEDGER]` — mechanical corpus-gate enumeration.
-- Anchors: `Processing/decimate.md` corpus-gate reference-row language.
-
-[PACK_SCHEMA_IDENTITY]-[QUEUED]: Schema-identity descriptors on the encoding owner.
-- Capability: `EncodedGeometry` descriptor band gains `ContentHash`-derived schema id, field names, dtype/stride, and null semantics so a consumer maps any kernel wire onto a columnar batch without out-of-band knowledge.
-- Shape: extension of the settled descriptor and `View<T>` seam on `libs/csharp/Rasm/.planning/Drawing/pack.md`.
-- Unlocks: `[COLUMNAR_WIRE_SCHEMA]` — the Persistence Arrow adapter reads one schema authority.
-- Anchors: `Drawing/pack.md` `[TENSOR_RESIDENCY_SEAM]`, `Domain/identity.md` deterministic derivation surface.
-
-[EVIDENCE_SERIALIZATION]-[QUEUED]: Lossless 106-bit evidence serialization rows.
-- Capability: receipt fields carrying `ddouble` evidence serialize through `DDoubleJsonConverter` on `JsonSerializerOptions` and round-trip binary through `DoubleDoubleIOExpand` — exact hi/lo preserved in support bundles and federation payloads.
-- Shape: a serialization band on `libs/csharp/Rasm/.planning/Drawing/pack.md` beside `EncodingKind`.
-- Unlocks: `[COLUMNAR_WIRE_SCHEMA]` evidence egress without precision loss.
-- Anchors: `libs/csharp/Rasm/.api/api-doubledouble.md` converter and binary I/O detail rows.
-- Atomic: two serialization rows on the settled encoding page.
 
 [ARRANGEMENT_CANCEL_THREAD]-[QUEUED]: Governance for the arrangement fold and the native scale lane.
 - Capability: `CancellationToken` and progress threaded through subdivision, classification, and weld per the synchronous-rail law; the tier-3 lane binds `manifold_execution_context`, `manifold_execution_context_cancel`, `manifold_execution_context_progress`, and `manifold_with_context`, with `MANIFOLD_CANCELLED` lowering onto the typed fault rail beside `NativeAssetMissing`.
@@ -110,10 +75,75 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: `[DRAWING_HATCH_PLANE]` — filled sheet drawings from the kernel wire.
 - Anchors: `Drawing/view.md` `Fill` routing `ArrangementOp.PlanarOverlay`, `Meshing/intersect.md` `SegmentSegment` crossings, `Parametric/patternmap.md` symmetry vocabulary.
 
+[CAPSULE_EXTENSION_MINTS]-[QUEUED]: Mint the four capsule extensions on the kernel signal owner — causal frame, package self-identity, instrument spec, burn-rate algebra.
+- Capability: the signal capsule carries every cross-stratum signal primitive the strata law homes at L1, so no emitting package types a twin.
+- Shape: four member bands on `libs/csharp/Rasm/.planning/Domain/telemetry.md` — `CorrelationId`/`TenantId`/`TenantContext`/`ReceiptEnvelope`/`ReceiptSinkPort` beside `TelemetryContributorPort`; the minted `TelemetrySource` package-identity rows beside the causal-frame band, foreign-source rows staying AppHost; `InstrumentSpec` with its kind roster and bind delegates beside `InstrumentRow`; the burn-window/objective carrier and burn fold beside `OpCost`.
+- Unlocks: IDEAS.md `[CAUSAL_FRAME_CAPSULE]`, `[INSTRUMENT_SPEC_CAPSULE]`, and `[BURN_RATE_CAPSULE]` — the folder compose tasks arm the moment these members land.
+- Anchors: `Domain/telemetry.md` capsule dependency law (BCL, LanguageExt, Thinktecture only); `libs/csharp/.planning/RULINGS.md` homing and collapse rows.
+- Ripple: precedes `Rasm.AppHost` `[CAPSULE_PORT_RETARGET]`, `Rasm.AppUi` `[SIGNAL_CAPSULE_COMPOSE]`, `Rasm.Compute` `[SIGNAL_CAPSULE_COMPOSE]`, `Rasm.Persistence` `[RECEIPT_PORT_KERNEL_TYPES]`, `Rasm.Fabrication` `[RECEIPT_PORT_KERNEL_TYPES]`.
+
+[QUANTILE_SEAM_AWARENESS]-[QUEUED]: Kernel quantile prose scopes its anticipated sketch to geometry samples.
+- Capability: the stats page's anticipated P² policy row names its geometry-sample scope and the realized operational sibling, so a sweep never reads the two as one owner.
+- Shape: one clause on `libs/csharp/Rasm/.planning/Domain/stats.md` scoping the `Distribution.Of` sketch row and citing the Compute `StreamMonitor.Quantile` operational owner.
+- Unlocks: the branch three-formed quantile refusal holds with zero mutually-unaware prose.
+- Anchors: `libs/csharp/.planning/RULINGS.md` streaming-quantile row; `Rasm.Compute` `Stats/monitor.md` P² lane.
+- Ripple: mirrors `Rasm.Compute` `[QUANTILE_SEAM_AWARENESS]`.
+- Atomic: one clause.
+
+[FLAT_INDEX_DELEGATION]-[QUEUED]: Collapse the three packed-upper formula copies onto the promoted `FlatIndex` owner.
+- Capability: one member mints triangular addressing; producers delegate, and layout drift becomes unrepresentable.
+- Shape: `libs/csharp/Rasm/.planning/Numerics/matrix.md` `FlatIndex` `private` to `internal`; `libs/csharp/Rasm/.planning/Domain/stats.md` indexer delegates; `libs/csharp/Rasm/.planning/Solving/solver.md` `Lm.PackedIndex` delegates with its checked `long` widening kept at the call boundary.
+- Unlocks: IDEAS.md `[TRIANGULAR_ADDRESS_OWNER]` — drift-proof addressing across spectral and solver consumers.
+- Anchors: `RULINGS.md` packed-upper rows; `solver.md` mirror-law boundary.
+- Atomic: three page edits, zero behavior change.
+
+[NEWELL_FOLD_COLLAPSE]-[QUEUED]: Land the floor Newell owner and compose it at every ring and panel site.
+- Capability: one orientation-true fold serves every inexact polygon-normal read.
+- Shape: one member on `libs/csharp/Rasm/.planning/Numerics/atoms.md`; `libs/csharp/Rasm/.planning/Spatial/neighbors.md` deletes its local `NewellNormal` and composes; `libs/csharp/Rasm/.planning/Parametric/panelize.md` composes; `libs/csharp/Rasm/.planning/Numerics/predicates.md` gains the derives-from note on its exact carrier.
+- Unlocks: IDEAS.md `[POLYGON_NORMAL_OWNER]` — the floor owner realized.
+- Anchors: `predicates.md` Newell fence as the reference fold; `RULINGS.md` Newell-owner row.
+
+[MOMENT_HANDOFF_PROSE]-[QUEUED]: State the no-repack covariance handoff at the moment owner.
+- Capability: consumer prose matches the layout contract — a direct packed-triangle handoff, never an unpack.
+- Shape: one sentence repair in `libs/csharp/Rasm/.planning/Domain/stats.md` `[MOMENT_OWNERSHIP]` — `CloudKernel` hands the packed upper triangle straight to `SymmetricMatrix.Of` under the shared layout, no repack.
+- Unlocks: IDEAS.md `[TRIANGULAR_ADDRESS_OWNER]` — prose stops contradicting the contract the delegation enforces.
+- Anchors: `RULINGS.md` packed-upper layout row; `Spatial/cloud.md` `CovarianceOf` fence.
+- Atomic: one sentence.
+
+[PROJECT_SEQ_COLLAPSE]-[QUEUED]: Route the cloud sequence projections through the one sanctioned dispatch site.
+- Capability: type-directed projection dispatch keeps its single owner; consumer-local reflection branches stay deleted forms.
+- Shape: `libs/csharp/Rasm/.planning/Spatial/cloud.md` `[03]` — the `Seq<Vector3d>`/`Seq<double>`/`Seq<Plane>` arms route through `AtomProjection.Values<TItem, TOut>` and the private `ProjectSeq` helper deletes.
+- Unlocks: `Numerics/atoms.md` `[05]` one-dispatch-site law holds corpus-wide with zero adapters.
+- Anchors: `atoms.md` `Values` sequence-acceptance case; the `Output`-gate equivalence already proven at the call site.
+- Atomic: one dispatch rewrite, one helper deletion.
+
+[ENV_TELEMETRY_FIELD]-[BLOCKED]: `Env.Telemetry` projections settle on the analysis runtime.
+- Capability: `EnvAsks`/`Asks`/`Taps` projections over the complete `Env.Telemetry` target — runtime capability reads with no service location.
+- Shape: settled projection fences on `libs/csharp/Rasm/.planning/Analysis/query.md` `[03]-[OPERATION_RUNTIME_RESEARCH]`.
+- Unlocks: `[KERNEL_SIGNAL_FABRIC]` — analysis pipelines read telemetry capability through the runtime record.
+- Anchors: `Analysis/query.md` `Env` capsule; `libs/csharp/.api/api-languageext.md` runtime rows.
+- Arms: `api-languageext.md` admits `public static Eff<RT, RT> runtime<RT>()`; until then the projections stay research.
+
+[OP_COST_CAPSULE]-[BLOCKED]: Two-exit cost charge settles onto `Operation.Apply`.
+- Capability: the two-exit charge composing the settled `[04]` `CostMark`/`OpCost` capsule onto `Operation.Apply` — success and failure exits both charge cost evidence.
+- Shape: a settled `Operation.Apply` fence on `libs/csharp/Rasm/.planning/Analysis/query.md`.
+- Unlocks: `[KERNEL_SIGNAL_FABRIC]` — cost evidence rides every operation exit.
+- Anchors: `Domain/telemetry.md` `[04]` cost capsule; `libs/csharp/.api/api-languageext.md` runtime rows.
+- Arms: `api-languageext.md` admits `public static Eff<RT, RT> runtime<RT>()`; until then the charge stays research code.
+
+[EVIDENCE_SERIALIZATION]-[BLOCKED]: Frozen JSON identity settles beside the exact binary evidence blocks.
+- Capability: the frozen `DDoubleJsonConverter` options identity joining the settled count-prefixed exact hi/lo `EvidenceWire.WriteBlock`/`ReadBlock` binary blocks.
+- Shape: one static sealed identity row on `libs/csharp/Rasm/.planning/Drawing/pack.md`.
+- Unlocks: `[COLUMNAR_WIRE_SCHEMA]` — wire consumers verify against a sealed contract identity.
+- Anchors: `Drawing/pack.md` schema-and-evidence law; `libs/csharp/.api/api-system-text-json.md` options rows.
+- Arms: `api-system-text-json.md` admits `public void JsonSerializerOptions.MakeReadOnly()`; until then the frozen identity stays research.
+
 ## [02]-[CLOSED]
 
 <!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[BENCH_CLAIM_ROWS]-[COMPLETE]: landed as `Domain/telemetry.md` `[05]-[BENCH_LEDGER]` with the four registered rows — `Simplify.HausdorffClaim`, `Parametric.FrameDefectClaim`, `Surfaces.CurvatureSummaryClaim`, `Flatten.DistortionClaim`.
+[PACK_SCHEMA_IDENTITY]-[COMPLETE]: `Drawing/pack.md` `[03]-[SCHEMA_AND_EVIDENCE]` derives the `ContentHash` id from kind and field rows, validates id recomputation, stride/null rows, and the declaration roster, then gates `Describes` on valid schema and geometry carriers.
+[SIGNAL_TAP_OWNER]-[COMPLETE]: `SpanBand` settled at `Domain/telemetry.md` `[04]-[SIGNAL_TAP]` — one `ActivitySource` per `KernelDomain` row, `Traced` the rail-valued bracket — with the activity family catalogued at `libs/csharp/.api/api-diagnostics-activity.md`.

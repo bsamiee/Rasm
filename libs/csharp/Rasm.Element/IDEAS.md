@@ -7,18 +7,21 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
 [QUANTITY_BAG_GROUP_AXIS]-[QUEUED]: Carry the complex-quantity grouping identity on `QuantityBag` — the group axis the IFC `IfcPhysicalComplexQuantity` round-trip needs.
 - Capability: a quantity row can belong to a named group with `Discrimination`/`Quality`/`Usage` identity strings, so grouped takeoffs survive the graph identity-lossless, not merely value-lossless under dot-path prefixes.
-- Shape: one group-axis carrier on `ValueBag<V>` in `libs/csharp/Rasm.Element/.planning/Properties/property.md` (a group row or per-row group column), threaded through the `quantitySet` canonical-bytes arm in `libs/csharp/Rasm.Element/.planning/Graph/element.md` and the seam `Bake` merge; the `QuantityBagWire` column lands at the wire unfreeze in `libs/csharp/Rasm.Element/.planning/Graph/wire.md`.
+- Shape: one group-axis carrier on `ValueBag<V>` in `libs/csharp/Rasm.Element/.planning/Properties/property.md` (a group row or per-row group column), threaded through the `quantitySet` canonical-bytes arm in `libs/csharp/Rasm.Element/.planning/Graph/element.md` and the seam `Bake` merge; the `QuantityBagWire` column lands as one append-only numbered field under the `libs/csharp/Rasm.Element/.planning/Graph/wire.md` contract-evolution law.
 - Unlocks: the Bim projector stamps grouping identity at ingest and the egress rebuilds nested complex quantities; QTO consumers select by group.
 - Anchors: `Rasm.Bim` `Projection/semantic` `FlattenQuantities` already recurses value-lossless and names this as its one residual row; the bag's 4-column ValueBag shape admits an additive axis.
 - Tension: the column ripples the counted-bag canonical-bytes injectivity law, the frozen wire, and the `Bake` merge — a seam-owner design addition, never a consumer-side patch.
@@ -31,12 +34,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `ElementGraph` frozen snapshot + incidence index; `NodeId` regime keeps rooted ids globally unique (Guid-v7 / content-hash).
 - Tension: blocked on one answerable question — does `Federate` take a caller-supplied coordination `Header` (per-source headers demoted to provenance) or carry a per-source `Header` roster on the federated graph? Route: user interview over the `Header.CanonicalBytes` semantic identity, with the mixed-`Tolerance` case pinned first (tolerance-quantized measure bytes fork content keys across sources).
 
-[OBSERVATION_SERIES]-[BLOCKED]: A monitored/measured time-series evidence modality beside the computed assessment receipt — the operating-asset record the model keeps past handover.
+[OBSERVATION_SERIES]-[QUEUED]: A monitored/measured time-series evidence modality beside the computed assessment receipt — the operating-asset record the model keeps past handover.
 - Capability: sensor telemetry (temperature, humidity, energy meters, structural-health strain, occupancy) attaches to the elements it observes as typed observation-series evidence, so measured data folds into the same `Bake` read, diffs under the same merge, crosses the same wire, and the commissioning comparison (declared U-value vs metered heat flux, predicted vs metered energy) is a graph query, never an external historian join.
 - Shape: one new `Node` case (`Observation`) wrapping a series descriptor — observed `QuantityType` token, sampling cadence and observation `Interval` (NodaTime), sensor provenance, and a content-keyed series blob — attached through the existing `Assign` algebra as one `AssignKind` row, the descriptor's `CanonicalBytes` co-located on the payload per the `AssessmentPayload` discipline; descriptor page lands as `libs/csharp/Rasm.Element/.planning/Assessment/observation.md` beside case/row/arm edits in `libs/csharp/Rasm.Element/.planning/Graph/element.md`, `libs/csharp/Rasm.Element/.planning/Relations/relation.md`, and `libs/csharp/Rasm.Element/.planning/Graph/wire.md`.
 - Unlocks: the digital-twin/commissioning lane over the one graph spine; `Rasm.Compute` computed-vs-measured comparison routes reading both evidence kinds off one baked element.
-- Anchors: the by-reference heavy-payload pattern is proven twice (`Geospatial/coverage` `RasterKey`, `Assessment/assessment` `ResultBlob`); NodaTime is admitted substrate; `LegalAssign` and `Bake` each grow by one row/arm.
-- Tension: blocked on one answerable question — which campaign event unfreezes the `rasm.element.v1` `NodeWire` oneof for new arms? Route: the `Graph/wire.md` descriptor-gate law and the wire-freeze ruling that already queues the `MaterialWire` and `ObjectType` column adds; a seam-only landing before that event strands the node at every crossing.
+- Anchors: the by-reference heavy-payload pattern is proven twice (`Geospatial/coverage` `RasterKey`, `Assessment/assessment` `ResultBlob`); NodaTime is admitted substrate; `LegalAssign` and `Bake` each grow by one row/arm; a new `NodeWire` oneof arm is additive under the `Graph/wire.md` contract-evolution law, so the wire crossing lands with the node case.
 
 [REDACTION_SCOPED_EGRESS]-[BLOCKED]: Sensitivity-classed wire egress — share the model, withhold the commercial and personal columns.
 - Capability: partner-scoped exchange as a first-class egress mode — one model, N lawful projections: unit costs and lifecycle rates (commercial secrets), `OwnerHistory`/`Provenance` authors (GDPR-class personal data), and supplier-confidential EPD references cross only to the peers a policy admits, the redaction typed and auditable instead of a per-deal hand-stripped copy.
@@ -44,24 +46,6 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: lawful federation-partner deliverables and discipline packages off one stored model; the redaction substrate catalog earns its Element consumer.
 - Anchors: `Encode` is the one egress fold every crossing takes; proto3 presence semantics already model absence; the `Object` canonical bytes already exclude `OwnerHistory`, so that column redacts identity-inert.
 - Tension: blocked on one answerable question — does a redacted crossing preserve source content keys (the peer's `ContentAddress.Verify` re-hash fails on redacted nodes, so the decode gate must expect `AddressUnstable`) or re-derive them over the redacted bytes (forking identity off the source model)? Route: user interview and a parity-corpus design pass over the `Projection/address` `Verify` dual and the `Graph/wire` decode gates; classified columns that FOLD into node ids (`MaterialPropertySet.CaseBytes` writes the EPD `PropertyEvidence`) are the cases the ruling must cover.
-
-[ELEMENT_HOOK_RAIL]-[QUEUED]: Typed graph-fact tap — one `rasm.element.<domain>.<point>` hook registry every seam lifecycle fact flows through, telemetry-as-tap and app-neutral.
-- Capability: domain facts (delta applied, snapshot frozen, bake computed, projection assembled, constraint finding graded, wire decoded) publish as typed fact records through one registry with observe/veto modalities and subscriber-fault isolation onto the `ElementFault` rail, so observability subscribes to facts and no emit-call scatters into graph code.
-- Shape: one registry value the app composition root mints (the `ProjectionSuite.Of` minting precedent, never a process-global), point rows keyed `rasm.element.<domain>.<point>`, each fact a typed record carrying the `Op` key, the graph or delta `ContentAddress`, and the point payload; lands in `libs/csharp/Rasm.Element/.planning/Projection/observe.md` (new page beside `projection.md`).
-- Unlocks: the instrument projection, replay/audit consumers, and AppUi live-model listeners all ride one tap; two apps composing the seam never fight over hook points.
-- Anchors: estate hook-rail law (veto/observe/replay, fault isolation, telemetry-as-tap); `ProjectionSuite` registration shape; `ElementFault` band 2500; kernel `Op`.
-
-[GRAPH_INSTRUMENT_PROJECTION]-[QUEUED]: Meter and ActivitySource projection off the fact tap — `rasm.element.*` instruments and spans with zero OTel reference at seam altitude.
-- Capability: graph operations surface as instruments — `Bake` duration and memo-hit histograms, delta magnitude counters off `GraphDelta` `NodeCount`/`EdgeCount`, wire encode/decode size and duration, constraint findings by `ConstraintSeverity`, assessment outcomes by `Discipline`/`AnalysisRoute` — and `ActivitySource` spans for `Bake`/`Assemble`/`DecodeGraph`, dimensions bounded to the seam's closed vocabularies so cost attribution and span-profile correlation join downstream without cardinality blowups.
-- Shape: one projection subscribing the `[ELEMENT_HOOK_RAIL]` tap, meters minted through an injected `IMeterFactory` (per-app and per-ALC neutral), UCUM `rasm.element.<domain>.<measure>` names per the estate wire law; lands in `libs/csharp/Rasm.Element/.planning/Projection/observe.md`.
-- Unlocks: model-health dashboards, span-profile correlation at the app tier, cost attribution by discipline/route/model key, and the AppHost `InstrumentFan` Element arm.
-- Anchors: `libs/csharp/.api/api-diagnostics-metrics.md` (`IMeterFactory`, `Meter.CreateHistogram`, `Histogram<T>`); estate altitude law (BCL Meter/ActivitySource at library altitude, SDK at the composition root); `AssessmentOutcome`/`ConstraintSeverity`/`Discipline` bounded vocabularies.
-
-[DELTA_EVENT_ENVELOPE]-[QUEUED]: Transport-neutral event envelope for every graph crossing — one seam-declared attribute vocabulary any broker lane carries.
-- Capability: a `GraphDeltaWire`/`ElementGraphWire` crossing carries a typed envelope — closed event-type token (`rasm.element.graphdelta.v1` / `rasm.element.graph.v1`), source identity, subject = the delta or snapshot `ContentAddress`, occurrence `Instant`, and a W3C traceparent/tracestate slot — CloudEvents-aligned, so Kafka/NATS/MQTT/CloudEvents lanes at the peer tier publish deltas without re-inventing metadata and a streaming consumer folds `WriteDelimitedTo` frames with per-event identity and content-key dedup.
-- Shape: one envelope record and the closed event-type token vocabulary beside `WireLimits` in `libs/csharp/Rasm.Element/.planning/Graph/wire.md`; the traceparent slot is a data field an app-tier propagator fills — the seam references no OTel.
-- Unlocks: Persistence outbox/broker publication, cross-runtime delta streaming with dedup by envelope subject, trace continuity across every graph crossing.
-- Anchors: `GraphDelta.ToCanonicalBytes` order-independent content key (the dedup subject); CloudEvents distributed-tracing extension law on the estate transport axis; `NodaTime.Serialization.Protobuf` instant crossing.
 
 [ANALYTIC_TABLE_PROJECTION]-[QUEUED]: Columnar table projection of the baked model — the SQL/analytics egress every QTO, cost, and dashboard consumer reads without re-folding the graph.
 - Capability: one flatten fold projects a frozen `ElementGraph` into typed row families — element rows (id, kind, classification, predefined type, type binding), property/quantity rows (set name, property name, SI magnitude, `QuantityType` token, dimension exponents), material/edge rows, assessment rows (discipline, route, outcome, elapsed) — every row carrying the snapshot `ContentAddress` so an analytic result pins its exact model version.
@@ -75,18 +59,22 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Unlocks: model-health dashboards, delivery gates (completeness thresholds per milestone), and the quality feed the instrument projection publishes.
 - Anchors: `ObjectNodes`/`MaterialsOf`/`PropertiesOf` accessors; `AssessmentOutcome` behavior columns; `Verify(ElementGraph)` accumulating sweep; `ConstraintSeverity`.
 
-[SYNTHETIC_GRAPH_FORGE]-[QUEUED]: Deterministic parameterized model forge — one seeded generator family feeding benchmarks, property specs, and the cross-runtime parity corpus.
-- Capability: seeded, size-graded synthetic `ElementGraph` generation (node count, edge density, bag width, discipline mix, composition depth as parameters) with deterministic rooted ids and content keys, so a benchmark, a CsCheck property, and a parity vector all pull the same model at any scale and a regression pins its exact input by seed and parameters.
-- Shape: generator parameterization and the graded corpus roster (size rows with seeds and expected snapshot `ContentAddress`) in `libs/csharp/Rasm.Element/.planning/Graph/corpus.md` (new page); BenchmarkDotNet corpus-gate rows over `Bake`/`Freeze`/`ToCanonicalBytes`/`Encode`/`DecodeGraph` and the parity vectors consume it from the tests estate.
-- Unlocks: the benchmarking axis for the graph kernel hot paths, byte-for-byte cross-runtime parity anchors for the python/TS decoders, load-graded profiling scenarios.
-- Anchors: `ElementGraph.Of`/`Genesis` mint entries; deterministic id minting through a seeded Guid stream in place of `NodeId.Rooted`'s random Guid-v7; estate BenchmarkReceipt family and corpus gate.
+[READER_ROW_CUSTODY]-[QUEUED]: Single-owner key space for the seam property bags — reader rows enter by owner provision, never call-site mints.
+- Capability: every bag row name a writer stamps or a reader keys resolves to an owner-declared static or an owner-blessed reader-local category, so a spelling fork between non-referencing packages becomes uncompilable.
+- Shape: a reader-provision band on `libs/csharp/Rasm.Element/.planning/Properties/property.md` — the structural wire-name statics declared, the reader-local category blessed, and the associated-material-grade boundary restated to distinguish the element-own EXPRESS token it admits.
+- Unlocks: `Rasm.Bim` ingest rows and `Rasm.Compute` analysis reads key one vocabulary; the `SteelGrade` writer/owner contradiction dissolves at its root.
+- Anchors: `libs/csharp/.planning/RULINGS.md` seam-bag custody row; the `DetailSchema` accumulating `Of` admission law; `PropertyName` owner statics.
+- Ripple: `[DETAIL_SCHEMA_READER_PROVISION]` decomposes this.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
+[ELEMENT_HOOK_RAIL]-[COMPLETE]: `Projection/observe#HOOK_RAIL` lands `HookPoint`/`ElementFact`/`ElementHookRail`/`ElementTap` — the minted point-roster composition over the kernel point capsule, veto fold first, subscriber faults parking as `IsolatedFault` rows read through `TapFaults`.
+[GRAPH_INSTRUMENT_PROJECTION]-[COMPLETE]: `Projection/observe#INSTRUMENT_PROJECTION` lands `ElementInstruments.Rows` as kernel `InstrumentRow` declarations and the `GraphInstrument` `Mount`/`AsTap`/`Traced` capsule minted through the kernel identity entry off the injected `IMeterFactory`, beside the contributor-port mint.
+[DELTA_EVENT_ENVELOPE]-[COMPLETE]: `Graph/wire#EVENT_ENVELOPE` lands `GraphEventType` and the CloudEvents-aligned `GraphEventEnvelope` with content-key subject dedup and the W3C trace slots.
+[SYNTHETIC_GRAPH_FORGE]-[COMPLETE]: `Graph/corpus` lands `CorpusProfile`/`GraphForge` seeded deterministic generation and the graded `CorpusGrade`/`CorpusOp`/`CorpusGate` roster.
 [UNIT_SCHEME_BIM_COUNTERPART]-[COMPLETE]: `Graph/wire` `HeaderWire.unit_scheme = 7` carries the `Header.Units` scheme with the Mapper transcription both ways; both Bim ends compose it.
-
 [CONNECTION_INTERFACE_GEOMETRY_DECODE]-[COMPLETE]: seam half whole — `Connect.Interface` rides `CanonicalBytes` and the wire and decodes through the one `GeometrySource.ResolveFootprint` leg; the Bim lowering and egress ride the `Rasm.Bim` counterpart card.

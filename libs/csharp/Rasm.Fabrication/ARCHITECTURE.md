@@ -36,9 +36,10 @@ Rasm.Fabrication/
 │   ├── Wire.cs              # Wire-EDM demand: closed cycle, registered guides, wire bow, retention, recovery, simultaneous blocks
 │   ├── Link.cs              # Precedence-aware closed tour, tool/setup-aware objective, volumetric keepouts, guarded segment routing
 │   └── Bevel.cs             # Station-varying section law, thermal/abrasive head compensation, coupled THC pass evidence
-├── Kinematics/              # Motion topology and the fleet registry
+├── Kinematics/              # Motion topology, the decoded observation slice, and the fleet registry
 │   ├── Cell.cs              # Robot targets, placement optimization over one loaded cell, compilation, library, and controller boundaries
 │   ├── Machine.cs           # Parameterized machine-chain inverse by bounded least squares, TCP/RTCP, continuity, and motion dynamics
+│   ├── Observation.cs       # MachineObservation decoded-telemetry union, execution and condition vocabularies, and the machine-scoped window
 │   └── Fleet.cs             # Typed shop-capability, availability, tooling-state, and measured-performance registry
 ├── Additive/                # Production 3DP
 │   ├── Slicing.cs           # FFF/DED planar slicing and the deposition-seed modality roster
@@ -90,7 +91,7 @@ Sub-domain dependencies are acyclic. Split packages declare ledger nodes without
 Six strata order the sub-domains; split-package ledger nodes preserve one direction: `Process` places atoms at the floor and `Derivation` beside the CAM plane, while `Kinematics` places motion at S1 and its consuming fleet at S3. `Verify` parses the `CutProgram` AST `Posting` emits as a same-stratum fact; every cross-stratum consumption edge points down.
 
 - S0 `Process` atoms — the one vocabulary floor: `FabricationPolicy`, `FabricationResult`, `EgressKind`, `ContentKey`, `Move`, `MotionDirective`, `SpecializedToolpathEnvelope`, `Loop`, `MaterialSpec`, `ProcessRange`, `EquipmentEnvelope`, and `FabricationFault`; every plane reads it, and it reads no sibling.
-- S1 `Geometry2D` + `Ingress` + `Kinematics` motion — substrate lanes over the atoms alone: `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`; the `Ingress.Admit` fold and `AdmittedGeometry`; `MachineTool`, `MachineKinematics`, and `RobotProgram`.
+- S1 `Geometry2D` + `Ingress` + `Kinematics` motion and observation — substrate lanes over the atoms alone: `PolygonAlgebra`, `ArcAlgebra`, and `CurveAlgebra`; the `Ingress.Admit` fold and `AdmittedGeometry`; `MachineTool`, `MachineKinematics`, `RobotProgram`, and the `MachineObservation` decoded slice its measured consumers at S2 and above fold.
 - S2 `Tooling` + `Nesting` + `Additive` — capability owners over the 2D algebra: `ToolAssembly`, `ToolSelection`, `CuttingData`, `PowerLawFit`, and `ToolWear`; `Nest`, `StockNest`, and `NoFitPolygon`; `Slice`, `SupportPolicy`, `ScanPolicy`, and `Audit`.
 - S3 `Fixturing` + `Forming` + `Joining` + `Spec` + `Kinematics` fleet — planning owners: `Workholding`, `ExclusionZone`, and `SetupSchedule`; `FlatPattern` and `TubeProgram`; `Weld`, `JointPrep`, `Sequence`, and `Procedure`; `Tolerance`, `Capability`, and `Manufacturability`; `MachineInstance`, `ProcessEnvelope`, and `Fleet`.
 - S4 `Toolpath` + `Process/Derivation` — the CAM plane composing tools, kinematics, and keep-outs (`Cam`, `MotionRun`, `Guard`, `BevelPass`) beside the `Derivation`/`FabricationProjector` terminal aggregator over the downstream plans.
@@ -262,7 +263,11 @@ Seam edges carry which package exchanges which shape; the load-bearing cross-pac
 - `EgressKind`, the local discriminant, federates to the Persistence `ArtifactKind` rows at the content-key boundary, never a type reference.
 - `Fabrication` realizes the one `FabricationProjector` registration; every quantity lowered back to the seam rides that projector.
 - An absent peer capability binds as an injected delegate column, so the contract remains whole without an implementation-shape dependency.
-- Machine telemetry enters through the AppHost decode lane, never a direct transport reference; every telemetry read consumes the one decoded slice.
+- Machine telemetry enters through the AppHost decode lane, never a direct transport reference; `Kinematics/observation` admits the decoded entities once, and every measured consumer — wear signals, fleet performance refresh, engagement measured-load ceilings — folds the one `MachineObservation` slice.
+- Durable shop state rides the Persistence slot registry's contributed span as the `store.fabrication.<domain>.<verb>` family — remnant transitions, fleet performance horizons, magazine exchanges, capability history — each owning page naming its slot spellings as value federation, mounted as call-site data at the composition root.
+- Solver memo truth content-keys through the same kernel mint the egress spine seeds: the runtime-carried `HybridCache` tier replays NFP pair polygons under `PairTable.Key` identities in process, and the durable tier federates at the Persistence cache seam beside the benchmark index.
+- Fabrication speed claims resolve to `BenchmarkReceipt` rows: the `FabricationBench` roster keys the branch bench tier's gated cases as `{Suite}/{Case}` Persistence `BenchmarkRow` claims, and `ProbeRoute.Measured` authorizes its parallel substrate only against a mintable claim key.
+- Program delivery closes chain-of-custody by value: the cell drive receipt re-mints a content key from the exact controller-bound records, `Posting/dialect` `ProgramDelivery` proves transfer integrity by digest equality, and the delivery fact rides the tap onto the receipt rail.
 - Fabrication facts leave through the one `FabricationTap` port onto the AppHost receipt rail as `FabricationFact` envelopes; the `TelemetryContributorPort` carries the `rasm.fabrication.*` instrument roster inward at composition, the `FabricationInstruments.Arms` kind-arm table merges onto the AppHost receipt fan beside its own arms, and classification federates by value to the suite `DataClassification` taxonomy — never a type reference in either direction.
 - Fabrication hook points register on the AppHost hook registry at composition through the runtime-carried `FabricationHooks` roster; modality and payload close at declaration, and subscribers attach only at app roots.
 - Engine spans ride the `ActivitySource` named by `TelemetrySource.Fabrication`, admitted at the AppHost root source roster; trace-based exemplars join the fabrication histograms to their solve traces.

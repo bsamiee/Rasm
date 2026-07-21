@@ -7,81 +7,49 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[WIRE_CARRIER_ADAPTERS]-[QUEUED]: Trace context crosses every estate transport — NATS headers, MQTT v5 user properties, and CloudEvents tracing attributes become adapter rows on the one propagation spine.
-- Capability: `TraceContext` grows three carrier adapters — getter/setter pairs delegating to the composite propagator — so `traceparent`/`tracestate` and baggage ride `NatsHeaders`, the MQTT v5 user-property collection, and the CloudEvents `traceparent`/`tracestate` extension attributes; per-transport hand-rolled header writes stay the deleted form.
-- Shape: three rows under the `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#CORRELATION_SPINE` growth law — a new propagation carrier is one `IPropagator`-backed adapter on the same `Spine` composite; the MQTT adapter mounts at the `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md` `MqttLane` publish and receive edges, the NATS and CloudEvents adapters compose at the Persistence egress legs.
-- Unlocks: broker-hop trace continuity — a spine delivery, CDC CloudEvent, or live-wire MQTT command joins the same trace the gRPC and Kafka legs already carry, and TraceBased exemplars survive the hop.
-- Anchors: the wire-law carrier table (NATS carries no OTel instrumentation by design — manual inject and extract), `NATS.Net` `NatsHeaders`, MQTTnet `MqttApplicationMessageBuilder`, `CloudNative.CloudEvents` extension-attribute surface, `TextMapPropagator.Inject`/`Extract`.
-- Ripple: `Rasm.Persistence` `[0003]`.
-
-[TELEMETRY_OFFLINE_SPINE]-[QUEUED]: Offline-durable telemetry egress — every OTLP transmission queue gains an on-disk persistent backing, so a desktop, plugin, or companion process losing its collector keeps signal tails across network loss, crash, and ALC unload.
-- Capability: `OpenTelemetry.PersistentStorage.FileSystem` backs the OTLP exporter transmission pipeline with a bounded file-system queue — failed exports persist, replay on reconnection, and survive process death; the drain band flushes what the wire takes and the store holds the rest.
-- Shape: persistent-storage rows at both provider owners — `SignalGovernance.Govern` for hosted roots and `PluginTelemetryHost.Open` for per-ALC capsules — landing on `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#SIGNAL_GOVERNANCE` and `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#PROVIDER_LIFETIME`; queue-directory, size-cap, and retention values enter the governance table as policy rows.
-- Unlocks: honest telemetry from the disconnected desktop and plugin fleet — the dominant Rhino/GH deployment shape — and a truthful delivery-honesty statement for the telemetry sink itself.
-- Anchors: `OpenTelemetry.PersistentStorage.FileSystem` (admission pending), the `PluginTelemetryHost` ForceFlush/Dispose law, `DrainConductor` ranked drain, the `OTEL_EXPORTER_OTLP_*` binding rows.
-- Tension: the persistent queue holds classified bytes at rest — redaction runs before export, so stored payloads are already-redacted wire bytes, and the queue directory inherits the support-bundle retention law.
-
-[TENANT_COST_SPAN_PROMOTION]-[QUEUED]: Tenant baggage promotes onto every span — the `rasm.tenant` baggage entry becomes a span attribute at the composition root, closing the cost-attribution chain from `GrantBroker` debits to backend per-tenant queries.
-- Capability: `OpenTelemetry.Extensions` `BaggageActivityProcessor` with a baggage-key allowlist admits `rasm.tenant` and the `CorrelationId` key onto span attributes — a backend groups spend, latency, and traces by tenant with zero per-call-site tagging; the python branch already rides its baggage processor, so this row completes the family per the set-completion law.
-- Shape: one `AddProcessor` row beside the `PyroscopeSpanProcessor` seat and one allowlist governance-value row on `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md#SIGNAL_GOVERNANCE`; promotion is allowlist-only, never free-form baggage flood.
-- Unlocks: per-tenant flame graphs, exemplar-linked spend dashboards, and the cross-libs `[COST_ATTRIBUTION_BAGGAGE]` chain realized at the C# altitude.
-- Anchors: `Correlation.Spine` baggage carrier, `TenantContext` mint, `HostInstruments` spend rows, the wire-law tenant-baggage promotion mandate.
-
-[FLEET_DEPLOY_ANNOTATIONS]-[QUEUED]: Fleet rollout writes the dashboard timeline — every provisioning wave and roll verdict projects one deploy-annotation wire record the estate dashboard plane ingests, so panels mark plugin-fleet rollouts beside stack deploys.
-- Capability: `RollAnnotationWire` — wave, channel, verdict, host-count, and instant fields folded off the existing roll receipts; a rollback annotates as loudly as an advance.
-- Shape: one wire record and its projection fold on `libs/csharp/Rasm.AppHost/.planning/Sandbox/provisioning.md#ROLLOVER_DRAIN`, joining the `AppHostWireContext` roster at `libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md#WIRE_LAW`; egress rides the receipt envelope like every spine fact.
-- Unlocks: deploy-correlated regression triage — a latency shift on any panel resolves to the wave that shipped it.
-- Anchors: `FleetRoll` wave conduct, `ReceiptSinkPort`/`ReceiptEnvelope` HLC stamping, the TypeScript iac deploy-annotation rail already ingesting `RunReceipt`.
-
-[DIAGNOSTIC_HEAP_ANALYSIS]-[QUEUED]: Support bundles carry analyzed evidence — a captured process dump folds through ClrMD into a typed triage receipt inside the bundle, so a bundle answers what leaked, what blocked, and what ran before a debugger ever attaches.
-- Capability: `Microsoft.Diagnostics.Runtime` `DataTarget.LoadDump` walks the captured dump — top heap types by retained size, per-thread managed stacks, blocked-thread sync-block evidence — into bounded `DumpTriage` rows under the bundle's caps and redaction law.
-- Shape: one triage fold and one `SupportArtifact` factory row on `libs/csharp/Rasm.AppHost/.planning/Observability/bundles.md#CAPTURE_PIPELINE`; the manifest entry carries triage rows beside the raw artifact key.
-- Unlocks: first-response diagnosis from the bundle alone — the disconnected-fleet shape where a live debugger never attaches.
-- Anchors: `Microsoft.Diagnostics.NETCore.Client` dump capture already admitted, `Microsoft.Diagnostics.Runtime` (admission pending), `SupportManifest.Entry` truncation receipts, `FaultTransition` trigger payloads.
-- Tension: triage runs post-freeze inside the capture-window deadline — row caps bound the fold, never a full heap walk.
-
-[PARTITIONED_OBSERVABLE_LEVELS]-[QUEUED]: Level cells grow partitions — observable instruments return tagged `Measurement<T>` sets from one callback, so per-probe health, per-channel outbox lag, and per-family capability roster read as partitioned series instead of one scalar per concept.
-- Capability: `Measurement<T>` multi-value observation — `CreateObservableGauge(Func<IEnumerable<Measurement<long>>>)` projects an atom-held map of partition keys to levels in one collection pass; partition vocabularies stay bounded by their owning SmartEnum rows.
-- Shape: `LevelCells` scalar atoms widen to keyed atoms where a partition dimension exists, and the affected `HostInstruments.Rows` bind multi-measurement callbacks on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#INSTRUMENT_CATALOG`; the wildcard `AddView` cardinality cap already bounds the series budget.
-- Unlocks: a dashboard reads which probe degraded and which channel lags with zero metrics re-architecture, and the branch `Measurement<T>` substrate member stops being admitted-but-unexploited.
-- Anchors: `api-diagnostics-metrics.md` `Measurement<T>`, `LevelCells.Live` atoms, `DriverProbe` and delivery-channel vocabularies, the `AddView` series caps.
-
-[CONTRIBUTED_ARM_ROSTER]-[QUEUED]: `InstrumentFan` mounts every sibling arm — kernel, Bim, Element, Grasshopper, Materials, and Rhino kind partitions join the AppUi/Compute/Persistence rows under the composition-fatal duplicate law.
-- Capability: each emitting package hands one contributed kind-arm table and one `TelemetryContributorPort` mint — `rasm.kernel.*`, `rasm.bim.*`, `rasm.element.*`, `rasm.grasshopper.*`, `rasm.materials.*`, and the `rasm.rhino.<domain>.<measure>` receipt-kind partition with document/command/tenant attribution tags — merged at `InstrumentFan.Mount` beside the Persistence `StoreInstruments.Arms` precedent; the kernel hook-tap subscriber registers on the hook rail at the same composition point.
-- Shape: six contributed-arm rows on `libs/csharp/Rasm.AppHost/.planning/Observability/instruments.md#RECEIPT_PROJECTION` naming each package's arm table and port; plugin-hosted processes take the same arms through `PluginTelemetryHost.Open`, whose per-ALC `IMeterFactory` and `Unloading` ForceFlush/Dispose custody covers the Rhino and Grasshopper load contexts.
-- Unlocks: every branch package reads on estate dashboards through one fan; a duplicate kind faults at merge instead of double-counting; each folder signal-tap card lands against a named mount.
-- Anchors: `InstrumentFan.Mount` contributed-element merge, `TelemetryIdentity.Mint`, the `StoreInstruments.Arms` row precedent, `PluginTelemetryHost` ALC custody.
-- Ripple: `Rasm` `[KERNEL_SIGNAL_FABRIC]`, `Rasm.Bim` `[BIM_TELEMETRY_TAP]`, `Rasm.Element` `[GRAPH_INSTRUMENT_PROJECTION]`, `Rasm.Grasshopper` `[0001]`, `Rasm.Materials` `[MATERIALS_SIGNAL_TAP]`, `Rasm.Rhino` `[HOST_INSTRUMENT_PARTITION]`.
-
-[CORPUS_GATE_INGEST]-[QUEUED]: Benchmark corpus gate ingests every sibling claim family — kernel `BenchClaim` rows, Materials kernel workloads, and the Rhino in-host harvest resolve to `BenchmarkReceipt` verdicts.
-- Capability: three sibling evidence sources fold through the gate — the kernel claim ledger enumerating speed-gated lanes with their scalar reference rows, the Materials deterministic workload rows over its hot kernels, and bridge-run benchmark-grade evidence harvested from measured Rasm.Rhino operations that cannot cross the native boundary into the managed harness.
-- Shape: ingestion rows on `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md#BENCHMARK_RECEIPT` — each claim family folds to `BenchmarkReceipt` cases judged under `GatePolicy` with `HostEvidence` binding; the bridge-run harvest enters as a lane beside the BenchmarkDotNet corpus, its receipts stamped from in-host capture instead of harness artifacts.
-- Unlocks: every speed claim in the branch resolves to one gated receipt; host-boundary operations gain regression proof without faking a managed benchmark.
-- Anchors: `BenchmarkGate.Gate`/`Judge`, `HostEvidence.Current`, the Persistence `BENCHMARK_INDEX` claim custody, the kernel/Materials/Rhino origin cards.
-- Ripple: `Rasm` `[BENCH_CLAIM_LEDGER]`, `Rasm.Materials` `[KERNEL_BENCH_PROFILE_CORPUS]`, `Rasm.Rhino` `[HOST_BENCH_HARVEST]`.
-
-[MACHINE_OBSERVATION_LANE]-[QUEUED]: Machine-telemetry decode lane — transport bytes fold to one typed `MachineObservation` slice with freshness stamps, the single decoded truth Fabrication's measured consumers read.
-- Capability: broker- and protocol-carried machine telemetry (MTConnect observation streams, controller state) decodes once at the wire tier into typed observation records — value, unit, machine identity, freshness instant — so wear, fleet-performance, and engagement consumers read one slice, never three decoders.
-- Shape: one decode lane on `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md` beside the `MqttLane` legs, its observation slice crossing to Fabrication as a typed port record per the Fabrication ARCHITECTURE law — machine telemetry enters through the AppHost lane, never a direct transport reference.
-- Unlocks: the Fabrication measured-fleet, engagement-feedback, and wear consumers rebind onto decoded truth; a transport swap never touches a consumer.
-- Anchors: the Fabrication decode-lane invariant, the `Wire/livewire.md` lane owners, the MTConnect observation model admitted at the Fabrication tier, the freshness-stamp law.
-- Ripple: `Rasm.Fabrication` `[MACHINE_TELEMETRY_DECODE]`.
+[WIRE_CARRIER_ADAPTERS]-[BLOCKED]: One wire-carrier adapter family spans every transport crossing in both directions.
+- Capability: gRPC, generic, and MQTT publish adapters — all settled — complete with MQTT receive, so every context-carrying crossing shares one carrier law.
+- Shape: the MQTT receive adapter beside the settled publish adapters on the AppHost wire plane.
+- Unlocks: bidirectional MQTT crossings under the one carrier adapter family.
+- Anchors: the settled gRPC, generic, and MQTT publish adapters; `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`; `libs/csharp/.api/`.
+- Arms: `libs/csharp/Rasm.AppHost/.api/api-mqtt.md` or `libs/csharp/.api/` carries the exact `MqttApplicationMessage` user-property collection and entry accessors.
+[TELEMETRY_OFFLINE_SPINE]-[BLOCKED]: Telemetry survives disconnection through a per-signal disk-retry spine.
+- Capability: an `OfflineQueue`-backed exporter retry binding holds every signal through an outage, so a field machine ships complete history on reconnect.
+- Shape: the offline-retry binding on the AppHost telemetry exporter owners.
+- Unlocks: lossless telemetry from disconnected sites.
+- Anchors: `libs/csharp/Rasm.AppHost/.api/api-otel-exporter.md`; `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`.
+- Arms: either catalog carries an exact per-signal disk-retry member or environment binding and its `FileBlobProvider` composition law.
+[CORPUS_GATE_INGEST]-[BLOCKED]: One corpus gate ingests benchmark claim projections from every producer.
+- Capability: kernel, Bim, Persistence, and Rhino projections — all settled — complete with Materials and Grasshopper, estate-wide claims grading through one gate.
+- Shape: the Materials and Grasshopper projections routed by `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
+- Unlocks: estate-wide benchmark claims grade through one corpus gate.
+- Anchors: the settled kernel, Bim, Persistence, and Rhino projections; `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
+- Arms: both owner routes in `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]` close.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-- [0001]-[COMPLETE]: Domain-instrument catalog over the receipt fan — landed as `.planning/Observability/instruments.md` with the roster, projection fold, per-ALC provider capsule, and observation rail.
-- [0002]-[COMPLETE]: Typed hook rail over the existing bus, lifecycle, and receipt seams — landed as `.planning/Observability/hooks.md` with id grammar, modality rows, registry, and fault isolation.
-- [0003]-[COMPLETE]: Benchmark receipt family and corpus-gate ownership — landed as `.planning/Observability/benchmarks.md` with the gate fold, bundle capture seam, and span-profile correlation.
+[TENANT_COST_SPAN_PROMOTION]-[COMPLETE]: `AddBaggageActivityProcessor(PromotedBaggage)` allowlist rows landed at both provider owners with the governance-table policy row.
+[FLEET_DEPLOY_ANNOTATIONS]-[COMPLETE]: `RollAnnotationWire` record and per-wave projection fold landed on `Sandbox/provisioning.md#ROLLOVER_DRAIN`, fanned under `InstrumentFan.RollKind` and joined to the `AppHostWireContext` roster.
+[DIAGNOSTIC_HEAP_ANALYSIS]-[COMPLETE]: `DumpTriage.Walk` ClrMD fold and the `SupportArtifact.DumpAnalysis` factory row landed on `Observability/bundles.md#CAPTURE_PIPELINE` under `DumpPolicy.CensusCap`/`TriageRows`/`FrameCap` bounds with shallow heap-sample semantics.
+[MACHINE_OBSERVATION_LANE]-[COMPLETE]: `MachineLane`/`MachineObservationWire` decode lane landed on `Wire/livewire.md` fanned under `InstrumentFan.ObservationKind`; the `MachineObservation` domain vocabulary is Fabrication-owned per its observation card.
+[DOMAIN_INSTRUMENT_CATALOG]-[COMPLETE]: Domain-instrument catalog over the receipt fan — landed as `.planning/Observability/instruments.md` with the roster, projection fold, per-ALC provider capsule, and observation rail.
+[TYPED_HOOK_RAIL]-[COMPLETE]: Typed hook rail over the existing bus, lifecycle, and receipt seams — landed as `.planning/Observability/hooks.md` with id grammar, modality rows, registry, and fault isolation.
+[BENCHMARK_RECEIPT_FAMILY]-[COMPLETE]: Benchmark receipt family and corpus-gate ownership — landed as `.planning/Observability/benchmarks.md` with the gate fold, bundle capture seam, and span-profile correlation.
+[PARTITIONED_OBSERVABLE_LEVELS]-[COMPLETE]: realized kernel-side per the substrate-homing collapse — keyed `LevelCells` families with `Reader` project per-key levels as tagged `Measurement<long>` rows through the multi-measurement observe overload at `libs/csharp/Rasm/.planning/Domain/telemetry.md` `[03]-[INSTRUMENT_MECHANISM]`, so a bespoke per-partition gauge is the deleted form.
+[CONTRIBUTED_ARM_ROSTER]-[COMPLETE]: the `[CONTRIBUTED_ARMS]` table landed at `Observability/instruments.md` `[03]-[RECEIPT_PROJECTION]` with all ten contributor rows — each domain package's projection, port mint, and custody named.

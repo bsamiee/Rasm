@@ -70,6 +70,10 @@
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
     </ItemGroup>
 
+    <ItemGroup Label="Caching">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    </ItemGroup>
+
     <ItemGroup Label="System Usings">
         <Using Include="System.Collections.Frozen" />
     </ItemGroup>

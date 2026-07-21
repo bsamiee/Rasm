@@ -8,7 +8,7 @@ Core imports nothing host-bound and nothing from the branch; every other folder 
 
 - [01]-[VALUE](.planning/value/): Decode-once value floor — content mint, `Hlc` clock, SI quantity, fault policy; one edit site per concept.
 - [02]-[STATE](.planning/state/): Host-free algebra over the floor — CRDT merge, the keyed fold with its one `AsOf`, causal lattice, statechart.
-- [03]-[INTERCHANGE](.planning/interchange/): One keyed-decode registry every C#-minted wire family lands on, and the capability dial; never serving.
+- [03]-[INTERCHANGE](.planning/interchange/): One keyed-decode registry every C#-minted wire family lands on, the capability dial, and the W3C propagation carrier; never serving.
 - [04]-[OBSERVE](.planning/observe/): Observability vocabulary and its total derivations — SLO-as-algebra, the dashboard model, and the hook-rail tap registry; zero exporters.
 
 ## [02]-[DOMAIN_PACKAGES]

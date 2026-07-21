@@ -48,7 +48,7 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 [DOCUMENT]:
 - [30]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
 - [31]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows materialized for the one `Surfaces.Mount` crossing.
-- [32]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, an Office arm, and a print arm.
+- [32]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, Office and print arms, and the support-bundle rows.
 
 [COLLAB]:
 - [33]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
@@ -57,7 +57,7 @@ Its shell mounts onto any admitted substrate through the abstract `SurfaceHost` 
 
 [DIAGNOSTICS]:
 - [36]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, telemetry spine, correlation join, and the 6xxx fault registry.
-- [37]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, goldens, and a typed proof fault.
+- [37]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, frame-bench lanes, goldens, and a typed proof fault.
 - [38]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
 - [39]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
 

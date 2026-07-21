@@ -2,7 +2,7 @@
 
 `libs/typescript` is the platform's host-free web/edge runtime: capability domains composing into whole products, shipped as one npm package `@rasm/ts` with per-domain subpath exports and `server`/`browser`/`wasm` conditions. Sibling coupling is decode-only: C# owns every wire vocabulary and the tessellation rail, the branch decodes each family once at one keyed registry, owns no geometry or IFC semantics, and re-derives content identity bit-identically from the C#-owned seed — aligned by wire bytes, frozen corpora, and the descriptor drift gate, never by import.
 
-Topology, wave order, and the permitted-edge table are `ARCHITECTURE.md`; the data spine is `dataflow-system.md`; the `pnpm-workspace.yaml` catalog pins versions. Test infrastructure lives under `tests/`, never the branch: the frozen corpus is `tests/contracts/`, the `@rasm/ts-testkit` kit is `tests/typescript/_testkit`, and the gauge audits are the `tests/typescript/_architecture` suite.
+Topology, wave order, the permitted-edge table, and the data spine are `ARCHITECTURE.md`; the `pnpm-workspace.yaml` catalog pins versions. Test infrastructure lives under `tests/`, never the branch: the frozen corpus is `tests/contracts/`, the `@rasm/ts-testkit` kit is `tests/typescript/_testkit`, and the gauge audits are the `tests/typescript/_architecture` suite.
 
 ## [01]-[ROUTER]
 
@@ -14,8 +14,6 @@ Folder roots in build-wave order; each root `README.md` carries the folder ident
 - [04]-[RUNTIME](../runtime/README.md) — W3 execution substrate across both process planes and the browser condition.
 - [05]-[UI](../ui/README.md) — W4 browser product surface; `viewer` the spatial second Nx project.
 - [06]-[IAC](../iac/README.md) — W4 deploy plane; nothing depends on it at runtime.
-
-Branch-level page beside this router: [dataflow-system.md](dataflow-system.md) — the data spine binding content identity, the interchange plane, the journal, tenancy, and the cross-language invariants.
 
 ## [02]-[SUBSTRATE_PACKAGES]
 

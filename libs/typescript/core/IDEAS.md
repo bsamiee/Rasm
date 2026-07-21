@@ -7,61 +7,39 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
-[C3]-[QUEUED]: Branch hook-rail vocabulary lands as the fourth observe owner.
-- Capability: typed hook-point registry vocabulary — the `rasm.<pkg>.<domain>.<point>` point-name brand, the closed modality vocabulary (veto, observe, replay), the typed subscription contract, subscriber-fault isolation onto `FaultClass`, and the telemetry-as-tap law making every signal emitter a subscriber of domain facts instead of an emit call inside domain code.
-- Shape: new page `libs/typescript/core/.planning/observe/tap.md` — point brand, registry shape, modality dispatch table, tap law; runtime executes dispatch and core defines every shape it runs.
-- Unlocks: any two apps compose hook rails without collision because point names scope through `AppIdentity`; observability subscribes branch-wide with zero scattered emit sites; `observe/` reaches four owners and exits the stub band.
-- Anchors: `state/machine.md` macrostep fact stream ("the inspection hook a consumer taps"); `interchange/invoke.md` `SupportIntake` capture; `interchange/codec.md` quarantine divert; `value/fault.md` `FaultClass` dominance; `value/identity.md` `AppIdentity` scope key.
-- Tension: veto is the one modality that feeds a verdict back into the emitting fold — the contract must type it as a pure decision so the tap law never re-opens the zero-exporter boundary.
-
-[C4]-[QUEUED]: One W3C propagation-carrier codec spans every transport header dialect.
-- Capability: typed `traceparent`/`tracestate`/`baggage` context value with total parse/print folds, the `rasm.tenant` baggage promotion law, and a closed per-transport dialect row table — Connect ASCII metadata, Connect `-bin` protobuf metadata through `encodeBinaryHeader`/`decodeBinaryHeader`, NATS headers, MQTT v5 UserProperties, CloudEvents distributed-tracing extension attributes, Kafka record headers.
-- Shape: new page `libs/typescript/core/.planning/interchange/carrier.md`; the `interchange/invoke.md` interceptor row composes it for the Connect lanes.
-- Unlocks: every runtime transport client injects and extracts context through one codec — no per-transport propagation fork; tenant baggage rides every hop so cost attribution survives broker boundaries.
-- Anchors: `@connectrpc/connect` `encodeBinaryHeader`/`decodeBinaryHeader` and `appendHeaders` (`.api/connectrpc-connect.md`); `interchange/invoke.md` interceptor seam; `value/identity.md` `TenantContext`; the estate wire law's W3C composite `{TraceContext, Baggage}` ruling.
-- Tension: dialect rows for brokers the branch has not admitted (`mqtt`, `cloudevents`) state header shape as spec fact and assume the admission lane lands the clients.
-
-[C5]-[QUEUED]: Profile signal vocabulary with board flamegraph consumers.
-- Capability: span-profile correlation vocabulary — profile-link attributes keyed by the one identity projection, `Convention` rows for the profile signal, a profile datasource arm on the board dialect, and a `profile` pack whose flamegraph and span-linked panels ride the same pack dispatch every metric pack rides.
-- Shape: `_rasm` profile rows in `libs/typescript/core/.planning/observe/convention.md`; dialect arm and `profile` pack in `libs/typescript/core/.planning/observe/board.md`.
-- Unlocks: runtime pyroscope wiring correlates profiles to spans through core vocabulary alone; iac compiles flamegraph panels from the same pack law; the estate profiling axis gains its missing vocabulary tier.
-- Anchors: `@pyroscope/nodejs` catalog (`libs/typescript/runtime/.api/pyroscope-nodejs.md`); `observe/board.md` `_DIALECT` export-label pair and pack dispatch; `observe/convention.md` identity projection; branch `effect` `Effect.makeSpanScoped` scoped spans as correlation anchors (`libs/typescript/.api/effect.md`).
-- Tension: the board query algebra is metric-shaped — the profile arm is a new dialect row beside it, never a `Query` expression kind.
-
-[C6]-[QUEUED]: Benchmark claims gain a comparison algebra and a bench board pack.
-- Capability: typed measurement-statistics band on the landed benchmark claim — percentile ladder, GC counts, hardware counters — and a pure baseline-versus-candidate regression fold yielding graded verdicts per host fingerprint; a `bench` pack trends claims on the boards.
-- Shape: claim-landing extension in `libs/typescript/core/.planning/interchange/codec.md#LANDING_WIRE`; verdict algebra and `bench` pack rows in `libs/typescript/core/.planning/observe/board.md`.
-- Unlocks: performance regressions become graded verdicts a gate reads instead of eyeballed numbers; TS-lane benchmark runs land claims in the same admitted family the C# corpus gate feeds.
-- Anchors: `interchange/codec.md` `BenchmarkClaimWire`/`HostFingerprintWire` landings and the foreign-host-claim rejection; `observe/board.md` pack dispatch; `mitata` statistic shape as the measurement-band model, pending admission.
-- Tension: cross-host comparison is refused by the fingerprint admission — the regression fold compares only claims sharing one host print, and the verdict says so.
-
-[C2]-[QUEUED]: Object-plane signal rows complete the Convention vocabulary.
-- Capability: `rasm.object.*` metric and instrument rows — dedup-write ratio, bytes written, GC reclaim, resumable-upload throughput — with UCUM units and tag axes drawn from the object receipts.
-- Shape: `_metric`/`_instrument`/`_rasm` rows in `libs/typescript/core/.planning/observe/convention.md` under the growth law, and consumer rows in `libs/typescript/core/.planning/observe/board.md` keeping every new instrument pack-projected.
-- Unlocks: object-plane health on the estate boards; the data object owners emit through Convention rows in the same instrument-row idiom the journal and read pages carry.
-- Anchors: `observe/convention.md` growth law; `observe/board.md` `_PACKS` every-instrument-a-consumer discipline; data `object/store.md` and `object/stream.md` receipt families.
-- Ripple: `data` `[OBJECT_PLANE_INSTRUMENT_PROJECTION]`.
-
-[C1]-[QUEUED]: One generative vocabulary-table owner for the value floor.
+[VALUE_VOCABULARY_TABLE]-[QUEUED]: One generative vocabulary-table owner for the value floor.
 - Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
 - Shape: lands in `libs/typescript/core/.planning/value/schema.md` as the declaration-time owner the six re-spelled assembly grammars (`FaultClass`, `Budget`, `Degrade`, `Uncertainty.grades`, `Availability._ROWS`, `WireFault._policy`) become declarations of.
 - Unlocks: the next vocabulary is one row-table declaration; the position-to-`Order` projection has one spelling branch-wide.
 - Anchors: `fault.md#CLASS_VOCABULARY` assembly grammar; `clock.md` `Uncertainty`; `evidence.md` `Availability`; `codec.md` `WireFault._policy`; the derivation vocabulary-table owner form.
-- Tension: the three-altitude fault law keeps the tables distinct — the generator shares machinery without merging vocabularies; the stated-annotation export gate constrains a generic assembled-owner annotation.
+- Tension: the fault-module collapse ruling keeps the three row families distinct — the generator shares machinery, never merges; the stated-annotation export gate constrains a generic assembled-owner annotation.
+
+[CONVENTION_METER_FACTORY]-[QUEUED]: Instrument rows materialize through one Convention-owned factory — per-site constructor picks collapse.
+- Capability: the instrument table gains its materialization half — one factory derives the live metric handle from a row's kind, unit, and boundary spec, so a consumer names the instrument and receives the handle, and a boundary vector has one spelling branch-wide.
+- Shape: the factory member beside the instrument rows in `libs/typescript/core/.planning/observe/convention.md`; consumer collapses follow at the data metering and bracket sites and the interchange invoke bracket.
+- Unlocks: a new instrument is one row with zero constructor code at any consumer; declaration-to-materialization drift is unrepresentable.
+- Anchors: `convention.md` `_instrument` rows (kind/unit/description); the re-spelled `MetricBoundaries.exponential` vectors at data `read/batch.md` and `lane/olap.md`; the materialization-homing row at `libs/typescript/core/RULINGS.md` `[01]-[SHAPE]`.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+- [OBJECT_PLANE_ROWS]-[COMPLETE]: object-plane rows landed in `observe/convention.md` (`objectWritten`/`objectBytes`/`objectReclaimed`/`streamBytes` with the `objectOutcome` axis) with the `object` pack as their `observe/board.md` consumer; the data-side `[OBJECT_PLANE_INSTRUMENT_PROJECTION]` counterpart was already closed against these rows.
+- [OBSERVE_TAP_OWNER]-[COMPLETE]: `observe/tap.md` landed as the fourth observe owner — `TapPoint` brand, veto/observe/replay modality table, subscription contract, `FaultClass` breach isolation, `Tap.Registry` — with the codemap and runtime seam registered.
+- [INTERCHANGE_CARRIER]-[COMPLETE]: `interchange/carrier.md` landed — the typed `traceparent`/`tracestate`/`baggage` value with total folds, `rasm.tenant` promotion, the closed connect/nats/kafka/mqtt/cloudevents dialect table, and the `-bin` typed-metadata lane — composed by `invoke#DIAL_AXIS`'s `_stamped` fold.
+- [PROFILE_SIGNAL_VOCABULARY]-[COMPLETE]: profile signal landed — `Convention.profile`/`Convention.profiled` correlation vocabulary in `observe/convention.md`, the `Flamegraph` panel row with the per-tag datasource arm, and the `profile` pack in `observe/board.md`.
+- [CLAIM_MEASUREMENT_BAND]-[COMPLETE]: claim measurement band landed on `interchange/codec.md#LANDING_WIRE` (`Claim.Band` mirroring the mitata `stats` record) with `observe/board.md#BENCH`'s `Bench.graded` per-host-print regression fold and the `bench` pack.

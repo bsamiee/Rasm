@@ -21,7 +21,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Presets.cs      # CPlane, named-position, and layer-state preset rail under one mask vocabulary
 │   └── Snapshots.cs    # Scripted snapshot ops and the SnapShotsClient participant
 ├── Objects/            # Live document-object domain over the table rail
-│   ├── State.cs        # Live-object window: snapshot, frames, component touch, section custody
+│   ├── State.cs        # Live-object window: snapshot, frames, component touch, section custody, document analytics census
 │   ├── Attributes.cs   # Typed attribute program feeding the table rail's Amend path
 │   ├── Materials.cs    # Object materials, mappings, and mesh caches behind one commit
 │   ├── Lights.cs       # Closed world light-kind family: seed, gated edits, and the table commit rail
@@ -38,7 +38,7 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 │   ├── Lifecycle.cs    # Definition ingress, the preview vault, deferred refresh, and eviction
 │   └── Operations.cs   # Block operation and query rail, geometry intake, and receipts
 ├── Modeling/           # Host-fidelity native construction compute over the custody seam
-│   ├── Solids.cs       # Brep boolean/fillet/offset/join rail and the ModelGate + Built spine
+│   ├── Solids.cs       # Brep boolean/fillet/offset/join rail, the ModelGate + Built spine, and the BenchBand evidence harvest
 │   ├── Lofting.cs      # Sweep, loft, patch, and developable construction policies
 │   ├── Surfaces.cs     # Freeform surface constructors with fit evidence
 │   ├── Curves.cs       # Curve offset, refine, extend, split, and construction host ops
@@ -56,10 +56,10 @@ Rasm.Rhino/             # Rhino host boundary over the Rasm kernel
 ├── Viewport/           # Camera model, operation rail, capture spec, and motion pacing
 │   ├── Camera.cs       # Camera-pose altitudes over the kernel vector frame
 │   ├── Operations.cs   # Camera-operation union applied behind the viewport lease
-│   ├── Capture.cs      # Capture plan, request cardinality, and leased delivery
+│   ├── Capture.cs      # Capture plan, request cardinality, leased delivery, and run-rail bench timing
 │   └── Motion.cs       # Host motion-pacing adapter over kernel timing
 ├── Display/            # Display-pipeline participation and renderer boundary
-│   ├── Conduit.cs      # Conduit-pipeline algebra and display-mode participation
+│   ├── Conduit.cs      # Conduit-pipeline algebra, display-mode participation, and the cull/draw veto hook mounts
 │   ├── Draw.cs         # Two-backend mark union dispatched over the canvas
 │   ├── Interaction.cs  # Pointer, gumball, and widget hooks folded onto fact streams
 │   ├── Render.cs       # Render-job session, realtime engine participant, and scene change-queue reader
@@ -99,7 +99,7 @@ Five strata order the sub-domain folders; a folder composes its own owners and l
 - S0 `Document` — spine under everything: the `DocumentSession` demand, `Tables.Commit`, `Layers.Commit`, and the transactional `DocumentStream`; every sibling composes it.
 - S1 single-seam domains — `Persistence`, `Commands`, `Blocks`, `Modeling`, `Annotation`, `Eto` compose the spine alone: `ArchiveMap`, `Settings`, and `AppSettings`; `CommandVerdict` and `PickCapture`; `BlockGraph` and `GraphFold`; `ModelGate` and `Built<TSlot>`; `StyleField` and `Styles`; the `Element` realize fold and the `UiThread` floor — Modeling reaches only the geometry-custody capsule and the ruled `CameraSnapshot`/`CameraPose` frame values, and Eto only the event-detach capsule.
 - S2 composite domains — `Objects` (`Objects`, `Attributes`, `Chronicle`) adds Commands' `PickCapture` custody and Blocks' `GraphFold`/`GraphProjection` evidence; `HostUi` (`HostThread`, `PanelHost`, `HostPage`) adds the whole Eto sub-domain.
-- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses the `HostThread` session rail — `HostThread.Run(HostWork<T>.Session(...))` or `HostThread.OnSession` — under a `SessionNeed`.
+- S3 `Viewport` — `ViewportLease`, `CameraPose`, `Cameras`, and `MotionPump`; every borrow crosses the `HostThread` session rail — `HostThread.Run(HostWork<T>.Session(...))` — under a `SessionNeed`; the capture run rail also takes Modeling's `BenchEvidence`/`BenchBand` value shapes for in-host benchmark harvest — value-only, no lease or borrow crossing.
 - S4 terminal composers — `Display` (`Modes`, `Marks`) and `Exchange` (`Exchanges`, `Publishing`) compose Viewport's camera and capture rails, Display also drawing through the Eto canvas and publishing conduit callback faults through Objects' `ObjectsTelemetry` egress; `Render` (`Registry`, `ContentStream`) borrows only the `Size2i` pixel struct from that surface; no folder composes these three.
 
 ```mermaid

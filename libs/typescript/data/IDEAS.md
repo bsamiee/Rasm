@@ -7,13 +7,16 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 ## [01]-[OPEN]
 
 <!-- source-only: open idea card template:
-[ID]-[STATUS]: <ambitious concise thesis>.
-- Capability: <higher-order concept, invariant, or owner capability>.
-- Shape: <what the idea becomes as a system, product, owner, or feature set(s)>.
-- Unlocks: <new branch, package, workflow, proof, user, or agent capability made possible>.
-- Anchors: <owners, seams, packages, doctrines, or techniques that make the idea plausible>.
-- Tension: <only when an unresolved constraint, boundary, bet, or dependency shapes the idea>.
-- Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
+[ID]-[STATUS]: <ambitious concise thesis — the capability outcome, never the landing motion>.
+- Capability: <the higher-order invariant, owner capability, or concept established — altitude only, never a page path, row list, or member spelling>.
+- Shape: <where the work lands and at what grain — repo-relative page with section/row, or a new-page path; the concrete surface, so Capability never names it>.
+- Unlocks: <the downstream capability at the consumer grain — a task narrows its parent idea's Unlocks to THIS slice as `IDEAS.md [SLUG] — consequence`; a set-completion card states the completeness bar that is its acceptance contract>.
+- Anchors: <owners, seams, packages, catalogs, doctrines, and techniques making the work plausible — anchors, never procedures>.
+- Arms: <present only on a BLOCKED or gated card; the exact observable that flips it actionable — a catalog row landing, a member query returning evidence, a package admitted>.
+- Route: <present only on a probe, research, or member-pin card; the ordered verification path run before any fence lands>.
+- Tension: <only when an unresolved constraint, boundary, or bet shapes the work — the genuine bet, never the arming condition Arms carries>.
+- Ripple: <counterpart card — cross-folder as `pkg` `[SLUG]` or a same-folder prerequisite `[SLUG]`, prefixed follows/precedes/mirrors when build order is load-bearing>.
+Capability, Shape, Unlocks, and Anchors are required on every open card; statuses closed — `ACTIVE|QUEUED|BLOCKED` open, `COMPLETE|DROPPED` closed; IDs are SEMANTIC UPPERCASE_SNAKE slugs carrying meaning — never numeric (`[0007]`-class NNNN IDs are a defect), for cards AND research tokens alike; a hyphenated slug anywhere is a defect; repo-relative paths only. Design pages carry the terminal `[RESEARCH]` section always — `(none)` marks empty, absence is an error. Ideas state higher-order concepts, never landing-grain tasks.
 -->
 
 [LAYER_TOPOLOGY_GRAPH_FACTS]-[QUEUED]: Decoded `LayerTopologyFact` rows land as read-side query-store relations for transport and visualization.
@@ -32,40 +35,11 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Tension: C# mints the wire schema and codec — this plane decodes and never re-mints; merge policy settles commutation per mutation kind without conflating operation identity with payload identity.
 - Ripple: `libs/.planning` `[HOST_OPLOG_CRDT_PRODUCER]`.
 
-[OBJECT_PLANE_INSTRUMENT_PROJECTION]-[QUEUED]: Object-plane receipts gain their lossy instrument projections once `Convention` mints the `rasm.object.*` rows.
-- Capability: Dedup rate (`ObjectStore.Receipt.written`), bytes written, GC reclaim, and resumable-upload throughput project from receipts the store and stream pages already mint — receipts stay the truth, instruments the dashboard projection.
-- Shape: `Convention` rows land first under its growth law (metric name with instrument metadata), then the object owners emit through the same instrument-row idiom the journal and read pages carry; lands in `libs/typescript/data/.planning/object/store.md` and `libs/typescript/data/.planning/object/stream.md`.
-- Unlocks: Object-plane health on the estate dashboards with zero new evidence surfaces.
-- Anchors: `object/store.md` receipt family; `object/stream.md` `ChunkMark` and Merkle proof receipts; the `journal/fact.md`/`read/fold.md` instrument-row idiom.
-- Tension: `Convention` rows are core's mint — this folder emits only after the vocabulary exists, never through a free-string metric name.
-- Ripple: `libs/.planning` `[UNIFIED_SIGNAL_FABRIC]`.
-
-[LANE_INSTRUMENT_PROJECTION]-[QUEUED]: Every lane receipt gains its lossy Convention instrument projection — the folder's whole signal surface, not just the object plane.
-- Capability: Cache `cacheStats` hits/misses/size, origin-pool occupancy, the OLAP governor's session-gate wait and retry counts, ClickHouse ingest deferral under the token-bucket quota, and relay/outbox depth all project onto `Convention` instrument rows the runtime meter bridge samples — receipts stay the truth, instruments the dashboard channel, matching the batch histogram and lane-checkpoint gauge already landed.
-- Shape: Instrument rows ride each owner's existing drain or bracket — never per-effect decorators — landing in `libs/typescript/data/.planning/lane/cache.md`, `libs/typescript/data/.planning/lane/olap.md`, and `libs/typescript/data/.planning/journal/append.md`; each row reads name, description, and tag keys off its `Convention.instrument` entry exactly as `read/fold.md` `laneCheckpoint` and `journal/fact.md` `factDrained`/`meterUsage` do.
-- Unlocks: Lane health, saturation, and backpressure visible on the estate boards; escalation-trigger reviews argued from measured gate pressure instead of anecdote.
-- Anchors: `lane/cache.md` `cacheStats` receipt law; `lane/olap.md` `_GOVERNOR` and `_INGEST_QUOTA` policy rows; `journal/append.md` `Journal.census` outbox probe; `read/batch.md` `batchDuration` histogram as the settled idiom.
-- Tension: `Convention` rows are core's mint — each instrument lands only after its vocabulary row exists, never through a free-string name.
-
-[QUERY_PROFILE_RECEIPT_BAND]-[QUEUED]: One engine-profile receipt band spans every lane — pg, sqlite, and DuckDB query evidence in one schema-owned shape.
-- Capability: Per-query profile receipts — latency, rows, operator timings, buffer/IO counters — harvest from each engine's native surface (pg `EXPLAIN (ANALYZE, FORMAT JSON)` and `pg_stat_statements`, sqlite `sqlite3_stmt_status`-class counters and `DBSTAT` aggregates, DuckDB `PRAGMA enable_profiling` json) into ONE receipt family, so engine-profile parity is structural and a slow query is diagnosable identically on every lane.
-- Shape: One profile receipt schema with per-engine harvest arms — a `pg_stat_statements` extension row joins the `lane/postgres.md` matrix (core layer, granting `statements`), harvest rows land in `libs/typescript/data/.planning/lane/postgres.md`, `libs/typescript/data/.planning/lane/sqlite.md`, and `libs/typescript/data/.planning/lane/olap.md`; receipts feed the probe-evidence escalation triggers and project onto Convention duration instruments.
-- Unlocks: Evidence-driven engine escalation, slow-query triage across profiles, and the measured fields the benchmark probe rows consume.
-- Anchors: `lane/postgres.md` `_rows` extension matrix and its zero-consumer-edit growth law; `lane/sqlite.md` `_degrades` total-vocabulary guard; `lane/olap.md` `_engines`; embedded engines expose no scrape surface, so harvest is their whole observability.
-- Tension: Profiling toggles are per-connection or per-statement state — every arm scopes them to the profiled query, never lane-global; `pg_stat_statements` is cumulative shared state, so its receipts are window deltas, never raw counters.
-
-[RELAY_CLOUDEVENTS_PROJECTION]-[QUEUED]: Outbox deliverables project as CloudEvents envelopes — the journal's wire-neutral egress every runtime transport carries unchanged.
-- Capability: Each relay deliverable projects into a CloudEvents envelope — `type` from the event tag, `source` from `StreamKey`, `id` from the landed sequence, W3C `traceparent`/`tracestate` via the distributed-tracing extension, tenant as a `rasm.tenant` extension attribute — so NATS, MQTT, Connect, and Kafka carriers deliver journal facts as standard events with zero per-transport envelope forks.
-- Shape: A schema-owned envelope codec beside the relay rows in `libs/typescript/data/.planning/journal/append.md` — projection is a fold over the outbox row and its receipt, binding-mode selection (structured vs binary) stays a carrier fact across the runtime seam; composes the `cloudevents` SDK for the envelope and extension vocabulary.
-- Unlocks: Cross-runtime event delivery on any transport, trace-correlated consumption, and the C#/python peers decoding one envelope shape.
-- Anchors: `journal/append.md` `RELAY_ROWS` deliverable model and `Journal.claimBatch` runtime seam; `journal/fact.md` `trace` field; `ARCHITECTURE.md` `[BOUNDARY]: Journal.claimBatch` bidirectional edge.
-- Tension: Data owns the envelope projection, runtime owns carriage and binding mode — the pair splits exactly at the claim seam, and the envelope never becomes a second record of truth.
-
 [RELATIONAL_SET_COMPLETION]-[QUEUED]: Effect-sql store family completes — pglite joins the pg lane as its in-process profile, mysql2 and mssql land as foreign-relational ingress rows.
 - Capability: `@effect/sql-pglite` runs the true pg contract in-process (WASM, zero daemon) as a pg-lane profile row for browser and edge arms; `@effect/sql-mysql2` and `@effect/sql-mssql` open read-oriented interop lanes into enterprise-held MySQL/SQL-Server data — the `sql.onDialect` union already carries `mysql`/`mssql` arms no lane exploits, so the dialect algebra is pre-paid.
 - Shape: One new page `libs/typescript/data/.planning/lane/interop.md` owns the foreign-relational ingress rows — guarantee pricing, capability degradation against the `Pg.Grant` vocabulary, never a record of truth — and the pglite profile row lands beside the driver mints in `libs/typescript/data/.planning/lane/postgres.md`.
 - Unlocks: Browser-resident pg semantics without the sqlite degradation table, enterprise data ingress for AEC apps whose estate data lives in MSSQL/MySQL, and closure of the effect-sql client family the manifest holds partially.
-- Anchors: `.api/effect-sql.md` five-way `Dialect` discriminant with `mysql`/`mssql` arm-keys; `lane/sqlite.md` `_degrades` as the degradation-pricing template; `README.md` law that a backend enters as a semantic-guarantee row on its owning lane; `@electric-sql/pglite` already vetted in the test cluster.
+- Anchors: `.api/effect-sql.md` five-way `Dialect` discriminant with `mysql`/`mssql` arm-keys; `lane/sqlite.md` `_degrades` as the degradation-pricing template; `README.md` law that a backend enters as a semantic-guarantee row on its owning lane; the read-only-interop ruling at `libs/typescript/data/RULINGS.md` `[01]-[PACKAGES]`; `@electric-sql/pglite` already vetted in the test cluster.
 - Tension: Interop lanes are ingress, never authority — journal law holds; admission of `@effect/sql-pglite`, `@effect/sql-mysql2`, `@effect/sql-mssql` rides the serialized admission lane.
 
 [OBJECT_ARCHIVE_TIER]-[QUEUED]: Object plane gains the cold-tier archival axis — storage-class transitions keyed by retention class, restore as a typed verb.
@@ -82,25 +56,34 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Anchors: `libs/typescript/.api/effect-experimental.md` `Sse.makeChannel`/`makeParser`/`encoder` codec rows and `Sse.Retry`; `read/live.md` `Live.of` three-modality bound; `ARCHITECTURE.md` `[SHAPE]: Live.changes` runtime seam.
 - Tension: Data owns the encode, runtime owns the route and connection lifecycle — the codec value crosses the seam, the HTTP server never enters this folder.
 
-[DATA_HOOK_TAP_REGISTRY]-[QUEUED]: Scattered gate and tap seams unify into one typed data hook-point vocabulary — telemetry and policy subscribe to domain facts, never instrument domain code.
-- Capability: Hook points `rasm.data.journal.publish`, `rasm.data.object.admit`, `rasm.data.retain.erase`, and `rasm.data.lane.escalate` land as a closed, typed point vocabulary with veto/observe modalities — the publish transaction's slots, the tus admission hooks, the file-plane codec gate, and the erase tombstone already ARE these seams page-locally; the registry names them once so observability, audit, and app policy subscribe by point key with subscriber faults isolated onto the fault rail.
-- Shape: One point-vocabulary owner with per-page tap rows — landing across `libs/typescript/data/.planning/journal/append.md`, `libs/typescript/data/.planning/object/stream.md`, and `libs/typescript/data/.planning/object/file.md` — veto points run pre-commit inside the owning transaction, observe points fan out post-durable-completion beside the `Live` stamp, and two apps composing the same libraries never collide because points key under app identity.
-- Unlocks: App-composable data-plane policy (admission veto, compliance observers) without forking owner pages; the branch hook-rail doctrine realized at the data altitude.
-- Anchors: `journal/append.md` publish-transaction slots and post-commit registrar; `object/stream.md` `onUploadCreate`/`onIncomingRequest`/`onUploadFinish` armed seams as `Rail.Spec` values; `object/file.md` codec-gated intake; `lane/tenant.md` `Tenant.afterCommit` roster as the post-commit fan template.
-- Tension: Observe taps never join the commit — a slow subscriber costs fan-out latency, never write availability; veto points are bounded to admission seams so the journal's atomicity is untouched.
-
 [AUDIT_JOURNAL_SATISFACTION]-[QUEUED]: Security `AuditJournal` port lands on the durable plane — append-only audit-fact store with retention rows and per-subject crypto-shred integration.
 - Capability: Security-published fact rows persist through an append-only port satisfaction keyed by the standing `(app, tenant, subject)` custody spine — retention classes from the one policy table, subject-bearing fields sealed under the `SealedEnvelope`/`WrappedKey` algebra the retain page already composes, DSAR export and erasure riding the same subject spine — so breach evidence is durable receipt-truth aging under the same law as every journal fact.
 - Shape: An `AuditJournal` port-satisfaction row in `libs/typescript/data/.planning/journal/append.md` beside the existing port grammar, with the audit retention-class row and crypto-shred wiring in `libs/typescript/data/.planning/journal/retain.md`.
 - Unlocks: Compliance export, session forensics, and the security board pack read one durable audit plane; erasing a subject shreds audit payloads without breaking the append-only log.
 - Anchors: security `access/audit.md` `AuditJournal` port (carded); `journal/retain.md` `SubjectKey` custody and `WrappedKey` erasure folds; `journal/append.md` publish transaction; `ARCHITECTURE.md` `[SHAPE]: SealedEnvelope` seam.
 - Tension: Audit facts are security's mint — this plane persists and ages them, never re-derives or reinterprets a fact.
-- Ripple: `security` `[0003]`.
+- Ripple: `security` `[SECURITY_FACT_RAIL]`.
+
+[QUERY_PROFILE_RECEIPT_BAND]-[BLOCKED]: Admitted pg, SQLite, and DuckDB-node harvests share `Pg.Profile`; wasm and ClickHouse parity awaits exact catalog contracts.
+- Capability: `_statements`/`_delta`/`_explain`, `_profiled`, and `_profile` emit one receipt shape without zero-forged evidence or interleaved session toggles.
+- Shape: `_PROFILE_ENGINES` contains only landed arms; `lane/olap.md` `[RESEARCH]` owns the wasm cell-projection and ClickHouse query-id questions.
+- Unlocks: pg, SQLite, and DuckDB-node harvests read one comparable profile-receipt band, query-cost evidence never a per-engine forgery or interleaved session toggle.
+- Anchors: `lane/postgres.md` `[06]-[PROFILE_HARVEST]`; `lane/sqlite.md` `[05]-[PROFILE_HARVEST]`; `lane/olap.md` `[06]-[PROFILE]` and `[08]-[RESEARCH]`.
+- Arms: `.api/duckdb-duckdb-wasm.md` and `.api/apache-arrow.md` declare the exact profile-cell projection and `.api/effect-sql-clickhouse.md` declares query-id scope and result contract.
+
+[LANE_INSTRUMENT_PROJECTION]-[BLOCKED]: Pool, OLAP, and outbox projections landed; cache census projection awaits its exact substrate member.
+- Capability: `_origins` projects pool leases, OLAP governor and quota brackets project wait/retry/defer, and `Journal.census` exposes outbox truth.
+- Shape: `lane/cache.md` terminal `[RESEARCH]` keeps cache hit, miss, and size gauges out of settled code until their evidence read is catalog-proven.
+- Unlocks: cache census joins the settled pool, OLAP, and outbox projections, lane health reading one instrument plane.
+- Anchors: `lane/cache.md` `[05]-[POOLS]`; `lane/olap.md` `_waited`/`_retried`/`_deferred`; `journal/append.md` `Journal.census`.
+- Arms: `libs/typescript/.api/effect.md` declares the exact `Cache.Cache` census member and return type.
 
 ## [02]-[CLOSED]
 
-<!-- source-only: closed task card template:
-[ID]-[COMPLETE|DROPPED]: <one-line disposition>; keep closed tasks collapsed unless a second retained fact changes future routing.
+<!-- source-only: closed idea card template:
+[ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-(none)
+[OBJECT_PLANE_INSTRUMENT_PROJECTION]-[COMPLETE]: object-plane instrument rows landed — `object/store.md` `[05]-[INSTRUMENT_ROWS]` `_measured`/`_reclaimed` off the receipt and sweep-mark folds, `object/stream.md` `_streamed` after durable re-home, reference commit, and staging retirement; core `convention.md` `[03]-[RASM_ROWS]` owns the exact vocabulary.
+[RELAY_CLOUDEVENTS_PROJECTION]-[COMPLETE]: `journal/append.md` `[07]-[RELAY_ROWS]` `_envelope` landed as `Journal.envelope` — strict-validated `CloudEvent` with component-encoded source coordinates, `rasmtenant`, and W3C trace extensions, verified against `libs/typescript/core/.api/cloudevents.md`; `runtime/ARCHITECTURE.md` `Data e20` mirrors the shape.
+[DATA_HOOK_TAP_REGISTRY]-[COMPLETE]: `journal/append.md` `[08]-[HOOK_POINTS]` landed the closed four-point registry with veto/observe fan and app-scoped Layer factory; taps armed at `object/stream.md` tus create/finalize, `object/file.md` gated intake, `journal/retain.md` erase tombstone, and the `lane/olap.md` escalation composition seam.

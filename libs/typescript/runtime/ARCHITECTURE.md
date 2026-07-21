@@ -24,6 +24,7 @@ runtime/
     │   ├── dev.ts             # plane:dev DevTools registration node on the ./dev subpath; the gauge fails any runtime import
     │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
     │   ├── meter.ts           # Work-plane fact-to-instrument bridge, census gauges, log floor, tenant views
+    │   ├── profile.ts         # Continuous-profiling lane: Pyroscope push lifecycle under the identity projection
     │   └── vital.ts           # RUM vital rows over one scoped PerformanceObserver bridge
     ├── serve/                 # One public front door
     │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
@@ -55,7 +56,7 @@ runtime/
 
 - S0 `net` egress floor — `client` lanes and `channel` frames mint outbound transport (`Client`, `Feed`) and import no runtime sibling.
 - S1 `proc` substrate — `config` resolves `Setting` once over `Client`, `flag` rides `Feed` channels, `exec`/`life`/`worker` mint their rails floor-free; the worker runner entry (`worker.main.ts`) hands `Report.worker` in as composition-root code, never a stratum import.
-- S2 carriers + work — `net/pubsub` and `net/coordinate` compose `Setting`; `otel` composes `Life`; `browser` composes `Client`, folds `Vital.enrich` over its dial spans, and stands parallel to the server plane, importing none of serve, work, or ai; `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol at the same rank and marks its settlement facts through the otel meter bridge — the meter mark and the vital projection are the two lateral edges inside S2.
+- S2 carriers + work — `net/pubsub` and `net/coordinate` compose `Setting`; `otel` composes `Life`; `browser` composes `Client`, folds `Vital.enrich` over its dial spans, and stands parallel to the server plane, importing none of serve, work, or ai; `work` prices the durable plane over `Setting`, `Client`, and the `Bench` protocol at the same rank and marks its settlement facts through the otel meter bridge — the meter mark, the vital projection, and the fanout carriage continuation (`pubsub` composing `Propagation`) are the three lateral edges inside S2.
 - S3 `serve` — the front door composing `Fanout`, `Propagation`, and `Life`; nothing imports serve.
 - `ai` composes no runtime sibling — its edges run outward to core, data, and security alone, standing beside the strata rather than inside them.
 
@@ -69,13 +70,13 @@ config:
 ---
 flowchart TB
     accTitle: Runtime interior import strata
-    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — imports downward with two lateral edges inside S2 (the work-to-otel meter mark, the browser-to-otel vital projection), labeled edges naming one sourced type each, and one forbidden upward edge.
+    accDescr: Four interior waves — serve over the pubsub and otel carriers, with browser and work seated at the same carrier rank parallel to the server plane, over the proc substrate onto the net egress floor — imports downward with three lateral edges inside S2 (the work-to-otel meter mark, the browser-to-otel vital projection, the pubsub-to-otel carriage continuation), labeled edges naming one sourced type each, and one forbidden upward edge.
     subgraph S3["S3 SERVE"]
         Serve["api · route · live · problem · cli"]
     end
     subgraph S2["S2 CARRIERS + WORK"]
         Fanout["pubsub · coordinate"]
-        Otel["emit · crash · dev · instrument · meter · vital"]
+        Otel["emit · crash · dev · instrument · meter · profile · vital"]
         Browser["boot · shell · persist · route · fetch"]
         Work["entity · flow · queue · schedule · deliver · report"]
     end
@@ -95,6 +96,7 @@ flowchart TB
     Work e10@-->|"[IMPORT]: Bench"| Proc
     Work e12@-->|"[IMPORT]: Pulse"| Otel
     Browser e13@-->|"[IMPORT]: Vital"| Otel
+    Fanout e14@-->|"[IMPORT]: Propagation"| Otel
     Serve e7@-->|"[IMPORT]: Fanout"| Fanout
     Serve e8@-->|"[IMPORT]: Propagation"| Otel
     Serve e9@-->|"[IMPORT]: Life"| Proc
@@ -114,7 +116,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime domain-peer seam registry
-    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, durable-store, and tenant-projection shapes with the core, security, and data TypeScript domain peers, one edge per contract family mirrored at each counterpart.
+    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, durable-store, tenant-projection, carrier-context, and tap-registry shapes with the core, security, and data TypeScript domain peers, one edge per contract family mirrored at each counterpart.
     subgraph runtime[RUNTIME]
         Proc[Proc substrate]
         Net[Net egress]
@@ -143,7 +145,11 @@ flowchart LR
     Ai e12@-->|"[PORT]: Embedder"| Data
     Data e15@-->|"[PORT]: Journal.census"| Otel
     Security e16@-->|"[PROJECTION]: rasm.tenant"| Otel
-    Core e17@-->|"[SHAPE]: Tap"| Otel
+    Core e17@-->|"[SHAPE]: Tap.Registry"| Otel
+    Data e18@-->|"[SHAPE]: Tap.Registry"| Otel
+    Security e19@-->|"[SHAPE]: Tap.Registry"| Otel
+    Data e20@-->|"[SHAPE]: Journal.envelope"| Work
+    Core e21@-->|"[SHAPE]: Carrier.Context"| Otel
 ```
 
 ```mermaid
@@ -156,7 +162,7 @@ config:
 ---
 flowchart LR
     accTitle: Runtime platform and cross-runtime seam registry
-    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, one edge per contract family mirrored at each counterpart.
+    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, tap registries, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, one edge per contract family mirrored at each counterpart.
     subgraph runtime[RUNTIME]
         Otel[Otel wire]
         Proc[Proc substrate]
@@ -175,7 +181,8 @@ flowchart LR
     Browser e6@-->|"[PORT]: Atom.subscribable"| Ui
     Browser e7@-->|"[PORT]: GlbViewport"| Ui
     Otel e8@-->|"[TRANSPORT]: Export.live"| Iac
-    Otel e9@-->|"[SHAPE]: Pulse.Board"| Iac
+    Ui e9@-->|"[SHAPE]: Tap.Registry"| Otel
+    Otel e10@-->|"[TRANSPORT]: Profile.live"| Iac
 ```
 
 ## [04]-[ORGANIZATION]
