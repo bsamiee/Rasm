@@ -382,7 +382,7 @@ class RefutedClass(msgspec.Struct, frozen=True):
     matchers: tuple[str, ...] = ()
     refuting_citation: str = ""
     landed_surfaces: tuple[str, ...] = ()
-    rounds_seen: tuple[int, ...] = ()
+    recurrences: int = 0
 
 
 class Registry(msgspec.Struct, frozen=True):
@@ -2291,7 +2291,7 @@ def slugged(claim: str, /) -> str:
     return "-".join(stemmed(claim).split()[:4]) or "unnamed"
 
 
-def proposal_block(fresh: tuple[Refutation, ...], round_no: int, /) -> tuple[str, ...]:
+def proposal_block(fresh: tuple[Refutation, ...], /) -> tuple[str, ...]:
     if not fresh:
         return ()
     rows = [
@@ -2300,7 +2300,7 @@ def proposal_block(fresh: tuple[Refutation, ...], round_no: int, /) -> tuple[str
             "matchers": [stemmed(entry.claim)],
             "refuting_citation": "",
             "landed_surfaces": [],
-            "rounds_seen": [round_no],
+            "recurrences": 1,
         }
         for entry in fresh
     ]
@@ -2320,7 +2320,7 @@ def improvement_lines(reports: tuple[LaneReport, ...], /) -> tuple[str, ...]:
 
 
 def ineffective_of(registry: Registry, recurred_ids: frozenset[str], /) -> tuple[RefutedClass, ...]:
-    return tuple(row for row in registry.classes if row.class_id in recurred_ids and row.landed_surfaces and row.rounds_seen)
+    return tuple(row for row in registry.classes if row.class_id in recurred_ids and row.landed_surfaces and row.recurrences)
 
 
 def feed_rendered(
@@ -2338,13 +2338,13 @@ def feed_rendered(
         ),
         "## [GUARD_INEFFECTIVE]",
         *(
-            f"- `{row.class_id}` — landed on {', '.join(row.landed_surfaces)}; seen rounds {', '.join(map(str, row.rounds_seen))} and again this"
+            f"- `{row.class_id}` — landed on {', '.join(row.landed_surfaces)}; recurred {row.recurrences} prior rounds and again this"
             " round — the wording failed: harden it, never skip as already-owned"
             for row in ineffective_of(registry, recurred_ids)
         ),
         "## [NEW_REFUTED]",
         *(f"- {entry.claim} — {entry.evidence}" for entry in fresh),
-        *proposal_block(fresh, run.round),
+        *proposal_block(fresh),
         "## [IMPROVEMENTS]",
         *improvement_lines(reports),
         "## [CAPABILITY_LANDED]",
@@ -2393,26 +2393,26 @@ def reference_stub(slug: str, members: tuple[str, ...], evidence: str, round_no:
     ))
 
 
-def feedback_stub(row: RefutedClass, round_no: int, /) -> str:
-    rounds = ", ".join(map(str, (*row.rounds_seen, round_no)))
+def feedback_stub(row: RefutedClass, /) -> str:
+    rounds = f"{row.recurrences + 1} rounds"
     surfaces = ", ".join(row.landed_surfaces)
     slug = slugged(row.class_id)
     citation = f" Citation: {row.refuting_citation}." if row.refuting_citation else ""
     return "\n".join((
         "---",
         f"name: feedback_{slug}",
-        f'description: "{row.class_id} recurs across rounds {rounds} despite guards on {surfaces}"',
+        f'description: "{row.class_id} recurs across {rounds} despite guards on {surfaces}"',
         "metadata:",
         "  node_type: memory",
         "  type: feedback",
         "---",
         (
-            f"`{row.class_id}` recurs across rounds {rounds} despite landed guards on {surfaces} — the guard mechanism, not the claim, needs a"
+            f"`{row.class_id}` recurs across {rounds} despite landed guards on {surfaces} — the guard mechanism, not the claim, needs a"
             f" process change.{citation}"
         ),
         "",
         "Proposed MEMORY.md index row:",
-        f"- [{slug.replace('-', ' ')}](feedback_{slug}.md) — {row.class_id} guard ineffective across rounds {rounds}",
+        f"- [{slug.replace('-', ' ')}](feedback_{slug}.md) — {row.class_id} guard ineffective across {rounds}",
         "",
     ))
 
@@ -2421,10 +2421,10 @@ def proposals_written(
     context: Context, recurred_ids: frozenset[str], reports: tuple[LaneReport, ...], registry: Registry, /
 ) -> Result[tuple[str, ...], Fault]:
     refs = tuple(Block.of_seq(tuple(row for report in reports for row in report.capability)).choose(roster_row))
-    feds = tuple(row for row in registry.classes if len(row.rounds_seen) >= 2 and row.landed_surfaces and row.class_id in recurred_ids)
+    feds = tuple(row for row in registry.classes if row.recurrences >= 2 and row.landed_surfaces and row.class_id in recurred_ids)
     jobs: tuple[tuple[str, str], ...] = (
         *((f"reference_{slug}.md", reference_stub(slug, members, evidence, context.run.round)) for slug, members, evidence in refs),
-        *((f"feedback_{slugged(row.class_id)}.md", feedback_stub(row, context.run.round)) for row in feds),
+        *((f"feedback_{slugged(row.class_id)}.md", feedback_stub(row)) for row in feds),
     )
     if not jobs:
         return Ok(())
@@ -2850,7 +2850,7 @@ def registry_proofs() -> tuple[tuple[str, bool], ...]:
         "matchers": [r"claim.{0,20}pattern"],
         "refuting_citation": "<citation-a>",
         "landed_surfaces": [".coderabbit.yaml"],
-        "rounds_seen": [9],
+        "recurrences": 2,
     }
     entries: tuple[object, ...] = (
         template,
