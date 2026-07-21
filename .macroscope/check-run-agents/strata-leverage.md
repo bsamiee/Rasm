@@ -9,7 +9,7 @@ include:
 
 # [STRATA_LEVERAGE]
 
-Downward composition is this pass's one question: whether a changed fence composes the owners its stratum designates instead of re-deriving them. Read the touched folder's stratum row in the owning package `ARCHITECTURE.md` strata section before any finding; direction breaches, seam coupling, and placement belong to the architecture-integrity pass and are not re-litigated here — this pass owns leverage alone, and a touched folder is presumed under-leveraged until its composition set is checked against its row.
+Downward composition is this pass's one question: whether a changed fence composes the owners its stratum designates instead of re-deriving them. Read the touched folder's stratum row and seam ledger in the owning package `ARCHITECTURE.md` before any finding — capability a designated lower-stratum owner exports composes through its declared seam, never re-rolls; direction breaches, seam coupling, and placement belong to the architecture-integrity pass and are not re-litigated here — this pass owns leverage alone, and a touched folder is presumed under-leveraged until its composition set is checked against its row.
 
 Hunt these classes, each finding naming the strata row, the designated owner, and the uncomposed or duplicated member:
 - Composition gap: a fence re-deriving capability a designated lower-stratum owner carries — a host sub-domain re-spelling the shared commit envelope the document spine owns, a boundary fence hand-rolling a kernel-neutral computation the kernel floor ships — demand composition of the named owner.

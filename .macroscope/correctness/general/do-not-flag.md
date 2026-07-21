@@ -9,6 +9,8 @@ Deliberate house shapes that violate generic best practice — flagging them is 
 - An in-process callback owes owner-derived coverage rather than host-completion evidence when its charter exposes no host boundary.
 - Branches already inhabiting one typed rail need no carrier repair.
 - A duplicate-validation finding cites a second declaration or admission call rather than an imagined sibling site.
+- A consistency-check demand between a declared shape and a value the owner computes from that same shape is void — a computed projection cannot desynchronize from its inputs; the demand is real only against an independently stored field.
+- A completeness or restoration demand against a registry or research row deliberately BLOCKED on an upstream producer is void — the blocked row is the correct fail-closed form, and the demand routes to the producer owner the row names.
 - Current-state claims trace composed calls, derived projections, internal provider operations, and receipt or canonical-egress consumption before flagging; a declaration is not a second call site, a value proven on that trace is not unused, and a path already entering the named admission owner is not missing the check.
 - Demanded mechanisms prove semantic compatibility: quantities share dimensions, the target owner carries the needed policy rather than adjacent capability alone, leveraged algorithms carry acceptance and fallback law, and fixed ceilings or invariants exist in owner or provider law rather than being invented.
 - Planning registries relate only as their charters declare; concept-to-task derivation is not identity or status mirroring, and design-corpus fences owe transcription-complete code but no executable test.
@@ -19,7 +21,7 @@ Deliberate house shapes that violate generic best practice — flagging them is 
 - A local codec never duplicates a canonical-byte owner, whose case family extends before the consumer routes.
 - Recursive execution expansion deletes only after the published trace retains every executable case, structural locus, and repetition identity.
 - A predecessor dependency deletes only after the owning atom carries the intrinsic start, sweep, or equivalent evidence the consumer needs.
-- Equal row shape, labels, formulas, codecs, or current mappings are not duplicate law without one existing winner preserving semantics, policy, precedence, lifetime, evidence, and consumers; required ABI spellings stay on both sides, and a replacement spanning untouched ownership or lifetime concerns exceeds the changed defect.
+- Equal row shape, labels, formulas, codecs, current mappings, or a shared type NAME across independent packages are not duplicate law without one existing winner preserving semantics, policy, precedence, lifetime, evidence, and consumers; a declared package or stratum boundary admitting the peers only through a ruled seam refutes the merge outright, required ABI spellings stay on both sides, and a replacement spanning untouched ownership or lifetime concerns exceeds the changed defect.
 - A package traversal lacking the owner's deterministic connected walk is not approved replacement leverage.
 - Both sides of an external ABI retain the shared operation spelling required by that boundary.
 - Payloads with different motion or effect semantics remain distinct even when their carriers look alike.
