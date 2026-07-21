@@ -20,6 +20,8 @@ classes:
       - 're-?valid(at|ity)'
       - 'valid(at|ity)\w*.{0,60}(smart ?enum|value ?(object|struct)|generated (enum|case)|already (validated|admitted|constructed))'
       - '(null|none|invalid|bounds|range).{0,20}(check|guard).{0,60}(smart ?enum|value ?(object|struct)|generated (enum|case)|by construction)'
+      - '(second|re-?run|re-?check)\w*.{0,40}(isvalid|validation|admission) (check|call)'
+      - '(verify|re-?check).{0,50}(issuer|signature|acceptance).{0,50}inside'
     refuting_citation: 'templates/fix.md trichotomy — generated-enum instances and value-struct payloads are valid by construction; interior re-validation of admitted values is pushed back'
     landed_surfaces:
       - '.coderabbit.yaml'
@@ -56,6 +58,7 @@ classes:
       - '\b(missing|absent|no such|undeclared|not declared|removed)\b.{0,60}\b(member|case|method|property|declaration|overload)\b'
       - '\bdoes not (define|declare|implement|expose)\b'
       - '\b(dropped|lost|removed)\b.{0,50}(divider|grammar|marker|constant)'
+      - 'already (exists?|carries|declares|present)'
     refuting_citation: '.macroscope/correctness/general/stance.md — a claimed absence verifies at the positive-claim bar: the current file re-opened and the member proven missing before emission; a removal claim verifies both the declaration and every constructor site, and content a file assembles through composed constants or interpolation traces through the composition — absence of the verbatim spelling at one site is not absence'
     landed_surfaces:
       - '.coderabbit.yaml'
@@ -419,4 +422,47 @@ classes:
       - '.coderabbit.yaml'
       - '.greptile/rules.md'
       - '.macroscope/correctness/general/stance.md'
+    recurrences: 1
+  - class_id: computed-projection-consistency-check
+    corpus: code
+    matchers:
+      - (consistency|mismatch|desync|compar\w+).{0,60}(computed|derived) (property|value|projection|length|count)
+      - (stored|declared|independent).{0,50}(byte|length|count|size).{0,50}(comput|deriv)
+    refuting_citation: .macroscope/correctness/general/do-not-flag.md — a consistency-check demand between a declared shape and a value the owner computes from that same shape is void; no independently mutable field exists to drift
+    landed_surfaces:
+      - .coderabbit.yaml
+      - .greptile/rules.md
+      - .macroscope/correctness/general/do-not-flag.md
+    recurrences: 1
+  - class_id: blocked-producer-row-completion
+    corpus: code
+    matchers:
+      - (complet|restor|land|fill|regenerat)\w*.{0,60}\bBLOCKED\b
+      - BLOCKED.{0,50}(row|registry|vocabulary).{0,50}(complet|missing|absent)
+    refuting_citation: .macroscope/correctness/general/do-not-flag.md — a completeness or restoration demand against a registry or research row deliberately BLOCKED on an upstream producer is void; producer ownership rules the landing order
+    landed_surfaces:
+      - .coderabbit.yaml
+      - .greptile/rules.md
+      - .macroscope/correctness/general/do-not-flag.md
+    recurrences: 1
+  - class_id: name-similarity-shared-owner
+    corpus: code
+    matchers:
+      - (unify|share|merge|dedup|single)\w*.{0,60}(type|owner|profile|model).{0,60}(name|similar|both|across)
+      - (same|identical) (type|record|class) name.{0,60}(packages|folders|planes)
+    refuting_citation: .macroscope/correctness/general/do-not-flag.md — a shared type name across independent packages establishes no semantic owner; a declared package or stratum boundary admitting the peers only through a ruled seam refutes the merge outright
+    landed_surfaces:
+      - .coderabbit.yaml
+      - .greptile/rules.md
+      - .macroscope/correctness/general/do-not-flag.md
+    recurrences: 1
+  - class_id: block-map-eager-execution
+    corpus: code
+    matchers:
+      - Block\.map.{0,50}(lazy|deferred|unexecuted|not run)
+    refuting_citation: .macroscope/correctness/python/surface-facts.md — installed expression.collections.Block.map eagerly materializes and executes its mapper; a laziness claim against it is void
+    landed_surfaces:
+      - .coderabbit.yaml
+      - .greptile/rules.md
+      - .macroscope/correctness/python/surface-facts.md
     recurrences: 1
