@@ -32,13 +32,14 @@ One rail carries the whole cycle: every engine round normalizes into one finding
 
 ## [02]-[CYCLE]
 
-Every session is its own campaign: rounds number from 1, and the session's first launch deletes any pre-existing `.cache/review/` state whole — never archived, never resumed, never numbered from.
+Every session is its own campaign: rounds number from 1, the session's first launch deletes any pre-existing `.cache/review/` state whole — never archived, never resumed, never numbered from — and the campaign close deletes it again once the final round's `round` row prints its delta. Mid-campaign round dirs survive until then: normalize provenance, `--dedup-against`, and the harvest recurrence census read prior rounds.
 
 Every round runs on two custody lanes that never mix: work under review — the harvest's `libs/` corpus-ledger landings included — stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
 
 Step order never proves a drain, the owning receipt does: `reconcile` surfaces `routing.pending`, `round` refuses `routing-undrained` while it is non-empty, and `harvest`/`round` refuse a partial lane-report set.
 
 [STEP_1]-[CUSTODY]: commit the distillation lane first, so review scope holds exactly the work under review.
+- Lockfiles and equivalent generated churn (`packages.lock.json`, `pnpm-lock.yaml`, `uv.lock`, and kin) ride the custody commit-and-push every round — zero review value, and each burns an engine file-cap slot.
 - WATCH: a reviewed-work file in the custody commit shrinks the next round's scope silently.
 - KNOB: commit-scope roster.
 
