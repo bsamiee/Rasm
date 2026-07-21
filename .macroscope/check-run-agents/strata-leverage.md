@@ -1,7 +1,7 @@
 ---
 title: Rasm Strata Leverage
 input: full_diff
-effort: medium
+effort: high
 conclusion: neutral
 include:
   - "libs/**"

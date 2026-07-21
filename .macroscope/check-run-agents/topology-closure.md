@@ -1,7 +1,7 @@
 ---
 title: Rasm Topology Closure
 input: full_diff
-effort: low
+effort: medium
 conclusion: neutral
 include:
   - "docs/stacks/**"
