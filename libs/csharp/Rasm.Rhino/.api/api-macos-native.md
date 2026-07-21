@@ -9,7 +9,7 @@
 - assembly: `Microsoft.macOS`
 - namespace: `AppKit`, `CoreAnimation`, `Foundation`, `ObjCRuntime`
 - asset: the `Microsoft.macOS` binding assembly the Rhino host loads on the `net10.0-macos` target; the whole surface is absent off-macOS
-- verify: no `tools.assay api` `--key` reaches `Microsoft.macOS` (the key resolves `unsupported`); every member here is decompiled directly from the bundled `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Microsoft.macOS.dll` via `ilspycmd`, never the assay reflection rail
+- verify: `tools.assay api query <symbol> --key microsoft-macos` decompiles the bundled `/Applications/RhinoWIP.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources/Microsoft.macOS.dll` directly; `--key eto-macos` covers the sibling `Eto.macOS.dll`
 - rail: macos-native
 
 ## [02]-[PUBLIC_TYPES]

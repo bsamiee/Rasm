@@ -19,7 +19,7 @@ export const meta = {
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then implement, critique (fixlog to disk), redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination; after the package\'s last batch, one ideas-realization writer implements the worklist against the landed corpus',
+            detail: "sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then implement, critique (fixlog to disk), redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination; after the package's last batch, one ideas-realization writer implements the worklist against the landed corpus",
         },
         {
             title: 'Close',
@@ -443,7 +443,8 @@ const LEDGER_SCHEMA = {
     },
 };
 
-const FIXER_SCHEMA = {  // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
+const FIXER_SCHEMA = {
+    // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
     type: 'object',
     additionalProperties: false,
     required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
@@ -736,55 +737,77 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+// Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
+const LANE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
+
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = ROOT_DIR;
-    const report = root + '/' + base + '-report.json';
-    const model = o.model || null; // ~/.codex/config.toml owns the default; a pin is set only to deviate from it
-    return [
-        'DISPATCH ROLE: ' +
-            (model || 'the config-default codex model') +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
-            (model ? 'model="' + model + '", ' : '') +
-            'cwd=' +
-            JSON.stringify(root) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. The call blocks until the codex turn completes and returns the result envelope. If it errors, skip ' +
-            'step (3) and return the error through step (4); the orchestrator owns any fallback.',
-        'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' +
-            task +
-            (o.writes
-                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
-                  report +
-                  ' yourself.'
-                : ''),
-        o.writes
-            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+    const report = ROOT_DIR + '/' + base + '-report.json';
+    const lane = report + '.lane';
+    const authored = !!o.writes;
+    const sandbox = authored ? 'workspace-write' : 'read-only';
+    const taskFull =
+        task +
+        (authored
+            ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
               report +
-              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
-              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
-            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-              report +
-              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-              'failure returns through step (4) with the error.',
-        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
-            base +
-            '-report.json, entries=the length of result["' +
-            o.hl.arr +
-            '"], headline="<entries> ' +
-            o.hl.arr +
-            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
-            'report and headline empty, and failure equal to the error text VERBATIM.',
-    ].join('\n\n');
+              ' yourself.'
+            : '');
+    return (
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+        lane +
+        '/law.md and the TASK block below VERBATIM to ' +
+        lane +
+        '/task.md, composing neither. ' +
+        (authored
+            ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
+            : '') +
+        '(2) Run ONE Bash call with run_in_background true: ' +
+        LANE_SCRIPT +
+        ' --task ' +
+        lane +
+        '/task.md --law ' +
+        lane +
+        '/law.md --dir ' +
+        lane +
+        ' --cwd ' +
+        ROOT_DIR +
+        ' --sandbox ' +
+        sandbox +
+        flagsOf(o) +
+        (authored ? '' : ' --out ' + report) +
+        '; the harness re-invokes you when the lane exits — Read ' +
+        lane +
+        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        'refusal) re-runs the same command untouched. (3) ' +
+        (authored
+            ? 'The delegate lands the product itself at ' + report + ' as its final act.'
+            : 'The lane lands the product at ' + report + ' via --out.') +
+        ' (4) Verify with one Bash call: jq -e . ' +
+        report +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
+        'probe output. (5) Return ok=true, report=' +
+        base +
+        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        o.hl.arr +
+        '" array in the product, headline="<entries> ' +
+        o.hl.arr +
+        (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+        ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
+        laneLaw(schema, o) +
+        '\n\nTASK:\n\n' +
+        taskFull
+    );
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin (twinOf owns
@@ -1109,7 +1132,8 @@ const EVIDENCE_LAW =
     'consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose confidence. OUTPUT ' +
     'BOUNDS: the finding count follows the territory, never a target — a typical page yields 0-2 retained findings and a clean ' +
     'page yields none; 0 across the whole scope only when the second hostile pass returns empty, `summary` then naming the ' +
-    'probes that produced nothing; never manufacture a finding to fill a count, never delete a confirmed one to trim one. COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, ' +
+    'probes that produced nothing; never manufacture a finding to fill a count, never delete a confirmed one to trim one. ' +
+    'COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, ' +
     '`skipped`/`unverified` = not reached or unconfirmed — an honest skip beats a silent one.';
 
 const HARVEST_LAW =
@@ -1821,7 +1845,7 @@ const dispositionPrompt = (sets, pages, ledgerPath) =>
             'a fence sketch, or a ruled design.',
         '(4) POOL HYGIENE — where an outcome touches an existing IDEAS.md open card (a realized entry an open card covers: the ' +
             'card moves to `[2]-[CLOSED]` with a one-line disposition; a carded entry an open card already covers: dedupe onto ' +
-            'that card), reconcile the card in the same pass. Cards the run\'s entries never touch stay untouched.',
+            "that card), reconcile the card in the same pass. Cards the run's entries never touch stay untouched.",
         'Return entries (one row per dossier entry — the disposition is TOTAL), files (every IDEAS.md edited), summary.',
     ]
         .filter(Boolean)
@@ -1919,7 +1943,12 @@ const PACK_SCHEMA = {
     properties: {
         sections: {
             type: 'array',
-            items: { type: 'object', additionalProperties: false, required: ['source', 'lines'], properties: { source: S, lines: { type: 'integer' } } },
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['source', 'lines'],
+                properties: { source: S, lines: { type: 'integer' } },
+            },
         },
         summary: S,
     },
@@ -1943,11 +1972,21 @@ const lawPackPrompt = (L, pack) =>
 const LAWPACK = {};
 for (const k of LANGS_IN) {
     LAWPACK[k] = slot(() =>
-        recon(() => lawPackPrompt(LANG[k], lawPackPath(k)), ropts('lawpack:' + k, 'Map', PACK_SCHEMA, [], { arr: 'sections' }, {
-            writes: true,
-            codexEffort: 'low',
-            model: 'gpt-5.6-terra',
-        })),
+        recon(
+            () => lawPackPrompt(LANG[k], lawPackPath(k)),
+            ropts(
+                'lawpack:' + k,
+                'Map',
+                PACK_SCHEMA,
+                [],
+                { arr: 'sections' },
+                {
+                    writes: true,
+                    codexEffort: 'low',
+                    model: 'gpt-5.6-terra',
+                },
+            ),
+        ),
     ).catch(() => null);
 }
 
@@ -2040,9 +2079,16 @@ const runBatch = async (b) => {
     const bar = await slot(() =>
         recon(
             (reg) => barLensPrompt(L, batch, reg),
-            ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }, {
-                codexEffort: 'medium',
-            }),
+            ropts(
+                'recon:bar:' + tag,
+                'Build',
+                BAR_SCHEMA,
+                pageScope,
+                { arr: 'findings', group: 'severity' },
+                {
+                    codexEffort: 'medium',
+                },
+            ),
         ),
     );
     const roster = pms
@@ -2085,14 +2131,7 @@ const runBatch = async (b) => {
     const crit = await slot(() =>
         recon(
             (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, critNav, reg, pack),
-            ropts(
-                'crit:' + tag,
-                'Build',
-                REVIEW_SCHEMA,
-                pageScope,
-                { arr: 'files' },
-                { writes: true, fix: true, nativeModel: 'fable' },
-            ),
+            ropts('crit:' + tag, 'Build', REVIEW_SCHEMA, pageScope, { arr: 'files' }, { writes: true, fix: true, nativeModel: 'fable' }),
         ),
     );
     const critR = crit && crit.ok ? crit : null;
@@ -2196,15 +2235,29 @@ const [found, work, ledger] = await Promise.all([
                 t.gov
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
-                          ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }, {
-                              codexEffort: 'medium',
-                          }),
+                          ropts(
+                              'finder:gov:' + t.lang,
+                              'Close',
+                              FINDINGS_SCHEMA,
+                              t.pkgs,
+                              { arr: 'findings', group: 'class' },
+                              {
+                                  codexEffort: 'medium',
+                              },
+                          ),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
-                          ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }, {
-                              codexEffort: 'medium',
-                          }),
+                          ropts(
+                              'finder:' + t.lang + ':s' + t.i,
+                              'Close',
+                              FINDINGS_SCHEMA,
+                              t.pages,
+                              { arr: 'findings', group: 'class' },
+                              {
+                                  codexEffort: 'medium',
+                              },
+                          ),
                       ),
             ).catch(() => null),
         ),
@@ -2213,9 +2266,16 @@ const [found, work, ledger] = await Promise.all([
         ? slot(() =>
               recon(
                   (reg) => backlogVerifierPrompt(BACKLOG, ORPHANS, CENSUS_PATHS, reg),
-                  ropts('verify:backlog', 'Close', WORK_SCHEMA, [], { arr: 'live', group: 'source' }, {
-                      codexEffort: 'medium',
-                  }),
+                  ropts(
+                      'verify:backlog',
+                      'Close',
+                      WORK_SCHEMA,
+                      [],
+                      { arr: 'live', group: 'source' },
+                      {
+                          codexEffort: 'medium',
+                      },
+                  ),
               ),
           ).catch(() => null)
         : null,
@@ -2223,9 +2283,16 @@ const [found, work, ledger] = await Promise.all([
         ? slot(() =>
               recon(
                   (reg) => ideasCollatorPrompt(IDEA_SETS, reg),
-                  ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
-                      codexEffort: 'medium',
-                  }),
+                  ropts(
+                      'collate:ideas',
+                      'Close',
+                      LEDGER_SCHEMA,
+                      [],
+                      { arr: 'entries', group: 'status' },
+                      {
+                          codexEffort: 'medium',
+                      },
+                  ),
               ),
           ).catch(() => null)
         : null,
@@ -2305,22 +2372,22 @@ const [ideas, doctrine] = await Promise.all([
     HARVEST_ROWS.length
         ? slot(() =>
               agent(
-              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
-                  'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
-                  'the `docgen` skill via the Skill tool BEFORE any durable edit; load ' +
-                  '`mermaid-diagramming` before touching any diagram. ' +
-                  "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
-                  JSON.stringify(HARVEST_ROWS) +
-                  '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
-                  'CURRENT disk; LAND NOTHING is a first-class verdict. A landing takes the target surface at its OWN form and ' +
-                  'bar: refine-over-add per the admission ladder (harden the existing clause before extending a page before ' +
-                  'minting one); a TRUE nomination weakly stated lands at its strongest true generalization — the nominator ' +
-                  'phrasing is a draft, never the ceiling; and a `stacks` landing conforms to the page-craft grammar — where ' +
-                  'the lesson is code-shaped it hardens the owning family card and its snippet or fence exemplar, never a ' +
-                  'prose bullet appended to a fence-taught region.\n' +
-                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
-                  'whose coupling no longer holds, land a coupling this run proved.\n' +
-                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                  'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+                      'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
+                      'the `docgen` skill via the Skill tool BEFORE any durable edit; load ' +
+                      '`mermaid-diagramming` before touching any diagram. ' +
+                      "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+                      JSON.stringify(HARVEST_ROWS) +
+                      '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                      'CURRENT disk; LAND NOTHING is a first-class verdict. A landing takes the target surface at its OWN form and ' +
+                      'bar: refine-over-add per the admission ladder (harden the existing clause before extending a page before ' +
+                      'minting one); a TRUE nomination weakly stated lands at its strongest true generalization — the nominator ' +
+                      'phrasing is a draft, never the ceiling; and a `stacks` landing conforms to the page-craft grammar — where ' +
+                      'the lesson is code-shaped it hardens the owning family card and its snippet or fence exemplar, never a ' +
+                      'prose bullet appended to a fence-taught region.\n' +
+                      'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                      'whose coupling no longer holds, land a coupling this run proved.\n' +
+                      'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                       'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
                   wopts('doctrine', 'Close', 'fable', DOCTRINE_SCHEMA),
               ),

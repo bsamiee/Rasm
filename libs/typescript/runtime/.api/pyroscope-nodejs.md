@@ -43,6 +43,45 @@
 |  [07]   | `getLabels` / `setLabels` (+ `Wall` variants)         | ambient labels     | thread-scoped label get/set                 |
 |  [08]   | `SourceMapper` / `setLogger`                          | support            | sourcemap symbolication, logger injection   |
 
+Exact shipped declarations — `SourceMapper` reaches consumers through the default export object, and `SourceMapper.create` mints the instance `PyroscopeConfig.sourceMapper` seats:
+
+```typescript declarations
+declare function init(config?: PyroscopeConfig): void
+declare function start(): void
+declare function stop(): Promise<void>
+declare function wrapWithLabels(lbls: Record<string, string | number>, fn: () => void, ...args: unknown[]): void
+declare class SourceMapper {
+  static create(searchDirs: string[], debug?: boolean): Promise<SourceMapper>
+  hasMappingInfo(inputPath: string): boolean
+  mappingInfo(location: GeneratedLocation): SourceLocation
+}
+interface PyroscopeConfig {
+  appName?: string | undefined
+  authToken?: string | undefined
+  basicAuthUser?: string | undefined
+  basicAuthPassword?: string | undefined
+  tenantID?: string | undefined
+  serverAddress?: string | undefined
+  flushIntervalMs?: number | undefined
+  tags?: LabelSet | undefined
+  wall?: PyroscopeWallConfig | undefined
+  heap?: PyroscopeHeapConfig | undefined
+  sourceMapper?: SourceMapper | undefined
+  stripFilenames?: StripFilenamesMode | undefined
+  shortenPaths?: boolean | undefined
+}
+type StripFilenamesMode = "all" | "dependencies"
+interface PyroscopeWallConfig {
+  samplingDurationMs?: number | undefined
+  samplingIntervalMicros?: number | undefined
+  collectCpuTime?: boolean | undefined
+}
+interface PyroscopeHeapConfig {
+  samplingIntervalBytes?: number | undefined
+  stackDepth?: number | undefined
+}
+```
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PROFILE_TOPOLOGY]:

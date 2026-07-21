@@ -70,7 +70,7 @@
     },
     {
       "id": "code-body-collapse",
-      "rule": "Hunt imperative and shape collapse: folds, combinators, tables, generators, generated owners, and discriminated types replace hand-rolled loops, branch ladders, parallel models, and types differing by one axis. Report a collapse only after proving one existing owner consumes the same state and rail while preserving every behavior, policy, precedence, lifetime, evidence field, and consumer contract. Equal row shape, labels, formulas, codecs, or current mappings do not establish one semantic owner; required ABI spellings remain on both sides, and a replacement spanning untouched ownership or lifetime concerns exceeds the changed defect. Cite the canonical replacement and smallest replaced range.",
+      "rule": "Hunt imperative and shape collapse: folds, combinators, tables, generators, generated owners, and discriminated types replace hand-rolled loops, branch ladders, parallel models, and types differing by one axis. Report a collapse only after proving one existing owner consumes the same state and rail while preserving every behavior, policy, precedence, lifetime, evidence field, and consumer contract. Equal row shape, labels, formulas, codecs, or current mappings do not establish one semantic owner; required ABI spellings remain on both sides, and a replacement spanning untouched ownership or lifetime concerns exceeds the changed defect. Every collapse demand states what the merge loses: where the plural form carries a guarantee — a per-folder closed roster's compile-time break, a dependency boundary keeping host SDKs above their stratum, a deliberate isolation co-location — the plurality is lawful, erasing the guarantee is a downgrade wearing density, and the unifying discriminant states at a durable owner so the twin surfaces never re-litigate. Two paradigms splitting one seam — an imperative or exception path beside the concern's monadic rail — are the same collapse target: one rail owns the concern end to end. Cite the canonical replacement and smallest replaced range.",
       "severity": "medium",
       "enabled": true,
       "scope": [
@@ -84,7 +84,7 @@
     },
     {
       "id": "api-stacking-census",
-      "rule": "Run the stacking census on every touched page against the folder and language .api tiers plus the central manifest, then demand the deepest verified operator on the existing owner. Proven leverage includes Try.lift(...).Run() for provider exception custody; TensorPrimitives fused arithmetic, finite-span predicates, and reductions; QuikGraph roots, paths, acyclicity, components, and sinks; ArrayPoolBufferWriter<byte> for framed canonical emission; NodaTime interval, clock, and mapping operations; quantity algebra; endpoint-inclusive lattices; and provider-native segment geometry. A shallow form is a defect only when the exact invocation, return shape, complete roster, owner input contract, and preserved semantics are confirmed; a fragment or operator lacking deterministic walk, geometry, precedence, acceptance, fallback, or custody is not approved leverage. Extend the canonical owner by row, case, or member; cite the member and smallest replacing range.",
+      "rule": "Run the stacking census on every touched page against the folder and language .api tiers plus the central manifest, then demand the deepest verified operator on the existing owner. Proven leverage includes Try.lift(...).Run() for provider exception custody; TensorPrimitives fused arithmetic, finite-span predicates, and reductions; QuikGraph roots, paths, acyclicity, components, and sinks; ArrayPoolBufferWriter<byte> for framed canonical emission; NodaTime interval, clock, and mapping operations; quantity algebra; endpoint-inclusive lattices; and provider-native segment geometry. A shallow form is a defect only when the exact invocation, return shape, complete roster, owner input contract, and preserved semantics are confirmed; a fragment or operator lacking deterministic walk, geometry, precedence, acceptance, fallback, or custody is not approved leverage. Extend the canonical owner by row, case, or member; cite the member and smallest replacing range. An overlapping second package enters only as a bounded fast-path under a named split predicate deciding which surface serves a call — a per-page arbitrary choice between two overlapping surfaces is the defect, and a fast-path member never owns the concern it accelerates.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -110,7 +110,7 @@
     },
     {
       "id": "strata-leverage",
-      "rule": "The owning ARCHITECTURE.md strata row names the owners a folder composes; hunt the leverage gap on every touched folder. A fence re-deriving capability a designated lower-stratum owner carries demands composition of that owner; an owner minted at a higher stratum for a concern a lower-stratum owner already carries is duplication the lower owner absorbs; two sibling consumers composing one stratum owner through divergent spellings converge on one composed form. Every finding names the strata row, the owner, and the uncomposed or duplicated member.",
+      "rule": "The owning ARCHITECTURE.md strata row names the owners a folder composes; hunt the leverage gap on every touched folder. A fence re-deriving capability a designated lower-stratum owner carries demands composition of that owner; an owner minted at a higher stratum for a concern a lower-stratum owner already carries is duplication the lower owner absorbs; two sibling consumers composing one stratum owner through divergent spellings converge on one composed form. A shared mechanism homes at the LOWEST stratum every consumer references — homing it higher manufactures per-folder twins, and a type or vocabulary re-declaring a lower-stratum owner's concept under a folder-local name is that twin, the demanded fix composing the substrate owner as an instance; per-folder fact unions typing a shared mechanism are the one legitimate per-folder plurality, never the machinery around them. The homing split is dependency cleanliness: a piece stays high only while it needs a dependency the lower stratum cannot carry, and a consumer blocked on an unlanded higher-stratum surface stays blocked — seating the awaited composition below its stratum to clear the block is the rejected shortcut. A layout, grammar, or vocabulary two owners keep identical by hand — mirrored spellings with no sync guard — is the same twin one typed owner dissolves, both sites composing it. Every finding names the strata row, the owner, and the uncomposed or duplicated member.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -153,7 +153,7 @@
     },
     {
       "id": "fence-as-product",
-      "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects. A research row is recorded epistemic debt: a fence settling a member a sibling research row still declares unverified is a defect, and a resolved row deletes whole with no tombstone. An admitted central-manifest row carrying a sanctioned gate comment and named follow-up is design-real: verification is the manifest admission, never wheel availability, and demanding a page drop the package over a temporary distribution gap is the capability-gating defect.",
+      "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects. Prose describing a fence binds to the fence's actual behavior: a signature row or behavior claim diverging from the body — a described transformation the code does not perform — is a wrong contract, and the correct form states the invariant the code embodies. A research row is recorded epistemic debt: a fence settling a member a sibling research row still declares unverified is a defect, and a resolved row deletes whole with no tombstone. An admitted central-manifest row carrying a sanctioned gate comment and named follow-up is design-real: verification is the manifest admission, never wheel availability, and demanding a page drop the package over a temporary distribution gap is the capability-gating defect.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -165,7 +165,7 @@
     },
     {
       "id": "central-package-custody",
-      "rule": "Package versions live only in the central manifests, hand-edited; vendored SDKs are defects. Version movement is forward-only — a downgrade or stale floor without a recorded reason is a defect, and a sanctioned pin carries an inline comment stating exactly what breaks without it.",
+      "rule": "Package versions live only in the central manifests, hand-edited; vendored SDKs are defects. Version movement is forward-only — a downgrade or stale floor without a recorded reason is a defect, and a sanctioned pin carries an inline comment stating exactly what breaks without it. A central row with no direct manifest consumer carries a `Rides <puller>` maintenance comment naming its direct puller — an uncommented transitive row is illegible and re-flags on every census, and a row carrying the comment is proven indirect custody, never an orphan or unused-dependency finding. A version family ruled to move as a matched set — sibling packages riding one upstream release wave, twin release tracks, a channel choice a composed member requires — moves together or not at all: a single-member bump, a routine bump-to-newest against a ruled hold, and a unify-the-versions consistency demand against ruled twin tracks are the defect, the ruling riding the RULINGS registry or the pin comment.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -203,7 +203,7 @@
     },
     {
       "id": "evidence-binding",
-      "rule": "Use-time evidence moves to construction: an aggregate owning a correlating mint factory admits only through it — a direct construction over complete-looking parts erases the correlation the factory binds; a derived value keeps one authority, so a configuration surface re-asserting what a construction factory already derives silently overwrites the mint; a hand-maintained mirror of a roster another owner carries — a slot enum shadowing a case list, hand-numbered keys shadowing host ordinals, per-case traits re-spelled beside the owning row — derives from that roster; an evidence or receipt parameter every call site hardwires to one value is false evidence deriving from the run fact it reports or deleting. Receipt evidence reading host side-channels computes before any product mints so a throwing projection fails before custody exists; a mutation receipt derives from the landing-phase trace stamped where contact begins, never from static request classification; a commit receipt stamps only after the commit's positive proof lands. Content preimages exclude execution policy and display labels — a label inside the preimage is a collision defect; a security identity takes a cryptographic digest, never a speed hash; a composite id rides a canonical codec, never a hand-rolled join or quote scheme injective on one ambiguity axis. A comment naming a root or anchor the code does not use marks a live defect — the owning root resolves once and threads as a parameter. A seam raising a typed fault spells the fault whole as the primary argument with context on the note channel, and multiple raise sites collapse onto one reconstruction owner; failure-diagnostic side channels beside an empty or failed primary result ride the typed fault or receipt on that branch, never the success branch alone; telemetry labels ride domain-owned prefixes.",
+      "rule": "Use-time evidence moves to construction: an aggregate owning a correlating mint factory admits only through it — a direct construction over complete-looking parts erases the correlation the factory binds; a derived value keeps one authority, so a configuration surface re-asserting what a construction factory already derives silently overwrites the mint; a hand-maintained mirror of a roster another owner carries — a slot enum shadowing a case list, hand-numbered keys shadowing host ordinals, per-case traits re-spelled beside the owning row — derives from that roster, and where nothing can derive — two owners sharing an untyped layout, index arithmetic, or prefix grammar no type enforces — the shared invariant states at both owners and changes only at both in one pass, since silent divergence is type-invisible corruption; an evidence or receipt parameter every call site hardwires to one value is false evidence deriving from the run fact it reports or deleting. Receipt evidence reading host side-channels computes before any product mints so a throwing projection fails before custody exists; a mutation receipt derives from the landing-phase trace stamped where contact begins, never from static request classification; a commit receipt stamps only after the commit's positive proof lands. Content preimages exclude execution policy and display labels — a label inside the preimage is a collision defect; a security identity takes a cryptographic digest, never a speed hash; a composite id rides a canonical codec, never a hand-rolled join or quote scheme injective on one ambiguity axis. A comment naming a root or anchor the code does not use marks a live defect — the owning root resolves once and threads as a parameter. A seam raising a typed fault spells the fault whole as the primary argument with context on the note channel, and multiple raise sites collapse onto one reconstruction owner; failure-diagnostic side channels beside an empty or failed primary result ride the typed fault or receipt on that branch, never the success branch alone; telemetry labels ride domain-owned prefixes.",
       "severity": "high",
       "enabled": true,
       "scope": [
@@ -275,7 +275,7 @@
     },
     {
       "id": "registry-closure",
-      "rule": "A dependency admission is a same-change multi-surface fact: central manifest row, consuming csproj reference, folder README registry row, and .api catalogue tier move together — a package present in one surface but missing from another is registry drift. Folder README router entries resolve 1:1 to on-disk .planning pages, and a page rename ripples its router row and ARCHITECTURE codemap node in the same diff. A README package card row is the backticked package id plus at most one dash-led charter clause — version pins, parentheticals, .api links, and multi-line depth are defects. Seam ledgers mirror: every cross-folder edge appears on both endpoint ARCHITECTURE pages with mirrored glyph and identical [KIND], and an in-package relation stays in the codemap, never a seam.",
+      "rule": "A dependency or capability admission — and equally an .api consolidation or move — is a same-change multi-surface fact: central manifest row, consuming project manifest reference, branch README registry row, folder README registry rows of every consumer, and owning .api tier move together — a member of the set present without its counterparts is drift in either direction. A package registers in exactly one README section at its tier-correct cluster — substrate packages in the substrate cluster, domain packages in their domain cluster — and a second row in another cluster is a drift seed; a missing-registration claim is valid only after sweeping every section cluster of the README, since a single-cluster sweep manufactures the false-missing finding that manufactures the double. Folder-tier .api files split by one discriminant: a genuine DOMAIN slice documenting folder-specific capability beyond the substrate is the only legitimate folder-tier file — the subset of substrate members a folder uses is a scattered copy that merges up into the substrate catalogue, and a pure-redirect stub deletes on sight; the substrate package shows at the folder through its README registry and project manifest, never a re-catalogue. Folder README router entries resolve 1:1 to on-disk .planning pages, and a page rename ripples its router row and ARCHITECTURE codemap node in the same diff. A README package card row is the backticked package id plus at most one dash-led charter clause — version pins, parentheticals, .api links, and multi-line depth are defects. Seam ledgers mirror: every cross-folder edge appears on both endpoint ARCHITECTURE pages with mirrored glyph and identical [KIND], and an in-package relation stays in the codemap, never a seam. Registration singularity is per-README: a package lawfully registers at two sibling folders under a ruled role split — each folder owning a distinct role the strata force apart — and a cross-folder dedup demand against that split is false. An admitted package no planning page composes is an orphaned admission — demand the composing fence per the touch-point law or the re-card, never silent retention.",
       "severity": "medium",
       "enabled": true,
       "scope": [
@@ -287,6 +287,40 @@
         "**/*.csproj",
         "**/pyproject.toml",
         "**/pnpm-workspace.yaml"
+      ]
+    },
+    {
+      "id": "cross-folder-parity",
+      "rule": "Capability parity across sibling folders sharing a concept is a same-corpus hunt: when a touched page deepens a shared concept — a new classification axis, category, field family, enum member, or wire field landed on one folder's owner — its cross-folder counterpart pages realizing the same concept in their own owners are checked for that capability at their own grain, and a counterpart still composing the narrower surface is a capability gap. Every finding names the leading owner, the shared concept, and each lagging counterpart owner. Both directions: a fence narrower than its counterpart, and a README or ARCHITECTURE registry lagging landed capability. Never a mirror demand — each side keeps its own owners, vocabulary, and casing, and the gap is the missing capability, never missing identical text. Never-regress: a parity fix widens the lagging side; shrinking the leading side to match is the rejected resolution. The standing signal shapes: a seam edge whose two endpoint pages disagree on the carried fields, and a widened .api catalogue whose consumer pages still compose the narrow surface.",
+      "severity": "high",
+      "enabled": true,
+      "scope": [
+        "libs/**",
+        "libs/.planning/**",
+        "libs/**/.planning/**",
+        "libs/**/.api/**"
+      ]
+    },
+    {
+      "id": "card-marker-integrity",
+      "rule": "IDEAS and TASKLOG card markers match the file's own template comment: card status rides the closed vocabulary [ACTIVE]/[QUEUED]/[BLOCKED] open and [COMPLETE]/[DROPPED] closed — an invented token ([UPSTREAM-BLOCKED] and kin), a malformed leader, or an absolute path inside a card is a defect. Card and research IDs are semantic UPPERCASE_SNAKE slugs carrying meaning — a numeric id ([0007]-class), a compact-alphanumeric id ([T1]/[C1]/[R23]-class), and a hyphenated slug are defects alike. Open cards carry Capability, Shape, Unlocks, and Anchors, with Arms, Route, Tension, Ripple, and Atomic present only on their stated conditions; a closed row collapses to the one-line disposition, a DROPPED row carries its rejection reason at ruling grain so the drop cannot re-litigate, and bullets flattened into run-on dashes are a repairable deformation demanding restoration, never rewrite license. A card closes or re-anchors only on disk evidence, never a roster's say-so — a roster-vs-disk contradiction narrows the card and flags the contradiction. A design page carries the terminal [RESEARCH] section always — (none) marks empty, absence is an error — and the section is load-bearing recorded epistemic debt: a diff deleting, deforming, or orphaning its markers — a [TOKEN]-[OPEN|BLOCKED] row losing its exact question or verification route, a research marker severed from the fence it gates — is a defect, and a resolved row deletes whole with no tombstone. Every finding names the file, the marker, and the template clause it breaches.",
+      "severity": "medium",
+      "enabled": true,
+      "scope": [
+        "libs/**",
+        "libs/.planning/**",
+        "libs/**/.planning/**"
+      ]
+    },
+    {
+      "id": "rulings-drift",
+      "rule": "RULINGS.md files are per-folder decision registries — mint-on-demand at package folders, branch tiers, and the cross-libs tier — and their rows are settled law with the force of the owning page. Review runs both directions. Diffs against rulings: an edit re-litigating a settled ruling — re-admitting a rejected package, folding a ruled-plural surface, re-homing a ruled owner, re-adding a retired structure — fires with the ruling row cited verbatim, and the demanded fix routes as a card (an IDEA at unifying altitude or a TASK at landing grain), never an inline workaround. Rulings against disk: a RULINGS.md diff answers the admission bar — a row dies only when its fact AND its why both live at one durable surface, and a page stating the what while the discriminant, lost guarantee, or refuted objection stays homeless ADMITS the row; a fact-and-why-carried row is derivable creep demanding deletion; a row contradicting landed pages or manifests is drift; a ruling homed above the narrowest tier containing it, duplicated across tiers, or spelled outside the closed section vocabulary ([PACKAGES]/[SHAPE]/[COLLAPSE]/[STRUCTURE]/[PROCESS]) is a defect. Positive direction equally: a diff realizing a capability a ruling anticipated is conformance worth naming, and a diff exposing a homeless discriminant — two lawful twin surfaces whose separating rule lives nowhere durable — earns the new ruling row at the narrowest owning tier.",
+      "severity": "high",
+      "enabled": true,
+      "scope": [
+        "libs/**",
+        "libs/.planning/**",
+        "libs/**/.planning/**"
       ]
     },
     {
@@ -324,7 +358,7 @@
     },
     {
       "id": "prose-law",
-      "rule": "Durable markdown is agent-facing law: a fact a fresh agent regenerates from disk plus stated invariants is a mirror demanding deletion; enumeration anchors (member rosters freezing a census, forbidden-alternative litanies, frozen counts) are defects whose replacement is the extension rule; version anchors (a version literal, release band, calendar-dated transition ledger, or freshness deictic) are defects whose replacement is the version-free current truth; hedges and report frames are defects while contract qualifiers survive; one owner per fact — a second prose copy at any altitude is a fork; a fact lands at the lowest tier that owns it, and index-tier prose carrying spec-tier mechanism demotes to the owning spec; links and cross-references belong only to README, SKILL, CLAUDE/AGENTS, and MEMORY files; permission verbs (supports, allows, enables, provides, offers) where an owning verb states law are defects; an exact named-surface spelling matching no verifying fence, catalog, or manifest is the fabricated specific — verify or delete, never soften; deterministic register classes the docgen prose gate's Check vocabulary owns (article openers, lexeme rosters, table geometry) are gate territory, never findings.",
+      "rule": "Durable markdown is agent-facing law: a fact a fresh agent regenerates from disk plus stated invariants is a mirror demanding deletion; enumeration anchors (member rosters freezing a census, forbidden-alternative litanies, frozen counts) are defects whose replacement is the extension rule; version anchors (a version literal, release band, calendar-dated transition ledger, or freshness deictic) are defects whose replacement is the version-free current truth; hedges and report frames are defects while contract qualifiers survive; one owner per fact — a second prose copy at any altitude is a fork; a fact lands at the lowest tier that owns it, and index-tier prose carrying spec-tier mechanism demotes to the owning spec; permission verbs (supports, allows, enables, provides, offers) where an owning verb states law are defects; an exact named-surface spelling matching no verifying fence, catalog, or manifest is the fabricated specific — verify or delete, never soften; a durable page deletes only under a full per-sentence disposition — every carried decision absorbed, verified-carried with the surviving owner proven on disk, or migrated — since a deletion whose decision survives nowhere is capability loss wearing densification; deterministic register classes the docgen prose gate's Check vocabulary owns (article openers, lexeme rosters, table geometry) are gate territory, never findings.",
       "severity": "low",
       "enabled": true,
       "scope": [
@@ -356,12 +390,33 @@
       ]
     },
     {
-      "id": "claude-guidance-sediment",
-      "rule": "Guidance sediment (docgen SAME_DECISION_SPREAD) is a run of near-similar rules accumulated across the files of one bundle or config, each restating most of one decision — distinct from a fact fork, which duplicates one fact. Demand the nuance-preserving restructure at the ruled owner: one higher-resolution ruling absorbing the run, every distinct decision surviving as its own clause, resolution rising while line count falls — never a mega-entry concatenating the collapsed items, never brute deletion. A neighbor separating a different failure class or false-positive discriminator is distinct law, never sediment — do not flag it. Example: three body rules each restating validate-before-return in different verbs collapse to the one gate contract; two guards whose discriminators split interior re-validation from host-crossing admission stay siblings.",
+      "id": "guidance-sediment",
+      "rule": "Guidance sediment (docgen SAME_DECISION_SPREAD) is a run of near-similar rules each restating most of one decision — across the sentences of one passage, the rows of one durable, or the files of one bundle or config, including two near-similar lines a diff introduces or leaves standing — distinct from a fact fork, which duplicates one fact. Demand the nuance-preserving restructure at the ruled owner: one higher-resolution ruling absorbing the run, smaller than its sources, every distinct decision surviving as its own clause — never a mega-entry concatenating the collapsed items, never a longer merged line, never brute deletion. A neighbor separating a different failure class or false-positive discriminator is distinct law, never sediment — do not flag it. Example: three body rules each restating validate-before-return in different verbs collapse to the one gate contract; two guards whose discriminators split interior re-validation from host-crossing admission stay siblings.",
       "severity": "medium",
       "enabled": true,
       "scope": [
-        ".claude/**"
+        "**/*.md",
+        ".claude/**",
+        ".greptile/**/*.md",
+        ".macroscope/**/*.md",
+        "libs/.planning/**/*.md",
+        "libs/**/.planning/**/*.md",
+        "libs/**/.api/**/*.md"
+      ]
+    },
+    {
+      "id": "doc-reference-integrity",
+      "rule": "Routing is a file class, not a section: only README, SKILL, CLAUDE/AGENTS, and MEMORY files carry links, paths, or cross-references — a relative link or sibling reference in any other durable markdown is a coupled-link defect. Inside an allowed class every cross-reference resolves to a live repo-relative path and a real anchor, and a diff renaming or moving a page or slug repairs every referencing durable in the same change — a dangling reference to a moved or renamed target is a defect a consumer inherits.",
+      "severity": "medium",
+      "enabled": true,
+      "scope": [
+        "**/*.md",
+        ".claude/**/*.md",
+        ".greptile/**/*.md",
+        ".macroscope/**/*.md",
+        "libs/.planning/**/*.md",
+        "libs/**/.planning/**/*.md",
+        "libs/**/.api/**/*.md"
       ]
     },
     {

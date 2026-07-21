@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_ETO_RUNTIME]
 
-`Eto.Forms` owns the host-neutral runtime every GH2-hosted panel drives, and this catalog fixes that verified surface — UI-thread marshalling, timers, live input state, typed data transfer, notifications, and screen metrics. `Application.Instance` is the single dispatch root: synchronous `Invoke`, fire-and-forget `AsyncInvoke`, awaitable `InvokeAsync`, and the run-loop iteration hook all cross the UI thread through it. `UITimer` owns the repeating tick, `Keyboard`/`Mouse`/`Cursors` own live input and pointer state, `Clipboard`/`DataObject` own typed binary, stream, object, string, image, HTML, and URI payloads, and `Notification`/`TrayIndicator` own the OS alert surface. `Screen` projects per-display bounds, working area, logical-pixel scale, and DPI.
+`Eto.Forms` owns the host-neutral runtime for GH2-hosted panels: UI dispatch, timers, live input, typed transfer, notifications, and screen metrics. `Application.Instance` routes synchronous `Invoke`, fire-and-forget `AsyncInvoke`, awaitable `InvokeAsync`, and run-loop iteration. `UITimer` owns ticks; `Keyboard`/`Mouse`/`Cursors` own input state; `Clipboard`/`DataObject` own transfer payloads; `Notification`/`TrayIndicator` own OS alerts; and `Screen` projects display geometry, scale, and DPI.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -48,7 +48,7 @@
 [PUBLIC_TYPE_SCOPE]: typed data transfer
 - rail: native UI
 
-`Clipboard` exposes static `Instance`; `Types`, `ContainsText`, `ContainsHtml`, `ContainsImage`, and `ContainsUris`; `Text`, `Html`, `Image`, and `Uris`; and `Clear()`. Its typed access surface comprises `SetData(byte[], type)`, `GetData(type)`, `SetDataStream`, `GetDataStream`, `SetString`, `GetString`, `SetObject`, `GetObject<T>`, and `Contains(type)`. `DataObject` mirrors the typed and format accessors under the `IDataObject` contract. `Control.DoDragDrop(DataObject, DragEffects[, Image, PointF])` initiates a copy, move, or link drag and returns `void`; the settled effect arrives on `Control.DragEnd`.
+`Clipboard.Instance` exposes type inventory, intrinsic presence flags, intrinsic values, `Clear()`, and typed data, stream, string, and object accessors. `DataObject` mirrors that surface under `IDataObject`. `Control.DoDragDrop(IDataObject, DragEffects)` starts a copy, move, or link drag and returns `DragEffects`; `Control.DragEnd` independently publishes a drag-lifecycle event.
 
 | [INDEX] | [SYMBOL]        | [KIND]     | [CAPABILITY]                    |
 | :-----: | :-------------- | :--------- | :------------------------------ |
@@ -61,7 +61,7 @@
 [PUBLIC_TYPE_SCOPE]: notifications and screen metrics
 - rail: native UI
 
-`Notification` exposes `Title`, `Message`, `Icon`, `ContentImage`, string `UserData`, `RequiresTrayIndicator`, and `Activated`; `NotificationEventArgs` carries string `ID` and `UserData`. `TrayIndicator` exposes `Title`, `Image`, `Menu`, `Visible`, and `Activated`. `Screen` exposes static `PrimaryScreen` and `Screens` plus `Bounds`, `WorkingArea`, `DisplayBounds`, `LogicalPixelSize`, `DPI`, `RealDPI`, `Scale`, `RealScale`, `BitsPerPixel`, and `IsPrimary`.
+`Notification` exposes `Title`, `Message`, `Icon`, `ContentImage`, string `UserData`, `RequiresTrayIndicator`, and `Activated`; `NotificationEventArgs` carries string `ID` and `UserData`. `TrayIndicator` exposes `Title`, `Image`, `Menu`, `Visible`, and `Activated`. `Screen` exposes static `PrimaryScreen` and `Screens` with `Bounds`, `WorkingArea`, `DisplayBounds`, `LogicalPixelSize`, `DPI`, `RealDPI`, `Scale`, `RealScale`, `BitsPerPixel`, and `IsPrimary`.
 
 | [INDEX] | [SYMBOL]        | [KIND]   | [CAPABILITY]                  |
 | :-----: | :-------------- | :------- | :---------------------------- |

@@ -33,3 +33,9 @@ Deliberate house shapes that violate generic best practice — flagging them is 
 - `TODO`/`FIXME` as source comment markers: sanctioned; the ban applies only to durable markdown.
 - Rhino-rich host capture coexisting with host-neutral semantics: architecture, never duplication.
 - Explicit match/dispatch arms over merged ternaries, and named intermediates on result rails: deliberate.
+- A transitive central-manifest row carrying its `Rides <puller>` comment: proven indirect custody, never an orphan or unused-dependency finding.
+- A missing-registration claim emitted without sweeping every README section cluster: void — a package registers once at its tier-correct section, and the single-cluster sweep is the false-missing engine that manufactures double rows.
+- Re-litigating a `RULINGS.md` row — re-admitting its rejected package, folding its ruled-plural surface, re-homing its ruled owner, re-adding its retired structure: a false positive at every severity, the row itself the refutation.
+- A collapse demand unable to name what the merge loses where the plural form carries a guarantee — a per-folder closed roster's compile-time break, a dependency boundary keeping host SDKs above their stratum, a deliberate isolation co-location: withdrawn, the plurality lawful with its discriminant stated at a durable owner.
+- A single-member bump, routine bump-to-newest, or unify-the-versions demand against a version family ruled to move as a matched set — twin release tracks, one upstream wave, a channel a composed member requires: the demand is the defect, the ruling riding the RULINGS registry or pin comment.
+- A cross-folder dedup demand against a package dual-registered under a ruled role split the strata force apart: false — each folder owns a distinct role, and removing either registration breaks the split.

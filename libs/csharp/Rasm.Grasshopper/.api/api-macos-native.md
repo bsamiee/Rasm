@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_API_MACOS_NATIVE]
 
-The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings used beneath an Eto-hosted Grasshopper 2 canvas. `AppKit` owns views, screens, input, recognizers, pressure, accessibility, and notification tokens; `CoreAnimation` owns the layer graph, transactions, animations, and display links; `Foundation` owns run-loop and Objective-C object lifetimes. `Eto.macOS.dll` owns managed-to-AppKit extraction and value conversion. Native attachment starts from an explicit `IMacControlHandler` view role or a runtime-typed canvas `ControlObject`, and every retained native object keeps its matching removal, invalidation, or disposal inverse.
+macOS-native catalogue fixes the installed `Microsoft.macOS.dll` surface beneath an Eto-hosted Grasshopper 2 canvas. `AppKit` owns views, input, accessibility, and notifications; `CoreAnimation` owns layers and display links; `ScreenCaptureKit`, `CoreMedia`, and `CoreVideo` own capture and raster egress; `Foundation` owns native lifetimes. `Eto.macOS.dll` owns AppKit extraction and value conversion. Each retained native object carries its removal, invalidation, or disposal inverse.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -52,6 +52,20 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 |  [03]   | `NSHapticFeedbackManager`; `NSHapticFeedbackPattern`; `NSHapticFeedbackPerformanceTime` | haptic performance                    |
 |  [04]   | `NSWorkspace`; `NSApplication`; `NSNotificationEventArgs`                               | accessibility and display observation |
 
+[PUBLIC_TYPE_SCOPE]: display and window capture
+- rail: ScreenCaptureKit streaming and one-shot raster
+
+| [INDEX] | [SYMBOL]                                                              | [KIND] | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------- | :----- | :----------------------------------- |
+|  [01]   | `SCShareableContent`; `SCDisplay`; `SCWindow`; `SCRunningApplication` | family | shareable-content enumeration        |
+|  [02]   | `SCContentFilter`; `SCContentFilterOption`                            | family | display and window capture filters   |
+|  [03]   | `SCStream`; `SCStreamConfiguration`; `SCStreamOutputType`             | family | leased frame streaming               |
+|  [04]   | `ISCStreamOutput`; `ISCStreamDelegate`; `SCFrameStatus`               | family | frame delivery and stop protocols    |
+|  [05]   | `SCScreenshotManager`; `SCStreamFrameInfoKeys`                        | family | one-shot capture and frame-info keys |
+|  [06]   | `SCRecordingOutput`; `SCRecordingOutputConfiguration`                 | family | file recording over the same stream  |
+|  [07]   | `CMSampleBuffer`; `CMTime`                                            | family | delivered sample and capture timing  |
+|  [08]   | `CVImageBuffer`; `CVPixelBuffer`; `CVPixelBufferLock`; `CVReturn`     | family | locked pixel-row raster egress       |
+
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Eto-to-AppKit extraction
@@ -87,7 +101,7 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 |  [13]   | `NSScreen` | `MaximumReferenceExtendedDynamicRangeColorComponentValue: NFloat`       | get                          |
 |  [14]   | `NSScreen` | `GetDisplayLink(NSObject, Selector)`                                    | `CADisplayLink`; macOS 14    |
 
-`CADisplayLink`, `NSView.GetDisplayLink`, and `NSScreen.GetDisplayLink` carry `SupportedOSPlatform("macos14.0")`. The display-link getters are declared non-null, while the native result still requires runtime validation. `NSWindow.Screen` is likewise declared non-null but resolves to native null before the window belongs to a screen. A view-bound pacing decision reads `view.Window?.Screen`; `NSScreen.MainScreen` describes the application main screen rather than the view's hosting display.
+`CADisplayLink`, `NSView.GetDisplayLink`, and `NSScreen.GetDisplayLink` carry `SupportedOSPlatform("macos14.0")`. Display-link getters are declared non-null, while the native result still requires runtime validation. `NSWindow.Screen` is likewise declared non-null but resolves to native null before the window belongs to a screen. A view-bound pacing decision reads `view.Window?.Screen`; `NSScreen.MainScreen` describes the application main screen rather than the view's hosting display.
 
 [ENTRYPOINT_SCOPE]: local event monitor ABI
 - rail: AppKit callback
@@ -134,7 +148,7 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 |  [06]   | `NSRunLoop`        | `Main`; `Current`                                                              | static get           |
 |  [07]   | `NSRunLoopMode`    | `Default`; `Common`; `ConnectionReply`; `ModalPanel`; `EventTracking`; `Other` | enum                 |
 
-`CADisplayLink.AddToRunLoop` and `RemoveFromRunLoop` each expose `(NSRunLoop, NSString)` and `(NSRunLoop, NSRunLoopMode)` overloads. `NSRunLoop.Main` plus `NSRunLoopMode.Common` is the typed common-mode attachment. `CADisplayLink.Create(NSObject, Selector)` is also public, while `NSView.GetDisplayLink` and `NSScreen.GetDisplayLink` bind the link to a display source. Teardown removes the link from the same loop and mode, invalidates it, then disposes the link and callback target.
+`CADisplayLink.AddToRunLoop` and `RemoveFromRunLoop` each expose `(NSRunLoop, NSString)` and `(NSRunLoop, NSRunLoopMode)` overloads. `NSRunLoop.Main` with `NSRunLoopMode.Common` is the typed common-mode attachment. `CADisplayLink.Create(NSObject, Selector)` is also public, while `NSView.GetDisplayLink` and `NSScreen.GetDisplayLink` bind the link to a display source. Teardown removes the link from the same loop and mode, invalidates it, then disposes the link and callback target.
 
 [ENTRYPOINT_SCOPE]: layer, animation, and filter state
 - rail: CoreAnimation composition
@@ -168,6 +182,38 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 
 `MacConversions.ToEto(CGPoint, NSView)` treats the point as window coordinates, converts it through `NSView.ConvertPointFromView(point, null)`, and flips the Y coordinate when the view is not flipped. `MacConversions.ToNS(CGColor)` and `CGConversions.ToCG(NSColor)` carry non-null signatures but return runtime null for null inputs. `CGConversions.ToCG(IMatrix)` returns identity for a runtime-null matrix. `CGConversions.ToEto(CGColor)` throws for unsupported component layouts. Conversion ownership remains in `Eto.Mac`; the native catalogue does not define parallel conversion helpers.
 
+[ENTRYPOINT_SCOPE]: screen capture and raster egress
+- rail: ScreenCaptureKit streaming
+
+| [INDEX] | [OWNER]                 | [SURFACE]                                                                                     |
+| :-----: | :---------------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `SCShareableContent`    | `GetShareableContentAsync(bool, bool) → Task<SCShareableContent>`                              |
+|  [02]   | `SCShareableContent`    | `Displays: SCDisplay[]`; `Windows: SCWindow[]`; `Applications: SCRunningApplication[]`         |
+|  [03]   | `SCDisplay`             | `DisplayId: uint`; `Frame: CGRect`; `Width: nint`; `Height: nint`                              |
+|  [04]   | `SCWindow`              | `WindowId: uint`; `Frame: CGRect`; `Title: string?`; `OnScreen: bool`; `Active: bool`           |
+|  [05]   | `SCWindow`              | `OwningApplication: SCRunningApplication?`                                                     |
+|  [06]   | `SCRunningApplication`  | `ApplicationName: string`; `BundleIdentifier: string`; `ProcessId: int`                        |
+|  [07]   | `SCContentFilter`       | `(SCDisplay, SCWindow[], SCContentFilterOption)`; `(SCWindow)`                                 |
+|  [08]   | `SCStreamConfiguration` | `Width: nuint`; `Height: nuint`; `MinimumFrameInterval: CMTime`; `QueueDepth: nint`            |
+|  [09]   | `SCStreamConfiguration` | `ShowsCursor: bool`; `SourceRect: CGRect`                                                      |
+|  [10]   | `SCStream`              | `(SCContentFilter, SCStreamConfiguration, ISCStreamDelegate?)`                                 |
+|  [11]   | `SCStream`              | `AddStreamOutput(ISCStreamOutput, SCStreamOutputType, DispatchQueue?, out NSError?) → bool`    |
+|  [12]   | `SCStream`              | `RemoveStreamOutput(ISCStreamOutput, SCStreamOutputType, out NSError?) → bool`                 |
+|  [13]   | `SCStream`              | `StartCapture(Action<NSError>?) → void`; `StopCapture(Action<NSError>?) → void`                |
+|  [14]   | `SCStream`              | `UpdateConfigurationAsync(SCStreamConfiguration) → Task`                                      |
+|  [15]   | `SCStream`              | `UpdateContentFilterAsync(SCContentFilter) → Task`                                             |
+|  [16]   | `SCScreenshotManager`   | `CaptureImageAsync(SCContentFilter, SCStreamConfiguration) → Task<CGImage>`                    |
+|  [17]   | `SCScreenshotManager`   | `CaptureSampleBufferAsync(SCContentFilter, SCStreamConfiguration) → Task<CMSampleBuffer>`      |
+|  [18]   | `CMSampleBuffer`        | `IsValid: bool`; `PresentationTimeStamp: CMTime`; `GetImageBuffer() → CVImageBuffer?`          |
+|  [19]   | `CMTime`                | `FromSeconds(double, int) → CMTime`; `Seconds: double`                                         |
+|  [20]   | `CVPixelBuffer`         | `Width: nint`; `Height: nint`; `BytesPerRow: nint`; `BaseAddress: nint`                        |
+|  [21]   | `CVPixelBuffer`         | `PixelFormatType: CVPixelFormatType`                                                           |
+|  [22]   | `CVPixelBuffer`         | `Lock(CVPixelBufferLock) → CVReturn`; `Unlock(CVPixelBufferLock) → CVReturn`                   |
+
+`ISCStreamOutput.DidOutputSampleBuffer(SCStream, CMSampleBuffer, SCStreamOutputType)` binds `stream:didOutputSampleBuffer:ofType:`. `ISCStreamDelegate.DidStop(SCStream, NSError)` binds `stream:didStopWithError:`, and `UserDidStop(SCStream)` binds `userDidStopStream:`. Optional protocol members live on an `NSObject` subclass under matching `[Export]` attributes.
+
+`SCStreamOutputType`, `SCContentFilterOption`, `SCFrameStatus`, and `CVPixelBufferLock` close their installed enum rows; `CVReturn.Success` is the zero verdict. `SCStream` and `SCScreenshotManager` carry their installed platform floors. Installed assembly also binds legacy `CGDisplayStream` and `CGWindowListCreateImage`; ScreenCaptureKit is admitted and the legacy pair earns no seam.
+
 [ENTRYPOINT_SCOPE]: accessibility and display notifications
 - rail: AppKit observation
 
@@ -181,9 +227,10 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 - AppKit view, event, recognizer, pressure, screen, and workspace calls remain UI-affine. A retained monitor, recognizer, pressure configuration, notification token, display link, callback target, or native layer resource carries its exact inverse and disposal order.
 - Anchor-screen pacing reads the screen hosting the active view and uses native `nint`, `double`, `NFloat`, and `float` carriers without widening or narrowing inside the boundary model.
 - `CATransaction` owns mutation batching, `CADisplayLink` owns native pacing, `NSRunLoop` owns callback scheduling, and `Eto.Mac` owns managed/native conversion.
+- ScreenCaptureKit capture is leased: an opened `SCStream` pairs stop-capture, output removal, and disposal of stream, filter, configuration, sink, and delegate as one inverse chain; a delivered `CMSampleBuffer` never outlives its callback, and detached pixel rows are the only raster that crosses.
 
 [RAIL_LAW]:
 - Surface: installed `Microsoft.macOS.dll` and `Eto.macOS.dll` bindings
-- Owns: AppKit extraction, ABI-faithful input, gesture and pressure attachment, display facts, accessibility observation, layer composition, display-link pacing, and native conversion
-- Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, screen-local pacing, and installed conversion owners
-- Reject: `IMacViewHandler.Control`, `NSScreen.MainScreen` as an anchor-display substitute, unpaired native retention, or a local conversion beside `Eto.Mac`
+- Owns: AppKit extraction, ABI-faithful input, gesture and pressure attachment, display facts, accessibility observation, layer composition, display-link pacing, screen and window capture, and native conversion
+- Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, screen-local pacing, ScreenCaptureKit capture with locked pixel egress, and installed conversion owners
+- Reject: `IMacViewHandler.Control`, `NSScreen.MainScreen` as an anchor-display substitute, unpaired native retention, the legacy `CGDisplayStream`/`CGWindowListCreateImage` capture pair, or a local conversion beside `Eto.Mac`

@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_EXPORTER_METRICS_OTLP_HTTP]
 
-`@opentelemetry/exporter-metrics-otlp-http` is the concrete `PushMetricExporter` that POSTs `ResourceMetrics` to an OTLP/HTTP collector, and it carries the one capability the trace exporter does not: the aggregation-temporality selection — the `(InstrumentType) => AggregationTemporality` policy that decides DELTA vs CUMULATIVE per instrument, the axis that makes a metric backend either cheap-to-store or monotonic-friendly. It is not composed directly: a `PeriodicExportingMetricReader` (from `@opentelemetry/sdk-metrics`) wraps it, and that reader is handed to the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`. Inside Rasm it is the SDK-bridge metric leg of the otlp export plane and the wire under the `data` fact journal's (app, tenant)-keyed meter counters — the recovery lane used when the SDK reader semantics or a temporality preference are required; the native `Otlp`/`OtlpMetrics` lane is the `[R3]`-preferred default over a `@effect/platform` `HttpClient`. The edge ledger fences `@opentelemetry/*` to `scope:runtime`; this exporter is an `[R3]`-collapse member of the `[OTLP_SDK]` block (retires when native `OtlpMetrics` reaches parity; `semantic-conventions` survives, this does not).
+`@opentelemetry/exporter-metrics-otlp-http` is the concrete `PushMetricExporter` that POSTs `ResourceMetrics` to an OTLP/HTTP collector, and it carries the one capability the trace exporter does not: the aggregation-temporality selection — the `(InstrumentType) => AggregationTemporality` policy that decides DELTA vs CUMULATIVE per instrument, the axis that makes a metric backend either cheap-to-store or monotonic-friendly. It is not composed directly: a `PeriodicExportingMetricReader` (from `@opentelemetry/sdk-metrics`) wraps it, and that reader is handed to the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`. Inside Rasm it is the SDK-bridge metric leg of the otlp export plane and the wire under the `data` fact journal's (app, tenant)-keyed meter counters — the recovery lane used when the SDK reader semantics or a temporality preference are required; the native `Otlp`/`OtlpMetrics` lane is the `[OTEL_PIN_BLOCK]`-preferred default over a `@effect/platform` `HttpClient`. The edge ledger fences `@opentelemetry/*` to `scope:runtime`; this exporter is an `[OTEL_PIN_BLOCK]`-collapse member of the `[OTLP_SDK]` block (retires when native `OtlpMetrics` reaches parity; `semantic-conventions` survives, this does not).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - otel-peer: `@opentelemetry/api ^catalog`, `@opentelemetry/core ^catalog` (the `ExportResult` rail), `@opentelemetry/sdk-metrics ^catalog` (the `PushMetricExporter`/`ResourceMetrics`/`AggregationTemporality`/`InstrumentType` contract + the `PeriodicExportingMetricReader` that wraps it)
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies the base constructor config (`OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase`) intersected with `OTLPMetricExporterOptions`
 - consumed-by: the otlp export plane's SDK-bridge metric leg via the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`; the wire under the `data` fact journal's usage/cost counters
-- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[R3]`-collapse member (native `OtlpMetrics` supersedes)
+- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member (native `OtlpMetrics` supersedes)
 - runtime: dual — the package export map selects `platform/node` (config `OTLPExporterNodeConfigBase & OTLPMetricExporterOptions`) or `platform/browser` (config `OTLPExporterConfigBase & OTLPMetricExporterOptions`); ONE `OTLPMetricExporter` name, a build-time platform selection, never a fork
 - modules: `OTLPMetricExporter`, `OTLPMetricExporterBase`, `OTLPMetricExporterOptions`, `AggregationTemporalityPreference`, the three temporality selectors
 
@@ -60,7 +60,7 @@ interface OTLPMetricExporterOptions {   // AggregationTemporalitySelector = (Ins
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SDK_BRIDGE_TOPOLOGY]:
-- SDK-bridge lane, not native: this exporter is the `NodeSdk`/`WebSdk` (`[R3]`) metric leg; the native `Otlp`/`OtlpMetrics` lane is the `[R3]`-preferred default that serializes metrics over a `@effect/platform` `HttpClient` with no `@opentelemetry/sdk-*`. Reach for this exporter only when the SDK reader semantics, a temporality preference, or a co-resident SDK-only exporter are required.
+- SDK-bridge lane, not native: this exporter is the `NodeSdk`/`WebSdk` (`[OTEL_PIN_BLOCK]`) metric leg; the native `Otlp`/`OtlpMetrics` lane is the `[OTEL_PIN_BLOCK]`-preferred default that serializes metrics over a `@effect/platform` `HttpClient` with no `@opentelemetry/sdk-*`. Reach for this exporter only when the SDK reader semantics, a temporality preference, or a co-resident SDK-only exporter are required.
 - temporality is a policy function, never a fork: DELTA vs CUMULATIVE vs LOWMEMORY is a `temporalityPreference` value or an `AggregationTemporalitySelector` `(InstrumentType) => AggregationTemporality` — a backend that wants delta counters is a policy row at the composition root, never a second exporter type.
 
 [INTEGRATION_LAW]:
@@ -68,11 +68,11 @@ interface OTLPMetricExporterOptions {   // AggregationTemporalitySelector = (Ins
 - Stack with `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk` (the facade seam): the wrapped reader is handed to `NodeSdk.Configuration.metricReader` (node/bun) or `WebSdk.Configuration.metricReader` (browser), alongside the one `AppIdentity`-derived `Resource`. Effect's built-in `Metric` values feed the SDK meter that this reader drains.
 - Stack with the `data` fact journal (the durable-fact seam): the (app, tenant)-keyed request/compute/storage/token counters emit as Effect metrics; a DELTA `temporalityPreference` keeps the OTLP metric stream cheap for the billing roll-up while CUMULATIVE suits monotonic totals — the temporality selector is where the meter's cost model meets the wire.
 - Stack with `.api/opentelemetry-core.md`: `export()` reports through core's `ExportResult`/`ExportResultCode`; the outbound HTTP `Context` is `suppressTracing`-fenced; `timeoutMillis`/`url` default from `OTEL_EXPORTER_OTLP_METRICS_*` via core's typed env readers.
-- Stack with `.api/effect-platform.md` posture (the divergence to record): like the trace exporter, this carries its own HTTP transport and does NOT inherit the `net/client` `HttpClient` retry/proxy policy — a concrete reason `otel/emit` prefers the native `OtlpMetrics` lane and marks this row `[R3]`.
+- Stack with `.api/effect-platform.md` posture (the divergence to record): like the trace exporter, this carries its own HTTP transport and does NOT inherit the `net/client` `HttpClient` retry/proxy policy — a concrete reason `otel/emit` prefers the native `OtlpMetrics` lane and marks this row `[OTEL_PIN_BLOCK]`.
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); the exporter is constructed at the composition root only. Instrumentation code uses Effect's native `Metric` and never imports this package.
-- prefer the native `Otlp`/`OtlpMetrics` lane; reach for this SDK exporter only for SDK-only reader/exporter capability or an explicit temporality preference, and record it as an `[R3]` non-collapsed dependency.
+- prefer the native `Otlp`/`OtlpMetrics` lane; reach for this SDK exporter only for SDK-only reader/exporter capability or an explicit temporality preference, and record it as an `[OTEL_PIN_BLOCK]` non-collapsed dependency.
 - the browser exporter is the RUM metric egress leg (`otel/vital`); apply the export-boundary redaction policy rows before the metric leaves the browser.
 
 [RAIL_LAW]:

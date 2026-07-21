@@ -686,46 +686,72 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+// Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
+const LANE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
-    const model = o.model; // unset = the config-default model, dispatched unflagged
+    const lane = report + '.lane';
+    const authored = !!o.writes;
+    const sandbox = authored ? 'workspace-write' : 'read-only';
     return [
-        'DISPATCH ROLE: ' +
-            (model || 'codex') +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
-            (model ? 'model="' + model + '", ' : '') +
-            'cwd=' +
-            JSON.stringify(root) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, skip step (3) and return the error text through step (4).',
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, ' +
+            'soften, summarize, or relay the work yourself.',
+        '(1) Write the LANE LAW block below VERBATIM to ' +
+            lane +
+            '/law.md and the TASK block below VERBATIM to ' +
+            lane +
+            '/task.md, composing neither.' +
+            (authored
+                ? ' Delete any leftover file at ' +
+                  report +
+                  ' with one Bash rm -f (a stale product there passes the verify probe as a false success).'
+                : ''),
+        '(2) Run ONE Bash call with run_in_background true: ' +
+            LANE_SCRIPT +
+            ' --task ' +
+            lane +
+            '/task.md --law ' +
+            lane +
+            '/law.md --dir ' +
+            lane +
+            ' --cwd ' +
+            root +
+            ' --sandbox ' +
+            sandbox +
+            flagsOf(o) +
+            (authored ? '' : ' --out ' + report) +
+            '; the harness re-invokes you when the lane exits — Read ' +
+            lane +
+            '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason ' +
+            '"crash" alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land ' +
+            'the receipt" and re-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, ' +
+            'max-timeout, turn-failed, refusal) re-runs the same command untouched.',
+        '(3) ' +
+            (authored
+                ? 'The delegate lands the product itself at ' + report + ' as its final act.'
+                : 'The lane lands the product at ' + report + ' via --out.') +
+            ' (4) Verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+            'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with ' +
+            'the probe output.',
+        o.receipt(base),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
-            (o.writes
+            (authored
                 ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
                   report +
                   ' yourself.'
                 : ''),
-        o.writes
-            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
-              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
-            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-              report +
-              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-              'failure returns through step (4) with the error.',
-        o.receipt(base),
     ].join('\n\n');
 };
 const twinOf = (m) => (/-terra/.test(m || '') ? 'opus' : /-luna/.test(m || '') ? 'sonnet' : 'fable');
@@ -742,12 +768,12 @@ const nativeLane = (task, o) =>
 // the native twin as the quota fallback. The row carries `scope` from the ORCHESTRATOR (never the lane's
 // self-report) so a failed lane's territory is exact even when the lane died before writing anything.
 const discoveryReceipt = (base) =>
-    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+    '(5) Read the product at the report path for the mechanical orchestration data. Return ok=true, report=' +
     base +
     '-report.json, entries=(tasks.length + ideas.length), headline="<entries> open cards | <status tallies>", failure empty, and copy ' +
     'order, cards=(tasks + ideas projected to {slug,pages}), gates, ripples, and malformed from malformed_ripples verbatim from the ' +
-    'result. On a tool error return ok=false, entries=0, report and headline empty, every structural array empty, and failure ' +
-    'equal to the error text VERBATIM.';
+    'product. On a failed receipt return ok=false, entries=0, report and headline empty, every structural array empty, and failure ' +
+    'equal to the receipt reason and failure text VERBATIM.';
 const discoveryTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
     report +
@@ -767,19 +793,19 @@ const recon = (task, o) => {
     })
         .then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
         .then((r) => ({
-        lane: o.label,
-        scope: o.scope || [],
-        ok: !!(r && r.ok && r.report),
-        report: (r && r.report) || '',
-        entries: (r && r.entries) || 0,
-        headline: (r && r.headline) || '',
-        failure: (r && r.failure) || (r ? '' : 'lane died'),
-        order: (r && r.order) || [],
-        cards: (r && r.cards) || [],
-        gates: (r && r.gates) || [],
-        ripples: (r && r.ripples) || [],
-        malformed: (r && r.malformed) || [],
-    }));
+            lane: o.label,
+            scope: o.scope || [],
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+            order: (r && r.order) || [],
+            cards: (r && r.cards) || [],
+            gates: (r && r.gates) || [],
+            ripples: (r && r.ripples) || [],
+            malformed: (r && r.malformed) || [],
+        }));
 };
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
@@ -787,10 +813,10 @@ const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; a quota fallback
 // restores the native twin writing the same product to the same path.
 const critiqueReceipt = (base) =>
-    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+    '(5) Read the product at the report path for the mechanical orchestration data. Return ok=true, report=' +
     base +
-    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", and failure ' +
-    'empty. On a tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.';
+    '-report.json, entries=the length of the product["realized"] array, headline="<entries> realized | verdict <verdict>", and failure ' +
+    'empty. On a failed receipt return ok=false, entries=0, report and headline empty, and failure equal to the receipt reason and failure text VERBATIM.';
 const critiqueTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE fix-log as one JSON file matching this schema at ' +
     report +

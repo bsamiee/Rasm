@@ -37,36 +37,27 @@ export const meta = {
 const REPO = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CAP = 14; // true in-flight agent ceiling — wrappers, writers, and the audit all take one slot
 const STAGGER_MS = 1500;
-const STALL_MS = 900000; // blocking codex MCP legs and fable card writers run many minutes without visible progress
+const STALL_MS = 900000; // supervised codex lane runs and fable card writers run many minutes without visible progress
 const SHORT = { csharp: 'cs', python: 'py', typescript: 'ts', cross: 'x' };
 const LANGS = [
     { key: 'csharp', root: 'libs/csharp', manifest: 'Directory.Packages.props', registry: 'nuget' },
     { key: 'python', root: 'libs/python', manifest: 'pyproject.toml', registry: 'pypi' },
     { key: 'typescript', root: 'libs/typescript', manifest: 'pnpm-workspace.yaml', registry: 'npm' },
 ];
-const AXES = [
-    'metrics',
-    'hooks',
-    'transports',
-    'storage',
-    'dashboards',
-    'iac-deploy',
-    'benchmarking',
-    'profiling',
-    'cost-attribution',
-    'egress',
-    'quality',
-    'api-folder',
-    'api-branch',
-    'strata',
-    'structural',
-]; // verdict vocabulary — each key means its matching axis or goal-template section in mandate [03], read at source, never paraphrased here
-const FOCUS = {
-    'libs/typescript/iac':
-        'ISOLATION CHARTER for this folder: enumerate EVERY catalog under the folder .api tier at member level (the full pulumi provider fleet, ' +
-        'grafana-foundation-sdk, the pulumiverse rows included) and rule in [STRUCTURAL] why the campaign touched almost none of that surface — ' +
-        'genuine coverage versus silent narrowing — with one [UNEXPLOITED] row per member family no page or card exploits.',
-};
+// Engine-neutral depth/ambition axes — the HOW-DEEP dimensions every folder answers regardless of capability family.
+const DEPTH_AXES = [
+    'coverage-depth', // does the owner model the full concept or a thin slice
+    'approach-genericity', // parameterized generator vs enumerated hardcoded instances
+    'api-folder', // folder-tier .api capability stacked to operator depth
+    'api-branch', // branch-tier .api substrate stacked to operator depth
+    'strata-leverage', // lower-stratum owners composed vs re-derived
+    'cross-language', // wire counterpart carried vs missing
+    'ecosystem-reach', // admitted-package capability made newly possible
+    'reference-gap', // distance to the real-world reference systems for the domain
+    'structural', // new page / sub-folder / stub the folder demands
+];
+// Theme axes come from the mandate, never the engine: the mandate [03] goal template names the capability-family axes.
+const AXES = DEPTH_AXES;
 
 // --- [INPUTS] ------------------------------------------------------------------------
 
@@ -88,6 +79,8 @@ const SCOPE = Array.isArray(ARGS.scope)
       ? [ARGS.scope.trim()]
       : [];
 const BASE = typeof ARGS.base === 'string' && ARGS.base.trim() ? ARGS.base.trim() : '';
+// Per-folder map-focus overlays come from the campaign, never the engine — a hardest-look override is an args.focus row.
+const FOCUS = ARGS.focus && typeof ARGS.focus === 'object' ? ARGS.focus : {};
 const OUT = CAMP + '/ideation';
 const MANDATE = CAMP + '/ideation-pool-mandate.md';
 const HANDOFF = CAMP + '/HANDOFF.md';
@@ -136,7 +129,7 @@ const AXISR = {
     additionalProperties: false,
     required: ['axis', 'verdict', 'evidence'],
     properties: {
-        axis: { type: 'string', enum: AXES },
+        axis: { type: 'string' },
         verdict: { type: 'string', enum: ['carded', 'evidence-complete'] },
         evidence: { type: 'string' },
     },
@@ -145,8 +138,14 @@ const AXISR = {
 const RIPPLE = {
     type: 'object',
     additionalProperties: false,
-    required: ['counterpartFolder', 'thesis', 'originCard'],
-    properties: { counterpartFolder: { type: 'string' }, thesis: { type: 'string' }, originCard: { type: 'string' } },
+    required: ['counterpartFolder', 'thesis', 'originCard', 'seamKind', 'seamLabel'],
+    properties: {
+        counterpartFolder: { type: 'string' },
+        thesis: { type: 'string' },
+        originCard: { type: 'string' },
+        seamKind: { type: 'string' },
+        seamLabel: { type: 'string' },
+    },
 };
 
 const PKG_ROW = {
@@ -284,7 +283,18 @@ const ADMITR = {
 const AUDITR = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'rosterEntries', 'rosterUnexploited', 'undecomposed', 'thinFolders', 'docgenFailures', 'headline', 'failure'],
+    required: [
+        'ok',
+        'report',
+        'rosterEntries',
+        'rosterUnexploited',
+        'undecomposed',
+        'thinFolders',
+        'altitudeThin',
+        'docgenFailures',
+        'headline',
+        'failure',
+    ],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
@@ -308,6 +318,15 @@ const AUDITR = {
             },
         },
         thinFolders: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['folder', 'reason'],
+                properties: { folder: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        altitudeThin: {
             type: 'array',
             items: {
                 type: 'object',
@@ -345,29 +364,67 @@ const MANDATE_LAW =
 
 const POOL_LAW =
     'Pool depth IS the deliverable: open cards are the feed slice-implement.js ingests, and an empty or thin OPEN pool is a defect ' +
-    'unless page-level evidence proves folder-completeness. Answer the mandate [03] goal template axis by axis against this folder own domain: ' +
-    'a missing plausible axis is a card; a covered axis is an evidence row, never a filler card. Return exactly one axes row per key in ' +
-    JSON.stringify(AXES) +
-    ' — verdict "carded" with the card ids as evidence, or "evidence-complete" with the page-level proof; a hollow evidence row is a named ' +
-    'defect the terminal audit surfaces.';
+    'unless page-level evidence proves folder-completeness. Answer both the engine DEPTH axes ' +
+    JSON.stringify(DEPTH_AXES) +
+    ' and every capability-family axis the mandate [03] goal template names, axis by axis against this folder own domain: a missing ' +
+    'plausible axis is a card; a covered axis is an evidence row, never a filler card. Return exactly one axes row per DEPTH axis — ' +
+    'verdict "carded" with the card ids as evidence, or "evidence-complete" with the page-level proof — and one row per mandate-named ' +
+    'theme axis the folder domain admits; an inadmissible mandate axis is omitted, never forced hollow, and a hollow evidence row is a ' +
+    'named defect the terminal audit surfaces. CATALOG ALIGNMENT — a folder-tier .api catalogue is minted only for a package the ' +
+    'substrate tier does NOT carry; the substrate tier is read FIRST, and a substrate-carried package is REGISTERED for the folder ' +
+    '(folder README registry + owning project manifest) never re-catalogued — a redirecting or duplicating folder-tier .api file is a ' +
+    'named defect. A card touching a package admission carries the full bi-directional touch-point set as its scope: central manager ' +
+    'row, project manifest, branch README registry, folder README registry, owning .api tier.';
+
+const SEED_LAW =
+    'SEED SOURCES — every open idea traces to at least one NAMED source beyond this folder own pages, cited in the idea body; a folder ' +
+    'whose entire OPEN idea pool traces only to its own pages is altitude-thin, a named audit defect. Required source classes, each a ' +
+    'generator not merely a gap: (a) BOTH .api TIERS as capability fuel — an admitted member no fence composes ADMITS a new owner-family; ' +
+    'name the member and the family it seeds. (b) SIBLING-FOLDER SEAMS — every settled strata edge is a capability a neighbor exposes ' +
+    'this folder could consume or deepen. (c) BRANCH STRATA MAP — a lower-stratum owner this folder RE-DERIVES is a ' +
+    'collapse-into-composition idea; an upward capability the strata admit that no folder carries is a new-owner idea. (d) ' +
+    'CROSS-LANGUAGE COUNTERPART — a capability a peer runtime carries at the wire that this folder lacks is a counterpart idea, authored ' +
+    'here as origin with the ripple landing in the peer. (e) ADMITTED-PACKAGE ECOSYSTEM — what each admitted package makes NEWLY ' +
+    'POSSIBLE, never what pages already mention. (f) REAL-WORLD REFERENCE SYSTEM — the production systems that own this folder domain, ' +
+    'named in the adjacent map [REFERENCES] rows; the capability gap against them is the folder moonshot idea. MOONSHOT: at least one ' +
+    'idea per non-complete folder is estate-altitude — a cross-folder or cross-stratum move, or a [REFERENCES]-gap close — and MAY ' +
+    'assume downstream realization; a pool of only folder-local moves is altitude-thin.';
+
+const OWNER_LAW =
+    'OWNER-FIRST — the branch map [OWNERS] rows pre-arbitrate the owner of every cross-folder capability family per the ' +
+    'one-owner-per-runtime strata law, the owner homed at the lowest stratum every consumer references. A family the map assigns to ' +
+    'ANOTHER folder is authored THERE: emit a rippleRequests row naming that folder, never a same-thesis card here — an accidental twin ' +
+    'is a named defect. A family assigned to YOU is yours as origin. An unassigned family you judge yours states the stratum ground in ' +
+    'the idea body.';
 
 const CARD_LAW =
     'Card grammar is a wire contract with the implement workflow discovery: an open card lands inside the [01]-[OPEN] section of the owning ' +
     'IDEAS.md or TASKLOG.md exactly per that file embedded source-only template, its leader at COLUMN ZERO as [ID]-[ACTIVE|QUEUED|BLOCKED]: ' +
     '<thesis> — downstream discovery greps that exact leader shape, so an indented or dash-prefixed leader is an invisible card. IDs continue ' +
     'the file existing series; every open card names its exact landing file(s) by repo-relative path; a "(none)" placeholder is deleted when ' +
-    'the first card lands; Atomic flags minor scope on tasks; Ripple rides ONLY the counterpart card of a cross-folder pair, naming the origin ' +
-    'as its template prescribes. CLOSED/DROPPED cards are rulings — never re-opened, re-litigated, or deleted. Every open idea decomposes into ' +
+    'the first card lands; Atomic flags minor scope on tasks; Ripple rides ONLY the counterpart card of a cross-folder pair or a same-folder ' +
+    'prerequisite, naming the origin as its template prescribes and prefixed follows/precedes/mirrors when build order is load-bearing. ' +
+    'CLOSED/DROPPED cards are rulings — never re-opened, re-litigated, or deleted. Every open idea decomposes into ' +
     'same-folder TASKLOG tasks in the same pass — an open idea with no open task is a defect. Ideas are the BIG moves: ambitious, ' +
     'non-derivative, never filler minted to satisfy a count, and they may ASSUME downstream realization; tasks are specific — they map, find, ' +
-    'and pin the where/what. A BLOCKED card states its blocker as an answerable question with a resolution route (an assay api member target, ' +
-    'a .api catalog, a live doc, a seam-owner page) — the implement plan lane decomposes exactly that. No versions in cards; no ' +
-    'python-version floors, gates, or markers anywhere; an obsolete surface encountered inside your write territory is deleted outright.';
+    'and pin the where/what. A BLOCKED card carries an Arms: line naming the exact observable that flips it actionable; a probe, research, ' +
+    'or member-pin card carries a Route: line — the ordered verification path (an assay api member target, ' +
+    'a .api catalog, a live doc, a seam-owner page) — the implement plan lane decomposes exactly those lines. No versions in cards; no ' +
+    'python-version floors, gates, or markers anywhere; an obsolete surface encountered inside your write territory is deleted outright. ' +
+    'A card names a member, owner, or landing anchor under one of two frames, never blurred: an EXISTING anchor verified against its ' +
+    'owner-truth route this pass (an .api catalog row for an external member, the owning design-page fence for a Rasm member) — or an ' +
+    'ASSUMED-future anchor the card explicitly marks (Assumes: <anchor>) for a downstream slice to mint. An unverified member asserted ' +
+    'as existing is the stale-claim/phantom defect. A cross-folder landing is ASSUMED unless its counterpart card and mirrored seam land ' +
+    'this pass.';
 
 const RIPPLE_LAW =
     'A cross-folder pair is split custody: author the ORIGIN card in your files (no Ripple line) and return the counterpart as a ' +
-    'rippleRequests row {counterpartFolder (absolute folder path), thesis (the counterpart card thesis), originCard ("FILE [ID]")} — never ' +
-    'edit a counterpart folder yourself; the language and cross lanes land counterparts carrying the Ripple line that names your origin.';
+    'rippleRequests row {counterpartFolder (absolute folder path), thesis (the counterpart card thesis), originCard ("FILE [ID]"), ' +
+    'seamKind (the [SEAMS] edge kind), seamLabel (the edge label)} — never edit a counterpart folder yourself; the language and cross ' +
+    'lanes land counterparts carrying the Ripple line that names your origin. A landed counterpart is a TWO-ENDED SEAM: the same pass ' +
+    'writes the mirrored [SEAMS] edge into the ARCHITECTURE.md of BOTH endpoint folders with identical [KIND] and label and opposed ' +
+    'direction — an origin edge without its counterpart, or a kind/label mismatch, is the seam-mirror defect. A Ripple line naming a ' +
+    'counterpart with no mirrored edge is an orphan, not a landing.';
 
 const PKG_LAW =
     'A package a card composes that is absent from its central manifest is NEVER installed or manifest-edited by you: return it as a ' +
@@ -436,7 +493,8 @@ const focusKeyOf = (f) => Object.keys(FOCUS).find((k) => f.path.endsWith(k)) || 
 const memoryClause = (f) =>
     f.language === 'csharp'
         ? ' plus the memory index at /Users/bardiasamiee/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md — open ' +
-          'every reference_* entry naming a surface this folder composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, telemetry traps) —'
+          'every reference_* entry naming a surface this folder composes (RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or any other ' +
+          'surface the folder pulls in) —'
         : '';
 const mapClause = (r) =>
     r && r.ok
@@ -453,8 +511,13 @@ const adjClause = (r) =>
         ? 'at ' +
           r.report +
           ' — its [CANDIDATES] rows are verified-existing research material a card may base on, returning the package as a packageNeeds row ' +
-          'for the admission lane to live-verify; never a manifest edit, never treated as already admitted'
+          'for the admission lane to live-verify; never a manifest edit, never treated as already admitted; its [REFERENCES] rows name the ' +
+          'real-world systems each folder is measured against and seed the folder moonshot idea'
         : '— NONE landed for this branch; base package needs on your own domain reasoning, the admission lane verifies';
+const bmapClause = (r) =>
+    r && r.ok
+        ? 'at ' + r.report + ' — read its [OWNERS] rows IN FULL from disk; they pre-arbitrate every cross-folder capability family per the strata law'
+        : '— NONE landed for this branch; derive owner assignments from the branch ARCHITECTURE.md strata law yourself';
 
 const mapLaw = (gather, sections) =>
     '<role>\n' +
@@ -504,6 +567,11 @@ const BSECTIONS = [
     ['CARDS', 'file: <absolute language-root IDEAS.md or TASKLOG.md path> | id: <card id> | status: <status> | thesis: <leader text>'],
     ['BREADTH', 'folder: <absolute path> | gap: <structural breadth fact> | evidence: <census numbers or absent-surface probe>'],
     ['SEAMS', 'seam: <origin folder -> target folder> | state: <wired|unwired> | evidence: <absolute path and anchor>'],
+    [
+        'OWNERS',
+        'family: <cross-folder capability family> | owner: <absolute folder path owning it per the strata law> | stratum: <stratum + the ' +
+            'one-owner-per-runtime ground> | contenders: <other folders plausibly carrying it> | evidence: <ARCHITECTURE strata anchor>',
+    ],
     ['COVERAGE', 'status: read|skipped|unverified | source: <absolute path and anchor when present> | reason: <observable evidence or failed probe>'],
 ];
 
@@ -525,20 +593,39 @@ const GSECTIONS = [
 ];
 
 const wrapPrompt = (report, law, task, medium, minHeads) =>
-    'DISPATCH ROLE: codex performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay the ' +
-    'work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with model="gpt-5.6-sol", cwd="' +
-    REPO +
-    '", sandbox="danger-full-access", approval-policy="never", ' +
-    (medium ? 'config={"model_reasoning_effort":"medium"}, ' : '') +
-    '"developer-instructions" = the LANE LAW block below VERBATIM, prompt = the TASK block below VERBATIM. On a tool error retry ONCE with a ' +
-    'sharpened prompt — your whole recovery budget. (3) The tool result is a JSON envelope {threadId, content}; Write the CONTENT text ' +
-    '(never the envelope) unmodified to ' +
+    'DISPATCH ROLE: codex performs the complete TASK below through one supervised lane run; never perform, edit, judge, or relay the ' +
+    'work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
     report +
-    ' (delete any leftover file there first). (4) Verify with one Bash call: grep -c "^## \\[" ' +
+    '.lane/law.md and the TASK block below VERBATIM to ' +
+    report +
+    '.lane/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
+    REPO +
+    '/.claude/skills/codex/scripts/codex-lane.sh --task ' +
+    report +
+    '.lane/task.md --law ' +
+    report +
+    '.lane/law.md --dir ' +
+    report +
+    '.lane --cwd ' +
+    REPO +
+    ' --sandbox danger-full-access --model gpt-5.6-sol' +
+    (medium ? ' --effort medium' : '') +
+    ' --out ' +
+    report +
+    '; the harness re-invokes you when the lane exits — Read ' +
+    report +
+    '.lane/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+    'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+    're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+    'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
+    report +
+    ' via --out. (4) Verify with one Bash call: grep -c "^## \\[" ' +
     report +
     ' — fewer than ' +
     minHeads +
-    ' section heads means a malformed product: rewrite once from the tool result, then return ok=false with the miss. (5) Return ok, ' +
+    ' section heads means a malformed product: rewrite once from the last agent_message item text in ' +
+    report +
+    '.lane/events.jsonl (jq -rs, Write that), then return ok=false with the miss. (5) Return ok, ' +
     'report, entries = the total "- " row count across settled sections ("- none" counts zero), headline = one mechanical per-section ' +
     'tally, failure empty — or ok=false with the error text VERBATIM.\n\nLANE LAW:\n\n' +
     law +
@@ -599,7 +686,8 @@ const fmapWrapPrompt = (f) => {
             planningRootOf(f) +
             '. API TIERS (member level, both): ' +
             apiTiersOf(f) +
-            '. AXIS KEYS for [AXES] (each key means its matching axis or goal-template section in mandate [03]): ' +
+            '. AXIS KEYS for [AXES] (the engine DEPTH axes; the mandate [03] goal template names the capability-family theme axes, graded ' +
+            'where the folder domain admits them): ' +
             JSON.stringify(AXES) +
             '.' +
             (fk ? ' ' + FOCUS[fk] : ''),
@@ -615,8 +703,14 @@ const bmapWrapPrompt = (L) =>
             'Read fully in this order:\n1. The mandate file the task names — sections [02], [03], and [05] govern the map grain.\n2. The ' +
                 'campaign handoff section [01] at ' +
                 HANDOFF +
-                ' — the functionality inventory grounding the breadth grades.\n3. The language-root .planning card pair and design pages.\n' +
-                '4. The branch .api substrate at member level.\n5. Every package folder directly under the branch root at registry depth: ' +
+                ' — the functionality inventory grounding the breadth grades.\n3. The branch strata map at ' +
+                REPO +
+                '/' +
+                L.root +
+                '/.planning/ARCHITECTURE.md — stratum roster, dependency direction, and the [SEAMS] registry; it decides every [OWNERS] ' +
+                'assignment, and the owner home is the LOWEST stratum every consumer references — an owner homed above any consumer ' +
+                'manufactures twins by law.\n4. The language-root .planning card pair and design pages.\n' +
+                '5. The branch .api substrate at member level.\n6. Every package folder directly under the branch root at registry depth: ' +
                 'README.md, ARCHITECTURE.md, and page rosters — never full page reads.',
             BSECTIONS,
         ),
@@ -636,10 +730,10 @@ const bmapWrapPrompt = (L) =>
             REPO +
             '/' +
             L.root +
-            '/.api (member level). Grade [BREADTH] against the mandate [02] census evidence and the [03] STRUCTURAL BREADTH law.' +
-            (L.key === 'typescript' ? ' Grade ui, security, and iac hardest — the mandate [02] rows are the standing evidence.' : ''),
+            '/.api (member level). Grade [BREADTH] against the mandate [02] census evidence and the [03] STRUCTURAL BREADTH law. Grade ' +
+            'the folders the campaign mandate names hardest — the mandate [02] rows are the standing evidence.',
         false,
-        6,
+        7,
     );
 
 const xmapWrapPrompt = () =>
@@ -684,12 +778,15 @@ const adjPrompt = (L) =>
     L.root +
     ' (branch tier and every folder tier) — never member-level reads. Then research LIVE: load the registry tools via ToolSearch (' +
     (L.key === 'csharp' ? 'mcp__nuget__get_latest_package_version, ' : '') +
-    'WebSearch, WebFetch, mcp__context7__*) and hunt namespace-adjacent packages the estate does NOT hold — the admitted ecosystem families ' +
-    'extended (OTel instrumentation/resource/exporter trains, pulumi providers, pg/sqlite/duckdb extensions, arrow/flight adjacents, effect ' +
-    'ecosystem, speckle/ifc/AEC interchange) and the branch folder domains beyond them. Every [CANDIDATES] row is verified to EXIST on ' +
+    'WebSearch, WebFetch, mcp__context7__*) and hunt namespace-adjacent packages the estate does NOT hold — the admitted ecosystem ' +
+    'families this branch actually holds, extended, and the branch folder domains beyond them — and, per folder domain under this branch, ' +
+    'the two or three real-world production systems that own that domain — their architecture, not their packages — feeding [REFERENCES]. ' +
+    'Every [CANDIDATES] row is verified to EXIST on ' +
     L.registry +
     ' today with the probe cited; a capability an admitted package already owns is excluded (name-check the manifest); no version numbers ' +
-    'anywhere. Write one markdown document to ' +
+    'anywhere. Every candidate is working material: a card it seeds states the capability as fact and carries NO registry version anchors ' +
+    'or freshness-dated prose — the dossier holds the citation, the card holds the capability; a package a card composes routes as a ' +
+    'packageNeeds row for the admission lane to live-verify, never asserted admitted from the dossier. Write one markdown document to ' +
     OUT +
     '/adjacent-' +
     L.key +
@@ -697,7 +794,10 @@ const adjPrompt = (L) =>
     'registry: ' +
     L.registry +
     ' | family: <admitted family or folder domain it extends> | capability: <fact> | adjacent-to: <admitted package or folder> | evidence: ' +
-    '<registry probe>; then "## [COVERAGE]" with rows shaped as: status: read|probed|unverified | source: <path or url> | reason: <observable ' +
+    '<registry probe>; then "## [REFERENCES]" with one "- " row per folder domain under this branch shaped as: folder: <absolute folder ' +
+    'path> | system: <named production or reference system owning the domain> | capability: <the capability it owns> | gap: <what the ' +
+    'folder lacks against it> | evidence: <url or doc probe>; then "## [COVERAGE]" with rows shaped as: status: read|probed|unverified | ' +
+    'source: <path or url> | reason: <observable ' +
     'evidence or failed probe>. Use "- none" when a section has no qualifying rows. Return ok, report (the document path), entries (the ' +
     '[CANDIDATES] row count), one-line headline, failure empty.';
 
@@ -723,7 +823,7 @@ const discoverPrompt = () =>
     '/libs/.planning is language "cross".' +
     (SCOPE.length ? ' Restrict folders to those matching any of: ' + JSON.stringify(SCOPE) + '.' : '');
 
-const ideatePrompt = (f, mapR, ros, adj) =>
+const ideatePrompt = (f, mapR, ros, adj, bmap) =>
     'IDEATE ' +
     f.path +
     ' (' +
@@ -746,9 +846,15 @@ const ideatePrompt = (f, mapR, ros, adj) =>
     f.path +
     '/ARCHITECTURE.md in full, both card files in full, every design page under ' +
     planningRootOf(f) +
-    ' at least to its full section spine, and both .api tiers (' +
+    ' at least to its full section spine, both .api tiers (' +
     apiTiersOf(f) +
-    ') at member level for the packages this folder composes. Derive your OWN axis-by-axis gap ruling from that read FIRST; then read the ' +
+    ') at member level for the packages this folder composes, the branch strata map at ' +
+    REPO +
+    '/libs/' +
+    f.language +
+    '/.planning/ARCHITECTURE.md (the stratum this folder owns and its seam edges), and — at the wire touchpoints this folder names — the ' +
+    'ARCHITECTURE.md and [01]-[OPEN] pools of the cross-language counterpart folders. Derive your OWN axis-by-axis gap ruling from that ' +
+    'read FIRST; then read the ' +
     'fact map ' +
     mapClause(mapR) +
     ' Then read ' +
@@ -756,8 +862,14 @@ const ideatePrompt = (f, mapR, ros, adj) =>
     ' — each roster row owned by this folder tiers must end exploited by one of your cards or carried as axis evidence. Then read the ' +
     'adjacent-candidate map ' +
     adjClause(adj) +
+    '. Then read the branch owner map ' +
+    bmapClause(bmap) +
     '. ' +
     POOL_LAW +
+    ' ' +
+    SEED_LAW +
+    ' ' +
+    OWNER_LAW +
     ' ' +
     CARD_LAW +
     ' ' +
@@ -817,12 +929,15 @@ const langPrompt = (L, bmap, ros, adj, rows, sameLang, failed) =>
     'the refutation recorded in your report document, never silently dropped: ' +
     JSON.stringify(sameLang) +
     '. (2) DEDUP — near-identical open cards across folders collapse to ONE owner card plus counterpart ripples; collapsed duplicates close ' +
-    'as [DROPPED] with a disposition naming the surviving owner. (3) LANGUAGE-ROOT PAIR — card the branch-wide moves: branch .api substrate ' +
+    'as [DROPPED] with a disposition naming the surviving owner. STRATA ARBITRATION (owner grain, not card grain): sweep the owner ' +
+    'anchors new cards mint; when 2+ folders mint an owner for ONE bounded concept, rule the folder at the lowest consumer-reachable ' +
+    'stratum canonical; the other folder card rewrites to a CONSUMER card composing and rippling INTO the canonical owner, its ' +
+    'disposition naming the ruling. Surviving twins — same-stratum owners serving genuinely disjoint domains — keep an explicit [STRATA] ' +
+    'disposition line naming the justifying domain; an unexplained twin is a defect. (3) LANGUAGE-ROOT PAIR — card the branch-wide moves: ' +
+    'branch .api substrate ' +
     'exploitation, cross-folder strata wiring, structural breadth per mandate [03].' +
-    (L.key === 'typescript'
-        ? ' The mandate [02] census rows are standing evidence — ui, security, and iac card the deepest, and the branch map [BREADTH] rows ' +
-          'ground each structural card.'
-        : '') +
+    ' The mandate [02] census rows are standing evidence — the folders the mandate names card the deepest, and the branch map [BREADTH] ' +
+    'rows ground each structural card.' +
     ' (4) A need whose counterpart lives in another language returns as a crossRequests row, never a foreign edit. ' +
     CARD_LAW +
     ' ' +
@@ -862,7 +977,8 @@ const crossPrompt = (xmap, ros, reqRows, langOut) =>
     '; per-folder receipt documents live under ' +
     OUT +
     ' as ideate-*.json — read the ones your repairs touch. DUTIES: (1) CROSS-LIBS PAIR — card the estate-wide moves at the libs/.planning ' +
-    'tier per mandate [01] tier 3 and [09]: root big moves (Speckle-class end-to-end systems) each ripple into the exact language/folder ' +
+    'tier per mandate [01] tier 3 and [09]: root big moves (estate-wide end-to-end systems spanning multiple language trees) each ripple ' +
+    'into the exact language/folder ' +
     'cards realizing them, and a folder design that would collide per-app under the app-neutrality law is itself a card. (2) ' +
     'CROSS-LANGUAGE RIPPLES — land each row below both-ends-verified: the counterpart card lands with the ' +
     'Ripple line naming the origin, and the origin card is confirmed on current disk; a refuted or malformed row is DECLINED with the ' +
@@ -873,7 +989,11 @@ const crossPrompt = (xmap, ros, reqRows, langOut) =>
     '/libs or carried as explicit axis evidence in a receipt document; a package with neither gains its card at the owning folder NOW, ' +
     'counted in rosterCardsAdded. (4) INTEGRATION — the coherence pass over all four altitudes: grain consistency (ideas big, tasks ' +
     'specific, every open idea decomposed — repair misses in place), no orphan ripples (every Ripple line names an existing counterpart — ' +
-    'repair both ends), no duplicate cards across altitudes (collapse to one owner plus ripples). ' +
+    'repair both ends), no duplicate cards across altitudes (collapse to one owner plus ripples). STRATA ARBITRATION (owner grain, not ' +
+    'card grain): sweep the owner anchors new cards mint; when 2+ folders mint an owner for ONE bounded concept, rule the folder at the ' +
+    'lowest consumer-reachable stratum canonical; the other folder card rewrites to a CONSUMER card composing and rippling INTO the ' +
+    'canonical owner, its disposition naming the ruling. Surviving twins — same-stratum owners serving genuinely disjoint domains — keep ' +
+    'an explicit [STRATA] disposition line naming the justifying domain; an unexplained twin is a defect. ' +
     CARD_LAW +
     ' ' +
     PKG_LAW +
@@ -904,8 +1024,11 @@ const admitPrompt = (row, origin) =>
     ' You are the SINGLE writer on the ' +
     row.language +
     ' central manifest for this call. Execute the FULL admission chain: (1) LIVE-VERIFY the newest stable version — nuget MCP ' +
-    'get_latest_package_version for csharp, the live registry for python/typescript; supersession-only rejection: reject ONLY when an ' +
-    'already-admitted package supersedes the capability or existence/installability fails verification, returning admitted=false with the ' +
+    'get_latest_package_version for csharp, the live registry for python/typescript; rejection vocabulary is closed: reject ONLY when an ' +
+    'already-admitted package supersedes the capability, when existence or installability fails verification, when the license gate ' +
+    'fails — this estate is fully OSS with zero commercial intent, any license granting full free use to an OSS project admits (copyleft ' +
+    'included) and only payment-required or paid-tier-gated capability rejects — or when any chain step below fails unrecoverably after ' +
+    'one self-heal attempt (EXECUTION FAILURE — the failed step named with its evidence), returning admitted=false with the ' +
     'ruling. (2) Land the central manifest row in its owning group (Directory.Packages.props label group / pyproject.toml lean unpinned / ' +
     'pnpm-workspace.yaml cluster). (3) Prove the install gate green (dotnet restore Workspace.slnx / uv lock plus uv sync / pnpm install), ' +
     'self-healing or reverting what cannot resolve — a reverted admission returns admitted=false with the resolver evidence. (4) Author the ' +
@@ -947,9 +1070,12 @@ const auditPrompt = (roots, ros, touched) =>
     JSON.stringify(touched) +
     ' — FAIL rows return in docgenFailures verbatim. (5) LEADER COMPAT — every open card leader under the roots matches the column-zero ' +
     '^\\[[A-Za-z0-9_-]+\\]-\\[(ACTIVE|QUEUED|BLOCKED)\\]: shape the implement discovery greps; a malformed leader returns in docgenFailures ' +
-    'prefixed "leader: ". Write your full audit document (all five proofs with their probes and rosters) to ' +
+    'prefixed "leader: ". (6) ALTITUDE — per DEEPENED folder, at least one OPEN idea is estate-altitude (a cross-folder or cross-stratum ' +
+    'move, a wire counterpart, or a [REFERENCES] gap close) and cites a seed source outside the folder own pages; a folder failing ' +
+    'returns as altitudeThin {folder, reason}. Write your full audit document (all six proofs with their probes and rosters) to ' +
     OUT +
-    '/audit.md, then return: ok (true only when all five proofs pass), report, rosterEntries, rosterUnexploited, undecomposed, thinFolders, ' +
+    '/audit.md, then return: ok (true only when all six proofs pass — altitudeThin empty included), report, rosterEntries, ' +
+    'rosterUnexploited, undecomposed, thinFolders, altitudeThin, ' +
     'docgenFailures, one-line headline, failure naming the failed proofs otherwise.';
 
 // --- [COMPOSITION] -------------------------------------------------------------------
@@ -1060,10 +1186,10 @@ const mapLane = (f) =>
             }),
         ),
     );
-const ideateLane = (f, mapR, ros, adj) =>
+const ideateLane = (f, mapR, ros, adj, bmap) =>
     guard(
         slot(() =>
-            agent(ideatePrompt(f, mapR, ros, adj), {
+            agent(ideatePrompt(f, mapR, ros, adj, bmap), {
                 label: 'ideate:' + fid(f),
                 phase: 'Ideate',
                 model: 'fable',
@@ -1081,8 +1207,8 @@ const chainLang = async (L) => {
             fs,
             (f) => mapLane(f),
             (mapR, f) =>
-                Promise.all([rosterP, adjP[f.language]])
-                    .then(([ros, adj]) => ideateLane(f, mapR, ros, adj))
+                Promise.all([rosterP, adjP[f.language], bmapP[f.language]])
+                    .then(([ros, adj, bmap]) => ideateLane(f, mapR, ros, adj, bmap))
                     .then((idr) => {
                         collectNeeds(idr, f.path);
                         return { folder: f, mapR, idr };
@@ -1230,6 +1356,7 @@ return {
               rosterUnexploited: audit.rosterUnexploited,
               undecomposed: audit.undecomposed,
               thinFolders: audit.thinFolders,
+              altitudeThin: audit.altitudeThin,
               docgenFailures: audit.docgenFailures,
           }
         : null,
@@ -1252,6 +1379,8 @@ return {
                 ' undecomposed idea(s), ' +
                 audit.thinFolders.length +
                 ' thin folder(s), ' +
+                audit.altitudeThin.length +
+                ' altitude-thin folder(s), ' +
                 audit.docgenFailures.length +
                 ' docgen/leader failure(s)'
               : 'audit lane failed'),

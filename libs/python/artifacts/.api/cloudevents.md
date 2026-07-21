@@ -1,10 +1,10 @@
 # [PY_ARTIFACTS_API_CLOUDEVENTS]
 
-`cloudevents` is the CNCF reference Python SDK for the CloudEvents envelope: one `cloudevents.core.v1.event.CloudEvent` carries a required/optional/extension attribute mapping and an arbitrary data payload, and protocol bindings lower it onto HTTP headers-or-body and Kafka message parts. `cloudevents.core.*` is the authoritative package family; its owner composes `cloudevents.core.formats.json.JSONFormat` with `cloudevents.core.bindings.http.to_structured_event`/`to_binary_event`, never re-implementing the spec attribute algebra, JSON format, or binding header maps.
+`cloudevents` is the CNCF reference Python SDK for the CloudEvents envelope: its `cloudevents.v1.*` and `cloudevents.core.*` families each carry a required/optional/extension attribute mapping and arbitrary data, and their bindings lower events onto HTTP headers-or-body and Kafka message parts. Artifacts notice composition stays within `cloudevents.v1.*`: `CloudEvent.create` admits the event and `conversion.to_structured`/`to_binary` lower it, never re-implementing the spec attribute algebra, JSON format, or binding header maps.
 
-Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 issue close mints one `cloudevents.core.v1.event.CloudEvent` keyed by the transmittal content key, carries container digests and register-row references as extension attributes, injects the active trace context as the `traceparent`/`tracestate` extension, and serializes to structured-JSON bytes an app transports over any carrier — so a downstream system ingests an issue-for-construction event without opening the archive. This SDK holds no broker client; its Kafka binding returns a transport-neutral `KafkaMessage` the composing app hands to its own producer, matching the ruled python asymmetry that transport ends at envelope bytes.
+Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 issue close mints one `cloudevents.v1.http.CloudEvent` keyed by the transmittal content key, carries container digests and register-row references as extension attributes, injects the active W3C trace and baggage carrier fields, and serializes to structured or binary HTTP parts an app transports over any carrier — so a downstream system ingests an issue-for-construction event without opening the archive. This SDK holds no broker client; its Kafka binding returns a transport-neutral `KafkaMessage` the composing app hands to its own producer, matching the ruled python asymmetry that transport ends at envelope bytes.
 
-`cloudevents.v1.*` is a separately packaged API family with dict-backed and pydantic events, conversion helpers, and Kafka helpers. Notice composition uses `cloudevents.core.*` exclusively, so one event never crosses family-specific types or conversion contracts.
+`cloudevents.v1.*` is a separately packaged API family with dict-backed and pydantic events, conversion helpers, and Kafka helpers. Notice composition uses this family exclusively, so one event never crosses family-specific types or conversion contracts.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -59,16 +59,16 @@ Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 i
 
 `to_structured` returns one JSON-object body carrying all attributes and data with headers `{"content-type": "application/cloudevents+json"}`. `to_binary` splits attributes into `ce-`-prefixed headers with the data as the raw body; `to_json` is the structured body bytes alone. `from_json`/`from_http`/`from_dict` reverse each, parameterized by the target `event_type` so both the dict and pydantic backings round-trip. Every pair takes an optional `data_marshaller`/`data_unmarshaller` for non-JSON payloads.
 
-| [INDEX] | [CALL]                                                                                     | [RESULT]             |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------------- |
-|  [01]   | `cloudevents.v1.conversion.to_structured(event, data_marshaller=None)`                     | header/body tuple    |
-|  [02]   | `cloudevents.v1.conversion.to_binary(event, data_marshaller=None)`                         | binary header/body   |
-|  [03]   | `cloudevents.v1.conversion.to_json(event, data_marshaller=None)`                           | structured bytes     |
-|  [04]   | `cloudevents.v1.conversion.to_dict(event)`                                                | event dictionary     |
-|  [05]   | `cloudevents.v1.conversion.from_json(event_type, data, data_unmarshaller=None)`            | event from JSON      |
-|  [06]   | `cloudevents.v1.conversion.from_http(event_type, headers, data, data_unmarshaller=None)`   | event from HTTP      |
-|  [07]   | `cloudevents.v1.conversion.from_dict(event_type, event)`                                  | event from mapping   |
-|  [08]   | `cloudevents.v1.conversion.is_binary(headers)`                                            | content-mode verdict |
+| [INDEX] | [CALL]                                                                                   | [RESULT]             |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------- |
+|  [01]   | `cloudevents.v1.conversion.to_structured(event, data_marshaller=None)`                   | header/body tuple    |
+|  [02]   | `cloudevents.v1.conversion.to_binary(event, data_marshaller=None)`                       | binary header/body   |
+|  [03]   | `cloudevents.v1.conversion.to_json(event, data_marshaller=None)`                         | structured bytes     |
+|  [04]   | `cloudevents.v1.conversion.to_dict(event)`                                               | event dictionary     |
+|  [05]   | `cloudevents.v1.conversion.from_json(event_type, data, data_unmarshaller=None)`          | event from JSON      |
+|  [06]   | `cloudevents.v1.conversion.from_http(event_type, headers, data, data_unmarshaller=None)` | event from HTTP      |
+|  [07]   | `cloudevents.v1.conversion.from_dict(event_type, event)`                                 | event from mapping   |
+|  [08]   | `cloudevents.v1.conversion.is_binary(headers)`                                           | content-mode verdict |
 
 [ENTRYPOINT_SCOPE]: Kafka protocol binding (`cloudevents.v1.kafka`)
 - rail: delivery-notice — lowers one event to a broker-neutral `KafkaMessage`, holding no producer/consumer client
@@ -100,8 +100,8 @@ Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 i
 ## [05]-[STACKING]
 
 [STACKING]: the notice owner composes CloudEvents beside the runtime trace context and the delivery close
-- `opentelemetry-api` owns the trace context — `propagate.inject(carrier, context, setter)` writes `traceparent`/`tracestate` into a carrier dict, which the notice owner folds into the `cloudevents.core.v1.event.CloudEvent(attributes, data)` attributes mapping; the SDK holds no OpenTelemetry dependency, so the wiring lives in the notice owner.
-- `msgspec`/`pydantic` own the payload shape — the notice `data` is a settled JSON-compatible value that `JSONFormat` and `cloudevents.core.bindings.http.to_structured_event` serialize into the event body.
+- `opentelemetry-api` owns the active context — `propagate.inject(carrier, context, setter)` writes the installed trace and baggage formats into a carrier dict, which the notice owner folds into the `cloudevents.v1.http.CloudEvent.create(attributes, data)` attributes mapping; the SDK holds no OpenTelemetry dependency, so the wiring lives in the notice owner.
+- `msgspec`/`pydantic` own the payload shape — the notice `data` is a settled JSON-compatible value that `cloudevents.v1.conversion.to_structured`/`to_binary` serialize into the event body.
 - `delivery/transmittal` composes the notice as a terminal issue-closure member — container digests and issued-register row references from `TransmittalEvidence` become notice extension attributes keyed by the transmittal `ContentKey`.
-- `xxhash` owns the content key the notice `subject` references — the CloudEvents `id` stays the SDK-defaulted uuid4 and the transmittal content key rides a reserved extension attribute, so replay identity and event identity never collide.
-- Kafka `KafkaMessage` and `cloudevents.core.bindings` never pull a broker client — every binding returns a transport-neutral value, so the ruled python asymmetry (no broker clients; transport belongs to the composing app) holds at the SDK boundary.
+- `xxhash` owns the content key the notice `subject` references — the CloudEvents `id` is a distinct time-ordered uuid7 value, so replay identity and content identity never collide.
+- Kafka `KafkaMessage` and the protocol bindings never pull a broker client — every binding returns a transport-neutral value, so the ruled python asymmetry (no broker clients; transport belongs to the composing app) holds at the SDK boundary.

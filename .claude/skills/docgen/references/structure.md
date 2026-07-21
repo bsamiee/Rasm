@@ -72,7 +72,9 @@ A closed marker vocabulary riding a templated entry shape is the device that kee
 
 - Design: a closed token set declared once by the schema owner, one meaning per token, uppercase bracketed form, machine-greppable — an agent filters the corpus on the exact string.
 - Entry leaders compose identity and state (`[<ID>]-[<STATUS>]:`), so an entry's lifecycle is readable and greppable without parsing its body; status transitions are edits to the leader, never narrated in prose.
-- Field lines under a leader come from the closed field vocabulary in declared order; a field that decides nothing for this entry is omitted, never filled with filler.
+- Field lines under a leader come from the closed field vocabulary in declared order; the schema splits required fields every open entry carries from optional-by-condition fields, and an optional field that decides nothing for this entry is omitted, never filled with filler.
+- Slug hygiene rides the schema: entry ids and their references stay UPPERCASE_SNAKE — a hyphenated slug anywhere is a defect — and every path inside an entry is corpus-relative, never an absolute machine path.
+- Terminal marker sections survive realization: a page schema ending on a research/open-question section keeps that section and its header marker for the page's whole life — realizing a row deletes the row alone, `(none)` marks the empty section, and a deleted, displaced, duplicated, or deformed section marker is a named defect.
 
 ```markdown accepted
 - [0042]-[BLOCKED]: <entry title>

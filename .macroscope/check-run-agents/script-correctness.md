@@ -1,7 +1,7 @@
 ---
 title: Rasm Script Correctness
 input: code_object
-effort: medium
+effort: low
 conclusion: neutral
 include:
   - ".claude/skills/**/scripts/**"

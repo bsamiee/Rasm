@@ -7,7 +7,8 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 ## [01]-[REQUIRED]
 
 - Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
-- `docs/laws/` is the repo-wide maintenance-law corpus, durable lessons land ONLY at the end of a session of large work when justified.
+- `docs/laws/` is the repo-wide maintenance-law corpus; a durable lesson lands ONLY at the end of a large-work session and only where refute-first proves no reviewer surface owns the fact.
+- Durable infra docs — README/ARCHITECTURE registries, IDEAS/TASKLOG card pools, RULINGS decision registries, `.api` catalogues, system pages — follow the maintenance law in `libs/.planning/campaign-method.md` (catalog-alignment, card-marker, research-section, and rulings disciplines live there).
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited:
 
@@ -62,6 +63,7 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 ## [03]-[DEPENDENCY_POLICY]
 
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
+- [ALWAYS] keep the package touch-point set bi-directionally aligned; central manager row, owning project manifest, branch README registry, folder README registry, owning `.api` tier; an orphaned member of the set is a defect to fix at its owner, never removed/dropped.
 - [ALWAYS] treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
 - [ALWAYS] keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
 - [ALWAYS] keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
@@ -70,6 +72,7 @@ Rasm is in a long-term planning phase, working strictly within design/spec-sheet
 - [ALWAYS] internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
 - [ALWAYS] keep C# MSBuild, NuGet, and `.csproj` manifests label-grouped by owner, sorted within coherent clusters, and limited to one-line maintenance comments.
 - [ALWAYS] put shared C# substrate API catalogues under `libs/csharp/.api/`; package `.api/` folders carry domain catalogues and folder-specific overlays.
+- [NEVER] mint a folder-tier `.api` file that duplicates or redirects to a substrate catalogue; a folder composing a substrate-carried package REGISTERS it.
 - [NEVER] hand-roll functionality provided by admitted dependencies.
 - [NEVER] create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.

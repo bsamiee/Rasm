@@ -36,6 +36,39 @@
 |  [03]   | `hashRaw(...)` → `Promise<Buffer>`                   | hash → raw     | raw digest bytes for KDF derivation, not the PHC envelope        |
 |  [04]   | `hashSync` / `hashRawSync` / `verifySync`            | sync mirror    | boot/CLI outside the Effect rail; never on a request fiber       |
 
+Exact shipped declarations, verified against `node_modules/@node-rs/argon2/index.d.ts`:
+
+```typescript
+export declare function hash(password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<string>
+export declare function hashRaw(password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<Buffer>
+export declare function verify(hashed: string | Uint8Array, password: string | Uint8Array, options?: Options | undefined | null, abortSignal?: AbortSignal | undefined | null): Promise<boolean>
+export declare function hashSync(password: string | Uint8Array, options?: Options | undefined | null): string
+export declare function hashRawSync(password: string | Uint8Array, options?: Options | undefined | null): Buffer
+export declare function verifySync(hashed: string | Uint8Array, password: string | Uint8Array, options?: Options | undefined | null): boolean
+
+export interface Options {
+  memoryCost?: number
+  timeCost?: number
+  outputLen?: number
+  parallelism?: number
+  algorithm?: Algorithm
+  version?: Version
+  secret?: Uint8Array
+  salt?: Uint8Array
+}
+
+export declare const enum Algorithm {
+  Argon2d = 0,
+  Argon2i = 1,
+  Argon2id = 2
+}
+
+export declare const enum Version {
+  V0x10 = 0,
+  V0x13 = 1
+}
+```
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ARGON2_TOPOLOGY]:

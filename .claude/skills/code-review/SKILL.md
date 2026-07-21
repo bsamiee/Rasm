@@ -32,7 +32,7 @@ One rail carries the whole cycle: every engine round normalizes into one finding
 
 ## [02]-[CYCLE]
 
-Every round runs on two custody lanes that never mix: work under review stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
+Every round runs on two custody lanes that never mix: work under review — the harvest's `libs/` corpus-ledger landings included — stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
 
 Step order never proves a drain, the owning receipt does: `reconcile` surfaces `routing.pending`, `round` refuses `routing-undrained` while it is non-empty, and `harvest`/`round` refuse a partial lane-report set.
 
@@ -185,7 +185,7 @@ Per territory the rail writes `close-<letter>.json` and `close-<letter>-brief.md
 
 Round dirs sit outside reviewer-harvest's write territory, so project its returned surface ledger into `<round-dir>/surface-ledger.json` yourself as `[{surface, text, path}]` rows — `surface` an engine name or alias, `text` the shortest guard substring unique on the surface, `path` blank falling to the engine's own oracle.
 
-Project one row per landed addition and consolidation; a receipt whose `source` is `surface-ledger` marks a malformed row (blank text or an unmapped surface name), never failed wording.
+Project one row per landed addition and consolidation — `corpus` rows never project, a ruling, index repair, or card proving itself on disk with no engine oracle; a receipt whose `source` is `surface-ledger` marks a malformed row (blank text or an unmapped surface name), never failed wording.
 
 - [REGISTRY]: `harvest` proposes new rows in the feed, `registry --check --rows` proves them (matcher compile, schema, dedup), and a judgment-bearing merge into an existing row is a hand edit re-proved by bare `registry --check`.
 - [RAIL_GAPS]: a rail gap a round exposes hardens the script.

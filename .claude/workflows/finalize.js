@@ -583,52 +583,76 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 
+// Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
+const LANE_SCRIPT = ROOT_DIR + '/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
+
 const codexPrompt = (label, task, schema, o) => {
     const report = ROOT_DIR + '/' + reportOf(label);
-    const model = o.model; // config owns the default; only a deviation is named on the call
-    return [
-        'DISPATCH ROLE: ' +
-            (model || 'codex') +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with ' +
-            (model ? 'model="' + model + '", ' : '') +
-            'cwd=' +
-            JSON.stringify(ROOT_DIR) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below VERBATIM. ' +
-            'The call is blocking — it returns when the turn completes. If it errors, skip step (3) and return the error through step (4).',
-        'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' +
-            task +
-            (o.writes
-                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
-                  report +
-                  ' yourself.'
-                : ''),
-        o.writes
-            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+    const lane = report + '.lane';
+    const authored = !!o.writes;
+    const sandbox = authored ? 'workspace-write' : 'read-only';
+    const taskFull =
+        task +
+        (authored
+            ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
               report +
-              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
-              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
-            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. Write that ' +
-              'CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-              report +
-              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-              'failure returns through step (4) with the error.',
-        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
-            reportOf(label) +
-            ', entries=the length of result["' +
-            o.hl.arr +
-            '"], headline="<entries> ' +
-            o.hl.arr +
-            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a tool error return ok=false, entries=0, ' +
-            'report and headline empty, and failure equal to the error text VERBATIM.',
-    ].join('\n\n');
+              ' yourself.'
+            : '');
+    return (
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+        lane +
+        '/law.md and the TASK block below VERBATIM to ' +
+        lane +
+        '/task.md, composing neither. ' +
+        (authored
+            ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
+            : '') +
+        '(2) Run ONE Bash call with run_in_background true: ' +
+        LANE_SCRIPT +
+        ' --task ' +
+        lane +
+        '/task.md --law ' +
+        lane +
+        '/law.md --dir ' +
+        lane +
+        ' --cwd ' +
+        ROOT_DIR +
+        ' --sandbox ' +
+        sandbox +
+        flagsOf(o) +
+        (authored ? '' : ' --out ' + report) +
+        '; the harness re-invokes you when the lane exits — Read ' +
+        lane +
+        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        'refusal) re-runs the same command untouched. (3) ' +
+        (authored
+            ? 'The delegate lands the product itself at ' + report + ' as its final act.'
+            : 'The lane lands the product at ' + report + ' via --out.') +
+        ' (4) Verify with one Bash call: jq -e . ' +
+        report +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
+        'probe output. (5) Return ok=true, report=' +
+        reportOf(label) +
+        ' (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        o.hl.arr +
+        '" array in the product, headline="<entries> ' +
+        o.hl.arr +
+        (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+        ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
+        laneLaw(schema, o) +
+        '\n\nTASK:\n\n' +
+        taskFull
+    );
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task at the role's native
@@ -797,8 +821,8 @@ const mergePrompt = (rosterPaths, dossier) =>
             'each drop and its surviving key in the dossier tail). AUTHOR `' +
             dossier +
             '` as markdown: a leading CROSS-UNIT THREADS section, one section per unit for the rest, each item ID-keyed with ' +
-            'its claimKey. EVERY cross-unit thread names its LEAD unit — the unit holding the thread\'s primary owner; the ' +
-            'lead unit\'s writer implements the whole thread, so a thread without a lead is unowned work and a defect. A ' +
+            "its claimKey. EVERY cross-unit thread names its LEAD unit — the unit holding the thread's primary owner; the " +
+            "lead unit's writer implements the whole thread, so a thread without a lead is unowned work and a defect. A " +
             'section with nothing carries the checks that proved emptiness, never a bare NONE. THE DOSSIER IS ' +
             'YOUR SOLE CONTENT ARTIFACT — return ONLY `index` (each unit mapped to the dossier section headers carrying it), ' +
             'coverage, and summary; content lives in the dossier alone, never restated on the wire.',
@@ -835,13 +859,12 @@ const implementPrompt = (u, dossier, mergeOk, unitReports, isUnmapped, reg) =>
                   'landed ends per the ledger law, never re-derive it. Spot-verify every anchor an edit builds on ' +
                   '(re-open MANDATORY — a finding already corrected on disk or whose anchors do not re-confirm is dropped with ' +
                   'its reason in `summary`, never re-fixed).'
-                : 'the merge lane died — your unit\'s raw map reports are your recon; read each IN FULL from disk, dedupe by ' +
+                : "the merge lane died — your unit's raw map reports are your recon; read each IN FULL from disk, dedupe by " +
                   '`claimKey` as you read, and order by owner then severity: ' +
                   JSON.stringify(unitReports) +
                   '.') +
             (isUnmapped
-                ? ' This unit is UNMAPPED (no surviving map lane): your own cold hostile read is the recon — hunt the finding ' +
-                  'kinds yourself.'
+                ? ' This unit is UNMAPPED (no surviving map lane): your own cold hostile read is the recon — hunt the finding ' + 'kinds yourself.'
                 : '') +
             '\nEach item is a SIGNAL, not law: `mechanism`/`owner`/`reject`/`acceptance` are its constraint boundary — honor ' +
             'the owner and rejected forms, but the DESIGN is yours: implement the densest root-level resolution the boundary ' +
@@ -962,8 +985,8 @@ const sweeperPrompt = (backlog, indexRows, unmapped, pages) =>
             'resolves is rejected with its evidence; a cleared blocker is yours to land at the root): ' +
             JSON.stringify(backlog) +
             '.\n' +
-            '(2) INDEX ROWS — apply each to its owning doc exactly once, deduped semantically, keeping each doc\'s section ' +
-            "grammar; a central-manifest row hand-edits the grouped manifest at the SYMBOL anchor (never a line number): " +
+            "(2) INDEX ROWS — apply each to its owning doc exactly once, deduped semantically, keeping each doc's section " +
+            'grammar; a central-manifest row hand-edits the grouped manifest at the SYMBOL anchor (never a line number): ' +
             JSON.stringify(indexRows) +
             '.\n' +
             (unmapped.length
@@ -1188,7 +1211,10 @@ log(
 
 // ONE terminal sweeper drains the cross-unit remainder in one scoped pass — deferred rows, index/manifest rows, seam-ledger
 // audit, governance drift, orphaned fixlogs (fed as extra tranche rows via the backlog), and its own hunt.
-const orphanRows = ORPHAN_IMPL.map((p) => ({ files: [p], claim: 'orphaned implement fixlog — read IN FULL from disk; its deferred/indexRows/harvest rows are unconsumed and yours to drain' }));
+const orphanRows = ORPHAN_IMPL.map((p) => ({
+    files: [p],
+    claim: 'orphaned implement fixlog — read IN FULL from disk; its deferred/indexRows/harvest rows are unconsumed and yours to drain',
+}));
 const sweepFire = (suffix) =>
     slot(() =>
         recon(() => sweeperPrompt(BACKLOG.concat(orphanRows), INDEX_ROWS, UNMAPPED, PAGES), {
@@ -1203,11 +1229,17 @@ const sweepFire = (suffix) =>
         }),
     ).catch(() => null);
 const sweepOnce = await sweepFire('');
-const sweep = sweepOnce && sweepOnce.ok ? sweepOnce : await retryLane(async () => {
-    const r = await sweepFire(':r1');
-    return r && r.ok ? r : null;
-});
-log('Sweeper: ' + (sweep && sweep.ok ? sweep.entries + ' row(s) remaining — ' + sweep.headline : 'DIED — checkpoint and harvest file survive on disk'));
+const sweep =
+    sweepOnce && sweepOnce.ok
+        ? sweepOnce
+        : await retryLane(async () => {
+              const r = await sweepFire(':r1');
+              return r && r.ok ? r : null;
+          });
+log(
+    'Sweeper: ' +
+        (sweep && sweep.ok ? sweep.entries + ' row(s) remaining — ' + sweep.headline : 'DIED — checkpoint and harvest file survive on disk'),
+);
 
 phase('Close');
 // The lander transports every harvest channel: inline rt rows, the sweeper/rt harvest file, and the report harvest arrays on disk.

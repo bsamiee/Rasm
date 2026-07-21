@@ -305,6 +305,8 @@ TOOLS: tuple[Tool, ...] = (
         DOCS,
         Claim.DOCS,
     ),
+    # INPROC planning-marker gate: card leaders/statuses/bullets and terminal RESEARCH sections over libs/ planning durables.
+    Tool("planning-gate", INPROC, ("planning-gate", "check"), OWNED, DOCS, Claim.DOCS),
     # --- [CODE]
     Tool(
         "ast-grep",

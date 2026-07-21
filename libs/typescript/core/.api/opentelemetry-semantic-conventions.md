@@ -1,6 +1,6 @@
 # [TS_CORE_API_OPENTELEMETRY_SEMANTIC_CONVENTIONS]
 
-`@opentelemetry/semantic-conventions` is a CODE-GENERATED vocabulary of literal-typed string constants — one flat `const` per OpenTelemetry attribute key, metric name, event name, and bounded attribute value — with ZERO runtime dependency and ZERO peer (not even `@opentelemetry/api`). It is the ONE `@opentelemetry/*` package that survives the `[R3]` collapse: when native `Otlp` retires the SDK/exporter block, this stays as the standing name source, because it is pure data, not SDK machinery.
+`@opentelemetry/semantic-conventions` is a CODE-GENERATED vocabulary of literal-typed string constants — one flat `const` per OpenTelemetry attribute key, metric name, event name, and bounded attribute value — with ZERO runtime dependency and ZERO peer (not even `@opentelemetry/api`). It is the ONE `@opentelemetry/*` package that survives the `[OTEL_PIN_BLOCK]` collapse: when native `Otlp` retires the SDK/exporter block, this stays as the standing name source, because it is pure data, not SDK machinery.
 
 Mechanism is a two-tier × four-family generated pattern: a STABLE entrypoint (`.`) of API-frozen names and an INCUBATING entrypoint (`./incubating`) of overlay names that churn between minor releases, each carrying the `ATTR_*` (attribute key), `*_VALUE_*` (bounded value), `METRIC_*` (instrument name), and `EVENT_*` (event name) families.
 
@@ -13,9 +13,9 @@ Inside Rasm exactly two owners import it — `observe/convention`, the re-export
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM (`build/esm`) + `esnext` (`build/esnext`); `sideEffects: false`, so unused constants tree-shake to zero bytes.
 - exports: TWO subpaths — `.` (STABLE, `build/src/index.d.ts`) and `./incubating` (STABLE + overlay, `build/src/index-incubating.d.ts`). Stable entry re-exports `trace` + `resource` + `stable_attributes` + `stable_metrics` + `stable_events`; incubating adds `experimental_attributes` + `experimental_metrics` + `experimental_events`.
 - asset: `build/src/index.d.ts`.
-- peer: NONE. deps: NONE. Fully self-contained pure-data package — the property that makes it the `[R3]` survivor.
+- peer: NONE. deps: NONE. Fully self-contained pure-data package — the property that makes it the `[OTEL_PIN_BLOCK]` survivor.
 - plane: `plane:runtime`, edge-ledger-fenced to `scope:telemetry` — but see [STACK]: cross-language parity with C# `Rasm.AppHost` telemetry rides the same OTel names, not this package.
-- rail: observability/convention; the `[CONVENTIONS]` pin block (a block of one) — NOT an `[R3]`-collapse member; it is the standing vocabulary source the collapse leaves behind.
+- rail: observability/convention; the `[CONVENTIONS]` pin block (a block of one) — NOT an `[OTEL_PIN_BLOCK]`-collapse member; it is the standing vocabulary source the collapse leaves behind.
 - role: the name source for `observe/convention`; every attribute key, metric name, and event name in the four-signal plane resolves to a constant here.
 
 ## [02]-[VOCABULARY_PATTERN]
@@ -96,5 +96,5 @@ INCUBATING (`./incubating`) namespaces — overlay, imported behind the churn-ab
 
 - Owns: the OpenTelemetry attribute-key / metric-name / event-name / bounded-value vocabulary as code-generated literal-typed constants, split into the stable (`.`) and incubating (`./incubating`) tiers across the `ATTR_*`/`*_VALUE_*`/`METRIC_*`/`EVENT_*` families.
 - Accept: the flat `ATTR_*`/`METRIC_*`/`EVENT_*` constants imported into `observe/convention` as typed rows; the `*_VALUE_*` bounded sets as `Match`-discriminated values; stable-tier names by default, incubating names behind a Rasm churn-absorbing alias row; the constant referenced everywhere a field is named, never the string literal.
-- Reject: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling (superseded by flat `ATTR_*`); a raw string literal where a constant exists (the stringy-key defect root policy bans); embedding an incubating name directly in a durable dashboard/SLO row without the churn-absorbing alias; treating this package as an `[R3]`-collapse member (it is the survivor); re-declaring OTel standard names as Rasm-owned rows (only genuinely-Rasm vocabulary is a project row).
-- Boundary: pure data, zero deps — the standing name source the `[R3]` SDK-block retirement leaves behind. Rasm-owned fact vocabularies (audit actor/action/target, meter counters) are NOT semconv and live as project convention rows beside these imports. Cross-language parity is name-level against the OTel spec, not a shared package.
+- Reject: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling (superseded by flat `ATTR_*`); a raw string literal where a constant exists (the stringy-key defect root policy bans); embedding an incubating name directly in a durable dashboard/SLO row without the churn-absorbing alias; treating this package as an `[OTEL_PIN_BLOCK]`-collapse member (it is the survivor); re-declaring OTel standard names as Rasm-owned rows (only genuinely-Rasm vocabulary is a project row).
+- Boundary: pure data, zero deps — the standing name source the `[OTEL_PIN_BLOCK]` SDK-block retirement leaves behind. Rasm-owned fact vocabularies (audit actor/action/target, meter counters) are NOT semconv and live as project convention rows beside these imports. Cross-language parity is name-level against the OTel spec, not a shared package.

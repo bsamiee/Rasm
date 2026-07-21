@@ -325,42 +325,63 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+// Sandbox decides authorship: verify lanes are read-only, so --out materializes the product; the delegate never writes the corpus.
+const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
+
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const report = ROOT + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
-    return [
-        'DISPATCH ROLE: ' +
-            model +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
-            JSON.stringify(ROOT) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, skip step (3) and return the error through step (4).',
-        'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-            report +
-            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-            'failure returns through step (4) with the error.',
-        '(4) Parse the tool result text only to compute the receipt. Return ok=true, report=' +
-            base +
-            '-report.json, entries=the length of result["' +
-            o.hl.arr +
-            '"], headline="<entries> ' +
-            o.hl.arr +
-            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
-            'report and headline empty, and failure equal to the error text VERBATIM.',
-    ].join('\n\n');
+    const lane = report + '.lane';
+    return (
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+        lane +
+        '/law.md and the TASK block below VERBATIM to ' +
+        lane +
+        '/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
+        LANE_SCRIPT +
+        ' --task ' +
+        lane +
+        '/task.md --law ' +
+        lane +
+        '/law.md --dir ' +
+        lane +
+        ' --cwd ' +
+        ROOT +
+        ' --sandbox read-only' +
+        flagsOf({ model, codexEffort: o.codexEffort, web: o.web }) +
+        ' --out ' +
+        report +
+        '; the harness re-invokes you when the lane exits — Read ' +
+        lane +
+        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        'refusal) re-runs the same command untouched. (3) The lane lands the product at ' +
+        report +
+        ' via --out. (4) Verify with one Bash call: jq -e . ' +
+        report +
+        ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+        'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
+        'probe output. (5) Return ok=true, report=' +
+        base +
+        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        o.hl.arr +
+        '" array in the product, headline="<entries> ' +
+        o.hl.arr +
+        (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+        ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
+        laneLaw(schema, o) +
+        '\n\nTASK:\n\n' +
+        task
+    );
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
 // native twin — the caller owns the re-dispatch, the shell lane never executes work itself. The roster row carries `scope` from the

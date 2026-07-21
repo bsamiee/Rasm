@@ -442,6 +442,14 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+// Sandbox decides authorship: a read-only delegate cannot write, so --out materializes the product; a writing delegate lands its own.
+const LANE_SCRIPT = ROOT + '/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
+
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = ROOT;
@@ -449,56 +457,76 @@ const codexPrompt = (label, task, schema, o) => {
     const dossier = root + '/' + base + '-dossier.md'; // writes lanes author this markdown alongside the JSON report
     const model = o.model || 'gpt-5.6-terra';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
-    return [
-        'DISPATCH ROLE: ' +
-            model +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
-            JSON.stringify(root) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. The call blocks until the Codex turn completes and returns the result envelope. On a tool error, ' +
-            'skip step (3) and return the error through step (4).',
-        'LANE LAW:\n\n' + laneLaw(schema, o),
-        // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
-        'TASK:\n\n' +
-            task +
-            (o.writes
-                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
-                  report +
-                  ' yourself (this is separate from the dossier the task already has you author).'
-                : ''),
-        o.writes
-            ? '(3) The lane wrote both the JSON report and its markdown dossier itself. Verify with one Bash call: jq -e . ' +
+    const lane = report + '.lane';
+    const authored = !!o.writes;
+    const sandbox = authored ? 'workspace-write' : 'read-only';
+    // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
+    const taskFull =
+        task +
+        (authored
+            ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+              report +
+              ' yourself (this is separate from the dossier the task already has you author).'
+            : '');
+    return (
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+        lane +
+        '/law.md and the TASK block below VERBATIM to ' +
+        lane +
+        '/task.md, composing neither. ' +
+        (authored
+            ? 'Delete any leftover file at ' + report + ' with one Bash rm -f (a stale product there passes the verify probe as a false success). '
+            : '') +
+        '(2) Run ONE Bash call with run_in_background true: ' +
+        LANE_SCRIPT +
+        ' --task ' +
+        lane +
+        '/task.md --law ' +
+        lane +
+        '/law.md --dir ' +
+        lane +
+        ' --cwd ' +
+        root +
+        ' --sandbox ' +
+        sandbox +
+        flagsOf({ model, codexEffort: o.codexEffort, web: o.web }) +
+        (authored ? '' : ' --out ' + report) +
+        '; the harness re-invokes you when the lane exits — Read ' +
+        lane +
+        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        'refusal) re-runs the same command untouched. (3) ' +
+        (authored
+            ? 'The delegate lands both the JSON report at ' + report + ' and its markdown dossier itself as its final act.'
+            : 'The lane lands the product at ' + report + ' via --out.') +
+        ' (4) Verify with one Bash call: ' +
+        (authored
+            ? 'jq -e . ' +
               report +
               ' >/dev/null && test -s ' +
               dossier +
-              '. If the report is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} and Write it ' +
-              'to ' +
+              ' — on a missing or invalid report re-derive it once from the lane events.jsonl (jq -rs to the last agent_message item text, ' +
+              'Write that) and re-probe; a missing or empty dossier is unrecoverable and returns ok=false with that error.'
+            : 'jq -e . ' +
               report +
-              ' verbatim (the product JSON, never the envelope), then re-verify; a missing or empty dossier is unrecoverable and returns ' +
-              'through step (4) with that error.'
-            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-              report +
-              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-              'failure returns through step (4) with the error.',
-        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
-            base +
-            '-report.json, entries=the length of result["' +
-            hl.arr +
-            '"], headline="<entries> ' +
-            hl.arr +
-            (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
-            'report and headline empty, and failure equal to the error text VERBATIM.',
-    ].join('\n\n');
+              ' >/dev/null — a nonzero exit means a missing or malformed product; on a miss re-derive the product once from the lane ' +
+              'events.jsonl (jq -rs to the last agent_message item text, Write that), re-probe, and a second miss returns ok=false with the ' +
+              'probe output.') +
+        ' (5) Return ok=true, report=' +
+        base +
+        '-report.json (this repo-relative form, matching codex-lane receipts), entries = the length of the "' +
+        hl.arr +
+        '" array in the product, headline="<entries> ' +
+        hl.arr +
+        (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
+        ' | top: <most frequent first file or none>", and failure empty. On a failed receipt return ok=false, entries=0, report and ' +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
+        laneLaw(schema, o) +
+        '\n\nTASK:\n\n' +
+        taskFull
+    );
 };
 // Every survey/research lane routes here. QUOTA FALLBACK: a codex receipt whose failure
 // matches usage/quota/limit re-dispatches the SAME task natively at the role's native twin — the caller owns

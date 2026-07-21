@@ -31,8 +31,8 @@
 [PUBLIC_TYPE_DETAIL]:
 - `ddouble` is a `readonly struct` with the full generic-math, operator, and special-function surface; no public field or property exposes its hi/lo representation.
 - `DoubleDoubleEnumerableExpand` supplies `Sum`, `Average`, `Min`, `Max`, `MinIndex`, and `MaxIndex` over `IEnumerable<ddouble>` and `IReadOnlyList<ddouble>` with 106-bit accumulation.
-- `DoubleDoubleIOExpand` supplies `BinaryWriter.Write(ddouble)` and `BinaryReader.ReadDDouble()` with exact hi/lo round-tripping.
-- `DDoubleJsonConverter` is a `JsonConverter<ddouble>` registered on `JsonSerializerOptions.Converters` for lossless serialization.
+- `DoubleDoubleIOExpand` supplies `public static void Write(this BinaryWriter writer, ddouble n)` and `public static ddouble ReadDDouble(this BinaryReader reader)` with exact hi/lo round-tripping.
+- `DDoubleJsonConverter` is `public class DDoubleJsonConverter : JsonConverter<ddouble>` overriding `ddouble Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)` and `void Write(Utf8JsonWriter writer, ddouble value, JsonSerializerOptions options)`; it registers on `JsonSerializerOptions.Converters` (the get-only `IList<JsonConverter>`) for lossless serialization.
 
 ## [03]-[NUMERIC_CONTRACT]
 

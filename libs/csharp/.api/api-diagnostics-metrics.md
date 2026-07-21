@@ -45,7 +45,7 @@
 - `MeterOptions.TelemetrySchemaUrl` carries the scope schema pin where the composition root demands one; version and correlation tags ride `Version` and `Tags` at the mint.
 
 [STACKING]:
-- `Rasm.AppHost` `Observability/telemetry#TELEMETRY_IDENTITY`: `TelemetryIdentity.Mint` is the one meter mint and `InstrumentRow.Bind` the delegate slot every create call lives in; `Buckets.Advised` composes the advice-bearing histogram create and `InstrumentSet.Count`/`Record` the tagged writes.
+- `Rasm` `Domain/telemetry#INSTRUMENT_MECHANISM`: `TelemetryIdentity.Mint` is the one meter mint and `InstrumentRow.Bind` the delegate slot every create call lives in; `Buckets.Advised` composes the advice-bearing histogram create, `InstrumentSet.Count`/`Record` the tagged writes, and `LevelCells.Reader` the scalar and tagged-measurement gauge callbacks.
 - `Rasm.AppUi` (`Rasm.AppUi/.api/api-diagnostics-metrics.md`): `InstrumentKind` bind delegates and the `AppUiTelemetry` spine — the folder overlay carries the bindings.
 - `Rasm.Persistence` `Store/observability#STORE_INSTRUMENTS`, `Rasm.Compute` `Runtime/receipts#TELEMETRY_PROJECTION`, `Rasm.Fabrication` `Process/telemetry`: each package roster binds through its contributor port over this surface.
 - `Microsoft.Extensions.Diagnostics.Testing` (`tests/csharp/.api/diagnostics-testing.md`): `MetricCollector<T>` observes one instrument's measurement stream.

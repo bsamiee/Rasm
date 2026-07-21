@@ -213,11 +213,13 @@ const ADMISSION =
     'the admission changes, nothing else.';
 
 const REVIEWER_LAW =
-    'REVIEWER-CONFIG ENRICHMENT (opportunistic, never a mandated deliverable): .greptile/rules.md + config.json + files.json, .coderabbit.yaml, and .macroscope/correctness/ are the ' +
+    'REVIEWER-CONFIG ENRICHMENT (opportunistic, never a mandated deliverable): .greptile/rules.md + config.json + files.json, ' +
+    '.coderabbit.yaml, and .macroscope/correctness/ are the ' +
     'standing reviewer doctrine. When your pass surfaces a high-signal implicit pattern those files do not already state — a quality shape, a testkit/infra ' +
     'construction law, test/tool code discipline, a libs/ standards nuance, an agent-framed prose norm, or existing guidance now wrong or weaker than the ' +
     'estate practices — land it there in the same pass: harden or correct the owning instruction where one exists, add a new one only when no owner covers ' +
-    'it, and mirror every ruling across all three surfaces (the rules.md section, the matching .coderabbit.yaml path_instructions block, and the owning .macroscope/correctness/ page move together). ' +
+    'it, and mirror every ruling across all three surfaces (the rules.md section, the matching .coderabbit.yaml path_instructions ' +
+    'block, and the owning .macroscope/correctness/ page move together). ' +
     'Admission bar: consistent across the estate, doctrine-derived (docs/stacks/<language>, docs/standards), and invisible to the machine gates — never ' +
     'restate what formatters/gates/analyzers enforce, never duplicate an existing line, never add speculative or one-off rules. Write the guidance as ' +
     'durable law over the finished system: never couched in the planning phase, campaign state, or session narration. yamllint proves .coderabbit.yaml, jq ' +
@@ -345,34 +347,61 @@ const laneLaw = (schema, o) =>
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+// A read-recon lane that WRITES its own dossier: workspace-write so the dossier lands, --out aimed at a separate message
+// file (never the dossier the lane writes itself), and the dossier verified independently with test -s.
+const LANE_SCRIPT = '/Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/codex/scripts/codex-lane.sh';
+const flagsOf = (o) =>
+    [o.model && '--model ' + o.model, o.codexEffort && '--effort ' + o.codexEffort, o.web && '--web']
+        .filter(Boolean)
+        .map((f) => ' ' + f)
+        .join('');
+
 const codexRecon = (task, o) => {
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
-    const model = o.model || 'gpt-5.6-terra';
-    return [
-        'DISPATCH ROLE: ' +
-            model +
-            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly three steps; ' +
-            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
-            model +
-            '", cwd=' +
-            JSON.stringify(root) +
-            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
-            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, return ok=false, entries=0, report and headline empty, and failure equal to the error text ' +
-            'VERBATIM (the caller re-dispatches natively on a quota failure).',
-        'LANE LAW:\n\n' + laneLaw(o.schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +
-            'receipt JSON the lane earns by writing its dossier to disk. Parse that content, then verify the dossier landed with ' +
-            'one Bash call: test -s ' +
-            o.product +
-            '. A missing or empty file means the dossier write was lost behind an ok receipt — return ok=false, entries=0, report ' +
-            'and headline empty, and failure="dossier missing or empty at ' +
-            o.product +
-            '"; otherwise return the parsed receipt VERBATIM as your structured output.',
-    ].join('\n\n');
+    const lane = o.product + '.lane';
+    const message = lane + '/message.json';
+    return (
+        'DISPATCH ROLE: a delegate performs the complete TASK below through one supervised lane run; never perform, edit, judge, soften, ' +
+        'summarize, or relay the work yourself. (1) Write the LANE LAW block below VERBATIM to ' +
+        lane +
+        '/law.md and the TASK block below VERBATIM to ' +
+        lane +
+        '/task.md, composing neither. (2) Run ONE Bash call with run_in_background true: ' +
+        LANE_SCRIPT +
+        ' --task ' +
+        lane +
+        '/task.md --law ' +
+        lane +
+        '/law.md --dir ' +
+        lane +
+        ' --cwd ' +
+        root +
+        ' --sandbox workspace-write' +
+        flagsOf(o) +
+        ' --out ' +
+        message +
+        '; the harness re-invokes you when the lane exits — Read ' +
+        lane +
+        '/receipt.json then, never a polling loop. Recovery is two-branch and ONCE-only — the whole budget: a receipt reason "crash" ' +
+        'alone (the session persisted on disk) overwrites the task file with "continue and complete the lane, then land the receipt" and ' +
+        're-runs the same command plus --resume <the receipt thread_id>; any other failed receipt (idle-timeout, max-timeout, turn-failed, ' +
+        'refusal) re-runs the same command untouched. (3) The lane writes its dossier to ' +
+        o.product +
+        ' itself and lands its final receipt message at ' +
+        message +
+        ' via --out. Verify the dossier landed with one Bash call: test -s ' +
+        o.product +
+        '. A missing or empty file means the dossier write was lost behind an ok receipt — return ok=false, entries=0, report and ' +
+        'headline empty, and failure="dossier missing or empty at ' +
+        o.product +
+        '"; otherwise Read ' +
+        message +
+        ' and return that parsed receipt VERBATIM as your structured output. On a failed receipt return ok=false, entries=0, report and ' +
+        'headline empty, and failure equal to the receipt reason and failure text VERBATIM.\n\nLANE LAW:\n\n' +
+        laneLaw(o.schema, o) +
+        '\n\nTASK:\n\n' +
+        task
+    );
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
 // role's native twin; the caller owns the re-dispatch, the wrapper never executes work itself. The
@@ -473,7 +502,8 @@ const doctrinePrompt = (rows, residuals) =>
     'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\n' +
     'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before ' +
-    'returning; yamllint proves `.coderabbit.yaml`, jq proves the `.greptile` JSON files, and `.macroscope/` pages ride the same prose gate if you touch them. Return ' +
+    'returning; yamllint proves `.coderabbit.yaml`, jq proves the `.greptile` JSON files, and `.macroscope/` pages ride the same ' +
+    'prose gate if you touch them. Return ' +
     'landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -44,7 +44,7 @@
 |  [06]   | `SqliteConnection.ClearPool(connection)` / `ClearAllPools()` | static call        | evicts pooled physical handles                |
 |  [07]   | `Default Timeout` / `DefaultTimeout`                         | keyword / property | busy-timeout seconds (default 30)             |
 
-- [02]-[OPEN]: a missing file under `Mode=ReadOnly` throws `SqliteException` (error 14, `unable to open database file`).
+- [02]-[OPEN_FAIL]: a missing file under `Mode=ReadOnly` throws `SqliteException` (error 14, `unable to open database file`).
 - [03]-[READONLY]: the default `ReadWriteCreate` creates a missing path instead of failing — a silent empty database where the fold expects a failure.
 - [04]-[IMMUTABLE]: a `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact.
 - [05]-[POOLING]: pooling defaults ON keyed by exact string; a scratch-artifact read disables it so the physical handle dies with the bracket.

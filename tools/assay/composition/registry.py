@@ -602,7 +602,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "query", api_rail.query, ApiParams, "Polymorphic ilspy surface; fingerprint cache."),
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
-    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid validation."),
+    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid + planning-marker validation."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start enabled Forge-owned provisioning services."),
     Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services while preserving owned volumes."),
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),

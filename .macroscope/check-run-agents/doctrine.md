@@ -1,7 +1,7 @@
 ---
 title: Rasm Doctrine Check
 input: full_diff
-effort: high
+effort: low
 conclusion: neutral
 include:
   - "libs/**"

@@ -148,10 +148,10 @@
 [ENTRYPOINT_SCOPE]: scripting host
 - rail: host
 
-- `PythonScript.Create() : PythonScript` — mint the host scripting engine; `RuntimeAssemblies() : Assembly[]` / `AddRuntimeAssembly(Assembly assembly) : void`
+- `PythonScript.Create() : PythonScript` — mint the host scripting engine, null when the host ships without the Python plug-in; `RuntimeAssemblies() : Assembly[]` / `AddRuntimeAssembly(Assembly assembly) : void` / `SearchPaths : string[]` static get-set
 - `PythonScript.Compile(string script) : PythonCompiledCode` / `ExecuteScript(string script) : bool` / `ExecuteFile(string path) : bool` / `ExecuteFileInScope(string path) : bool` / `EvaluateExpression(string statements, string expression) : object`
 - `PythonScript.SetVariable(string name, object value) : void` / `GetVariable(string name) : object` / `ContainsVariable(string name) : bool` / `GetVariableNames() : IEnumerable<string>` / `RemoveVariable(string name) : void`
-- `PythonScript.Output : Action<string>` / `ScriptContextDoc : object` / `ScriptContextCommand : Command`; `GetStackTraceFromException(Exception ex) : string`; `PythonCompiledCode.Execute(PythonScript scope) : void`
+- `PythonScript.Output : Action<string>` / `ScriptContextDoc : object` / `ScriptContextCommand : Command` / `ContextId : int`; `GetStackTraceFromException(Exception ex) : string`; `PythonCompiledCode.Execute(PythonScript scope) : void`
 
 [ENTRYPOINT_SCOPE]: skin, vector capture, and risky-call guard
 - rail: host

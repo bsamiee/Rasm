@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_RESOURCES]
 
-`@opentelemetry/resources` owns the OTLP `Resource` — the immutable, `merge`-composable attribute bundle (`service.name`, `telemetry.sdk.*`, host/os/process facts) stamped on every span, metric, and log so a backend can attribute a signal to its emitter. Its value is the exact type the facade's `Resource.Resource` Tag wraps (`@effect/opentelemetry` declares `Tag<Resource, Resources.Resource>` — this package IS the concrete carrier), so the one Rasm identity spine flows `AppIdentity → Resource.layer → resourceFromAttributes → Resources.Resource → both export lanes`. Its second capability is the `ResourceDetector` family (`env`/`host`/`os`/`process`/`serviceInstanceId`) that `detectResources` folds onto that base to enrich the resource with environment facts the app root does not carry by hand. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block; the edge ledger fences `@opentelemetry/*` to `scope:runtime`, and it is an `[R3]`-collapse member (the native `Otlp` lane's `OtlpResource` replaces it once parity closes; `semantic-conventions` survives, this does not).
+`@opentelemetry/resources` owns the OTLP `Resource` — the immutable, `merge`-composable attribute bundle (`service.name`, `telemetry.sdk.*`, host/os/process facts) stamped on every span, metric, and log so a backend can attribute a signal to its emitter. Its value is the exact type the facade's `Resource.Resource` Tag wraps (`@effect/opentelemetry` declares `Tag<Resource, Resources.Resource>` — this package IS the concrete carrier), so the one Rasm identity spine flows `AppIdentity → Resource.layer → resourceFromAttributes → Resources.Resource → both export lanes`. Its second capability is the `ResourceDetector` family (`env`/`host`/`os`/`process`/`serviceInstanceId`) that `detectResources` folds onto that base to enrich the resource with environment facts the app root does not carry by hand. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block; the edge ledger fences `@opentelemetry/*` to `scope:runtime`, and it is an `[OTEL_PIN_BLOCK]`-collapse member (the native `Otlp` lane's `OtlpResource` replaces it once parity closes; `semantic-conventions` survives, this does not).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -9,7 +9,7 @@
 - license: `Apache-2.0`
 - otel-peer: `@opentelemetry/api >=catalog <catalog` (the `Attributes`/`AttributeValue` source); deps `@opentelemetry/core catalog` (`SDK_INFO`/env readers seed `defaultResource`) + `@opentelemetry/semantic-conventions ^catalog` (the attribute-key vocabulary)
 - consumed-by: `otel/emit` resource composition; the facade's `Resource` module (`@effect/opentelemetry` `Resource.Resource` = `Tag<_, Resources.Resource>`); every `@opentelemetry/sdk-*` provider requires a `Resource`
-- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[R3]`-collapse member (native `OtlpResource` supersedes)
+- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member (native `OtlpResource` supersedes)
 - runtime: dual — one index over a `detectors/platform/{node,browser}` split; node detectors read `os`/`process`/machine-id, browser detectors degrade to `noop`; the `Resource` value + constructors are runtime-neutral
 - module-families: the `Resource` value (`merge`, async-attributes), the `resourceFromAttributes`/`defaultResource`/`emptyResource` constructors, and the `ResourceDetector` family run by `detectResources`
 
@@ -67,7 +67,7 @@
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); no other folder constructs a `Resource`. Instrumentation code never imports this package — it emits through Effect's native signals against the one facade `Resource`.
-- prefer the facade `Resource.layer` over raw `resourceFromAttributes`; reach for `detectResources` + the detector family only when SDK-only environment attributes (host/os/process) are required, and record it as an `[R3]` non-collapsed dependency.
+- prefer the facade `Resource.layer` over raw `resourceFromAttributes`; reach for `detectResources` + the detector family only when SDK-only environment attributes (host/os/process) are required, and record it as an `[OTEL_PIN_BLOCK]` non-collapsed dependency.
 - `resourceFromDetectedResource` and `noopDetector` exist in source but are NOT on the package index — do not transcribe them; the public detector set is the five named rows.
 
 [RAIL_LAW]:

@@ -65,7 +65,7 @@
 [INTEGRATION_LAW]:
 - Stack on `@effect/sql` (`.api/effect-sql.md`): everything neutral — the `sql` fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`/savepoints, `reactive`, and the `SqlEventJournal`/`SqlPersistedQueue` overlay bindings — runs against this driver unchanged; this package only supplies the `SqlClient.MakeOptions` (sqlite `Compiler`, acquirer, transaction machinery) the neutral `make` folds.
 - Stack on `@effect/platform` (`.api/effect-platform.md`): `layerConfig` reads `filename`/cache knobs from `Config` behind `PlatformConfigProvider`; the banned `SqliteMigrator` (`run`/`layer`) is the reason `FileSystem`/`Path`/`CommandExecutor` appear in the driver's peer graph — `store` never composes it.
-- Stack on `@effect/experimental` (`.api/effect-experimental.md`): `make` requires `Reactivity`, so `sql.reactive` read-your-writes works on the sqlite lane; `SqlPersistedQueue.layerStore` (from the core) gives `work` a durable job store on the file lane. EventLog's node journal can back onto this lane via `SqlEventJournal.layer` `[R4]`.
+- Stack on `@effect/experimental` (`.api/effect-experimental.md`): `make` requires `Reactivity`, so `sql.reactive` read-your-writes works on the sqlite lane; `SqlPersistedQueue.layerStore` (from the core) gives `work` a durable job store on the file lane. EventLog's node journal can back onto this lane via `SqlEventJournal.layer` `[SQL_OVERLAY_BACKING]`.
 - Stack across `store`: `SqliteClient.export`/`backup` feed the content-addressed `object` plane (a snapshot blob is content-keyed via `object/key`); `loadExtension` extends `capability/matrix` for the sqlite dialect; `work`/`security/session` see only the neutral `SqlClient` port the lane Layer satisfies.
 
 [LOCAL_ADMISSION]:

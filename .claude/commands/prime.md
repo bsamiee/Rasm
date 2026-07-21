@@ -28,17 +28,17 @@ READ 100%, one batch (`==> path <==` headers delimit files):
 fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning -X tail -n +1
 ```
 
-This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and whatever branch system pages sit on disk. `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them.
+This is the complete Tier-0 + branch law: `campaign-method.md` (the loop, the bar, the agent-role law, the two naivety axes, collapse-floor freedom), `architecture.md` (strata, dependency direction, wire seams), `README.md` (the authoring standard), `planning-targets.md` (the target index), each branch router + `ARCHITECTURE.md`, and whatever branch system pages sit on disk. `IDEAS.md`/`TASKLOG.md` never open at prime — card pools enter context only when a dispatched rail works them. `RULINGS.md` is law, never a card pool: the branch and cross-libs decision registries ride this batch and ground every session.
 
 ## [03]-[TARGET_DEEPENING]
 
 Spent only on what TARGET or the arrived objective names — folder cores are never read wholesale; the branch law already maps every folder:
 
-- One folder: READ `<pkg>/README.md` + `<pkg>/ARCHITECTURE.md`, then `loc <pkg>/.planning` (the page inventory with the thinness/complexity signal a bare `ls` hides) and `ls <pkg>/.api/`.
+- One folder: READ `<pkg>/README.md` + `<pkg>/ARCHITECTURE.md` + `<pkg>/RULINGS.md` (where minted), then `loc <pkg>/.planning` (the page inventory with the thinness/complexity signal a bare `ls` hides) and `ls <pkg>/.api/`.
 - A bare language: batch the branch's folder cores in one command:
 
 ```bash template
-fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' libs/<lang> -X tail -n +1
+fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE|RULINGS)\.md$' libs/<lang> -X tail -n +1
 ```
 
 - Never warm-up reads: `docs/stacks/<lang>/` doctrine is composed in full by whichever agent writes or judges fences in that language, at that moment; `tools/assay/README.md` is read when a verification rail actually runs (`uv run python -m tools.assay ...`); a central manifest is scanned only when package work enters scope.

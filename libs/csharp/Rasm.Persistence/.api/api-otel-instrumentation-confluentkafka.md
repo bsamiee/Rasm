@@ -16,7 +16,7 @@
 ## [03]-[IMPLEMENTATION_LAW]
 
 [EGRESS_ONLY]:
-- consumer twins (`InstrumentedConsumerBuilder`, `AsInstrumentedConsumerBuilder`, `AddKafkaConsumerInstrumentation`, `TryExtractPropagationContext`, `ConsumeAndProcessMessageAsync`) bind at the inbound CDC ingress owner the `IDEAS` `[PERS-V4]` card holds — the sink family is egress-only, so no consumer member binds in this folder today
+- consumer twins (`InstrumentedConsumerBuilder`, `AsInstrumentedConsumerBuilder`, `AddKafkaConsumerInstrumentation`, `TryExtractPropagationContext`, `ConsumeAndProcessMessageAsync`) bind at the inbound CDC ingress owner the `IDEAS` `[PERS_V4]` card holds — the sink family is egress-only, so no consumer member binds in this folder today
 
 [LOCAL_ADMISSION]:
 - One instrumented builder replaces the plain builder at the sink seam; a second plain producer beside it forks the telemetry surface.

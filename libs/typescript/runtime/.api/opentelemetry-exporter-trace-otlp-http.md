@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_EXPORTER_TRACE_OTLP_HTTP]
 
-`@opentelemetry/exporter-trace-otlp-http` is the concrete `SpanExporter` that POSTs a batch of `ReadableSpan`s to an OTLP/HTTP collector (protobuf over binary, or JSON). It is not composed directly: a `BatchSpanProcessor`/`SimpleSpanProcessor` (from `@opentelemetry/sdk-trace-base`) wraps it, and that processor is handed to the facade's `NodeSdk`/`WebSdk` `Configuration.spanProcessor`. Inside Rasm it is the SDK-bridge trace leg of `otel/emit` — the recovery lane used when the SDK processor's batching/retry semantics or a co-resident SDK-only exporter are required; the native `Otlp` lane (`@effect/opentelemetry` `OtlpTracer`) is the `[R3]`-preferred default that serializes spans directly over a `@effect/platform` `HttpClient` with no SDK. The edge ledger fences `@opentelemetry/*` to `scope:runtime`; this exporter is an `[R3]`-collapse member of the `[OTLP_SDK]` block (retires when native `OtlpTracer` reaches parity; `semantic-conventions` survives, this does not).
+`@opentelemetry/exporter-trace-otlp-http` is the concrete `SpanExporter` that POSTs a batch of `ReadableSpan`s to an OTLP/HTTP collector (protobuf over binary, or JSON). It is not composed directly: a `BatchSpanProcessor`/`SimpleSpanProcessor` (from `@opentelemetry/sdk-trace-base`) wraps it, and that processor is handed to the facade's `NodeSdk`/`WebSdk` `Configuration.spanProcessor`. Inside Rasm it is the SDK-bridge trace leg of `otel/emit` — the recovery lane used when the SDK processor's batching/retry semantics or a co-resident SDK-only exporter are required; the native `Otlp` lane (`@effect/opentelemetry` `OtlpTracer`) is the `[OTEL_PIN_BLOCK]`-preferred default that serializes spans directly over a `@effect/platform` `HttpClient` with no SDK. The edge ledger fences `@opentelemetry/*` to `scope:runtime`; this exporter is an `[OTEL_PIN_BLOCK]`-collapse member of the `[OTLP_SDK]` block (retires when native `OtlpTracer` reaches parity; `semantic-conventions` survives, this does not).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -10,7 +10,7 @@
 - otel-peer: `@opentelemetry/api ^catalog`, `@opentelemetry/core ^catalog` (the `ExportResult` rail), `@opentelemetry/sdk-trace-base ^catalog` (the `SpanExporter`/`ReadableSpan` contract + the `BatchSpanProcessor` that wraps it)
 - transitive-config: `@opentelemetry/otlp-exporter-base` supplies the constructor config type (`OTLPExporterNodeConfigBase` / `OTLPExporterConfigBase`) and `CompressionAlgorithm` — a peer, not one of the nine roster rows
 - consumed-by: `otel/emit` SDK-bridge trace leg via the facade's `NodeSdk`/`WebSdk` `Configuration.spanProcessor`
-- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[R3]`-collapse member (native `OtlpTracer` supersedes)
+- catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[OTEL_PIN_BLOCK]`-collapse member (native `OtlpTracer` supersedes)
 - runtime: dual — the package export map selects `platform/node` (uses `http`/`https`, config `OTLPExporterNodeConfigBase`) or `platform/browser` (uses `XMLHttpRequest`/`sendBeacon`, config `OTLPExporterConfigBase`); ONE `OTLPTraceExporter` name, a build-time platform selection, never a fork
 - modules: `OTLPTraceExporter`
 
@@ -44,18 +44,18 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SDK_BRIDGE_TOPOLOGY]:
-- SDK-bridge lane, not native: this exporter is the `NodeSdk`/`WebSdk` (`[R3]`) trace leg; the native `Otlp`/`OtlpTracer` lane is the `[R3]`-preferred default that serializes spans over a `@effect/platform` `HttpClient` with no `@opentelemetry/sdk-*`. Reach for this exporter only when the SDK processor semantics or a co-resident SDK-only exporter are required.
+- SDK-bridge lane, not native: this exporter is the `NodeSdk`/`WebSdk` (`[OTEL_PIN_BLOCK]`) trace leg; the native `Otlp`/`OtlpTracer` lane is the `[OTEL_PIN_BLOCK]`-preferred default that serializes spans over a `@effect/platform` `HttpClient` with no `@opentelemetry/sdk-*`. Reach for this exporter only when the SDK processor semantics or a co-resident SDK-only exporter are required.
 - endpoint/runtime are config, never a fork: OTLP/gRPC vs OTLP/HTTP, JSON vs protobuf, node vs browser transport — all resolve to a config value or the package's platform export condition. A backend change is a `url`/`headers` value at the composition root, never a second exporter type in design code.
 
 [INTEGRATION_LAW]:
 - Stack with `.api/opentelemetry-sdk-trace-base.md` (the wrapping seam): `new OTLPTraceExporter(cfg)` is wrapped in `new BatchSpanProcessor(exporter)` (buffered, production) or `SimpleSpanProcessor` (synchronous, dev) — the exporter is a `SpanExporter`; the processor owns batching, retry, and `forceFlush` drain.
 - Stack with `.api/effect-opentelemetry.md` `NodeSdk`/`WebSdk` (the facade seam): the wrapped processor is handed to `NodeSdk.Configuration.spanProcessor` (node/bun; `sdk-trace-node`) or `WebSdk.Configuration.spanProcessor` (browser RUM; `sdk-trace-web`), alongside the one `AppIdentity`-derived `Resource`. The facade owns provider lifecycle; this package owns wire serialization.
 - Stack with `.api/opentelemetry-core.md`: `export()` reports terminal disposition through core's `ExportResult`/`ExportResultCode`; the exporter's own outbound HTTP `Context` is `suppressTracing`-fenced so OTLP egress is never self-traced; `timeoutMillis`/`url` default from `OTEL_EXPORTER_OTLP_*` env via core's typed readers.
-- Stack with `.api/effect-platform.md` posture (the divergence to record): this exporter carries its OWN `http`/`XMLHttpRequest` transport — it does NOT ride the `net/client` `HttpClient` retry/proxy policy the native `Otlp` lane inherits. That transport-policy gap is a concrete reason `otel/emit` prefers the native lane and marks this row `[R3]`.
+- Stack with `.api/effect-platform.md` posture (the divergence to record): this exporter carries its OWN `http`/`XMLHttpRequest` transport — it does NOT ride the `net/client` `HttpClient` retry/proxy policy the native `Otlp` lane inherits. That transport-policy gap is a concrete reason `otel/emit` prefers the native lane and marks this row `[OTEL_PIN_BLOCK]`.
 
 [LOCAL_ADMISSION]:
 - `@opentelemetry/*` is admitted ONLY inside `scope:runtime` (edge-ledger ban); the exporter is constructed at the composition root only. Instrumentation code uses Effect's native `Effect.withSpan` and never imports this package.
-- prefer the native `Otlp`/`OtlpTracer` lane; reach for this SDK exporter only for SDK-only processor/exporter capability, and record it as an `[R3]` non-collapsed dependency.
+- prefer the native `Otlp`/`OtlpTracer` lane; reach for this SDK exporter only for SDK-only processor/exporter capability, and record it as an `[OTEL_PIN_BLOCK]` non-collapsed dependency.
 - the browser exporter is the RUM egress leg (`otel/vital`/`otel/crash`); apply the export-boundary redaction policy rows before the span leaves the browser.
 
 [RAIL_LAW]:

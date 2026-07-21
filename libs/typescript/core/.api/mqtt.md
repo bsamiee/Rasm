@@ -43,28 +43,39 @@
 
 ```ts signature
 declare function connectAsync(brokerUrl: string, opts?: IClientOptions): Promise<MqttClient>;
+type OnMessageCallback = (topic: string, payload: Buffer, packet: IPublishPacket) => void;
 interface MqttClient {
   subscribeAsync(
     topicObject: string | string[] | ISubscriptionMap,
     opts?: IClientSubscribeOptions | IClientSubscribeProperties,
   ): Promise<ISubscriptionGrant[]>;
+  publishAsync(topic: string, message: string | Buffer, opts?: IClientPublishOptions): Promise<Packet | undefined>;
+  endAsync(force?: boolean, opts?: Partial<IDisconnectPacket>): Promise<void>;
+  on(event: "message", callback: OnMessageCallback): this;
+}
+interface IClientPublishOptions {
+  qos?: QoS;
+  retain?: boolean;
+  dup?: boolean;
+  properties?: IPublishPacket["properties"]; // userProperties?: UserProperties rides here — the v5 carrier slot
+  cbStorePut?: StorePutCallback;
 }
 ```
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                         |
-| :-----: | :----------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `connect(brokerUrl \| opts): MqttClient`         | acquire         | live client; `protocolVersion: 5` selects the v5 surface    |
-|  [02]   | `connectAsync`                                   | acquire         | first CONNACK; scoped acquire arm                           |
-|  [03]   | `client.publishAsync(topic, message, opts?)`     | publish         | carrier-printed `userProperties` on `opts.properties`       |
-|  [04]   | `client.subscribeAsync`                          | subscribe       | `Promise<ISubscriptionGrant[]>`; `qos: 128` grant refuses   |
-|  [05]   | `client.unsubscribeAsync(topic, opts?)`          | unsubscribe     | `userProperties` on the UNSUBSCRIBE frame                   |
-|  [06]   | `client.on(event, cb)` (`TypedEventEmitter`)     | subscribe frame | `message`/`connect`/`disconnect`/`error`/`close`/`offline`  |
-|  [07]   | `client.handleMessage(...)` / `customHandleAcks` | manual ack      | QoS 1/2 app-controlled ack with a v5 reason code            |
-|  [08]   | `client.handleAuth(...)` / `authPacket`          | v5 auth         | enhanced-authentication AUTH (`authenticationMethod`)       |
-|  [09]   | `client.endAsync(force?, opts?)`                 | release         | `opts` DISCONNECT carries `userProperties`; release arm     |
-|  [10]   | `client.reconnect(opts?)`                        | resume          | manual reconnect reusing `incomingStore`/`outgoingStore`    |
-|  [11]   | `ReasonCodes`                                    | v5 code map     | `{ [code: number]: string }` — the v5 reason-code map       |
-|  [12]   | `client.connected` / `reconnecting`              | state flags     | lifecycle read; the `Stream` scope reads these on close     |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :----------------------------------------------- | :-------------- | :--------------------------------------------------------- |
+|  [01]   | `connect(brokerUrl \| opts): MqttClient`         | acquire         | live client; `protocolVersion: 5` selects the v5 surface   |
+|  [02]   | `connectAsync`                                   | acquire         | first CONNACK; scoped acquire arm                          |
+|  [03]   | `client.publishAsync(topic, message, opts?)`     | publish         | carrier-printed `userProperties` on `opts.properties`      |
+|  [04]   | `client.subscribeAsync`                          | subscribe       | `Promise<ISubscriptionGrant[]>`; `qos: 128` grant refuses  |
+|  [05]   | `client.unsubscribeAsync(topic, opts?)`          | unsubscribe     | `userProperties` on the UNSUBSCRIBE frame                  |
+|  [06]   | `client.on(event, cb)` (`TypedEventEmitter`)     | subscribe frame | `message`/`connect`/`disconnect`/`error`/`close`/`offline` |
+|  [07]   | `client.handleMessage(...)` / `customHandleAcks` | manual ack      | QoS 1/2 app-controlled ack with a v5 reason code           |
+|  [08]   | `client.handleAuth(...)` / `authPacket`          | v5 auth         | enhanced-authentication AUTH (`authenticationMethod`)      |
+|  [09]   | `client.endAsync(force?, opts?)`                 | release         | `opts` DISCONNECT carries `userProperties`; release arm    |
+|  [10]   | `client.reconnect(opts?)`                        | resume          | manual reconnect reusing `incomingStore`/`outgoingStore`   |
+|  [11]   | `ReasonCodes`                                    | v5 code map     | `{ [code: number]: string }` — the v5 reason-code map      |
+|  [12]   | `client.connected` / `reconnecting`              | state flags     | lifecycle read; the `Stream` scope reads these on close    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

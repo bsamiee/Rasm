@@ -54,10 +54,15 @@ Five capture functions, one per vital; each takes a metric-narrowed callback and
 interface ReportOpts { reportAllChanges?: boolean }
 interface INPReportOpts extends ReportOpts { durationThreshold?: number } // event-timing floor; default 40
 const onLCP: (onReport: (metric: LCPMetric) => void, opts?: ReportOpts) => void
+const onCLS: (onReport: (metric: CLSMetric) => void, opts?: ReportOpts) => void
 const onINP: (onReport: (metric: INPMetric) => void, opts?: INPReportOpts) => void
+const onFCP: (onReport: (metric: FCPMetric) => void, opts?: ReportOpts) => void
+const onTTFB: (onReport: (metric: TTFBMetric) => void, opts?: ReportOpts) => void
 const LCPThresholds: MetricRatingThresholds  // [2500, 4000]
 const CLSThresholds: MetricRatingThresholds  // [0.1, 0.25]
 const INPThresholds: MetricRatingThresholds  // [200, 500]
+const FCPThresholds: MetricRatingThresholds  // [1800, 3000]
+const TTFBThresholds: MetricRatingThresholds // [800, 1800]
 ```
 
 ## [03]-[ATTRIBUTION_BUILD]

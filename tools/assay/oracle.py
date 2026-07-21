@@ -109,8 +109,10 @@ CANDIDATE_CAP: int = 8
 PATH_KINDS: frozenset[PathKind] = frozenset(("all", "assembly", "xml", "nuspec", "deps", "package-root"))
 _HOST_SPECS: dict[str, tuple[str, str]] = {
     "eto": ("Eto.dll", "Eto.xml"),
+    "eto-macos": ("Eto.macOS.dll", ""),
     "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
     "gh2-io": ("ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml"),
+    "microsoft-macos": ("Microsoft.macOS.dll", ""),
     "rhino-code": ("Rhino.Runtime.Code.dll", ""),
     "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", ""),
     "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),

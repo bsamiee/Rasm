@@ -1,6 +1,6 @@
 # [TS_RUNTIME_API_OPENTELEMETRY_SDK_METRICS]
 
-`@opentelemetry/sdk-metrics` owns the metric collection→export pipeline: the pull-based `MetricReader` (the `PeriodicExportingMetricReader` wrapping a `PushMetricExporter`), the `View`/`AggregationOption` algebra that reshapes instruments before export, the per-instrument-type selector policy (aggregation, temporality, cardinality), and the `MetricData` discriminated-union wire shape. `otel/emit` never constructs a `MeterProvider` directly — `@effect/opentelemetry` `NodeSdk`/`WebSdk` take a `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` (verified: `NodeSdk.d.ts` imports `MetricReader` from here) and wire it through `Metrics.layer`, feeding Effect's built-in `Metric` signals into the reader. It collapses with the pin block at `[R3]`; the native `Otlp` metric lane serializes Effect metrics to OTLP with no reader.
+`@opentelemetry/sdk-metrics` owns the metric collection→export pipeline: the pull-based `MetricReader` (the `PeriodicExportingMetricReader` wrapping a `PushMetricExporter`), the `View`/`AggregationOption` algebra that reshapes instruments before export, the per-instrument-type selector policy (aggregation, temporality, cardinality), and the `MetricData` discriminated-union wire shape. `otel/emit` never constructs a `MeterProvider` directly — `@effect/opentelemetry` `NodeSdk`/`WebSdk` take a `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` (verified: `NodeSdk.d.ts` imports `MetricReader` from here) and wire it through `Metrics.layer`, feeding Effect's built-in `Metric` signals into the reader. It collapses with the pin block at `[OTEL_PIN_BLOCK]`; the native `Otlp` metric lane serializes Effect metrics to OTLP with no reader.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -11,7 +11,7 @@
 - peer: `@opentelemetry/api >=catalog <catalog` — the tightest API floor of the block (the metric API stabilized at 1.9); deps `@opentelemetry/core` (`ExportResult`), `@opentelemetry/resources` (`Resource`). No `sdk-metrics-web` split — the reader is runtime-neutral.
 - runtime: runtime-neutral — `PeriodicExportingMetricReader` uses a plain interval; no platform conditional export.
 - plane: `plane:runtime`, edge-ledger-fenced to `scope:runtime`.
-- rail: observability/sdk-bridge; `[R3]` collapse target.
+- rail: observability/sdk-bridge; `[OTEL_PIN_BLOCK]` collapse target.
 - role: the `MetricReader`/`View`/`AggregationOption` roster behind `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration.metricReader`.
 
 ## [02]-[PROVIDER]
@@ -146,5 +146,5 @@ interface CollectionResult { resourceMetrics: ResourceMetrics; errors: unknown[]
 
 - Owns: the metric collection→export pipeline — `MetricReader`/`PeriodicExportingMetricReader` + the three per-instrument-type selectors, `PushMetricExporter` + `Console`/`InMemory` rows, the `View`/`AggregationOption`/`AttributesProcessor` reshaping algebra, and the `MetricData` discriminated-union wire shape.
 - Accept: `PeriodicExportingMetricReader` wrapping an `OTLPMetricExporter` for production; `ViewOptions` with `AggregationOption` + `createAllowList`/`createDenyList` for cardinality control; the exporter's `selectAggregationTemporality?` for delta/cumulative preference; `InMemoryMetricExporter(temporality)` for kit-driven specs; the whole surface reached through `@effect/opentelemetry` `NodeSdk`/`WebSdk` `Configuration.metricReader`.
-- Reject: constructing `MeterProvider` inline under the effect facade (`Metrics.layer` owns it); a reader subclass where a selector value suffices; a new metric struct where the `MetricData` union + `DataPoint<T>` already discriminates; importing outside `scope:runtime`; treating this leg as permanent — it collapses at `[R3]`.
+- Reject: constructing `MeterProvider` inline under the effect facade (`Metrics.layer` owns it); a reader subclass where a selector value suffices; a new metric struct where the `MetricData` union + `DataPoint<T>` already discriminates; importing outside `scope:runtime`; treating this leg as permanent — it collapses at `[OTEL_PIN_BLOCK]`.
 - Boundary: `View` is configured as `ViewOptions` (the class is internal); `Aggregator`/`AggregatorKind` and `createNoopAttributesProcessor`/`createMultiAttributesProcessor` are internal (not barrel exports); `CollectionResult.errors` carries partial-collection faults — collection surfaces errors rather than throwing.

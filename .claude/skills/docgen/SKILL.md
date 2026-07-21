@@ -31,6 +31,7 @@ It is MANDATORY to load all files in `references/` when creating or editing pros
 - [04]-[ARCHITECTURE](templates/architecture.template.md): exact structure, replace only the slots
 - [05]-[SPEC](templates/spec.template.md): exact section spine; slots carry their budgets, cluster count follows the domain
 - [06]-[API_CATALOG](templates/api-catalog.template.md): exact structure, replace only the slots
+- [07]-[RULINGS](templates/rulings.template.md): copy the section spine; a row exists only as a re-litigation guard no page, manifest, or fence already homes
 
 [EXAMPLES]: symptom-indexed worked pairs; consult the matching set before building or repairing the container.
 - [01]-[TABLES](examples/tables.md): table crimes and their structural repairs
@@ -51,7 +52,7 @@ uv run scripts/prose_gate.py [--json] <paths...>
 uv run scripts/prose_gate.py fix [--write] <paths...>
 ```
 
-Run the gate on every touched durable doc before returning. `fix` applies the deterministic repairs its `Repair` vocabulary owns — dry-run printing a per-change plan, mutating only under `--write` — and surfaces judgment-tier repairs as `SKIP` rows. Gate and fixer share one table model, so a grid whose canonical render exceeds the width cap fails at any current padding. Its `Check` vocabulary owns the mechanical census — prose spans feed the register checks, structural carriers only their own — and every class it does not carry is review work against the catalog.
+Run the gate on every touched durable doc before returning. `fix` applies the deterministic repairs its `Repair` vocabulary owns — dry-run printing a per-change plan, mutating only under `--write` — and surfaces judgment-tier repairs as `SKIP` rows. Gate and fixer share one table model, so a grid whose canonical render exceeds the width cap fails at any current padding. Its `Check` vocabulary owns the mechanical census — prose spans feed the register checks, structural carriers only their own — and every class it does not carry is review work against the catalog. Card files and design-page `[RESEARCH]` sections census against the marker grammar — leader identity-and-state, closed statuses, the field roster the file's own source-only template comment declares, terminal-marker integrity — so an authoring agent self-checks its document class without the corpus rail.
 
 ## [03]-[REGISTER]
 
