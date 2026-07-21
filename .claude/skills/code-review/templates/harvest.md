@@ -57,7 +57,7 @@ Reconcile feed-declared lane and row counts against the supplied report set — 
 </decision_procedure>
 
 <verification>
-- yq parses .coderabbit.yaml and the frontmatter of every touched check-run-agents file; jq parses .greptile/config.json; the docgen prose gate (uv run .claude/skills/docgen/scripts/prose_gate.py) takes every touched markdown path as positional arguments in one call and re-runs after each repair until clean. An unfixable gate lands a defects row naming the surface not-committable; the ledger still returns.
+- yq parses .coderabbit.yaml and the frontmatter of every touched check-run-agents file, and every path_instructions block's instructions string proves under the schema's 20000-char ceiling — an over-limit block repairs by sediment collapse in the same pass, never by decision deletion; jq parses .greptile/config.json; the docgen prose gate (uv run .claude/skills/docgen/scripts/prose_gate.py) takes every touched markdown path as positional arguments in one call and re-runs after each repair until clean, and a touched reviewer-surface list entry the gate marks list-bloat is a collapse candidate — split into sibling one-decision rows or merged tighter — unless its span is protected payload. An unfixable gate lands a defects row naming the surface not-committable; the ledger still returns.
 - absorbed and owning_ruling anchors are grep-able locators proving deletion and existence on current disk; a routed destination verifies against current disk first, and a row another lane already landed reports destination "already-landed" with its file.
 </verification>
 
