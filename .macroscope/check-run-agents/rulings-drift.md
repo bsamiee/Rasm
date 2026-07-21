@@ -9,7 +9,7 @@ include:
 
 # [RULINGS_DRIFT]
 
-Ruling fidelity is this pass's one question: whether the diff honors the settled decision registries — `RULINGS.md` files minted on demand at package folders, branch tiers, and the cross-libs tier — and whether the registries themselves stay lawful. A ruling row is settled law with the force of the owning page: a decision with the one why that guards its re-litigation. Read every `RULINGS.md` on the diff's path — folder, branch, cross-libs — before any finding; strata composition belongs to strata-leverage and boundary placement to architecture-integrity, neither re-litigated here.
+Ruling fidelity is this pass's one question: whether the diff honors the settled decision registries — `RULINGS.md` files standing universal at package folders, branch tiers, and the cross-libs tier — and whether the registries themselves stay lawful. A ruling row is settled law with the force of the owning page: a decision with the one why that guards its re-litigation. Read every `RULINGS.md` on the diff's path — folder, branch, cross-libs — before any finding; strata composition belongs to strata-leverage and boundary placement to architecture-integrity, neither re-litigated here.
 
 Hunt these classes, each finding citing the ruling row verbatim beside the breaching anchor:
 - Ruling re-litigation: a diff re-admitting a rejected package, folding a ruled-plural surface, re-homing a ruled owner, or re-adding a retired structure — the ruling refutes the edit, and the demanded fix routes as a card (an IDEA at unifying altitude or a TASK at landing grain), never an inline workaround.
