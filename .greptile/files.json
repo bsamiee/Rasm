@@ -15,12 +15,48 @@
         {
             "path": "libs/.planning/campaign-method.md",
             "description": "The review standard for design-corpus work: fence-as-product law, the decision-complete bar, universal principles, workflow roles",
-            "scope": ["libs/**", "libs/.planning/**", "libs/**/.planning/**"]
+            "scope": [
+                "libs/**",
+                "libs/.planning/**",
+                "libs/**/.planning/**"
+            ]
         },
         {
             "path": ".claude/skills/docgen/references/defects.md",
             "description": "Named prose defect catalog for durable markdown: per-class detection tests, true-positive discriminators, and reframe rules",
-            "scope": ["**/*.md", ".claude/**", "docs/**"]
+            "scope": [
+                "**/*.md",
+                ".claude/**",
+                "docs/**"
+            ]
+        },
+        {
+            "path": "libs/.planning/RULINGS.md",
+            "description": "Cross-libs decision registry: settled re-litigation guards binding every language branch",
+            "scope": [
+                "libs/**"
+            ]
+        },
+        {
+            "path": "libs/csharp/.planning/RULINGS.md",
+            "description": "C# branch decision registry: settled re-litigation guards for the csharp corpus",
+            "scope": [
+                "libs/csharp/**"
+            ]
+        },
+        {
+            "path": "libs/python/.planning/RULINGS.md",
+            "description": "Python branch decision registry: settled re-litigation guards for the python corpus",
+            "scope": [
+                "libs/python/**"
+            ]
+        },
+        {
+            "path": "libs/typescript/.planning/RULINGS.md",
+            "description": "TypeScript branch decision registry: settled re-litigation guards for the typescript corpus",
+            "scope": [
+                "libs/typescript/**"
+            ]
         }
     ]
 }
