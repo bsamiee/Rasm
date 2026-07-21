@@ -26,7 +26,7 @@ Deliberate house shapes that violate generic best practice — flagging them is 
 - Both sides of an external ABI retain the shared operation spelling required by that boundary.
 - Payloads with different motion or effect semantics remain distinct even when their carriers look alike.
 - Gate failures confined to pre-existing untouched lines are not findings against the reviewed diff and authorize no collateral edits.
-- Aggressive API breaks with every call site updated in the same change: the sanctioned rename path.
+- Aggressive API breaks with every call site updated in the same change: the sanctioned rename path — and a demanded migration, invalidation, or compatibility surface for a changed key, schema, or identity encoding is void on a corpus with no legacy consumer, the demand inventing the forbidden surface.
 - Dense single-expression bodies and heavy polymorphic dispatch: the bar, not obfuscation.
 - Absent defensive guards inside domain logic: admission-once boundaries, not missing error handling.
 - Sparse 1-2 line agent-facing comments: comment-law compliance, not missing documentation.

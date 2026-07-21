@@ -2,7 +2,7 @@
 
 LanguageExt owns result rails, effect execution, immutable traversal, schedule policy, and boundary state cells. A carrier is chosen once at admission and never re-chosen mid-pipeline: the narrowest carrier that states the real outcome carries the value, reusable transforms keep it, and collapse to a bare value happens only at host, UI, native, command, or wire edges. Admitted domain values enter these surfaces; raw host, native, wire, and generated shapes do not.
 
-Four siblings own the shapes this algebra composes as settled material. Closed `Fault` `[Union]` over `Expected`, its `Semigroup` `Combine`, and the `Admission` bridge over the generated factory are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, plus the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how the `Fault` family accumulates through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
+Four siblings own the shapes this algebra composes as settled material. Closed `Fault` `[Union]` over `Expected`, its `Semigroup` `Combine`, and the `Admission` bridge over the generated factory are `shapes.md`'s; the definition-time generator weave and the composition-time aspect fold that stack retry, bracket, and catch over one core, with the continue-or-done iterative-dispatch step, are `surfaces-and-dispatch.md`'s; the native lifetime capsule, the serialized many-`Ref` state transaction, and the boundary memo key are `boundaries.md`'s; the span fold kernels a measured body names at the `EXPRESSION_SPINE` exemption are `algorithms.md`'s. This page composes each to legislate only which carrier states an outcome, how a boundary mints it, how a reusable transform threads it, how a collection sequences it, how the `Fault` family accumulates through `Validation`, where the carrier collapses, and how a cell or receipt carries evidence.
 
 ## [01]-[RAIL_CHOOSER]
 
@@ -194,7 +194,7 @@ public static class Capability {
 - Use: `IO<T>.Bracket`, `BracketIO`, `Finally`, or an owner-local capsule when the effect owns acquisition; the owner that acquires disposes losing and failure branches.
 - Law: bulk teardown runs in hash-derived order, not last-in-first-out — a dependent that must release before its dependency is one composite resource's release arrow, never two registrations.
 - Law: a release arrow runs under a non-cancellable token; long token-aware work does not belong in a disposer.
-- Law: failure-release custody repeated per call site collapses to one extension on the rail's result type — `Rollback(held)` rides `MapFail` to dispose accumulated custody and re-raise, so a per-site `MapFail`-dispose block is the deleted form.
+- Law: failure-release custody repeated per call site collapses to one extension on the rail's result type — `Rollback(held)` rides `MapFail` to dispose accumulated custody and re-raise with every disposer fault appended (`primary + cleanup`), so release never masks the failure it cleans after, a failed compensation surfaces both faults on one error, and a per-site `MapFail`-dispose block is the deleted form.
 - Exemption: `using` acquisition inside a boundary capsule is the named statement exemption; it never appears in domain flow.
 - Reject: resource lifetime hidden behind ordinary domain state.
 
@@ -217,10 +217,9 @@ public static class Custody {
     extension<T>(Fin<T> step) {
         public Fin<T> Rollback(params ReadOnlySpan<IDisposable?> held) {
             Seq<IDisposable?> captured = toSeq(held.ToArray());
-            return step.MapFail(error => {
-                _ = captured.Iter(static resource => resource?.Dispose());
-                return error;
-            });
+            return step.MapFail(primary => captured.Fold(primary, static (fault, resource) =>
+                Try.lift(() => { resource?.Dispose(); return unit; }).Run()
+                    .Match(Succ: _ => fault, Fail: cleanup => fault + cleanup)));
         }
     }
 }
@@ -251,7 +250,7 @@ public static K<M, Receipt> Recover<M>(K<M, Receipt> work) where M : Fallible<Er
 - Law: `recurs(n)` is `Take(n)` for exactly n attempts; `repeat(n)` cycles the whole base n times.
 - Law: union (`|`) runs to the longer operand, so unioning a finite curve onto an infinite one does not bound it; intersect (`&`) or a cumulative-delay gate does.
 - Law: `RepeatWhile`/`RepeatUntil` over a state-advancing effect is the schedule-driven iteration that retires a `for`/`while` counter — a stop predicate on the advanced state converges, the bare `recurs(n)` bound alone samples.
-- Builders split by return type and that split is the composition law: `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `windowed`, and `Forever` mint a `Schedule` curve, while `recurs`, `jitter`, `maxDelay`, `maxCumulativeDelay`, and `decorrelate` mint a `ScheduleTransformer` that reshapes a curve. `Schedule | ScheduleTransformer` and `Schedule & ScheduleTransformer` operator overloads plus the implicit `ScheduleTransformer`-to-`Schedule` coercion fuse the two kinds in one chain, so a transformer-headed expression collapses to a `Schedule`; transformer-to-transformer composition is `+`, never `|`.
+- Builders split by return type and that split is the composition law: `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `windowed`, and `Forever` mint a `Schedule` curve, while `recurs`, `jitter`, `maxDelay`, `maxCumulativeDelay`, and `decorrelate` mint a `ScheduleTransformer` that reshapes a curve. `Schedule | ScheduleTransformer` and `Schedule & ScheduleTransformer` operator overloads and the implicit `ScheduleTransformer`-to-`Schedule` coercion fuse the two kinds in one chain, so a transformer-headed expression collapses to a `Schedule`; transformer-to-transformer composition is `+`, never `|`.
 - Reject: ad-hoc delay loops; trusting an infinite backoff to stop itself; reading the union of a curve and a transformer as a curve-union choice when it is a reshape.
 
 ```csharp conceptual
@@ -309,6 +308,7 @@ State belongs at a boundary or session owner, not inside pure domain accumulatio
 - Law: `Swap`'s `f` re-runs on every CAS retry under contention, so any side effect inside it repeats; the transition must be idempotent — `TryAdd` makes first-writer-wins explicit.
 - Law: a validator sees only the proposed value and runs once; first-writer-wins cannot be a validator, it needs `SwapMaybe` inspecting the incoming value.
 - Law: `Change` fires synchronously on the calling thread before `Swap` returns; a slow handler throttles the swapper.
+- Law: an expensive or effectful transition computes outside the cell and commits by snapshot comparison under a policy-owned attempt budget — each attempt one compute-and-CAS in a bounded fold, a winning commit terminating the fold and exhaustion returning a typed contention fault, never unbounded recursion or silent recomputation.
 - Reject: read-modify-write outside `Swap`; hiding native lifetime, host tree mutation, or domain aggregation behind `Atom<T>`.
 
 ```csharp conceptual
@@ -326,7 +326,7 @@ public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
 - Use: `Atom<T>`, `AtomHashMap`, `AtomSeq`, and `AtomQue` at UI, session, memoization, or concurrent boundary owners.
 - Law: `AtomHashMap<K,V>` beats `Atom<HashMap<K,V>>` when key-level concurrent mutation or typed change diffs drive observers — key-level swaps and a typed patch versus whole-value replacement.
 - Law: batch through `Swap(s => s.Add(...))` to land multiple appends in one CAS; `AtomSeq.Add` runs an independent CAS per element.
-- Law: an identity or version minted for a record spanning partitioned custody — a live map beside a retired map keyed by the composite of key and version — derives as the maximum over every partition plus one; a live-only derivation re-mints a version already parked in the retired partition after eviction, and a release path matching live before retired then decrements the wrong record and leaks the parked lease.
+- Law: an identity or version minted for a record spanning partitioned custody — a live map beside a retired map keyed by the composite of key and version — derives as one past the maximum over every partition; a live-only derivation re-mints a version already parked in the retired partition after eviction, and a release path matching live before retired then decrements the wrong record and leaks the parked lease.
 - Boundary: two-or-more-`Ref` atomic transitions are STM, not a single-cell boundary.
 - Reject: global mutable state disguised as functional flow.
 
