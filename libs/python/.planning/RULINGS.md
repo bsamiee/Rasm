@@ -16,6 +16,7 @@ Branch-tier decision registry — the settled rulings agents re-litigate for lac
 
 - Graph-analytic reducers stay plural — data's `rustworkx` kernel, geometry's `networkx` features, and geometry's non-manifold topology each own their reducer family; one merged owner re-keys every node index, crosses the forbidden stratum import, and loses each producer's worker co-location, and admitting `rustworkx`/`igraph` at geometry mints the same cross-stratum import or a second index vocabulary.
 - Process-cost sampling stays one substrate bracket — runtime `Cost` owns the psutil `oneshot` cost-delta sample, signed RSS delta, and monoid fold, and a sibling composes `Cost.sampled`/`Cost.delta`; the instantaneous `ProcessReading` gauge snapshot is a distinct owner, and a folder-local `_PROCESS` delta bracket re-derives the same point-cost delta, forks the honest-RSS band, and re-states the no-peak rationale per folder.
+- `EngineProfile` stays two package-local owners — compute's solver-profile band on `numerics/jit` and data's query-engine profile decoder on `tabular/query` share a name, never an owner: the strata admit compute onto data only through `FrameAdmission`, so a shared profile type forks each package's independent usability, and name similarity establishes no shared semantics; the recurring wrong move is a parity sweep reading the twin names as one owner, each family instead growing its own engine cases in place; reopens only on a host-crossing profile contract a wire seam carries.
 
 ## [04]-[STRUCTURE]
 

@@ -560,3 +560,12 @@ public static class Lights {
 |  [05]   | property edits      | `LightEdit`   | kind-gated modalities over one working duplicate        | `LightOp.Amend`            |
 |  [06]   | table address       | `LightSelect` | every, index, id, and name onto index-paired rows       | `Lights.Ask` / `Commit`    |
 |  [07]   | commit consequence  | `LightFact`   | minted, amended, purged, revived onto the shared spine  | `Lights.Commit`            |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

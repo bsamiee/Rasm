@@ -488,3 +488,12 @@ public sealed record ArchiveMap
 `SessionSource.Configured` consumes only `ArchiveMap.Mint`. `ArchiveIo` and `SnapshotCodec` exchange only `ArchiveMap`; neither surface receives a live `ArchivableDictionary` or a mutable payload. `SettingKind` consumes this carrier for every `PersistentSettings` payload — its rows lift and lower through `ArchiveValue.Of`/`Project` and share `EnumMint` — so the folder carries exactly one typed-value vocabulary across both KV boundaries.
 
 Enum values admitted through `ArchiveValue.Of` or `ArchiveMap.WithEnum<T>` retain their enum identity and mint through `ArchivableDictionary.SetEnumValue<T>` via the shared reflection seam. Values detached from a native dictionary remain text because Rhino stores enum names as ordinary strings and exposes no readable enum discriminant.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

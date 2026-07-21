@@ -842,3 +842,12 @@ public static class Chronicle {
 |  [06]   | linkage mutation    | `BondOp`         | shared-spine linkage union              | `Chronicle.Bind` |
 |  [07]   | dependency topology | `HistoryWeb`     | delegate-column web projection          | `Chronicle.Ask`  |
 |  [08]   | process governance  | `HistoryConduct` | scoped settings rows with restoration   | `Under`          |
+
+## [09]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

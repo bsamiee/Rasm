@@ -609,3 +609,12 @@ public static class Materials {
 |  [05]   | batch meshing         | `MeshBatch`       | host modalities onto identified rows                     | `MaterialAsk.Harvest`         |
 |  [06]   | render-support writes | `MaterialEdit`    | trait-row undo recording on the shared spine           | `Materials.Commit`            |
 |  [07]   | consequence evidence  | `MaterialFact`    | generated cases collected by `ObjectReceipt`           | `Materials.Commit`            |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)
