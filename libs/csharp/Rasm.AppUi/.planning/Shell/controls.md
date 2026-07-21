@@ -124,8 +124,8 @@ public static class ControlFactory {
     public const string MaterializedInstrument = "rasm.appui.control.materialized";
     public const string RejectedInstrument = "rasm.appui.control.rejected";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(MaterializedInstrument, InstrumentKind.Count, "{control}", "controls materialized by intent case"),
             new(RejectedInstrument, InstrumentKind.Count, "{control}", "control intents rejected"));
 

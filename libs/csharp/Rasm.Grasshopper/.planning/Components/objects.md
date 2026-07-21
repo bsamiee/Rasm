@@ -375,3 +375,12 @@ public static class Gh1Host {
                 .Map(host => (host, new Gh1Receipt(host.Grasshopper1Id, host.Grasshopper1Name, host.Grasshopper1Xml)));
 }
 ```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

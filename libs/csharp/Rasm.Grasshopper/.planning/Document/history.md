@@ -192,3 +192,12 @@ public static partial class HistoryLedger {
 - [05]-[BRANCH_RECONCILIATION]: evidence receipts over the live tree.
 
 `DocumentScope.Resolve`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every undo capability lands as the cases and rows above, and the folder's mutation gates reach the tree only through `Seal`.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

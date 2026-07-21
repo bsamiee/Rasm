@@ -678,3 +678,5 @@ _LAYOUT_TABLE: Final[Map[LayoutOp, LayoutAcceptor]] = Map.of_seq([
 -->
 
 [PYICU]-[BLOCKED]: `PyICU; python_version<'3.15'` excludes the live interpreter, and `UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve PyICU` reports the gate; `BreakIterator`, the full `Collator.setAttribute` matrix, version constants, and `AlphabeticIndex` therefore ride the catalog-verified surface.
+
+(none)

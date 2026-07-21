@@ -1102,3 +1102,12 @@ public static class Texts {
 |  [04]   | outline egress   | `OutlineSpec`    | flat form/group dispatch plus transform and evidence       | `Apply`          |
 |  [05]   | text mutations   | `TextOp`         | unified placement plus duplicate-then-replace edits        | `Texts.Commit`   |
 |  [06]   | text evidence    | `TextAsk`        | owned detached evidence family                              | `Texts.Ask`      |
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

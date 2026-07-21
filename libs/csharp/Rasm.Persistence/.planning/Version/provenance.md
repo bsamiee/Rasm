@@ -551,3 +551,12 @@ public static class AttestedLedger {
 |  [04]   | audit proof       | Merkle `InclusionProof`/`ConsistencyProof`           | a third party audits one entry without the whole chain    |
 |  [05]   | Merkle hasher     | the one `XxHash128`                                  | the `MerkleRange` peer digest is the other altitude       |
 |  [06]   | external witness  | `Witness` signed head + `Corroborate` probe          | published via one egress sink; holds against the operator |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

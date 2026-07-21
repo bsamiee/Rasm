@@ -969,3 +969,12 @@ public static partial class BlockGraph {
 |  [01]   | `BlockGraph` | `Ask` | `QuikGraph` · host reads · archive fold | `BlockGraphAnswer` |
 |  [02]   | `GraphFold` | transient graph | SCC · components · order · reduction | graph evidence |
 |  [03]   | `ClosureReport` | `Archives(ClosureBudget)` | bounded breadth-first archive reads | closure evidence |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

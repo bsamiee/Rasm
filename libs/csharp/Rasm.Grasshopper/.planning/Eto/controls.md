@@ -639,3 +639,12 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [06]   | view verbs          | `ViewVerb` + `ViewEcho`                             | `Drive → Fin<ViewEcho>`        |  10+3   |
 
 `Op`, `Fault`, `ValidityClaim`, `EtoDispatch`, `StoreRail`, and `BindingRail` are composed upstream owners. RESEARCH: the `DrawableCell`/`CustomCell` hook spellings (two `CellKind` rows, zero forge impact) and the `MaskedTextStepper<T>` constructor (a stepper bit on `MaskedCase`).
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

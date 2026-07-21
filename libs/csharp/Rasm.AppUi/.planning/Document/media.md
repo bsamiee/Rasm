@@ -184,8 +184,8 @@ public static class MediaSurfaces {
     public const string MountedInstrument = "rasm.appui.media.mounted";
     public const string FailedInstrument = "rasm.appui.media.failed";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(MountedInstrument, InstrumentKind.Count, "{mount}", "media surfaces mounted by codec"),
             new(FailedInstrument, InstrumentKind.Count, "{mount}", "media mounts failed by codec"));
 

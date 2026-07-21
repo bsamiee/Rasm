@@ -583,3 +583,12 @@ public static class ElementImport {
 ## [03]-[LIFECYCLE]
 
 `ElementSource` admits a distinct, non-empty subject roster over one graph. Each subject bakes once, snapshots `EdgesAt`, derives one representation identity, coalesces facts under graph tolerance, lowers realizing connections, and seals `ElementReceipt`; roster arity selects singular or batch admission. `ElementImport.Project` reads only the receipt, rails buffer failures through the retained locus, and leaves writer disposal with the caller.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

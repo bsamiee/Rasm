@@ -98,8 +98,8 @@ public sealed record BasemapSurface(MapControl Control) {
 
     // Both count direct: Build folds one observation per successful swap, Navigate one per verb
     // dispatch tagged by verb case — the composition-bound Count delegate, never a map-local meter.
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(LayersInstrument, InstrumentKind.Count, "{rebuild}", "layer-set rebuilds swapped onto the mounted map"),
             new(NavigatedInstrument, InstrumentKind.Count, "{navigation}", "camera moves by verb case"));
 }
@@ -327,8 +327,8 @@ public sealed record RedlineSurface(
 
     // Commit and Discard each fold one observation tagged by disposition through the composition-bound
     // Count delegate at Drive.
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(CommitInstrument, InstrumentKind.Count, "{commit}", "redline commits and discards by disposition"));
 }
 ```

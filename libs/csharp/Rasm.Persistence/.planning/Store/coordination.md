@@ -444,3 +444,12 @@ public readonly record struct CaseSql(string LockKey, bool RequiresToken, string
 |  [03]   | advance law    | forward-only CAS, post-confirmation                | at-least-once; replay absorbed by sink dedup                   |
 |  [04]   | pump wake      | `pg_notify('rasm_outbox', sink)` same-tx           | latency only — the bounded poll floor owns correctness         |
 |  [05]   | edge direction | egress reads cursor; coordination never reads pump | the one forward-only intra-leg egress edge                     |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

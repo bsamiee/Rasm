@@ -659,3 +659,12 @@ internal static partial class DstvMap {
 - Rail: parse and source effects remain deferred on `Eff`; independent feature faults accumulate on `Validation<Error, Seq<SteelFeature>>` and collapse once into the ingress rail.
 - Projection: `SteelView` selects part, boundary, feature, placement, topology, or identity egress through one generated behavior row, and `SteelProjection` preserves each result shape including `TopologyReceipt`.
 - Boundary: path cancellation remains source data, contour geometry is the named statement kernel, one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -32,6 +32,8 @@ One rail carries the whole cycle: every engine round normalizes into one finding
 
 ## [02]-[CYCLE]
 
+Every session is its own campaign: rounds number from 1, and the session's first launch deletes any pre-existing `.cache/review/` state whole — never archived, never resumed, never numbered from.
+
 Every round runs on two custody lanes that never mix: work under review — the harvest's `libs/` corpus-ledger landings included — stays uncommitted or on its slice commits, while the distillation lane — reviewer configs, `docs/`, `tools/`, `.claude/` infra — pushes to origin's default branch on landing, because hosted engines read only the indexed default branch.
 
 Step order never proves a drain, the owning receipt does: `reconcile` surfaces `routing.pending`, `round` refuses `routing-undrained` while it is non-empty, and `harvest`/`round` refuse a partial lane-report set.

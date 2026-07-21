@@ -152,8 +152,8 @@ public sealed record ImmersiveSession(
     public const string ResolvedInstrument = "rasm.appui.immersive.session.resolved";
     public const string AbsentInstrument = "rasm.appui.immersive.session.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ResolvedInstrument, InstrumentKind.Count, "{session}", "XR sessions resolved by system id"),
             new(AbsentInstrument, InstrumentKind.Count, "{session}", "XR session creation absences"));
 }

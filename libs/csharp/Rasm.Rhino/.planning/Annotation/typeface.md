@@ -766,3 +766,12 @@ public static class Sections {
 |  [04]   | section composition | `SectionSpec`     | closed fill, boundary, hatch, and rule state         | `Create` / `Apply`  |
 |  [05]   | section mutations   | `SectionOp`       | local/reference author, amend, plural delete, import | `Sections.Commit`   |
 |  [06]   | section evidence    | `SectionSnapshot` | composed spec plus usage and table state             | `Sections.Ask`      |
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

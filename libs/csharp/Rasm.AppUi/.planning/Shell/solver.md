@@ -550,9 +550,9 @@ public sealed class LayoutSolver : Panel {
     public const string SolveInstrument = "rasm.appui.layout.solve.elapsed";
     public const string UnsatisfiableInstrument = "rasm.appui.layout.unsatisfiable";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
-            new(SolveInstrument, InstrumentKind.Distribution, "s", "constraint solve wall duration per panel", UiBuckets.InteractionSeconds),
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
+            new(SolveInstrument, InstrumentKind.Distribution, "s", "constraint solve wall duration per panel", Buckets.InteractionSeconds),
             new(UnsatisfiableInstrument, InstrumentKind.Count, "{solve}", "solves relaxed on an unsatisfiable fold"));
 
     // Composition binds this projection onto the same screen evidence stream that carries the receipt,

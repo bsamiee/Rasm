@@ -352,3 +352,12 @@ public static class TimeTravel {
 |  [07]   | bisect descent   | `O(log n)` probes of a MONOTONE predicate                | each probe re-reconstructs by version                   |
 |  [08]   | frame address    | one `ContentAddress.OfGraph` per resulting graph         | no unverified incremental digest claim                 |
 |  [09]   | blame            | touching `GraphEvent` by version                         | `(NodeId, change-kind, axis)` cell, forward-log grain   |
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

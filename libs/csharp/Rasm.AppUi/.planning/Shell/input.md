@@ -389,8 +389,8 @@ public static class InputDrivers {
     public const string ResolvedInstrument = "rasm.appui.input.device.resolved";
     public const string AbsentInstrument = "rasm.appui.input.device.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ResolvedInstrument, InstrumentKind.Count, "{device}", "input devices resolved by driver case"),
             new(AbsentInstrument, InstrumentKind.Count, "{device}", "input devices absent at open"));
 

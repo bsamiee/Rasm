@@ -411,3 +411,12 @@ flowchart LR
 `EtoDispatch`, `Op`, `Fault`, `Lease<T>`, and `IIcon` are composed upstream owners; `InputPanel.FindBar`, the instance `Frame`, `FloatingButtonLayout`, the `FloatingButton` constructor, and the `Position*`/`*Ux`/`AnchorChanged`/`ColourChanged`/`StateChanged` members are internal or absent host surfaces no fence composes.
 
 RESEARCH: the `Nomen`/`BarShortcut` mint shapes and the `BarStyle` value roster — both transport as caller-held values with zero gate impact; the set-ability of `RadioToggle.OnText`/`OffText`/`Optional` and `TextField.Placeholder` — each confirmed-settable member lands as one present-slot `BarMutation` case with the gate unchanged.
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

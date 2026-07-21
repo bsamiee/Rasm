@@ -260,3 +260,7 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
 export { Claim, ClaimFault, ClaimSet, ClaimStore, FlagGate, Policy, PolicyFault, PolicyRequest, RelationStore, RelationTuple, Role, RoleGrant }
 export type { Permission, PolicyDecision, Relation }
 ```
+
+## [06]-[RESEARCH]
+
+(none)

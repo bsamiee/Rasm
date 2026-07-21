@@ -713,3 +713,12 @@ public static class GraphLane {
 |  [10]   | algorithm dedup      | server-side `pgr_*`/`age` vs in-process                 | meet at the shared node space, never re-implemented   |
 
 - [07]-[RESULT_SPACES]: AGE → `ElementSet` (node); `pgrouting` NODE → `H3Cell` (cell); EDGE → `Severed`/`Sundered`/`Flowed`; a `Traced` negative vid stays a Point.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

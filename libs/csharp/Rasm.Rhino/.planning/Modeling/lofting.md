@@ -902,3 +902,12 @@ public static class Lofts {
 `LoftOp.MakeCompatible` composes `NurbsCurve.MakeCompatible` with context-owned refit and angle tolerances. Consumers feed its owned curve products into `LoftOp.Loft`, `LoftOp.SweepOne`, or `LoftOp.SweepTwo` without a second compatibility surface.
 
 Variational evidence encodes native absence structurally: a nullable channel lands a fact only when the host answered, so an empty `Project` over its slot is the unknown verdict, a present `Flag`/`Text` fact is the answer, and an empty warning string stays distinct from a missing one.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

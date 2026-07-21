@@ -364,3 +364,12 @@ public static class Traversals {
 |  [11]   | placement / members  | `Containment` / `Assignment`                   | direct storey / reverse membership           |
 |  [12]   | bounded depth        | lane-owned `WalkDepth`                         | no raw `int` enters `Walk`                   |
 |  [13]   | redundancy           | DAG-gated `ComputeTransitiveReduction` diff    | redundant edges return typed `Pruned` pairs  |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -800,3 +800,5 @@ _SHAPE_TABLE: Final[Map[ShapeOp, tuple[ShapeAcceptor, KernelTrait]]] = Map.of_se
 -->
 
 [PYICU]-[BLOCKED]: `PyICU; python_version<'3.15'` excludes the live interpreter, and `UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve PyICU` reports the gate; `Bidi.setPara`/`getVisualRun`/`writeReordered`, `UBiDiLevel.DEFAULT_LTR` (the `0xFE` `_ICU_DEFAULT_LEVEL` literal), and the `Normalizer2.get{NFC,NFD,NFKC,NFKD}Instance` family therefore ride the catalog-verified surface.
+
+(none)

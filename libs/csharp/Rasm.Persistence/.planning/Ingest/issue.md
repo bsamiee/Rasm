@@ -479,3 +479,12 @@ public static class IssueRows {
 |  [04]   | cycle diff       | `Reconcile` GUID-keyed partitions                 | the schedule `Reconcile` discipline on the issue axis        |
 |  [05]   | wire stamps      | `OffsetDateTime` preserving the declared offset   | never a fabricated UTC `Instant`                             |
 |  [06]   | snapshots        | `ContentAddress` on the row, bytes in the blob plane | never a byte copy beside the address                       |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

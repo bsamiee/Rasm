@@ -470,3 +470,12 @@ public readonly record struct UnitScheme(Map<string, string> Display) {
 - [UNITSNET_SI_COERCION]: `Of` resolves dynamic unit input through `Quantity.TryFrom`, normalizes dimensional quantities through `ToUnit(UnitSystem.SI)`, and normalizes dimensionless quantities through `BaseUnitInfo`. `Registry` derives the inverse unit-name index from `Quantity.Infos`; `OfSi` stamps the same canonical unit name and `In` uses `UnitConverter.TryConvert` for total egress.
 - [QUANTITY_TYPE_DISCRIMINATOR]: `QuantityType` carries `QuantityInfo.Name`, while `Dimension` carries the seven-exponent physical signature. Both are required because torque and energy share a dimension, and angle, ratio, level, and count are dimensionless. Named QTO reads derive from `As(QuantityType)`, and cross-quantity products compose dimensions before an informed consumer re-stamps semantic type through `WithType`.
 - [BAND_PROPAGATION]: Gaussian operands propagate by first-order partial derivatives and quadrature; exact operands are the zero-variance identity. Bounds-only operands propagate through the four corners, and a divisor interval spanning zero widens to an unbounded interval. Non-finite propagated deviation also widens to an unbounded interval, while the nominal magnitude remains finite-gated.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

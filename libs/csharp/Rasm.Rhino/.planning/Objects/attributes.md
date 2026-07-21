@@ -867,3 +867,12 @@ public static class Attributes {
 |  [05]   | read dispatch      | `AttributeAsk`      | stored and resolved questions, one typed answer union   | `Attributes.Ask`               |
 |  [06]   | stored state       | `AttributeSnapshot` | detached scalars, rosters, and catalogued carriers      | `AttributeAsk.Stored`          |
 |  [07]   | resolved display   | `EffectiveDisplay`  | resolved scalars and viewport overrides                 | `AttributeAsk.Resolved`        |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

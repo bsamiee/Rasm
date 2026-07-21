@@ -622,3 +622,12 @@ public static class ContentParityCorpus {
 |  [05]   | parity corpus    | kernel `ContentHash.Of` at every mint  | `VERSION_PARITY`; producer-emits gate                |
 |  [06]   | contribution    | `Contribute` refuses `MintedHere`     | Query supplies `elementset`; no reverse derivation   |
 |  [07]   | fault band      | `CommitFault : Expected` 8260         | closed codes 8261-8264                               |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

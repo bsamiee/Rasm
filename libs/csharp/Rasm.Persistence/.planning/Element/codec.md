@@ -552,3 +552,12 @@ public static class ContentChunker {
 |  [02]   | chunk identity   | kernel `ContentHash.Of` content key | dedup across snapshots/peers; never the gear-hash cut        |
 |  [03]   | dedup pre-filter | `XxHash3` 64-bit short tag          | `Novel` probes `mayHold` before `holds`                      |
 |  [04]   | reassembly guard | whole-artifact content hash         | torn/reordered manifest faults, never silent wrong bytes     |
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

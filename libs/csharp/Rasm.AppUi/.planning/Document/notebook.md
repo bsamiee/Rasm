@@ -309,8 +309,8 @@ public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, Ha
 public static class NotebookReplay {
     public const string MismatchInstrument = "rasm.appui.notebook.replay.mismatch";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(MismatchInstrument, InstrumentKind.Count, "{mismatch}", "replay digest mismatches by cell"));
 
     public static IO<Fin<Seq<string>>> Verify(

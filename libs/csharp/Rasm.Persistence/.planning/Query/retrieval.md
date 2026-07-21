@@ -644,3 +644,12 @@ public static class Retrieval {
 |  [04]   | cache invalidation | receipt-derived tag → `RemoveByTagAsync`  | a changefeed op-log change to a contributing node cuts it         |
 |  [05]   | cache identity     | selection-result reuse                    | distinct from `Query/cache`'s compute-result index                |
 |  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical  | DuckDB is the columnar aggregator, never the index                |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

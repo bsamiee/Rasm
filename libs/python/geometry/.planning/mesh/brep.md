@@ -286,7 +286,7 @@ async def apply(op: BrepOp, lane: LanePolicy) -> "RuntimeRail[BrepResult]":
     return await evidence_run(EvidenceScope.MESH_BREP, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
 
 
-def benched(op: BrepOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+def benched(op: BrepOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
     # kernel macro-bench: each round drives the whole apply crossing — sealed-brep codec, offload, OCCT kernel,
     # weave — so a boolean row prices the STEP seal beside the solve; never an in-kernel probe (the pulse boundary).
     return bench_seam(f"{EvidenceScope.MESH_BREP.value}.{op.tag}", partial(apply, op, lane), rounds=rounds, warmup=warmup)

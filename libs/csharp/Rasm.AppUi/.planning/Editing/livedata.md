@@ -364,8 +364,8 @@ public static class LiveDataOps {
     public const string ChangesInstrument = "rasm.appui.live.changes";
     public const string FaultsInstrument = "rasm.appui.live.faults";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ChangesInstrument, InstrumentKind.Count, "{change}", "live change-set operations by slot and change kind"),
             new(FaultsInstrument, InstrumentKind.Count, "{fault}", "live-data faults by slot"));
 

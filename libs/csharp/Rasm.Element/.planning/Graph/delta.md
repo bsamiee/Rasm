@@ -308,3 +308,12 @@ public sealed record WorkingGraph(ImmutableDictionary<NodeId, Node> Nodes, Immut
 - [DELTA_EVENT_BODY]: `GraphDelta` is the persistence event body. A creating delta carries the model header, `ReplayOnto` folds events into snapshots, and periodic persistence snapshots bound replay. `ToCanonicalBytes` sorts node and edge contributions and includes the semantic header, so recording order does not fork the event address.
 - [DELTA_MONOID]: `Merge` is the strict-left sequential composition used by `Batch` and stream compaction; it claims no general associativity. Node slots coalesce by id, edge slots coalesce by structural equality, add/remove pairs cancel when replay semantics permit, and node-removal entanglement preserves the edge re-add required after cascade. `IsNormalForm` enforces revision identity, unique slots, and the same entanglement exception before foreign deltas enter the fold.
 - [STRUCTURAL_VS_SEMANTIC]: `LegalLink` owns endpoint presence, typed-edge irreflexivity, realizing-node distinctness, and endpoint-kind legality through generated total dispatch. `Generic` remains self-permissive for unmodeled relationships. `IGraphConstraint.Validate` owns IFC semantic legality after the structural gate, so the seam never names IFC entity classes.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

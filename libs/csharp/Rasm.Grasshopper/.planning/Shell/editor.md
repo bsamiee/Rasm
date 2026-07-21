@@ -191,3 +191,12 @@ flowchart LR
 |  [05]   | typed pane egress | `EditorShell.Grab<TPane, TOut>` | generic gate, one marshal window          | `Grab → Fin<TOut>`           |    1    |
 
 `ScopeTarget`, `GhScope`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; every shell capability lands as the rows, cases, and gates above. `Editor.BreadCrumbs` (private) is a phantom row no fence composes, and the host ships no file-comparison member.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

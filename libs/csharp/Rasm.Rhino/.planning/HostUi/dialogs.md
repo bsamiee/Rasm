@@ -1148,3 +1148,12 @@ public static class HostAssets {
         new AssetAnswer.Strokes(Value: toSeq(strokes).Map(static stroke => toSeq(stroke).Strict()).Strict());
 }
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

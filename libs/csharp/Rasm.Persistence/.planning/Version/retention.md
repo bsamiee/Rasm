@@ -365,3 +365,12 @@ public static class RetentionSweep {
 |  [05]   | cold-tiering    | `Cool` demotes never-evict; `EvictOrphan` collects debris | `Demote` ladder; orphan gated on declared `OrphanAge`     |
 |  [06]   | holds           | first-class, late-bound, union                            | a hold today protects tomorrow's admissions               |
 |  [07]   | conservation    | `inventory = kept + held + cooled + evicted`              | the run summary proves the partition closes               |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -403,3 +403,12 @@ Each concern folds one owner pair through one collapse kind onto a `Fin<T>` rail
 |  [05]   | sealed arrangement   | `Arrangement` + `CanvasLayout` | `[GenerateUnionOps]` `[Union]`, one gate | `Arrange → ArrangeReceipt` |    5    |
 
 `GhSession`, `HistoryLedger`, `Lattice`-composed kernel numerics, `Op`, `ValidityClaim`, and the host solver surfaces are composed upstream owners; every local solver's capability lands on the host rows above, its arithmetic on the delta folds, and its mutations on the one sealed gate.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

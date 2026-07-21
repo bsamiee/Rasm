@@ -1746,3 +1746,12 @@ public static class RegimeText {
 |  [08]   | unit correspondence  | `UnitText`            | encoded/semantic/projection union | `UnitText.Length` / `Text`   |
 |  [09]   | worksession topology | `WorksessionSnapshot` | detached active/reference rows    | `Worksession` / `FileOf`     |
 |  [10]   | worksession custody  | `WorksessionOp`       | scripted attach/detach/reload     | `Worksession` / receipt      |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

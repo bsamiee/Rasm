@@ -201,6 +201,16 @@
           "Confluent.Kafka": "2.14.2"
         }
       },
+      "CloudNative.CloudEvents.Mqtt": {
+        "type": "Direct",
+        "requested": "[3.9.0, )",
+        "resolved": "3.9.0",
+        "contentHash": "EO++hQj48WHnr2Zwg0fkQpdpC/3SS9i1ua3a4THCzpQNXWMjFyldhgQtRbOmCCadFoV+EW5ZZK1VPm/x+aP9Sw==",
+        "dependencies": {
+          "CloudNative.CloudEvents": "2.9.0",
+          "MQTTnet": "4.3.7.1207"
+        }
+      },
       "CloudNative.CloudEvents.SystemTextJson": {
         "type": "Direct",
         "requested": "[2.9.0, )",
@@ -560,6 +570,12 @@
           "IKVM.Maven.Sdk": "1.11.0",
           "Portable.System.DateTimeOnly": "8.0.2"
         }
+      },
+      "MQTTnet": {
+        "type": "Direct",
+        "requested": "[5.2.0.1603, )",
+        "resolved": "5.2.0.1603",
+        "contentHash": "iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ=="
       },
       "NATS.Net": {
         "type": "Direct",
@@ -1646,16 +1662,6 @@
           "Microsoft.Extensions.Primitives": "10.0.10"
         }
       },
-      "Microsoft.Extensions.Diagnostics": {
-        "type": "Transitive",
-        "resolved": "10.0.10",
-        "contentHash": "Kr/e7lUf4+N8tacbqJ2Ctwe/HarKdAc9ZkgKVVqvtJDBKbez+T/KnUwu82KSlnBp/SrpBcxc7u7xkE2oUZT/5Q==",
-        "dependencies": {
-          "Microsoft.Extensions.Configuration": "10.0.10",
-          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.10",
-          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.10"
-        }
-      },
       "Microsoft.Extensions.Diagnostics.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.10",
@@ -2351,6 +2357,17 @@
         "requested": "[10.0.10, )",
         "resolved": "10.0.10",
         "contentHash": "rfZA1RjR021RPqSmIPovfz2aOd79TGqJ9BengbjnzIISOVwjLmuSDnhCMmiY/1c6iYvGolQ1iNGzkav0u11XEA=="
+      },
+      "Microsoft.Extensions.Diagnostics": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "Kr/e7lUf4+N8tacbqJ2Ctwe/HarKdAc9ZkgKVVqvtJDBKbez+T/KnUwu82KSlnBp/SrpBcxc7u7xkE2oUZT/5Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "10.0.10",
+          "Microsoft.Extensions.Diagnostics.Abstractions": "10.0.10",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.10"
+        }
       },
       "Microsoft.Extensions.Hosting": {
         "type": "CentralTransitive",

@@ -510,3 +510,12 @@ Each row's binding invariant, keyed to its policy:
 - [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
 - [12]-[TYPE_CORRELATION]: a re-keyed GlobalId-less `Type` diffs as RENAME; kernel V8a seed replaces the interim on landing.
 - [13]-[PATCH_VALUE_CODEC]: every patched value rides the ONE codec converter graph; default-options serialization deleted.
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

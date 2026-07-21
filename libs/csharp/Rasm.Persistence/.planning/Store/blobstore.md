@@ -976,3 +976,12 @@ public static class BlobGc {
 |  [06]   | encryption       | `ApplyS3`/`ApplyGcs`/`ApplyMinio`                | applied on every wire, Azure host-dialed; SSE key id host-supplied |
 |  [07]   | WORM/object-lock | `WormUntil` column + `WormEvict` arrow           | eligibility fence + typed evict; `Locked` reachable, no 403 leak   |
 |  [08]   | tenancy          | `Tenant` column + RLS-filtered catalog           | per-tenant name prefix; cross-tenant reclaim unrepresentable       |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

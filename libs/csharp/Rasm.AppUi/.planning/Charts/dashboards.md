@@ -690,9 +690,9 @@ public static class BoardTelemetry {
     public const string FilterAppliesInstrument = "rasm.appui.filter.applies";
     public const string FilterTilesInstrument = "rasm.appui.filter.tiles";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
-            new(RenderInstrument, InstrumentKind.Distribution, "s", "board and chart render wall duration", UiBuckets.InteractionSeconds),
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
+            new(RenderInstrument, InstrumentKind.Distribution, "s", "board and chart render wall duration", Buckets.InteractionSeconds),
             new(FrameBytesInstrument, InstrumentKind.Count, "By", "encoded board-frame bytes"),
             new(OverlaySwapsInstrument, InstrumentKind.Count, "{swap}", "live geo-overlay land swaps"),
             new(OverlayLandsInstrument, InstrumentKind.Count, "{land}", "land records folded per overlay swap"),

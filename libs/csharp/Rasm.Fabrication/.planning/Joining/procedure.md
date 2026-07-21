@@ -1011,3 +1011,12 @@ public static class Procedure {
 - Inspection: each `InspectionBasis.Populations` row pairs a sampling modality with its dimensional population; policy rows derive visual, surface, volumetric, or destructive coverage with a typed sampled extent, and overlapping rules collapse to the widest coverage per family and sampling.
 - Receipt: `ProcedureReceipt` carries ordered comparisons, scoped inspection requirements with their originating basis, PQR tests, per-joint personnel records, status, continuity, and welder identity; `EqualityComparer.Default.Inequalities` supplies revision and audit diffs under declared ordered collection semantics.
 - Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

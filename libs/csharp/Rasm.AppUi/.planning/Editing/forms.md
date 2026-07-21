@@ -278,8 +278,8 @@ public static class BatchEdit {
     public const string AppliedInstrument = "rasm.appui.batch.applied";
     public const string RejectedInstrument = "rasm.appui.batch.rejected";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(AppliedInstrument, InstrumentKind.Count, "{batch}", "batch edits applied"),
             new(RejectedInstrument, InstrumentKind.Count, "{batch}", "batch edits rejected"));
 

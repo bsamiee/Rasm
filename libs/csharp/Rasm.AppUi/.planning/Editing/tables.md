@@ -336,8 +336,8 @@ public static class CommitSurface {
     public const string CommitInstrument = "rasm.appui.table.commit";
     public const string ExportInstrument = "rasm.appui.table.export";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(CommitInstrument, InstrumentKind.Count, "{commit}", "grid commits by outcome"),
             new(ExportInstrument, InstrumentKind.Count, "{export}", "tabular exports by destination"));
 

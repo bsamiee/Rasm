@@ -360,3 +360,12 @@ public static class Picks {
 ## [05]-[BOUNDARY]
 
 `PickCapture` crosses into `Objects` as detached identity and selection evidence. `GeometryHandle` crosses into document geometry custody. `Picked` and `PickPolicy` remain call-window values, and no `ObjRef`, `RhinoView`, `PickContext`, or live geometry payload becomes durable state.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

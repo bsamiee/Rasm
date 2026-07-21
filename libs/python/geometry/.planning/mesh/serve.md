@@ -178,7 +178,7 @@ class GeometryServe:
             .default_value(Error(BoundaryFault(wire=(f"serve.sync.{artifact_id.hex()}", 0))))
         )
 
-    def bench(self, request: TessellationRequest, context: RuntimeContext, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+    def bench(self, request: TessellationRequest, context: RuntimeContext, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
         # macro-bench over the real tessellation entry — _tessellate whole: decode, daemon drive, receipt floor — the
         # same seam the C# rail pays; the canonical daemon stays warm across rounds, so the cache tier prices in.
         return bench_seam(f"{EvidenceScope.MESH_SERVE.value}.tessellate", partial(self._tessellate, request, context), rounds=rounds, warmup=warmup)

@@ -262,3 +262,12 @@ flowchart LR
 |  [06]   | wire draw pass   | `WirePass`                  | detail-gated cull-and-stroke fold          | `Draw → Fin<int>`            |    1    |
 
 `CanvasOperator`, `CanvasQuery`, `CanvasProjection`, `PickGates`, `PaintScene`, `Pigment`, `Op`, and the host `WindowSelection`/`WireSkin` algebras are composed upstream owners; host internality and absence facts live on the lead.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

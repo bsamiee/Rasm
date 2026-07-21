@@ -1017,3 +1017,12 @@ public static class Curves {
 |  [12]   | value-semantic edit     | `CurveEdit`                         | duplicate then cleanup/close/interval trim    | `CurveOp.Edit`           |
 |  [13]   | rail surface fillet     | `RailFilletLaw`                     | rail and arc structure plus fit evidence      | `CurveOp.RailFillet`     |
 |  [14]   | curve verbs             | `CurveOp`                           | one flat `[Union]` with total dispatch        | `Curves.Build`           |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

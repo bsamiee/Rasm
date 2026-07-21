@@ -568,3 +568,12 @@ public abstract partial record BlockPreview {
 |  [03]   | `LinkState` | union | `Of` | static or linked evidence |
 |  [04]   | policy owners | generated values | generated admission | native arguments |
 |  [05]   | `BlockPreview` | union | factories | `Render` |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

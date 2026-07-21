@@ -128,12 +128,12 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public const string SuspendedInstrument = "rasm.appui.screen.suspended";
     public const string DisposablesInstrument = "rasm.appui.screen.disposables";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ActivatedInstrument, InstrumentKind.Count, "{activation}", "screen activations by screen id"),
             new(SuspendedInstrument, InstrumentKind.Count, "{suspension}", "screen suspensions by trigger"),
             new(DisposablesInstrument, InstrumentKind.Levels, "{disposable}", "live disposables by screen id",
-                Levels: UiLevelCells.Reader(UiLevelCells.Live.ScreenDisposables, "screen")));
+                Levels: cells.Reader(DisposablesInstrument, "screen")));
 
     public static DrainParticipantPort DrainRow(Func<Seq<ScreenBase>> active) =>
         new("screens", DrainBand.Interaction, 10, token => active().TraverseM(static screen => screen.Suspend()).As().Map(static _ => unit));

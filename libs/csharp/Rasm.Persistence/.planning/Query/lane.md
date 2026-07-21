@@ -366,3 +366,12 @@ public static class ElementSetAlgebra {
 |  [04]   | closure            | bounded transitive fold over topology                   | one-hop `Expand` is `Query/topology`; not the manifest   |
 |  [05]   | bounded depth      | `WalkDepth` admitted once (`SelectionFault.Depth`)      | closure/cell/topology/cypher share ONE axis; no raw int  |
 |  [06]   | cell leaf          | `Cell(H3Cell, WalkDepth)` grid-disk predicate           | `h3-pg` index-served; the H3 sibling of the GiST leaf    |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -305,10 +305,10 @@ public static class CommandExecution {
     public const string OutcomeInstrument = "rasm.appui.command.outcome";
     public const string ElapsedInstrument = "rasm.appui.command.elapsed";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(OutcomeInstrument, InstrumentKind.Count, "{command}", "command executions by outcome"),
-            new(ElapsedInstrument, InstrumentKind.Distribution, "s", "command execution wall duration", UiBuckets.InteractionSeconds));
+            new(ElapsedInstrument, InstrumentKind.Distribution, "s", "command execution wall duration", Buckets.InteractionSeconds));
 
     // Outcome counts ride the evidence fan's command arm; elapsed records direct off the sealed receipt
     // — composition binds this projection beside the deck's sink send, so the fan never parses duration text.

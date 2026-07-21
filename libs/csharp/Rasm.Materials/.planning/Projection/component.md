@@ -163,7 +163,7 @@ public sealed class ComponentProjector : IElementProjection {
     // Component.Of lane/detail type law — a None-lane family carries no bag, a Realization/Product family always
     // does), wire the Type→resource edges (both endpoints owned — no vouch), then bind every VOUCHED occurrence via
     // Assign.TypeDefinition PLUS its own occurrence→material Associate carrying the binding's OWN explicit
-    // MaterialUsage ([C7] — usage is input data on each OccurrenceBinding, never derived from the type-level
+    // MaterialUsage ([OCCURRENCE_USAGE_RULING] — usage is input data on each OccurrenceBinding, never derived from the type-level
     // composition). Classification.Of is the seam Fin admission; AuthorOccurrences the fallible tail.
     Fin<GraphDelta> ProjectType(ComponentProjectionSpec.Type spec, ProjectionContext ctx) {
         double tolerance = ctx.Header.Tolerance;
@@ -200,7 +200,7 @@ public sealed class ComponentProjector : IElementProjection {
     // Author the Type subgraph: Put the minted Type Object, its content-keyed structural Material (baked section),
     // the required Appearance, and the optional seed-built detail bag, plus the Type→Material / Type→Appearance
     // Associate edges (MaterialUsage.None — the TYPE-level association carries no per-occurrence usage; occurrence
-    // usage rides the occurrence's own binding [C7]) and the Type→detail Assign.PropertyDefinition (occurrences
+    // usage rides the occurrence's own binding [OCCURRENCE_USAGE_RULING]) and the Type→detail Assign.PropertyDefinition (occurrences
     // inherit through the Bake type-bag merge). Both endpoints are owned here, so no vouch gates these edges.
     static GraphDelta SeedType(Node type, Node material, Node appearance, Option<Node> detail) {
         GraphDelta withAppearance = GraphDelta.Empty.Put(type).Put(material).Put(appearance)

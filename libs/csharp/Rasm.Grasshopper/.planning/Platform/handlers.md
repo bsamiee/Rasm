@@ -356,3 +356,12 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [06]   | native hosting     | `NativeSprout` + `Bridge`                    | `Embed → Fin<Control>`               |    2    |
 
 `Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `EtoDispatch` are composed upstream owners. RESEARCH: the `MacConversions`/`CGConversions` member spellings, landing as call-site spellings on the composing macOS pages.
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

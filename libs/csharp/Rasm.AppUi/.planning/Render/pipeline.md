@@ -414,10 +414,10 @@ public sealed record RenderGraph(
     public const string GpuInstrument = "rasm.appui.viewport.gpu.elapsed";
     public const string OverrunInstrument = "rasm.appui.viewport.budget.overrun";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
-            new(FrameInstrument, InstrumentKind.Distribution, "s", "frame wall duration", UiBuckets.FrameSeconds),
-            new(GpuInstrument, InstrumentKind.Distribution, "s", "measured GPU duration per frame", UiBuckets.FrameSeconds),
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
+            new(FrameInstrument, InstrumentKind.Distribution, "s", "frame wall duration", Buckets.UiFrameSeconds),
+            new(GpuInstrument, InstrumentKind.Distribution, "s", "measured GPU duration per frame", Buckets.UiFrameSeconds),
             new(OverrunInstrument, InstrumentKind.Count, "{frame}", "frames exceeding the frame budget"));
 
     // Frame timing rides the direct rail: composition binds this projection at the retire site where

@@ -171,7 +171,7 @@ async def apply(op: MeshRepairOp, lane: LanePolicy) -> "RuntimeRail[MeshResult]"
     return await evidence_run(EvidenceScope.MESH_REPAIR, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op))
 
 
-def benched(op: MeshRepairOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+def benched(op: MeshRepairOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
     # kernel macro-bench beside the per-call evidence-duration row: the subject keys the op kind under the
     # MESH_REPAIR scope, and each round drives the whole apply crossing — offload, kernel, weave — never an
     # in-kernel probe (the pulse boundary); the warm process lane amortizes across rounds.

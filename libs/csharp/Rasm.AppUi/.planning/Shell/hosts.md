@@ -179,8 +179,8 @@ public static class Surfaces {
 
     // Mount counts ride the evidence fan's surface arm; scale flips, host facts, and affinity
     // assertions count direct where the seam delegate holds the typed fact in hand.
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(MountInstrument, InstrumentKind.Count, "{mount}", "surface mounts by host case"),
             new(ScaleInstrument, InstrumentKind.Count, "{flip}", "backing-scale flips by host case"),
             new(FactInstrument, InstrumentKind.Count, "{fact}", "host facts by fact case"),
@@ -328,8 +328,8 @@ public static class NativeAssets {
     public const string ResolvedInstrument = "rasm.appui.nativeasset.resolved";
     public const string AbsentInstrument = "rasm.appui.nativeasset.absent";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ResolvedInstrument, InstrumentKind.Count, "{asset}", "native assets resolved by library and RID"),
             new(AbsentInstrument, InstrumentKind.Count, "{asset}", "native assets absent at load probe"));
 

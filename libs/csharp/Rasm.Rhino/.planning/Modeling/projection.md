@@ -419,3 +419,12 @@ public static class Projections {
 |  [05]   | silhouette eye         | `SilhouetteFrame`   | perspective point / parallel direction / rigged frame | `ProjectionOp.Outline`         |
 |  [06]   | classified consequence | `ProjectionSlot`    | visibility, correspondence, frame, and bounds facts  | `Built<ProjectionSlot>.Evidence` |
 |  [07]   | projection verbs       | `ProjectionOp`      | one flat `[Union]` under total generated dispatch   | `Projections.Build`              |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

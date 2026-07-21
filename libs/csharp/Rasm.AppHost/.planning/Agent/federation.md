@@ -131,6 +131,7 @@ public sealed record FederationRuntime(
     Func<FederatedServer, IO<McpClient>> SessionOf,
     Atom<HashMap<string, JsonNode>> PeerSchemas,
     McpRuntime Mcp,
+    LevelCells Cells,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire,
@@ -146,7 +147,7 @@ public static class FederationProjection {
     public static IO<IServiceCollection> Federate(FederationRuntime runtime, IServiceCollection services) =>
         runtime.Catalog.Servers.Values.AsIterable().ToSeq()
             .FoldM(services, (current, server) => Project(runtime, server)
-                .Map(rows => DescriptorSurface.Describe(current, rows.ToArray())))
+                .Map(rows => DescriptorSurface.Describe(current, runtime.Cells, rows.ToArray())))
             .As();
 
     static CapabilityDescriptor Descriptor(FederationRuntime runtime, FederatedServer server, McpClientTool tool) {

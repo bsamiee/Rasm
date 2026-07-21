@@ -293,3 +293,12 @@ public static partial class GraphScope {
 - [06]-[MUTATION_INTENT]: `[GenerateUnionOps]` `[Union]` + sealed evidence receipt.
 
 `DocumentScope.Resolve`, `HistoryLedger.Seal`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners; local graph algorithms have no home here — host `Connectivity`/`ObjectList`/`Connections` absorption carries every capability as the cases and rows above.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

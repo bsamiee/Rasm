@@ -299,3 +299,12 @@ Queue semantics ride these rulings:
 - Dual coalesce: `Coalesce<T1, T2>` mints one greedy `BatchedJoinBlock<T1, T2>(batchSize)` reading `batchSize` from the row's `Batch` column, links it to the sink under `PropagateCompletion`, exposes `Target1`/`Target2` through `CoalesceArms`, and emits `Tuple<IList<T1>, IList<T2>>` so the support artifact stream and error stream coalesce into one batched hand-off; a partial pair flushes when either arm reaches `batchSize` or both arms complete at drain.
 - Drain and fault: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; for join and coalesce the `NullTarget` intake `Complete()` is inert and the producer-completed arms drive the tail; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.
 - Telemetry: the fan-out, join, and coalesce rows export no new instrument by default — depth observability is a `rasm.apphost.drain.queue.depth` gauge raised only when a consumer reads it, a forward row, never a speculative instrument; queue lane counts leave as telemetry consequence of the registered `DrainSpec` set.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

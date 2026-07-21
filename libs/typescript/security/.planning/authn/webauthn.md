@@ -319,3 +319,7 @@ const Passkeys = {
 
 export { CeremonyPhase, ChallengeStore, Passkey, Passkeys, PasskeyFault, WebAuthn, WebAuthnFault, WebAuthnStore, WebAuthnTrust }
 ```
+
+## [05]-[RESEARCH]
+
+(none)

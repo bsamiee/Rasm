@@ -781,3 +781,12 @@ public static class PolygonAlgebra {
 - Receipt: `FieldReceipt` keeps the plane, grid, metric, finite extrema, dispersion, and the model-space cells holding those extrema together, so engagement, additive masks, and layer audits consume one substrate value; `MinimumAt` over a signed-clearance plane is the deepest interior cell, the largest inscribed disc a cutter can occupy.
 - Growth: a new field interpretation is one `FieldMetric` case over the existing sampled clearance kernel, its admission row, and its clearance-need row.
 - Boundary: field storage remains owned by the receipt, provider paths remain private, and a non-finite cell fails the whole projection.
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

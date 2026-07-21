@@ -546,3 +546,12 @@ public static class SubDs {
 ## [04]-[EXECUTION]
 
 `SubDs.Build` admits every operation before `ModelGate.Folded`. Construction arms own fresh geometry, edit arms duplicate exactly once, and extraction arms detach edge curves. Native `SubDCreationOptions` and `SubDToBrepOptions` live only inside their consuming arm.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

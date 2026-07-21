@@ -257,3 +257,12 @@ flowchart LR
 |  [05]   | render           | `IconRender` modality union      | `Render → Fin<Option<Bitmap>>` |
 
 `EtoDispatch`, `Op`, `Fault`, `ValidityClaim`, `SessionCache`, and the kernel `PerceptualColor`/`BlendPath` owner are composed upstream owners; `Duration` and `Motion` cross as host boundary data.
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

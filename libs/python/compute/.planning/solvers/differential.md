@@ -458,3 +458,5 @@ def _euler_floor(field: FieldFn, y0: np.ndarray, t0: float, t1: float, policy: I
 -->
 
 [LANGEVIN]-[BLOCKED]: the exact `UnderdampedLangevinDriftTerm`/`UnderdampedLangevinDiffusionTerm` constructor kwargs (`gamma`/`u`/`grad_f`/`bm`); verify against `compute/.api/diffrax.md` at the gated reflection pass.
+
+(none)

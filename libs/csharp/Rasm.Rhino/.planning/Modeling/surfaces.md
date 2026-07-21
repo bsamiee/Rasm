@@ -598,3 +598,12 @@ public static class Surfaces {
 |  [09]   | corner arity         | `CornerSeed`     | triangle or tolerance-driven quad            | `SurfaceOp.Corners`                   |
 |  [10]   | sum extent           | `SumExtent`      | direction or second-curve payload            | `SurfaceOp.Sum`                       |
 |  [11]   | surface verbs        | `SurfaceOp`      | one flat `[Union]`, total generated dispatch | `Surfaces.Build`                      |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

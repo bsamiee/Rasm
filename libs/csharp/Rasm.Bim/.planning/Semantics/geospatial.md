@@ -157,7 +157,7 @@ public sealed record GeoFeature(
 
     // ToObject is the seam-node projection: a vector feature RIDES an Object node [§4B] carrying the generic Classification
     // ("ifc", true IFC4.3 class string the GeoClassifier carries), the first-class PredefinedType token admitted BARE
-    // (validity is the Bim Emit egress gate over the IfcClass valid-set, never an ingress invariant [C6]), the footprint
+    // (validity is the Bim Emit egress gate over the IfcClass valid-set, never an ingress invariant [PREDEFINED_TOKEN_RULING]), the footprint
     // content-keyed into the Representations map ("FootPrint" -> kernel seed-zero ContentHash over the reprojected WKB)
     // [M2] so a Rasm.Compute consumer RESOLVES the analytical surface one-hop by content key from the blob store, NEVER
     // an inline coordinate field on the seam node (no Object.BoundaryPolygon/Axis member exists — the deleted §4-RT-M2
@@ -366,7 +366,7 @@ public static class GeoClassifier {
     // a library-neutral (system, code) pair, NOT a Model/elements#IFC_CLASS IfcClass row: the seam never validates the
     // class against the roster, and resolving IfcGeographicElement/IfcSite/IfcBuilding through IfcClass.TryGet would
     // collapse them to the Proxy fallback. Bim's Emit egress gate resolves the IfcClass row from this code and admits
-    // its predefined token [C6], so a class the roster has not yet rostered round-trips to IFC only once it is added.
+    // its predefined token [PREDEFINED_TOKEN_RULING], so a class the roster has not yet rostered round-trips to IFC only once it is added.
     // Each "" tag row is the per-kind generic fallback toward the IfcGeographicElement geographic-context catch-all.
     static readonly Map<(OgcGeometryType Kind, string Tag), (string Class, string Predefined)> Table =
         Map(

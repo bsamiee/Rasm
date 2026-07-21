@@ -128,8 +128,8 @@ public sealed record ShaderAssetCache(
     public const string CompiledInstrument = "rasm.appui.shader.compiled";
     public const string FailedInstrument = "rasm.appui.shader.failed";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(CompiledInstrument, InstrumentKind.Count, "{shader}", "shader compiles by backend"),
             new(FailedInstrument, InstrumentKind.Count, "{shader}", "shader compile failures by backend"));
 }

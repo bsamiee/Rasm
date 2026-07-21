@@ -963,3 +963,12 @@ internal static class DraftSpine {
 |  [09]   | style reads        | `StyleAsk`         | closed request/answer family                           | `Styles.Ask`                          |
 |  [10]   | commit entry       | `DraftSpine`       | `Sealed` composition over the `DraftReceipt` fold     | `Commit`                              |
 |  [11]   | receipts           | `DraftReceipt`     | `DraftFact` stream + slot projections                 | `Components` / `Ids` / `Tallies`      |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

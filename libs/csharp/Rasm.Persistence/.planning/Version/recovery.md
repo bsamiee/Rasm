@@ -411,3 +411,12 @@ public static class PointInTimeRestore {
 |  [04]   | recovery point     | WAL replay to `(Timeline, Lsn)`           | a real version, never an approximate timestamp             |
 |  [05]   | projection rebuild | inline re-fold + async `StartAllAsync`    | `WaitForNonStaleData` proves head-caught-up, `Rto`-bounded |
 |  [06]   | commit point       | re-attest + AS-OF content-address compare | `Unauthored`-reachable; content identity equals target     |
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

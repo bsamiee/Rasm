@@ -671,3 +671,12 @@ Canvas capability grows inside the owner that already carries its discriminant.
 |  [04]   | policy          | `ActionGate` + `WireFilters`       | one dual-column row                   |
 |  [05]   | state and reads | `CanvasQuery` + `CanvasProjection` | one paired request and result case    |
 |  [06]   | picking         | `PickGates` + `PickHit`            | one preset or admitted host verdict   |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)
