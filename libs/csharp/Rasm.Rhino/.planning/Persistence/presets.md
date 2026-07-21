@@ -695,3 +695,12 @@ Construction-plane projection covers plane, grid, visibility, depth, and five co
 ## [05]-[SEAMS]
 
 `Presets.Commit` composes `DocumentSession` and `UndoBracket` directly. Named views stay in Viewport; the layer tree — topology, face, and per-detail overrides — lives on the Document layer owner, while `LayerRestore` consumes only the host's state mask.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

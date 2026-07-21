@@ -717,3 +717,12 @@ Search policy remains one value across admission and projects `SearchRoute` and 
 ## [05]-[SEAMS]
 
 `DocumentStream` alone observes `RhinoDoc.UserStringChanged`; `Texts.Commit` never creates a parallel event surface. Object mutation terminates at `Tables.Commit`, while document text remains under the session's undo bracket.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

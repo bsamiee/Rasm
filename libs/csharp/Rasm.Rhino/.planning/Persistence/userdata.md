@@ -658,3 +658,12 @@ Roster mutations capture both censuses on the exception rail. Removal, purge, an
 ## [05]-[SEAMS]
 
 `SnapshotCodec` uses `ArchiveIo.Cross` and receives the same `ArchiveEnvelope` as `TypedUserData<TSelf>`. `ArchiveMap` remains the only payload currency; live `BinaryArchiveReader`, `BinaryArchiveWriter`, `UserDataList`, and `ArchivableDictionary` values never cross the boundary.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -8,6 +8,7 @@ Per-folder decision registry for the execution foundation — the settled ruling
 - A new blocking concern earns its own named `CapacityLimiter` sized by its owner, and the anyio ambient default thread limiter stays refused branch-wide — an unnamed shared limiter lets one concern silently oversubscribe the host against every other.
 - Physical time mints once at the C# host port — the companion's clock and admission decode the host-minted causal stamp and `tick` advances only the logical half; a Python-side physical mint is a second time origin forking the physical-dominant HLC order and the prefix-replay join, so convergence and seed-reproduction parity hold only under one physical authority.
 - Wire integers above the `int64` band carry the `ge=0` floor alone with the ceiling enforced by the railed decode — msgspec meta expresses no above-`int64` bound, so an above-band ceiling annotation is a phantom the decoder never enforces; an in-band ceiling (`I63`) rides `Meta(le=...)` and is enforced.
+- Telemetry install failure policy is fail-before-publish — `_pipeline` completes provider construction before `_commit` publishes, because the OpenTelemetry globals (`set_meter_provider`, `set_tracer_provider`, `set_logger_provider`, `propagate.set_global_textmap`) are set-once surfaces with no unset member; a demanded post-publication rollback compensates through a phantom inverse and is void, the real hardening moving work before publication; re-opens only when the SDK ships a public unset.
 
 ## [02]-[COLLAPSE]
 

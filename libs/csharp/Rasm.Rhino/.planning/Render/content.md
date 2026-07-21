@@ -395,3 +395,12 @@ public abstract partial record ContentIo {
 |  [07]   | content state      | `ContentSnapshot` | one-pass identity and topology read                  | `Of(content, key)`                 |
 |  [08]   | render-hash read   | `HashProbe`       | admitted exclusions, workflow posture, `HashWitness` | `Excluding` / `Read`               |
 |  [09]   | serialized ingress | `ContentIo`       | admitted XML/file mint leased until custody transfer | `Xml` / `Archive` / `Mint`         |
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

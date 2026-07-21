@@ -905,3 +905,12 @@ Explicit reads use `TryGet*` and never call mutating defaulted getters. `AdmitTa
 ## [05]-[SEAMS]
 
 `ArchiveValue` (dictionary.md) is the one payload carrier across this boundary — `SettingKind` rows lift host values through `ArchiveValue.Of`, lower through `Project<T>`, and mint enum payloads through the shared `EnumMint` seam. `SettingsTree` admits and orders value and child keys before recursive projection. `PlugIn.SettingsSaved` observation encloses root projection and sink delivery in one catch frame under the Document subscription owner; this page owns no parallel event lifecycle.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

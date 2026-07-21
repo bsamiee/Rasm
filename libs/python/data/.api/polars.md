@@ -89,6 +89,7 @@
 [ENTRYPOINT_SCOPE]: DataFrame and LazyFrame operations
 - rail: columnar dataframe
 - call: `collect(engine='auto'|'in-memory'|'streaming'|GPUEngine(...), optimizations=QueryOptFlags(...), background=False)`; the `sink_*` writers add `partition_by`/`storage_options`/`credential_provider`/`mkdir`/`sync_on_close`
+- call: `LazyFrame.profile() -> tuple[DataFrame, DataFrame]`; the first frame is the materialized result, and the timing frame schema is `{node: String, start: UInt64, end: UInt64}` with microsecond `start`/`end` offsets
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [RAIL]                                              |
 | :-----: | :-------------------------------------------------------------- | :-------------- | :-------------------------------------------------- |
