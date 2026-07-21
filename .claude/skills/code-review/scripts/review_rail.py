@@ -2204,8 +2204,12 @@ def spawn_scanned(lines: list[bytes], /) -> tuple[int, tuple[str, ...]]:
 
 
 def spawn_rows(round_dir: Path, /) -> tuple[SpawnRow, ...]:
+    def lane_of(events: Path, /) -> str:
+        # flat layout: lane-<x>-events.jsonl in the round dir; lane-dir layout: lane-<x>-run/events.jsonl from a codex-lane --dir.
+        return events.parent.name.removesuffix("-run") if events.name == "events.jsonl" else events.name.removesuffix("-events.jsonl")
+
     def audited(events: Path, /) -> SpawnRow:
-        lane = events.name.removesuffix("-events.jsonl")
+        lane = lane_of(events)
         session = session_of(events)
         if not session:
             return SpawnRow(lane=lane, fault="no-session")
@@ -2215,8 +2219,15 @@ def spawn_rows(round_dir: Path, /) -> tuple[SpawnRow, ...]:
         spawns, agents = spawn_scanned(read_bytes(Path(rollout)).map(bytes.splitlines).default_with(lambda _f: []))
         return SpawnRow(lane=lane, session=session, rollout=rollout, spawns=spawns, agents=agents)
 
-    events_files = sorted((*round_dir.glob("lane-?-events.jsonl"), *round_dir.glob("close-*-events.jsonl"), *round_dir.glob("harvest-events.jsonl")))
-    named = {path.name.removesuffix("-events.jsonl") for path in events_files}
+    events_files = sorted((
+        *round_dir.glob("lane-?-events.jsonl"),
+        *round_dir.glob("close-*-events.jsonl"),
+        *round_dir.glob("harvest-events.jsonl"),
+        *round_dir.glob("lane-?-run/events.jsonl"),
+        *round_dir.glob("close-*-run/events.jsonl"),
+        *round_dir.glob("harvest-run/events.jsonl"),
+    ))
+    named = {lane_of(path) for path in events_files}
     silent = tuple(
         SpawnRow(lane=slice_.manifest.lane, fault="no-events")
         for _path, slice_ in lane_slices(round_dir)
