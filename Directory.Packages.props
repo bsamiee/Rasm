@@ -485,9 +485,12 @@
         <PackageVersion Include="System.Threading.RateLimiting"                           Version="10.0.10" />
 
         <!-- Wire, schema, and document closure. -->
+        <!-- Rides Confluent.SchemaRegistry.Serdes.Avro. -->
         <PackageVersion Include="Apache.Avro"                                             Version="1.12.1" />
         <PackageVersion Include="BouncyCastle.Cryptography"                               Version="2.6.2" />
+        <!-- Rides Ara3D.BimOpenSchema.IO. -->
         <PackageVersion Include="ClosedXML"                                               Version="0.105.0" />
+        <!-- Rides StructuralAnalysisFormat. -->
         <PackageVersion Include="EPPlus"                                                  Version="8.6.1" />
         <PackageVersion Include="Json.Net"                                                Version="1.0.33" />
         <!-- Rides BACnet -> PacketDotNet 0.19.3 -> log4net 2.0.8; the floor lifts the NU1904-critical (GHSA-2cwj-8chv-9pp9) past the audit gate. -->
@@ -505,6 +508,7 @@
         <PackageVersion Include="YamlDotNet"                                              Version="18.1.0" />
 
         <!-- Compute, interchange, and BIM closure. -->
+        <!-- Rides Ara3D.BimOpenSchema and Ara3D.BimOpenSchema.IO. -->
         <PackageVersion Include="Ara3D.SDK"                                               Version="1.4.2" />
         <PackageVersion Include="OneOf"                                                   Version="3.0.271" />
         <PackageVersion Include="Parquet.Net"                                             Version="6.0.3" />
@@ -551,6 +555,7 @@
         <PackageVersion Include="Topten.RichTextKit"                                      Version="0.4.167" />
 
         <!-- Messaging and store closure. -->
+        <!-- Rides SwiftCollections.Lean. -->
         <PackageVersion Include="Chronicler.Core.Lean"                                    Version="0.2.1" />
         <PackageVersion Include="K4os.Compression.LZ4.Streams"                            Version="1.3.8" />
         <PackageVersion Include="NATS.Client.Abstractions"                                Version="2.8.2" />
@@ -566,7 +571,9 @@
         <PackageVersion Include="NetTopologySuite.Features"                               Version="2.2.0" />
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON"                             Version="4.0.0" />
         <PackageVersion Include="Nito.AsyncEx"                                            Version="5.1.2" />
+        <!-- Rides FlowtideDotNet.Substrait. -->
         <PackageVersion Include="SqlParserCS"                                             Version="0.6.5" />
+        <!-- Rides Robots. -->
         <PackageVersion Include="SSH.NET"                                                 Version="2025.1.0" />
     </ItemGroup>
 </Project>
