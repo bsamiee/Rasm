@@ -21,7 +21,7 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 ## [03]-[TWEENS]
 
 - Owner: `Lerps` carries linear Eto interpolators, kernel-shaped easing, and perceptual colour mixing. `Perceptual` holds the source before a rejected intermediate sample and returns the exact target at the terminal sample.
-- Owner: `Tween` binds the host signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. `Chain` returns the existing carrier when the target already equals `Value1`; otherwise it samples the current value before retargeting.
+- Owner: `Tween` binds the host signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. Retargeting delegates current-value sampling to the host `Chain` fold.
 - Owner: `FlexDrive` — the per-frame drive: `Run<T>(IFlexControl surface, Animated<T> tween, Op?)` → `Fin<T>` rides `IFlexControl.Animate<T>` (the host samples on its draw clock and keeps redrawing while `Busy`); `Window(IFlexControl, Op?)` → `Fin<FrameWindow>` projects `DrawStartTime`/`DrawEndTime` — the per-frame timing evidence a cost-aware animator folds with `Canvas/canvas.md`'s `FramePulse`; `ZoomGate(IFlexControl, ZoomThreshold, Op?)` → `Fin<float>` resolves the motion-gated ZUI factor (`Detailed`/`Standard` — the host's own appearance thresholds).
 - Law: one tween owns one visual; chaining retargets the existing carrier without resetting motion from a stale endpoint.
 - Boundary: viewport navigation animation is the host's own (`Navigate` consumes `Duration` directly — `Canvas/canvas.md`'s `NavTarget` carries it); skin blending is `Skin.Interpolate` under `Canvas/paint.md`'s lens; sparkle lifecycles are host-owned on `Canvas/canvas.md`'s `SparkleSpec`.
@@ -121,9 +121,7 @@ public static class Tween {
         Animated<T>.CreateUnfinished(from, to, span, pace.Host, lerp);
 
     public static Animated<T> Extend<T>(Animated<T> tween, T target, SpanRow span, PaceRow pace) =>
-        EqualityComparer<T>.Default.Equals(tween.Value1, target)
-            ? tween
-            : tween.Chain(target, span.Host, pace.Host);
+        tween.Chain(target, span.Host, pace.Host);
 
     public static T Sample<T>(Animated<T> tween, DateTime at) => tween.Evaluate(at);
 }
@@ -161,7 +159,7 @@ public static class FlexDrive {
 - Owner: `NoticeGlyph` maps semantic feedback rows onto the verified `AnimatedPath` factories; `StrokeStep` closes railed `Custom(Seq<StrokeStep>, Op?)` construction over gaps, lines, polylines, circles, and arcs.
 - Owner: `GlyphPath` — the unified time-parameterized draw: `Trace(AnimatedPath path, Graphics graphics, Pen pen, double phase, Option<double> end, PointF at, Option<(float Scale, float Angle)> pose, Op?)` dispatches the four host `Draw` overloads on end and pose presence. Without `end`, `phase` admits the host's `[0,2]` grow-then-erase key; with `end`, `phase` and `end` admit an ordered normalized segment.
 - Law: glyph strokes draw inside a paint window, and their time parameter comes from an existing tween or drive; a glyph never owns a clock.
-- Packages: Grasshopper2 (`AnimatedPath` ctor/`CreateErrorPath`/`CreateWarningPath`/`CreateSuccessPath`/`CreateMessagePath`/`CreateArrowPath`/`AddGap`/`AddLine`/`AddLines`/`AddCircle`/`AddArc`/`Draw`×4/`Count`/`Gaps`, `IAnimatedStroke`), Eto.Drawing (`Graphics`, `Pen`, `PointF`, `CircleF`, `ArcF`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`AnimatedPath` ctor/`CreateErrorPath`/`CreateWarningPath`/`CreateSuccessPath`/`CreateArrowPath`/`AddGap`/`AddLine`/`AddLines`/`AddCircle`/`AddArc`/`Draw`×4/`Count`/`Gaps`, `IAnimatedStroke`), Eto.Drawing (`Graphics`, `Pen`, `PointF`, `CircleF`, `ArcF`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new semantic glyph is one row; a new stroke primitive is one `StrokeStep` case breaking the fold loudly.
 
 ```csharp signature
@@ -179,7 +177,6 @@ public sealed partial class NoticeGlyph {
     public static readonly NoticeGlyph Error = new(key: 0, mint: AnimatedPath.CreateErrorPath);
     public static readonly NoticeGlyph Warning = new(key: 1, mint: AnimatedPath.CreateWarningPath);
     public static readonly NoticeGlyph Success = new(key: 2, mint: AnimatedPath.CreateSuccessPath);
-    public static readonly NoticeGlyph Message = new(key: 3, mint: AnimatedPath.CreateMessagePath);
 
     [UseDelegateFromConstructor] public partial AnimatedPath Mint(float size);
 
@@ -428,26 +425,10 @@ public sealed class CanvasPacer : IDisposable {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: Share motion sampling across canvas pacers
@@ -462,16 +443,6 @@ flowchart LR
     Write --> Settle{"continuing drives?"}
     Settle -->|"yes"| Clock
     Settle -->|"no"| Stop["stop clock; lease retains disposal"]
-    linkStyle 6,9 stroke:#50FA7B,color:#F8F8F2
-    linkStyle 8 stroke:#6272A4,color:#F8F8F2
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    class Tween,Drive,Settle primary
-    class Repaint,Stop success
-    class Kernel data
-    class Consumer,Display,Clock,Pacer,Write boundary
 ```
 
 ## [06]-[BUDGET]
@@ -530,14 +501,14 @@ public static class BudgetGate {
     public static Fin<Seq<BudgetBreach>> Judge(BudgetSubject subject, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(subject).Bind(valid => op.Catch(body: () => Fin.Succ(valid.Switch(
-            windowCase: static c => Judged(rows: Seq1((BudgetRow.FrameDraw, c.Window.Cost))),
+            windowCase: static c => Judged(rows: Seq((BudgetRow.FrameDraw, c.Window.Cost))),
             pulseCase: static c => Judged(rows: Seq(
                 (BudgetRow.LayerGrid, c.Pulse.Grid), (BudgetRow.LayerWire, c.Pulse.Wire),
                 (BudgetRow.LayerText, c.Pulse.Text), (BudgetRow.LayerIcon, c.Pulse.Icon),
                 (BudgetRow.LayerShape, c.Pulse.Shape), (BudgetRow.LayerLayout, c.Pulse.Layout),
                 (BudgetRow.FrameFull, c.Pulse.FullFrame))),
-            paintCase: static c => Judged(rows: Seq1((BudgetRow.PaintPass, c.Receipt.Latency))),
-            stepCase: static c => Judged(rows: Seq1((c.Row, c.Cost)))))));
+            paintCase: static c => Judged(rows: Seq((BudgetRow.PaintPass, c.Receipt.Latency))),
+            stepCase: static c => Judged(rows: Seq((c.Row, c.Cost)))))));
     }
 
     private static Seq<BudgetBreach> Judged(Seq<(BudgetRow Row, TimeSpan Cost)> rows) =>
@@ -546,3 +517,12 @@ public static class BudgetGate {
             : Option<BudgetBreach>.None).Strict();
 }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

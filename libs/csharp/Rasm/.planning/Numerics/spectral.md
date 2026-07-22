@@ -454,3 +454,12 @@ internal static class SpectralKernel {
 |  [08]   | Evaluation kernel  | `SpectralKernel`                                                                      |    1    |
 
 [KIND] by index — [01]-[02]: `[SmartEnum<int>]` policy vocabularies. [03]: closed `[Union]` + partial-monoid `Compose` + inlined weight. [04]: operator bundle + eigenpair carrier. [05]: `ValidityClaim.All` fold + scale-relative residual gates. [06]-[07]: policy + evidence + carrier family. [08]: `SpectralKernel` dense filtered-signature/normalize/rank kernel.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

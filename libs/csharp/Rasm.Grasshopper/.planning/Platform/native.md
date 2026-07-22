@@ -194,9 +194,13 @@ public abstract class UiNativeLease : IDisposable {
 
     private Fin<Unit> Release(Op key) {
         if (Interlocked.CompareExchange(location1: ref releaseState, value: 1, comparand: 0) != 0) return Fin.Succ(unit);
-        Fin<Unit> outcome = EtoDispatch.Run(body: () => ReleaseOnUi(key: key), key: key);
+        bool entered = false;
+        Fin<Unit> outcome = EtoDispatch.Run(body: () => {
+            entered = true;
+            return ReleaseOnUi(key: key);
+        }, key: key);
         outcome.IfFail(error => Record(error: error));
-        Volatile.Write(location: ref releaseState, value: 2);
+        Volatile.Write(location: ref releaseState, value: entered ? 2 : 0);
         return outcome;
     }
 
@@ -482,8 +486,6 @@ public static class NativeSeam {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
   elk:
     nodePlacementStrategy: NETWORK_SIMPLEX
@@ -491,24 +493,6 @@ config:
   flowchart:
     curve: linear
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    mainBkg: "#44475A"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: macOS platform gate, native attachments, and changing workspace facts
@@ -525,14 +509,13 @@ flowchart LR
     Display["display-options notification"] -->|"request refresh"| Watch
     Watch -->|"publish coherent pair"| Facts["accessibility + pace facts"]
     Facts -->|"drive policy and range"| Retune["composition retuning"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    class Process,Eto,Roles,Screen,Display external
-    class Gate,Inverse boundary
-    class Anchor,Attach,Watch primary
-    class Lease,Facts data
-    class Retune success
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -1,6 +1,6 @@
 # [UI_VITAL]
 
-The browser performance-evidence owner: Core Web Vitals, `PerformanceObserver` long-task/LoAF/event-timing entries, and React `Profiler` commit folds captured as the SAME `label`/`value`/`unit` metric rows probe boards and chart series already render, so one board answers whether cost sits in the render loop, the React tree, or the interaction path. The five `web-vitals` capture functions register once at composition, observer registrations are scoped resources whose teardown rides the composition scope, commit and frame streams fold through one bounded seed window per probe's window law, and the compile lane mirrors the same row shape at build time through the react-compiler diagnostic rail. The plane mints no instrument and imports no collector — rows publish through the `rasm.ui.vital.row` hook point (`system/hook`, replay modality) and the app-composed tap carries them to the OTel spine, while probe boards and `view/chart#SERIES_SURFACE` cohorts render the same rows locally. The module is `ui/src/system/vital.ts`.
+Vital owns browser performance evidence. Core Web Vitals, LoAF/event/long-task entries, React commits, and compiler diagnostics project to one `label`/`value`/`unit` row. Runtime callbacks fold through bounded windows and publish on `rasm.ui.vital.row`; app taps own OTLP egress, while probe and chart surfaces render the same rows. Module: `ui/src/system/vital.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -14,24 +14,60 @@ The browser performance-evidence owner: Core Web Vitals, `PerformanceObserver` l
 ## [02]-[VITAL_CAPTURE]
 
 [VITAL_CAPTURE]:
-- Owner: `Vital.capture(report)` — the one registration: all five capture functions (`onLCP`, `onCLS`, `onINP`, `onFCP`, `onTTFB`) register once at composition, each callback folds its `MetricType` into one row (`vital-lcp`/`vital-cls`/`vital-inp`/`vital-fcp`/`vital-ttfb`, value in the metric's own unit), and the fold keys by `name` with the metric's `id` as the dedupe fact — a bfcache restore mints a new `id`, so the keyed fold replaces the prior report instead of double-counting, and a session total sums `delta` per id where an app tap wants it.
-- Packages: `web-vitals` (`onLCP`/`onCLS`/`onINP`/`onFCP`/`onTTFB`, `MetricType`, `ReportOpts`/`INPReportOpts`, the `*Thresholds` cutoff pairs); `@rasm/ts/core` (`Claim` — the row shape IS its metric vocabulary); `effect` (`Array`, `HashMap`).
+- Owner: `Vital.capture(registry, report, mode)` — the one scoped registration: all five capture functions (`onLCP`, `onCLS`, `onINP`, `onFCP`, `onTTFB`) register once at composition, each callback folds its `MetricType` into one row (`vital-lcp`/`vital-cls`/`vital-inp`/`vital-fcp`/`vital-ttfb`, value in the metric's own unit), publishes that row through the replay point, and hands it to the local report sink; publication rides the one `FiberSet.makeRuntime` publisher every lane acquires, so the composing scope owns each forked publish — close interrupts in-flight publications and a post-close callback publish interrupts on arrival instead of reaching the registry. `terminal` is the default report mode; `stream` is the explicit non-production capture row. `Vital.latest` keys by `name`, carries the metric instance `id`, and sums `delta` per report into a session total; a bfcache restore mints a new `id`, replaces the name-keyed latest report, and continues the whole-session delta fold. `Vital.board` projects each latest row beside its `-session` twin.
+- Packages: `web-vitals` (`onLCP`/`onCLS`/`onINP`/`onFCP`/`onTTFB`, `MetricType`, `ReportOpts`/`INPReportOpts`, `MetricRatingThresholds` with the five `*Thresholds` cutoff pairs); `@rasm/ts/core` (`Claim` — the row shape IS its metric vocabulary); `effect` (`Array`, `Effect`, `FiberSet`, `HashMap`, `Option`, `Scope`).
 - Law: rows are probe rows — `label`/`value`/`unit` derives from `Claim` itself, CLS carries the unitless `"1"` and every timing vital carries `"ms"`, so vital evidence joins the claim board and the chart cohort as ordinary rows with zero shape adaptation.
-- Law: rating maps to tone, never to a row field — each metric's `rating` pre-buckets against its `*Thresholds` pair and keys the `[05]` tone table at presentation; a threshold re-derived beside the shipped cutoffs is the named defect.
-- Law: report cadence is one policy row — `reportAllChanges` selects streaming versus terminal reporting and `durationThreshold` floors the INP entry stream; a per-vital bespoke opt bag is the named defect.
+- Law: rating maps to tone, never to a row field — a live report's shipped `rating` pre-buckets against its `*Thresholds` pair, a session row re-buckets through `Vital.rating` over the `_CUTOFF` table (the five shipped pairs, one anchor), and both key the `[05]` tone table at presentation; a threshold re-derived beside the shipped cutoffs is the named defect.
+- Law: report cadence is one policy row — `reportAllChanges` selects streaming versus terminal reporting and `durationThreshold` floors the INP entry stream; the closed `_CAPTURE` registration table applies that row to every vital, and a per-vital bespoke opt bag or registration branch is the named defect.
 - Law: capture is idempotent and composition-owned — the functions self-dedupe per page, registration runs once where the app composes the plane, and a component registering a vital is the named defect.
 - Boundary: OTLP egress is the app tap's through the hook rail; the attribution build (`web-vitals/attribution`) is an app-plane diagnostic choice — the row shape is unchanged, so admitting it swaps the import and widens no surface.
 
 ```typescript
 import type { Claim } from "@rasm/ts/core"
-import { Array, HashMap } from "effect"
-import { type MetricType, onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals"
+import { Array, Effect, FiberSet, HashMap, Option, type Scope } from "effect"
+import {
+  CLSThresholds, FCPThresholds, INPThresholds, LCPThresholds, TTFBThresholds,
+  type INPReportOpts, type MetricRatingThresholds, type MetricType, onCLS, onFCP, onINP, onLCP, onTTFB,
+} from "web-vitals"
+import { Hook } from "./hook.ts"
 
 type Row = Claim["metrics"][number]
 
-const _REPORT = { reportAllChanges: true, durationThreshold: 40 } as const
+declare module "./hook.ts" {
+  interface Points {
+    readonly "rasm.ui.vital.row": { readonly modality: "replay"; readonly payload: Row }
+  }
+}
+
+const _REPORT = {
+  terminal: { reportAllChanges: false, durationThreshold: 40 },
+  stream: { reportAllChanges: true, durationThreshold: 40 },
+} as const
+
+type _ReportMode = keyof typeof _REPORT
+
+type _Register = (fold: (metric: MetricType) => void, options: INPReportOpts) => void
+
+const _CAPTURE = [
+  (fold, options) => onLCP(fold, options),
+  (fold, options) => onCLS(fold, options),
+  (fold, options) => onINP(fold, options),
+  (fold, options) => onFCP(fold, options),
+  (fold, options) => onTTFB(fold, options),
+] as const satisfies ReadonlyArray<_Register>
 
 const _UNIT = { CLS: "1", FCP: "ms", INP: "ms", LCP: "ms", TTFB: "ms" } as const
+
+const _CUTOFF: { readonly [K in MetricType["name"]]: MetricRatingThresholds } = {
+  CLS: CLSThresholds,
+  FCP: FCPThresholds,
+  INP: INPThresholds,
+  LCP: LCPThresholds,
+  TTFB: TTFBThresholds,
+} // the shipped cutoff pairs are the one rating truth: session rows re-bucket through them, never a re-derived threshold
+
+const _rating = (name: MetricType["name"], value: number): "good" | "needs-improvement" | "poor" =>
+  value <= _CUTOFF[name][0] ? "good" : value <= _CUTOFF[name][1] ? "needs-improvement" : "poor"
 
 const _row = (metric: MetricType): Row => ({
   label: `vital-${metric.name.toLowerCase()}`,
@@ -39,73 +75,137 @@ const _row = (metric: MetricType): Row => ({
   unit: _UNIT[metric.name],
 })
 
-const _capture = (report: (row: Row, metric: MetricType) => void): void => {
-  const fold = (metric: MetricType): void => report(_row(metric), metric)
-  onLCP(fold, _REPORT)
-  onCLS(fold, _REPORT)
-  onINP(fold, _REPORT)
-  onFCP(fold, _REPORT)
-  onTTFB(fold, _REPORT)
+const _vitalHook: Hook.Row<"rasm.ui.vital.row"> = { modality: "replay", depth: 128, source: Option.none() }
+
+type _Publish = (row: Row) => void
+
+// scope-owned publisher: FiberSet.makeRuntime binds every callback-forked publish to the composing
+// lifecycle — scope close interrupts in-flight publishes and a post-close call interrupts on arrival,
+// so no callback publication outlives or retains its registry composition
+const _publisher = (registry: Hook.Registry): Effect.Effect<_Publish, never, Scope.Scope> =>
+  Effect.map(FiberSet.makeRuntime<never>(), (fork) => (row) => {
+    // BOUNDARY ADAPTER: browser and Profiler callbacks re-enter the Effect rail at the one point publisher
+    void fork(Effect.asVoid(Hook.publish(registry, "rasm.ui.vital.row", row)))
+  })
+
+const _deliver = (publish: _Publish, report: (row: Row) => void, row: Row): void => {
+  publish(row)
+  report(row)
 }
 
-const _latest = (held: HashMap.HashMap<string, Row>, metric: MetricType): HashMap.HashMap<string, Row> =>
-  HashMap.set(held, metric.name, _row(metric)) // keyed replace: a bfcache restore's fresh id lands as the new report, never a double count
+const _capture = (
+  registry: Hook.Registry,
+  report: (row: Row) => void,
+  mode: _ReportMode = "terminal",
+): Effect.Effect<void, never, Scope.Scope> =>
+  Effect.map(_publisher(registry), (publish) => {
+    const fold = (metric: MetricType): void => _deliver(publish, report, _row(metric))
+    const options = _REPORT[mode]
+    Array.forEach(_CAPTURE, (register) => register(fold, options))
+  })
 
-const _board = (held: HashMap.HashMap<string, Row>): ReadonlyArray<Row> => Array.fromIterable(HashMap.values(held))
+type _Held = { readonly row: Row; readonly id: string; readonly session: number }
+
+const _latest = (held: HashMap.HashMap<MetricType["name"], _Held>, metric: MetricType): HashMap.HashMap<MetricType["name"], _Held> =>
+  HashMap.set(held, metric.name, {
+    row: _row(metric),
+    id: metric.id, // metric-instance identity changes on bfcache restore; streaming reports retain it while delta advances
+    session: Option.match(HashMap.get(held, metric.name), {
+      onNone: () => metric.delta,
+      onSome: (prior) => prior.session + metric.delta, // delta accumulates across reports and restore-minted ids into the whole-session total
+    }),
+  })
+
+const _board = (held: HashMap.HashMap<MetricType["name"], _Held>): ReadonlyArray<Row> =>
+  Array.flatMap(Array.fromIterable(HashMap.values(held)), (kept) => [
+    kept.row,
+    { label: `${kept.row.label}-session`, value: kept.session, unit: kept.row.unit },
+  ])
 ```
 
 ## [03]-[FRAME_OBSERVER]
 
 [FRAME_OBSERVER]:
-- Owner: `Vital.observe(type, digest)` — the scoped observer row: `new PerformanceObserver` acquires, `observe({ type, buffered: true })` replays already-buffered entries into the first digest, and `disconnect()` releases with the composition scope; three entry rows ride the one bracket — `long-animation-frame` (`PerformanceLongAnimationFrameTiming.blockingDuration` — the LoAF jank fact), `event` (`PerformanceEventTiming.duration` over the `durationThreshold` floor — interaction latency beyond the INP headline), `longtask` (main-thread occupancy) — and a new entry kind is one row on the same bracket.
-- Packages: `web-vitals` (the types build augments the DOM lib with `PerformanceLongAnimationFrameTiming`, `PerformanceEventTiming`, and `PerformanceScriptTiming`, so raw entries type without a second `@types` package); `effect` (`Chunk`, `Effect`, `Number`, `pipe`).
+- Owner: `Vital.observe(registry, type, report)` — the scoped observer row: registration first proves the type against `PerformanceObserver.supportedEntryTypes` and an unsupported kind (`long-animation-frame` ships Chromium-first) answers `Option.none`, never a dead observer; on a supported kind `new PerformanceObserver` acquires, `observe({ type, buffered: true })` replays already-buffered entries into the first fold, and `disconnect()` releases with the composition scope; the observer closure appends each delivery through `Vital.window.samples`, projects `Vital.entryRows`, and publishes every row through the replay point before calling the local report sink. Three entry kinds ride the one bracket AND one polymorphic seed fold over the `_ENTRY` measure table — `long-animation-frame` measures `PerformanceLongAnimationFrameTiming.blockingDuration` (the LoAF jank fact), `event` measures `PerformanceEventTiming.duration` over the `durationThreshold` floor (interaction latency beyond the INP headline), `longtask` measures main-thread occupancy — each kind projecting its `-count`/`-mean`/`-peak` rows from the same fold, so a new entry kind is one measure-table row on the same bracket, never a sibling fold.
+- Packages: `web-vitals` (the types build augments the DOM lib with `PerformanceLongAnimationFrameTiming`, `PerformanceEventTiming`, and `PerformanceScriptTiming`, so raw entries type without a second `@types` package); `effect` (`Chunk`, `Effect`, `Number`, `Option`, `pipe`, `Scope`).
 - Law: entry streams fold through the probe window law — samples append into a bounded `Chunk` window (`takeRight` at the cap) and projections run as ONE seed fold: raw sums accumulate in a single `Chunk.reduce` pass, means project at read, and a new statistic is one seed field and one row, never a second traversal.
 - Law: script attribution stays entry-local — a LoAF entry's `scripts` rows (`invokerType`, `sourceURL`, `forcedStyleAndLayoutDuration`) render as drill-in evidence beside the row, never as per-script metric rows, because per-script labels are unbounded and rows are a bounded vocabulary.
 - Law: observers are passive — no forced layout, no synthetic events, no `takeRecords` polling loop; an idle document reports idle numbers truthfully.
 
 ```typescript
-import { Chunk, Effect, Number, pipe, type Scope } from "effect"
+import { Chunk, Effect, Number, Option, pipe, type Scope } from "effect"
 
 const _WINDOW = { samples: 120 } as const
 
-const _observe = (
-  type: "event" | "long-animation-frame" | "longtask",
-  digest: (entries: ReadonlyArray<PerformanceEntry>) => void,
-): Effect.Effect<PerformanceObserver, never, Scope.Scope> =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      const observer = new PerformanceObserver((list) => digest(list.getEntries()))
-      observer.observe({ type, buffered: true, ...(type === "event" && { durationThreshold: _REPORT.durationThreshold }) })
-      return observer
-    }),
-    (observer) => Effect.sync(() => observer.disconnect()),
-  )
+type _Entry = {
+  readonly "long-animation-frame": PerformanceLongAnimationFrameTiming
+  readonly event: PerformanceEventTiming
+  readonly longtask: PerformanceEntry
+}
 
-type _FrameSums = { readonly count: number; readonly blocking: number; readonly longest: number }
+const _ENTRY: { readonly [K in keyof _Entry]: { readonly label: string; readonly measure: (entry: _Entry[K]) => number } } = {
+  "long-animation-frame": { label: "loaf", measure: (entry) => entry.blockingDuration }, // the LoAF jank fact
+  event: { label: "event", measure: (entry) => entry.duration }, // interaction latency beyond the INP headline
+  longtask: { label: "longtask", measure: (entry) => entry.duration }, // main-thread occupancy
+}
 
-const _FRAME_SEED: _FrameSums = { count: 0, blocking: 0, longest: 0 }
+const _entryWindow = <K extends keyof _Entry>(trace: Chunk.Chunk<_Entry[K]>, entries: ReadonlyArray<_Entry[K]>): Chunk.Chunk<_Entry[K]> =>
+  Chunk.takeRight(Chunk.fromIterable([...trace, ...entries]), _WINDOW.samples)
 
-const _frameStepped = (acc: _FrameSums, entry: PerformanceLongAnimationFrameTiming): _FrameSums => ({
-  count: acc.count + 1,
-  blocking: acc.blocking + entry.blockingDuration,
-  longest: Number.max(acc.longest, entry.blockingDuration), // the worst frame windows as its peak, never a mean
-})
+// long-animation-frame ships Chromium-first: registration proves the type against the platform roster
+const _supported = (type: keyof _Entry): boolean => PerformanceObserver.supportedEntryTypes.includes(type)
 
-const _frameRows = (trace: Chunk.Chunk<PerformanceLongAnimationFrameTiming>): ReadonlyArray<Row> =>
-  pipe(Chunk.reduce(trace, _FRAME_SEED, _frameStepped), (sums) =>
-    sums.count === 0
-      ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
-      : [
-          { label: "loaf-count", value: sums.count, unit: "1" },
-          { label: "loaf-blocking", value: sums.blocking / sums.count, unit: "ms" },
-          { label: "loaf-peak", value: sums.longest, unit: "ms" },
-        ])
+const _observe = <K extends keyof _Entry>(
+  registry: Hook.Registry,
+  type: K,
+  report: (row: Row) => void,
+): Effect.Effect<Option.Option<PerformanceObserver>, never, Scope.Scope> =>
+  _supported(type)
+    ? Effect.flatMap(_publisher(registry), (publish) =>
+        Effect.map(
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              let trace = Chunk.empty<_Entry[K]>()
+              const observer = new PerformanceObserver((list) => {
+                // BOUNDARY ADAPTER: the typed observe registration proves the delivered entry subtype
+                trace = _entryWindow(trace, list.getEntries() as ReadonlyArray<_Entry[K]>)
+                Array.forEach(_entryRows(type, trace), (row) => _deliver(publish, report, row))
+              })
+              observer.observe({ type, buffered: true, ...(type === "event" && { durationThreshold: _REPORT.terminal.durationThreshold }) })
+              return observer
+            }),
+            (observer) => Effect.sync(() => observer.disconnect()),
+          ),
+          Option.some,
+        ))
+    : Effect.succeedNone // an absent entry type is the exposed state, never a dead observer
+
+type _EntrySums = { readonly count: number; readonly total: number; readonly peak: number }
+
+const _ENTRY_SEED: _EntrySums = { count: 0, total: 0, peak: 0 }
+
+const _entryRows = <K extends keyof _Entry>(kind: K, trace: Chunk.Chunk<_Entry[K]>): ReadonlyArray<Row> =>
+  pipe(
+    Chunk.reduce(trace, _ENTRY_SEED, (acc, entry): _EntrySums =>
+      pipe(_ENTRY[kind].measure(entry), (cost) => ({
+        count: acc.count + 1,
+        total: acc.total + cost,
+        peak: Number.max(acc.peak, cost), // the worst entry windows as its peak, never a mean
+      }))),
+    (sums) =>
+      sums.count === 0
+        ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
+        : [
+            { label: `${_ENTRY[kind].label}-count`, value: sums.count, unit: "1" },
+            { label: `${_ENTRY[kind].label}-mean`, value: sums.total / sums.count, unit: "ms" },
+            { label: `${_ENTRY[kind].label}-peak`, value: sums.peak, unit: "ms" },
+          ])
 ```
 
 ## [04]-[COMMIT_FOLD]
 
 [COMMIT_FOLD]:
-- Owner: `Vital.commit` — the React tree lane: one `<Profiler id onRender>` per measured subtree feeds the commit window, `onRender`'s `(id, phase, actualDuration, baseDuration, startTime, commitTime)` folds into the bounded seed, and the projections answer the memoization question directly — `commit-actual` against `commit-base` reads whether the compiler's memoization is holding, `commit-count` per phase reads churn, and the peak reads the worst commit in the window.
+- Owner: `Vital.committed(registry, report)` — the React tree lane, minted as a scoped acquisition over the same publisher law as capture: one `<Profiler id onRender>` per measured subtree feeds an id-keyed window owned by the callback closure, `onRender`'s full `(id, phase, actualDuration, baseDuration, startTime, commitTime)` tuple appends under `Vital.window.samples`, and the projections publish through the replay point before reaching the local report sink. `commit-actual` against `commit-base` reads whether the compiler's memoization is holding, `commit-count` per phase reads churn, the peak reads the worst commit in the window, and `commit-lag` (`commitTime - startTime`) reads the scheduling latency the tree paid beyond its own render cost.
 - Packages: `react` (`Profiler`, the `ProfilerOnRenderCallback` contract); `effect` (`Chunk`, `Number`, `pipe`).
 - Law: the profiled set is a bounded roster — measured subtrees are named policy rows (the view plane, the viewer canvas shell, an app-nominated surface), never a per-component wrap; `id` keys the row labels so two subtrees never blur into one series.
 - Law: phase is a fold discriminant, not a row family — `mount`, `update`, and `nested-update` advance their own counters inside ONE seed, and a per-phase window triple is the named defect.
@@ -114,6 +214,15 @@ const _frameRows = (trace: Chunk.Chunk<PerformanceLongAnimationFrameTiming>): Re
 ```typescript
 import type { ProfilerOnRenderCallback } from "react"
 
+type _Commit = {
+  readonly id: string
+  readonly phase: "mount" | "update" | "nested-update"
+  readonly actual: number
+  readonly base: number
+  readonly start: number
+  readonly commit: number
+}
+
 type _CommitSums = {
   readonly mounts: number
   readonly updates: number
@@ -121,11 +230,11 @@ type _CommitSums = {
   readonly actual: number
   readonly base: number
   readonly peak: number
+  readonly lag: number
+  readonly lagPeak: number
 }
 
-const _COMMIT_SEED: _CommitSums = { mounts: 0, updates: 0, nested: 0, actual: 0, base: 0, peak: 0 }
-
-type _Commit = { readonly phase: "mount" | "update" | "nested-update"; readonly actual: number; readonly base: number }
+const _COMMIT_SEED: _CommitSums = { mounts: 0, updates: 0, nested: 0, actual: 0, base: 0, peak: 0, lag: 0, lagPeak: 0 }
 
 const _commitStepped = (acc: _CommitSums, commit: _Commit): _CommitSums => ({
   mounts: acc.mounts + (commit.phase === "mount" ? 1 : 0),
@@ -134,10 +243,24 @@ const _commitStepped = (acc: _CommitSums, commit: _Commit): _CommitSums => ({
   actual: acc.actual + commit.actual,
   base: acc.base + commit.base,
   peak: Number.max(acc.peak, commit.actual),
+  lag: acc.lag + (commit.commit - commit.start), // start-to-commit latency: scheduling pressure beyond the render cost itself
+  lagPeak: Number.max(acc.lagPeak, commit.commit - commit.start),
 })
 
-const _committed = (sink: (commit: _Commit) => void): ProfilerOnRenderCallback =>
-  (_id, phase, actualDuration, baseDuration) => sink({ phase, actual: actualDuration, base: baseDuration })
+const _committed = (registry: Hook.Registry, report: (row: Row) => void): Effect.Effect<ProfilerOnRenderCallback, never, Scope.Scope> =>
+  Effect.map(_publisher(registry), (publish) => {
+    let held = HashMap.empty<string, Chunk.Chunk<_Commit>>()
+    return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+      // BOUNDARY ADAPTER: Profiler supplies the complete commit tuple at this callback seam
+      const commit = { id, phase, actual: actualDuration, base: baseDuration, start: startTime, commit: commitTime }
+      const trace = Chunk.takeRight(
+        Chunk.append(Option.getOrElse(HashMap.get(held, id), () => Chunk.empty<_Commit>()), commit),
+        _WINDOW.samples,
+      )
+      held = HashMap.set(held, id, trace)
+      Array.forEach(_commitRows(id, trace), (row) => _deliver(publish, report, row))
+    }
+  })
 
 const _commitRows = (id: string, trace: Chunk.Chunk<_Commit>): ReadonlyArray<Row> =>
   pipe(Chunk.reduce(trace, _COMMIT_SEED, _commitStepped), (sums) =>
@@ -149,6 +272,8 @@ const _commitRows = (id: string, trace: Chunk.Chunk<_Commit>): ReadonlyArray<Row
             { label: `commit-actual-${id}`, value: sums.actual / count, unit: "ms" },
             { label: `commit-base-${id}`, value: sums.base / count, unit: "ms" },
             { label: `commit-peak-${id}`, value: sums.peak, unit: "ms" },
+            { label: `commit-lag-${id}`, value: sums.lag / count, unit: "ms" },
+            { label: `commit-lag-peak-${id}`, value: sums.lagPeak, unit: "ms" },
           ]))
 ```
 
@@ -195,12 +320,15 @@ declare namespace Vital {
   type Shape = {
     readonly window: typeof _WINDOW
     readonly report: typeof _REPORT
+    readonly cutoff: typeof _CUTOFF
     readonly tone: typeof _tone
+    readonly rating: typeof _rating
     readonly capture: typeof _capture
+    readonly hook: typeof _vitalHook
     readonly latest: typeof _latest
     readonly board: typeof _board
     readonly observe: typeof _observe
-    readonly frameRows: typeof _frameRows
+    readonly entryRows: typeof _entryRows
     readonly committed: typeof _committed
     readonly commitRows: typeof _commitRows
     readonly compiled: typeof _compiled
@@ -210,12 +338,15 @@ declare namespace Vital {
 const Vital: Vital.Shape = {
   window: _WINDOW,
   report: _REPORT,
+  cutoff: _CUTOFF,
   tone: _tone,
+  rating: _rating,
   capture: _capture,
+  hook: _vitalHook,
   latest: _latest,
   board: _board,
   observe: _observe,
-  frameRows: _frameRows,
+  entryRows: _entryRows,
   committed: _committed,
   commitRows: _commitRows,
   compiled: _compiled,
@@ -225,3 +356,12 @@ const Vital: Vital.Shape = {
 
 export { Vital }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

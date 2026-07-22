@@ -1,6 +1,6 @@
 # [UI_FORM]
 
-The Schema-driven form plane: one kernel `Schema` owns wire decode AND live field validity — projected through `Schema.standardSchemaV1` (the package surface used directly; a forwarding wrapper is the named defect) into the standard-schema validator RAC fields consume — decode failures land in `FormValidationContext` keyed by field path so server faults and live validation share one error shape, and the submit round-trip awaits the store. The field roster is the full RAC family set bound as rows: text/number, date/time over `@internationalized/date`, color over RAC color state, gauges and toggles — each row one schema field bound to one RAC field, with the tw-rac `invalid:`/`required:` variants styling validity with zero JS branching. A byte payload past one request rides the resumable upload lane — one tus session per source, offsets proven against the server, interruption pausing for a later resume. No form library, no per-field `useState`, no parallel validator. The module is `ui/src/view/form.ts`.
+Form owns Schema-driven input, submission, and resumable upload. One kernel `Schema` projects through `standardSchemaV1`; live and server faults share field-path rows. RAC fields bind schema rows, Form's observed submit trip awaits the store, and large byte payloads ride one tus session. No parallel validator or field store exists. Module: `ui/src/view/form.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -54,59 +54,105 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 ## [04]-[SUBMIT_TRIP]
 
 [SUBMIT_TRIP]:
-- Owner: the submit round-trip riding `Form` — the action writes through `useAtomSet(mutation, { mode: "promise" })` inside `startTransition`; pending state reads `useFormStatus` (the row's submit affordance disables and spins from it, never from a local flag); a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
-- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `react` (`startTransition`); `effect` (`Exit`); `@effect-atom/atom-react` (write modality, `system/atom` law).
+- Owner: the submit round-trip riding `Form` — `Form.submit` IS the nearest form's `action`: React brackets the async action in its own transition, so `useFormStatus` reflects the trip (the row's submit affordance disables and spins from it, never from a local flag); the action writes through `useAtomSet(mutation, { mode: "promiseExit" })`; a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
+- Packages: `react-dom` (`useFormStatus`, `requestFormReset`); `effect` (`Exit`); `@effect-atom/atom-react` (write modality, `system/atom` law).
 - Law: submit awaits the store — the mutation's `Result` is the completion evidence; polling an atom to detect completion marks a missing write mode, and a `try`/`catch` around the awaited promise restates the boundary rail.
-- Law: pre-flight rides the hook rail — the action consults the `rasm.ui.form.submit` veto point (`system/hook`) before the mutation write, a veto refusal folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point so history and telemetry taps consume one rail.
+- Law: pre-flight rides the hook rail — `Form.observed` consults the `rasm.ui.form.submit` point (`system/hook`, `veto` modality; the contributed `Points` and runtime rows are this page's) before the mutation write, a veto refusal fails the trip as `DraftRefused` and folds into the same error sink a validation failure feeds, and the settled outcome publishes on the same point tagged by the bounded stage vocabulary. `Form.hook` carries `consult: stage === "preflight"`, so arbiters cannot refuse settled facts and history and telemetry consume one rail.
 - Law: the refusal fold reads the Cause tree through `Cause.failureOption` — the tagged `DraftRefused` arm projects its path-keyed errors, and a `Die`/`Interrupt`/composite cause preserves its evidence through `Cause.pretty` on the form-level row instead of collapsing to a blind sentinel; probing `cause._tag` by hand is the named defect.
 - Law: a blocking submit failure lands in the form's error rows; a non-blocking outcome (a saved draft, a queued write) lands as a `Primitive.toasts` note — the two sinks never swap.
-- Law: the trip is woven at the mutation effect — `_observed` states `Effect.withSpan("rasm.ui.form.submit")` with the form id as span attribute and log annotation, and `_SUBMITTED` ticks once per settled trip through `Effect.onExit`, tagged by the bounded outcome vocabulary (`resolved`/`refused`/`torn`) the refusal fold already discriminates — so metrics and error rows cannot disagree, field paths ride log annotations, and the app bridge (`system/atom#STORE_ROOT`'s seam) exports the trip with zero form edits.
-- Boundary: the `await` inside the transition body is the React-19 form-action platform seam (`useFormStatus`/`requestFormReset` are Promise-shaped); the fence below is the app-side action shape this page legislates — the `promiseExit` write and the form element arrive from the consuming row.
+- Law: the trip is woven at the mutation effect — `Form.observed(write, registry, form)` is the composed trip the promiseExit write awaits: the veto consult leads, `Effect.withSpan("rasm.ui.form.submit")` carries the form id as span attribute and log annotation, and `Effect.onExit` both publishes the settled stage and feeds `1` through `Effect.withMetric` into `_SUBMITTED` tagged by the same bounded vocabulary (`resolved`/`refused`/`torn`) — so hook facts, metrics, and error rows cannot disagree.
+- Boundary: the async action body is the React-19 form-action platform seam — React runs it inside its own transition (`useFormStatus`/`requestFormReset` are Promise-shaped); `Effect.promise` lifts the non-rejecting `Promise<Exit>` from `promiseExit`, `Exit.match` restores its Cause rail, and `Effect.runPromiseExit(Form.observed(...))` returns the one settled outcome the form folds; the write, hook registry, form id, form element, draft reader, and error sink arrive from the consuming row.
 
 ```typescript
-import { Cause, Effect, Exit, Metric, Option } from "effect"
-import { startTransition } from "react"
+import { Cause, Effect, Exit, Metric, Option, pipe } from "effect"
 import { requestFormReset } from "react-dom"
+import { Hook } from "../system/hook.ts"
+
+declare module "../system/hook.ts" {
+  interface Points {
+    readonly "rasm.ui.form.submit": { readonly modality: "veto"; readonly payload: Submit.Fact } // this page's contributed row: the veto modality restated at this end of the seam
+  }
+}
 
 declare namespace Submit {
   type Draft = Readonly<Record<string, unknown>>
+  type Stage = "preflight" | "resolved" | "refused" | "torn"
+  type Fact = { readonly form: string; readonly stage: Submit.Stage }
   type Refusal = { readonly _tag: "DraftRefused"; readonly errors: Form.Errors }
   type Write = (draft: Draft) => Promise<Exit.Exit<void, Submit.Refusal>>
 }
 
 const _SUBMITTED = Metric.counter("rasm.ui.form.submit", { description: "settled submit trips", incremental: true })
 
-const _observed = <A, E, R>(write: Effect.Effect<A, E, R>, form: string): Effect.Effect<A, E, R> =>
-  write.pipe(
-    Effect.withSpan("rasm.ui.form.submit", { attributes: { "form.id": form } }),
-    Effect.annotateLogs({ form }),
-    Effect.onExit((exit) =>
-      Metric.increment(Metric.tagged(_SUBMITTED, "outcome",
-        Exit.match(exit, {
-          onFailure: (cause) => (Option.isSome(Cause.failureOption(cause)) ? "refused" : "torn"),
-          onSuccess: () => "resolved",
-        }))),
-    ),
-  )
+const _submitHook: Hook.Row<"rasm.ui.form.submit"> = {
+  modality: "veto",
+  depth: 16,
+  source: Option.none(),
+  consult: (fact) => fact.stage === "preflight",
+}
 
-const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form.Errors) => void) =>
-  (draft: Submit.Draft): void =>
-    startTransition(async () => {
-      const outcome = await write(draft)
-      Exit.match(outcome, {
-        onSuccess: () => {
-          requestFormReset(form)
-          sink({})
-        },
-        onFailure: (cause) =>
-          sink(
-            Option.match(Cause.failureOption(cause), {
-              onSome: (refusal) => refusal.errors,
-              onNone: () => ({ "": [Cause.pretty(cause)] }),
-            }),
+const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
+  write: Effect.Effect<A, E, R>,
+  registry: Hook.Registry,
+  form: string,
+) {
+  return yield* Hook.publish(registry, "rasm.ui.form.submit", { form, stage: "preflight" }).pipe(
+    Effect.filterOrFail(
+      (admitted) => admitted,
+      (): Submit.Refusal => ({ _tag: "DraftRefused", errors: { "": ["<vetoed>"] } }), // a veto refusal folds into the same sink a validation failure feeds
+    ),
+    Effect.zipRight(write),
+    Effect.onExit((exit) =>
+      pipe(
+        Exit.match(exit, {
+          onFailure: (cause) => (Option.isSome(Cause.failureOption(cause)) ? "refused" : "torn") as const,
+          onSuccess: () => "resolved" as const,
+        }),
+        (stage) =>
+          Effect.zipRight(
+            Effect.asVoid(Hook.publish(registry, "rasm.ui.form.submit", { form, stage })),
+            Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_SUBMITTED, "outcome", stage))), // one stage value drives the hook fact and metric tag
           ),
-      })
+      )),
+    Effect.annotateLogs({ form }),
+    Effect.withSpan("rasm.ui.form.submit", { attributes: { "form.id": form } }),
+  )
+})
+
+const _submit = (
+  write: Submit.Write,
+  registry: Hook.Registry,
+  id: string,
+  form: HTMLFormElement,
+  draft: () => Submit.Draft,
+  sink: (errors: Form.Errors) => void,
+) =>
+  async (_formData: FormData): Promise<void> => {
+    // nearest-form action seam: this function IS the <form action={...}> binding — React brackets
+    // it in its own transition and useFormStatus reads the trip; the draft reads from the atom cursor
+    // root at submit time, never from the platform FormData
+    const outcome = await Effect.runPromiseExit(
+      Form.observed(
+        Effect.flatMap(Effect.promise(() => write(draft())), (exit) =>
+          Exit.match(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })),
+        registry,
+        id,
+      ),
+    )
+    Exit.match(outcome, {
+      onSuccess: () => {
+        requestFormReset(form)
+        sink({})
+      },
+      onFailure: (cause) =>
+        sink(
+          Option.match(Cause.failureOption(cause), {
+            onSome: (refusal) => refusal.errors,
+            onNone: () => ({ "": [Cause.pretty(cause)] }),
+          }),
+        ),
     })
+  }
 ```
 
 ## [05]-[DRAFT_CURSORS]
@@ -192,6 +238,9 @@ declare namespace Form {
   type Shape = {
     readonly standard: typeof _standard
     readonly errors: typeof _errors
+    readonly observed: typeof _observed
+    readonly hook: typeof _submitHook
+    readonly submit: typeof _submit
     readonly upload: typeof _upload
   }
 }
@@ -199,6 +248,9 @@ declare namespace Form {
 const Form: Form.Shape = {
   standard: _standard,
   errors: _errors,
+  observed: _observed,
+  hook: _submitHook,
+  submit: _submit,
   upload: _upload,
 }
 
@@ -206,3 +258,12 @@ const Form: Form.Shape = {
 
 export { Form, UploadFault }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

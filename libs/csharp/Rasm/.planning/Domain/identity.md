@@ -92,3 +92,12 @@ Two owners, two concerns, zero siblings; every reproducibility need in the corpu
 | :-----: | :---------------------- | :-------------- | :---------------------------------- | :----------------------------------------- | :-----: |
 |  [01]   | Content identity        | `ContentHash`   | static entry, seed-zero `XxHash128` | `ReadOnlySpan<byte> → UInt128`             |    1    |
 |  [02]   | Reproducible derivation | `Deterministic` | splitmix64 — streams, keys, draws   | `ref ulong → double`/`coordinates → ulong` |    6    |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

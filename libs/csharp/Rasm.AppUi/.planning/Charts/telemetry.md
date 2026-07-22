@@ -12,7 +12,7 @@ Rasm.AppUi's telemetry board is the estate observability product surface rendere
 ## [02]-[BOARD_ROWS]
 
 - Owner: `TelemetryBoard` — the board's tile registry, feed rows, layout row, and watch-arming fold; one named `DashboardLayout` row on the dashboards placement law.
-- Cases: four tile tracks — instrument tiles over the receipt stream, SLO gauge tiles from the `[03]` fold, store-profile tiles over the analytical lane, and the evidence track with the tenant-usage table — every tile a `DashboardTile` case in one registry.
+- Cases: tile tracks cover instruments over the receipt stream, SLO gauges from the `[03]` fold, store profiles over the analytical lane, and evidence with tenant usage — every tile a `DashboardTile` case in one registry.
 - Entry: `TelemetryBoard.Tiles(Seq<(string Key, DashboardTile Tile, WatchRule Watch)> slo)` — the full tile registry `DashboardSurface.Resolve` consumes; `TelemetryBoard.Layout(Seq<string> sloKeys)` — the admitted placement row; `TelemetryBoard.Arm(...)` — one armed watch subscription per SLO rule over `WatchFold.Arm`.
 - Auto: feed rows reuse the settled stream table verbatim — instrument and evidence tiles ride the compute-receipt-stream window, bound, bucket, and cadence values, store-profile tiles the persistence-analytical row — so board load characteristics derive from the one feed table and a board-local sampling policy is the deleted form; board snapshot, restore, and brush reapply ride `BoardState` unchanged.
 - Packages: LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, System.Reactive, NodaTime, BCL inbox
@@ -23,7 +23,7 @@ Rasm.AppUi's telemetry board is the estate observability product surface rendere
 | :-----: | :------------------------ | :-------------------- | :--------------------- | :----------------------------------------- |
 |  [01]   | telemetry:frame-pace      | Chart step-line       | compute-receipt-stream | `RenderGraph.FrameInstrument` distribution |
 |  [02]   | telemetry:frame-heat      | Chart heat            | compute-receipt-stream | `RenderGraph.GpuInstrument` distribution   |
-|  [03]   | telemetry:burn:*          | Gauge (four SLO rows) | compute-receipt-stream | `SloCoordinate.Viewport` burn folds        |
+|  [03]   | telemetry:burn:*          | Gauge (derived family) | compute-receipt-stream | `SloCoordinate.Viewport` burn folds        |
 |  [04]   | telemetry:overlay-swaps   | Stat sum              | compute-receipt-stream | `BoardTelemetry.OverlaySwapsInstrument`    |
 |  [05]   | telemetry:filter-applies  | Stat sum              | compute-receipt-stream | `BoardTelemetry.FilterAppliesInstrument`   |
 |  [06]   | telemetry:store-latency   | Stat average          | persistence-analytical | store-profile receipt latency column       |
@@ -59,20 +59,25 @@ public static class TelemetryBoard {
             ("telemetry:usage", new DashboardTile.Table("telemetry:usage", "tenant.usage")))
         + toHashMap(slo.Map(static row => (row.Key, row.Tile)));
 
-    public static Fin<DashboardLayout> Layout(Seq<string> sloKeys) =>
-        DashboardLayout.Admit(Key, 1,
+    public static Fin<DashboardLayout> Layout(Seq<string> sloKeys) {
+        const int sloColumns = 4;
+        const int sloWidth = 3;
+        int detailRow = 2 + int.Max(1, (sloKeys.Count + sloColumns - 1) / sloColumns);
+        return DashboardLayout.Admit(Key, 1,
             Seq(
                 new TilePlacement("telemetry:frame-pace", 0, 0, 6, 2),
                 new TilePlacement("telemetry:frame-heat", 6, 0, 6, 2))
-            + sloKeys.Map((key, index) => new TilePlacement(key, index * 3, 2, 3, 1))
+            + sloKeys.Map((key, index) => new TilePlacement(
+                key, index % sloColumns * sloWidth, 2 + index / sloColumns, sloWidth, 1))
             + Seq(
-                new TilePlacement("telemetry:overlay-swaps", 0, 3, 3, 1),
-                new TilePlacement("telemetry:filter-applies", 3, 3, 3, 1),
-                new TilePlacement("telemetry:store-latency", 6, 3, 3, 1),
-                new TilePlacement("telemetry:store-blocked", 9, 3, 3, 1),
-                new TilePlacement("telemetry:store-operators", 0, 4, 6, 2),
-                new TilePlacement("telemetry:evidence-track", 6, 4, 6, 2),
-                new TilePlacement("telemetry:usage", 0, 6, 12, 2)));
+                new TilePlacement("telemetry:overlay-swaps", 0, detailRow, 3, 1),
+                new TilePlacement("telemetry:filter-applies", 3, detailRow, 3, 1),
+                new TilePlacement("telemetry:store-latency", 6, detailRow, 3, 1),
+                new TilePlacement("telemetry:store-blocked", 9, detailRow, 3, 1),
+                new TilePlacement("telemetry:store-operators", 0, detailRow + 1, 6, 2),
+                new TilePlacement("telemetry:evidence-track", 6, detailRow + 1, 6, 2),
+                new TilePlacement("telemetry:usage", 0, detailRow + 3, 12, 2)));
+    }
 
     public static Seq<IDisposable> Arm(
         Seq<(string Key, DashboardTile Tile, WatchRule Watch)> rows,
@@ -91,7 +96,7 @@ public static class TelemetryBoard {
 - Auto: each coordinate row yields its tile and rule from the same key derivation, so a coordinate added on the evidence page lands on the board as one gauge and one alert with zero board edit; the gauge ceiling doubles the burn threshold so a breach reads against visible headroom.
 - Packages: LanguageExt.Core, System.Reactive, NodaTime, BCL inbox
 - Growth: a new SLO objective is one `SloCoordinate` row on the evidence page; the board fold derives its tile and watch; zero new surface.
-- Boundary: burn math lives on the coordinate row (`SloCoordinate.Burn`) and the board only streams it — a board-side burn formula is the deleted form; breach counts for a row carrying a breach instrument read that counter directly, while a row without one derives breaches from the `UiBuckets.FrameSeconds` bucket edge at the frame-budget boundary, so both legs read the histograms the spine already declares and no new instrument is minted for alerting; a crossing raises `TelemetryBoard.BurnToastIntent` and holds through the rule's quiet window under the settled `WatchFold` edge law.
+- Boundary: burn math lives on the coordinate row (`SloCoordinate.Burn`) and the board only streams it — a board-side burn formula is the deleted form; breach counts for a row carrying a breach instrument read that counter directly, while a row without one derives breaches from the `Buckets.UiFrameSeconds` bucket edge at the frame-budget boundary, so both legs read the histograms the spine already declares and no new instrument is minted for alerting; a crossing raises `TelemetryBoard.BurnToastIntent` and holds through the rule's quiet window under the settled `WatchFold` edge law.
 
 ```csharp signature
 public static class SloTiles {
@@ -99,7 +104,7 @@ public static class SloTiles {
         SloCoordinate.Viewport.Map(coordinate =>
             $"telemetry:burn:{coordinate.Instrument}:{coordinate.Window}" switch {
                 var key => (key,
-                    (DashboardTile)new DashboardTile.Gauge(key, 0d, coordinate.BurnThreshold * 2d, StatFold.Average, TelemetryBoard.Instruments),
+                    (DashboardTile)new DashboardTile.Gauge(key, 0d, coordinate.BurnThreshold * 2d, StatFold.Average, burn),
                     new WatchRule($"{key}:watch", key, WatchComparator.Above,
                         new WatchBound(0d, coordinate.BurnThreshold), Duration.FromSeconds(30), TelemetryBoard.BurnToastIntent)),
             });

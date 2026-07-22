@@ -13,6 +13,7 @@ Controller syntax is posting-owned: `MacroGrammar` is the control-language discr
 - [03]-[FRAMING]: `BlockFrame` structure, `SequenceCounter` numbering, and `ChecksumRule` digests survive to the byte stream.
 - [04]-[COORDINATES]: `GNode.CoordinateFrame` lowers the assigned `WcsSlot` into an offset write and its selection word.
 - [05]-[NC1]: `Nc1Canonical` projects the admitted steel owner into canonical DSTV records.
+- [06]-[DELIVERY]: `ProgramDelivery` binds an emitted image to its acknowledged controller hand-off with a verified digest.
 
 ## [02]-[EMISSION]
 
@@ -43,6 +44,12 @@ Controller syntax is posting-owned: `MacroGrammar` is the control-language discr
 
 `Nc1Canonical` consumes `SteelHeader` and `SteelFeature` directly. Canonical records are both the file payload and the `EgressKind.Nc1` content-key input; the read-only `DSTV.Net` model constrains header and feature parity without becoming an emission dependency.
 
+## [07]-[DELIVERY]
+
+`ProgramDelivery` binds a posted `PostImage` to one `CellDriveReceipt`: image key, transferred key, controller, upload state, drive log, operator, and instant. `Of` derives controller identity from the receipt and rejects any non-upload, absent payload, or absent controller. `Verified` requires uploaded state, controller identity, and kind-plus-digest equality.
+
+`Of` fires `FabricationFact.Delivery.Of` onto `rasm.fabrication.delivery.programs` through `Process/telemetry` as kind `delivery`; operator classification redacts shop identity. `Documentation/traveler` reads `Verified` as hold evidence. Robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
+
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using System;
@@ -50,8 +57,10 @@ using System.Globalization;
 using System.Text;
 using LanguageExt;
 using LanguageExt.Common;
+using NodaTime;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Ingress;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;
 using Thinktecture;
@@ -141,6 +150,39 @@ public sealed record PostImage(
     ReadOnlyMemory<byte> Bytes,
     ContentKey Key,
     int PhysicalRecords);
+
+public sealed record ProgramDelivery(
+    ContentKey Image,
+    Option<ContentKey> Transferred,
+    string Controller,
+    CellDriveKind Acknowledged,
+    Seq<string> Log,
+    [property: PersonalData] Option<string> Operator,
+    int Records,
+    Instant At) {
+    public bool Verified => Acknowledged == CellDriveKind.Uploaded
+        && !string.IsNullOrWhiteSpace(Controller)
+        && Transferred.Exists(key => key.Kind == Image.Kind && key.Digest == Image.Digest);
+
+    public static Fin<ProgramDelivery> Of(
+        PostImage image,
+        CellDriveReceipt drive,
+        Instant at,
+        FabricationTap? tap = null,
+        Option<string> operatorId = default) =>
+        image is null || drive is null || drive.Kind != CellDriveKind.Uploaded
+            ? Fin.Fail<ProgramDelivery>(Error.New("dialect:delivery:aggregate"))
+            : from transferred in drive.Uploaded.ToFin(Error.New("dialect:delivery:uploaded"))
+              from _ in transferred.Kind == image.Key.Kind && transferred.Digest == image.Key.Digest
+                  ? Fin.Succ(unit)
+                  : Fin.Fail<Unit>(Error.New("dialect:delivery:digest"))
+              from controller in drive.Controller.Filter(static value => !string.IsNullOrWhiteSpace(value))
+                  .ToFin(Error.New("dialect:delivery:controller"))
+              let delivery = new ProgramDelivery(
+                  image.Key, Some(transferred), controller, drive.Kind, drive.Log, operatorId, image.PhysicalRecords, at)
+              let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Delivery.Of(delivery))
+              select delivery;
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Dialect {
@@ -641,3 +683,12 @@ public static class Nc1Canonical {
     private static string Number(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 }
 ```
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

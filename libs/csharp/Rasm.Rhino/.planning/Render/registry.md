@@ -1253,7 +1253,7 @@ public readonly record struct ContentReceipt : IDetachedDocumentResult {
 - Law: callback delivery transfers the original fact to the sink and prepares a detached ledger copy first. Success releases the spare copy; failure retains it with the fault and releases the delivered original before the host delegate returns.
 - Law: the failure ledger is capacity-bounded by the injected `RetentionPolicy`; an overflow evicts the oldest retained failures, releases each evicted fact on the owner's existing `Release` rail, and folds its fault into typed `RetentionOverflow` evidence, so a full ledger sheds resources without a silent drop and its `Overflow` count-and-fault read survives the eviction.
 - Law: one locked lifecycle cell admits delivery, counts in-flight callbacks, mutates failure retention, and publishes close; detachment, sinks, and release execute outside it. Close blocks new sink entry, drains every admitted callback before capturing the subscription and ledger, and publishes completion only after release; reentrant close delegates capture to the final callback instead of waiting on itself.
-- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `HookRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
+- Law: `ContentHooks.Mount` registers the `rasm.rhino.render.content` point on the `MountRegistry` row grammar — ask `ContentObservation` carrying scope, pulses, filter, retention, and sink; grant `ContentStream` — so each binder mints its own stream and the point stays observe-only per the registry census.
 - Growth: a new host content event is one `ContentPulse` row with its bind column; a new evidence axis is one `ContentSignal` case.
 
 ```csharp signature
@@ -1461,7 +1461,7 @@ public sealed record ContentObservation(
 
 public static class ContentHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
-        HookRegistry.Mount(
+        MountRegistry.Mount(
             mount: new HookMount(
                 Point: HookPoint.RenderContent,
                 Plugin: plugin,
@@ -1709,3 +1709,12 @@ public sealed class ContentStream : IDisposable {
 |  [09]   | event evidence  | `ContentSignal`                   | payload and failure ledger        | `ContentStream.Of` |
 |  [10]   | hook point      | `ContentHooks`                    | `rasm.rhino.render.content` mount | `ContentHooks.Mount` |
 |  [11]   | failure ledger  | `RetentionPolicy`                 | bounded ledger, overflow evidence | `Of` / `Admit`     |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

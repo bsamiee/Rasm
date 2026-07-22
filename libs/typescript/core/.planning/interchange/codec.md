@@ -429,6 +429,7 @@ type CrdtOp = typeof CrdtOp.Type
 - Law: `Hops` carries four columns — gRPC `code`, `retryable`, `terminal`, and `class`, the `value/fault` classification each hop reason projects — so `FaultDetail` satisfies the branch classification convention structurally and every compiled `Budget` schedule gates it with zero adapter; the code-to-reason projection generates from the table's own `code` column and cannot drift.
 - Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow by reading the structured `wire.reason` attribute the crash boundary preserves from a `FaultDetail`; a capture without an admitted reason passes through untouched, so enrichment degrades to identity and never parses message prose. The stamped keys are the `_WIRE_ATTR` vocabulary rows — this enricher's owned `wire.*` axis beside the corpus-wide registry the observe convention page owns — never free string literals at the call site.
 - Law: `Credential.material` is `Schema.Redacted` — the secret never exists raw past the decode transform, rotation compares sealed through `_sameMaterial`, the equivalence `Schema.equivalence` derives from the field's own `Schema.Redacted` declaration so equality has no second spelling beside the schema, and `fingerprint` is the only audit identity a log meets.
+- Law: the benchmark claim carries the whole measurement-statistics band — each metric row mirrors the mitata `stats` record field-for-field under the `fn`/`iter`/`yield` modality discriminant: `ticks`, the raw `samples` timings, the `min`/`max`/`avg` triple, the `p25`/`p50`/`p75`/`p99`/`p999` ladder, and the honestly-optional `gc`/`heap`/`counters` enrichment bands (`counters` flattening the addon's `cycles`/`instructions`/`cache`/`cacheMisses`/`branchMisses` averages) — so a TS-lane run lands claims in the admitted family the C# corpus gate feeds, the observe `bench` regression fold grades the ladder structurally, and `admit` refuses a host print unequal to `AppIdentity.host`, making cross-host comparison unspellable at the landing.
 - Law: `GeoFeature`'s WKB band is opaque carriage under the gated `WkbParser` port — geometry materializes only through the port the ui wave satisfies, and the tile algebra (`quadkey`, `parent`, `children`) is total over the zoom-bounded grid refinement.
 - Exemption: `Crs.of`'s `in`-probe key narrowing, the `EnricherLive` structured-reason probe (`token in _hops` behind its refinement), and the `Tile.quadkey` bit walk are marked kernels — the checker cannot carry the probe onto the key type, and only immutable values leave.
 - Growth: a new shell intent, appearance block, BCF axis, or fault evidence field is one case or field mirroring the C# emit; a new landing plane is one owner block here plus its census rows.
@@ -838,12 +839,51 @@ class HostFingerprint extends Schema.Class<HostFingerprint>("HostFingerprint")({
   runtime: Schema.NonEmptyString,
 }) {}
 
+// Benchmark measures are physical quantities — nanoseconds, bytes, hardware counts: a negative or
+// non-finite value is corrupt evidence, refused at the codec boundary before any claim gate reads it.
+const _Measure = Schema.Number.pipe(Schema.finite(), Schema.nonNegative())
+const _Aggregate = Schema.Struct({
+  avg: _Measure,
+  min: _Measure,
+  max: _Measure,
+  total: _Measure,
+})
+const _Counters = Schema.Struct({
+  cycles: _Measure,
+  instructions: _Measure,
+  cache: _Measure,
+  cacheMisses: _Measure,
+  branchMisses: _Measure,
+})
+const _Band = Schema.Struct({
+  // the mitata stats mirror: nanosecond ladder, raw samples, and the honestly-optional enrichment bands
+  ticks: Schema.Int.pipe(Schema.nonNegative()),
+  samples: Schema.Array(_Measure),
+  min: _Measure,
+  max: _Measure,
+  avg: _Measure,
+  p25: _Measure,
+  p50: _Measure,
+  p75: _Measure,
+  p99: _Measure,
+  p999: _Measure,
+  gc: Schema.optionalWith(_Aggregate, { as: "Option" }),
+  heap: Schema.optionalWith(_Aggregate, { as: "Option" }),
+  counters: Schema.optionalWith(_Counters, { as: "Option" }),
+})
+
 class Claim extends Schema.Class<Claim>("Claim")({
   suite: Schema.NonEmptyString,
-  metrics: Schema.NonEmptyArray(Schema.Struct({ label: Schema.NonEmptyString, value: Schema.Number, unit: Schema.NonEmptyString })),
+  metrics: Schema.NonEmptyArray(Schema.Struct({
+    label: Schema.NonEmptyString,
+    unit: Schema.NonEmptyString,
+    kind: Schema.Literal("fn", "iter", "yield"),
+    band: _Band,
+  })),
   host: HostFingerprint,
   minted: Schema.DateTimeUtc,
 }) {
+  static readonly Band: typeof _Band = _Band
   static readonly Host: typeof HostFingerprint = HostFingerprint
   static readonly admit = (claim: Claim, identity: AppIdentity): Effect.Effect<Claim, WireFault> =>
     claim.host.print === identity.host
@@ -1201,3 +1241,12 @@ export {
   SnapshotHeader, Wire, WireFault, WkbParser, WriteReceipt,
 }
 ```
+
+## [10]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

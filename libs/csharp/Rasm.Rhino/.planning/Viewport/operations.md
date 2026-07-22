@@ -798,3 +798,12 @@ flowchart LR
     Rail -->|one policy redraw| Redraw["RhinoView.Redraw · RhinoDoc.Views.Redraw"]
     Rail -->|CameraReceipt| Consumer
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

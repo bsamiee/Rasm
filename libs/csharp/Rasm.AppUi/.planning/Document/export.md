@@ -1,10 +1,10 @@
 # [APPUI_DOCUMENT_EXPORT]
 
-Rasm.AppUi document export is one paginated-output owner: the MigraDoc flow DOM composes reports with auto-pagination and running header/footer bands, PDFsharp policy rows harden the PDF arm (AES-256 security, digital signatures whose credential material rides the AppHost secrets lease, AcroForm fields, PDF-UA tagged output), the OOXML part-graph writers carry the XLSX/DOCX/PPTX arm, and the lcmsNET device-CMYK transform rows carry the print-fidelity arm. The page owns the destination union, the typed `ExportFault` rail, the flow-report spec, the PDF policy rows, the Office arm, and the print arm — drafting's paginated flow reports and the diagnostics report-PDF (`Diagnostics/evidence.md#CORRELATION_JOIN` `EvidenceReport.Blocks` over the evidence timeline) compose THIS owner; the drafting sheet-PDF rides capture's pure-visual `SKDocument` vector-print arm, and capture keeps that arm plus the FFmpeg encode rows.
+Rasm.AppUi document export owns one paginated-output rail. MigraDoc composes flow reports, PDFsharp policies harden PDF output, OOXML writers carry XLSX/DOCX/PPTX, and lcmsNET rows carry print fidelity. This page owns destinations, `ExportFault`, support-bundle contributions, report specifications, PDF policies, Office output, and print transforms. Drafting flow reports and diagnostics evidence compose this owner; drafting sheet-PDF remains on capture's vector-print arm.
 
 ## [01]-[INDEX]
 
-- [02]-[EXPORT_DESTINATIONS]: The one destination union; the typed `ExportFault` rail.
+- [02]-[EXPORT_DESTINATIONS]: One destination union; the typed `ExportFault` rail; the support-bundle contributor rows.
 - [03]-[FLOW_REPORT]: MigraDoc flow DOM; auto-pagination; running bands; placed visuals.
 - [04]-[PDF_POLICY]: Security, signatures over the AppHost secrets lease, AcroForms, PDF-UA.
 - [05]-[OFFICE_ARM]: OOXML part-graph writers — XLSX, DOCX, PPTX.
@@ -13,13 +13,13 @@ Rasm.AppUi document export is one paginated-output owner: the MigraDoc flow DOM 
 
 ## [02]-[EXPORT_DESTINATIONS]
 
-- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportFault` — the typed export rail; `ExportDelivery` — the one delivery fold.
-- Cases: FilePath · BlobLane · Bundle.
-- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload)` — IO rail; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from `ProfileRoots`.
-- Auto: the Bundle arm delivers artifacts through the runtime `BundleWrite` delegate with their classification — the support-contributor consequence; every delivered payload seals a `RenderReceipt` of kind document/office/print whose `FrameHash` mints through the runtime `ContentHash` delegate bound to the kernel `Rasm.Domain` `ContentHash.Of` entry.
+- Owner: `VisualDestination` [Union] — the one delivery vocabulary every export arm and the capture vector-print/video arms deliver through; `ExportFault` — the typed export rail; `ExportDelivery` — the one delivery fold; `BundleMember` — the classified, content-keyed diagnostic-artifact row; `SupportBundle` — the member roster and the contribution fold onto the Bundle destination.
+- Cases: FilePath · BlobLane · Bundle; bundle member rows evidence-journal · hud-samples · gpu-timelines · quality-verdicts · native-assets · proof-goldens · collab-ops — each a named factory pinning artifact name and classification.
+- Entry: `public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload)` — IO rail; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from `ProfileRoots`; `SupportBundle.Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members)` — one modality-polymorphic contribution fold delivering every member through the Bundle destination and sealing one bundle-kind `RenderReceipt` per member.
+- Auto: the Bundle arm stages every classified artifact through the runtime `BundleWrite` delegate before any receipt enters the sink, then commits receipts only for the complete delivered roster; a delivery or sink refusal stays on the IO rail for AppHost `SupportCapture` to recover as its partial manifest row and cleanup fold; every delivered payload seals a `RenderReceipt` of kind document/office/print/bundle whose `FrameHash` mints through the runtime `ContentHash` delegate bound to the kernel `Rasm.Domain` `ContentHash.Of` entry; each `BundleMember` payload arrives already serialized by its owning codec — the evidence journal off the sealed envelope stream, HUD samples and GPU timelines off the devloop feeds, quality verdicts and native-asset facts off their receipt folds, proof-golden digests off the render-hash lane, and the collab op window off the devloop `CollabJson` readable export — so assembly is a fold over settled receipt streams and no member re-measures.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm (project)
-- Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on the owning arm, never a second engine; one `ExportFault` case is one `detail` ordinal under the `AppUiFaultBand.Export` row (6420); zero new surface.
-- Boundary: this union is the ONE export-destination owner — capture's vector-print arm, the FFmpeg clip rows, drafting's sheet-PDF egress, and the diagnostics report-PDF all deliver through it, so a per-arm destination enum is the deleted form; every fault on this page derives through the `Diagnostics/evidence.md#FAULT_TABLES` registry — a bare `Error.New` is the deleted form.
+- Growth: one destination case extends delivery and breaks the dispatch at compile time; one export target is one row on the owning arm, never a second engine; one diagnostic stream is one `BundleMember` factory row; one `ExportFault` case is one `detail` ordinal under the `AppUiFaultBand.Export` row (6420); zero new surface.
+- Boundary: this union is the ONE export-destination owner — capture's vector-print arm, the FFmpeg clip rows, drafting's sheet-PDF egress, and the diagnostics report-PDF all deliver through it, so a per-arm destination enum is the deleted form; `FilePath` admits only fully qualified targets whose normalized path remains under `ProfileRoots.AppRoot`, `StoreRoot`, or `SupportRoot`, rejects every symlink or junction in the selected root and existing parent chain, opens the unique pending file with create-new semantics before writing, and lands the final rename fail-closed against a parent swap — source and target resolve through one parent path in one rename syscall, the GUID-named pending sibling cannot pre-exist at a redirected parent, and the link-free parent re-walk runs after the write immediately before the rename — so a relative, linked, escaping, or mid-flight-redirected path folds to `ExportFault.DeliveryFailed`; every fault derives through `AppUiFaultBand.Export` — a bare `Error.New` is the deleted form; archive assembly and manifest custody are the AppHost support-capture fold's — contributed members cross the `BundleWrite` seam as classified payloads, the AppHost `SupportCapture` redacts, caps, and archives them, and an AppUi-local zip assembler or second manifest store is the deleted form; the contributor roster declares AppUi membership and classification, and `BundleMember.ContentKey` mints each pre-redaction payload identity through kernel `ContentHash.Of`; AppHost `SupportManifest.Entry` omits the post-redaction, post-cap content key, so the content-hashed manifest claim and its `[SUPPORT_BUNDLE]`/`[BUNDLE_MANIFEST]` cards remain blocked at that owner while `BundleShape` pins roster and tree completeness only.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -51,20 +51,107 @@ public static class ExportDelivery {
     public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
         destination.Switch(
             state: (runtime, payload),
-            filePath: static (ctx, file) => AtomicFile(file.AbsolutePath, ctx.payload),
+            filePath: static (ctx, file) => AtomicFile(ctx.runtime.Roots, file.AbsolutePath, ctx.payload),
             blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
             bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
 
-    static IO<string> AtomicFile(string destination, byte[] payload) {
-        string? directory = Path.GetDirectoryName(destination);
-        if (string.IsNullOrWhiteSpace(directory)) { return IO.fail<string>(new ExportFault.DeliveryFailed(destination, "destination has no directory")); }
-        string pending = Path.Combine(directory, $".{Path.GetFileName(destination)}.{Guid.NewGuid():N}.pending");
-        return IO.lift(() => {
-                try { File.WriteAllBytes(pending, payload); File.Move(pending, destination, overwrite: true); return destination; }
+    // Parent-swap redirection fails closed by construction, not by a trusted string re-check: the
+    // rename source and target share ONE parent path the OS resolves inside a single rename syscall,
+    // and the pending sibling's name carries an unguessable GUID — a parent directory swapped for a
+    // link after admission re-points BOTH paths, the pending byte stream is absent at the redirected
+    // parent, and the rename faults instead of landing bytes outside the admitted root. The link-free
+    // parent re-walk runs AFTER the write, immediately before the rename, so a long payload write
+    // never widens the admission-to-rename window; no BCL directory-handle-relative rename exists,
+    // and this shared-parent + unguessable-sibling shape is the fail-closed equivalent.
+    static IO<string> AtomicFile(ProfileRoots roots, string destination, byte[] payload) =>
+        (IO.lift(() => {
+                string target = Path.GetFullPath(destination);
+                Option<string> admittedRoot = Path.IsPathFullyQualified(destination) ? Within(roots, target) : None;
+                if (admittedRoot.IsNone)
+                    throw new UnauthorizedAccessException("destination is outside the configured profile roots");
+                string? directory = Path.GetDirectoryName(target);
+                if (string.IsNullOrWhiteSpace(directory))
+                    throw new DirectoryNotFoundException("destination has no directory");
+                string pending = Path.Combine(directory, $".{Path.GetFileName(target)}.{Guid.NewGuid():N}.pending");
+                try {
+                    using (Microsoft.Win32.SafeHandles.SafeFileHandle handle = File.OpenHandle(
+                        pending, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileOptions.WriteThrough)) {
+                        RandomAccess.Write(handle, payload, fileOffset: 0L);
+                    }
+                    if (!ResolvedParent(admittedRoot.IfNone(string.Empty), target))
+                        throw new UnauthorizedAccessException("destination parent changed during admission");
+                    File.Move(pending, target, overwrite: true);
+                    return target;
+                }
                 finally { if (File.Exists(pending)) { File.Delete(pending); } }
             })
             | @catch<IO, string>(static _ => true, error => IO.fail<string>(new ExportFault.DeliveryFailed(destination, error.Message)));
+
+    static Option<string> Within(ProfileRoots roots, string target) =>
+        (Seq(roots.AppRoot, roots.SupportRoot) + roots.StoreRoot.ToSeq())
+            .Map(Path.GetFullPath)
+            .Find(root => {
+                string relative = Path.GetRelativePath(Path.GetFullPath(root), target);
+                return relative != ".."
+                    && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                    && !Path.IsPathFullyQualified(relative)
+                    && ResolvedParent(root, target);
+            });
+
+    static bool ResolvedParent(string root, string target) {
+        string? directory = Path.GetDirectoryName(target);
+        if (string.IsNullOrWhiteSpace(directory)) { return false; }
+        string relative = Path.GetRelativePath(root, directory);
+        if (relative == ".." || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || Path.IsPathFullyQualified(relative)) { return false; }
+        string current = root;
+        foreach (string segment in relative.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)) {
+            if (!DirectoryAdmitted(current)) { return false; }
+            current = Path.Join(current, segment);
+        }
+        return DirectoryAdmitted(current);
     }
+
+    static bool DirectoryAdmitted(string path) {
+        DirectoryInfo directory = new(path);
+        return directory.Exists
+            && directory.LinkTarget is null
+            && (directory.Attributes & FileAttributes.ReparsePoint) == 0;
+    }
+}
+
+// One classified, content-keyed diagnostic artifact: the payload arrives already serialized by its
+// owning codec, the content key mints through the kernel one-hasher entry, and delivery rides the
+// Bundle destination so the AppHost support-capture fold owns archive assembly and manifest custody.
+public sealed record BundleMember(string ArtifactName, DataClassification Classification, ReadOnlyMemory<byte> Payload) {
+    public UInt128 ContentKey => ContentHash.Of(Payload.Span);
+
+    public static BundleMember EvidenceJournal(ReadOnlyMemory<byte> journal) => new("evidence-journal.jsonl", DataClassification.Operational, journal);
+    public static BundleMember HudSamples(ReadOnlyMemory<byte> samples) => new("hud-samples.jsonl", DataClassification.Operational, samples);
+    public static BundleMember GpuTimelines(ReadOnlyMemory<byte> timelines) => new("gpu-timelines.jsonl", DataClassification.Operational, timelines);
+    public static BundleMember QualityVerdicts(ReadOnlyMemory<byte> verdicts) => new("quality-verdicts.jsonl", DataClassification.Operational, verdicts);
+    public static BundleMember NativeAssets(ReadOnlyMemory<byte> facts) => new("native-assets.jsonl", DataClassification.HostIdentity, facts);
+    public static BundleMember GoldenDigests(ReadOnlyMemory<byte> digests) => new("proof-goldens.jsonl", DataClassification.Operational, digests);
+    public static BundleMember CollabOps(ReadOnlyMemory<byte> opWindow) => new("collab-ops.json", DataClassification.UserContent, opWindow);
+}
+
+public static class SupportBundle {
+    public const string Kind = "bundle";
+
+    // Arity rides the span: one member or the whole roster contributes through one fold, each member
+    // stages as its classified Bundle artifact before any receipt commits; a refused roster returns
+    // on the IO rail, and AppHost alone projects partial manifest evidence and staging cleanup.
+    public static IO<Seq<RenderReceipt>> Contribute(VisualRuntime runtime, params ReadOnlySpan<BundleMember> members) =>
+        from staged in toSeq(members.ToArray()).TraverseM(member =>
+            from mark in IO.lift(runtime.Clocks.Mark)
+            from payload in IO.pure(member.Payload.ToArray())
+            from destination in ExportDelivery.Deliver(runtime, new VisualDestination.Bundle(member.ArtifactName, member.Classification), payload)
+            from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+            let receipt = new RenderReceipt(Kind, Path.GetExtension(member.ArtifactName).TrimStart('.'), runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+            select receipt).As()
+        from _ in staged.TraverseM(runtime.Sink).As()
+        select staged;
 }
 ```
 
@@ -179,8 +266,7 @@ public static class FlowReport {
         });
     }
 
-    // One PageSetup pass per section: dimension and margin columns land in centimeters; the exact
-    // MigraDoc PageSetup member spellings bind per the [MIGRADOC_STYLE_MAP] research row.
+    // One PageSetup pass per section: dimension and margin columns land in centimeters.
     static void ApplySetup(MigraDoc.DocumentObjectModel.PageSetup setup, ReportSetup policy) {
         policy.PageWidthCm.Iter(width => setup.PageWidth = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(width));
         policy.PageHeightCm.Iter(height => setup.PageHeight = MigraDoc.DocumentObjectModel.Unit.FromCentimeter(height));
@@ -233,7 +319,7 @@ public sealed record PdfPolicy(
 }
 
 public static class PdfPolicies {
-    // The modify pass folds its native failures typed: a throw with a signer bound classifies
+    // PdfPolicies folds native failures typed: a throw with a signer bound classifies
     // SignerUnavailable (credential lease and crypto path), anything else RenderFailed("pdf-policy").
     public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered) =>
         policy is { EncryptAes256: false, Signer.IsNone: true, AcroFields.IsEmpty: true, Identity.IsInert: true }
@@ -318,7 +404,7 @@ public sealed partial class OfficeFidelity {
 public static class OfficeExport {
     public const string Kind = "office";
 
-    // The fidelity matrix is the honesty law: Native = own part vocabulary, Declared = stated projection,
+    // Support is the fidelity honesty law: Native = own part vocabulary, Declared = stated projection,
     // Unsupported = typed rejection; a promotion is one cell flip when the part members verify.
     static readonly FrozenDictionary<(string Format, string Sheet), OfficeFidelity> Support = new Dictionary<(string, string), OfficeFidelity> {
         [("xlsx", "table")] = OfficeFidelity.Native,
@@ -506,13 +592,12 @@ public sealed record PrintTransform(
 public static class PrintArm {
     public const string Kind = "print";
 
-    // The proofing dispatch is the row's ProofProfile: Some builds the three-profile soft-proofing
+    // PrintTransform.ProofProfile dispatches proofing: Some builds the three-profile soft-proofing
     // Transform.Create overload (separate proofing intent, SoftProofing flag, GamutCheck marking
     // out-of-gamut pixels with the alarm colors), None the two-profile device conversion — one Create
-    // name, argument-shape discrimination, K/BPC riding the intent row. A successful conversion seals
-    // one RenderReceipt of kind print through the runtime Sink — destination-profile identity in
-    // ColorSpace, whole-payload content hash, byte count, elapsed — so print baselines key distinctly on
-    // the shared render-evidence rail; a failed conversion stays on ExportFault with no success receipt.
+    // name, argument-shape discrimination, K/BPC riding the intent row. Successful conversion seals one
+    // RenderReceipt through the runtime Sink with destination-profile identity, content hash, byte count,
+    // and elapsed span. Failed conversion stays on ExportFault with no success receipt.
     public static IO<byte[]> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> rgba) =>
         from mark in IO.lift(runtime.Clocks.Mark)
         from cmyk in IO.lift(() => Transformed(row, rgba)).Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<byte[]>))

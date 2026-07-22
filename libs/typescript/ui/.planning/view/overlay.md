@@ -1,6 +1,6 @@
 # [UI_OVERLAY]
 
-The one overlay owner: anchored positioning rides floating-ui's hook stack with a reason-keyed dismiss policy, the drag-dismissable sheet rides vaul's bundled Radix stack, the global command palette rides cmdk's filtering machine over an `Overlay.Command` vocabulary with a virtualized combobox lane and a `Clipboard`-ported copy command, and the presence-cursor cohort anchors through `useClientPoint` and world-projected `VirtualElement` rows — four overlay classes, exactly one semantic owner and one positioner per element. RAC `Popover`/`Modal` own standard aria overlays outside this module; react-aria's `mergeProps` + floating-ui's `useMergeRefs` fold the two prop/ref systems where aria semantics meet floating geometry; two focus traps on one surface is the named defect. The module is `ui/src/view/overlay.ts`.
+Overlay owns anchored floats, drag-dismissable sheets, command palettes, and presence cursors. Floating-ui positions anchors, vaul owns sheets, cmdk owns palette filtering, and RAC owns standard aria overlays. React-aria props and floating refs merge only where semantics meet geometry; each surface keeps one positioner and one focus owner. Module: `ui/src/view/overlay.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -17,7 +17,7 @@ The one overlay owner: anchored positioning rides floating-ui's hook stack with 
 - Owner: the anchor-host law riding `Overlay` — `Overlay.middleware(options)` mints the canonical `offset → flip → shift → arrow → size` pipeline (the `arrow` row binds `FloatingArrow`'s geometry when the options carry an arrow ref); the consuming row composes `useFloating` with `whileElementsMounted: autoUpdate`; interactions merge through `useInteractions([useClick, useDismiss, useRole])` into the three prop-getters; `FloatingFocusManager` (modal for dialogs, non-modal + `preserveTabOrder` for menus) and `FloatingPortal` complete the stack, with `FloatingOverlay lockScroll` as the scroll-lock backdrop behind a modal anchored dialog; open state binds an atom through `useFloatingRootContext({ open, onOpenChange })` so visibility is store state; enter/exit rides `useTransitionStyles` phases consuming `Theme.Scale.ease` values.
 - Packages: `@floating-ui/react` (`useFloating`, `useFloatingRootContext`, `autoUpdate`, `offset`, `flip`, `shift`, `arrow`, `size`, `useInteractions`, `useClick`, `useDismiss`, `useRole`, `useHover` + `safePolygon`, `useListNavigation`, `useTypeahead`, `useClientPoint`, `useInnerOffset`, `inner`, `useTransitionStyles`, `useMergeRefs`, `FloatingArrow`, `FloatingFocusManager`, `FloatingPortal`, `FloatingOverlay`, `FloatingDelayGroup`, `useDelayGroup`, `FloatingTree`, `FloatingNode`, `useFloatingNodeId`, `useFloatingParentNodeId`, `useFloatingPortalNode`, the `OpenChangeReason` union); `system/token` (`Theme.Scale.ease`, `Theme.Scale.z`).
 - Law: dismissal branches on CAUSE, never a boolean — `onOpenChange(open, event, reason)` folds the `OpenChangeReason` union through the `Overlay.dismiss` policy table (`escape-key` restores focus, `outside-press` commits a palette draft, `ancestor-scroll` closes silently, `safe-polygon` is hover-intent traversal and never dismisses); a reason the table does not map is a compile break, and an untyped `onOpenChange(false)` swallowing the cause is the named defect.
-- Law: presentation facts publish once — every open and reason-keyed dismissal mints one fact on the `rasm.ui.overlay.present` hook point (`system/hook`, observe modality), so history, probe evidence, and the app bridge tap the presentation stream without wrapping any overlay owner.
+- Law: presentation facts publish once — every open and reason-keyed dismissal mints one `Overlay.Present` fact through `Overlay.present`, and this page contributes the `rasm.ui.overlay.present` point and runtime row (`system/hook`, observe modality), so history, probe evidence, and the app bridge never wrap an overlay owner.
 - Law: hover-opened anchors take `useHover` with `safePolygon` — the one sanctioned pairing of hover-intent and floating geometry (`system/act` owns the hover hook law); a toolbar's sibling tooltips share one `FloatingDelayGroup` so the delay pays once per traversal (`useDelayGroup` in each tooltip), and list-shaped floats compose `useListNavigation`/`useTypeahead` on the SAME `useInteractions` array, never as a second interaction fold.
 - Law: nested floats needing dismissal coordination take `FloatingTree`/`FloatingNode` with `useFloatingNodeId`/`useFloatingParentNodeId` wiring the ids and `useFloatingPortalNode` resolving the container; flat overlays never mount the tree.
 - Law: the `size.apply` style write is floating-ui's platform-forced statement seam — the middleware hands a live element and the write is the documented application; the kernel carries the exemption.
@@ -26,7 +26,9 @@ The one overlay owner: anchored positioning rides floating-ui's hook stack with 
 ```typescript
 import { arrow, autoUpdate, flip, offset, shift, size } from "@floating-ui/react"
 import type { OpenChangeReason, Placement, VirtualElement } from "@floating-ui/react"
+import { Effect, Option } from "effect"
 import type { RefObject } from "react"
+import { Hook } from "../system/hook.ts"
 
 declare namespace Overlay {
   type Anchor = {
@@ -37,7 +39,21 @@ declare namespace Overlay {
   }
   type Detents = { readonly points: ReadonlyArray<number | string>; readonly fadeFrom: number }
   type Dismissal = "close" | "close-silent" | "commit-close" | "ignore"
+  type Present =
+    | { readonly _tag: "Opened"; readonly overlay: string }
+    | { readonly _tag: "Dismissed"; readonly overlay: string; readonly reason: OpenChangeReason }
 }
+
+declare module "../system/hook.ts" {
+  interface Points {
+    readonly "rasm.ui.overlay.present": { readonly modality: "observe"; readonly payload: Overlay.Present }
+  }
+}
+
+const _presentHook: Hook.Row<"rasm.ui.overlay.present"> = { modality: "observe", depth: 16, source: Option.none() }
+
+const _present = (registry: Hook.Registry, fact: Overlay.Present): Effect.Effect<void> =>
+  Effect.asVoid(Hook.publish(registry, "rasm.ui.overlay.present", fact))
 
 const _dismiss = {
   click: "close",
@@ -115,14 +131,18 @@ const _virtual = (rect: () => DOMRect): VirtualElement => ({ getBoundingClientRe
 declare namespace Overlay {
   type Shape = {
     readonly dismiss: typeof _dismiss
+    readonly hook: typeof _presentHook
     readonly middleware: typeof _middleware
+    readonly present: typeof _present
     readonly virtual: typeof _virtual
   }
 }
 
 const Overlay: Overlay.Shape = {
   dismiss: _dismiss,
+  hook: _presentHook,
   middleware: _middleware,
+  present: _present,
   virtual: _virtual,
 }
 
@@ -130,3 +150,12 @@ const Overlay: Overlay.Shape = {
 
 export { Overlay }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

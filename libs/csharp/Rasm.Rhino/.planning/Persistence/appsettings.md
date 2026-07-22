@@ -452,7 +452,7 @@ public abstract partial record AppAnswer
 
 ## [03]-[INTERPRETER]
 
-`AppSettings.Commit` admits the complete nested operation before dispatching the family with no document session — application settings are process-global, so no `DocumentSession`, no `UndoBracket`, and no host undo record participate. Every raw host enum crosses the admission fold before static access, and every mutation captures prior and current state around the host write so the receipt carries real observation; the two stateless families report `UnobservableCase` evidence instead of inventing a snapshot.
+`AppSettings.Commit` admits the complete nested operation before dispatching the family with no document session — application settings are process-global, so no `DocumentSession`, no `UndoBracket`, and no host undo record participate. Every raw host enum crosses the admission fold before static access, and every mutation captures prior and current state around the host write so the receipt carries real observation; the two stateless families report `UnobservableCase` evidence instead of inventing a snapshot. Mutation custody is app-root single-writer — the host statics are last-writer-wins process state (the `Document/events.md` process-global custody census row for this surface), so exactly one app-root composition owns every `AppSettings.Commit` write while plugins and features consume captured state; a second writer beside the root is the collision the census names, never a supported topology.
 
 Host static setters, registry mutators, and the `ref`-state auto-range solve form the platform-forced statement seam; generated dispatch keeps the operation, edit, observation, and answer families exhaustive around it.
 
@@ -859,3 +859,12 @@ Theme adoption routes through `AppTheme` rows — `SetToDarkMode`/`SetToLightMod
 ## [05]-[SEAMS]
 
 `SettingsRoot.ApplicationCase` (settings.md) owns the raw `PersistentSettings.RhinoAppSettings` node tree these families persist through; this page never writes a node, and settings.md never reaches a typed `Rhino.ApplicationSettings` owner. `HistorySettings` stays with Document undo governance, `ViewSettings.DefinedViewSet*` restore-scope flags and analysis states feed display-mode attachment, and `PlugIn.GetPluginSettings` custody stays with the plug-in root.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

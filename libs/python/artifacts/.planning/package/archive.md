@@ -287,3 +287,12 @@ def _zip_drain(blob: bytes, password: bytes | None, mechanisms: frozenset[object
         corruption.add_note("<at:zip-unpack truncation/integrity/backend>")
         raise ValueError("<zip-unpack:corruption>") from corruption
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

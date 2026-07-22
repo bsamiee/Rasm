@@ -15,11 +15,11 @@ Capability health and the usable-failure degradation rail for every Rasm.AppHost
 - Owner: `HealthContributorRow` is the probe row and the `IHealthCheck`; `DriverProbe` `[SmartEnum<string>]` is the backing-service probe axis carrying each dependency kind's contributor tag and failure status; `PressurePolicy` grades utilization with a `ResourceQuota` container-limit column; `UtilizationCell` is the `MeterListener`-backed boundary capsule that records the ResourceMonitoring observable instruments and grades on read; `HealthSnapshot` with nested `Entry` is the only health shape interiors read.
 - Cases: tag consts `Host`, `Remote`, `Store`, `Pressure` key the derivation rules and the wire predicates; instrument-name consts `CpuInstrument` and `MemoryInstrument` key the meter subscription; eight `DriverProbe` rows tracking the LANDED Persistence sink roster — `Postgres`/`Cache` (Store), `Nats`/`Upstream` (Remote), `Disk`/`Allocations` (Pressure) as DEFAULT probes, `Kafka`/`Redis` as deploy-gated sink-tracking rows registering only when their sink is bound — bind each admitted health-check package to its degradation rule; `Gauge`, `Peer`, and `Driver` are the canonical row factories and `Monitor` is the resource-monitoring registration fold.
 - Entry: `Register(params ReadOnlySpan<HealthContributorRow> rows)` composes registrations; `Snapshot(Instant at, CorrelationId correlation)` is the pure report fold.
-- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `Driver(DriverProbe, cadence, IHealthCheck)` adapts ANY admitted package check — `NpgSqlHealthCheck` over the pooled `NpgsqlDataSource`, the `Cache` row's L2-transit probe over the ONE `IDistributedCache` the `Runtime/resources#CACHE_PORT` rides (through `Microsoft.Extensions.Caching.StackExchangeRedis` when the deploy binds redis — the raw `IConnectionMultiplexer` driver is PRUNED Persistence-side, so a direct-multiplexer probe is the deleted form), `NatsHealthCheck` over the pooled `INatsConnection` (the spine's landed NATS egress sink, exactly as the npgsql row binds its data source), the deploy-gated `KafkaHealthCheck` over its sink `ProducerConfig` and `RedisHealthCheck` over its sink connection, `UriHealthCheck` over a service-discovery `AddUrlGroup`, and `DiskStorageHealthCheck`/`ProcessAllocatedMemoryHealthCheck` over the BCL counters — into one contributor row whose synthetic `HealthCheckContext` seats the `DriverProbe.FailureStatus` the package check stamps, so the packages enter as rows through one adapter rather than parallel `Add*` registration faces; `Monitor` folds the policy onto `AddResourceMonitoring`, binding `CollectionWindow` to `PressurePolicy.Canonical.Window`, `SamplingInterval` to `PressurePolicy.Canonical.Sampling`, and `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, setting `UseLinuxCalculationV2` from `CgroupV2` and `UseZeroToOneRangeForLinuxMetrics` so CPU rides the normalized zero-to-one range the grade reads, and turning on `EnableSystemDiskIoMetrics` from `DiskIoMetrics` for the disk-I/O instruments; `UtilizationCell.Attach` opens a `MeterListener` on the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, enables `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, and records each observed double into the atom, the publishing window bounding every derived signal's reaction time.
+- Auto: rows project into `HealthCheckRegistration` — `FailureStatus`, `Tags`, `Timeout`, `Delay`, `Period` are registration policy, never probe-local exception handling; `Driver(DriverProbe, cadence, IHealthCheck)` adapts ANY admitted package check — `NpgSqlHealthCheck` over the pooled `NpgsqlDataSource`, the `Cache` row's L2-transit probe over the ONE `IDistributedCache` the `Runtime/resources#CACHE_PORT` rides (through `Microsoft.Extensions.Caching.StackExchangeRedis` when the deploy binds redis — the raw `IConnectionMultiplexer` driver is PRUNED Persistence-side, so a direct-multiplexer probe is the deleted form), `NatsHealthCheck` over the pooled `INatsConnection` (the spine's landed NATS egress sink, exactly as the npgsql row binds its data source), the deploy-gated `KafkaHealthCheck` over its sink `ProducerConfig` and `RedisHealthCheck` over its sink connection, `UriHealthCheck` over a service-discovery `AddUrlGroup`, and `DiskStorageHealthCheck`/`ProcessAllocatedMemoryHealthCheck` over the BCL counters — into one contributor row whose synthetic `HealthCheckContext` seats the `DriverProbe.FailureStatus` the package check stamps, so the packages enter as rows through one adapter rather than parallel `Add*` registration faces; `Monitor` folds the policy onto `AddResourceMonitoring(Action<IResourceMonitorBuilder>)` through the builder's `ConfigureMonitor(Action<ResourceMonitoringOptions>)`, binding `CollectionWindow` to `PressurePolicy.Canonical.Window`, `SamplingInterval` to `PressurePolicy.Canonical.Sampling`, and `PublishingWindow`, `CpuConsumptionRefreshInterval`, and `MemoryConsumptionRefreshInterval`, setting `UseLinuxCalculationV2` from `CgroupV2` and `UseZeroToOneRangeForLinuxMetrics` so CPU rides the normalized zero-to-one range the grade reads, and turning on `EnableSystemDiskIoMetrics` from `DiskIoMetrics` for the disk-I/O instruments; `UtilizationCell.Attach` opens a `MeterListener` on the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, enables `process.cpu.utilization` and `dotnet.process.memory.virtual.utilization`, and records each observed double into the atom, the publishing window bounding every derived signal's reaction time.
 - Receipt: `HealthSnapshot` stamped with `Instant` and `CorrelationId`; `HealthReport` never crosses the fold.
 - Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Microsoft.Extensions.Diagnostics.ResourceMonitoring, AspNetCore.HealthChecks.NpgSql, AspNetCore.HealthChecks.Nats, AspNetCore.HealthChecks.Redis, AspNetCore.HealthChecks.Kafka, AspNetCore.HealthChecks.Uris, AspNetCore.HealthChecks.System, NodaTime, LanguageExt.Core
 - Growth: one contributor row per new capability probe — sibling packages extend the same `Register` span through the health port registration set, zero new surface; a new backing-service dependency is one `DriverProbe` row binding its tag and failure status, never a new factory; container-limit grading is one `ResourceQuota` value flip on `PressurePolicy.Quota`, a sampling retune is one `Sampling` value, and a new utilization signal is one enabled instrument name on `UtilizationCell.Attach`, never a parallel policy.
-- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; a `Driver` row binds the SAME pooled `NpgsqlDataSource`, the one L2 `IDistributedCache` transit, and the pooled `INatsConnection` the production path owns, so a probe shares connection pressure with live traffic and never opens a second out-of-pool connection or invents a parallel connection vocabulary — the roster is seed DATA tracking the landed Persistence egress sink roster (NATS the default spine anchor; kafka/redis deploy-gated sink rows, never default probes), so the probe axis never drifts beside the roster it probes, and its tag routes a faulted dependency onto an EXISTING degradation rule (`Store` -> `ReadOnly`, `Remote` -> `ReducedRemote`, `Pressure` -> `Degraded`) with zero added `Rule`; the `Disk`/`Allocations` probes are the discrete hard-ceiling complement to the continuous `UtilizationCell` gauge, not a second utilization source — they grade an absolute breach the windowed ratio does not express, both projecting into the one `Pressure`-tagged contributor set; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when `PressurePolicy.Quota` carries a `ResourceQuota` — the OCI `headless` and `web` rows set `CgroupV2` so `Monitor` turns on `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics`, folding the cgroup `MaxCpuInCores` and `MaxMemoryInBytes` ceilings into the same zero-to-one ratio axis the meter publishes, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, and whether the `process.cpu.utilization`/`dotnet.process.memory.virtual.ratio` instruments arrive already quota-normalized under that flag or require a `ResourceQuotaProvider.GetResourceQuota()` recompute rides `[MEMORY_RATIO_SEMANTIC]`; a bare host-ratio grade on a container row is the deleted form. Utilization crosses as observable-instrument readings and container limits as `ResourceQuota`, so the meter subscription is the one pull path.
+- Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; a `Driver` row binds the SAME pooled `NpgsqlDataSource`, the one L2 `IDistributedCache` transit, and the pooled `INatsConnection` the production path owns, so a probe shares connection pressure with live traffic and never opens a second out-of-pool connection or invents a parallel connection vocabulary — the roster is seed DATA tracking the landed Persistence egress sink roster (NATS the default spine anchor; kafka/redis deploy-gated sink rows, never default probes), so the probe axis never drifts beside the roster it probes, and its tag routes a faulted dependency onto an EXISTING degradation rule (`Store` -> `ReadOnly`, `Remote` -> `ReducedRemote`, `Pressure` -> `Degraded`) with zero added `Rule`; the `Disk`/`Allocations` probes are the discrete hard-ceiling complement to the continuous `UtilizationCell` gauge, not a second utilization source — they grade an absolute breach the windowed ratio does not express, both projecting into the one `Pressure`-tagged contributor set; `Peer` rows read a peer process over its wire health service, so cross-process health is a read, never shared state; `Gauge` grades against the container limit when `PressurePolicy.Quota` carries a `ResourceQuota` — the OCI `headless` and `web` rows set `CgroupV2` so `Monitor` turns on `UseLinuxCalculationV2` and `UseZeroToOneRangeForLinuxMetrics`, folding the cgroup `MaxCpuInCores` and `MaxMemoryInBytes` ceilings into the same zero-to-one ratio axis the meter publishes, so a cgroup-throttled process degrades on the limit it actually runs under, never the host total; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, and the semantic is settled — `AddResourceMonitoring` wires the OS-appropriate snapshot AND quota providers, a cgroup-hosted process picking the container pair, so the `process.cpu.utilization`/`dotnet.process.memory.virtual.utilization` gauges arrive already limit-relative on a container host and the `Container` grade rides the meter as published; `ResourceQuotaProvider.GetResourceQuota()` supplies the current `ResourceQuota` the `Container` row seats on `PressurePolicy.Quota` as ceiling evidence the grade detail stamps, never a re-derived second ratio; a bare host-ratio grade on a container row is the deleted form. Utilization crosses as observable-instrument readings and container limits as `ResourceQuota`, so the meter subscription is the one pull path.
 
 ```csharp signature
 public sealed record HealthContributorRow(
@@ -49,8 +49,11 @@ public sealed record HealthContributorRow(
         Delay: policy.Window,
         Period: policy.Window);
 
+    // AddResourceMonitoring's callback overload takes the IResourceMonitorBuilder; the cadence
+    // options seat through its ConfigureMonitor(Action<ResourceMonitoringOptions>) — never a
+    // builder/options conflation at the registration seam.
     public static IServiceCollection Monitor(IServiceCollection services, PressurePolicy policy) =>
-        services.AddResourceMonitoring(options => {
+        services.AddResourceMonitoring(builder => builder.ConfigureMonitor(options => {
             options.CollectionWindow = policy.Window.ToTimeSpan();
             options.SamplingInterval = policy.Sampling.ToTimeSpan();
             options.PublishingWindow = policy.Window.ToTimeSpan();
@@ -59,7 +62,7 @@ public sealed record HealthContributorRow(
             options.EnableSystemDiskIoMetrics = policy.DiskIoMetrics;
             options.UseLinuxCalculationV2 = policy.CgroupV2;
             options.UseZeroToOneRangeForLinuxMetrics = true;
-        });
+        }));
 
     public static HealthContributorRow Peer(string name, string tag, Duration cadence, Func<CancellationToken, ValueTask<HealthCheckResult>> probe) => new(
         Name: name,
@@ -132,8 +135,11 @@ public sealed record PressurePolicy(
         CpuDegraded: 0.80d, CpuUnhealthy: 0.92d, MemoryDegraded: 0.85d, MemoryUnhealthy: 0.95d,
         Quota: None, CgroupV2: false, DiskIoMetrics: false);
 
-    public static PressurePolicy Container(ResourceQuota quota) =>
-        Canonical with { Quota = Optional(quota), CgroupV2 = true, DiskIoMetrics = true };
+    // The container row reads its ceilings off the registered ResourceQuotaProvider —
+    // AddResourceMonitoring wires the OS-appropriate quota provider, and GetResourceQuota()
+    // returns the current ResourceQuota whose Max/Baseline ceilings ride the grade detail.
+    public static PressurePolicy Container(ResourceQuotaProvider quotas) =>
+        Canonical with { Quota = Optional(quotas.GetResourceQuota()), CgroupV2 = true, DiskIoMetrics = true };
 
     public HealthCheckResult Grade(Utilization usage) =>
         (Cpu: usage.CpuRatio, Memory: usage.MemoryRatio) switch {
@@ -148,7 +154,7 @@ public sealed record PressurePolicy(
 public sealed class UtilizationCell : IDisposable {
     public const string Meter = "Microsoft.Extensions.Diagnostics.ResourceMonitoring";
     public const string CpuInstrument = "process.cpu.utilization";
-    public const string MemoryInstrument = "dotnet.process.memory.virtual.ratio";
+    public const string MemoryInstrument = "dotnet.process.memory.virtual.utilization";
     private readonly Atom<Utilization> cell = Atom(new Utilization(0d, 0d));
     private readonly MeterListener listener = new();
 
@@ -331,12 +337,12 @@ public sealed class DegradationCell(DegradationPolicy policy, IClock clock, Corr
 
 ## [04]-[WIRE_HEALTH]
 
-- Owner: `WireHealthRow` binds one wire service name to one tag predicate; `WireHealth` attaches the filtered evaluation.
-- Entry: `Evaluate(HealthCheckService service, CancellationToken token)` runs the tag-filtered registry sweep behind one row.
-- Auto: app roots register the `grpc.health.v1` service behind the app-root pin and feed it the row predicate; healthy and degraded project to the serving wire state, unhealthy to not-serving — degraded keeps serving because the level, not the wire, carries usable failure.
-- Packages: Microsoft.Extensions.Diagnostics.HealthChecks, LanguageExt.Core
-- Growth: one wire row per served service name, zero new surface.
-- Boundary: set-degradation is the service-modality inbound route — the verb admits its level key through `DegradationLevel.TryGet`, mapping an unknown key to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release.
+- Owner: `WireHealthRow` binds one wire service name to one tag predicate; `WireHealth` attaches the filtered evaluation and the app-root wire registration.
+- Entry: `Register(IServiceCollection services, params ReadOnlySpan<WireHealthRow> rows)` is the app-root pin folding every row onto the standard wire health service.
+- Auto: `Register` composes `AddGrpcHealthChecks(Action<GrpcHealthChecksOptions>)` — each row lands as one `GrpcHealthChecksOptions.Services` mapping through `ServiceMappingCollection.Map(string name, Func<HealthCheckMapContext, bool> predicate)`, the predicate reading the row's tag against `HealthCheckMapContext.Tags` — and the endpoint serves through `MapGrpcHealthChecksService()` at the wire host, so the `grpc.health.v1` protocol answers per-service off the one registry; healthy and degraded project to the serving wire state, unhealthy to not-serving — degraded keeps serving because the level, not the wire, carries usable failure.
+- Packages: Microsoft.Extensions.Diagnostics.HealthChecks, Grpc.AspNetCore.HealthChecks, LanguageExt.Core
+- Growth: one wire row per served service name — one `Map` mapping and zero new surface; the empty-name `Overall` row is the default service every client without a service name reads.
+- Boundary: set-degradation is the service-modality inbound route — the verb admits its level key through `DegradationLevel.TryGet`, mapping an unknown key to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release; `MapGrpcHealthChecksService` is the one wire-health endpoint — a hand-rolled `Grpc.Health.V1.Health.HealthBase` override beside it is the deleted form.
 
 ```csharp signature
 public sealed record WireHealthRow(string Service, Option<string> Tag) {
@@ -345,9 +351,13 @@ public sealed record WireHealthRow(string Service, Option<string> Tag) {
 }
 
 public static class WireHealth {
-    extension(WireHealthRow row) {
-        public Task<HealthReport> Evaluate(HealthCheckService service, CancellationToken token) =>
-            service.CheckHealthAsync(registration => row.Admits(registration.Tags), token);
+    // App-root pin: every row folds onto GrpcHealthChecksOptions.Services as one Map mapping, and
+    // MapGrpcHealthChecksService() serves grpc.health.v1 at the wire host — the health fold stays
+    // the one truth and the wire reads it filtered, never a second health surface.
+    public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<WireHealthRow> rows) {
+        Seq<WireHealthRow> set = rows.ToArray().ToSeq();
+        return services.AddGrpcHealthChecks(options =>
+            ignore(set.Iter(row => options.Services.Map(row.Service, context => row.Admits(context.Tags)))));
     }
 }
 ```
@@ -356,12 +366,12 @@ public static class WireHealth {
 
 - Owner: `AlertSeverity` `[SmartEnum<int>]` the rank-ordered severity ladder; `AlertCondition` `[Union]` the declarative condition family (threshold, anomaly, forecast-band); `AlertRule` the versioned rule record carrying hysteresis and debounce; `AlertState` the per-rule firing-state cell; `AlertEngine` the static evaluate-and-escalate surface over the continuous health snapshot stream.
 - Cases: 4 severity rows — info(0), warning(1), error(2), critical(3); `AlertCondition` = Threshold | AnomalyBand | ForecastBand — Threshold fires on a value crossing a bound, AnomalyBand on a value outside a rolling mean ± k·sigma band, ForecastBand on a value outside a linear-trend forecast envelope.
-- Entry: `Observe(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at)` is the health-stream entry — it resolves `rule.Metric` to a continuous value off the snapshot through `AlertEngine.Project` and delegates to the value-fold `Evaluate(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, double value, Instant at)`; both return `(AlertState State, Option<AlertReceipt> Fired)` — the fold runs one sample through the rule's condition with hysteresis and debounce, returning the next firing state and an alert receipt only on a confirmed transition; `Backtest(AlertEngine.Runtime runtime, AlertRule rule, Seq<(Instant At, double Value)> history)` returns `Seq<AlertReceipt>` — replays the same value-fold over historical samples so a new rule's firing behavior is proven against past data before it goes live. One fold, two front doors: the live health stream resolves its value through `Project`, the back-test feeds the raw historical value.
+- Entry: `Observe(AlertEngine.Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at)` is the health-stream entry — it resolves `rule.Metric` through `AlertEngine.Project`, delegates to the pure value-fold `Evaluate`, and delivers each transition receipt on `IO`; `Evaluate(AlertRule rule, AlertState state, double value, Instant at)` returns `(AlertState State, Option<AlertReceipt> Fired)`; `Backtest(AlertRule rule, Seq<(Instant At, double Value)> history)` returns `Seq<AlertReceipt>` by replaying that pure fold without a delivery runtime. One fold, two front doors: the live health stream resolves and delivers, while the back-test feeds historical values and only returns evidence.
 - Auto: the threshold condition fires only after the value holds past the rule's debounce window so a momentary spike does not fire, and recovers only after the value clears the hysteresis band so a value oscillating at the bound does not flap; the anomaly band tracks a rolling mean and standard deviation over the rule's window so a value outside k sigma fires without a hand-set threshold; the forecast band fits a linear trend over the window and fires on a value outside the prediction envelope so a slow drift toward a limit fires before the limit is crossed; a firing alert escalates its severity if it stays fired past the escalation dwell so a persistent warning becomes an error becomes critical, and a recovered alert resets the escalation; the rule version stamps every receipt so a rule edit is auditable and a back-test pins the rule version it ran against.
-- Receipt: `AlertReceipt` — rule id, rule version, severity, condition kind, the firing value, the transition (fired/recovered/escalated), `Instant`, correlation id; fanned through `ReceiptSinkPort.Send` and routed to the delivery fan-out for multi-channel notification.
+- Receipt: `AlertReceipt` — rule id, rule version, severity, condition kind, the firing value, the transition (fired/recovered/escalated), `Instant`, correlation id; `Observe` invokes the runtime delivery delegate exactly once for each transition, and the app root binds that delegate to `ReceiptSinkPort.Send` plus the outbound fan.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one severity is one `AlertSeverity` row; one condition shape is one `AlertCondition` case breaking every evaluate arm; a rule edit is one new `AlertRule` version, never a mutated rule; zero new surface.
-- Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the engine evaluates over the continuous `HealthSnapshot` stream the health fold already produces so alerting reads the existing health signal, never a second metric source — `AlertEngine.Project(AlertRule, HealthSnapshot)` is the named-metric resolution that turns the rule's `Metric` string into a continuous double off the snapshot the fold consumes: the reserved metric keys `status` (the overall snapshot status rank), `pressure` (the `Pressure`-tagged entry status rank, the same signal `UtilizationCell` feeds), and a per-entry `{name}.status` route project the matching `HealthSnapshot.Entry` status onto a 0..3 rank, and an unmatched metric yields `Option<double>.None` so `Observe` holds the prior state and fires no spurious alert rather than fabricating a value — so the engine rides the existing health stream end to end with no hand-fed double and no second metric pipeline; the alert engine and the degradation rail are distinct concerns — degradation is the host's own capability state derived from health, while alerting is the user-facing notification product over arbitrary continuous queries, so a degradation transition is one alert input but an alert never forces a degradation level; the hysteresis and debounce reuse the same consecutive-confirm and minimum-dwell semantics the degradation derivation uses so the host-health alerting shape and the dashboard alerting share one anti-flap law; a fired alert routes to the delivery fan-out so multi-channel alert delivery is the existing outbound delivery, never a second sender; rule versioning makes a rule edit a new immutable version so an alert receipt traces to the exact rule that fired it, and a back-test proves a rule against history before it fires on live data.
+- Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the engine evaluates over the continuous `HealthSnapshot` stream the health fold already produces so alerting reads the existing health signal, never a second metric source — `AlertEngine.Project(AlertRule, HealthSnapshot)` resolves `status`, `pressure`, and per-entry `{name}.status` keys onto a 0..3 rank, while an unmatched metric yields `Option<double>.None` so `Observe` holds the prior state and delivers nothing; the alert engine and degradation rail remain distinct — degradation is the host's capability state, while alerting is user-facing notification over continuous queries; hysteresis is the condition's recovery band and debounce is the rule's minimum breach dwell, so sampling frequency cannot change a rule's firing threshold; only live `Observe` invokes delivery, so `Backtest` cannot notify operators while replaying history; rule versioning makes a rule edit a new immutable version so each receipt identifies the rule that fired it.
 
 ```csharp signature
 [SmartEnum<int>]
@@ -394,10 +404,10 @@ public sealed record AlertRule(
 public readonly record struct AlertState(
     bool Firing,
     AlertSeverity Current,
-    int ConfirmStreak,
+    Option<Instant> BreachedSince,
     Option<Instant> FiredSince,
     Seq<double> Window) {
-    public static readonly AlertState Clear = new(false, AlertSeverity.Info, 0, None, []);
+    public static readonly AlertState Clear = new(false, AlertSeverity.Info, None, None, []);
 }
 
 public readonly record struct AlertReceipt(
@@ -419,7 +429,7 @@ public static class AlertEngine {
     public const string PressureMetric = "pressure";
     public const string EntryStatusSuffix = ".status";
 
-    public sealed record Runtime(int ConfirmCount, Func<AlertReceipt, IO<Unit>> Deliver, ClockPolicy Clocks);
+    public sealed record Runtime(Func<AlertReceipt, IO<Unit>> Deliver);
 
     static double Rank(HealthStatus status) => status switch {
         HealthStatus.Unhealthy => 3d,
@@ -441,18 +451,20 @@ public static class AlertEngine {
             _ => None,
         };
 
-    public static (AlertState State, Option<AlertReceipt> Fired) Observe(Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at) =>
+    public static IO<(AlertState State, Option<AlertReceipt> Fired)> Observe(Runtime runtime, AlertRule rule, AlertState state, HealthSnapshot snapshot, Instant at) =>
         Project(rule, snapshot).Match(
-            Some: value => Evaluate(runtime, rule, state, value, at),
-            None: () => (state, Option<AlertReceipt>.None));
+            Some: value => Deliver(runtime, Evaluate(rule, state, value, at)),
+            None: () => IO.pure((state, Option<AlertReceipt>.None)));
 
-    public static (AlertState State, Option<AlertReceipt> Fired) Evaluate(Runtime runtime, AlertRule rule, AlertState state, double value, Instant at) {
+    public static (AlertState State, Option<AlertReceipt> Fired) Evaluate(AlertRule rule, AlertState state, double value, Instant at) {
         var window = (state.Window.Add(value) is var w && w.Count > Window(rule.Condition) ? w.Tail : w).Strict();
         var breached = Breached(rule.Condition, value, window, state.Firing);
-        var streak = breached ? state.ConfirmStreak + 1 : 0;
+        Option<Instant> breachedSince = breached && !state.Firing
+            ? state.BreachedSince.Match(Some: static since => Some(since), None: () => Some(at))
+            : None;
         return (breached, state.Firing) switch {
-            (true, false) when streak >= runtime.ConfirmCount =>
-                (state with { Firing = true, Current = rule.Severity, ConfirmStreak = 0, FiredSince = Some(at), Window = window },
+            (true, false) when breachedSince.Map(since => at - since >= rule.Debounce).IfNone(false) =>
+                (state with { Firing = true, Current = rule.Severity, BreachedSince = None, FiredSince = Some(at), Window = window },
                  Some(new AlertReceipt(rule.RuleId, rule.Version, rule.Severity, Kind(rule.Condition), value, AlertReceipt.Fired, at, Correlation.Mint()))),
             (true, true) when state.FiredSince.Map(since => at - since >= rule.EscalationDwell).IfNone(false) && state.Current.Value < AlertSeverity.Critical.Value =>
                 (state with { Current = state.Current.Escalated, FiredSince = Some(at), Window = window },
@@ -460,15 +472,24 @@ public static class AlertEngine {
             (false, true) =>
                 (AlertState.Clear with { Window = window },
                  Some(new AlertReceipt(rule.RuleId, rule.Version, rule.Severity, Kind(rule.Condition), value, AlertReceipt.Recovered, at, Correlation.Mint()))),
-            _ => (state with { ConfirmStreak = streak, Window = window }, None),
+            _ => (state with { BreachedSince = breachedSince, Window = window }, None),
         };
     }
 
-    public static Seq<AlertReceipt> Backtest(Runtime runtime, AlertRule rule, Seq<(Instant At, double Value)> history) =>
+    public static Seq<AlertReceipt> Backtest(AlertRule rule, Seq<(Instant At, double Value)> history) =>
         history.Fold((State: AlertState.Clear, Fired: Seq<AlertReceipt>()), (acc, sample) =>
-            Evaluate(runtime, rule, acc.State, sample.Value, sample.At) is var step
+            Evaluate(rule, acc.State, sample.Value, sample.At) is var step
                 ? (step.State, step.Fired.Match(Some: acc.Fired.Add, None: () => acc.Fired))
                 : acc).Fired;
+
+    static IO<(AlertState State, Option<AlertReceipt> Fired)> Deliver(
+        Runtime runtime,
+        (AlertState State, Option<AlertReceipt> Fired) step) =>
+        step.Fired.Match(
+            Some: receipt => IO.lift(() => runtime.Deliver(receipt))
+                .Bind(static delivery => delivery)
+                .Map(_ => step),
+            None: () => IO.pure(step));
 
     static bool Breached(AlertCondition condition, double value, Seq<double> window, bool firing) => condition.Switch(
         threshold: t => firing
@@ -552,5 +573,4 @@ interface AlertReceiptWire {
 
 ## [07]-[RESEARCH]
 
-- [WIRE_REGISTRATION]: the `grpc.health.v1` wire-service registration surface behind the app-root pin, with the default status-to-serving projection; the tag-predicate evaluation rides the confirmed `HealthCheckService.CheckHealthAsync(Func<HealthCheckRegistration, bool>?, CancellationToken)` overload.
-- [MEMORY_RATIO_SEMANTIC]: `dotnet.process.memory.virtual.ratio` is read as the memory-pressure ratio the `Gauge` grade compares against `MemoryDegraded`/`MemoryUnhealthy`; whether this instrument and `process.cpu.utilization` report over the cgroup `MaxMemoryInBytes`/`MaxCpuInCores` ceilings or over the host total under `UseLinuxCalculationV2`+`UseZeroToOneRangeForLinuxMetrics` settles whether a `Container`-row grade rides the meter as published or threads a `ResourceQuotaProvider.GetResourceQuota()`-sourced `ResourceQuota` into a quota-relative recompute and the provider-registration surface that supplies `PressurePolicy.Quota` to the runtime — resolved against the ResourceMonitoring metric exporter and `ResourceQuotaProvider` registration before the container-row grade finalizes.
+- [FILTERED_HEALTH_EVALUATION]-[BLOCKED]: Which exact `HealthCheckService.CheckHealthAsync` overload carries the registration predicate and cancellation token? Route: `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/Rasm.AppHost/.api/api-health.md`, then `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/csharp/.api/`, package `Microsoft.Extensions.Diagnostics.HealthChecks`; keep filtered evaluation out of settled code until one tier carries the full row.

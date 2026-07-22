@@ -1,6 +1,6 @@
 # [IAC_SECRET]
 
-The material owner of the deploy plane — Doppler provisioning and TLS issuance on one page because both mint secrets other rows only reference. `Secrets` provisions the Doppler hierarchy (`Project → Environment → BranchConfig → Secret`), lands every generated credential in it under one char-class policy whose `keepers` map carries the spec `epoch`, scopes one read-access `ServiceToken` for runtime injection, serves every sibling provider's credential field through one parameterized fan-in read, and mirrors outward through one `integration` + `secretssync` pair per destination — external stores are mirrors, never sources. `Certs` is the certificate pipeline: one profile value drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}`, `allowedUses` is a bounded vocabulary, rotation is window-driven (`earlyRenewalHours` moves the window, `readyForRenewal` is the boolean the drift fold watches), and a CA key that must outlive the graph lands in Doppler as a `{ value }` entry — generated material has exactly one canonical store. A value leaves this page two ways only: an in-graph single-key `Output<string>` bound to a provider credential `Input` (state-encrypted, never process env), or the `ServiceToken.key` as the `DOPPLER_TOKEN` env fact the workload assembly injects. The module is `iac/src/operate/secret.ts`; a new credential is one entries row, a new consumer is one fan-in key, a new destination is one mirror pair row, a tenant's secret access is one `access` row, an mTLS leaf is one more issuance call, and a browser-trusted hostname outside a cluster is one `trusted` call on the ACME lane.
+`Secrets` and `Certs` own deploy-plane material. `Secrets` provisions the Doppler `Project → Environment → BranchConfig → Secret` hierarchy, lands generated credentials under one epoch-bound policy, scopes a read-only `ServiceToken`, fans credentials into sibling providers, and mirrors outward through destination rows. External stores remain mirrors. `Certs` drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}` from one profile, bounds `allowedUses`, exposes renewal-window evidence, and stores durable CA material in Doppler. Values leave only as state-encrypted provider inputs or the workload's `DOPPLER_TOKEN`. Growth is an entries row, fan-in key, mirror row, access row, or issuance call.
 
 ## [01]-[CLUSTERS]
 
@@ -19,15 +19,15 @@ The material owner of the deploy plane — Doppler provisioning and TLS issuance
 - Law: config naming is environment-anchored — creating an `Environment` mints its same-slug root config, and a `BranchConfig` is a named branch beside it whose `name` extends the environment slug (`<environment-slug>_<suffix>`); the tier spells `name` explicitly because resource auto-naming cannot honor the prefix grammar.
 - Law: a pre-existing store adopts, never re-mints — `Project` imports by `<project-name>`, `Environment` by `<project-name>.<environment-slug>`, `BranchConfig` by `<project-name>.<environment-slug>.<config-name>` through the `import` resource option, with adoption-only rows carrying `ignoreChanges` until the program owns their shape; `ServiceToken` ships no importer, so adoption always mints tokens fresh.
 - Law: the token is the only egress fact — `ServiceToken` with `access: "read"` scoped to the one config; `read/write` tokens exist only for provisioners and never leave the graph; the `key` output is sensitive by construction and crosses solely into the workload env assembly.
-- Law: a static token has no expiry field — replacement is revoke-and-remint: delete the row, apply targeted (revokes server-side), restore the row, apply targeted (mints), then re-broker the fresh `key` to its consumer; in-place rotation of a `ServiceToken` is the unplannable edit this law forecloses.
+- Law: a static token has no expiry field — the resource identity includes `spec.epoch`, so an epoch change mints the replacement before Pulumi revokes the prior token and the workload receives the new `key` through the existing graph edge; `_TOKEN_NAME` owns Doppler's display-name ceiling and hash width, and `_serviceTokenName` preserves a fitting value or derives a bounded prefix-plus-hash discriminator for a long identity.
 - Law: consuming working trees carry zero Doppler files — machine-side directory scopes (`doppler configure set project=<p> config=<c> --scope <dir>`) map a checkout to its config and apply idempotently from declared scope rows, and a service token's embedded project/config outranks every flag and scope at run time; a repo-local `doppler.yaml` beside the scope rows is the second scope source this law deletes.
 - Law: a missing read key aborts cleanly — `read(key)` resolves the whole-config map once and a key the config does not carry throws `pulumi.RunError` inside the apply, failing the run with the key named, never forging an empty string.
 - Law: `store(key, value)` is the late-landing write — a value minted AFTER the tier constructs (a `Certs` CA key, a Grafana automation token, an ACME-issued edge pair) lands as one more `Secret` row under the same tier through the same parent chain, so construction-time `entries` and graph-late material share one canonical store and no second write surface exists.
 - Entry: `new Secrets("secrets", { spec, entries }, opts)` inside every provider arm; `secrets.read("DB_PASSWORD")` at any credential `Input`; `secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)` for graph-late material; `secrets.token` into `Workload.token`.
 - Law: access is the `_ACCESS` handler record — `machine` mints the durable `ServiceAccount`/`ServiceAccountToken` identity (the workplace-RBAC upgrade over the config-scoped token), `group` binds a workplace group onto the project at a role with optional environment scoping, `member` binds a service account the same way; tenant secret isolation is rows of this record against the one store, never a second store per tenant.
 - Growth: a new credential is one entries row (`digest: true` stores the `bcryptHash` projection for a consumer that never needs the value); a new policy axis is one `_Policy` field with its default; a new access posture is one `_ACCESS` row.
-- Boundary: runtime consumption (`doppler run`, the security plane's leased-secret read path) is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
-- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `RunError`); `effect` (`Schema`, `Predicate`, `Record`, `Array`, `Option`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Boundary: runtime consumption through `doppler run` is the workload assembly's process boundary; generated-material laws (`keepers`, encodings) are the entropy provider's contract; the bootstrap `DOPPLER_TOKEN` for the provider plugin itself is deploy-host env under `doppler run`.
+- Packages: `@pulumiverse/doppler` (`Project`, `Environment`, `BranchConfig`, `Secret`, `ServiceToken`, `Webhook`, `getSecretsOutput`, the `integration`/`secretssync` namespaces); `@pulumi/random` (`RandomPassword`); `@pulumi/pulumi` (`Output`, `secret`, `RunError`); `effect` (`Schema`, `Predicate`, `Record`, `Array`, `Hash`, `Option`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import * as pulumi from "@pulumi/pulumi"
@@ -36,7 +36,7 @@ import * as doppler from "@pulumiverse/doppler"
 import * as integration from "@pulumiverse/doppler/integration"
 import * as projectmember from "@pulumiverse/doppler/projectmember"
 import * as secretssync from "@pulumiverse/doppler/secretssync"
-import { Array, Option, Predicate, Record, Schema } from "effect"
+import { Array, Hash, Option, Predicate, Record, Schema } from "effect"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
 const _Policy = Schema.Struct({
@@ -47,6 +47,8 @@ const _Policy = Schema.Struct({
   minUpper: Schema.optionalWith(Schema.Int.pipe(Schema.between(0, 8)), { default: () => 1 }),
   overrideSpecial: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 })
+
+const _TOKEN_NAME = { max: 100, hashWidth: 7 } as const
 
 declare namespace Secrets {
   type Policy = typeof _Policy.Type
@@ -70,6 +72,13 @@ const _minted = (key: string, policy: Secrets.Policy, epoch: string, child: pulu
     }),
     keepers: { epoch },
   }, child)
+
+const _serviceTokenName = (name: string, epoch: string): string => {
+  const candidate = `${name}-runtime-${epoch}`
+  const suffix = (Hash.string(candidate) >>> 0).toString(36).padStart(_TOKEN_NAME.hashWidth, "0")
+  const prefixWidth = _TOKEN_NAME.max - _TOKEN_NAME.hashWidth - 1
+  return candidate.length <= _TOKEN_NAME.max ? candidate : `${candidate.slice(0, prefixWidth)}-${suffix}`
+}
 
 class Secrets extends Tier {
   static readonly mirrored = <K extends Secrets.Mirror["target"]>(
@@ -123,10 +132,10 @@ class Secrets extends Tier {
               _minted(key, _Policy.make(entry.generate), args.spec.epoch, this.child()))
           : entry.value,
       }, this.child()))
-    this.token = new doppler.ServiceToken(name, {
+    this.token = new doppler.ServiceToken(`${name}-${args.spec.epoch}`, {
       project: this.project.name,
       config: this.config.name,
-      name: `${name}-runtime`,
+      name: _serviceTokenName(name, args.spec.epoch),
       access: "read",
     }, this.child()).key
     this.seal({ project: this.project.name, config: this.config.name, token: this.token })
@@ -153,7 +162,7 @@ class Secrets extends Tier {
 - Law: the in-graph value stays in the graph — the plucked `Output<string>` binds a credential `Input`, is state-encrypted, and never touches process env; the env mode exists only for the runtime processes the workload assembly wraps.
 - Law: mirroring is one pair per destination — `Secrets.mirrored` is the generic indexed call over the `_MIRRORS` handler record keyed by the target discriminant, each row's payload correlated through `Extract`: a destination whose credential link this plane owns constructs `integration.<Target>` then `secretssync.<Target>` referencing its id; a GitHub destination's integration is the pre-existing GitHub-App install, so its row carries the integration slug and constructs the sync row alone; targets are rows, the mirror is always FROM the canonical config outward, and `mirrored` rides the owner as a static so the tier grows no per-target methods.
 - Law: rotation observes itself — `Secrets.webhook(owner, name, { url, secret, payload }, child)` is one `doppler.Webhook` row riding the owner, delivering signed secret-change events to the endpoint the composing arm names (`secret` binds a Doppler-generated HMAC entry the receiver verifies, `payload` shapes the delivery), and the receiving sink decodes the delivery through `operate/policy.md`'s `Evidence.wire` into the `SecretChange` row, so an epoch bump or an out-of-band edit surfaces as evidence the drift sweep correlates beside the `operate/cloud.md` drift-filter webhook — one evidence-delivery law, two sources, one sink vocabulary; delivery is a signal, never a second read path.
-- Growth: a new mirror destination is one `_MIRRORS` row plus its `Mirror` case — the shipped target set (secrets manager, parameter store, Actions, Terraform Cloud workspaces, CircleCI contexts, Fly.io apps) is realized whole, so growth is genuinely a new provider ship, not a backlog.
+- Growth: a new mirror destination is one `_MIRRORS` row with its `Mirror` case — the shipped target set (secrets manager, parameter store, Actions, Terraform Cloud workspaces, CircleCI contexts, Fly.io apps) is realized whole, so growth is genuinely a new provider ship, not a backlog.
 - Boundary: what a mirrored store's consumers do with the copy is theirs; the canonical write path never routes through a mirror.
 
 ```typescript
@@ -278,7 +287,7 @@ const _ACCESS: {
 - Law: ECDSA is the floor — the profile defaults `ECDSA`/`P256`; RSA is admitted only where a consumer mandates it and then at 2048 bits minimum through the same profile field; a foreign endpoint's chain pins through `Certs.pin` (`getCertificateOutput` with `verifyChain`) when an arm must trust material it does not mint.
 - Entry: `Certs.root` once per arm; `Certs.issue` per mesh hostname; `Certs.register` once per directory then `Certs.trusted` per public hostname; all take explicit `opts` so a tier parents them where they compose.
 - Growth: a second CA (a mesh-internal root) is a second `root` value on the same pipeline; a new usage subset is profile data; an EAB-demanding CA is one `externalAccountBinding` row on `register`.
-- Boundary: the TLS secret sink and ingress reference are `kube/traffic.md`'s; cloud-managed certs are the prepared columns' cert cells; the ACME directory URL is `acme.Provider.serverUrl` data — staging versus production is provider construction, never a resource fork.
+- Boundary: the TLS secret sink and ingress reference are `kube/traffic.md`'s; cloud-managed certs are the cloud columns' cert cells; the ACME directory URL is `acme.Provider.serverUrl` data — staging versus production is provider construction, never a resource fork.
 - Packages: `@pulumi/tls` (`PrivateKey`, `CertRequest`, `SelfSignedCert`, `LocallySignedCert`, `getCertificateOutput`); `@pulumiverse/acme` (`Registration`, `Certificate`); `effect` (`Schema`).
 
 ```typescript
@@ -399,3 +408,7 @@ const Certs = {
 
 export { Certs, Secrets }
 ```
+
+## [05]-[RESEARCH]
+
+- [LEASE_SPEC]-[BLOCKED]: Which encoded `LeaseSpec` fields own scope, keys, TTL, renewal, and epoch rotation? Route `libs/typescript/security/.planning/crypt/secret.md`, `libs/typescript/security/IDEAS.md` `[LEASE_SPEC_CONTRACT]`, and `libs/typescript/security/TASKLOG.md` `[LEASE_SPEC_SCHEMA]`; restore a `Secrets` lease member only after its encoded owner exists on disk.

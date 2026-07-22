@@ -1,12 +1,12 @@
 # [UI_PROBE]
 
-The one render-evidence owner: benchmark and receipt are two lanes of a single discipline — capture a local truth with the render engines' own counters, pair it with the wire-decoded claim, and render the comparison as operator evidence that never gates, never faults, never retries. The benchmark lane folds deck's `DeckMetrics` sink and the frame-loop timer into one bounded seed fold, mirrors the host fingerprint locally so divergent numbers carry their divergence context, and joins claim rows against local rows BY LABEL into a comparison board. The receipt lane captures a deterministic fixed-extent framebuffer through the renderer's async readback, delegates the hash to the branch's one content mint, and compares structurally against the wire `RenderReceipt` — both proofs render side by side. Claims arrive already identity-gated (`Claim.admit` at `core/interchange/codec` refuses a foreign-host claim before this module sees it), and the local fingerprint exists to explain deltas, never to admit or refuse. The module is `ui/viewer/src/probe.ts`.
+Probe owns render evidence. Its benchmark lane folds Deck and renderer counters through one bounded projection algebra, mirrors the host fingerprint, and joins local rows to identity-admitted claims by label. Its receipt lane captures a fixed-extent framebuffer, delegates content minting, and compares the result with `RenderReceipt`. Both lanes render evidence and never gate. Module: `ui/viewer/src/probe.ts`.
 
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC] |
 | :-----: | :-------------- | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `METRIC_FOLD`   | the local capture — deck metrics sink and frame timing as one bounded seed fold | `Probe`  |
+|  [01]   | `METRIC_FOLD`   | the local capture — deck and renderer counters through one bounded algebra     | `Probe`  |
 |  [02]   | `HOST_MIRROR`   | the local host-fingerprint capture mirroring the wire's fields                  | `Probe`  |
 |  [03]   | `CLAIM_BOARD`   | the claim-versus-local label-keyed join and its display rows                    | `Probe`  |
 |  [04]   | `CAPTURE_FOLD`  | the deterministic framebuffer capture and the kernel hash delegate              | `Probe`  |
@@ -15,13 +15,13 @@ The one render-evidence owner: benchmark and receipt are two lanes of a single d
 ## [02]-[METRIC_FOLD]
 
 [METRIC_FOLD]:
-- Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink carrying the FULL shipped `DeckMetrics` roster — timing (`fps`, `gpuTime`/`gpuTimePerFrame`, `cpuTime`/`cpuTimePerFrame`, `pickTime`, `setPropsTime`, `updateAttributesTime`), counters (`framesRedrawn`, `pickCount`, `pickLayersCount`, `updateAttributesCount`, `layersCount`, `drawLayersCount`, `updateLayersCount`), and the `gpuMemory` split (`bufferMemory`, `textureMemory`, `renderbufferMemory`) — and the three renderer's `info` counter surface (`render.frameCalls`/`drawCalls`/`triangles`, `memory.geometries`/`textures`/`total`) lands beside it in one merged sample per tick; the window's projections run as ONE seed fold — raw sums accumulate in a single `Chunk.reduce` pass, timing means project at read, a cumulative counter windows as its latest sample, a memory gauge windows as its peak — so a new statistic (a p95 seed, a compute-pass counter) is one seed field and one row, never a second traversal; each captured quantity lands as the SAME metric row shape the wire claim carries — `label`/`value`/`unit` derives from `Claim` itself — so comparison is a keyed join, not a shape adaptation.
+- Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink carrying the FULL shipped `DeckMetrics` roster — timing (`fps`, `gpuTime`/`gpuTimePerFrame`, `cpuTime`/`cpuTimePerFrame`, `pickTime`, `setPropsTime`, `updateAttributesTime`), counters (`framesRedrawn`, `pickCount`, `pickLayersCount`, `updateAttributesCount`, `layersCount`, `drawLayersCount`, `updateLayersCount`), and the `gpuMemory` split (`bufferMemory`, `textureMemory`, `renderbufferMemory`) — while the unified `WebGPURenderer.info` row contributes render, compute, residency-count, and byte-grade memory facts. `_DECK_TIMERS`, `_DECK_COUNTERS`, `_DECK_MEMORY`, and `_RENDERER_INFO` merge into one measure table; each row selects `mean`, `latest`, or `peak`, and ONE `Chunk.reduce` applies the projection algebra to every measure. A new counter is one measure row, never a seed-field/step/row triplicate; every output derives from `Claim`'s `label`/`value`/`unit` shape, so comparison is a keyed join, not an adapter.
 - Packages: `@deck.gl/core` (`DeckMetrics` via the `_onMetrics` prop on the surface's overlay); `three` (`WebGPURenderer["info"]` — the render/compute/memory counter surface through `three/webgpu`); `@rasm/ts/core` (`Claim` — the metric row shape IS its vocabulary); `effect` (`Chunk`, `Number`, `pipe`).
 - Law: probes are passive — metric capture never alters render behavior (no forced redraws, no `_animate` flips for measurement's sake); an idle viewport reports idle numbers truthfully.
 - Law: the tick assembles the sample — the deck sink caches its last payload, the frame loop reads `renderer.info` inside its own tick (the loop is already the timing source, no second RAF), and a scene-owned loop flips `info.autoReset` false with `info.reset()` closing each tick so per-frame counters stay frame-true.
-- Law: windows are policy rows — sample count and projection kind live in one `as const` record; a per-metric bespoke window is the named defect.
+- Law: windows are policy rows — sample count lives at `_WINDOW`, projection kind lives on each bounded measure row, and `_PROJECTION` owns every step/finalize rule; a per-metric bespoke window or reducer is the named defect.
 - Law: the trace renders as a live series, never table rows — `Probe.aligned(trace)` projects the rolling window into the aligned columns `view/chart#SERIES_SURFACE` streams through `setData` (the metric board is a chart cohort synced by one key), and the summary rows feed the claim board; a metric timeline rendered through `view/table` is the named defect.
-- Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s surplus arrival lane feeds an arrival-rate row and `Glb.Loop.refusals` feeds the refusal-rate row beside it, both in the same trace shape — broadcast taps, never a second port subscription; the taps ride `system/hook` registry rows (`rasm.ui.scene.residency`), so probe boards, history capture, and the app bridge consume one rail.
+- Law: residency metrics tap the scene broadcast — `scene#RESIDENCY_GRAFT`'s `Glb.Loop.facts` discriminant feeds arrival-rate and refusal-rate rows through the adopted `rasm.ui.scene.residency` hook source, so probe boards, history capture, and the app bridge consume one rail without parallel port subscriptions.
 - Boundary: `Deck`/renderer acquisition is `geo`/`scene`'s — the sinks arrive as wiring parameters; React tree, vitals, and long-frame evidence is `system/vital`'s lane rendered on this same board through the shared row shape; render-vital emission to the OTel spine is the runtime plane's, fed by an app-composed `system/hook` tap over these local rows, so this probe stays a display surface and mints no instrument.
 
 ```typescript
@@ -39,71 +39,81 @@ type _Info = WebGPURenderer["info"]
 declare namespace Probe {
   type Sample = {
     readonly deck: DeckMetrics
-    readonly draw: Pick<_Info["render"], "frameCalls" | "drawCalls" | "triangles">
-    readonly held: Pick<_Info["memory"], "geometries" | "textures" | "total">
+    readonly info: {
+      readonly render: Pick<_Info["render"], "frameCalls" | "drawCalls" | "triangles" | "points" | "lines">
+      readonly compute: Pick<_Info["compute"], "frameCalls">
+      readonly memory: Pick<_Info["memory"], "geometries" | "textures" | "texturesSize" | "attributes" | "attributesSize" | "programs" | "renderTargets" | "readbackBuffers" | "uniformBuffers" | "total">
+    }
   }
   type Trace = Chunk.Chunk<Probe.Sample>
 }
 
-type _Sums = {
-  readonly count: number
-  readonly fps: number
-  readonly gpu: number
-  readonly cpu: number
-  readonly pick: number
-  readonly gpuFrame: number
-  readonly cpuFrame: number
-  readonly props: number
-  readonly attrs: number
-  readonly redrawn: number
-  readonly picks: number
-  readonly layers: number
-  readonly drawnLayers: number
-  readonly updatedLayers: number
-  readonly mem: number
-  readonly buffers: number
-  readonly texBytes: number
-  readonly targets: number
-  readonly calls: number
-  readonly draws: number
-  readonly tris: number
-  readonly geometries: number
-  readonly textures: number
-  readonly total: number
-}
+type _Projection = "mean" | "latest" | "peak"
+type _Measure = { readonly label: string; readonly unit: string; readonly projection: _Projection; readonly read: (sample: Probe.Sample) => number }
 
-const _SEED: _Sums = {
-  count: 0, fps: 0, gpu: 0, cpu: 0, pick: 0, gpuFrame: 0, cpuFrame: 0, props: 0, attrs: 0,
-  redrawn: 0, picks: 0, layers: 0, drawnLayers: 0, updatedLayers: 0,
-  mem: 0, buffers: 0, texBytes: 0, targets: 0,
-  calls: 0, draws: 0, tris: 0, geometries: 0, textures: 0, total: 0,
-}
+const _DECK_TIMERS = {
+  fps: { label: "fps", unit: "1/s", projection: "mean", read: (s: Probe.Sample) => s.deck.fps },
+  gpu: { label: "gpu-time", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.gpuTime },
+  gpuFrame: { label: "gpu-time-frame", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.gpuTimePerFrame },
+  cpu: { label: "cpu-time", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.cpuTime },
+  cpuFrame: { label: "cpu-time-frame", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.cpuTimePerFrame },
+  pick: { label: "pick-time", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.pickTime },
+  props: { label: "setprops-time", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.setPropsTime },
+  attrs: { label: "attr-update-time", unit: "ms", projection: "mean", read: (s: Probe.Sample) => s.deck.updateAttributesTime },
+} as const satisfies Record<string, _Measure>
+
+const _DECK_COUNTERS = {
+  redrawn: { label: "frames-redrawn", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.framesRedrawn },
+  picks: { label: "pick-count", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.pickCount },
+  pickedLayers: { label: "pick-layers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.pickLayersCount },
+  attrUpdates: { label: "attr-updates", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.updateAttributesCount },
+  layers: { label: "layers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.layersCount },
+  drawnLayers: { label: "layers-drawn", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.drawLayersCount },
+  updatedLayers: { label: "layers-updated", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.deck.updateLayersCount },
+} as const satisfies Record<string, _Measure>
+
+const _DECK_MEMORY = {
+  gpuMemory: { label: "gpu-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.gpuMemory },
+  bufferMemory: { label: "buffer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.bufferMemory },
+  textureMemory: { label: "texture-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.textureMemory },
+  renderbufferMemory: { label: "renderbuffer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.deck.renderbufferMemory },
+} as const satisfies Record<string, _Measure>
+
+const _RENDERER_INFO = {
+  renderCalls: { label: "render-calls", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.render.frameCalls },
+  drawCalls: { label: "draw-calls", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.render.drawCalls },
+  triangles: { label: "triangles", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.render.triangles },
+  points: { label: "points", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.render.points },
+  lines: { label: "lines", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.render.lines },
+  computeCalls: { label: "compute-calls", unit: "1", projection: "mean", read: (s: Probe.Sample) => s.info.compute.frameCalls },
+  geometries: { label: "geometries-resident", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.geometries },
+  textures: { label: "textures-resident", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.textures },
+  attributes: { label: "attributes-resident", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.attributes },
+  programs: { label: "programs-resident", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.programs },
+  renderTargets: { label: "render-targets", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.renderTargets },
+  readbackBuffers: { label: "readback-buffers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.readbackBuffers },
+  uniformBuffers: { label: "uniform-buffers", unit: "1", projection: "latest", read: (s: Probe.Sample) => s.info.memory.uniformBuffers },
+  textureBytes: { label: "renderer-texture-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.texturesSize },
+  attributeBytes: { label: "renderer-attribute-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.attributesSize },
+  totalBytes: { label: "renderer-memory", unit: "bytes", projection: "peak", read: (s: Probe.Sample) => s.info.memory.total },
+} as const satisfies Record<string, _Measure>
+
+const _METRICS = { ..._DECK_TIMERS, ..._DECK_COUNTERS, ..._DECK_MEMORY, ..._RENDERER_INFO } as const
+type _MetricKey = keyof typeof _METRICS
+type _Sums = { readonly count: number; readonly values: Readonly<Record<_MetricKey, number>> }
+
+const _PROJECTION = {
+  mean: { step: (held: number, value: number) => held + value, finish: (held: number, count: number) => held / count },
+  latest: { step: (_held: number, value: number) => value, finish: (held: number) => held },
+  peak: { step: Number.max, finish: (held: number) => held },
+} as const satisfies Record<_Projection, { readonly step: (held: number, value: number) => number; readonly finish: (held: number, count: number) => number }>
+
+const _MEASURES = Object.entries(_METRICS) as ReadonlyArray<readonly [_MetricKey, _Measure]> // BOUNDARY ADAPTER: the closed record erases once into its enumerable fold
+const _SEED: _Sums = { count: 0, values: Object.fromEntries(_MEASURES.map(([key]) => [key, 0])) as Record<_MetricKey, number> }
 
 const _stepped = (acc: _Sums, sample: Probe.Sample): _Sums => ({
   count: acc.count + 1,
-  fps: acc.fps + sample.deck.fps,
-  gpu: acc.gpu + sample.deck.gpuTime,
-  cpu: acc.cpu + sample.deck.cpuTime,
-  pick: acc.pick + sample.deck.pickTime,
-  gpuFrame: acc.gpuFrame + sample.deck.gpuTimePerFrame,
-  cpuFrame: acc.cpuFrame + sample.deck.cpuTimePerFrame,
-  props: acc.props + sample.deck.setPropsTime,
-  attrs: acc.attrs + sample.deck.updateAttributesTime,
-  redrawn: sample.deck.framesRedrawn, // a cumulative counter windows as its latest sample, never a mean
-  picks: sample.deck.pickCount,
-  layers: sample.deck.layersCount,
-  drawnLayers: sample.deck.drawLayersCount,
-  updatedLayers: sample.deck.updateLayersCount,
-  mem: Number.max(acc.mem, sample.deck.gpuMemory), // a gauge windows as its peak
-  buffers: Number.max(acc.buffers, sample.deck.bufferMemory),
-  texBytes: Number.max(acc.texBytes, sample.deck.textureMemory),
-  targets: Number.max(acc.targets, sample.deck.renderbufferMemory),
-  calls: acc.calls + sample.draw.frameCalls,
-  draws: acc.draws + sample.draw.drawCalls,
-  tris: acc.tris + sample.draw.triangles,
-  geometries: sample.held.geometries, // residency counts window as their latest sample
-  textures: sample.held.textures,
-  total: Number.max(acc.total, sample.held.total),
+  values: Object.fromEntries(_MEASURES.map(([key, row]) => [key, _PROJECTION[row.projection].step(acc.values[key], row.read(sample))])) as Record<_MetricKey, number>,
 })
 
 const _observe = (trace: Probe.Trace, sample: Probe.Sample): Probe.Trace =>
@@ -113,31 +123,11 @@ const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
   pipe(Chunk.reduce(trace, _SEED, _stepped), (sums) =>
     sums.count === 0
       ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
-      : [
-          { label: "fps", value: sums.fps / sums.count, unit: "1/s" },
-          { label: "gpu-time", value: sums.gpu / sums.count, unit: "ms" },
-          { label: "cpu-time", value: sums.cpu / sums.count, unit: "ms" },
-          { label: "gpu-time-frame", value: sums.gpuFrame / sums.count, unit: "ms" },
-          { label: "cpu-time-frame", value: sums.cpuFrame / sums.count, unit: "ms" },
-          { label: "pick-time", value: sums.pick / sums.count, unit: "ms" },
-          { label: "setprops-time", value: sums.props / sums.count, unit: "ms" },
-          { label: "attr-update-time", value: sums.attrs / sums.count, unit: "ms" },
-          { label: "frames-redrawn", value: sums.redrawn, unit: "1" },
-          { label: "pick-count", value: sums.picks, unit: "1" },
-          { label: "layers", value: sums.layers, unit: "1" },
-          { label: "layers-drawn", value: sums.drawnLayers, unit: "1" },
-          { label: "layers-updated", value: sums.updatedLayers, unit: "1" },
-          { label: "gpu-memory", value: sums.mem, unit: "bytes" },
-          { label: "buffer-memory", value: sums.buffers, unit: "bytes" },
-          { label: "texture-memory", value: sums.texBytes, unit: "bytes" },
-          { label: "renderbuffer-memory", value: sums.targets, unit: "bytes" },
-          { label: "render-calls", value: sums.calls / sums.count, unit: "1" },
-          { label: "draw-calls", value: sums.draws / sums.count, unit: "1" },
-          { label: "triangles", value: sums.tris / sums.count, unit: "1" },
-          { label: "geometries-resident", value: sums.geometries, unit: "1" },
-          { label: "textures-resident", value: sums.textures, unit: "1" },
-          { label: "renderer-memory", value: sums.total, unit: "bytes" },
-        ])
+      : _MEASURES.map(([key, row]) => ({
+          label: row.label,
+          value: _PROJECTION[row.projection].finish(sums.values[key], sums.count),
+          unit: row.unit,
+        })))
 
 const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Float64Array, Float64Array] =>
   pipe(Chunk.toReadonlyArray(trace), (samples) => [
@@ -332,3 +322,12 @@ const Probe: Probe.Shape = {
 
 export { Probe }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -22,6 +22,7 @@ using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.HostUi;
+using Rasm.Rhino.Modeling;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 
@@ -646,6 +647,8 @@ public sealed record DepthField {
 public abstract partial record CaptureArtifact : IDetachedDocumentResult {
     private CaptureArtifact() { }
 
+    public Option<BenchEvidence> Bench { get; init; }
+
     public sealed record RasterCase : CaptureArtifact {
         internal RasterCase(Lease<System.Drawing.Bitmap> pixels, Size2i extent) => (Pixels, Extent) = (pixels, extent);
         public Lease<System.Drawing.Bitmap> Pixels { get; }
@@ -1257,7 +1260,8 @@ public abstract partial record SequenceOp {
 
 - Owner: `CapturePlan` is the sink-free preparation value. `CaptureRequest` closes settings, transparent, depth, and sequence modalities behind their factories; `SettingsCase` alone pairs a non-empty plan sequence with a settings-driven sink and sink-derived cardinality admission. `PreparedCapture` is the internal disposable prepared-program resource; its settings sequence carries arity, its `Use` gate rejects use after disposal, and reverse release retires every native setting after the sole consumer settles.
 - Entry: `Captures.Run(DocumentSession, CaptureRequest, Op?) : Fin<CaptureArtifact>` is the sole public execution rail. `CaptureRequest.Settings`, `Transparent`, `Depth`, and `Sequence` admit each modality; internal `Stage` shares settings acquisition with PDF composition without exposing `ViewCaptureSettings`.
-- Law: every capture entry crosses `HostThread.OnSession` with `SessionNeed.Redraw`; target resolution, settings construction, field application, host validation, delivery, and disposal occur inside the same Rhino command-thread scope. Sequence adopt walks the mutation spine — `SessionNeed.Mutate` plus `SessionNeed.Undo` around one sealed `UndoBracket` — while inspect demands `SessionNeed.Read` only.
+- Law: every capture entry crosses `HostThread.Run` with a `HostWork<T>.Session`; settings, transparent, and depth cases carry `SessionNeed.Redraw`, sequence adopt carries `SessionNeed.Mutate` plus `SessionNeed.Undo` around one sealed `UndoBracket`, and sequence inspect carries `SessionNeed.Read` only. Target resolution, host work, delivery, and disposal remain inside that command-thread scope.
+- Law: run-rail frame timing is the Modeling bench band — every `Captures.Run` case crosses `HostThread.Run`, brackets its in-host body in `BenchBand.Measured`, and stamps the `BenchEvidence` (operation identity from the request case, input scale from the case's own cardinality — plan count, pixel area, sample count, or frame count — duration, allocation, host fingerprint) onto `CaptureArtifact.Bench`, so allocation belongs to the executing host thread and bridge-run harvest sessions produce corpus-comparable rows with no second measurement path.
 - Law: batch preparation is one iterative `Fold`. A failed acquisition reverse-disposes every previously prepared setting, and the completed `PreparedCapture` reverse-disposes its sequence after the sole consumer settles.
 - Law: preparation applies viewport → area → layout → scale → decoration exactly once, then derives a preview from that completed basis when requested. Viewport binding precedes window projection, aspect matching, and fit scaling, and the bound viewport is the resolved row's own — a page address resolves to `RhinoPageView.MainViewport` and a detail address to `DetailViewObject.Viewport` at the target resolution, so no capture-side re-addressing exists. A settings handle never appears on a public signature, and internal prepared resources reject every use after their lease closes.
 
@@ -1356,50 +1360,108 @@ public static class Captures {
         Op op = key.OrDefault();
         return from owner in Optional(session).ToFin(Fail: op.MissingContext())
                from admitted in op.Need(value: request)
+               let identity = admitted.Switch(
+                   settingsCase: static row => (Operation: nameof(Settings), Scale: (long)row.Plans.Count),
+                   transparentCase: static row => (Operation: nameof(Transparent), Scale: (long)row.Spec.Extent.Width * row.Spec.Extent.Height),
+                   depthCase: static row => (Operation: nameof(Depth), Scale: row.Spec.Projection is DepthProjection.SamplesCase samples ? samples.Pixels.Count : 1L),
+                   sequenceCase: static row => (Operation: nameof(CaptureRequest.Sequence), Scale: row.Operation is SequenceOp.AdoptCase adopt ? adopt.Spec.Frames.Value : 1L))
                from artifact in admitted.Switch(
-                   (Session: owner, Op: op),
-                   settingsCase: static (ctx, row) => SettingsRun(session: ctx.Session, plans: row.Plans, sink: row.Sink, key: ctx.Op),
-                   transparentCase: static (ctx, row) => TransparentRun(session: ctx.Session, spec: row.Spec, key: ctx.Op),
-                   depthCase: static (ctx, row) => DepthRun(session: ctx.Session, spec: row.Spec, key: ctx.Op),
-                   sequenceCase: static (ctx, row) => SequenceRun(session: ctx.Session, request: row.Operation, key: ctx.Op)
-                       .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))
+                   (Session: owner, Identity: identity, Op: op),
+                   settingsCase: static (ctx, row) => SettingsRun(
+                       session: ctx.Session, plans: row.Plans, sink: row.Sink,
+                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
+                   transparentCase: static (ctx, row) => TransparentRun(
+                       session: ctx.Session, spec: row.Spec,
+                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
+                   depthCase: static (ctx, row) => DepthRun(
+                       session: ctx.Session, spec: row.Spec,
+                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op),
+                   sequenceCase: static (ctx, row) => SequenceRun(
+                       session: ctx.Session, request: row.Operation,
+                       operation: ctx.Identity.Operation, inputScale: ctx.Identity.Scale, key: ctx.Op))
                select artifact;
     }
 
-    private static Fin<CaptureArtifact> SettingsRun(DocumentSession session, Seq<CapturePlan> plans, CaptureSink sink, Op key) =>
-        HostThread.OnSession(
-            session: session,
-            body: document => Prepare(document: document, plans: plans, key: key)
-                .Bind(lease => lease.Use(prepared => sink.Render(prepared: prepared, op: key))),
-            op: key,
-            needs: [SessionNeed.Redraw]);
+    private static Fin<CaptureArtifact> SettingsRun(
+        DocumentSession session, Seq<CapturePlan> plans, CaptureSink sink,
+        string operation, long inputScale, Op key) =>
+        HostThread.Run(
+            work: new HostWork<CaptureArtifact>.Session(
+                Document: session,
+                Needs: [SessionNeed.Redraw],
+                Body: document => Measured(
+                    operation: operation,
+                    inputScale: inputScale,
+                    run: () => Prepare(document: document, plans: plans, key: key)
+                        .Bind(lease => lease.Use(prepared => sink.Render(prepared: prepared, op: key))))),
+            key: key);
 
-    private static Fin<CaptureArtifact> TransparentRun(DocumentSession session, TransparentCaptureSpec spec, Op key) =>
-        HostThread.OnSession(
-                   session: session,
-                   body: document => from row in spec.Target.ResolveOne(document: document, key: key)
-                                     from captured in Transparent(row: row, spec: spec, key: key)
-                                     select captured,
-                   op: key,
-                   needs: [SessionNeed.Redraw]);
+    private static Fin<CaptureArtifact> TransparentRun(
+        DocumentSession session, TransparentCaptureSpec spec,
+        string operation, long inputScale, Op key) =>
+        HostThread.Run(
+            work: new HostWork<CaptureArtifact>.Session(
+                Document: session,
+                Needs: [SessionNeed.Redraw],
+                Body: document => Measured(
+                    operation: operation,
+                    inputScale: inputScale,
+                    run: () => from row in spec.Target.ResolveOne(document: document, key: key)
+                               from captured in Transparent(row: row, spec: spec, key: key)
+                               select captured)),
+            key: key);
 
-    private static Fin<CaptureArtifact> DepthRun(DocumentSession session, DepthCaptureSpec spec, Op key) =>
-        HostThread.OnSession(
-                   session: session,
-                   body: document => from viewport in spec.Target.ResolveViewport(document: document, key: key)
-                                     from field in Depth(viewport: viewport, spec: spec, key: key)
-                                     select (CaptureArtifact)new CaptureArtifact.DepthCase(field: field),
-                   op: key,
-                   needs: [SessionNeed.Redraw]);
+    private static Fin<CaptureArtifact> DepthRun(
+        DocumentSession session, DepthCaptureSpec spec,
+        string operation, long inputScale, Op key) =>
+        HostThread.Run(
+            work: new HostWork<CaptureArtifact>.Session(
+                Document: session,
+                Needs: [SessionNeed.Redraw],
+                Body: document => Measured(
+                    operation: operation,
+                    inputScale: inputScale,
+                    run: () => from viewport in spec.Target.ResolveViewport(document: document, key: key)
+                               from field in Depth(viewport: viewport, spec: spec, key: key)
+                               select (CaptureArtifact)new CaptureArtifact.DepthCase(field: field))),
+            key: key);
 
-    private static Fin<SequenceReceipt> SequenceRun(DocumentSession session, SequenceOp request, Op key) =>
+    private static Fin<CaptureArtifact> SequenceRun(
+        DocumentSession session, SequenceOp request,
+        string operation, long inputScale, Op key) =>
         request.Switch(
-                   (Session: session, Op: key),
-                   inspectCase: static (ctx, _) => ctx.Session.Demand(
-                       use: document => Sequenced(document: document, key: ctx.Op),
-                       key: ctx.Op,
-                       needs: [SessionNeed.Read]),
-                   adoptCase: static (ctx, adopt) => Adopted(session: ctx.Session, spec: adopt.Spec, key: ctx.Op));
+            (Session: session, Operation: operation, Scale: inputScale, Op: key),
+            inspectCase: static (ctx, _) => HostThread.Run(
+                work: new HostWork<CaptureArtifact>.Session(
+                    Document: ctx.Session,
+                    Needs: [SessionNeed.Read],
+                    Body: document => Measured(
+                        operation: ctx.Operation,
+                        inputScale: ctx.Scale,
+                        run: () => Sequenced(document: document, key: ctx.Op)
+                            .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))),
+                key: ctx.Op),
+            adoptCase: static (ctx, adopt) => HostThread.Run(
+                work: new HostWork<CaptureArtifact>.Session(
+                    Document: ctx.Session,
+                    Needs: [SessionNeed.Mutate, SessionNeed.Undo],
+                    Body: document => Measured(
+                        operation: ctx.Operation,
+                        inputScale: ctx.Scale,
+                        run: () => Adopted(document: document, spec: adopt.Spec, key: ctx.Op)
+                            .Map(static receipt => (CaptureArtifact)new CaptureArtifact.SequenceCase(receipt: receipt)))),
+                key: ctx.Op));
+
+    private static Fin<CaptureArtifact> Measured(
+        string operation,
+        long inputScale,
+        Func<Fin<CaptureArtifact>> run) {
+        (Fin<CaptureArtifact> outcome, BenchEvidence evidence) = BenchBand.Measured(
+            operation: operation,
+            inputScale: inputScale,
+            run: run);
+        return outcome.Map(artifact => artifact with { Bench = Some(evidence) });
+    }
 
     internal static Fin<TOut> Stage<TOut>(
         DocumentSession session,
@@ -1410,12 +1472,13 @@ public static class Captures {
         Seq<CapturePlan> requested = toSeq(plans.ToArray()).Strict();
         return from body in op.Need(value: consume)
                from _rows in guard(!requested.IsEmpty && requested.ForAll(static plan => plan is not null), op.InvalidInput())
-               from output in HostThread.OnSession(
-                   session: session,
-                   body: document => Prepare(document: document, plans: requested, key: op)
-                       .Bind(lease => lease.Use(body)),
-                   op: op,
-                   needs: [SessionNeed.Redraw])
+               from output in HostThread.Run(
+                   work: new HostWork<TOut>.Session(
+                       Document: session,
+                       Needs: [SessionNeed.Redraw],
+                       Body: document => Prepare(document: document, plans: requested, key: op)
+                           .Bind(lease => lease.Use(body))),
+                   key: op)
                select output;
     }
 
@@ -1467,9 +1530,8 @@ public static class Captures {
                select field;
     });
 
-    private static Fin<SequenceReceipt> Adopted(DocumentSession session, FrameSequenceSpec spec, Op key) =>
-        session.Demand(
-            use: document => DocumentCommit.Sealed(
+    private static Fin<SequenceReceipt> Adopted(RhinoDoc document, FrameSequenceSpec spec, Op key) =>
+        DocumentCommit.Sealed(
                 document: document,
                 name: nameof(CaptureRequest.Sequence),
                 recordsUndo: true,
@@ -1485,9 +1547,7 @@ public static class Captures {
                     from receipt in Sequenced(document: document, key: key)
                     select receipt,
                 stamp: static (receipt, serial) => receipt.Stamp(undoRecord: serial),
-                op: key),
-            key: key,
-            needs: [SessionNeed.Mutate, SessionNeed.Undo]);
+                op: key);
 
     private static Fin<SequenceReceipt> Sequenced(RhinoDoc document, Op key) => key.Catch(() => {
         using AnimationProperties native = document.AnimationProperties;
@@ -1599,3 +1659,12 @@ flowchart LR
     class Artifact success
     class Run boundary
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

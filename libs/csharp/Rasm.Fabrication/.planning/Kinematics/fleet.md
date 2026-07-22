@@ -16,7 +16,7 @@ Availability is a generated calendar, never a window roster. `ShiftCalendar` exp
 - Cases: `ProcessEnvelope` covers rotating milling, turning, grinding, sawing, thermal sheet cutting, waterjet, ultrasonic abrasion, wire tank, additive build, press brake, linear stroke, roll forming, tube bender, and robot cell. `CapabilityCriterion` covers material physics, envelope, topology, station, spindle, tooling, material, grade, controller, certification, availability, reliability, payload, cell reach, and external-axis capacity. `FleetObjective` covers headroom, grade, parsimony, reliability, effectiveness, energy, load, cost, and utilization. `CalendarExceptionKind` covers holiday, shutdown, reduced, overtime, and unattended dates, each row declaring through `Grants` whether its blocks replace the weekly pattern or extend it.
 - Entry: `Fleet.Capable(AdmittedComponent, MachineFleet)` returns every installed `(instance, process)` assessment, feasible rows first and then lowest excess-capability cost. `Fleet.AdmitInstance(MachineRegistration)` is the one textual registry boundary.
 - Auto: component geometry, material, and every `DemandKey` scalar accumulate through one applicative admission. `ProcessKind.Physics` selects the material law through the `CapabilityCriterion.Physics` fact, and `ConstitutiveLaw.At(ConstitutiveState)` derives spindle demand from temperature, hardness, and strain rate. `CapabilityCriterion.Items` generates exactly one fact per dimension, `CapabilityCriterion.Sense` orients each margin so an over-capable value reads positive whichever direction the dimension improves, `FleetObjective.Items` generates the weighted score, enrolled `CapabilityVerdict` defeats declared grade, controller and certification gates read installed sets, `ShiftCalendar.Covers` evaluates the generated windows and punched maintenance at `MachineFleet.RoutingAt`, and unavailable or reliability-deficient machines remain rejected evidence.
-- Receipt: `MachineMatch` carries the instance, process, typed facts, envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a receipt, so a material whose physics omits the process is rejected evidence rather than a silent absence. `FabricationFact.FleetMatch.Of` projects utilization and effectiveness onto `rasm.fabrication.fleet.utilization` and `rasm.fabrication.fleet.effectiveness` through `Process/telemetry#FACT_PROJECTION` as kind `fleet-match`, a freshness fallback counts on `rasm.fabrication.fleet.stale`, and the objective-relative score rides the envelope alone.
+- Receipt: `MachinePerformance.Of` folds a decoded `Kinematics/observation.md` window into the refreshed measured row — producing fraction, fault-episode availability, failure spacing, repair time, and load-scaled observed power — the registry re-admits under `FleetPolicy.PerformanceHorizon`, and `FleetSlots` names the `store.fabrication.fleet.<verb>` streams the refreshed rows and the re-admitted census ride on the Persistence slot registry. `MachineMatch` carries the instance, process, typed facts, envelope and grade margins, score, assessment instant, and freshness-qualified rate, power, reliability, and utilization evidence. `Checks.Feasible` remains the frozen derivation and estimation read; every `(instance, process)` pair the registry declares reaches a receipt, so a material whose physics omits the process is rejected evidence rather than a silent absence. `FabricationFact.FleetMatch.Of` projects utilization and effectiveness onto `rasm.fabrication.fleet.utilization` and `rasm.fabrication.fleet.effectiveness` through `Process/telemetry#FACT_PROJECTION` as kind `fleet-match`, a freshness fallback counts on `rasm.fabrication.fleet.stale`, and the objective-relative score rides the envelope alone.
 - Packages: `Process/family.md` supplies `Machine`, `ProcessKind`, `PostDialect`, and topology; `Process/physics.md` supplies `Material` and surface-speed evidence; `Tooling/magazine.md` supplies `SlotMap`, `SlotState`, and MTConnect-backed `ToolSnapshot` life/feed/spindle truth; `Spec/capability.md` supplies `ItGrade` and `CapabilityVerdict`; `Kinematics/cell.md` supplies `RobotCell`; `Rasm.Analysis` supplies the mesh-bound query; NodaTime owns `Instant`, `Interval`, `DateInterval`, explicit `LocalDateTime.InZone`, and `Resolvers.CreateMappingResolver`; Thinktecture and LanguageExt own generated rows and typed rails.
 - Growth: a new station modality is one `ProcessEnvelope` case and assessment arm; a new assessment dimension is one behavior-bearing `CapabilityCriterion` row carrying its own `Sense`; a new ranking concern is one `FleetObjective` row and one `FleetPolicy.Weights` value; a new component scalar is one `DemandKey` row projected into `FleetDemand`; a new calendar posture is one `CalendarExceptionKind` row carrying its own `Grants`; a new product is registry data, never a solver branch.
 - Boundary: `Process/derivation.md` alone converts an empty feasible selection to `RoutingInfeasible` and alone turns `AvailabilityPlan.Finish` into a lot promise; fleet owns the calendar and returns verdicts. `Forming/brake.md` consumes the frozen `ProcessEnvelope.Brake` case, `Verify/estimation.md` consumes the effective metrics retained by `MachineMatch`, and `RobotProgram` owns path-level robot reach; fleet admits only declared reach-envelope, payload, and external-axis evidence available at component-routing altitude. Statement bodies beneath `Fleet` are measured capability, ranking, or admission kernels.
@@ -449,6 +449,24 @@ public sealed partial class AvailabilityPlan {
 }
 
 [ComplexValueObject]
+public sealed partial class PerformanceBaseline {
+    public double PerformanceRatio { get; }
+    public double QualityRatio { get; }
+
+    public double Oee => PerformanceRatio * QualityRatio;
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref double performanceRatio,
+        ref double qualityRatio) {
+        if (!double.IsFinite(performanceRatio) || performanceRatio is < 0.0 or > 1.0
+            || !double.IsFinite(qualityRatio) || qualityRatio is < 0.0 or > 1.0)
+            validationError = new ValidationError("performance baseline ratios must be finite fractions");
+    }
+}
+
+[ComplexValueObject]
 public sealed partial class MachinePerformance {
     public Instant ObservedAt { get; }
     public double AvailabilityRatio { get; }
@@ -466,6 +484,45 @@ public sealed partial class MachinePerformance {
     public double ServiceAvailability => MeanTimeBetweenFailures.TotalSeconds
         / (MeanTimeBetweenFailures + MeanTimeToRepair).TotalSeconds;
     public double DispatchReliability => Math.Min(ReliabilityRatio, ServiceAvailability);
+
+    // Refresh folds the decoded observation window into a measured row: producing fraction displaces
+    // utilization, fault episodes derive availability, failure spacing, and repair time, mean load scales
+    // rated station power, and a ratio the slice cannot observe carries forward from the prior row or the
+    // admitted machine baseline rather than fabricating unity.
+    public static Fin<MachinePerformance> Of(
+        MachineObservations window,
+        double ratedPowerKw,
+        PerformanceBaseline declared,
+        Option<MachinePerformance> prior) =>
+        from admitted in Optional(window).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "fleet:observation-window").ToError())
+        from baseline in Optional(declared).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "fleet:performance-baseline").ToError())
+        let span = admitted.Span.End - admitted.Span.Start
+        from _ in guard(
+            span > Duration.Zero && double.IsFinite(ratedPowerKw) && ratedPowerKw >= 0.0,
+            new GeometryFault.DegenerateInput(Kind.Curve, -1, "fleet:observation-span").ToError()).ToFin()
+        let faultSeconds = admitted.FaultEpisodes.Fold(0.0, static (total, episode) => total + (episode.End - episode.Start).TotalSeconds)
+        let episodes = admitted.FaultEpisodes.Count
+        let availability = Math.Clamp(1.0 - (faultSeconds / span.TotalSeconds), 0.0, 1.0)
+        let utilization = Math.Clamp(admitted.ActiveFraction, 0.0, 1.0)
+        from refreshed in Try.lift(() => Create(
+                observedAt: admitted.Span.End,
+                availabilityRatio: availability,
+                performanceRatio: prior.Map(static row => row.PerformanceRatio).IfNone(baseline.PerformanceRatio),
+                qualityRatio: prior.Map(static row => row.QualityRatio).IfNone(baseline.QualityRatio),
+                utilization: utilization,
+                reliabilityRatio: availability,
+                spindleHours: utilization * span.TotalSeconds / 3600.0,
+                meanTimeBetweenFailures: episodes > 0
+                    ? Duration.FromSeconds(Math.Max((span.TotalSeconds - faultSeconds) / episodes, 1.0))
+                    : prior.Map(static row => row.MeanTimeBetweenFailures).IfNone(span),
+                meanTimeToRepair: episodes > 0
+                    ? Duration.FromSeconds(faultSeconds / episodes)
+                    : prior.Map(static row => row.MeanTimeToRepair).IfNone(Duration.Zero),
+                observedHourlyRate: prior.Bind(static row => row.ObservedHourlyRate),
+                observedSpindlePowerKw: admitted.MeanLoad.Map(load => load * ratedPowerKw)))
+            .Run()
+            .MapFail(static error => new GeometryFault.DegenerateInput(Kind.Curve, -1, $"fleet:performance:{error.Message}").ToError())
+        select refreshed;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -657,6 +714,7 @@ public sealed partial class MachineInstance {
     public double RatedHourlyRate { get; }
     public double IdlePowerKw { get; }
     public double DeclaredReliability { get; }
+    public PerformanceBaseline DeclaredPerformance { get; }
     public AvailabilityPlan Availability { get; }
     public Option<ModalResponse> Modal { get; }
     public Option<MachinePerformance> Performance { get; }
@@ -687,6 +745,7 @@ public sealed partial class MachineInstance {
         ref double ratedHourlyRate,
         ref double idlePowerKw,
         ref double declaredReliability,
+        ref PerformanceBaseline declaredPerformance,
         ref AvailabilityPlan availability,
         ref Option<ModalResponse> modal,
         ref Option<MachinePerformance> performance) {
@@ -700,7 +759,8 @@ public sealed partial class MachineInstance {
         if (string.IsNullOrWhiteSpace(id) || !processSet || !evidence || !envelope.IsValid || tooling.Exists(static value => value is null || value.Layout is null)
             || modal.Exists(static value => value is null)
             || performance.Exists(static value => value is null)
-            || pocketOverride.Exists(static value => value < 0) || declaredGrade is null || availability is null || !scalars)
+            || pocketOverride.Exists(static value => value < 0) || declaredGrade is null || declaredPerformance is null
+            || availability is null || !scalars)
             validationError = new ValidationError("machine instance requires coherent installed process, station, controller, certification, material, grade, availability, and rate evidence");
     }
 }
@@ -727,6 +787,15 @@ public sealed partial class MachineFleet {
     }
 }
 
+// Durable shop-state seam: fleet performance horizons persist as slot-registered streams — the observe slot
+// carries each refreshed MachinePerformance row, the horizon slot the freshness-qualified census re-admitted at
+// composition. Spellings are value federation onto the Persistence slot registry's contributed span; no
+// Persistence type crosses this boundary.
+public static class FleetSlots {
+    public const string Observe = "store.fabrication.fleet.observe";
+    public const string Horizon = "store.fabrication.fleet.horizon";
+}
+
 public sealed record MachineRegistration(
     string MachineKey,
     Option<SlotMap> Tooling,
@@ -742,6 +811,7 @@ public sealed record MachineRegistration(
     double RatedHourlyRate,
     double IdlePowerKw,
     double DeclaredReliability,
+    PerformanceBaseline DeclaredPerformance,
     AvailabilityPlan Availability,
     Option<ModalResponse> Modal,
     Option<MachinePerformance> Performance);
@@ -843,6 +913,7 @@ public static class Fleet {
                 row.RatedHourlyRate,
                 row.IdlePowerKw,
                 row.DeclaredReliability,
+                row.DeclaredPerformance,
                 row.Availability,
                 row.Modal,
                 row.Performance))
@@ -913,7 +984,7 @@ public static class Fleet {
             performance.Bind(static value => value.ObservedHourlyRate).IfNone(instance.RatedHourlyRate),
             performance.Bind(static value => value.ObservedSpindlePowerKw).IfNone(station.PowerKw),
             performance.Map(static value => value.Utilization).IfNone(instance.Availability.LoadFactor),
-            performance.Map(static value => value.Oee).IfNone(1.0));
+            performance.Map(static value => value.Oee).IfNone(instance.DeclaredPerformance.Oee));
         Seq<CapabilityFact> facts = toSeq(CapabilityCriterion.Items).Map(criterion => criterion.Assess(criterion, context));
         CapabilityCheck checks = CapabilityCheck.Create(facts);
         double score = -toSeq(FleetObjective.Items).Sum(objective =>
@@ -1090,20 +1161,7 @@ public static class Fleet {
 ```mermaid
 ---
 config:
-  theme: base
-  look: classic
   layout: elk
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
 ---
 flowchart LR
     accTitle: Fleet capability lifecycle
@@ -1117,12 +1175,13 @@ flowchart LR
     Facts --> Matches["Ranked MachineMatch rows"]
     Matches --> Feasible["Checks.Feasible"]
     Matches --> Rejected["Rejected facts retained"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
-    class Component,Registry,Stations,History,Demand data
-    class Join,Facts,Matches primary
-    class Feasible success
-    class Rejected error
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

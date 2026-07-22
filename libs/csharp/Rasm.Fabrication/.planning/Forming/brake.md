@@ -14,7 +14,7 @@
 - Cases: `BendMethod` carries air, bottom, coin, hem, wipe, and fold behavior with a per-row forming-force law; `PunchKind` carries straight, acute, gooseneck, hemming, wiping, and radius turn windows beside each punch's nose-radius floor; `BrakeRejection` carries every failed admission column.
 - Entry: `BendSequence.Plan(UnfoldResult, FormPolicy, ProcessEnvelope.Brake)` is the frozen polymorphic planning entry.
 - Auto: Candidate generation spans the admitted tool catalog and physical bend-axis alignments; each bend resolves the tooling its `SheetForm` demands over the policy default; independent gauge, support, sweep-station, and candidate failures accumulate before one accepted transition rotates every descendant panel and enters the best-first frontier; `Brent.TryFindRoot` inverts the cubic elastic-recovery law over the loaded radius; blank weight and descendant closures resolve once for the whole search.
-- Receipt: `Seq<BendStep>` preserves the frozen line, angle, radius, `K`, overbend, tonnage, and orientation wire; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
+- Receipt: `BendSequenceReceipt` carries the frozen `Seq<BendStep>` line, angle, radius, `K`, overbend, tonnage, and orientation wire beside the settled expansion and rejection census the `FabricationFact.Engine.Of` form rows read on the run spine; the search path retains tool, gauge, setup, support, transformed-panel, and clearance evidence until projection; frontier exhaustion alone returns `BendSequenceInfeasible`, and budget exhaustion returns a distinct fault carrying the unfinished frontier.
 - Packages: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, `MathNet.Numerics`, `UnitsNet`, `RhinoCommon`, the `Geometry2D` owner, and BCL `PriorityQueue<TElement, TPriority>` compose the surface.
 - Growth: A method or punch family is one smart-enum row carrying its own force or nose law, a physical tool is catalog data, a setup derives from the live bend axis, and a feasibility dimension is one `BrakeRejection` case with one evidence column.
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions.
@@ -253,10 +253,14 @@ public abstract partial record BrakeRejection {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// The receipt carries the search census beside the frozen step wire, so the engine fact rows read settled
+// evidence and no per-expansion write leaves the kernel.
+public sealed record BendSequenceReceipt(Seq<BendStep> Steps, int Expansions, int Rejected);
+
 public static class BendSequence {
-    public static Fin<Seq<BendStep>> Plan(UnfoldResult unfold, FormPolicy policy, ProcessEnvelope.Brake envelope) =>
+    public static Fin<BendSequenceReceipt> Plan(UnfoldResult unfold, FormPolicy policy, ProcessEnvelope.Brake envelope) =>
         unfold is null || policy is null || envelope is null || unfold.Flat.IsEmpty || unfold.Bends.IsEmpty
-            ? Fin.Fail<Seq<BendStep>>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:input").ToError())
+            ? Fin.Fail<BendSequenceReceipt>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "bend-sequence:input").ToError())
             : from _ in ValidEnvelope(envelope)
               from context in Prepare(unfold, policy.Brake)
               from result in Search(context, unfold, policy, envelope)
@@ -266,7 +270,7 @@ public static class BendSequence {
     // frontier cannot fold without materializing every unexpanded state, and the recursive spelling grows one
     // stack frame per expansion. Frontier exhaustion alone proves infeasibility; budget exhaustion is a distinct
     // fault carrying the unfinished frontier, because a computational limit never proves a physical one.
-    private static Fin<Seq<BendStep>> Search(
+    private static Fin<BendSequenceReceipt> Search(
         BrakeContext context,
         UnfoldResult unfold,
         FormPolicy policy,
@@ -279,12 +283,12 @@ public static class BendSequence {
         int rejected = 0;
         while (frontier.TryDequeue(out BrakeState? state, out _) && state is not null) {
             if (state.Done.Count == unfold.Bends.Count)
-                return Fin.Succ(state.Path.Map(static row => row.Step));
+                return Fin.Succ(new BendSequenceReceipt(state.Path.Map(static row => row.Step), expanded, rejected));
             SearchKey key = Key(state);
             if (best.TryGetValue(key, out double prior) && prior <= state.Cost)
                 continue;
             if (expanded >= policy.Brake.SearchExpansions)
-                return Fin.Fail<Seq<BendStep>>(new FabricationFault.BendSearchBudgetExceeded(expanded, frontier.Count).ToError());
+                return Fin.Fail<BendSequenceReceipt>(new FabricationFault.BendSearchBudgetExceeded(expanded, frontier.Count).ToError());
             best[key] = state.Cost;
             expanded++;
             Fin<Seq<BrakeCandidate>> expansion =
@@ -296,7 +300,7 @@ public static class BendSequence {
                         Fail: error => new BrakeCandidate.Rejected(Seq<BrakeRejection>(
                             new BrakeRejection.Evaluation(row.Bend.Index, row.Tool.Key, error)))));
             if (expansion.IsFail)
-                return expansion.Map(static _ => Seq<BendStep>());
+                return expansion.Map(static _ => new BendSequenceReceipt(Seq<BendStep>(), 0, 0));
             Seq<BrakeCandidate> evaluated = expansion.IfFail(Seq<BrakeCandidate>());
             rejected += evaluated.Fold(0, static (count, candidate) => count + candidate.Switch(
                 accepted: static _ => 0,
@@ -306,7 +310,7 @@ public static class BendSequence {
                     rejected: static _ => Seq<BrakeState>()))
                 .Iter(next => frontier.Enqueue(next, Priority(next, policy.Brake)));
         }
-        return Fin.Fail<Seq<BendStep>>(new FabricationFault.BendSequenceInfeasible(rejected, expanded).ToError());
+        return Fin.Fail<BendSequenceReceipt>(new FabricationFault.BendSequenceInfeasible(rejected, expanded).ToError());
     }
 
     // Blank weight and the per-bend descendant closure are state-invariant, so they resolve once instead of per
@@ -985,3 +989,12 @@ public static class BendSequence {
     }
 }
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -6,12 +6,12 @@ Rasm.Persistence runs analytical aggregation, columnar rollup, lakehouse scan, a
 
 - [01]-[COLUMNAR_LANE]: the posture-configured DuckDB anchor session, the `INSTALL`/`LOAD` extension-profile bootstrap, the parameterized query and streaming drain, the typed bulk appender, the read-only `ATTACH` mount, the `CREATE SECRET` credential rail, the ADBC Arrow bridge, and the closed fault rail.
 - [02]-[ARTIFACT_EGRESS]: the engine-mediated `COPY (SELECT) TO` artifact rail over the closed `Format`/`Codec`/`Collision`/`ArtifactClass` vocabularies, the footer-metadata stamp and admission read, and the `read_parquet` generation scan.
-- [03]-[FLAT_TABLE_EGRESS]: the co-transactional `Ara3D.BimOpenSchema` `FlatTableProjection`, the in-corpus eleven-table `.duckdb` write, the async Parquet daemon materialization, the native `ParquetSharp.Arrow` codec lane — read and PME-encrypted write — the columnar query rides, and the metadata-only Delta-log publication versioning each generation to its AS-OF cut.
+- [03]-[FLAT_TABLE_EGRESS]: the co-transactional `Ara3D.BimOpenSchema` `FlatTableProjection`, the in-corpus eleven-table `.duckdb` write, the async Parquet daemon materialization, the native `ParquetSharp.Arrow` codec lane — read and PME-encrypted write — the columnar query rides, the metadata-only Delta-log publication versioning each generation to its AS-OF cut, the `ParquetSharp.Dataset` hive-partitioned lake scan, the compressed-carrier Arrow IPC decode arm, and the `LandingArm` producer landing spine.
 - [04]-[SERIES_AND_SCALEOUT]: the beyond-engine residences — the `SeriesKind`-declared TimescaleDB hypertable tier (provisioning SQL rows under the SELECT/CALL emission law, binary-COPY ingest, continuous-aggregate and time-weighted reads, in-database retention and columnstore policy) and the ClickHouse fleet-scale read row over the `Version/egress` `ClickHouse` sink's landed table.
 
 ## [02]-[COLUMNAR_LANE]
 
-- Owner: `Identifier`, `StorePath`, `ExecutionThreads`, and `AdbcSql` admit dynamic boundary values; `SecretResidence` carries credential lifetime; `AdbcRequest` carries one statement door plus its optional bind; `ColumnarSession` owns one anchor and duplicate lanes; `ColumnarProfile`, `ColumnarExtension`, `ColumnarFault`, `AdbcQuery`, and `ColumnarLane` own posture, capabilities, faults, execution shape, and operations.
+- Owner: `Identifier`, `StorePath`, `ExecutionThreads`, and `AdbcSql` admit dynamic boundary values; `SecretResidence` carries credential lifetime; `AdbcRequest` carries one statement door and its optional bind; `ColumnarSession` owns one anchor and duplicate lanes; `ColumnarProfile`, `ColumnarExtension`, `ColumnarFault`, `AdbcQuery`, and `ColumnarLane` own posture, capabilities, faults, execution shape, and operations.
 - Cases: `ColumnarProfile` is `Geometry` (`spatial`/`parquet`, memory-heavy spatial aggregation posture), `Search` (`vss`/`fts`, ANN/BM25 columnar posture), `Lakehouse` (`httpfs`/`iceberg`/`delta`/`postgres`, order-free remote-scan posture with `preserve_insertion_order` false), `Bim` (`parquet`/`json` over the BimOpenSchema `.duckdb`, read-your-writes BIM analytics posture), `Federation` (`parquet`/`substrait`/`postgres`, fail-closed on the community row); `ColumnarExtension` rows are `Spatial`, `Vss`, `Fts`, `Parquet`, `Json`, `Httpfs`, `Iceberg`, `Delta`, `Postgres`, `Sqlite`, `Excel`, `Avro`, `Icu`, `Aws`, `Azure`, and `Substrait`; `ColumnarFault` closes native query, extension, append, mount, egress, stamp, secret, trust, Delta, and policy admission failures across `8350`–`8359`.
 - Entry: `Open` boots and probes the profile; `Query`, `Append`, `Mount`, `Secret`, `Publish`, and `StampOf` each own a duplicate connection; `ArrowStream` admits one `AdbcRequest` and drains inside the ADBC statement lifetime.
 - Auto: every concurrent operation rides a duplicate lane over the held anchor; profile settings and extension bootstrap are composition data; `Query` streams, mapped appenders own bulk ingress, and ADBC owns Arrow extraction.
@@ -259,7 +259,9 @@ public static class ColumnarLane {
         StoreSlot.Create("store.columnar.mount"), StoreSlot.Create("store.columnar.egress"), StoreSlot.Create("store.columnar.stamp"),
         StoreSlot.Create("store.columnar.flattable"), StoreSlot.Create("store.columnar.materialize"), StoreSlot.Create("store.columnar.frames"),
         StoreSlot.Create("store.columnar.parquet"), StoreSlot.Create("store.columnar.fleet"), StoreSlot.Create("store.columnar.series.provision"),
-        StoreSlot.Create("store.columnar.series.ingest"));
+        StoreSlot.Create("store.columnar.series.ingest"), StoreSlot.Create("store.columnar.scan"),
+        StoreSlot.Create("store.geometry.land"), StoreSlot.Create("store.doe.land"),
+        StoreSlot.Create("store.tabulate.land"), StoreSlot.Create("store.materials.land"));
 
     // `Open` applies ordered bootstrap policy, then verifies every roster row through `duckdb_extensions()`.
     // Missing linked, core, or community extensions rail `ExtensionGap` before any query.
@@ -340,7 +342,7 @@ public static class ColumnarLane {
         }) | @catch<IO, Fin<Unit>>(static e => e.Exception.Map(static x => x is DuckDBException).IfNone(false),
             e => IO.pure(Fin<Unit>.Fail(new ColumnarFault.SecretRefused(name, ((DuckDBException)e.ToException()).ErrorType))));
 
-    // ADBC owns SQL and Substrait execution plus batch or stream binding on one statement seam.
+    // ADBC owns SQL and Substrait execution and batch or stream binding on one statement seam.
     // `drain` runs inside statement lifetime so no `QueryResult.Stream` escapes disposal.
     public static IO<T> ArrowStream<T>(AdbcConnection adbc, AdbcRequest request, Func<QueryResult, ValueTask<T>> drain) =>
         IO.liftAsync(async () => {
@@ -354,9 +356,10 @@ public static class ColumnarLane {
             QueryResult result = await statement.ExecuteQueryAsync().ConfigureAwait(false);
             return await drain(result).ConfigureAwait(false);
         });
+
 }
 
-// The DRIVER axis binding the admitted ADBC packages: each row names its driver, its parameter vocabulary
+// DRIVER axis binding the admitted ADBC packages: each row names its driver, its parameter vocabulary
 // (host/port/path/auth per the Apache Thrift drivers; project/dataset/credential for BigQuery), and opens the
 // AdbcDatabase → AdbcConnection pair through that driver — a caller-supplied bare AdbcConnection with no owner
 // selecting the driver, admitting its parameters, or converting its failures is the deleted unbound form.
@@ -378,10 +381,10 @@ public static class AdbcWarehouse {
     // connection open under the row, and every driver exception converts ONCE to the typed columnar fault.
     public static IO<Fin<AdbcConnection>> Open(WarehouseDriver driver, HashMap<string, string> parameters) =>
         IO.lift(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
-            ? Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused($"<adbc-parameters:{driver.Key}>"))
+            ? Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused("adbc-parameters", driver.Key))
             : Fin<AdbcConnection>.Succ(driver.Open(parameters.ToDictionary(static p => p.Key, static p => p.Value)).Connect(new Dictionary<string, string>())))
         | @catch<IO, Fin<AdbcConnection>>(static error => error.IsExceptional,
-            error => IO.pure(Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused($"<adbc-open:{error.Message}>"))));
+            error => IO.pure(Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused("adbc-open", error.Message))));
 }
 
 // `AdbcRequest` closes the statement seam over composed SQL and portable Substrait bytes.
@@ -407,14 +410,14 @@ public abstract partial record AdbcBind {
 
 | [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                          |
 | :-----: | :------------------ | :---------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | engine session      | one anchor + `Duplicate()`                | never command interleaving                                        |
+|  [01]   | engine session      | one anchor + `Duplicate()`                | never command interleaving                                         |
 |  [02]   | extension bootstrap | ordered repo-derived `INSTALL`/`LOAD` SQL | tri-state `ExtensionRepo`; fail-closed `duckdb_extensions()` probe |
 |  [03]   | consistency stance  | async, `StalenessWatermark`               | never read by interactive correctness without the wait (`C2`)      |
 |  [04]   | index ownership     | DuckDB spatial/vss are aggregators        | GiST/pgvector own the transactional index (`L2`)                   |
 |  [05]   | credential rail     | `CREATE SECRET` over `SecretScope`        | quote-doubled config literals; never an inline path key            |
 |  [06]   | Arrow bridge        | ADBC driver manager → `IArrowArrayStream` | no managed Arrow member; params via `AdbcStatement.Bind`           |
 |  [07]   | fault rail          | `DuckDBException` → `ColumnarFault`       | discriminated on `DuckDBErrorType`, never a raw ADO throw          |
-|  [08]   | trust gate          | `Identifier`/`StorePath`                  | one grammar per identity regime                                   |
+|  [08]   | trust gate          | `Identifier`/`StorePath`                  | one grammar per identity regime                                    |
 |  [09]   | plan execution      | `AdbcQuery.Plan` → `SubstraitPlan`        | the federation intra-leg edge on the one ADBC statement seam       |
 
 ## [03]-[ARTIFACT_EGRESS]
@@ -426,7 +429,7 @@ public abstract partial record AdbcBind {
 - Receipt: an egress rides `store.columnar.egress` carrying the artifact class and the destination; a footer stamp read rides `store.columnar.stamp` carrying the content identity.
 - Packages: DuckDB.NET.Data.Full (`DuckDBCommand.ExecuteNonQuery`/`ExecuteScalar`/`DuckDBParameter`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new artifact class is one `ArtifactClass` row deriving emission, partition, and stamp; a new egress format/codec/collision is one vocabulary row whose `.Key` IS the `COPY` token; zero new surface — a per-format export path, a `FORMAT` value stretched to name a transport the engine never performs, a filename-convention identity trust, or an in-place generation rewrite is the deleted form because the COPY rail is the one SQL-mediated egress, identity rides the footer stamp, and generations are immutable.
-- Boundary: the `COPY (SELECT) TO` rail is the SQL-mediated egress lane, not the egress monopoly — a zero-copy in-process columnar handoff (the `ColumnarLane.ArrowStream` ADBC bridge) and a direct managed file codec (`#FLAT_TABLE_EGRESS` `ParquetSharp.Arrow`) are distinct lanes a `COPY` `FORMAT` token cannot express, so a non-SQL egress lands as a sibling lane beside the COPY family, never as a `FORMAT` row (the deleted form is a `FORMAT` value stretched to name a transport the engine never performs); artifact identity is the footer content stamp plus the declared `ArtifactClass` shape, never a filename convention — a renamed artifact keeps its identity and a stamp that no longer matches its content is corruption, not drift; generations are immutable (compaction is a new artifact written beside the old with a new stamp, never an in-place merge) and `FIELD_IDS` at export plus an id-keyed scan map make renames non-breaking across generations; the `COPY` is a filesystem effect outside transaction rollback so publication composes the atomic-write protocol the `Element/codec#SNAPSHOT_SPINE` owns, never transactional cleanup; the lakehouse `delta`/`iceberg` scans read the same tables the managed `#FLAT_TABLE_EGRESS` `PublishDelta` commit produces — DuckDB the read/aggregate projection, the managed Delta log the versioned publication, meeting at the table path and never re-authoring each other's metadata.
+- Boundary: the `COPY (SELECT) TO` rail is the SQL-mediated egress lane, not the egress monopoly — a zero-copy in-process columnar handoff (the `ColumnarLane.ArrowStream` ADBC bridge) and a direct managed file codec (`#FLAT_TABLE_EGRESS` `ParquetSharp.Arrow`) are distinct lanes a `COPY` `FORMAT` token cannot express, so a non-SQL egress lands as a sibling lane beside the COPY family, never as a `FORMAT` row (the deleted form is a `FORMAT` value stretched to name a transport the engine never performs); artifact identity is the footer content stamp and the declared `ArtifactClass` shape, never a filename convention — a renamed artifact keeps its identity and a stamp that no longer matches its content is corruption, not drift; generations are immutable (compaction is a new artifact written beside the old with a new stamp, never an in-place merge) and `FIELD_IDS` at export and an id-keyed scan map make renames non-breaking across generations; the `COPY` is a filesystem effect outside transaction rollback so publication composes the atomic-write protocol the `Element/codec#SNAPSHOT_SPINE` owns, never transactional cleanup; the lakehouse `delta`/`iceberg` scans read the same tables the managed `#FLAT_TABLE_EGRESS` `PublishDelta` commit produces — DuckDB the read/aggregate projection, the managed Delta log the versioned publication, meeting at the table path and never re-authoring each other's metadata.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -541,12 +544,12 @@ public static class ArtifactEgress {
 ## [04]-[FLAT_TABLE_EGRESS]
 
 - Owner: `BimOpenSchemaProjection` the co-transactional Marten `FlatTableProjection` writing the columnar BIM fact table in the append transaction; `FlatTableEgress` the static surface owning the async daemon materialization, the IN-CORPUS eleven-table `.duckdb` write over the one pinned runtime (the DECISION `[10]`.3 absorption — the DEBUG-IL `Ara3D` writer never sits on the hot path), and the native `ParquetSharp.Arrow` codec lane (read AND PME-encrypted write) the columnar query rides.
-- Entry: `public sealed class BimOpenSchemaProjection : FlatTableProjection` registered `ProjectionLifecycle.Inline` so the columnar BIM facts write in the append transaction (`Project<GraphEvent.GraphCreated>(map => …)`); `public static IO<Unit> Materialize(IDocumentStore store)` runs the async daemon view under `QueryLane.Columnar.WaitBudget`; `public static IO<long> WriteFrames(ColumnarSession session, BimData frames)` streams the eleven `ToDataSet()` tables through this lane's raw `DuckDBAppender` under the exact `<Name>_<n>` projection-ordinal names — `frames.ToDataSet()` supplies the fixed-order table data; `public static IO<Seq<RecordBatch>> ReadParquetFrames(StorePath parquetPath)` reads a standard-format `.parquet` generation into `Apache.Arrow` `RecordBatch`es through the native `ParquetSharp.Arrow.FileReader`; `public static IO<long> WriteParquetFrames(Seq<RecordBatch> batches, StorePath path, Schema schema, Option<(CryptoFactory Crypto, KmsConnectionConfig Kms, EncryptionConfiguration Enc)> encryption)` is the write half of the same codec correspondence — Parquet Modular Encryption enters as an `Option` policy deriving `FileEncryptionProperties` from the admitted KMS trio, never a second writer type, and both codec legs take the `#COLUMNAR_LANE` trust-gated `StorePath`; `public static IO<Fin<long>> PublishDelta(TableOptions table, Seq<AddAction> files, Identifier appId, long asOfVersion)` registers the generation's ParquetSharp-written files into the Delta transaction log metadata-only (`CreateWriteTransactionAsync`), and the AS-OF version is the idempotent `CommitOptions.AppId`/`TransactionVersion` marker gated by `GetLatestTransactionVersionAsync`.
+- Entry: `public sealed class BimOpenSchemaProjection : FlatTableProjection` registers inline columnar facts; `Materialize` runs the async daemon view; `WriteFrames` streams the `ToDataSet()` tables through the raw appender; `ReadParquetFrames`, `ScanDataset`, and `ReadIpcFrames` return owned `IAsyncEnumerable<RecordBatch>` drains; `WriteParquetFrames` stages then atomically publishes one Parquet generation; `PublishDelta` registers published files metadata-only; `Land` binds distinct schema and generation content keys before custody, and a custody failure unpublishes the generation and rails `UnstampedArtifact` so an unregistered generation is never scan-visible.
 - Auto: the `ElementGraph → BimOpenSchema` egress is a CO-TRANSACTIONAL `FlatTableProjection` (`Project<T>(StatementMap)`) written in the same transaction as the events, NOT daemon-lagged (`M4`), because a flat analytical view a live QTO reads must be read-your-writes consistent — the structural map maps the `GraphEvent.GraphCreated`'s `Header.Schema.Key`/`Header.View.Key` (the `ReleaseVersion`/`ModelView` smart-enum keys, since `StatementMap.Map` writes a primitive column, never a smart-enum object) and the `GraphRevised`'s `GraphDelta.NodeCount`/`EdgeCount` change magnitude through the single-column primary key `FlatTableProjection` requires; the eleven suffixed BIM tables (`Points_0`/`Strings_1`/`Descriptors_2`/`Documents_3`/`Entities_4`/`Relations_5`/`DoubleParameters_6`/`IntegerParameters_7`/`StringParameters_8`/`EntityParameters_9`/`PointParameters_10`) are written IN-CORPUS: `frames.ToDataSet()` projects the fixed-ordinal `IDataSet` (`Tables` in the order that IS the DuckDB ordinal suffix), and `WriteFrames` folds each `IDataTable` (`Name`/`Columns`/`Rows`, `IDataDescriptor.Name`/`Type` typing the DDL, the `[column, row]` indexer supplying cells) through a `CREATE OR REPLACE TABLE` + raw `DuckDBAppender` `CreateRow`/`AppendValue`/`EndRow` stream on THIS lane's session — the DEBUG-IL `DuckDbUtils.WriteToDuckDB` writer is data-model-only, never the hot write loop — and a Persistence analytical query opens that `.duckdb` over the same pinned runtime and SQL-joins the suffixed entity/parameter/relation tables by their exact suffixed names; the async daemon `Materialize` blocks on `WaitForNonStaleData` so the generation is current before the heavy aggregation lanes read it carrying the `StalenessWatermark`; the native `ParquetSharp.Arrow.FileReader.GetRecordBatchReader` reads the same standard-format `.parquet` files the managed `Parquet.Net` writer produced into `IArrowArrayStream` `RecordBatch`es for the columnar query rail (managed writer / native libparquet-cpp reader interoperate at the file format, never the assembly).
 - Receipt: a flat-table projection rides `store.columnar.flattable` carrying the change magnitude; a daemon materialization rides `store.columnar.materialize` carrying the watermark; a frame write rides `store.columnar.frames` carrying the table count; a Parquet read rides `store.columnar.parquet` carrying the record-batch count.
-- Packages: Marten (`FlatTableProjection`/`StatementMap`/`SchemaNameSource`/`ProjectionLifecycle`/`IDocumentStore`/`BuildProjectionDaemonAsync`/`WaitForNonStaleData`), Ara3D.BimOpenSchema (`BimData`/`BimDataBuilder`/`ToDataSet` — DATA MODEL only post-absorption), Ara3D.SDK (`IDataSet.Tables`/`IDataTable.Name`/`Rows`/`Columns`/`this[column,row]`/`IDataColumn.ColumnIndex`/`Descriptor`/`IDataDescriptor.Name`/`Type` — decompile-verified), DuckDB.NET.Data.Full (`DuckDBAppender.CreateRow`/`IDuckDBAppenderRow.AppendValue`/`AppendNullValue`/`EndRow`/`Close` — the in-corpus write loop), ParquetSharp (`Arrow.FileReader`/`Arrow.FileWriter`/`WriterPropertiesBuilder`), ParquetSharp.Encryption (`CryptoFactory`/`KmsConnectionConfig`/`EncryptionConfiguration` — PME over the admitted KMS trio), DeltaLake.Net (`DeltaEngine`/`EngineOptions`/`TableOptions`/`AddAction`/`CommitOptions`/`CreateWriteTransactionAsync`/`GetLatestTransactionVersionAsync`/`DeltaLakeException` — the metadata-only Delta commit rail; assembly `DeltaLake`), Apache.Arrow (`RecordBatch`/`IArrowArrayStream`), Rasm.Element (`GraphDelta`/`Header`), Rasm.Persistence (`Element/graph#STREAM_GRAIN` `GraphEvent`/`GraphCreated`/`GraphRevised` the Marten event body), LanguageExt.Core, BCL inbox.
-- Growth: a new flat-table column is one `map.Map` statement on the `StatementMap`; a new analytical generation is one async daemon view; a new frame codec is the existing `ParquetSharp.Arrow` lane reading a new format; an encryption stance is one `Option` policy value on the existing write, never a sibling encrypted writer; a new lakehouse publication is one `PublishDelta` commit over `AddAction` rows the codec write already computed, never a second write of the bytes; zero new surface — a daemon-lagged BimOpenSchema egress, a hand-rolled columnar map, a second Parquet runtime beside `ParquetSharp`, or a hollow writer that opens a row group and writes no column is the deleted form because the BimOpenSchema egress is co-transactional, the managed `Parquet.Net` writer and the native `ParquetSharp` reader meet at the file format, and the Arrow record-batch model is `api-arrow`'s.
-- Boundary: the `ElementGraph → Ara3D.BimOpenSchema` egress is a co-transactional `FlatTableProjection` (`M4`) so a live-QTO analytical read is read-your-writes consistent rather than daemon-lagged — `FlatTableProjection` requires a single-column primary key and writes a primitive per `StatementMap.Map`, so a `ReleaseVersion`/`ModelView` smart-enum maps as its `.Key` and a `GraphDelta` maps as its `NodeCount`/`EdgeCount`, never as the smart-enum or delta object itself; if BimOpenSchema is EAV-generic Persistence owns the structural map, if BIM-typed it is a Bim-implemented seam projection (the wire seam, never a sibling reference); a Bim-lowered `StorePlan` (the `Rasm.Bim` `Model/query#PREDICATE_PUSHDOWN` predicate push-down — one parameterized statement over the suffixed fact tables plus an in-process residue) executes on this lane's `ColumnarSession` as DATA crossing the same seam, so the estate-scale element query runs where the data rests with no Persistence-side predicate vocabulary; the eleven suffixed BIM tables are read with the built-in `parquet`/`json` surface and `spatial`/`vss`/`fts` extend them for geometry/ANN/text analytics over the same `.duckdb`, all on the one pinned runtime, and a direct SQL consumer references the `<Name>_<n>` projection-ordinal suffix that IS the real table identity (`api-ara3d-bimopenschema#DATASET_BRIDGE`), never a bare table name; the Parquet file codec is `ParquetSharp.Arrow` (the native libparquet-cpp read/write the managed Arrow stack lacks, exposing the `Apache.Arrow` `RecordBatch` directly so Parquet↔Arrow is a first-class managed call), distinct from the DuckDB SQL `read_parquet`/`COPY` path, the three meeting at the Parquet file format and the `Apache.Arrow` model owned by `api-arrow` not re-declared here; the `Ara3D.BimOpenSchema[.IO]` assemblies are DEBUG-built at the HELD `1.0.1` pin (JIT optimizations disabled in the shipped IL; the feed-newest `.IO` `1.6.1` regressed to `net8.0-windows7.0`, `NU1202` on net10.0 osx-arm64, so the bump is restore-inadmissible) — the ruled escalation is EXECUTED here: the consumed write surface is absorbed in-corpus (`WriteFrames` streams the eleven tables through this lane's appender; `ReadParquetFrames`/`WriteParquetFrames` ride the native `ParquetSharp` codec), so the DEBUG-IL assemblies serve only the in-memory schema model and `ToDataSet()` projection, never a hot IO loop, and the pin bump is never the fix.
+- Packages: Marten (`FlatTableProjection`/`StatementMap`/`SchemaNameSource`/`ProjectionLifecycle`/`IDocumentStore`/`BuildProjectionDaemonAsync`/`WaitForNonStaleData`), Ara3D.BimOpenSchema (`BimData`/`BimDataBuilder`/`ToDataSet` — DATA MODEL only post-absorption), Ara3D.SDK (`IDataSet.Tables`/`IDataTable.Name`/`Rows`/`Columns`/`this[column,row]`/`IDataColumn.ColumnIndex`/`Descriptor`/`IDataDescriptor.Name`/`Type` — decompile-verified), DuckDB.NET.Data.Full (`DuckDBAppender.CreateRow`/`IDuckDBAppenderRow.AppendValue`/`AppendNullValue`/`EndRow`/`Close` — the in-corpus write loop), ParquetSharp (`Arrow.FileReader`/`Arrow.FileWriter`/`WriterPropertiesBuilder`), ParquetSharp.Encryption (`CryptoFactory`/`KmsConnectionConfig`/`EncryptionConfiguration` — PME over the admitted KMS trio), DeltaLake.Net (`DeltaEngine`/`EngineOptions`/`TableOptions`/`AddAction`/`CommitOptions`/`CreateWriteTransactionAsync`/`GetLatestTransactionVersionAsync`/`DeltaLakeException` — the metadata-only Delta commit rail; assembly `DeltaLake`), ParquetSharp.Dataset (`DatasetReader(string, IPartitioningFactory?, Schema?, ReaderProperties?, ArrowReaderProperties?, DatasetOptions?)`/`ToBatches(IFilter?, IReadOnlyCollection<string>?, IReadOnlyCollection<string>?)`/`HivePartitioning.Factory`/`Col`/`FilterExtensions` — the partitioned lake scan), Apache.Arrow (`RecordBatch`/`IArrowArrayStream`/`ArrowStreamReader(Stream, ICompressionCodecFactory)`), Apache.Arrow.Compression (`CompressionCodecFactory` — the `Lz4Frame`/`Zstd` ingest decode factory), Rasm.Element (`GraphDelta`/`Header`), Rasm.Persistence (`Element/graph#STREAM_GRAIN` `GraphEvent`/`GraphCreated`/`GraphRevised` the Marten event body), LanguageExt.Core, BCL inbox.
+- Growth: a new flat-table column is one `map.Map` statement on the `StatementMap`; a new analytical generation is one async daemon view; a new frame codec is the existing `ParquetSharp.Arrow` lane reading a new format; an encryption stance is one `Option` policy value on the existing write, never a sibling encrypted writer; a new lakehouse publication is one `PublishDelta` commit over `AddAction` rows the codec write already computed, never a second write of the bytes; a new producer landing is one `LandingArm` row carrying its slot and hive key — schema handoff only, zero new storage code; a new scan predicate is one `Col`-rooted `IFilter` composition at the call, never a reader fork; zero new surface — a daemon-lagged BimOpenSchema egress, a hand-rolled columnar map, a second Parquet runtime beside `ParquetSharp`, or a hollow writer that opens a row group and writes no column is the deleted form because the BimOpenSchema egress is co-transactional, the managed `Parquet.Net` writer and the native `ParquetSharp` reader meet at the file format, and the Arrow record-batch model is `api-arrow`'s.
+- Boundary: the `ElementGraph → Ara3D.BimOpenSchema` egress is a co-transactional `FlatTableProjection` (`M4`) so a live-QTO analytical read is read-your-writes consistent rather than daemon-lagged — `FlatTableProjection` requires a single-column primary key and writes a primitive per `StatementMap.Map`, so a `ReleaseVersion`/`ModelView` smart-enum maps as its `.Key` and a `GraphDelta` maps as its `NodeCount`/`EdgeCount`, never as the smart-enum or delta object itself; if BimOpenSchema is EAV-generic Persistence owns the structural map, if BIM-typed it is a Bim-implemented seam projection (the wire seam, never a sibling reference); a Bim-lowered `StorePlan` (the `Rasm.Bim` `Model/query#PREDICATE_PUSHDOWN` predicate push-down — one parameterized statement over the suffixed fact tables and an in-process residue) executes on this lane's `ColumnarSession` as DATA crossing the same seam, so the estate-scale element query runs where the data rests with no Persistence-side predicate vocabulary; the eleven suffixed BIM tables are read with the built-in `parquet`/`json` surface and `spatial`/`vss`/`fts` extend them for geometry/ANN/text analytics over the same `.duckdb`, all on the one pinned runtime, and a direct SQL consumer references the `<Name>_<n>` projection-ordinal suffix that IS the real table identity (`api-ara3d-bimopenschema#DATASET_BRIDGE`), never a bare table name; the Parquet file codec is `ParquetSharp.Arrow` (the native libparquet-cpp read/write the managed Arrow stack lacks, exposing the `Apache.Arrow` `RecordBatch` directly so Parquet↔Arrow is a first-class managed call), distinct from the DuckDB SQL `read_parquet`/`COPY` path, the three meeting at the Parquet file format and the `Apache.Arrow` model owned by `api-arrow` not re-declared here; the `Ara3D.BimOpenSchema[.IO]` assemblies are DEBUG-built at the HELD `1.0.1` pin (JIT optimizations disabled in the shipped IL; the feed-newest `.IO` `1.6.1` regressed to `net8.0-windows7.0`, `NU1202` on net10.0 osx-arm64, so the bump is restore-inadmissible) — the ruled escalation is EXECUTED here: the consumed write surface is absorbed in-corpus (`WriteFrames` streams the eleven tables through this lane's appender; `ReadParquetFrames`/`WriteParquetFrames` ride the native `ParquetSharp` codec), so the DEBUG-IL assemblies serve only the in-memory schema model and `ToDataSet()` projection, never a hot IO loop, and the pin bump is never the fix.
 
 ```csharp signature
 using Apache.Arrow;
@@ -567,6 +570,7 @@ using ParquetSharp.Arrow;
 using ParquetSharp.Encryption;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
+using System.Runtime.CompilerServices;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
@@ -645,28 +649,34 @@ public static class FlatTableEgress {
         : type == typeof(int) ? "INTEGER"
         : "VARCHAR";
 
-    // ParquetSharp.Arrow reads standard Parquet generations into Apache.Arrow record batches.
-    // `GetRecordBatchReader` yields the one `IArrowArrayStream` codec boundary.
-    public static IO<Seq<RecordBatch>> ReadParquetFrames(StorePath parquetPath) =>
-        IO.liftAsync(async () => {
-            using FileReader reader = new(File.OpenRead((string)parquetPath));
-            using IArrowArrayStream stream = reader.GetRecordBatchReader();
-            List<RecordBatch> batches = [];
-            while (await stream.ReadNextRecordBatchAsync().ConfigureAwait(false) is { } batch) batches.Add(batch);
-            return toSeq(batches);
-        });
+    // Reader and stream ownership spans enumeration; early cancellation disposes both.
+    public static async IAsyncEnumerable<RecordBatch> ReadParquetFrames(StorePath parquetPath,
+        [EnumeratorCancellation] CancellationToken token = default) {
+        using FileReader reader = new(File.OpenRead((string)parquetPath));
+        using IArrowArrayStream stream = reader.GetRecordBatchReader();
+        await foreach (RecordBatch batch in Drain(stream, token).ConfigureAwait(false)) yield return batch;
+    }
 
     // ParquetSharp.Arrow `FileWriter` owns plain and PME-encrypted record-batch writes.
     // Read, write, and encryption metadata share one admitted `StorePath`.
     public static IO<long> WriteParquetFrames(Seq<RecordBatch> batches, StorePath path, Schema schema,
         Option<(CryptoFactory Crypto, KmsConnectionConfig Kms, EncryptionConfiguration Enc)> encryption) =>
         IO.lift(() => {
+            string published = (string)path;
+            string directory = Path.GetDirectoryName(published) ?? throw new InvalidOperationException("<parquet-generation-directory>");
+            Directory.CreateDirectory(directory);
+            string staging = Path.Combine(directory, $".{Path.GetFileName(published)}.{Guid.CreateVersion7():N}.tmp");
             using WriterProperties properties = encryption.Match(
-                Some: pme => new WriterPropertiesBuilder().Encryption(pme.Crypto.GetFileEncryptionProperties(pme.Kms, pme.Enc, (string)path)).Build(),
+                Some: pme => new WriterPropertiesBuilder().Encryption(pme.Crypto.GetFileEncryptionProperties(pme.Kms, pme.Enc, published)).Build(),
                 None: static () => new WriterPropertiesBuilder().Build());
-            using FileWriter writer = new(File.Open((string)path, FileMode.Create, FileAccess.Write, FileShare.None), schema, properties, null, leaveOpen: false);
-            foreach (RecordBatch batch in batches) { writer.WriteRecordBatch(batch); }
-            return (long)batches.Count;
+            try {
+                using (FileWriter writer = new(File.Open(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None), schema, properties, null, leaveOpen: false))
+                    foreach (RecordBatch batch in batches) writer.WriteRecordBatch(batch);
+                File.Move(staging, published, overwrite: false);
+                return (long)batches.Count;
+            } finally {
+                if (File.Exists(staging)) File.Delete(staging);
+            }
         });
 
     // `PublishDelta` registers existing Parquet files through a metadata-only Delta transaction.
@@ -681,29 +691,113 @@ public static class FlatTableEgress {
             return Fin.Succ(asOfVersion);
         }) | @catch<IO, Fin<long>>(static e => e.Exception.Map(static x => x is DeltaLakeException).IfNone(false),
             e => IO.pure(Fin<long>.Fail(new ColumnarFault.DeltaRefused("<flat-table-generation>", e.Message))));
+
+    // Partitioned lake scan — the multi-file counterpart to the single-file `Arrow.FileReader` read: the hive
+    // scheme infers from the `key=value` directory tree, `Col`-rooted predicates and column projection push down
+    // to partition, row-group-statistics, and row grain, and the survivors stream back as one Arrow lane —
+    // lake-resident history queryable with no DuckDB mount in the loop.
+    public static async IAsyncEnumerable<RecordBatch> ScanDataset(StorePath root, Option<ParquetSharp.Dataset.Filter.IFilter> filter,
+        Seq<Identifier> columns, [EnumeratorCancellation] CancellationToken token = default) {
+        ParquetSharp.Dataset.DatasetReader dataset = new((string)root, new ParquetSharp.Dataset.Partitioning.HivePartitioning.Factory());
+        using IArrowArrayStream stream = dataset.ToBatches(
+            filter.Match<ParquetSharp.Dataset.Filter.IFilter?>(Some: static held => held, None: static () => null),
+            columns.IsEmpty ? null : [.. columns.Map(static column => (string)column)]);
+        await foreach (RecordBatch batch in Drain(stream, token).ConfigureAwait(false)) yield return batch;
+    }
+
+    // compressed-carrier decode arm: sibling-minted Arrow IPC wires may arrive with transport-band
+    // `Lz4Frame`/`Zstd` block compression, so every ingest reader passes the ONE codec factory — and every
+    // `ContentAddress` derivation reads the DECOMPRESSED canonical bytes, so transport framing never enters
+    // identity (`Element/codec` pairs Arrow-compressed bodies with `CompressionPolicy.None`).
+    static readonly Apache.Arrow.Compression.CompressionCodecFactory IpcCodecs = new();
+
+    public static async IAsyncEnumerable<RecordBatch> ReadIpcFrames(Stream carrier,
+        [EnumeratorCancellation] CancellationToken token = default) {
+        using ArrowStreamReader reader = new(carrier, IpcCodecs);
+        await foreach (RecordBatch batch in Drain(reader, token).ConfigureAwait(false)) yield return batch;
+    }
+
+    static async IAsyncEnumerable<RecordBatch> Drain(IArrowArrayStream stream,
+        [EnumeratorCancellation] CancellationToken token = default) {
+        while (await stream.ReadNextRecordBatchAsync(token).ConfigureAwait(false) is { } batch) yield return batch;
+    }
+
+    // ONE landing discipline for every producer arm: the write rides the standing Parquet codec into the arm's
+    // hive generation keyed by the producer's schema-identity content key, and custody registers the
+    // content-keyed residence on the `Query/cache#ARTIFACT_BLOB_INDEX` — so a producer hands a typed batch
+    // schema and never touches storage code, and the landed generation serves back through `ScanDataset` and
+    // `Query/federation#FLIGHT_RESULT_PLANE` arms. Custody is the visibility gate: a custody failure unpublishes
+    // its generation before the typed `UnstampedArtifact` fault returns, so `ScanDataset` never serves an
+    // unregistered generation and a retry of the same generationKey re-lands clean through the CreateNew stage.
+    public static IO<Fin<long>> Land(LandingArm arm, Seq<RecordBatch> batches, Schema schema, StorePath root,
+        UInt128 schemaKey, UInt128 generationKey, Func<UInt128, StorePath, IO<Unit>> custody) {
+        StorePath published = arm.GenerationPath(root, schemaKey, generationKey);
+        return WriteParquetFrames(batches, published, schema, None)
+            .Bind(written => (custody(generationKey, published).Map(_ => Fin.Succ(written))
+                | @catch<IO, Fin<long>>(static _ => true,
+                    error => Unpublish(published).Map(_ => Fin.Fail<long>(
+                        new ColumnarFault.UnstampedArtifact($"{(string)published}:{error.Message}"))))).As());
+    }
+
+    // Custody-failure compensation: delete the published body and prune the emptied generation directory so the
+    // hive tree never carries an index-less generation and the same generationKey re-publishes without collision.
+    static IO<Unit> Unpublish(StorePath published) =>
+        IO.lift(() => {
+            string path = (string)published;
+            if (File.Exists(path)) File.Delete(path);
+            string? generation = Path.GetDirectoryName(path);
+            if (generation is not null && Directory.Exists(generation) && !Directory.EnumerateFileSystemEntries(generation).Any()) Directory.Delete(generation);
+            return unit;
+        });
+}
+
+// landing spine rows: four producer families hand typed record-batch schemas and Persistence owns writers,
+// residence, slots, index custody, and batch-metadata preservation — a producer owns only its batch shape, and
+// a NEW producer is one row, zero new storage code. Geometry wires key by the kernel `ContentHash`
+// schema-identity law; the Compute DOE/receipt, Element `Tabulate`, and Materials catalogue arms key by their
+// suite content addresses. `Partition` names the hive key the arm's generation directories carry.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LandingArm {
+    public static readonly LandingArm Geometry  = new("geometry", "store.geometry.land", "model");
+    public static readonly LandingArm Doe       = new("doe", "store.doe.land", "study");
+    public static readonly LandingArm Tabulate  = new("tabulate", "store.tabulate.land", "model");
+    public static readonly LandingArm Materials = new("materials", "store.materials.land", "catalogue");
+
+    public StoreSlot Slot { get; }
+    public Identifier Partition { get; }
+    private LandingArm(string key, string slot, string partition) : this(key) =>
+        (Slot, Partition) = (StoreSlot.Create(slot), Identifier.Create(partition));
+
+    public StorePath GenerationPath(StorePath root, UInt128 schemaKey, UInt128 generationKey) =>
+        StorePath.Create(string.Create(CultureInfo.InvariantCulture,
+            $"{(string)root}/{(string)Partition}={schemaKey:x32}/generation={generationKey:x32}/data.parquet"));
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                     | [BINDING]                                                       |
-| :-----: | :------------------- | :------------------------------------------ | :-------------------------------------------------------------- |
-|  [01]   | BimOpenSchema egress | co-transactional `FlatTableProjection`      | read-your-writes, never daemon-lagged (`M4`)                    |
-|  [02]   | column value         | smart-enum `.Key` / `GraphDelta` count      | `StatementMap.Map` writes a primitive, never the object         |
-|  [03]   | BIM tables           | eleven suffixed columnar tables             | written in-corpus; the DEBUG-IL writer stays off the hot path   |
-|  [04]   | Parquet codec        | `ParquetSharp.Arrow` ↔ `RecordBatch` codec  | distinct from the DuckDB SQL parquet path; meet at the file     |
-|  [05]   | encrypted extract    | PME `Option` policy on `WriteParquetFrames` | `CryptoFactory` × the admitted KMS trio; never a sibling writer |
-|  [06]   | lakehouse            | `PublishDelta` metadata-only commit         | `AddAction` registration; `TransactionVersion` = the AS-OF cut  |
-|  [07]   | path admission       | `StorePath` on both Parquet codec legs      | read/write/encryption consume ONE admitted path value          |
+| [INDEX] | [POLICY]             | [VALUE]                                      | [BINDING]                                                       |
+| :-----: | :------------------- | :------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | BimOpenSchema egress | co-transactional `FlatTableProjection`       | read-your-writes, never daemon-lagged (`M4`)                    |
+|  [02]   | column value         | smart-enum `.Key` / `GraphDelta` count       | `StatementMap.Map` writes a primitive, never the object         |
+|  [03]   | BIM tables           | eleven suffixed columnar tables              | written in-corpus; the DEBUG-IL writer stays off the hot path   |
+|  [04]   | Parquet codec        | `ParquetSharp.Arrow` ↔ `RecordBatch` codec   | distinct from the DuckDB SQL parquet path; meet at the file     |
+|  [05]   | encrypted extract    | PME `Option` policy on `WriteParquetFrames`  | `CryptoFactory` × the admitted KMS trio; never a sibling writer |
+|  [06]   | lakehouse            | `PublishDelta` metadata-only commit          | `AddAction` registration; `TransactionVersion` = the AS-OF cut  |
+|  [07]   | path admission       | `StorePath` on both Parquet codec legs       | read/write/encryption consume ONE admitted path value           |
+|  [08]   | lake scan            | `DatasetReader` + `HivePartitioning.Factory` | `Col`/`IFilter` pushdown; no DuckDB mount in the loop           |
+|  [09]   | carrier decode       | one `CompressionCodecFactory` at ingest      | identity reads decompressed bytes; framing never enters keys    |
+|  [10]   | landing spine        | `LandingArm` row per producer family         | schema handoff only; storage, slots, custody stay here          |
 
 ## [05]-[SERIES_AND_SCALEOUT]
 
 - Owner: `SeriesKind` the `[SmartEnum<string>]` temporal-lane axis — one row per series family carrying its hypertable identity, chunk interval, rollup bucket, retention bound, and columnstore age as policy columns from which the WHOLE provisioning SQL set derives; `SeriesPoint` the ingest row keyed by the series content key (an `assessment` point keys by the Compute `(subgraph·route·policy)` input key — the SAME identity the `Query/cache` `ArtifactKind.Assessment` row carries, so the heavy source artifact and its queryable temporal projection share one origin); `SeriesFault` the closed `FaultBand.Series` band; `SeriesLane` the static surface owning provisioning-SQL derivation, binary-COPY ingest, and the bucketed and time-weighted reads; `ScaleoutRead` the ClickHouse fleet read row consuming the table the `Version/egress` `EgressSink.ClickHouse` case lands.
 - Cases: `SeriesKind.Assessment` (hourly/sub-hourly discipline-assessment series — energy, thermal, daylight — 1-day chunks, 1-hour rollup bucket, 365-day retention, 7-day columnstore age) and `SeriesKind.Sensor` (BMS/operational telemetry — 1-day chunks, 15-minute bucket, 90-day retention, 2-day columnstore age); `SeriesFault` is `IngestRefused | Unprovisioned | FleetRefused | ReadRefused` (`8481`-`8484`).
-- Entry: `public static Seq<string> Provision(SeriesKind kind)` derives the ordered idempotent SQL rows the reviewed-migration artifact carries — table DDL, `SELECT create_hypertable(...)`, the columnstore `ALTER TABLE ... SET`, `CALL add_columnstore_policy(...)`, `SELECT add_retention_policy(...)`, the continuous-aggregate view plus `SELECT add_continuous_aggregate_policy(...)` — every optional argument `=>`-named and every step `if_not_exists`-idempotent; `public static IO<Fin<ulong>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame)` streams the points through one binary-COPY importer whose success branch alone calls `CompleteAsync`; `public static IO<Fin<double>> Weighted(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until)` runs the toolkit time-weighted read over the raw chunks and `public static IO<Fin<Seq<SeriesBucket>>> Bucketed(...)` the pre-bucketed continuous-aggregate read — the table name a closed-vocabulary row literal, only VALUES binding as parameters; `public static IO<Fin<(Seq<T> Rows, QueryStats Stats)>> ScaleoutRead.Fleet<T>(ClickHouseClient fleet, string sql, HashMap<string, object> binds, Func<DbDataReader, T> shape)` is the billion-row read leg.
+- Entry: `public static Seq<string> Provision(SeriesKind kind)` derives the ordered idempotent SQL rows the reviewed-migration artifact carries — table DDL, `SELECT create_hypertable(...)`, the columnstore `ALTER TABLE ... SET`, `CALL add_columnstore_policy(...)`, `SELECT add_retention_policy(...)`, the continuous-aggregate view and `SELECT add_continuous_aggregate_policy(...)` — every optional argument `=>`-named and every step `if_not_exists`-idempotent; `public static IO<Fin<ulong>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame)` streams the points through one binary-COPY importer whose success branch alone calls `CompleteAsync`; `public static IO<Fin<double>> Weighted(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until)` runs the toolkit time-weighted read over the raw chunks and `public static IO<Fin<Seq<SeriesBucket>>> Bucketed(...)` the pre-bucketed continuous-aggregate read — the table name a closed-vocabulary row literal, only VALUES binding as parameters; `public static IO<Fin<(Seq<T> Rows, QueryStats Stats)>> ScaleoutRead.Fleet<T>(ClickHouseClient fleet, string sql, HashMap<string, object> binds, Func<DbDataReader, T> shape)` is the billion-row read leg.
 - Auto: provisioning is DERIVED, never hand-spelled per environment — the emission law splits SELECT functions (`create_hypertable`, `add_retention_policy`, `add_continuous_aggregate_policy`) from CALL procedures (`add_columnstore_policy`) so a mis-verbed row is unrepresentable from the derivation, and the rows ride the same reviewed-migration rail every `Store/provisioning#SERVER_EXTENSIONS` admission rides, gated on the verdict holding the `timescaledb` lane (`Unprovisioned` when absent); refresh, retention, and compression jobs run on TimescaleDB's OWN bgworker scheduler — the AppHost schedule port never schedules a database-internal job — and the provisioning verification fold is `SeriesLane.Verify` — the catalogued `timescaledb_information.jobs`+`job_stats` join returning one `JobHealth` row per refresh/retention/columnstore job, a failed status or stale `last_successful_finish` the typed negative evidence — so a non-firing policy surfaces, never a silent gap behind the emitted-rows receipt; the time-weighted read is the honest algebra for IRREGULAR simulation timesteps — `average(time_weight('linear', at, value))` weighs each sample by its holding interval where a naive `avg` over-counts dense bursts — and the dashboard tile read rides the pre-bucketed continuous aggregate, never a raw-chunk re-scan; the fleet read binds named parameters through the driver's `{name:Type}` substitution and lands the `QueryStats` throughput receipt (`ReadRows`/`ElapsedNs` off the `X-ClickHouse-Summary` header) on every read, with `ClickHouseServerException` folding `FleetRefused` on its numeric `ErrorCode`, never a raw `HttpRequestException`.
 - Receipt: a provisioning derivation rides `store.columnar.series.provision` carrying the kind and the row count; an ingest rides `store.columnar.series.ingest` carrying the staged count; a fleet read rides `store.columnar.fleet` carrying the `QueryStats` rows and elapsed figures.
 - Packages: Npgsql (`NpgsqlDataSource.OpenConnectionAsync`/`NpgsqlConnection.BeginBinaryImportAsync`/`NpgsqlBinaryImporter.StartRowAsync`/`WriteAsync`/`CompleteAsync` — the COPY kernel; `NpgsqlDbType`), timescaledb + timescaledb_toolkit (`create_hypertable`/`by_range`/`add_retention_policy`/`add_columnstore_policy`/`add_continuous_aggregate_policy`/`time_bucket`/`time_weight`/`average`/`rollup` — server-side SQL per `api-timescaledb`/`api-timescaledb-toolkit`), ClickHouse.Driver (`IClickHouseClient.ExecuteReaderAsync`/`QueryStats`/`ClickHouseServerException` — the fleet read leg; the write leg is `Version/egress`'s), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new series family is one `SeriesKind` row deriving its whole provisioning set; a new rollup grain is one bucket column value; a new fleet question is one composed read over the standing client, never a second client or a per-question service; zero new surface — a per-environment hand-spelled policy script, an AppHost-scheduled refresh job, a naive `avg` over irregular timesteps, a second ClickHouse write path beside the egress sink, or a transaction-scoped ClickHouse write (the backend has none) is the deleted form because the policy set derives from the row, the bgworker owns cadence, and the sink owns landing.
-- Boundary: the series tier is a RELATIONAL residence beside `element_identity` — never an artifact-catalog class: the heavy source artifact (an eplusout.sql, an FEA result set) stays the `Query/cache` `ArtifactKind.Assessment` content-keyed row under `RetentionClass.Cache`, and this hypertable is its queryable temporal PROJECTION whose chunks TimescaleDB's own `add_retention_policy` drops in-database (re-derivable by re-ingest from the retained artifact — cost, never correctness), so the `Version/retention#SWEEP_AND_GC` executor never deletes series chunks and a `RetentionClass` row for them is the rejected double-governor; the Compute `AssessmentSink` emits the typed points this lane ingests (the `ARCHITECTURE.md [02]-[SEAMS]` `Compute → Version` assessment edge widened from opaque content-keyed bytes to a typed series), and the same `SeriesPoint` shape serves BMS/sensor streams under the `Sensor` row; the ClickHouse leg is READ-side only — the `Version/egress` `ClickHouse` sink owns landing under `insert_deduplication_token` dedup, this row consumes at fleet scale (who changed what across hundreds of models, org-wide element churn), the two meeting at `WarehouseSchema.Table`/`WarehouseSchema.Columns` — the ONE typed row vocabulary (`WarehouseOpRow` + `WarehouseSchema.Shape`) a fleet question composes over, so writer and reader cannot drift while naming one table; ClickHouse is never a second system of record and carries no transaction, so every fleet read is an eventually-consistent analytical view whose staleness the egress cursor bounds.
+- Boundary: the series tier is a RELATIONAL residence beside `element_identity` — never an artifact-catalog class: the heavy source artifact (an eplusout.sql, an FEA result set) stays the `Query/cache` `ArtifactKind.Assessment` content-keyed row under `RetentionClass.Cache`, and this hypertable is its queryable temporal PROJECTION whose chunks TimescaleDB's own `add_retention_policy` drops in-database (re-derivable by re-ingest from the retained artifact — cost, never correctness), so the `Version/retention#SWEEP_AND_GC` executor never deletes series chunks and a `RetentionClass` row for them is the rejected double-governor; the Compute `AssessmentSink` emits the typed points this lane ingests (the `ARCHITECTURE.md [02]-[SEAMS]` `Compute → Version` assessment edge widened from opaque content-keyed bytes to a typed series), and the same `SeriesPoint` shape serves BMS/sensor streams under the `Sensor` row; the ClickHouse leg is READ-side only — the `Version/egress` `ClickHouse` sink owns landing under `insert_deduplication_token` dedup, this row consumes at fleet scale (who changed what across hundreds of models, org-wide element churn), the two meeting at `WarehouseSchema.Table`/`WarehouseSchema.Columns` — the ONE typed row vocabulary (`WarehouseOpRow` + `WarehouseSchema.Shape`) a fleet question composes over, so writer and reader cannot drift while naming one table; ClickHouse is never a second system of record and carries no transaction, so every fleet read is an after convergence-consistent analytical view whose staleness the egress cursor bounds.
 
 ```csharp signature
 using ClickHouse.Driver;
@@ -730,7 +824,7 @@ public sealed partial class SeriesKind {
         (Table, Chunk, Bucket, DropAfter, ColumnstoreAfter) = (table, chunk, bucket, dropAfter, columnstoreAfter);
 }
 
-// The ingest row: `Series` is the content-key identity the source artifact already carries
+// ingest row: `Series` is the content-key identity the source artifact already carries
 // (the assessment `(subgraph·route·policy)` key), `At` the sample instant, `Value` the measure. Tenancy is
 // NOT a point column — the whole COPY batch lands under the ingesting frame's tenant, and every read filters
 // by it, so equal series keys under distinct tenants never share or return rows.
@@ -768,7 +862,7 @@ public abstract partial record SeriesFault : Expected, IValidationError<SeriesFa
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class SeriesLane {
-    // The derived provisioning set: SELECT functions vs CALL procedures per the emission law,
+    // derived provisioning set: SELECT functions vs CALL procedures per the emission law,
     // every optional argument `=>`-named, every step idempotent. The rows ride the migration artifact.
     public static Seq<string> Provision(SeriesKind kind) => [
         $"CREATE TABLE IF NOT EXISTS {kind.Table} (tenant bytea NOT NULL, series_key bytea NOT NULL, at timestamptz NOT NULL, value double precision NOT NULL)",
@@ -807,8 +901,8 @@ public static class SeriesLane {
             }
         });
 
-    // The toolkit time-weighted read over raw chunks: each sample weighs by its holding interval,
-    // the honest mean for irregular simulation timesteps a naive avg over-counts. The table name is a
+    // toolkit time-weighted read over raw chunks: each sample weighs by its holding interval,
+    // honest mean for irregular simulation timesteps a naive avg over-counts. The table name is a
     // closed-vocabulary row literal composed into the text; only VALUES bind as parameters.
     public static IO<Fin<double>> Weighted(NpgsqlDataSource store, SeriesKind kind, UInt128 series, Instant from, Instant until, ProjectionContext frame) =>
         Rows(store, $"SELECT average(time_weight('linear', at, value)) FROM {kind.Table} WHERE tenant = @tenant AND series_key = @series AND at >= @from AND at < @until", series, from, until, frame,
@@ -886,8 +980,8 @@ public static class WarehouseSchema {
 }
 
 public static class ScaleoutRead {
-    // The fleet-scale read leg over the table the Version/egress ClickHouse sink lands; QueryStats is
-    // the throughput receipt and ClickHouseServerException folds typed on its numeric ErrorCode.
+    // fleet-scale read leg over the table the Version/egress ClickHouse sink lands; QueryStats is
+    // throughput receipt and ClickHouseServerException folds typed on its numeric ErrorCode.
     public static IO<Fin<(Seq<T> Rows, QueryStats Stats)>> Fleet<T>(ClickHouseClient fleet, string sql, HashMap<string, object> binds, Func<System.Data.Common.DbDataReader, T> shape) =>
         IO.liftAsync(async () => {
             await using ClickHouseConnection lane = fleet.CreateConnection();
@@ -903,11 +997,15 @@ public static class ScaleoutRead {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                            | [BINDING]                                                      |
-| :-----: | :----------------- | :-------------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | series provisioning | derived from the `SeriesKind` row                  | SELECT/CALL emission law; migration-carried, verdict-gated     |
-|  [02]   | policy cadence     | TimescaleDB bgworker jobs                           | never AppHost-scheduled; `job_stats` is the proof row          |
-|  [03]   | irregular timesteps | `average(time_weight('linear', …))`                | a naive `avg` over-counts dense bursts                         |
-|  [04]   | series retention   | in-database `add_retention_policy`                  | projection of a retained artifact; never a `RetentionClass` row |
-|  [05]   | fleet leg          | ClickHouse READ row + `QueryStats` receipt          | the egress sink owns landing; never a second SoR               |
-|  [06]   | series identity    | the source artifact's content key                   | one origin with `ArtifactKind.Assessment`; never a second mint |
+| [INDEX] | [POLICY]            | [VALUE]                                    | [BINDING]                                                       |
+| :-----: | :------------------ | :----------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | series provisioning | derived from the `SeriesKind` row          | SELECT/CALL emission law; migration-carried, verdict-gated      |
+|  [02]   | policy cadence      | TimescaleDB bgworker jobs                  | never AppHost-scheduled; `job_stats` is the proof row           |
+|  [03]   | irregular timesteps | `average(time_weight('linear', …))`        | a naive `avg` over-counts dense bursts                          |
+|  [04]   | series retention    | in-database `add_retention_policy`         | projection of a retained artifact; never a `RetentionClass` row |
+|  [05]   | fleet leg           | ClickHouse READ row + `QueryStats` receipt | the egress sink owns landing; never a second SoR                |
+|  [06]   | series identity     | the source artifact's content key          | one origin with `ArtifactKind.Assessment`; never a second mint  |
+
+## [06]-[RESEARCH]
+
+- [ADBC_PARTITIONED_RESULT]-[OPEN]: which exact `PartitionedResult` member enumerates the descriptors returned by `AdbcStatement.ExecutePartitioned()`; rebuild `libs/csharp/Rasm.Persistence/.api/api-arrow.md` from the admitted assembly with `tools.assay api --package Apache.Arrow.Adbc --type Apache.Arrow.Adbc.PartitionedResult`, restoring `ArrowPartitions` only after the exact row joins the catalog.

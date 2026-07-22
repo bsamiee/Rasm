@@ -2,7 +2,7 @@
 
 `Pulse` is the work-plane meter bridge — one lossy projection from durable-work evidence onto Convention-keyed Effect instruments, so queue depth, drain lag, and relay throughput read as OTel series while every dispute settles against the journal. `mark` folds a settlement fact into its counter row at the emitting call site, and `live` runs the sampled census sweep setting the outbox and queue gauges from one `Probe` port the app root satisfies with the data journal's census statement — fact rows stay the billing truth, instruments stay bounded, and neither plane re-derives the other.
 
-Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `tenants` contributes the tenant metric-stream view row through the `Hooks` registry the export lanes drain — an allow-list attributes processor under the cardinality ceiling, so per-tenant series ride the same governor every reader inherits. `engine` is the same contribution shape guarding the runtime-node series fan with a deny list, and `board` projects the instrument and budget rows into the typed `Pulse.Board` pack the iac dashboard compile leg decodes — so a budget edit moves the emission grade and the board panel in one place. Its module is `runtime/src/otel/meter.ts`.
+Two policy seams close at the same altitude: `verbosity` wires the config tier table into `Logger.minimumLogLevel` so the declared `verbose` column governs the process log floor, and `tenants` contributes the tenant metric-stream view row through the `Hooks` registry the export lanes drain — an allow-list attributes processor under the cardinality ceiling, so per-tenant series ride the same governor every reader inherits. `engine` is the same contribution shape guarding the runtime-node series fan with a deny list, and `board` projects the instrument and budget rows into the typed `Pulse.Board` deploy-feed value whose rows fill the core `DashboardModel` pack payloads at the app's deploy-feed seam — so a budget edit moves the emission grade and the board panel in one place. Its module is `runtime/src/otel/meter.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -13,7 +13,7 @@ Two policy seams close at the same altitude: `verbosity` wires the config tier t
 |  [03]   | `VERBOSITY`  | the tier-table→`Logger.minimumLogLevel` wiring                            | `Pulse`  |
 |  [04]   | `TENANT`     | the tenant metric-stream view row under the cardinality governor         | `Pulse`  |
 |  [05]   | `ENGINE`     | the `v8js.*` deny-list view guard for the runtime-node series fan        | `Pulse`  |
-|  [06]   | `BOARD`      | the typed dashboard-feed pack folding instrument rows and vital budgets  | `Pulse`  |
+|  [06]   | `BOARD`      | the typed deploy-feed pack folding instrument rows and vital budgets     | `Pulse`  |
 
 ## [02]-[PROJECTION]
 
@@ -96,7 +96,7 @@ const _swept: Effect.Effect<void, never, Probe> = Effect.flatMap(Probe, (probe) 
       Metric.set(_GAUGES.outboxDepth.gauge, census.outbox.depth),
       Metric.set(_GAUGES.outboxRedelivered.gauge, census.outbox.redelivered),
       Metric.set(_GAUGES.queueDepth.gauge, census.queue.depth),
-    ], { discard: true })))
+    ], { concurrency: "unbounded", discard: true })))
 ```
 
 ## [04]-[VERBOSITY]
@@ -155,10 +155,10 @@ const _engine = (policy: Pulse.Policy): Layer.Layer<never, never, Hooks> =>
 ## [07]-[BOARD]
 
 [BOARD]:
-- Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed dashboard-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the Convention rows; `budgets` carry each vital kind's good/poor thresholds and unit; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the iac compile leg derives panels, thresholds, and burn alerts from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
-- Law: the pack is runtime's mint and the compile leg decodes, never redefines — the Schema class is the wire contract, so the iac ingest is one decode beside its sibling packs and board truth cannot drift from emission truth.
-- Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the iac observe plane's.
-- Entry: `Pulse.board(identity)` at the app's deploy-feed seam — a pure value mint, no Layer.
+- Owner: `Pulse.Board` and `Pulse.board(identity)` — the census projection folding the `_WORK`/`_GAUGES` instrument rows and the `Vital.rows` budget table into one Schema-classed deploy-feed value: `panels` carry name, description, UCUM unit, instrument kind, and tag keys off the Convention rows; `budgets` carry each vital kind's good/poor thresholds and unit; `burn` carries the SLO burn-rate input pairs — a bad and total series with an optional tag slice — so the boards derive from the same rows the emitters write, and a new instrument or vital appears on the board by construction because the fold reads the tables, never a hand roster.
+- Law: the pack is runtime's mint and the app projects, never redefines — `budgets` rows land as the core `vital` pack's `gauges` payload (`kind` and the `poor` threshold as the gauge ceiling), `burn` rows feed the app's `Slo.Objective` inputs, and the encoded `DashboardModel` values those packs mint reach the iac `Boards` compile leg as the `runtime.pulse` pack rows; board truth cannot drift from emission truth because the fold reads the instrument tables, and no iac decode of this class exists — the deploy plane ingests core-encoded models alone.
+- Law: burn inputs are series names, never queries — the vital pair (total `Convention.metric.vitalObserved`, bad the same series sliced `vitalGrade=poor`) and the work pair (total `relayDrained`, bad `queueParked`) are data rows; the burn-rate algebra, objectives, and window ladders stay the core slo plane's, compiled by the iac observe fold.
+- Entry: `Pulse.board(identity)` at the app's deploy-feed seam — a pure value mint, no Layer; the app maps `budgets` onto `DashboardModel.pack("vital", identity, { gauges })` and folds `burn` rows into its objective set before the deploy feed encodes.
 - Growth: a new burn family is one `burn` row; a new panel axis is one field on the panel struct every producer inherits.
 - Packages: `effect` (`Schema`, `Array`, `Record`, `Option`); `./vital.ts` (`Vital.rows`); `@rasm/ts/core` (`Convention`, `AppIdentity`).
 
@@ -241,4 +241,4 @@ export { Pulse }
 
 ## [08]-[RESEARCH]
 
-(none)
+- [METRIC_UCUM]-[BLOCKED]: whether `Metric.counter` and `Metric.gauge` admit a `unit` option that carries each `Convention.instrument` UCUM row onto exported descriptors; route through `libs/typescript/.api/effect.md`, then project `row.unit` at `_counter` and `_gauge` only after the exact option member is cataloged.

@@ -108,7 +108,7 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 - Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `OTEL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
 - Law: consumers depend on `Setting`, never on `Config` — the built service is a plain resolved struct, so the `flag`, `life`, and `pubsub` owners read fields with no `ConfigError` in their own channels and no second resolve anywhere in the process.
 - Law: the form is the family — an app or sibling-folder contract is declared exactly as `Setting` is (service class, `Config.unwrap` record, described rows, nested groups) under its own namespace; a second config-reading pattern beside this form is the fork this page exists to prevent, and two services never read one variable.
-- Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows (`otel/emit`'s `Export.Policy` reads its collector origin, sealed headers, cadence, sampling ratio, and baggage promotion prefixes from `Setting.otel`, keeping structural tuning — temporality, span limits, redaction rules, placement, engine vitals — as its own policy defaults).
+- Law: a group is the growth site — a new runtime row lands inside its owning group, a new consuming sub-domain lands as one `Config.nested` group; neither adds an export, a service, or a resolve site; substitution is provider material — a proof overrides rows by swapping the chain, never by a second `Setting`; the `OTEL` group homes the export transport rows (`otel/emit`'s `Export.Policy` reads its collector origin, sealed headers, cadence, sampling ratio, and baggage promotion prefixes from `Setting.otel`, keeping structural tuning — temporality, span limits, redaction rules, placement, engine vitals — as its own policy defaults) and the profiling backend rows (`otel/profile`'s `Profile.Policy` reads the optional Pyroscope origin and sealed credential from `Setting.otel.profile`, an absent origin leaving the lane unarmed).
 - Law: `Setting.tiers` rides the class as the tier-table static — `otel/meter` projects its `verbose` column into `Logger.minimumLogLevel`, so the tier row governs the process log floor through one consumer and no page carries a level literal.
 - Entry: `Setting.Default` at the composition root; `yield* Setting` everywhere else.
 - Packages: `effect` (`Config`, `Duration`, `Effect`, `Schema`, `Struct`).
@@ -172,7 +172,11 @@ const _life = Config.nested(
 
 const _fanout = Config.nested(
     Config.unwrap({
-        origin: Config.url('ORIGIN').pipe(Config.withDescription('NATS websocket origin the jetstream engine row dials')),
+        origin: Config.url('ORIGIN').pipe(Config.withDescription('NATS origin the jetstream engine row dials through the runtime nats binding')),
+        brokers: Config.array(Config.string(), 'BROKERS').pipe(
+            Config.withDefault([]),
+            Config.withDescription('Kafka bootstrap brokers the kafka engine row dials; empty leaves the row unarmed'),
+        ),
         dedup: Config.duration('DEDUP').pipe(
             Config.withDefault(Duration.minutes(2)),
             Config.withDescription('stream duplicate-detection window the msgID dedup rides'),
@@ -237,6 +241,13 @@ const _otel = Config.nested(
             Config.withDefault(['rasm.']),
             Config.withDescription('baggage key prefixes promoted onto span attributes; the tenant projection rides the rasm. prefix'),
         ),
+        profile: Config.option(Config.url('PROFILE')).pipe(
+            Config.withDescription('Pyroscope backend origin the profiling lane pushes to; absence leaves the lane unarmed'),
+        ),
+        profileToken: Config.redacted('PROFILE_TOKEN').pipe(
+            Config.withDefault(Redacted.make('')),
+            Config.withDescription('Pyroscope credential; sealed Redacted to the profiler init'),
+        ),
     }),
     'OTEL',
 );
@@ -278,3 +289,12 @@ class Setting extends Effect.Service<Setting>()('runtime/Setting', {
 
 export { Provider, Setting };
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

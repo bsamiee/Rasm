@@ -1799,3 +1799,12 @@ def _retargeted(tree: DocumentNode, key: ContentKey, fn: Callable[[DocumentNode]
 def _find(tree: DocumentNode, key: ContentKey, /) -> DocumentNode:
     return next(node for node in walk(tree) if node.meta.key == key)
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

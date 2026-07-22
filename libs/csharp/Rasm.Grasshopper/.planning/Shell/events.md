@@ -1,8 +1,8 @@
 # [RASM_GRASSHOPPER_SHELL_EVENTS]
 
-`UiEvents` is the one UI event algebra of the Grasshopper boundary — a single source-row vocabulary (`UiSource`) over every GH2 and Eto event stream, one typed fact family (`UiFact`) carrying every payload as evidence, one anchor union (`EventAnchor`) discriminating what a row attaches to, and one subscription owner (`UiSubscription`) whose lifetime rides the kernel `Lease<T>` rail. A host event family is a set of ROWS in one vocabulary, its payload is a CASE of one fact union, attachment and inverse detachment are one delegate column, and ownership is the kernel lease with no second in-folder lifecycle algebra. Every attachment rides an `Op`-keyed `Fin` rail and marshals through the `Eto/runtime.md` dispatch seam; a batch of rows attaches transactionally — any refused row rolls back every already-attached sibling before the fault surfaces.
+`UiEvents` is the Grasshopper boundary's one UI event algebra: `UiSource` owns GH2 and Eto source rows, `UiFact` carries typed payload evidence, `EventAnchor` discriminates providers, and `UiSubscription` rides the kernel `Lease<T>` rail. Each row pairs attachment with inverse detachment. Every attachment rides an `Op`-keyed `Fin` through `Eto/runtime.md` dispatch, and a refused batch row rolls back every attached sibling before surfacing the fault.
 
-Source coverage spans the GH2 canvas signal family (`DocumentChanged`/`DocumentModified` on `Canvas`, `ProjectionChanged`/`WindowSelection`/`MouseDwell`/`Draw` inherited from the `FlexControl` seam), the document family (`ModifiedChanged`/`StateChanged`/`ParentChanged`), the full ten-event object-list family (`ObjectAdded`/`ObjectRemoved`/`ObjectSelectionChanged`/`ObjectExpired`/`ObjectNameChanged`/`ObjectEnabledChanged`/`ObjectRelevanceChanged`/`ObjectLayoutChanged`/`ObjectDisplayChanged`/`ObjectInstanceIdChanged`), the six-event solution lifecycle, the full seven-event undo family (`Undone`/`Redone`/`Modified`/`NodeAdded`/`NodeRemoved`/`NodeMerged`/`NodeMoved`), the Eto control input/lifecycle families, the window family, ambient application/keyboard state, and the `UiClock` beat.
+Source rows cover GH2 canvas, document, object-list, solution, and undo signals; Eto control, window, application, and keyboard signals; and the `UiClock` beat. Exact catalogued members live on the source table, never a parallel family owner.
 
 Eight canvas paint fences are `Canvas/paint.md`'s executor and never appear as rows here; `FlexControl.PopulateContextMenu` is `Canvas/interaction.md`'s policy callback, not an observation stream; window-closing veto policy is `Eto/windows.md`'s spec; AppKit local-monitor streams enter this algebra as rows whose attachment is the `Platform/native.md` gated adapter — the platform owner carries the `NSEventMask` vocabulary, the monitor lifetime, and the macOS gate, and this page carries only the row seam.
 
@@ -15,7 +15,7 @@ Eight canvas paint fences are `Canvas/paint.md`'s executor and never appear as r
 
 ## [02]-[FACTS]
 
-- Owner: `UiFact` `[Union]` — the one payload family every source row publishes into. Cases carry typed evidence, never provider argument objects: `PointerCase` (location, buttons, modifiers, wheel delta, pressure — the full `MouseEventArgs` evidence set), `KeyCase` (key, modifiers, pressed, composed character), `TextCase` (composed text), `DragCase` (location, effect mask), `FocusCase` (gained), `EnabledCase` (live enabled state), `BoundsCase` (bounds), `DensityCase` (logical pixel size), `StateCase` (window state), `LifeCase` (a `LifecycleStage` row), `ModifierCase` (live modifier mask), `CanvasCase` (signal row with the dwell content point where the raising event carries one), `DocumentCase` (signal row with the owning document's `DocumentToken` id), `GraphCase` (signal row with the subject's `InstanceId`), `SolutionCase` (signal row, the host `SolutionId` run identity, and the `Faulted` row's `Error`), `UndoCase` (signal row), `BeatCase` (a `ClockBeat`), `NoticeCase` (activation id and user data, both host strings), `FaultCase` (an `Error` from the unhandled-exception stream, lowered through the kernel fault vocabulary). Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows — `CanvasSignal` (6), `DocumentSignal` (3), `GraphSignal` (10, the full `ObjectList` event set), `SolutionSignal` (6, in lifecycle order `AboutToStart`→`Started`→`Stopped`→`Cancelled`→`Completed`→`Faulted`), `UndoSignal` (7, the full `History` event set), `LifecycleStage` (Eto `PreLoad`/`Load`/`LoadComplete`/`Shown`/`UnLoad`/`Closing`/`Closed` and app `Initialized`/`Terminating`).
+- Owner: `UiFact` `[Union]` — the one payload family every source row publishes into. Cases carry typed evidence, never provider argument objects: pointer, key, text, drag, focus, bounds, density, window state, lifecycle, modifiers, canvas, document, graph, solution, undo, clock, notification, and failure facts. Signal vocabularies are keyless behavior-free `[SmartEnum<int>]` rows over the catalogued host families.
 - Owner: `UiEvent` readonly record struct — the published envelope carries the raising `UiSource`, `UiFact`, and sink-local `Stamp` publication ordinal; it implements `IValidityEvidence` through the claim fold and validates nested `ClockBeat` evidence when the fact is `BeatCase`. Consumers receive `UiEvent` values only — a host `EventArgs` object never crosses the algebra. `Stamp` proves serialized event order, carries no elapsed-time meaning, and never competes with `MonotonicTimeline`.
 - Law: facts are evidence, never live resources — a `DocumentCase` carries the `DocumentToken` `Guid` (`Shell/session.md`'s per-instance identity mint, because GH2 `Document` carries no cheap host id), never the `Document`; a `GraphCase` carries `IDocumentObject.InstanceId`; a `SolutionCase` carries the host `SolutionId` value identity; a consumer needing the live object re-enters through `GhSession.Run`, so a stale fact can never hand out a disposed host reference.
 - Law: sparse projection is the contract by decision — a fact carries what its source row verifiably reads, and a consumer needing more evidence extends the CASE with a field, never mints a sibling snapshot record.
@@ -85,11 +85,8 @@ public sealed partial class UndoSignal {
 
 [SmartEnum<int>]
 public sealed partial class LifecycleStage {
-    public static readonly LifecycleStage PreLoad = new(key: 0);
     public static readonly LifecycleStage Load = new(key: 1);
-    public static readonly LifecycleStage LoadComplete = new(key: 2);
     public static readonly LifecycleStage Shown = new(key: 3);
-    public static readonly LifecycleStage UnLoad = new(key: 4);
     public static readonly LifecycleStage Closing = new(key: 5);
     public static readonly LifecycleStage Closed = new(key: 6);
     public static readonly LifecycleStage Initialized = new(key: 7);
@@ -100,11 +97,10 @@ public sealed partial class LifecycleStage {
 public abstract partial record UiFact {
     private UiFact() { }
     public sealed record PointerCase(PointF Location, MouseButtons Buttons, Keys Modifiers, SizeF Delta, float Pressure) : UiFact;
-    public sealed record KeyCase(Keys Key, Keys Modifiers, bool Pressed, Option<char> Character) : UiFact;
+    public sealed record KeyCase(Keys Key, Keys Modifiers, bool Pressed) : UiFact;
     public sealed record TextCase(string Text) : UiFact;
     public sealed record DragCase(PointF Location, DragEffects Effects) : UiFact;
     public sealed record FocusCase(bool Gained) : UiFact;
-    public sealed record EnabledCase(bool Enabled) : UiFact;
     public sealed record BoundsCase(RectangleF Bounds) : UiFact;
     public sealed record DensityCase(float LogicalPixelSize) : UiFact;
     public sealed record StateCase(WindowState State) : UiFact;
@@ -285,8 +281,6 @@ public sealed partial class UiSource {
     public static readonly UiSource ControlDragLeave = DragRow(key: "control.drag-leave", pick: static c => (add: h => c.DragLeave += h, remove: h => c.DragLeave -= h));
     public static readonly UiSource ControlDragDrop = DragRow(key: "control.drag-drop", pick: static c => (add: h => c.DragDrop += h, remove: h => c.DragDrop -= h));
     public static readonly UiSource ControlDragEnd = DragRow(key: "control.drag-end", pick: static c => (add: h => c.DragEnd += h, remove: h => c.DragEnd -= h));
-    public static readonly UiSource ControlEnabledChanged = ControlRow(key: "control.enabled-changed",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.EnabledCase(Enabled: surface.Enabled)); surface.EnabledChanged += h; return new Detachment(release: () => surface.EnabledChanged -= h); });
     public static readonly UiSource ControlGotFocus = ControlRow(key: "control.got-focus",
         wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.FocusCase(Gained: true)); surface.GotFocus += h; return new Detachment(release: () => surface.GotFocus -= h); });
     public static readonly UiSource ControlLostFocus = ControlRow(key: "control.lost-focus",
@@ -295,17 +289,12 @@ public sealed partial class UiSource {
         wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.BoundsCase(Bounds: surface.Bounds)); surface.SizeChanged += h; return new Detachment(release: () => surface.SizeChanged -= h); });
     public static readonly UiSource ControlShown = Stage(key: "control.shown", stage: LifecycleStage.Shown, pick: static c => (add: h => c.Shown += h, remove: h => c.Shown -= h));
     public static readonly UiSource ControlLoad = Stage(key: "control.load", stage: LifecycleStage.Load, pick: static c => (add: h => c.Load += h, remove: h => c.Load -= h));
-    public static readonly UiSource ControlPreLoad = Stage(key: "control.pre-load", stage: LifecycleStage.PreLoad, pick: static c => (add: h => c.PreLoad += h, remove: h => c.PreLoad -= h));
-    public static readonly UiSource ControlLoadComplete = Stage(key: "control.load-complete", stage: LifecycleStage.LoadComplete, pick: static c => (add: h => c.LoadComplete += h, remove: h => c.LoadComplete -= h));
-    public static readonly UiSource ControlUnLoad = Stage(key: "control.unload", stage: LifecycleStage.UnLoad, pick: static c => (add: h => c.UnLoad += h, remove: h => c.UnLoad -= h));
 
     // Eto window family.
     public static readonly UiSource WindowClosing = WindowRow(key: "window.closing",
         wire: static (surface, emit) => { EventHandler<CancelEventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Closing)); surface.Closing += h; return new Detachment(release: () => surface.Closing -= h); });
     public static readonly UiSource WindowClosed = WindowRow(key: "window.closed",
         wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.LifeCase(Stage: LifecycleStage.Closed)); surface.Closed += h; return new Detachment(release: () => surface.Closed -= h); });
-    public static readonly UiSource WindowMoved = WindowRow(key: "window.moved",
-        wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.BoundsCase(Bounds: surface.Bounds)); surface.LocationChanged += h; return new Detachment(release: () => surface.LocationChanged -= h); });
     public static readonly UiSource WindowStateChanged = WindowRow(key: "window.state-changed",
         wire: static (surface, emit) => { EventHandler<EventArgs> h = (_, _) => emit(() => new UiFact.StateCase(State: surface.WindowState)); surface.WindowStateChanged += h; return new Detachment(release: () => surface.WindowStateChanged -= h); });
     public static readonly UiSource WindowDensityChanged = WindowRow(key: "window.density-changed",
@@ -408,7 +397,7 @@ public sealed partial class UiSource {
     private static UiSource Keystroke(string key, bool pressed, Func<Control, (Action<EventHandler<KeyEventArgs>> add, Action<EventHandler<KeyEventArgs>> remove)> pick) =>
         ControlRow(key: key, wire: (surface, emit) => {
             (Action<EventHandler<KeyEventArgs>> add, Action<EventHandler<KeyEventArgs>> remove) = pick(arg: surface);
-            EventHandler<KeyEventArgs> h = (_, args) => emit(() => new UiFact.KeyCase(Key: args.Key, Modifiers: args.Modifiers, Pressed: pressed, Character: args.IsChar ? Some(args.KeyChar) : Option<char>.None));
+            EventHandler<KeyEventArgs> h = (_, args) => emit(() => new UiFact.KeyCase(Key: args.Key, Modifiers: args.Modifiers, Pressed: pressed));
             add(obj: h);
             return new Detachment(release: () => remove(obj: h));
         });
@@ -524,7 +513,7 @@ public static class UiEvents {
 ## [05]-[DRAIN]
 
 - Owner: `DrainPolicy` sealed record — capacity and full-mode as one policy value; `Default` bounds the buffer and sheds the oldest element, and admission refuses `BoundedChannelFullMode.Wait` because the publish bridge lives on host callback paths that never park.
-- Owner: `EvidenceDrain` sealed `IDisposable` — one bounded `Channel<UiEvent>` minted through `Channel.CreateBounded<UiEvent>(BoundedChannelOptions, Action<UiEvent>? itemDropped)` under `SingleReader = true`, `SingleWriter = false`, and `AllowSynchronousContinuations = false`, so a UI or host callback never runs a consumer continuation inline. The drop observer is the loss-evidence seam: every evicted element counts on `Shed`, keys its `UiSource`, and forwards to the optional shed callback the composition wires into `GhEvidence.DropCase` — `TryWrite` reports admission, never delivery, so loss evidence rides `itemDropped` alone.
+- Owner: `EvidenceDrain` sealed `IDisposable` — one bounded `Channel<UiEvent>` minted through `Channel.CreateBounded<UiEvent>(BoundedChannelOptions, Action<UiEvent>? itemDropped)` under `SingleReader = true`, `SingleWriter = false`, and `AllowSynchronousContinuations = false`, so a UI or host callback never runs a consumer continuation inline. Its drop observer is the loss-evidence seam: every evicted element counts on `Shed`, keys its `UiSource`, and forwards to the optional shed callback the composition wires into `GhEvidence.DropCase` — `TryWrite` reports admission, never delivery, so loss evidence rides `itemDropped` alone.
 - Entry: `EvidenceDrain.Open(Option<DrainPolicy> policy = default, Option<Action<UiEvent>> onShed = default, Op? key = null)` → `Fin<EvidenceDrain>`; `Publish(UiEvent fact)` — the non-blocking bridge handed to `Observe` as its publish callback; `Reader` — the observation half a single consumer drains; `Complete(Op? key = null)` — idempotent writer completion.
 - Law: the bridge is one `TryWrite` and returns — a `false` admission (completed channel) counts as shed with the same accounting, and no publish path awaits, locks past the write, or retains the event; `Shell/journal.md` `SessionJournal.Mount` is the one structural reader the `SingleReader` promise names.
 - Packages: System.Threading.Channels (`Channel.CreateBounded`, `BoundedChannelOptions`, `BoundedChannelFullMode`, `ChannelReader<T>`, `ChannelWriter<T>`), LanguageExt.Core, `Rasm.Domain` (`Op`).
@@ -545,10 +534,14 @@ public sealed record DrainPolicy(int Capacity, BoundedChannelFullMode FullMode) 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class EvidenceDrain : IDisposable {
     private readonly Channel<UiEvent> channel;
+    private readonly Option<Action<UiEvent>> onShed;
     private readonly Atom<long> shedCount = Atom(0L);
     private int releaseState;
 
-    private EvidenceDrain(Channel<UiEvent> channel) => this.channel = channel;
+    private EvidenceDrain(Channel<UiEvent> channel, Option<Action<UiEvent>> onShed) {
+        this.channel = channel;
+        this.onShed = onShed;
+    }
 
     public ChannelReader<UiEvent> Reader => channel.Reader;
     public long Shed => shedCount.Value;
@@ -569,8 +562,8 @@ public sealed class EvidenceDrain : IDisposable {
                            AllowSynchronousContinuations = false,
                            FullMode = bound.FullMode,
                        },
-                       itemDropped: dropped => minted?.Account(fact: dropped, onShed: onShed, key: op));
-                   minted = new EvidenceDrain(channel: bounded);
+                       itemDropped: dropped => minted?.Account(fact: dropped, key: op));
+                   minted = new EvidenceDrain(channel: bounded, onShed: onShed);
                    return Fin.Succ(minted);
                })
                select drain;
@@ -579,7 +572,7 @@ public sealed class EvidenceDrain : IDisposable {
     public Unit Publish(UiEvent fact) {
         Op.SideWhen(
             condition: !channel.Writer.TryWrite(item: fact),
-            action: () => Account(fact: fact, onShed: Option<Action<UiEvent>>.None, key: Op.Of(name: nameof(EvidenceDrain))));
+            action: () => Account(fact: fact, key: Op.Of(name: nameof(EvidenceDrain))));
         return unit;
     }
 
@@ -590,7 +583,7 @@ public sealed class EvidenceDrain : IDisposable {
         condition: Interlocked.Exchange(location1: ref releaseState, value: 1) == 0,
         action: () => ignore(channel.Writer.TryComplete()));
 
-    private void Account(UiEvent fact, Option<Action<UiEvent>> onShed, Op key) {
+    private void Account(UiEvent fact, Op key) {
         ignore(shedCount.Swap(static count => count + 1L));
         onShed.Iter(observer => ignore(key.Catch(body: () => Fin.Succ(Op.Side(action: () => observer(obj: fact))))));
     }
@@ -601,8 +594,6 @@ public sealed class EvidenceDrain : IDisposable {
 ---
 title: Grasshopper boundary event flow
 config:
-  theme: base
-  look: classic
   layout: elk
   htmlLabels: true
   markdownAutoWrap: false
@@ -614,21 +605,6 @@ config:
     curve: linear
     defaultRenderer: elk
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart TB
   accTitle: Grasshopper boundary event flow
@@ -645,24 +621,26 @@ flowchart TB
   Sink -->|"publishes UiEvent · records LastFault"| Subscription["Lease&lt;UiSubscription&gt;"]
   Subscription -->|"typed publication"| Consumer["Boundary consumer"]
   Rows -->|"stores reverse-order inverses"| Subscription
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-  classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-  class Request,Consumer,Subscription data
-  class Gate,Rows,Sink primary
-  class GH2,EtoHost,Clock,Native external
-  linkStyle 9 stroke:#FF5555,stroke-width:2.5px
 ```
 
 ## [06]-[DENSITY_BAR]
 
 | [INDEX] | [CONCERN]           | [OWNER]                         | [SHAPE_RAIL]                                | [CASES] |
 | :-----: | :------------------ | :------------------------------ | :------------------------------------------ | :-----: |
-|  [01]   | signal vocabularies | `CanvasSignal`…`LifecycleStage` | six keyed smart-enum row sets               |   41    |
-|  [02]   | payload evidence    | `UiFact` + `UiEvent`            | closed union → validated event              |   19    |
+|  [01]   | signal vocabularies | `CanvasSignal`…`LifecycleStage` | six keyed smart-enum row sets               |   38    |
+|  [02]   | payload evidence    | `UiFact` + `UiEvent`            | closed union → validated event              |   18    |
 |  [03]   | attachment anchors  | `EventAnchor`                   | closed union → attach admission             |    8    |
-|  [04]   | source rows         | `UiSource`                      | smart-enum rows → `Fin<IDisposable>`        |   67    |
+|  [04]   | source rows         | `UiSource`                      | smart-enum rows → `Fin<IDisposable>`        |   62    |
 |  [05]   | subscription        | `UiSubscription` + `UiEvents`   | kernel lease → `Fin<Lease<UiSubscription>>` |    1    |
 |  [06]   | bounded drain       | `EvidenceDrain` + `DrainPolicy` | drop-mode channel → accounted loss evidence |    1    |
 
 `Op`, `Fault`, `Lease<T>`, `ValidityClaim`, `EtoDispatch`, `UiClock`, `GhLog`, and `DocumentToken` are composed upstream owners. A new host stream lands as one row through an existing fold with zero consumer impact.
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

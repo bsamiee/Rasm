@@ -220,3 +220,12 @@ One owner for the whole geometry fault rail; a new failure is a case in its sibl
 - [02]-[CLUSTER_TAXONOMY]: `[SmartEnum<int>]` keyed by stride base, `Name`/`Namespace` columns + `OfCode` stride arithmetic.
 - [03]-[PARAMETRIC_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`ParametricFault` discriminant).
 - [04]-[DEVELOPMENT_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`DevelopmentFault` discriminant).
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

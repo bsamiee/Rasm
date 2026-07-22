@@ -24,7 +24,7 @@ Identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPa
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { Cookies, HttpApiMiddleware, HttpApiSecurity } from "@effect/platform"
 import { FaultClass, TenantContext } from "@rasm/ts/core"
-import { Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Config, Context, Data, DateTime, Duration, Effect, Layer, Option, Redacted, Schema, Struct } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 import { AccessClaims, Crypto, Jwt, Probe } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
@@ -110,7 +110,7 @@ class IdentityJournal extends Context.Tag("security/authn/IdentityJournal")<Iden
 [ROTATION_LAW]:
 - Owner: `Token` — `establish` resolves-or-enrolls a `CredentialRef` into a `Subject` and mints the first pair, `refresh` rotates through the `RotationStep` statechart with reuse detection, `revoke` ends a session. `RotationStep` is the transition family — `Rotate` (live session, fingerprint matched), `Expired` (window elapsed), `Reused` (live session, fingerprint rejected — a replayed rotated token) — folded by the pure `_step` and dispatched by `$match`, so protocol position is a case value and a new lifecycle rule (idle timeout, device binding) is a new tagged arm, never another inline guard. `CurrentClaims`/`BearerGuard` are the declarative auth seam: the middleware Tag carries `HttpApiSecurity.bearer`, its implementation folds `Jwt.verify` over the decoded credential, and the runtime serve wave mounts it so every bearer-protected endpoint receives `AccessClaims` through the requirement channel.
 - Law: the access token is a `crypt/sign` `AccessClaims` JWT; the refresh is a `Crypto` opaque token whose SHA-256 fingerprint alone is stored; the wire form is `${sid}.${secret}` decoded through the `_RefreshWire` `Schema.TemplateLiteralParser` owner so `refresh` reads the session before touching the secret and a malformed frame is one typed `mismatch`.
-- Law: the `Reused` arm is the breach arm and it is loud — `Reject.mark("reuse")` lands on the folder reject stream, the `Reuse` fact publishes through `Witness` beside it so breach evidence reaches the audit rail as receipt-truth, the error log lands with the subject annotation, `revokeSubject` collapses the whole family, and only then does `reuse` surface; every `refresh` runs under the per-`sid` token-bucket budget and an exhausted budget is `throttled`, so an offline brute-force of a stolen `sid` is bounded by the store-backed limiter across every app sharing the library.
+- Law: the `Reused` arm is the breach arm and it is loud — `revokeSubject` settles before observable taps; its failure is retained while `Reject.mark("reuse")`, the durable `Reuse` fact, and subject-redacted error logs publish before the invariant generic `reuse` verdict surfaces. Revoke failure routes through the same breached-fact remediation lane and never erases the replay verdict; every `refresh` runs under the per-`sid` token-bucket budget and an exhausted budget is `throttled`, so an offline brute-force of a stolen `sid` is bounded by the store-backed limiter across every app sharing the library.
 - Law: a refused presented bearer is counted — `BearerGuard` taps `Reject.mark("bearer")` before re-spelling the verify fault to `mismatch`, so the folder's highest-traffic rejection path rides the same stream as every sibling surface.
 - Law: rotation is mandatory per `refresh` — a fresh secret, a bumped `generation`, a replaced session; ids mint through `Crypto.uuid` over the folder entropy port, never the ambient global, so a seeded reader makes the whole lifecycle deterministic under test. Access and refresh TTLs are `Config` `Duration` policy values.
 - Law: a `Jwt` mint fault re-spells to `store` at this seam — the caller sees one session fault family; `Jwt` rides the requirement channel — `Jwt.Default` is a Layer factory over a `Keyset`, so the composition root satisfies it with the `Reloadable`-wrapped ring layer, never a static dependency row here.
@@ -222,13 +222,20 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
             return yield* _RotationStep.$match(_step(session, now, matched), {
               Expired: ({ session: held }) => Effect.fail(new SessionFault({ reason: "expired", detail: held.id })),
               Reused: ({ session: held }) =>
-                Reject.mark("reuse").pipe(
-                  Effect.zipRight(Witness.publish(SecurityFact.Reuse({ subject: held.subject, sid: held.id, tenant: held.tenant }))),
-                  Effect.zipRight(Effect.logError("refresh reuse detected")),
-                  Effect.annotateLogs("subject", held.subject),
-                  Effect.zipRight(store.revokeSubject(held.subject)),
-                  Effect.zipRight(Effect.fail(new SessionFault({ reason: "reuse", detail: held.subject }))),
-                ),
+                Effect.gen(function* () {
+                  const revocation = yield* store.revokeSubject(held.subject).pipe(
+                    Effect.as(Option.none<SessionFault>()),
+                    Effect.catchAll((fault) => Effect.succeed(Option.some(fault))),
+                  )
+                  yield* Reject.mark("reuse")
+                  yield* Witness.publish(SecurityFact.Reuse({ subject: held.subject, sid: held.id, tenant: held.tenant }))
+                  yield* Option.match(revocation, {
+                    onNone: () => Effect.void,
+                    onSome: (fault) => Effect.logError("subject revocation requires remediation", fault),
+                  })
+                  yield* Effect.logError("refresh reuse detected")
+                  return yield* Effect.fail(new SessionFault({ reason: "reuse", detail: "refresh token reuse detected" }))
+                }).pipe(Effect.annotateLogs("subject", Redacted.make(held.subject))),
               Rotate: ({ session: held }) => _rotate(held, now),
             })
           }),
@@ -248,7 +255,7 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
 ## [04]-[COOKIE_EGRESS]
 
 [COOKIE_EGRESS]:
-- Owner: `Cookie` — the session's egress projection over the `@effect/platform` `Cookies` codec: `frame` maps a `TokenPair` onto the access and refresh specs with `maxAge` derived from the session window, `clear` expires every role on logout, `csrf` mints the readable CSRF cookie, `verify` compares it constant-time to the presented header. `CookieSpec` is the attribute policy table — one row per role carrying `{ name, options }` — and the platform `Cookies.Cookie` is the framed value, so serialization, attribute rendering, and the `__Host-`/`__Secure-` prefix semantics are the platform's, never a hand-rolled string; `CsrfFault` is the folder fault shape at 403 exposure.
+- Owner: `Cookie` — the session's egress projection over the `@effect/platform` `Cookies` codec: `frame` maps a `TokenPair` onto the access and refresh specs with `maxAge` derived from the session window, `clear` folds every `CookieSpec` role into an expiry, `csrf` mints the readable CSRF cookie, `verify` compares it constant-time to the presented header. `CookieSpec` is the attribute policy table — one row per role carrying `{ name, options }` — and the platform `Cookies.Cookie` is the framed value, so serialization, attribute rendering, and the `__Host-`/`__Secure-` prefix semantics are the platform's, never a hand-rolled string; `CsrfFault` is the folder fault shape at 403 exposure.
 - Law: every cookie attribute is a policy row, not a call-site literal — `httpOnly`, `secure`, `sameSite`, `path` live in the table, so a new role or a `sameSite` change reframes every write with zero handler edit; the refresh cookie is path-scoped to the refresh route so it never rides an ordinary request; a static policy row that refuses `Cookies.makeCookie` is a defect, so the lift is `Effect.orDie`.
 - Law: the token unwraps exactly at the framing seam — the returned `Cookies.Cookie` values are the egress set the edge writes immediately (a `HttpServerResponse.setCookie` fold or `Cookies.fromIterable` → `Cookies.toSetCookieHeaders`), and `Headers.redact` masks the `cookie`/`set-cookie` pair on every logged header bag, so no token reaches a log.
 - Law: CSRF is constant-time double-submit — `csrf` mints a high-entropy token through `Crypto.token`, `verify` routes the `Text` probe, a mismatch or an absent pair is `CsrfFault`, and every rejection lands `Reject.mark("csrf")` on the folder reject stream; a timing oracle and a stripped header both fail closed.
@@ -311,7 +318,7 @@ class Cookie extends Effect.Service<Cookie>()("security/authn/Cookie", {
         return [access, refresh]
       })
     const clear = (): Effect.Effect<ReadonlyArray<Cookies.Cookie>> =>
-      Effect.all([_framed("access", _EMPTY_VALUE, 0), _framed("refresh", _EMPTY_VALUE, 0), _framed("csrf", _EMPTY_VALUE, 0)])
+      Effect.forEach(Struct.keys(CookieSpec), (role) => _framed(role, _EMPTY_VALUE, 0))
     const csrf = (): Effect.Effect<Cookies.Cookie> =>
       cipher.token(_CSRF_ALPHABET, 32).pipe(Effect.orDie, Effect.flatMap((token) => _framed("csrf", token)))
     const verify = (cookieToken: Option.Option<string>, headerToken: Option.Option<string>): Effect.Effect<void, CsrfFault> =>
@@ -335,3 +342,7 @@ class Cookie extends Effect.Service<Cookie>()("security/authn/Cookie", {
 export { BearerGuard, Cookie, CookieSpec, CredentialRef, CsrfFault, CurrentClaims, IdentityJournal, Session, SessionFault, SessionStore, Subject, Token, TokenPair }
 export type { RotationStep }
 ```
+
+## [05]-[RESEARCH]
+
+(none)

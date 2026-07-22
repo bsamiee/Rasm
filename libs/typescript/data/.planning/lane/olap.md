@@ -1,12 +1,12 @@
 # [DATA_OLAP]
 
-The analytical lane: columnar vectorized throughput as a guarantee distinct from transactional durability, owned by one engine-row table and three scoped engine wraps. DuckDB embedded is the default row — node in services and CLI, wasm pushing compute to the browser over range-read Parquet — with analytics-in-OLTP riding the spine's `analytics` grant, ClickHouse admitted only past the crisp distributed trigger, and Flight SQL the engine-blind remote columnar wire. Arrow is the ONE columnar wire: every result crossing an engine seam travels as a Table in memory or IPC on the wire, and the OLAP lane never rides the OLTP transaction — journal facts replicate in, verdicts flow out, nothing folds back as authority. The engines are boundary kernels: promise APIs lifted through typed acquire-release wraps, read geometry a tagged case value dispatched through ONE polymorphic entry, never a second query paradigm inside the folder. Query evidence harvests into the one `Pg.Profile` band the spine mints, and gate pressure projects onto Convention instruments — receipts stay the truth, instruments the lossy dashboard channel.
+Analytical throughput is distinct from transactional durability and owned by engine rows with scoped wraps. DuckDB serves node and browser acceleration, pgDuckDB keeps adjacent analytics in pg, ClickHouse enters only past its scale trigger, and Flight remains its ingress slice. Arrow is the ONE columnar wire; journal facts flow in and verdicts out, never back as authority. Boundary kernels lift promises, and tagged read cases dispatch ONE entry. Admitted evidence arms emit `Pg.Profile`; Convention instruments project gate pressure from receipt truth.
 
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                              |
 | :-----: | :------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `ENGINE_ROWS` | the five-row decision table — guarantee, storage, ceiling, trigger per engine       |
+|  [01]   | `ENGINE_ROWS` | the engine decision table — guarantee, storage, ceiling, trigger per engine         |
 |  [02]   | `EMBEDDED`    | the scoped DuckDB wraps — node instance/session, wasm worker engine, the read entry |
 |  [03]   | `LAKE_ROWS`   | the table-format and attachment rows — DuckLake, object-store Parquet, spine ATTACH |
 |  [04]   | `CLICKHOUSE`  | the at-scale driver row and its ingestion surface                                   |
@@ -65,14 +65,14 @@ declare namespace Olap {
 
 ## [03]-[EMBEDDED]
 
-- Owner: the two scoped engine wraps — `Olap.node(path, config?)` acquiring a `DuckDBInstance` with the owner-built session bulkhead, and `Olap.wasm(bundles)` instantiating the worker-resident `AsyncDuckDB` — plus `Olap.read`, the ONE statement entry over a leased session whose modality is the `Olap.Read` case value: `Rows` materializes a bounded result, `Window` serves the bounded first window through `streamAndReadUntil`, and `Drain` acquires the native streaming result and flattens `yieldRowObjects()` batch-by-batch under one permit held for the stream lifetime; the overload set gives each case its own return, and every geometry rides the owner-internal governor.
+- Owner: scoped `Olap.node` and `Olap.wasm` wraps with `Olap.read`, the ONE leased-session entry whose `Rows`, `Window`, and `Drain` cases select bounded, windowed, or streamed geometry under the owner governor.
 - Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.closeSync`, `instance.connect`, `connection.disconnectSync`, `connection.runAndReadAll`, `connection.stream`, `connection.streamAndReadUntil`, `DuckDBResult.yieldRowObjects`, `quotedIdentifier`, `quotedString`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
 - Entry: a service composes `Olap.node` once per database coordinate and leases sessions per analytical unit of work through `handle.lease`; the browser shell composes `Olap.wasm` over self-hosted bundles at boot and hands connections to the viewer's query surfaces.
 - Receipt: node reads land as row-object projections; wasm queries land as Arrow Tables — the wire cluster's value, zero-copy into the viewer.
-- Growth: a new engine knob (`threads`, extension roster) is a config field on the acquire; a new read geometry is one `Olap.Read` case plus its overload line and dispatch arm, never a sibling entry; a resilience posture is a `_GOVERNOR` field override, never a consumer wrap.
+- Growth: an engine knob is an acquire-config field; a read geometry is one `Olap.Read` case with overload and dispatch arm; resilience is a `_GOVERNOR` override.
 - Law: lifecycle is `acquireRelease` under `Scope` — instance, worker, and every connection release deterministically; an unscoped engine handle is unspellable because the constructors return scoped effects.
 - Law: every promise lifts through the one boundary kernel `_try` into the reason-discriminated `OlapFault` — `acquire | query | extension | bundle | wire` routes recovery as a fold, never a `detail` string match; extension-load refusal is `extension`, bundle selection is `bundle`, and above the kernel the lane is rails end to end.
-- Law: resilience is owner-internal — the bulkhead semaphore mints inside `Olap.node` (`Effect.makeSemaphore(_GOVERNOR.sessions)`), and `_governed` brackets every statement with the timeout budget and the jittered bounded retry gated to `query`-reason faults, so a consumer composes capability and never constructs, sees, or threads the gate; the governor values are one policy row, and the gate's own pressure projects onto the `Convention.instrument.olapWait` histogram and `Convention.instrument.olapRetried` counter tagged `Convention.rasm.olapEngine` — instruments ride the owner bracket, never per-effect decorators, and the permit ledger stays the truth they lossily project.
+- Law: resilience is owner-internal — the bulkhead semaphore mints inside `Olap.node` (`Effect.makeSemaphore(_GOVERNOR.sessions)`), and `_governed` brackets every statement with the timeout budget; jittered bounded retry admits only `access: "read"` and `fault: "query"`, so an executing write, extension mutation, or profile harvest remains one-shot; the governor values are one policy row, and gate pressure projects onto the `Convention.instrument.olapWait` histogram and `Convention.instrument.olapRetried` counter tagged `Convention.rasm.olapEngine`.
 - Law: the drain path never re-buffers — `DuckDBResult.yieldRowObjects()` yields one native data chunk at a time and does not retain prior chunks, while `Stream.acquireRelease` holds the session permit until downstream termination; a `DuckDBResultReader` is rejected here because its private chunk roster accumulates the full result even when `readUntil` advances incrementally. Acquisition retries before the first emission; an iteration fault fails the stream without replay because a partial-output retry duplicates rows.
 - Law: extension admission is a statement — `INSTALL`/`LOAD` for `httpfs`, `ducklake`, `iceberg`, `delta`, `spatial`, `vss`, `fts` run through the `Rows` geometry; a load failure refuses the capability as a typed `extension` fault, never crashes the lane.
 - Law: bundles self-host beside the app shell — `selectBundle` over owned artifact coordinates; a CDN bundle load is rejected by the deployment's content policy.
@@ -123,6 +123,7 @@ type _Statement = {
   readonly sql: string
   readonly values?: ReadonlyArray<DuckDBValue>
   readonly fault: "query" | "extension"
+  readonly access: "read" | "write"
 }
 
 type OlapRead = Data.TaggedEnum<{
@@ -136,21 +137,26 @@ const _Read = Data.taggedEnum<OlapRead>()
 const _try = <A>(engine: Olap.Engine, reason: OlapFault["reason"], run: () => Promise<A>): Effect.Effect<A, OlapFault> =>
   Effect.tryPromise({ try: run, catch: (cause) => new OlapFault({ engine, reason, detail: String(cause) }) })
 
-const _resilient = <A>(reason: _Statement["fault"], work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> =>
-  work.pipe(
+const _resilient = <A>(statement: _Statement, work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> => {
+  const timed = work.pipe(
     Effect.timeoutFail({
       duration: _GOVERNOR.budget,
-      onTimeout: () => new OlapFault({ engine: "duckdbNode", reason, detail: "<budget>" }),
+      onTimeout: () => new OlapFault({ engine: "duckdbNode", reason: statement.fault, detail: "<budget>" }),
     }),
-    Effect.tapError((fault) => (fault.reason === "query" ? Metric.increment(_retried) : Effect.void)), // attempt-scoped: composed before the retry step, so every governed re-drive is counted
-    Effect.retry(_GOVERNOR.retry),
   )
+  return statement.access === "read" && statement.fault === "query"
+    ? timed.pipe(
+        Effect.tapError(() => Metric.increment(_retried)),
+        Effect.retry(_GOVERNOR.retry),
+      )
+    : timed
+}
 
 const _governed = (gate: Effect.Semaphore) =>
-  <A>(reason: _Statement["fault"], work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> =>
+  <A>(statement: _Statement, work: Effect.Effect<A, OlapFault>): Effect.Effect<A, OlapFault> =>
     Effect.acquireUseRelease(
-      Effect.tap(Effect.timed(gate.take(1)), ([span]) => Metric.update(_waited, Duration.toMillis(span))), // the gate wait projects onto the Convention histogram; the permit itself stays the truth
-      () => _resilient(reason, work),
+      Effect.tap(Effect.timed(gate.take(1)), ([span]) => Metric.update(_waited, Duration.toMillis(span))), // Gate wait projects onto Convention; permit state stays truth.
+      () => _resilient(statement, work),
       () => gate.release(1),
     )
 
@@ -195,7 +201,7 @@ const _paged = (session: Olap.Session, op: Extract<OlapRead, { _tag: "Drain" }>)
   Stream.acquireRelease(session.gate.take(1), () => session.gate.release(1)).pipe(
     Stream.flatMap(() =>
       Stream.unwrap(
-        _resilient(op.fault, _try("duckdbNode", op.fault, () => session.connection.stream(op.sql, _values(op.values)))).pipe(
+        _resilient(op, _try("duckdbNode", op.fault, () => session.connection.stream(op.sql, _values(op.values)))).pipe(
           Effect.map((result) =>
             Stream.fromAsyncIterable(
               result.yieldRowObjects(),
@@ -212,7 +218,7 @@ function _read(session: Olap.Session, op: OlapRead): Effect.Effect<ReadonlyArray
   return _Read.$is("Drain")(op)
     ? _paged(session, op)
     : _governed(session.gate)(
-        op.fault,
+        op,
         _Read.$is("Window")(op)
           ? _try("duckdbNode", op.fault, () => session.connection.streamAndReadUntil(op.sql, op.take, _values(op.values))).pipe(
               Effect.map((reader) => reader.getRowObjects().slice(0, op.take)), // readUntil may overshoot by chunk granularity; the window is exact
@@ -246,17 +252,18 @@ declare namespace Olap {
 }
 
 const _attach = {
-  pg: (dsn: string) => _Read.Rows({ sql: `ATTACH ${quotedString(dsn)} AS spine (TYPE postgres, READ_ONLY)`, fault: "extension" }),
-  sqlite: (path: string) => _Read.Rows({ sql: `ATTACH ${quotedString(path)} AS lane (TYPE sqlite)`, fault: "extension" }),
+  pg: (dsn: string) => _Read.Rows({ sql: `ATTACH ${quotedString(dsn)} AS spine (TYPE postgres, READ_ONLY)`, fault: "extension", access: "write" }),
+  sqlite: (path: string) => _Read.Rows({ sql: `ATTACH ${quotedString(path)} AS lane (TYPE sqlite)`, fault: "extension", access: "write" }),
   ducklake: (catalog: string, dataPath: string) =>
     _Read.Rows({
       sql: `ATTACH ${quotedString(`ducklake:${catalog}`)} AS lake (DATA_PATH ${quotedString(dataPath)})`,
       fault: "extension",
+      access: "write",
     }),
   extensions: _extensions,
   extension: (name: Olap.Extension) =>
-    _Read.Rows({ sql: `INSTALL ${quotedIdentifier(name)}; LOAD ${quotedIdentifier(name)};`, fault: "extension" }),
-  httpfs: _Read.Rows({ sql: "INSTALL httpfs; LOAD httpfs;", fault: "extension" }),
+    _Read.Rows({ sql: `INSTALL ${quotedIdentifier(name)}; LOAD ${quotedIdentifier(name)};`, fault: "extension", access: "write" }),
+  httpfs: _Read.Rows({ sql: "INSTALL httpfs; LOAD httpfs;", fault: "extension", access: "write" }),
 } as const
 
 const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
@@ -271,10 +278,10 @@ const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
 
 - Owner: the at-scale driver row — the `ClickhouseClient` Layer mint and `Olap.ingest`, the quota-governed `insertQuery` seam every replication stream rides; neutral analytical reads, command-mode effects, typed parameters, query IDs, and scoped settings remain members of the concrete client held inside the owner rather than parallel lane entries.
 - Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withQueryId`, `withClickhouseSettings`); `@effect/experimental` (`RateLimiter.makeWithRateLimiter`, `RateLimiterStore`); `effect` (`Config`).
-- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, and dashboards read the cluster, never the OLTP spine.
+- Entry: admitted at the composition root only where the `_engines.clickhouse.trigger` condition is real; the fact journal's high-cardinality rollups replicate into MergeTree through `Olap.ingest`, whose intent carries the query id and settings posture applied on the concrete client fiber; dashboards read the cluster, never the OLTP spine.
 - Growth: a new ingestion stream is one `ingest` call site over the same layer; a new settings posture is a `withClickhouseSettings` scope; a quota posture is an `_INGEST_QUOTA` override keyed per app, never a consumer wrap.
 - Law: the driver extends the neutral `SqlClient`, so analytical reads ride the same `sql` DSL and typed decode as every lane — `clickhouse` is an `onDialect` arm-KEY; only ingestion and command routing reach the concrete Tag.
-- Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and a durable `RateLimiterStore` composes at a multi-replica root; `layerStoreMemory` is admitted only for a single-process topology and never described as distributed.
+- Law: ingestion is load-shed at the owner — the token-bucket limiter keys by app so one tenant's replication burst cannot starve siblings, `onExceeded: "delay"` suspends instead of dropping (replication is re-runnable, never lossy by quota), and a durable `RateLimiterStore` composes at a multi-replica root; `withQueryId` and `withClickhouseSettings` scope correlation and server policy to the admitted insert fiber, never process state.
 - Law: the quota hold is measured at the owner — the span between entering `_ingest` and the insert's admission past the limiter projects onto the `Convention.instrument.olapDeferred` histogram tagged `clickhouse`, so token-bucket deferral pressure is dashboard-visible while the limiter's suspend disposition stays the behavioral truth.
 - Law: the cluster is correctness-adjacent — facts replicate IN, and a lost analytical row is a re-replication, never a billing defect; the journal remains the sole truth.
 
@@ -304,39 +311,46 @@ const _deferred = Metric.tagged(
 )
 
 declare namespace Olap {
-  type Ingest = Parameters<ClickhouseClient.ClickhouseClient["insertQuery"]>[0] & { readonly app: AppIdentity.Key }
+  type Ingest = Parameters<ClickhouseClient.ClickhouseClient["insertQuery"]>[0] & {
+    readonly app: AppIdentity.Key
+    readonly queryId: string
+    readonly settings: Parameters<ClickhouseClient.ClickhouseClient["withClickhouseSettings"]>[1]
+  }
 }
 
 const _ingest = (intent: Olap.Ingest) =>
   Effect.gen(function* () {
     const client = yield* ClickhouseClient.ClickhouseClient
     const limit = yield* RateLimiter.makeWithRateLimiter
-    const { app, ...insert } = intent
+    const { app, queryId, settings, ...insert } = intent
     const opened = yield* Clock.currentTimeMillis
     return yield* limit({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(
       Effect.zipRight(
-        Effect.flatMap(Clock.currentTimeMillis, (started) => Metric.update(_deferred, started - opened)), // the delta IS the quota hold: the limiter suspended exactly this long before admitting the insert
-        client.insertQuery(insert),
+        Effect.flatMap(Clock.currentTimeMillis, (started) => Metric.update(_deferred, started - opened)), // Delta is the quota hold before insert admission.
+        client.insertQuery(insert).pipe(
+          client.withClickhouseSettings(settings),
+          client.withQueryId(queryId),
+        ),
       ),
     )
   })
 ```
 
-## [07]-[PROFILE]
+## [06]-[PROFILE]
 
-- Owner: the embedded arm of the one engine-profile receipt family and the evidence plane that arms escalation — `_profile`, the per-query harvest bracketing `PRAGMA enable_profiling='json'` around an `EXPLAIN ANALYZE` run and folding the JSON profile tree into `Pg.Profile`; `_probe`, the bounded repeatable measurement run folding N harvests into one claim-shaped `Olap.Evidence`; `_armed`, the pure delta fold that turns two evidence receipts into an `Olap.Escalation` verdict against the row's own trigger — plus the assembled `Olap` export.
+- Owner: the admitted embedded profile arm and escalation evidence — `_profile` leases one disposable session and holds one permit across enable, one-shot `EXPLAIN ANALYZE`, and teardown; `_probe` folds bounded serial measurements; `_armed` compares evidence against the engine trigger; `Olap` assembles the export.
 - Packages: `./postgres.ts` (`Pg.Profile` — the shared receipt schema; profile parity across pg, sqlite, and this lane is one class); `effect` (`Schema`, `Array`, `Option`, `Metric`).
-- Entry: an explicit diagnosis call runs `Olap.profile(session, statement, label)`; the maintenance composition runs `Olap.probe` in idle windows per the budget row, holds the prior evidence beside the engine row, and folds `Olap.armed` — an armed verdict fans through the `rasm.data.lane.escalate` hook point at that composition seam, so this lane keeps its single `ObjectStore` value seam beside the profile-schema read and never imports the hook registry.
+- Entry: an explicit diagnosis call runs `Olap.profile(handle, readStatement, label)`; the maintenance composition runs `Olap.probe` in idle windows per the budget row, holds the prior evidence beside the engine row, and folds `Olap.armed` — an armed verdict fans through the `rasm.data.lane.escalate` hook point at that composition seam, so this lane keeps its single `ObjectStore` value seam beside the profile-schema read and never imports the hook registry.
 - Receipt: `Pg.Profile` with `engine: "duckdbNode"`, operator rows carrying timing and cardinality from the profile tree, and `counters` holding `cpuTime` and `resultSetSize` when the tree carries them; `Olap.Evidence` — `{ engine, statement, runs, wallP50, wallMax, rows }`; `Olap.Escalation` — `{ engine, trigger, delta, armed }`, the row's trigger text riding as data so the review argues from the table.
-- Growth: the wasm arm is the same fold over `conn.send` output when browser diagnosis earns it — one `engine` literal, zero schema edits; a probe budget posture is a `_PROBE` field override; a new profile counter is one optional field on `_ProfileTree`.
-- Law: profiling toggles are per-connection state — the bracket enables `json` profiling, runs exactly the profiled statement, and `Effect.ensuring` disables it on every exit, so a leaked toggle cannot tax the session's next statement; the harvest EXECUTES the statement and scopes to explicit diagnosis, never ambient reads.
-- Law: under `enable_profiling='json'` the `EXPLAIN ANALYZE` result carries the profile as its JSON cell — the harvest decodes that one cell through `Schema.parseJson` into the tolerant tree (every measure `Option`-carried, an absent clock is omission, never zero), and a malformed profile is the `wire` reason on the lane fault, never a hand-parsed guess.
-- Law: probes run beside production lanes — `_PROBE.runs` bounds the repetition, the run rides the same governed session gate as every statement so a probe cannot starve live work, and each harvest's `wallMillis` projects onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` — embedded engines expose no scrape surface, so this harvest is their whole observability.
+- Growth: a profile engine enters `_PROFILE_ENGINES` only with its landed harvest arm; a probe budget posture is a `_PROBE` field override; a new profile counter is one optional field on `_ProfileTree`.
+- Law: profiling toggles are per-connection state — one permit spans enable, execution, and disable, so concurrent users cannot interleave inside the bracket; `_profileRowsOnce` bypasses the retry governor because `EXPLAIN ANALYZE` executes its statement; the `access: "read"` statement case is the only admitted diagnosis input; disable failure remains on the typed rail, and the enclosing scope disposes the leased session on every exit.
+- Law: under `enable_profiling='json'` the `EXPLAIN ANALYZE` result carries the profile as its JSON cell — the harvest decodes that cell through `Schema.parseJson`; root latency and returned rows are required receipt evidence, while operator-local measures remain `Option`-carried, so absence fails the wire instead of forging zero.
+- Law: probes run beside production lanes — `_PROBE.runs` bounds the repetition, the run rides the same governed session gate as every statement so a probe cannot starve live work, the whole profile bracket (enable, EXPLAIN ANALYZE, disable, release) rides one `_GOVERNOR.budget` timeout so a stalled diagnosis releases its permit, and each harvest's `wallMillis` projects onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` — embedded engines expose no scrape surface, so this harvest is their whole observability.
 - Law: escalation is evidence-driven row data — `_armed` compares evidence receipts by their p50 wall ratio against the `_PROBE.floor`, names the engine row's own trigger text, and never mutates the row; admitting ClickHouse below its trigger remains the named operational waste the table refuses.
 
 ```typescript signature
 import { Pg } from "./postgres.ts"
-import { Array, Option, Order, Schema } from "effect"
+import { Array, Exit, Option, Order, Schema } from "effect"
 
 const _PROBE = { runs: 5, floor: 1.5 } as const // bounded repeatable measurement; the p50 ratio that arms a trigger
 
@@ -383,7 +397,20 @@ const _Tree: Schema.Schema<_ProfileTree, _ProfileTreeEncoded> = Schema.Struct({
   children: Schema.optionalWith(Schema.Array(Schema.suspend((): Schema.Schema<_ProfileTree, _ProfileTreeEncoded> => _Tree)), { as: "Option" }),
 })
 
-const _steps = (node: _ProfileTree): ReadonlyArray<Pg.Profile["operators"][number]> => [
+const _Root = Schema.Struct({
+  operator_type: Schema.optionalWith(Schema.String, { as: "Option" }),
+  operator_timing: Schema.optionalWith(Schema.Number, { as: "Option" }),
+  operator_cardinality: Schema.optionalWith(Schema.Number, { as: "Option" }),
+  latency: Schema.Number,
+  rows_returned: Schema.Number,
+  cpu_time: Schema.optionalWith(Schema.Number, { as: "Option" }),
+  result_set_size: Schema.optionalWith(Schema.Number, { as: "Option" }),
+  children: Schema.optionalWith(Schema.Array(_Tree), { as: "Option" }),
+})
+
+type _OperatorTree = Pick<_ProfileTree, "operator_type" | "operator_timing" | "operator_cardinality" | "children">
+
+const _steps = (node: _OperatorTree): ReadonlyArray<Pg.Profile["operators"][number]> => [
   ...Option.match(node.operator_type, {
     onNone: () => [],
     onSome: (name) => [{
@@ -395,37 +422,67 @@ const _steps = (node: _ProfileTree): ReadonlyArray<Pg.Profile["operators"][numbe
   ...Option.match(node.children, { onNone: () => [], onSome: Array.flatMap(_steps) }),
 ]
 
-const _profile = (session: Olap.Session, statement: _Statement, label: string): Effect.Effect<Pg.Profile, OlapFault> =>
-  Effect.gen(function* () {
-    yield* _read(session, _Read.Rows({ sql: "PRAGMA enable_profiling='json'", fault: "query" }))
-    const raw = yield* _read(session, _Read.Rows({ sql: `EXPLAIN ANALYZE ${statement.sql}`, values: statement.values, fault: statement.fault })).pipe(
-      Effect.ensuring(Effect.ignore(_read(session, _Read.Rows({ sql: "PRAGMA disable_profiling", fault: "query" })))), // the toggle dies with the diagnosis on every exit
-    )
-    const cell = yield* Option.match(
-      Option.flatMap(Array.head(raw), (row) => Option.fromNullable(row["explain_value"])),
-      {
-        onNone: () => Effect.fail(new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<no-profile-cell>" })),
-        onSome: (held) => Effect.succeed(String(held)),
-      },
-    )
-    const tree = yield* Schema.decodeUnknown(Schema.parseJson(_Tree))(cell).pipe(
-      Effect.mapError((fault) => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: String(fault) })),
-    )
-    const wallMillis = Option.getOrElse(Option.map(tree.latency, (seconds) => seconds * 1000), () => 0)
-    yield* Metric.update(_profiled, wallMillis)
-    return new Pg.Profile({
-      engine: "duckdbNode",
-      statement: label,
-      wallMillis,
-      rows: Option.getOrElse(Option.map(tree.rows_returned, Math.trunc), () => 0),
-      operators: _steps(tree),
-      counters: {
-        ...Option.match(tree.cpu_time, { onNone: () => ({}), onSome: (held) => ({ cpuTime: held }) }),
-        ...Option.match(tree.result_set_size, { onNone: () => ({}), onSome: (held) => ({ resultSetSize: held }) }),
-      },
-      window: Option.none(),
-    })
-  })
+type _ReadStatement = _Statement & { readonly access: "read" }
+
+const _profileRowsOnce = (session: Olap.Session, statement: _Statement): Effect.Effect<ReadonlyArray<Olap.Row>, OlapFault> =>
+  _try("duckdbNode", statement.fault, () => session.connection.runAndReadAll(statement.sql, _values(statement.values))).pipe(
+    Effect.map((reader) => reader.getRowObjects()),
+  )
+
+const _profileOnce = (session: Olap.Session, statement: _ReadStatement, label: string): Effect.Effect<Pg.Profile, OlapFault> =>
+  Effect.acquireUseRelease(
+    Effect.tap(Effect.timed(session.gate.take(1)), ([span]) => Metric.update(_waited, Duration.toMillis(span))),
+    () =>
+      Effect.gen(function* () {
+        yield* _profileRowsOnce(session, { sql: "PRAGMA enable_profiling='json'", fault: "query", access: "write" })
+        const explained = yield* Effect.exit(_profileRowsOnce(session, {
+          sql: `EXPLAIN ANALYZE ${statement.sql}`,
+          values: statement.values,
+          fault: statement.fault,
+          access: "read",
+        }))
+        yield* _profileRowsOnce(session, { sql: "PRAGMA disable_profiling", fault: "query", access: "write" })
+        const raw = yield* Exit.matchEffect(explained, {
+          onFailure: Effect.failCause,
+          onSuccess: Effect.succeed,
+        })
+        const cell = yield* Option.match(
+          Option.flatMap(Array.head(raw), (row) => Option.fromNullable(row["explain_value"])),
+          {
+            onNone: () => Effect.fail(new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<no-profile-cell>" })),
+            onSome: (held) => Effect.succeed(String(held)),
+          },
+        )
+        const tree = yield* Schema.decodeUnknown(Schema.parseJson(_Root))(cell).pipe(
+          Effect.mapError((fault) => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: String(fault) })),
+        )
+        const wallMillis = tree.latency * 1000
+        yield* Metric.update(_profiled, wallMillis)
+        return new Pg.Profile({
+          engine: "duckdbNode",
+          statement: label,
+          wallMillis,
+          rows: Math.trunc(tree.rows_returned),
+          operators: _steps(tree),
+          counters: {
+            ...Option.match(tree.cpu_time, { onNone: () => ({}), onSome: (held) => ({ cpuTime: held }) }),
+            ...Option.match(tree.result_set_size, { onNone: () => ({}), onSome: (held) => ({ resultSetSize: held }) }),
+          },
+          window: Option.none(),
+        })
+      }),
+    () => session.gate.release(1),
+  ).pipe(
+    // Whole-bracket budget: PRAGMA enable, EXPLAIN ANALYZE, PRAGMA disable, and the gate release ride one
+    // governor timeout together, so a stalled profile can never hold a session permit past the budget.
+    Effect.timeoutFail({
+      duration: _GOVERNOR.budget,
+      onTimeout: () => new OlapFault({ engine: "duckdbNode", reason: statement.fault, detail: "<profile-budget>" }),
+    }),
+  )
+
+const _profile = (handle: Olap.Handle, statement: _ReadStatement, label: string): Effect.Effect<Pg.Profile, OlapFault> =>
+  Effect.scoped(Effect.flatMap(handle.lease, (session) => _profileOnce(session, statement, label)))
 
 declare namespace Olap {
   type Evidence = {
@@ -439,20 +496,33 @@ declare namespace Olap {
   type Escalation = { readonly engine: Engine; readonly trigger: string; readonly delta: number; readonly armed: boolean }
 }
 
-const _probe = (session: Olap.Session, statement: _Statement, label: string): Effect.Effect<Olap.Evidence, OlapFault> =>
-  Effect.map(
-    Effect.forEach(Array.range(1, _PROBE.runs), () => _profile(session, statement, label)),
-    (receipts) => {
-      const walls = Array.sort(Array.map(receipts, (receipt) => receipt.wallMillis), Order.number)
-      return {
-        engine: "duckdbNode" as const,
-        statement: label,
-        runs: receipts.length,
-        wallP50: Option.getOrElse(Array.get(walls, Math.trunc(walls.length / 2)), () => 0),
-        wallMax: Option.getOrElse(Array.last(walls), () => 0),
-        rows: Option.getOrElse(Option.map(Array.head(receipts), (receipt) => receipt.rows), () => 0),
-      }
-    },
+const _probe = (handle: Olap.Handle, statement: _ReadStatement, label: string): Effect.Effect<Olap.Evidence, OlapFault> =>
+  Effect.flatMap(
+    Effect.forEach(Array.range(1, _PROBE.runs), () => _profile(handle, statement, label), { concurrency: 1 }),
+    (receipts) =>
+      Effect.gen(function* () {
+        const first = yield* Effect.fromOption(
+          Array.head(receipts),
+          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-probe>" }),
+        )
+        const walls = Array.sort(Array.map(receipts, (receipt) => receipt.wallMillis), Order.number)
+        const wallP50 = yield* Effect.fromOption(
+          Array.get(walls, Math.trunc(walls.length / 2)),
+          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-p50>" }),
+        )
+        const wallMax = yield* Effect.fromOption(
+          Array.last(walls),
+          () => new OlapFault({ engine: "duckdbNode", reason: "wire", detail: "<empty-maximum>" }),
+        )
+        return {
+          engine: "duckdbNode" as const,
+          statement: label,
+          runs: receipts.length,
+          wallP50,
+          wallMax,
+          rows: first.rows,
+        }
+      }),
   )
 
 const _armed = (engine: Olap.Engine, prior: Olap.Evidence, next: Olap.Evidence): Olap.Escalation => {
@@ -461,9 +531,9 @@ const _armed = (engine: Olap.Engine, prior: Olap.Evidence, next: Olap.Evidence):
 }
 ```
 
-## [08]-[ARROW_WIRE]
+## [07]-[ARROW_WIRE]
 
-- Owner: the one columnar interchange — typed-effect decode and encode at the lane seams, batch streaming for bounded memory, the wasm lazy record-batch pull, and the one ingest entry whose modality is the source shape — plus the assembled `Olap` export.
+- Owner: the one columnar interchange — typed decode and encode, bounded batch streaming, wasm lazy pull, source-shaped ingest, and the assembled `Olap` export.
 - Packages: `apache-arrow` (`tableFromIPC`, `tableToIPC`, `RecordBatchReader`, `Table`); `@duckdb/duckdb-wasm` (`conn.send`, `conn.insertArrowTable`, `conn.insertArrowFromIPCStream`).
 - Entry: wasm query results are already Tables; node results and ClickHouse Arrow output decode through `tableFromIPC`; the viewer's geoarrow plane consumes the same Tables downstream; the wasm ingest entry closes the loop for locally staged frames.
 - Growth: a new engine row joins the wire by emitting or accepting IPC — no per-engine result shape is ever admitted.
@@ -523,3 +593,8 @@ const Olap = {
 
 export { Olap, OlapFault }
 ```
+
+## [08]-[RESEARCH]
+
+- [PROFILE_ROW_SHAPE]-[OPEN]: which typed cell shape does `runAndReadAll(...).getRowObjects()` yield for the `explain_value` column of `EXPLAIN ANALYZE` under `PRAGMA enable_profiling='json'`; `libs/typescript/data/.api/duckdb-node-api.md` `[02]` (`DuckDBResultReader.getRowObjects`) and `[03]` (`runAndReadAll`), armed on the exact declarations and one decoded profile-row fixture pinning the `explain_value` cell the `_Root` decode consumes.
+- [CLICKHOUSE_PROFILE_SCOPE]-[OPEN]: which query-id scope yields ClickHouse profile evidence; `libs/typescript/data/.api/effect-sql-clickhouse.md` `[02]`, armed on exact scope and result declarations.

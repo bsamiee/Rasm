@@ -1,6 +1,6 @@
 # [DATA_POSTGRES]
 
-The PostgreSQL spine of the guarantee-lane matrix: one sealed vocabulary owner carrying the first-party capability rows the engine grants outright, the concurrency-primitive table whose load-bearing column is what each primitive does NOT guarantee, the ruled extension matrix every probe and image derivation reads, and the driver Layer rows that bind the neutral `SqlClient` to the pooled pg wire. Everything here is data or a Layer mint — the fail-closed probe service is `lane/capability.md`'s, the per-scope Layer family is `lane/tenant.md`'s, and every journal statement composes these rows through the grant vocabulary instead of assuming the engine. The whole gate vocabulary is ONE derived union — spine, primitives, and extension capabilities — so the sqlite degradation table, the capability gates, and the deployment image all key one spelling and cannot drift. A new engine capability is one row; a pruned extension is one deleted row plus its image fact; no consumer edit exists on either path.
+PostgreSQL's guarantee-lane spine owns first-party capabilities, concurrency primitives with explicit denials, ruled extensions, and driver Layers binding neutral `SqlClient` to pg. Rows and Layer mints carry every fact; `lane/capability.md` probes, `lane/tenant.md` scopes, and journal statements consume the grant vocabulary. ONE derived union binds spine, primitives, extensions, sqlite degradation, gates, and deployment image. A capability is one row; pruning an extension deletes its row and image fact.
 
 ## [01]-[CLUSTERS]
 
@@ -45,7 +45,7 @@ declare namespace Pg {
 - Law: `conflictClaim` — `INSERT … ON CONFLICT DO UPDATE … RETURNING` with an explicit insert/update marker — is atomic first-writer discrimination without reading transaction internals; what it refuses is replay truth across statements, so the ledger row, never the claim, carries the stored receipt.
 - Law: `advisory` locks die with their session or transaction — application-defined mutual exclusion without row DDL, refusing persistence; a lock protecting state across restarts is a schema row, never an advisory claim.
 - Law: `copy` is the maximal-throughput bulk lane under WAL and refuses per-row error routing — batch atomicity is all-or-nothing, so a partial-tolerant ingest splits its batch above the statement.
-- Law: `partition` (declarative partitioning plus replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
+- Law: `partition` (declarative partitioning with replication) refuses automated lifecycle — premake and retention drop are the `pg_partman` extension row's, and `journal/retain.md` gates on that grant.
 
 ```typescript signature
 const _primitives = {
@@ -89,13 +89,13 @@ declare namespace Pg {
 
 ## [04]-[EXTENSION_MATRIX]
 
-- Owner: the `_rows` anchor plus the assembled projections — the ruled extension estate as `{extension, floor, probeSql, capabilities, layer, flags}` rows, the `_flags` deployment-fact tuple, the `_demands` dependency pairs, the derived `Grant` union spanning spine, primitives, and extension capabilities, the `{extension, floor, flags}` image projection the deployment image realizes, and the per-dialect `_core` grant seed derived from the spine and primitive anchors.
+- Owner: the `_rows` anchor and assembled projections — ruled `{extension, floor, probeSql, capabilities, layer, flags}` rows, deployment flags, dependency pairs, the derived `Grant` union, the image projection, and per-dialect `_core` seed.
 - Packages: none — extensions are deployment-image facts, never JS dependencies.
 - Entry: `lane/capability.md` probes `Pg.rows` fail-closed at Layer construction and enforces `Pg.demands`; the image derivation consumes `Pg.image`; every retrieval, projection, maintenance, and retention gate reads the derived grant vocabulary.
 - Growth: a new extension is one row — the unions, the probe roster, and the image projection move with it, zero consumer edits; a floor bump is a field edit; a new deployment fact is one `_flags` entry; a new dependency edge is one `_demands` pair.
 - Law: the BM25 row is `vchord_bm25` — it pairs with the admitted VectorChord index engine and grants `bm25`; the trigram and phonetic contrib rows carry the fuzzy lanes beneath it, and core FTS remains the boolean-lexeme floor the relevance lane begins past.
 - Law: VectorChord is the stronger drop-in over the pgvector contract — both rows grant `vector`, `vchord` alone grants `vchord`, and index-method selection reads the narrower grant; swapping the engine is an image change, never a query change.
-- Law: the queue class has no extension row — the SKIP-LOCKED primitive plus the relay rows in `journal/append.md` own the shape, and the visibility-timeout redelivery idiom is mined into the relay claim as an attempts/lease column pair; a second job-table paradigm inside the database is the refused split-brain.
+- Law: the queue class has no extension row — the SKIP-LOCKED primitive and relay rows in `journal/append.md` own the shape, and visibility-timeout redelivery is an attempts/lease column pair; a second job-table paradigm is split-brain.
 - Law: native `uuidv7()` subsumes the identity-mint extension class entirely — no row exists, and any image fact naming one is stale.
 - Law: flags price deployment facts and derive from one tuple — `timescaledb` carries `tsl` (source-available licensing), `excludesSharding` (mutually exclusive with a sharding engine in one database), and `preload`; the `preload` flag on it, `pg_cron`, and `pg_stat_statements` marks the `shared_preload_libraries` demand the deploy plane's CNPG derivation filters on, so a new preload-demanding extension is a flag edit with zero deploy-plane code change; every flag travels into the image projection so the deployment derivation prices the roster, and a core-layer row carrying any flag joins the projection too — contrib ships in every image, but its deployment fact still needs the derivation to see it.
 - Law: dependency demands are data — `_demands` pairs a row flag with the grant it requires (`requiresCron` demands `cron`), `lane/capability.md` refuses a flagged row whose demanded grant is absent, and the deploy plane's `_DEMANDS` table reads the same pairs; `pg_incremental`'s exactly-once checkpointed batch folds are the maintenance plane's incremental lane, admitted only where `pg_cron` also probes true.
@@ -195,12 +195,12 @@ const _fromPool = (
 
 ## [06]-[PROFILE_HARVEST]
 
-- Owner: the ONE engine-profile receipt family — `Pg.Profile`, the schema-owned per-query evidence shape every lane arm harvests into so a slow query is diagnosable identically on every engine — plus the spine's two harvest arms and the assembled `Pg` export: `_statements`, the decoded `pg_stat_statements` snapshot whose pure `_delta` fold turns two snapshots into window-delta receipts keyed by `queryid`, and `_explain`, the per-statement `EXPLAIN (ANALYZE, FORMAT JSON)` harvest folding the plan tree into operator rows.
+- Owner: the ONE engine-profile receipt family — `Pg.Profile`, the schema-owned per-query evidence shape — with spine harvest arms and assembled `Pg` export: `_statements` decodes snapshots, `_delta` folds window receipts by `queryid`, and `_explain` folds JSON plans into operator rows.
 - Packages: `@effect/sql` (`SqlSchema`, `Statement` — the profiled statement arrives as a composed `Fragment` value, never a string); `effect` (`Schema`, `DateTime`, `HashMap`, `Option`).
-- Entry: `lane/sqlite.md` and `lane/olap.md` harvest their engines into this same class through their own arms, so profile parity is structural — one schema, per-engine harvests; the maintenance composition that owns the harvest cadence projects each receipt's `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine`, and the receipt stays the truth the instrument lossily projects.
+- Entry: `lane/sqlite.md` and `lane/olap.md` harvest each admitted profile engine into this same class through their own arms; the maintenance composition that owns the harvest cadence projects each receipt's `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine`, and the receipt stays the truth the instrument lossily projects.
 - Receipt: `Pg.Profile` — `{ engine, statement, wallMillis, rows, operators, counters, window }` — operator timing and cardinality are `Option`-carried because engines expose asymmetric depth, `counters` is the open engine-specific evidence record, and `window` is `Option`-carried because only cumulative-source arms (statements) carry one; an absent counter is omission, never a zero forgery.
-- Growth: a new engine arm is one `_PROFILE_ENGINES` key plus its harvest fence on the owning lane page; a new evidence axis is a `counters` entry — zero schema edits; a new statements column is a `_StatRow` field plus its `_delta` line.
-- Law: `pg_stat_statements` is cumulative shared state — receipts are `_delta` window deltas keyed by `queryid`, never raw counters; a counter running backwards inside a window marks a `pg_stat_statements_reset` and the later snapshot stands as the whole delta, so a reset costs one distorted window and never a negative receipt.
+- Growth: a new engine arm is one `_PROFILE_ENGINES` key with its owning harvest fence; a new evidence axis is a `counters` entry; a statements column is a `_StatRow` field and `_delta` line.
+- Law: `pg_stat_statements` is cumulative shared state — receipts are `_delta` window deltas keyed by `queryid`, never raw counters; any backwards counter marks a reset and makes the later snapshot the whole delta, so no receipt turns negative. Calls-floor gating applies to the WINDOW delta, never the snapshot — snapshots retain the full row set for prior-state matching, so a query crossing the floor mid-window reports only its window increment, never its cumulative history baselined as new.
 - Law: `EXPLAIN (ANALYZE, FORMAT JSON)` EXECUTES the statement — the arm scopes to explicit diagnosis calls, never ambient reads, and the profiled statement is a `Fragment` spliced whole, so parameter binding survives and no probe re-derives SQL by string assembly.
 - Law: the statements row rides `_rows` as a core-layer contrib carrying `preload` — `lane/capability.md`'s batched catalog probe inherits it with zero probe edits, the `statements` grant gates both arms fail-closed, and the flag-bearing core row reaches the image projection so the deploy derivation configures `shared_preload_libraries`.
 
@@ -209,7 +209,7 @@ import { DateTime, HashMap } from "effect"
 import type { Statement } from "@effect/sql"
 import { SqlSchema } from "@effect/sql"
 
-const _PROFILE_ENGINES = ["pg", "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode", "duckdbWasm", "clickhouse"] as const
+const _PROFILE_ENGINES = ["pg", "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode"] as const
 
 class _Profile extends Schema.Class<_Profile>("Pg.Profile")({
   engine: Schema.Literal(..._PROFILE_ENGINES),
@@ -242,49 +242,86 @@ declare namespace Pg {
   type StatSnapshot = { readonly at: DateTime.Utc; readonly rows: ReadonlyArray<typeof _StatRow.Type> }
 }
 
+// Snapshots are UNFILTERED — the floor is a window-delta gate, never a snapshot gate: filtering the snapshot
+// drops below-floor rows from the prior map, so a query crossing the floor mid-window baselines to zero and
+// reports its whole cumulative history as one window's delta.
 const _statements = (sql: SqlClient.SqlClient) =>
-  (floor: number) =>
-    Effect.map(
-      Effect.zip(
-        DateTime.now,
-        SqlSchema.findAll({
-          Request: Schema.Number,
-          Result: _StatRow,
-          execute: (calls) =>
-            sql`SELECT queryid::text AS queryid, query, calls, total_exec_time, rows,
-                       shared_blks_hit, shared_blks_read, wal_bytes
-                FROM pg_stat_statements WHERE calls >= ${calls}`,
-        })(floor),
-      ),
-      ([at, rows]): Pg.StatSnapshot => ({ at, rows }),
-    )
+  Effect.map(
+    Effect.zip(
+      DateTime.now,
+      SqlSchema.findAll({
+        Request: Schema.Void,
+        Result: _StatRow,
+        execute: () =>
+          sql`SELECT queryid::text AS queryid, query, calls, total_exec_time, rows,
+                     shared_blks_hit, shared_blks_read, wal_bytes
+              FROM pg_stat_statements`,
+      })(void 0),
+    ),
+    ([at, rows]): Pg.StatSnapshot => ({ at, rows }),
+  )
 
-const _delta = (opened: Pg.StatSnapshot, closed: Pg.StatSnapshot): ReadonlyArray<Pg.Profile> => {
-  const prior = HashMap.fromIterable(Array.map(opened.rows, (row) => [row.queryid, row] as const))
-  return Array.filterMap(closed.rows, (row) => {
-    const earlier = Option.getOrElse(
-      Option.filter(HashMap.get(prior, row.queryid), (held) => held.calls <= row.calls), // a backwards counter marks a stats reset: the later snapshot stands whole
-      () => ({ ...row, calls: 0, total_exec_time: 0, rows: 0, shared_blks_hit: 0, shared_blks_read: 0, wal_bytes: 0 }),
-    )
-    const calls = row.calls - earlier.calls
-    return calls === 0
-      ? Option.none()
-      : Option.some(new _Profile({
+const _continued = (earlier: typeof _StatRow.Type, closed: typeof _StatRow.Type): boolean =>
+  earlier.calls <= closed.calls &&
+  earlier.total_exec_time <= closed.total_exec_time &&
+  earlier.rows <= closed.rows &&
+  earlier.shared_blks_hit <= closed.shared_blks_hit &&
+  earlier.shared_blks_read <= closed.shared_blks_read &&
+  earlier.wal_bytes <= closed.wal_bytes
+
+const _baseline = (row: typeof _StatRow.Type): typeof _StatRow.Type => ({
+  ...row,
+  calls: 0,
+  total_exec_time: 0,
+  rows: 0,
+  shared_blks_hit: 0,
+  shared_blks_read: 0,
+  wal_bytes: 0,
+})
+
+const _profileDelta = (
+  earlier: typeof _StatRow.Type,
+  row: typeof _StatRow.Type,
+  opened: Pg.StatSnapshot,
+  closed: Pg.StatSnapshot,
+): Option.Option<Pg.Profile> =>
+  row.calls === earlier.calls
+    ? Option.none()
+    : Option.some(new _Profile({
           engine: "pg",
           statement: row.query,
           wallMillis: row.total_exec_time - earlier.total_exec_time,
           rows: Math.max(0, Math.trunc(row.rows - earlier.rows)),
           operators: [],
           counters: {
-            calls,
+            calls: row.calls - earlier.calls,
             sharedHit: row.shared_blks_hit - earlier.shared_blks_hit,
             sharedRead: row.shared_blks_read - earlier.shared_blks_read,
             walBytes: row.wal_bytes - earlier.wal_bytes,
           },
           window: Option.some({ opened: opened.at, closed: closed.at }),
-        }))
-  })
-}
+      }))
+
+const _deltaRows = (
+  prior: HashMap.HashMap<string, typeof _StatRow.Type>,
+  opened: Pg.StatSnapshot,
+  closed: Pg.StatSnapshot,
+  floor: number,
+): ReadonlyArray<Pg.Profile> =>
+  Array.filterMap(closed.rows, (row) =>
+    Option.flatMap(
+      Option.filter(
+        Option.some(Option.getOrElse(
+          Option.filter(HashMap.get(prior, row.queryid), (held) => _continued(held, row)),
+          () => _baseline(row),
+        )),
+        (earlier) => row.calls - earlier.calls >= floor,
+      ),
+      (earlier) => _profileDelta(earlier, row, opened, closed),
+    ))
+
+const _delta = (opened: Pg.StatSnapshot, closed: Pg.StatSnapshot, floor: number): ReadonlyArray<Pg.Profile> =>
+  _deltaRows(HashMap.fromIterable(Array.map(opened.rows, (row) => [row.queryid, row] as const)), opened, closed, floor)
 
 interface _PlanNodeEncoded {
   readonly "Node Type": string
@@ -308,6 +345,7 @@ const _Node: Schema.Schema<_PlanNode, _PlanNodeEncoded> = Schema.Struct({
 })
 
 const _Report = Schema.Array(Schema.Struct({ Plan: _Node, "Execution Time": Schema.Number }))
+const _ExplainRow = Schema.Struct({ "QUERY PLAN": _Report })
 
 const _operators = (node: _PlanNode): ReadonlyArray<Pg.Profile["operators"][number]> => [
   { name: node["Node Type"], millis: Option.some(node["Actual Total Time"]), rows: Option.some(Math.trunc(node["Actual Rows"])) },
@@ -316,10 +354,13 @@ const _operators = (node: _PlanNode): ReadonlyArray<Pg.Profile["operators"][numb
 
 const _explain = (sql: SqlClient.SqlClient) =>
   (statement: Statement.Fragment, label: string) =>
-    Effect.gen(function* () {
-      const raw = yield* sql`EXPLAIN (ANALYZE, FORMAT JSON) ${statement}`
-      const report = yield* Schema.decodeUnknown(_Report)(Array.map(raw, (row) => Object.values(row as object)[0]).flat())
-      return Array.map(report, (plan) =>
+    Effect.map(
+      SqlSchema.findAll({
+        Request: Schema.Void,
+        Result: _ExplainRow,
+        execute: () => sql`EXPLAIN (ANALYZE, FORMAT JSON) ${statement}`,
+      })(void 0),
+      Array.flatMap((row) => Array.map(row["QUERY PLAN"], (plan) =>
         new _Profile({
           engine: "pg",
           statement: label,
@@ -328,8 +369,8 @@ const _explain = (sql: SqlClient.SqlClient) =>
           operators: _operators(plan.Plan),
           counters: {},
           window: Option.none(),
-        }))
-    })
+        }))),
+    )
 
 const Pg = {
   spine: _spine,
@@ -352,3 +393,12 @@ const Pg = {
 
 export { Pg }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

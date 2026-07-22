@@ -1629,3 +1629,12 @@ BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
     (DocumentMode.LATEX, Backend(Band.CORE, _latex_emit, ReceiptKind.DOCUMENT)),
 ])
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

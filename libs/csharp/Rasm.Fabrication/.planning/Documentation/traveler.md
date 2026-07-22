@@ -14,13 +14,13 @@
 
 `TravelerControl` is one generated family over `TravelerLocus`. Global, step, operation, setup, and characteristic loci bind instructions; `Material` retains unit identity, and `Package` fixes the global locus with label, method, and destination policy. `Safety` carries residual-risk rank; `Inspect` carries every, first-article, skip-lot, or attribute sampling evidence. New capability grows as a case, and multiplicity grows as corpus rows.
 
-`BindRoutes` proves every control locus, amendment step, and inspection link against the planned route, accumulating the three classes independently: a corpus whose controls, amendments, and inspection links all dangle reports all three witnesses with their counts in one verdict, so a planner never re-runs assembly to discover the next class of break.
+`BindRoutes` proves every control locus, amendment step, inspection link, and release-program binding against the planned route and the document's posted outputs, accumulating the four classes independently: a corpus whose controls, amendments, inspection links, and release programs all dangle reports all four witnesses with their counts in one verdict, so a planner never re-runs assembly to discover the next class of break.
 
 `TravelerSection` collapses the document model into direct `Header`, `Route`, `Tooling`, `Specification`, `Procedure`, `Outputs`, and `Quality` cases. `Outputs` retains the complete `FabricationResult` sequence and document dialect instead of reducing program, projection, placement, additive, verification, inspection, plan, forming, motion, or prior-traveler evidence to selected fields. Section order follows construction, so no parallel rank roster restates the closed family.
 
 `TravelerCanonicalCodec.Encode` receives one `TravelerCanonicalSource` case carrying the whole `TravelerDocument` or `TravelerAmendment`, serializes through `QualityReport.CanonicalJson`, normalizes text, sorts object properties ordinally, preserves semantic array order, and returns canonical UTF-8 JSON with its fixed artifact descriptor. `Traveler` owns identity minting from those bytes, and each document or amendment receipt retains its descriptor and canonical bytes beside the minted identity.
 
-`TravelerAmendment` models execution without mutating the planned document. `Completed`, `Held`, `Released`, `Deviated`, and `Scrapped` cases record predecessor key, admitted step and actor, timestamp, evidence, and case-specific duration or disposition; `Completed.Estimate` retains the `CostReceipt` clock and derives actual-versus-estimated variance. `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
+`TravelerAmendment` models execution without mutating the planned document. `Completed`, `Held`, `Released`, `Deviated`, and `Scrapped` cases record predecessor key, admitted step and actor, timestamp, evidence, and case-specific duration or disposition; `Completed.Estimate` retains the `CostReceipt` clock and derives actual-versus-estimated variance. `Released.Delivery` retains the verified controller handoff that authorizes the held-to-open edge, and `Released.Program` names the planned release artifact that handoff must prove — the corpus gate admits a release only when `Delivery.Image` matches `Program` by kind and digest, so a verified transfer of the wrong program never opens a held step, and `BindRoutes` proves the named program is one of the document's posted outputs. `Deviated` and `Scrapped` carry `TravelerUnits`, so a lot-wide disposition and a named-serial disposition are distinct cases and partial scrap of a serialized run records the exact units it consumed.
 
 `TravelerAmendment.Advance` owns the step-state arrow as one total generated dispatch, and `Disposition.Terminal` with `Accepted` supplies the `Deviated` target: an accepted terminal disposition completes the step, a refused terminal disposition scraps it, and a nonterminal disposition retains prior state. `SealAmendments` folds the sequence against the document key and per-step `TravelerStepState`, rejecting broken predecessors, non-monotone time, illegal transitions, and post-terminal events before emitting an immutable content-key chain. `FabricationFact.Traveler.Of` projects the sealed artifact's amendment-chain length onto `rasm.fabrication.traveler.amendments` through `Process/telemetry#FACT_PROJECTION` as kind `traveler`, and the amendment `Actor` carries the personal classification row from `Process/telemetry#CLASSIFICATION`.
 
@@ -270,9 +270,19 @@ public abstract partial record TravelerAmendment {
     }
 
     public sealed record Released : TravelerAmendment {
-        public Released(ContentKey previous, TravelerStep step, TravelerText actor, Instant at, TravelerText authority, Seq<ContentKey> evidence)
-            : base(previous, step, actor, at, evidence) => Authority = authority;
+        public Released(
+            ContentKey previous,
+            TravelerStep step,
+            TravelerText actor,
+            Instant at,
+            TravelerText authority,
+            ContentKey program,
+            ProgramDelivery delivery,
+            Seq<ContentKey> evidence)
+            : base(previous, step, actor, at, evidence) => (Authority, Program, Delivery) = (authority, program, delivery);
         public TravelerText Authority { get; }
+        public ContentKey Program { get; }
+        public ProgramDelivery Delivery { get; }
     }
 
     public sealed record Deviated : TravelerAmendment {
@@ -320,7 +330,7 @@ public abstract partial record TravelerAmendment {
         held: static (state, _) => state.Prior == TravelerStepState.Open
             ? Fin.Succ(TravelerStepState.Held)
             : Fin.Fail<TravelerStepState>(state.Key.InvalidInput()),
-        released: static (state, _) => state.Prior == TravelerStepState.Held
+        released: static (state, value) => state.Prior == TravelerStepState.Held && value.Delivery.Verified
             ? Fin.Succ(TravelerStepState.Open)
             : Fin.Fail<TravelerStepState>(state.Key.InvalidInput()),
         deviated: static (state, value) => state.Prior.Terminal
@@ -454,7 +464,11 @@ public sealed partial class TravelerReceiptCorpus {
                 && value.Actual <= value.At - value.Started
                 && value.Estimate.ForAll(static estimate => estimate is not null && estimate.MachineTime >= Duration.Zero),
             held: static value => value.Cause != default,
-            released: static value => value.Authority != default,
+            // Release admission binds the handoff to ITS planned artifact: a verified transfer of the
+            // wrong program is refused here, before any step-state arrow can read it.
+            released: static value => value.Authority != default && value.Program is not null
+                && value.Delivery is { Verified: true } delivery
+                && delivery.Image.Kind == value.Program.Kind && delivery.Image.Digest == value.Program.Digest,
             deviated: static value => value.Deviation != default && value.Disposition is not null
                 && ValidUnits(value.Units) && value.Authority != default,
             scrapped: static value => value.Reason != default && ValidUnits(value.Units) && value.Authority != default);
@@ -572,9 +586,11 @@ internal static class Traveler {
             + document.Composed
             + amendments.Map(static value => value.Amendment.Previous)
             + amendments.Bind(static value => value.Amendment.Evidence)
-            + amendments.Choose(static value => value.Amendment is TravelerAmendment.Completed completed
-                ? completed.Estimate.Map(static estimate => estimate.Subject)
-                : None))
+            + amendments.Choose(static value => value.Amendment switch {
+                TravelerAmendment.Completed completed => completed.Estimate.Map(static estimate => estimate.Subject),
+                TravelerAmendment.Released released => Some(released.Program),
+                _ => None,
+            }))
             .Distinct()
             .OrderBy(static value => value.Kind.Key)
             .ThenBy(static value => value.Digest)
@@ -621,11 +637,12 @@ internal static class Traveler {
         Set<int> Steps,
         Set<int> Setups,
         Set<CharacteristicId> Characteristics,
-        Seq<InspectionFeature> Inspections);
+        Seq<InspectionFeature> Inspections,
+        Set<ContentKey> Programs);
 
-    // Dangling controls, amendments, and inspection links are independent faults: a planner
-    // correcting one route must see the other two in the same verdict, so the three gates
-    // accumulate rather than short-circuit on whichever class happens to fail first.
+    // Dangling controls, amendments, inspection links, and release programs are independent faults:
+    // a planner correcting one route must see the other three in the same verdict, so the four
+    // gates accumulate rather than short-circuit on whichever class happens to fail first.
     static Fin<Unit> BindRoutes(
         TravelerReceiptCorpus corpus,
         Seq<PlannedStep> planned,
@@ -634,8 +651,10 @@ internal static class Traveler {
             var available => (
                 Bound(corpus.Controls.Filter(control => !Routed(control.Locus, available, planned)), "traveler:control-route"),
                 Bound(corpus.Amendments.Filter(value => !available.Steps.Contains(value.Step.ToValue())), "traveler:amendment-step"),
-                Bound(corpus.Inspections.Filter(link => !available.Inspections.Contains(link.Feature)), "traveler:inspection-feature"))
-                .Apply(static (_, _, _) => unit)
+                Bound(corpus.Inspections.Filter(link => !available.Inspections.Contains(link.Feature)), "traveler:inspection-feature"),
+                Bound(corpus.Amendments.Filter(value => value is TravelerAmendment.Released released
+                    && !available.Programs.Contains(released.Program)), "traveler:release-program"))
+                .Apply(static (_, _, _, _) => unit)
                 .As()
                 .ToFin(),
         };
@@ -655,7 +674,10 @@ internal static class Traveler {
                     ? Some(inspection.Features)
                     : None)
                 .Bind(static values => values)
-                .ToSeq());
+                .ToSeq(),
+            toSet(results.Choose(static result => result is FabricationResult.PostedProgram posted
+                ? Some(posted.Key)
+                : None)));
 
     static bool Routed(TravelerLocus locus, RouteIndex available, Seq<PlannedStep> planned) =>
         locus.Switch(
@@ -722,3 +744,12 @@ internal static class Traveler {
             .Map(static state => state.Receipts);
 }
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

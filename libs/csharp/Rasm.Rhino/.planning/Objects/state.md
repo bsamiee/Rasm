@@ -1,6 +1,6 @@
 # [RASM_RHINO_OBJECTS_STATE]
 
-Live document-object state belongs to `Rasm.Rhino.Objects`. One `StateAsk` family answers the catalogued state reads assigned to this owner — the whole-state snapshot, object and gumball frames, in-flight drag transforms, subobject rosters, batch tight extents, detached member pieces, planar sections, thickness slices, and clipping fills. One `Touch` family owns component selection and every highlight mutation absent from the table rail. Addressing composes `TableTarget`, every answer leaves the session grant detached, and `StateAnswer` owns every copied `ObjectPiece` until disposal. `ObjectReceipt<TFact>` is the one fact-stream receipt monoid and `ObjectSpine.Commit` the one commit entry every undo-recorded Objects mutation rail walks over the shared `DocumentCommit.Sealed` envelope — lights, materials, and history commits share this spine, so undo, redraw, and grant semantics cannot drift between rails. Immediate visual `Touch` mutations demand the session directly and open no commit envelope. `RhinoObject.CommitChanges` has no path: attribute mutation rides `TableOp.Amend`, mode mutation rides `TableOp.State`, and geometry mutation rides `TableOp.Replace`.
+`Rasm.Rhino.Objects` owns object state. `StateAsk` closes snapshots, frames, transforms, component rosters, extents, pieces, sections, slices, and clipping fills. `Touch` owns selection and highlight mutation. Addresses compose `TableTarget`; answers detach from the session; `StateAnswer` owns pieces until disposal. `ObjectSpine.Commit` carries undo through `DocumentCommit.Sealed`; immediate `Touch` opens no envelope. Attributes ride `TableOp.Amend`, mode rides `TableOp.State`, geometry rides `TableOp.Replace`; `RhinoObject.CommitChanges` has no path.
 
 ## [01]-[INDEX]
 
@@ -8,12 +8,12 @@ Live document-object state belongs to `Rasm.Rhino.Objects`. One `StateAsk` famil
 - [03]-[FRAMES]: `FrameAsk`/`FramePose` — object frame, gumball frame, and drag-transform reads.
 - [04]-[REACH_AND_TOUCH]: `Reach`, `Touch`, and the immediate component selection and highlight rail.
 - [05]-[CUTS_AND_PIECES]: `SectionCut`, `ObjectPiece`, and the detached extraction custody.
-- [06]-[ASK_ENTRY]: `StateAsk`/`StateAnswer`, `ObjectReceipt<TFact>`, `ObjectSpine`, and the `Objects` entry pair.
+- [06]-[ASK_ENTRY]: `StateAsk`/`StateAnswer`, `ObjectReceipt<TFact>`, `ObjectSpine`, the `DocumentCensus` analytics receipt, and the `Objects` entries.
 - [07]-[SURFACE_LEDGER]: the page's owner table.
 
 ## [02]-[SNAPSHOT]
 
-- Owner: `SelectionGrade` owns the verified unselected, selected, and persistent `IsSelected(checkSubObjects: true)` grades; `HighlightState` preserves the undocumented highlight integer beside the highlighted-component roster; `ObjectSnapshot` closes identity, lifecycle, source-model, description, closed-status, frame, grip, memory, and history-link evidence in one detached value.
+- Owner: `SelectionGrade` owns the verified unselected, selected, and persistent `IsSelected(checkSubObjects: true)` grades; `HighlightState.Of` is the one native projection preserving the undocumented highlight integer beside the highlighted-component roster for snapshots, touch capture, and touch results; `ObjectSnapshot` closes identity, lifecycle, source-model, description, closed-status, frame, grip, memory, and history-link evidence in one detached value.
 - Law: the snapshot reads once per object inside the session grant — every field lands in one pass over the resolved handle, so a consumer never re-enters the document to complete a partial read, and the product is detached the moment `Ask` returns.
 - Law: selection and highlight never share a vocabulary. `SelectionGrade` maps the verified `0`/`1`/`2` contract, while highlight preserves its raw host integer and assigns no meaning to it.
 - Law: `CommitChanges` never appears — the host member answers `true` only when a staged working copy actually flushed, and this package stages nothing on the live object: attribute writes travel `TableOp.Amend`, mode and visibility travel `TableOp.State`, geometry travels `TableOp.Replace`; the snapshot is the read face of that one-write-path law.
@@ -22,8 +22,10 @@ Live document-object state belongs to `Rasm.Rhino.Objects`. One `StateAsk` famil
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System.Linq;
 using System.Threading;
 using Rasm.Domain;
+using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.DocObjects;
@@ -33,7 +35,18 @@ using Rhino.UI.Gumball;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct HighlightState(int Native, Seq<ComponentIndex> Components);
+public sealed record HighlightState {
+    private HighlightState(int native, Seq<ComponentIndex> components) =>
+        (Native, Components) = (native, components);
+
+    public int Native { get; }
+    public Seq<ComponentIndex> Components { get; }
+
+    internal static HighlightState Of(RhinoObject native) => new(
+        native: native.IsHighlighted(checkSubObjects: false),
+        components: Optional(native.GetHighlightedSubObjects())
+            .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()));
+}
 
 [SmartEnum<int>]
 public sealed partial class SelectionGrade {
@@ -53,6 +66,9 @@ public sealed record ObjectSnapshot(
     Option<string> Name,
     ObjectType Kind,
     ActiveSpace Space,
+    int Layer,
+    int Material,
+    ObjectMaterialSource MaterialSource,
     bool Normal,
     bool Locked,
     bool Hidden,
@@ -89,6 +105,9 @@ public sealed record ObjectSnapshot(
             Name: Optional(native.Name).Filter(static text => text.Length > 0),
             Kind: native.ObjectType,
             Space: native.Attributes.Space,
+            Layer: native.Attributes.LayerIndex,
+            Material: native.Attributes.MaterialIndex,
+            MaterialSource: native.Attributes.MaterialSource,
             Normal: native.IsNormal,
             Locked: native.IsLocked,
             Hidden: native.IsHidden,
@@ -103,9 +122,7 @@ public sealed record ObjectSnapshot(
             ReferenceModel: native.ReferenceModelSerialNumber,
             DefinitionModel: native.InstanceDefinitionModelSerialNumber,
             Selection: grade,
-            Highlight: new HighlightState(
-                Native: native.IsHighlighted(checkSubObjects: false),
-                Components: toSeq(native.GetHighlightedSubObjects())),
+            Highlight: HighlightState.Of(native),
             Selectable: native.IsSelectable(),
             GripsOn: native.GripsOn,
             GripsSelected: native.GripsSelected,
@@ -271,7 +288,7 @@ public abstract partial record Touch {
                 Selection: selection,
                 Selected: Optional(native.GetSelectedSubObjects())
                     .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()),
-                Highlight: Highlight(native)));
+                Highlight: HighlightState.Of(native)));
     }
 
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states, Op key) {
@@ -312,25 +329,20 @@ public abstract partial record Touch {
                         context.Op.InvalidResult()).ToFin())
                     .Map(_ => (TouchResult)new TouchResult.Highlighted(
                         Id: context.Native.Id,
-                        State: Highlight(context.Native))),
+                        State: HighlightState.Of(context.Native))),
                 Reach.EveryPart => context.Op.Catch(() => {
                     _ = context.Native.UnhighlightAllSubObjects();
                     return Fin.Succ<TouchResult>(value: new TouchResult.Highlighted(
                         Id: context.Native.Id,
-                        State: Highlight(context.Native)));
+                        State: HighlightState.Of(context.Native)));
                 }),
                 var scoped => scoped.Roster.TraverseM(component => context.Op.Catch(() => guard(
                         context.Native.HighlightSubObject(componentIndex: component, highlight: touch.Signal.On) == touch.Signal.On,
                         context.Op.InvalidResult()).ToFin())).As()
                     .Map(_ => (TouchResult)new TouchResult.Highlighted(
                         Id: context.Native.Id,
-                        State: Highlight(context.Native))),
+                        State: HighlightState.Of(context.Native))),
             });
-
-    private static HighlightState Highlight(RhinoObject native) => new(
-        Native: native.IsHighlighted(checkSubObjects: false),
-        Components: Optional(native.GetHighlightedSubObjects())
-            .Map(static rows => toSeq(rows)).IfNone(Seq<ComponentIndex>()));
 
     private static Fin<Unit> Restore(Seq<TouchState> states, Op key) =>
         states.Traverse(state => Restore(state: state, key: key).ToValidation()).As()
@@ -551,13 +563,15 @@ public sealed class ObjectPiece : IDisposable {
 ## [06]-[ASK_ENTRY]
 
 - Owner: `StateAsk` `[Union]` closes snapshot, frame, component-roster, targeted component-state, extent, member, and cut reads; `StateAnswer` `[Union]` owns the corresponding detached products; `ObjectReceipt<TFact>` is the one fact-plus-undo-serial receipt monoid every mutation rail returns; `ObjectSpine` is the one commit entry — needs derived through `SessionNeed.Mutation`, one demand, and the Document spine's `DocumentCommit.Sealed` envelope carrying the `ObjectReceipt<TFact>` fold and serial stamp; `Objects.Ask` and `Objects.Touch` are the polymorphic read and immediate-state entries; `Objects.Resolve` is the shared one-hop object window.
-- Entry: `Objects.Ask(DocumentSession, TableTarget, StateAsk) : Fin<StateAnswer>` demands `SessionNeed.Read`; `Objects.Touch(DocumentSession, TableTarget, Touch) : Fin<ObjectReceipt<TouchResult>>` demands `SessionNeed.Mutate`; both resolve the target once and fold per object inside one grant window.
+- Entry: `Objects.Ask(DocumentSession, TableTarget, StateAsk) : Fin<StateAnswer>` demands `SessionNeed.Read`; `Objects.Touch(DocumentSession, TableTarget, Touch) : Fin<ObjectReceipt<TouchResult>>` demands `SessionNeed.Mutate`; both resolve the target once and fold per object inside one grant window. `Objects.Census(DocumentSession, TableTarget, Op?) : Fin<DocumentCensus>` opens one outer read demand and composes the object fold, layers tree, and block topology through their own entries while that pinned grant remains active.
 - Law: the spine is the one undo-recorded bracket owner for the namespace — light, material, and history commits walk `ObjectSpine.Commit` verbatim, each supplying only its fact fold; immediate visual `Objects.Touch` remains outside the bracket by contract; a recorded rail re-spelling the demand/envelope sequence or opening `UndoBracket.Begin` beside `Sealed` is the deleted form, and a rail's facts stay its own typed `TFact` union so no evidence flattens into a shared body vocabulary.
 - Law: resolution is the table vocabulary — `TableTarget.Resolve` answers the id set and `FindId` lifts each to the live handle typed, so explicit ids, runtime pairs, and admitted queries address the object window identically; a deleted id is `MissingContext`, never a null propagated inward.
 - Law: batch extent composes the host batch member — `Extent` runs the static `GetTightBoundingBox` over the whole resolved roster in one native call, with the plane overload selected by the ask's optional frame; a per-object union re-derived from single boxes is the deleted form.
 - Law: answers embed identity — every per-object row carries the object guid beside its payload, and `ComponentState` also carries its `ComponentIndex`; component eligibility records both current-state and ignore-selection answers, so `IsSubObjectSelectable(ComponentIndex, bool)` keeps its host boolean at the boundary instead of exporting a request knob.
 - Boundary: visual-analysis attachment — `EnableVisualAnalysisMode`, its active-mode queries, and the `AnalysisModeChanged` static event — is the display page's analysis-mode extension; this window carries no analysis case and composes that seam's receipts where an ask needs the fact.
-- Growth: a new read is one ask case with its answer case; the dispatch, the entries, and every consumer read it with zero new surface.
+- Owner: `DocumentCensus` is the one analytics-ready document receipt — object counts by kind and space, lifecycle and annotation tallies, memory total, layer-tree shape from `Layers.Ask`, per-layer and per-material usage histograms with material-source distribution from the attribute anchors, block-closure metrics from `BlockGraph.Ask` (definition count, placement count with completeness evidence, cycle groups), and on-disk archive size from the document path — every dimension detached, so the analytics egress lands one stable shape into the data plane and no consumer walks live tables.
+- Law: the census composes owners, never re-measures — one outer `DocumentSession.Demand` retains the session gate and host stack from the first `Objects.Ask` through `Layers.Ask` and every `BlockGraph.Ask`, so all nested owner reads re-enter the same pinned document grant and no sibling session operation can interleave; object rows come from the canonical snapshot window, the layer dimension is the `LayerTree` the layers page already mints, the block dimension is three `BlockGraphAsk` questions over `GraphSource.Live`, and usage histograms fold through the one-pass `CountBy` keyed reduction. Archive extent opens the candidate once and reads length from that handle; an unsaved or concurrently removed path projects absence, while directory and access refusals stay failures. `Objects/authoring.md` projects the receipt through the `rhino.census` instrument rows at the app root.
+- Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -618,6 +632,26 @@ public readonly record struct ComponentState(
     bool Selectable,
     bool SelectableIgnoringSelection,
     bool Highlighted);
+
+public sealed record ArchiveExtent(string Path, long Bytes);
+
+public sealed record DocumentCensus(
+    Seq<(ObjectType Kind, int Count)> Kinds,
+    Seq<(ActiveSpace Space, int Count)> Spaces,
+    int Hidden,
+    int Locked,
+    int Annotations,
+    ulong MemoryBytes,
+    int LayerCount,
+    int LayerDepth,
+    Seq<(int Layer, int Count)> LayerUsage,
+    Seq<(int Material, int Count)> MaterialUsage,
+    Seq<(ObjectMaterialSource Source, int Count)> MaterialSources,
+    int BlockDefinitions,
+    int BlockPlacements,
+    bool BlockEvidenceComplete,
+    int BlockCycleGroups,
+    Option<ArchiveExtent> Archive) : IDetachedDocumentResult;
 
 public readonly record struct ObjectReceipt<TFact>(Seq<TFact> Facts, Seq<uint> UndoSerials) : IDetachedDocumentResult {
     public static readonly ObjectReceipt<TFact> Empty = new(Facts: Seq<TFact>(), UndoSerials: Seq<uint>());
@@ -708,6 +742,82 @@ public static class Objects {
                select receipt;
     }
 
+    public static Fin<DocumentCensus> Census(DocumentSession session, TableTarget target, Op? key = null) {
+        Op op = key.OrDefault();
+        return session.Demand(
+            use: document => CensusPinned(session: session, target: target, document: document, op: op),
+            key: op,
+            needs: [SessionNeed.Read]);
+    }
+
+    private static Fin<DocumentCensus> CensusPinned(
+        DocumentSession session,
+        TableTarget target,
+        RhinoDoc document,
+        Op op) =>
+        from answer in Ask(session: session, target: target, ask: new StateAsk.Snapshot())
+               from usage in answer is StateAnswer.States states
+                   ? Fin.Succ(value: states.Rows.Strict())
+                   : Fin.Fail<Seq<ObjectSnapshot>>(error: op.InvalidResult())
+               from path in op.Catch(() => Fin.Succ(value: Optional(document.Path).Filter(static value => value.Length > 0)))
+               from tree in Layers.Ask(session: session, key: op)
+               from definitions in BlockGraph.Ask(
+                       source: new GraphSource.Live(Session: session),
+                       question: new BlockGraphAsk.Definitions())
+                   .Bind(answer => answer is BlockGraphAnswer.Nodes nodes
+                       ? Fin.Succ(value: nodes.Values.Count)
+                       : Fin.Fail<int>(error: op.InvalidResult()))
+               from placed in BlockGraph.Ask(
+                       source: new GraphSource.Live(Session: session),
+                       question: new BlockGraphAsk.Placed())
+                   .Bind(answer => answer is BlockGraphAnswer.Placements placements
+                       ? Fin.Succ(value: (Count: placements.Values.Count, Complete: placements.Evidence.IsComplete))
+                       : Fin.Fail<(int, bool)>(error: op.InvalidResult()))
+               from cycles in BlockGraph.Ask(
+                       source: new GraphSource.Live(Session: session),
+                       question: new BlockGraphAsk.Condensation())
+                   .Bind(answer => answer is BlockGraphAnswer.Condensed condensed
+                       ? Fin.Succ(value: condensed.Components.Filter(static component => component.Count > 1).Count)
+                       : Fin.Fail<int>(error: op.InvalidResult()))
+               from archive in path.Match(
+                   Some: value => OpenArchive(path: value),
+                   None: static () => Fin.Succ(Option<ArchiveExtent>.None))
+               select new DocumentCensus(
+                   Kinds: toSeq(usage.AsEnumerable().CountBy(static row => row.Kind)
+                       .Select(static pair => (pair.Key, pair.Value))),
+                   Spaces: toSeq(usage.AsEnumerable().CountBy(static row => row.Space)
+                       .Select(static pair => (pair.Key, pair.Value))),
+                   Hidden: usage.Filter(static row => row.Hidden).Count,
+                   Locked: usage.Filter(static row => row.Locked).Count,
+                   Annotations: usage.Filter(static row => row.Kind == ObjectType.Annotation).Count,
+                   MemoryBytes: usage.Fold(0UL, static (sum, row) => sum + row.MemoryBytes),
+                   LayerCount: tree.Count,
+                   LayerDepth: Depth(nodes: tree.Roots),
+                   LayerUsage: toSeq(usage.AsEnumerable().CountBy(static row => row.Layer)
+                       .Select(static pair => (pair.Key, pair.Value))),
+                   MaterialUsage: toSeq(usage.AsEnumerable().CountBy(static row => row.Material)
+                       .Select(static pair => (pair.Key, pair.Value))),
+                   MaterialSources: toSeq(usage.AsEnumerable().CountBy(static row => row.MaterialSource)
+                       .Select(static pair => (pair.Key, pair.Value))),
+                   BlockDefinitions: definitions,
+                   BlockPlacements: placed.Count,
+                   BlockEvidenceComplete: placed.Complete,
+                   BlockCycleGroups: cycles,
+                   Archive: archive);
+
+    private static Fin<Option<ArchiveExtent>> OpenArchive(string path) =>
+        Try.lift(() => {
+            using Microsoft.Win32.SafeHandles.SafeFileHandle handle = System.IO.File.OpenHandle(path: path);
+            return new ArchiveExtent(Path: path, Bytes: System.IO.RandomAccess.GetLength(handle: handle));
+        }).Run().BiBind(
+            Succ: static extent => Fin.Succ(Some(extent)),
+            Fail: static error => error.Exception.Case is System.IO.FileNotFoundException or System.IO.DirectoryNotFoundException
+                ? Fin.Succ(Option<ArchiveExtent>.None)
+                : Fin.Fail<Option<ArchiveExtent>>(error));
+
+    private static int Depth(Seq<LayerNode> nodes) =>
+        nodes.IsEmpty ? 0 : 1 + nodes.Map(static node => Depth(nodes: node.Children)).Fold(0, Math.Max);
+
     internal static Fin<Seq<RhinoObject>> Resolve(RhinoDoc document, TableTarget target, Op key) =>
         from address in key.Need(target)
         from ids in address.Resolve(document: document, key: key)
@@ -748,18 +858,28 @@ internal static class ObjectSpine {
 
 ## [07]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]               | [FORM]                                               | [ENTRY]                        |
-| :-----: | :------------------ | :-------------------- | :--------------------------------------------------- | :----------------------------- |
-|  [01]   | native evidence     | snapshot/results      | typed selection grade and raw highlight scope        | snapshot / `TouchResult`       |
-|  [02]   | object state        | `ObjectSnapshot`      | one-pass read, host discriminants at the seam        | `StateAsk.Snapshot`            |
-|  [03]   | frame reads         | `FrameAsk`            | object, gumball, and drag poses as one union         | `StateAsk.Frames`              |
-|  [04]   | component reach     | `Reach`               | whole, part, parts, and every-part as one address    | `Reach.Of` / `Touch` payloads  |
-|  [05]   | immediate touch     | `Touch`               | select and highlight verbs, table-rail split honored | `Objects.Touch`                |
-|  [06]   | extraction custody  | `SectionCut`          | sections, slices, fills onto detached `ObjectPiece`  | `StateAsk.Cut` / `Members`     |
-|  [07]   | detach fold         | `ObjectPiece`         | custody-compensated product fold                     | `DetachAll`                    |
-|  [08]   | batch custody       | `ObjectPiece`         | cross-object rollback                                | `Acquire`                      |
-|  [09]   | native release      | `ObjectPiece`         | host-array disposal                                  | `Release`                      |
-|  [10]   | read dispatch       | `StateAsk`            | typed answer union                                   | `Objects.Ask`                  |
-|  [11]   | object resolution   | `Objects`             | target-to-handle lift                                | `Resolve(document, target)`    |
-|  [12]   | receipt monoid      | `ObjectReceipt<TFact>` | typed fact and undo fold                            | `Collect`                      |
-|  [13]   | commit kernel       | `ObjectSpine`         | mutation-envelope composition                        | `Commit(session, name, ...)`   |
+| [INDEX] | [CONCERN]          | [OWNER]                | [FORM]                                               | [ENTRY]                       |
+| :-----: | :----------------- | :--------------------- | :--------------------------------------------------- | :---------------------------- |
+|  [01]   | native evidence    | snapshot/results       | typed selection grade and raw highlight scope        | snapshot / `TouchResult`      |
+|  [02]   | object state       | `ObjectSnapshot`       | one-pass read, host discriminants at the seam        | `StateAsk.Snapshot`           |
+|  [03]   | frame reads        | `FrameAsk`             | object, gumball, and drag poses as one union         | `StateAsk.Frames`             |
+|  [04]   | component reach    | `Reach`                | whole, part, parts, and every-part as one address    | `Reach.Of` / `Touch` payloads |
+|  [05]   | immediate touch    | `Touch`                | select and highlight verbs, table-rail split honored | `Objects.Touch`               |
+|  [06]   | extraction custody | `SectionCut`           | sections, slices, fills onto detached `ObjectPiece`  | `StateAsk.Cut` / `Members`    |
+|  [07]   | detach fold        | `ObjectPiece`          | custody-compensated product fold                     | `DetachAll`                   |
+|  [08]   | batch custody      | `ObjectPiece`          | cross-object rollback                                | `Acquire`                     |
+|  [09]   | native release     | `ObjectPiece`          | host-array disposal                                  | `Release`                     |
+|  [10]   | read dispatch      | `StateAsk`             | typed answer union                                   | `Objects.Ask`                 |
+|  [11]   | object resolution  | `Objects`              | target-to-handle lift                                | `Resolve(document, target)`   |
+|  [12]   | receipt monoid     | `ObjectReceipt<TFact>` | typed fact and undo fold                             | `Collect`                     |
+|  [13]   | commit kernel      | `ObjectSpine`          | mutation-envelope composition                        | `Commit<TFact>`               |
+|  [14]   | analytics census   | `DocumentCensus`       | detached multi-owner document receipt                | `Objects.Census`              |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

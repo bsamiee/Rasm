@@ -16,7 +16,7 @@ Every fallible operation rides an `Op`-keyed `Fin<T>` rail through the `Op.Catch
 - Owner: `EtoDispatch` — THE one UI-thread seam in the package. `Run<T>` marshals a `Fin<T>` body synchronously (`Application.Instance.Invoke<T>`), `RunAsync<T>` marshals awaitably (`InvokeAsync<T>`), and `Post` always queues a `Fin<Unit>` body through `AsyncInvoke`; the value-bearing carriers short-circuit when `Application.Instance.IsUIThread` already holds, while the queued lane preserves its deferred ordering on every caller thread. `Post` publishes the deferred result as `DispatchEcho` through one latest-value cell and token-addressed observers, while its return value proves queue admission only. `Pump` wraps `RunIteration` as the named platform-forced run-loop boundary. `DispatchLane` `[SmartEnum<int>]` carries the marshal choice as a policy row — `Blocking` (key 0) and `Queued` (key 1) over one `[UseDelegateFromConstructor]` `Marshal(Func<Fin<Unit>>, Op)` column — so a command-shaped consumer (`Shell/session.md` `SessionOp.ExecuteCase`) stores the lane as data instead of forking call sites.
 - Entry: `EtoDispatch.Run<T>(Func<Fin<T>> body, Op? key = null)` → `Fin<T>`; `RunAsync<T>(Func<Fin<T>> body, Op? key = null)` → `Task<Fin<T>>`; `Post(Func<Fin<Unit>> body, Op? key = null)` → `Fin<Unit>`; `Tap(Action<DispatchEcho> observer, Op? key = null)` → `Fin<IDisposable>`. Three carriers are one owner: the carrier IS the modality (value now, value later, deferred receipt), never a name-suffixed sibling family.
 - Entry: `EtoDispatch.Watch(Action<DispatchPulse> observer, Op? key = null)` → `Fin<IDisposable>` — the watchdog tap; `Tune(StallPolicy policy, Op? key = null)` → `Fin<Unit>` — per-lane budget overrides and the injected clock; `LastPulse`/`LastStall` — the latest-value receipt cells.
-- Law: every marshaled body is gauged — `PulseLane` closes the four capture points (`Blocking`, `Awaitable`, `Queued`, `Pump`) with a per-row `Budget` column, the active `StallPolicy` supplies overrides and the `TimeProvider` timestamp pair, and each body exit mints one `DispatchPulse` carrying its `Op`, lane, elapsed wall time, and breach verdict. A breached pulse retains on `LastStall` — the hang evidence correlating the stalled body with the operation that submitted it — and every pulse publishes to individually contained watch observers; span-profile correlation composes at the app root, never here.
+- Law: every marshaled body is gauged — `PulseLane` closes the four capture points (`Blocking`, `Awaitable`, `Queued`, `Pump`) with a per-row `Budget` column, the active `StallPolicy` supplies overrides and the `TimeProvider` timestamp pair, and every body exit — success, typed failure, or captured throw — mints one `DispatchPulse` carrying its `Op`, lane, elapsed wall time, and breach verdict, because the gauge's own `Op.Catch` sits inside the timestamp pair and no unwinding path skips pulse construction. A breached pulse retains on `LastStall` — the hang evidence correlating the stalled body with the operation that submitted it — and every pulse publishes to individually contained watch observers; span-profile correlation composes at the app root, never here.
 - Law: every body crosses the seam inside `Op.Catch` — a host callback that throws lands as `Fault.InvalidResult` with the raising key, a cancellation surfaces as `Fault.Cancelled`, and no bare `try`/`catch` exists on the marshal path. `Post` catches the body inside its deferred window, stores the exact `Fin<Unit>` outcome, and publishes it to individually contained observers; no queued failure disappears and no observer can escape into the pump. A `SynchronizationContext` capture, a raw `Thread` hop, or a second scheduler beside `Application.Instance` is the deleted form.
 - Law: absence of a live application is a typed refusal — `Optional(Application.Instance).ToFin(key.MissingContext())` gates every marshal, so a headless or pre-boot call fails as `Fault.MissingContext`, never as a null dereference inside Eto.
 - Boundary: `Application.EnsureUIThread`, `UIThreadCheckMode`, `Quit`, `Open`, and `Localize` stay host verbs consumed at the seam by the shell owner; this floor owns only the marshal and the pump. `Application` lifecycle events (`Initialized`/`Terminating`/`UnhandledException`/`NotificationActivated`/`IsActiveChanged`) are `Shell/events.md` source rows, never subscribed here.
@@ -157,7 +157,7 @@ public static class EtoDispatch {
     private static Func<Fin<T>> Gauged<T>(PulseLane lane, Op op, Func<Fin<T>> body) => () => {
         StallPolicy pacing = Pacing.Value;
         long start = pacing.Clock.GetTimestamp();
-        Fin<T> outcome = body();
+        Fin<T> outcome = op.Catch(body: body);
         TimeSpan elapsed = pacing.Clock.GetElapsedTime(startingTimestamp: start);
         DispatchPulse pulse = new(Operation: op, Lane: lane, Elapsed: elapsed, Breached: elapsed > pacing.Bound(lane: lane));
         ignore(LastPulseCell.Swap(_ => Some(pulse)));
@@ -354,10 +354,10 @@ public sealed class UiClock : IDisposable {
 ## [04]-[TRANSFER]
 
 - Owner: `Transfer` — one algebra over the host transfer accessor family. `TransferSurface` `[Union]` carries ownership evidence in both cases — the host clipboard as `Lease<Clipboard>.Borrowed`, an explicit data object as caller-supplied `Lease<DataObject>` — while folding the identical accessor family. `TransferPayload` `[Union]` carries ordinary values directly and every disposable picture, stream, or format-keyed resource through `Lease<T>`; image and stream materialization returns owned leases, while an opaque provider object remains borrowed from its surface. `PayloadShape` mirrors the read selectors, and `TransferOp` `[GenerateUnionOps]` closes write, read, probe, clear, and drag behind one gate.
-- Entry: `Transfer.Apply(TransferOp op, Op? key = null)` → `Fin<TransferResult>` — the single gate. Write folds a payload `Seq` onto the surface in one marshal; read discriminates by `PayloadShape`; probe returns the live `Types` inventory with the four intrinsic presence flags; drag builds a `DataObject` from the same payload family and runs `Control.DoDragDrop(data, allowedEffects)` — initiation is void on the host, so `DraggedCase` is the initiation receipt and the settled effect arrives as the `Shell/events.md` `control.drag-end` fact.
+- Entry: `Transfer.Apply(TransferOp op, Op? key = null)` → `Fin<TransferResult>` — the single gate. Write folds a payload `Seq` onto the surface in one marshal; read discriminates by `PayloadShape`; probe returns the live `Types` inventory with the four intrinsic presence flags; drag builds a `DataObject` from the same payload family and carries the `Control.DoDragDrop(data, allowedEffects)` return as `DraggedCase.Effect`.
 - Law: every accessor call marshals through `EtoDispatch.Run` — the clipboard and drag surfaces are UI-affine — and every host read null-gates through `Optional(...).ToFin(key.InvalidResult())`. `TransferSurface.System` wraps `Clipboard.Instance` as borrowed host ownership. Drag acquires one owned `DataObject`, packs and uses it inside one `Lease<DataObject>.Use` window, and releases it only after synchronous `DoDragDrop` returns or faults.
 - Law: payload identity is the format string carried on the case, sourced from the `DataFormats` vocabulary or a consumer-registered custom type. `ObjectCase` carries non-disposable values; `ResourceCase` carries disposable objects under `Lease<IDisposable>`. `ObjectShape` checks the target type and projects a disposable host result into a borrowed `ResourceCase`, so the read never steals or duplicates ownership of an opaque provider value; a mis-typed read faults with `Fault.Unsupported`, and no disposable result crosses raw.
-- Boundary: drag EVIDENCE (drop location, effect masks arriving on `DragEventArgs`, the settled effect on `DragEnd`) is `Shell/events.md`'s fact algebra; this owner initiates drags and owns payload construction only, building the concrete `DataObject` and never leaking it past the gate.
+- Boundary: drag event evidence — drop location and effect masks arriving on `DragEventArgs` — is `Shell/events.md`'s fact algebra; this owner initiates drags, retains the synchronous returned effect, and owns payload construction without leaking the concrete `DataObject` past the gate.
 - Packages: Eto (`Clipboard`, `DataObject`, `IDataObject`, `DataFormats`, `DragEffects`, `Control.DoDragDrop`, `Image`), LanguageExt.Core (`Fin`, `Seq`, `Optional`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`).
 - Growth: a new payload dialect is one `TransferPayload` case with its `PayloadShape` mirror row; a new verb is one `TransferOp` case — the `Apply` gate never widens.
 
@@ -425,7 +425,7 @@ public abstract partial record TransferResult {
     public sealed record ValueCase(TransferPayload Payload) : TransferResult;
     public sealed record InventoryCase(Seq<string> Types, bool HasText, bool HasHtml, bool HasImage, bool HasUris) : TransferResult;
     public sealed record ClearedCase : TransferResult;
-    public sealed record DraggedCase : TransferResult;
+    public sealed record DraggedCase(DragEffects Effect) : TransferResult;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -504,8 +504,8 @@ public static class Transfer {
                             text: value => data.Text = value, html: value => data.Html = value, image: value => data.Image = value,
                             uris: value => data.Uris = value, payload: admitted)))
                         select stamped))
-                from started in key.Catch(body: () => Fin.Succ(Op.Side(action: () => host.DoDragDrop(data: data, allowedEffects: allowed))))
-                select (TransferResult)new TransferResult.DraggedCase());
+                from effect in key.Catch(body: () => Fin.Succ(host.DoDragDrop(data: data, allowedEffects: allowed)))
+                select (TransferResult)new TransferResult.DraggedCase(Effect: effect));
         })
         select result;
 
@@ -757,8 +757,6 @@ public static class NoticeSurface {
 ---
 title: Eto runtime boundary flow
 config:
-  theme: base
-  look: classic
   layout: elk
   htmlLabels: true
   markdownAutoWrap: false
@@ -770,21 +768,6 @@ config:
     curve: linear
     defaultRenderer: elk
     padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    mainBkg: "#44475A"
-    nodeBorder: "#BD93F9"
-    lineColor: "#FF79C6"
-    arrowheadColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    titleColor: "#D6BCFA"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Eto runtime boundary flow
@@ -796,12 +779,6 @@ flowchart LR
   TransferGate["Transfer.Apply"] -->|"marshals transfer operations"| Dispatch
   Facts["Display · InputState · NoticeSurface · TrayMount"] -->|"marshals host facts"| Dispatch
   Dispatch -->|"invokes host members"| Host["Eto resources"]
-  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-  classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
-  classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
-  class Session,Events,Binding data
-  class Clock,TransferGate,Facts,Dispatch primary
-  class Host external
 ```
 
 ## [06]-[DENSITY_BAR]
@@ -817,3 +794,12 @@ One owner per axis; capability lands as a case, a row, or a field — never a si
 |  [05]   | host facts        | `Display` / `InputState` / `NoticeSurface` | `Resolve` / `Snapshot → Fin`; `Post` / `Tray → Fin<Lease>` |    3    |
 
 `Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `IValidityEvidence` are composed kernel owners; `Application`, `UITimer`, `Clipboard`, `DataObject`, `Screen`, `Mouse`, `Keyboard`, `Notification`, and `TrayIndicator` are host surfaces composed direct — nothing on this page re-derives either side.
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

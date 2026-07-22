@@ -63,16 +63,18 @@ const Store: Store.Shape = {
 - Law: the contract is the single source — the fence's shape is the app-side declaration this lib legislates, and a hand-written fetch atom, a string cache key, or a data-fetching library beside the binding is the named defect.
 - Law: invalidation is the typed graph, never a string protocol — a query names `reactivityKeys` and ages by `timeToLive`, a mutation names the keys it dirties, and firing the mutation re-runs every query atom holding a matching key through the `@effect/experimental` `Reactivity` peer; `Atom.withReactivity(keys)` joins any derived atom to the same graph, and `Atom.refresh` is the point invalidation.
 - Law: a streaming rpc's `.query` is a `PullResult` atom — write to advance the page; the pull geometry stays inside the atom, never a hand-rolled cursor cell.
-- Law: binding rails inherit the store runtime's tracer — a query or mutation effect runs under the registry runtime, so its spans and metrics export through the `[2]` bridge seam with no binding-side code; the app action wrapping a mutation names its rail (`Effect.withSpan("rasm.ui.form.submit")` in the form trip) and carries identifier-grade context (`GlobalId`, `ContentKey`) on log annotations and span attributes, never on metric tags.
+- Law: binding rails inherit the store runtime's tracer — a query or mutation effect runs under the registry runtime, so its spans and metrics export through the `[2]` bridge seam with no binding-side code; the rpc binding names its span family at the declaration (`spanPrefix` joining the `rasm.ui` vocabulary), the app action wrapping a mutation names its rail (`Effect.withSpan("rasm.ui.form.submit")` in the form trip), and identifier-grade context (`GlobalId`, `ContentKey`) rides log annotations and span attributes, never metric tags.
 - Boundary: the `HttpApi`/`RpcGroup` values are edge contract material the app supplies, so the binding class is an APP-SIDE declaration this page legislates the exact shape of — the fence below is that shape, not a member of this module's export surface.
 
 ```typescript
-import { AtomHttpApi } from "@effect-atom/atom-react"
+import { AtomHttpApi, AtomRpc } from "@effect-atom/atom-react"
 import type { HttpApi } from "@effect/platform"
 import { FetchHttpClient } from "@effect/platform"
+import { RpcClient, type RpcGroup } from "@effect/rpc"
 import { Duration } from "effect"
 
 declare const _contract: HttpApi.HttpApi<never, never>
+declare const _procedures: RpcGroup.RpcGroup<never>
 
 class Api extends AtomHttpApi.Tag<Api>()("app/Api", {
   api: _contract,
@@ -87,6 +89,16 @@ const _roster = Api.query("crew", "list", {
 })
 
 const _enroll = Api.mutation("crew", "enroll", { reactivityKeys: ["crew"] })
+
+class Rpc extends AtomRpc.Tag<Rpc>()("app/Rpc", {
+  group: _procedures,
+  protocol: RpcClient.layerProtocolHttp({ url: "<origin>/rpc" }),
+  spanPrefix: "rasm.ui.rpc", // binding-side span identity: procedure spans join the rasm.ui vocabulary with zero call-site code
+}) {}
+
+const _tail = Rpc.query("tail", { key: "<value-a>" }, { reactivityKeys: ["tail"] }) // a streaming procedure lands as a PullResult atom: a write advances the page
+
+const _commit = Rpc.mutation("commit")
 ```
 
 ## [04]-[SELECTOR_RAIL]
@@ -270,3 +282,12 @@ const History: History.Shape = {
 
 export { History, Store }
 ```
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

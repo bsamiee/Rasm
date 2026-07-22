@@ -262,3 +262,12 @@ One substrate floor; growth is a case, a claim row, or a generated `SelfOp` — 
 |  [03]   | Substrate faults   | `Expected` + `Fault`                  | typed `Expected`/`Fault` payloads    | `Fault → Error` subtype    |   14    |
 |  [04]   | Resource ownership | `Lease<T>`                            | `[Union]` Owned/Borrowed cases       | `Lease<T>.Use → TResult`   |    2    |
 |  [05]   | Receipt validity   | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold          | `ValidityClaim.All → bool` |   14    |
+
+## [09]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

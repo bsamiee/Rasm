@@ -2,25 +2,24 @@
 
 One study-spine owner spans design-of-experiments sampling, global sensitivity analysis, and surrogate fitting: `Study` discriminates by a `StudyMethod` axis over one param-axis and sample-grid spine, and the union owns its `design`/`discrepancy`/`indices` folds, so `experiments/history.md#RUN_HISTORY` composes `study.method.design`/`indices` directly rather than importing a private across the package seam. SALib owns sensitivity analysis — the owner composes its sampler-and-analyzer pairs through `ProblemSpec` rather than reimplementing variance-based, moment-independent, derivative-based, or component sensitivity. Classical polynomial and ensemble/kernel regression surrogates are in scope; a neural surrogate and an acquisition-driven active-learning loop are not.
 
-Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, fenced contributor harvest. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate and the `columnar.arrow_bytes` render fold — the published surfaces only, no data interior; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
+Runs ride the `EvidenceScope.STUDY` weave — span, `boundary` fence, beartype guard, fenced contributor harvest. Seams: `numerics/jit` supplies `JitBackend`/`LoweredSpec` for the batch-lane compile and the symbolic-lowered spec VALUE; `data/tabular` supplies the `FrameAdmission`/`FrameInterop`/`FieldShape`/`Backend` DOE-frame gate through published surfaces only; runtime `profiles` supplies the `BenchmarkReceipt`/`BenchMode` bench fabric the receipt's `benched` projection feeds from held measurements; the objective crosses the process band as an argument of one `HOSTILE`-trait runtime `Kernel` — the module-level kernel ships `REFERENCE`, and a closure-bearing objective rides the pool's cloudpickle wire.
 
 ## [01]-[INDEX]
 
-- [01]-[STUDY]: DOE sampling, SALib sensitivity, and surrogate fitting on one `Study` owner — the union-owned folds, the `SALIB_ROUTES` table, and the live `Measured` measurement discriminant.
+- [01]-[STUDY]: DOE sampling, SALib sensitivity, and surrogate fitting on one `Study` owner — the union-owned folds, the `SALIB_ROUTES` table, the live `Measured` measurement discriminant, and its projection onto the runtime bench fabric.
 
 ## [02]-[STUDY]
 
 - Owner: `Study` — DOE sampling, global sensitivity, and surrogate fitting are cases on one owner; the benchmark concern is the live `MeasurementMode` discriminant folded into `Measured`, never a parallel benchmark owner; `RunHistory` rides the same spine for persistence and resume.
-- Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`, never a hardcoded arm beside the table.
+- Cases: the union's keyword constructor is the one construction surface, no sibling factory family; the eight SALib analyzers are one routed sampler body and one routed analyzer body over `SALIB_ROUTES`, the per-method knobs folded from the case payload through `_salib_args`; one seed policy crosses sampler, analyzer, content identity, receipt, and evidence.
 - Entry: `Study.run` is one polymorphic entry discriminating by input shape — an `Objective` runs the sampled evaluation, a contract-gated DOE frame grades a pre-measured cohort — never a second entry.
-- Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic.
-- Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold.
+- Output: `Measured` carries the responses, the wallclock, and the `Option[float]` batch-versus-serial speedup that is `Nothing` for a bare row objective — never a fabricated ratio over the identical per-row work timed twice; the `surrogate` row reads the honest cross-validated `R^2` while the `polynomial` row's in-sample `R^2` is the cheap univariate screening diagnostic. `StudyReceipt.benched` projects the held wallclock onto the runtime bench fabric under the receipt's content-keyed subject — `BenchmarkReceipt.of` consumes the measurement the run already paid for, a SPEEDUP run recovers its serial baseline as the sibling `.serial` duration series, `RESULT`'s zero elapsed suppresses the contribution, and distinct objectives never merge into one method-only benchmark series.
+- Growth: a new input marginal is one `AxisDist` member with one `rescale` arm and one `bounds` arm; a new SALib analyzer is one `StudyMethod` case and one `SALIB_ROUTES` row, no new body; a new `qmc` engine or numpy floor is one arm on `_qmc`/`design`; a new surrogate estimator is one `SurrogateKind` member and one `SURROGATE_CLASS` row; a new measurement is one `MeasurementMode` member reading the shared `Measured` fold; a new bench statistic is one runtime `BenchmarkReceipt` field under the bench growth law, reached with zero study edits.
 
 ```python signature
 import time
 from collections.abc import Callable, Iterable
 from enum import StrEnum
-from importlib import import_module
 from typing import TYPE_CHECKING, Final, Literal, assert_never
 
 import msgspec
@@ -37,11 +36,32 @@ from rasm.data.tabular.interop import Backend, FieldShape, FrameInterop
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
 from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.profiles import BenchMode, BenchmarkReceipt
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
+lazy from SALib import ProblemSpec
+lazy from SALib.analyze import delta as delta_analysis
+lazy from SALib.analyze import dgsm as dgsm_analysis
+lazy from SALib.analyze import fast as fast_analysis
+lazy from SALib.analyze import hdmr as hdmr_analysis
+lazy from SALib.analyze import morris as morris_analysis
+lazy from SALib.analyze import pawn as pawn_analysis
+lazy from SALib.analyze import rbd_fast as rbd_fast_analysis
+lazy from SALib.analyze import sobol as sobol_analysis
+lazy from SALib.sample import fast_sampler, finite_diff, latin
+lazy from SALib.sample import morris as morris_sampling
+lazy from SALib.sample import sobol as sobol_sampling
+lazy from scipy import stats
+lazy from scipy.stats import qmc
+lazy from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+lazy from sklearn.linear_model import Ridge
+lazy from sklearn.model_selection import cross_val_score
+lazy from sklearn.pipeline import Pipeline
+lazy from sklearn.preprocessing import StandardScaler
+lazy from sklearn.svm import SVR
+
 if TYPE_CHECKING:
-    from SALib import ProblemSpec
     from sklearn.base import BaseEstimator
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -133,8 +153,7 @@ class SurrogateKind(StrEnum):
     RIDGE = "ridge"  # linear_model.Ridge
 
     def estimator(self) -> "BaseEstimator":
-        module, name = SURROGATE_CLASS[self]
-        return getattr(import_module(f"sklearn.{module}"), name)()
+        return SURROGATE_CLASS[self]()
 
 
 # each member's `params` arity matches the `scipy.stats.<dist>` parameterization the SALib `dists` channel resolves, so one axis
@@ -170,8 +189,6 @@ class ParamAxis(Struct, frozen=True):
     # qmc path inverse-transforms the unit draw through the exact `scipy.stats.<dist>.ppf` form the SALib `dists` channel
     # resolves, so the two draws are the same marginal rather than two divergent inverse transforms.
     def rescale(self, unit_col: np.ndarray) -> np.ndarray:
-        from scipy import stats
-
         match self.dist:
             case AxisDist.UNIF:
                 low, high = self.params
@@ -195,20 +212,20 @@ class ParamAxis(Struct, frozen=True):
 
 # named fields, never a four-positional tuple indexed by position; `needs_design` discriminates the paired `(X, Y)` analyzers
 # from the `Y`-only routes.
-class SalibRoute(Struct, frozen=True, gc=False):
-    sample_module: str
-    analyze_module: str
+class SalibRoute(Struct, frozen=True):
+    sample: Callable[[], Callable[..., object]]
+    analyze: Callable[[], Callable[..., object]]
     result_key: str
     needs_design: bool
 
     def sampler(self) -> Callable[..., object]:
-        return import_module(f"SALib.sample.{self.sample_module}").sample
+        return self.sample()
 
     def analyzer(self) -> Callable[..., object]:
-        return import_module(f"SALib.analyze.{self.analyze_module}").analyze
+        return self.analyze()
 
 
-class Measured(Struct, frozen=True, gc=False):
+class Measured(Struct, frozen=True):
     responses: np.ndarray
     elapsed: float
     speedup: Option[float]  # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
@@ -268,20 +285,18 @@ class StudyMethod:
     def discrepancy(self, axes: tuple[ParamAxis, ...], design: np.ndarray) -> Option[float]:
         match self:
             case StudyMethod(tag="lhs" | "sobol" | "halton" | "polynomial" | "surrogate") if all(ax.dist is AxisDist.UNIF for ax in axes):
-                from scipy.stats import qmc
-
                 lo = np.asarray([ax.bounds[0] for ax in axes], dtype=float)
                 hi = np.asarray([ax.bounds[1] for ax in axes], dtype=float)
                 return Some(float(qmc.discrepancy((design - lo) / np.where(hi > lo, hi - lo, 1.0))))
             case _:
                 return Nothing
 
-    def indices(self, axes: tuple[ParamAxis, ...], design: np.ndarray, responses: np.ndarray) -> dict[str, float]:
+    def indices(self, axes: tuple[ParamAxis, ...], design: np.ndarray, responses: np.ndarray, seed: int) -> dict[str, float]:
         names = [ax.name for ax in axes]
         match self:
             case StudyMethod(tag="morris_screen" | "sobol_indices" | "fast" | "rbd_fast" | "delta" | "pawn" | "dgsm" | "hdmr" as t):
                 _, _, analyze_kwargs = self._salib_args()
-                return StudyMethod._salib(axes, SALIB_ROUTES[t], design, responses, names, analyze_kwargs)
+                return StudyMethod._salib(axes, SALIB_ROUTES[t], design, responses, names, analyze_kwargs, seed)
             case StudyMethod(tag="polynomial", polynomial=degree):
                 return {ax.name: StudyMethod._axis_r2(design[:, j], responses, degree) for j, ax in enumerate(axes)}
             case StudyMethod(tag="surrogate", surrogate=kind):
@@ -303,8 +318,6 @@ class StudyMethod:
                 assert_never(unreachable)
 
     def _qmc(self, axes: tuple[ParamAxis, ...], seed: int) -> np.ndarray:
-        from scipy.stats import qmc
-
         dim = len(axes)
         match self:
             case StudyMethod(tag="sobol", sobol=n):
@@ -324,8 +337,6 @@ class StudyMethod:
 
     @staticmethod
     def _spec(axes: tuple[ParamAxis, ...]) -> "ProblemSpec":
-        from SALib import ProblemSpec
-
         # SALib samplers shape their own marginals off `problem['dists']` (emitted only when an axis is non-`unif`); when set,
         # SALib reads each `bounds` row as the dist's FULL parameter vector, so the row is `ax.params` itself, not `(low, high)`.
         problem: dict[str, object] = {"num_vars": len(axes), "names": [ax.name for ax in axes], "bounds": [list(ax.params) for ax in axes]}
@@ -335,11 +346,17 @@ class StudyMethod:
 
     @staticmethod
     def _salib(
-        axes: tuple[ParamAxis, ...], route: SalibRoute, design: np.ndarray, responses: np.ndarray, names: list[str], analyze_kwargs: dict[str, object]
+        axes: tuple[ParamAxis, ...],
+        route: SalibRoute,
+        design: np.ndarray,
+        responses: np.ndarray,
+        names: list[str],
+        analyze_kwargs: dict[str, object],
+        seed: int,
     ) -> dict[str, float]:
         spec = StudyMethod._spec(axes).set_results(responses)
         feed = spec.set_samples(design) if route.needs_design else spec
-        analysis = feed.analyze(route.analyzer(), **analyze_kwargs).analysis
+        analysis = feed.analyze(route.analyzer(), seed=seed, **analyze_kwargs).analysis
         return {n: float(v) for n, v in zip(names, analysis[route.result_key], strict=True)}
 
     @staticmethod
@@ -353,10 +370,6 @@ class StudyMethod:
 
     @staticmethod
     def _surrogate_cv(kind: SurrogateKind, design: np.ndarray, responses: np.ndarray) -> float:
-        from sklearn.model_selection import cross_val_score
-        from sklearn.pipeline import Pipeline
-        from sklearn.preprocessing import StandardScaler
-
         pipeline = Pipeline([("scale", StandardScaler()), ("model", kind.estimator())])
         return float(cross_val_score(pipeline, design, responses, cv=5, scoring="r2").mean())
 
@@ -365,24 +378,24 @@ class StudyMethod:
 
 # one route row per tag drives one sampler body and one analyzer body; `result_key` selects the per-method scalar over the `ResultDict`.
 SALIB_ROUTES: Final[Map[SalibTag, SalibRoute]] = Map.of_seq([
-    ("morris_screen", SalibRoute("morris", "morris", "mu_star", True)),
-    ("sobol_indices", SalibRoute("sobol", "sobol", "ST", False)),
-    ("fast", SalibRoute("fast_sampler", "fast", "ST", False)),
-    ("rbd_fast", SalibRoute("latin", "rbd_fast", "S1", True)),
-    ("delta", SalibRoute("latin", "delta", "delta", True)),
-    ("pawn", SalibRoute("sobol", "pawn", "median", True)),
-    ("dgsm", SalibRoute("finite_diff", "dgsm", "dgsm", True)),
+    ("morris_screen", SalibRoute(lambda: morris_sampling.sample, lambda: morris_analysis.analyze, "mu_star", True)),
+    ("sobol_indices", SalibRoute(lambda: sobol_sampling.sample, lambda: sobol_analysis.analyze, "ST", False)),
+    ("fast", SalibRoute(lambda: fast_sampler.sample, lambda: fast_analysis.analyze, "ST", False)),
+    ("rbd_fast", SalibRoute(lambda: latin.sample, lambda: rbd_fast_analysis.analyze, "S1", True)),
+    ("delta", SalibRoute(lambda: latin.sample, lambda: delta_analysis.analyze, "delta", True)),
+    ("pawn", SalibRoute(lambda: sobol_sampling.sample, lambda: pawn_analysis.analyze, "median", True)),
+    ("dgsm", SalibRoute(lambda: finite_diff.sample, lambda: dgsm_analysis.analyze, "dgsm", True)),
     (
         "hdmr",
-        SalibRoute("latin", "hdmr", "S", True),
+        SalibRoute(lambda: latin.sample, lambda: hdmr_analysis.analyze, "S", True),
     ),  # per-input sensitivity (`S=Sa+Sb`, length num_vars); `ST` is the per-component-term total, longer than num_vars
 ])
 
-SURROGATE_CLASS: Final[Map[SurrogateKind, tuple[str, str]]] = Map.of_seq([
-    (SurrogateKind.GRADIENT_BOOST, ("ensemble", "GradientBoostingRegressor")),
-    (SurrogateKind.RANDOM_FOREST, ("ensemble", "RandomForestRegressor")),
-    (SurrogateKind.SVR, ("svm", "SVR")),
-    (SurrogateKind.RIDGE, ("linear_model", "Ridge")),
+SURROGATE_CLASS: Final[Map[SurrogateKind, Callable[[], "BaseEstimator"]]] = Map.of_seq([
+    (SurrogateKind.GRADIENT_BOOST, lambda: GradientBoostingRegressor()),
+    (SurrogateKind.RANDOM_FOREST, lambda: RandomForestRegressor()),
+    (SurrogateKind.SVR, lambda: SVR()),
+    (SurrogateKind.RIDGE, lambda: Ridge()),
 ])
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -397,20 +410,24 @@ class StudyReceipt(Struct, frozen=True):
     discrepancy: Option[float]  # qmc uniformity score for an all-unif qmc design, Nothing for SALib/factorial/non-unif
     elapsed: float
     speedup: Option[float]  # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
+    seed: int  # sampler and analyzer share this deterministic policy value
+    subject: str  # content-keyed benchmark series; objective identity is already admitted into the key
     content_key: ContentKey
 
     @staticmethod
-    def graded(study: "Study", design: np.ndarray, measured: Measured, key: ContentKey) -> "StudyReceipt":
+    def graded(study: "Study", design: np.ndarray, measured: Measured, key: ContentKey, seed: int) -> "StudyReceipt":
         rows = int(design.shape[0])
         return StudyReceipt(
             study.method.tag,
             study.mode,
             rows,
             int(measured.responses.size // rows) if rows else 0,
-            study.method.indices(study.axes, design, measured.responses),
+            study.method.indices(study.axes, design, measured.responses, seed),
             study.method.discrepancy(study.axes, design),
             measured.elapsed,
             measured.speedup,
+            seed,
+            f"study.{study.method.tag}.{key.hex}",
             key,
         )
 
@@ -422,38 +439,40 @@ class StudyReceipt(Struct, frozen=True):
             "mode": self.mode.value,
             "design_cells": self.design_cells,
             "response_width": self.response_width,
+            "seed": self.seed,
+            "subject": self.subject,
             "content_key": self.content_key.hex,
         }
 
-    def render(self, design: np.ndarray, responses: np.ndarray, axes: "tuple[ParamAxis, ...]") -> bytes:
-        # render seam: one self-describing frame crossing as content-keyed Arrow bytes through the data-owned
-        # `columnar.arrow_bytes` fold; the artifacts consumer decodes the frame and never re-derives the cohort.
-        import pyarrow as pa
-
-        from rasm.data.tabular.columnar import arrow_bytes
-
-        columns = {axis.name: pa.array(np.asarray(design[:, i], dtype=float)) for i, axis in enumerate(axes)}
-        columns |= {f"response_{j}": pa.array(np.asarray(responses).reshape(len(design), -1)[:, j]) for j in range(self.response_width)}
-        metadata = {
-            b"source": EvidenceScope.STUDY.value.encode(),
-            b"identifier": self.method.encode(),
-            b"unit": b"dimensionless",
-            b"content_key": self.content_key.hex.encode(),
-        }
-        return bytes(arrow_bytes(pa.table(columns).replace_schema_metadata(metadata)))
+    def benched(self, subject: Option[str] = Nothing) -> tuple[BenchmarkReceipt, ...]:
+        # bench projection from the held measurement: `BenchmarkReceipt.of` consumes the elapsed this run already
+        # paid for — never a `Bench.run` re-execution — and a SPEEDUP run recovers its serial baseline
+        # (elapsed x ratio) as the sibling `.serial` duration series, so the ratio reads off two honest series
+        # while the ratio scalar stays receipt evidence, never a bench field. RESULT's zero elapsed contributes
+        # nothing; the receipt's default subject already carries the objective-bearing content identity, and a
+        # caller may narrow it further. Observability evidence only — no graduation verdict rides it.
+        keyed = subject.default_value(self.subject)
+        serial = self.speedup.map(lambda ratio: (BenchmarkReceipt.of(f"{keyed}.serial", BenchMode.LATENCY, 0, (self.elapsed * ratio * 1000.0,)),))
+        return () if self.elapsed <= 0.0 else (BenchmarkReceipt.of(keyed, BenchMode.LATENCY, 0, (self.elapsed * 1000.0,)), *serial.default_value(()))
 
     def contribute(self) -> Iterable[Receipt]:
-        # native scalars only — no `str()` coerce where the deterministic renderer keeps types.
+        # native scalars only — no `str()` coerce where the deterministic renderer keeps types; the bench projection
+        # rides the same harvest, its receipts contributing the `domain="bench"` duration rows with zero runtime edits.
         facts: dict[str, object] = {
             "mode": self.mode.value,
             "design_cells": self.design_cells,
             "response_width": self.response_width,
+            "seed": self.seed,
+            "subject": self.subject,
             "elapsed": self.elapsed,
             "discrepancy": self.discrepancy.to_optional(),
             "speedup": self.speedup.to_optional(),
             **{f"S[{k}]": v for k, v in self.indices.items()},
         }
-        return (Receipt.of(EvidenceScope.STUDY.value, ("emitted", self.method, facts)),)
+        return (
+            Receipt.of(EvidenceScope.STUDY.value, ("emitted", self.method, facts)),
+            *(row for bench in self.benched() for row in bench.contribute()),
+        )
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -477,10 +496,13 @@ class Study(Struct, frozen=True):
                     return (await lane.offload(kernel, self, objective, seed)).bind(lambda rail: rail)
                 case frame:
                     return self._admit_frame(frame).bind(
-                        lambda decoded: boundary(f"study.{self.method.tag}", lambda: self._graded_frame(*decoded))
+                        lambda decoded: boundary(
+                            f"study.{self.method.tag}",
+                            lambda: self._graded_frame(decoded[0], decoded[1], seed),
+                        )
                     )
 
-        facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes)}
+        facts = {"method": self.method.tag, "mode": self.mode.value, "axes": len(self.axes), "seed": seed}
         return await evidence_run(EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
@@ -499,11 +521,17 @@ class Study(Struct, frozen=True):
         )
 
     def spec_key(
-        self, design: np.ndarray, objective: Option[Objective] = Nothing, /, *, responses: "Option[np.ndarray]" = Nothing
+        self,
+        design: np.ndarray,
+        objective: Option[Objective] = Nothing,
+        /,
+        *,
+        responses: "Option[np.ndarray]" = Nothing,
+        seed: int = 0,
     ) -> "RuntimeRail[ContentKey]":
         # ONE study-key builder over the COMPLETE specification — axes, method, mode, the objective's full identity
-        # (row/batch scorer shipping identity, the jit route row), and the shape-framed canonical float64 design and
-        # response bytes — shared by `_execute`, `_graded_frame`, and `RunHistory.resume`, so distinct closures,
+        # (row/batch scorer shipping identity, the jit route row), the sampler/analyzer seed, and the shape-framed
+        # canonical float64 design and response bytes — shared by `_execute`, `_graded_frame`, and `RunHistory.resume`, so distinct closures,
         # configurations, or measured response sets never collide onto one cache slot; `packed` frames the shape
         # beside the canonicalized buffer, so a transposed or reshaped design sharing one byte payload keys apart
         # while dtype and layout normalize onto contiguous float64.
@@ -511,15 +539,15 @@ class Study(Struct, frozen=True):
         packed = lambda array: framed(_SPEC.encode(array.shape)) + framed(np.ascontiguousarray(array, dtype=np.float64).tobytes())
         spec = objective.map(Objective.identity).default_value(())
         tail = responses.map(packed).default_value(b"")
-        return ContentIdentity.of("study", _SPEC.encode((self.axes, self.method.tag, self.mode, spec)) + packed(design) + tail)
+        return ContentIdentity.of("study", _SPEC.encode((self.axes, self.method.tag, self.mode, spec, seed)) + packed(design) + tail)
 
-    def _graded_frame(self, design: np.ndarray, responses: np.ndarray) -> StudyReceipt:
+    def _graded_frame(self, design: np.ndarray, responses: np.ndarray, seed: int) -> StudyReceipt:
         # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the response bytes join the
         # key — two frames sharing one design matrix but carrying different measurements are different studies.
         measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
-        match self.spec_key(design, responses=Some(responses)):
+        match self.spec_key(design, responses=Some(responses), seed=seed):
             case Result(tag="ok", ok=key):
-                return StudyReceipt.graded(self, design, measured, key)
+                return StudyReceipt.graded(self, design, measured, key, seed)
             case Result(tag="error", error=fault):
                 raise RuntimeError(fault)
 
@@ -529,9 +557,9 @@ class Study(Struct, frozen=True):
         measured = self.mode.evaluate(objective, design)
         # spec key is `match`ed off the rail inside the already-fenced body, so a hash `Error` re-raises onto the `boundary`;
         # `spec_key` is the one mint every path shares, which is what makes `history`'s resume key provably equal.
-        match self.spec_key(design, Some(objective)):
+        match self.spec_key(design, Some(objective), seed=seed):
             case Result(tag="ok", ok=key):
-                return StudyReceipt.graded(self, design, measured, key)
+                return StudyReceipt.graded(self, design, measured, key, seed)
             case Result(tag="error", error=fault):
                 raise RuntimeError(fault)
 ```
@@ -542,4 +570,4 @@ class Study(Struct, frozen=True):
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
 
-(none)
+- [STUDY_FRAME_RENDER]-[BLOCKED]: which data-owned public projection serializes a study design/response cohort to canonical Arrow IPC bytes without importing uncataloged `pyarrow` members in compute; `libs/python/data/.planning/tabular/columnar.md` `arrow_bytes` ownership, `libs/python/data/.planning/tabular/interop.md` frame construction, and the data counterpart card `[COHORT_ARROW_PROJECTION]` on `libs/python/data/TASKLOG.md`.

@@ -62,7 +62,7 @@ public readonly partial struct PanelKey {
     }
 
     internal Fin<Unit> Admit(Op op) {
-        ValidationError? fault = Validate(value: this, provider: null, out PanelKey? admitted);
+        ValidationError? fault = Validate(value: ToValue(), provider: null, out PanelKey? admitted);
         return op.AcceptValidated<PanelKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
@@ -81,7 +81,7 @@ public readonly partial struct DockBarKey {
     }
 
     internal Fin<Unit> Admit(Op op) {
-        ValidationError? fault = Validate(value: this, provider: null, out DockBarKey? admitted);
+        ValidationError? fault = Validate(value: ToValue(), provider: null, out DockBarKey? admitted);
         return op.AcceptValidated<DockBarKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
@@ -253,7 +253,7 @@ public abstract partial record PanelInstanceScope {
         serial: static (held, row) => AdmitDocument(document: row.Document, op: held));
 
     private static Fin<Unit> AdmitDocument(DocKey document, Op op) {
-        ValidationError? fault = DocKey.Validate(value: document, provider: null, out DocKey? admitted);
+        ValidationError? fault = DocKey.Validate(value: document.ToValue(), provider: null, out DocKey? admitted);
         return op.AcceptValidated<DocKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
@@ -464,7 +464,7 @@ public static class PanelHost {
 - Owner: `PanelObserve` chooses the owned callback ledger or the host-wide `DocumentStream` projection.
 - Entry: `PanelObservation.Observe` returns one symmetric `Subscription` for either row and delivers projection failures through the sink rail.
 - Law: owned callbacks update `PanelHost.Facts`; host-wide projection never re-stamps the owned ledger.
-- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `HookRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan — and the point's replay modality is the `PanelHost.Facts` latest-per-panel ledger a binder reads before its first delivery.
+- Law: `PanelHooks.Mount` registers the `rasm.rhino.hostui.panel` point on the `MountRegistry` row grammar — ask `CallbackObserver<PanelFact>`, grant `Subscription` over the owned watcher fan — and the point's replay modality is the `PanelHost.Facts` latest-per-panel ledger a binder reads before its first delivery.
 - Boundary: each delivery crosses `CallbackObserver<PanelFact>`; delivery and rejection faults accumulate without starving sibling observers.
 
 ```csharp signature
@@ -511,7 +511,7 @@ public static class PanelObservation {
 
 public static class PanelHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
-        HookRegistry.Mount(
+        MountRegistry.Mount(
             mount: new HookMount(
                 Point: HookPoint.HostUiPanel,
                 Plugin: plugin,
@@ -1395,3 +1395,12 @@ public static class UiServices {
     }
 }
 ```
+
+## [09]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

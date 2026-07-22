@@ -6,16 +6,16 @@ Rasm.Compute owns the suite wire CONTRACT: the proto services compiled GrpcServi
 
 ## [01]-[INDEX]
 
-- [01]-[PROTO_VOCABULARY]: five wire services, canonical geometry messages, the `DocumentService`↔`DocumentTransaction` parity seam, the polymorphic field-mask and `Any` envelopes, and the MINTED `GaussianSplatScan` frame.
+- [01]-[PROTO_VOCABULARY]: six wire services, canonical geometry and support-bundle messages, the `DocumentService`↔`DocumentTransaction` parity seam, the polymorphic field-mask and `Any` envelopes, and the MINTED `GaussianSplatScan` frame.
 - [02]-[CONTRACT_EVOLUTION]: descriptor-diff drift law over field/rpc/oneof/enum/reserved/packed/nested surface behind one canonical projection-checksum gate, plus parse hardening.
 - [03]-[FAULT_PROJECTION]: one `FaultDetail` family, the `StatusCode`→`WireFault` rail, and the band-complete `FaultWire` projection mirroring the admission custody map with an in-band conflict decode arm.
 - [04]-[TS_PROJECTION]: browser wire posture — fault and frame contracts, method shapes, the transaction-parity shape, field-mask read.
 
 ## [02]-[PROTO_VOCABULARY]
 
-- Owner: the five service contracts and the canonical geometry message family declared in the remote-lane owner folder; `WireServices` — the channel-scoped generated-client capsule carrying one polymorphic `Mask` projection and the `Unpack` typed-fault projection; `WireDocument` — the flagship `DocumentService`↔`DocumentTransaction` parity surface folding budget, `Bounded` pre-check, `Classify`, and receipt emission into the canonical operation set field-for-field across in-process and cross-process.
-- Cases: ComputeService, DocumentService, ControlService, ArtifactSync, grpc.health.v1.Health — google/rpc/status.proto and grpc.health.v1 compile verbatim beside the owned files.
-- Auto: Grpc.Tools compiles GrpcServices=Client at build with `PrivateAssets=all`, `Access=Internal` for package-internal generated types and `Access=Public` only where the contract crosses the package boundary; app roots compile the same files GrpcServices=Server and emit the descriptor set that feeds connect-es codegen and the manifest checksum.
+- Owner: the six service contracts and the canonical geometry and support-bundle message families declared in the remote-lane owner folder; `WireServices` — the channel-scoped generated-client capsule carrying one polymorphic `Mask` projection and the `Unpack` typed-fault projection; `WireDocument` — the flagship `DocumentService`↔`DocumentTransaction` parity surface folding budget, `Bounded` pre-check, `Classify`, and receipt emission into the canonical operation set field-for-field across in-process and cross-process.
+- Cases: ComputeService, DocumentService, ControlService, Diagnostic, ArtifactSync, grpc.health.v1.Health — google/rpc/status.proto and grpc.health.v1 compile verbatim beside the owned files.
+- Auto: Grpc.Tools compiles GrpcServices=Client at build with `PrivateAssets=all`, `Access=Internal` for package-internal generated types and `Access=Public` only where the contract crosses the package boundary; app roots compile the same files GrpcServices=Server and emit the descriptor set that feeds connect-es codegen and the manifest checksum. Producer descriptors regenerate `rasm.runtime._pb2.channels_pb2`; `SupportBundleRequest`, `SupportBundleReply`, and `Diagnostic/CaptureBundle` then bind the Python `PROTO_VOCABULARY` request and response rows without a hand-maintained twin.
 - Packages: Google.Protobuf, Grpc.Tools, Grpc.Net.Client, NodaTime.Serialization.Protobuf
 - Flagship: `WireDocument` is the `DocumentService`↔`DocumentTransaction` parity owner — `ExecuteTransaction` carries the in-process `DocumentTransaction` verb set field-for-field through one budget-bounded, fault-classified, receipt-emitting forwarder, so the same canonical operation set, the same `TransactionReceipt`, and the same wire choreography produce the identical typed receipt whether the transaction runs through the in-process handler or across the channel; the dedup window equals the `DeadlineClass.HopTotal` allotment so the one retry owner's horizon gates the idempotency edge on both legs, the response mirrors the typed receipt through `WireDocument.Receipt`, and a non-exceptional in-band conflict decodes through `WireDocument.Conflict` reading the `TransactionReceipt.conflict=5` slot onto the typed `WireFault` rail with no parallel response DTO and no hand-rolled per-consumer projection.
 - Growth: one rpc row on an existing service or one numbered message field absorbs a new wire fact; the browser collaboration decomposition (server-stream down, unary chunked up) is designed-only growth of one rpc row per direction; zero new surface.
@@ -30,6 +30,7 @@ public sealed record WireServices(
     ComputeService.ComputeServiceClient Compute,
     DocumentService.DocumentServiceClient Document,
     ControlService.ControlServiceClient Control,
+    Diagnostic.DiagnosticClient Diagnostic,
     ArtifactSync.ArtifactSyncClient Artifacts,
     Health.HealthClient Health) : IDisposable {
     // Mixed field references normalize through one descriptor-validated mask entry.
@@ -123,6 +124,7 @@ public static class WireDocument {
 |  [16]   | ComputeService  | Generate           | server-stream | GenerateRequest → TokenChunk             |
 |  [17]   | ComputeService  | GraphDiff          | unary         | GraphDiffRequest → GraphDiffResponse     |
 |  [18]   | ComputeService  | SubtreeFetch       | server-stream | SubtreeFetchRequest → GraphChunk         |
+|  [19]   | Diagnostic      | CaptureBundle      | unary         | SupportBundleRequest → SupportBundleReply |
 
 Each rpc carries one wire law:
 
@@ -144,6 +146,7 @@ Each rpc carries one wire law:
 - [16]-[GENERATE]: the remote token-streaming leg riding the Progress-class server-stream pattern, keyed by correlation; faults ride FaultDetail
 - [17]-[GRAPHDIFF]: content-key delta over two Closure hashes; the set-difference algebra is `Rasm.Persistence/Version/ledger#CHANGEFEED` (`TransferSet`/`Closure`), this carries the wire shape only
 - [18]-[SUBTREEFETCH]: partial-graph checkout streaming the content-addressed subtree the GraphDiff added-set names
+- [19]-[CAPTUREBUNDLE]: requested collector keys select the bounded diagnostic capture; an empty set selects every admitted collector, and the reply carries the archive content key, bytes, collected keys, and skipped keys
 
 Each message carries its proto field set and wire role:
 
@@ -164,6 +167,8 @@ Each message carries its proto field set and wire role:
 - [15]-[GRAPHDIFFRESPONSE]: `added=1 repeated string; removed=2 repeated string` — added/removed content-key set
 - [16]-[SUBTREEFETCHREQUEST]: `content_keys=1 repeated string` — partial-graph checkout request
 - [17]-[GRAPHCHUNK]: `content_key=1 string; payload=2 bytes; ordinal=3 int64` — one content-addressed subtree node per frame
+- [18]-[SUPPORTBUNDLEREQUEST]: `collectors=1 repeated string` — requested diagnostic collector keys; empty selects every admitted collector
+- [19]-[SUPPORTBUNDLEREPLY]: `content_key=1 string; archive=2 bytes; collected=3 repeated string; skipped=4 repeated string` — content-addressed archive and the realized collector partition
 
 [GaussianSplatScan]:
 - Fields: format_key=1 string; positions=2 bytes; scales=3 bytes; rotations=4 bytes; harmonics=5 bytes; harmonic_degree=6 int32; splat_count=7 int64
@@ -358,7 +363,7 @@ public static class FaultWire {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `StreamKind`, `MethodShape`, `TransportCapabilityWire`, `TransportFramingWire`, `FaultDetailWire`, `ArtifactFrameWire`, `TransactionReceiptWire`, and the five service method-shape aliases — the TS posture for the whole suite wire including the flagship transaction-parity shape.
+- Owner: `StreamKind`, `MethodShape`, `TransportCapabilityWire`, `TransportFramingWire`, `FaultDetailWire`, `ArtifactFrameWire`, `TransactionReceiptWire`, `SupportBundleRequestWire`, `SupportBundleReplyWire`, and the six service method-shape aliases — the TS posture for the whole suite wire including the flagship transaction-parity shape.
 - Packages: BCL inbox
 - Split law: the TS contract stays WHOLE on this page while the C# frame/channel mechanics (`FrameEdge`, `RemoteTransport`, `GrpcChannelPolicy`) live on `Runtime/transport#ARTIFACT_FRAMES`/`#TRANSPORT_AXIS` — `ArtifactFrameWire` and `TransportFramingWire` cite that frame law by PROSE ANCHOR, never a cross-split fence import.
 - Growth: one method-shape row per new rpc and one field row per new evidence slot; zero new surface.
@@ -379,6 +384,8 @@ type DocumentServiceShape = { capabilities: MethodShape<"unary", "Empty", "Docum
 
 type ControlServiceShape = { captureSupport: MethodShape<"unary", "Empty", "CaptureSupportReply">; setDegradation: MethodShape<"unary", "SetDegradationRequest", "DegradationReply">; reloadOptions: MethodShape<"unary", "Empty", "ReloadReply">; };
 
+type DiagnosticShape = { captureBundle: MethodShape<"unary", "SupportBundleRequest", "SupportBundleReply">; };
+
 type ArtifactSyncShape = { sync: MethodShape<"bidi", "ArtifactFrame", "ArtifactFrame">; };
 
 type HealthShape = { check: MethodShape<"unary", "HealthCheckRequest", "HealthCheckResponse">; watch: MethodShape<"serverStream", "HealthCheckRequest", "HealthCheckResponse">; };
@@ -392,6 +399,10 @@ interface TransactionRequestWire { idempotencyKey: Uint8Array; ops: { typeUrl: s
 interface TransactionReceiptWire { idempotencyKey: Uint8Array; committed: boolean; newEpoch: bigint; applied: string[]; conflict: FaultDetailWire | null; hlcPhysical: string; hlcLogical: bigint; }
 
 interface QueryRequestWire { scope: string; predicate: Record<string, unknown>; cursor: string; fieldMask: string[]; }
+
+interface SupportBundleRequestWire { collectors: string[]; }
+
+interface SupportBundleReplyWire { contentKey: string; archive: Uint8Array; collected: string[]; skipped: string[]; }
 
 interface ArtifactFrameWire { artifactId: string; artifactBytes: bigint; offset: bigint; frameCrc: number; payload: Uint8Array; }
 ```

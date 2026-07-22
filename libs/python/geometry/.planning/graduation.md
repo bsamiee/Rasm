@@ -2,11 +2,11 @@
 
 `graduation` is the folder's tier-0 evidence spine every producer composes and no page precedes. It mints the graduation vocabulary — `GeometrySubject`, the geometry-owned union of what the folder produces — and the typed `GeometryHandoff` carrier every producer's `graduates()` returns; the crossing to compute is content-keyed receipt DATA (`GeometryHandoff.wire()`), never an import. It also owns the folder's evidence weave, geometry's faults-analogue tier, so a producer writes only its domain fold.
 
-Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationReceipt` fold decode `wire()` at the seam and re-shape nothing without a geometry ripple that a union change ships, never a silent admit; no geometry prelude names a compute symbol. Evidence weave composes the runtime `measured` weave — span lifecycle, modality probe, boundary fence, conditional receipt harvest, OK/ERROR close — under a tracer scope seeded from `EvidenceScope`, adding only geometry's close-out layer, so producers thread no page-local instrumentation. Four evidence surfaces ride the same spine: the `EvidenceCost` oneshot bracket prices every crossing, the `CHARTER` measure table is the one dashboard authority every instrument row and compile leg derives from, `PROFILE_SUBJECTS` names the worker-attach flame subjects per hostile entry seam, and the `EvidenceFrame` port projects every receipt family as a columnar frame beside `wire()`.
+Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationReceipt` fold decode `wire()` at the seam and re-shape nothing without a geometry ripple that a union change ships, never a silent admit; no geometry prelude names a compute symbol. Evidence weave composes the runtime `measured` weave — span lifecycle, modality probe, boundary fence, conditional receipt harvest, OK/ERROR close — under a tracer scope seeded from `EvidenceScope`, adding only geometry's close-out layer, so producers thread no page-local instrumentation. Three geometry-owned evidence surfaces ride the same spine: the `EvidenceCost` oneshot bracket prices every crossing, the `CHARTER` measure table owns geometry's dashboard vocabulary, and the `EvidenceFrame` port projects admitted analytic receipt families as columnar frames beside `wire()`. Runtime `Kernel.name` owns profile subjects at the worker crossing.
 
 ## [01]-[INDEX]
 
-- [01]-[GRADUATION]: the `GeometrySubject` union, the `EvidenceScope` scope table, the `GeometryHandoff` carrier with its residual-over-ceiling admission and `wire()` crossing, the `CHARTER` measure authority, the `PROFILE_SUBJECTS` worker-attach map, the `EvidenceCost` bracket and `EvidenceFrame` port, the one `evidence_run` weave, the `bench_seam` entry-seam macro-bench fold, and its `bench_terminal` process-terminal envelope.
+- [01]-[GRADUATION]: the `GeometrySubject` union, the `EvidenceScope` scope table, the `GeometryHandoff` carrier with its residual-over-ceiling admission and `wire()` crossing, the `CHARTER` measure authority, the `GeometryPulse`/`PulseBeat` mid-operation vocabulary with its `pulse_points` registration, the `EvidenceCost` bracket and `EvidenceFrame` port, the one `evidence_run` weave, the `bench_seam` entry-seam macro-bench fold, and its `bench_terminal` process-terminal envelope.
 
 ## [02]-[GRADUATION]
 
@@ -14,15 +14,16 @@ Compute is the named demanding consumer: its `HandoffAxis` hub and `GraduationRe
 - Cases: the union is DIFFERENTIATED, one member per evidence class, each owner binding its own. Scan produces `REGISTRATION_TRANSFORM`, `SCAN_DEVIATION`, and (with mesh/repair) `RECONSTRUCTED_MESH`; graph produces `TOPOLOGY_GRAPH`, `NETWORK_GRAPH` (features and algebra co-produce it), `FORM_FINDING`, and `NUMERICAL_PRIMITIVE` (the retained compas-numerics member); mesh/brep, mesh/repair, and graph/algebra co-produce `MESH_ALGEBRA`; ifc produces `BIM_COMPLIANCE`, `BIM_LIFECYCLE`, `SECTION_PROPERTY`; energy produces `BUILDING_ENERGY`, `THERMAL_COMFORT`. Two or three producers of one subject stay one member, never parallel vocabularies; a page earns its `EvidenceScope` member the moment its rail returns through `evidence_run`, and an engine or gate page whose receipts an enclosing weave harvests holds none.
 - Entry: `evidence_run(scope, operation, dispatch, upstream=None)` is the one polymorphic weave, modality discriminated on the dispatch shape (`iscoroutinefunction`), never an `evidence_run_async` sibling — each arm wraps the dispatch and delegates span, fence, conditional harvest, and OK/ERROR close to the runtime `measured` weave under the scope's tracer name. Each arm FLATTENS through `_flat`, so a `lane.offload` or rail-returning fold absorbs un-nested and a bare value lifts `Ok`, then closes through `_priced`, the one cost-record-rename terminal on the live span — the serve leg composes the weave under `EvidenceScope.MESH_SERVE`, so serve latency is one weave composition and pool depth stays the runtime lane spine's own gauges. `GeometryHandoff.of` mints, `admitted` folds residual-over-ceiling, `wire()` projects the dict the receipt stream and compute seam consume.
 - Cost: `EvidenceCost` is the resource-cost ledger on every crossing — one `psutil` `oneshot` sample bracket around the dispatch reads `cpu_times` and `memory_info().rss`, and `_priced` folds the wall/cpu/rss deltas three ways at once: span facts (`cost.*`), the `UNIVERSAL_MEASURES` charter rows recorded through `Metrics.record` under `domain="geometry"` (tenant baggage rides the runtime `_attributed` fold), and one harvested `rasm.geometry.evidence` cost receipt. Parent-observed cost only: a `KernelTrait.HOSTILE` kernel's worker-floor burn is the profile lane's evidence, never re-priced here.
-- Charter: `CHARTER` + `UNIVERSAL_MEASURES` are the one dashboard authority — each `MeasureRow` names its `rasm.<domain>.<measure>` spelling, UCUM unit, source receipt field, and aggregation, keyed by `GeometrySubject`, and `charter_of` folds the universal cost rows onto the subject's own. Every producing-fold record call, every runtime `INSTRUMENTS` row for a geometry measure, and the ts iac dashboard compile leg derive from these rows: `charter_record` is the one producing-fold projection — the subject selects the rows, the measure spelling and source receipt field derive from them — so a hand-picked measure list beside the charter is the deleted form.
-- Profile: `PROFILE_SUBJECTS` maps each scope-owning `KernelTrait.HOSTILE` entry seam to the module-level kernel names its offloads run, so the runtime worker-attach counterpart tags flame windows with one vocabulary the evidence spans already speak; geometry names subjects and seams, runtime owns the worker bootstrap and the pyroscope agent.
-- Frame: `EvidenceFrame` is the columnar egress port beside `wire()` — subject-discriminated, content-keyed, numpy-backed columns — and every receipt family projects one frame through its own `frame()` row (deviation bands, quality metrics, section properties, lifecycle rollups, analytic boards through `AnalyticValue.tabled()`), crossing the standing geometry-to-data seam beside the energy `ResultFrame` so the data branch's arrow and duckdb tiers aggregate geometry evidence without receipt re-parsing.
+- Charter: `CHARTER` + `UNIVERSAL_MEASURES` are geometry's dashboard authority — each `MeasureRow` names its `rasm.<domain>.<measure>` spelling, UCUM unit, source receipt field, and aggregation, keyed by `GeometrySubject`, and `charter_of` folds the universal cost rows onto the subject's own. `charter_record` is the one producing-fold projection; runtime owns matching `INSTRUMENTS` rows and ts iac owns the dashboard compile leg, so no hand-picked measure list races the charter, and the derived `MEASURES` roster is the set the runtime instrument census gates against — every charter spelling, universal cost rows included, demands its registered counterpart row.
+- Profile: runtime `Kernel.of` mints `Kernel.name` from each hostile target, and runtime `traced_kernel` passes that name directly to `Profiles.phase`; geometry contributes the target and carries no parallel profile-subject registry.
+- Pulse: `GeometryPulse` + `PulseBeat` + `pulse_points(scope)` are the folder's mid-operation vocabulary over the runtime lane conduit — each member is one `rasm.geometry.<domain>.<point>` `HookPoint` row registered `OBSERVE` in the caller's composition scope, with `DEFAULT_SCOPE` preserving the root composition. A `KernelTrait.HOSTILE` kernel emits `pulsed(lane.pulses.tap, point, PulseBeat(stage, done, total))` so tessellation, registration, and reconstruction progress reaches `Hooks.fire` through the parent-side `PulseConduit.drain` under the conduit's own composition `ScopeKey` — `LanePolicy.of(context, scope=...)` binds the same scope `pulse_points(scope)` registered, so a non-default composition receives its beats without unregistered-point faults and the worker still carries no scope. Delivery is the lane's lossy law — a full conduit drops, accepted beats keep conduit order — and a kernel's whole observability reach stays the pickled queue proxy: never `Hooks`, `Metrics`, or a live span.
+- Frame: `EvidenceFrame` is the columnar egress port beside `wire()` — subject-discriminated, content-keyed, numpy-backed columns — and each admitted family projects one frame through its own `frame()` row (deviation bands, quality metrics, section properties, lifecycle rollups, analytic boards through `AnalyticValue.tabled()`). Its `table` field is the crossing payload beside the energy `ResultFrame`.
 - Receipt: `GeometryHandoff.contribute` yields one `Receipt.of("rasm.geometry.graduation", (phase, subject, wire))` row — `phase="emitted"` for an admitted crossing, `"admitted"` for a breaching one whose caveat the receipt flags rather than asserts — so every graduation is visible before compute decodes it; `of` additionally lands the crossing as one `rasm.geometry.graduation` span event on the live producer span. Producer receipts stay on the producing pages; this owner receipts only the crossing, the weave's cost, and the frame projection.
-- Trace: the crossing carries one optional W3C band — `of` mints `traceparent` off the live span through the `_TRACE_WIRE` codec (an invalid or absent span context injects nothing, so absence means no link), `wire()` ships the band only when present, and compute's decode folds it as a `Link` on the consumer span. The consumer arm is symmetric: `evidence_run`'s `upstream` band decodes through the same codec at `_linked` and folds one `Span.add_link` onto the opening span — a zero trace-id after extract proves no producer trace and folds nothing — so a geometry consumer of a content-keyed crossing (deviation's reference-GLB read) joins its producer chain under the identical `rasm.link.kind` attribute the compute mirror stamps. Producers edit nothing: `of` runs inside the producer's `evidence_run` span, so the band names the producing evidence span by construction; the band is co-shipped wire law — a re-shape is a geometry ripple landing on the compute mirror, never a silent widen. `_priced` renames the span `{operation}:{subject}` when the cleared value carries a `GeometrySubject`, so trace search keys on subjects.
-- Bench: `bench_seam` is the one macro-bench fold every kernel page composes — both `BenchMode` rows run over one whole entry-seam crossing (`anyio.run` drives the awaitable seam per round on a fresh loop while the warm process lane amortizes across rounds), and each `BenchmarkReceipt` harvests through the runtime `Signals` emit, so the receipt row and the runtime `domain="bench"` instrument projection fire at the receipt's own `contribute` — zero geometry instrument rows. `bench_terminal` wraps the whole `bench_seam` fold in the runtime `JobRun.bounded` envelope so a process-terminal run's final `domain="bench"` projection flushes before exit; an in-daemon run composes `bench_seam` directly under the standing periodic reader; the pulse boundary bars any in-kernel probe, so the seam is always the whole crossing.
-- Packages: `anyio` (the bench fold's per-round loop driver), `expression` (`Block`/`Map`), `msgspec` (`Struct` carrier), `numpy` (frame columns), `psutil` (the cost bracket's `oneshot` sampler), `opentelemetry-api` — the ONE page that names the OTel tracer/span API, every sibling composing `evidence_run` — and runtime (`RuntimeRail`, `measured`/`Signals`/`OPEN` as the span-fence-harvest spine, `ContentKey`, `Receipt`, `Metrics.record` as the one instrument projection port, `Bench`/`BenchMode`/`BenchmarkReceipt` as the measurement tier `bench_seam` composes, and `RuntimeProfile`/`JobRun` as the process-terminal envelope `bench_terminal` composes).
-- Growth: a new evidence class is one `GeometrySubject` member and its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave; a producer whose result carries `span_facts` gains span-visible evidence with zero weave edit; a new dashboard measure is one `MeasureRow` (and its runtime `INSTRUMENTS` counterpart row); a new hostile kernel is one `PROFILE_SUBJECTS` tuple entry; a new frame family is one `frame()` row on its receipt owner; a new bench subject is one `bench_seam` composition on its producing page, zero runtime edits, and a process-terminal bench harness is one `bench_terminal` wrap composing the runtime `JobRun.bounded` envelope; the crossing is one-way data, no reverse direction.
-- Boundary: no compute import anywhere in the folder, the crossing being `wire()` data; no page-local tracer mint, emit pair, or inline span manager anywhere in the folder — the runtime `measured` weave owns span lifecycle and harvest, this owner adds only the geometry close-out; every weave span opens INTERNAL and nests beneath the live seam parent — the runtime `ServerHost` interceptor owns the SERVER span at the gRPC seam; no second subject vocabulary, bare-`str` subject, or per-receipt `subject` field racing the union. Mid-operation facts stay worker-side receipt evidence — the offloaded `KernelTrait.HOSTILE` kernels cross a process seam no in-process hook registry or live span reaches; the `rasm.geometry.graduation` span event is the settled completion-grain tap, never a mid-kernel pulse claim. A `"numerical-primitive"` literal carrying compliance, lifecycle, or section evidence breaches the differentiated members; cost never rides `wire()` — the crossing widens only by the co-shipped trace band; the compute graduation interior is compute's to own — this owner only mints and projects.
+- Trace: the crossing carries one optional W3C carrier — `of` mints the full `traceparent`/`tracestate`/baggage mapping off the live span through the global `propagate.inject` surface over the telemetry-installed composite (an invalid or absent span context injects no `traceparent`, so absence means no link), `wire()` ships the carrier only when present, and compute's decode folds it as a `Link` on the consumer span. Consumer symmetry routes `evidence_run`'s `upstream` carrier through the same `propagate.extract` surface at `_linked` and folds one `Span.add_link` onto the opening span — an invalid extracted context proves no producer trace and folds nothing — so a geometry consumer of a content-keyed crossing (deviation's reference-GLB read) joins its producer chain under the identical `rasm.link.kind` attribute the compute mirror stamps. `of` runs inside the producer's `evidence_run` span, so the carrier names the producing evidence span by construction; the carrier is co-shipped wire law — a re-shape is a geometry ripple landing on the compute mirror, never a silent widen. `_priced` renames the span `{operation}:{subject}` when the cleared value carries a `GeometrySubject`, so trace search keys on subjects.
+- Bench: `bench_seam` is the one macro-bench fold every kernel page composes — runtime `Bench.run` measures one whole entry-seam crossing (`anyio.run` drives the awaitable seam per round while the warm process lane amortizes across rounds) and returns one `BenchmarkReceipt` holding latency and throughput. `Signals.emit` harvests that receipt, so its runtime `domain="bench"` projection fires at `contribute` with zero geometry instrument rows. `bench_terminal` wraps the fold in `JobRun.bounded` so a process-terminal run flushes before exit; an in-daemon run composes `bench_seam` under the standing periodic reader.
+- Packages: `anyio` (the bench fold's per-round loop driver), `expression` (`Block`/`Map`), `msgspec` (`Struct` carrier), `numpy` (frame columns), `psutil` (the cost bracket's `oneshot` sampler), `opentelemetry-api` — the ONE page that names the OTel tracer/span API, every sibling composing `evidence_run` — and runtime (`RuntimeRail`, `measured`/`Signals`/`OPEN` as the span-fence-harvest spine, `ContentKey`, `Receipt`, `Metrics.record` as the one instrument projection port, `Bench`/`BenchmarkReceipt` as the measurement tier `bench_seam` composes, `HookPoint`/`Hooks`/`Modality` as the registry `pulse_points` registers on, and `RuntimeProfile`/`JobRun` as the process-terminal envelope `bench_terminal` composes).
+- Growth: a new evidence class is one `GeometrySubject` member and its producing binding, shipping the compute-side decode ripple; a new producing page is one `EvidenceScope` member; a new cross-cutting concern on the weave is one composition inside `evidence_run`, never a per-page re-weave; a producer whose result carries `span_facts` gains span-visible evidence with zero weave edit; a new dashboard measure is one `MeasureRow` (and its runtime `INSTRUMENTS` counterpart row); a new hostile kernel names itself through runtime `Kernel.of`; a new mid-operation fact is one `GeometryPulse` member and one kernel `pulsed` call, zero conduit edits; a new frame family is one `frame()` row on its receipt owner; a new bench subject is one `bench_seam` composition on its producing page, zero runtime edits, and a process-terminal bench harness is one `bench_terminal` wrap composing the runtime `JobRun.bounded` envelope; the crossing is one-way data, no reverse direction.
+- Boundary: no compute import anywhere in the folder, the crossing being `wire()` data; no page-local tracer mint, emit pair, or inline span manager anywhere in the folder — the runtime `measured` weave owns span lifecycle and harvest, this owner adds only the geometry close-out; every weave span opens INTERNAL and nests beneath the live seam parent — the runtime `ServerHost` interceptor owns the SERVER span at the gRPC seam; no second subject vocabulary, bare-`str` subject, or per-receipt `subject` field racing the union. Mid-operation facts cross ONLY the lane `PulseConduit` through `pulsed` — an offloaded `KernelTrait.HOSTILE` kernel reaches the queue proxy alone, `Hooks.fire` runs parent-side in the drain, and the `rasm.geometry.graduation` span event stays the completion-grain tap beside the best-effort pulse stream. A `"numerical-primitive"` literal carrying compliance, lifecycle, or section evidence breaches the differentiated members; cost never rides `wire()` — the crossing widens only by the co-shipped trace carrier; the compute graduation interior is compute's to own — this owner only mints and projects.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -39,15 +40,15 @@ import psutil
 from expression import Ok, Result
 from expression.collections import Block, Map
 from msgspec import Struct
-from opentelemetry import trace
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry import propagate, trace
 
 from rasm.runtime.admission import RuntimeProfile
-from rasm.runtime.faults import RuntimeRail
+from rasm.runtime.faults import Disposition, RuntimeRail, traversed
+from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.profiles import Bench, BenchMode, BenchmarkReceipt, JobRun
-from rasm.runtime.receipts import OPEN, Receipt, Signals, measured
+from rasm.runtime.profiles import Bench, BenchmarkReceipt, JobRun
+from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, Signals, measured
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -100,6 +101,15 @@ class Aggregation(StrEnum):
     LAST = "last"
 
 
+class GeometryPulse(StrEnum):
+    # folder-owned mid-operation HookPoint ids under the runtime rasm.<pkg>.<domain>.<point> grammar; a new
+    # mid-operation fact is one member plus its kernel `pulsed` call — conduit, drop law, serialization, and
+    # `Hooks.fire` dispatch stay the runtime lane spine's.
+    TESSELLATION = "rasm.geometry.mesh.tessellation"
+    REGISTRATION = "rasm.geometry.scan.registration"
+    RECONSTRUCTION = "rasm.geometry.scan.reconstruction"
+
+
 @runtime_checkable
 class SpanFacts(Protocol):
     # structural close-out conformance the weave reads like the receipt harvest; flat primitives only — the span attribute API refuses a nested mapping.
@@ -111,23 +121,7 @@ class SpanFacts(Protocol):
 
 # frozen tuple compute inherits as decode-only wire data; a union change lands as a compute ripple, never a silent admit.
 SUBJECTS: Final[tuple[str, ...]] = tuple(member.value for member in GeometrySubject)
-_TRACE_WIRE: Final[TraceContextTextMapPropagator] = TraceContextTextMapPropagator()  # W3C codec: crossing mint AND upstream link decode
 _PROCESS: Final[psutil.Process] = psutil.Process()  # one parent-process handle the cost bracket samples through
-
-# worker-attach truth for the runtime profile counterpart: each row names the module-level HOSTILE kernels a scope's
-# offloads run, so flame-window tags spell one vocabulary with the evidence spans. Scope-less kernels — quality's
-# `_decimate_kernel`/`_topology_kernel`, spatial's `_dispatch` — window under the composing plane's member;
-# a new hostile kernel is one tuple entry on its scope row.
-PROFILE_SUBJECTS: Final[Map[EvidenceScope, tuple[str, ...]]] = Map.of_seq([
-    (EvidenceScope.MESH_SERVE, ("_tessellate_ifc", "_tessellate_cad")),
-    (EvidenceScope.MESH_REPAIR, ("_dispatch",)),
-    (EvidenceScope.MESH_BREP, ("_dispatch",)),
-    (EvidenceScope.SCAN_REGISTRATION, ("_register_kernel",)),
-    (EvidenceScope.SCAN_RECONSTRUCTION, ("_reconstruct_kernel",)),
-    (EvidenceScope.SCAN_DEVIATION, ("_deviation_kernel",)),
-    (EvidenceScope.IFC_LIFECYCLE, ("_lifecycle_kernel",)),
-    (EvidenceScope.ENERGY_SIMULATE, ("_translated",)),
-])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -148,6 +142,11 @@ UNIVERSAL_MEASURES: Final[tuple[MeasureRow, ...]] = (
     MeasureRow("rasm.geometry.evidence.rss_delta", "By", "rss_delta", Aggregation.MAX),
 )
 
+_MESH_MEASURES: Final[tuple[MeasureRow, ...]] = (
+    MeasureRow("rasm.geometry.mesh.genus", "1", "genus", Aggregation.MAX),
+    MeasureRow("rasm.geometry.mesh.aspect", "1", "worst_aspect_ratio", Aggregation.P95),
+)
+
 CHARTER: Final[Map[GeometrySubject, tuple[MeasureRow, ...]]] = Map.of_seq([
     (
         GeometrySubject.SCAN_DEVIATION,
@@ -159,18 +158,11 @@ CHARTER: Final[Map[GeometrySubject, tuple[MeasureRow, ...]]] = Map.of_seq([
     (
         GeometrySubject.RECONSTRUCTED_MESH,
         (
-            MeasureRow("rasm.geometry.mesh.genus", "1", "genus", Aggregation.MAX),
-            MeasureRow("rasm.geometry.mesh.aspect", "1", "worst_aspect_ratio", Aggregation.P95),
+            *_MESH_MEASURES,
             MeasureRow("rasm.bench.duration", "ms", "p50_ms", Aggregation.P95),
         ),
     ),
-    (
-        GeometrySubject.MESH_ALGEBRA,
-        (
-            MeasureRow("rasm.geometry.mesh.genus", "1", "genus", Aggregation.MAX),
-            MeasureRow("rasm.geometry.mesh.aspect", "1", "worst_aspect_ratio", Aggregation.P95),
-        ),
-    ),
+    (GeometrySubject.MESH_ALGEBRA, _MESH_MEASURES),
     (
         GeometrySubject.REGISTRATION_TRANSFORM,
         (
@@ -184,8 +176,16 @@ CHARTER: Final[Map[GeometrySubject, tuple[MeasureRow, ...]]] = Map.of_seq([
 
 
 def charter_of(subject: GeometrySubject) -> tuple[MeasureRow, ...]:
-    # dashboard authority: universal cost rows + the subject's own; instrument rows and the iac compile leg derive here.
+    # geometry dashboard authority: universal cost rows plus the subject's own; counterpart owners consume this table.
     return (*UNIVERSAL_MEASURES, *CHARTER.try_find(subject).default_value(()))
+
+
+# derived roster of every measure spelling the folder records — the runtime INSTRUMENTS census gates set-membership
+# against it, because a recorded measure's row IS its admission: a charter row without its registered instrument
+# counterpart is a producer-killing record fault, so the lag surfaces at the gate, never at first record.
+MEASURES: Final[frozenset[str]] = frozenset(row.measure for row in UNIVERSAL_MEASURES) | frozenset(
+    row.measure for _, rows in CHARTER.items() for row in rows
+)
 
 
 def charter_record(subject: GeometrySubject, source: Mapping[str, object], kind: str) -> None:
@@ -199,6 +199,17 @@ def charter_record(subject: GeometrySubject, source: Mapping[str, object], kind:
     }
     if measures:
         Metrics.record(measures, domain="geometry", kind=kind)
+
+
+# --- [PULSE]
+
+
+class PulseBeat(Struct, frozen=True, gc=False):
+    # one polymorphic payload every pulse point speaks: stage names the kernel milestone, done/total carry monotonic
+    # progress (total=0 where the kernel cannot know its extent); the struct pickles whole across the conduit proxy.
+    stage: str
+    done: int
+    total: int = 0
 
 
 # --- [EVIDENCE]
@@ -223,7 +234,7 @@ class EvidenceCost(Struct, frozen=True, gc=False):
 
     @property
     def measures(self) -> dict[str, float]:
-        # the UNIVERSAL_MEASURES rows projected by field name, so the charter stays the single edit site.
+        # UNIVERSAL_MEASURES rows project by field name, so the charter stays the single edit site.
         return {row.measure: float(getattr(self, row.field)) for row in UNIVERSAL_MEASURES}
 
     def contribute(self) -> Iterable[Receipt]:
@@ -235,13 +246,13 @@ class GeometryHandoff(Struct, frozen=True):
     key: ContentKey
     measured: dict[str, float]
     ceilings: dict[str, float]
-    traceparent: str | None = None  # optional W3C band: the producing evidence span's serialized context, absent meaning no link
+    trace: dict[str, str] | None = None  # full W3C composite carrier; absence means no producer link
 
     @classmethod
     def of(cls, subject: GeometrySubject, key: ContentKey, measured: Mapping[str, float], ceilings: Mapping[str, float]) -> "GeometryHandoff":
-        # of runs inside the producer's evidence_run span, so the minted band names the producing span and the
+        # of runs inside the producer's evidence_run span, so the minted carrier names the producing span and the
         # crossing lands as one `rasm.geometry.graduation` span event — zero producer edits either way.
-        handoff = cls(subject=subject, key=key, measured=dict(measured), ceilings=dict(ceilings), traceparent=_traceparent())
+        handoff = cls(subject=subject, key=key, measured=dict(measured), ceilings=dict(ceilings), trace=_trace())
         span = trace.get_current_span()
         if span.is_recording():
             span.add_event("rasm.geometry.graduation", dict(handoff.span_facts))
@@ -264,14 +275,14 @@ class GeometryHandoff(Struct, frozen=True):
         }
 
     def wire(self) -> dict[str, object]:
-        # the trace band ships only when minted, so a band-free crossing stays byte-identical to the pre-band wire.
+        # Trace carrier stays one optional field, so trace context and baggage cannot diverge into parallel knobs.
         return {
             "subject": self.subject.value,
             "key": self.key.hex,
             "measured": self.measured,
             "ceilings": self.ceilings,
             "admitted": self.admitted,
-            **({"traceparent": self.traceparent} if self.traceparent is not None else {}),
+            **({"trace": self.trace} if self.trace is not None else {}),
         }
 
     def contribute(self) -> Iterable[Receipt]:
@@ -279,8 +290,7 @@ class GeometryHandoff(Struct, frozen=True):
 
 
 class EvidenceFrame(Struct, frozen=True):
-    # subject-keyed columnar egress beside wire(): numpy-backed columns the data plane's arrow fold consumes whole,
-    # so evidence analytics never re-parse receipt payloads; dict order IS the column order.
+    # subject-keyed columnar egress beside wire(): numpy arrays are the crossing payload; dict order is column order.
     subject: GeometrySubject
     key: ContentKey
     columns: tuple[str, ...]
@@ -289,17 +299,13 @@ class EvidenceFrame(Struct, frozen=True):
     @classmethod
     def of(cls, subject: GeometrySubject, key: ContentKey, table: "Mapping[str, Sequence[object] | np.ndarray]") -> "EvidenceFrame":
         arrays = {name: np.asarray(values) for name, values in table.items()}
-        if len({array.shape[0] for array in arrays.values()}) > 1:
+        if len({len(array) for array in arrays.values()}) > 1:
             raise ValueError(f"ragged-frame:{subject.value}")  # converted once by the composing weave's fence
         return cls(subject=subject, key=key, columns=tuple(arrays), table=arrays)
 
     @property
     def rows(self) -> int:
-        return next(iter(self.table.values())).shape[0] if self.table else 0
-
-    def pydict(self) -> dict[str, list[object]]:
-        # the arrow-crossing shape: the data consumer feeds this straight into its Table fold beside ResultFrame.
-        return {name: self.table[name].tolist() for name in self.columns}
+        return len(next(iter(self.table.values()))) if self.table else 0
 
     def contribute(self) -> Iterable[Receipt]:
         yield Receipt.of("rasm.geometry.frame", ("emitted", self.subject.value, {"key": self.key.hex, "rows": self.rows, "columns": len(self.columns)}))
@@ -308,12 +314,12 @@ class EvidenceFrame(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _traceparent() -> str | None:
-    # W3C mint off the live span: the codec injects nothing for an invalid or absent span context, so the band is
-    # absent exactly when there is no producer trace to link — never an empty or garbage render on the wire.
+def _trace() -> dict[str, str] | None:
+    # W3C mint off the live span through the telemetry-installed composite: traceparent, tracestate, and baggage
+    # stay one carrier. An invalid or absent span context emits no traceparent and therefore no linkable crossing.
     carrier: dict[str, str] = {}
-    _TRACE_WIRE.inject(carrier)
-    return carrier.get("traceparent")
+    propagate.inject(carrier)
+    return carrier if "traceparent" in carrier else None
 
 
 def _sampled() -> tuple[float, int]:
@@ -323,14 +329,15 @@ def _sampled() -> tuple[float, int]:
         return times.user + times.system, _PROCESS.memory_info().rss
 
 
-def _linked(upstream: str | None) -> None:
-    # producer-chain join on the live measured span: an upstream W3C band decodes through the codec and folds one
-    # Link; a missing or malformed band folds nothing — the zero trace-id the codec leaves proves there is no
-    # producer trace to join. Name-mirrors the compute decode arm, so both crossing ends spell one fold.
+def _linked(upstream: Mapping[str, str] | None) -> None:
+    # producer-chain join on the live measured span: an upstream W3C carrier decodes through the installed global
+    # composite and folds one Link; a missing or malformed carrier folds nothing — an invalid extracted context
+    # proves there is no producer trace to join. Name-mirrors the compute decode arm, so both crossing ends
+    # spell one fold.
     if upstream is None:
         return
-    linked = trace.get_current_span(_TRACE_WIRE.extract({"traceparent": upstream})).get_span_context()
-    if linked.trace_id:
+    linked = trace.get_current_span(propagate.extract(upstream)).get_span_context()
+    if linked.is_valid:
         trace.get_current_span().add_link(linked, {"rasm.link.kind": "geometry-graduation"})
 
 
@@ -338,8 +345,8 @@ def _priced[T](scope: EvidenceScope, operation: str, started: float, before: tup
     # geometry close-out on the live measured span — OK status, ERROR marking, and span end stay the runtime
     # weave's. The cost bracket closes here: deltas land as span facts, charter measures, and one Signals-emitted
     # cost receipt; a conforming value annotates its facts, and a cleared value carrying a GeometrySubject renames
-    # the span `{operation}:{subject}` so trace search keys on subjects. Runs inside the runtime fence, so a
-    # record-time raise folds onto the rail instead of escaping it.
+    # span `{operation}:{subject}` so trace search keys on subjects. Runtime fence folds any record-time raise
+    # onto the rail instead of escaping it.
     ledger = EvidenceCost.of(scope, operation, started, before)
     span = trace.get_current_span()
     if span.is_recording():
@@ -359,7 +366,10 @@ def _flat[T](value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
 
 
 def evidence_run[T](
-    scope: EvidenceScope, operation: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], upstream: str | None = None
+    scope: EvidenceScope,
+    operation: str,
+    dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
+    upstream: Mapping[str, str] | None = None,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
     # composes the runtime measured weave — span lifecycle, modality probe, boundary fence, conditional receipt
     # harvest, OK/ERROR close — and adds only geometry's layer inside the live span: the upstream link fold, the
@@ -381,29 +391,33 @@ def evidence_run[T](
     return measured(scope.value, operation, OPEN, fold)
 
 
-def bench_seam(subject: str, seam: Callable[[], Awaitable[object]], *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
-    # entry-seam macro-bench fold every kernel page composes: both BenchMode rows run over ONE whole crossing —
-    # offload, kernel, and weave together, never an in-kernel probe (a HOSTILE worker reaches no live span) — and
-    # each BenchmarkReceipt harvests through the runtime Signals emit, so the receipt row and the runtime
-    # domain="bench" instrument projection fire at the receipt's own contribute, zero geometry instrument rows.
-    # anyio.run drives the awaitable seam per round on a fresh loop off any serving loop, and the warm process lane
-    # amortizes across rounds; a process-terminal run wraps this fold through bench_terminal below.
-    def rowed(mode: BenchMode) -> BenchmarkReceipt:
-        receipt = Bench.run(subject, lambda: anyio.run(seam), mode=mode, rounds=rounds, warmup=warmup)
-        Signals.emit(receipt, OPEN)
-        return receipt
-
-    return Block.of_seq(BenchMode).map(rowed)
+def bench_seam(subject: str, seam: Callable[[], Awaitable[object]], *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
+    # one measured window owns latency and throughput for the whole entry crossing; a mode knob would duplicate facts
+    # already held by BenchmarkReceipt. Signals harvests the receipt once, projecting both runtime bench measures.
+    receipt = Bench.run(subject, lambda: anyio.run(seam), rounds=rounds, warmup=warmup)
+    Signals.emit(receipt, OPEN)
+    return receipt
 
 
 def bench_terminal(
     profile: RuntimeProfile, endpoint: str, run_id: str, subject: str, seam: Callable[[], Awaitable[object]], *, rounds: int = 32, warmup: int = 4
-) -> RuntimeRail[Block[BenchmarkReceipt]]:
+) -> RuntimeRail[BenchmarkReceipt]:
     # process-terminal wrap of bench_seam: JobRun.bounded installs the job telemetry resource, runs the whole fold
     # under the boundary fence, then drives the flush-then-shutdown drain so the domain="bench" projection every
     # BenchmarkReceipt emits exports before the short-lived process exits — the seam's final leg for a one-shot
     # bench binary, where an in-daemon run composes bench_seam directly under the standing periodic reader.
     return JobRun.bounded(profile, endpoint, f"bench.{subject}", run_id, partial(bench_seam, subject, seam, rounds=rounds, warmup=warmup))
+
+
+def pulse_points(scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Block[HookPoint[Struct]]]:
+    # composition-time OBSERVE registration for every geometry pulse point: a HOSTILE kernel writes
+    # `pulsed(lane.pulses.tap, point, PulseBeat(...))` and the parent-side lane drain alone invokes `Hooks.fire`,
+    # so taps observe kernel progress with the worker reaching only the queue proxy; delivery is lossy by lane law —
+    # accepted beats arrive in conduit order, a full conduit drops, and no completeness claim rides a pulse.
+    rows = Block.of_seq(GeometryPulse).map(
+        lambda point: Hooks.register(HookPoint(id=point.value, payload=PulseBeat, modality=Modality.OBSERVE), scope=scope)
+    )
+    return traversed(rows, by=Disposition.ABORT)
 ```
 
 ## [03]-[RESEARCH]

@@ -1,6 +1,6 @@
 # [IAC_SPEC]
 
-Program shapes of the deploy plane in one page: `StackSpec` is the decoded value an app supplies to deploy — the closed arm union, its promotion-tier column, the coordinate options, and the capability profile — and the coordinates-never-material law makes every spec value loggable, diffable, and receipt-safe. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry and one tier row, a new deployment axis is one profile field with its default, a new published plane is one `Option` field whose channels derive from the field record.
+Program shapes of the deploy plane in one page: `StackSpec` is the decoded value an app supplies to deploy — the closed arm union, coordinate options, and capability profile — and the coordinates-never-material law makes every spec value loggable, diffable, and receipt-safe. `iac/src/program/spec.ts` is the module; a new cloud is one arm entry realized by `provider.md`, a new deployment axis is one profile field with its default, and a new published plane is one `Option` field whose channels derive from the field record.
 
 `Connection` owns the SSH coordinate product, and its `ssh` projection is the only spelling of the daemon URL. `Tier` adapts Pulumi's class model with one option fold and one terminal output registration, `StackOutputs` is the typed exit whose secret-refusal gate holds the raw `OutputMap` and whose `pairsOf` owns the one `<plane>.<field>` flatten, and `sharding` is the sole plane crossing back into the runtime graph — the two planes meet at the process boundary and never import each other.
 
@@ -8,7 +8,7 @@ Program shapes of the deploy plane in one page: `StackSpec` is the decoded value
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]       |
 | :-----: | :--------------- | :------------------------------------------------------------------- | :------------- |
-|  [01]   | `ARM_VOCABULARY` | the closed arm tuple, the promotion-tier column, the derived unions  | `StackSpec`    |
+|  [01]   | `ARM_VOCABULARY` | the closed arm tuple and derived identity union                       | `StackSpec`    |
 |  [02]   | `SPEC_OWNER`     | the app-supplied value: coordinates, profile, tenancy, defaults      | `StackSpec`    |
 |  [03]   | `TIER_BASE`      | the abstract component owner: token scope, option fold, seal, roster | `Tier`         |
 |  [04]   | `OUTPUT_PLANES`  | the decoded exit, the secret gate, the one channel-flatten owner     | `StackOutputs` |
@@ -16,21 +16,21 @@ Program shapes of the deploy plane in one page: `StackSpec` is the decoded value
 ## [02]-[ARM_VOCABULARY]
 
 [ARM_VOCABULARY]:
-- Owner: the interior `_arms` key tuple with the `_tiers` column — order, iteration, and the non-empty `Schema.Literal` spread are tuple facts stated once; `StackSpec.Arm` derives on the interior anchor, `StackSpec.arms`/`StackSpec.tiers` ride the class as statics, and the arm roster has one edit site branch-wide.
-- Law: the tier column is the promotion vocabulary — `selfhosted-k8s` is `primary` (the first-class arm every capability row realizes), `selfhosted-docker` is `realized` (a live arm over an owned daemon), and `aws`/`gcp`/`cloudflare` are `prepared` (live provider seams whose capability realization lands when an app finalizes with a spec value); `StackSpec.primary` projects the row so dispatch and policy read promotion as data, never a name comparison.
-- Growth: a new cloud is one `_arms` entry and one `_tiers` row — the provider record, the equivalence map, and the `Schema.Literal` admission all break at compile time until their rows land.
+- Owner: the interior `_arms` key tuple — order, iteration, and the non-empty `Schema.Literal` spread are tuple facts stated once; `StackSpec.Arm` derives on the interior anchor, `StackSpec.arms` rides the class as a static, and the arm roster has one edit site branch-wide.
+- Law: arm admission states identity only; realized capability is the construction inventory in `provider.md`'s `_map` and `_ARMS`.
+- Growth: a new cloud is one `_arms` entry — the provider record, the equivalence map, and the `Schema.Literal` admission all break at compile time until their rows land.
 - Boundary: which resources an arm composes and which program body runs are `provider.md`'s record and map.
 
 ## [03]-[SPEC_OWNER]
 
 [SPEC_OWNER]:
-- Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for prepared clouds, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
+- Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for cloud arms, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
 - Law: coordinates, never material — `Connection` carries host/user/port with the hardening coordinates (`hostKey` is the host's public key pinned against a MITM re-key, `bastion` is the jump-hop's own host/user/port row reusing the same struct) and no key field; the SSH private key, provider tokens, and generated passwords travel the provider material read or the in-graph Doppler fan-in, so a spec value never leaks into state, receipt, or log; the `ssh` getter on `Connection` is the one spelling of the daemon URL every consumer reads.
 - Law: `epoch` is the one rotation trigger — it feeds every `@pulumi/random` `keepers` map and every `@pulumi/command` `triggers` list, so bumping one field re-mints credentials and re-runs bootstrap deliberately; per-resource rotation knobs are the named defect.
-- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the prepared-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, and retention, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
-- Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, and `observe.ingest` the pg-server metrics arm — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
+- Law: the profile is defaults-total — `scale` selects the `kube/workload` sizing row, `compute` selects the cloud-arm workload posture (`serverless` = the managed container cell, `cluster` = the managed-Kubernetes escalation that reuses the whole `kube/*` roster), `extensions` names the `data` extension-matrix subset the data tier finalizes (validated against `Pg.rows` at `kube/data.md`, never here), `objectEngine` selects a conditional-put-conforming self-host row (`minio` = the maintained continuation image, `ceph` = the RGW row; the engine that cannot CAS has no literal to select), `exposure` selects the traffic posture (`direct` = the metal-address DNS row, `tunnel` = the Zero-Trust row, `internal` = no edge — the workload stands service-only and no edge coordinate is demanded), `data` carries instance count, storage, backup cron, and retention, `fanout` carries the NATS replica quorum and stream storage, and `tenancy` carries the isolation posture — every field defaulted at the declaration so `_Profile.make({})` is a complete standard deployment and an app states only its deltas.
+- Law: the observability backend is spec data — `observe.store` selects the metrics-store row (`prometheus` the reference row; `mimir` the fleet escalation whose object-store binding reuses the object plane and whose org-id header scopes the stack; `victoriametrics` the resource-pressure escape), `observe.retention` the store retention window, `observe.profiles` the Pyroscope row, `observe.ingest` the pg-server metrics arm, `observe.costs` the OpenCost pricing row, and `observe.ebpf` the privileged zero-code instrumentation row — every coordinate interpreted by `operate/observe.md`'s row family, never a second program body.
 - Law: tenancy is data, never code paths — `tenancy.mode` selects the isolation tier (`single` = one app one namespace; `namespace` = Capsule-governed namespace-per-tenant soft isolation; `vcluster` = virtual-control-plane-per-tenant hard isolation), `tenancy.pgTier` selects the data-plane escalation (`shared-rls` = one database with `Tenancy.rls` policy rows; `db-per-tenant` = one CNPG cluster with one `Database` CR per tenant; `cluster-per-tenant` = one CNPG `Cluster` per tenant), and `tenancy.tenants` names the tenant slugs the `kube/tenant.md` owner realizes rows for; a tenancy escalation is a spec delta interpreted by the owning tiers, never a second program body.
-- Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a prepared arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
+- Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — a cloud arm demanding an absent `region`, or a selfhosted arm demanding an absent `connection`, fails as a typed `DeployFault` inside its provider arm before the `PulumiFn` is entered, never as an `undefined` read and never as a construction-time throw inside a tier.
 - Entry: `StackSpec.make(...)` at the app seam; `Schema.decodeUnknown(StackSpec)` where the value arrives as data.
 - Growth: a new coordinate is one field with its dialect chosen here; a new profile axis is one `_Profile` field with its default; a new tenancy tier is one literal with its interpreting row in the owning tier.
 - Boundary: deploy-host facts (backend URL, passphrase, CLI root) are `automation.md`'s Config surface; extension validation is `kube/data.md`'s; sizing interpretation is `kube/workload.md`'s; tenant realization is `kube/tenant.md`'s.
@@ -41,13 +41,6 @@ import { AppIdentity } from "@rasm/ts/core"
 import { Schema } from "effect"
 
 const _arms = ["selfhosted-k8s", "selfhosted-docker", "aws", "gcp", "cloudflare"] as const
-const _tiers = {
-  "selfhosted-k8s": "primary",
-  "selfhosted-docker": "realized",
-  aws: "prepared",
-  gcp: "prepared",
-  cloudflare: "prepared",
-} as const
 
 const _Name = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,39}$/), Schema.brand("StackName"))
 
@@ -95,6 +88,8 @@ const _Observe = Schema.Struct({
   retention: Schema.optionalWith(Schema.NonEmptyString, { default: () => "30d" }),
   profiles: Schema.optionalWith(Schema.Boolean, { default: () => true }),
   ingest: Schema.optionalWith(Schema.Literal("scrape", "native"), { default: () => "scrape" as const }),
+  costs: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  ebpf: Schema.optionalWith(Schema.Boolean, { default: () => false }),
 })
 
 const _Profile = Schema.Struct({
@@ -126,10 +121,6 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   profile: Schema.optionalWith(_Profile, { default: () => _Profile.make({}) }),
 }) {
   static readonly arms: StackSpec.Arms = _arms
-  static readonly tiers: StackSpec.Tiers = _tiers
-  get primary(): boolean {
-    return _tiers[this.target] === "primary"
-  }
   get hosted(): boolean {
     return this.backend === "cloud"
   }
@@ -140,15 +131,12 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
 
 declare namespace StackSpec {
   type Arms = typeof _arms
-  type Tiers = typeof _tiers
   type Arm = (typeof _arms)[number]
-  type Tier = (typeof _tiers)[Arm]
   type Connection = InstanceType<typeof Connection>
   type Observe = typeof _Observe.Type
   type Profile = typeof _Profile.Type
   type Tenancy = typeof _Tenancy.Type
-  type _Tiers<T extends { readonly [K in Arm]: "primary" | "realized" | "prepared" } = typeof _tiers> = T
-  type _Keys<K extends Arm = keyof typeof _tiers> = K
+  type _Keys<K extends Arm = (typeof _arms)[number]> = K
 }
 ```
 
@@ -206,7 +194,7 @@ abstract class Tier extends pulumi.ComponentResource {
 ## [05]-[OUTPUT_PLANES]
 
 [OUTPUT_PLANES]:
-- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (the content-addressed asset path per ui roster slug, `program/source.md`'s serving derivation), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, `served` alone an open `Schema.Record` because its keys are the ui roster's slugs; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
+- Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `served` (caller-owned artifact slug to content-addressed path), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape, while `served` is an open `Schema.Record` because its key vocabulary belongs to its caller; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.
 - Law: `pairsOf(planes, render)` is the one channel-flatten — the `<plane>.<field>` spelling and the plane iteration exist exactly here, parameterized on the value renderer; the decoded `pairs` getter rides it with `String`, the in-program live assembly rides it with `pulumi.output(value).apply(String)`, and the plane set feeding the getter derives from the class's own field record through `Record.getSomes`, so no hand-listed plane tuple exists, a new field cannot be silently dropped, and the two modalities cannot drift.
 - Law: `read(stack, name)` is the one exit from the engine's `OutputMap` — `stack.outputs()` converts at this seam with the `DeployFault` triage, one entries scan yields both the secret-refusal verdict and the leaked-key evidence (the gate refuses any `{ secret: true }` entry naming the keys in the fault detail), the `{ value, secret }` envelope strips to plain values, and the record decodes through the class; the `Object` reads sit inside the boundary because the map is FFI material, and no decoded value is re-checked downstream.
 - Law: coordinates, never material — a role name, host, port, origin, or URL is publishable; a password, token, or key is not, and the fix for a refused output is moving the value into the Doppler store, never widening the gate.
@@ -277,3 +265,12 @@ declare namespace StackOutputs {
 
 export { Connection, StackOutputs, StackSpec, Tier }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

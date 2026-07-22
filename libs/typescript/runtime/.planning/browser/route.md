@@ -620,3 +620,12 @@ class Guard extends Effect.Service<Guard>()("runtime/browser/Guard", {
 
 export { Confirm, FlowFault, Guard, RouteFault, Router, SessionStatus, Vault }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -2,7 +2,7 @@
 
 Engine-stat observability, the receipt-slot registry, the hook rail, and the store instrument contributor: one slot grammar names every evidence stream Persistence emits, one registry enforces uniqueness at composition, one harvest fold turns each engine's statistics surface — PostgreSQL cumulative views, DuckDB profiling output, SQLite status counters — into typed receipts, one plan-shape rail turns suspect statements into typed drift verdicts, one hook roster gives the durable lifecycle its veto/observe/replay points, one usage census turns storage truth into chargeback evidence, and one contributor projects the receipt fan into `rasm.persistence.*` instruments. Embedded engines expose no scrape surface, so the embedding process is their observer and the receipt rail is their observability.
 
-Settled composition: `ReceiptSinkPort` and `ProjectionContext` arrive from the AppHost port vocabulary; `TelemetrySource.Persistence`, `InstrumentRow`, `TelemetryContributorPort`, `InstrumentSet`, and the receipt observe tap arrive from the observability spine; the hook vocabulary — `HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `HookIsolation` — arrives settled from the AppHost hook rail. Provider instrumentation subscribes at the AppHost root as four settled rows: `Npgsql.OpenTelemetry` — `AddNpgsql()` tracing plus the `Npgsql` meter by name under the `AddView` posture the `NpgsqlDataSourceBuilder.Name` pool dimension keys; `OpenTelemetry.Instrumentation.EntityFrameworkCore` — `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql`, the ORM-layer command span nesting over the ADO-layer driver span, complementary never redundant, trace-only beside the `Npgsql` meter roster; `OpenTelemetry.Instrumentation.StackExchangeRedis` — `AddRedisInstrumentation(connection)` binding the cache multiplexer with the handle captured through `ConfigureRedisInstrumentation` so `AddConnection` binds the egress `RedisStream` multiplexer under one subscription, tracer-only with `Filter`/`Enrich` unset on the hot cache path; `OpenTelemetry.Instrumentation.AWS` — `AddAWSInstrumentation` on the tracer AND meter builders once, the shared `AWSSDK.Core` pipeline customizer spanning both the `AWSSDK.S3` object-store and `AWSSDK.KeyManagementService` custody clients, `SuppressDownstreamInstrumentation` set where HTTP instrumentation co-admits. Metric names are dotted `rasm.<domain>.<measure>`, units UCUM, scope id the emitting package id.
+Settled composition: `ReceiptSinkPort` and `ProjectionContext` arrive from the AppHost port vocabulary; `InstrumentRow`, `InstrumentSet`, `InstrumentArm`, `LevelCells`, `TelemetryContributorPort`, and the hook vocabulary — `HookPoint<TFact>`, `HookId`, `HookModality`, `HookRegistry`, `IsolatedFault` — arrive settled from the kernel signal capsule; the receipt observe tap arrives from the AppHost hook rail. Provider instrumentation subscribes at the AppHost root as four settled rows: `Npgsql.OpenTelemetry` — `AddNpgsql()` tracing and the `Npgsql` meter by name under the `AddView` posture the `NpgsqlDataSourceBuilder.Name` pool dimension keys; `OpenTelemetry.Instrumentation.EntityFrameworkCore` — `AddEntityFrameworkCoreInstrumentation` beside `AddNpgsql`, the ORM-layer command span nesting over the ADO-layer driver span, complementary never redundant, trace-only beside the `Npgsql` meter roster; `OpenTelemetry.Instrumentation.StackExchangeRedis` — `AddRedisInstrumentation(connection)` binding the cache multiplexer with the handle captured through `ConfigureRedisInstrumentation` so `AddConnection` binds the egress `RedisStream` multiplexer under one subscription, tracer-only with `Filter`/`Enrich` unset on the hot cache path; `OpenTelemetry.Instrumentation.AWS` — `AddAWSInstrumentation` on the tracer AND meter builders once, the shared `AWSSDK.Core` pipeline customizer spanning both the `AWSSDK.S3` object-store and `AWSSDK.KeyManagementService` custody clients, `SuppressDownstreamInstrumentation` set where HTTP instrumentation co-admits. Metric names are dotted `rasm.<domain>.<measure>`, units UCUM, scope id the emitting package id.
 
 ## [01]-[INDEX]
 
@@ -11,14 +11,14 @@ Settled composition: `ReceiptSinkPort` and `ProjectionContext` arrive from the A
 - [03]-[DUCKDB_PROFILE_HARVEST]: Profiling-JSON harvest off the analytical lane.
 - [04]-[SQLITE_STATUS_HARVEST]: Statement and connection status counters off the raw bridge.
 - [05]-[PLAN_PROFILE]: Three-engine plan-shape capture, digest baselines, and the typed drift verdict.
-- [06]-[HOOK_RAIL]: The `rasm.persistence.<domain>.<point>` roster over the settled AppHost hook vocabulary.
-- [07]-[USAGE_PROJECTION]: The (tenant, class, tier) usage census under `store.cost.usage`.
+- [06]-[HOOK_RAIL]: `rasm.persistence.<domain>.<point>` roster over the settled AppHost hook vocabulary.
+- [07]-[USAGE_PROJECTION]: (tenant, class, tier) usage census under `store.cost.usage`.
 - [08]-[STORE_INSTRUMENTS]: `rasm.persistence.*` instrument roster, contributor port, census egress, and receipt-projection arms.
 
 ## [02]-[SLOT_REGISTRY]
 
 - Owner: `StoreSlot` `[ValueObject<string>]` — the slot name under the `store.<domain>.<verb>` grammar, the verb a dotted path when one domain carries verb families; `SlotRegistry` — the composition-time catalog of every slot this package emits.
-- Entry: `SlotRegistry.Mount(params ReadOnlySpan<StoreSlot> slots)` — freezes the catalog and throws on a duplicate at composition; `SlotRegistry.Mounted(params ReadOnlySpan<StoreSlot> contributed)` — the composition-root census spreading every page's contributed roster plus any sibling-package family the call site supplies; `SlotRegistry.Admit(SlotRegistry registry, StoreSlot slot)` — the pre-send gate every receipt emission crosses, so an unregistered slot is a typed refusal, never a silent new stream.
+- Entry: `SlotRegistry.Mount(params ReadOnlySpan<StoreSlot> slots)` — freezes the catalog and throws on a duplicate at composition; `SlotRegistry.Mounted(params ReadOnlySpan<StoreSlot> contributed)` — the composition-root census spreading every page's contributed roster and any sibling-package family the call site supplies; `SlotRegistry.Admit(SlotRegistry registry, StoreSlot slot)` — the pre-send gate every receipt emission crosses, so an unregistered slot is a typed refusal, never a silent new stream.
 - Auto: each owning page carries one `Slots` roster on its primary owner and `Mounted` spreads them, so the registry is the one census of the emitted-signal surface and discovery stops being page-by-page archaeology.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new evidence stream is one `StoreSlot` row on its owning page's roster; the grammar admits a new domain or verb with zero registry edits.
@@ -56,7 +56,7 @@ public sealed record SlotRegistry(FrozenSet<string> Slots) {
         .. IssueSource.Slots, .. Coordinate.Slots, .. ClusterProvision.Slots, .. ObjectIo.Slots,
         .. ModelResultIndex.Slots, .. ColumnarLane.Slots, .. ReadRouter.Slots, .. GraphSession.Slots,
         .. Federation.Slots, .. Traversals.Slots, .. SearchRoute.Slots, .. OpLog.Slots,
-        .. EgressPump.Slots, .. StructuralMerge.Slots, .. Crdt.Slots, .. RecoveryRoutes.Slots,
+        .. EgressPump.Slots, .. CdcIngress.Slots, .. StructuralMerge.Slots, .. Crdt.Slots, .. RecoveryRoutes.Slots,
         .. TimeTravel.Slots, .. contributed]);
 
     public static Fin<StoreSlot> Admit(SlotRegistry registry, StoreSlot slot) =>
@@ -104,7 +104,7 @@ public static class PgStatHarvest {
 
     const string StatementsSql = """
         SELECT queryid, calls, total_exec_time, mean_exec_time, rows,
-               shared_blks_hit, shared_blks_read, wal_bytes
+               shared_blks_hit, shared_blks_read, wal_bytes::bigint
         FROM pg_stat_statements
         ORDER BY total_exec_time DESC
         LIMIT $1
@@ -125,28 +125,28 @@ public static class PgStatHarvest {
             await using var command = source.CreateCommand(StatementsSql);
             command.Parameters.AddWithValue(top);
             await using var reader = await command.ExecuteReaderAsync();
-            var rows = Seq<StatementStatRow>();
+            var rows = new List<StatementStatRow>();
             while (await reader.ReadAsync()) {
-                rows = rows.Add(new StatementStatRow(
+                rows.Add(new StatementStatRow(
                     reader.GetInt64(0), reader.GetInt64(1), reader.GetDouble(2), reader.GetDouble(3),
                     reader.GetInt64(4), reader.GetInt64(5), reader.GetInt64(6), reader.GetInt64(7)));
             }
-            return rows.Strict();
+            return toSeq(rows).Strict();
         });
 
     public static IO<Seq<IoStatRow>> Io(NpgsqlDataSource source) =>
         IO.liftAsync(async () => {
             await using var command = source.CreateCommand(IoSql);
             await using var reader = await command.ExecuteReaderAsync();
-            var rows = Seq<IoStatRow>();
+            var rows = new List<IoStatRow>();
             while (await reader.ReadAsync()) {
-                rows = rows.Add(new IoStatRow(
+                rows.Add(new IoStatRow(
                     reader.GetString(0), reader.GetString(1), reader.GetString(2),
                     reader.GetInt64(3), reader.GetInt64(4), reader.GetInt64(5), reader.GetInt64(6),
                     reader.GetInt64(7), reader.GetInt64(8), reader.GetInt64(9), reader.GetInt64(10),
                     reader.GetInt64(11)));
             }
-            return rows.Strict();
+            return toSeq(rows).Strict();
         });
 }
 ```
@@ -154,12 +154,12 @@ public static class PgStatHarvest {
 ## [04]-[DUCKDB_PROFILE_HARVEST]
 
 - Owner: `DuckProfileHarvest` — the profiling-switch bracket and the profile receipt over the analytical lane's connection.
-- Entry: `DuckProfileHarvest.Profiled(DuckDBConnection connection, string sql, ProjectionContext context)` — runs one statement under `enable_profiling='json'` with `profiling_output` redirected to a run-scoped file, parses the JSON, and folds one `DuckProfileReceipt`.
-- Auto: `profiling_mode` stays `standard` for routine harvests and the detailed optimizer metrics enter as one pragma value when a plan investigation demands them; the per-operator tree folds to a digest with the top-cost operator rows so the receipt stays bounded while the full JSON lands as an artifact when retained.
+- Entry: `DuckProfileHarvest.Profiled(DuckDBConnection connection, string sql, string outputPath, ProjectionContext context)` — runs one statement under `enable_profiling='json'` with `profiling_output` redirected to the caller's run-scoped artifact path, parses the JSON, deletes the scratch artifact, and folds one `DuckProfileReceipt`.
+- Auto: `profiling_mode` stays `standard` for routine harvests and the detailed optimizer metrics enter as one pragma value when a plan investigation demands them; the per-operator tree folds to a digest with the top-cost operator rows, and the bracket deletes the decoded JSON scratch file so the receipt is the retained profile truth.
 - Receipt: `DuckProfileReceipt` — latency, CPU time, rows returned, result-set bytes, blocked-thread time, operator-tree digest, top operator rows, the frame's instant and correlation; fans under `store.stat.duckdb`.
 - Packages: DuckDB.NET.Data.Full, LanguageExt.Core, NodaTime, System.IO.Hashing.
 - Growth: one profiling metric key is one receipt field and one parse line; plan-shape capture and drift verdicts are the `#PLAN_PROFILE` rail's, which probes `EXPLAIN (FORMAT json)` without arming this profiling bracket.
-- Boundary: the profiling switch is connection state, so the bracket sets, runs, and resets on every exit path — a lane query outside the bracket runs unprofiled at full speed; the harvest borrows the `Query/columnar` connection and mints no second DuckDB lane; the analytical lane is process-scoped, so the receipt carries the frame's correlation and instant while tenant stays a `ProjectionContext` fact the sink envelope carries by ruling.
+- Boundary: the profiling switch is connection state, so the bracket sets, runs, and resets on every exit path — a lane query outside the bracket runs unprofiled at full speed; `outputPath` arrives from the configured artifact owner, resolves to a full path, escapes as a DuckDB string literal, and is deleted after decode on success or failure, so ambient temp storage and orphaned profile files are forbidden; the harvest borrows the `Query/columnar` connection and mints no second DuckDB lane; the analytical lane is process-scoped, so the receipt carries the frame's correlation and instant while tenant stays a `ProjectionContext` fact the sink envelope carries by ruling.
 
 ```csharp signature
 public sealed record DuckOperatorRow(string Name, double TimingSeconds, long Cardinality);
@@ -172,14 +172,17 @@ public sealed record DuckProfileReceipt(
 public static class DuckProfileHarvest {
     public static readonly StoreSlot Slot = StoreSlot.Create("store.stat.duckdb");
 
-    public static IO<DuckProfileReceipt> Profiled(DuckDBConnection connection, string sql, ProjectionContext context) =>
+    public static IO<DuckProfileReceipt> Profiled(DuckDBConnection connection, string sql, string outputPath, ProjectionContext context) =>
         IO.liftAsync(async () => {
-            var output = Path.Join(Path.GetTempPath(), $"duck-profile-{context.Correlation}.json");
-            await using (var arm = connection.CreateCommand()) {
-                arm.CommandText = $"PRAGMA enable_profiling='json'; PRAGMA profiling_output='{output}'; PRAGMA profiling_mode='standard';";
-                await arm.ExecuteNonQueryAsync();
-            }
+            var output = Path.GetFullPath(outputPath);
+            var escapedOutput = output.Replace("'", "''", StringComparison.Ordinal);
+            var armed = false;
             try {
+                await using (var arm = connection.CreateCommand()) {
+                    arm.CommandText = $"PRAGMA enable_profiling='json'; PRAGMA profiling_output='{escapedOutput}'; PRAGMA profiling_mode='standard';";
+                    armed = true;
+                    await arm.ExecuteNonQueryAsync();
+                }
                 await using var work = connection.CreateCommand();
                 work.CommandText = sql;
                 await work.ExecuteNonQueryAsync();
@@ -187,9 +190,16 @@ public static class DuckProfileHarvest {
                 return Decode(profile.RootElement, context);
             }
             finally {
-                await using var disarm = connection.CreateCommand();
-                disarm.CommandText = "PRAGMA disable_profiling;";
-                await disarm.ExecuteNonQueryAsync();
+                try {
+                    if (armed) {
+                        await using var disarm = connection.CreateCommand();
+                        disarm.CommandText = "PRAGMA disable_profiling;";
+                        await disarm.ExecuteNonQueryAsync();
+                    }
+                }
+                finally {
+                    File.Delete(output);
+                }
             }
         });
 
@@ -283,7 +293,7 @@ public static class SqliteStatHarvest {
 - Auto: each leg folds its engine's plan artifact to a SHAPE-ONLY digest — node kinds, join types, relation and index names for PostgreSQL, the physical-operator tree for DuckDB, the `EXPLAIN QUERY PLAN` detail rows for SQLite — so the digest is run-stable: a flipped join order or a lost index moves it, a slow run does not; statement identity is the pg `queryid` when the `compute_query_id` posture supplies one, else the invariant hash of the statement text.
 - Receipt: a capture rides `store.stat.plan` carrying the engine, statement key, shape digest, and verdict rule; the drift counter projects through the `#STORE_INSTRUMENTS` arm.
 - Packages: Npgsql, DuckDB.NET.Data.Full, Microsoft.Data.Sqlite, System.IO.Hashing, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a fourth engine is one `PlanSubject` case plus one leg; a richer shape facet is one row in the pg facet list or one decode line; zero new surface — a per-engine capture service or a timing-bearing digest is the deleted form.
+- Growth: a fourth engine is one `PlanSubject` case and one leg; a richer shape facet is one row in the pg facet list or one decode line; zero new surface — a per-engine capture service or a timing-bearing digest is the deleted form.
 - Boundary: the digest preimage carries SHAPE facets only — a timing or cardinality byte makes every run drift, the deleted form; the pg statement key joins `pg_stat_statements.queryid` so the explaining half joins the `#PG_STAT_HARVEST` evidence, and the `#SQLITE_STATUS_HARVEST` full-scan tell names the suspect statement this leg explains; the pg leg's `ANALYZE` executes the statement, so capture runs deliberately on a suspect lane, never ambient; the DuckDB leg reads `EXPLAIN (FORMAT json)`'s `physical_plan` row without arming the profiling bracket, so plan capture and profile harvest stay independent probes.
 
 ```csharp signature
@@ -297,7 +307,7 @@ public sealed partial class PlanEngine {
     public static readonly PlanEngine Sqlite = new("sqlite");
 }
 
-// The capture request union: one entry discriminates the engine by the value's shape.
+// Capture request union: one entry discriminates the engine by the value's shape.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlanSubject {
     private PlanSubject() { }
@@ -325,7 +335,7 @@ public abstract partial record PlanVerdict {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-// The statement-identity-keyed baseline persisted in the relational identity tier: pg `queryid` when the
+// Statement-identity baseline persists in the relational identity tier: pg `queryid` when the
 // server computes one, else the invariant hash of the statement text — one identity axis per engine.
 public sealed record PlanBaselineRow(PlanEngine Engine, UInt128 StatementKey, UInt128 Shape, Instant At) {
     public Guid Id { get; init; } = Guid.CreateVersion7();
@@ -364,7 +374,7 @@ public static class PlanProfile {
         });
 
     // Duck leg: EXPLAIN (FORMAT json) emits (explain_key, explain_value) rows; the physical_plan row carries
-    // the operator tree this fold digests by name over children — no profiling bracket armed.
+    // Operator tree folds by name over children with no profiling bracket armed.
     static IO<(UInt128 Key, UInt128 Shape)> Duck(PlanSubject.Duck leg) =>
         IO.liftAsync(async () => {
             await using var command = leg.Connection.CreateCommand();
@@ -380,8 +390,8 @@ public static class PlanProfile {
             return (Key(leg.Sql), shape.GetCurrentHashAsUInt128());
         });
 
-    // Sqlite leg: EXPLAIN QUERY PLAN rows' detail column carries the SCAN/SEARCH text plus the index name —
-    // the whole shape, digested in row order.
+    // Sqlite leg: EXPLAIN QUERY PLAN rows' detail column carries SCAN/SEARCH text and the index name.
+    // Whole shape digests in row order.
     static IO<(UInt128 Key, UInt128 Shape)> Sqlite(PlanSubject.Sqlite leg) =>
         IO.liftAsync(async () => {
             await using var command = leg.Connection.CreateCommand();
@@ -414,40 +424,45 @@ public static class PlanProfile {
 
 ## [07]-[HOOK_RAIL]
 
-- Owner: `PersistenceHooks` — the folder's typed point roster over the settled AppHost hook vocabulary, plus the `Guarded` and `Swept` composition adapters that fire the veto points without touching any owner rail signature.
+- Owner: `PersistenceHooks` — the folder's typed point roster over the kernel signal capsule, with the `Guarded` and `Swept` composition adapters that fire veto points without touching owner rail signatures.
 - Cases: six points — `rasm.persistence.element.append` (`Veto` over `GraphStoreOp`), `rasm.persistence.element.committed` (`Observe` over `GraphReceipt`), `rasm.persistence.egress.delivered` (`Observe` over `EgressReceipt`), `rasm.persistence.retention.sweep` (`Veto` over `SweepVerdict`), `rasm.persistence.merge.conflict` (`Observe` over `ConflictReceipt`), `rasm.persistence.recovery.replay` (`Replay` over `StepFact`).
 - Entry: `PersistenceHooks.Live()` — one fresh roster per composition so two apps never share a mount; `Points()` — the census the composition root spreads into the settled `HookRegistry.Mount` beside the AppHost rail's own points, structural id uniqueness across both rosters.
-- Auto: veto fold, observe isolation, and replay depth ride the settled `HookPoint<TFact>` capsule; a throwing or failing subscriber converts on the settled `HookIsolation` rail — subscriber failure is hook-rail evidence, never a `StatFault` arm and never a broken emitter.
+- Auto: veto fold, observe isolation, and replay depth ride the settled `HookPoint<TFact>` capsule; a throwing or failing subscriber parks as `IsolatedFault` on the roster's evidence cell — subscriber failure is hook-rail evidence, never a `StatFault` arm and never a broken emitter.
 - Receipt: none — a hook fire is the evidence event itself; the emitter's own receipt already carries the fact.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, BCL inbox.
-- Growth: a new point is one typed field plus one `Points` row; a subscriber is one `Observe`/`Veto` call at composition; a new lifecycle domain contributes its point through this roster, never a second registry type.
+- Growth: a new point is one typed field and one `Points` row; a subscriber is one `Observe`/`Veto` call at composition; a new lifecycle domain contributes its point through this roster, never a second registry type.
 - Boundary: point ids ride the `rasm.<pkg>.<domain>.<point>` grammar the settled `HookId` factory admits, `persistence` the pkg segment; the owning pages fire through the composition adapters and injected taps — a hook parameter on an owner rail signature is the deleted form; the AppHost `Receipt` point already taps every envelope this package emits, so these points carry what that tap cannot: the TYPED facts and the two veto modalities; policy engines, audit sidecars, and UI live-update legs subscribe here without touching owner rails.
 
 ```csharp signature
-// The folder hook roster over the settled AppHost vocabulary: six typed points minted fresh per composition.
-// Subscriber faults isolate on the settled `HookIsolation` rail; the `StatFault` band stays the harvest rail's.
+// Folder hook roster mints six typed points per composition over the kernel capsule.
+// Subscriber faults park as `IsolatedFault` on the roster cell; the `StatFault` band stays the harvest rail's.
 public sealed record PersistenceHooks(
     HookPoint<GraphStoreOp> ElementAppend,
     HookPoint<GraphReceipt> ElementCommitted,
     HookPoint<EgressReceipt> EgressDelivered,
     HookPoint<SweepVerdict> SweepEvict,
     HookPoint<ConflictReceipt> MergeConflict,
-    HookPoint<StepFact> RecoveryReplay) {
+    HookPoint<StepFact> RecoveryReplay,
+    Atom<Seq<IsolatedFault>> Faults) {
 
-    public static PersistenceHooks Live() => new(
-        new HookPoint<GraphStoreOp>(HookId.Create("rasm.persistence.element.append"), HookModality.Veto),
-        new HookPoint<GraphReceipt>(HookId.Create("rasm.persistence.element.committed"), HookModality.Observe),
-        new HookPoint<EgressReceipt>(HookId.Create("rasm.persistence.egress.delivered"), HookModality.Observe),
-        new HookPoint<SweepVerdict>(HookId.Create("rasm.persistence.retention.sweep"), HookModality.Veto),
-        new HookPoint<ConflictReceipt>(HookId.Create("rasm.persistence.merge.conflict"), HookModality.Observe),
-        new HookPoint<StepFact>(HookId.Create("rasm.persistence.recovery.replay"), HookModality.Replay));
+    public static PersistenceHooks Live() {
+        var faults = Atom(Seq<IsolatedFault>());
+        return new(
+            new(HookId.Create("rasm.persistence.element.append"), HookModality.Veto, faults),
+            new(HookId.Create("rasm.persistence.element.committed"), HookModality.Observe, faults),
+            new(HookId.Create("rasm.persistence.egress.delivered"), HookModality.Observe, faults),
+            new(HookId.Create("rasm.persistence.retention.sweep"), HookModality.Veto, faults),
+            new(HookId.Create("rasm.persistence.merge.conflict"), HookModality.Observe, faults),
+            new(HookId.Create("rasm.persistence.recovery.replay"), HookModality.Replay, faults),
+            faults);
+    }
 
-    // The census the composition root spreads into the settled `HookRegistry.Mount` beside the AppHost rail's
+    // Census spreads into the settled `HookRegistry.Mount` beside the AppHost rail's
     // points — one frozen audit table per composition, duplicate ids structurally fatal.
     public Seq<IHookPoint> Points() => Seq<IHookPoint>(
         ElementAppend, ElementCommitted, EgressDelivered, SweepEvict, MergeConflict, RecoveryReplay);
 
-    // The append seam: the op crosses the veto fold BEFORE the rail runs (a refusal returns on the caller's
+    // Append seam crosses the veto fold BEFORE the rail runs (a refusal returns on the caller's
     // own Fin rail), and the settled receipt fires the committed observe tap — a decoration at the composition
     // root, never a hook parameter on `GraphStore.Run`.
     public IO<Fin<GraphReceipt>> Guarded(IDocumentSession session, GraphStoreOp op, ProjectionContext frame, CancellationToken cancellationToken) =>
@@ -456,7 +471,7 @@ public sealed record PersistenceHooks(
                 .Map(outcome => outcome.Map(receipt => ElementCommitted.Fire(receipt).IfFail(receipt))),
             Fail: error => IO.pure(Fin<GraphReceipt>.Fail(error)));
 
-    // The sweep seam: every evict verdict crosses the veto BEFORE the retention executor runs — a subscriber
+    // Sweep seam crosses every evict verdict before the retention executor runs; a subscriber
     // refusal DOWNGRADES that verdict to Held (the artifact survives the pass, receipted under the veto rule),
     // never an aborted sweep; retained verdicts pass untouched.
     public Seq<SweepVerdict> Swept(Seq<SweepVerdict> verdicts) =>
@@ -470,17 +485,17 @@ public sealed record PersistenceHooks(
 
 - Owner: `StoreUsage` — the (tenant, class, tier) usage census; `UsageReceipt` the chargeback row.
 - Entry: `StoreUsage.Fold(Seq<BlobCatalogRow> catalog, Seq<(UInt128 Tenant, EgressReceipt Drain)> drains, ProjectionContext frame)` — one pure fold over the content-lineage catalog snapshot and the drain receipts; a resumed census re-folds with no journal.
-- Auto: catalog rows group under `(tenant, class, tier)` summing the SEALED byte figures (never a later filesystem stat) and counting objects; drain receipts fold their delivered counts onto the drain tenant's `stream`-class row — the egress obligation is event-stream custody; the census batch fans under `store.cost.usage` carrying its `rows` array, and the `#STORE_INSTRUMENTS` arm folds it into the `StoreLevel.Live.Usage` atom the multi-measurement gauges read at collection cadence.
+- Auto: catalog rows group under `(tenant, class, tier)` summing the SEALED byte figures (never a later filesystem stat) and counting objects; drain receipts fold their delivered counts onto the drain tenant's `stream`-class row — the egress obligation is event-stream custody; the census batch fans under `store.cost.usage` carrying its `rows` array, and the `#STORE_INSTRUMENTS` arm folds it into the composition `StoreLevel` usage atom the multi-measurement gauges read at collection cadence.
 - Receipt: `UsageReceipt` rows under `store.cost.usage`; identity-tier journal rows stay billing truth and the instrument projection is the lossy dashboard channel.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox.
-- Growth: a new usage axis is one `UsageReceipt` field plus one gauge row; a new source census is one `Fold` argument row.
+- Growth: a new usage axis is one `UsageReceipt` field and one gauge row; a new source census is one `Fold` argument row.
 - Boundary: tenant is the injected frame/catalog column (the RLS partition), never an ambient read; the per-tenant meter dimension rides the `rasm.tenant` spelling under the estate `*`-wildcard series cap — above the cap, attribution rides receipts and exemplar-sampled traces, never unbounded tag values.
 
 ```csharp signature
-// The chargeback row: bytes/objects fold from the `Store/blobstore#BLOB_GC` `BlobCatalogRow` census,
+// Chargeback bytes/objects fold from the `Store/blobstore#BLOB_GC` `BlobCatalogRow` census,
 // deliveries from the egress drain receipts under the drain frame's tenant.
 public sealed record UsageReceipt(UInt128 Tenant, RetentionClass Class, StorageTier Tier, long Bytes, long Objects, long Deliveries, Instant At, Guid Correlation) {
-    // The multi-measurement gauge projection: one measurement per row, tenant/class/tier as its tags.
+    // Multi-measurement gauge projects one row per measurement with tenant/class/tier tags.
     public Measurement<long> Measured(long value) => new(value,
         new KeyValuePair<string, object?>("rasm.tenant", Tenant.ToString()),
         new KeyValuePair<string, object?>("class", Class.Key),
@@ -508,20 +523,22 @@ public static class StoreUsage {
 ## [09]-[STORE_INSTRUMENTS]
 
 - Owner: `StoreInstruments` — the Persistence `InstrumentRow` roster, the `TelemetryContributorPort` mint, the census egress, and the kind-keyed projection arms; `StoreLevel` — the level atoms the observable gauges read; `StoreTelemetryCensus`/`CensusRow` — the declared-truth wire record the dashboard plane compiles from.
-- Cases: statement-duration histogram off the pg statements batch; I/O hit-ratio gauge off the pg I/O batch; DuckDB latency and row histograms off the profile receipt; SQLite VM-step and full-scan counters off the interval receipt with the cache-ratio gauge off the connection sample; egress delivery and dead-letter counters plus the drain-duration histogram off the drain receipts; the plan-drift counter off the plan receipt; the usage byte/object/delivery gauges off the usage census atom.
-- Entry: `StoreInstruments.Telemetry(string version, string schemaUrl)` — the contributor port peer of the AppHost host roster, carrying every row under `TelemetrySource.Persistence` with the semconv schema coordinate the mint stamps as `MeterOptions.TelemetrySchemaUrl`; `StoreInstruments.Arms` — the kind-keyed projection rows the AppHost receipt fan mounts beside its own arms at the composition root; `StoreInstruments.Census(string version, SlotRegistry registry)` — the declared-truth census folding rows, bucket thresholds, mounted slots, and projected-arm keys into one wire record, so a new instrument or slot appears on the board with zero dashboard edits and a hand-listed metric name in a dashboard is the deleted form.
+- Cases: statement-duration histogram off the pg statements batch; I/O hit-ratio gauge off the pg I/O batch; DuckDB latency and row histograms off the profile receipt; SQLite VM-step and full-scan counters off the interval receipt with the cache-ratio gauge off the connection sample; egress delivery and dead-letter counters with the drain-duration histogram off the drain receipts; the plan-drift counter off the plan receipt; the usage byte/object/delivery gauges off the usage census atom.
+- Entry: `StoreInstruments.Telemetry(LevelCells cells, StoreLevel usage, string version, string schemaUrl)` — the contributor port peer of the AppHost host roster, carrying every row under the `Rasm.Persistence` scope with the semconv schema coordinate the mint stamps as `MeterOptions.TelemetrySchemaUrl`; `StoreInstruments.Arms(StoreLevel usage)` — the kind-keyed projection rows the AppHost receipt fan mounts beside its own arms at the composition root; `StoreInstruments.Census(LevelCells cells, StoreLevel usage, string version, SlotRegistry registry)` — the declared-truth census folding rows, bucket thresholds, mounted slots, and projected-arm keys into one wire record, so a new instrument or slot appears on the board with zero dashboard edits and a hand-listed metric name in a dashboard is the deleted form.
 - Auto: the projection subscribes as one observe row on the AppHost hook rail's receipt point, so every envelope the sink emits projects with zero call-site metering; level-shaped facts fold into the `StoreLevel` atoms and ride observable gauges at collection cadence, so a polled level never aliases through a synchronous gauge; a NodaTime `Duration` crosses the wire as its JsonRoundtrip text and `Seconds` is the one arm-side decode.
 - Receipt: none — the arms project the harvest, plan, usage, and egress receipts; a metric minted beside them is a second truth.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: one projected slot is one `Arms` row and its instrument rows here; a slot without an `Arms` row is receipt-only by default, so projection is opt-in per row and no page declares the default; the census follows rows and slots with zero edits.
-- Boundary: every row binds `TelemetrySource.Persistence`, so scope id equals the package id and instruments mount through the AppHost meter mint, never a package-local `Meter`; pg_stat and engine-status sources are server- and process-global, so no harvest row carries a tenant tag — ONLY the usage gauges carry the `rasm.tenant` dimension, capped by the estate `*`-wildcard view; arm bodies are the one place receipt wire names meet instrument writes, and an arm never re-validates the payload its typed receipt already admitted.
+- Boundary: the port `Scope` string is the package id the composing root admits by name, and instruments mount through the composing root's meter mint, never a package-local `Meter`; scalar ratio levels ride the composition `LevelCells` and the usage census the composition `StoreLevel`, so no process-static cell exists; pg_stat and engine-status sources are server- and process-global, so no harvest row carries a tenant tag — ONLY the usage gauges carry the `rasm.tenant` dimension, capped by the estate `*`-wildcard view; arm bodies are the one place receipt wire names meet instrument writes, and an arm never re-validates the payload its typed receipt already admitted.
 
 ```csharp signature
-public sealed record StoreLevel(Atom<double> IoHitRatio, Atom<double> SqliteCacheRatio, Atom<Seq<UsageReceipt>> Usage) {
-    public static readonly StoreLevel Live = new(Atom(1d), Atom(1d), Atom(Seq<UsageReceipt>()));
+// Scalar ratios ride the composition's kernel LevelCells; the usage census snapshot is the one
+// folder-shaped cell, composition-owned like every level.
+public sealed record StoreLevel(Atom<Seq<UsageReceipt>> Usage) {
+    public static StoreLevel Of() => new(Atom(Seq<UsageReceipt>()));
 }
 
-// The census wire pair the dashboard plane compiles from: instrument rows with their bucket hints, the
+// Census wire pair compiles instrument rows with bucket hints, the
 // mounted slot census, and the projected-arm keys — declared truth, never a hand-listed metric name.
 public sealed record CensusRow(string Name, string Unit, string Description, ImmutableArray<double> Buckets);
 
@@ -531,7 +548,7 @@ public static class StoreInstruments {
     static readonly ImmutableArray<double> StatementSeconds = [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10];
     static readonly ImmutableArray<double> ProfileSeconds = [0.001, 0.01, 0.05, 0.1, 0.5, 1, 5, 15, 60];
 
-    // The bucket-advice side table the census reads — the same boundaries the histogram rows declare, keyed
+    // Bucket-advice table carries the boundaries histogram rows declare, keyed
     // by instrument name so the alert plane derives burn-rate windows from declared thresholds.
     static readonly FrozenDictionary<string, ImmutableArray<double>> Thresholds = new Dictionary<string, ImmutableArray<double>> {
         ["rasm.persistence.statement.duration"] = StatementSeconds,
@@ -539,84 +556,87 @@ public static class StoreInstruments {
         ["rasm.persistence.egress.drain.duration"] = ProfileSeconds,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static readonly Seq<InstrumentRow> Rows = Seq(
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.statement.duration", "s", "mean execution time per harvested top-N server statement",
+    public const string Scope = "Rasm.Persistence";
+
+    public static Seq<InstrumentRow> Rows(LevelCells cells, StoreLevel usage) => Seq(
+        new InstrumentRow("rasm.persistence.statement.duration", "s", "mean execution time per harvested top-N server statement",
             static (meter, name, unit, text) => meter.CreateHistogram<double>(name, unit, text, tags: null,
                 advice: new InstrumentAdvice<double> { HistogramBucketBoundaries = StatementSeconds })),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.io.hit.ratio", "1", "shared-buffer hit ratio over the pg_stat_io window",
-            static (meter, name, unit, text) => meter.CreateObservableGauge(name, static () => StoreLevel.Live.IoHitRatio.Value, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.duckdb.latency", "s", "profiled analytical statement latency",
+        new InstrumentRow("rasm.persistence.io.hit.ratio", "1", "shared-buffer hit ratio over the pg_stat_io window",
+            (meter, name, unit, text) => meter.CreateObservableGauge(name, cells.Reader(name), unit, text)),
+        new InstrumentRow("rasm.persistence.duckdb.latency", "s", "profiled analytical statement latency",
             static (meter, name, unit, text) => meter.CreateHistogram<double>(name, unit, text, tags: null,
                 advice: new InstrumentAdvice<double> { HistogramBucketBoundaries = ProfileSeconds })),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.duckdb.rows", "{row}", "rows returned per profiled analytical statement",
+        new InstrumentRow("rasm.persistence.duckdb.rows", "{row}", "rows returned per profiled analytical statement",
             static (meter, name, unit, text) => meter.CreateHistogram<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.sqlite.vm.steps", "{step}", "virtual-machine steps per embedded statement",
+        new InstrumentRow("rasm.persistence.sqlite.vm.steps", "{step}", "virtual-machine steps per embedded statement",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.sqlite.fullscan.steps", "{step}", "full-scan steps per embedded statement — the plan-regression tell",
+        new InstrumentRow("rasm.persistence.sqlite.fullscan.steps", "{step}", "full-scan steps per embedded statement — the plan-regression tell",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.sqlite.cache.ratio", "1", "embedded page-cache hit ratio over the sampled connection",
-            static (meter, name, unit, text) => meter.CreateObservableGauge(name, static () => StoreLevel.Live.SqliteCacheRatio.Value, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.egress.deliveries", "{delivery}", "egress deliveries by sink and outcome",
+        new InstrumentRow("rasm.persistence.sqlite.cache.ratio", "1", "embedded page-cache hit ratio over the sampled connection",
+            (meter, name, unit, text) => meter.CreateObservableGauge(name, cells.Reader(name), unit, text)),
+        new InstrumentRow("rasm.persistence.egress.deliveries", "{delivery}", "egress deliveries by sink and outcome",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.egress.deadletters", "{letter}", "dead-lettered egress entries by sink",
+        new InstrumentRow("rasm.persistence.egress.deadletters", "{letter}", "dead-lettered egress entries by sink",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.egress.drain.duration", "s", "wall duration per outbox drain by sink",
+        new InstrumentRow("rasm.persistence.egress.drain.duration", "s", "wall duration per outbox drain by sink",
             static (meter, name, unit, text) => meter.CreateHistogram<double>(name, unit, text, tags: null,
                 advice: new InstrumentAdvice<double> { HistogramBucketBoundaries = ProfileSeconds })),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.plan.drift", "{plan}", "plan-shape drift verdicts by engine",
+        new InstrumentRow("rasm.persistence.plan.drift", "{plan}", "plan-shape drift verdicts by engine",
             static (meter, name, unit, text) => meter.CreateCounter<long>(name, unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.usage.bytes", "By", "durable bytes by tenant, retention class, and storage tier",
-            static (meter, name, unit, text) => meter.CreateObservableGauge(name, static () => StoreLevel.Live.Usage.Value.Map(static row => row.Measured(row.Bytes)), unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.usage.objects", "{object}", "durable objects by tenant, retention class, and storage tier",
-            static (meter, name, unit, text) => meter.CreateObservableGauge(name, static () => StoreLevel.Live.Usage.Value.Map(static row => row.Measured(row.Objects)), unit, text)),
-        new InstrumentRow(TelemetrySource.Persistence, "rasm.persistence.usage.deliveries", "{delivery}", "egress deliveries by tenant over the usage census window",
-            static (meter, name, unit, text) => meter.CreateObservableGauge(name, static () => StoreLevel.Live.Usage.Value.Map(static row => row.Measured(row.Deliveries)), unit, text)));
+        new InstrumentRow("rasm.persistence.usage.bytes", "By", "durable bytes by tenant, retention class, and storage tier",
+            (meter, name, unit, text) => meter.CreateObservableGauge(name, () => usage.Usage.Value.Map(static row => row.Measured(row.Bytes)), unit, text)),
+        new InstrumentRow("rasm.persistence.usage.objects", "{object}", "durable objects by tenant, retention class, and storage tier",
+            (meter, name, unit, text) => meter.CreateObservableGauge(name, () => usage.Usage.Value.Map(static row => row.Measured(row.Objects)), unit, text)),
+        new InstrumentRow("rasm.persistence.usage.deliveries", "{delivery}", "egress deliveries by tenant over the usage census window",
+            (meter, name, unit, text) => meter.CreateObservableGauge(name, () => usage.Usage.Value.Map(static row => row.Measured(row.Deliveries)), unit, text)));
 
     // Arm bodies are the one place receipt wire names meet instrument writes; the AppHost fan merges this table beside its own at the Mount seam.
-    public static readonly FrozenDictionary<string, Action<InstrumentSet, JsonElement>> Arms =
-        new Dictionary<string, Action<InstrumentSet, JsonElement>> {
-            [PgStatHarvest.StatementsSlot.ToString()] = static (set, payload) => {
+    public static FrozenDictionary<string, InstrumentArm> Arms(StoreLevel usage) =>
+        new Dictionary<string, InstrumentArm> {
+            [PgStatHarvest.StatementsSlot.ToString()] = static (set, _, payload) => {
                 foreach (var row in payload.GetProperty("rows").EnumerateArray()) {
                     ignore(set.Record("rasm.persistence.statement.duration", row.GetProperty("meanExecMs").GetDouble() / 1000d));
                 }
             },
-            [PgStatHarvest.IoSlot.ToString()] = static (_, payload) => {
+            [PgStatHarvest.IoSlot.ToString()] = static (_, cells, payload) => {
                 var (hits, reads) = payload.GetProperty("rows").EnumerateArray().Aggregate((0L, 0L),
                     static (sum, row) => (sum.Item1 + row.GetProperty("hits").GetInt64(), sum.Item2 + row.GetProperty("reads").GetInt64()));
-                ignore(StoreLevel.Live.IoHitRatio.Swap(_ => hits + reads > 0 ? (double)hits / (hits + reads) : 1d));
+                ignore(cells.Level("rasm.persistence.io.hit.ratio", hits + reads > 0 ? (double)hits / (hits + reads) : 1d));
             },
-            [DuckProfileHarvest.Slot.ToString()] = static (set, payload) => {
+            [DuckProfileHarvest.Slot.ToString()] = static (set, _, payload) => {
                 ignore(set.Record("rasm.persistence.duckdb.latency", payload.GetProperty("latencySeconds").GetDouble()));
                 ignore(set.Record("rasm.persistence.duckdb.rows", payload.GetProperty("rowsReturned").GetInt64()));
             },
-            [SqliteStatHarvest.StatementsSlot.ToString()] = static (set, payload) => {
+            [SqliteStatHarvest.StatementsSlot.ToString()] = static (set, _, payload) => {
                 ignore(set.Count("rasm.persistence.sqlite.vm.steps", payload.GetProperty("vmSteps").GetInt64()));
                 ignore(set.Count("rasm.persistence.sqlite.fullscan.steps", payload.GetProperty("fullScanSteps").GetInt64()));
             },
-            [SqliteStatHarvest.ConnectionSlot.ToString()] = static (_, payload) => {
+            [SqliteStatHarvest.ConnectionSlot.ToString()] = static (_, cells, payload) => {
                 var (hit, miss) = (payload.GetProperty("cacheHits").GetInt64(), payload.GetProperty("cacheMisses").GetInt64());
-                ignore(StoreLevel.Live.SqliteCacheRatio.Swap(_ => hit + miss > 0 ? (double)hit / (hit + miss) : 1d));
+                ignore(cells.Level("rasm.persistence.sqlite.cache.ratio", hit + miss > 0 ? (double)hit / (hit + miss) : 1d));
             },
-            [EgressPump.DrainSlot.ToString()] = static (set, payload) => {
+            [EgressPump.DrainSlot.ToString()] = static (set, _, payload) => {
                 var sink = new KeyValuePair<string, object?>("sink", payload.GetProperty("sink").GetString());
                 ignore(set.Count("rasm.persistence.egress.deliveries", payload.GetProperty("delivered").GetInt64(), sink, new("outcome", "delivered")));
                 ignore(set.Count("rasm.persistence.egress.deliveries", payload.GetProperty("held").GetInt64(), sink, new("outcome", "held")));
                 ignore(set.Count("rasm.persistence.egress.deliveries", payload.GetProperty("deadLettered").GetInt64(), sink, new("outcome", "dead")));
                 ignore(set.Record("rasm.persistence.egress.drain.duration", Seconds(payload.GetProperty("elapsed")), sink));
             },
-            [EgressPump.DeadLetterSlot.ToString()] = static (set, payload) =>
+            [EgressPump.DeadLetterSlot.ToString()] = static (set, _, payload) =>
                 ignore(set.Count("rasm.persistence.egress.deadletters", 1L,
                     new KeyValuePair<string, object?>("sink", payload.GetProperty("sink").GetString()))),
-            [PlanProfile.Slot.ToString()] = static (set, payload) => {
+            [PlanProfile.Slot.ToString()] = static (set, _, payload) => {
                 if (payload.GetProperty("rule").GetString() is "drifted") {
                     ignore(set.Count("rasm.persistence.plan.drift", 1L,
                         new KeyValuePair<string, object?>("engine", payload.GetProperty("engine").GetString())));
                 }
             },
-            // The usage arm swaps the whole census snapshot; the gauges read value + tags off each row, so
-            // the atom rows carry sentinel instant/correlation — the envelope stamps the census frame.
-            [StoreUsage.Slot.ToString()] = static (_, payload) =>
-                ignore(StoreLevel.Live.Usage.Swap(_ => toSeq(payload.GetProperty("rows").EnumerateArray().Select(static row =>
+            // Usage arm swaps the census snapshot; gauges read value and tags from each row.
+            // Atom rows carry sentinel instant/correlation because the envelope stamps the frame.
+            // Usage snapshot cell is composition-owned; this arm closes over the composing root's cell.
+            [StoreUsage.Slot.ToString()] = (_, _, payload) =>
+                ignore(usage.Usage.Swap(_ => toSeq(payload.GetProperty("rows").EnumerateArray().Select(static row =>
                     new UsageReceipt(
                         UInt128.Parse(row.GetProperty("tenant").GetString()!, CultureInfo.InvariantCulture),
                         RetentionClass.Get(row.GetProperty("class").GetString()!),
@@ -625,23 +645,35 @@ public static class StoreInstruments {
                         row.GetProperty("deliveries").GetInt64(), NodaConstants.UnixEpoch, Guid.Empty))).Strict())),
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // The schema coordinate fills the port `SchemaUrl` slot the settled `TelemetryIdentity.Mint` stamps as
+    // Schema coordinate fills the port `SchemaUrl` slot the settled `TelemetryIdentity.Mint` stamps as
     // `MeterOptions.TelemetrySchemaUrl`, so every `rasm.persistence.*` scope reads with pinned semantics and
     // no folder OTel reference exists.
-    public static TelemetryContributorPort Telemetry(string version, string schemaUrl) =>
-        new(TelemetrySource.Persistence, version, schemaUrl, Rows);
+    public static TelemetryContributorPort Telemetry(LevelCells cells, StoreLevel usage, string version, string schemaUrl) =>
+        new(Scope, version, schemaUrl, Rows(cells, usage));
 
-    // The declared-truth census: rows with bucket hints, the mounted slot census, the projected-arm keys.
-    public static StoreTelemetryCensus Census(string version, SlotRegistry registry) => new(
-        TelemetrySource.Persistence.Key, version,
-        Rows.Map(static row => new CensusRow(row.Name, row.Unit, row.Description,
-            Thresholds.TryGetValue(row.Name, out var buckets) ? buckets : [])),
-        toSeq(registry.Slots.Order(StringComparer.Ordinal)),
-        toSeq(Arms.Keys.Order(StringComparer.Ordinal)));
+    // Declared-truth census carries rows with bucket hints, mounted slots, and projected-arm keys.
+    public static StoreTelemetryCensus Census(LevelCells cells, StoreLevel usage, string version, SlotRegistry registry) {
+        FrozenDictionary<string, InstrumentArm> arms = Arms(usage);
+        return new(
+            Scope, version,
+            Rows(cells, usage).Map(static row => new CensusRow(row.Name, row.Unit, row.Description,
+                Thresholds.TryGetValue(row.Name, out var buckets) ? buckets : [])),
+            toSeq(registry.Slots.Order(StringComparer.Ordinal)),
+            toSeq(arms.Keys.Order(StringComparer.Ordinal)));
+    }
 
     // NodaTime `Duration` crosses the wire as its JsonRoundtrip text (`api-nodatime-stj` `DurationConverter`);
-    // the one arm-side decode to seconds — the AppHost fan's `Seconds` peer.
+    // One arm-side decode yields seconds beside the AppHost fan's `Seconds` peer.
     static double Seconds(JsonElement element) =>
         DurationPattern.JsonRoundtrip.Parse(element.GetString()!).Value.TotalSeconds;
 }
 ```
+
+## [10]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

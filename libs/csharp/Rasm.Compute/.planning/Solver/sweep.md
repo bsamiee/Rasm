@@ -16,7 +16,7 @@ Per-point evaluation stays contract-uniform with the `Solver/optimizer#OPTIMIZER
 - Auto: `SweepGrid.Design` dispatches the design matrix on the `DoeDesign` row; `Run` fans the design applicatively over the independent `evaluate` oracle, validates each objective vector, folds successes into `ParetoFront`, tallies faults, and projects `SensitivityTornado`; the injected progress bundle advances admitted point cells and disposes its `PhaseSubscription` through `Bracket`.
 - Receipt: `Sweep(long GridPoints, int Completed, int OnFront, int Dominated)` from `Runtime/receipts#RECEIPT_UNION`; `SweepLane.Receipt` projects a `SweepResult` under the correlation — `OnFront` the front size, dominated `Completed − OnFront`, failed `GridPoints − Completed`; the frame-budget early-stop's per-iteration residual rides the iterative solve's own `Solve` receipt (`Solver/contract#SOLVE_CONTRACT`), never a fabricated sweep flag.
 - Packages: System.Numerics.Tensors, System.IO.Hashing (`XxHash128.HashToUInt128` the `DoeDataset` content key), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project), BCL inbox (`BinaryPrimitives` little-endian value framing)
-- Growth: a new design-of-experiments strategy is one `DoeDesign` row plus its `Materialize`/`Cardinality` arm; a new factor kind is one `SweepAxis` case carrying its `Levels`+`Map` lowering; a new sensitivity analysis is one `SensitivityMethod` row carrying its `Rank` fold; a frame-budget change is one field on `FrameBudget`/`DoePolicy`; zero new surface — a `FactorialSweep`/`LatinHypercubeSweep`/`SobolSweep`/`ResponseSurface` sibling collapses onto the one `DoeDesign` axis, and a per-axis `SweepAxis.LatinHypercube`/`SweepAxis.Sobol` case is rejected because a space-filling design is joint across dimensions, never a per-axis 1-D sequence Cartesian-producted.
+- Growth: a new design-of-experiments strategy is one `DoeDesign` row and its `Materialize`/`Cardinality` arm; a new factor kind is one `SweepAxis` case carrying its `Levels`+`Map` lowering; a new sensitivity analysis is one `SensitivityMethod` row carrying its `Rank` fold; a frame-budget change is one field on `FrameBudget`/`DoePolicy`; zero new surface — a `FactorialSweep`/`LatinHypercubeSweep`/`SobolSweep`/`ResponseSurface` sibling collapses onto the one `DoeDesign` axis, and a per-axis `SweepAxis.LatinHypercube`/`SweepAxis.Sobol` case is rejected because a space-filling design is joint across dimensions, never a per-axis 1-D sequence Cartesian-producted.
 - Boundary: `evaluate` is the single `IO`-lifted solver coupling; space-filling rows draw one joint `LowDiscrepancy` net; `SweepGrid.Validate` rejects invalid axes, aliased fractional generators, unbounded in-memory grids, absent objectives, and invalid sensitivity columns before materialization. Point faults accumulate without aborting independent rows. `SensitivityTornado` bins equal-count coordinate strata before conditional-mean effects. Scheduler composition supplies the admitted `ProgressCell` leaves, parent, and `PhaseSubscription`; sweep advances and disposes them but never mints an `AdmittedIntent`. `Governed` requires cooperative `step` settlement, returns the best field after the budget predicate, and forks refinement through `IO.Fork`.
 
 ```csharp signature
@@ -330,11 +330,13 @@ public sealed record SensitivityTornado(Seq<(string Axis, double Low, double Hig
 public sealed record SweepResult(SweepGrid Grid, ParetoFront Front, SensitivityTornado Tornado, Seq<DesignPoint> Points, int Completed, int Failed, Instant At);
 
 // Surrogate training-data egress: the e13 `DoeDataset` wire shape the Python companion trains on — columnar
-// coordinates and responses in row-major blocks, axis names, design provenance, and a little-endian content key,
-// so every screening campaign is training corpus and the neural-field refresh loop closes without a manual hand-off.
+// coordinates, responses, and front membership in row-major blocks, axis names, design provenance, and a
+// little-endian content key, so every screening campaign is training corpus and the neural-field refresh loop
+// closes without a manual hand-off; the `Runtime/codecs` Arrow record-batch arm projects this same carrier
+// lake-queryable with the content key preserved as batch metadata.
 public sealed record DoeDataset(
     UInt128 ContentKey, Seq<string> Axes, Seq<string> Objectives, DoeDesign Strategy,
-    int Points, ReadOnlyMemory<double> Coordinates, ReadOnlyMemory<double> Responses, Instant At);
+    int Points, ReadOnlyMemory<double> Coordinates, ReadOnlyMemory<double> Responses, ReadOnlyMemory<bool> OnFront, Instant At);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -388,18 +390,22 @@ public static class SweepLane {
             : Fin.Fail<Seq<double>>(ComputeFault.Create("<sweep-oracle-shape>")));
 
     // Completed points only — a faulted evaluation never enters the training corpus; the content key frames axis
-    // names, strategy, and both little-endian value blocks, so an identical campaign re-export reuses its key.
+    // names, strategy, both little-endian value blocks, and the front-membership block, so an identical campaign
+    // re-export reuses its key.
     public static Fin<DoeDataset> Dataset(SweepResult result, IClock clock) {
         Seq<DesignPoint> points = result.Points;
         if (points.IsEmpty || points.Exists(p => p.Coordinates.Length != result.Grid.Axes.Count || p.Objectives.Length != result.Grid.Objectives.Count)) {
             return Fin.Fail<DoeDataset>(ComputeFault.Create("<doe-dataset-shape>"));
         }
         int d = result.Grid.Axes.Count, m = result.Grid.Objectives.Count;
+        HashSet<DesignPoint> front = [.. result.Front.Points];
         double[] coordinates = new double[points.Count * d];
         double[] responses = new double[points.Count * m];
+        bool[] onFront = new bool[points.Count];
         for (int row = 0; row < points.Count; row++) {                          // row-major block fill — the columnar wire layout the tabular ingest reads
             for (int axis = 0; axis < d; axis++) { coordinates[row * d + axis] = points[row].Coordinates[axis]; }
             for (int objective = 0; objective < m; objective++) { responses[row * m + objective] = points[row].Objectives[objective]; }
+            onFront[row] = front.Contains(points[row]);
         }
         ArrayBufferWriter<byte> frame = new();
         foreach (string label in result.Grid.Axes.Map(static a => a.AxisName) + Seq(result.Grid.Strategy.Key)) {
@@ -409,15 +415,16 @@ public static class SweepLane {
             encoded.CopyTo(slot[4..]);
             frame.Advance(4 + encoded.Length);
         }
-        Span<byte> values = frame.GetSpan(8 * (coordinates.Length + responses.Length));
+        Span<byte> values = frame.GetSpan(8 * (coordinates.Length + responses.Length) + onFront.Length);
         for (int i = 0; i < coordinates.Length; i++) { BinaryPrimitives.WriteDoubleLittleEndian(values[(8 * i)..], coordinates[i]); }
         for (int i = 0; i < responses.Length; i++) { BinaryPrimitives.WriteDoubleLittleEndian(values[(8 * (coordinates.Length + i))..], responses[i]); }
-        frame.Advance(8 * (coordinates.Length + responses.Length));
+        for (int i = 0; i < onFront.Length; i++) { values[8 * (coordinates.Length + responses.Length) + i] = onFront[i] ? (byte)1 : (byte)0; }
+        frame.Advance(8 * (coordinates.Length + responses.Length) + onFront.Length);
         return Fin.Succ(new DoeDataset(
             XxHash128.HashToUInt128(frame.WrittenSpan),
             result.Grid.Axes.Map(static a => a.AxisName),
             toSeq(Enumerable.Range(0, m)).Map(static i => $"objective-{i}"),
-            result.Grid.Strategy, points.Count, coordinates, responses, clock.GetCurrentInstant()));
+            result.Grid.Strategy, points.Count, coordinates, responses, onFront, clock.GetCurrentInstant()));
     }
 
     public static ComputeReceipt.Sweep Receipt(SweepResult result, CorrelationId correlation, Duration elapsed) =>
@@ -461,3 +468,11 @@ public static class SweepLane {
         });
 }
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

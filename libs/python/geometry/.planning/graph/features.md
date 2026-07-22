@@ -12,7 +12,7 @@ Reducer-return vocabulary (`AnalyticValue`, `ranked`, the census projections) im
 
 - Owner: `Features` holds the conditioned `trimesh.Trimesh`. `GraphMode` resolves `create_using` over the full `Graph`/`DiGraph`/`MultiGraph`/`MultiDiGraph` family, so directedness and multiplicity form one bounded vocabulary, never a `directed`/`multi` knob pair; `GraphBackend` threads once as `backend=` into every reducer, never forked per call site nor mutating a global `nx.config`; `MarkSpace` keys `MARK_PROJECT` dispatch, so a detector's mark space and its projection cannot cross-index — the kinds reuse two edge arms and one facet arm. Every threshold, cap, solver bound, and analytic toggle is a `FeaturePolicy` field; `power_iter` caps power iteration, threaded as `max_iter` into the eigenvector/pagerank reducers.
 - Entry: `run` discriminates a single request or a batch, each returning through its own weave rail; the `NetworkX*` taxonomy (including `PowerIterationFailedConvergence`) and trimesh cache faults convert exactly once at the weave's fence. `bridged` never collapses an offload fault into a synthetic empty result — a failure stays an `Error(BoundaryFault)` on the returned rail.
-- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`.
+- Receipt: phase is data-driven — `emitted` for a graph with nodes, `admitted` for a vacuous feature set; `_HEAD_OPS` centrality rows read `peak` so the load-bearing centrality signal survives onto the flat facts map, count/partition rows read `as_scalar`, and leaderboards/partitions stay OFF the flat map on the typed `Census.values`; every kind gates `empty_graph_fraction` against the zero ceiling, so a no-node projection does not graduate; node-link evidence is real JSON bytes, never a Python `repr`; `frame` projects one held analytic board through the graduation `EvidenceFrame` port off the substrate's `tabled` columns, so a centrality leaderboard crosses the geometry-to-data seam with zero receipt re-parsing.
 - Packages: `trimesh`, `numpy`, and `networkx` per the fence imports; the analytic vocabulary and the graduation spine import downward from their geometry owners.
 - Growth: a new feature kind is one `FeatureKind` row and one `FEATURE_OPS` row and one `CASE` row; a new mark space is one `MarkSpace` member and one `MARK_PROJECT` arm; a new analytic is one `AnalyticOp` row and one `ANALYTICS` row — and `_HEAD_OPS` membership when its flat fact is the extremum rather than the count; a new `AnalyticValue` shape lands on the `graph/analytic` owner; a threshold, cap, selection, or backend switch is a `FeaturePolicy` value.
 - Boundary: mesh repair/winding/boolean is the `mesh/repair` sibling's over `trimesh`/`manifold3d`; non-manifold cell/aperture topology is the `nonmanifold` sibling's; compas numerical/form-finding is the `algebra` sibling's; raw mesh-file decode/encode and columnar edge-list reframing stay at the data seam. Both `network-graph` producers cross on the one geometry `HandoffAxis` case — mesh-feature projection here, compas adjacency there.
@@ -34,7 +34,7 @@ from expression.collections import Block, Map
 from msgspec import Struct, structs
 from numpy.typing import NDArray
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
+from rasm.geometry.graduation import EvidenceFrame, EvidenceScope, GeometryHandoff, GeometrySubject, evidence_run
 from rasm.geometry.graph.analytic import AnalyticValue, peak_of, ranked, scalar_of
 from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentKey
@@ -193,6 +193,12 @@ class FeatureResult(Struct, frozen=True):
     def graduates(self, evidence_key: ContentKey) -> GeometryHandoff:
         spec = CASE[self.kind]
         return GeometryHandoff.of(self.graduation_subject, evidence_key, spec.ledger(self.census), spec.ceiling)
+
+    def frame(self, evidence_key: ContentKey, op: AnalyticOp) -> EvidenceFrame:
+        # analytic-board columnar egress through the graduation frame port: the substrate's `tabled` projection keys
+        # the columns, this producing page keys the subject — an unheld op frames the empty board, never a fault.
+        board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
+        return EvidenceFrame.of(self.graduation_subject, evidence_key, board)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

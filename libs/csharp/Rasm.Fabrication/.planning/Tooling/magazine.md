@@ -16,7 +16,7 @@ Wire posture: HOST-LOCAL. `ToolAssembly`, `ToolMagazine.Schedule`, and `ToolMaga
 - Cases: `MetricDimension` rows carry unit admission and canonical restoration delegates; `ToolTarget` distinguishes body and edge budgets; `SlotState` distinguishes empty, loaded, reserved, quarantined, and manual staging; `MagazineBehavior` is the frozen controller-capability set; `ToolSelection` rows generate the mounted-preference and life-direction ordering space; `ShortfallReason` names why a demand went unkitted; `CatalogSource` distinguishes provider digest from telemetry content; `ToolIngress` distinguishes asset admission and telemetry refresh.
 - Entry: `ToolCatalog.Admit(ToolIngress)` is the one catalog boundary; `ToolMagazine.Kit(SlotMap, Seq<WorkItem>, MagazinePolicy)`, `ToolMagazine.Schedule(SlotMap, Seq<WorkItem>, MagazinePolicy)`, and `ToolMagazine.HolderEnvelope(ToolAssembly)` are one entry per distinct receipt consumer. Layout and magazine kind derive from `SlotMap`; holder allowance derives from `ToolAssembly`.
 - Auto: generated factories reject blank identity, invalid ranges, duplicate edge keys, duplicate metric kinds, non-positive geometry, partial slot maps, duplicate physical tools, and inconsistent lifecycle evidence. Kitting and scheduling use state folds; a refresh advances the observation instant, preserves the exact target-basis and edge-key sets, never lowers consumed life, and retains every terminal body or edge state. Snapshot content excludes observation instants and validity windows while those fields remain on evidence. Every requested life basis resolves on the candidate or that candidate is not selectable; reserve is committed with demand; preselection resolves against the next change's slot within `PreselectDistance`.
-- Receipt: `CatalogReceipt` carries admitted assembly, optional slot, typed source evidence, and observation time; `KittingReceipt` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, magazine traverse duration, limiting-life evidence, and the next slot to preselect. `FabricationFact.ToolRefresh.Of` projects a telemetry-sourced receipt's refresh interval onto `rasm.fabrication.tool.refresh.age` through `Process/telemetry#FACT_PROJECTION` as kind `tool-refresh`; a provider-digest source projects nothing.
+- Receipt: `CatalogReceipt` carries admitted assembly, optional slot, typed source evidence, and observation time; `KittingReceipt` carries loaded, staged, quarantined, and reason-bearing shortfall rows over a slot map holding real reservations; `ToolChange` carries physical and controller bindings, both offset registers, geometry and measured wear offsets, magazine traverse duration, limiting-life evidence, and the next slot to preselect. `FabricationFact.ToolRefresh.Of` projects a telemetry-sourced receipt's refresh interval onto `rasm.fabrication.tool.refresh.age` through `Process/telemetry#FACT_PROJECTION` as kind `tool-refresh`; a provider-digest source projects nothing. `MagazineSlots` names the `store.fabrication.magazine.<verb>` streams committed slot-map mutations and the re-admitted placement census ride on the Persistence slot registry, so crib state survives restart without a parallel in-memory registry.
 - Packages: MTConnect.NET-Common cutting-tool model, `UnitsNet` dynamic quantity admission, `NodaTime` evidence windows and durations, `FrozenDictionary` correspondence tables, `ContentHash.Of`, `PolygonAlgebra`, LanguageExt.Core, Thinktecture.Runtime.Extensions, and RhinoCommon compose directly.
 - Growth: a provider measurement is one `ToolMeasure` row and one `ProviderMeasure` table row; a physical dimension is one `MetricDimension` row carrying its own admission and restoration; a provider life basis is one `ProviderLife` table row targeting `ToolLifeBasis`; a provider placement is one `ProviderSlot` table row targeting `SlotKind`; a slot topology is one `Magazine` row with admitted `MagazineLayout` data; a lifecycle state is one `ToolAvailability` row; a controller capability is one `MagazineBehavior` row; a scheduling preference is one `ToolSelection` row.
 - Boundary: provider enums, provider hashes as identity, dimension-per-case metric siblings, hand-written provider switches beside generated owners, unmapped provider values defaulting to a domain row, mutable snapshot identity, parallel wear state, single-basis scheduling, absent life budgets read as exhausted, tool groups substituting for geometric interchangeability, preselection naming its own slot, reserve that is checked but not committed, invented infinite capacity, fixed magazine dimensions, and shortfall rows without a reason are deleted forms. `CanonicalHash` is the length-framing statement kernel.
@@ -588,6 +588,15 @@ public abstract partial record ToolIngress {
         Arr<ToolEdge> Edges, Length LengthWear, Length RadiusWear, Instant ObservedAt) : ToolIngress;
 }
 
+// Durable shop-state seam: physical magazine placement persists as slot-registered streams — the exchange slot
+// carries each committed `SlotMap` mutation with its `ToolChange` evidence, the census slot the slot-map state
+// re-admitted at composition. Spellings are value federation onto the Persistence slot registry's contributed
+// span; no Persistence type crosses this boundary.
+public static class MagazineSlots {
+    public const string Exchange = "store.fabrication.magazine.exchange";
+    public const string Census = "store.fabrication.magazine.census";
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class ToolCatalog {
     public static Fin<CatalogReceipt> Admit(ToolIngress ingress) => ingress.Switch(
@@ -1038,3 +1047,12 @@ flowchart LR
     Assembly --> Magazine["ToolMagazine.Kit / Schedule"]
     Magazine --> Posting["Posting"]
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

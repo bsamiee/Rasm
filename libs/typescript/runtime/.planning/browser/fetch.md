@@ -27,8 +27,12 @@ Browser byte transport and the folder's kernel-delegating mint site: the browser
 import type { HttpClient, HttpClientError } from "@effect/platform"
 import { HttpClientRequest, type HttpClientResponse, Transferable, Worker, type WorkerError } from "@effect/platform"
 import { BrowserHttpClient, BrowserSocket, BrowserWorker } from "@effect/platform-browser"
+import { Tracer as OtelBridge } from "@effect/opentelemetry"
+import type { HrTime, Span } from "@opentelemetry/api"
+import { hrTime } from "@opentelemetry/core"
+import { Vital } from "../otel/vital.ts"
 import { ContentKey, FaultClass, Residency } from "@rasm/ts/core"
-import { Array, Chunk, Context, Data, type Duration, Effect, HashMap, Layer, Option, Order, type ParseResult, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
+import { Array, Chunk, Context, Data, type Duration, Effect, HashMap, Layer, Option, Order, type ParseResult, Schedule, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { Client, type Lapse } from "../net/client.ts"
 import { Boot, Connect } from "./boot.ts"
 import { Kv, Opfs } from "./persist.ts"
@@ -55,6 +59,7 @@ const Web = {
 ```typescript
 const _FRUGAL = 0.5
 const _MUTATING = ["POST", "PUT", "PATCH", "DELETE"] as const
+const _SETTLE = { probe: "50 millis", probes: 6 } as const // the timing-entry settle window: six spaced probes mirror the reference observer wait
 
 type _Rate = { readonly units: number; readonly per: Duration.DurationInput; readonly burst: number }
 
@@ -103,7 +108,7 @@ class FetchFault extends Data.TaggedError("FetchFault")<{
 - Law: the offline gate reads the one cell — `Connect.online` false short-circuits to the class-carried `offline` fault before any byte moves; the gate is a fast-fail courtesy, not truth (a race with the cell is settled by the transport fault the host rail already types).
 - Law: three fault families, none re-wrapped — this page's `FetchFault` carries only the browser-plane reasons (`offline`, `overrun`); transport and status faults ride the platform's `HttpClientError` untouched, budget expiry rides `net/client`'s `Lapse`, and decode skew rides `ParseError` — every family already routable, each carrying its `FaultClass` projection.
 - Law: no progress modality exists on this surface — the shipped `BrowserHttpClient` declarations expose `layerXMLHttpRequest`, `currentXHRResponseType`, and `withXHRArrayBuffer` and NO upload/download progress observation member, a verified absence; a per-transfer progress feed therefore lands only when the platform binding ships the member, and a hand-attached `XMLHttpRequest.upload` listener beside the owned client is the second-transport defect, never a stopgap.
-- Law: the timing projection is `otel/vital`'s `Vital.enrich` folded inside the dial's exchange — the dial owns the request coordinates (url, exchange window, one document-scoped `used` ledger), the vital page owns the Performance-Timeline read, and the projection targets the span the exchange carries, so XHR spans gain the network timing the browser's fetch instrumentation never sees; the live span-handle mechanic is the `[08]` research row, and until it settles the fold stays out of the fence.
+- Law: the timing projection is `otel/vital`'s `Vital.enrich` folded at the dial's stream end — the enrich target is the CALLER-held live span read through `Tracer.currentOtelSpan` at dial time, still open when the byte stream drains because the stream is consumed inside the caller's own span window; the platform client's interior request span is refuted as the target — its `Effect.useSpan` body settles at response arrival, before any body byte and before the matching `PerformanceResourceTiming` entry lands, and no public surface reaches its handle. The dial owns the request coordinates (url, the `hrTime()` exchange window, one document-scoped `used` ledger), the vital page owns the Performance-Timeline read, and the entry race resolves by a bounded settle poll — the timing buffer is probed on a spaced schedule up to the reference implementation's observer wait, a miss forfeiting enrichment as a telemetry gap, never a fault — so XHR spans gain the network timing the browser's fetch instrumentation never sees.
 - Entry: `Fetch.pull` / `Fetch.send`; `R` carries `HttpClient` outward to the root through the host dial.
 - Receipt: the stated annotations are the seam contract — the streaming modality's error union names every family a consumer meets, readable without the body.
 - Boundary: which requests exist is the consumer's vocabulary over `HttpClientRequest` at full depth; scheduling of artifact pulls is `[6]`'s; parked offline intents are `shell#REPLAY_DRAIN`'s outbox.
@@ -149,6 +154,20 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
             strategy: "shape",
           }),
       })
+    const used = new WeakSet<PerformanceResourceTiming>() // one document-scoped ledger: an entry enriches exactly one span, never a neighbor's
+    const _enriched = (span: Option.Option<Span>, url: string, opened: HrTime) =>
+      Option.match(span, {
+        onNone: () => Effect.void,
+        onSome: (live) =>
+          Effect.flatMap(Effect.sync(() => hrTime()), (closed) =>
+            Effect.repeat(
+              Effect.sync(() =>
+                Vital.enrich(live, { url, start: opened, end: closed, initiator: Option.some("xmlhttprequest"), used }),
+              ),
+              { until: Option.isSome, schedule: Schedule.spaced(_SETTLE.probe), times: _SETTLE.probes }, // the bounded settle poll: the reference observer wait as spaced probes, a miss forfeits enrichment
+            ),
+          ).pipe(Effect.asVoid),
+      })
     const pull = (
       lane: Client.Lane,
       request: HttpClientRequest.HttpClientRequest,
@@ -160,6 +179,8 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
           const profile = yield* connect.profile.get
           const frugal = Option.match(profile, { onNone: () => false, onSome: (held) => held.frugal })
           const decorated = yield* _decorated(request)
+          const opened = hrTime() // timeline coordinate: getResource matches entries inside this window
+          const span = yield* Effect.optionFromOptional(OtelBridge.currentOtelSpan) // the caller-held live span — the enrich target that outlives the drain
           const response: HttpClientResponse.HttpClientResponse = yield* BrowserHttpClient.withXHRArrayBuffer(
             Client.dial(lane, decorated),
           )
@@ -168,6 +189,7 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
             Stream.buffer({ capacity: row.intake, strategy: row.posture }),
             _capped(row.cap),
             _shaped(row, frugal),
+            Stream.ensuring(_enriched(span, decorated.url, opened)), // the projection runs at stream end, inside the caller's still-open window
           )
         }),
       )
@@ -441,4 +463,4 @@ export {} // terminal entry: the empty surface is the structural proof
 
 ## [08]-[RESEARCH]
 
-- [ENRICH_SPAN]-[OPEN]: which live span handle receives `Vital.enrich` for the XHR exchange — `Tracer.currentOtelSpan` read inside the dial's span window versus a post-exchange projection racing the span's end — and whether the platform client's request span survives until the matching `PerformanceResourceTiming` entry lands; verify against the installed `@effect/platform` HttpClient tracing source and the `@opentelemetry/instrumentation-xml-http-request` reference implementation when the lockfile materializes the pins.
+(none)

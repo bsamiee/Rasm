@@ -13,9 +13,10 @@
 
 ## [02]-[PROGRAM]
 
-- Owner: `ConduitStep` carries culling, bounds, per-object draw, and frame draw as one closed phase family.
+- Owner: `ConduitStep` carries culling, draw suppression, bounds, per-object draw, and frame draw as one closed phase family.
 - Policy: `RenderAspect` is a push/pop pair folded in declaration order and compensated in reverse order after every completed push.
-- Filter: `ConduitCriterion` turns every host filter axis into one row inside the mount request.
+- Filter: `ConduitCriterion` turns every host filter axis into one case-unique row inside the mount request; case runtime type is the uniqueness key, so no parallel criterion-kind vocabulary exists.
+- Law: veto is host truth — `Cull` can only widen the incoming `CullObjectEventArgs.CullObject` in the `ObjectCulling` callback and `Suppress` can only narrow the incoming `DrawObjectEventArgs.DrawObject` in `PreDrawObject`, the only two suppression flags the display contract admits; a prior host veto remains set, each decide answers per object per frame, and any deciding step voting to suppress wins.
 - Law: world-space draw steps require a bounds step before the adapter is constructed.
 - Boundary: callback failures append to the lease fault cell; a host callback never discards a failed rail.
 - Growth: a pipeline phase or render state lands as one case and one total adapter arm.
@@ -170,12 +171,6 @@ public abstract partial record ConduitCriterion {
     public sealed record Geometry(ObjectKinds Kinds) : ConduitCriterion;
     public sealed record Space(ActiveSpaceUse Value) : ConduitCriterion;
 
-    internal CriterionKind Kind => Switch(
-        selection: static _ => CriterionKind.Selection,
-        objects: static _ => CriterionKind.Objects,
-        geometry: static _ => CriterionKind.Geometry,
-        space: static _ => CriterionKind.Space);
-
     internal bool Valid => Switch(
         selection: static row => row.Use is not null,
         objects: static row => !row.Ids.IsEmpty && row.Ids.ForAll(static id => id != Guid.Empty),
@@ -188,14 +183,6 @@ public abstract partial record ConduitCriterion {
         objects: static (c, row) => Op.Side(() => c.SetObjectIdFilter(row.Ids.Filter(static id => id != Guid.Empty).Distinct().AsEnumerable())),
         geometry: static (c, row) => Op.Side(() => c.GeometryFilter = row.Kinds.Mask),
         space: static (c, row) => Op.Side(() => c.SpaceFilter = row.Value.Native));
-}
-
-[SmartEnum<int>]
-public sealed partial class CriterionKind {
-    public static readonly CriterionKind Selection = new(key: 0);
-    public static readonly CriterionKind Objects = new(key: 1);
-    public static readonly CriterionKind Geometry = new(key: 2);
-    public static readonly CriterionKind Space = new(key: 3);
 }
 
 [SmartEnum<int>]
@@ -266,30 +253,33 @@ public readonly record struct ConduitFrame {
 public abstract partial record ConduitStep {
     private ConduitStep() { }
     public sealed record Cull(Func<Guid, ConduitFrame, Fin<bool>> Decide) : ConduitStep;
+    public sealed record Suppress(Func<Guid, ConduitFrame, Fin<bool>> Decide) : ConduitStep;
     public sealed record Bounds(ConduitPhase Phase, Func<ConduitFrame, Fin<BoundingBox>> Contribute) : ConduitStep;
     public sealed record ObjectDraw(Seq<RenderAspect> State, Func<Guid, ConduitFrame, Fin<Seq<Mark>>> Project) : ConduitStep;
     public sealed record Draw(ConduitPhase Phase, Seq<RenderAspect> State, Func<ConduitFrame, Fin<Seq<Mark>>> Project) : ConduitStep;
 
     internal bool Valid => Switch(
         cull: static row => row.Decide is not null,
+        suppress: static row => row.Decide is not null,
         bounds: static row => row.Contribute is not null && (row.Phase == ConduitPhase.Bounds || row.Phase == ConduitPhase.BoundsZoomExtents),
         objectDraw: static row => row.Project is not null && row.State.ForAll(static aspect => aspect is not null && aspect.Valid),
         draw: static row => row.Project is not null && row.Phase is not null && row.Phase.Draws && !row.Phase.PerObject && row.State.ForAll(static aspect => aspect is not null && aspect.Valid));
 
     internal (bool Supplies, bool Requires) BoundsOrder => Switch(
         cull: static _ => (false, false),
+        suppress: static _ => (false, false),
         bounds: static row => (row.Phase == ConduitPhase.Bounds, false),
         objectDraw: static _ => (false, true),
         draw: static row => (false, row.Phase.WorldSpace));
 }
 
 public sealed record ConduitProgram {
-    private ConduitProgram(Seq<ConduitStep> steps, ConduitBinding binding, HashMap<CriterionKind, ConduitCriterion> criteria) =>
+    private ConduitProgram(Seq<ConduitStep> steps, ConduitBinding binding, Seq<ConduitCriterion> criteria) =>
         (Steps, Binding, Criteria) = (steps, binding, criteria);
 
     public Seq<ConduitStep> Steps { get; }
     public ConduitBinding Binding { get; }
-    public HashMap<CriterionKind, ConduitCriterion> Criteria { get; }
+    public Seq<ConduitCriterion> Criteria { get; }
 
     public static Fin<ConduitProgram> Of(
         Seq<ConduitStep> steps,
@@ -299,7 +289,7 @@ public sealed record ConduitProgram {
         Op op = key.OrDefault();
         bool stepsValid = !steps.IsEmpty && steps.ForAll(static step => step is not null && step.Valid);
         bool criteriaValid = criteria.ForAll(static criterion => criterion is not null && criterion.Valid)
-            && criteria.Map(static criterion => criterion.Kind).Distinct().Count == criteria.Count;
+            && criteria.Map(static criterion => criterion.GetType()).Distinct().Count == criteria.Count;
         bool bindingValid = binding is not null && binding.Valid;
         bool boundsValid = steps.Map(static step => step.BoundsOrder)
             .Fold(
@@ -309,7 +299,7 @@ public sealed record ConduitProgram {
                     Valid: state.Valid && (!row.Requires || state.Supplied)))
             .Valid;
         return guard(stepsValid && criteriaValid && bindingValid && boundsValid, op.InvalidInput()).ToFin()
-            .Map(_ => new ConduitProgram(steps, binding, toHashMap(criteria.Map(criterion => (criterion.Kind, criterion)))));
+            .Map(_ => new ConduitProgram(steps, binding, criteria));
     }
 }
 ```
@@ -317,7 +307,8 @@ public sealed record ConduitProgram {
 ## [03]-[MOUNT]
 
 - Owner: `ConduitLease` owns the adapter and its callback-fault cell until deterministic release.
-- Entry: `ConduitProgram.Of` admits steps, binding, and keyed criteria; `Conduits.Mount` applies the admitted program and arms participation.
+- Entry: `ConduitProgram.Of` admits steps, binding, and case-unique criteria; `Conduits.Mount` applies the admitted program and arms participation.
+- Owner: `ConduitHooks.Mount` registers the two display veto points — `rasm.rhino.display.cull` and `rasm.rhino.display.drawobject` — on the `MountRegistry`; the ask is a `(DocumentSession, ConduitProgram)` pair whose program must carry the point's own veto step (`Cull` for the cull point, `Suppress` for the drawobject point), the grant is the mounted `ConduitLease`, and a program missing the veto step refuses typed before any host participation arms.
 - Law: every fault the cell records also publishes through `ObjectsTelemetry` under `FaultSite.Conduit` — the cell is the lease's readable receipt, the publish the process egress, and a second logger sink beside them is the fork.
 - Law: release runs every step in order — disable, `UnbindAll`, sprite disposal — a thrown step never skips the rest, the combined failure lands on the fault cell, and a failed release re-arms `Dispose` for retry; callback faults remain readable after release as detached `Seq<Error>` evidence.
 - Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
@@ -338,7 +329,7 @@ internal sealed class ConduitAdapter : DisplayConduit {
             .TraverseM(step => step.Decide(
                 e.RhinoObject.Id,
                 ConduitFrame.Of(e.Display, e.Viewport, ConduitPhase.Culling))).As()
-            .Map(decisions => (e.CullObject = decisions.Exists(static visible => !visible), unit).Item2));
+            .Map(decisions => (e.CullObject = e.CullObject || decisions.Exists(static visible => !visible), unit).Item2));
 
     protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => Invoke(() =>
         Bounds(e, ConduitPhase.Bounds));
@@ -349,9 +340,16 @@ internal sealed class ConduitAdapter : DisplayConduit {
     protected override void PreDrawObjects(DrawEventArgs e) => Invoke(() => Draw(e, ConduitPhase.PreObjects));
 
     protected override void PreDrawObject(DrawObjectEventArgs e) => Invoke(() =>
-        program.Steps.Choose(static step => step is ConduitStep.ObjectDraw row ? Some(row) : None)
-            .TraverseM(step => Project(e, step)).As()
-            .Map(static _ => unit));
+        program.Steps.Choose(static step => step is ConduitStep.Suppress row ? Some(row) : None)
+            .TraverseM(step => step.Decide(
+                e.RhinoObject.Id,
+                ConduitFrame.Of(e.Display, e.Viewport, ConduitPhase.PreObject))).As()
+            .Map(votes => (e.DrawObject = e.DrawObject && !votes.Exists(static suppress => suppress), unit).Item2)
+            .Bind(_ => e.DrawObject
+                ? program.Steps.Choose(static step => step is ConduitStep.ObjectDraw row ? Some(row) : None)
+                    .TraverseM(step => Project(e, step)).As()
+                    .Map(static _ => unit)
+                : Fin.Succ(value: unit)));
 
     protected override void PostDrawObjects(DrawEventArgs e) => Invoke(() => Draw(e, ConduitPhase.PostObjects));
     protected override void DrawForeground(DrawEventArgs e) => Invoke(() => Draw(e, ConduitPhase.Foreground));
@@ -436,7 +434,8 @@ public static class Conduits {
                from admitted in Optional(program).ToFin(op.InvalidInput())
                from faults in Fin.Succ(Atom(Seq<Error>()))
                from adapter in Fin.Succ(new ConduitAdapter(admitted, faults, op))
-               from lease in (from __ in op.Catch(() => Fin.Succ(admitted.Criteria.Values.Iter(filter => filter.Apply(adapter))))
+               from lease in (from __ in op.Catch(() => Fin.Succ(admitted.Criteria
+                                  .Fold(unit, static (_, criterion) => criterion.Apply(adapter))))
                               from ___ in Bind(owner, adapter, admitted.Binding, op)
                               from ____ in op.Catch(() => Fin.Succ((adapter.Enabled = true, unit).Item2))
                               select new ConduitLease(adapter, faults)).BiBind(
@@ -454,6 +453,32 @@ public static class Conduits {
             .Bind(lease => lease.Use(
                 borrow => ctx.Op.Catch(() => Fin.Succ((row.Use.Bind(ctx.Adapter, borrow.Viewport), unit).Item2)),
                 ctx.Op)));
+}
+
+public sealed record ConduitVetoAsk(DocumentSession Session, ConduitProgram Program);
+
+public static class ConduitHooks {
+    public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
+        Op op = key.OrDefault();
+        return MountRegistry.MountAll(
+            mounts: Seq(
+                (Point: HookPoint.DisplayCull, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Cull)),
+                (Point: HookPoint.DisplayDrawObject, Carries: (Func<ConduitStep, bool>)(static step => step is ConduitStep.Suppress)))
+            .Map(row => (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
+                mount: new HookMount(
+                    Point: row.Point,
+                    Plugin: plugin,
+                    Ask: typeof(ConduitVetoAsk),
+                    Grant: typeof(ConduitLease),
+                    Bind: ask => {
+                        ConduitVetoAsk request = (ConduitVetoAsk)ask;
+                        return guard(request.Program.Steps.Exists(row.Carries), op.InvalidInput()).ToFin()
+                            .Bind(_ => Conduits.Mount(session: request.Session, program: request.Program, key: op)
+                                .Map(static lease => (object)lease));
+                    }),
+                key: op))),
+            key: op);
+    }
 }
 ```
 
@@ -679,3 +704,12 @@ public sealed class RetainedOverlay : IDisposable {
     }
 }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

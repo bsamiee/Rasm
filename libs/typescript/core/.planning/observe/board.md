@@ -1,6 +1,6 @@
 # [CORE_BOARD]
 
-Dashboards are identity-derived data, and the pack library is the same owner's dispatch: `DashboardModel` is one `Schema.Class` carrying deterministic identity, the closed panel family, template variables, alert annotations, refresh/range defaults, the shelf-layout fold, and the mapped pack/suite records, while `Query` is the recursive metric-expression algebra under one render fold. A pack projects only vocabulary the `Convention`, `Slo`, and payload rows already own, so every declared instrument has a board consumer and a hand-authored dashboard has no authoring surface.
+Dashboards are identity-derived data, and the pack library is the same owner's dispatch: `DashboardModel` is one `Schema.Class` carrying deterministic identity, the closed panel family, template variables, alert annotations, refresh/range defaults, the shelf-layout fold, and the mapped pack/suite records, while `Query` is the recursive metric-expression algebra under one render fold and `Bench` is the structural baseline-versus-candidate regression fold whose graded verdicts the claim bridge meters. A pack projects only vocabulary the `Convention`, `Slo`, and payload rows already own, so every declared instrument has a board consumer and a hand-authored dashboard has no authoring surface.
 
 `DashboardModel.snapshot` is the in-process read twin over `Metric.snapshot`, filtering the global registry to `Convention.metric` rows for doctor consumers operating without a telemetry backend. Its module is `core/src/observe/board.ts`.
 
@@ -11,7 +11,8 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 |  [01]   | `QUERY`   | the typed expression family, its fn/op/agg vocabularies, the literal grammar, the one render fold  |
 |  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                                         |
 |  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations                           |
-|  [04]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite                           |
+|  [04]   | `BENCH`   | the structural claim shape and the baseline-versus-candidate regression fold                       |
+|  [05]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite                           |
 
 ## [02]-[QUERY]
 
@@ -31,6 +32,7 @@ Dashboards are identity-derived data, and the pack library is the same owner's d
 
 ```typescript signature
 import { Array, Data, Duration, Effect, Match, Metric, MetricPair, MetricState, Number, Option, Record, Schema, Struct, pipe } from "effect"
+import type { stats as MitataStats } from "mitata"
 import type { AppIdentity } from "../value/identity.ts"
 import { Convention } from "./convention.ts"
 import { Alert, type Sli, type Slo } from "./slo.ts"
@@ -109,7 +111,7 @@ const _Query = Data.taggedEnum<Query>()
 
 const _LABEL_KEYS: ReadonlyArray<Convention.Key | Query.Dialect> = [...Convention.keys, ..._DIALECT]
 
-const _literal = (value: Convention.Scalar): string => JSON.stringify(String(value))
+const _literal = (value: Convention.Scalar): string => JSON.stringify(String(value)) ?? '""'
 
 const _span = (window: Query.Window): string =>
   typeof window === "string"
@@ -167,8 +169,8 @@ const Query: Data.TaggedEnum.Constructor<Query> & {
 - Owner: the closed panel family — `_PanelFields` is the shared emission record for axes, description, interaction, links, repeat variable, grid span, transformations, transparency, and title; `Timeseries`, `Stat`, `Gauge`, `Heatmap`, `Logs`, `Table`, `Geomap`, and `Nodes` embed it and add only their genuinely distinct visualization payload.
 - Law: panels store RENDERED expressions — `Query` is the build-time algebra, the panel is the emission-ready datum — so the model serializes completely and the query family never needs a schema twin.
 - Law: rows are emission-complete — threshold steps, legend format, and unit are semantic panel facts declared here so `iac` maps rows to provider fields verbatim and invents nothing; the datasource binding, folder placement, and apply lifecycle stay provider facts on `iac`'s side of the seam.
-- Law: every panel row maps onto one Foundation-SDK builder — the `_tag` selects the builder subpath (`Timeseries`/`Stat`/`Gauge`/`Heatmap`/`Logs`/`Table`/`Geomap` onto their eponymous `PanelBuilder`s, `Nodes` onto the `nodegraph` builder) and the shared `_PanelFields` land on the builder members every subpath inherits (`title`, `description`, `transparent`, `gridPos`, `unit`, `thresholds`) — so the iac compile leg is a per-tag fold over typed builders and a panel field with no builder member is a compile error there, never a silently dropped emission fact.
-- Law: every visualization case carries the policy its name promises — interaction owns tooltip/zoom/brush, heatmaps own color and bucket scales, logs own ordering/deduplication/wrapping, tables own sort and pagination, geomaps own coordinate/label/weight mappings, and node graphs own node/edge identity mappings; these remain fields on the case, never provider-only option bags or parallel DTOs.
+- Law: every panel row maps onto one Foundation-SDK builder — the `_tag` selects its admitted builder subpath and the shared `_PanelFields` land on inherited members, so the iac compile leg is a per-tag fold over typed builders and a panel field with no cataloged builder member stays out of the settled family.
+- Law: every visualization case carries the policy its name promises — interaction owns tooltip/zoom/brush, heatmaps own color and bucket scales, logs own ordering/deduplication/wrapping, tables own sort, geomaps own coordinate/label/weight mappings, and node graphs own node/edge identity mappings; these remain fields on the case, never provider-only option bags or parallel DTOs — and a field the pinned provider SDK exposes no builder member for is deleted at this owner, never carried as an inert emission fact.
 - Law: `Geomap` and `Nodes` are the spatial and relational rows the BIM/geo and dependency planes fill through later-wave payloads — a geo-features pack or an element-graph pack is one pack row over these existing panel rows, never a panel family fork.
 - Law: layout derives — `DashboardModel.laid(model)` is a `mapAccum` shelf fold assigning `{ x, y, w, h }` positions across the 24-column grid from each panel's `span`, wrapping when a shelf overflows and advancing by the tallest panel on the shelf; a hand-positioned panel does not exist, and a layout change is a fold change applied to every dashboard at once.
 - Growth: a new visualization kind is one tagged row with its arm in consumers' emission folds.
@@ -253,7 +255,6 @@ const Table = Schema.TaggedStruct("Table", {
   ..._PanelFields,
   exprs: Schema.NonEmptyArray(Schema.String),
   legend: Schema.optionalWith(Schema.String, { as: "Option" }),
-  pageSize: Schema.optionalWith(Schema.Int.pipe(Schema.between(10, 500)), { default: () => 50 }),
   sort: Schema.optionalWith(Schema.Struct({ descending: Schema.Boolean, field: Schema.NonEmptyString }), { as: "Option" }),
 })
 const Geomap = Schema.TaggedStruct("Geomap", {
@@ -280,7 +281,6 @@ const Nodes = Schema.TaggedStruct("Nodes", {
   }),
   nodes: Schema.String,
 })
-
 const Panel: Schema.Union<[
   typeof Timeseries,
   typeof Stat,
@@ -300,7 +300,7 @@ type Panel = typeof Panel.Type
 - Law: `DashboardModel.of(identity, page)` is the ONLY page-level constructor consumers touch — uid derives as `${identity.app}-${page.slug}` through the slug refinement, the tenant variable row is always present (a single-tenant app pins it), and the identity attributes stamp automatically — so every dashboard in existence is a total function of `AppIdentity` and a per-app fork has no authoring surface.
 - Law: emission is the derived twin — `typeof DashboardModel.Encoded` and the class's own `Schema.encode` are what `iac` consumes and applies through its grafana provider; a grafana-sdk admission lands as one interior emission member behind this same encode seam, changing no consumer.
 - Law: model-level fields mirror the Foundation-SDK `DashboardBuilder` members one-for-one — `uid`/`title`/`tags`/`refresh` land on the builder members of the same name, `since` on `time`, `variables` on `withVariable`, `annotations` on `annotation`, `laid` positions on each panel's `gridPos` — so the iac compile leg types every knob and dashboard identity survives from `AppIdentity` into the Grafana state unchanged.
-- Law: statics carry the derivations — `DashboardModel.laid` (the grid fold), the panel union as `DashboardModel.Panel` with every row schema riding the same owner (`DashboardModel.Timeseries`, `.Stat`, `.Gauge`, `.Heatmap`, `.Logs`, `.Table`, `.Geomap`, `.Nodes`), and the `[05]` pack dispatch — so one import serves model, panels, rows, layout, and packs, and a consumer constructs rows by name, never by union position.
+- Law: statics carry the derivations — `DashboardModel.laid`, the panel union with every row schema riding `DashboardModel`, and the pack dispatch, so one import serves model, panels, rows, layout, and packs, and a consumer constructs rows by name, never by union position.
 - Entry: `DashboardModel.of(identity, page)`; `DashboardModel.laid(model)` at the apply seam.
 - Growth: a new dashboard-level axis is one field with its default in the field declaration, inherited by every pack through `of`.
 - Packages: `effect` (`Schema`, `Array`, `Duration`, `Number`); `value/identity` (`AppIdentity`); `convention#IDENTITY_PROJECTION`.
@@ -402,7 +402,127 @@ declare namespace DashboardModel {
 }
 ```
 
-## [05]-[PACKS]
+## [05]-[BENCH]
+
+- Owner: the benchmark comparison algebra — `Bench`, the structural claim vocabulary (`Band`, the percentile ladder; `Metric`, the modality-labeled unit row; `Claim`, the suite-plus-host-print shape) and the pure baseline-versus-candidate fold `Bench.graded` yielding the `Graded`/`Refused` verdict family under one tolerance policy row.
+- Law: the claim shape composes `mitata`'s state-free `stats` type, never the harness or an interchange import — `Band` selects its percentile ladder and `Metric.kind` selects its modality while this plane types the exact contextual fields it grades (`suite`, `host.print`, `label`, and `unit`), so the codec's decoded `Claim` conforms by construction and a second benchmark vocabulary beside the package shape is unspellable.
+- Law: incompatible comparison is refused, never computed — `_ADMISSION` orders suite, host print, metric kind-label-unit roster, finite non-negative band values, and a strictly-positive graded band on both claims as data rows, and `Refused` carries the first failed axis and both projections, so a gate never compares unrelated suites, changes modality or units, accepts duplicate rows, divides by a zero baseline, grades a zero-measurement candidate as improvement, or mistakes a partial join for a complete grade.
+- Law: the grade is a tolerance policy row — `_TOLERANCE` names the graded band (`p99`) and admits its slack through the finite `[0, 1)` `_Slack` constructor, the admitted per-kind-label-unit join is total over both rosters, and the three-grade vocabulary (`improved`/`steady`/`regressed`) is the closed union a gate reads; a caller wanting a different band or slack passes one admitted row, never a second fold.
+- Law: verdicts feed the bridge, not the panels — the runtime meter bridge mints `Convention.metric.benchVerdicts` from the graded rows and the `bench` pack trends that series, so the board view and the gate view of one comparison are provably the same fold output.
+- Growth: a new grade is one `_GRADES` entry every exhaustive consumer breaks on; a new comparison axis (a second banded field) is one `Tolerance` field.
+- Packages: `effect` (`Array`, `Data`, `Number`, `Option`, `Schema`); `mitata` (`stats` type only — percentile ladder and modality, never the module-global harness).
+
+```typescript signature
+const _BANDS = ["min", "avg", "p25", "p50", "p75", "p99", "p999", "max"] as const
+const _GRADES = ["improved", "steady", "regressed"] as const
+const _BandValue = Schema.Number.pipe(Schema.finite(), Schema.nonNegative())
+const _isBandValue = Schema.is(_BandValue)
+type _Slack = typeof _Slack.Type
+const _Slack = Schema.Number.pipe(Schema.finite(), Schema.nonNegative(), Schema.lessThan(1), Schema.brand("BenchSlack"))
+
+declare namespace Bench {
+  type Band = Pick<MitataStats, (typeof _BANDS)[number]>
+  type Metric = { readonly kind: MitataStats["kind"]; readonly label: string; readonly unit: string; readonly band: Band }
+  type Claim = { readonly suite: string; readonly host: { readonly print: string }; readonly metrics: ReadonlyArray<Metric> }
+  type Grade = (typeof _GRADES)[number]
+  type Row = { readonly kind: Metric["kind"]; readonly label: string; readonly unit: string; readonly grade: Grade; readonly ratio: number }
+  type RefusalAxis = "suite" | "host" | "metrics" | "bands" | "baseline"
+  type Verdict = Data.TaggedEnum<{
+    Graded: { readonly suite: string; readonly print: string; readonly rows: ReadonlyArray<Row> }
+    Refused: { readonly suite: string; readonly axis: RefusalAxis; readonly baseline: string; readonly candidate: string }
+  }>
+  type Tolerance = { readonly band: (typeof _BANDS)[number]; readonly slack: _Slack }
+}
+const _Verdict = Data.taggedEnum<Bench.Verdict>()
+
+const _TOLERANCE: Bench.Tolerance = { band: "p99", slack: _Slack.make(0.05) }
+
+const _sameMetric = (left: Bench.Metric, right: Bench.Metric): boolean =>
+  left.kind === right.kind && left.label === right.label && left.unit === right.unit
+
+const _roster = (claim: Bench.Claim): string =>
+  Array.join(Array.map(claim.metrics, ({ kind, label, unit }) => `${kind}:${label}[${unit}]`), ",")
+
+const _bandValues = (claim: Bench.Claim): string =>
+  Array.join(
+    Array.flatMap(claim.metrics, (metric) =>
+      Array.map(_BANDS, (band) => `${metric.kind}:${metric.label}[${metric.unit}]:${band}=${metric.band[band]}`)),
+    ",",
+  )
+
+const _aligned = (baseline: Bench.Claim, candidate: Bench.Claim): boolean =>
+  baseline.metrics.length === candidate.metrics.length
+  && Array.every(baseline.metrics, (metric) => Array.filter(candidate.metrics, (held) => _sameMetric(metric, held)).length === 1)
+  && Array.every(candidate.metrics, (metric) => Array.filter(baseline.metrics, (held) => _sameMetric(metric, held)).length === 1)
+
+type _Admission = {
+  readonly accepts: (baseline: Bench.Claim, candidate: Bench.Claim, tolerance: Bench.Tolerance) => boolean
+  readonly axis: Bench.RefusalAxis
+  readonly project: (claim: Bench.Claim) => string
+}
+
+const _ADMISSION: ReadonlyArray<_Admission> = [
+  { axis: "suite", accepts: (baseline, candidate) => baseline.suite === candidate.suite, project: (claim) => claim.suite },
+  { axis: "host", accepts: (baseline, candidate) => baseline.host.print === candidate.host.print, project: (claim) => claim.host.print },
+  { axis: "metrics", accepts: _aligned, project: _roster },
+  {
+    axis: "bands",
+    accepts: (baseline, candidate) =>
+      Array.every([baseline, candidate], (claim) =>
+        Array.every(claim.metrics, (metric) => Array.every(_BANDS, (band) => _isBandValue(metric.band[band])))),
+    project: _bandValues,
+  },
+  {
+    // The graded band must be strictly positive on BOTH claims: a zero baseline divides the ratio
+    // and a zero candidate is a measurement artifact that would grade as a phantom improvement.
+    axis: "baseline",
+    accepts: (baseline, candidate, tolerance) =>
+      Array.every([baseline, candidate], (claim) => Array.every(claim.metrics, (metric) => metric.band[tolerance.band] > 0)),
+    project: _roster,
+  },
+]
+
+const _graded = (baseline: Bench.Claim, candidate: Bench.Claim, tolerance: Bench.Tolerance = _TOLERANCE): Bench.Verdict =>
+  pipe(
+    Array.findFirst(_ADMISSION, (row) => !row.accepts(baseline, candidate, tolerance)),
+    Option.match({
+      onSome: (row) => _Verdict.Refused({
+        suite: candidate.suite,
+        axis: row.axis,
+        baseline: row.project(baseline),
+        candidate: row.project(candidate),
+      }),
+      onNone: () => _Verdict.Graded({
+        suite: candidate.suite,
+        print: candidate.host.print,
+        rows: Array.filterMap(candidate.metrics, (metric) =>
+          Option.map(Array.findFirst(baseline.metrics, (row) => _sameMetric(metric, row)), (held) => {
+            const ratio = metric.band[tolerance.band] / held.band[tolerance.band]
+            return {
+              kind: metric.kind,
+              label: metric.label,
+              unit: metric.unit,
+              ratio,
+              grade: ratio > 1 + tolerance.slack
+                ? ("regressed" as const)
+                : ratio < 1 - tolerance.slack
+                  ? ("improved" as const)
+                  : ("steady" as const),
+            }
+          })),
+      }),
+    }),
+  )
+
+const Bench: Data.TaggedEnum.Constructor<Bench.Verdict> & {
+  readonly bands: typeof _BANDS
+  readonly grades: typeof _GRADES
+  readonly graded: (baseline: Bench.Claim, candidate: Bench.Claim, tolerance?: Bench.Tolerance) => Bench.Verdict
+  readonly slack: typeof _Slack.make
+} = { ..._Verdict, bands: _BANDS, grades: _GRADES, graded: _graded, slack: _Slack.make }
+```
+
+## [06]-[PACKS]
 
 - Owner: the interior `_pane` builders and the `_PACKS` handler record dispatched by `DashboardModel.pack` — the payload map types each pack's input, the mapped handler contract turns a missing pack into a compile error at the record, and the one generic indexed dispatch keeps the payload following the kind.
 - Law: a builder never invents a name, a threshold, or a tone — series come from `Convention.metric` rows, tenancy filters from `Convention.rasm` keys against the `$tenant` template variable, vital ceilings and meter resource axes from the caller's payload rows, burn thresholds from the spec's own `factor`, threshold tones from the spec's own severity row (`Alert.severity.page.tone` where a panel gates with no spec) — so the builders are pure plumbing between vocabulary and visualization, a severity-to-tone table re-declared here is the hand-synced parallel the derivation law kills, and deleting any hardcoded literal from them leaves nothing to delete.
@@ -415,6 +535,9 @@ declare namespace DashboardModel {
 - Law: the vital pack pairs each payload gauge with the observation stream — per-kind level gauges beside the `rasm.vital.observed` rate grouped by the kind and grade axes — so both vital instruments land on one board.
 - Law: the security pack projects the authenticity-reject stream — the rate series grouped by `rasm.security.kind` and the facet table over the kind/dialect/surface/reason axes — completing the reject vocabulary's receipt-to-board chain beside audit and crash.
 - Law: the crash pack groups its own attribute vocabulary — the fingerprint table over `rasm.crash.kind`/`rasm.crash.fingerprint` beside the capture-rate stat and the exception log stream — so the crash axes have board consumers, never declaration-only rows.
+- Law: the object pack is the content-addressed plane's health board — write outcomes grouped by `rasm.object.outcome`, the landed-bytes and resumable-upload flow pair, and the sweep-reclaim rate — every series the data object owners tap from receipts, tenant-free because the object instruments are process-level, while every dispute settles against the receipt.
+- Law: the lake pack is the storage-harvest board — admission-wait and deferred-wait quantiles, harvested engine-profile quantiles, the retried rate by `rasm.olap.engine`, the cache hit-share expression grouped by `rasm.cache.name`, and the pool-lease instant by `rasm.pool.scheme` — so the lake-engine profile parity and cache/pool census the data lanes mint read on one standing board.
+- Law: the bench pack trends the claim bridge — the `rasm.bench.band` timing ladder per payload suite, one generated enrichment panel per GC/heap/hardware-counter unit family, and the verdict rate grouped by `rasm.bench.verdict` — the meter-bridged projection of `[05]`'s fold, so a regression is a threshold-visible line the same fold gates on and incompatible units never share one axis.
 - Law: `DashboardModel.suite(identity, payload)` folds the mapped `_SUITE` record, whose key contract is exactly `DashboardModel.Pack`; a new pack cannot compile until its suite projection lands, and the standing fleet never requires a hand-maintained array roster.
 - Law: spans are the builders' only local decision — each pane declares its grid `span` so the model's shelf fold lays every pack without per-pack layout code; a reusable visualization earns a builder at two pack call sites, else it inlines.
 - Boundary: provider emission — grafana JSON, folder placement, apply lifecycle — is `iac`'s seam over `typeof DashboardModel.Encoded`; delivery of alert specs is `slo#ALERT_SPECS`'s consumer law.
@@ -733,6 +856,94 @@ const _securityFacets: Panel =
     title: "rejects by facet",
   })
 
+const _objectOutcomes: Panel = _outcomes(Convention.metric.objectWritten, Convention.rasm.objectOutcome, "writes by outcome")
+
+const _objectFlow: Panel =
+  Timeseries.make({
+    exprs: [
+      Query.render(Query.Windowed({ fn: "rate", of: Query.Instant({ labels: {}, metric: Convention.metric.objectBytes }), window: _WINDOW })),
+      Query.render(Query.Windowed({ fn: "rate", of: Query.Instant({ labels: {}, metric: Convention.metric.streamBytes }), window: _WINDOW })),
+      Query.render(Query.Windowed({ fn: "rate", of: Query.Instant({ labels: {}, metric: Convention.metric.objectReclaimed }), window: _WINDOW })),
+    ],
+    legend: Option.none(),
+    span: { h: 8, w: 12 },
+    steps: [],
+    title: "landed, uploaded, reclaimed",
+    unit: Option.some("By"),
+  })
+
+const _lakeWait = _quantile({ labels: {}, metric: Convention.metric.olapWait, title: "lake wait", unit: "ms" })
+const _lakeDeferred = _quantile({ labels: {}, metric: Convention.metric.olapDeferred, title: "deferred wait", unit: "ms" })
+const _lakeProfile = _quantile({ labels: {}, metric: Convention.metric.profileDuration, title: "engine profile", unit: "ms" })
+
+const _cacheShare: Panel =
+  Timeseries.make({
+    exprs: [
+      Query.render(
+        Query.Binary({
+          left: Query.Instant({ labels: {}, metric: Convention.metric.cacheHits }),
+          op: "div",
+          right: Query.Binary({
+            left: Query.Instant({ labels: {}, metric: Convention.metric.cacheHits }),
+            op: "add",
+            right: Query.Instant({ labels: {}, metric: Convention.metric.cacheMisses }),
+          }),
+        }),
+      ),
+    ],
+    legend: Option.some(`{{${Convention.rasm.cacheName}}}`),
+    span: { h: 6, w: 12 },
+    steps: [],
+    title: "cache hit share",
+    unit: Option.none(),
+  })
+
+const _poolLeases: Panel =
+  Timeseries.make({
+    exprs: [Query.render(Query.Instant({ labels: {}, metric: Convention.metric.poolHeld }))],
+    legend: Option.some(`{{${Convention.rasm.poolScheme}}}`),
+    span: { h: 6, w: 12 },
+    steps: [],
+    title: "pool leases held",
+    unit: Option.none(),
+  })
+
+const _benchLadder = (suite: string): Panel =>
+  Timeseries.make({
+    exprs: [
+      Query.render(
+        Query.Aggregate({
+          by: [Convention.rasm.benchBand, Convention.rasm.benchLabel],
+          of: Query.Instant({ labels: { [Convention.rasm.benchSuite]: suite }, metric: Convention.metric.benchTime }),
+          op: "max",
+        }),
+      ),
+    ],
+    legend: Option.some(`{{${Convention.rasm.benchLabel}}} {{${Convention.rasm.benchBand}}}`),
+    span: { h: 8, w: 12 },
+    steps: [],
+    title: `${suite} timing ladder`,
+    unit: Option.some("ns"),
+  })
+
+const _BENCH_ENRICHMENT = [
+  { metric: Convention.metric.benchGc, title: "gc timing", unit: "ns" },
+  { metric: Convention.metric.benchHeap, title: "heap delta", unit: "By" },
+  { metric: Convention.metric.benchCounter, title: "hardware counters", unit: "1" },
+] as const
+
+const _benchEnrichment = (suite: string, row: (typeof _BENCH_ENRICHMENT)[number]): Panel =>
+  Timeseries.make({
+    exprs: [Query.render(Query.Instant({ labels: { [Convention.rasm.benchSuite]: suite }, metric: row.metric }))],
+    legend: Option.some(`{{${Convention.rasm.benchLabel}}} {{${Convention.rasm.benchBand}}}`),
+    span: { h: 8, w: 12 },
+    steps: [],
+    title: `${suite} ${row.title}`,
+    unit: Option.some(row.unit),
+  })
+
+const _benchVerdicts: Panel = _outcomes(Convention.metric.benchVerdicts, Convention.rasm.benchVerdict, "regression verdicts")
+
 const _burnPair = (spec: Alert.Spec): Panel =>
   Timeseries.make({
     exprs: [
@@ -750,16 +961,19 @@ declare namespace DashboardModel {
   type Pack = keyof Payload
   type Payload = {
     readonly audit: Record.ReadonlyRecord<never, never>
+    readonly bench: { readonly suites: ReadonlyArray<string> }
     readonly crash: Record.ReadonlyRecord<never, never>
     readonly invoke: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
+    readonly lake: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly meter: { readonly resources: ReadonlyArray<string> }
+    readonly object: Record.ReadonlyRecord<never, never>
     readonly overview: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
     readonly security: Record.ReadonlyRecord<never, never>
     readonly slo: { readonly objectives: ReadonlyArray<Slo.Objective> }
     readonly vital: { readonly gauges: ReadonlyArray<{ readonly ceiling: number; readonly kind: string }> }
     readonly work: { readonly quantiles: ReadonlyArray<Query.QuantileValue> }
   }
-  type Suite = Payload["meter"] & Payload["overview"] & Payload["slo"] & Payload["vital"]
+  type Suite = Payload["bench"] & Payload["meter"] & Payload["overview"] & Payload["slo"] & Payload["vital"]
 }
 
 const _PACKS: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, payload: DashboardModel.Payload[K]) => DashboardModel } = {
@@ -770,6 +984,21 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, pay
       slug: "audit",
       tags: ["audit"],
       title: "audit",
+      variables: [],
+    }),
+  bench: (identity, payload) =>
+    DashboardModel.of(identity, {
+      annotations: [],
+      panels: [
+        ...Array.flatMap(payload.suites, (suite) => [
+          _benchLadder(suite),
+          ...Array.map(_BENCH_ENRICHMENT, (row) => _benchEnrichment(suite, row)),
+        ]),
+        _benchVerdicts,
+      ],
+      slug: "bench",
+      tags: ["bench"],
+      title: "benchmarks",
       variables: [],
     }),
   crash: (identity) =>
@@ -796,6 +1025,22 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, pay
       title: "capability plane",
       variables: [],
     }),
+  lake: (identity, payload) =>
+    DashboardModel.of(identity, {
+      annotations: [],
+      panels: [
+        ...Array.map(payload.quantiles, _lakeWait),
+        ...Array.map(payload.quantiles, _lakeDeferred),
+        ...Array.map(payload.quantiles, _lakeProfile),
+        _outcomes(Convention.metric.olapRetried, Convention.rasm.olapEngine, "queries retried"),
+        _cacheShare,
+        _poolLeases,
+      ],
+      slug: "lake",
+      tags: ["lake", "storage"],
+      title: "storage harvest",
+      variables: [],
+    }),
   meter: (identity, payload) =>
     DashboardModel.of(identity, {
       annotations: [],
@@ -803,6 +1048,15 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, pay
       slug: "meter",
       tags: ["meter", "billing"],
       title: "usage",
+      variables: [],
+    }),
+  object: (identity) =>
+    DashboardModel.of(identity, {
+      annotations: [],
+      panels: [_objectOutcomes, _objectFlow],
+      slug: "object",
+      tags: ["object", "storage"],
+      title: "object plane",
       variables: [],
     }),
   overview: (identity, payload) =>
@@ -855,9 +1109,12 @@ const _PACKS: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, pay
 
 const _SUITE: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, payload: DashboardModel.Suite) => DashboardModel } = {
   audit: (identity) => _PACKS.audit(identity, {}),
+  bench: (identity, payload) => _PACKS.bench(identity, { suites: payload.suites }),
   crash: (identity) => _PACKS.crash(identity, {}),
   invoke: (identity, payload) => _PACKS.invoke(identity, { quantiles: payload.quantiles }),
+  lake: (identity, payload) => _PACKS.lake(identity, { quantiles: payload.quantiles }),
   meter: (identity, payload) => _PACKS.meter(identity, { resources: payload.resources }),
+  object: (identity) => _PACKS.object(identity, {}),
   overview: (identity, payload) => _PACKS.overview(identity, { quantiles: payload.quantiles }),
   security: (identity) => _PACKS.security(identity, {}),
   slo: (identity, payload) => _PACKS.slo(identity, { objectives: payload.objectives }),
@@ -867,5 +1124,14 @@ const _SUITE: { readonly [K in DashboardModel.Pack]: (identity: AppIdentity, pay
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { DashboardModel, Query }
+export { Bench, DashboardModel, Query }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

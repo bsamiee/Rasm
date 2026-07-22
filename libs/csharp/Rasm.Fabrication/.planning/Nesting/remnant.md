@@ -14,7 +14,7 @@
 - Cases: `RemnantOp` carries `Stocking`, `Claim`, `Close`, and `Sweep`; `ReservationDisposition.Consume` subtracts its used region and stocks each surviving connected child in the same receipt.
 - Entry: `Admit(Seq<Loop>, MaterialId, RemnantOrigin, RemnantProfile)` mints each connected component, `Reconcile(RemnantOp, RemnantInventory)` folds lifecycle operations, `From(Stock, Seq<Loop>, double)` inverts consumed stock, `Holds(Seq<Loop>, Option<double>, ReusePolicy)` answers policy-inset fit with grain, and `Stockable(RemnantInventory)` projects the next inventory smallest-adequate first.
 - Auto: arc-exact offsets and containment route through `ArcAlgebra.Apply`; chord projection routes through `ArcAlgebra.Densify`; exact measures route through `Loop.Area` and `Loop.Length`; independent row gates partition through `ParallelHelper`; lineage acyclicity and order route through `QuikGraph`; lease membership routes through `Interval.Contains`; content identity routes through `ContentKey.Of` over framed `BinaryPrimitives` writes.
-- Receipt: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value.
+- Receipt: `RemnantPlan` carries the next inventory, admissions, accumulated retirement causes, conflicts, validated transitions, per-source-stock `RemnantYield` rows, and the standing potential, consumed, and scrapped `RemnantMeasure` pairs of area and value; `RemnantSlots` names the `store.fabrication.remnant.<verb>` streams the validated transitions and the re-admitted inventory census ride on the Persistence slot registry, so shop offcuts survive restart and share across apps without collision.
 - Packages: `CommunityToolkit.HighPerformance`, `LanguageExt.Core`, `NodaTime`, `QuikGraph`, `Rasm`, `Rasm.Element`, `RhinoCommon`, and `Thinktecture.Runtime.Extensions` compose the owner.
 - Growth: each reuse gate adds one `ReusePolicy` member and one payload-bearing `RetireCause` case; each traceability demand adds one `ReuseTrait` row inside `ReusePolicy.Required`; each lifecycle operation adds one `RemnantOp` case and one generated dispatch arm; each physical observation axis adds one `RemnantObservation` member.
 - Boundary: `Remnant.Key` is the lifecycle key, `Stock.FromRemnant` is the next-nest carrier, and `FabricationResult.Placement.Remnants` is the placement receipt seam; `ParallelHelper` slots, mutable `QuikGraph` construction, and pooled canonical-byte writes are statement-bearing package boundaries.
@@ -290,6 +290,15 @@ public sealed record RemnantPlan(
     RemnantMeasure Potential,
     RemnantMeasure Consumed,
     RemnantMeasure Scrapped);
+
+// Durable shop-state seam: remnant inventory persists as slot-registered streams — the transition slot carries
+// each validated `RemnantTransition` from a `Reconcile` fold, the census slot the `RemnantPlan.Next` inventory
+// re-admitted at composition. Spellings are value federation onto the Persistence slot registry's contributed
+// span; no Persistence type crosses this boundary.
+public static class RemnantSlots {
+    public const string Transition = "store.fabrication.remnant.transition";
+    public const string Census = "store.fabrication.remnant.census";
+}
 
 file readonly struct InventoryGate(RemnantInventory inventory, RemnantRow[] rows, Error?[] faults) : IAction {
     public void Invoke(int index) => faults[index] = Remnant.RowFault(rows[index], inventory);
@@ -1055,3 +1064,12 @@ public sealed partial class Remnant {
         Math.Round(value / quantum, MidpointRounding.ToEven) * quantum;
 }
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

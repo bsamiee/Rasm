@@ -17,6 +17,7 @@
 - Law: a ceiling is a row, never an inline `double.Min` term — a new limit axis lands as one row with every consumer and every receipt untouched.
 - Rows: `Channel` bounds engagement by the narrowest admitted clearance in the walked component; `Immersion` bounds it by the requested engagement angle; `Width` and `Scallop` bound it by the process budget and the finish demand.
 - Rows: `Deflection`, `Stability`, and `ChipThinning` read the `ProcessBudget.Subtractive` columns the demand already admits, so tool-deflection, chatter, and chip-thinning ceilings bind the same fold as the geometric ones.
+- Rows: `MeasuredLoad` reads the optional `Kinematics/observation.md` `LoadWindow` paired with its evaluation instant in one `Option` — a load without its instant is unrepresentable, never a sentinel-guarded state — scales a fresh positive sample around its reference radial depth, and returns a conservative zero for an invalid present window; only absence removes the ceiling. `EngagementSolution.Binding` still names the governing bound with no receipt change.
 - Evidence: `EngagementSolution` carries every row's keyed ceiling and the binding row itself, so a constrained walk names which physics bound it rather than reporting an unattributed scalar.
 - Boundary: the fold owns selection; no consumer re-derives a ceiling or re-orders the rows.
 
@@ -54,10 +55,12 @@
 using System.Numerics.Tensors;
 using LanguageExt;
 using LanguageExt.Common;
+using NodaTime;
 using Rasm.Domain;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Fabrication.Geometry2D;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Rasm.Fabrication.Spec;
 using Rasm.Meshing;
@@ -68,12 +71,15 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Toolpath;
 
 // --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// A measured load and its evaluation instant are one fact: the pair rides one Option, so a load
+// without its instant — or an epoch-instant read as absence — is unrepresentable, never guarded.
 public readonly record struct EngagementInputs(
     double CutterRadius,
     double ChannelClearance,
     double TargetAngleDeg,
     double ScallopStep,
-    ProcessBudget.Subtractive Budget);
+    ProcessBudget.Subtractive Budget,
+    Option<(LoadWindow Window, Instant EvaluatedAt)> MeasuredLoad = default);
 
 [SmartEnum<string>]
 public sealed partial class EngagementLimit {
@@ -84,6 +90,7 @@ public sealed partial class EngagementLimit {
     public static readonly EngagementLimit Deflection = new("deflection", DeflectionCeiling);
     public static readonly EngagementLimit Stability = new("stability", StabilityCeiling);
     public static readonly EngagementLimit ChipThinning = new("chip-thinning", ChipThinningCeiling);
+    public static readonly EngagementLimit MeasuredLoad = new("measured-load", MeasuredLoadCeiling);
 
     [UseDelegateFromConstructor]
     public partial double Ceiling(EngagementInputs inputs);
@@ -109,6 +116,13 @@ public sealed partial class EngagementLimit {
         inputs.Budget.ChipThinningFactor > 0.0
             ? inputs.CutterRadius * inputs.Budget.ChipThinningFactor
             : double.PositiveInfinity;
+
+    // Cutting load scales near-linearly with radial engagement. A present window that is zero, future, or expired
+    // binds conservatively to zero; only an absent window removes this ceiling.
+    private static double MeasuredLoadCeiling(EngagementInputs inputs) =>
+        inputs.MeasuredLoad.Match(
+            Some: static measured => measured.Window.Ceiling(measured.EvaluatedAt).IfNone(0.0),
+            None: static () => double.PositiveInfinity);
 
     public static EngagementSolution Solve(EngagementInputs inputs) =>
         Items.ToSeq()
@@ -170,6 +184,7 @@ public sealed partial class SkeletonDemand {
     public CutSense Sense { get; }
     public WalkStrategy Strategy { get; }
     public SkeletonTopology Topology { get; }
+    public Option<(LoadWindow Window, Instant EvaluatedAt)> MeasuredLoad { get; }
 
     public static Fin<SkeletonDemand> Admit(
         ArcForest stock,
@@ -177,11 +192,13 @@ public sealed partial class SkeletonDemand {
         CutterForm cutter,
         EngagementPolicy engagement,
         CutSense sense,
-        WalkStrategy strategy) =>
+        WalkStrategy strategy,
+        Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad = default) =>
         from admitted in Optional(graph).ToFin(new GeometryFault.DegenerateInput(Kind.Curve, -1, "skeleton:graph-absent").ToError())
         let topology = Skeleton.Topology(admitted)
         from _ in Skeleton.Facts(stock, admitted, cutter, engagement, topology).ToFin()
-        from demand in Validate(stock, admitted, cutter, engagement, sense, strategy, topology, out SkeletonDemand row) is { } error
+        from demand in Validate(stock, admitted, cutter, engagement, sense, strategy, topology, measuredLoad,
+            out SkeletonDemand row) is { } error
             ? Fin.Fail<SkeletonDemand>(new GeometryFault.DegenerateInput(Kind.Curve, -1, error.Message).ToError())
             : Fin.Succ(row)
         select demand;
@@ -194,7 +211,8 @@ public sealed partial class SkeletonDemand {
         ref EngagementPolicy engagement,
         ref CutSense sense,
         ref WalkStrategy strategy,
-        ref SkeletonTopology topology) =>
+        ref SkeletonTopology topology,
+        ref Option<(LoadWindow Window, Instant EvaluatedAt)> measuredLoad) =>
         validationError = topology is null || topology.Components.Count != graph.Nodes.Count
             ? new ValidationError("<skeleton-topology-mismatch>")
             : null;
@@ -261,7 +279,8 @@ public static class Skeleton {
             .Map(arc => double.Min(demand.Graph.Nodes[arc.From].Radius, demand.Graph.Nodes[arc.To].Radius) - cutterRadius)
             .Fold(double.PositiveInfinity, double.Min)
         let engagement = EngagementLimit.Solve(
-            new EngagementInputs(cutterRadius, clearance, demand.Engagement.TargetAngle, scallop, budget))
+            new EngagementInputs(
+                cutterRadius, clearance, demand.Engagement.TargetAngle, scallop, budget, demand.MeasuredLoad))
         from _ in guard(
             double.IsFinite(engagement.Radial) && engagement.Radial > 0.0
                 && double.IsFinite(engagement.Step) && engagement.Step > 0.0,
@@ -437,7 +456,7 @@ public static class Skeleton {
         int component,
         Seq<Move> path,
         int index) =>
-        (Entry: Target(path.Head), Exit: Target(path.Last.IfNone(path.Head)))
+        (Entry: path.Head.Target, Exit: path.Last.IfNone(path.Head).Target)
             .Apply(span => FormattableString.Invariant(
                     $"skeleton:{component}:{string.Join(',', origins)}:{index}") is var key
                 ? CutElement.Admit(
@@ -450,17 +469,12 @@ public static class Skeleton {
                         span.Exit,
                         path,
                         RotationPenalty: Rotation(path),
-                        ThermalExposure: Exposure(path, demand.Stock.Tolerance.Absolute.Value),
+                        ThermalExposure: Exposure(path),
                         Pierces: path.Take(1).Count)))
                 : Fin.Fail<CutElement>(new GeometryFault.DegenerateInput(Kind.Curve, -1, $"skeleton:path-{index}:projection").ToError()));
 
-    private static Point3d Target(Move move) => move.Switch(
-        rapid: static row => row.Target,
-        linear: static row => row.Target,
-        circular: static row => row.Target);
-
     private static double Rotation(Seq<Move> path) =>
-        path.Map(Target)
+        path.Map(static move => move.Target)
             .Fold(
                 (Previous: Option<Vector3d>.None, Last: Option<Point3d>.None, Sum: 0.0),
                 static (state, point) => state.Last.Match(
@@ -472,40 +486,34 @@ public static class Skeleton {
                     None: () => (state.Previous, Some(point), state.Sum)))
             .Sum;
 
-    private static double Exposure(Seq<Move> path, double tolerance) =>
+    private static double Exposure(Seq<Move> path) =>
         path.Fold(
-                (Last: Option<Point3d>.None, Seconds: 0.0, Tolerance: tolerance),
-                static (state, move) => (Target(move), move switch {
+                (Last: Option<Point3d>.None, Seconds: 0.0),
+                static (state, move) => (move.Target, move switch {
                         Move.Linear row => row.Feed,
                         Move.Circular row => row.Feed,
                         _ => 0.0,
                     })
                     .Apply(step => (Some(step.Item1), state.Seconds + state.Last.Match(
-                        Some: previous => step.Item2 > 0.0 ? Distance(previous, move, state.Tolerance) / step.Item2 : 0.0,
-                        None: static () => 0.0), state.Tolerance)))
+                        Some: previous => step.Item2 > 0.0 ? Distance(previous, move) / step.Item2 : 0.0,
+                        None: static () => 0.0))))
             .Seconds;
 
-    private static double Distance(Point3d from, Move move, double tolerance) => move.Switch(
-        state: (From: from, Tolerance: tolerance),
+    private static double Distance(Point3d from, Move move) => move.Switch(
+        state: from,
         rapid: static (_, _) => 0.0,
-        linear: static (state, row) => state.From.DistanceTo(row.Target),
-        circular: static (state, row) => CircularLength(state.From, row, state.Tolerance));
-
-    private static double CircularLength(Point3d from, Move.Circular move, double tolerance) {
-        Vector3d start = from - move.Arc.Center;
-        Vector3d finish = move.Target - move.Arc.Center;
-        double startRadians = Math.Atan2(start.Y, start.X);
-        double finishRadians = Math.Atan2(finish.Y, finish.X);
-        double raw = move.Arc.Sense == RotationSense.Clockwise
-            ? startRadians - finishRadians
-            : finishRadians - startRadians;
-        double sweep = (raw % Math.Tau + Math.Tau) % Math.Tau;
-        double planarChord = Math.Sqrt(Math.Pow(finish.X - start.X, 2.0) + Math.Pow(finish.Y - start.Y, 2.0));
-        if (planarChord <= tolerance)
-            sweep = Math.Tau;
-        double radius = Math.Sqrt((start.X * start.X) + (start.Y * start.Y));
-        double rise = move.Target.Z - from.Z;
-        return Math.Sqrt(Math.Pow(radius * sweep, 2.0) + (rise * rise));
-    }
+        linear: static (start, row) => start.DistanceTo(row.Target),
+        circular: static (start, row) => Math.Sqrt(
+            Math.Pow(row.Radius * Math.Abs(row.SweepRadians), 2.0)
+            + Math.Pow(row.Target.Z - start.Z, 2.0)));
 }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

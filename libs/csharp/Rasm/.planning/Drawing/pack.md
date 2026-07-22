@@ -2,13 +2,14 @@
 
 `Rasm.Drawing` folds one `PackOp` through `Encode.Apply` into a dtype-strided `EncodedGeometry`. `EncodingChannel` owns scalar and analytic-toolpath lanes; each channel writes through its `ChannelDtype` bulk span arms into one descriptor-indexed byte arena. `ToolpathPath` preserves line and circular spans, so arc centre and sense remain content through packing, posting, and reconciliation instead of collapsing to sampled chords.
 
-This page produces the representation vocabulary Compute wraps as an `EncodedTensor` residency view and AppHost reads through the channel discriminant. `EncodingKind.Field` and `EncodingKind.Toolpath` bind the corresponding `PackKind` rows.
+This page produces the representation vocabulary Compute wraps as an `EncodedTensor` residency view and AppHost reads through the channel discriminant. `EncodingKind.Field` and `EncodingKind.Toolpath` bind the corresponding `PackKind` rows. `PackSchema` projects each wire's columnar identity — `ContentHash`-derived schema id, field/dtype/stride/null rows — and `EvidenceWire` serializes 106-bit `ddouble` receipt evidence through exact binary blocks. Frozen JSON options remain research until both API tiers admit `JsonSerializerOptions.MakeReadOnly()`.
 
 Point-cloud channels compose oriented normals; mesh-patch channels compose heat-geodesic and cotangent-Laplacian fields; voxel occupancy composes the admitted mesh SDF. Reachable failures route `EncodingFault` 2444 or `DegenerateInput` 2400, and `EncodedGeometry` registers `IValidityEvidence` at the `Op` acceptance oracle.
 
 ## [01]-[INDEX]
 
-- [01]-[ENCODING]: `PackKind` modality rows, `EncodingChannel` scalar and analytic-toolpath lanes, `ChannelDtype` width/tolerance rows, `PackOp`, the `Apply` fold, and `EncodedGeometry` with its `RoundTripWitness`.
+- [02]-[ENCODING]: `PackKind` modality rows, `EncodingChannel` scalar and analytic-toolpath lanes, `ChannelDtype` width/tolerance rows, `PackOp`, the `Apply` fold, and `EncodedGeometry` with its `RoundTripWitness`.
+- [03]-[SCHEMA_AND_EVIDENCE]: `PackSchema`/`PackSchemaField`/`SchemaNullability` — the `ContentHash`-derived columnar schema identity; `EvidenceWire` — the exact-hi/lo binary evidence block.
 
 ## [02]-[ENCODING]
 
@@ -19,6 +20,7 @@ Point-cloud channels compose oriented normals; mesh-patch channels compose heat-
 - Receipt: `EncodedGeometry`, `IValidityEvidence` — `Descriptors` (one header per packed channel), `Payload` (the contiguous dtype-strided `ReadOnlyMemory<byte>` arena), `Count`, and `Witness` (`GeometryHash` digest with per-channel max error and `Lossless`); the claim set proves the descriptors tile the arena contiguously with no gap or overlap and the witness errors are finite — a hand-assembled carrier with overlapping slices fails the acceptance oracle, never a consumer. Compute reads `Payload` with `Descriptors` to wrap a descriptor-sliced `EncodedTensor` residency view, and AppHost marshals the descriptor set with the payload across the sandbox boundary under the aligned `EncodingKind` row.
 - Packages: `Rasm.Meshing`, `Rasm.Spatial` cloud, field, and reconciliation rails, `Rasm.Processing`, `Rasm.Numerics`, `Rasm.Domain`, RhinoCommon, System.Numerics.Tensors, CommunityToolkit.HighPerformance, Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL inbox.
 - Growth: a new representation modality is one `PackKind` row carrying its active-channel column with one `PackOp` case carrying its kernel source; a new feature channel is one `EncodingChannel` row carrying its `Read` column; a new quantization is one `ChannelDtype` row carrying its width, tolerance, and span arms over the SAME witness; a per-instance or per-layer block descriptor is one column on `EncodingChannelDescriptor`, decoders re-binding loudly; zero new surface.
+- Law: `EncodingLaws` is the tier-2 law matrix over this owner — descriptor extents, contiguous tiling, per-channel recovery within `Dtype.Tolerance`, active-set equality against `PackKind.Channels`, and schema-id agreement between the kind declaration and the packed instance.
 - Boundary: the encoding owner is the ONE polymorphic `PackOp` `[Union]` and a per-kind encoder-class family is the named density defect collapsed onto one union folded by one `Apply`; the reader is a `[UseDelegateFromConstructor]` column on the `EncodingChannel` row — a rowless reader is unconstructible, and a detached reader dictionary or `channel switch` cascade is the deleted form; every channel composes its live kernel reader and a domain-local curvature/geodesic/normal re-implementation beside the kernel owner is the deleted double-owner form; the content digest is the reconciliation chain and a local digest — the retired canonical-point cloud encoder included — is the deleted form: cloud, mesh, and (growth) parametric byte layouts have ONE owner and this page binds `(form, digest)` pairs, never raw bytes; a silently lossy pack is rejected — the witness proves every channel against its `Dtype.Tolerance` or routes the typed 2444; the payload is ONE contiguous dtype-strided byte arena and both prior forms are dead — the per-channel `float[][]` jagged arena (re-pack tax) and the uniform `float[]` arena (the false-`Half` store whose "quantized" channels still spent 4 bytes per scalar); the typed view is descriptor-DISPATCHED — the `Dtype` row names the one legal element type and `View<T>` answers the empty view for an absent channel or a width-mismatched `T`, the descriptor set being the truth a consumer reads first; `Apply` is total over the `Fin` rail and a thrown exception on a degenerate source or an unmaterializable channel is forbidden; the pack loop operates on raw `float`/`byte` because a packed feature scalar is the residency lane's native element, and a raw scalar buffer crossing a public signature outside the `Payload`/descriptor pair is the seam violation.
 
 ```csharp signature
@@ -151,13 +153,25 @@ public sealed record RoundTripWitness(GeometryHash ContentHash, HashMap<string, 
 public sealed record EncodedGeometry(
     Seq<EncodingChannelDescriptor> Descriptors, ReadOnlyMemory<byte> Payload, int Count, RoundTripWitness Witness) : IValidityEvidence {
 
-    // Descriptor tiling is a CLAIM set: contiguous byte offsets, no gap, no overlap, arena exact.
+    // Descriptor tiling is a CLAIM set: each shape has a bounded byte extent, offsets are
+    // contiguous, and the final extent equals the arena with no gap or overlap.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Count, floor: 1),
-        ValidityClaim.Of(Descriptors.Fold((Offset: 0, Holds: true), static (acc, d) =>
-            (acc.Offset + d.Bytes, acc.Holds && d.ByteOffset == acc.Offset && d.Count > 0)) is var tile
+        ValidityClaim.Of(Witness.Lossless),
+        ValidityClaim.Of(Descriptors.Map(static d => d.Channel.Key).Distinct().Count == Descriptors.Count),
+        ValidityClaim.CountExactly(count: Witness.ChannelError.Count, expected: Descriptors.Count),
+        ValidityClaim.Of(Descriptors.ForAll(static d =>
+            (long)d.Count * d.Channel.Arity * d.Dtype.Width is > 0 and <= int.MaxValue)),
+        ValidityClaim.Of(Descriptors.Fold((Offset: 0L, Holds: true), static (acc, d) => {
+            long bytes = (long)d.Count * d.Channel.Arity * d.Dtype.Width;
+            return (acc.Offset + bytes,
+                acc.Holds && d.ByteOffset == acc.Offset && d.Count == Count && d.Dtype == d.Channel.Dtype);
+        }) is var tile
             && tile.Holds && tile.Offset == Payload.Length),
-        ValidityClaim.Of(Witness.ChannelError.Values.AsIterable().ForAll(static e => double.IsFinite(e) && e >= 0.0)));
+        ValidityClaim.Of(Witness.ChannelError.Values.AsIterable().ForAll(static error => double.IsFinite(error) && error >= 0.0)),
+        ValidityClaim.Of(Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel.Key).Match(
+            Some: error => double.IsFinite(error) && error >= 0.0 && error <= d.Channel.Dtype.Tolerance,
+            None: static () => false))));
 
     public ReadOnlyMemory<byte> Channel(EncodingChannel channel) =>
         Descriptors.Find(d => d.Channel == channel)
@@ -249,6 +263,13 @@ public static class Encode {
 
     // --- [PACK]
     static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count, Op key) {
+        long bytes = kind.Channels.Fold(0L, static (extent, channel) =>
+            extent + ((long)count * channel.Arity * channel.Dtype.Width));
+        if (bytes > Array.MaxLength) {
+            EncodingChannel channel = kind.Channels[0];
+            return Fin.Fail<PackedChannels>(new GeometryFault.EncodingFault(
+                channel, channel.Dtype, $"payload extent {bytes} exceeds {Array.MaxLength}").ToError());
+        }
         EncodedStore store = EncodedStore.Reserve(count, kind.Channels);
         List<(EncodingChannel Channel, float[] Raw)> raws = new(kind.Channels.Count);
         return kind.Channels.Fold(Fin.Succ((slot: 0, offset: 0)), (state, channel) =>
@@ -548,10 +569,112 @@ flowchart LR
     Witness -->|Lossless verdict + descriptors| EncodedGeometry
     EncodedGeometry -->|"View&lt;float&gt; / View&lt;Half&gt; on the Dtype row"| Compute["Rasm.Compute EncodedTensor"]
     EncodedGeometry -->|EncodingKind.Field / .Toolpath locked rows| AppHost["Rasm.AppHost GeometryPacking capsule"]
+    EncodedGeometry -->|"PackSchema.Of — ContentHash schema id"| Schema["PackSchema — columnar field rows"]
+    Schema -->|zero-copy column mapping| Lake["Persistence storage plane"]
     PackOp -.->|"DegenerateInput 2400 / EncodingFault 2444"| GeometryFault
 ```
 
-## [03]-[DENSITY_BAR]
+## [03]-[SCHEMA_AND_EVIDENCE]
+
+- Owner: `PackSchema` — the columnar schema identity every kernel wire carries beside its payload: `SchemaId` minted through the ONE federation content entry (`ContentHash.Of` over the canonical field lines), the owning `PackKind`, and one `PackSchemaField` row per active channel. `PackSchemaField` — the field row: name (the channel key), arity, `ChannelDtype`, derived `ElementStride`, and the `SchemaNullability` column. `SchemaNullability` — the null-semantics vocabulary (`Dense` · `Masked`). `EvidenceWire` — the lossless 106-bit count-prefixed binary block riding `DoubleDoubleIOExpand`.
+- Entry: `PackSchema.Of` is ONE polymorphic derivation discriminating on input shape — `Of(PackKind)` projects the declaration truth off the kind's active-channel column, `Of(EncodedGeometry, PackKind)` projects the packed instance off its descriptor set — and `Describes(EncodedGeometry, Op?)` validates both carriers before comparing ids on the `Fin` rail; `EvidenceWire.WriteBlock`/`ReadBlock` are the binary arms. No `SchemaOf`/`SchemaFor`/`InstanceSchema` verb siblings.
+- Law: the schema id derives through `ContentHash.Of` and nothing else — the canonical projection is the kind key then one invariant-culture UTF-8 line per field (`name|arity|dtypeKey|width|nulls`) in active-set order, so two kinds sharing an active set still key distinct (the kind key leads) and any field, arity, dtype, width, or nullability drift re-keys; a second hasher or a hand-rolled schema string beside this projection forks federation identity and is the deleted form.
+- Law: validity recomputes the stored id from its own fields, requires the declaration id projected by `Of(Kind)`, derives every stride from arity and dtype width, and rejects duplicate names; `Describes` admits only a valid schema, a valid lossless geometry carrier, and an equally valid instance projection before comparing ids.
+- Law: null semantics are a declared field column, never out-of-band knowledge — every current channel row is `Dense` (columns carry no null sentinel; ABSENCE is column absence, answered by the empty `View<T>`), and a future validity mask lands as one `Masked` field row paired to its data field, never a magic value inside a dense column.
+- Law: stride is derived, never stored twice — `ElementStride = Arity × Dtype.Width`, each column contiguous at its descriptor `ByteOffset` — so a consumer maps every field onto a columnar batch (a fixed-size-list column, a Parquet column chunk) zero-copy from the schema row alone; the kernel never touches a storage client — the Persistence storage plane owns the Arrow/Parquet/Flight adapters reading this one schema authority.
+- Law: binary evidence rides `DoubleDoubleIOExpand` — `Write(BinaryWriter, ddouble)` and `ReadDDouble(BinaryReader)` round-trip the exact hi/lo pair — so support bundles and federation payloads carry 106-bit truth; a `double`-narrowed evidence field is the deleted lossy form, and `ReadBlock` validates the count prefix against the caller's ceiling before any allocation.
+- Boundary: `SchemaId` is `UInt128` identity currency — hex, two-lane `ulong`, and byte-order encodings are consuming-seam projections per the identity owner's law; schema identity binds the representation vocabulary declared HERE, and a consumer-side schema roster re-declaring field rows is the divergent-roster defect.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+using System;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using DoubleDouble;
+using LanguageExt;
+using Rasm.Domain;
+using Thinktecture;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Drawing;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+// Dense columns carry no null sentinel — absence is COLUMN absence; a validity mask lands as
+// one Masked field row paired to its data field, never a magic value inside a dense column.
+[SmartEnum<int>]
+public sealed partial class SchemaNullability {
+    public static readonly SchemaNullability Dense = new(0);
+    public static readonly SchemaNullability Masked = new(1);
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record PackSchemaField(string Name, int Arity, ChannelDtype Dtype, int ElementStride, SchemaNullability Nulls) {
+    public static PackSchemaField Of(EncodingChannel channel) =>
+        new(Name: channel.Key, Arity: channel.Arity, Dtype: channel.Dtype, ElementStride: channel.Arity * channel.Dtype.Width, Nulls: SchemaNullability.Dense);
+}
+
+public sealed record PackSchema(UInt128 SchemaId, PackKind Kind, Seq<PackSchemaField> Fields) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.CountAtLeast(count: Fields.Count, floor: 1),
+        ValidityClaim.Of(holds: Fields.Map(static field => field.Name).Distinct().Count == Fields.Count),
+        ValidityClaim.Of(Fields.ForAll(static field =>
+            field.Arity > 0
+            && field.ElementStride == field.Arity * field.Dtype.Width
+            && (field.Nulls == SchemaNullability.Dense || field.Nulls == SchemaNullability.Masked))),
+        ValidityClaim.Of(SchemaId == Of(kind: Kind, fields: Fields).SchemaId),
+        ValidityClaim.Of(SchemaId == Of(kind: Kind).SchemaId));
+
+    // ONE polymorphic derivation: the kind row is the declaration truth, the descriptor set the
+    // instance truth — same projection, so declaration-versus-instance drift IS an id mismatch.
+    public static PackSchema Of(PackKind kind) => Of(kind: kind, fields: kind.Channels.Map(PackSchemaField.Of));
+    public static PackSchema Of(EncodedGeometry geometry, PackKind kind) =>
+        Of(kind: kind, fields: geometry.Descriptors.Map(static descriptor =>
+            new PackSchemaField(Name: descriptor.Channel.Key, Arity: descriptor.Channel.Arity, Dtype: descriptor.Dtype,
+                ElementStride: descriptor.Channel.Arity * descriptor.Dtype.Width, Nulls: SchemaNullability.Dense)));
+
+    public Fin<Unit> Describes(EncodedGeometry geometry, Op? key = null) {
+        PackSchema instance = Of(geometry: geometry, kind: Kind);
+        return IsValid && geometry.IsValid && instance.IsValid && instance.SchemaId == SchemaId
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(key.OrDefault().InvalidResult(detail: $"descriptor set diverges from schema {Tag}"));
+    }
+
+    public string Tag => SchemaId.ToString(format: "x32", provider: CultureInfo.InvariantCulture);
+
+    private static PackSchema Of(PackKind kind, Seq<PackSchemaField> fields) =>
+        new(SchemaId: ContentHash.Of(canonicalBytes: CanonicalBytes(kind: kind, fields: fields)), Kind: kind, Fields: fields);
+
+    // Canonical projection is THIS owner's obligation; ContentHash owns only the digest.
+    private static byte[] CanonicalBytes(PackKind kind, Seq<PackSchemaField> fields) =>
+        Encoding.UTF8.GetBytes(fields.Fold(
+            string.Create(CultureInfo.InvariantCulture, $"{kind.Key}\n"),
+            static (acc, field) => acc + string.Create(CultureInfo.InvariantCulture,
+                $"{field.Name}|{field.Arity}|{field.Dtype.Key}|{field.Dtype.Width}|{field.Nulls.Key}\n")));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class EvidenceWire {
+    public static Unit WriteBlock(BinaryWriter writer, ReadOnlySpan<ddouble> evidence) {
+        writer.Write(evidence.Length);
+        foreach (ddouble value in evidence) { writer.Write(value); }   // exact hi/lo pair per value
+        return unit;
+    }
+
+    public static Fin<ddouble[]> ReadBlock(BinaryReader reader, int ceiling, Op? key = null) {
+        Op k = key.OrDefault();
+        return k.Catch(() => {
+            int count = reader.ReadInt32();
+            if (count < 0 || count > ceiling) { return Fin.Fail<ddouble[]>(k.InvalidResult(detail: $"evidence block count {count} outside [0, {ceiling}]")); }
+            ddouble[] values = new ddouble[count];
+            for (int i = 0; i < count; i++) { values[i] = reader.ReadDDouble(); }
+            return Fin.Succ(values);
+        });
+    }
+}
+```
+
+## [04]-[DENSITY_BAR]
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. `[RAIL]` names each owner's return rail — `Fin`/`GeometryFault` where channel read, digest, or round-trip witness can fail its post-condition, and pure carriers or accessors elsewhere.
 
@@ -563,6 +686,8 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |  [04]   | Quantization        | `ChannelDtype`     | span arms (total)                       | row + span arms    |
 |  [05]   | Round-trip evidence | `RoundTripWitness` | `RoundTripWitness.Of` (pure)            | derived from rows  |
 |  [06]   | Result carrier      | `EncodedGeometry`  | carrier (gated at `key.AcceptValue`)    | derived from proof |
+|  [07]   | Schema identity     | `PackSchema`       | `Describes → Fin<Unit>` (id compare)    | derived from rows  |
+|  [08]   | Evidence wire       | `EvidenceWire`     | `ReadBlock → Fin<ddouble[]>`            | binary block       |
 
 - [01]-[GEOMETRY_ENCODING]: `[Union]` source cases over one dtype-strided `EncodedStore` folded by `Apply`.
 - [02]-[PACK_MODALITY]: `[SmartEnum<string>]` rows with per-kind active-channel column, AppHost `EncodingKind` locked one-to-one.
@@ -570,13 +695,14 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [04]-[QUANTIZATION]: `[SmartEnum<int>]` width/tolerance rows with bulk span `Pack`/`Unpack` arms over `TensorPrimitives`.
 - [05]-[ROUND_TRIP_EVIDENCE]: `GeometryHash`-keyed witness with per-channel error map and `Lossless` verdict.
 - [06]-[RESULT_CARRIER]: `IValidityEvidence` descriptor-tiled byte payload with `Channel` slice and `View<T>` typed tensor view.
+- [07]-[SCHEMA_IDENTITY]: `ContentHash`-derived id over kind key and field rows, declaration and instance projected through one polymorphic `Of`.
+- [08]-[EVIDENCE_WIRE]: count-prefixed exact hi/lo binary blocks; frozen JSON options remain catalog-blocked.
 
 `Apply` folds through `[PACK]` for channel writes, `[WITNESS]` for round-trip proof and reconciliation digest, `[READERS]` for live kernel channels, and `[PROJECTIONS]` for fields, weights, and SoA interleave. All clusters share one byte arena.
 
 `MeshSpace.DuplicateNative` pins native mesh access. Reconciliation, cloud metrics, field rails, tensor conversion, and reduction operators remain composed public seams.
 
-## [04]-[RESEARCH]
+## [05]-[RESEARCH]
 
-- [CHANNEL_LATTICE] — `EncodingChannel` is the single packed vocabulary. `PackKind.Channels` selects each modality's active rows; toolpaths select position, arc-centre, arc-sense, and weight. `ToolpathPath` supplies aligned analytic span data, every other row composes its live kernel reader, and `EncodingLaws` proves descriptor extents, contiguous tiling, channel recovery, and active-set equality.
-- [ROUND_TRIP_WITNESS] — `RoundTripWitness` keys stored-channel recovery to the reconciliation content digest. Mesh-backed kinds use `EncodeForm.Of(MeshSpace)`, clouds use `EncodeForm.Of(VectorCloud)`, and toolpaths derive a canonical reconciliation cloud from `ToolpathPath.CanonicalVertices`, including arc centre and sense. Dtype unpacking proves scale-relative error or routes `EncodingFault`.
-- [TENSOR_RESIDENCY_SEAM] — `View<T>` gates the element width before wrapping a descriptor slice as a zero-copy `[Count × Arity]` tensor view. Compute reads `Payload`, `Descriptors`, and `Witness`; AppHost serializes descriptors with payload under `EncodingKind`. `EncodedGeometry.IsValid` enforces contiguous tiling before either consumer reads.
+- [JSON_OPTIONS_FREEZE_CATALOG]-[BLOCKED]: Which BCL declaration seals the `DDoubleJsonConverter` options identity; catalog `JsonSerializerOptions.MakeReadOnly()` in `libs/csharp/.api/api-system-text-json.md`, then bind one static `EvidenceWire.Json` identity.
+- [TENSOR_RESIDENCY_SEAM]-[OPEN]: Which consumer coordinates bind this byte-strided wire; align the Compute and AppHost owners with `EncodedGeometry.Payload`, `ByteOffset`, `Bytes`, `Dtype`, and the `PackKind.Toolpath` channel row.

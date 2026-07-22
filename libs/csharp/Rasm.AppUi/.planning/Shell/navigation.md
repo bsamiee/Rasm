@@ -95,8 +95,8 @@ public sealed class ShellRoot(
     public const string NavigateInstrument = "rasm.appui.nav.navigated";
     public const string RouteMissInstrument = "rasm.appui.nav.route.miss";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(NavigateInstrument, InstrumentKind.Count, "{navigation}", "navigation dispatches by verb"),
             new(RouteMissInstrument, InstrumentKind.Count, "{navigation}", "unknown-route aborts"));
 
@@ -338,8 +338,8 @@ public static class LayoutLedger {
                 Produce: window => port.Latest.Map(latest =>
                     (latest.Map(port.Support).IfNone(ReadOnlyMemory<byte>.Empty), 0)))));
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(ShellPolicy.FlushInstrument, InstrumentKind.Count, "{flush}", "layout ledger flushes"),
             new(ShellPolicy.RestoreInstrument, InstrumentKind.Count, "{restore}", "layout ledger restores"));
 }
@@ -427,8 +427,8 @@ public static class AdaptiveLayout {
 
     public const string BreakpointInstrument = "rasm.appui.layout.breakpoint";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(BreakpointInstrument, InstrumentKind.Count, "{transition}", "responsive-tier transitions by row key"));
 }
 ```

@@ -1,6 +1,6 @@
 # [SECURITY_SIGN]
 
-One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument minted from its core `Convention.instrument` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification, closed in both directions by the guard pair, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
+One crypto authority: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Cost rows are bench-graded, never copied folklore: `Calibration` measures every `CryptoCost` row on the executing host into core `Claim` receipts — the `BenchmarkClaimWire` family with foreign-host admission — graded against per-class latency ceilings that land on the KDF timer's own bucket bounds. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters, each instrument minted from its core `Convention.instrument` row — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification, closed in both directions by the guard pair, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
 
 ## [01]-[CLUSTERS]
 
@@ -11,6 +11,7 @@ One crypto authority: argon2id credential digest-at-rest under a semaphore bulkh
 |  [03]   | `CRYPTO_PRIMITIVE` | `Crypto`, `CredentialVerdict`, `Probe` |
 |  [04]   | `SHREDDER`         | `Shredder`                             |
 |  [05]   | `TOKEN_AUTHORITY`  | `Jwt`, `AccessClaims`                  |
+|  [06]   | `CALIBRATION`      | `Calibration`                          |
 
 ## [02]-[FAULT_AND_ALG]
 
@@ -30,14 +31,15 @@ import { SHA1 } from "@oslojs/crypto/sha1"
 import { SHA256, SHA512, sha256 } from "@oslojs/crypto/sha2"
 import { constantTimeEqual } from "@oslojs/crypto/subtle"
 import { decodeBase32, decodeHex, encodeBase32UpperCaseNoPadding, encodeHexLowerCase } from "@oslojs/encoding"
-import { Convention, Credential, FaultClass } from "@rasm/ts/core"
+import { Claim, Convention, Credential, FaultClass, type AppIdentity, type WireFault } from "@rasm/ts/core"
 import {
   calculateJwkThumbprint, calculateJwkThumbprintUri, createLocalJWKSet, createRemoteJWKSet, EncryptJWT, exportJWK,
   generateKeyPair, importJWK, importPKCS8, importSPKI, importX509, jwtDecrypt, jwtVerify, SignJWT, customFetch, jwksCache,
   type ExportedJWKSCache, type JSONWebKeySet, type JWK, type JWTPayload,
 } from "jose"
 import {
-  Array, Config, Context, Data, DateTime, Duration, Effect, HashMap, Layer, Metric, Option, Predicate, Redacted, Ref, Schedule, Schema,
+  Array, Clock, Config, Context, Data, DateTime, Duration, Effect, HashMap, Layer, Metric, Number, Option, Order, Predicate, Redacted,
+  Ref, Schedule, Schema, Struct, pipe,
 } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 
@@ -264,13 +266,23 @@ type Probe = Data.TaggedEnum<{
 }>
 
 const CryptoCost = {
-  login: { memoryCost: 19456, timeCost: 2, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
-  apiKey: { memoryCost: 12288, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
-  kek: { memoryCost: 65536, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
+  login: {
+    targetMs: 250,
+    options: { memoryCost: 19456, timeCost: 2, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
+  },
+  apiKey: {
+    targetMs: 500,
+    options: { memoryCost: 12288, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
+  },
+  kek: {
+    targetMs: 2500,
+    options: { memoryCost: 65536, timeCost: 3, parallelism: 1, outputLen: 32, algorithm: Algorithm.Argon2id, version: Version.V0x13 },
+  },
 } as const
 
 declare namespace CryptoCost {
-  type _Rows<T extends Record<string, Omit<Options, "secret" | "salt">> = typeof CryptoCost> = T
+  type Row = { readonly targetMs: number; readonly options: Omit<Options, "secret" | "salt"> }
+  type _Rows<T extends Record<string, Row> = typeof CryptoCost> = T
 }
 
 const _HASHES = { sha1: SHA1, sha256: SHA256, sha512: SHA512 } as const
@@ -279,7 +291,13 @@ const _CredentialVerdict = Data.taggedEnum<CredentialVerdict>()
 
 const Probe = Data.taggedEnum<Probe>()
 
-const _argonMs = Metric.timerWithBoundaries(Convention.instrument.securityKdf.name, [10, 25, 50, 100, 250, 500, 1000, 2500])
+const _argonMs = Metric.timerWithBoundaries(Convention.instrument.securityKdf.name, [
+  10, 25, 50, 100,
+  CryptoCost.login.targetMs,
+  CryptoCost.apiKey.targetMs,
+  1000,
+  CryptoCost.kek.targetMs,
+])
 
 const _enc = new TextEncoder()
 
@@ -288,9 +306,27 @@ const _bytes = (text: string): Uint8Array => _enc.encode(text)
 const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean =>
   left.byteLength === right.byteLength && constantTimeEqual(left, right)
 
-const _stale = (phc: string, cost: (typeof CryptoCost)[keyof typeof CryptoCost]): boolean => {
-  const parts = /\$m=(\d+),t=(\d+),p=(\d+)\$/.exec(phc)
-  return parts === null || Number(parts[1]) !== cost.memoryCost || Number(parts[2]) !== cost.timeCost || Number(parts[3]) !== cost.parallelism
+const _ARGON_ALGORITHMS = {
+  [Algorithm.Argon2d]: "argon2d",
+  [Algorithm.Argon2i]: "argon2i",
+  [Algorithm.Argon2id]: "argon2id",
+} as const
+
+const _ARGON_VERSIONS = {
+  [Version.V0x10]: 16,
+  [Version.V0x13]: 19,
+} as const
+
+const _stale = (phc: string, cost: CryptoCost.Row["options"]): boolean => {
+  const parts = /^\$(argon2d|argon2i|argon2id)\$v=(\d+)\$m=(\d+),t=(\d+),p=(\d+)\$/.exec(phc)
+  return parts === null
+    || cost.algorithm === undefined
+    || parts[1] !== _ARGON_ALGORITHMS[cost.algorithm]
+    || cost.version === undefined
+    || globalThis.Number(parts[2]) !== _ARGON_VERSIONS[cost.version]
+    || globalThis.Number(parts[3]) !== cost.memoryCost
+    || globalThis.Number(parts[4]) !== cost.timeCost
+    || globalThis.Number(parts[5]) !== cost.parallelism
 }
 
 class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
@@ -307,7 +343,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
       )
     const digest = (row: keyof typeof CryptoCost, plaintext: Redacted.Redacted<string>): Effect.Effect<Redacted.Redacted<string>, SignFault> =>
       _kdf(row, Effect.tryPromise({
-        try: (signal) => hash(Redacted.value(plaintext), { ...CryptoCost[row], secret }, signal),
+        try: (signal) => hash(Redacted.value(plaintext), { ...CryptoCost[row].options, secret }, signal),
         catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
       }).pipe(Effect.map(Redacted.make)))
     const verify_ = (row: keyof typeof CryptoCost, stored: Redacted.Redacted<string>, plaintext: Redacted.Redacted<string>): Effect.Effect<CredentialVerdict, SignFault> =>
@@ -315,10 +351,10 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
         try: (signal) => verify(Redacted.value(stored), Redacted.value(plaintext), { secret }, signal),
         catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
       }).pipe(Effect.map((matched) =>
-        matched ? _CredentialVerdict.Matched({ stale: _stale(Redacted.value(stored), CryptoCost[row]) }) : _CredentialVerdict.Rejected())))
+        matched ? _CredentialVerdict.Matched({ stale: _stale(Redacted.value(stored), CryptoCost[row].options) }) : _CredentialVerdict.Rejected())))
     const derive = (row: keyof typeof CryptoCost, seed: Redacted.Redacted<string>, salt: Uint8Array): Effect.Effect<Redacted.Redacted<Uint8Array>, SignFault> =>
       _kdf(row, Effect.tryPromise({
-        try: (signal) => hashRaw(Redacted.value(seed), { ...CryptoCost[row], secret, salt }, signal),
+        try: (signal) => hashRaw(Redacted.value(seed), { ...CryptoCost[row].options, secret, salt }, signal),
         catch: (cause) => new SignFault({ reason: "digest", detail: String(cause) }),
       }).pipe(Effect.map((buf) => Redacted.make(new Uint8Array(buf)))))
     const sign_ = (key: Redacted.Redacted<Uint8Array>, body: Uint8Array): Effect.Effect<string, SignFault> =>
@@ -441,7 +477,7 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 
 [TOKEN_AUTHORITY]:
 - Owner: `Jwt` — a scoped Layer factory over a `Keyset`: `mint` stamps `{ alg, kid }` from the active ring key so verifiers route by `kid`; one overloaded `verify` owns both trust roots — `verify(token)` runs `createLocalJWKSet` over every published verify handle with `algorithms` pinned and the declarative claim gates applied, decoding the payload through `AccessClaims`, and `verify(token, issuer)` resolves the per-issuer remote JWKS and returns the verified raw payload for the OAuth page to project from; `seal`/`unseal` are the JWE confidential profile over the keyset's optional symmetric handle. `SingleUse` is the stash contract every two-leg ceremony port in the folder instantiates — stash with a TTL, consume exactly once — so the satisfying layer is an `effect` `Cache` or `@effect/experimental` `PersistedCache`/`Persistence.layerResultKeyValueStore` row, never a hand-rolled map.
-- Law: `algorithms` is always pinned — an unpinned `alg` is accepted-algorithm confusion; the claim gates (`issuer`/`audience`/`clockTolerance`) are library-enforced options, never hand timestamp checks; `decodeJwt` is never verification; `cnf.jkt` carries the `Material.thumbprintUri` binding for a sender-constrained token, and a verifier that receives `cnf` matches it against the presented key's thumbprint URI.
+- Law: `algorithms` is always pinned — an unpinned `alg` is accepted-algorithm confusion; the claim gates (`issuer`, `audience`, `clockTolerance`, and required `iat`/`exp`/`iss`/`aud`/`sub`) are one jose verification policy, never hand timestamp or presence checks; `decodeJwt` is never verification; `cnf.jkt` carries the `Material.thumbprintUri` binding for a sender-constrained token, and a verifier that receives `cnf` matches it against the presented key's thumbprint URI.
 - Law: the factory form is the rotation seam — the composition root builds the `Keyset` from `crypt/secret` credentials through `Material.ring`, wraps `Jwt.Default(keyset)` in `Reloadable.auto` driven by `Secret.changes`, so a Doppler rotation republishes the ring without a graph teardown, a `kid` retires with zero edits here, and a retired signing key keeps verifying while its handle stays published.
 - Law: the remote resolver is built once per issuer under `Effect.cachedFunction` — the ledger snapshot pre-seeds the jose cache record, a scoped fiber drives `resolver.reload()` on a jittered `Schedule.spaced(cacheAge)` so a provider key roll lands before the first `kid` miss, and every reload and successful verify persists the record back through `JwksLedger`; a cold build increments the `Convention.instrument.securityJwksMiss` counter.
 - Law: every remote verify is internally resilient — a `deadline` timeout, a jittered exponential retry bounded by `Schedule.recurs` and gated on `FaultClass.retryable`, the `Convention.instrument.securityJwksResolve` timer, and its span; the fetch routes through `JwksTransport`, defaulted to the platform fetch and bound by the runtime wave to its instrumented `HttpClient.retryTransient({ schedule }).pipe(HttpClient.withTracerPropagation)` fetch adapter so rotation inherits the shared net policy and W3C trace propagation.
@@ -477,6 +513,8 @@ type SingleUse<A, E> = {
   readonly stash: (key: string, value: A, ttl: Duration.DurationInput) => Effect.Effect<void, E>
   readonly consume: (key: string) => Effect.Effect<Option.Option<A>, E>
 }
+
+const _requiredClaims = ["iat", "exp", "iss", "aud", "sub"] as const
 
 const _codeReason = {
   ERR_JWT_EXPIRED: "expired",
@@ -567,7 +605,10 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
         `${Math.max(1, Math.round(Duration.toSeconds(Duration.decode(ttl))))}s`
       const _local = (token: Redacted.Redacted<string>): Effect.Effect<AccessClaims, SignFault> =>
         Effect.tryPromise({
-          try: () => jwtVerify(Redacted.value(token), local, { algorithms: _algorithms, issuer: keyset.issuer, audience: keyset.audience, clockTolerance: tolerance }),
+          try: () => jwtVerify(Redacted.value(token), local, {
+            algorithms: _algorithms, issuer: keyset.issuer, audience: keyset.audience,
+            clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
+          }),
           catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
         }).pipe(
           Effect.flatMap((result) => _decoded(result.payload)),
@@ -576,7 +617,10 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
       const _external = (token: Redacted.Redacted<string>, issuer: IssuerRef): Effect.Effect<JWTPayload, SignFault> =>
         Effect.flatMap(_remote(issuer.jwksUri), ({ persist, resolver }) =>
           Effect.tryPromise({
-            try: () => jwtVerify(Redacted.value(token), resolver, { algorithms: [...issuer.algorithms], issuer: issuer.issuer, audience: issuer.audience, clockTolerance: tolerance }),
+            try: () => jwtVerify(Redacted.value(token), resolver, {
+              algorithms: [...issuer.algorithms], issuer: issuer.issuer, audience: issuer.audience,
+              clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
+            }),
             catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
           }).pipe(
             Effect.timeoutFail({ duration: deadline, onTimeout: () => new SignFault({ reason: "jwks", detail: issuer.jwksUri }) }),
@@ -619,16 +663,110 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
       const unseal = (token: Redacted.Redacted<string>): Effect.Effect<AccessClaims, SignFault> =>
         Effect.flatMap(_sealKey, (key) =>
           Effect.tryPromise({
-            try: () => jwtDecrypt(Redacted.value(token), Redacted.value(key), { issuer: keyset.issuer, audience: keyset.audience, clockTolerance: tolerance }),
+            try: () => jwtDecrypt(Redacted.value(token), Redacted.value(key), {
+              issuer: keyset.issuer, audience: keyset.audience,
+              clockTolerance: tolerance, requiredClaims: [..._requiredClaims],
+            }),
             catch: (cause) => new SignFault({ reason: _reasonOf(cause), detail: String(cause) }),
           })).pipe(Effect.flatMap((result) => _decoded(result.payload)))
       return { mint, verify, seal, unseal } as const
     }),
   accessors: true,
 }) {}
+```
+
+## [07]-[CALIBRATION]
+
+[CALIBRATION]:
+- Owner: `Calibration` — the bench leg that turns `CryptoCost` folklore into per-host receipts: `bench` measures any rail probe into one core `Claim`, the decoded owner of `BenchmarkClaimWire`, and admits it against the executing `AppIdentity`; `calibrate` folds the same measurement over every cost row through `Crypto.digest` itself and grades p99 against the row's latency ceiling. Selection is evidence, never mutation: an unadmitted row demands a `CryptoCost` row edit backed by its receipt, and the `_stale` rehash fold propagates the options edit on the next successful verify.
+- Law: each target is a `CryptoCost` field and `_argonMs` takes its target boundaries from those rows, so the KDF histogram and calibration verdict read the same value; a target cannot drift beside its cost owner.
+- Law: `trials` admits only positive integers before a probe starts, and each sample derives milliseconds from `Clock.currentTimeNanos`; invalid counts reject on the typed rail and wall-clock adjustment cannot skew a receipt.
+- Law: trials run the production shape — `calibrate` probes `Crypto.digest` per row, so every trial passes the semaphore bulkhead, the `Convention.instrument.securityKdf` timer, and the KDF span exactly as a login does; a bench that bypasses the bulkhead measures a machine that does not exist.
+- Law: receipts are the core claim family — each metric carries the complete `Claim.Band` ladder (`ticks`, raw `samples`, `min`, `max`, `avg`, `p25`, `p50`, `p75`, `p99`, `p999`, optional enrichment bands), the host rides `Claim["host"]`, and every returned claim passes `Claim.admit` before grading. Core's codec maps the same class to `BenchmarkClaimWire`; no security-local wire exists.
+- Law: throughput claims ride the same family — a `Jwt` mint or verify-fold claim is one `bench` call over that probe with its own suite key; a second receipt shape per crypto surface is the forked-family defect.
+- Growth: a new statistic is one metrics row inside `_receipt`; a new bench subject is one `bench` call; a new credential class inherits its target row through the guard pair.
+- Boundary: `HostFingerprint` construction (print, machine, arch, cores, runtime) is the composing runtime's boot fact, passed in — this page never probes the host; claim persistence and cross-host trend boards are the core bench-pack and corpus-gate consumers over the encoded family.
+- Packages: `effect` (`Clock`, `Order`, `Struct`, `Array`, `Number`); `@rasm/ts/core` (`Claim`); `Crypto` (`digest` as the measured probe).
+
+```typescript
+declare namespace Calibration {
+  type Row = keyof typeof CryptoCost
+  type Stats = typeof Claim.Band.Type
+  type Verdict = { readonly admitted: boolean; readonly claim: Claim; readonly row: Row; readonly target: number }
+}
+
+const _quantile = (sorted: ReadonlyArray<number>, q: number): number =>
+  Option.getOrElse(Array.get(sorted, Math.min(sorted.length - 1, Math.floor(q * sorted.length))), () => 0)
+
+const _stats = (timings: Array.NonEmptyReadonlyArray<number>): Calibration.Stats =>
+  pipe(Array.sort(timings, Order.number), (sorted) => ({
+    avg: Number.sumAll(sorted) / sorted.length,
+    counters: Option.none(),
+    gc: Option.none(),
+    heap: Option.none(),
+    max: Array.lastNonEmpty(sorted),
+    min: Array.headNonEmpty(sorted),
+    p25: _quantile(sorted, 0.25),
+    p50: _quantile(sorted, 0.5),
+    p75: _quantile(sorted, 0.75),
+    p99: _quantile(sorted, 0.99),
+    p999: _quantile(sorted, 0.999),
+    samples: sorted,
+    ticks: sorted.length,
+  }))
+
+const _timed = <A, E, R>(probe: Effect.Effect<A, E, R>): Effect.Effect<number, E, R> =>
+  Effect.gen(function* () {
+    const opened = yield* Clock.currentTimeNanos
+    yield* probe
+    return globalThis.Number((yield* Clock.currentTimeNanos) - opened) / 1_000_000
+  })
+
+const _measured = <E, R>(probe: Effect.Effect<unknown, E, R>, trials: number): Effect.Effect<Calibration.Stats, E | SignFault, R> =>
+  globalThis.Number.isInteger(trials) && trials > 0
+    ? Effect.flatMap(
+        Effect.forEach(Array.range(1, trials), () => _timed(probe), { concurrency: 1 }),
+        (timings) =>
+          Array.isNonEmptyReadonlyArray(timings) ? Effect.succeed(_stats(timings)) : Effect.dieMessage("empty calibration trial set"),
+      )
+    : Effect.fail(new SignFault({ reason: "unsupported", detail: `invalid calibration trials: ${trials}` }))
+
+const _receipt = (suite: string, host: Claim["host"], stats: Calibration.Stats): Effect.Effect<Claim> =>
+  Effect.map(DateTime.now, (minted) =>
+    new Claim({
+      suite,
+      metrics: [
+        { label: "wall", unit: "ms", kind: "fn", band: stats },
+      ],
+      host,
+      minted,
+    }))
+
+const Calibration = {
+  bench: <E, R>(suite: string, identity: AppIdentity, host: Claim["host"], probe: Effect.Effect<unknown, E, R>, trials: number): Effect.Effect<Claim, E | SignFault | WireFault, R> =>
+    Effect.flatMap(_measured(probe, trials), (stats) =>
+      Effect.flatMap(_receipt(suite, host, stats), (claim) => Claim.admit(claim, identity))),
+  calibrate: (
+    identity: AppIdentity,
+    host: Claim["host"],
+    probe: Redacted.Redacted<string>,
+    trials: number,
+  ): Effect.Effect<ReadonlyArray<Calibration.Verdict>, SignFault | WireFault, Crypto> =>
+    Effect.flatMap(Crypto, (cipher) =>
+      Effect.forEach(Struct.keys(CryptoCost), (row) =>
+        Effect.gen(function* () {
+          const stats = yield* _measured(cipher.digest(row, probe), trials)
+          const claim = yield* Effect.flatMap(_receipt(`security-kdf-${row}`, host, stats), (receipt) => Claim.admit(receipt, identity))
+          return { admitted: stats.p99 <= CryptoCost[row].targetMs, claim, row, target: CryptoCost[row].targetMs }
+        }))),
+} as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { AccessClaims, Crypto, CryptoCost, Jwt, JwksLedger, JwksTransport, KeyAlg, Material, Probe, SealedEnvelope, Shredder, SignFault, WrappedKey }
+export { AccessClaims, Calibration, Crypto, CryptoCost, Jwt, JwksLedger, JwksTransport, KeyAlg, Material, Probe, SealedEnvelope, Shredder, SignFault, WrappedKey }
 export type { CredentialVerdict, IssuerRef, KeyHandle, Keyset, Ring, SingleUse }
 ```
+
+## [08]-[RESEARCH]
+
+(none)

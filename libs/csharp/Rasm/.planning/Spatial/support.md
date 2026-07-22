@@ -187,3 +187,12 @@ One owner per axis; a proximity capability is a row or a column, never a sibling
 | :-----: | :----------------- | :------------------ | :------------------ | :---------------------------------------------------- | :-----: |
 |  [01]   | Closest-hit output | `SupportProjection` | `[SmartEnum<int>]`  | `Project<TOut> → Fin<TOut>`                           |   14    |
 |  [02]   | Proximity handle   | `SupportSpace`      | `[BoundaryAdapter]` | `Of → Fin<SupportSpace>`; `Closest → Fin<ClosestHit>` |    —    |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

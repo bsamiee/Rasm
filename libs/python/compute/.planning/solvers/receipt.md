@@ -1,6 +1,6 @@
 # [PY_COMPUTE_RECEIPT]
 
-`SolverReceipt` is the one method-discriminated solve receipt folded across every solver route — a single `@tagged_union` whose `Literal` tag IS the solve method (`direct`, `iterative`, `least_squares`, `eigen`), each case carrying its own tuple payload terminating in one `SolveStatus`, so the linear, nonlinear, quadrature, and differential routes emit one receipt and the discriminant lives in the case. `SolveStatus` is the one bounded termination vocabulary every backend folds into — the `lineax`/`optimistix`/`diffrax` `RESULTS` enums, the `scipy` `info`/`istop`/`success` codes, the `cvxpy` feasibility constants, the residual-floor verdict — so a converged, event-terminated, max-steps, singular, or stagnated solve is a distinct first-class verdict carrying its own `converged` predicate rather than one Boolean collapsing every non-success cause to `False`. Receipts carry the termination evidence the C# graduation gate reads and hold no benchmark authority, no substrate selection, and never the admit/reject verdict the `HandoffAxis` cases own.
+`SolverReceipt` is the one method-discriminated solve receipt folded across every solver route — a single `@tagged_union` whose `Literal` tag IS the solve method (`direct`, `iterative`, `least_squares`, `eigen`), each case carrying its own tuple payload — the numeric evidence, the optional jit-minted `EngineProfile` band, and one terminating `SolveStatus` — so the linear, nonlinear, quadrature, and differential routes emit one receipt and the discriminant lives in the case. `SolveStatus` is the one bounded termination vocabulary every backend folds into — the `lineax`/`optimistix`/`diffrax` `RESULTS` enums, the `scipy` `info`/`istop`/`success` codes, the `cvxpy` feasibility constants, the residual-floor verdict — so a converged, event-terminated, max-steps, singular, or stagnated solve is a distinct first-class verdict carrying its own `converged` predicate rather than one Boolean collapsing every non-success cause to `False`. Receipts carry the termination evidence the C# graduation gate reads and hold no benchmark authority, no substrate selection, and never the admit/reject verdict the `HandoffAxis` cases own.
 
 Three exported folds stay stable across the solver plane: `status_of`, the one termination fold `mesh`, `field`, and `design` compose by name; `verdict`, the one `equinox.Enumeration` `RESULTS._name_to_item` inversion the gated routes compose, taking the caller's x64-gated `jax.numpy` handle and the `RESULTS` class as parameters so this owner imports neither `jax` nor `equinox`; and `graduate`, the one solver-axis graduation projection discriminating on its evidence shape — a fed `SolverReceipt` projects its own `ledger`, a prepared ledger passes through — so a crossing composes receipt, family ceiling row, and key in one call and the fold imports no downstream type. `scipy` `info`/`istop` codes fold in through the `solvers/linear.md#LINEAR` projections; `EVENT` is the terminal class `solvers/differential.md#DIFFERENTIAL` adds for a `diffrax.Event` crossing, and `INFEASIBLE`/`UNBOUNDED` are the feasibility verdicts `optimization/convex.md#CONVEX` folds the cvxpy constants into. Receipts graduate outward through `graduate` on the `solver` `HandoffAxis` case into the `graduation/handoff.md#GRADUATION` `GraduationReceipt`, and `contribute` is the `ReceiptContributor` the study spine harvests.
 
@@ -10,12 +10,12 @@ Three exported folds stay stable across the solver plane: `status_of`, the one t
 
 ## [02]-[RECEIPT]
 
-- Owner: `SolverReceipt` — the one `@tagged_union` over every route; `.tag` IS the method literal, never a thin `.method` re-exposure. `status` is the LAST payload slot of every case by construction, so `.status` is one total `match self` binding the trailing `(*_, SolveStatus() as status)` across the four cases and closing on `assert_never` — sound because the match is over `self`, the closed union, never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie. `_SLOTS` is the one `Map[SolveMethod, tuple[str, ...]]` slot-name vocabulary; `.facts` zips each case's row against its destructured payload under `strict=True` to mint the full per-method `dict[str, SolveSlot]`, never a hand-spelled dict discarding residual/condition/iterations/rank.
+- Owner: `SolverReceipt` — the one `@tagged_union` over every route; `.tag` IS the method literal, never a thin `.method` re-exposure. `status` is the LAST payload slot of every case by construction, so `.status` is one total `match self` binding the trailing `(*_, SolveStatus() as status)` across the four cases and closing on `assert_never` — sound because the match is over `self`, the closed union, never a reflective `getattr(self, self.tag)` whose `object` residual makes the `assert_never` tail a lie. `_SLOTS` is the one `Map[SolveMethod, tuple[str, ...]]` slot-name vocabulary; `.facts` zips each case's row against its destructured payload under `strict=True` to mint the full per-method `dict[str, SolveSlot]`, never a hand-spelled dict discarding residual/condition/iterations/rank. Every case mounts the jit-minted `EngineProfile` as its optional `profile` slot before `status`, so a solve accelerated through a compiled kernel carries the engine's own measurements beside its numbers and a slow solve explains itself from the receipt, never from an external profiler attach.
 - Cases: `SolveStatus` is the one bounded termination `StrEnum` and a value object — `converged` tests membership in the `_CONVERGENT` `frozenset` (`SUCCESS` and the diffrax `EVENT`), folded once rather than re-spelled at every consumer, and the receipt's `converged` delegates to it so the Boolean contract survives while the receipt carries *why* a solve did not converge. A backend that adjudicates termination maps in through the one `_STATUS` boundary table keyed on the documented `RESULTS` member-name strings; a numpy floor with no adjudicator derives its verdict from the residual against tolerance.
 - Entry: the four `@classmethod` factories `Direct`/`Iterative`/`LeastSquares`/`Eigen` return `Self` — binding the subtype, not a forward-ref re-spelled four times — and terminate their payload through `status_of`, a route holding a backend `RESULTS` member passing its name (gated routes derive it through `verdict`), a numpy-floor route passing `None` to let the residual floor adjudicate. `status_of` is one total `match` over the `str | None` discriminant: `case str()` degrades an unmapped member to `OTHER` rather than crashing, the guarded `case None` returns `NONFINITE`, the bare `case None` returns `SUCCESS`/`STAGNATION` off the residual-vs-tolerance floor, and the trailing `assert_never` witnesses totality — backend status where it exists, the residual floor where it does not, never two parallel convergence notions. Method tolerances live in one frozen `_TOL` table keyed by tag.
-- Receipt: `contribute` narrows the runtime `ReceiptContributor` port's `Iterable[Receipt]` to a concrete one-element tuple, so a multi-phase contributor stays representable on the port; the method tag rides as the receipt `subject`, and the `facts` map carries the derived `converged` flag and the full `.facts` spread — residual, condition, iterations, rank, tolerance, eigen count — as the numeric evidence the graduation gate reads, never a method/status pair discarding the numbers nor a `"method"` key re-spelling the subject.
-- Packages: `expression` (`tagged_union`/`case`/`tag`, and `Map` for the three dispatch tables), stdlib `enum.StrEnum`/`math.isfinite`/`types.ModuleType`, runtime (`Receipt`, `ContentKey`, `RuntimeRail`), and the downward hub graduation import (`GraduationReceipt`/`HandoffAxis`).
-- Growth: a new convergence shape is one `SolverReceipt` case, one `_TOL` row, and one `_SLOTS` row, its evidence projecting with no `contribute` edit; a new backend termination reason is one `_STATUS` row into the existing vocabulary, or one new `SolveStatus` member when a genuinely new termination class appears (`EVENT` being that path realized); a new graduating solve family is one `graduate` call with its receipt and family ceiling row — the status, verdict, fact, ledger, and graduation folds reused, never re-inlined.
+- Receipt: `contribute` narrows the runtime `ReceiptContributor` port's `Iterable[Receipt]` to a concrete one-element tuple, so a multi-phase contributor stays representable on the port; the method tag rides as the receipt `subject`, and the `facts` map carries the derived `converged` flag and the full `.facts` spread — residual, condition, iterations, rank, tolerance, eigen count — as the numeric evidence the graduation gate reads, never a method/status pair discarding the numbers nor a `"method"` key re-spelling the subject; the profile band spreads `profile.`-namespaced beside the numeric slots and stays off the graduation `ledger`, so a profile extent can never masquerade as a residual a ceiling clears.
+- Packages: `expression` (`tagged_union`/`case`/`tag`, and `Map` for the three dispatch tables), stdlib `enum.StrEnum`/`math.isfinite`/`types.ModuleType`, runtime (`Receipt`, `ContentKey`, `RuntimeRail`), the downward hub graduation import (`GraduationReceipt`/`HandoffAxis`), and the `numerics/jit` `EngineProfile` band import.
+- Growth: a new convergence shape is one `SolverReceipt` case, one `_TOL` row, and one `_SLOTS` row, its evidence projecting with no `contribute` edit; a new backend termination reason is one `_STATUS` row into the existing vocabulary, or one new `SolveStatus` member when a genuinely new termination class appears (`EVENT` being that path realized); a profiled solve is the same factory call carrying its `profile` row, and a new profile statistic lands on the jit `EngineProfile` with zero edits here; a new graduating solve family is one `graduate` call with its receipt and family ceiling row — the status, verdict, fact, ledger, and graduation folds reused, never re-inlined.
 - Boundary: `SolveStatus` is the vocabulary the C# graduation gate reads, not the gate itself; the admit/reject verdict belongs to the `convex_program`/`solver` `HandoffAxis` cases, and the graduation crossing to the one `graduate` projection rather than a per-owner inline `HandoffAxis(solver=...)`. Family DEFAULT ceilings are policy rows on each family's own carrier beside its route table; the caller's tighter row overrides.
 
 ```python signature
@@ -30,6 +30,7 @@ from expression import case, tag, tagged_union
 from expression.collections import Map
 
 from rasm.compute.graduation.handoff import EvidenceScope, GraduationReceipt, HandoffAxis
+from rasm.compute.numerics.jit import EngineProfile
 from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.receipts import Receipt
@@ -38,7 +39,7 @@ from rasm.runtime.receipts import Receipt
 
 
 type SolveMethod = Literal["direct", "iterative", "least_squares", "eigen"]
-type SolveSlot = float | int | SolveStatus
+type SolveSlot = float | int | EngineProfile | None | SolveStatus
 
 
 class SolveStatus(StrEnum):
@@ -68,12 +69,12 @@ _CONVERGENT: frozenset[SolveStatus] = frozenset({SolveStatus.SUCCESS, SolveStatu
 # Floor when a caller passes no `tol`; a live tolerance overrides.
 _TOL: Final[Map[SolveMethod, float]] = Map.of_seq([("direct", 1e-6), ("iterative", 1e-6), ("least_squares", 1e-6), ("eigen", 1e-8)])
 
-# `strict=True` raises on a length drift, never truncates; `status` is every row's trailing slot.
+# `strict=True` raises on a length drift, never truncates; `profile` is every row's penultimate slot and `status` its trailing slot.
 _SLOTS: Final[Map[SolveMethod, tuple[str, ...]]] = Map.of_seq([
-    ("direct", ("residual", "condition", "status")),
-    ("iterative", ("residual", "iterations", "tol", "status")),
-    ("least_squares", ("residual", "rank", "iterations", "tol", "status")),
-    ("eigen", ("spectral_residual", "k", "condition", "status")),
+    ("direct", ("residual", "condition", "profile", "status")),
+    ("iterative", ("residual", "iterations", "tol", "profile", "status")),
+    ("least_squares", ("residual", "rank", "iterations", "tol", "profile", "status")),
+    ("eigen", ("spectral_residual", "k", "condition", "profile", "status")),
 ])
 
 # Documented `RESULTS` member-name keys; an unmapped member degrades to `OTHER`, never crashes.
@@ -131,26 +132,36 @@ def graduate(
 @tagged_union(frozen=True)
 class SolverReceipt:
     tag: SolveMethod = tag()
-    direct: tuple[float, float, SolveStatus] = case()
-    iterative: tuple[float, int, float, SolveStatus] = case()
-    least_squares: tuple[float, int, int, float, SolveStatus] = case()
-    eigen: tuple[float, int, float, SolveStatus] = case()
+    direct: tuple[float, float, EngineProfile | None, SolveStatus] = case()
+    iterative: tuple[float, int, float, EngineProfile | None, SolveStatus] = case()
+    least_squares: tuple[float, int, int, float, EngineProfile | None, SolveStatus] = case()
+    eigen: tuple[float, int, float, EngineProfile | None, SolveStatus] = case()
 
     @classmethod
-    def Direct(cls, residual: float, condition: float, result: str | None = None) -> Self:
-        return cls(direct=(residual, condition, status_of(result, residual, _TOL["direct"])))
+    def Direct(cls, residual: float, condition: float, result: str | None = None, profile: EngineProfile | None = None) -> Self:
+        return cls(direct=(residual, condition, profile, status_of(result, residual, _TOL["direct"])))
 
     @classmethod
-    def Iterative(cls, residual: float, iterations: int, tol: float = _TOL["iterative"], result: str | None = None) -> Self:
-        return cls(iterative=(residual, iterations, tol, status_of(result, residual, tol)))
+    def Iterative(
+        cls, residual: float, iterations: int, tol: float = _TOL["iterative"], result: str | None = None, profile: EngineProfile | None = None
+    ) -> Self:
+        return cls(iterative=(residual, iterations, tol, profile, status_of(result, residual, tol)))
 
     @classmethod
-    def LeastSquares(cls, residual: float, rank: int, iterations: int, tol: float = _TOL["least_squares"], result: str | None = None) -> Self:
-        return cls(least_squares=(residual, rank, iterations, tol, status_of(result, residual, tol)))
+    def LeastSquares(
+        cls,
+        residual: float,
+        rank: int,
+        iterations: int,
+        tol: float = _TOL["least_squares"],
+        result: str | None = None,
+        profile: EngineProfile | None = None,
+    ) -> Self:
+        return cls(least_squares=(residual, rank, iterations, tol, profile, status_of(result, residual, tol)))
 
     @classmethod
-    def Eigen(cls, spectral_residual: float, k: int, condition: float, result: str | None = None) -> Self:
-        return cls(eigen=(spectral_residual, k, condition, status_of(result, spectral_residual, _TOL["eigen"])))
+    def Eigen(cls, spectral_residual: float, k: int, condition: float, result: str | None = None, profile: EngineProfile | None = None) -> Self:
+        return cls(eigen=(spectral_residual, k, condition, profile, status_of(result, spectral_residual, _TOL["eigen"])))
 
     @property
     def status(self) -> SolveStatus:
@@ -183,12 +194,24 @@ class SolverReceipt:
                 assert_never(unreachable)
 
     @property
+    def profile(self) -> EngineProfile | None:
+        slotted = self.facts["profile"]
+        return slotted if isinstance(slotted, EngineProfile) else None
+
+    @property
     def ledger(self) -> dict[str, float]:
-        # graduation-ledger projection: numeric slots floated, the status verdict dropped — the shape `graduate` clears.
-        return {name: float(value) for name, value in self.facts.items() if not isinstance(value, SolveStatus)}
+        # graduation-ledger projection: numeric slots floated; the status verdict and the profile band stay off the
+        # ledger — a profile extent is observability evidence, never a residual a ceiling clears.
+        return {name: float(value) for name, value in self.facts.items() if isinstance(value, (int, float))}
 
     def contribute(self) -> Iterable[Receipt]:
-        facts: dict[str, object] = {"converged": self.converged, **self.facts}
+        # profile band spreads `profile.`-namespaced beside the numeric slots, so a ledger metric can never shadow it.
+        banded = self.profile
+        facts: dict[str, object] = {
+            "converged": self.converged,
+            **{name: value for name, value in self.facts.items() if name != "profile"},
+            **(banded.facts("profile.") if banded is not None else {}),
+        }
         return (Receipt.of(EvidenceScope.RECEIPT.value, ("emitted", self.tag, facts)),)
 ```
 

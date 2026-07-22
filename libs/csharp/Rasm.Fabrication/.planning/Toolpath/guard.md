@@ -11,7 +11,8 @@
 ## [02]-[GUARD]
 
 - Owner: `GuardRequest` is the admitted move, part, stock, fixture, fixture-state, policy, and probe aggregate; `GuardReceipt` is its evidence-complete result. `Fixture.Zones` is the sole exclusion-zone owner and the spatial-index ordinal domain; stock carries blank, forbidden, and snapshot geometry only.
-- Cases: `HolderState` admits mounted or identity-bound certified envelopes; `ProbeRoute` admits the scalar reference or benchmark-authorized parallel channel path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
+- Cases: `HolderState` admits mounted or identity-bound certified envelopes; `ProbeRoute` admits the scalar reference or receipt-backed measured path; `GuardScope` admits a probed or plane-elided disposition; `GuardProbe` admits voxel-field and robot-cell providers; `RobotCollisionAdmission` closes accepted and refused provider evidence; `Hazard` closes gouge, fixed-zone, static-keepout, stock, channel, voxel, and robot contact.
+- Cases: `FabricationBench` closes the solver bench-case roster — NFP placement, ICP probe fit, skeleton offset, bend search, parallel clearance. `AcceptedBenchmarkClaim` binds one accepted result to its durable receipt key, and `ProbeRoute.Measured` admits only the `ClearanceParallel` case, so unrelated solver evidence cannot authorize parallel clearance.
 - Entry: `Guard.Check(GuardRequest)` preserves the frozen `Check` operation name and accumulates independent contacts through `Traverse`, `As`, and `Bind`.
 - Auto: planar straight and circular moves lower once to an arc-true trajectory, round-ended offset sweeps retain cutter and holder separation, one `Surfaces` row set traverses every planar obstacle class against the shared cutter-and-holder `Faces` table, feed moves drop the cutter face against stock while the holder face always tests, and channel pinch uses the larger swept radius with the admitted margin.
 - Evidence: `HolderEvidence` carries mounted or certified payload without a boolean cross-product; `ContactWitness` carries the contact point and its overlap area so `Hazard.Severity` ranks contacts rather than leaving them unordered; `ClearanceEvidence` retains minimum medial clearance, the optional skeleton witness, the requested route, and whether the parallel substrate executed; `VoxelContact` retains obstacle, membership, overlap volume, ray witness, and native memory; `RobotContact` retains provider target, meshes, duration, target census, and warnings.
@@ -56,12 +57,57 @@ public abstract partial record HolderState {
     public sealed record Certified(HolderCertificate Certificate) : HolderState;
 }
 
+// Bench-case roster: each row owns one durable claim key in the `rasm.fabrication` suite. Runtime benchmark
+// types terminate at the AppHost projection into `AcceptedBenchmarkClaim`.
+[SmartEnum<string>]
+public sealed partial class FabricationBench {
+    public const string Suite = "rasm.fabrication";
+
+    public static readonly FabricationBench NfpPlacement = new("nfp-placement");
+    public static readonly FabricationBench IcpProbeFit = new("icp-probe-fit");
+    public static readonly FabricationBench SkeletonOffset = new("skeleton-offset");
+    public static readonly FabricationBench BendSearch = new("bend-search");
+    public static readonly FabricationBench ClearanceParallel = new("clearance-parallel");
+
+    public string Claim => $"{Suite}/{Key}";
+}
+
+public sealed record AcceptedBenchmarkClaim {
+    private AcceptedBenchmarkClaim(FabricationBench bench, ContentKey receipt) =>
+        (Bench, Receipt) = (bench, receipt);
+
+    public FabricationBench Bench { get; }
+    public ContentKey Receipt { get; }
+
+    public string Key => FormattableString.Invariant($"{Bench.Claim}/{Receipt.Digest:x32}");
+
+    [BoundaryAdapter]
+    public static Fin<AcceptedBenchmarkClaim> Admit(
+        FabricationBench bench,
+        ContentKey receipt,
+        Func<string, ContentKey, bool> judged) =>
+        from _aggregate in bench is not null && receipt is not null && judged is not null
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "benchmark-claim:aggregate").ToError())
+        from accepted in Try.lift(() => judged(bench.Claim, receipt)).Run()
+            .MapFail(static error => new GeometryFault.DegenerateInput(
+                Kind.Curve,
+                -1,
+                $"benchmark-claim:judge:{error.Message}").ToError())
+        from _judged in accepted
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "benchmark-claim:refused").ToError())
+        select new AcceptedBenchmarkClaim(bench, receipt);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProbeRoute {
     private ProbeRoute() { }
 
     public sealed record Reference : ProbeRoute;
-    public sealed record Measured(string BenchmarkKey, int MinimumActionsPerThread) : ProbeRoute;
+    public sealed record Measured(AcceptedBenchmarkClaim Claim, int MinimumActionsPerThread) : ProbeRoute {
+        public string BenchmarkKey => Claim.Key;
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -321,7 +367,9 @@ public sealed partial class GuardStock {
                 certified: static row => row.Certificate is not null && row.Certificate.AssemblyIdentity != UInt128.Zero), "holder"),
             Gate(channel.Map(ChannelValid).IfNone(true), "channel"),
             Gate(route is not null && route.Switch(reference: static _ => true, measured: static row =>
-                !string.IsNullOrWhiteSpace(row.BenchmarkKey) && row.MinimumActionsPerThread > 0), "route"))
+                row.Claim is not null
+                && row.Claim.Bench == FabricationBench.ClearanceParallel
+                && row.MinimumActionsPerThread > 0), "route"))
             .Apply(static (_, _, _, _, _, _, _) => unit)
             .As();
         validationError = admitted.Match<ValidationError?>(
@@ -360,7 +408,7 @@ public sealed partial class GuardRequest {
     public FixtureState State { get; }
     public GuardPolicy Policy { get; }
     public Seq<GuardProbe> Probes { get; }
-    public Point3d Target => TargetOf(Move);
+    public Point3d Target => Move.Target;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -376,7 +424,7 @@ public sealed partial class GuardRequest {
             validationError = new ValidationError(message: "guard-request:aggregate");
             return;
         }
-        Point3d target = TargetOf(move);
+        Point3d target = move.Target;
         Validation<Error, Unit> admitted = (
             Gate(target.IsValid
                 && Move.Admit(move) is Fin.Succ<Move>
@@ -423,11 +471,6 @@ public sealed partial class GuardRequest {
                 row.Arc.Center.X + start.DistanceTo(row.Arc.Center),
                 row.Arc.Center.Y + start.DistanceTo(row.Arc.Center),
                 Math.Max(start.Z, row.Target.Z))));
-
-    private static Point3d TargetOf(Move move) => move.Switch(
-        rapid: static row => row.Target,
-        linear: static row => row.Target,
-        circular: static row => row.Target);
 
     private static K<Validation<Error>, Unit> Gate(bool admitted, string axis) =>
         admitted
@@ -567,33 +610,35 @@ public static class Guard {
             state: (Cursor: cursor, Policy: policy),
             rapid: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
             linear: static (state, row) => Loop.Admit(Arr(state.Cursor, row.Target), false, [], state.Policy.Tolerance),
-            circular: static (state, row) => ArcSpan(state.Cursor, row.Target, row.Arc, state.Policy)
+            circular: static (state, row) => ArcSpan(state.Cursor, row, state.Policy)
                 .Bind(span => Chords(span, state.Policy.ArcChordErrorMm))
                 .Bind(result => result.Spans <= state.Policy.MaximumSweepSegments
                     ? Fin.Succ(result)
                     : Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:sweep-capacity").ToError())));
 
-    private static Fin<Loop> ArcSpan(Point3d from, Point3d to, ArcCenter arc, GuardPolicy policy) {
-        Vector3d a = from - arc.Center;
-        Vector3d b = to - arc.Center;
+    private static Fin<Loop> ArcSpan(Point3d from, Move.Circular move, GuardPolicy policy) {
+        Vector3d a = from - move.Arc.Center;
+        Vector3d b = move.Target - move.Arc.Center;
         double radius = a.Length;
         if (!double.IsFinite(radius)
             || radius <= 0.0
-            || Math.Abs(from.Z - to.Z) > policy.Tolerance.Absolute.Value
-            || Math.Abs(from.Z - arc.Center.Z) > policy.Tolerance.Absolute.Value
+            || Math.Abs(from.Z - move.Target.Z) > policy.Tolerance.Absolute.Value
+            || Math.Abs(from.Z - move.Arc.Center.Z) > policy.Tolerance.Absolute.Value
             || Math.Abs(radius - b.Length) > policy.ArcChordErrorMm)
             return Fin.Fail<Loop>(new GeometryFault.DegenerateInput(Kind.Curve, -1, "guard:arc-motion").ToError());
-        bool clockwise = arc.Sense == RotationSense.Clockwise;
-        if (from.DistanceTo(to) <= policy.Tolerance.Absolute.Value) {
-            Point3d opposite = new(2.0 * arc.Center.X - from.X, 2.0 * arc.Center.Y - from.Y, from.Z);
-            double half = clockwise ? -1.0 : 1.0;
-            return Loop.Admit(Arr(from, opposite, to), false, Arr(half, half, 0.0), policy.Tolerance);
+        if (from.DistanceTo(move.Target) <= policy.Tolerance.Absolute.Value) {
+            Point3d opposite = new(
+                2.0 * move.Arc.Center.X - from.X,
+                2.0 * move.Arc.Center.Y - from.Y,
+                from.Z);
+            double half = Math.Tan(move.SweepRadians / 8.0);
+            return Loop.Admit(Arr(from, opposite, move.Target), false, Arr(half, half, 0.0), policy.Tolerance);
         }
-        double minor = Vector3d.VectorAngle(a, b);
-        double cross = Vector3d.CrossProduct(a, b).Z;
-        bool ccw = !clockwise;
-        double sweep = (ccw && cross >= 0.0) || (!ccw && cross <= 0.0) ? minor : Math.Tau - minor;
-        return Loop.Admit(Arr(from, to), false, Arr(Math.Tan((ccw ? sweep : -sweep) / 4.0), 0.0), policy.Tolerance);
+        return Loop.Admit(
+            Arr(from, move.Target),
+            false,
+            Arr(Math.Tan(move.SweepRadians / 4.0), 0.0),
+            policy.Tolerance);
     }
 
     private static Fin<SweptEnvelope> Sweep(Loop trajectory, GuardStock stock, GuardPolicy policy) =>
@@ -811,3 +856,11 @@ public static class Guard {
                     : Fin.Fail<Seq<ContactWitness>>(Op.Of(name: nameof(Intersections)).InvalidResult()));
 }
 ```
+
+## [03]-[RESEARCH]
+
+| [QUESTION] | [ROUTE] |
+| :--------- | :------ |
+| How does a judged benchmark mint `AcceptedBenchmarkClaim`? | `PRODUCER → ADAPTER` |
+
+`PRODUCER` = `tests/csharp/_benchmarks`; `ADAPTER` = `libs/csharp/Rasm.AppHost/.planning/Observability/benchmarks.md`.

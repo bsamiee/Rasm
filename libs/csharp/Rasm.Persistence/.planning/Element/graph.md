@@ -504,6 +504,7 @@ public sealed partial class FaultBand {
     public static readonly FaultBand Selection    = new(8460, "Query/lane#SelectionFault");
     public static readonly FaultBand Issue        = new(8470, "Ingest/issue#IssueFault");
     public static readonly FaultBand Series       = new(8480, "Query/columnar#SeriesFault (the temporal/scale-out residences beside the 835x engine decade)");
+    public static readonly FaultBand Ingress      = new(8500, "Version/ingress#IngressFault (the inbound CDC consume door beside the 8270 egress band)");
     // Pinned mirrors — foreign registries' integers reserved; no Persistence union derives from these rows.
     public static readonly FaultBand AppHostCore  = new(1000, "Rasm.AppHost 1xxx", mirror: true);
     public static readonly FaultBand ComputeCore  = new(2200, "Rasm.Compute 2200-2299", mirror: true);
@@ -572,3 +573,12 @@ public abstract partial record GraphFault : Expected, IValidationError<GraphFaul
 |  [02]   | code derivation     | `Code => FaultBand.<Row> + n`     | implicit int conversion; never `.Value`, never a literal |
 |  [03]   | foreign reservation | pinned mirror rows                | no Persistence union derives from a mirror               |
 |  [04]   | folded-txn conflict | `GraphFault.TxnConflict` 8303     | registered sub-band row, never a loose 7001              |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -12,7 +12,7 @@ A registered transform from `scan/registration.md#REGISTRATION` is the precondit
 
 - Owner: `ScanDeviation`, the frozen owner discriminating by `DeviationStage` over a registered `Cloud` carrier and a content-keyed GLB reference. `DeviationBand.fold` runs the whole signed reduction once and `verdict(tolerance, fraction)` keeps the band math in one place; `Segment` carries the plane model, unit normal, original-cloud inlier indices, and the `PrimitiveClass` the plane-normal axis resolves, and a per-segment band under `ATTRIBUTED`; `DeviationPolicy` carries every ceiling as a value-object row — segmentation gains, the worst-point `tolerance`, the tighter per-point `working_tolerance`, the noncompliant `fraction`, the slab/wall verticality thresholds — never a module `Final`.
 - Cases: `DeviationStage` — `SEGMENT` (RANSAC outlier-peel oversegmentation classifying dominant planar primitives), `DEVIATE` (the signed band folded once over the whole element), `ATTRIBUTED` (both composed — per-`Segment` band and the `on_surface` triangle-id map off the same index). Three arms of one pipeline keyed by the request value, never three parallel result shapes; `SEGMENT` returns an identity zero-magnitude band the `verdict` reads as the as-yet-unmeasured element, never a vacuous `compliant=True`, so a segmentation-only request never graduates a false-positive handoff.
-- Entry: `evaluate` is `async` — it admits the registered cloud, the reference GLB bytes, an element GlobalId, a stage, and an optional `upstream` W3C band (the reference producer's `traceparent` carried beside the content-keyed GLB), and returns `RuntimeRail[DeviationResult]` by composing `evidence_run` over `lane.offload(_deviation_kernel, …)` with the band threaded to the weave's `_linked` fold, so the deviation span joins the tessellation producer's trace. A watertight-precondition breach or a non-finite band raises inside the picklable module-level kernel and converts through the lane's `async_boundary` onto the rail the weave records; the cleared band records the `rasm.geometry.deviation.*` charter distributions through `_distributed`, parent-side because the worker meter is the no-op.
+- Entry: `evaluate` is `async` — it admits the registered cloud, reference GLB bytes, element GlobalId, stage, and optional `upstream` W3C carrier beside the content-keyed GLB, then returns `RuntimeRail[DeviationResult]` by composing `evidence_run` over `lane.offload(_deviation_kernel, …)` with the carrier threaded to `_linked`, so the deviation span joins the tessellation producer's trace. A watertight-precondition breach or non-finite band raises inside the picklable module-level kernel and converts through the lane's `async_boundary` onto the rail the weave records; the cleared band records the `rasm.geometry.deviation.*` charter distributions through `_distributed`, parent-side because the worker meter is the no-op.
 - Auto: `segment_plane` returns the `[a,b,c,d]` model and the inlier set, `select_by_index(inliers, invert=True)` peels the remainder for the next `Block.unfold` step, and the unit normal's dominant axis resolves `PrimitiveClass` by table lookup, never a per-class extraction method. `_query` amortizes one `ProximityQuery` rtree build across the whole batch and both the `signed_distance` and `on_surface` reads. `noncompliant_fraction` measures against the tighter `working_tolerance`, independent of the worst-point `tolerance` ceiling, so the bulk-surface gate and the max-distance gate stay separate.
 - Receipt: `DeviationResult.contribute` yields the one `emitted`-phase `Receipt.of("rasm.geometry.scan.deviation", ("emitted", element, facts))` the weave's harvest emits, the band facts produced once through `DeviationBand.facts` so receipt and graduation ledger read the same fold. `graduates` hands `GeometryHandoff.of(GeometrySubject.SCAN_DEVIATION, key, measured, ceilings)` TWO measured keys — `max_distance` against `policy.tolerance` and `noncompliant_fraction` against `policy.fraction` — so an element clearing on its worst point alone but out of band on the bulk surface does not cross clean; a `SEGMENT` result hands an EMPTY measured dict so the spine's unmeasured-ceiling law breaches it. That subject keys to the IFC GlobalId so the per-element deviation reaches the C# owner system and the TS viewer as a colored overlay. `frame` projects the same band facts and classification census as one `EvidenceFrame` row through the graduation port, so the data plane aggregates deviation evidence beside the energy `ResultFrame` with zero receipt re-parsing.
 - Packages: `open3d` (the `PointCloud.segment_plane`/`select_by_index` RANSAC peel), `trimesh` (the GLB reader and the `proximity.ProximityQuery`/`signed_distance`/`on_surface` amortized index), `numpy` (the band and peel folds), `beartype` (the `SignedField` finiteness refinement under `FAULT_CONF`), `expression` (`Block.unfold` the peel state machine), `msgspec` (the frozen carriers), geometry (`evidence_run`/`charter_record`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject` the graduation spine, `Cloud` the ingestion-minted crossing carrier, `mesh/quality.closure_fold` the watertight gate — quality tiers below the scan producers), runtime (`RuntimeRail`/`FAULT_CONF`, `LanePolicy.offload`/`Kernel`, `ContentKey`, `Receipt`).
@@ -22,6 +22,7 @@ A registered transform from `scan/registration.md#REGISTRATION` is the precondit
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
+from collections.abc import Mapping
 from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Annotated, Literal, assert_never
@@ -310,10 +311,15 @@ class ScanDeviation(Struct, frozen=True):
     policy: DeviationPolicy = DeviationPolicy()
 
     async def evaluate(
-        self, cloud: Cloud, reference_glb: bytes, element: str, stage: DeviationStage, upstream: str | None = None
+        self,
+        cloud: Cloud,
+        reference_glb: bytes,
+        element: str,
+        stage: DeviationStage,
+        upstream: Mapping[str, str] | None = None,
     ) -> "RuntimeRail[DeviationResult]":
         # graduation weave wraps the lane offload; its harvest emits the conforming result once, `upstream` — the
-        # reference producer's W3C band carried beside the content-keyed GLB — joins that trace as a Link at span
+        # reference producer's W3C carrier beside the content-keyed GLB joins that trace as a Link at span
         # open, and the cleared band records its charter distributions. HOSTILE is the declared trait because the
         # open3d band imports under no isolated subinterpreter.
         rail = await evidence_run(

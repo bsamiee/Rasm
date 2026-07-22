@@ -8,7 +8,7 @@
 - [03]-[STATUS]: `StatusProgram` folds prompt, pane, point, and toast intent into one crossing and preserves every toast outcome.
 - [04]-[PROGRESS]: `ProgressPolicy`, `ProgressMove`, and `ProgressLease` own admission, movement, projection, contention evidence, and release.
 - [05]-[WINDOWS]: `WindowScope`, `WindowPolicy`, `ShellWindows`, and `ShellTheme` own host parents, adoption, typed and untyped modal presentation, discovery, placement, and theme transitions.
-- [06]-[RUNTIME]: `HostFacts`, `HostAssemblies`, and `ShellSkin` own capability probes, resolver receipts, collectible loading, and the skin load-phase hook.
+- [06]-[RUNTIME]: `HostFacts`, `HostAssemblies`, `HostScripts`, and `ShellSkin` own capability probes, resolver receipts, collectible loading, the script engine, and the skin load-phase hook; `ShellHooks` mounts the skin phase route on the registry.
 - [07]-[CALLBACKS]: `CallbackObserver<T>`, `NamedKind`, `NamedBag`, and `NamedCallbacks` close guarded delivery and the typed named-parameter wire; `NodeFunctions` projects the node-in-code table onto the same crossing.
 - [08]-[NOTICES]: `NoticeSpec`, `NoticeLease`, and `Notices` mint, present, annotate, and observe host notifications under the assembly-restriction guard.
 - [09]-[TELEMETRY_ROOT]: `ShellTelemetry` opens the per-ALC telemetry capsule at the plugin app root and derives resource identity from the host snapshot.
@@ -20,7 +20,7 @@
 - Entry: `HostThread.Run<T>(HostWork<T>, Op?)` admits the operation once and returns `Fin<T>`.
 - Law: `Session` carries every `SessionNeed` in the request value; a consumer never opens a second document demand beside the host operation.
 - Law: provenance is a case, never a caller flag — `Guarded` marshals exactly like `Execute` and adds only the `RiskyAction` bracket around the body.
-- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, every off-thread crossing records queued and settled checkpoints with work and outcome tags on one frozen `ILatencyContext`, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root.
+- Law: marshal-seam latency is a mounted ledger, never a second clock — `MarshalLatency` seats one `ILatencyContextProvider` first-mount-wins, the app root registers the checkpoint and tag names through `RegisterCheckpointNames`/`RegisterTagNames` and the tokens resolve once at mount, every off-thread crossing records queued and settled checkpoints with work and outcome tags on one frozen `ILatencyContext`, and an empty seat is the zero-cost pass-through; the `rhino.marshal` instrument row on `Objects/authoring.md` projects this ledger at the app root under the `DurationInstrument` label `rasm.rhino.hostui.marshal.duration`.
 - Boundary: `HostThread` owns Rhino command-thread affinity, while `UiThread` owns Eto control-tree affinity.
 
 ```csharp signature
@@ -229,6 +229,7 @@ public static class HostThread {
 }
 
 public static class MarshalLatency {
+    public const string DurationInstrument = "rasm.rhino.hostui.marshal.duration";
     public const string QueuedCheckpoint = "rasm.rhino.marshal.queued";
     public const string SettledCheckpoint = "rasm.rhino.marshal.settled";
     public const string WorkTag = "rasm.rhino.marshal.work";
@@ -850,9 +851,13 @@ public static class ShellTheme {
 
 - Owner: `HostProbe` closes the capability-read request family and `HostFact` its detached answers; `HostSnapshot` is the one process-and-OS record.
 - Owner: `HostAssemblies` pre-admits every resolver source, reports a completed or partial applied prefix, and folds collectible loading over `AssemblyIntake` cases; a nullable host return projects to the rail at the call.
+- Owner: `ScriptRun` closes the execute-request family over the host scripting engine — source, file, file-in-scope, expression, compiled — and `HostScripts` guards compile, binding custody, and dispatch; `ScriptUnit` capsules the compiled handle, `ScriptOutcome` detaches ran-versus-value evidence.
 - Owner: `SkinProgram` carries the icon, product name, and one `SkinPhase` hook; `ShellSkin` adapts the complete `Skin` load-phase surface onto it.
 - Law: every `ShellSkin` override chains the base member first, then routes its `SkinPhase` case; hook faults accumulate in `Faults` and never re-enter the host load sequence.
+- Law: `ShellHooks.Mount` registers `rasm.rhino.hostui.skin` on the `MountRegistry` — the ask is the `Func<SkinPhase, Fin<Unit>>` phase hook, the grant is a `SkinProgram` carrying it, so a skin observer binds by point name and hands the granted program to its `ShellSkin` constructor with no second phase-delivery path.
 - Law: platform capability resolves through `HostUtils.GetPlatformService<T>` and stays behind `HostFacts`; a probe is a `HostProbe` case, so a new capability read is one case and one arm.
+- Law: engine presence is a probed host fact, never an assumption — `HostProbe.Scripting` answers with the `ScriptEngineSnapshot` search-path and runtime-assembly census, and every `HostScripts` entry refuses typed when `PythonScript.Create()` answers null.
+- Law: script execution admits the complete `ScriptRun` text family and every binding name before engine creation or host dispatch, then rides `HostThread.Run`; an execute returning `false` projects onto the rail, expression absence rides `Option<object>`, and scripting-runtime exceptions convert inside the guarded window.
 - Boundary: process facts include runtime architecture, Mono presence, and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
 
 ```csharp signature
@@ -862,6 +867,7 @@ public abstract partial record HostProbe {
     private HostProbe() { }
     public sealed record Process : HostProbe;
     public sealed record Printers : HostProbe;
+    public sealed record Scripting : HostProbe;
 }
 
 [ComplexValueObject]
@@ -887,11 +893,19 @@ public sealed record PrintForm(string Name, Option<(double Width, double Height)
 
 public sealed record PrinterSlot(string Name, double HorizontalDpi, double VerticalDpi, Seq<PrintForm> Forms);
 
+[ComplexValueObject]
+public sealed partial class ScriptEngineSnapshot {
+    public Seq<string> SearchPaths { get; }
+    public Seq<string> RuntimeAssemblies { get; }
+    public int ContextId { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HostFact {
     private HostFact() { }
     public sealed record ProcessCase(HostSnapshot Snapshot) : HostFact;
     public sealed record PrinterCase(Seq<PrinterSlot> Printers) : HostFact;
+    public sealed record ScriptCase(ScriptEngineSnapshot Engine) : HostFact;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -917,6 +931,41 @@ public abstract partial record AssemblyExtensionReceipt {
 }
 
 internal sealed record AssemblyExtensionState(int Applied, Option<Error> Fault);
+
+public sealed record ScriptUnit(PythonCompiledCode Code);
+
+public sealed record ScriptBinding(string Name, object Value);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ScriptOutcome {
+    private ScriptOutcome() { }
+    public sealed record Ran : ScriptOutcome;
+    public sealed record Value(Option<object> Result) : ScriptOutcome;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ScriptRun {
+    private ScriptRun() { }
+    public sealed record Source(string Script) : ScriptRun;
+    public sealed record File(string Path) : ScriptRun;
+    public sealed record FileInScope(string Path) : ScriptRun;
+    public sealed record Expression(string Statements, string Formula) : ScriptRun;
+    public sealed record Compiled(ScriptUnit Unit) : ScriptRun;
+
+    internal Fin<ScriptRun> Admit(Op op) => Switch(
+        op,
+        source: static (key, row) => key.AcceptText(value: row.Script)
+            .Map<ScriptRun>(script => new Source(Script: script)),
+        file: static (key, row) => key.AcceptText(value: row.Path)
+            .Map<ScriptRun>(path => new File(Path: path)),
+        fileInScope: static (key, row) => key.AcceptText(value: row.Path)
+            .Map<ScriptRun>(path => new FileInScope(Path: path)),
+        expression: static (key, row) =>
+            from statements in key.AcceptText(value: row.Statements)
+            from formula in key.AcceptText(value: row.Formula)
+            select (ScriptRun)new Expression(Statements: statements, Formula: formula),
+        compiled: static (_, row) => Fin.Succ<ScriptRun>(row));
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SkinPhase {
@@ -979,6 +1028,22 @@ public abstract class ShellSkin : Skin {
         .IfFail(failure => { _ = faults.Swap(rows => rows.Add(failure)); return unit; }));
 }
 
+public static class ShellHooks {
+    public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) {
+        Op op = key.OrDefault();
+        return MountRegistry.Mount(
+            mount: new HookMount(
+                Point: HookPoint.HostUiSkin,
+                Plugin: plugin,
+                Ask: typeof(Func<SkinPhase, Fin<Unit>>),
+                Grant: typeof(SkinProgram),
+                Bind: ask => Optional(ask as Func<SkinPhase, Fin<Unit>>)
+                    .ToFin(Fail: op.InvalidInput())
+                    .Map(static phase => (object)(SkinProgram.Inert with { Phase = phase }))),
+            key: op);
+    }
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class HostFacts {
     public static Fin<HostFact> Probe(HostProbe probe, Op? key = null) {
@@ -1014,7 +1079,15 @@ public static class HostFacts {
                         Name: form,
                         Extent: HostUtils.GetPrinterFormSize(printer, form, out double width, out double height)
                             ? Some((width, height))
-                            : None)).Strict())).Strict()))));
+                            : None)).Strict())).Strict()))),
+            scripting: static (held, _) => held.Catch(() => Optional(PythonScript.Create())
+                .ToFin(Fail: held.InvalidResult())
+                .Bind(engine => held.Catch(() => Fin.Succ<HostFact>(value: new HostFact.ScriptCase(
+                    Engine: ScriptEngineSnapshot.Create(
+                        searchPaths: toSeq(PythonScript.SearchPaths).Strict(),
+                        runtimeAssemblies: toSeq(PythonScript.RuntimeAssemblies())
+                            .Map(static assembly => assembly.FullName ?? string.Empty).Strict(),
+                        contextId: engine.ContextId)))))));
     }
 }
 
@@ -1063,6 +1136,57 @@ public static class HostAssemblies {
             fromName: static (held, row) => held.Catch(() =>
                 Optional(HostUtils.LoadAssemblyFromName(assemblyName: row.Name)).ToFin(Fail: held.InvalidResult())));
     }
+}
+
+public static class HostScripts {
+    public static Fin<ScriptUnit> Compile(string script, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptText(value: script)
+            .Bind(source => Engine(op).Bind(engine => op.Catch(() =>
+                Optional(engine.Compile(script: source))
+                    .ToFin(Fail: op.InvalidResult())
+                    .Map(static code => new ScriptUnit(Code: code)))));
+    }
+
+    public static Fin<ScriptOutcome> Run(ScriptRun run, Seq<ScriptBinding> bindings = default, Op? key = null) {
+        ArgumentNullException.ThrowIfNull(run);
+        Op op = key.OrDefault();
+        return from admitted in run.Admit(op)
+               from prepared in bindings.TraverseM(binding =>
+                       from row in Optional(binding).ToFin(Fail: op.InvalidInput())
+                       from name in op.AcceptText(value: row.Name)
+                       select row with { Name = name })
+                   .As()
+               from engine in Engine(op)
+               from outcome in HostThread.Run(
+            work: new HostWork<ScriptOutcome>.Execute(Body: () =>
+                prepared.TraverseM(binding => op.Catch(() =>
+                        Fin.Succ(value: Op.Side(() => engine.SetVariable(name: binding.Name, value: binding.Value)))))
+                    .As()
+                    .Bind(_ => admitted.Switch(
+                        (Held: op, Engine: engine),
+                        source: static (state, row) => state.Held.Catch(() => state.Engine.ExecuteScript(script: row.Script)
+                            ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
+                            : Fin.Fail<ScriptOutcome>(error: state.Held.InvalidResult())),
+                        file: static (state, row) => state.Held.Catch(() => state.Engine.ExecuteFile(path: row.Path)
+                                ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
+                                : Fin.Fail<ScriptOutcome>(error: state.Held.InvalidResult())),
+                        fileInScope: static (state, row) => state.Held.Catch(() => state.Engine.ExecuteFileInScope(path: row.Path)
+                                ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
+                                : Fin.Fail<ScriptOutcome>(error: state.Held.InvalidResult())),
+                        expression: static (state, row) => state.Held.Catch(() => Fin.Succ<ScriptOutcome>(
+                            value: new ScriptOutcome.Value(Result: Optional(state.Engine.EvaluateExpression(
+                                statements: row.Statements, expression: row.Formula))))),
+                        compiled: static (state, row) => state.Held.Catch(() => {
+                            row.Unit.Code.Execute(scope: state.Engine);
+                            return Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran());
+                        })))),
+            key: op)
+               select outcome;
+    }
+
+    static Fin<PythonScript> Engine(Op op) =>
+        op.Catch(() => Optional(PythonScript.Create()).ToFin(Fail: op.InvalidResult()));
 }
 ```
 
@@ -1372,7 +1496,7 @@ public static class NamedCallbacks {
         Op op = key.OrDefault();
         return from admitted in op.AcceptText(value: name)
                from schema in NamedSlot.Admit(slots: request, op: op)
-               from claim in Names.Swap(held => held.TryAdd(admitted, plugin)).Find(admitted)
+               from claim in Names.Swap(held => held.ContainsKey(admitted) ? held : held.Add(admitted, plugin)).Find(admitted)
                    .Filter(holder => holder == plugin)
                    .ToFin(Fail: op.InvalidContext())
                from seated in op.Catch(() => {
@@ -1709,7 +1833,7 @@ public static class Notices {
 - Owner: `ShellTelemetry` — the plugin app-root composition seam over the AppHost `PluginTelemetryHost`; one capsule per plugin `AssemblyLoadContext`, opened once at plugin load, never per feature.
 - Entry: `ShellTelemetry.Open(Assembly pluginRoot, string plugin, Op? key = null)` → `Fin<PluginTelemetryHost>` — resolves the plugin ALC from the root assembly, folds one `HostFacts` process probe into the resource identity, and opens the capsule under `HostProfile.RhinoPlugin`.
 - Law: the app root alone references `Rasm.AppHost` beside `Rasm.Rhino` — no `Rasm.Rhino` package source names an AppHost or OpenTelemetry type, so the strata law holds while the composition realizes at the root.
-- Law: resource identity is the estate triple plus the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.rhino`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so co-resident plugins in one `Rhino.exe` separate downstream by resource, never by meter name.
+- Law: resource identity is the estate triple with the plugin discriminator — `service.namespace` `rasm`, `service.name` `rasm.rhino`, the plugin assembly version, a boot-minted `service.instance.id`, and the `rasm.plugin` attribute — so co-resident plugins in one `Rhino.exe` separate downstream by resource, never by meter name.
 - Law: `HostSnapshot` supplies the host-identity evidence — process name and version cross as `host.process`/`host.version` attributes, read through one `HostFacts.Probe(new HostProbe.Process())` at open, never re-probed per signal.
 - Boundary: lifetime is the capsule's own `AssemblyLoadContext.Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — so the shell registers no second unload path; every Rasm meter in the plugin process reaches the capsule `IMeterFactory`, and a process-static `Meter` stays the named defect.
 - Packages: app root only — Rasm.AppHost (`PluginTelemetryHost`, `HostProfile`), OpenTelemetry (`ResourceBuilder`), BCL inbox (`AssemblyLoadContext`).
@@ -1748,3 +1872,12 @@ public static class ShellTelemetry {
     }
 }
 ```
+
+## [10]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

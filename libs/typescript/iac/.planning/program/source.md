@@ -1,6 +1,6 @@
 # [IAC_SOURCE]
 
-The bootstrap-axis legs the estate stands on before and after a deploy: `Source` provisions the source-control shell — repository, branch law, the deployment-environment gates whose names align with the `StackSpec.doppler.config` axis so the Doppler mirror, the GitHub gate, and the stack speak ONE environment vocabulary, deploy keys whose private halves never leave the `tls` owner, the webhook seam a deploy-triggering endpoint subscribes through, and non-secret Actions variables — and `Source.distribute` converges a built static frontend into the arm's object cell through the synced-folder dialect record and realizes the ui served-asset roster as content-addressed immutable serving rows the `served` output plane publishes, so the UI folder's build product lands behind the arm's DNS/CDN rows with zero new plumbing and the viewer's `codec-absent` gate arms from deploy facts. Secret VALUES never route through this page: the `secretssync.GithubActions` mirror (`operate/secret.md` `_MIRRORS`) writes FROM the canonical config INTO the `RepositoryEnvironment` shells this page mints — this page owns the shells, the mirror owns the filling — and `ActionsVariable` rows carry only configuration that is not secret material. One branch-law owner per repo: `RepositoryRuleset` is the rules-engine spelling, and a legacy-protection twin beside it is the split the family forbids. The module is `iac/src/program/source.ts`; a new gated environment is one row sharing the doppler-config spelling, a new distribution target is one `_FOLDERS` dialect row, a new served codec is one ui roster row whose serving path derives, a new pipeline variable is one `variables` entry.
+`Source` owns the bootstrap-axis source-control shell and static-distribution fold. Repository law, deployment environments aligned with `StackSpec.doppler.config`, public deploy keys, webhook configuration, and non-secret Actions variables share one tier. `Source.distribute` converges a built frontend into an arm's object cell and publishes caller-supplied artifact rows as content-addressed `served` outputs. `secretssync.GithubActions` alone fills secret values from the canonical config. Module `iac/src/program/source.ts` grows by one environment row, `_FOLDERS` dialect row, artifact row, or variable entry.
 
 ## [01]-[CLUSTERS]
 
@@ -12,7 +12,7 @@ The bootstrap-axis legs the estate stands on before and after a deploy: `Source`
 ## [02]-[SOURCE_CONTROL]
 
 [SOURCE_CONTROL]:
-- Owner: `Source` — one `github.Provider` per owner scope constructed from the `GITHUB_TOKEN` fan-in read, one `Repository` (a pre-existing repo adopts through the `import` resource option so its settings become plan-managed; the class `get` is a read-only reference, never the management path), one `RepositoryRuleset` carrying the branch law, one `RepositoryEnvironment` per environments row with reviewer and self-review gates plus a branch-pattern `RepositoryEnvironmentDeploymentPolicy`, one `RepositoryDeployKey` binding a `tls.PrivateKey.publicKeyOpenssh` (read-only posture by default; the private half stays in the entropy owner), one `RepositoryWebhook` whose `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies, and `ActionsVariable` rows for non-secret pipeline configuration.
+- Owner: `Source` — one `github.Provider` per owner scope constructed from the `GITHUB_TOKEN` fan-in read, one `Repository` (a pre-existing repo adopts through the `import` resource option so its settings become plan-managed; the class `get` is a read-only reference, never the management path), one `RepositoryRuleset` carrying the branch law, one `RepositoryEnvironment` per environments row with reviewer and self-review gates and a branch-pattern `RepositoryEnvironmentDeploymentPolicy`, one `RepositoryDeployKey` binding a `tls.PrivateKey.publicKeyOpenssh` (read-only posture by default; the private half stays in the entropy owner), one `RepositoryWebhook` whose `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies, and `ActionsVariable` rows for non-secret pipeline configuration.
 - Law: environments align three surfaces — an environments row's `name` is a `StackSpec.doppler.config` spelling, so the `secretssync.GithubActions` mirror targeting that environment, the gate reviewers protecting it, and the stack deploying under it read one vocabulary; an environment named outside the doppler axis is the split-brain this alignment law forbids.
 - Law: material splits by kind — secret values arrive ONLY through the Doppler mirror into the shells; `ActionsVariable` carries non-secret configuration; a credential authored through an Actions secret beside the mirror is the second-source defect, and the deploy key's `key` field accepts only the public half.
 - Law: one branch-law owner per repo — `RepositoryRuleset` for this estate; `BranchProtection` survives only when adopting a classic-protected repo, never beside the ruleset.
@@ -27,7 +27,7 @@ The bootstrap-axis legs the estate stands on before and after a deploy: `Source`
 import * as github from "@pulumi/github"
 import * as pulumi from "@pulumi/pulumi"
 import * as tls from "@pulumi/tls"
-import { Array, Record } from "effect"
+import { Array, Record, Schema } from "effect"
 import { Tier, type StackSpec } from "./spec.ts"
 
 declare namespace Source {
@@ -50,7 +50,7 @@ class Source extends Tier {
   static distribute(name: string, args: Source.Distribution, opts?: pulumi.ComponentResourceOptions): Source.Distributed {
     return {
       folder: _FOLDERS[args.arm](name, args, opts),
-      served: Record.fromEntries(Array.map(args.assets ?? [], _addressed)),
+      served: Record.fromEntries(Array.map(Schema.decodeUnknownSync(_Assets)(args.assets ?? []), _addressed)),
     }
   }
   readonly deployKey: tls.PrivateKey
@@ -121,28 +121,24 @@ class Source extends Tier {
 [DISTRIBUTION]:
 - Law: the bucket is the arm's object cell, the folder is its content — `_FOLDERS` is the dialect record keyed by the arms whose object cells the synced-folder component reaches: the `aws` row converges onto `aws.s3.BucketV2.bucket`, the `gcp` row onto `gcp.storage.Bucket.name`; the component never creates a bucket, cloud credentials thread through the arm's one provider seam via `opts.providers`, and the `cloudflare` arm's static distribution stays its own `PagesProject`/R2 rows — no R2 dialect exists here and none is faked through the S3 row.
 - Law: the sync policy is one row — `sync.managed` (default true) tracks every file as a state-managed object (per-file diffs, policy visibility, drift evidence) with `false` the large-site row where per-file state is cost; `sync.hidden` admits the dotfiles (`.well-known`) the sync skips by default; `sync.aliases: false` opts out of the aliasing that smooths a managed-mode flip; `path` points at a built artifact directory handed in like every pin — the UI folder's build product, never a lib literal.
-- Law: the ui served-asset roster is the sole serving identity source — decoder and engine wasm identities (`draco`, `ktx2`, `meshopt`, `perspective` today) cross the seam as `{ slug, digest, file }` rows the app hands in as data beside `path`, this plane derives from them and never redefines them, and a serving decision keyed off anything but a roster row is the second identity source the `ARCHITECTURE.md` `[05]` ruling forbids.
+- Law: artifact identity enters as caller data admitted once — each `{ slug, digest, file }` row decodes through the `_Assets` schema at `distribute`: path-safe single-segment `digest` and `file` spellings (no separators, no traversal, no empty form) and slug-unique rows, so a malformed or colliding row fails the deploy loud and never overwrites a served entry; the plane addresses rows without interpreting the slug, and no UI codec vocabulary is declared here.
 - Law: serving paths are content-addressed and immutable — `_addressed` derives `assets/<digest>/<file>` from the row alone, both seam ends compute the identical derivation so no free-form path string ever crosses, a byte change mints a new digest hence a new path, and every published path is cache-forever; edge cache posture over `assets/*` rides the owning arm's CDN rows, never per-file metadata writes.
-- Law: the `codec-absent` gate arms from deploy facts — `distribute` returns the synced component beside the `served` slug-to-path record, the composing arm returns that record as the `served` output-plane keys (`StackOutputs` at `spec.md`), and the ui viewer refuses an `EXT_meshopt_compression` asset until the identity it demands carries a sealed serving row; under `sync.managed` a roster row whose addressed object is absent from the built artifact surfaces as per-object drift.
+- Law: `distribute` returns the synced component beside the `served` slug-to-path record, and the composing arm returns that record through `StackOutputs`; under `sync.managed`, a declared artifact absent from the built directory surfaces as per-object drift.
 - Entry: `Source.distribute("frontend", { arm: "aws", path, bucket, assets }, { providers })` inside the owning arm after its object cell stands; the returned `served` record exits through the arm's `served` plane keys.
-- Growth: a new distribution target is one `_FOLDERS` row when a new arm's dialect ships; a new codec is one ui roster row — its serving row derives, zero edits here.
-- Boundary: fronting DNS/CDN rows stay on the owning arms; roster minting and the content-addressed placement inside the built artifact are the UI folder's build mechanics; the `served` plane's decode is `spec.md`'s.
-- Packages: `@pulumi/synced-folder` (`S3BucketFolder`, `GoogleCloudFolder`); `effect` (`Array`, `Record`).
+- Growth: a new distribution target is one `_FOLDERS` row when a new arm's dialect ships; a new artifact is one caller row.
+- Boundary: fronting DNS/CDN rows stay on the owning arms; artifact-vocabulary minting stays with the consuming folder; the `served` plane's decode is `spec.md`'s.
+- Packages: `@pulumi/synced-folder` (`S3BucketFolder`, `GoogleCloudFolder`); `effect` (`Array`, `Record`, `Schema`).
 
 ```typescript
 import * as syncedFolder from "@pulumi/synced-folder"
 
 declare namespace Source {
-  type ServedAsset = {
-    readonly slug: string // ui roster identity — draco | ktx2 | meshopt | perspective today; the roster, never this plane, grows the set
-    readonly digest: string // sha256 hex of the served bytes, minted by the ui build
-    readonly file: string // bare filename; the serving path derives from digest and file, so no free-form path crosses the seam
-  }
+  type AssetRow = typeof _Asset.Type
   type Distribution = {
     readonly arm: keyof typeof _FOLDERS
     readonly path: string
     readonly bucket: pulumi.Input<string>
-    readonly assets?: ReadonlyArray<ServedAsset>
+    readonly assets?: ReadonlyArray<AssetRow>
     readonly sync?: {
       readonly managed?: boolean
       readonly hidden?: boolean
@@ -155,7 +151,22 @@ declare namespace Source {
   }
 }
 
-const _addressed = (asset: Source.ServedAsset): readonly [string, string] =>
+// path admission: one relative segment per coordinate — no separators, no traversal, no empty spelling —
+// so the derived assets/<digest>/<file> address is safe by construction, and slug-unique rows keep
+// Record.fromEntries collision-free
+const _Asset = Schema.Struct({
+  slug: Schema.NonEmptyString,
+  digest: Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]+$/)),
+  file: Schema.String.pipe(Schema.pattern(/^(?!\.{1,2}$)[A-Za-z0-9._-]+$/)),
+})
+
+const _Assets = Schema.Array(_Asset).pipe(
+  Schema.filter((rows) => Array.dedupe(Array.map(rows, (row) => row.slug)).length === rows.length, {
+    message: () => "asset slugs are unique — a later row never silently overwrites a served entry",
+  }),
+)
+
+const _addressed = (asset: Source.AssetRow): readonly [string, string] =>
   [asset.slug, `assets/${asset.digest}/${asset.file}`] as const
 
 const _FOLDERS = {
@@ -182,3 +193,7 @@ const _FOLDERS = {
 
 export { Source }
 ```
+
+## [04]-[RESEARCH]
+
+- [ASSET_IDENTITY_ROSTER]-[BLOCKED]: Which UI-owned encoded roster binds codec identity to `{ slug, digest, file }` and arms `codec-absent` from the sealed `served` plane?; route through `libs/typescript/ui/.planning/viewer/scene.md`, `libs/typescript/ui/IDEAS.md` `[ASSET_IDENTITY]`, and `libs/typescript/ui/TASKLOG.md` `[ASSET_IDENTITY_ROSTER]`; replace `Source.AssetRow` only after that owner exists.

@@ -1,6 +1,6 @@
 # [RASM_RHINO_EVENTS]
 
-`DocumentStream` owns observation from raw host and filesystem callbacks through detached facts, nonblocking delivery, bounded loss evidence, and retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains every delivery and release outcome under one identity. `HookPoint` names every detached stream in the boundary as `rasm.rhino.<domain>.<point>`, and `HookRegistry` owns name-addressed discovery, first-mount-wins custody, and typed binding over the adopter mounts.
+`DocumentStream` owns observation from raw host and filesystem callbacks: detached facts, nonblocking delivery, bounded loss evidence, retryable symmetric detachment. `Observation` carries source-specific admission, `EventFamily` carries host wiring as data, and `Watch` retains delivery and release outcomes under one identity. `HookPoint` names every detached stream as `rasm.rhino.<domain>.<point>` under the kernel `HookModality` rows, `MountRegistry` owns name-addressed discovery and first-mount-wins custody over the adopter mounts, and `RhinoInstruments` declares the contributed rows.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,8 @@
 - [03]-[PAYLOAD_PROJECTION]: `EventPayload` and `DocEvent` carry detached callback evidence.
 - [04]-[DELIVERY_POLICY]: `Delivery` and `ReceiptPolicy` close bounded delivery and loss evidence.
 - [05]-[STREAM_OWNER]: `DocumentStream` and `Watch` own admission, attachment, delivery, and release.
-- [06]-[HOOK_REGISTRY]: `HookPoint`, `HookModality`, `HookMount`, and `HookRegistry` close point addressing, host-truth modality, mount custody, and multi-plugin arbitration.
+- [06]-[HOOK_REGISTRY]: `HookPoint`, `HookMount`, and `MountRegistry` close point addressing, host-truth modality over the kernel rows, mount custody, and multi-plugin arbitration.
+- [07]-[TELEMETRY_TAP]: `RhinoInstruments` declares the contributed instrument rows and the string-scoped port.
 
 ## [02]-[FAMILY]
 
@@ -853,7 +854,7 @@ internal sealed class ReceiptJournal(WatchKey watch, ReceiptPolicy policy) {
 - Owner: `Observation` carries each source's complete ingress, and `DocumentStream.Observe` owns admission, attachment, rollback, and watch minting.
 - Law: every source, delivery, policy, and source-specific value admits before the first attachment; sequential attachment rolls back the accumulated prefix on failure.
 - Law: `Watch.Close` cancels delivery, combines source and idle-pump detachment evidence, receipts each fault, and retains each failed owner for a later close attempt.
-- Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody plus one settled result atomically; concurrent callers join that result.
+- Law: close claims its owners under the lifecycle lock, executes callbacks after release, and publishes retry custody with one settled result atomically; concurrent callers join that result.
 - Law: an empty subscription closes as `Released(0)`; `Open` denotes only unclaimed live custody.
 - Law: reentrancy and deferred capacity belong to one watch, so recursive or queued work cannot suppress or exhaust a sibling observation.
 - Law: deferred delivery owns one idle hook per watch; closing the watch detaches that hook and receipts every queued fact as cancelled.
@@ -1535,57 +1536,73 @@ internal sealed class IdlePump : IDisposable {
 
 ## [06]-[HOOK_REGISTRY]
 
-- Owner: `HookPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`; `HookModality` rules what each point admits; `HookMount` carries one owner-registered binding as data; `HookRegistry` owns name-addressed discovery, first-mount-wins custody, and typed binding; `PluginKey` is the plugin identity every process-global claim keys on.
-- Law: a point name resolves in one hop — a consumer binds `HookRegistry.Bind` on the point key and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`), so no consumer learns a per-domain stream API and no second delivery path forms beside the owner's bounded lanes.
-- Law: modality is host truth, never a registry promise — a `Veto` row exists only where the host callback admits refusal, each verdict citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger.
-- Law: mount custody is one seat per point — `Mount` claims the point for the registering plugin, a duplicate claim faults typed naming the point, and the mount's detacher returns the seat only while the same mount still holds it; observers are unbounded because binding rides the owner's own multi-subscriber machinery.
-- Law: telemetry is a tap — the `rasm.rhino.objects.fault`, `rasm.rhino.host.exception`, and `rasm.rhino.host.log` points bind onto the `ObjectsTelemetry` keyed-sink fan, so observability subscribes to domain facts and no emit call rides inside domain code.
+- Owner: `HookPoint` is the closed boundary-wide point vocabulary addressed `rasm.rhino.<domain>.<point>`, its rows ruled by the kernel `HookModality` vocabulary; `HookMount` carries one owner-registered binding as data; `MountRegistry` owns name-addressed discovery, first-mount-wins custody, and typed grant binding — a different concern than the kernel's composition-frozen point mount, so it carries its own name; `PluginKey` is the plugin identity every process-global claim keys on.
+- Law: a point name resolves in one hop — a consumer binds `MountRegistry.Bind` on the point key and receives the owning stream's own grant (a `Watch`, `PointerLease`, `WidgetHost`, `Subscription`, or `ContentStream`), so no consumer learns a per-domain stream API and no second delivery path forms beside the owner's bounded lanes.
+- Law: modality is host truth, never a registry promise — a `Veto` row exists only where the host callback admits refusal, the veto-truth census citing the exact host member; every other point is post-hoc `Observe`, and `Replay` marks only a point whose owner retains a readable latest-value ledger.
+- Law: mount custody is one seat per point — `Mount` claims the point for the registering plugin, a duplicate claim faults typed naming the point, and the mount's detacher returns the seat only while the same mount still holds it; `MountAll` releases an admitted prefix when any later row refuses; observers are unbounded because binding rides the owner's own multi-subscriber machinery.
+- Law: telemetry is a tap — the `rasm.rhino.objects.fault` point binds onto the `ObjectsTelemetry` keyed-sink fan, and the `rasm.rhino.host.exception`/`rasm.rhino.host.log` points bind the `HostUtils.OnExceptionReport` and `HostUtils.OnSendLogMessageToCloud` statics onto the same fan through the `HostTap.Mount` seat, so observability subscribes to domain facts and no emit call rides inside domain code.
 - Law: process-global custody is a closed census — every collision surface carries its collision class and arbitration row below, and a new process-global surface is one census row with its arbitration named before any fence composes it.
-- Growth: a new fact stream is one `HookPoint` row plus one `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
+- Growth: a new fact stream is one `HookPoint` row with its `HookMount` registration on its owning page; a new plugin-visible custody surface is one census row.
 
-Point census — payload, host-contract modality, and owning entry per point; the registry fence carries name and modality, the owning page carries the mount:
+Document point census — every band rides the one stream owner:
 
-| [INDEX] | [POINT]                        | [PAYLOAD]     | [MODALITY]      | [OWNER_ENTRY]                                     |
-| :-----: | :----------------------------- | :------------ | :-------------- | :------------------------------------------------ |
-|  [01]   | `rasm.rhino.document.lifecycle` | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Lifecycle` |
-|  [02]   | `rasm.rhino.document.structure` | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Structure` |
-|  [03]   | `rasm.rhino.document.selection` | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Selection` |
-|  [04]   | `rasm.rhino.document.tables`    | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Tables`    |
-|  [05]   | `rasm.rhino.document.screen`    | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Screen`    |
-|  [06]   | `rasm.rhino.document.draw`      | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Draw`      |
-|  [07]   | `rasm.rhino.document.panels`    | `DocEvent`   | observe         | `DocumentStream.Observe` over `EventBand.Panels`    |
-|  [08]   | `rasm.rhino.document.file`      | `DocEvent`   | observe         | `DocumentStream.Observe` over `Observation.File`    |
-|  [09]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe        | `DisplayHooks.Mount` over `Pointers.Configure` on `Display/interaction.md` |
-|  [10]   | `rasm.rhino.display.widget`     | `WidgetFact`  | observe        | `DisplayHooks.Mount` over `WidgetHost.Of` on `Display/interaction.md`         |
-|  [11]   | `rasm.rhino.display.cull`       | per-object    | veto            | `CullObjectEventArgs.CullObject` suppression flag; mutating arm rides `Display/conduit.md` |
-|  [12]   | `rasm.rhino.display.drawobject` | per-object    | veto            | `DrawObjectEventArgs.DrawObject` suppression flag; mutating arm rides `Display/conduit.md` |
-|  [13]   | `rasm.rhino.objects.viewable`   | per-object    | veto            | `ObjectProgram.Viewable` over `RhinoObject.IsActiveInViewport` |
-|  [14]   | `rasm.rhino.objects.pick`       | per-object    | veto            | `ObjectProgram.Pick` sift over `RhinoObject.OnPick` |
-|  [15]   | `rasm.rhino.objects.regrow`     | per-object    | veto            | `GripProgram.Regrow` refusal over `CustomObjectGrips.NewGeometry` |
-|  [16]   | `rasm.rhino.objects.fault`      | fault event   | observe         | `ObjectsTelemetry.Configure` keyed sink            |
-|  [17]   | `rasm.rhino.host.exception`     | fault event   | observe         | `HostTap.Mount` seat onto `HostUtils.OnExceptionReport` |
-|  [18]   | `rasm.rhino.host.log`           | `HostLogFact` | observe        | `HostTap.Mount` seat onto `HostUtils.OnSendLogMessageToCloud` |
-|  [19]   | `rasm.rhino.hostui.panel`       | `PanelFact`   | observe, replay | `PanelHooks.Mount` over `PanelHost.Watch`; replay reads `PanelHost.Facts` |
-|  [20]   | `rasm.rhino.hostui.skin`        | `SkinPhase`   | observe         | `ShellSkin` phase route on `HostUi/shell.md`        |
-|  [21]   | `rasm.rhino.render.content`     | `ContentFact` | observe        | `ContentHooks.Mount` over `ContentStream.Of` on `Render/registry.md`          |
+| [INDEX] | [POINT]                         | [PAYLOAD]  | [MODALITY] | [OWNER_ENTRY]                                       |
+| :-----: | :------------------------------ | :--------- | :--------- | :-------------------------------------------------- |
+|  [01]   | `rasm.rhino.document.lifecycle` | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Lifecycle` |
+|  [02]   | `rasm.rhino.document.structure` | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Structure` |
+|  [03]   | `rasm.rhino.document.selection` | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Selection` |
+|  [04]   | `rasm.rhino.document.tables`    | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Tables`    |
+|  [05]   | `rasm.rhino.document.screen`    | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Screen`    |
+|  [06]   | `rasm.rhino.document.draw`      | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Draw`      |
+|  [07]   | `rasm.rhino.document.panels`    | `DocEvent` | observe    | `DocumentStream.Observe` over `EventBand.Panels`    |
+|  [08]   | `rasm.rhino.document.file`      | `DocEvent` | observe    | `DocumentStream.Observe` over `Observation.File`    |
+
+Surface point census — display, objects, host, and render streams; each owning page carries the mount:
+
+| [INDEX] | [POINT]                         | [PAYLOAD]     | [MODALITY]      | [OWNER_ENTRY]                                            |
+| :-----: | :------------------------------ | :------------ | :-------------- | :------------------------------------------------------- |
+|  [01]   | `rasm.rhino.display.pointer`    | `PointerFact` | observe         | `DisplayHooks.Mount` over `Pointers.Configure`           |
+|  [02]   | `rasm.rhino.display.widget`     | `WidgetFact`  | observe         | `DisplayHooks.Mount` over `WidgetHost.Of`                |
+|  [03]   | `rasm.rhino.display.cull`       | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Cull`             |
+|  [04]   | `rasm.rhino.display.drawobject` | per-object    | veto            | `ConduitHooks.Mount` over `ConduitStep.Suppress`         |
+|  [05]   | `rasm.rhino.objects.viewable`   | per-object    | veto            | `ObjectsHooks.Mount` admitting `ObjectProgram.Viewable`  |
+|  [06]   | `rasm.rhino.objects.pick`       | per-object    | veto            | `ObjectsHooks.Mount` admitting `ObjectProgram.Pick`      |
+|  [07]   | `rasm.rhino.objects.regrow`     | per-object    | veto            | `ObjectsHooks.Mount` admitting the `GripProgram` refusal |
+|  [08]   | `rasm.rhino.objects.fault`      | fault event   | observe         | `ObjectsHooks.Mount` onto the `ObjectsTelemetry` sink    |
+|  [09]   | `rasm.rhino.host.exception`     | fault event   | observe         | `ObjectsHooks.Mount` onto the `HostTap.Mount` seat       |
+|  [10]   | `rasm.rhino.host.log`           | `HostLogFact` | observe         | `ObjectsHooks.Mount` onto the `HostTap.Mount` seat       |
+|  [11]   | `rasm.rhino.hostui.panel`       | `PanelFact`   | observe, replay | `PanelHooks.Mount` over `PanelHost.Watch`                |
+|  [12]   | `rasm.rhino.hostui.skin`        | `SkinPhase`   | observe         | `ShellHooks.Mount` over the `ShellSkin` phase route      |
+|  [13]   | `rasm.rhino.render.content`     | `ContentFact` | observe         | `ContentHooks.Mount` over `ContentStream.Of`             |
+
+Veto and replay truth — the exact host member each non-observe row cites:
+
+| [INDEX] | [POINT]                         | [HOST_TRUTH]                                                   |
+| :-----: | :------------------------------ | :------------------------------------------------------------- |
+|  [01]   | `rasm.rhino.display.cull`       | `ConduitStep.Cull` writes `CullObjectEventArgs.CullObject`     |
+|  [02]   | `rasm.rhino.display.drawobject` | `ConduitStep.Suppress` writes `DrawObjectEventArgs.DrawObject` |
+|  [03]   | `rasm.rhino.objects.viewable`   | `RhinoObject.IsActiveInViewport`                               |
+|  [04]   | `rasm.rhino.objects.pick`       | `RhinoObject.OnPick` sift                                      |
+|  [05]   | `rasm.rhino.objects.regrow`     | `CustomObjectGrips.NewGeometry` refusal                        |
+|  [06]   | `rasm.rhino.hostui.panel`       | `PanelHost.Facts` latest-per-panel replay ledger               |
 
 Gumball completion evidence is receipt-pull — `GumballReceipt` returns from `Gumballs.Configure` and no detached stream exists — so gumball earns no point row, and the pointer point already carries gumball occupancy per fact.
 
 Process-global custody census — collision class and arbitration per surface:
 
-| [INDEX] | [SURFACE]                                             | [COLLISION_CLASS]                          | [ARBITRATION]                                                      |
-| :-----: | :---------------------------------------------------- | :----------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline` static events | multicast-safe; duplicate watches double facts | per-`Watch` delegate identity; one watch per plugin per band       |
-|  [02]   | `RhinoApp.Idle` (`IdlePump`)                           | multicast-safe                             | one pump per deferred watch, detached with the watch                 |
-|  [03]   | `HostUtils.OnExceptionReport` / `OnSendLogMessageToCloud` | duplicate mounts double-publish          | `HostTap.Mount` seat — first mount attaches, later plugins ride, owner disposal hands off |
-|  [04]   | `ObjectsTelemetry` sink                                | replacement shadows an earlier plugin      | keyed sink rows on `PluginKey`; teardown removes only the caller's row |
-|  [05]   | `HostUtils.RegisterNamedCallback`                      | re-register replaces the prior handler     | name claims keyed on `PluginKey` in `NamedCallbacks`; collision faults typed |
-|  [06]   | `Panels.RegisterPanel` / page registration             | host keys per plugin and panel type        | host-native isolation; `PanelHost` ledger stays process-shared read  |
-|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`               | re-register replaces per grips-type guid   | one enabler per `[Guid]` grips type; owner plugin re-registers only itself |
-|  [08]   | `AssemblyResolver` search mutations                    | additive process list, unremovable         | additive-only rows admitted through `HostAssemblies.Extend` receipts |
-|  [09]   | `AppSettings.Commit` static families                   | last-writer-wins process mutation          | app-root single-writer rule on `Persistence/appsettings.md` `[03]-[INTERPRETER]` |
-|  [10]   | `MarshalLatency` seat                                  | second provider splits the latency ledger  | first-mount-wins seat on `HostUi/shell.md`; detacher returns the seat |
-|  [11]   | `HookRegistry` mounts                                  | duplicate point mounts fork discovery      | first-mount-wins per point; typed collision names the holding point  |
+| [INDEX] | [SURFACE]                                  | [COLLISION_CLASS]                        | [ARBITRATION]                                   |
+| :-----: | :----------------------------------------- | :--------------------------------------- | :---------------------------------------------- |
+|  [01]   | `RhinoDoc`/`RhinoView`/`DisplayPipeline`   | duplicate watches double facts           | per-plugin `Watch` per band; delegate identity  |
+|  [02]   | `RhinoApp.Idle` (`IdlePump`)               | multicast-safe                           | one pump per deferred watch, dies with it       |
+|  [03]   | `HostUtils` exception / cloud-log statics  | duplicate mounts double-publish          | `HostTap.Mount` seat — first mount, later ride  |
+|  [04]   | `ObjectsTelemetry` sink                    | replacement shadows an earlier plugin    | `PluginKey`-keyed rows; teardown per caller     |
+|  [05]   | `HostUtils.RegisterNamedCallback`          | re-register replaces the prior handler   | `PluginKey`-keyed claims; collisions fault      |
+|  [06]   | `Panels.RegisterPanel` / page registration | host keys per plugin and panel type      | host-native isolation; shared ledger read       |
+|  [07]   | `CustomObjectGrips.RegisterGripsEnabler`   | re-register replaces per grips guid      | one enabler per `[Guid]` grips type             |
+|  [08]   | `AssemblyResolver` search mutations        | additive process list, unremovable       | additive rows via `HostAssemblies.Extend`       |
+|  [09]   | `AppSettings.Commit` static families       | last-writer-wins process mutation        | app-root single-writer rule                     |
+|  [10]   | `MarshalLatency` seat                      | a second provider splits the ledger      | first-mount-wins seat; detacher returns it      |
+|  [11]   | `MountRegistry` mounts                     | duplicate point mounts fork discovery    | first-mount-wins per point; collision typed     |
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -1596,18 +1613,12 @@ public readonly partial struct PluginKey {
         validationError = value == Guid.Empty ? new ValidationError(message: "Plugin identity is empty.") : null;
 
     internal Fin<Unit> Admit(Op op) {
-        ValidationError? fault = Validate(value: this, provider: null, out PluginKey? admitted);
+        ValidationError? fault = Validate(value: ToValue(), provider: null, out PluginKey? admitted);
         return op.AcceptValidated<PluginKey>(fault: fault, admitted: admitted).Map(static _ => unit);
     }
 }
 
-[SmartEnum]
-public sealed partial class HookModality {
-    public static readonly HookModality Observe = new();
-    public static readonly HookModality Veto = new();
-    public static readonly HookModality Replay = new();
-}
-
+// Modality rows are the kernel HookModality vocabulary; a point may admit more than one row.
 [SmartEnum<string>]
 public sealed partial class HookPoint {
     public static readonly HookPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: Seq(HookModality.Observe));
@@ -1646,10 +1657,10 @@ public sealed record HookMount(
     Func<object, Fin<object>> Bind);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public static class HookRegistry {
+public static class MountRegistry {
     private static readonly Atom<HashMap<string, HookMount>> Mounts = Atom(HashMap<string, HookMount>());
 
-    public static Seq<HookMount> Census => toSeq(Mounts.Value.Values);
+    public static Seq<HookMount> Census => toSeq(Mounts.Value).Map(static row => row.Value);
 
     public static Fin<IDisposable> Mount(HookMount mount, Op? key = null) {
         Op op = key.OrDefault();
@@ -1658,13 +1669,27 @@ public static class HookRegistry {
                    row.Point is not null && row.Ask is not null && row.Grant is not null && row.Bind is not null,
                    op.InvalidInput()).ToFin()
                from __ in row.Plugin.Admit(op)
-               from seat in Mounts.Swap(held => held.TryAdd(row.Point.Key, row)).Find(row.Point.Key)
+               from seat in Mounts.Swap(held => held.ContainsKey(row.Point.Key)
+                       ? held
+                       : held.Add(row.Point.Key, row))
+                   .Find(row.Point.Key)
                    .Filter(held => ReferenceEquals(held, row))
                    .ToFin(Fail: op.InvalidContext())
                select (IDisposable)Subscription.Of(detach: () => ignore(Mounts.Swap(held =>
                    held.Find(row.Point.Key).Filter(live => ReferenceEquals(live, row)).Match(
                        Some: _ => held.Remove(row.Point.Key),
                        None: () => held))));
+    }
+
+    public static Fin<Seq<IDisposable>> MountAll(Seq<Func<Fin<IDisposable>>> mounts, Op? key = null) {
+        Op op = key.OrDefault();
+        return mounts.FoldM<Fin, Seq<IDisposable>>(
+            Seq<IDisposable>(),
+            (held, mount) => Optional(mount)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(run => op.Catch(run))
+                .Map(seat => held.Add(seat))
+                .MapFail(error => Rollback(held: held, primary: error, op: op)));
     }
 
     public static Fin<TGrant> Bind<TAsk, TGrant>(HookPoint point, TAsk ask, Op? key = null)
@@ -1680,12 +1705,20 @@ public static class HookRegistry {
                from grant in Optional(granted as TGrant).ToFin(Fail: op.InvalidResult())
                select grant;
     }
+
+    private static Error Rollback(Seq<IDisposable> held, Error primary, Op op) =>
+        held.Rev().Fold(primary, (faults, seat) => op.Catch(() => {
+            seat.Dispose();
+            return Fin.Succ(value: unit);
+        }).Match(
+            Succ: _ => faults,
+            Fail: cleanup => faults + cleanup));
 }
 
 public static class DocumentHooks {
     public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
         Op op = key.OrDefault();
-        return Seq(
+        Seq<Func<Fin<IDisposable>>> mounts = Seq(
                 (Point: HookPoint.DocumentLifecycle, Band: EventBand.Lifecycle),
                 (Point: HookPoint.DocumentStructure, Band: EventBand.Structure),
                 (Point: HookPoint.DocumentSelection, Band: EventBand.Selection),
@@ -1693,7 +1726,7 @@ public static class DocumentHooks {
                 (Point: HookPoint.DocumentScreen, Band: EventBand.Screen),
                 (Point: HookPoint.DocumentDraw, Band: EventBand.Draw),
                 (Point: HookPoint.DocumentPanels, Band: EventBand.Panels))
-            .TraverseM(row => HookRegistry.Mount(
+            .Map(row => (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
                 mount: new HookMount(
                     Point: row.Point,
                     Plugin: plugin,
@@ -1702,17 +1735,61 @@ public static class DocumentHooks {
                     Bind: ask => EventFamily.In(band: row.Band)
                         .Bind(families => DocumentStream.Observe(((Observation.Host)ask) with { Families = families })
                             .Map(static watch => (object)watch))),
-                key: op))
-            .As()
-            .Bind(mounted => HookRegistry.Mount(
-                    mount: new HookMount(
-                        Point: HookPoint.DocumentFile,
-                        Plugin: plugin,
-                        Ask: typeof(Observation.File),
-                        Grant: typeof(Watch),
-                        Bind: static ask => DocumentStream.Observe((Observation.File)ask).Map(static watch => (object)watch)),
-                    key: op)
-                .Map(mounted.Add));
+                key: op)))
+            .Add(() => MountRegistry.Mount(
+                mount: new HookMount(
+                    Point: HookPoint.DocumentFile,
+                    Plugin: plugin,
+                    Ask: typeof(Observation.File),
+                    Grant: typeof(Watch),
+                    Bind: static ask => DocumentStream.Observe((Observation.File)ask).Map(static watch => (object)watch)),
+                key: op));
+        return MountRegistry.MountAll(mounts: mounts, key: op);
     }
 }
 ```
+
+## [07]-[TELEMETRY_TAP]
+
+- Owner: `RhinoInstruments` — the boundary's contributed instrument rows in the kernel `InstrumentRow` shape and the string-scoped `TelemetryContributorPort` mint under scope `Rasm.Rhino`.
+- Cases: stream-loss counts off the `StreamReceipt.PacedLoss` journal evidence by lane and loss kind; delivered document facts by band off each mounted watch; host exception and cloud-log observations off the two `HostTap.Mount` points.
+- Entry: `RhinoInstruments.Telemetry(string version, string schemaUrl)` — the one contributor port an app composition merges by scope; the plugin root materializes the rows over its own per-ALC factory meter through `InstrumentSet.Of`, and one custody per composition holds — either the port rides an app fan or the root materializes locally, never both.
+- Auto: writes ride observe taps composed at the plugin root — a watch's receipt journal feeds the loss counter, the delivery sink feeds the band counter, and the host-tap points feed the two observation counters — so no stream, projection, or mount fence carries a meter call.
+- Packages: `Rasm` (kernel signal capsule), BCL inbox (`System.Diagnostics.Metrics`).
+- Growth: one measured boundary concern is one `InstrumentRow` here and one observe-tap write at the plugin root.
+- Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner.
+
+```csharp signature
+// --- [TABLES] -----------------------------------------------------------------------------
+public static class RhinoInstruments {
+    public const string Scope = "Rasm.Rhino";
+    public const string StreamLoss = "rasm.rhino.stream.loss";
+    public const string DocumentEvents = "rasm.rhino.document.events";
+    public const string HostExceptions = "rasm.rhino.host.exceptions";
+    public const string HostLogs = "rasm.rhino.host.logs";
+
+    public static readonly Seq<InstrumentRow> Rows = Seq(
+        new InstrumentRow(Name: StreamLoss, Unit: "{fact}", Description: "paced-lane facts shed by lane and loss kind",
+            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text),
+            Dimensions: ["lane", "loss"]),
+        new InstrumentRow(Name: DocumentEvents, Unit: "{event}", Description: "delivered document facts by band",
+            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text),
+            Dimensions: ["band"]),
+        new InstrumentRow(Name: HostExceptions, Unit: "{exception}", Description: "host exception reports observed through the host tap",
+            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text)),
+        new InstrumentRow(Name: HostLogs, Unit: "{message}", Description: "host cloud-log messages observed through the host tap",
+            Bind: static (meter, name, unit, text) => meter.CreateCounter<long>(name: name, unit: unit, description: text)));
+
+    public static TelemetryContributorPort Telemetry(string version, string schemaUrl) =>
+        new(Scope: Scope, Version: version, SchemaUrl: schemaUrl, Instruments: Rows);
+}
+```
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -12,7 +12,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 
 - Owner: `ScanReconstruction` discriminates by `ReconstructionMethod` over a registered `Cloud` carrier; `ReconPolicy` carries the per-algorithm knobs (normal search, orientation `k`, Poisson depth/scale/density-quantile, ball-pivoting radius schedule, alpha, DBSCAN eps/min-points) and `ReconReceipt` the typed receipt. This page mints NO quality value object — `mesh/quality.closure_fold` is the one closure truth, this page one of its two scan consumers, the `scan/deviation.md#DEVIATION` watertight gate the other.
 - Cases: `POISSON` is watertight by construction and the default; `BALL_PIVOTING` preserves detail over the oriented samples yet never closes; `ALPHA_SHAPE` is the concave-hull surface for sparse or open scans. Each resolves as one `_CONSTRUCT[method].build(cloud, policy)` row read binding the STATIC open3d constructor, never a `match` over three near-identical arms.
-- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately.
+- Auto: `estimate_normals` then `orient_normals_consistent_tangent_plane` condition every method once above the cluster split — Poisson and ball-pivoting both require globally consistent oriented normals. Poisson's constructor alone returns a per-vertex density array whose low-density balloon artifacts trim away at the `poisson_density_quantile` order statistic; `cluster_dbscan` (only when `dbscan_eps > 0.0`) labels the cloud so a multi-object scene reconstructs each cluster separately, and each cluster solve beats the graduation `GeometryPulse.RECONSTRUCTION` point through `pulsed` over the lane conduit's pickled tap — lossy live progress, never a second observability rail.
 - Packages: `open3d` (the `PointCloud` normal/cluster ops and the three `TriangleMesh.create_from_point_cloud_*` constructors, `DoubleVector`, `KDTreeSearchParamHybrid`), `trimesh` (the `Trimesh(...)` lift and `.export(file_type="glb")`, the only GLB encode path — open3d `io` writes PLY/OBJ/STL/OFF only), `numpy` (the density trim and cluster split), `beartype` + `vale.Is` (the `DensityField` finiteness refinement), `expression` (`Block.fold` cluster merge, `Map` table and redaction), `msgspec` carriers, the geometry graduation spine (`evidence_run`/`EvidenceScope`/`GeometryHandoff`/`GeometrySubject`, `closure_fold`/`QualityMetrics`), and the runtime rails per the fence imports.
 - Bench: `bench` rides the graduation `bench_seam` fold over the whole `reconstruct` crossing — normal estimation, `_CONSTRUCT` row, closure fold, weave — cloud-size-parameterized: the subject keys the method and the input point count as `rasm.geometry.scan.reconstruction.<method>.p<points>`; latency and throughput rows per row, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
 - Growth: a new reconstruction algorithm is one `ReconstructionMethod` member and one `_CONSTRUCT` row; a new pre-step is one composition above the cluster split; a per-cluster method selection is one policy field discriminating the row read.
@@ -23,6 +23,7 @@ A reconstructed body's watertight/winding/euler/volume/area/components algebra r
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial
+from queue import Queue
 from typing import TYPE_CHECKING, Annotated, Final
 
 import numpy as np
@@ -31,12 +32,12 @@ from beartype.vale import Is
 from expression.collections import Block, Map
 from msgspec import Struct
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, bench_seam, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometryPulse, GeometrySubject, PulseBeat, bench_seam, evidence_run
 from rasm.geometry.mesh.quality import QualityMetrics, closure_fold
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.identity import ContentKey
-from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -198,7 +199,23 @@ def _cluster(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> tuple["o3
     return tuple(cloud.select_by_index(np.where(labels == label)[0]) for label in range(int(labels.max()) + 1))
 
 
-def _reconstruct_kernel(cloud: Cloud, method: ReconstructionMethod, policy: ReconPolicy) -> tuple[bytes, ReconReceipt]:
+def _beat_built(
+    build: Callable[["o3d.geometry.PointCloud", ReconPolicy], "o3d.geometry.TriangleMesh"],
+    part: "o3d.geometry.PointCloud",
+    policy: ReconPolicy,
+    tap: "Queue[PulseFact | None]",
+    index: int,
+    total: int,
+) -> "o3d.geometry.TriangleMesh":
+    # per-cluster convergence beat ahead of each constructor solve — lossy by lane law, the kernel's whole
+    # observability reach staying the pickled queue proxy.
+    pulsed(tap, GeometryPulse.RECONSTRUCTION, PulseBeat(stage="cluster", done=index + 1, total=total))
+    return build(part, policy)
+
+
+def _reconstruct_kernel(
+    cloud: Cloud, method: ReconstructionMethod, policy: ReconPolicy, tap: "Queue[PulseFact | None]"
+) -> tuple[bytes, ReconReceipt]:
     # module-level HOSTILE kernel: the Cloud arrays cross the pickle seam, the legacy handle rebuilds here, and the
     # fold accumulates over the immutable open3d `+` merge, never the in-place `+=` that mutates the seed.
     import open3d as o3d  # noqa: PLC0415
@@ -207,7 +224,8 @@ def _reconstruct_kernel(cloud: Cloud, method: ReconstructionMethod, policy: Reco
     oriented = _estimate(cloud.legacy(), policy)
     clusters = _cluster(oriented, policy) if policy.dbscan_eps > 0.0 else (oriented,)
     build = _CONSTRUCT[method].build
-    mesh = Block.of_seq(clusters).fold(lambda acc, part: acc + build(part, policy), o3d.geometry.TriangleMesh())
+    parts = Block.of_seq(clusters).mapi(lambda i, part: _beat_built(build, part, policy, tap, i, len(clusters)))
+    mesh = parts.fold(lambda acc, part: acc + part, o3d.geometry.TriangleMesh())
     body = trimesh.Trimesh(vertices=np.asarray(mesh.vertices), faces=np.asarray(mesh.triangles), process=False)
     return body.export(file_type="glb"), ReconReceipt.of(method, input_points=len(oriented.points), body=body, clusters=len(clusters))
 
@@ -226,11 +244,11 @@ class ScanReconstruction(Struct, frozen=True):
         rail = await evidence_run(
             EvidenceScope.SCAN_RECONSTRUCTION,
             f"reconstruct.{method}",
-            partial(self.lane.offload, Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE), cloud, method, self.policy),
+            partial(self.lane.offload, Kernel.of(_reconstruct_kernel, KernelTrait.HOSTILE), cloud, method, self.policy, self.lane.pulses.tap),
         )
         return rail.map(lambda pair: (pair[0], ReconReceipt._emit(pair[1])))
 
-    def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+    def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
         # cloud-size-parameterized macro-bench per _CONSTRUCT row: the subject keys the method and the input point
         # count; each round drives the whole reconstruct crossing — normal estimation, constructor row, closure
         # fold, weave — never an in-kernel probe (the pulse boundary).

@@ -33,7 +33,7 @@ import {
   Array, Context, DateTime, Deferred, Duration, Effect, Exit, HashMap, Layer, Number, Option, Order, Predicate,
   RateLimiter, Record, Redacted, Ref, Schema, type Scope, pipe,
 } from "effect"
-import { type FaultClass, Refined } from "@rasm/ts/core"
+import { Carrier, type FaultClass, Refined } from "@rasm/ts/core"
 import { ApiKey, Jwt, Session } from "@rasm/ts/security"
 import { Propagation } from "../otel/emit.ts"
 
@@ -121,7 +121,7 @@ class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
 [CURRENT_ROWS]:
 - Owner: `Current` — the ambient request rows as `Context.Reference` classes: `Current.Stamp` carries `Option` of the per-request mark (`id`, `at`, tenant, locale), `Current.Tenant` carries `Option` of the tenant key, `Current.Locale` carries the negotiated `Refined.Locale` with the fleet default answering when no request provided one — three rows, each readable from any rail at zero requirement pressure, overridden per request by scoped provision at the route seam.
 - Law: locale negotiation is one fold — `Current.negotiate(header, fallback)` splits the `Accept-Language` list, ranks by `q` weight descending, and takes the first tag the core `Refined.Locale` schema admits — a malformed tag or an empty header lands on the fallback and negotiation can never fail; the negotiated value is BCP-47-canonical by the core brand's own filter.
-- Law: trace continuation is composed, never re-derived — `Current.traced(effect, headers)` delegates `emit#CONTINUATION`'s one ingress transformer with the request headers as the carrier, so extract-and-continue at the HTTP door is the same transformer every other ingress composes (baggage annotations arrive pre-scrubbed by that owner) and a second `traceparent` decode cannot exist here.
+- Law: trace continuation is composed, never re-derived — `Current.traced(effect, headers)` normalizes the request record once through core `Carrier.extract("http", ...)` and delegates the resulting context to `emit#CONTINUATION`'s one ingress transformer, so extract-and-continue at the HTTP door is the same transformer every other ingress composes (baggage annotations arrive pre-scrubbed by that owner) and a second `traceparent` decode cannot exist here.
 - Law: the stamp mints at the door — `Current.provide(effect, mark, fallback)` provides all three rows in one scoped provision (stamp as given, tenant and locale projected from it), so a handler, a log annotation, and the problem fold read one coherent request identity; the `problem` page reads `Current.Stamp` for the `instance` member and the `requestId` extension.
 - Growth: a new ambient axis is one `Context.Reference` row plus its projection inside `provide`.
 - Packages: `effect` (`Context`, `Option`, `Schema`, `Array`, `Order`, `Number`); `@rasm/ts/core` (`Refined`); `../otel/emit.ts` (`Propagation`).
@@ -175,7 +175,15 @@ const _provide = <A, E, R>(
 const _traced = <A, E, R>(
   self: Effect.Effect<A, E, R>,
   headers: { readonly [key: string]: string | undefined },
-): Effect.Effect<A, E, R> => Propagation.ingress(self, headers)
+): Effect.Effect<A, E, R> =>
+  Propagation.ingress(
+    self,
+    Carrier.extract(
+      "http",
+      Record.fromEntries(Array.filterMap(Record.toEntries(headers), ([key, value]) =>
+        Option.map(Option.fromNullable(value), (held) => [key.toLowerCase(), held] as const))),
+    ),
+  )
 
 declare namespace Current {
   type Mark = {
@@ -490,7 +498,7 @@ const Contribution: {
 - Owner: `Emit` — the derivation surface over the app-assembled value, parameterized on it, never importing it. `Emit.artifact` is the canonical spec artifact: `OpenApi.fromApi(api)` serialized with sorted keys and fixed indentation so two emissions of one contract are byte-identical and the contract gate diffs bytes, never re-parses; the `cli` inspect verb and the drift check consume this one member. `Emit.docs(ui)` is the served documentation stack — `HttpApiBuilder.middlewareOpenApi()` (the document route derived from the served api) merged with the reference UI the `ui` row selects (`scalar` → `HttpApiScalar.layer()`, `swagger` → `HttpApiSwagger.layer()`) — one Layer the app root selects; `HttpApiScalar.layerHttpLayerRouter` is the same row route-natively when the api mounts under `route#LAYER_ROUTES`.
 - Law: the security requirements in the emitted document are the declared schemes — `Authn`'s `security` record flows into the spec through the api value, so the published contract states bearer and API-key admission from the same declaration that enforces it; a hand-authored securitySchemes block restates what the declaration already emits.
 - Law: `Emit.client` derives the typed HTTP SDK through `HttpApiClient.make(api, { baseUrl, transformClient })` with the transform slot carrying the shared egress posture (`client#DIAL_SEAM`'s tempering), so a derived consumer inherits the same resilience as every other outbound call; `Emit.caller` is the RPC peer — `RpcClient.make(group)` under one `RpcClient.layerProtocolHttp({ url })` row — so in-repo service-to-service callers derive from the same contributed group and a hand-written fetch client beside a contract is unspellable. The client faults are the declared faults: each endpoint's `addError` family plus transport and decode, one error vocabulary spanning the wire.
-- Law: RPC egress is trace-continuous — `Emit.traced(call)` stamps the live span's W3C headers onto the call through `RpcClient.withHeaders` (the `RpcClient.currentHeaders` FiberRef beneath it), so a derived RPC call carries `traceparent` exactly as `HttpClient.withTracerPropagation` does for HTTP and a distributed hop never drops causality.
+- Law: RPC egress is context-continuous — `Emit.traced(call)` reads `Propagation.current`, seeds the platform header frame from the live span, and injects the carried tracestate and baggage through core's `connect` dialect before `RpcClient.withHeadersEffect` derives and scopes the call headers (`RpcClient.currentHeaders` beneath it), so a distributed hop preserves the whole W3C triple rather than `traceparent` alone.
 - Law: the web-handler edge form is the platform surface composed at the app root — `HttpApiBuilder.toWebHandler(layer, options)` takes the app's implementation Layer (the one carrying `HttpApi.Api`) and yields the `Request => Response` arrow plus its `dispose` for fetch-shaped runtimes, and no `Emit` member renames it because a forwarding member is the one-hop wrapper this corpus deletes; the full-server form (api beside raw routes) is `route#SERVE_FOLD`'s `HttpLayerRouter.toWebHandler`.
 - Law: derivation is call-time and parameterized — nothing here caches, names, or holds an api instance, keeping the assembled value's no-lib-side-existence law intact; contract documentation is annotation material on the api value (`HttpApi.make(id).annotate`, endpoint schema annotations) flowing into the document through the derivation.
 - Growth: a new documentation surface (a JSON-schema bundle per owner, a second reference UI) is one derivation member over the same api parameter.
@@ -537,12 +545,20 @@ const _caller = <G extends RpcGroup.RpcGroup.Any>(group: G, origin: { readonly u
   Effect.provide(RpcClient.make(group), RpcClient.layerProtocolHttp({ url: origin.url }))
 
 const _traced = <A, E, R>(call: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-  Effect.optionFromOptional(Effect.currentSpan).pipe(
-    Effect.flatMap(Option.match({
-      onNone: () => call,
-      onSome: (span) => RpcClient.withHeaders(call, HttpTraceContext.toHeaders(span)),
-    })),
-  )
+  RpcClient.withHeadersEffect(
+    Effect.flatMap(Propagation.current, (context) =>
+      Effect.map(
+        Effect.optionFromOptional(Effect.currentSpan),
+        // one inject site: the span only seeds the platform frame — the carried context crosses on
+        // both branches, so an inherited parent survives a span-less caller
+        (span) =>
+          Carrier.inject(
+            "connect",
+            context,
+            Option.match(span, { onNone: () => ({}), onSome: (live) => HttpTraceContext.toHeaders(live) }),
+          ),
+      )),
+  )(call)
 
 const Emit = {
   artifact: _artifact,
@@ -556,3 +572,7 @@ const Emit = {
 
 export { Contribution, Convention, Current, Emit, Gate, GateFault, Principal }
 ```
+
+## [08]-[RESEARCH]
+
+- [HTTP_TRACE_HEADERS]-[BLOCKED]: which exact `HttpTraceContext.toHeaders` declaration accepts the live Effect span used by `Emit.traced`, and whether its input admits a recovered `Tracer.ExternalSpan` when no child span has opened; route through `libs/typescript/.api/effect-platform.md`, and retain the current live-span arm only until the catalog carries its exact input and output types.

@@ -1149,3 +1149,12 @@ public sealed class AmbientWatch : IDisposable {
 |  [07]   | settings rail     | `SettingsRequest` / `SettingsResult`   | correlated request/result          | `Settings.Run`                 |
 |  [08]   | mutation receipt  | `SettingsAxis` / `SettingsReceipt`     | changed axes with undo             | `Settings.Run`                 |
 |  [09]   | broadcasts        | `AmbientSlot` / `AmbientFailure`       | verified failure ledger            | `AmbientWatch.Of`              |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

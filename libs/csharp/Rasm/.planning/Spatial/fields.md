@@ -581,3 +581,12 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [07]-[TENSOR_FIELD_ALGEBRA]: `[Union]` 6 cases; congruence transform; one shape-operator consumer.
 - [08]-[RAY_BOUNCE_POLICY]: `[Union]` pairs over `atoms.md` optics.
 - [09]-[NOISE_VOCABULARY]: `[SmartEnum<int>]` lattice rows + caution/differentiability columns.
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

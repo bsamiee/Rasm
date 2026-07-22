@@ -1,10 +1,12 @@
 # [ELEMENT_WIRE]
 
-The ONE wire-codec owner: a proto-first, content-key-preserving graph wire — the `rasm.element.v1` contract (`Graph/element.proto`, `csharp_namespace Rasm.Element.Wire`) whose `oneof`-backed envelopes mirror the closed seam unions 1:1, the `WireCodec` Mapperly-generated per-case transcription family, and the `ElementWire` boundary owner with infallible `Encode` lowering and `Fin<T>`-railed `DecodeGraph`/`DecodeDelta` re-admission. Content keys cross VERBATIM — a `NodeId` as its X32 string, a `UInt128` content hash as a 16-byte big-endian `bytes` field (the persisted `XxHash128` canonical form the TypeScript `h128` boundary normalizes to and the Python `ContentKey` flips from its little-endian memory) — so a peer REPRODUCES the seam key over the count-prefixed injective `CanonicalBytes` canon and NEVER re-mints, re-derives, or re-hashes an identity. The codec COMPOSES the sibling owners brief-frozen: `Node.ToCanonicalBytes`, `PropertyValue.Of`, `MeasureValue.OfSi`, `CardinalPoint.Of`, `Classification.Of`, and `Discipline.Parse` are the admission gates every decoded value re-crosses, AND the decoded aggregate re-crosses the graph's own STRUCTURAL owners — `DecodeGraph` routes the whole transcription through `GraphDelta.AdmitOnto` over a `Genesis` root so `LegalLink` runs per decoded edge, and `DecodeDelta` gates the `IsNormalForm` shape and hands back a delta whose only sanctioned application is `AdmitOnto` — so a hostile payload lands on the SAME `ElementFault` rail an in-process author does: `ValueRejected` on a parse failure, a `PayloadCase` miss, or a value the seam admission refuses; `NodeAbsent`/`RelationshipInvalid`/`DeltaConflict` on a dangling, illegal, duplicate, or non-normal-form structure; `AddressUnstable` from the optional `ContentAddress.Verify` rehydrate integrity gate. The decode leg parses under `CodedInputStream.CreateWithLimits` — THE depth/size gate `Properties/property#PROPERTY_VALUE` defers hostile `PropertyValueWire` nesting to, a parameterized `WireLimits` policy record carrying the budgets. The baked `Element` NEVER crosses (a derived `Bake` fold, never a wire record); the `ElementGraphWire` snapshot and the `GraphDeltaWire` change record are the two crossings, the delta envelope forward-arming the `DELTA_CRDT` streaming lane, and each crossing publishes under the `GraphEventEnvelope` metadata whose subject is the crossing's own content key. Measures cross SI-coerced — the `QuantityType` token, the SI magnitude, and the seven `Dimension` exponents, never a `{value, unit:string}` shape — and the decode re-mints the registry `CanonicalUnit` through `MeasureValue.OfSi`, so the wire carries exactly the identity columns `CanonicalWriter.Measure` hashes. The contract's evolution law is the `typescript:core/interchange/contract` `FileDescriptorSet` drift gate (`Identical`/`Additive`/`Breaking`); the float-bearing `IfcMaterialLayer` golden vector anchors the three-runtime round-trip.
+`ElementWire` owns the proto-first `rasm.element.v1` graph crossing. `ElementGraphWire` and `GraphDeltaWire` mirror closed seam unions; `WireCodec` owns per-case transcription; `Encode` lowers valid values; `DecodeGraph` and `DecodeDelta` re-admit hostile input on `Fin<T>`.
+
+Content keys cross verbatim: `NodeId` as X32 text and `UInt128` as big-endian bytes. Decode reuses value admissions and routes whole graphs through `GraphDelta.AdmitOnto`; delta payloads must satisfy `IsNormalForm` before later admission. `WireLimits` owns parse budgets and optional address verification. Measures carry SI magnitude, quantity token, and dimension exponents. `GraphEventEnvelope` carries CloudEvents context metadata beside the protobuf body.
 
 ## [01]-[INDEX]
 
-- [02]-[WIRE_CODEC]: the `rasm.element.v1` proto contract (`ElementGraphWire`/`GraphDeltaWire`/`HeaderWire`/`NodeWire`/`RelationshipWire`/`PropertyValueWire`/`MeasureValueWire`/`MaterialUsageWire` and the typed payload wires down to the engineering-property leaf messages), the `WireCodec` Mapperly per-case transcription mapper with its verbatim key codecs, the `ElementWire` boundary owner (`Encode`/`DecodeGraph`/`DecodeDelta` under the `WireLimits` policy), and the key-verbatim / depth-gate / contract-evolution laws.
+- [02]-[WIRE_CODEC]: the `rasm.element.v1` messages, `WireCodec` Mapperly transcription and key codecs, `ElementWire` encode/decode boundary, `WireLimits`, and the key, depth, and evolution laws.
 - [03]-[EVENT_ENVELOPE]: the `GraphEventType` closed event-token vocabulary and the `GraphEventEnvelope` CloudEvents-aligned crossing metadata — content-key subject dedup, the `Attributes`/`Admit` transport-neutral dual, and the W3C trace slots an app-tier propagator fills.
 
 ## [02]-[WIRE_CODEC]
@@ -14,9 +16,9 @@ The ONE wire-codec owner: a proto-first, content-key-preserving graph wire — t
 - Entry: `ElementWire.Encode(ElementGraph)` and `Encode(GraphDelta)` are the infallible total lowerings of already-valid graphs onto `ElementGraphWire`/`GraphDeltaWire` (the wire message IS the byte surface — a consumer composes the `Google.Protobuf` write family `WriteTo(IBufferWriter<byte>)`/`ToByteArray`/`WriteDelimitedTo` directly, never a forwarding byte wrapper); `DecodeGraph(Stream, WireLimits, Op)` and `DecodeDelta(Stream, WireLimits, Op)` are the one `Fin<T>`-railed decode leg per wire kind (the `GeometrySource` typed-leg precedent — the discriminant is the return TYPE, never a `Get`/`GetById` arity family), parsing through `MessageParser<T>.ParseFrom(CodedInputStream.CreateWithLimits(stream, limits.SizeLimit, limits.RecursionLimit))`, re-admitting every value through the seam gates, and re-crossing the STRUCTURAL owners — `DecodeGraph` admits the transcription as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` (`LegalLink` per decoded edge, a duplicate wire node id railed before admission), `DecodeDelta` gates `GraphDelta.IsNormalForm` and returns a delta applied ONLY through `AdmitOnto`, never `ReplayOnto`.
 - Auto: `WireCodec` combines Mapperly's explicit member diagnostics with generated union/protobuf case dispatch. Decode re-mints a `MeasureValue` through `OfSi`, re-admits its `MeasureBand`, re-admits material-usage direction/cardinal tokens, and recursively re-admits every `PropertyValue`; no generated-code `Get` throw is part of the boundary contract.
 - Receipt: an `ElementGraphWire` is the snapshot a peer decodes into its own graph mirror WITHOUT re-deriving an identity — ids and content keys verbatim, the decoded transcription re-admitted as a `Genesis`-rooted delta through `GraphDelta.AdmitOnto` so `LegalLink` runs per decoded edge; a `GraphDeltaWire` is the change record a streaming consumer folds (the `DELTA_CRDT` convergence substrate's wire form); the optional `ContentAddress.Verify` sweep is the rehydrate integrity verdict a content-keyed consumer reads before trusting a crossed id, railing `ElementFault.AddressUnstable` per drifted node.
-- Packages: Google.Protobuf (`IMessage<T>`/`MessageParser<T>`/`CodedInputStream.CreateWithLimits`/`ByteString`/`RepeatedField<T>`/`MessageExtensions` write family), Grpc.Tools (the `<Protobuf>` MSBuild item, `GrpcServices=None`, `PrivateAssets=all` — build-only, never a runtime surface), Riok.Mapperly (`[Mapper]`/`[UserMapping]`/`[MappingTarget]`/`[MapProperty]` + `MappingConversionType` policy over the Thinktecture `Create`/`Value` key codecs), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp()`/`Timestamp.ToInstant()`, `Duration` dual), LanguageExt.Core (`Fin`/`Seq`/`Option` + the `Traverse` admission folds), Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch).
-- Growth: a new node/edge/value case is one `oneof` arm plus one `WireCodec` case mapping (the descriptor gate classifies the addition `Additive`); a new payload column is one numbered proto field (never a renumber — field numbers are append-only, removal reserves); a new peer runtime is one codegen lane over the SAME `.proto`, never a second contract; a new decode budget is one `WireLimits` column, never a hardcoded literal in the parse call.
-- Boundary: ids and content keys cross verbatim; peers re-mint nothing. Persisted `UInt128` keys use 16-byte big-endian form, distinct from the canonical writer's little-endian hash input. The derived `Element` never crosses, recursive values parse under admitted `WireLimits`, every decoded value re-crosses its owner gate, and descriptor evolution rejects renumbers, incompatible type changes, and unreserved removals.
+- Packages: Google.Protobuf (`IMessage<T>`/`MessageParser<T>`/`CodedInputStream.CreateWithLimits`/`ByteString`/`RepeatedField<T>`/`MessageExtensions` write family), Grpc.Tools (the `<Protobuf>` MSBuild item, `GrpcServices=None`, `PrivateAssets=all` — build-only, never a runtime surface), Riok.Mapperly (`[Mapper]`/`[UserMapping]`/`[MappingTarget]`/`[MapProperty]` and `MappingConversionType` policy over the Thinktecture `Create`/`Value` key codecs), NodaTime.Serialization.Protobuf (`Instant.ToTimestamp()`/`Timestamp.ToInstant()`, `Duration` dual), LanguageExt.Core (`Fin`/`Seq`/`Option` and the `Traverse` admission folds), Thinktecture.Runtime.Extensions (the generated total `Switch` encode dispatch).
+- Growth: a new node/edge/value case is one `oneof` arm and one `WireCodec` case mapping; a new payload column is one append-only numbered field; a new peer runtime is one codegen lane over the same `.proto`; a new decode budget is one `WireLimits` column.
+- Boundary: ids and content keys cross verbatim; peers re-mint nothing. Persisted `UInt128` keys use big-endian form, distinct from little-endian hash input. Derived `Element` values never cross, recursive values parse under `WireLimits`, decoded values re-cross owner gates, and descriptor evolution rejects incompatible changes.
 
 ```proto signature
 // Graph/element.proto — the rasm.element.v1 graph wire. Field numbers are append-only; removal reserves.
@@ -524,32 +526,32 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Element.Graph;
 
-// The csproj codegen item this contract realizes as (signature-locked here until the .proto lands as source):
+// Csproj codegen item this contract realizes:
 //   <Protobuf Include="Graph/element.proto" GrpcServices="None" />
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// The parameterized decode-budget policy — size cap, recursion cap (the PropertyValueWire/ComplexWire hostile-
-// nesting gate property.md defers here), and the rehydrate integrity sweep toggle. Never a hardcoded literal
-// at a parse call; a consumer tightens by policy value, not by a sibling decode entry.
+// WireLimits owns size, recursion, and address-verification policy. Parse calls contain no budget literal.
 public sealed record WireLimits {
  private WireLimits(int sizeLimit, int recursionLimit, bool verifyAddresses) =>
   (SizeLimit, RecursionLimit, VerifyAddresses) = (sizeLimit, recursionLimit, verifyAddresses);
 
  public int SizeLimit { get; }
  public int RecursionLimit { get; }
- public bool VerifyAddresses { get; init; }
+ internal bool VerifyAddresses { get; init; }
 
  public static readonly WireLimits Default = new(sizeLimit: 512 << 20, recursionLimit: 96, verifyAddresses: false);
- public static readonly WireLimits Verified = Default with { VerifyAddresses = true };
+ public static readonly WireLimits Verified = Default.WithAddressVerification();
 
- public static Fin<WireLimits> Of(int sizeLimit, int recursionLimit, bool verifyAddresses, Op key) =>
+ public static Fin<WireLimits> Of(int sizeLimit, int recursionLimit, Op key) =>
   sizeLimit > 0 && recursionLimit > 0
-   ? Fin.Succ(new WireLimits(sizeLimit, recursionLimit, verifyAddresses))
+   ? Fin.Succ(new WireLimits(sizeLimit, recursionLimit, verifyAddresses: false))
    : ElementFault.ValueRejected(key, $"<wire-limits-invalid:{sizeLimit}:{recursionLimit}>");
+
+ public WireLimits WithAddressVerification() => this with { VerifyAddresses = true };
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-// The Mapperly transcription family: source-generated per-case field mapping, key codecs hand-owned as
+// Mapperly transcription family: source-generated per-case field mapping, key codecs hand-owned as
 // [UserMapping] statics so identity NEVER re-derives — Mapperly transcribes shape, the seam owns identity.
 // Encode case dispatch is the union's generated total Switch; decode dispatch is the generated PayloadCase/
 // ValueCase closed enum ([MapDerivedType] is the class-hierarchy rail; a oneof envelope has no case base).
@@ -574,7 +576,7 @@ internal static partial class WireCodec {
  // rides an explicit envelope fold below, every Option/tuple-flatten/token crossing rides an explicit
  // [UserMapping] carrier codec (conditional set on encode; the hand decode below reads the generated Has*/null
  // presence pairs), and [MapProperty] pins every seam→wire name seam so the generator never silently skips a member.
- // The envelope owns Id (NodeWire.id), so the payload mappings exclude it — RequiredMappingStrategy.Both would
+ // Envelope owns Id (NodeWire.id), so the payload mappings exclude it — RequiredMappingStrategy.Both would
  // otherwise fault the intentionally-unmapped source member.
  [MapperIgnoreSource(nameof(Node.Object.Id))]
  internal static partial ObjectWire ToWire(Node.Object node);
@@ -633,7 +635,7 @@ internal static partial class WireCodec {
  }
 
  // --- [CARRIER_CODECS] — the Option/tuple-flatten crossings Mapperly cannot bridge alone: an absent Option leaves
- // the proto3 field UNSET (a nullable return skips the assignment), a flatten writes its column pair explicitly.
+ // Proto3 field stays unset when a nullable return skips assignment; a flatten writes its column pair explicitly.
  [UserMapping] internal static string? ToWire(Option<string> value) => value.MatchUnsafe(static s => s, static () => (string?)null);
  [UserMapping] internal static string? ToWire(Option<NodeId> id) => id.MatchUnsafe(static i => i.Value, static () => (string?)null);
  [UserMapping] internal static ByteString? ToWire(Option<UInt128> key) => key.MatchUnsafe(static k => ToWire(k), static () => (ByteString?)null);
@@ -654,7 +656,7 @@ internal static partial class WireCodec {
   },
   static () => (OwnerHistoryWire?)null);
 
- // The wire's epsg/resolution columns are peer-informative derivations; blank ProjectedCrs strings stay UNSET.
+ // Wire epsg/resolution columns are peer-informative derivations; blank ProjectedCrs strings stay unset.
  [UserMapping] internal static GeoReferenceWire ToWire(GeoReference geo) {
   GeoReferenceWire w = new() {
    Eastings = geo.Eastings, Northings = geo.Northings, OrthogonalHeight = geo.OrthogonalHeight,
@@ -753,7 +755,7 @@ internal static partial class WireCodec {
       Opt(w.HasStandardDeviationSi, w.StandardDeviationSi), Opt(w.HasCoverageFactor, w.CoverageFactor), key)
    : ElementFault.ValueRejected(key, $"<wire-uncertainty-kind:{w.Kind}>");
 
- // The ONE envelope fold per union — the generated total Switch, a new case a compile break, never a default arm.
+ // One envelope fold per union uses generated total Switch; a new case breaks compilation.
  internal static NodeWire ToWire(Node node) => node.Switch<NodeWire>(
   @object: o => new() { Id = o.Id.Value, Object = ToWire(o) },
   material: m => new() { Id = m.Id.Value, Material = ToWire(m) },
@@ -919,7 +921,7 @@ internal static partial class WireCodec {
   _ => ElementFault.ValueRejected(key, "<wire-value-none>"),
  };
 
- // The TemporalValue arms re-admit through the NodaTime ISO patterns (the seam Iso() canon reversed) — a malformed
+ // TemporalValue arms re-admit through NodaTime ISO patterns (the seam Iso() canon reversed); a malformed
  // token rails ValueRejected, the epoch stamp rides the Timestamp adapter untouched.
  static Fin<TemporalValue> ToTemporal(TemporalWire w, Op key) => w.ValueCase switch {
   TemporalWire.ValueOneofCase.Date => Iso(NodaTime.Text.LocalDatePattern.Iso, w.Date, key).Map(static v => (TemporalValue)new TemporalValue.Date(v)),
@@ -1161,8 +1163,8 @@ internal static partial class WireCodec {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// The boundary owner: infallible Encode (a valid graph lowers totally), Fin-railed Decode (one typed leg per
-// wire kind — the GeometrySource precedent). The wire message IS the byte surface: a consumer composes the
+// ElementWire boundary: infallible Encode and Fin-railed Decode with one typed leg per wire kind.
+// Wire messages are the byte surface; consumers compose the
 // Google.Protobuf write family (WriteTo(IBufferWriter<byte>) / ToByteArray / WriteDelimitedTo) on the returned
 // envelope directly — a forwarding byte wrapper here is the deleted form.
 public static class ElementWire {
@@ -1204,7 +1206,7 @@ public static class ElementWire {
           .AdmitOnto(ElementGraph.Genesis(header), key)
           .Bind(step => limits.VerifyAddresses ? ContentAddress.Verify(step.Graph, key).ToFin().Map(_ => step.Graph) : Fin.Succ(step.Graph)))))));
 
- // The decoded delta re-crosses the IsNormalForm shape gate (a double-entry id or edge rails DeltaConflict — the
+ // Decoded deltas re-cross the IsNormalForm shape gate (a double-entry id or edge rails DeltaConflict — the
  // unique-per-id normal form Merge produces is an OBLIGATION on a foreign transcription, never assumed), and its
  // ONLY sanctioned application is AdmitOnto — ReplayOnto trusts a delta the seam's own algebra produced, which a
  // wire payload is not, so the structural edge law runs when the foreign delta lands on a graph.
@@ -1224,22 +1226,23 @@ public static class ElementWire {
  static Fin<T> Funnel<T>(Op key, Func<Fin<T>> decode) =>
   key.Catch(decode).MapFail(e => e.IsExceptional ? (Error)ElementFault.ValueRejected(key, $"<wire-decode-throw:{e.Message}>") : e);
 
- static Fin<T> Parse<T>(MessageParser<T> parser, Stream payload, WireLimits limits, Op key) where T : class, IMessage<T> {
-  try { return Fin.Succ(parser.ParseFrom(CodedInputStream.CreateWithLimits(payload, limits.SizeLimit, limits.RecursionLimit))); }
-  catch (InvalidProtocolBufferException fault) { return ElementFault.ValueRejected(key, $"<wire-parse:{fault.Message}>"); }
- }
+ static Fin<T> Parse<T>(MessageParser<T> parser, Stream payload, WireLimits limits, Op key) where T : class, IMessage<T> =>
+  key.Catch(() => Fin.Succ(parser.ParseFrom(CodedInputStream.CreateWithLimits(payload, limits.SizeLimit, limits.RecursionLimit))))
+   .MapFail(error => error.IsExceptional
+    ? (Error)ElementFault.ValueRejected(key, $"<wire-parse:{error.Message}>")
+    : error);
 }
 ```
 
 ## [03]-[EVENT_ENVELOPE]
 
-- Owner: `GraphEventType` the closed `[SmartEnum<string>]` event-token vocabulary (`rasm.element.graph.v1` the snapshot crossing, `rasm.element.graphdelta.v1` the change crossing — the version suffix rides the token); `GraphEventEnvelope` the CloudEvents-aligned crossing metadata record: token, source identity, subject `ContentAddress`, occurrence `NodaTime.Instant`, and the W3C `traceparent`/`tracestate` slots as data fields an app-tier propagator fills, the seam referencing no OTel type.
-- Entry: `For(ElementGraph, source, at, key)` and `For(GraphDelta, tolerance, source, at, key)` are the one polymorphic mint — the subject derives through `ContentAddress.OfGraph` for a snapshot and the `GraphDelta.ToCanonicalBytes` address for a delta, the SAME projections the `Rasm.Persistence` event dedup and the `Projection/observe#HOOK_RAIL` facts key on; `Attributes()` projects the canonical attribute rows any carrier writes as transport headers; `Admit(attributes, key)` is the consumer-side inverse — the token re-admits through the vocabulary lookup, the subject through the `ContentAddress` X32 factory, unknown attributes pass untouched, and a missing required attribute or malformed slot rails `ElementFault.ValueRejected`.
-- Auto: `Id` derives from the subject, so a re-published crossing shares its event identity by construction and consumer dedup is one subject compare; the traceparent slot admits only the W3C shape (2-hex version, 32-hex trace id, 16-hex span id, 2-hex flags, lowercase, dash-delimited) while tracestate crosses opaque — vendor-list truth belongs to the propagator.
+- Owner: `GraphEventType` closes the `rasm.element.graph.v1` snapshot and `rasm.element.graphdelta.v1` delta tokens. `GraphEventEnvelope` owns the CloudEvents context attributes: `specversion`, `id`, `source`, `type`, `datacontenttype`, `subject`, `time`, and optional W3C `traceparent`/`tracestate`.
+- Entry: `For(ElementGraph, ...)` and `For(GraphDelta, ...)` derive `Subject` through the same content projections used by persistence dedup and observation facts. `Attributes()` emits the canonical unprefixed rows. `Admit(attributes, key)` rejects duplicate, missing, malformed, or reserved `data` attribute names, re-admits the type and content address, compares the protobuf media type case-insensitively, verifies fixed CloudEvents values and derived id, validates the source URI-reference and trace composite, and ignores unknown extension rows.
+- Auto: `Id` equals the subject's X32 value, so republication preserves event identity. Trace admission requires version `00`, non-zero trace and span ids, lowercase fixed-width hex including the complete flags byte, and `tracestate` only beside `traceparent`; vendor-list parsing remains the app propagator's concern.
 - Receipt: the envelope IS the broker-lane metadata — a Kafka/NATS/MQTT/CloudEvents lane at the peer tier publishes a crossing as envelope attributes with the protobuf body, and a streaming consumer folds length-prefixed bodies (`MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` into a pooled sink, `WriteDelimitedTo` the stream-shaped sibling) one envelope per frame, deduped by `Subject`.
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]` + the generated `TryGet`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Map`), NodaTime (`Instant` + `InstantPattern.ExtendedIso` the `time` canon), Google.Protobuf (`MessageExtensions.WriteLengthPrefixedTo` the buffer-writer frame).
 - Growth: a `Breaking` descriptor dial mints a sibling token row, so old consumers keep decoding their own token; a new attribute is one envelope column with its `Attributes`/`Admit` rows; a new broker lane is one carrier adapter at the peer tier, never a seam member.
-- Boundary: the envelope carries identity and trace METADATA alone — payload bytes ride the wire message, classified columns ride the redaction ruling, and the seam never fills a trace slot, because a self-minted traceparent forks the app tier's propagation truth; `WireKind` stays the in-process decode-kind dimension while `GraphEventType` names the crossing on the transport — two vocabularies, two consumers; attribute names stay canonical (`id`/`source`/`type`/`subject`/`time`/`traceparent`/`tracestate`) and the binding prefix (`ce-`, `ce_`) is the carrier adapter's.
+- Boundary: the envelope carries metadata alone; the protobuf message is the body. App-tier propagators fill trace slots and promote tenant baggage. Carrier adapters alone add binding prefixes such as `ce-` or `ce_`. `WireKind` remains the in-process decode dimension, and `GraphEventType` remains the transport crossing vocabulary.
 
 ```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
@@ -1251,10 +1254,11 @@ public sealed partial class GraphEventType {
  public static readonly GraphEventType Delta = new("rasm.element.graphdelta.v1");
 }
 
-// CloudEvents-aligned crossing metadata — id/source/type/subject/time plus the W3C trace slots as DATA (an
-// app-tier propagator fills them; the seam mints none). Subject IS the dedup key: OfGraph for a snapshot, the
-// ToCanonicalBytes address for a delta — the same projections Persistence dedup and the observe facts read.
+// CloudEvents context metadata. Subject is the content-key dedup identity; app propagators fill trace slots.
 public sealed record GraphEventEnvelope {
+ public const string CloudEventsSpecVersion = "1.0";
+ public const string ProtobufContentType = "application/protobuf";
+
  private GraphEventEnvelope(GraphEventType type, string source, ContentAddress subject, NodaTime.Instant at,
   Option<string> traceParent, Option<string> traceState) =>
   (Type, Source, Subject, At, TraceParent, TraceState) = (type, source, subject, at, traceParent, traceState);
@@ -1277,50 +1281,80 @@ public sealed record GraphEventEnvelope {
   Option<string> traceParent = default, Option<string> traceState = default) =>
   Of(GraphEventType.Delta, source, ContentAddress.Of(delta.ToCanonicalBytes(tolerance).Span), at, traceParent, traceState, key);
 
- // Canonical attribute rows a carrier writes as transport headers; the binding prefix (ce-, ce_) is the lane's.
+ // Canonical unprefixed context rows; each carrier owns its binding prefix.
  public Seq<(string Key, string Value)> Attributes() {
   Seq<(string Key, string Value)> rows =
-   [("id", Id), ("source", Source), ("type", Type.Key), ("subject", Subject.ToValue()),
+   [("specversion", CloudEventsSpecVersion), ("id", Id), ("source", Source), ("type", Type.Key),
+    ("datacontenttype", ProtobufContentType), ("subject", Subject.ToValue()),
     ("time", NodaTime.Text.InstantPattern.ExtendedIso.Format(At))];
   rows = TraceParent.Match(Some: held => rows.Add(("traceparent", held)), None: () => rows);
   return TraceState.Match(Some: held => rows.Add(("tracestate", held)), None: () => rows);
  }
 
- // Consumer-side inverse over one attribute frame: unknown keys pass untouched (outer-wrapper tolerance), the
- // token and subject re-admit through their owners, and a missing required attribute rails typed.
+ // Consumer inverse: duplicate canonical names rail; unknown extension rows are tolerated and ignored.
  public static Fin<GraphEventEnvelope> Admit(Seq<(string Key, string Value)> attributes, Op key) {
+  bool malformedName = attributes.AsEnumerable().Any(static row => !AttributeShaped(row.Key));
+  bool duplicated = attributes.Map(static row => row.Key).Distinct().Count != attributes.Count;
   Map<string, string> frame = attributes.Fold(Map<string, string>(), static (held, row) => held.AddOrUpdate(row.Key, row.Value));
-  return Required(frame, "type", key).Bind(token =>
-   Required(frame, "source", key).Bind(source =>
-    Required(frame, "subject", key).Bind(subject =>
-     Required(frame, "time", key).Bind(time =>
-      !GraphEventType.TryGet(token, out GraphEventType? kind) ? ElementFault.ValueRejected(key, $"<event-type-unknown:{token}>")
-      : ContentAddress.Validate(subject, null, out ContentAddress? address) is not null ? ElementFault.ValueRejected(key, $"<event-subject-malformed:{subject}>")
-      : NodaTime.Text.InstantPattern.ExtendedIso.Parse(time) is { Success: true } at
-       ? Of(kind!, source, address!, at.Value, frame.Find("traceparent"), frame.Find("tracestate"), key)
-       : ElementFault.ValueRejected(key, $"<event-time-malformed:{time}>")))));
+  return malformedName ? ElementFault.ValueRejected(key, "<event-attribute-name-malformed>")
+   : duplicated ? ElementFault.ValueRejected(key, "<event-attribute-duplicate>")
+   : Required(frame, "specversion", key).Bind(specVersion =>
+    Required(frame, "id", key).Bind(id =>
+     Required(frame, "type", key).Bind(token =>
+      Required(frame, "source", key).Bind(source =>
+       Required(frame, "datacontenttype", key).Bind(contentType =>
+        Required(frame, "subject", key).Bind(subject =>
+         Required(frame, "time", key).Bind(time =>
+          specVersion != CloudEventsSpecVersion ? ElementFault.ValueRejected(key, $"<event-specversion:{specVersion}>")
+          : !string.Equals(contentType, ProtobufContentType, StringComparison.OrdinalIgnoreCase)
+           ? ElementFault.ValueRejected(key, $"<event-datacontenttype:{contentType}>")
+          : id != subject ? ElementFault.ValueRejected(key, $"<event-id-subject-mismatch:{id}:{subject}>")
+          : !GraphEventType.TryGet(token, out GraphEventType? kind) ? ElementFault.ValueRejected(key, $"<event-type-unknown:{token}>")
+          : ContentAddress.Validate(subject, null, out ContentAddress? address) is not null ? ElementFault.ValueRejected(key, $"<event-subject-malformed:{subject}>")
+          : NodaTime.Text.InstantPattern.ExtendedIso.Parse(time) is { Success: true } at
+           ? Of(kind!, source, address!, at.Value, frame.Find("traceparent"), frame.Find("tracestate"), key)
+           : ElementFault.ValueRejected(key, $"<event-time-malformed:{time}>"))))))));
  }
 
  static Fin<GraphEventEnvelope> Of(GraphEventType type, string source, ContentAddress subject, NodaTime.Instant at,
   Option<string> traceParent, Option<string> traceState, Op key) =>
-  string.IsNullOrWhiteSpace(source) ? ElementFault.ValueRejected(key, "<event-source-blank>")
-  : traceParent.Exists(static held => !TraceParentShaped(held)) ? ElementFault.ValueRejected(key, "<event-traceparent-malformed>")
+  string.IsNullOrWhiteSpace(source) || !Uri.TryCreate(source.Trim(), UriKind.RelativeOrAbsolute, out _)
+   ? ElementFault.ValueRejected(key, "<event-source-uri-reference>")
+  : traceParent.Match(Some: static held => !TraceParentShaped(held), None: static () => false)
+   ? ElementFault.ValueRejected(key, "<event-traceparent-malformed>")
+  : traceState.Match(Some: static _ => true, None: static () => false)
+    && traceParent.Match(Some: static _ => false, None: static () => true)
+   ? ElementFault.ValueRejected(key, "<event-tracestate-without-traceparent>")
+  : traceState.Match(Some: static held => string.IsNullOrWhiteSpace(held), None: static () => false)
+   ? ElementFault.ValueRejected(key, "<event-tracestate-blank>")
   : Fin.Succ(new GraphEventEnvelope(type, source.Trim(), subject, at, traceParent, traceState));
 
  static Fin<string> Required(Map<string, string> frame, string attribute, Op key) =>
   frame.Find(attribute).ToFin(ElementFault.ValueRejected(key, $"<event-attribute-absent:{attribute}>"));
 
- // W3C traceparent: 2-hex version "-" 32-hex trace id "-" 16-hex span id "-" 2-hex flags, lowercase.
+ // CloudEvents context and extension attribute names are lowercase ASCII alphanumerics, at most twenty chars; data is reserved.
+ static bool AttributeShaped(string value) =>
+  value is { Length: > 0 and <= 20 }
+   && value != "data"
+   && value.All(static c => c is >= 'a' and <= 'z' or >= '0' and <= '9');
+
+ // W3C version-00 traceparent: fixed lowercase hex fields with non-zero trace and span ids; every flags byte is admitted.
  static bool TraceParentShaped(string value) =>
   value is { Length: 55 } && value[2] == '-' && value[35] == '-' && value[52] == '-'
+   && value.StartsWith("00-", StringComparison.Ordinal)
+   && value[3..35].Any(static c => c != '0') && value[36..52].Any(static c => c != '0')
    && value.Index().All(static slot => slot.Index is 2 or 35 or 52 || char.IsAsciiHexDigitLower(slot.Item));
 }
 ```
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-- [KEY_VERBATIM_LAW]: the wire carries every identity VERBATIM — `NodeId` as the X32 string, `UInt128` content keys (`RepresentationContentHash` entries, `AppearanceKey`, `RasterKey`, `InputKey`, `ProfileRef.ContentKey`, `ResultBlob`) as 16-byte BIG-ENDIAN `bytes` fields, the persisted `System.IO.Hashing.XxHash128` canonical form the TypeScript `hash-wasm` `h128` boundary normalizes its little-endian digest to and the Python `ContentKey.memory` (`to_bytes(16, "little")`) flips from — one canonical crossing form, the LE/BE normalize owned once per peer at its decode boundary. A peer REPRODUCES a key over the count-prefixed injective `CanonicalBytes` canon (the `Projection/address#CANONICAL_WRITER` count-prefix law) and never re-mints: until the queued `PY_WIRE_ALIGNMENT` canonical-writer mirrors land, transcription-not-recomputation is the only legal peer posture, and a peer-side re-derived id, a second digest function, or a little-endian key crossing is the named drift defect. The big-endian WIRE key form is DISTINCT from the little-endian `CanonicalWriter.U128` write — the latter is the interior HASHING canon (bytes fed to the hasher), the former the persisted KEY form (bytes the hasher emits), and conflating them forks every cross-runtime key.
-- [CODEC_DIVISION]: three generators, one lane each — `Grpc.Tools` (`GrpcServices=None`, `PrivateAssets=all`) emits the `rasm.element.v1` message classes at build; Mapperly emits every per-case seam↔wire field transcription (compile-time, zero reflection, the `[UserMapping]` key codecs pinning identity crossings); the Thinktecture generated total `Switch` owns encode case dispatch and the protobuf generated `PayloadCase`/`ValueCase`/`EdgeCase` closed enums own decode dispatch. `[MapDerivedType]` is the class-hierarchy rail — a `oneof` envelope's case messages share no base type, so the envelope folds dispatch through the seam's own generated `Switch` (a new union case is a compile break at exactly one site per family) while Mapperly owns the field-by-field transcription the protobuf runtime does not; a hand-rolled per-field assignment body beside a Mapperly-generatable mapping, or a runtime/reflection mapper, is the deleted form.
-- [ADMISSION_AND_DEPTH_GATE]: `DecodeGraph`/`DecodeDelta` parse under the admitted positive `WireLimits` size and recursion budgets. Every decoded value re-crosses its owner gate — including `PropertyValue.Of`, `MeasureValue.OfSi`, `MeasureBand.Admit`, `MaterialUsage.LayerSet.Of`/`ProfileSet.Of`, `Classification.Of`, and `Discipline.Parse` — before the aggregate re-crosses `AdmitOnto` or `IsNormalForm`. Unset oneofs, unknown keyed rows, invalid bands, duplicate ids, and illegal graph structure therefore share the same typed fault rail as in-process authors.
-- [EVENT_ENVELOPE]: every broker-published crossing rides one `GraphEventEnvelope` whose subject is the crossing's own content key — `ContentAddress.OfGraph` for a snapshot, the `GraphDelta.ToCanonicalBytes` address for a delta — so consumer dedup is one subject compare and no event identity re-mints; attributes cross under canonical names with the binding prefix owned by the carrier adapter, trace slots cross as data the app-tier propagator fills, and the streaming lane frames one envelope per length-prefixed body (`WriteLengthPrefixedTo` into a buffer writer, `WriteDelimitedTo` onto a stream).
-- [CONTRACT_EVOLUTION]: `Graph/element.proto` is the descriptor source the `typescript:core/interchange/contract` gate diffs — the emitted `FileDescriptorSet` classifies every contract change `Identical`/`Additive`/`Breaking`, so a new `oneof` arm or appended field is `Additive` (peers decode old payloads unchanged) and a renumber, type change, or field removal without a `reserved` claim is `Breaking` (the gate refuses the dial). Field numbers are append-only; a removed field reserves its number and name. The golden float-bearing `IfcMaterialLayer` parity vector (`MATERIAL_LAYER_GOLDEN`, a `design_pin` until the counted-bag pin lands) anchors the three-runtime round-trip: one `MaterialLayerWire` crossing whose decoded `MeasureValueWire` reproduces the C# content key byte-for-byte over the counted canonical layout.
+- [KEY_VERBATIM_LAW]: wire identities cross verbatim. `NodeId` uses X32 text; `UInt128` keys use big-endian fields while `CanonicalWriter.U128` remains little-endian hash input. Each peer normalizes once at decode and never substitutes a second digest.
+- [CODEC_DIVISION]: `Grpc.Tools` emits messages, Mapperly emits field transcription, Thinktecture `Switch` owns seam-case encode dispatch, and protobuf case enums own decode dispatch. Reflection and parallel hand-written mappings are forbidden.
+- [ADMISSION_AND_DEPTH_GATE]: `DecodeGraph` and `DecodeDelta` parse under positive `WireLimits`. Every decoded value re-crosses its owner gate before the aggregate reaches `AdmitOnto` or `IsNormalForm`. Unset cases, unknown rows, duplicate ids, invalid values, and illegal structure share the in-process typed rail.
+- [EVENT_ENVELOPE]: `GraphEventEnvelope` derives subject and id from the crossing content key, emits canonical CloudEvents attributes, and carries app-filled W3C trace data. Carrier adapters own binding prefixes. Protobuf streaming uses `WriteLengthPrefixedTo` for buffer writers and `WriteDelimitedTo` for streams.
+- [CONTRACT_EVOLUTION]: `Graph/element.proto` is the descriptor source. Appended fields and new `oneof` arms are additive; renumbers, incompatible type changes, and unreserved removals are breaking. Whole-graph parity literals remain governed by `Graph/corpus`'s terminal research route until exact addresses exist.
+
+## [05]-[RESEARCH]
+
+(none)

@@ -1,6 +1,6 @@
 # [DATA_FILE]
 
-The filesystem plane and the derivative codec, both over the one content identity: files enter and leave the process through the platform `FileSystem` capability — content-addressed intake streams a file through the incremental digest fold into a conditional put, temp staging is scoped acquisition, and a watched directory is a `Stream` of admission events — and the image derivative fan-out decodes a stored object exactly once, `clone()`s per derivative-spec row, encodes through the one `toFormat` dispatch, mints each derivative's own `ContentKey` through the core digest, re-puts under the same conditional-put idempotency (412 = noop), and hands back one presigned grant per row. Untrusted input is gated before decode — `failOn`, pixel limits, blocked loaders, a per-pipeline deadline — because every upload is hostile; sharp is native and server-plane only, and its Promise terminals exist solely inside this page's boundary seams. A new rendition is a roster row; a new intake source is a lift; no per-format method ladder and no second addressing vocabulary exist anywhere on the plane.
+Filesystem and derivative-codec planes share one content identity. Platform `FileSystem` streams intake through digest and conditional put, scopes temp staging, and exposes watched admissions. Image fan-out decodes once, clones per roster row, dispatches `toFormat`, mints each derivative `ContentKey`, conditionally re-puts, and returns grants. Gates bound hostile input before native sharp decode. A rendition is a roster row; an intake source is a lift; no per-format ladder or second address exists.
 
 ## [01]-[CLUSTERS]
 
@@ -16,7 +16,7 @@ The filesystem plane and the derivative codec, both over the one content identit
 - Owner: `Disk` — the file-side verbs over the platform capability Tags: `intake` (file → identity fold → conditional put → reference row, owner parameterized), `stage` (scoped temp file whose teardown rides the `Scope`), `watch` (a settle-guarded drop directory as a `Stream` of intake admissions), `egress` (content object → file sink, streamed).
 - Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs); `journal/append.md` (`Hook` — the `objectAdmit` admission taps).
 - Entry: an artifact producer lands its output through `Disk.intake(path, retention)`; a peer-runtime handoff directory rides `Disk.watch(dir)` feeding the same intake; a served export streams out through `Disk.egress(key, path)` — every verb yields the platform Tags on `R` and the runtime binding stays a root row.
-- Receipt: intake answers the object receipt plus the file's `stat` evidence — `{ key, bytes, written, path }` — so a producer logs one row tying the filesystem coordinate to the durable key.
+- Receipt: intake answers the object receipt with file `stat` evidence — `{ key, bytes, written, path }` — tying filesystem coordinate to durable key.
 - Growth: a new intake posture (move-after-intake, verify-only) is an options field; a new source (an archive member walk) is one more lift into the same fold.
 - Law: intake never buffers the file — identity is content-addressed, so the key cannot exist before the last byte is hashed, and intake is therefore TWO bounded streaming passes over the seekable file: `fs.stream(path)` feeds the `Rail` identity fold, then a fresh `fs.stream(path)` feeds the streaming conditional put — constant memory at any size; a `readFile` single-pass intake is the memory defect the rail already bans.
 - Law: temp staging is scoped — `makeTempFileScoped` ties the temp file's deletion to the `Scope`, so an interrupted derivative pass or a failed intake leaks nothing; a hand-managed temp path is the rejected spelling.
@@ -68,7 +68,7 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
       yield* Stream.toReadableStreamEffect(fs.stream(path)),
       identity.bytes,
     )
-    yield* store.refer(identity.key, owner ?? `disk:${path}`, retention) // the derived retention tag lands with the reference row
+    yield* store.refer(identity.key, owner ?? `disk:${path}`, retention) // Derived retention tag lands with the reference row.
     yield* Hook.tapped("objectAdmit", { key: identity.key, owner: owner ?? `disk:${path}`, bytes: Option.some(identity.bytes) }) // observe fan on the landed receipt
     return { key: identity.key, bytes: identity.bytes, written: landed.written, path } satisfies Disk.Intake
   })
@@ -150,11 +150,11 @@ const _governed = (
 
 ## [04]-[DERIVATIVE_ROWS]
 
-- Owner: the `Derive.Spec` roster row shape and the per-row receipt — a rendition is `{ name, resize, format, options, admit, composite, terminal, keep, placeholder, retention, grant }`, the codec dispatch is `toFormat(row.format, row.options)` with the tile pyramid as the one alternate terminal arm, and the receipt carries sharp's `OutputInfo` provenance plus the dominant color when the row asks.
+- Owner: `Derive.Spec` and its receipt — rendition policy is one row, `toFormat` is the codec dispatch, tile is the alternate terminal, and `OutputInfo` with optional dominant color is evidence.
 - Packages: `sharp` (`clone`, `resize`, `composite`, `toFormat`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputOptions`, `OutputInfo`).
 - Entry: an app declares its rendition roster once (`thumbnail`/`preview`/`master`/`deepzoom` rows) and hands it to the fan-out; format capability gates through `_governed`'s `sharp.format` read at construction so an unbuildable row refuses at boot, never per request.
 - Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant }` — the row name, the derivative's own content key, its presigned `ObjectStore.Grant`, the codec provenance, and the optional placeholder color seeded from `stats().dominant`.
-- Growth: a new rendition is one roster row; a new decision input is an `admit` predicate over the pre-decode `Metadata`, a new overlay is a `composite` row, a new pyramid layout is a `TileOptions` value, and retention plus grant posture travel on that same row — never a code path per format.
+- Growth: a rendition is one roster row; admission, overlay, pyramid layout, retention, and grant posture are fields on that row, never format paths.
 - Law: `toFormat` is the one codec dispatch — the per-format methods are aliases it generalizes, and a `jpeg()`/`png()`/`webp()` ladder is the named defect; row options carry quality/effort/lossless per codec; the tile row's `terminal` selects the pyramid arm (`layout: dz | iiif | iiif3 | zoomify | google`) whose container lands through the same content-addressed intake.
 - Law: metadata preservation is a roster column — `keep: "icc"` re-attaches the color profile through `keepIccProfile` (the master row), `keep: "all"` carries the full block through `keepMetadata`, and the default strips everything, the public-derivative privacy posture — never a call-site toggle.
 - Law: `metadata()` and `stats()` are the decision reads and each lifts ONCE per fan-out — `metadata()` feeds every row's `admit` vote (an SVG source never reaches a raster row unless its row admits it), `stats()` runs once when any admitted row asks for a placeholder and its `dominant` serves every asking row — a per-row pixel analysis is the named waste.
@@ -190,7 +190,7 @@ declare namespace Derive {
 
 ## [05]-[FANOUT]
 
-- Owner: `Derive.fanout(sourceKey, specs)` — the whole fold: verified fetch, gated single decode, clone-per-row encode, per-derivative key mint, conditional re-put, reference row owned by the source, presigned grant — plus `DeriveFault`, the plane's stage-discriminated fault.
+- Owner: `Derive.fanout(sourceKey, specs)` — verified fetch, gated decode, row-cloned encode, derivative mint, conditional re-put, source-owned reference, grant, and stage-discriminated `DeriveFault`.
 - Packages: `sharp`; `object/store.md` (`ObjectStore.get`/`put`/`grant`, the reference verbs); `@rasm/ts/core` (`ContentKey` — every derivative is itself content-addressed).
 - Entry: `Derive.fanout(sourceKey, roster)` after an image lands (an intake receipt, an upload finalize); re-running is a proven noop end to end because every re-put lands 412 and every grant re-mints against the same keys.
 - Receipt: one `Derive.Receipt` per row; the batch's span carries source key, row count, and total encode span.
@@ -310,3 +310,12 @@ const Derive = {
 
 export { Derive, DeriveFault, Disk }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -8,7 +8,7 @@ Wire vocabulary is `transport/shapes#VOCABULARY`'s, the transcode machinery `tra
 
 - [01]-[SERVE]: the inbound server-host lifecycle, the `Route` roster, the dispatch aspect, and the `FaultDetail` trailer egress.
 - [02]-[CAPABILITY_INVOKE]: the descriptor-driven outbound invoke and the `fault_detail` trailer ingress.
-- [03]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the ordered receipted drain, and the one-shot recipe command.
+- [03]-[ENTRY]: the daemon composition root — railed boot, supervised serve, the diagnostic-capsule mount, the ordered receipted drain, and the one-shot recipe command.
 
 ## [02]-[SERVE]
 
@@ -499,10 +499,10 @@ def _unsealed(terminal: grpc.aio.AioRpcError) -> BoundaryFault:
 ## [04]-[ENTRY]
 
 - Owner: `companion_app` is the `cyclopts` command axis AND the daemon composition root, co-located with `ServerHost` because the serve command composes the host it launches. `companion_app(routes, drains, charges)` is parameterized over the servicer roster, the drainable owners, and the supervised worker charges, so a downstream folder's composition root — geometry `mesh/serve` the named consumer — registers its rows, drain stages, and pool charges by data; runtime never imports a downstream sibling package, and every install owner it composes is a runtime-interior module.
-- Entry: this drain fold owns ORDER — the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the transport-client close and the profiles push stop, with `Telemetry.shutdown` appended LAST so every earlier stage's spans and receipts still export — and every stage settles even after an earlier fault, the faults accumulating into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
-- Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal seam before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health protocol without a second loop, and the serve leg's terminal send cancels the whole group — the standing signal, watchdog, and supervision rhythms end with the server, never after it. Lifecycle facts fire on the registered `LIFECYCLE_POINTS` rows — ready after the health flips, stopping at the signal seam, the drain verdict on the one-slot replay ring — and `_booted` subscribes the receipts tap per point, so daemon lifecycle telemetry is a hook projection, never a second emit path.
-- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/logging/profiles/hooks/metrics/receipts/resilience/admission/lanes/workers/recipe/roots owners per the fence imports.
-- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a sibling daemon is one `companion_app(routes, drains, charges)` call with its own rows.
+- Entry: this drain fold owns ORDER — the caller's `drains` rows, then one pool-drain row per charge, then the supervisor's daemon-stop escalation so no spawned child outlives the daemon, then the transport-client close and the profiles push stop. Lifecycle receipt emission settles onto the same accumulated rail after those stages; `Telemetry.shutdown` settles and stops LAST. Every stage runs after an earlier fault, and the faults accumulate into one aggregate; a first-fault abort leaving later stages undrained never lands. Boot chains ride the faults `railed` builder over heterogeneous binds a `traversed` fold cannot express.
+- Auto: readiness is sd-notify-shaped data — `NotifyState` closes the handshake vocabulary, `_notify` writes the service manager's `NOTIFY_SOCKET` datagram through the anyio UNIX-datagram factory, and an absent socket folds to a no-op so the same daemon runs bare or managed. `READY` fires through the serve `ready` hook after the health flips, `STOPPING` fires at the signal seam before the drain, and the `beating` leg halves `WATCHDOG_USEC` into its ping interval only when the manager arms it. Workers' actuator joins the one supervision group with the awaited `ServerHost.status` coroutine as its flip, so pool death advertises on the served health protocol without a second loop, and the serve leg's terminal send cancels the whole group — the standing signal, watchdog, and supervision rhythms end with the server, never after it. Lifecycle facts fire on the registered `LIFECYCLE_POINTS` rows — ready after the health flips, stopping at the signal seam, the drain verdict on the one-slot replay ring — and `_booted` subscribes the receipts tap per point, so daemon lifecycle telemetry is a hook projection, never a second emit path. `_supervised` mounts the diagnostic capsule before the group opens — one bundle `Route` bound to the supervisor's `verdicts` projection — so every daemon answers incident capture over the standing wire and an unresolvable bundle codec refuses at boot, never at first pull.
+- Packages: `cyclopts`, `anyio`, `msgspec`, and the faults/telemetry/logging/profiles/hooks/metrics/receipts/resilience/admission/lanes/workers/recipe/roots/bundle owners per the fence imports.
+- Growth: a new private command is one `@app.command` method folding through the shared `_exit`; a new drainable owner is one `(subject, stage)` row the ordered fold, the accumulate, and the receipt absorb; a new lifecycle point is one `LIFECYCLE_POINTS` row; a new supervised pool is one `Charge` row; a new manager handshake is one `NotifyState` member; a new bundle collector is one collectors row at the bundle owner, never a serve edit; a sibling daemon is one `companion_app(routes, drains, charges)` call with its own rows.
 - Boundary: never a new public command surface — public commands are reserved to the suite Assay command surface. `NOTIFY_SOCKET`/`WATCHDOG_USEC` are the service manager's own env contract read at this one entry seam, never a settings field and never a read past admission elsewhere.
 
 ```python signature
@@ -524,6 +524,7 @@ from expression.collections import Block, Map
 
 from rasm.runtime import roots
 from rasm.runtime.admission import RuntimeContext, RuntimeProfile, SettingsAdmission
+from rasm.runtime.bundle import BUNDLE_DESCRIPTOR, BUNDLE_METHOD, BUNDLE_SERVICE, BUNDLE_WIRE, SupportBundle
 from rasm.runtime.faults import SCOPES, Disposition, RuntimeRail, Scope, async_boundary, boundary, railed, traversed
 from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.lanes import LanePolicy
@@ -702,6 +703,16 @@ async def _supervised(host: ServerHost, drains: Block[tuple[str, DrainStage]], c
                 group.cancel_scope.cancel()
 
     supervisor = Supervisor(charges, host.status)
+    # diagnostic-capsule mount: one bundle Route bound to the supervisor's verdict projection, registered before the
+    # group opens so every daemon answers incident capture over the standing wire with zero per-daemon wiring.
+    request_row, response_row = BUNDLE_WIRE
+    diagnostic = Route(
+        service=BUNDLE_SERVICE, method=BUNDLE_METHOD, descriptor=BUNDLE_DESCRIPTOR,
+        request=request_row, response=response_row, handler=SupportBundle.handler(supervisor.verdicts),
+    )
+    mounted = host.register(Block.singleton(diagnostic))
+    if mounted.is_error():
+        return mounted.map(lambda _count: None)
     async with anyio.create_task_group() as group, send:  # Exemption: the daemon's one supervision group.
         group.start_soon(hosting, send.clone())
         group.start_soon(tripped, send.clone())
@@ -710,21 +721,36 @@ async def _supervised(host: ServerHost, drains: Block[tuple[str, DrainStage]], c
 
     settled = Block.of_seq([outcome async for outcome in receive])
     # daemon children stop AFTER the pools drain — a child may still serve pooled work — the transport clients
-    # and the profiles push close next, and telemetry flushes last.
+    # and the profiles push close next. Lifecycle evidence emits while telemetry is live; shutdown flushes it last.
     ordered = (
         drains.append(_fleet(charges))
         .append(Block.singleton(("workers.daemons", supervisor.stop)))
         .append(Block.singleton(("transport.roots", roots.drain)))
         .append(Block.singleton(("observability.profiles", lambda: Ok(Profiles.shutdown()))))
-        .append(Block.singleton((str(Scope.SERVICE), Telemetry.shutdown)))
     )
     flushed = await _drained(ordered)
-    outcome = traversed(settled.append(Block.singleton(flushed)), by=Disposition.ACCUMULATE)
-    await Signals.emit_async(
-        Receipt.of(SCOPES[Scope.SERVICE], ("emitted", "shutdown", {"stages": len(settled) + len(ordered), "clean": outcome.is_ok()})), OPEN
+    pre_shutdown = traversed(settled.append(Block.singleton(flushed)), by=Disposition.ACCUMULATE)
+    emitted = await _settled(
+        "observability.receipts",
+        lambda: Signals.emit_async(
+            Receipt.of(
+                SCOPES[Scope.SERVICE],
+                ("emitted", "drained", {"stages": len(settled) + len(ordered), "clean": pre_shutdown.is_ok()}),
+            ),
+            OPEN,
+        ),
     )
-    await Hooks.fire_async(_DRAINED, LifecycleFact(subject="shutdown", clean=outcome.is_ok()))
-    return outcome.map(lambda _: None)
+    lifecycle = await Hooks.fire_async(_DRAINED, LifecycleFact(subject="drained", clean=pre_shutdown.is_ok()))
+    telemetry = await _settled("observability.telemetry", Telemetry.shutdown)
+    return traversed(
+        Block.of_seq([
+            pre_shutdown.map(lambda _: None),
+            emitted.map(lambda _: None),
+            lifecycle.map(lambda _: None),
+            telemetry.map(lambda _: None),
+        ]),
+        by=Disposition.ACCUMULATE,
+    ).map(lambda _: None)
 
 
 async def _daemon(bind: str, grace: float, routes: Block[Route], drains: Block[tuple[str, DrainStage]], charges: Block[Charge]) -> RuntimeRail[None]:

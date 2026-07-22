@@ -549,3 +549,12 @@ One readiness algebra, one oracle, one factory bridge, one bidirectional project
 |  [05]   | Admission projection | `AdmissionProjection` | sealed bidirectional owner   | `Render` / `Admit → Fin<T>`          |    3    |
 |  [06]   | Pair readiness       | `RequirementContext`  | context extension combinator | `Validation<Error, (A,B,Kind,Kind)>` |    1    |
 |  [07]   | Admission vocabulary | `Admit`               | guard vocabulary             | `Fin<Unit>` / `Fin<T>`               |   36    |
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

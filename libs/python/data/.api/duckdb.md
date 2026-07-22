@@ -39,7 +39,53 @@
 - relation egress: `DuckDBPyRelation.to_df()`, `.pl()`, `.to_arrow_table()`, `.fetchnumpy()`, `.to_table(table_name)`, `.to_view(view_name)`, `.to_csv(file_name, ...)`, `.to_parquet(file_name, ...)`, `.insert_into(table_name)`, `.create(table_name)`, `.create_view(view_name)`.
 - functions and extensions: `create_function(name, function, parameters=None, return_type=None, *, type=..., null_handling=..., exception_handling=..., side_effects=False)`, `remove_function(name)`, `table_function(name, parameters=None) -> DuckDBPyRelation`, `install_extension(extension, *, force_install=False, repository=None)`, `load_extension(extension)`.
 - type construction: `array_type(type, size)`, `list_type(type)`, `map_type(key, value)`, `struct_type(fields)`, `row_type(fields)`, `union_type(members)`, `decimal_type(width, scale)`, `enum_type(name, type, values)`, `string_type(collation='')`, `sqltype(type_str)`, `dtype(type_str)`, `type(type_str)`.
-- transactions and profiling: `begin()`, `commit()`, `rollback()`, `checkpoint()`, `interrupt()`, `query_progress()`, `enable_profiling()`, `disable_profiling()`, `get_profiling_information()`.
+- transactions and profiling: `begin()`, `commit()`, `rollback()`, `checkpoint()`, `interrupt()`, `query_progress()`, `enable_profiling() -> None`, `disable_profiling()`, `DuckDBPyConnection.get_profiling_information(format: str = "json") -> str`.
+
+[PROFILING_INFORMATION]:
+- `get_profiling_information("json")` returns JSON text for the last completed query; callers decode the string before projection. `query_tree` and `query_tree_optimizer` return rendered tree text through the same `str` carrier.
+- Root keys are metric-dependent, never a fixed schema: the table below is the standard-profile emitted set, `profiling_mode='detailed'` adds the optimizer and planner timing roots beside it (`all_optimizers`, `cumulative_optimizer_timing`, per-rule `optimizer_*`, `planner`, `planner_binding`, `physical_planner`, `physical_planner_*`), and `custom_profiling_settings` replaces the active metric set outright — a disabled metric's key is absent, not null, and a fully custom set can leave only `children`. A consumer probes each key (`.get`) and never assumes presence; when a key is emitted its meaning and type hold — durations are seconds, sizes are bytes, cardinalities are row counts — and each `children` entry is an operator node.
+- `extra_info` is the open operator-detail object; its keys depend on the operator and its values are JSON strings or string arrays.
+
+| [INDEX] | [ROOT_KEY]                    | [JSON_TYPE] | [ROLE]                   |
+| :-----: | :---------------------------- | :---------- | :----------------------- |
+|  [01]   | `query_name`                  | string      | profiled statement       |
+|  [02]   | `latency`                     | number      | wall duration            |
+|  [03]   | `cpu_time`                    | number      | cumulative CPU duration  |
+|  [04]   | `blocked_thread_time`         | number      | blocked-thread duration  |
+|  [05]   | `rows_returned`               | integer     | result rows              |
+|  [06]   | `result_set_size`             | integer     | result bytes             |
+|  [07]   | `cumulative_cardinality`      | integer     | cumulative output rows   |
+|  [08]   | `cumulative_rows_scanned`     | integer     | cumulative scanned rows  |
+|  [09]   | `total_memory_allocated`      | integer     | allocated bytes          |
+|  [10]   | `system_peak_buffer_memory`   | integer     | peak buffer bytes        |
+|  [11]   | `system_peak_temp_dir_size`   | integer     | peak temporary bytes     |
+|  [12]   | `total_bytes_read`            | integer     | storage bytes read       |
+|  [13]   | `total_bytes_written`         | integer     | storage bytes written    |
+|  [14]   | `wal_replay_entry_count`      | integer     | replayed WAL entries     |
+|  [15]   | `commit_local_storage_latency` | number      | local commit duration    |
+|  [16]   | `attach_load_storage_latency` | number      | attached-load duration   |
+|  [17]   | `attach_replay_wal_latency`   | number      | attached-replay duration |
+|  [18]   | `waiting_to_attach_latency`   | number      | attach wait duration     |
+|  [19]   | `write_to_wal_latency`        | number      | WAL write duration       |
+|  [20]   | `checkpoint_latency`          | number      | checkpoint duration      |
+|  [21]   | `extra_info`                  | object      | root detail map          |
+|  [22]   | `children`                    | array       | operator nodes           |
+
+| [INDEX] | [OPERATOR_KEY]              | [JSON_TYPE] | [ROLE]                  |
+| :-----: | :-------------------------- | :---------- | :---------------------- |
+|  [01]   | `operator_name`             | string      | rendered operator name  |
+|  [02]   | `operator_type`             | string      | operator discriminant   |
+|  [03]   | `operator_timing`           | number      | operator duration       |
+|  [04]   | `cpu_time`                  | number      | subtree CPU duration    |
+|  [05]   | `operator_cardinality`      | integer     | operator output rows    |
+|  [06]   | `operator_rows_scanned`     | integer     | operator scanned rows   |
+|  [07]   | `cumulative_cardinality`    | integer     | subtree output rows     |
+|  [08]   | `cumulative_rows_scanned`   | integer     | subtree scanned rows    |
+|  [09]   | `result_set_size`           | integer     | operator result bytes   |
+|  [10]   | `system_peak_buffer_memory` | integer     | operator buffer bytes   |
+|  [11]   | `system_peak_temp_dir_size` | integer     | operator temporary bytes |
+|  [12]   | `extra_info`                | object      | operator detail map     |
+|  [13]   | `children`                  | array       | child operator nodes    |
 
 [EXCEPTIONS]:
 - `duckdb.Error` — base exception; `DatabaseError`, `DataError`, `OperationalError`, `ProgrammingError`, `IntegrityError`, `InternalError`, `NotSupportedError` follow the DB-API 2.0 hierarchy.

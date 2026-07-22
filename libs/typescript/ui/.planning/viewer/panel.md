@@ -1,6 +1,6 @@
 # [UI_PANEL]
 
-The one wire-materializer of the shell plane: three C#-minted vocabularies — the livewire triple (`BindingStatus`/`CoercedValue`/`WriteReceipt`, `csharp:Rasm.AppHost`), the closed `ControlIntent` union, and the ordered `LayoutProgram` (`csharp:Rasm.AppUi/Shell`) — arrive decoded through `core/interchange/codec#LANDING_WIRE` and materialize through one owner with one shape: wire value → total fold or exhaustive dispatch → rows → emit. `Panel.fold` accumulates the livewire feed into per-binding board rows with a receipt-reconciled optimistic round trip; `Panel.route` closes a union-derived handler record so every control kind lands on exactly one owning plane; `Panel.solve` re-solves the C#-authored Cassowary program to bit-identical positions with edit-variable drag over the frozen program. Payloads are carriage on every arm — a clamp, remap, local default, or synthesized constraint is the cross-language drift defect — and a new wire case is one row here with the compile error at the missing row as the growth mechanism. The module is `ui/viewer/src/panel.ts`.
+Panel materializes three C#-minted shell vocabularies: livewire events, `ControlIntent`, and `LayoutProgram`. `Panel.fold` builds receipt-reconciled binding rows, `Panel.route` exhaustively dispatches controls, and `Panel.solve` preserves Cassowary insertion order and strengths. Payloads remain verbatim carriage; missing wire cases fail at their row. Module: `ui/viewer/src/panel.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -120,11 +120,12 @@ const _tone = {
 - Law: sinks are app-composed — the shell binds each sink to the owning plane's atom write at composition; this module never imports the planes, because the record IS the seam and a direct plane import couples the panel to every surface it drives.
 - Law: payloads are carriage — `yaw`/`pitch`, `dx`/`dy`, `targets`/`additive`, section `origin`/`normal`, measure `from`/`to`, focus `target` land verbatim on the sink; an out-of-range value is upstream evidence. Routing is replayable — every arriving intent lands as an op/intent value on a plane's fold, composing with `History` undo and the probe plane exactly like locally-minted interaction.
 - Law: interactions emit values, never calls — a panel affordance mints an egress record (the wire tag with its payload) written to the app-wired command gateway; the gateway owns encode and transport, and this module never encodes, never names a transport. Affordance state rides atoms — active tool, additive modifier, in-flight measure endpoint live in `Atom.family` rows keyed by control id, RAC components running controlled. Availability gates render — the gateway's availability verdict projects into the `isDisabled` prop of every affordance, so an unavailable command renders inert with its reason as tooltip evidence rather than failing on press.
-- Law: egress records publish once on the `rasm.ui.panel.egress` hook point (`system/hook`, observe modality) as they reach the command gateway — telemetry taps, probe boards, and replay journals consume the record stream without wrapping the gateway, and the gateway stays the one transport owner.
+- Law: egress records publish once on the `rasm.ui.panel.egress` hook point (`system/hook`, observe modality) as they reach the command gateway — this page contributes the point and `Panel.egress(registry, gateway)` composes publish-before-send on one Effect rail, so telemetry taps, probe boards, and replay journals never wrap the gateway.
 - Growth: a new control kind = one wire case (C# emits it, the codec mirrors it) + one handler row here + zero dispatch edits.
 
 ```typescript
 import type { ControlIntent } from "@rasm/ts/core"
+import { Hook } from "../../src/system/hook.ts"
 
 declare namespace Panel {
   type Kind = ControlIntent["_tag"]
@@ -133,6 +134,18 @@ declare namespace Panel {
   // correlated mapped union: each egress record carries exactly its kind's wire payload, never an erased slot
   type Egress = { readonly [K in Panel.Kind]: { readonly kind: K; readonly payload: Omit<Panel.Arm<K>, "_tag"> } }[Panel.Kind]
 }
+
+declare module "../../src/system/hook.ts" {
+  interface Points {
+    readonly "rasm.ui.panel.egress": { readonly modality: "observe"; readonly payload: Panel.Egress }
+  }
+}
+
+const _panelHook: Hook.Row<"rasm.ui.panel.egress"> = { modality: "observe", depth: 32, source: Option.none() }
+
+const _egress = <E, R>(registry: Hook.Registry, gateway: (record: Panel.Egress) => Effect.Effect<void, E, R>) =>
+  (record: Panel.Egress): Effect.Effect<void, E, R> =>
+    Effect.zipRight(Effect.asVoid(Hook.publish(registry, "rasm.ui.panel.egress", record)), gateway(record))
 
 const _route = (sinks: Panel.Sinks): ((intent: ControlIntent) => void) =>
   Match.type<ControlIntent>().pipe(Match.tagsExhaustive(sinks))
@@ -243,6 +256,8 @@ declare namespace Panel {
     readonly fold: typeof _fold
     readonly optimistic: typeof _optimistic
     readonly drain: typeof _drain
+    readonly egress: typeof _egress
+    readonly hook: typeof _panelHook
     readonly tone: typeof _tone
     readonly route: typeof _route
     readonly relations: typeof _relations
@@ -258,6 +273,8 @@ const Panel: Panel.Shape = {
   fold: _fold,
   optimistic: _optimistic,
   drain: _drain,
+  egress: _egress,
+  hook: _panelHook,
   tone: _tone,
   route: _route,
   relations: _relations,
@@ -269,3 +286,12 @@ const Panel: Panel.Shape = {
 
 export { Panel }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

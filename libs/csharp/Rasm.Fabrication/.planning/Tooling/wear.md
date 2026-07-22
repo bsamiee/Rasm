@@ -14,7 +14,7 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 
 - Owner: `ConditionSignal` owns measured condition; `WearChannel` rows own the signal-component projection and its canonical unit; `WearCriterion` owns terminal and threshold criteria; `WearRegistry` owns process applicability; `TaylorModel` and `ModelDiagnostic` own phase-aware evolution; `WearReceipt` owns forecast and maintenance truth.
 - Cases: `ConditionSignal` distinguishes geometry, load, vibration, acoustic, thermal, composition, surface, dimensional, and terminal evidence; `WearCriterion` distinguishes one channel-typed `Threshold` from `TerminalStatus`, the channel row fixing the value kind; `WearApplicability` distinguishes `Tracked` from reasoned `Untracked`; `WearState` distinguishes tool, consumable, status, and unconsumed evidence; `MaintenanceAction` distinguishes continue, monitor, inspect, rotate, replace, recondition, retire, and not-applicable.
-- Entry: `ToolWear.Apply(WearRequest)` is the one polymorphic entry over assessment and Taylor calibration.
+- Entry: `ToolWear.Apply(WearRequest)` is the one polymorphic entry over assessment and Taylor calibration; `ConditionSignal.Of` lowers a decoded `Kinematics/observation.md` case into the signal family where the mapping is lossless, so streamed telemetry and inspected measurements enter one admission.
 - Auto: admission accumulates malformed signal, time, target, channel-kind, registry, and budget rows; count channels reject fractional thresholds and Taylor currents. Taylor fallback carries the criterion's channel through condition, state, and evidence, and a channel mismatch fails typed. Assessment groups by target, projects through the declared channel row, removes policy-defined outliers, fits the exposure trajectory, and classifies phase jointly from consumed fraction and the monotone spline's start-to-end derivative ratio, so a curve that steepens reads accelerated before its limit fraction says so. Missing specification, missing reading, untracked-process readings, stale windows, and terminal status fail typed.
 - Receipt: `WearReceipt` carries all states, consumable rows, critical row, maintenance action, model diagnostics, and window-bounded `LifeProjection`; projection groups tool states by target and life basis, then retains the most conservative whole forecast per key; `ModelDiagnostic` carries slope, intercept, residual, determination, sample domain, last observed value, and both endpoint derivatives; `TaylorCalibrationReceipt` narrows one `PowerLawReceipt` to the fitted speed coefficient under admitted feed/depth/load exponents. `FabricationFact.ToolWear.Of` projects the critical state onto `rasm.fabrication.tool.wear` and `rasm.fabrication.fit.residual` through `Process/telemetry#FACT_PROJECTION` as kind `tool-wear`, and a receipt without a critical state projects nothing.
 - Packages: `NodaTime` `Instant`, `Duration`, and `Interval.Contains`; MathNet.Numerics `Fit.Line` and `IInterpolation.Differentiate` over monotone cubic interpolation; `TensorPrimitives` finite/statistical reductions; `PowerLawFit`; LanguageExt.Core folds/traversals; Thinktecture.Runtime.Extensions; `UnitsNet`; and MTConnect-derived status through `ToolAssembly` compose directly.
@@ -30,6 +30,7 @@ using LanguageExt.Common;
 using MathNet.Numerics;
 using MathNet.Numerics.Interpolation;
 using NodaTime;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
 using Thinktecture;
 using UnitsNet;
@@ -109,6 +110,14 @@ public sealed partial class ConsumableKind {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConditionSignal {
     private ConditionSignal() { }
+
+    // Decoded machine telemetry lowers into the channel family only where a case maps losslessly — thermal is
+    // the slice-supplied signal; an unmapped observation projects None, never a zero-filled modality row.
+    public static Option<ConditionSignal> Of(MachineObservation observation) =>
+        observation is MachineObservation.Temperature thermal
+            ? Some((ConditionSignal)new Thermal(UnitsNet.Temperature.FromDegreesCelsius(thermal.Celsius)))
+            : None;
+
     public sealed record Flank(Length Average, Length Maximum) : ConditionSignal;
     public sealed record Crater(Length Depth, Length Width) : ConditionSignal;
     public sealed record Notch(Length Depth) : ConditionSignal;
@@ -823,3 +832,12 @@ flowchart LR
     Receipt --> Magazine["LifeProjection -> ToolCatalog.Refresh"]
     Receipt --> Estimate["Estimation"]
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -1,16 +1,16 @@
 # [DATA_STORE]
 
-The content-addressed object plane: the object key IS the core `ContentKey` — this page is a delegating mint site, never a second hash — and the S3 `Key` string is its `:x32` spelling, so two writers producing the same bytes produce the same object and the conditional put makes the second writer a proven noop. One `ObjectStore` service owns the scoped client, the single abort-bridged `send`, the tagged fault fold with 412 pre-folded to the idempotent receipt, the size-and-shape-discriminated put (plain conditional, hand-composed conditional multipart for bounded bytes, `lib-storage` `Upload` for streaming bodies — the conditional spreads onto every leg), the verified get with ranged reads, the presigned capability mint, and the lifecycle plane: a SQL reference ledger driving reference-sweep GC whose deletes are `If-Match`-guarded CAS so a sweep can never race a re-mint. Provider facts are `Config` data against the engine conformance table — an engine that cannot honor `If-None-Match: *` cannot host this plane, ruled as rows, never re-litigated.
+Content-addressed object identity is core `ContentKey`; this page delegates minting and uses its `:x32` spelling as S3 `Key`. Conditional writes make repeated bytes a proven noop. One `ObjectStore` owns scoped client, abort-bridged sends, typed faults, shape-dispatched puts, verified reads, grants, and lifecycle. A SQL reference ledger drives `If-Match` GC. Provider `Config` must satisfy the conformance table; engines lacking `If-None-Match: *` cannot host the plane.
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                            |
-| :-----: | :------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `CLIENT_SEAM`  | the scoped client, the one typed send, the fault fold, config, the engine table   |
-|  [02]   | `CONDITIONAL`  | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads |
-|  [03]   | `REFERENCE_GC` | the reference ledger, the derived retention tag, If-Match CAS sweep, lifecycle, multipart reap |
-|  [04]   | `INSTRUMENT_ROWS` | the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts |
-|  [05]   | `GRANT_MINT`   | the one presign entry, TTL narrowing, header policy, the typed grant              |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                         |
+| :-----: | :---------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `CLIENT_SEAM`     | the scoped client, the one typed send, the fault fold, config, the engine table                |
+|  [02]   | `CONDITIONAL`     | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads              |
+|  [03]   | `REFERENCE_GC`    | the reference ledger, the derived retention tag, If-Match CAS sweep, lifecycle, multipart reap |
+|  [04]   | `INSTRUMENT_ROWS` | the Convention projections — dedup outcome, bytes written, GC reclaim off the receipts         |
+|  [05]   | `GRANT_MINT`      | the one presign entry, TTL narrowing, header policy, the typed grant                           |
 
 ## [02]-[CLIENT_SEAM]
 
@@ -21,7 +21,7 @@ The content-addressed object plane: the object key IS the core `ContentKey` — 
 - Law: the abort bridge is mandatory — `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: _folded(key) })` — fiber interruption aborts the in-flight request; an un-abortable send leaks past interruption.
 - Law: the fault family is `ObjectFault` with reasons `missing` (404), `integrity` (identity or checksum disagreement), `io` (everything else) and a policy row per reason; 412 is NOT a fault — the fold returns the `_Replay` receipt before the family engages, and there is no `PreconditionFailed` class to catch (the status rides `$metadata.httpStatusCode` on the base exception).
 - Law: resilience is owner-internal and the policy table is load-bearing — `_shielded` brackets every bounded operation with the op timeout, the bulkhead semaphore, and the jittered bounded retry whose `Schedule.whileInput` reads `fault.policy.retry`, so `io` retries while `missing`/`integrity` fail fast and a consumer composes capability, never plumbing; the AWS client's `maxAttempts` covers transport-level retry beneath it, and the circuit-breaker tier rides the core fault owner's degradation budget when that upstream row lands.
-- Boundary: five members stand outside the bracket by construction — `putKeyed` (a one-shot streaming body cannot replay into a retry and outlives the op budget; its resilience is `Upload`'s part-level retry plus the abort bridge), `settled` (the waiter owns the construction-time `settleSeconds` budget), `sweep` and `reap` (walking folds whose per-key faults settle inside their own accumulation), and the reference verbs `refer`/`release` with their derived retag (the relational rail owns the ledger retry posture, and the retag is idempotent by derivation so its next invocation self-heals a missed stamp); every other member rides `_shielded`.
+- Boundary: streaming, waiting, walking, and reference members stand outside the bracket by construction — `putKeyed` cannot replay a one-shot body, `settled` owns its waiter budget, `sweep` and `reap` settle faults inside their folds, and `refer`/`release` ride the relational rail; every other member rides `_shielded`.
 - Law: checksums are transport integrity, `ContentKey` is identity — `requestChecksumCalculation`/`responseChecksumValidation` pin `"WHEN_SUPPORTED"` against AWS-grade engines and `"WHEN_REQUIRED"` against S3-compatibles that predate default checksums, a `Config` fact per provider; identity verification is the core mint re-run at read, and the two never substitute.
 - Law: the conformance table is the admission gate — an engine hosts this plane only with `conditional: "yes"`: the managed rows (S3, R2, Tigris) and the self-host rows (Ceph RGW, the maintained MinIO continuation) conform; the CRDT-metadata engine and the B2 row cannot CAS and are refused rows, kept as data so the argument is never re-had; the pending row waits on its concurrency fix.
 
@@ -113,10 +113,11 @@ const _folded = (key: string) => (caught: unknown): ObjectFault | _Replay =>
     Match.orElse((residue) => new ObjectFault({ reason: "io", key, detail: String(residue) })),
   )
 
-const _foldedRead = (key: string) => (caught: unknown): ObjectFault => {
-  const fault = _folded(key)(caught)
-  return fault._tag === "ObjectReplay" ? new ObjectFault({ reason: "io", key, detail: "<unconditional-412>" }) : fault
-}
+const _foldedRead = (key: string) => (caught: unknown): ObjectFault =>
+  Match.value(_folded(key)(caught)).pipe(
+    Match.when(Match.instanceOf(_Replay), () => new ObjectFault({ reason: "io", key, detail: "<unconditional-412>" })),
+    Match.orElse((fault) => fault),
+  )
 ```
 
 ## [03]-[CONDITIONAL]
@@ -185,10 +186,13 @@ const _putMultipart = (client: S3Client, bucket: string, key: ContentKey, bytes:
         }),
         (held, exit) =>
           Exit.isFailure(exit)
-              ? Effect.ignore(Effect.tryPromise({
-                try: () => client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: held.UploadId })),
-                catch: _foldedRead(key),
-              }))
+              ? Effect.catchAll(
+                  Effect.tryPromise({
+                    try: () => client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: held.UploadId })),
+                    catch: _foldedRead(key),
+                  }),
+                  () => Effect.void,
+                )
             : Effect.void,
       )
       const windows = Array.makeBy(Math.ceil(bytes.byteLength / partBytes), (index) =>
@@ -298,9 +302,9 @@ const _got = (client: S3Client, bucket: string, key: ContentKey) =>
       catch: _foldedRead(key),
     })
     const minted = yield* Digest.mint("content", bytes)
-    return yield* minted === key
+    return yield* (minted === key
       ? Effect.succeed(bytes)
-      : Effect.fail(new ObjectFault({ reason: "integrity", key, detail: minted }))
+      : Effect.fail(new ObjectFault({ reason: "integrity", key, detail: minted })))
   })
 
 const _headed = (client: S3Client, bucket: string, key: ContentKey) =>
@@ -406,9 +410,9 @@ const _retag = (client: S3Client, bucket: string) =>
         Result: Schema.Struct({ retention: Retain.Class }),
         execute: (who) => sql`SELECT DISTINCT retention FROM object_ref WHERE key = ${who} AND released_at IS NULL`,
       })(key)
-      yield* Array.isNonEmptyReadonlyArray(rows)
+      yield* (Array.isNonEmptyReadonlyArray(rows)
         ? _classify(client, bucket)(key, Array.max(Array.map(rows, (row) => row.retention), _byWindow))
-        : Effect.void
+        : Effect.void)
     })
 
 const _lifecycle = (client: S3Client, bucket: string, policy: typeof Retain.Policy) =>
@@ -524,7 +528,7 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
 - Owner: the object plane's Convention projections — `_measured`, the one receipt fold every write leg taps, and `_reclaimed`, the sweep-mark projection — instruments the runtime meter bridge exports like every other series while the receipts stay the billing and evidence truth.
 - Packages: `effect` (`Metric`); `@rasm/ts/core` (`Convention` — the instrument and tag rows).
 - Entry: the service construction composes `_measured` as an `Effect.tap` on `put`, `putKeyed`, and `rekey`, and the sweep tail taps `_reclaimed` — zero call-site wiring, and no consumer can write an object the instruments miss.
-- Growth: a new receipt axis is one instrument row here reading its `Convention.instrument` entry plus its tap line on the owning leg.
+- Growth: a receipt axis is one `Convention.instrument` row and one tap on the owning leg.
 - Law: dedup rate DERIVES on the dashboard — the write counter tags each receipt's outcome (`written` versus `dedup`) from the bounded two-value vocabulary, so the rate is a ratio query over one series and no page computes it; bytes count only on `written: true` because a 412 noop moved no bytes, and reclaim counts the sweep mark's `swept` census.
 - Law: instrument name, description, and tag key read off the `Convention` rows — no signal-site literal exists on the object plane, and identifier-grade context (the content key) rides span attributes on `data.sweep`/`data.grant`, never a metric tag.
 
@@ -657,7 +661,7 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
       grant: (key: ContentKey, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
         shield(key)(_grant(client, setting.presignTtl)(key, command, policy)),
       lifecycle: _lifecycle(client, setting.bucket, Retain.Policy),
-      // the tag follows the ledger: both reference verbs re-derive the object's retention tag from the surviving reference set
+      // Ledger truth drives the tag: both reference verbs re-derive retention from surviving references.
       refer: (key: ContentKey, owner: string, retention: Retain.Class) =>
         Effect.zipRight(_refer(key, owner, retention), retag(key)),
       release: (key: ContentKey, owner: string) =>
@@ -672,3 +676,12 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
 
 export { ObjectFault, ObjectStore }
 ```
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -91,3 +91,12 @@ const TENANT_GUC: typeof SessionCoordinate.tenant.guc = SessionCoordinate.tenant
 export { SessionCoordinate, TenantScope, TENANT_GUC }
 export type { Principal }
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

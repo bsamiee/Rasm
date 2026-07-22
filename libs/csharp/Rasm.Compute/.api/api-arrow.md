@@ -4,9 +4,11 @@
 
 This overlay owns ONLY that construction-and-projection seam — the columnar table Compute *produces*; IPC stream/file serialisation (`ArrowStreamWriter`/`ArrowFileWriter`), the LZ4-frame/Zstandard `CompressionCodecFactory`, the ADBC query surface, and the Flight/Flight-SQL transport that *carries* the table are the Persistence `api-arrow` overlay's egress rails and are NOT restated here.
 
-`Runtime/codecs#ARROW_BATCH` is the armed seam: `SweepLane.Dataset` projects a landed `DoeDataset` (`ReadOnlyMemory<double> Coordinates`/`Responses`, `ReadOnlyMemory<bool> OnFront`, `Instant At`) into one `RecordBatch` without per-row copies — each column bulk-appends its backing span through `DoubleArray.Builder.Append(ReadOnlySpan<double>)` / `BooleanArray.Builder.Append(ReadOnlySpan<bool>)`, `ContentKey`/`Strategy` ride `Schema.Builder.Metadata`, and the batch crosses to the Python graduation companion over the existing `Runtime/transport` wire plane; `ChargebackDataset` folds the same construction surface for the content-keyed billing egress.
+Compute's Arrow batch seam projects a landed `DoeDataset` into one `RecordBatch` with one bulk append call per column. Each builder copies the `Coordinates`, `Responses`, or `OnFront` span into its allocator-owned buffer through the typed `Append(ReadOnlySpan<T>)` family.
 
-Every builder is a freely-constructed per-instance object; `MemoryAllocator.Default` is the one process-global, and every builder and `Build` entry takes a per-instance `MemoryAllocator allocator = null` parameter, so a bounded per-lane arena injects at the seam and the default is the shared fallback — no host-global singleton, no single-owner admission demand.
+`ContentKey`, `Strategy`, `At`, and `Points` ride an explicitly built `Schema` through `Schema.Builder.Metadata`, and the public `RecordBatch(Schema, IEnumerable<IArrowArray>, int)` constructor binds the schema to the arrays. `ChargebackDataset` folds the same construction surface for content-keyed billing egress.
+
+Every builder is a freely constructed per-instance object; `MemoryAllocator.Default` is the one process-global. Typed-array `Build` entries and `RecordBatch.Builder` construction admit a per-instance `MemoryAllocator allocator = null`; `Schema.Builder.Build()` and `RecordBatch.Builder.Build()` do not. A bounded per-lane arena therefore injects while arrays are built, and the direct `RecordBatch` constructor receives the completed schema and arrays.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -30,7 +32,7 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [CAPABILITY]                                                              |
 | :-----: | :--------------------------- | :---------------- | :----------------------------------------------------------------------- |
 |  [01]   | `RecordBatch`                | record container  | columnar batch with schema; `: IArrowRecord, IArrowArray`, `IDisposable` |
-|  [02]   | `RecordBatch.Builder`        | builder           | assembles typed columns into a batch under a `MemoryAllocator`           |
+|  [02]   | `RecordBatch.Builder`        | builder           | co-orders fields and arrays; carries no schema metadata seat             |
 |  [03]   | `RecordBatch.Builder.ArrayBuilder` | fluent factory | per-column typed builder (`.Double`/`.Boolean`/`.Int64` `Action` arms)  |
 |  [04]   | `Schema`                     | schema value      | ordered field list plus metadata; `this[int]`/`this[string]` field index |
 |  [05]   | `Schema.Builder`             | builder           | assembles fields and metadata into an immutable `Schema`                 |
@@ -69,9 +71,9 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `RecordBatch.Builder` column assembly and build
+[ENTRYPOINT_SCOPE]: `RecordBatch.Builder` metadata-free column assembly and build
 - rail: columnar-egress
-- note: `new RecordBatch.Builder(allocator?)` opens the batch under a per-instance arena; each `Append<TArray>(name, nullable, array)` adds one built column and `Build()` yields the immutable `RecordBatch`; the `ArrayBuilder` fluent arms (`.Double(b => …)`) construct a column inline against the batch's own allocator. A batch built without a matching `Schema` field order is the drift defect the `Schema.Builder` co-build guards.
+- note: `new RecordBatch.Builder(allocator?)` opens a metadata-free batch builder under a per-instance arena; each `Append<TArray>(name, nullable, array)` co-orders one generated field and built column, and `Build()` yields the immutable `RecordBatch`. Builder exposes no `Schema` injection or metadata entrypoint, so it never constructs `DoeDataset` or `ChargebackDataset` batches whose receipt facts must survive.
 - returns: `Build()` → `RecordBatch`; each typed `Build(allocator?)` → the concrete `TArray`.
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                 |
@@ -85,11 +87,11 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 
 [ENTRYPOINT_SCOPE]: typed column bulk-append (`PrimitiveArrayBuilder<T,…>`)
 - rail: columnar-egress
-- note: `Append(ReadOnlySpan<T>)` bulk-appends a whole backing span in one call — the zero-row-copy path for the `DoeDataset` `ReadOnlyMemory<double>` columns (`.Span`); `AppendNull` writes a validity-bitmap null; `Build(allocator?)` seals the column. `Reserve(capacity)` pre-sizes the buffer to the known point count before the span append.
+- note: `Append(ReadOnlySpan<T>)` bulk-appends a whole backing span in one call — the reduced append-call path for the `DoeDataset` `ReadOnlyMemory<double>` columns (`.Span`), copying each span into the builder's allocator-owned buffer; `AppendNull` writes a validity-bitmap null; `Build(allocator?)` seals the column. `Reserve(capacity)` pre-sizes the buffer to the known point count before the span append.
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Append(ReadOnlySpan<T> span)`         | bulk append    | appends the whole column span with no per-row iteration      |
+|  [01]   | `Append(ReadOnlySpan<T> span)`         | bulk append    | copies one whole span without a caller-side scalar loop      |
 |  [02]   | `AppendRange(IEnumerable<T> values)`   | range append   | appends an enumerable column source                          |
 |  [03]   | `Append(T value)` / `Append(T? value)` | scalar append  | appends one value (nullable overload writes validity)        |
 |  [04]   | `AppendNull()`                         | null append    | appends a validity-bitmap null slot                          |
@@ -97,9 +99,9 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 |  [06]   | `Set(int index, T value)` / `Swap(i,j)`| edit           | in-place value set / positional swap before build            |
 |  [07]   | `Build(MemoryAllocator allocator = null)` | factory call | seals the immutable typed array under the arena              |
 
-[ENTRYPOINT_SCOPE]: `Schema.Builder` / `Field.Builder` and `Table` assembly
+[ENTRYPOINT_SCOPE]: metadata-bearing `Schema` / `RecordBatch` and `Table` assembly
 - rail: columnar-egress
-- note: the schema is co-built with the batch — one `Field` per column in append order, `Metadata(key, value)` carrying the `ContentKey`/`Strategy`/`At` receipt facts; `TableFromRecordBatches` collects streamed batches into one queryable `Table`.
+- note: the schema is built explicitly — one `Field` per array in matching order, with `Metadata(key, value)` carrying the `ContentKey`/`Strategy`/`At`/`Points` receipt facts. `new RecordBatch(schema, arrays, length)` binds that schema to the arrays; `TableFromRecordBatches` collects streamed batches into one queryable `Table`.
 
 | [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                              |
 | :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
@@ -108,20 +110,22 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 |  [03]   | `Schema.Builder.Metadata(key, value)`                  | metadata       | attaches schema-level receipt facts       |
 |  [04]   | `Field.Builder.Name(s).DataType(t).Nullable(b).Build()`| builder        | assembles one field from parts            |
 |  [05]   | `new Field(name, IArrowType, nullable, metadata?)`     | ctor           | direct field construction                 |
-|  [06]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`   | table factory  | collects batches into one `Table`         |
-|  [07]   | `MemoryAllocator.Default.Value` / `Allocate(int)`      | arena          | shared default arena; `Allocate` a buffer |
+|  [06]   | `new RecordBatch(Schema, IEnumerable<IArrowArray>, int)` | ctor         | binds metadata schema, arrays, and length |
+|  [07]   | `Table.TableFromRecordBatches(Schema, IList<batch>)`   | table factory  | collects batches into one `Table`         |
+|  [08]   | `MemoryAllocator.Default.Value` / `Allocate(int)`      | arena          | shared default arena; `Allocate` a buffer |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BATCH_TOPOLOGY]:
-- `RecordBatch.Builder(allocator)` is the one construction root: the sweep-egress owner opens a builder under a per-lane `MemoryAllocator`, co-builds a `Schema` whose fields match the column append order one-for-one, appends each typed column, and `Build()` seals the immutable batch — the schema field order and the batch column order are the same sequence, never two independently-ordered lists the reader must reconcile.
-- each `DoeDataset` column bulk-appends its backing span: `Coordinates`/`Responses` (`ReadOnlyMemory<double>`) drive `DoubleArray.Builder.Append(coordinates.Span)`, `OnFront` (`ReadOnlyMemory<bool>`) drives `BooleanArray.Builder.Append(onFront.Span)`, and `Reserve(points)` pre-sizes each buffer to the known row count before the span append — the `Runtime/codecs#ARROW_BATCH` "without row copies" contract is the whole-span append, never a per-element `Append(T)` loop over the memory.
-- `ContentKey`, `Strategy` (the `DoeDesign` key), and `At` receipt facts ride `Schema.Builder.Metadata(key, value)` string pairs, so the batch is self-describing across the wire — the reader recovers the content key from schema metadata rather than a side-channel, and a batch whose metadata omits the content key is the drift defect.
-- `MemoryAllocator` is per-instance-injectable at every builder and `Build` entry (`Builder(allocator)`, `Build(allocator)`); `MemoryAllocator.Default` (a `Lazy<MemoryAllocator>`) is the process-global fallback the seam takes only when no bounded arena is supplied. A staging-bounded lane (`Tensor/memory#STAGING_POOL`) passes its own allocator so the batch buffers charge against the lane budget, never the shared default — the allocator is design policy, not an implicit global.
+- metadata-bearing construction has one root: the sweep-egress owner builds typed arrays under the per-lane `MemoryAllocator`, builds one `Schema` whose fields match the array order one-for-one and whose metadata carries every receipt fact, then calls `new RecordBatch(schema, arrays, points)`. Substituting `RecordBatch.Builder` discards `content_key`, `strategy`, `at`, and `points` because it exposes neither `Schema` injection nor `Metadata`.
+- each `DoeDataset` column bulk-appends its backing span: `Coordinates`/`Responses` drive `DoubleArray.Builder.Append(span)`, `OnFront` drives `BooleanArray.Builder.Append(span)`, and `Reserve(points)` pre-sizes each allocator-owned buffer. Builders copy spans into owned storage with one caller-side append per column, never a scalar `Append(T)` loop.
+- `ContentKey`, `Strategy` (the `DoeDesign` key), `At`, and `Points` receipt facts ride `Schema.Builder.Metadata(key, value)` string pairs, so the batch is self-describing across the wire — the reader recovers the content key from schema metadata rather than a side-channel, and a batch whose metadata omits the content key is the drift defect.
+- `ChargebackDataset` projects one row per tenant-route partition: `tenant` and nullable `route` build through `StringArray`, elapsed/token/byte/remote cost lanes through `DoubleArray`, and `facts` through `Int64Array`; `content_key`, `window_start`, and `window_end` ride schema metadata, so billing egress consumes the same allocator, field-order, and metadata-bearing constructor policy as DOE egress.
+- `MemoryAllocator` injects through typed-array builds and `RecordBatch.Builder(allocator)`; `Schema.Builder.Build()` and `RecordBatch.Builder.Build()` take no allocator. A staging-bounded lane (`Tensor/memory#STAGING_POOL`) passes its allocator to every array build so buffers charge against the lane budget, and the public `RecordBatch` constructor binds those arrays without reallocating them.
 
 [TYPE_SEAM]:
 - `Field.Builder.DataType` takes an `IArrowType`; the `.Default` singletons (`DoubleType.Default`, `BooleanType.Default`, `StringType.Default`) type the scalar columns, and `TimestampType.Default` (`TimeUnit.Millisecond`, UTC) types the `Instant At` column so the Arrow wire carries the same NodaTime clock seam (`api-nodatime`) the receipt stream uses — a bare `DateTime` column is the rejected form, symmetric to the Persistence egress rule.
-- `RecordBatch.Builder.ArrayBuilder` exposes a fluent arm (`.Double(b => b.Append(span))`) that constructs a column inline against the batch's own allocator, an alternative to the explicit `Append<TArray>(name, nullable, builtArray)` add — the sweep owner picks the explicit form to keep the `Schema` field co-build visible, and the fluent form stays available where a column is trivially inline.
+- `RecordBatch.Builder.ArrayBuilder` exposes a fluent arm (`.Double(b => b.Append(span))`) that constructs a column inline against the batch's own allocator. Metadata-free batches may use that convenience; the sweep owner uses explicit typed-array builders so the metadata-bearing `Schema` remains visible and reaches the public `RecordBatch` constructor.
 
 [SCOPE_SPLIT]:
 - Compute owns the columnar table it *builds*; the Persistence `api-arrow` overlay owns everything that *carries* it — `ArrowStreamWriter`/`ArrowFileWriter` IPC serialisation, the `Apache.Arrow.Compression.CompressionCodecFactory` LZ4-frame/Zstandard codec, the ADBC `AdbcConnection`/`AdbcStatement` query surface, and the `FlightClient`/`FlightSqlClient` transport. Compute holds one `Apache.Arrow` reference and never references the four egress packages.
@@ -132,11 +136,11 @@ Every builder is a freely-constructed per-instance object; `MemoryAllocator.Defa
 
 [STACKING]:
 - surrogate-training egress is one rail: `SweepLane.Run` lands a `SweepResult` → `SweepLane.Dataset` folds it into a `DoeDataset` (content-keyed via `XxHash128.HashToUInt128`) → this Arrow build projects the labeled table into one `RecordBatch` (design-point columns + objective columns + `OnFront` mask, metadata carrying the content key) → the batch crosses to the Python graduation companion → a graduated ONNX surrogate returns over `GraduationEvidence` to `Solver/optimizer`, so labeled sweep data trains the surrogate refresh instead of dying in receipts — the identical wire plane the `DoeDataset` shape already commits to, with no new transport.
-- billing egress folds the same construction surface: `ChargebackDataset.Of` aggregates the tenant-partitioned journal into `ChargebackRow`s, and the content-keyed chargeback batch builds through the same `RecordBatch.Builder`/`Schema.Builder` path — one Arrow construction owner, two dataset producers, never a per-dataset bespoke columnar encoder.
+- billing egress folds the same construction surface: `ChargebackDataset.Of` aggregates the tenant-partitioned journal into `ChargebackRow`s, and the content-keyed chargeback batch builds through the same typed-array/`Schema.Builder`/`RecordBatch` constructor path — one Arrow construction owner, two dataset producers, never a per-dataset bespoke columnar encoder.
 - NodaTime clock seam (`api-nodatime`) crosses at the `TimestampArray` column: an `Instant` projects to the epoch column under `TimestampType.Default` at the builder edge, the same instant seam the receipt stream and the Persistence relational store share, so the Arrow wire, the receipt fold, and the store agree on one clock.
 
 [RAIL_LAW]:
 - Package: `Apache.Arrow` (Compute references core `Apache.Arrow` alone)
-- Owns: the columnar-table *construction* seam — `RecordBatch.Builder`/`Schema.Builder`/`Field.Builder`, the `PrimitiveArrayBuilder<T,…>` bulk-span append families, the `IArrowType` `.Default` descriptors, and `MemoryAllocator` — projecting `DoeDataset`/`ChargebackDataset` into a self-describing `RecordBatch`
-- Accept: `new RecordBatch.Builder(perLaneAllocator)` with a co-built `Schema`, whole-span column appends (`DoubleArray.Builder.Append(span)`/`BooleanArray.Builder.Append(span)`) pre-sized by `Reserve`, `Schema.Builder.Metadata` carrying `ContentKey`/`Strategy`/`At`, and an `Instant` projected through `TimestampType.Default`
-- Reject: a per-element `Append(T)` loop where a `ReadOnlySpan<T>` bulk append exists; a hand-rolled columnar byte layout `RecordBatch` already owns; a schema field order that diverges from the batch column order; a bare `DateTime` column where the NodaTime clock seam owns the instant; the shared `MemoryAllocator.Default` where a lane-bounded arena is available; any IPC/ADBC/Flight/compression member (owned by the Persistence `api-arrow` overlay); a Compute-side Flight listener or re-encode of the opaque `GeoArrowRequest.ArrowIpc` relay bytes
+- Owns: the columnar-table *construction* seam — typed-array builders, `Schema.Builder`/`Field.Builder`, the public `RecordBatch` constructor, metadata-free `RecordBatch.Builder`, the `IArrowType` `.Default` descriptors, and `MemoryAllocator` — projecting `DoeDataset`/`ChargebackDataset` into a self-describing `RecordBatch`
+- Accept: whole-span column appends pre-sized by `Reserve`, `Schema.Builder.Metadata` carrying DOE content/strategy/instant/point facts or chargeback content/window facts, `new RecordBatch(schema, arrays, points)`, metadata-free `RecordBatch.Builder` use, and an `Instant` projected through `TimestampType.Default`
+- Reject: `RecordBatch.Builder` for a metadata-bearing batch; a per-element `Append(T)` loop where a `ReadOnlySpan<T>` bulk append exists; a hand-rolled columnar byte layout `RecordBatch` already owns; divergent schema-field and array order; a bare `DateTime` column where the NodaTime clock seam owns the instant; the shared `MemoryAllocator.Default` where a lane-bounded arena is available; any IPC/ADBC/Flight/compression member; a Compute-side Flight listener or re-encode of the opaque `GeoArrowRequest.ArrowIpc` relay bytes

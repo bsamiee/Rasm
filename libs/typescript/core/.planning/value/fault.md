@@ -15,7 +15,7 @@ Taxonomy, evidence, retry, and degradation remain clusters of one recovery-polic
 
 ## [02]-[CLASS_VOCABULARY]
 
-- Owner: `FaultClass`, the assembled vocabulary — the interior key tuple is the ONE severity declaration (severity ascends with position, a load-bearing sequence with no parallel restatement), the interior row table carries the behavior axes, the merged hub carries every derived type and the guard pair, and the exported owner assembles rows, `kinds`, `blames`, `schema`, the lattice instances, and the operation members under a `typeof`-derived stated annotation.
+- Owner: `FaultClass`, the assembled vocabulary — the interior key tuple is the ONE severity declaration (severity ascends with position, a load-bearing sequence with no parallel restatement), the interior row table carries the behavior axes, the merged hub carries every derived type and the guard pair, and the exported owner assembles rows, `kinds`, `blames`, `schema`, the lattice instances, the fault-family declaration fold, and the operation members under a `typeof`-derived stated annotation.
 - Law: the roster is sized by cross-language routing, never by cause — `absent`, `conflicted`, `invalid`, `malformed`, `denied`, `expired`, `exhausted`, `unavailable`, `breached`, `defect` — and a finer cause is a `reason` row inside the owning folder's fault class, never an eleventh entry minted for one surface.
 - Law: severity is positional — `severity` (`Order.mapInput` over tuple position), `bounded` (the `Bounded` completing the lattice: `compare` with the tuple's own first and last entries), and `join` (`Semigroup.max(severity)`, the lawful join-semilattice a `Merge.struct` field row composes directly) all derive from the tuple, so a tuple reorder IS the severity edit and no rank literal exists to go stale, duplicate, or disagree with iteration order.
 - Law: rows carry three axes — `retryable` (the transient family a budget gate re-drives), `blame` (`caller`/`system`, the accountability split the serving edge's `blame === "caller"` exposure fold and telemetry project), `quarantine` (the evidence-preserving divert: `malformed`/`invalid` continue as `Either.left` into a typed intake wherever the fault feeds a repair report, never a dropped element) — and behavior variation across the branch reads these columns, never a `switch` over class names.
@@ -23,7 +23,8 @@ Taxonomy, evidence, retry, and degradation remain clusters of one recovery-polic
 - Law: classification is total and idempotent — `of` answers identity on a bare kind literal (a consumer handing back an already-classified value gets its fixed point, never a `defect` fold), reads the structural `readonly class: FaultClass.Kind` convention off any value, folds a whole `Cause` tree to its dominant class through the position lattice, and folds all residue to `defect` — so an unclassified foreign throw lands at the correct terminal severity and `Schedule.whileInput(FaultClass.retryable)` gates correctly on faults, kinds, and causes alike.
 - Law: `dominant` discriminates on input shape — a non-empty kind set folds to its representative through `severity` (the fold `Effect.validateAll`-shaped reports feed), and a `Cause` tree folds every failure and defect node through the same lattice to `Option` of the representative, `none` exactly when the tree carries no fault (interruption-only) — so parallel-failure dominance reads the lattice, never a squash ordering.
 - Law: `schema` is the wire-facing literal union derived from the tuple spread — the non-empty overload keeps the exact literal tuple — so a class crossing a wire or a config row decodes against the same anchor the type plane derives from.
-- Growth: a new class is one tuple entry with its row — every guard, schema, fold, budget gate, and the serving edge's governed `Record<FaultClass.Kind, _>` status record inherit it at compile time; a new axis is one `Row` field with its column on each row.
+- Law: `family(reasons, rows)` closes a folder fault family once — frozen snapshots of the non-empty reason tuple and every exact-key family row derive the literal schema and `classOf` projection, so caller mutation cannot drift the published reasons, schema, rows, or classification and a tagged fault class carries no local `_Rows`/`_Closed` guard pair or repeated reason switch.
+- Growth: a new class is one tuple entry with its row — every guard, schema, fold, budget gate, and the serving edge's governed `Record<FaultClass.Kind, _>` status record inherit it at compile time; a new axis is one `Row` field with its column on each row; a new folder fault family is one `family` call with its reason tuple and rows.
 - Boundary: the class-to-status outbound mapping is the serving edge's governed record; the floor table stays transport-free.
 - Packages: `effect` (`Schema`, `Order`, `Array`, `Cause`, `Chunk`, `Option`, `Predicate`); `@effect/typeclass` (`Bounded`, `Semigroup`).
 
@@ -97,12 +98,32 @@ function _dominant(
   return Cause.isCause(input) ? _harvest(input) : Array.max(input, _severity)
 }
 
+const _family = <
+  const Reasons extends readonly [string, ...string[]],
+  const Rows extends { readonly [Reason in Reasons[number]]: FaultClass.FamilyRow },
+>(
+  reasons: Reasons,
+  rows: Rows & { readonly [Key in Exclude<keyof Rows, Reasons[number]>]: never },
+) => {
+  const heldReasons = Object.freeze(structuredClone(reasons))
+  const heldRows = structuredClone(rows)
+  Object.values(heldRows).forEach((row) => Object.freeze(row))
+  Object.freeze(heldRows)
+  return Object.freeze({
+    reasons: heldReasons,
+    rows: heldRows,
+    schema: Schema.Literal(...heldReasons),
+    classOf: (reason: Reasons[number]): FaultClass.Kind => heldRows[reason].class,
+  })
+}
+
 declare namespace FaultClass {
   type Kinds = typeof _kinds
   type Kind = keyof typeof _rows
   type Blames = typeof _blames
   type Blame = Blames[number]
   type Row = { readonly retryable: boolean; readonly blame: Blame; readonly quarantine: boolean }
+  type FamilyRow = { readonly class: Kind }
   type Contract = { readonly [K in Kinds[number]]: Row }
   type Shape = Types.Simplify<
     typeof _rows & {
@@ -113,6 +134,7 @@ declare namespace FaultClass {
       readonly severity: Order.Order<Kind>
       readonly bounded: Bounded.Bounded<Kind>
       readonly join: Semigroup.Semigroup<Kind>
+      readonly family: typeof _family
       readonly is: (input: unknown) => input is Kind
       readonly of: (fault: unknown) => Kind
       readonly blameOf: (fault: unknown) => Blame
@@ -136,6 +158,7 @@ const FaultClass: FaultClass.Shape = {
   severity: _severity,
   bounded: _bounded,
   join: _join,
+  family: _family,
   is: _is,
   of: _of,
   blameOf: (fault) => _rows[_of(fault)].blame,
@@ -408,3 +431,12 @@ const Degrade: Degrade.Shape = {
 
 export { Budget, Degrade, FaultCapture, FaultClass, FaultEnricher }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

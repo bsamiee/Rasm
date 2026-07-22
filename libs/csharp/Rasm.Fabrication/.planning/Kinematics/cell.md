@@ -14,7 +14,7 @@
 - Cases: `CellTargetPlan.Generated` derives one waypoint per admitted `Move` from a `CellInterpolation` row, a combinable `CellPosture` set, and a `ToolAxisDemand` resolved per waypoint index. `CellTargetPlan.Explicit` admits one `CellWaypoint` per move, and each waypoint selects `CellGoal.Cartesian` or `CellGoal.Joint` while carrying optional `Frame`, `Tool`, `Speed`, `Zone`, and `Command` values with coordinated external axes. Both cases converge on one waypoint series, so target projection, cardinality proof, and per-index fault detail are stated once.
 - Entry: `RobotProgram.Run(RobotCell, Seq<Move>, CellProgramRequest)` dispatches `CellProgramRequest.Motion` and `CellProgramRequest.Placement` over one cell and move admission. `CellLibrary.Run` closes refresh, download, and removal through one bracketed `IO<CellLibraryReceipt>`, while `CellDrive.Run(RobotSystem)` closes upload, play, and pause through one `IO<CellDriveReceipt>` over the system's own `Remote` channel.
 - Auto: aggregate admission accumulates independent `Move.Admit` failures, validates exact waypoint cardinality, enforces joint-vector and external-axis finiteness, and validates program partition indices before any provider constructor runs. `CellProgramRequest.Motion` loads once, projects targets once, compiles once, and reuses the same target set for diagnostics; `CellProgramRequest.Placement` loads once for the whole lattice and moves `RobotSystem.BasePlane` per candidate, because base placement is a frame assignment rather than a cell reload. `Program` owns look-ahead timing and manufacturer emission. Unclassified `KinematicSolution.Errors` remain provider diagnostics and never fabricate a `JointFault` witness, and an absent controller channel fails typed rather than dereferencing a null remote.
-- Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate and its keyed metrics, ranked by the same higher-is-better `Score` polarity `MachineMatch` carries. `CellLibraryReceipt` and `CellDriveReceipt` retain boundary facts without widening the motion wire.
+- Receipt: `CellProgramReceipt.Motion` carries the frozen `FabricationResult.Motion` move, joint, duration, and cell-code wire beside the `CellMotion` evidence that produced it, so per-station flange poses, realized configurations per `MechanicalGroup`, segment durations, and warnings reach the consumer instead of dying at the projection. `CellProgramReceipt.Placement` retains the selected cell with every ranked candidate and its keyed metrics, ranked by the same higher-is-better `Score` polarity `MachineMatch` carries. `CellLibraryReceipt` and `CellDriveReceipt` retain boundary facts without widening the motion wire; the upload arm preserves the posting-owned artifact key beside the exact `Robots.Program` handed to the controller, so `Posting/dialect` binds post-to-machine custody by digest equality with no second identity mint.
 - Packages: `Robots` owns cell loading, Cartesian and joint targets, `RobotSystem.Kinematics`, `RobotSystem.BasePlane`, `PlaneToNumbers`/`NumbersToPlane`, program planning, posts, remotes, and online libraries; `Rhino3dm` stays behind `extern alias R3`; `MathNet.Numerics` owns lattice spacing and placement excursion; NodaTime owns `Duration`; RhinoCommon owns frames, intervals, and transforms; UnitsNet owns feed and angular-rate conversion at the provider boundary; `Thinktecture.Runtime.Extensions` owns generated admission and dispatch; `LanguageExt.Core` owns traversal, typed faults, immutable rows, `IO`, and bracketed lifetime; `Process/owner.md`, `Process/faults.md`, and `Kinematics/machine.md` supply frozen atoms.
 - Growth: a robot motion posture is one `CellInterpolation` row, a target modality is one `CellGoal` case, a target-series policy is one `CellTargetPlan` case, an orientation modality is one `ToolAxisDemand` case on the machine owner, a base-search dimension is one `CellPlacementAxis` row, a placement objective is one `CellPlacementMetric` row, a controller verb is one `CellDrive` case, and an online-library verb is one `CellLibrary` case. Multi-mechanism programs remain one aligned target stream per `MechanicalGroup`, and external-axis values stay on each waypoint.
 - Boundary: `RobotProgram` owns robot-cell kinematics and provider compilation; `MachineTool` owns non-robot topology and motion dynamics; swept cutter and holder collision stay on `Toolpath/guard.md`; CNC AST lowering stays on `Posting/program.md`. `CellWaypoint.Project`, `RobotProgram.PlaceCell`, and `RobotProgram.Rebase` are provider-boundary statement exemptions because provider target construction, RhinoCommon plane mutation, and the `ref`-returning `BasePlane` assignment are imperative seams. Provider strings never select a typed fault, provider geometry never crosses the alias boundary, and no verb family grows beside `RobotProgram.Run`.
@@ -222,26 +222,47 @@ public abstract partial record CellLibrary {
 public abstract partial record CellDrive {
     private CellDrive() { }
 
-    public sealed record Upload(IProgram Program) : CellDrive;
+    public sealed record Upload(
+        Program Program,
+        ContentKey Artifact,
+        Func<Program, ReadOnlyMemory<byte>> Canonicalize) : CellDrive;
     public sealed record Play : CellDrive;
     public sealed record Pause : CellDrive;
 
+    // Delivery custody preserves the posting-owned artifact key at the controller channel.
     public IO<CellDriveReceipt> Run(RobotSystem system) =>
         IO.lift(() => Optional(system).Bind(static host => Optional(host.Remote)))
             .Bind(channel => channel.Match(
                 Some: remote => Switch(
                     state: remote,
-                    upload: static (drive, action) => IO.lift(() => {
-                        drive.Upload(action.Program);
-                        return new CellDriveReceipt(CellDriveKind.Uploaded, toSeq(drive.Log));
-                    }),
+                    upload: static (drive, action) => action.Program is not null
+                        && action.Artifact is { Kind: var kind } && kind == EgressKind.CutProgram
+                        && action.Canonicalize is not null
+                            ? IO.lift(() => action.Canonicalize(action.Program))
+                                .Bind(bytes => ContentKey.Of(EgressKind.CutProgram, bytes.Span) is var transferred
+                                    && transferred.Digest == action.Artifact.Digest
+                                        ? IO.lift(() => {
+                                            drive.Upload(action.Program);
+                                            return new CellDriveReceipt(
+                                                CellDriveKind.Uploaded,
+                                                toSeq(drive.Log),
+                                                Some(transferred),
+                                                Optional(drive.IP));
+                                        })
+                                        : IO.fail<CellDriveReceipt>(
+                                            new GeometryFault.DegenerateInput(
+                                                Kind.Curve,
+                                                -1,
+                                                "robot-cell:upload-digest").ToError()))
+                            : IO.fail<CellDriveReceipt>(
+                                new GeometryFault.DegenerateInput(Kind.Curve, -1, "robot-cell:upload-artifact").ToError()),
                     play: static (drive, _) => IO.lift(() => {
                         drive.Play();
-                        return new CellDriveReceipt(CellDriveKind.Playing, toSeq(drive.Log));
+                        return new CellDriveReceipt(CellDriveKind.Playing, toSeq(drive.Log), None, Optional(drive.IP));
                     }),
                     pause: static (drive, _) => IO.lift(() => {
                         drive.Pause();
-                        return new CellDriveReceipt(CellDriveKind.Paused, toSeq(drive.Log));
+                        return new CellDriveReceipt(CellDriveKind.Paused, toSeq(drive.Log), None, Optional(drive.IP));
                     })),
                 None: () => IO.fail<CellDriveReceipt>(
                     new GeometryFault.DegenerateInput(Kind.Curve, -1, "robot-cell:remote-absent").ToError())));
@@ -290,7 +311,7 @@ public sealed partial class CellWaypoint {
     internal static Fin<CellWaypoint> Generated(Move move, int index, CellTargetPlan.Generated plan, RobotCell cell, InversePolicy inverse) =>
         plan.Orientation
             .AxisAt(index, cell.ToolFrame, inverse.ConeSamples)
-            .Map(axis => new Plane(TargetOf(move), axis))
+            .Map(axis => new Plane(move.Target, axis))
             .Map(pose => Create(
                 goal: new CellGoal.Cartesian(
                     Some(pose),
@@ -341,7 +362,7 @@ public sealed partial class CellWaypoint {
         return Goal.Switch(
             state: (Cell: cell, Move: move, Tool: tool, Speed: speed, Zone: zone, Frame: frame, Command: command, External: external, Custom: externalCustom),
             cartesian: static (state, goal) => new CartesianTarget(
-                plane: RobotBoundary.ToR3(goal.Pose.IfNone(new Plane(TargetOf(state.Move), state.Cell.ToolFrame.XAxis, state.Cell.ToolFrame.YAxis))),
+                plane: RobotBoundary.ToR3(goal.Pose.IfNone(new Plane(state.Move.Target, state.Cell.ToolFrame.XAxis, state.Cell.ToolFrame.YAxis))),
                 configuration: CellPosture.Project(goal.Posture).Map(static value => (RobotConfigurations?)value).IfNone((RobotConfigurations?)null),
                 motion: goal.Interpolation.Native,
                 tool: state.Tool,
@@ -362,10 +383,6 @@ public sealed partial class CellWaypoint {
                 externalCustom: state.Custom));
     }
 
-    private static Point3d TargetOf(Move move) => move.Switch(
-        rapid: static row => row.Target,
-        linear: static row => row.Target,
-        circular: static row => row.Target);
 }
 
 [ComplexValueObject]
@@ -463,7 +480,7 @@ public sealed partial class CellPlacementPolicy {
 
 public sealed record CellLibraryReceipt(Seq<string> Names);
 
-public sealed record CellDriveReceipt(CellDriveKind Kind, Seq<string> Log);
+public sealed record CellDriveReceipt(CellDriveKind Kind, Seq<string> Log, Option<ContentKey> Uploaded, Option<string> Controller);
 
 public sealed record CellStation(
     int Index,
@@ -735,3 +752,12 @@ flowchart LR
     class Library,Drive boundary
     class Fault error
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

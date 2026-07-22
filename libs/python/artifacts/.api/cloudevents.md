@@ -10,7 +10,7 @@ Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 i
 
 [PACKAGE_SURFACE]: `cloudevents`
 - package: `cloudevents`
-- import: `cloudevents.core.v1.event`, `cloudevents.core.formats`, `cloudevents.core.bindings`, and the separate `cloudevents.v1.http`, `cloudevents.v1.kafka`, `cloudevents.v1.pydantic`, `cloudevents.v1.conversion`, `cloudevents.v1.abstract`, and `cloudevents.v1.exceptions` family
+- import: `cloudevents.core.spec`, `cloudevents.core.v1.event`, `cloudevents.core.formats`, `cloudevents.core.bindings`, and the separate `cloudevents.v1.http`, `cloudevents.v1.kafka`, `cloudevents.v1.pydantic`, `cloudevents.v1.conversion`, `cloudevents.v1.abstract`, and `cloudevents.v1.exceptions` family
 - owner: `artifacts`
 - rail: delivery-notice
 - license: Apache-2.0
@@ -24,7 +24,7 @@ Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 i
 [PUBLIC_TYPE_SCOPE]: separately packaged `cloudevents.v1.*` envelope and faults
 - rail: delivery-notice
 
-`cloudevents.v1.http.CloudEvent` and `cloudevents.v1.pydantic.CloudEvent` back the shared `cloudevents.v1.abstract.CloudEvent` contract — a dict-backed event and a validating `pydantic.BaseModel` event. Attributes are a `Mapping[str, Any]` of spec-reserved and arbitrary extension keys, and `data` is any payload. Distributed tracing uses the `traceparent`/`tracestate` extension attributes in that mapping. `SpecVersion` selects `v1_0` or `v0_3`, and every fault subclasses `GenericException`.
+`cloudevents.v1.http.CloudEvent` and `cloudevents.v1.pydantic.CloudEvent` back the shared `cloudevents.v1.abstract.CloudEvent` contract — a dict-backed event and a validating `pydantic.BaseModel` event. Attributes are a `Mapping[str, Any]` of spec-reserved and arbitrary extension keys, and `data` is any payload. Distributed tracing uses the `traceparent`/`tracestate` extension attributes in that mapping. `cloudevents.core.spec.SpecVersion` is `Literal["1.0", "0.3"]`; `SPECVERSION_V1_0` and `SPECVERSION_V0_3` carry those string constants. Every fault subclasses `GenericException`.
 
 | [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]           | [CAPABILITY]                                   |
 | :-----: | :------------------------------------------------ | :----------------------- | :--------------------------------------------- |
@@ -33,12 +33,13 @@ Artifacts `delivery/notice` composes it into `TransmittalNotice`: an ISO 19650 i
 |  [03]   | `cloudevents.v1.pydantic.CloudEvent`              | validated envelope       | `BaseModel` event with field validation        |
 |  [04]   | `cloudevents.v1.kafka.KafkaMessage`               | transport value          | `NamedTuple(headers, key, value)`, broker-free |
 |  [05]   | `cloudevents.v1.kafka.KeyMapper`                  | key-derivation callable  | `Callable[[CloudEvent], str]` partition mapper |
-|  [06]   | `SpecVersion`                                     | spec-version axis (enum) | `v1_0` / `v0_3` spec selector                  |
-|  [07]   | `GenericException`                                | envelope fault base      | `Exception` subclass; every fault descends     |
-|  [08]   | `MissingRequiredFields` / `InvalidRequiredFields` | attribute fault          | required absence / malformed required value    |
-|  [09]   | `InvalidStructuredJSON` / `InvalidHeadersFormat`  | wire fault               | structured-body / binary-header decode failure |
-|  [10]   | `DataMarshallerError` / `DataUnmarshallerError`   | payload fault            | data marshaller raised on encode/decode        |
-|  [11]   | `PydanticFeatureNotInstalled`                     | optional-feature fault   | `pydantic` binding used without the extra      |
+|  [06]   | `cloudevents.core.spec.SpecVersion`               | spec-version type alias  | `Literal["1.0", "0.3"]`                       |
+|  [07]   | `SPECVERSION_V1_0` / `SPECVERSION_V0_3`           | spec-version constants   | `"1.0"` / `"0.3"`                              |
+|  [08]   | `GenericException`                                | envelope fault base      | `Exception` subclass; every fault descends     |
+|  [09]   | `MissingRequiredFields` / `InvalidRequiredFields` | attribute fault          | required absence / malformed required value    |
+|  [10]   | `InvalidStructuredJSON` / `InvalidHeadersFormat`  | wire fault               | structured-body / binary-header decode failure |
+|  [11]   | `DataMarshallerError` / `DataUnmarshallerError`   | payload fault            | data marshaller raised on encode/decode        |
+|  [12]   | `PydanticFeatureNotInstalled`                     | optional-feature fault   | `pydantic` binding used without the extra      |
 
 ## [03]-[ENTRYPOINTS]
 

@@ -8,7 +8,7 @@ Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async
 
 - [01]-[LANE_AXIS]: bounded channel rows; capacity, full-mode, readers, rank as row data.
 - [02]-[SOLVE_GUARD]: one enqueue capsule; solve threads receive handles, never execute work.
-- [03]-[CPU_BUDGET]: one processor-budget record shared by lane, model, and tensor concurrency.
+- [03]-[CPU_BUDGET]: one processor-budget record shared by lane, model, tensor, and optimizer concurrency; utilization-governed re-resolution at collection cadence.
 - [04]-[JOB_GRAPH]: batch-wave dependency scheduler; speculative run-ahead, QoS-weighted fair-share and gang admission, cooperative spill, content-key reactive reconcile, rolled-up live DAG progress aggregate.
 - [05]-[DRAIN_CANCEL]: band-200 drain participation; one linked cancellation chain with provenance.
 
@@ -16,7 +16,7 @@ Clusters own the `WorkLane` axis, the work-item and handle shapes, the GH2 async
 
 - Owner: `WorkLane` `[SmartEnum<string>]` rows under the `ComparerAccessors.StringOrdinal` accessor; `LaneHandle` readback handle; `WorkItem` channel element.
 - Cases: interactive, background, bulk, benchmark, capture-ingest.
-- Entry: `public BoundedChannelOptions Options(CpuBudget budget)` — pure row projection; capacity, full-mode, and reader fan-out are row data, never call-site arguments.
+- Entry: `public BoundedChannelOptions Options(CpuBudget budget)` — pure row projection; capacity, full-mode, reader fan-out, and continuation isolation are row data, never call-site arguments.
 - Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; receipted-loss rows construct their channel with the drop delegate so every drop lands as a `Backpressure` receipt carrying the dropped item's correlation, never a silent loss; the queue-depth slot reads `ChannelReader<WorkItem>.Count` on the lane's reader at stamp time, never a hand-tracked counter.
 - Receipt: Backpressure — lane row, queue depth from `ChannelReader.Count`, wait elapsed on a parked write, or dropped-item correlation on a `DropWrite`/`DropOldest` lane — materialized at the sink edge on the package receipt union.
 - Packages: BCL inbox, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
@@ -48,6 +48,7 @@ public sealed partial class WorkLane {
         FullMode = FullMode,
         SingleReader = Readers(budget) is 1,
         SingleWriter = false,
+        AllowSynchronousContinuations = false,
     };
 }
 
@@ -153,23 +154,27 @@ flowchart LR
 
 ## [04]-[CPU_BUDGET]
 
-- Owner: `CpuBudget` — the one processor-budget record lane, model, and tensor concurrency read.
-- Entry: `public static CpuBudget Resolve(int processors, int hostReserve)` — pure clamp; the record freezes at composition and every derived field is arithmetic over the two inputs.
-- Auto: the composition root resolves the record once from `Environment.ProcessorCount` and the posture row; lane readers clamp through `Readers`, the model lane sizes its one global ORT thread pool from `OrtIntraOp` and `OrtInterOp` with per-session threads disabled and binds `OrtThreadingOptions.GlobalSpinControl` from `SpinControl`, and the tensor-lane `Partition` execution column reads `PartitionCap` for its `ParallelHelper.For` partition count behind a winning benchmark claim — this record owns the cap, Tensor/dispatch#KERNEL_DISPATCH owns the fan-out.
-- Packages: BCL inbox
-- Growth: one posture row per new host-profile row and one policy value per new concurrency axis; zero new surface.
-- Boundary: lane readers, the model thread pool, and tensor partitions all read this record — a concurrency value not traced here is the named defect, and a `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis.
+- Owner: `CpuBudget` — the one live resource-budget record lane, model, tensor, optimizer, and job runners read, including the pressure-derived memory scale; `UtilizationSample` — the typed process/container utilization snapshot the governor folds; `GovernorPolicy` — the shed/restore/spill threshold-and-hysteresis policy; `ResourceGovernor` — the utilization fold re-resolving the live budget at collection cadence, with only a landed transition carrying a `Governor` fact.
+- Entry: `public static CpuBudget Resolve(int processors, int hostReserve, double memoryScale = 1d)` — pure clamp; every derived field is arithmetic over those inputs. `public Fin<(CpuBudget Budget, Option<ComputeReceipt.Governor> Fact)> ResourceGovernor.Steer(UtilizationSample sample, CorrelationId correlation)` — one sample advances the effective reserve and memory scale under policy hysteresis, re-resolves the record, and swaps the live cell; `Fact` is absent when neither posture changes. `JobGraph` reads `Current` at invocation, and the optimizer binds it at entry.
+- Auto: the composition root resolves the posture record once from `Environment.ProcessorCount` and the posture row, then mints one `ResourceGovernor` over it; utilization samples arrive as typed `UtilizationSample` values the AppHost composition sources from the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` observable instruments (one `MeterListener` on the package meter at collection cadence — the `IResourceMonitor`/`ResourceUtilization` snapshot API is obsolete `EXTOBS0001` and never composed); lane readers clamp through `Readers`, the model lane sizes its one global ORT thread pool from `OrtIntraOp` and `OrtInterOp` with per-session threads disabled and binds `OrtThreadingOptions.GlobalSpinControl` from `SpinControl`, the tensor-lane `Partition` execution column reads `PartitionCap` for its `ParallelHelper.For` partition count behind a winning benchmark claim — this record owns the cap, Tensor/dispatch#KERNEL_DISPATCH owns the fan-out — and `Optimizer.Optimize` projects `Workers` into its executor policy at entry; spill scale admits only the strict reduction interval `(0, 1)`, memory spill enters at `SpillMemoryPercent`, holds through the hysteresis band, and restores only at `RestoreMemoryPercent`.
+- Receipt: Governor — cpu and memory percentages, the re-resolved `Workers`/`ReaderCeiling`/`PartitionCap`, the effective memory scale, and the spill-pressure flag, process-scoped and emitted only when an adjustment or spill transition lands, so a steady host stays silent.
+- Packages: BCL inbox, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
+- Growth: one posture row per new host-profile row, one policy value per new concurrency axis, and one `GovernorPolicy` column per new pressure axis; zero new surface — a second scheduler, a `LoadShedder` sibling, or a governor mutating lane rows directly is the rejected form because every consumer already reads the one budget record.
+- Boundary: every concurrency axis derives from this record, but binding cadence stays honest: `JobGraph.Run` and `Optimizer.Optimize` read the governed value per invocation; `LaneRuntime`, the ORT global pool, and tensor partitions read it when their owning capsule constructs. AppHost rebuilds those capsules after a transition when live rebinding is required. A `ParallelHelper.For` degree, a second `Partitioner`/`ParallelRunner` owner, or a `Parallel.For` partition sized off the host total rejects because `PartitionCap` owns tensor fan-out. Plugin rows reserve host cores for Rhino UI and solver threads; service rows own the machine. `ReaderCeiling` halves the worker pool because readers park on kernel and remote completions while the global pool carries arithmetic. `SpinControl` derives from `HostReserve`: co-tenanted hosts surrender ORT spin, while machine-owning service rows retain it. `processors` comes from the AppHost `PressurePolicy` container-limit grade when present, so one constraint re-caps every axis. Governance moves the effective reserve and memory scale — `Steer` widens reserve one `ReserveStep` at or above `ShedCpuPercent`, decays it toward the posture reserve at or below `RestoreCpuPercent`, and holds inside the CPU hysteresis band; memory enters spill posture at `SpillMemoryPercent`, holds that posture through the memory hysteresis band, and restores at or below `RestoreMemoryPercent`. `JobGraph` seals the scaled `MemoryBudgetBytes` onto each `JobRun`, so its runner receives the effective limit that triggers an earlier `JobSignal.Spilled`. Mid-wave budget stays stable; a running wave completes under its planned value, and the next invocation rebinds.
 
 ```csharp signature
 public sealed record CpuBudget {
-    private CpuBudget(int total, int hostReserve) {
+    private CpuBudget(int total, int hostReserve, double memoryScale) {
         Total = total;
         HostReserve = hostReserve;
+        MemoryScale = memoryScale;
     }
 
     public int Total { get; }
 
     public int HostReserve { get; }
+
+    public double MemoryScale { get; }
 
     public int Workers => Math.Max(1, Total - HostReserve);
 
@@ -183,9 +188,71 @@ public sealed record CpuBudget {
 
     public bool SpinControl => HostReserve is 0;
 
-    public static CpuBudget Resolve(int processors, int hostReserve) {
+    public long MemoryLimit(long admittedBytes) {
+        if (admittedBytes <= 0L) { return 0L; }
+        double scaled = Math.Floor(admittedBytes * MemoryScale);
+        return scaled >= long.MaxValue ? long.MaxValue : Math.Max(1L, (long)scaled);
+    }
+
+    public static CpuBudget Resolve(int processors, int hostReserve, double memoryScale = 1d) {
         int total = Math.Max(1, processors);
-        return new(total, Math.Clamp(hostReserve, 0, total - 1));
+        double scale = double.IsFinite(memoryScale) ? Math.Clamp(memoryScale, double.Epsilon, 1d) : 1d;
+        return new(total, Math.Clamp(hostReserve, 0, total - 1), scale);
+    }
+}
+
+public readonly record struct UtilizationSample(double CpuPercent, double MemoryPercent, ulong MemoryBytes, Instant At) {
+    public bool Invalid =>
+        !double.IsFinite(CpuPercent) || CpuPercent is < 0d or > 100d
+        || !double.IsFinite(MemoryPercent) || MemoryPercent is < 0d or > 100d;
+}
+
+public sealed record GovernorPolicy(double ShedCpuPercent, double RestoreCpuPercent, double SpillMemoryPercent, double RestoreMemoryPercent, double SpillMemoryScale, int ReserveStep) {
+    public static readonly GovernorPolicy Canonical = new(ShedCpuPercent: 85d, RestoreCpuPercent: 55d, SpillMemoryPercent: 80d, RestoreMemoryPercent: 65d, SpillMemoryScale: 0.5d, ReserveStep: 1);
+
+    public bool Invalid =>
+        !double.IsFinite(ShedCpuPercent) || !double.IsFinite(RestoreCpuPercent)
+        || !double.IsFinite(SpillMemoryPercent) || !double.IsFinite(RestoreMemoryPercent)
+        || RestoreCpuPercent >= ShedCpuPercent || ShedCpuPercent > 100d || RestoreCpuPercent < 0d
+        || RestoreMemoryPercent < 0d || RestoreMemoryPercent >= SpillMemoryPercent || SpillMemoryPercent > 100d
+        || !double.IsFinite(SpillMemoryScale) || SpillMemoryScale is <= 0d or >= 1d
+        || ReserveStep < 1;
+}
+
+// Utilization fold: adjustment moves the effective reserve and memory scale, so every governed limit re-derives
+// through Resolve; the posture reserve is the decay floor and Total - 1 the widening ceiling.
+public sealed class ResourceGovernor(CpuBudget posture, GovernorPolicy policy) {
+    private readonly record struct GovernorState(CpuBudget Budget, bool Changed);
+
+    private readonly Atom<GovernorState> live = Atom(new GovernorState(posture, Changed: false));
+
+    public CpuBudget Current => live.Value.Budget;
+
+    public bool SpillPressure => live.Value.Budget.MemoryScale < 1d;
+
+    public Fin<(CpuBudget Budget, Option<ComputeReceipt.Governor> Fact)> Steer(UtilizationSample sample, CorrelationId correlation) {
+        if (sample.Invalid || policy.Invalid) { return Fin.Fail<(CpuBudget, Option<ComputeReceipt.Governor>)>(ComputeFault.Create("<governor-invalid-input>")); }
+        GovernorState next = live.Swap(held => {
+            int reserve = sample.CpuPercent >= policy.ShedCpuPercent
+                ? Math.Min(held.Budget.HostReserve + policy.ReserveStep, held.Budget.Total - 1)
+                : sample.CpuPercent <= policy.RestoreCpuPercent
+                    ? Math.Max(held.Budget.HostReserve - policy.ReserveStep, posture.HostReserve)
+                    : held.Budget.HostReserve;
+            double memoryScale = held.Budget.MemoryScale < 1d
+                ? sample.MemoryPercent <= policy.RestoreMemoryPercent ? 1d : policy.SpillMemoryScale
+                : sample.MemoryPercent >= policy.SpillMemoryPercent ? policy.SpillMemoryScale : 1d;
+            CpuBudget budget = CpuBudget.Resolve(held.Budget.Total, reserve, memoryScale);
+            return new GovernorState(
+                budget,
+                budget.HostReserve != held.Budget.HostReserve || budget.MemoryScale != held.Budget.MemoryScale);
+        });
+        return Fin.Succ((next.Budget, next.Changed
+            ? Some(new ComputeReceipt.Governor(
+                sample.CpuPercent, sample.MemoryPercent, next.Budget.Workers, next.Budget.ReaderCeiling, next.Budget.PartitionCap,
+                next.Budget.MemoryScale, next.Budget.MemoryScale < 1d) {
+                    Scope = new ReceiptScope.Process(correlation, AllocationClass.SpanStack),
+                })
+            : None));
     }
 }
 ```
@@ -209,7 +276,7 @@ A posture row supplies `hostReserve` per host-profile row at composition:
 - Cases: `JobState` rows pending · ready · running · speculative · preempted · spilled · completed · faulted; `JobSignal` cases completed · faulted · spilled.
 - Entry: `public (Option<ProgressCell> Progress, IO<Fin<JobLedger>> Ledger) Run(Seq<JobNode> nodes, CpuBudget budget, CorrelationId correlation, CancelScope scope, IClock clock, TimeProvider time)` — `Progress` is absent when no admitted node requested observation, while `Ledger` carries graph admission and execution; `GraphRejected`, `GraphCyclic`, and `GraphStalled` abort on the typed rail, and `Reconcile` mirrors the pair shape.
 - Auto: `Run` admits graph invariants before execution, then `Fill` repeatedly chooses the highest-ranked currently eligible gang unit against the evolving wave state, so launching an upstream node makes its speculative descendants eligible in the same wave; each unit admits all-or-none under the global and tenant shares, and an empty launch frontier with nonterminal nodes faults `GraphStalled` instead of recurring. `affinityRank` resolves each `AcceleratorAffinity` key against the composition-owned device roster instead of treating every present key alike. Each launch carries its computed `NodeKey`; resume accepts only a checkpoint with the same node id and content key, and a runner-emitted mismatched checkpoint becomes `CheckpointRejected` before persistence. Each wave projects `JobState.Phase` onto subscribed cells, forks admitted runners, advances reports, and poisons fault cones.
-- Receipt: the graph emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` plus the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
+- Receipt: the graph emits no `ComputeReceipt` case of its own — each node's execution rides its lane's existing receipts (`Backpressure` and the substrate-lane facts the runner emits), and the `JobLedger` carries the graph-level fact: node count, the completed/faulted split, and the speculated/preempted/spilled tally with elapsed; a `Sweep`/`JobReceipt` case on the per-execution receipt union — whose required `(Lane, Substrate)` spine no whole graph carries — is the rejected form, and the live DAG progress rides the rolled-up parent `ProgressCell` (a monotonic `ProgressMark`, not a receipt fact) orthogonal to the post-hoc `JobLedger` count.
 - Packages: BCL inbox, System.IO.Hashing, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new node lifecycle is one `JobState` row carrying its `Phase` column; a new scheduling policy is one column on `JobNode` the planning fold reads; the reactive recompute is the one `Reconcile` content-key diff over the existing edges; the transitive downstream closure is one `Closure` fixpoint shared by `MarkDirty` and `Poison`; the cycle test is `Cyclic` derived from the one `Topological` Kahn's kernel; zero new surface — a `JobScheduler`/`WorkflowEngine`/`DagRunner`/`IncrementalEngine` sibling surface is the rejected form collapsed onto the one `JobGraph` over the shared `CpuBudget` and the injected runner.
 - Boundary: the job graph forks each node's injected `runner` and owns only dependency order; a node never also enters `LaneRuntime`. Graph admission rejects empty graphs, duplicate ids, missing or self dependencies, mixed-tenant gangs, and cycles before a runner executes. Fair-share reads the per-tenant `QosWeight` slice of `CpuBudget.Workers`; a gang admits as one unit, and a unit larger than every available slice faults through `GraphStalled`. `Preempted` means a preemptible node yielded before launch, while `Spilled` means its runner returned a content-keyed checkpoint; resume never accepts a checkpoint from another semantic node revision, and a deferred wave never demotes a resumable state — a spilled node's checkpoint survives deferral because `Spilled`/`Preempted` hold until launch. `NodeKey` hashes `AdmittedIntent.Digest`, input bytes, and ordered upstream keys, so changing the operation with identical bytes dirties the cone. `MarkDirty` intersects change ids with the live graph before closure, preventing a removed id from reappearing in state. `IClock` supplies semantic instants and `TimeProvider` supplies elapsed measurement; App-owned `ClockPolicy` stays at composition.
@@ -247,11 +314,11 @@ public sealed record JobCheckpoint(string NodeId, UInt128 ContentKey, ReadOnlyMe
 
 public sealed record CheckpointPort(
     Func<JobCheckpoint, IO<Unit>> Persist,
-    Func<string, IO<Option<JobCheckpoint>>> Resume);
+    Func<string, UInt128, IO<Option<JobCheckpoint>>> Resume);
 
 public readonly record struct JobReport(string NodeId, JobSignal Signal);
 
-public readonly record struct JobRun(JobNode Node, Option<JobCheckpoint> Resume);
+public readonly record struct JobRun(JobNode Node, Option<JobCheckpoint> Resume, long MemoryBudgetBytes);
 
 public readonly record struct JobTally(int Speculated, int Preempted, int Spilled);
 
@@ -362,7 +429,7 @@ public sealed class JobGraph(
         JobWave wave = Plan(nodes, states, budget, keys);
         return wave.Launches.IsEmpty
             ? IO.pure(Fin.Fail<JobLedger>(new ComputeFault.GraphStalled(string.Join(',', states.Filter(static (_, state) => !state.Terminal).Keys))))
-            : from reports in Execute(wave.Launches)
+            : from reports in Execute(wave.Launches, budget)
               from done in Drive(
                   nodes,
                   budget,
@@ -454,14 +521,14 @@ public sealed class JobGraph(
             || (state == JobState.Pending && node.Speculable(states))
             || state.Resumable).IfNone(false);
 
-    private IO<Seq<JobReport>> Execute(Seq<JobLaunch> launches) =>
+    private IO<Seq<JobReport>> Execute(Seq<JobLaunch> launches, CpuBudget budget) =>
         from forks in launches.TraverseM(launch =>
             from resume in launch.Resume
-                ? checkpoints.Resume(launch.Node.Id).Map(checkpoint => checkpoint.Filter(row => row.NodeId == launch.Node.Id && row.ContentKey == launch.Key))
+                ? checkpoints.Resume(launch.Node.Id, launch.Key).Map(checkpoint => checkpoint.Filter(row => row.NodeId == launch.Node.Id && row.ContentKey == launch.Key))
                 : IO.pure(Option<JobCheckpoint>.None)
             from fork in (launch.Resume && resume.IsNone
                 ? IO.pure(new JobReport(launch.Node.Id, new JobSignal.Faulted(new ComputeFault.CheckpointRejected($"{launch.Node.Id}:{launch.Key}"))))
-                : runner(new JobRun(launch.Node, resume))
+                : runner(new JobRun(launch.Node, resume, budget.MemoryLimit(launch.Node.MemoryBudgetBytes)))
                     .Map(signal => new JobReport(launch.Node.Id, Verified(launch, signal))))
                 .Fork()
             select fork).As()
@@ -630,3 +697,4 @@ public static class LaneDrain {
 - [LANE_EVIDENCE]-[OPEN]: does the drop-path `Backpressure` projection allocate only the receipt envelope at the sink edge under sustained `DropOldest` capture-ingest load, given the bounded-channel `itemDropped` callback runs synchronously on the writer thread; implementation-time per-drop allocation profile.
 - [WAVE_PARALLELISM]-[OPEN]: does the `ForkIO` wave overlap every admitted node's `runner` before awaiting so concurrency is the forked overlap bounded by the per-tenant `CpuBudget.Workers` slice, not the wave's await order; implementation-time wall-clock span of a fan-out-heavy frontier against the serial-await lower bound.
 - [COOPERATIVE_SPILL]-[OPEN]: does a node past its `MemoryBudgetBytes` self-report `JobSignal.Spilled` carrying the `JobCheckpoint` its runner produced at the cooperative yield point so a resume reloads exactly those bytes; implementation-time checkpoint size and resume-warm latency under preemption pressure.
+- [GOVERNOR_SERIES]-[OPEN]: which exact observable-instrument names on the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` meter carry the process/container CPU and memory utilization the AppHost `MeterListener` projects into `UtilizationSample` (the `IResourceMonitor` snapshot API is obsolete `EXTOBS0001`); `tools.assay api query` over the package instrument mints and the package release notes.

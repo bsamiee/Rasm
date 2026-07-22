@@ -1,6 +1,6 @@
 # [RUNTIME_CLIENT]
 
-Outbound HTTP policy is one lane table, composed once, inherited everywhere: every branch egress — AI provider calls, runner discovery, OTLP export, the config chain's remote stage — dials through one entry that applies its lane's status admission, transient retry, redirect ceiling, total budget, circuit admission, and W3C trace propagation as composed transformers over the shared `HttpClient` the runtime row provided. A lane is a policy row whose durations are the core budget ledger's — each row names its `Budget` kind, its retry pulse compiles from that row's axes, and its total budget is that row's `total` — so retry posture is one cross-language ledger and no per-lane duration literal exists. The circuit ledger is the branch's one breaker owner: a keyed closed→open→half-open cell folded purely and applied as a guard transformer, riding every dial by row and exported so the fanout publish and the delivery transmit inherit the identical admission law. Transport residency tunes beneath the table: the undici dispatcher rows — connection ceilings, pipelining, keep-alive — pin under the node row's client at the root, so pooling is dispatcher configuration and policy is composed transformers, one client, both concerns. A per-folder client, a bare `fetch`, a call-site retry loop, a hand breaker beside the ledger, and a second timeout convention are the named defects; framed and server-sent transport is `channel`'s. The module is `runtime/src/net/client.ts`.
+Outbound HTTP policy is one lane table, composed once, inherited everywhere: every branch egress — AI provider calls, runner discovery, OTLP export, the config chain's remote stage — dials through one entry that applies its lane's status admission, transient retry, redirect ceiling, total budget, circuit admission, and W3C trace propagation as composed transformers over the shared `HttpClient` the runtime row provided. A lane is a policy row whose durations are the core budget ledger's — each row names its `Budget` kind, its retry pulse compiles from that row's axes, and its total budget is that row's `total` — so retry posture is one cross-language ledger and no per-lane duration literal exists. This circuit ledger is the branch's one breaker owner: a keyed closed→open→half-open cell folded purely and applied as a guard transformer, riding every dial by row and exported so the fanout publish and the delivery transmit inherit the identical admission law. Transport residency tunes beneath the table: the undici dispatcher rows — connection ceilings, pipelining, keep-alive — pin under the node row's client at the root, so pooling is dispatcher configuration and policy is composed transformers, one client, both concerns. A per-folder client, a bare `fetch`, a call-site retry loop, a hand breaker beside the ledger, and a second timeout convention are the named defects; framed and server-sent transport is `channel`'s. This module is `runtime/src/net/client.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -10,22 +10,21 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 |  [02]   | `BREAK_STATE`   | the keyed circuit ledger — pure admission/settle folds, the guard transformer | `Breaker`, `Lapse` |
 |  [03]   | `DIAL_SEAM`     | the one entry, the budget geometry, the consumer law                          | `Client`           |
 |  [04]   | `DISPATCH_ROWS` | undici dispatcher tuning beneath the node row's client                        | root data          |
+|  [05]   | `CONNECT_ROW`   | the Connect/gRPC dispatch row — transport table and lane inheritance          | `Rpc`              |
 
 ## [02]-[LANE_ROWS]
 
 [LANE_ROWS]:
-
 - Owner: the interior `_lanes` anchor — `live` (interactive calls), `batch` (bulk and export egress), `feed` (long-lived streaming responses) — each row carrying `kind` (the `core/value/fault#RETRY_BUDGET` ledger row the lane's durations read), `budget` (`Option<Duration>` — the ledger row's `total` on the settled lanes, stated absence on `feed` because the connection outlives any deadline), `hops` (the redirect ceiling, zero on `feed`), and `break` (`Option<Breaker.Policy>` — the circuit row the guard reads; stated absence on `feed` because the reconnect pulse already paces re-dials).
 - Law: the pulse is the ledger owner's own compile — `Budget.schedule(kind, Function.constTrue)` hands the lane the shared compiled base with the class gate stood down, because `HttpClient.retryTransient` already gates transience at the transport altitude; no lane re-spells the compile chain, so tuning a lane is editing the ledger row and every consumer of that lane inherits the edit at once.
-- Law: the row guard closes the member set and the table grows by evidence — `_Rows` proves every lane carries the full policy complement, the anchor itself is the lane set, and a genuinely new egress contract (a webhook lane, a hedged lane) is one row plus zero new surface.
+- Law: the row guard closes the member set and the table grows by evidence — `_Rows` proves every lane carries the full policy complement, the anchor itself is the lane set, and a genuinely new egress contract (a webhook lane, a hedged lane) is one row and zero new surface.
 - Boundary: proxy is transport residency, not per-call policy — the lane table carries no proxy knob, the browser lane has none by construction, and the dispatcher rows in `[5]` own residency.
 - Packages: `effect` (`Duration`, `Function`, `Option`), `@rasm/ts/core` (`Budget`).
 
 ## [03]-[BREAK_STATE]
 
 [BREAK_STATE]:
-
-- Owner: `Breaker` — the one circuit owner of the branch. A circuit is a keyed cell holding one closed `Data.taggedEnum` state family — `Closed` carrying its generation and fault count, `Open` its generation and reopen instant, `Half` its generation and probe ration, so an invalid field combination is unconstructible — whose transitions are two total `$match` folds: `_admitted` returns the admitted generation and advances `Open→Half` when the cool window lapses, `_settled` accepts only an outcome from that generation, success advances to a fresh closed generation, and failure opens a fresh generation after a half-open fault or trip-count breach. `Breaker.guard(key, policy)` is the transformer any egress effect composes; the dial keys it by lane plus request origin — path and query variants share one circuit because they share the remote's fate — and fanout publish and delivery transmit compose the same guard under their own identities.
+- Owner: `Breaker` — the one circuit owner of the branch. A circuit is a keyed cell holding one closed `Data.taggedEnum` state family — `Closed` carrying its generation and fault count, `Open` its generation and reopen instant, `Half` its generation and probe ration, so an invalid field combination is unconstructible — whose transitions are two total `$match` folds: `_admitted` returns the admitted generation and advances `Open→Half` when the cool window lapses, `_settled` accepts only an outcome from that generation, success advances to a fresh closed generation, and failure opens a fresh generation after a half-open fault or trip-count breach. `Breaker.guard(key, policy)` is the transformer any egress effect composes; the dial keys it by lane and request origin — path and query variants share one circuit because they share the remote's fate — and fanout publish and delivery transmit compose the same guard under their own identities.
 - Law: state rides `Ref.modify` — admission and settlement are atomic pure folds over the cell, so concurrent dials race on the ledger, never on a lock, and the machine is replayable from its fold functions alone; a new circuit state is one case row breaking both folds loudly at their `$match` records, never a widened field bag.
 - Law: rejection is `Lapse` evidence — `reason: "break"`, class `unavailable`, the policy's `cool` as the spent span — so an open circuit routes through the same budget gate as every transient and no second shed fault exists.
 - Law: the registry is a `Context.Reference` — cells key by guard key in one `MutableHashMap` default bounded by the capacity row: a mint at capacity flushes the ledger to rest, so degradation is a cold circuit, never process-lifetime memory growth; the requirement channel stays clean (`R` never grows), and a root or proof overrides the whole ledger by providing the Reference. Exemption: `_cell` is the one statement kernel — the synchronous mint-or-get, with the capacity flush, against the registry map.
@@ -123,13 +122,12 @@ const Breaker = { guard: _guard } as const;
 ## [04]-[DIAL_SEAM]
 
 [DIAL_SEAM]:
-
 - Owner: `Client.dial` — the one entry. Modality follows the call shape: `dial(lane, request)` yields the scoped `HttpClientResponse` (the caller owns the body's lifetime — the `feed` posture); `dial(lane, request, shape)` fuses execution, status admission, bounded body materialization through `HttpIncomingMessage.withMaxBodySize`, JSON-body decode through `HttpClientResponse.schemaBodyJson`, and scope closure into one self-contained step; both apply the lane's transformers — `HttpClient.filterStatusOk`, `HttpClient.followRedirects`, `HttpClient.retryTransient({ schedule })`, `HttpClient.withTracerPropagation(true)` — over the client yielded from the requirement channel.
-- Law: budget geometry is stated, not accidental — the lane budget is the TOTAL budget, applied above transient retry and, on the settled modality, above body drain plus Schema decode, so retries and a slow body spend the same allowance; a per-attempt sub-budget is deliberately not a knob, and a surface needing one composes the ledger row's `attempt` duration as its own `Effect.fn` pipeline step under the rails layering law.
+- Law: budget geometry is stated, not accidental — the lane budget is the TOTAL budget, applied above transient retry and, on the settled modality, above body drain and Schema decode, so retries and a slow body spend the same allowance; a per-attempt sub-budget is deliberately not a knob, and a surface needing one composes the ledger row's `attempt` duration as its own `Effect.fn` pipeline step under the rails layering law.
 - Law: expiry and shed are one typed family — `Lapse` carries the lane and the spent span as evidence, its `reason` splitting `budget` (class `expired`) from `break` (class `unavailable`), so the core budget gate re-drives both where a consumer composes a ledger schedule; transport and status faults ride the platform's own `HttpClientError` family untouched, and decode skew rides `ParseError` — three families, each already routable, none re-wrapped.
 - Law: request construction is the platform surface at full depth — `HttpClientRequest.get`/`post`, `bodyJson`, `bearerToken`, `setHeader`, `setUrlParams` compose at the consumer's seam; the dial owns policy, never request vocabulary.
 - Boundary: the client binding is the runtime row's (`exec#RUNTIME_ROWS`); OTLP export composes the `batch` lane so telemetry egress inherits the same posture as every other call — an exporter with a private client is the named fork.
-- Entry: `Client.dial(lane, request[, shape])`; `R` carries `HttpClient` (plus `Scope` on the response modality) to the root.
+- Entry: `Client.dial(lane, request[, shape])`; `R` carries `HttpClient` (and `Scope` on the response modality) to the root.
 - Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
 - Packages: `@effect/platform` (`HttpClient`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Data`, `Effect`, `Function`, `Option`).
 
@@ -246,7 +244,6 @@ function dial<A, I, R>(lane: Client.Lane, request: HttpClientRequest.HttpClientR
 ## [05]-[DISPATCH_ROWS]
 
 [DISPATCH_ROWS]:
-
 - Owner: `Client.resident(policy)` — the parameterized node-residency Layer generator the root composes beneath the lane algebra: `NodeHttpClient.layerUndici` remains the default binding, while a supplied `Undici.Agent.Options` value provides the `NodeHttpClient.Dispatcher` Tag with a scoped `new Undici.Agent(policy)` beneath `NodeHttpClient.layerUndiciWithoutDispatcher`; proxy residency selects an `Undici.ProxyAgent` or `Undici.EnvHttpProxyAgent` dispatcher through the same scoped Tag, never a parallel client surface.
 - Law: the option vocabulary is the agent's own — `connections` (per-origin pool ceiling), `pipelining` (HTTP/1.1 pipeline depth), `keepAliveTimeout`/`keepAliveMaxTimeout` (idle-socket posture), `maxHeaderSize`, `headersTimeout`/`bodyTimeout` (transport-level stall bounds beneath the lane budgets), `allowH2` (HTTP/2 session admission), `maxOrigins`, and `connect` (the TLS pin and CA material) — every row a declared `Agent.Options` member; the proxy residency swaps the constructor, never the shape: `Undici.ProxyAgent` for a pinned egress proxy, `Undici.EnvHttpProxyAgent` where the environment declares one.
 - Law: residency is root data — the dispatcher row composes once at the boot edge under `exec#RUNTIME_ROWS`'s node row; a lane never names a dispatcher fact, the bun row has no dispatcher by construction (native fetch), and the browser lane's transport is `browser/fetch#BINDING_ROWS`'s XHR client row.
@@ -284,8 +281,57 @@ const _resident = (policy: Undici.Agent.Options): Layer.Layer<HttpClient.HttpCli
     );
 
 const Client = { dial, resident: _resident, residency: _dispatch } as const;
+```
+
+## [06]-[CONNECT_ROW]
+
+[CONNECT_ROW]:
+- Owner: `Rpc` — the outbound Connect/gRPC dispatch row conversing with the C# gRPC host under the branch egress law. `Rpc.transport(spec)` takes one discriminated transport request and dispatches `connect` to `createConnectTransport` or `grpc` to `createGrpcTransport`; both return the same transport shape, so the caller's generated client remains protocol-blind. `Rpc.call(lane, origin, thunk)` lifts the promise-world call and applies the lane's total budget and circuit admission through the same `_gated` fold every HTTP dial rides, keyed by lane and origin.
+- Law: rpc traffic inherits the lane table — budget geometry, circuit trip and cool, and the `Lapse` evidence family are `[02]`/`[03]`'s rows unchanged, so a Connect call and an HTTP call to one origin share the circuit they share fate with, and no bespoke rpc timeout convention exists.
+- Law: generated service-client construction stays at the consumer seam over the core-admitted contract surface; interceptor-based W3C print and continuation remain blocked in `[07]`, so this row makes no propagation claim.
+- Law: the promise seam converts at this owner — the thunk's rejection minted through `Effect.tryPromise` rides `Cause.UnknownException` for the caller's triage into its own fault family; Connect's own `ConnectError` code discrimination is the consumer's dispatch material, never re-wrapped here.
+- Boundary: the server half — the Connect router mounted through the foreign-protocol port — is `live#MOUNT_PORT`'s row; this owner is egress only.
+- Entry: `Rpc.transport(spec)` at the root; `Rpc.call(lane, origin, () => client.<member>(payload))` at the consumer seam.
+- Growth: a new dialect (gRPC-Web egress) is one `TransportSpec` case and one total dispatch arm; compression and deadline posture remain factory-option or call-option values.
+- Packages: `@connectrpc/connect-node` (`createConnectTransport`, `createGrpcTransport`), `effect` (`Cause`, `Effect`).
+
+```typescript signature
+import { type ConnectTransportOptions, createConnectTransport, createGrpcTransport, type GrpcTransportOptions } from '@connectrpc/connect-node';
+import type { Cause } from 'effect';
+
+declare namespace Rpc {
+    type Transport = ReturnType<typeof createConnectTransport>;
+    type TransportSpec =
+        | { readonly kind: 'connect'; readonly options: ConnectTransportOptions }
+        | { readonly kind: 'grpc'; readonly options: GrpcTransportOptions };
+}
+
+const _transport = (spec: Rpc.TransportSpec): Rpc.Transport => {
+    switch (spec.kind) {
+        case 'connect':
+            return createConnectTransport(spec.options);
+        case 'grpc':
+            return createGrpcTransport(spec.options);
+    }
+};
+
+const _rpc = <A>(
+    lane: Client.Lane,
+    origin: string,
+    thunk: () => Promise<A>,
+): Effect.Effect<A, Cause.UnknownException | Lapse> =>
+    _gated(lane, HttpClientRequest.get(origin), Effect.tryPromise(thunk));
+
+const Rpc = {
+    call: _rpc,
+    transport: _transport,
+} as const;
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Breaker, Client, Lapse };
+export { Breaker, Client, Lapse, Rpc };
 ```
+
+## [07]-[RESEARCH]
+
+- [CONNECT_INTERCEPTORS]-[BLOCKED]: which exact Connect `Interceptor` call shape and server-router interceptor option compose immutable W3C injection and extraction through the runtime `Propagation` owner without a call-site header thunk; route first through `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/typescript/runtime/.api/connectrpc-connect-node.md`, then `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/typescript/.api/connectrpc-connect-node.md`, with the peer contract at `/Users/bardiasamiee/Documents/99.Github/Rasm/libs/typescript/core/.api/connectrpc-connect.md`; arm when the client and server interceptor members and the composite carrier setter carry exact catalog rows.

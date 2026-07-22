@@ -1,6 +1,6 @@
 # [APPHOST_CAPABILITY_REGISTRY]
 
-One self-describing operation catalog for the whole suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying its effect class, idempotency, cost model, and permission shape, the registry folds those rows into a discovery surface answering shape-discriminated queries, a command algebra wraps any descriptor invocation in a commit-or-rollback intent over the Compute `ComputeIntent` rail, a scoped grant broker meters every admission against an object-set × op-class × cost-ceiling × time-window algebra with consent and dry-run simulation, and one codegen surface emits identical command shapes for C#, TypeScript, and Python off the same descriptor rows. The page owns the descriptor vocabulary, the discovery fold, the command-algebra transaction, the grant-and-cost broker, and the polyglot SDK codegen; it consumes `ComputeIntent`/`AdmittedIntent.Admit`, `WorkLane`, `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, and `DataClassification` as settled vocabulary and mints no eighth port.
+One self-describing operation catalog for the whole suite: every canonical op surface contributes a typed `CapabilityDescriptor` carrying its effect class, idempotency, cost model, and permission shape, the registry folds those rows into a discovery surface answering shape-discriminated queries, a command algebra wraps any descriptor invocation in a commit-or-rollback intent over the Compute `ComputeIntent` rail, a scoped grant broker meters every admission against an object-set × op-class × classification × cost-ceiling × time-window algebra with consent and dry-run simulation, and one codegen surface emits identical command shapes for C#, TypeScript, and Python off the same descriptor rows. The page owns the descriptor vocabulary, the discovery fold, the command-algebra transaction, the grant-and-cost broker, and the polyglot SDK codegen; it consumes `ComputeIntent`/`AdmittedIntent.Admit`, `WorkLane`, `CostModel` cousins, `TenantContext`, `DegradationLevel`, `ReceiptSinkPort`, and `DataClassification` as settled vocabulary and mints no eighth port.
 
 ## [01]-[INDEX]
 
@@ -14,12 +14,12 @@ One self-describing operation catalog for the whole suite: every canonical op su
 ## [02]-[DESCRIPTOR_AXIS]
 
 - Owner: `EffectClass` `[SmartEnum<string>]` five-row effect taxonomy under the `ComparerAccessors.StringOrdinal` accessor; `Idempotency` `[SmartEnum<string>]` four-row repeat-safety vocabulary; `CostUnit` `[SmartEnum<string>]` the metered-resource axis; `CostModel` per-descriptor cost record; `PermissionShape` the object-set × op-class scope record; `CapabilityDescriptor` the self-describing op row; `DescriptorReceipt` the per-registration projection.
-- Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; cost units cpu-millis, wall-millis, bytes-egress, model-tokens, calls.
-- Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, params ReadOnlySpan<CapabilityDescriptor> rows)` admits descriptor rows through one `Contributors` fan-in registration.
-- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; `Describe` folds the admitted per-surface counts into the Observability/instruments keyed `LevelCells.Roster` cell, so the `rasm.apphost.capability.roster` gauge reads the live census partitioned by descriptor surface at every admission, native boot rows and federated attach rows alike.
+- Cases: 5 effect rows — pure, read, write, external, irreversible — in escalating side-effect severity; 4 idempotency rows — idempotent, keyed, single-shot, non-idempotent; each cost-unit row carries its metering key and UCUM code.
+- Entry: `CapabilityDescriptor.Of(string surface, string op, EffectClass effect, Idempotency idempotency, CostModel cost, PermissionShape permission, Func<CommandArguments, Fin<ComputeIntent>> compile)` materializes one row whose id is the `{surface}.{op}` join, binding the descriptor to the `ComputeIntent` it compiles to; `Describe(IServiceCollection services, LevelCells cells, string surface, params ReadOnlySpan<CapabilityDescriptor> rows)` admits one surface's complete descriptor snapshot through the `Contributors` fan-in registration, the composition's threaded cells carrying the roster census.
+- Auto: each canonical op surface — `TensorOpFamily`, `ModelIdentity`, `ComputeEndpoint`, `QuantityFamily`, `SolverPluginContract` — projects its rows into descriptors at composition through one `Project` fold per surface so the catalog is generated from the op surfaces, never hand-listed, and a hand-authored op divorced from a descriptor (a free command method, a per-op MCP tool definition, a hand-written SDK client method) is the deleted form — the worked `TensorProjection.Project` fence is the one shape every surface follows, the worked `ModelProjection.Project` fence the model-draw instance whose `CostModel.Variable` closes over the composition-built `TiktokenTokenizer` and prices the prompt in `CostUnit.ModelTokens` through `CountTokens(prompt)` so a model draw is grant-priced and ceiling-gated before the provider sees a token (the per-call post-hoc `ChatResponse.Usage` charge at `#REASONING_LOOP` reconciles against this same `ModelTokens` axis the descriptor pre-prices), the sandbox `SolverPluginContract.Descriptors` projection the plugin-contract instance; the `Permission.Classification` field rides the `DataClassification` taxonomy so an op touching classified state declares it on the descriptor and the broker reads it before admission; `Cost.Estimate` projects a static pre-flight cost from the argument shape so a dry run prices the command before any byte moves — a `CpuMillis` tensor draw prices off the payload element count, a `ModelTokens` model draw off the air-gapped embedded-vocab token count, never a `chars/4` heuristic; observability spend rows derive their instrument units from `CostUnit.Ucum`; `Describe` sets the admitted per-surface counts on the composition-threaded `LevelCells` keyed roster family, so the Observability/instruments `rasm.apphost.capability.roster` gauge reads the live census partitioned by descriptor surface at every admission, native boot rows and federated attach rows alike.
 - Receipt: `DescriptorReceipt` — descriptor id, effect key, idempotency key, estimated cost vector, permission scope hash, `Instant`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Microsoft.ML.Tokenizers, BCL inbox
-- Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, and permission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row, a new cost shape one `CostModel` field; zero new surface.
+- Growth: one descriptor row absorbs a new op — the effect, idempotency, cost, and permission are column values on the row, never a parallel op-metadata table; a new effect class is one `EffectClass` row, a new metered resource one `CostUnit` row carrying its UCUM code, a new cost shape one `CostModel` field; zero new surface.
 - Boundary: the descriptor is the suite's only op-metadata owner — a per-op attribute scatter, a hand-kept command list, and a second cost table are the deleted forms; the descriptor never carries the op's body, only its self-description and the `compile` projection to a `ComputeIntent`, so the registry stays metadata and the execution stays on the Compute dispatch rail; `EffectClass.Irreversible` forces the command algebra onto the saga-compensation path because no rollback restores the prior state, and `EffectClass.Pure`/`Read` admit without a grant when the broker's read-floor policy permits; `Idempotency` is the same vocabulary `HopIdempotency` carries at the transport edge, re-keyed for op-level repeat safety, so a keyed command and a keyed hop share one repeat-safety semantic, never two; the estimated cost vector traces to `CostUnit` rows and the descriptor's `CostModel`, never an inline literal; descriptor ids are `nameof`-derived op symbols joined with the owning surface key, never free literals.
 
 ```csharp signature
@@ -52,11 +52,13 @@ public sealed partial class Idempotency {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CostUnit {
-    public static readonly CostUnit CpuMillis = new("cpu-millis");
-    public static readonly CostUnit WallMillis = new("wall-millis");
-    public static readonly CostUnit BytesEgress = new("bytes-egress");
-    public static readonly CostUnit ModelTokens = new("model-tokens");
-    public static readonly CostUnit Calls = new("calls");
+    public static readonly CostUnit CpuMillis = new("cpu-millis", "ms");
+    public static readonly CostUnit WallMillis = new("wall-millis", "ms");
+    public static readonly CostUnit BytesEgress = new("bytes-egress", "By");
+    public static readonly CostUnit ModelTokens = new("model-tokens", "{token}");
+    public static readonly CostUnit Calls = new("calls", "{call}");
+
+    public string Ucum { get; }
 }
 
 public readonly record struct CostVector(HashMap<CostUnit, long> Units) {
@@ -105,23 +107,27 @@ public readonly record struct DescriptorReceipt(
     Instant At);
 
 public static class DescriptorSurface {
-    public static IServiceCollection Describe(IServiceCollection services, params ReadOnlySpan<CapabilityDescriptor> rows) {
-        // One admission entry owns the roster census: native boot rows and federated attach rows
-        // alike fold here, so the rasm.apphost.capability.roster gauge reads a live level
-        // partitioned by descriptor surface. Surface keys hoist to a Seq because a lambda
-        // cannot capture the ref-struct parameter.
-        var families = Iterable<CapabilityDescriptor>.FromSpan(rows).Map(static row => row.Surface).ToSeq();
-        ignore(LevelCells.Live.Roster.Swap(roster => families.Fold(roster, static (folded, family) =>
-            folded.AddOrUpdate(family, static existing => existing + 1, 1L))));
-        return Iterable<CapabilityDescriptor>.FromSpan(rows).Fold(services, static (current, row) =>
-            (current.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(CapabilityDescriptor), row)), current).Item2);
+    public const string RosterFamily = "rasm.apphost.capability.roster";
+
+    public static IServiceCollection Describe(IServiceCollection services, LevelCells cells, string surface, params ReadOnlySpan<CapabilityDescriptor> rows) {
+        // Replacement is structural, not claimed: the surface's prior descriptor rows sweep out before
+        // the new snapshot lands, so a re-described surface atomically replaces its whole census —
+        // including the empty snapshot — and discovery never serves a stale row beside live siblings.
+        // Plain instance registration carries the rows: TryAddEnumerable dedups by implementation type,
+        // which is CapabilityDescriptor for every instance row, and would silently drop all but the first.
+        var admitted = Iterable<CapabilityDescriptor>.FromSpan(rows).ToSeq();
+        ignore(cells.Level(RosterFamily, surface, admitted.Count));
+        var swept = toSeq(services.Where(prior => prior.ImplementationInstance is CapabilityDescriptor stale && stale.Surface == surface).ToArray())
+            .Fold(services, static (current, dead) => (current.Remove(dead), current).Item2);
+        return admitted.Fold(swept, static (current, row) =>
+            (current.AddSingleton(typeof(CapabilityDescriptor), row), current).Item2);
     }
 }
 
 public static class TensorProjection {
-    public static IServiceCollection Project(IServiceCollection services, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
-        TensorOpFamily.Items.Fold(services, (current, family) =>
-            DescriptorSurface.Describe(current, Row(family, compileOf)));
+    // One Describe call carries the whole surface roster, so the keyed census is complete per admission.
+    public static IServiceCollection Project(IServiceCollection services, LevelCells cells, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        DescriptorSurface.Describe(services, cells, nameof(TensorOpFamily), [.. TensorOpFamily.Items.AsIterable().Map(family => Row(family, compileOf))]);
 
     static CapabilityDescriptor Row(TensorOpFamily family, Func<TensorOpFamily, JsonElement, Fin<ComputeIntent>> compileOf) =>
         CapabilityDescriptor.Of(
@@ -144,9 +150,8 @@ public static class ModelProjection {
     // provider sees a token. One descriptor per admitted model name on the ModelIdentity op surface; the
     // tokenizer is the air-gapped CreateForModel/CreateForEncoding embedded-vocab instance — one shared
     // thread-safe instance per encoding, built once at composition, never per-request, never a chars/4 heuristic.
-    public static IServiceCollection Project(IServiceCollection services, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
-        models.Fold(services, (current, model) =>
-            DescriptorSurface.Describe(current, Row(model, tokenizer, compileOf)));
+    public static IServiceCollection Project(IServiceCollection services, LevelCells cells, Seq<string> models, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
+        DescriptorSurface.Describe(services, cells, nameof(ModelIdentity), [.. models.Map(model => Row(model, tokenizer, compileOf))]);
 
     static CapabilityDescriptor Row(string model, TiktokenTokenizer tokenizer, Func<string, JsonElement, Fin<ComputeIntent>> compileOf) =>
         CapabilityDescriptor.Of(
@@ -239,10 +244,12 @@ public sealed class CapabilityRegistry {
         external: static () => Capability.RemoteCompute,
         irreversible: static () => Capability.StoreWrite);
 
+    // The empty-argument-shape price IS the Fixed component: running Variable over a default
+    // JsonElement throws on every payload-reading estimator, and discovery mints no ambient identity.
     static Seq<DiscoveryResult> Project(Seq<CapabilityDescriptor> rows) =>
         rows.Map(static row => new DiscoveryResult(
             row.Id, row.Surface, row.Effect.Key, row.Idempotency.Key,
-            row.Cost.Estimate(new CommandArguments(default, TenantContext.Current, Correlation.Mint())),
+            row.Cost.Fixed,
             row.Permission.ScopeHash));
 }
 ```
@@ -250,9 +257,9 @@ public sealed class CapabilityRegistry {
 ## [04]-[COMMAND_ALGEBRA]
 
 - Owner: `CommandTxn` `[Union]` the transaction disposition; `CommandFault` `[Union]` fault family deriving its codes through `FaultBand.Command`; `CommandReceipt` the per-command evidence record; `CommandAlgebra` the static commit-or-rollback surface threading a descriptor invocation through the grant broker and onto the Compute dispatch rail.
-- Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = Text | NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed.
+- Cases: transaction dispositions Committed | RolledBack | Compensated | Refused; `CommandFault` = Text | NotFound | GrantDenied | CompileRejected | ExecutionFaulted | CompensationFailed | MacroIncomplete — the last the transcript-to-macro completeness refusal `Agent/reasoning#REPLAYABLE_TRANSCRIPT` mints when a tool call's exact receipt never joined.
 - Entry: `Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments)` returns `IO<CommandReceipt>` — the algebra resolves the descriptor, brokers the grant, compiles the `ComputeIntent`, admits it through `AdmittedIntent.Admit`, dispatches it, and commits or rolls back; `Batch(CommandRuntime runtime, Seq<(string Id, CommandArguments Args)> commands)` runs an all-or-nothing intent group folding each command's compensation in reverse on the first failure.
-- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the Compute `SubstrateSelection.Dispatch` rail so the command algebra owns the transaction boundary while Compute owns substrate selection and execution, never a second dispatcher; every disposition mints one `CommandReceipt` fanned through `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key and the `InstrumentFan.CommandKind` kind, so admission counts and per-unit grant spend project off the one command envelope — the broker's charge rides `CommandReceipt.Charged` and needs no parallel grant envelope.
+- Auto: a reversible-effect command captures no compensation and the rollback is the absence of commit; an `EffectClass.Irreversible` command requires a compensation descriptor declared on the runtime and rolls forward through it, never a phantom undo; the dispatch lands through the Compute `SubstrateSelection.Dispatch` rail so the command algebra owns the transaction boundary while Compute owns substrate selection and execution, never a second dispatcher; `Run` marks once before descriptor resolution and every refusal, commit, rollback, and compensation receipt computes elapsed time from that mark; every disposition mints one `CommandReceipt` fanned through `ReceiptSinkPort.Send` under the `Rasm.AppHost` package key and the `InstrumentFan.CommandKind` kind, so admission counts and per-unit grant spend project off the one command envelope — the broker's charge rides `CommandReceipt.Charged` and needs no parallel grant envelope.
 - Receipt: `CommandReceipt` — descriptor id, transaction disposition, charged cost vector, `SelectionReceipt` of the dispatched intent, elapsed `Duration`, correlation id, tenant.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox (the Compute `ComputeIntent`/`AdmittedIntent.Admit`/`SelectionReceipt` rail composes by reference — the declared `[WIRE_VOCABULARY]` ledger row, Compute the owner, this algebra the decoder, never a reversed CLR dependency)
 - Growth: one transaction disposition is one `CommandTxn` case breaking every consumer arm; one fault is one `CommandFault` case; a new compensation strategy is one column on the descriptor runtime, never a second algebra; zero new surface.
@@ -278,6 +285,7 @@ public abstract partial record CommandFault : Expected, IValidationError<Command
     public sealed record CompileRejected : CommandFault { public CompileRejected(string detail) : base(detail, FaultBand.Command.Code(3)) { } }
     public sealed record ExecutionFaulted : CommandFault { public ExecutionFaulted(string detail) : base(detail, FaultBand.Command.Code(4)) { } }
     public sealed record CompensationFailed : CommandFault { public CompensationFailed(string detail) : base(detail, FaultBand.Command.Code(5)) { } }
+    public sealed record MacroIncomplete : CommandFault { public MacroIncomplete(string detail) : base(detail, FaultBand.Command.Code(6)) { } }
 }
 
 public sealed record CommandReceipt(
@@ -302,16 +310,18 @@ public sealed record CommandRuntime(
 
 public static class CommandAlgebra {
     public static IO<CommandReceipt> Run(CommandRuntime runtime, string descriptorId, CommandArguments arguments) =>
-        runtime.Registry.Resolve(descriptorId).Match(
-            Some: descriptor => Brokered(runtime, descriptor, arguments),
-            None: () => Mint(runtime, descriptorId, new CommandTxn.Refused(new CommandFault.NotFound(descriptorId)), CostVector.Zero, None, arguments));
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from receipt in runtime.Registry.Resolve(descriptorId).Match(
+            Some: descriptor => Brokered(runtime, descriptor, arguments, mark),
+            None: () => Mint(runtime, descriptorId, new CommandTxn.Refused(new CommandFault.NotFound(descriptorId)), CostVector.Zero, None, arguments, mark))
+        select receipt;
 
-    static IO<CommandReceipt> Brokered(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments) =>
+    static IO<CommandReceipt> Brokered(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, long mark) =>
         runtime.Broker.Admit(descriptor, arguments, dryRun: false).Match(
-            Succ: charged => Dispatch(runtime, descriptor, arguments, charged),
-            Fail: fault => Mint(runtime, descriptor.Id, new CommandTxn.Refused(new CommandFault.GrantDenied(fault.Message)), CostVector.Zero, None, arguments));
+            Succ: charged => Dispatch(runtime, descriptor, arguments, charged, mark),
+            Fail: fault => Mint(runtime, descriptor.Id, new CommandTxn.Refused(new CommandFault.GrantDenied(fault.Message)), CostVector.Zero, None, arguments, mark));
 
-    static IO<CommandReceipt> Dispatch(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, CostVector charged) =>
+    static IO<CommandReceipt> Dispatch(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, CostVector charged, long mark) =>
         descriptor.Compile(arguments).Match(
             Succ: intent =>
                 from admitted in IO.lift(() => AdmittedIntent.Admit(intent, Spec(descriptor), arguments.Correlation, runtime.Spine, runtime.Clocks.Clock, runtime.Clocks.Time))
@@ -320,9 +330,9 @@ public static class CommandAlgebra {
                         .Map(dispatched => new CommandTxn.Committed(dispatched) as CommandTxn)
                         | @catch<IO, CommandTxn>(static _ => true, error => Compensate(runtime, descriptor, arguments, error)),
                     Fail: error => IO.pure<CommandTxn>(new CommandTxn.Refused(new CommandFault.CompileRejected(error.Message))))
-                from minted in Mint(runtime, descriptor.Id, receipt, charged, Dispatched(receipt), arguments)
+                from minted in Mint(runtime, descriptor.Id, receipt, charged, Dispatched(receipt), arguments, mark)
                 select minted,
-            Fail: error => Mint(runtime, descriptor.Id, new CommandTxn.Refused(new CommandFault.CompileRejected(error.Message)), CostVector.Zero, None, arguments));
+            Fail: error => Mint(runtime, descriptor.Id, new CommandTxn.Refused(new CommandFault.CompileRejected(error.Message)), CostVector.Zero, None, arguments, mark));
 
     static IO<CommandTxn> Compensate(CommandRuntime runtime, CapabilityDescriptor descriptor, CommandArguments arguments, Error forward) =>
         descriptor.Effect.Reversible
@@ -360,9 +370,9 @@ public static class CommandAlgebra {
         _ => None,
     };
 
-    static IO<CommandReceipt> Mint(CommandRuntime runtime, string descriptor, CommandTxn txn, CostVector charged, Option<SelectionReceipt> dispatch, CommandArguments arguments) =>
+    static IO<CommandReceipt> Mint(CommandRuntime runtime, string descriptor, CommandTxn txn, CostVector charged, Option<SelectionReceipt> dispatch, CommandArguments arguments, long mark) =>
         from at in IO.lift(() => runtime.Clocks.Now)
-        let receipt = new CommandReceipt(descriptor, txn, charged, dispatch, Duration.Zero, arguments.Correlation, arguments.Tenant, at)
+        let receipt = new CommandReceipt(descriptor, txn, charged, dispatch, runtime.Clocks.Elapsed(mark), arguments.Correlation, arguments.Tenant, at)
         from _ in runtime.Sink.Send(arguments.Correlation, arguments.Tenant, TelemetrySource.AppHost.Key, InstrumentFan.CommandKind, JsonSerializer.SerializeToElement(receipt, runtime.Wire))
         select receipt;
 }
@@ -382,7 +392,7 @@ flowchart LR
 
 ## [05]-[GRANT_BROKER]
 
-- Owner: `GrantScope` the object-set × op-class × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
+- Owner: `GrantScope` the object-set × op-class × classification × cost-ceiling × time-window scope record; `Consent` `[Union]` the elevation-request disposition; `Budget` the per-scope live-metering cell; `DistributedBudget` the cross-process fenced-store seam the broker debits a durable per-tenant budget through; `GrantFault` `[Union]` fault family deriving its codes through `FaultBand.Grant`; `GrantBroker` the static admission-and-metering surface.
 - Cases: consent dispositions Granted | Elevated | Denied | Expired; `GrantFault` = Text | OutOfScope | CeilingExceeded | WindowClosed | ConsentRequired | Fenced.
 - Entry: `Admit(CapabilityDescriptor descriptor, CommandArguments arguments, bool dryRun)` returns `Fin<CostVector>` — the broker resolves the holder's `GrantScope`, evaluates the descriptor's `PermissionShape` against it through the typed `GrantScope.Covers` value-object predicate, prices the command through `CostModel.Estimate`, charges the budget under the cost ceiling, and returns the charged vector or the typed denial; `Simulate(CapabilityDescriptor descriptor, Seq<(string Id, CommandArguments Args)> plan)` returns `Seq<(string Id, Fin<CostVector>)>` — the dry-run simulation runs the identical decision-and-pricing fold priced against the live budget without charging it.
 - Auto: the permission decision is the deterministic `GrantScope.Covers` fold — the object-set × op-class × classification predicate is a typed value-object method, never an ambient role flag or a scattered per-op check; a `dryRun: true` admission decides and prices but never mutates the budget, so the dry-run sim and the live charge share one decision-and-pricing fold and differ only by the charge step; the cost ceiling is a `CostVector` so each metered resource caps independently — a command under the call ceiling but over the bytes-egress ceiling is denied on bytes-egress with the offending unit named; the time window is two NodaTime `Instant` bounds the `Interval` carries so a grant outside its window resolves `Expired` and re-admits only on renewal, never a silent extension; when a `DistributedBudget` seam is bound a live charge debits through `Debit` carrying the cost AND the scope `Ceiling` as per-`CostUnit` primitives under the store's VECTOR fenced compare-and-decrement (`WHERE token >= held AND balance_i >= debit_i ∀i`), so every unit's ceiling check executes INSIDE the one atomic store write and a tenant's cost ceiling is enforced fleet-wide per unit because two nodes presenting fresh tokens cannot both overshoot any unit (the store serializes the debits and rejects the second), rather than per-process; the AppHost gates the ceiling outside the fenced write ONLY for a `dryRun` pre-flight pricing off `Spent` (which never touches the store), so the live gate is always the atomic store-side check, foreclosing the read-then-write TOCTOU a multi-node per-process gate would open, and a stale-token debit fails `Fenced`; with no seam bound the broker debits the per-process `Cell` exactly as before, so the durable quota is an opt-in backing the one broker entry consumes, never a parallel meter.
@@ -396,11 +406,13 @@ public sealed record GrantScope(
     TenantId Tenant,
     FrozenSet<string> ObjectSet,
     FrozenSet<EffectClass> OpClasses,
+    FrozenSet<DataClassification> Classifications,
     CostVector Ceiling,
     Interval Window) {
     public bool Covers(PermissionShape shape, Instant now) =>
         Window.Contains(now)
         && OpClasses.Contains(shape.OpClass)
+        && (Classifications.Count == 0 || Classifications.Contains(shape.Classification))
         && (ObjectSet.Count == 0 || shape.ObjectSet.IsSubsetOf(ObjectSet));
 }
 

@@ -1,6 +1,8 @@
 # [APPHOST_LIVE_WIRE]
 
-The reactive bidirectional external-binding studio for the runtime spine: one industrial-transport axis carries every two-way edge — OPC-UA, Modbus, MQTT, serial, BACnet, MTConnect, REST, GraphQL, spreadsheet, ERP/PLM — as rows whose adapter reads and writes through one binding contract, a binding spec pairs an external source with an internal target and a direction, every inbound value coerces its unit at the edge through the Compute unit algebra before it enters the suite, a write-back transaction commits an outbound value with an acknowledgement receipt and rolls back on rejection, and a binding-health lifecycle tracks connect, subscribe, stale, and fault states per binding. The page owns the transport axis, the binding spec and direction, the edge unit coercion, the write-back transaction, and the binding-health lifecycle; it consumes `QuantityFamily`/`UnitAlgebra`/`UnitPolicy`, `OutboundHop`/`OutboundSurface`, `SchedulePort`/`ScheduleEntry`, `CommandAlgebra`, `DeadlineClass`, `DegradationLevel`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+Rasm.AppHost owns one reactive bidirectional binding studio: industrial transport rows carry OPC-UA, Modbus, MQTT, serial, BACnet, MTConnect, REST, GraphQL, spreadsheet, and ERP/PLM through one read/write contract. Binding specs pair external sources with directed internal targets, inbound values coerce through the Compute unit algebra, write-back commits or rolls back with evidence, and binding health tracks connection state.
+
+Live-wire composition consumes `QuantityFamily`/`UnitAlgebra`/`UnitPolicy`, `OutboundHop`/`OutboundSurface`, `SchedulePort`/`ScheduleEntry`, `CommandAlgebra`, `DeadlineClass`, `DegradationLevel`, and `ReceiptSinkPort`; this page owns the transport axis, binding direction, edge coercion, write transaction, and health lifecycle, and it mints no eighth port.
 
 ## [01]-[INDEX]
 
@@ -113,11 +115,11 @@ public static class TransportRows {
 
 ## [03]-[TRANSPORT_BINDING]
 
-- Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `BacnetLane` the `BacnetClient` COV-subscription owner whose notification callback feeds the same bounded lane with `ReadPropertyRequest` the poll fallback; `MtconnectLane` the read-only `-Common` model-slice decode over the row's HTTP hop with the `MTConnectClientInformation` durable cursor; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication`, `Bacnet` the `BacnetClient`, `Mtconnect` the cursor — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime`/`BacnetRuntime`/`MtconnectRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
+- Owner: `TransportRows.Read`/`TransportRows.Write` the per-case `ExternalTransport.Switch` dispatch from row to its protocol binding; `OpcUaLane` the held OPC-UA session/subscription/monitored-item owner whose subscription callbacks feed one bounded lane; `MqttLane` the held `IMqttClient` owner whose `ApplicationMessageReceivedAsync` callback feeds the same lane shape; `PubSubLane` the held `UaPubSubApplication` owner whose `DataReceived` dataset fan feeds the SAME bounded lane the per-node OPC-UA subscription drains into; `HttpPoll` the REST/GraphQL/spreadsheet/ERP-PLM body over the row's `OutboundHop.HttpApi`; `ModbusLane` the `FluentModbus` `ModbusClient` register-window body and `SerialLane` the `System.IO.Ports` `SerialPort` line-frame body, both over the row's `OutboundHop.CompanionSpawn`; `BacnetLane` the `BacnetClient` COV-subscription owner whose notification callback feeds the same bounded lane with `ReadPropertyRequest` the poll fallback; `MtconnectLane` the read-only `-Common` model-slice decode over the row's HTTP hop with the `MTConnectClientInformation` durable cursor; `MachineLane` the machine-observation decode lane — a `BindingSpec.Machine`-sliced inbound value projects once into one typed `MachineObservationWire` (value, unit, machine identity, freshness instant) fanned under `InstrumentFan.ObservationKind`, the single decoded truth Fabrication's wear, fleet-performance, and engagement consumers read, never a direct transport reference and never three decoders; `SubscriptionLane` the bounded `Channel<ExternalValue>` value carrier the foreign callback writes and the reactive read drains, holding the `Atom<Gate>` lifecycle cell; `LiveClient` `[Union]` the held-connection family — `Opc` carries the `Session`, `Mqtt` the `IMqttClient`, `Serial` the `SerialPort`, `Modbus` the `ModbusClient`, `PubSub` the `UaPubSubApplication`, `Bacnet` the `BacnetClient`, `Mtconnect` the cursor — so one `Gate.Live(Guid, LiveClient)` cell serves every protocol; `OpcUaRuntime`/`MqttRuntime`/`ModbusRuntime`/`SerialRuntime`/`PubSubRuntime`/`BacnetRuntime`/`MtconnectRuntime` the held per-protocol configuration, factory, and lane-accessor state the `LiveWireRuntime` composes.
 - Cases: read dispatch is the ten-arm `Transport.Switch` — OPC-UA, MQTT, and OPC-UA-PubSub drain their lane's `ReadAllAsync` head, Modbus reads its register window through `ModbusClient.ReadHoldingRegistersAsync<short>`, serial reads its line frame through `SerialPort.ReadLine`/`ReadExisting`, BACnet drains its COV lane (with `ReadPropertyRequest` the poll fallback), MTConnect parses the `/sample` document through `ResponseDocumentFormatter` into the `Observation` stream over the row's HTTP hop, REST/GraphQL/spreadsheet/ERP-PLM read once through `OutboundHop.HttpApi`; write dispatch is the same ten-arm `Switch` — OPC-UA writes one `WriteValue`, MQTT publishes one `MqttApplicationMessage`, Modbus writes through `WriteMultipleRegistersAsync`, serial writes one `WriteLine`, the HTTP transports ride a `PutAsync` body, BACnet writes one confirmed `WritePropertyRequest`, the non-writable spreadsheet and MTConnect rows reject at the row.
-- Entry: `Subscribe(LiveWireRuntime runtime, TransportRow row, BindingSpec spec)` returns `IO<SubscriptionLane>` opening the held client and attaching the foreign callback (OPC-UA monitored-item, MQTT message-pump, `PubSubLane.Subscribe` dataset fan, `SerialLane.Attach` `DataReceived`); `Read` drains one value from the lane (subscribe rows) or runs one poll body over the row's hop (poll rows); `Write` renders the at-edge value and writes it through the row's protocol or hop.
+- Entry: each subscribe adapter owns its concrete opener — `OpcUaLane.Subscribe`, `MqttLane.Subscribe`, `PubSubLane.Subscribe`, `SerialLane.Attach`, or `BacnetLane.Subscribe` — returning `IO<SubscriptionLane>` after attaching its foreign callback; `TransportRows.Read` drains the composition-held lane for subscribe rows or runs one poll body over the row's hop; `TransportRows.Write` dispatches the at-edge value through the row's protocol or hop.
 - Auto: the OPC-UA leg composes the high-level managed `Opc.Ua.Client` API — `Session.CreateAsync(configuration, reverseConnectManager, endpoint, updateBeforeConnect, checkDomain, sessionName, sessionTimeout, userIdentity, preferredLocales, ct)` mints the session over the configuration-loaded endpoint, a `Subscription(telemetry)` carries `PublishingInterval`, `KeepAliveCount`, and `LifetimeCount` as policy ints read off the row, `subscription.AddItem(new MonitoredItem(telemetry){ StartNodeId, AttributeId, MonitoringMode, SamplingInterval })` and `subscription.CreateAsync(ct)` arm the monitored node, and the `monitoredItem.Notification` event hands each `MonitoredItemNotificationEventArgs.NotificationValue` cast to `MonitoredItemNotification` whose `Value` is one `DataValue` — the callback projects `DataValue.Value`/`StatusCode`/`SourceTimestamp` into `ExternalValue` and `TryWrite`s it into the bounded lane, never running the interior on the foreign thread; the OPC-UA read-back and write-back ride `Session.ReadAsync(requestHeader, maxAge, TimestampsToReturn.Both, nodesToRead, ct)` and `Session.WriteAsync(requestHeader, nodesToWrite, ct)` inherited from `SessionClient`, building `ReadValueIdCollection`/`WriteValueCollection` from the binding's node id; the MQTT leg composes `MqttClientFactory.CreateMqttClient()` returning `IMqttClient` (v5 keeps the interface), `ConnectAsync(options, ct)` over a `MqttClientOptionsBuilder` carrying connection uri, client id, keep-alive, clean-start, session-expiry, and last-will as policy data, `SubscribeAsync(options, ct)` over one `WithTopicFilter(topic, qos, noLocal, retainAsPublished, retainHandling)`, and the `ApplicationMessageReceivedAsync` handler decodes `MqttApplicationMessageReceivedEventArgs.ApplicationMessage.Payload` (`ReadOnlySequence<byte>`) at the boundary and `TryWrite`s into the same bounded lane, with the inbound write-back as one `PublishAsync` over a `MqttApplicationMessageBuilder` carrying topic, payload, qos, and retain; QoS, retain, last-will, and session-expiry are policy columns on `TransportRow`, never new cases or transports; the Modbus leg composes the `FluentModbus` `ModbusClient` base surface (the TCP/RTU clients inherit the function-code operations) — `ReadHoldingRegistersAsync<short>(unitId, startAddress, count, ct)` (or `ReadInputRegistersAsync<short>` when the window is non-holding) reinterprets the register window as a `Task<Memory<short>>` the `Decode` fold collapses into one `double` under the row's `ModbusEndianness`, and `WriteMultipleRegistersAsync(unitId, startAddress, short[], ct)` writes one register block; the `ModbusWindow` (`unitId`/`startAddress`/`count`/`endianness`/`holding`) is `PollPolicy.Register` binding-spec policy data, never a per-read flag; the serial leg composes `System.IO.Ports.SerialPort` — `ReadLine`/`ReadExisting` for a line-framed protocol and `WriteLine` for the inbound write, the `SerialFraming` (`baudRate`/`parity`/`dataBits`/`stopBits`/`handshake`/`newLine`/`lineFramed`) carried as `PollPolicy.Line` binding-spec policy; the serial subscribe variant `SerialLane.Attach` opens the port, wires the `DataReceived` event (firing on a `ThreadPool` thread) to `TryWrite` one parsed `ExternalValue` into the bounded lane at the boundary and `ErrorReceived` to a not-good value, so a streaming serial line rides the SAME bounded lane the OPC-UA/MQTT subscriptions ride; the REST/GraphQL/spreadsheet/ERP-PLM legs compose the held `HttpClient` over `OutboundHop.HttpApi` — a `PollPolicy.Http` carries the resource path and the optional GraphQL query, REST a `GetAsync`, GraphQL a `PostAsync` of the query body, spreadsheet a read-only range fetch, each projecting the response body into one `ExternalValue`; the OPC-UA PubSub leg composes `UaPubSubApplication.Create(configPath, telemetry, dataStore)`/`Start`/`Stop` whose `DataReceived` `SubscribedDataEventArgs` dataset fan projects each `DataSet.Fields` field into one `ExternalValue` and `TryWrite`s into the SAME bounded lane the per-node OPC-UA subscription drains into — one PubSub application per process, the high-throughput fan-in path the per-item subscription cannot scale to, a `WireProtocol` row variant (mqtt-json/mqtt-uadp/udp-uadp) on the OPC-UA transport, never a parallel transport; the BACnet leg composes `BacnetClient` over `BacnetIpUdpProtocolTransport` — `Start()` opens the UDP line, `WhoIs` discovers devices, `SubscribeCOVRequest` arms the metered points and `OnCOVNotification` (firing on a transport thread) projects each `BacnetValue` into one `ExternalValue` and `TryWrite`s into the SAME bounded lane every subscribe transport rides, with `ReadPropertyRequest(BacnetAddress, BacnetObjectId, BacnetPropertyIds, out IList<BacnetValue>, byte)` the poll fallback and the confirmed write the write arm — the point map (object id / property id / COV lifetime / unit) is binding-spec DATA; the MTConnect leg composes the `-Common` MODEL slice ONLY (no bundled HTTP/MQTT client — transport is firewalled to the row's `OutboundHop.HttpApi`): `ResponseDocumentFormatter` parses the `/sample` body into a `StreamsResponseDocument` whose traversal projects each `Observation` into one `ExternalValue`, and `MTConnectClientInformation` is the durable poll cursor (`InstanceId` + `LastSequence`, `Save` after each drain, an `InstanceId` change forcing re-`current`) mirroring the outbox watermark discipline.
-- Receipt: the OPC-UA `DataValue`, the MQTT decoded payload, the Modbus register window, the serial line frame, the HTTP response body, and the PubSub dataset field each mint one `ExternalValue` carrying raw value, declared unit, the source quality flag, and the source timestamp; the lane drain at `BINDING_SPEC` coerces the unit before the value enters the suite.
+- Receipt: the OPC-UA `DataValue`, the MQTT decoded payload, the Modbus register window, the serial line frame, the HTTP response body, and the PubSub dataset field each mint one `ExternalValue` carrying raw value, declared unit, the source quality flag, and the source timestamp; MQTT CONNACK and every SUBACK item admit before the live client publishes, with a refused reason code projected onto `WireFault`; the lane drain at `BINDING_SPEC` coerces the unit before the value enters the suite.
 - Packages: OPCFoundation.NetStandard.Opc.Ua, OPCFoundation.NetStandard.Opc.Ua.PubSub, MQTTnet, FluentModbus, System.IO.Ports, BACnet, MTConnect.NET-Common, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL `System.Net.Http`/`System.Text.Json`
 - Growth: a new subscribe transport is one `Subscribe`/`Attach` arm feeding the one lane shape; a new poll transport is one `Read`/`Write` arm over its hop; a new PubSub message mapping is one `WireProtocol` row; one bounded lane shape serves every subscribe transport; zero new surface.
 - Boundary: this cluster is the only protocol-client owner — a per-protocol binding service and a parallel poller are the deleted forms; the foreign OPC-UA monitored-item thread, the MQTT message-pump thread, the serial `DataReceived` `ThreadPool` thread, and the PubSub interval-runner thread never run the interior — each callback projects its raw value into `ExternalValue` and `TryWrite`s into the bounded `Channel<ExternalValue>` under `BoundedChannelFullMode.DropOldest` (boundaries.md SUBSCRIPTION_VALUE/HANDOFF_DRAIN), so producer back-pressure is the lane's declared drop policy and the reactive consumer drains at its own pace; the held session, client, port, Modbus connection, and PubSub application live in one `Atom<Gate>` token-gated state cell per binding carrying a `LiveClient.Opc`/`Mqtt`/`Serial`/`Modbus`/`PubSub` (boundaries.md TOKEN_LIFECYCLE) so a reconnect replaces the whole cell and a stale teardown that lost its token never disposes a fresh handle; the per-row retry is the channel's own auto-reconnect (MQTT) XOR the seam's `OutboundHop` redial — never both — so a subscribe transport's reconnect rides the protocol client and a poll transport's retry rides the `CompanionSpawn`/`HttpApi` hop, the one-retry-owner law the transport axis declares — never a FluentModbus or `SerialPort` reconnect loop; a `ModbusException`/`SerialError`/`ModbusFrameError` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior; the register-window decode reads the `ModbusEndianness` off the window, never a guessed byte order; the OPC-UA `Subscription.CurrentPublishingInterval` is a `double`, never a `TimeSpan`, so the row carries the publishing interval as the int `PublishingInterval` the subscription sets and reads the negotiated `double` back without a unit cast; the at-edge `DataValue.SourceTimestamp`, the MQTT receive instant, the serial/Modbus/HTTP read instant, and the PubSub `Value.SourceTimestamp` cross as the value's `SourceAt` so the staleness check at `BINDING_HEALTH` reads a real source clock, never the host clock; the MQTT legs are the trace-carrier mount — `MqttLane.Write` threads `TraceContext.Inject` over the message builder before `Build()` and the receive pump continues the propagated context through the `MqttRuntime.Properties` getter, consumer-kinded, so broker-hop trace continuity is the adapter's, never a hand-rolled header write; the BACnet point map (`BacnetObjectId`/`BacnetPropertyIds`/COV lifetime) is `PollPolicy.Point` binding-spec DATA and the COV/write request bindings are `BacnetRuntime` composition slots, so protocol-signature drift lands at one composition seat; the MTConnect cursor is durable poll state — `MTConnectClientInformation.Read(string deviceKey, string path = null)` restores it, `Save(string path = null)` commits it after each drain, and an `InstanceId` change forces a full re-current, the outbox watermark discipline at the machine edge.
@@ -176,8 +178,8 @@ public sealed record MqttRuntime(
     MqttQualityOfServiceLevel Qos,
     bool Retain,
     Func<string, IMqttClient> Client,
-    // Receive-side v5 user-property getter the TraceContext carrier adapter reads; the concrete
-    // collection-member binding pins at composition per the terminal RESEARCH row.
+    // Receive-side v5 user-property getter binds at composition; provider member spellings stay
+    // outside settled code until the MQTT catalog carries the collection and entry accessors.
     Func<MqttApplicationMessage, string, IEnumerable<string>> Properties,
     Func<string, Channel<ExternalValue>> Lane);
 
@@ -212,8 +214,11 @@ public sealed record BacnetRuntime(
 
 public sealed record MtconnectRuntime(
     Func<string, MTConnectClientInformation> Cursor,
-    // ResponseDocumentFormatter parse + StreamsResponseDocument/DeviceStream/ComponentStream
-    // Observation traversal pinned at composition; exact member spellings ride the RESEARCH row.
+    // Decode parses the /sample body through ResponseDocumentFormatter.CreateStreamsResponseDocument(
+    // string documentFormatterId, Stream content) returning FormatReadResult<IStreamsResponseDocument>,
+    // then flattens IStreamsResponseDocument.GetObservations() (IEnumerable<IObservation>) into the
+    // ExternalValue seq; the per-observation accessor and LastSequence numeric spellings ride the
+    // terminal RESEARCH row.
     Func<string, string, Seq<ExternalValue>> Decode,
     Action<string> Advance);
 
@@ -470,12 +475,18 @@ public static class MqttLane {
             .WithSessionExpiryInterval(runtime.Mqtt.SessionExpiry)
             .Build()
         from _ in IO.lift(() => Attach(client, spec, lane.Writer, runtime))
-        from __ in IO.liftAsync(() => client.ConnectAsync(options, runtime.Spine.Token))
-        from ___ in IO.liftAsync(() => client.SubscribeAsync(
+        from connected in IO.liftAsync(() => client.ConnectAsync(options, runtime.Spine.Token))
+        from connection in connected.ResultCode == MqttClientConnectResultCode.Success
+            ? IO.pure(unit)
+            : IO.fail<Unit>(new WireFault.ConnectRejected($"mqtt:{connected.ResultCode}"))
+        from subscribed in IO.liftAsync(() => client.SubscribeAsync(
             runtime.Mqtt.Factory.CreateSubscribeOptionsBuilder()
                 .WithTopicFilter(spec.ExternalAddress, runtime.Mqtt.Qos, noLocal: true, retainAsPublished: false, MqttRetainHandling.SendAtSubscribe)
                 .Build(),
             runtime.Spine.Token))
+        from subscription in subscribed.Items.Count == 1 && subscribed.Items.All(static item => (int)item.ResultCode < 128)
+            ? IO.pure(unit)
+            : IO.fail<Unit>(new WireFault.ReadFailed($"mqtt-suback:{string.Join(',', subscribed.Items.Select(static item => item.ResultCode))}"))
         select new SubscriptionLane(lane, () => ignore(client.DisconnectAsync()), Atom<Gate>(new Gate.Live(Guid.NewGuid(), new LiveClient.Mqtt(client))));
 
     public static IO<ExternalValue> Read(LiveWireRuntime runtime, BindingSpec spec, CancellationToken token) =>
@@ -501,7 +512,7 @@ public static class MqttLane {
     static Unit Attach(IMqttClient client, BindingSpec spec, ChannelWriter<ExternalValue> sink, LiveWireRuntime runtime) {
         client.ApplicationMessageReceivedAsync += args => {
             args.AutoAcknowledge = true;
-            using var span = TraceContext.Continue(args.ApplicationMessage, runtime.Mqtt.Properties, $"mqtt-receive:{spec.BindingId}", ActivityKind.Consumer);
+            using var span = TraceContext.Continue(runtime.Traces, args.ApplicationMessage, runtime.Mqtt.Properties, $"mqtt-receive:{spec.BindingId}", ActivityKind.Consumer);
             ignore(sink.TryWrite(new ExternalValue(
                 Raw: double.Parse(Encoding.UTF8.GetString(args.ApplicationMessage.Payload), CultureInfo.InvariantCulture),
                 Unit: spec.Family.Canonical.ToString(),
@@ -597,6 +608,32 @@ public static class MtconnectLane {
                 None: () => IO.fail<ExternalValue>(new WireFault.StaleSource($"mtconnect-empty:{spec.BindingId}"))))
             .Map(value => (fun(() => runtime.Mtconnect.Advance(spec.BindingId))(), value).Item2);
 }
+
+// Machine-observation decode lane: transport bytes already folded to ExternalValue by the
+// protocol lanes project ONCE into one typed observation record — value, unit, machine identity,
+// freshness instant — fanned under InstrumentFan.ObservationKind, the single decoded truth the
+// Fabrication wear, fleet-performance, and engagement consumers read off the receipt stream and
+// re-admit into their MachineObservation vocabulary; a per-consumer transport decoder is the
+// deleted form, and a transport swap never touches a consumer.
+public readonly record struct MachineObservationWire(
+    string Machine,
+    string Item,
+    double Value,
+    string Unit,
+    bool Good,
+    Instant SourceAt,
+    ExternalTransport Transport);
+
+public static class MachineLane {
+    public static MachineObservationWire Observed(BindingSpec spec, ExternalValue value, string machine) =>
+        new(machine, spec.ExternalAddress, value.Raw, value.Unit, value.Good, value.SourceAt, spec.Transport);
+
+    public static IO<Unit> Fan(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value, CorrelationId correlation) =>
+        spec.Machine.Match(
+            Some: machine => runtime.Sink.Send(correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.ObservationKind,
+                JsonSerializer.SerializeToElement(Observed(spec, value, machine), runtime.Wire)).Map(static _ => unit),
+            None: () => IO.pure(unit));
+}
 ```
 
 ```mermaid
@@ -616,12 +653,12 @@ flowchart LR
 
 - Owner: `BindingDirection` `[Flags]` the read/write direction; `BindingSpec` the source-target binding record; `CoercedValue` the unit-coerced inbound value; `LiveWire` the static reactive binding-engine surface.
 - Cases: direction flags Inbound, Outbound, Bidirectional — bidirectional binds both legs; the binding pairs one external address with one internal target through the transport row.
-- Entry: `Bind(LiveWireRuntime runtime, BindingSpec spec)` returns `IO<BindingHandle>` — opens the transport, starts the inbound read (subscribe stream or scheduled poll), coerces each inbound value's unit at the edge, and pushes the coerced value to the internal target; `Coerce(QuantityFamily family, ExternalValue value, UnitPolicy policy, Guid correlation)` returns `Fin<CoercedValue>` — the at-edge unit coercion projecting the external unit into the suite's canonical unit.
-- Auto: every inbound value coerces through `QuantityFamily.Admit(value.Raw, value.Unit, policy, correlation)` so an external sensor reporting in millimeters lands as canonical meters before it enters the suite, never a raw unit-ambiguous double; a poll-shaped binding registers one `ScheduleEntry` on the schedule port at its cadence so the binding engine owns no timer; a subscribe-shaped binding's reactive sequence pushes coerced values as they arrive; a `Bidirectional` binding opens both legs so an internal change writes back and an external change reads in, with the write-back transaction guarding against a feedback loop through the source-timestamp staleness check; the inbound push routes through the internal target's `CapabilityDescriptor` so a bound value lands as a real command, never a side-channel write.
+- Entry: `Bind(LiveWireRuntime runtime, BindingSpec spec)` returns `IO<BindingHandle>` — derives the binding scope and produces the poll schedule descriptor when the row is poll-shaped; composition owns schedule registration and subscribe-lane open/drain until the activation fold is settled; `Coerce(QuantityFamily family, ExternalValue value, UnitPolicy policy, Guid correlation)` returns `Fin<CoercedValue>` — the at-edge unit coercion projecting the external unit into the suite's canonical unit.
+- Auto: every inbound value coerces through `QuantityFamily.Admit(value.Raw, value.Unit, policy, correlation)` so an external sensor reporting in millimeters lands as canonical meters before it enters the suite, never a raw unit-ambiguous double; a poll-shaped binding yields one `ScheduleEntry` at its cadence and a subscribe adapter yields one bounded lane; `Bidirectional` declares both legs but makes no source-echo suppression claim until the feedback-guard research closes; `Inbound` routes an admitted value through the internal target's `CapabilityDescriptor`, never a side-channel write.
 - Receipt: `CoercedValue` carries the canonical value, the canonical unit, the unit evidence, and the source timestamp; each inbound push mints one binding receipt fanned through the sink.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one binding is one `BindingSpec` row; a new direction is impossible — the flags are closed; a new coercion rule rides the Compute unit algebra, never a binding-page coercion; zero new surface.
-- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are the deleted forms; unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite, so the suite's interior never sees an unconverted external unit, deleting every interior unit guess; the binding admits through the Compute `QuantityFamily.Admit(QuantityInput, UnitPolicy, CorrelationId)` primary with the `QuantityInput.Abbreviated(value.Raw, value.Unit)` case and renders the write leg through `Render(double, UnitPolicy)` returning `Fin<string>`, so the coercion is the suite's single unit-conversion truth and the binding never re-implements unit math; a bidirectional binding's feedback-loop guard is the source-timestamp staleness check — an outbound write the binding itself caused does not re-trigger an inbound read because the write-back records its own timestamp; the internal target is a `CapabilityDescriptor` so the inbound push is brokered, metered, and audited exactly as any command, and a binding gains no privileged write path.
+- Boundary: the binding engine is the only reactive-binding owner — a per-binding background loop, a protocol-specific subscription handler, and a hand-rolled poll timer are deleted forms; unit coercion at the edge is mandatory — an inbound value that fails coercion is rejected with `WireFault.UnitRejected` and never enters the suite; the binding admits through Compute `QuantityFamily.Admit(QuantityInput, UnitPolicy, CorrelationId)` with `QuantityInput.Abbreviated(value.Raw, value.Unit)` and renders canonical write values through `Render(double, UnitPolicy)` returning `Fin<string>`, so the binding never re-implements unit math; source-echo suppression remains outside settled fence code because no sequence, timestamp, or source-token comparison currently exists; the internal target is a `CapabilityDescriptor` so inbound push is brokered, metered, and audited like any command.
 
 ```csharp signature
 [Flags]
@@ -657,6 +694,8 @@ public abstract partial record PollPolicy {
     public sealed record Point(BacnetPoint Map) : PollPolicy;
 }
 
+// Machine names the machine-telemetry slice: Some(machineId) routes every inbound value through the
+// MachineLane observation fan beside the command push, None keeps the binding a plain data edge.
 public sealed record BindingSpec(
     string BindingId,
     ExternalTransport Transport,
@@ -666,7 +705,8 @@ public sealed record BindingSpec(
     QuantityFamily Family,
     OccurrenceSpec Cadence,
     Duration Staleness,
-    PollPolicy Poll);
+    PollPolicy Poll,
+    Option<string> Machine = default);
 
 public sealed record CoercedValue(
     double Canonical,
@@ -687,6 +727,7 @@ public sealed record LiveWireRuntime(
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire,
+    ActivitySource Traces,
     OpcUaRuntime OpcUa,
     MqttRuntime Mqtt,
     ModbusRuntime Modbus,
@@ -717,11 +758,19 @@ public static class LiveWire {
         select handle;
 
     public static IO<Unit> Inbound(LiveWireRuntime runtime, BindingSpec spec, ExternalValue value) {
-        // One correlation id per inbound value: minted once, threaded through coercion, PushInbound, and the sink.
+        // One correlation id per inbound value: minted once, threaded through coercion, PushInbound, and
+        // sink publication; rejection fans under the registered InstrumentFan.WireKind so the wire arm counts
+        // it. The push is the control path and never waits on telemetry: a machine-sliced binding fans its
+        // decoded observation AFTER the push, best-effort under its own recovery arm, so an observation-fan
+        // fault can never block or fail the inbound update it merely describes.
         CorrelationId correlation = Correlation.Mint();
         return Coerce(spec.Family, value, runtime.Units, correlation).Match(
-            Succ: coerced => runtime.PushInbound(spec, new CommandArguments(JsonSerializer.SerializeToElement(coerced, runtime.Wire), TenantContext.Current, correlation)).Map(static _ => unit),
-            Fail: fault => runtime.Sink.Send(correlation, TenantContext.Current, TelemetrySource.AppHost.Key, nameof(LiveWire), JsonSerializer.SerializeToElement(fault.Message, runtime.Wire)).Map(static _ => unit));
+            Succ: coerced =>
+                from pushed in runtime.PushInbound(spec, new CommandArguments(JsonSerializer.SerializeToElement(coerced, runtime.Wire), TenantContext.Current, correlation))
+                from observed in MachineLane.Fan(runtime, spec, value, correlation)
+                    | @catch<IO, Unit>(static _ => true, static _ => IO.pure(unit))
+                select unit,
+            Fail: fault => runtime.Sink.Send(correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.WireKind, JsonSerializer.SerializeToElement(fault.Message, runtime.Wire)).Map(static _ => unit));
     }
 
     static ScheduleEntry PollEntry(LiveWireRuntime runtime, BindingSpec spec, TransportRow row, CancelScope scope) =>
@@ -733,13 +782,13 @@ public static class LiveWire {
 ## [05]-[WRITE_BACK]
 
 - Owner: `WriteBack` `[Union]` the write-back transaction disposition; `WriteReceipt` the per-write evidence record; `WriteBackSurface` the static commit-or-rollback surface.
-- Cases: write-back dispositions Acknowledged | Rejected | RolledBack | Coalesced — Acknowledged carries the source ack, Rejected carries the source's write rejection, RolledBack restores the prior external value, Coalesced folds a write arriving before the prior write acknowledged.
-- Entry: `Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue)` returns `IO<WriteReceipt>` — the write-back renders the canonical value into the source's declared unit, writes it through the transport, awaits the acknowledgement, and commits or rolls back to the prior external value on rejection.
-- Auto: the outbound value renders from canonical to the source's unit through `QuantityFamily.Render` so an internal meters value writes to a millimeter-expecting PLC tag in millimeters, the inverse of the inbound coercion; the write rides the transport row's `OutboundHop` so the write inherits the hop's retry, breaker, and deadline; the prior external value is read before the write so a rejected write rolls back to the last-good value rather than leaving the source in a half-written state; a write arriving while the prior write is unacknowledged coalesces so a rapid internal change does not flood the source with intermediate writes.
-- Receipt: `WriteReceipt` — binding id, written canonical value, rendered external value and unit, disposition, source ack timestamp, elapsed `Duration`, correlation id.
+- Cases: write-back dispositions Acknowledged | Rejected | RolledBack | Indeterminate — Acknowledged carries the source ack, Rejected carries the typed refusal, RolledBack proves the prior external value was restored after the attempted mutation failed, and Indeterminate preserves both failed hop outcomes when rollback cannot establish the external state.
+- Entry: `Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue)` returns `IO<WriteReceipt>` — the write-back reads the prior external value, admits only a canonical-unit target, renders through `QuantityFamily.Render`, writes through the transport, awaits acknowledgement, and executes the compensating write on rejection.
+- Auto: `QuantityFamily.Render` supplies the canonical textual value; a source already declaring that canonical unit receives the parsed value, while a foreign-unit source rejects before any byte moves until the Compute owner admits target-unit rendering; the write rides the transport row's `OutboundHop` so it inherits retry, breaker, and deadline; the prior `ExternalValue` must be good before rendering or transport begins; any non-delivered or faulted first write invokes `TransportRows.Write` with that exact admitted prior value; `RolledBack` appears only after the compensating hop acknowledges, while `Indeterminate` carries both exact hop errors when it does not.
+- Receipt: `WriteReceipt` — binding id, written canonical value, rendered external value and unit, disposition, source ack timestamp, elapsed `Duration`, correlation id; observation and receipt publication are best-effort diagnostics outside the control and transport outcomes.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one disposition is one `WriteBack` case breaking every consumer arm; zero new surface.
-- Boundary: the write-back is the only outbound-edge owner — a fire-and-forget write, a per-binding write queue, and a write without acknowledgement are the deleted forms, so every write is transactional with an explicit disposition; the rendering from canonical to source unit is the inverse of the inbound coercion through the same `QuantityFamily`, so the binding's two legs share one unit truth; the rollback restores the prior external value, so a rejected write leaves the source as the binding found it, never a partial write; the coalescing prevents a write storm — a write-back in flight folds a newer write into `Coalesced` and writes the latest value once the prior acknowledges, so the source sees the settled value, not every intermediate; a non-writable transport row rejects the write at the transport with `WireFault.WriteRejected` before any byte moves, so a read-only source never receives a write attempt.
+- Boundary: the write-back is the only outbound-edge owner — a fire-and-forget write, a per-binding write queue, and a write without acknowledgement are deleted forms, so every attempted write returns one timed disposition; a foreign-unit target is a typed `WireFault.UnitRejected`, never a falsely labelled canonical number; rollback is an actual second transport write and never a renamed failed acknowledgement; a failed or bad prior read aborts before rendering and preserves its typed fault; a rollback failure is indeterminate rather than a typed rejection because remote application cannot be disproved; a non-writable transport row rejects before any byte moves.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -748,7 +797,7 @@ public abstract partial record WriteBack {
     public sealed record Acknowledged(Instant SourceAck) : WriteBack;
     public sealed record Rejected(WireFault Fault) : WriteBack;
     public sealed record RolledBack(double PriorValue) : WriteBack;
-    public sealed record Coalesced(double FoldedInto) : WriteBack;
+    public sealed record Indeterminate(Error Attempt, Error Rollback) : WriteBack;
 }
 
 public sealed record WriteReceipt(
@@ -763,29 +812,61 @@ public sealed record WriteReceipt(
 
 public static class WriteBackSurface {
     public static IO<WriteReceipt> Write(LiveWireRuntime runtime, BindingSpec spec, double canonicalValue) =>
-        spec.Transport.Row is var row && !row.Writable
-            ? Mint(runtime, spec, canonicalValue, 0d, new WriteBack.Rejected(new WireFault.WriteRejected(spec.ExternalAddress)))
-            : from rendered in IO.lift(() => spec.Family.Render(canonicalValue, runtime.Units)).Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<string>))
-              from prior in ReadPrior(runtime, spec, row)
-              from value in IO.pure(new ExternalValue(double.Parse(rendered, runtime.Units.Culture), row.Transport.Key, Good: true, runtime.Clocks.Now))
-              from receipt in TransportRows.Write(runtime, row, spec, value, runtime.Spine.Token)
-                  .Map(hop => hop.Outcome is HopOutcome.Delivered
-                      ? new WriteBack.Acknowledged(runtime.Clocks.Now) as WriteBack
-                      : new WriteBack.RolledBack(prior))
-                  | @catch<IO, WriteBack>(static _ => true, error => IO.pure<WriteBack>(new WriteBack.Rejected(new WireFault.WriteRejected(error.Message))))
-              from minted in Mint(runtime, spec, canonicalValue, value.Raw, receipt)
-              select minted;
-
-    static IO<double> ReadPrior(LiveWireRuntime runtime, BindingSpec spec, TransportRow row) =>
-        TransportRows.Read(runtime, row, spec, runtime.Spine.Token)
-            .Map(value => value.Raw)
-            | @catch<IO, double>(static _ => true, static _ => IO.pure(0d));
-
-    static IO<WriteReceipt> Mint(LiveWireRuntime runtime, BindingSpec spec, double canonical, double rendered, WriteBack disposition) =>
-        from at in IO.lift(() => runtime.Clocks.Now)
-        let receipt = new WriteReceipt(spec.BindingId, canonical, rendered, spec.Family.Canonical.ToString(), disposition, Duration.Zero, Correlation.Mint(), at)
-        from _ in runtime.Sink.Send(receipt.Correlation, TenantContext.Current, TelemetrySource.AppHost.Key, nameof(WriteBackSurface), JsonSerializer.SerializeToElement(receipt, runtime.Wire))
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from receipt in Conduct(runtime, spec, canonicalValue, mark)
+            | @catch<IO, WriteReceipt>(static _ => true, error =>
+                Mint(runtime, spec, canonicalValue, 0d, spec.Family.Canonical.ToString(),
+                    new WriteBack.Rejected(error is WireFault wire ? wire : new WireFault.WriteRejected(error.Message)), mark))
+        from published in Publish(runtime, receipt)
+            | @catch<IO, Unit>(static _ => true, static _ => IO.pure(unit))
         select receipt;
+
+    static IO<WriteReceipt> Conduct(LiveWireRuntime runtime, BindingSpec spec, double canonical, long mark) {
+        var row = spec.Transport.Row;
+        var unit = spec.Family.Canonical.ToString();
+        return !row.Writable
+            ? Mint(runtime, spec, canonical, 0d, unit, new WriteBack.Rejected(new WireFault.WriteRejected(spec.ExternalAddress)), mark)
+            : from prior in TransportRows.Read(runtime, row, spec, runtime.Spine.Token)
+              from admitted in prior.Good
+                  ? IO.pure(prior)
+                  : IO.fail<ExternalValue>(new WireFault.StaleSource($"{prior.Unit}@{prior.SourceAt}"))
+              from text in IO.lift(() => spec.Family.Render(canonical, runtime.Units))
+                  .Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<string>))
+              from rendered in admitted.Unit == unit
+                  ? IO.pure(double.Parse(text, runtime.Units.Culture))
+                  : IO.fail<double>(new WireFault.UnitRejected($"{admitted.Unit}->{unit}"))
+              let value = new ExternalValue(rendered, unit, Good: true, runtime.Clocks.Now)
+              from disposition in Attempt(runtime, row, spec, value, admitted)
+              from receipt in Mint(runtime, spec, canonical, rendered, unit, disposition, mark)
+              select receipt;
+    }
+
+    static IO<WriteBack> Attempt(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue value, ExternalValue prior) =>
+        TransportRows.Write(runtime, row, spec, value, runtime.Spine.Token)
+            .Bind(hop => hop.Outcome is HopOutcome.Delivered
+                ? IO.pure<WriteBack>(new WriteBack.Acknowledged(runtime.Clocks.Now))
+                : Restore(runtime, row, spec, prior, Failure(hop.Outcome)))
+            | @catch<IO, WriteBack>(static _ => true, error => Restore(runtime, row, spec, prior, error));
+
+    static IO<WriteBack> Restore(LiveWireRuntime runtime, TransportRow row, BindingSpec spec, ExternalValue prior, Error attempt) =>
+        TransportRows.Write(runtime, row, spec, prior, runtime.Spine.Token)
+            .Map(hop => hop.Outcome is HopOutcome.Delivered
+                ? new WriteBack.RolledBack(prior.Raw) as WriteBack
+                : new WriteBack.Indeterminate(attempt, Failure(hop.Outcome)))
+            | @catch<IO, WriteBack>(static _ => true, rollback => IO.pure<WriteBack>(new WriteBack.Indeterminate(attempt, rollback)));
+
+    static Error Failure(HopOutcome outcome) => outcome.Switch(
+        delivered: static _ => new WireFault.WriteRejected("<unexpected-delivered>"),
+        refused: static refusal => refusal.Reason,
+        faulted: static failure => failure.Reason);
+
+    static IO<WriteReceipt> Mint(LiveWireRuntime runtime, BindingSpec spec, double canonical, double rendered, string unit, WriteBack disposition, long mark) =>
+        from at in IO.lift(() => runtime.Clocks.Now)
+        select new WriteReceipt(spec.BindingId, canonical, rendered, unit, disposition, runtime.Clocks.Elapsed(mark), Correlation.Mint(), at);
+
+    static IO<Unit> Publish(LiveWireRuntime runtime, WriteReceipt receipt) =>
+        runtime.Sink.Send(receipt.Correlation, TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.WriteKind,
+            JsonSerializer.SerializeToElement(receipt, runtime.Wire)).Map(static _ => unit);
 }
 ```
 
@@ -850,7 +931,7 @@ stateDiagram-v2
 
 - Owner: `BindingStatusWire`/`CoercedValueWire`/`WriteReceiptWire` the host-free JSON wire records the live-wire studio dashboard decodes; `WriteBackWire` the disposition projection of the `[5]-[WRITE_BACK]` `WriteBack` `[Union]` carrying the kind discriminant; `LiveWireProjection` the static producer projecting the binding-engine records onto the wire shapes; `LiveWireContext` the `[JsonSerializable]` context registering the wire records and the disposition union — folded into the ONE `Runtime/ports#WIRE_LAW` `SuiteContracts.Wire` merge as a context argument at the app root, never a standalone options owner.
 - Entry: `LiveWireProjection.Status(BindingSpec spec, BindingState state, Option<Instant> lastGood)` projects the binding status, `LiveWireProjection.Coerced(CoercedValue value, string sourceUnit)` projects the unit coercion, and `LiveWireProjection.Receipt(WriteReceipt receipt)` projects the write receipt onto `WriteReceiptWire` with the `WriteBack` union lowered to `WriteBackWire` by its disposition kind; the write receipt also reconstructs through the existing `ReceiptEnvelopeWire` so the studio's evidence timeline reads one envelope vocabulary.
-- Auto: the `BindingState` `[SmartEnum<string>]` and `ExternalTransport` `[SmartEnum<string>]` serialize by their string `Key` through the `ThinktectureJsonConverterFactory`, so the dashboard switches on the smart-enum token, never the ordinal; the `BindingDirection` `[Flags]` enum does NOT cross as a flags bitmask or a comma-joined STJ string — `LiveWireProjection.DirectionKey` lowers the flag set to the single lower token (`Inbound→"inbound"`, `Outbound→"outbound"`, `Inbound|Outbound→"bidirectional"`) so the wire carries the one `BindingDirectionKey` token the TS literal decodes; the `WriteBack` `[Union]` arms lower to the `WriteBackWire` kind discriminant (`Acknowledged→"acknowledged"`, `Rejected→"rejected"`, `RolledBack→"rolled-back"`, `Coalesced→"coalesced"`) carrying each arm's payload; the `Instant` source/ack timestamps serialize as `InstantPattern.ExtendedIso` text and the `Duration` elapsed as round-trip text.
+- Auto: the `BindingState` `[SmartEnum<string>]` and `ExternalTransport` `[SmartEnum<string>]` serialize by their string `Key` through the `ThinktectureJsonConverterFactory`, so the dashboard switches on the smart-enum token, never the ordinal; the `BindingDirection` `[Flags]` enum does not cross as a bitmask or comma-joined string — `LiveWireProjection.DirectionKey` lowers the flag set to `inbound`, `outbound`, or `bidirectional`; `WriteBack` arms lower to matching `WriteBackWire` discriminants; `Instant` source/ack timestamps serialize as `InstantPattern.ExtendedIso` text and `Duration` elapsed as round-trip text.
 - Packages: Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL `System.Text.Json`
 - Growth: one wire-member row per new binding field; a new write disposition is one `WriteBackWire` kind arm mirroring its `WriteBack` `[Union]` case; a new lifecycle state or transport is one `BindingState`/`ExternalTransport` row crossing as its smart-enum token; zero new surface.
 - Boundary: binding state and transport keys cross as the smart-enum string `Key`, an ordinal-keyed enum crossing the wire being the named seam violation; the `BindingDirection` `[Flags]` enum crosses as the projected lower token only — a raw flags integer or the STJ default comma-joined `"Inbound, Outbound"` string crossing the wire is the named defect because the TS `BindingDirectionKey` literal decodes the single token; the source and canonical units cross as their unit strings so the studio shows the coercion; the write disposition reconstructs in TS as a literal-discriminated union on the `kind`, projected once in C# by `LiveWireProjection`, never re-minted branch-side; the source timestamp crosses as extended-ISO text so the studio renders source freshness against host time; a second `JsonSerializerOptions` (including a standalone livewire-private options owner) or a hand-authored DTO mirror beside the ONE app-root merge is the deleted form — `LiveWireContext` enters as a context argument and the declared `WhenWritingNull` divergence rides the merge row.
@@ -875,7 +956,7 @@ public abstract partial record WriteBackWire {
     public sealed record Acknowledged(Instant SourceAck) : WriteBackWire;
     public sealed record Rejected(string Fault) : WriteBackWire;
     public sealed record RolledBack(double PriorValue) : WriteBackWire;
-    public sealed record Coalesced(double FoldedInto) : WriteBackWire;
+    public sealed record Indeterminate(string Attempt, string Rollback) : WriteBackWire;
 }
 
 public sealed record WriteReceiptWire(
@@ -907,7 +988,7 @@ public static class LiveWireProjection {
         Acknowledged: static a => new WriteBackWire.Acknowledged(a.SourceAck),
         Rejected: static r => new WriteBackWire.Rejected(r.Fault.Message),
         RolledBack: static b => new WriteBackWire.RolledBack(b.PriorValue),
-        Coalesced: static c => new WriteBackWire.Coalesced(c.FoldedInto));
+        Indeterminate: static i => new WriteBackWire.Indeterminate(i.Attempt.Message, i.Rollback.Message));
 }
 
 // [V8] ONE merge per app root: LiveWireContext is a CONTEXT ARGUMENT to the ports WIRE_LAW merge —
@@ -920,10 +1001,11 @@ public static class LiveWireProjection {
 [JsonSerializable(typeof(CoercedValueWire))]
 [JsonSerializable(typeof(WriteReceiptWire))]
 [JsonSerializable(typeof(WriteBackWire))]
+[JsonSerializable(typeof(MachineObservationWire))]
 public sealed partial class LiveWireContext : JsonSerializerContext;
 ```
 
-```ts contract
+```ts signature
 type ExternalTransportKey =
   | "opc-ua" | "modbus" | "mqtt" | "serial" | "bacnet" | "mtconnect" | "rest" | "graphql" | "spreadsheet" | "erp-plm";
 
@@ -955,15 +1037,27 @@ interface WriteReceiptWire {
     | { readonly kind: "acknowledged"; readonly sourceAck: string }
     | { readonly kind: "rejected"; readonly fault: string }
     | { readonly kind: "rolled-back"; readonly priorValue: number }
-    | { readonly kind: "coalesced"; readonly foldedInto: number };
+    | { readonly kind: "indeterminate"; readonly attempt: string; readonly rollback: string };
   readonly elapsed: string;
   readonly correlation: string;
+}
+
+interface MachineObservationWire {
+  readonly machine: string;
+  readonly item: string;
+  readonly value: number;
+  readonly unit: string;
+  readonly good: boolean;
+  readonly sourceAt: string;
+  readonly transport: ExternalTransportKey;
 }
 ```
 
 ## [08]-[RESEARCH]
 
-- [MQTT_PROPERTY_READ]: the receive-side MQTT v5 user-property collection member on the received application message and its entry name/value accessors — the `MqttRuntime.Properties` getter binding — and the full `WithTopicFilter` tail-parameter spellings past the catalog's `(topic, qos, flags)` shorthand; route: `.api/api-mqtt.md` extension via `tools.assay api query` over `MQTTnet` at the central pin.
-- [BACNET_REQUEST_SIGNATURES]: the exact `SubscribeCOVRequest` arity, the `OnCOVNotification` callback delegate signature, the confirmed `WritePropertyRequest` overload, and the client teardown member behind the `BacnetRuntime.Cov`/`Write` composition slots and the `BacnetLane` detach; route: `.api/api-bacnet.md` extension via `tools.assay api query` over `BACnet` at the central pin.
-- [MTCONNECT_DECODE_MEMBERS]: the exact `ResponseDocumentFormatter` parse member and the `StreamsResponseDocument`/`DeviceStream`/`ComponentStream`/`Observation` traversal property spellings behind the `MtconnectRuntime.Decode` composition slot, and the `LastSequence` numeric type; route: `.api/api-mtconnect.md` extension via `tools.assay api query` over `MTConnect.NET-Common` at the central pin.
-- [FEEDBACK_GUARD]: the bidirectional feedback-loop guard — a write-back the binding itself caused not re-triggering an inbound read — confirms against the source-timestamp staleness semantics at the live industrial source, the open distinction the integrated edge resolves.
+- [MQTT_RECEIVE_PROPERTY]-[BLOCKED]: Which exact `MqttApplicationMessage` user-property collection member and entry key/value accessors bind `MqttRuntime.Properties` without obsolete members? Route: `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`, then `libs/csharp/.api/`, package `MQTTnet`; the generic `TraceContext.Continue` getter seat remains settled while the provider spelling stays out of the fence.
+- [BACNET_REQUEST_SIGNATURES]-[BLOCKED]: Which exact `SubscribeCOVRequest` arity, `OnCOVNotification` callback signature, `WritePropertyRequest` overload, and client teardown member bind the `BacnetRuntime.Cov`/`Write` slots and `BacnetLane` detach?; route through `.api/api-bacnet.md` and `tools.assay api query` over `BACnet` at the central pin.
+- [MTCONNECT_DECODE_MEMBERS]-[BLOCKED]: Which per-observation value/timestamp accessors and `MTConnectClientInformation.LastSequence` numeric type bind the projection and cursor? Route: query `MTConnect.Observations.IObservation` and `MTConnect.Clients.MTConnectClientInformation` through `tools.assay api` under `MTConnect.NET-Common`; `ResponseDocumentFormatter.CreateStreamsResponseDocument(string, Stream)` and `IStreamsResponseDocument.GetObservations()` remain settled.
+- [FEEDBACK_GUARD]-[BLOCKED]: Which transport-stable sequence, timestamp, or source token proves an inbound value echoes this binding's acknowledged write so the engine can suppress only that echo? Route: `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md#[TRANSPORT_ROWS]`, then the owning industrial-source catalog row; keep source-echo suppression out of settled claims until one discriminator is admitted.
+- [WRITE_TARGET_UNIT]-[BLOCKED]: Which exact `QuantityFamily` member renders a canonical value into an arbitrary admitted source unit so a bidirectional non-canonical binding can write without local conversion math? Route: `libs/csharp/Rasm.Compute/.planning/Symbolic/units.md`, then `libs/csharp/Rasm.Compute/.api/api-unitsnet.md`; keep foreign-unit writes rejected before transport until the owner admits the member.
+- [BINDING_ACTIVATION]-[BLOCKED]: Which one `LiveWire` fold opens the selected subscribe adapter, publishes its held client and lane into the runtime accessors, drains until `CancelScope` closes, or registers the poll `ScheduleEntry` on `SchedulePort`? Route: `libs/csharp/Rasm.AppHost/.planning/Wire/livewire.md#[BINDING_SPEC]`, then `libs/csharp/Rasm.AppHost/.planning/Runtime/ports.md#[PORT_RECORDS]`; keep activation claims out of `Bind` until the fold consumes both row shapes.

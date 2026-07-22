@@ -19,7 +19,7 @@
 - Receipt: `CapabilityReport` carries moment and percentile indices or attribute rates, per-metric confidence intervals, pointwise control limits, rule windows, fitted distribution, effective sample size, measurement evidence, procedure evidence, optional stackup with per-contributor variance shares, control state, and the admitted `CapabilityVerdict`. `FabricationFact.Capability.Of` projects the index rows and violation count onto `rasm.fabrication.capability.index` and `rasm.fabrication.capability.violations` through `Process/telemetry#FACT_PROJECTION` as kind `capability`.
 - Packages: MathNet.Numerics owns fitted distributions, roots, regression, correlation, batch sampling, and generated parameter maps; `System.Numerics.Tensors` owns numeric reductions; CommunityToolkit.HighPerformance owns pooled and partitioned trial execution; UnitsNet owns specification lengths, achievable tolerance, and probability ratios; `ToolEvidence` carries MTConnect operating state through the canonical process boundary; Thinktecture and LanguageExt own generated values and the accumulated rail.
 - Growth: a capability index is one `CapabilityMetric` row; a distribution is one `DistributionParameters` case with one `DistributionFamily` seed row; a control rule is one `SpcRule` row carrying its `SpcRuleClass`; a study modality is one `CapabilityStudy` case folded by `Assess`.
-- Boundary: `CapabilityIdentity` carries the `DiameterBand` its study measured, so `Gate` and `Achievable` resolve through one identity and no row authorizes a size it never observed. `CapabilityHistory` is input-carried evidence; enrollment and persistence remain orchestration effects. `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
+- Boundary: `CapabilityIdentity` carries the `DiameterBand` its study measured, so `Gate` and `Achievable` resolve through one identity and no row authorizes a size it never observed. `CapabilityHistory` is input-carried evidence; enrollment and persistence remain orchestration effects riding the `CapabilitySlots` `store.fabrication.capability.<verb>` streams on the Persistence slot registry, so history-backed gates survive restart while this page stays effect-free. `CapabilityReport` never enters `FabricationResult`, and only `CapabilityVerdict` crosses the plan seam.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -795,6 +795,16 @@ public sealed record CapabilityReport(
     CapabilityVerdict Verdict,
     Instant At);
 
+// Durable shop-state seam: capability history persists as slot-registered streams — the enroll slot carries
+// each sealed `CapabilityReport` verdict projection, the history slot the validity-bounded `CapabilityHistory`
+// ledger re-admitted into `Gate` and `Achievable` at composition. Enrollment stays an orchestration effect;
+// spellings are value federation onto the Persistence slot registry's contributed span, and no Persistence type
+// crosses this boundary.
+public static class CapabilitySlots {
+    public const string Enroll = "store.fabrication.capability.enroll";
+    public const string History = "store.fabrication.capability.history";
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Capability {
     internal const double SigmaSpan = 3.0;
@@ -1340,3 +1350,12 @@ public sealed partial class CapabilityHistory {
             .Head;
 }
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

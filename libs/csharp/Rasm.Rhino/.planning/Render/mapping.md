@@ -699,3 +699,12 @@ public static class Mappings {
 |  [07]   | channel census     | `MappingRequest`  | attribute-gated per-object channel rows       | `Mappings.Run`             |
 |  [08]   | tag round trip     | `ChannelTag`      | admitted kind with native projection          | `Of` / `Native`            |
 |  [09]   | coordinate cache   | `CoordinateRequest` | prime, read, probe, or scoped invalidation   | `TextureCoordinates.Run`   |
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

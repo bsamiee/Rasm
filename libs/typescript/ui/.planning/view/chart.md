@@ -1,6 +1,6 @@
 # [UI_CHART]
 
-The one analytic-visualization owner: three rendering regimes behind one `Chart` surface, discriminated by data shape and interaction class — DECLARED statistical charts through `@observablehq/plot`'s grammar with `@visx/*` as the bespoke accessible-SVG lane and `d3` as the headless math substrate, STREAMING time-series through `uplot`'s canvas engine at 100k+ points, and USER-DRIVEN pivot/aggregation through the `@perspective-dev` WASM engine with `<perspective-viewer>` as its face. One `apache-arrow` `Table` is the columnar bus every regime consumes zero-copy — the same frame `geo` decodes fans to a GeoArrow layer, a perspective table, and an aligned series with no JSON detour. Every chart is a scoped resource behind an effect bracket, every spec derives from atom state, every color resolves from the token authority, and one surface runs exactly one engine — a fixed-shape interactive grid stays `view/table`'s `Grid`, the live basemap stays `viewer/geo`'s. The module is `ui/src/view/chart.ts`.
+Chart owns declared statistics, streaming series, and user-driven pivots behind one data-shape discriminant. Observable Plot and visx render declared charts, uPlot renders streaming columns, and Perspective owns pivot aggregation. One Arrow table is their columnar bus; each surface brackets one engine, derives specs from atoms, and resolves color through tokens. Module: `ui/src/view/chart.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -148,7 +148,7 @@ const _stream = (x: string, series: ReadonlyArray<string>) =>
 - Law: a derived feed is a scoped view lane — `Chart.derive(pivot, config)` opens `table.view(config)`, emits the `to_arrow` seed frame then every row-mode delta, and release runs `view.delete()`; each emitted frame is exactly `Chart.stream`'s input, so pivot-derived series feed the streaming regime with no re-materialization.
 - Law: expression columns validate before shipping — `table.validate_expressions(exprs)` gates an ExprTK column; the aggregate vocabulary (`sum`/`distinct count`/`weighted mean`/`min by`/…) is the engine's roster referenced as data in the config value.
 - Law: React reaches the element by ref only — mount runs the bracket in the effect seam, props never flow inside, config does; the element is the boundary.
-- Law: the bracket is woven — acquisition carries `Effect.withSpan("rasm.ui.chart.pivot")` with the feed name as a log annotation, and every derived frame ticks `_FRAMES`, so engine spin-up latency and delta throughput reach the app bridge (`system/atom#STORE_ROOT`'s seam) with zero collector import; feed names stay log material, never metric tags.
+- Law: the bracket is woven — acquisition carries `Effect.withSpan("rasm.ui.chart.pivot")` with the feed name as a log annotation, and every derived frame feeds `1` through `Effect.withMetric` into `_FRAMES`, so engine spin-up latency and delta throughput reach the app bridge with zero collector import; feed names stay log material, never metric tags.
 - Growth: a new exploration surface is one bracket call with its own config atom; a headless consumer (export, alert, derived feed) rides `Chart.derive`'s view lane — never a second engine.
 
 ```typescript
@@ -224,7 +224,7 @@ const _derive = (pivot: Chart.Pivot, config: ViewConfigUpdate): Stream.Stream<Ui
       }),
       (view) => Effect.promise(() => view.delete()),
     ),
-  ).pipe(Stream.tap(() => Metric.increment(_FRAMES)))
+  ).pipe(Stream.tap(() => Effect.asVoid(Effect.withMetric(Effect.succeed(1), _FRAMES))))
 
 const Chart: Chart.Shape = {
   columns: _columns,
@@ -240,3 +240,12 @@ const Chart: Chart.Shape = {
 
 export { Chart }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

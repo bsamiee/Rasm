@@ -104,9 +104,9 @@ public sealed record PerfBudget {
 
     public const string TierInstrument = "rasm.appui.governor.tier";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
-            new(TierInstrument, InstrumentKind.Level, "1", "active quality tier rank", Level: static () => UiLevelCells.Live.QualityRank.Value));
+    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
+            new(TierInstrument, InstrumentKind.Level, "1", "active quality tier rank", Level: cells.Reader(TierInstrument)));
 
     // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes
     // CalmWindow consecutive within-hysteresis samples, so the tier never oscillates per frame.
@@ -269,9 +269,9 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
     public const string Kind = "gpu-timeline";
     public const string DivergenceInstrument = "rasm.appui.governor.gpu.divergence";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
-            new(DivergenceInstrument, InstrumentKind.Distribution, "1", "per-pass projected-to-measured GPU divergence ratio", UiBuckets.DivergenceRatio));
+    public static TelemetryContributorPort TelemetryRow(string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
+            new(DivergenceInstrument, InstrumentKind.Distribution, "1", "per-pass projected-to-measured GPU divergence ratio", Buckets.DivergenceRatio));
 
     public Seq<double> DivergenceRatios() =>
         Passes.Bind(static pass => pass.Measured.Map(gpu => pass.Projected > Duration.Zero

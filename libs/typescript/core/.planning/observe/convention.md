@@ -180,7 +180,11 @@ const _value = {
 - Law: the outbox/queue/relay rows are the work plane's lossy projection vocabulary — journal fact rows stay the billing and evidence truth, and the runtime meter bridge mints these instruments FROM those facts and census probes, so a dashboard of durable-work health reads OTel series while every dispute settles against the journal.
 - Law: outcome and reason tag VALUES stay bounded — the invoke outcome vocabulary is the `Exit`-fold union the emitting page anchors, the fault-reason vocabulary is the codec `Hops` row set, the security kind/dialect/surface/reason vocabularies are the reject stream's closed tables — so a Rasm tag key here never carries an identifier-grade value; identifier context rides span attributes and log annotations.
 - Law: core's log ownership is the `_event` vocabulary alone — log records mint through `Effect.log*` and reach the wire on the runtime export lane, so an event name is a row here, the record shape stays Effect's, and the decoded-evidence plane (`Receipt`, `FaultCapture`) owns every structured-evidence need; `breadcrumb` names the replay annotations riding the fatal capture, never a standalone record stream, so its consumer is the crash emission, not a board panel.
-- Growth: a new metered resource, vital kind, audit axis, work-plane instrument, security facet, or capability-plane dimension lands as one row here with its consuming row on the owning signal page.
+- Law: the object rows are the content-addressed plane's receipt projections — the data object owners tap `objectWritten` (tagged by the `objectOutcome` written/dedup axis), `objectBytes`, and `objectReclaimed` off the write-receipt and sweep-mark folds, and `streamBytes` projects the resumable-upload finalize receipt once per completed upload so retried offsets never double-count — instruments the runtime meter bridge exports while the receipts stay the evidence truth, and `board#PACKS`'s `object` pack is their standing consumer.
+- Law: the lake rows are the storage-harvest projection family — `olapWait`/`olapRetried`/`olapDeferred` meter the lake-engine admission lanes by the `olapEngine` axis, `profileDuration` lands the harvested DuckDB/SQLite/pg engine profiles by the `profileEngine` axis, and `cacheHits`/`cacheMisses`/`cacheSize`/`poolHeld` project the data-lane cache and pool census by the `cacheName`/`poolScheme` axes — every row a data-lane tap with its `board#PACKS` `lake` consumer, so lake-engine profile parity reads as OTel series beside every other signal.
+- Law: the bench rows are the claim bridge's lossy projection — the runtime meter bridge mints `benchTime` (the `benchBand` percentile-axis ladder), `benchGc`, `benchHeap`, and `benchCounter` from landed benchmark claims and `benchVerdicts` from the `board#PACKS` regression fold's grades, all tagged by the `benchSuite`/`benchLabel` axes — so boards trend claims while every dispute settles against the decoded claim landing, exactly the journal-versus-series split the work plane holds.
+- Law: the `_profile` family is the span-profile correlation vocabulary — `id` is the one profile-link attribute the runtime profiling bridge stamps on the long-lived scoped spans (the machine actor and gateway duplex lifetime anchors), `service` is the profile-store series label whose value is always the identity projection's app key, and `span` bands samples by workload region — so profiles, traces, and metrics join on one identity coordinate and a free-string profile label is the same defect as a free-string metric name; the profile signal carries no `_metric` rows because profiles ride their own store, and the flamegraph consumer is a gated restoration — the board `profile` pack lands with the iac compile arm under the `iac/operate/observe` `[PYROSCOPE_PANEL]` research gate, both together, never one side first.
+- Growth: a new metered resource, vital kind, audit axis, work-plane instrument, security facet, object receipt axis, lake-harvest lane, bench band, or capability-plane dimension lands as one row here with its consuming row on the owning signal page.
 
 ```typescript signature
 const _rasm = {
@@ -190,6 +194,11 @@ const _rasm = {
   auditRetention: "rasm.audit.retention",
   auditTargetKey: "rasm.audit.target.key",
   auditTargetKind: "rasm.audit.target.kind",
+  benchBand: "rasm.bench.band",
+  benchLabel: "rasm.bench.label",
+  benchSuite: "rasm.bench.suite",
+  benchVerdict: "rasm.bench.verdict",
+  cacheName: "rasm.cache.name",
   crashFingerprint: "rasm.crash.fingerprint",
   crashHop: "rasm.crash.hop",
   crashKind: "rasm.crash.kind",
@@ -203,6 +212,10 @@ const _rasm = {
   laneName: "rasm.lane.name",
   meterResource: "rasm.meter.resource",
   meterSurface: "rasm.meter.surface",
+  objectOutcome: "rasm.object.outcome",
+  olapEngine: "rasm.olap.engine",
+  poolScheme: "rasm.pool.scheme",
+  profileEngine: "rasm.profile.engine",
   ring: "rasm.ring",
   securityDialect: "rasm.security.dialect",
   securityKind: "rasm.security.kind",
@@ -219,6 +232,14 @@ const _rasm = {
 
 const _metric = {
   batchDuration: "rasm.batch.duration",
+  benchCounter: "rasm.bench.counter",
+  benchGc: "rasm.bench.gc",
+  benchHeap: "rasm.bench.heap",
+  benchTime: "rasm.bench.time",
+  benchVerdicts: "rasm.bench.verdicts",
+  cacheHits: "rasm.cache.hits",
+  cacheMisses: "rasm.cache.misses",
+  cacheSize: "rasm.cache.size",
   crashCaptured: "rasm.crash.captured",
   derivativeActive: "rasm.derivative.active",
   derivativeQueued: "rasm.derivative.queued",
@@ -231,9 +252,17 @@ const _metric = {
   invokeFault: "rasm.invoke.fault",
   laneCheckpoint: "rasm.lane.checkpoint",
   meterUsage: "rasm.meter.usage",
+  objectBytes: "rasm.object.bytes",
+  objectReclaimed: "rasm.object.reclaimed",
+  objectWritten: "rasm.object.written",
+  olapDeferred: "rasm.olap.deferred",
+  olapRetried: "rasm.olap.retried",
+  olapWait: "rasm.olap.wait",
   outboxAge: "rasm.outbox.age",
   outboxDepth: "rasm.outbox.depth",
   outboxRedelivered: "rasm.outbox.redelivered",
+  poolHeld: "rasm.pool.held",
+  profileDuration: "rasm.profile.duration",
   queueDepth: "rasm.queue.depth",
   queueParked: "rasm.queue.parked",
   relayDrained: "rasm.relay.drained",
@@ -245,12 +274,21 @@ const _metric = {
   securityRejects: "rasm.security.rejects",
   securitySecretRotation: "rasm.security.secret.rotation",
   securityShredReject: "rasm.security.shred.reject",
+  streamBytes: "rasm.stream.bytes",
   vitalLevel: "rasm.vital.level",
   vitalObserved: "rasm.vital.observed",
 } as const
 
 const _instrument = {
   batchDuration: { description: "resolver window wall span", kind: "histogram", measure: "duration", name: _metric.batchDuration, unit: "ms" },
+  benchCounter: { description: "hardware-counter band by axis", kind: "gauge", measure: "level", name: _metric.benchCounter, unit: "1" },
+  benchGc: { description: "benchmark GC-timing band", kind: "gauge", measure: "level", name: _metric.benchGc, unit: "ns" },
+  benchHeap: { description: "benchmark heap-delta band", kind: "gauge", measure: "level", name: _metric.benchHeap, unit: "By" },
+  benchTime: { description: "benchmark timing ladder by band", kind: "gauge", measure: "level", name: _metric.benchTime, unit: "ns" },
+  benchVerdicts: { description: "regression verdicts by grade", kind: "counter", measure: "count", name: _metric.benchVerdicts, unit: "1" },
+  cacheHits: { description: "cache hits by cache name", kind: "gauge", measure: "level", name: _metric.cacheHits, unit: "1" },
+  cacheMisses: { description: "cache misses by cache name", kind: "gauge", measure: "level", name: _metric.cacheMisses, unit: "1" },
+  cacheSize: { description: "live cache population", kind: "gauge", measure: "level", name: _metric.cacheSize, unit: "1" },
   crashCaptured: { description: "fatal captures by fault class", kind: "counter", measure: "count", name: _metric.crashCaptured, unit: "1" },
   derivativeActive: { description: "derivative renders in flight", kind: "gauge", measure: "level", name: _metric.derivativeActive, unit: "1" },
   derivativeQueued: { description: "derivative renders awaiting a worker", kind: "gauge", measure: "level", name: _metric.derivativeQueued, unit: "1" },
@@ -258,14 +296,22 @@ const _instrument = {
   gatewayCommands: { description: "gateway dispatches by verb and outcome", kind: "counter", measure: "count", name: _metric.gatewayCommands, unit: "1" },
   gatewayDuration: { description: "gateway dispatch wall span", kind: "histogram", measure: "duration", name: _metric.gatewayDuration, unit: "ms" },
   httpServerDuration: { description: "server request wall span", kind: "histogram", measure: "duration", name: _metric.httpServerDuration, unit: "s" },
-  invokeCalls: { description: "capability calls by lane and outcome", kind: "counter", measure: "count", name: _metric.invokeCalls, unit: "1" },
+  invokeCalls: { description: "capability calls by outcome", kind: "counter", measure: "count", name: _metric.invokeCalls, unit: "1" },
   invokeDuration: { description: "capability call wall span", kind: "histogram", measure: "duration", name: _metric.invokeDuration, unit: "ms" },
   invokeFault: { description: "capability fault reasons", kind: "frequency", measure: "count", name: _metric.invokeFault, unit: "1" },
   laneCheckpoint: { description: "last committed projection drain position", kind: "gauge", measure: "level", name: _metric.laneCheckpoint, unit: "1" },
   meterUsage: { description: "billable usage by resource and tenant", kind: "counter", measure: "count", name: _metric.meterUsage, unit: "1" },
+  objectBytes: { description: "object bytes landed by write legs", kind: "counter", measure: "count", name: _metric.objectBytes, unit: "By" },
+  objectReclaimed: { description: "bytes reclaimed by the reference sweep", kind: "counter", measure: "count", name: _metric.objectReclaimed, unit: "By" },
+  objectWritten: { description: "object writes by dedup outcome", kind: "counter", measure: "count", name: _metric.objectWritten, unit: "{object}" },
+  olapDeferred: { description: "deferred-query wait until execution", kind: "histogram", measure: "duration", name: _metric.olapDeferred, unit: "ms" },
+  olapRetried: { description: "lake queries retried by engine", kind: "counter", measure: "count", name: _metric.olapRetried, unit: "1" },
+  olapWait: { description: "lake-engine admission wait span", kind: "histogram", measure: "duration", name: _metric.olapWait, unit: "ms" },
   outboxAge: { description: "oldest undelivered outbox row age", kind: "gauge", measure: "level", name: _metric.outboxAge, unit: "s" },
   outboxDepth: { description: "undelivered outbox rows", kind: "gauge", measure: "level", name: _metric.outboxDepth, unit: "{deliverable}" },
   outboxRedelivered: { description: "undelivered rows claimed more than once", kind: "gauge", measure: "level", name: _metric.outboxRedelivered, unit: "{deliverable}" },
+  poolHeld: { description: "pool leases held by scheme", kind: "gauge", measure: "level", name: _metric.poolHeld, unit: "{lease}" },
+  profileDuration: { description: "harvested engine profile wall span", kind: "histogram", measure: "duration", name: _metric.profileDuration, unit: "ms" },
   queueDepth: { description: "durable-queue rows awaiting settlement", kind: "gauge", measure: "level", name: _metric.queueDepth, unit: "{deliverable}" },
   queueParked: { description: "deliverables parked to the dead set", kind: "counter", measure: "count", name: _metric.queueParked, unit: "{deliverable}" },
   relayDrained: { description: "relay claims settled by channel", kind: "counter", measure: "count", name: _metric.relayDrained, unit: "{deliverable}" },
@@ -277,6 +323,7 @@ const _instrument = {
   securityRejects: { description: "authenticity rejects by kind", kind: "counter", measure: "count", name: _metric.securityRejects, unit: "{reject}" },
   securitySecretRotation: { description: "secret rotations by custody path", kind: "counter", measure: "count", name: _metric.securitySecretRotation, unit: "{rotation}" },
   securityShredReject: { description: "opens rejected on a shredded key", kind: "counter", measure: "count", name: _metric.securityShredReject, unit: "{reject}" },
+  streamBytes: { description: "resumable-upload bytes finalized", kind: "counter", measure: "count", name: _metric.streamBytes, unit: "By" },
   vitalLevel: { description: "current accounted web-vital level", kind: "gauge", measure: "level", name: _metric.vitalLevel, unit: "1" },
   vitalObserved: { description: "graded web-vital observations", kind: "counter", measure: "count", name: _metric.vitalObserved, unit: "1" },
 } as const
@@ -286,6 +333,9 @@ const _durationScale = {
   [_metric.gatewayDuration]: 1,
   [_metric.httpServerDuration]: 1 / 1000,
   [_metric.invokeDuration]: 1,
+  [_metric.olapDeferred]: 1,
+  [_metric.olapWait]: 1,
+  [_metric.profileDuration]: 1,
   [_metric.securityJwksResolve]: 1,
   [_metric.securityKdf]: 1,
 } as const
@@ -293,6 +343,12 @@ const _durationScale = {
 const _event = {
   breadcrumb: "rasm.crash.breadcrumb",
   exception: EVENT_EXCEPTION,
+} as const
+
+const _profile = {
+  id: "pyroscope.profile.id",  // the span-profile correlation attribute the runtime profiling bridge stamps on long-lived scoped spans
+  service: "service_name",     // the profile-store series label; its value is always the identity projection's app key
+  span: "span_name",           // the profile-store label banding samples by workload region
 } as const
 ```
 
@@ -307,7 +363,8 @@ const _event = {
 - Law: `Convention.identity` is the one `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `service.namespace`, `cloud.region`, `cloud.availability_zone`, `k8s.cluster.name`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
 - Law: a dimension is projected only once the identity value settles it — the projection line lands in the same edit that adds the identity field, never ahead of it — so the projection reads settled `instance`/`namespace`/`environment`/`ring`/`region`/`zone`/`cluster` values and never re-mints a dimension the floor owns; an absent `Option` dimension is omission, never a sentinel, so a backend filter never matches an empty string.
 - Boundary: `AppIdentity` is `value/identity`'s value — this page projects it into attribute space and owns nothing about its construction; `value/fault` imports `ATTR_EXCEPTION_*`/`ATTR_ERROR_TYPE` directly for its forensic anchors — a shared-import boundary, two owners over one spec vocabulary, never a re-export hop.
-- Entry: `Convention.identity(identity)` and `Convention.scope(pkg)` — the two operations; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.event.exception`, `Convention.value.methodGet`, `Convention.wire.schemaUrl`); `Convention.keys` at every iteration seam.
+- Law: `Convention.profiled(identity)` is the one profile-store selector projection — the `service_name` label bound to the identity's app key — so the board `profile` pack and the runtime pyroscope seat derive one series identity and a hand-spelled profile label never exists; `ProfileLabel` spans only the store-label keys (`service_name`, `span_name`) — `_profile.id` is the span-correlation attribute a label-only consumer never accepts — while the `id` row rides `Convention.keys`, so a stamped record's census walk emits it in canonical order.
+- Entry: `Convention.identity(identity)`, `Convention.profiled(identity)`, `Convention.duration(metric, span)`, and `Convention.scope(pkg)` — the four operations; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.instrument.meterUsage`, `Convention.event.exception`, `Convention.value.methodGet`, `Convention.profile.id`, `Convention.wire.schemaUrl`); `Convention.keys` at every iteration seam.
 - Growth: a new identity dimension is one projection line with its `_rasm` row; a new bounded-value binding is one `ValueOf` clause beside its `_value` rows.
 
 ```typescript signature
@@ -320,6 +377,7 @@ const _keys: ReadonlyArray<Convention.Key> = [
   ...Record.values(_attr),
   ...Record.values(_incubating),
   ...Record.values(_rasm),
+  _profile.id,
 ]
 
 const _identity = (identity: AppIdentity): Convention.Identity => ({
@@ -357,6 +415,8 @@ declare namespace Convention {
     | (typeof _attr)[Attr]
     | (typeof _incubating)[keyof typeof _incubating]
     | (typeof _rasm)[keyof typeof _rasm]
+    | (typeof _profile)["id"]
+  type ProfileLabel = (typeof _profile)[Exclude<keyof typeof _profile, "id">] // store labels only: _profile.id is the span-correlation attribute, never a series label
   type Method = (typeof _value)[Extract<keyof typeof _value, `method${string}`>]
   type FlagReason = (typeof _value)[Extract<keyof typeof _value, `flag${string}`>]
   type InstrumentKind = (typeof _instrument)[keyof typeof _instrument]["kind"]
@@ -392,6 +452,8 @@ declare namespace Convention {
     readonly instrument: typeof _instrument
     readonly keys: ReadonlyArray<Key>
     readonly metric: typeof _metric
+    readonly profile: typeof _profile
+    readonly profiled: (identity: AppIdentity) => { readonly [K in (typeof _profile)["service"]]: string }
     readonly rasm: typeof _rasm
     readonly scope: (pkg: string) => Scope
     readonly value: typeof _value
@@ -415,6 +477,8 @@ const Convention: Convention.Shape = {
   instrument: _instrument,
   keys: _keys,
   metric: _metric,
+  profile: _profile,
+  profiled: (identity) => ({ [_profile.service]: identity.app }),
   rasm: _rasm,
   scope: (pkg) => `@rasm/${pkg}`,
   value: _value,
@@ -425,3 +489,12 @@ const Convention: Convention.Shape = {
 
 export { Convention }
 ```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -29,7 +29,8 @@
 - Law: `PolygonAlgebra.Apply(new PolygonOp.Morphology(...))` proposes line-space candidates; `ArcAlgebra.Apply(new ArcOp.Inspect(...))` decides containment, exclusion, and collision on the original bulged loops.
 - Law: pair identity includes canonical loop geometry, tolerance, rotation, clearance, and chord error; inner-fit identity substitutes stock identity and edge allowance.
 - Law: collision envelopes carry half the combined clearance and kerf; stock-boundary feasibility adds edge allowance without weakening part-part or exclusion checks.
-- Auto: `ParallelHelper.For2D` fills independent pair slots, then `TraverseM` returns the first typed geometry failure without partial cache publication.
+- Auto: `ParallelHelper.For2D` fills uncached independent pair slots; memoized rows await one `HybridCache` task per identity outside the synchronous kernel, and `TraverseM` returns the first typed geometry failure without partial cache publication.
+- Memo: `PairMemo` content-keys the pair matrix under the same `PairTable.Key` identities through the branch `HybridCache` surface — the runtime-carried instance is the in-process tier, a durable L2 federates at the Persistence cache seam, hit and miss counts settle on `NestEvidence` and fire as the engine memo rows, and a failed build throws through the awaited factory so a fault never caches; the runtime cancellation token rides `GetOrBuild` into the awaited cache call, and a cancelled solve rethrows `OperationCanceledException` rather than caching or fault-converting; inner-fit rows stay direct because an empty locus is a verdict, not a cacheable polygon.
 - Boundary: an empty pair morphology remains a typed fault, an empty inner-fit locus is the absent-key verdict that no position admits the part, and every returned topology component survives the projection.
 
 ## [04]-[SEARCH]
@@ -43,9 +44,9 @@
 
 ## [05]-[DELIVERY]
 
-- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search inside the `EngineSpan.NestSolve` span; the run spine passes the `FabricationTap`, defaulting silent for headless callers.
+- Entry: `Nest.Solve` admits profiles, inventory, and policy, then dispatches resolved rectangular plans or true-shape search on one `Fin` rail; the run spine passes the `FabricationTap`, defaulting silent for headless callers, and threads the runtime `CancellationToken` through the pair-memo lane into `HybridCache.GetOrCreateAsync`, so an in-flight cancel surfaces as cancellation on the async channel, never a geometry fault.
 - Entry: `Nest.Charts` admits atlas distortion and reconstructs every island boundary cycle.
-- Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, and rejected rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
+- Receipt: `NestEvidence` retains solver, objective, inventory multiplicity, pair witnesses, constraint verdicts, candidate census, unplaced reasons, consumed cost, and the used-to-stock area basis; the settled evidence fires the `FabricationFact.Engine.Of` candidate, evaluated, rejected, memo-hit, and memo-miss rows through `Process/telemetry#FACT_PROJECTION` as kind `engine`.
 - Receipt: `FabricationResult.Placement` projects transforms, utilization, unplaced count, remnants, and the evidence-derived content key.
 - Law: the content preimage covers every `PartTransform` member including `Instance`, so two placements differing only by instance never collide on one key.
 - Boundary: remnant difference uses true profiles and the combined clearance-and-kerf offset; feasibility uses collision envelopes; only consumed stock enters the area and cost denominators.
@@ -57,11 +58,13 @@ extern alias Voronoi;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Text;
+using System.Threading.Tasks;
 using CavalierContours.Polyline;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
 using LanguageExt.Common;
+using Microsoft.Extensions.Caching.Hybrid;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Domain;
@@ -591,7 +594,8 @@ public abstract partial record ConstraintVerdict {
 }
 public sealed record NestEvidence(PlacementMode Mode, NestObjective Objective, Seq<UInt128> Stock, Seq<NfpWitness> Pairs,
     Seq<ConstraintVerdict> Constraints, Seq<UnplacedReason> Unplaced, int Candidates, int Evaluated, int Rejected,
-    double UsedArea, double StockArea, double CutLength, double RemnantValue, double StockCost) {
+    double UsedArea, double StockArea, double CutLength, double RemnantValue, double StockCost,
+    int MemoHits = 0, int MemoMisses = 0) {
     public double Utilization => StockArea > 0.0 ? Math.Clamp(UsedArea / StockArea, 0.0, 1.0) : 0.0;
     public double ConstraintPenalty => Constraints.Sum(static row => row.Penalty)
         + Unplaced.Count(static row => row is UnplacedReason.Constraint);
@@ -618,25 +622,36 @@ internal sealed record NestReceipt(Seq<PartTransform> Placements, Seq<Remnant> R
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Nest {
-    public static Fin<FabricationResult> Solve(FabricationPolicy.Nest policy, FabricationInput input, FabricationTap? tap = null) =>
-        EngineSpan.NestSolve.Traced(_ =>
-            from parts in input.Profiles.IsEmpty
-                ? Fin.Fail<Arr<Loop>>(FabricationFault.Nest(NestFault.EmptyCutList, 0).ToError())
-                : input.Profiles.ToSeq().Map((loop, index) => (loop, index))
-                    .TraverseM(row => Admit(row.loop, row.index)).As().Map(static rows => rows.ToArr())
-            let port = tap ?? FabricationTap.Silent
-            from result in input.Plan.Match(
-                Some: plan => Honor(parts, plan),
+    public static ValueTask<Fin<FabricationResult>> Solve(
+        FabricationPolicy.Nest policy, FabricationInput input, FabricationTap? tap = null, Option<HybridCache> memo = default,
+        CancellationToken cancel = default) {
+        Fin<Arr<Loop>> admitted = input.Profiles.IsEmpty
+            ? Fin.Fail<Arr<Loop>>(FabricationFault.Nest(NestFault.EmptyCutList, 0).ToError())
+            : input.Profiles.ToSeq().Map((loop, index) => (loop, index))
+                .TraverseM(row => Admit(row.loop, row.index)).As().Map(static rows => rows.ToArr());
+        return admitted.Match(
+            Succ: parts => input.Plan.Match(
+                Some: plan => ValueTask.FromResult(Honor(parts, plan)),
                 None: () => input.Inventory.IsEmpty
-                    ? Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError())
+                    ? ValueTask.FromResult(Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))
                     : input.Inventory.Filter(static stock => stock.Nestable && !stock.Region.IsEmpty) is Seq<Stock> inventory
                         && !inventory.IsEmpty
-                        ? Place(parts, inventory, policy.Nesting).Map(receipt => Projected(receipt, port))
-                        : Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))
-            select result);
+                        ? PlaceProjected(parts, inventory, policy.Nesting, tap ?? FabricationTap.Silent,
+                            memo.Map(static cache => new PairMemo(cache)), cancel)
+                        : ValueTask.FromResult(Fin.Fail<FabricationResult>(FabricationFault.StockOverflow(parts.Count, 0).ToError()))),
+            Fail: static error => ValueTask.FromResult(Fin.Fail<FabricationResult>(error)));
+    }
 
-    // Engine rows fire where the evidence settles, so the true-shape search reports its census once and
-    // the honored-plan path, which searches nothing, stays fact-free.
+    static async ValueTask<Fin<FabricationResult>> PlaceProjected(
+        Arr<Loop> parts,
+        Seq<Stock> inventory,
+        NestPolicy policy,
+        FabricationTap tap,
+        Option<PairMemo> memo,
+        CancellationToken cancel) =>
+        (await Place(parts, inventory, policy, memo, cancel).ConfigureAwait(false)).Map(receipt => Projected(receipt, tap));
+
+    // Settled evidence fires one engine census; honored plans search nothing and stay fact-free.
     private static FabricationResult Projected(NestReceipt receipt, FabricationTap tap) =>
         (FabricationFact.Engine.Of(receipt.Evidence).Map(tap.Fire).Strict(), Project(receipt)).Item2;
 
@@ -707,20 +722,43 @@ public static class Nest {
         return order != 0 ? order : BitConverter.DoubleToInt64Bits(left).CompareTo(BitConverter.DoubleToInt64Bits(right));
     }
 
-    static Fin<NestReceipt> Place(Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy) =>
-        from _ in policy.Parts.Count != parts.Count
-            || policy.Parts.Exists(rule => rule.PartId < 0 || rule.PartId >= parts.Count)
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:part-rule-profile").ToError())
-            : Fin.Succ(unit)
-        from graph in ConstraintGraph.Admit(parts.Count, policy.Constraints)
-        from variants in Variants(parts, policy)
-        from pairs in PairTable.Build(variants, inventory, policy)
-        from admitted in Initial(inventory, policy, graph)
-        let initial = admitted with { Evidence = admitted.Evidence with { Pairs = pairs.Values.Map(static row => row.Witness).ToSeq() } }
-        from searched in policy.Mode.Compile(policy.EvaluationBudget).Steps.FoldM<Fin, SearchState>(initial,
-            (state, operation) => Apply(operation, state, parts, inventory, variants, pairs, policy, graph)).As()
-        from receipt in Deliver(searched, parts, inventory, policy, graph)
-        select receipt;
+    static ValueTask<Fin<NestReceipt>> Place(
+        Arr<Loop> parts, Seq<Stock> inventory, NestPolicy policy, Option<PairMemo> memo = default,
+        CancellationToken cancel = default) {
+        Fin<(ConstraintGraph Graph, HashMap<(int PartId, long Angle), Variant> Variants)> prepared =
+            from _ in policy.Parts.Count != parts.Count
+                || policy.Parts.Exists(rule => rule.PartId < 0 || rule.PartId >= parts.Count)
+                ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:part-rule-profile").ToError())
+                : Fin.Succ(unit)
+            from graph in ConstraintGraph.Admit(parts.Count, policy.Constraints)
+            from variants in Variants(parts, policy)
+            select (graph, variants);
+        return prepared.Match(
+            Succ: scope => Search(parts, inventory, policy, memo, scope.Graph, scope.Variants, cancel),
+            Fail: static error => ValueTask.FromResult(Fin.Fail<NestReceipt>(error)));
+    }
+
+    static async ValueTask<Fin<NestReceipt>> Search(
+        Arr<Loop> parts,
+        Seq<Stock> inventory,
+        NestPolicy policy,
+        Option<PairMemo> memo,
+        ConstraintGraph graph,
+        HashMap<(int PartId, long Angle), Variant> variants,
+        CancellationToken cancel) {
+        Fin<HashMap<UInt128, NoFitPolygon>> built = await PairTable.Build(variants, inventory, policy, memo, cancel).ConfigureAwait(false);
+        return built.Bind(pairs =>
+            from admitted in Initial(inventory, policy, graph)
+            let initial = admitted with { Evidence = admitted.Evidence with { Pairs = pairs.Values.Map(static row => row.Witness).ToSeq() } }
+            from searched in policy.Mode.Compile(policy.EvaluationBudget).Steps.FoldM<Fin, SearchState>(initial,
+                (state, operation) => Apply(operation, state, parts, inventory, variants, pairs, policy, graph)).As()
+            from receipt in Deliver(searched, parts, inventory, policy, graph)
+            let counted = memo.Match(
+                Some: cache => receipt with { Evidence = receipt.Evidence with {
+                    MemoHits = (int)cache.Census.Hits, MemoMisses = (int)cache.Census.Misses } },
+                None: () => receipt)
+            select counted);
+    }
 
     static Fin<SearchState> Apply(SearchOp operation, SearchState state, Arr<Loop> parts, Seq<Stock> inventory,
         HashMap<(int PartId, long Angle), Variant> variants, HashMap<UInt128, NoFitPolygon> pairs,
@@ -1239,17 +1277,82 @@ public static class Nest {
 }
 
 // --- [CONFIGURATION_SPACE] -------------------------------------------------------------------------------------------------------------------------
+// Pair memo: HybridCache owns stampede protection and the L1/L2 split — each runtime instance is L1-only in
+// process, and a durable L2 federates at the Persistence cache seam. Keys are exact `PairTable.Key` identities,
+// folded from canonical pair geometry, tolerance, rotation, clearance, kerf, and chord error through
+// `ContentHash.Of`, so byte-identical pairs under one policy replay across solves and
+// runs; a failed build throws through the factory and is never cached. Memoized rows stay asynchronous from
+// cache lookup through solve completion.
+internal sealed class PairMemo(HybridCache cache) {
+    static readonly HybridCacheEntryOptions Tuned = new() {
+        Expiration = TimeSpan.FromHours(8),
+        LocalCacheExpiration = TimeSpan.FromHours(8),
+    };
+
+    readonly Atom<(long Hits, long Misses)> census = Atom((0L, 0L));
+
+    public (long Hits, long Misses) Census => census.Value;
+
+    public async ValueTask<Fin<NoFitPolygon>> GetOrBuild(UInt128 identity, Func<Fin<NoFitPolygon>> build, CancellationToken cancel) {
+        bool built = false;
+        try {
+            NoFitPolygon polygon = await cache.GetOrCreateAsync(
+                $"nfp:{identity:X32}",
+                (Build: build, Mark: () => built = true),
+                static (state, _) => { state.Mark(); return ValueTask.FromResult(state.Build().ThrowIfFail()); },
+                Tuned,
+                cancellationToken: cancel).ConfigureAwait(false);
+            _ = census.Swap(count => built ? (count.Hits, count.Misses + 1) : (count.Hits + 1, count.Misses));
+            return Fin.Succ(polygon);
+        }
+        // Cancellation is the runtime's contract, never a geometry fault: the runtime token rides
+        // GetOrCreateAsync and an in-flight cancel rethrows on the async channel undisguised.
+        catch (OperationCanceledException) {
+            throw;
+        }
+        catch (Exception error) {
+            return Fin.Fail<NoFitPolygon>(
+                new GeometryFault.DegenerateInput(Kind.Polyline, -1, $"nest:pair-memo:{error.Message}").ToError());
+        }
+    }
+}
+
 internal static class PairTable {
-    public static Fin<HashMap<UInt128, NoFitPolygon>> Build(HashMap<(int PartId, long Angle), Variant> variants,
-        Seq<Stock> inventory, NestPolicy policy) {
+    public static async ValueTask<Fin<HashMap<UInt128, NoFitPolygon>>> Build(
+        HashMap<(int PartId, long Angle), Variant> variants,
+        Seq<Stock> inventory,
+        NestPolicy policy,
+        Option<PairMemo> memo = default,
+        CancellationToken cancel = default) {
         Variant[] rows = variants.Values.OrderBy(static row => row.PartId).ThenBy(static row => row.Rotation).ToArray();
-        Fin<NoFitPolygon>[] results = new Fin<NoFitPolygon>[checked(rows.Length * rows.Length)];
-        PairAction action = new(rows, results, policy);
-        ParallelHelper.For2D(0..rows.Length, 0..rows.Length, in action, policy.PairBatchFloor);
+        Fin<NoFitPolygon>[] results = await memo.Match(
+            Some: cache => Cached(rows, policy, cache, cancel),
+            None: () => ValueTask.FromResult(Parallel(rows, policy))).ConfigureAwait(false);
         return results.ToSeq().TraverseM(identity).As()
             .Bind(pairs => Inner(toSeq(rows), inventory, policy).Map(inner => pairs.Concat(inner)))
             .Map(static found => toHashMap(found.DistinctBy(static row => row.Identity)
                 .Map(static row => (row.Identity, row))));
+    }
+
+    static Fin<NoFitPolygon>[] Parallel(Variant[] variants, NestPolicy policy) {
+        Fin<NoFitPolygon>[] results = new Fin<NoFitPolygon>[checked(variants.Length * variants.Length)];
+        PairAction action = new(variants, results, policy);
+        ParallelHelper.For2D(0..variants.Length, 0..variants.Length, in action, policy.PairBatchFloor);
+        return results;
+    }
+
+    static async ValueTask<Fin<NoFitPolygon>[]> Cached(Variant[] variants, NestPolicy policy, PairMemo memo, CancellationToken cancel) {
+        Task<Fin<NoFitPolygon>>[] pending = new Task<Fin<NoFitPolygon>>[checked(variants.Length * variants.Length)];
+        for (int i = 0; i < variants.Length; i++)
+            for (int j = 0; j < variants.Length; j++) {
+                Variant fixedPart = variants[i], orbiting = variants[j];
+                UInt128 identity = Key(fixedPart, orbiting, policy);
+                pending[(i * variants.Length) + j] = memo.GetOrBuild(
+                    identity,
+                    () => Built(fixedPart, orbiting, identity, policy),
+                    cancel).AsTask();
+            }
+        return await Task.WhenAll(pending).ConfigureAwait(false);
     }
 
     public static UInt128 Key(Variant fixedPart, Variant orbiting, NestPolicy policy) =>
@@ -1299,29 +1402,31 @@ internal static class PairTable {
     readonly struct PairAction(Variant[] variants, Fin<NoFitPolygon>[] results, NestPolicy policy) : IAction2D {
         public void Invoke(int i, int j) {
             Variant fixedPart = variants[i], orbiting = variants[j];
-            results[(i * variants.Length) + j] =
-                from fixedDense in Nest.Lower(fixedPart.Collision, policy.ChordError)
-                from orbitDense in Nest.Lower(orbiting.Collision, policy.ChordError)
-                from reflected in Reflect(orbitDense)
-                from trace in PolygonAlgebra.Apply(new PolygonOp.Morphology(fixedDense, reflected,
-                    NfpRelation.Forbidden.Kind))
-                from locus in trace is PolygonTrace.Regions regions
-                    ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
-                    : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:morphology-trace").ToError())
-                from admitted in locus.IsEmpty
-                    ? Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:nfp-empty").ToError())
-                    : Fin.Succ(locus)
-                let identity = Key(fixedPart, orbiting, policy)
-                let witness = new NfpWitness(identity, fixedPart.Identity, orbiting.Identity, NfpRelation.Forbidden,
-                    NfpMethod.ChordProjected, policy.ChordError, policy.Clearance, policy.Kerf, locus.Count,
-                    locus.Count(static loop => loop.Winding() == Sign.Negative))
-                from polygon in Admit(admitted, identity, witness)
-                select polygon;
+            UInt128 identity = Key(fixedPart, orbiting, policy);
+            results[(i * variants.Length) + j] = Built(fixedPart, orbiting, identity, policy);
         }
-
-        static Fin<Loop> Reflect(Loop loop) => Loop.Admit(loop.Vertices.Map(point => Point3d.Origin - (point - Point3d.Origin)).ToArr(),
-            loop.Closed, loop.Bulges, loop.Tolerance).Map(static reflected => reflected.AsCcw());
     }
+
+    static Fin<NoFitPolygon> Built(Variant fixedPart, Variant orbiting, UInt128 identity, NestPolicy policy) =>
+        from fixedDense in Nest.Lower(fixedPart.Collision, policy.ChordError)
+        from orbitDense in Nest.Lower(orbiting.Collision, policy.ChordError)
+        from reflected in Reflect(orbitDense)
+        from trace in PolygonAlgebra.Apply(new PolygonOp.Morphology(fixedDense, reflected,
+            NfpRelation.Forbidden.Kind))
+        from locus in trace is PolygonTrace.Regions regions
+            ? Fin.Succ(regions.Result.Nodes.Map(static node => node.Boundary))
+            : Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:morphology-trace").ToError())
+        from admitted in locus.IsEmpty
+            ? Fin.Fail<Seq<Loop>>(new GeometryFault.DegenerateInput(Kind.Polyline, -1, "nest:nfp-empty").ToError())
+            : Fin.Succ(locus)
+        let witness = new NfpWitness(identity, fixedPart.Identity, orbiting.Identity, NfpRelation.Forbidden,
+            NfpMethod.ChordProjected, policy.ChordError, policy.Clearance, policy.Kerf, locus.Count,
+            locus.Count(static loop => loop.Winding() == Sign.Negative))
+        from polygon in Admit(admitted, identity, witness)
+        select polygon;
+
+    static Fin<Loop> Reflect(Loop loop) => Loop.Admit(loop.Vertices.Map(point => Point3d.Origin - (point - Point3d.Origin)).ToArr(),
+        loop.Closed, loop.Bulges, loop.Tolerance).Map(static reflected => reflected.AsCcw());
 }
 
 internal sealed class ConstraintGraph {
@@ -1424,3 +1529,12 @@ internal sealed class ConstraintGraph {
     static bool Id(int value, int partCount) => value >= 0 && value < partCount;
 }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

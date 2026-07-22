@@ -850,3 +850,12 @@ class Spec(Struct, frozen=True):
 # --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = ["Article", "Paragraph", "ParagraphRole", "SectionPart", "Spec", "SpecFault", "SpecMethod", "SpecVerdict", "SubmittalClass", "submittal_register"]
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -17,10 +17,10 @@ Each arm is a total function from spec, host material, and pins to a `PulumiFn`:
 
 [EQUIVALENCE_MAP]:
 - Owner: the interior `_capabilities` key tuple anchoring row order, the `_map` table carrying per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the two projections riding the exported owner: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. Reads ride `_cells`, the table widened to `Dispatch.Cell` rows — a declared-key access on the literal union demands the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals.
-- Law: cells are family spellings, not mechanics — a cell names the resource classes (`gcp.container.Cluster + NodePool`) or the owning row (`helm minio-continuation | ceph-rgw`), and the page that constructs them is the mechanics owner; capability audits and promotion reviews read the map, and the `_ARMS` record is the construction it describes.
+- Law: cells are family spellings, not mechanics — a cell names only the resource classes or owning row `_ARMS` constructs for that arm and posture; capability audits read the map, and an absent construction is an absent cell.
 - Law: the object row admits only conditional-put-conforming engines — the self-host cells name the maintained MinIO continuation and Ceph RGW, the managed cells name S3, R2, and GCS; the CRDT-metadata engine that cannot honor `If-None-Match: *` has no cell anywhere, because the data plane's write-once identity algebra is non-negotiable and the refusal is `data`'s engine table read as deployment law.
-- Law: the canonical secret owner spans every column — the `secret` row is Doppler on all five arms, and a cloud secret manager is reachable only as a mirror (`secretssync.<Target>` where the Doppler provider ships the destination, an in-graph write fed by the fan-in read where it does not), so no arm ever grows a second secret source of truth.
-- Law: a prepared column's filled cells are its finalization contract — the `gcp` column names GKE, Cloud SQL, GCS, Cloud DNS, and the Secret Manager mirror against the same capability rows the primary arm realizes, so finalizing means instantiating the named subset with the `StackSpec` value; the dormant remainder of a provider SDK is unreachable by construction.
+- Law: Doppler is canonical wherever an arm constructs `Secrets`; a cloud secret manager is reachable only as a mirror, so no arm grows a second secret source of truth.
+- Law: a column is a realized inventory, not a promotion promise; dormant provider SDK families stay absent until their arm constructs and returns the capability.
 - Entry: `Dispatch.column(spec.target)` inside an arm; `Dispatch.cell("data", "aws")` for a point read.
 - Growth: a new capability is one `_capabilities` entry and one `_map` row; a new arm is one cell per realized row under the new column key.
 - Boundary: kube-row mechanics are `kube/*`; the object/data engine choices are `StackSpec.profile` values; the tenant row's mechanics are `kube/tenant.md`; the in-cluster reconcile row's mechanics are `operate/policy.md`; cross-stack output reads ride `StackReference` inside the tenant seam `kube/tenant.md` owns.
@@ -33,7 +33,7 @@ import type { StackSpec } from "./spec.ts"
 const _capabilities = [
   "bootstrap", "workload", "data", "object", "fanout", "cert", "dns",
   "ingress", "secret", "registry", "network", "identity", "observe",
-  "tenant", "distribution", "reconcile",
+  "tenant", "distribution",
 ] as const
 
 const _map = {
@@ -45,87 +45,75 @@ const _map = {
     "selfhosted-k8s": "kubernetes.apps/v1.Deployment + core/v1.Service",
     "selfhosted-docker": "docker.Container",
     aws: "awsx.ecs.FargateService | eks.Cluster + eks.ManagedNodeGroup (compute: cluster)",
-    gcp: "gcp.container.Cluster + gcp.container.NodePool",
-    cloudflare: "cloudflare.WorkersScript + cloudflare.WorkersRoute",
   },
   data: {
     "selfhosted-k8s": "cnpg Cluster CR (managed roles, plugin-barman-cloud) + Database CR + ensure Job",
     "selfhosted-docker": "docker.Container(postgres) + postgresql.Database/Role/Grant/Extension",
-    aws: "aws.rds.Cluster",
+    aws: "cnpg Cluster CR + Database CR + ensure Job (compute: cluster)",
     gcp: "gcp.sql.DatabaseInstance + gcp.sql.Database + gcp.sql.User",
-    cloudflare: "cloudflare.D1Database",
   },
   object: {
     "selfhosted-k8s": "helm minio-continuation | ceph-rgw",
     "selfhosted-docker": "docker.Container(minio-continuation)",
-    aws: "aws.s3.BucketV2",
-    gcp: "gcp.storage.Bucket + gcp.storage.BucketIAMMember",
+    aws: "aws.s3.BucketV2 (compute: serverless) | helm minio-continuation | ceph-rgw (compute: cluster)",
+    gcp: "gcp.storage.Bucket",
     cloudflare: "cloudflare.R2Bucket",
   },
   fanout: {
     "selfhosted-k8s": "helm nats (jetstream + websocket)",
     "selfhosted-docker": "docker.Container(nats)",
+    aws: "helm nats (compute: cluster)",
   },
   cert: {
-    "selfhosted-k8s": "tls chain -> core/v1.Secret(kubernetes.io/tls) | acme.Certificate (cluster-external)",
+    "selfhosted-k8s": "tls chain -> core/v1.Secret(kubernetes.io/tls)",
     "selfhosted-docker": "acme.Registration + acme.Certificate (CSR over tls chain)",
-    aws: "aws.acm.Certificate",
-    gcp: "gcp.certificatemanager.Certificate",
-    cloudflare: "cloudflare.OriginCaCertificate + cloudflare.TotalTls",
+    aws: "tls chain -> core/v1.Secret(kubernetes.io/tls) (compute: cluster)",
   },
   dns: {
     "selfhosted-k8s": "cloudflare.DnsRecord",
     "selfhosted-docker": "cloudflare.DnsRecord",
-    aws: "aws.route53.Zone + aws.route53.Record | cloudflare.DnsRecord (cluster estate)",
-    gcp: "gcp.dns.ManagedZone + gcp.dns.RecordSet",
-    cloudflare: "cloudflare.Zone + cloudflare.DnsRecord",
+    aws: "cloudflare.DnsRecord (compute: cluster)",
+    cloudflare: "cloudflare.DnsRecord",
   },
   ingress: {
     "selfhosted-k8s": "kubernetes.networking/v1.Ingress | cloudflare.ZeroTrustTunnelCloudflared",
     "selfhosted-docker": "docker.Container ports",
-    aws: "awsx.lb.ApplicationLoadBalancer",
-    gcp: "gcp.compute.GlobalAddress + gcp.compute.URLMap",
-    cloudflare: "cloudflare.ZeroTrustTunnelCloudflared + cloudflare.ZeroTrustAccessApplication",
+    aws: "awsx.lb.ApplicationLoadBalancer (compute: serverless) | Traffic (compute: cluster)",
+    cloudflare: "cloudflare.PagesProject + cloudflare.DnsRecord",
   },
   secret: {
     "selfhosted-k8s": "doppler canonical",
     "selfhosted-docker": "doppler canonical",
-    aws: "doppler canonical + secretssync.AwsSecretsManager mirror",
-    gcp: "doppler canonical + gcp.secretmanager mirror",
+    aws: "doppler canonical (compute: cluster)",
+    gcp: "doppler canonical",
     cloudflare: "doppler canonical",
   },
   registry: {
-    "selfhosted-k8s": "docker-build.Image registry export",
-    "selfhosted-docker": "docker-build.Image + docker.RegistryImage",
-    aws: "awsx.ecr.Repository + awsx.ecr.Image",
-    gcp: "gcp.artifactregistry.Repository",
+    "selfhosted-docker": "docker-build.Image",
+    aws: "awsx.ecr.Repository + awsx.ecr.Image (compute: serverless)",
   },
   network: {
     "selfhosted-k8s": "kubernetes.networking/v1.NetworkPolicy",
     "selfhosted-docker": "docker.Network + docker.Volume",
     aws: "awsx.ec2.Vpc",
-    gcp: "gcp.compute.Network + gcp.compute.Subnetwork + gcp.compute.Firewall",
   },
   identity: {
     "selfhosted-k8s": "core/v1.ServiceAccount + rbac/v1.Role + rbac/v1.RoleBinding",
-    aws: "aws.iam.Role + aws.iam.Policy + aws.iam.RolePolicyAttachment | eks IRSA (createOidcProvider)",
-    gcp: "gcp.serviceaccount.Account + gcp.projects.IAMMember",
+    aws: "eks.Cluster(createOidcProvider) (compute: cluster)",
   },
   observe: {
     "selfhosted-k8s": "store-row backend charts + otel collector + grafana apply",
     "selfhosted-docker": "collector container + grafana apply",
+    aws: "store-row backend charts + otel collector + grafana apply (compute: cluster)",
   },
   tenant: {
     "selfhosted-k8s": "capsule Tenant CR | vcluster chart (crd2pulumi typed)",
     aws: "kube tenant tier over the EKS estate (compute: cluster)",
   },
   distribution: {
-    aws: "synced-folder.S3BucketFolder over aws.s3.BucketV2",
+    aws: "synced-folder.S3BucketFolder over aws.s3.BucketV2 (compute: serverless)",
     gcp: "synced-folder.GoogleCloudFolder over gcp.storage.Bucket",
-    cloudflare: "cloudflare.PagesProject | R2Bucket static origin",
-  },
-  reconcile: {
-    "selfhosted-k8s": "PKO Stack/Program CR (in-cluster reconcile loop)",
+    cloudflare: "cloudflare.PagesProject origin (uploads out of graph)",
   },
 } as const
 
@@ -145,7 +133,7 @@ const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
 - Law: arms prove, never assume — `_coord` lifts any spec `Option` onto the rail minting an `input` fault naming the coordinate, `_proven` zips connection and key, and `_staged` proves the entire traffic-edge coordinate set (domain, zone, and the exposure row's own demand: the connection host under `direct`, the account under `tunnel`; `internal` demands nothing and stages the app edgeless, so a worker-only workload deploys with no domain coordinate at all) into one `Option`-carried `Traffic.Edge` tagged case; no arm body or tier constructor ever meets an unproven `Option`, and a construction-time `RunError` for a spec-derivable value is the named defect this proof family deletes.
-- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions including the external-dns pin, the extension-image ref, the machine container images the docker cells run — `objectImage`, `natsImage`, the `observe.dev` all-in-one image — the optional `registry` push row (address and user; the password is the `REGISTRY_PASSWORD` fan-in read), the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the prepared arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite, and the optional `acme` row — directory email with the DNS-01 challenge — that arms the trusted-cert lane); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
+- Law: pins are a parameter, never a module read — `Dispatch.Pins` carries the deploy-time facts the spec does not (chart and operator versions including the external-dns pin, the extension-image ref, the machine container images the docker cells run — `objectImage`, `natsImage`, the `observe.dev` all-in-one image — the optional `registry` push row (address and user; the password is the `REGISTRY_PASSWORD` fan-in read), the cloudflared connector image, the install script and its first-boot parts, the host-fact probe commands, the managed-capacity and managed-data rows for the cloud arms, the build context, the ensure-DDL roster the data plane publishes, the encoded boards and alert specs from the core observe suite, and the optional `acme` row — directory email with the DNS-01 challenge — that arms the trusted-cert lane); the app root resolves them from its own config and suite call, so ingress is parameterized end to end and the lib hardcodes no version anywhere.
 - Law: one provider seam per arm — the arm constructs its provider (kubeconfig-bound `k8s.Provider`, `ssh://` `docker.Provider`, credentialed cloud provider) exactly once and threads it through tier options; per-resource providers are the named defect, and the credential arrives from `Secrets.read` in-graph or the ambient `doppler run` env, never a literal.
 - Law: the `PulumiFn` body is the deploy plane's program seam — a promise-returning composition of tier constructors bound to consts and one returned outputs record; the platform owns that shape, and everything the arm computes before entering it stays on the rail.
 - Entry: `Effect.flatMap(Dispatch.material, (material) => Dispatch.program(spec, material, pins))` then `Automation.stack(spec, program)`.
@@ -191,6 +179,10 @@ declare namespace Dispatch {
     readonly nodes: { readonly instanceType: string; readonly min: number; readonly max: number }
     readonly managedData: { readonly engine: string; readonly tier: string }
     readonly ensures: ReadonlyArray<string>
+    readonly site?: {
+      readonly path: string // the built static-frontend directory; app data, never a lib literal
+      readonly assets: ReadonlyArray<{ readonly slug: string; readonly digest: string; readonly file: string }>
+    }
     readonly boards: ReadonlyArray<typeof DashboardModel.Encoded>
     readonly alerts: ReadonlyArray<Alert.Spec>
     readonly objectives: ReadonlyArray<Slo.Objective>
@@ -221,7 +213,7 @@ const _proven = (spec: StackSpec, material: Dispatch.Material): Effect.Effect<{
 
 const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, DeployFault> =>
   Option.match(spec.image, {
-    onNone: () => Effect.succeedNone,
+    onNone: () => Effect.succeed(Option.none()),
     onSome: (image) =>
       spec.profile.exposure === "internal"
         ? Effect.succeed(Option.some({ image, edge: Option.none() }))
@@ -238,11 +230,11 @@ const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, De
 
 const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain: string; readonly zone: string }>, DeployFault> =>
   spec.profile.exposure === "internal"
-    ? Effect.succeedNone
+    ? Effect.succeed(Option.none())
     : spec.profile.exposure === "tunnel"
-      ? Effect.fail(_input(spec, "<unrealized-exposure:tunnel>"))
+      ? Effect.fail(_input(spec, "<unsupported-exposure:tunnel>"))
       : Option.match(spec.domain, {
-          onNone: () => Effect.succeedNone,
+          onNone: () => Effect.succeed(Option.none()),
           onSome: (domain) => Effect.map(_coord(spec, spec.zone, "zone"), (zone) => Option.some({ domain, zone })),
         })
 ```
@@ -338,13 +330,14 @@ class Bootstrap extends Tier {
 ## [05]-[ARM_PROGRAMS]
 
 [ARM_PROGRAMS]:
-- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
+- Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `DB_ANALYST_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (distinct admin, app, and analyst reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, the per-tenant `GRAFANA_VIEWER_*` keys from `Boards.viewers`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; the object plane's coordinates thread into `Lgtm` so the mimir escalation binds one storage truth; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
 - Law: the app image is one buildx product — the docker arm and any registry cell build through `docker-build.Image` with `push: true`, the immutable `ref`/`digest` pinning every runtime; `platforms` rows make the build multi-arch, `cacheFrom`/`cacheTo` registry rows reuse layers across runs, the push credential rides the `registries` row — `pins.registry` coordinates with the `REGISTRY_PASSWORD` fan-in read, so a `push: true` build carries its own auth instead of assuming an ambient login — and by-value `secrets` bind Doppler outputs so no build credential touches disk. A rust build stage runs `wasm-pack build` over the pinned `fastcdc` crate and the runtime stage copies the pkg, so the chunking artifact ships inside the image digest and no second artifact pipeline exists.
-- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` (`Role`/`Database`/`Extension` rows from the profile's extension subset — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unrealized tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
+- Law: the docker arm realizes its whole column — `_grounded` (the one Bootstrap spelling both selfhosted arms share, folding the connection's `hostKey`/`bastion` hardening coordinates in) lays the daemon, the `ssh://` `docker.Provider` binds the proven connection's own `ssh` projection with `dependsOn` the daemon so the first `up` cannot race the install, and the machine estate mirrors `_estate` at container depth: one `Secrets` store with the generated credential entries, one `docker.Network` fence, the mount table minting one `docker.Volume` per store beside its path so mount spellings exist once, the postgres container finalized through the bridged `postgresql.Provider` at full logical depth (`Role`/`Database`/`Extension` rows from the profile's extension subset, the analyst read tier as one `Role` with its `pg_read_all_data` `GrantRole` membership, its schema `Grant`, and its `DefaultPrivileges` future-object ACL, and the `ReplicationSlot` logical seam — the read-back `operate/policy.md`'s `conform` correlates), the MinIO-continuation container whose filesystem bucket pre-creates in its own command, the NATS container configured through an `uploads` row (jetstream fsync-per-write, websocket listener — the same durability law the chart row states), the app container pinning the built digest and injecting `DOPPLER_TOKEN` beside the collector-endpoint row so the baked `doppler run` entrypoint resolves config at start and telemetry exports byte-identically to the estate arm, the `Dev` all-in-one estate realizing the observe cell with `Boards` applied over its URL plane and the automation token landed through `secrets.store`, the `Direct`-edge `DnsRecord` and the ACME trusted pair landed through `secrets.store` when `pins.acme` arms the lane (`_edged` proves domain/zone and refuses the unsupported tunnel posture on the rail), and the `RandomUuid7` deploy identity — the arm returns every plane it realizes: `data`, `object`, `fanout`, `otlp`, `grafana`, `deploy`, and `ingress` under a proven edge.
 - Law: the aws arm dispatches its compute posture as data — `_AWS` is a handler record keyed by `StackSpec.Profile["compute"]`: the `serverless` row realizes VPC → ECR build → Fargate behind an ALB with the S3 object cell; the `cluster` row escalates to `eks.Cluster` (`authenticationMode: "API"`, `createOidcProvider: true` for IRSA, `skipDefaultNodeGroup: true`) with one `ManagedNodeGroup` sized from `pins.nodes`, binds `kubeconfigJson` into the arm's one `k8s.Provider` seam, and reuses `_estate` whole — the managed twin of `Bootstrap.kubeconfig`, one seam swap and zero tier edits.
-- Law: the gcp arm realizes its finalization contract — the provider binds `credentials` from the `GCP_CREDENTIALS` fan-in read, the GKE anchor stands, the object cell is `gcp.storage.Bucket` (uniform bucket-level access), and the data cell is `gcp.sql.DatabaseInstance` + `Database` + `User` with the engine tag and machine tier arriving as `pins.managedData`; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell and the `PagesProject` static origin against the proven `account`, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain against the proven `zone` — the record targets a project the arm minted, never a dangling coordinate; each returns exactly the planes it realizes.
+- Law: the gcp arm binds `credentials` from the `GCP_CREDENTIALS` fan-in read, realizes the versioned `gcp.storage.Bucket` object cell and the `gcp.sql.DatabaseInstance` + `Database` + `User` data cell, and returns only those planes with optional served assets; the cloudflare arm binds `apiToken` from the fan-in, realizes the `R2Bucket` object cell with its `R2BucketLifecycle` aging row and the `PagesProject` static origin, and lands the dns cell as the CNAME onto the project's `pages.dev` subdomain — each returns exactly the planes it realizes.
+- Law: the distribution cells construct what the map advertises — the aws and gcp arms converge the built frontend through `Source.distribute` over their own object cells when `pins.site` arrives (the versioned `BucketV2` behind one `BucketVersioningV2` row on aws, the versioned bucket on gcp), each returning the caller-owned `served` slug-to-path record as an output plane; the cloudflare arm's static origin stays its `PagesProject` rows, whose build product uploads out of graph.
 - Law: every arm funds the boards — the encoded models and alert specs enter as pins where the arm realizes an observe cell; an arm without the observe cell returns no `grafana` plane and drops nothing silently.
-- Growth: promoting a prepared arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row and one map column.
+- Growth: realizing an arm is one realizer body or one `_AWS`-style posture row; a new cloud is one record row and one map column.
 - Boundary: tier mechanics live on the tier pages; the declared realizers' argument catalogues are the standing research items on the provider `.api` files.
 - Packages: `@pulumi/kubernetes`, `@pulumi/eks`, `@pulumi/docker`, `@pulumi/docker-build`, `@pulumi/aws`, `@pulumi/awsx`, `@pulumi/gcp`, `@pulumi/cloudflare`, `@pulumi/random` (providers + composed classes); every folder tier.
 
@@ -365,6 +358,7 @@ import { Traffic } from "../kube/traffic.ts"
 import { Workload } from "../kube/workload.ts"
 import { Boards, Dev, Lgtm } from "../operate/observe.ts"
 import { Certs, Secrets } from "../operate/secret.ts"
+import { Source } from "./source.ts"
 import { StackOutputs } from "./spec.ts"
 
 const _grounded = (
@@ -396,6 +390,7 @@ const _estate = (
     entries: {
       DB_ADMIN_PASSWORD: { generate: {} },
       DB_PASSWORD: { generate: {} },
+      DB_ANALYST_PASSWORD: { generate: {} },
       OBJECT_USER: { generate: { special: false, length: 20 } },
       OBJECT_PASSWORD: { generate: {} },
       GRAFANA_PASSWORD: { generate: {} },
@@ -415,7 +410,11 @@ const _estate = (
     operatorVersion: pins.operator,
     barmanVersion: pins.barman,
     objects,
-    auth: { admin: secrets.read("DB_ADMIN_PASSWORD"), app: secrets.read("DB_PASSWORD") },
+    auth: {
+      admin: secrets.read("DB_ADMIN_PASSWORD"),
+      app: secrets.read("DB_PASSWORD"),
+      analyst: secrets.read("DB_ANALYST_PASSWORD"),
+    },
     ensures: pins.ensures,
   }, bound)
   const lgtm = new Lgtm("observe", {
@@ -425,6 +424,7 @@ const _estate = (
     auth: secrets.read("GRAFANA_PASSWORD"),
     // pg-server metrics endpoint: in-graph woven, never a published output
     dsn: pulumi.interpolate`postgresql://${data.role}:${secrets.read("DB_PASSWORD")}@${data.host}:${data.port}/${data.database}`,
+    objects: { endpoint: objects.endpoint, bucket: objects.bucket }, // one storage truth: the mimir escalation binds the object plane's own coordinates
   }, bound)
   const identity = new random.RandomUuid7("deploy-id", { keepers: { epoch: spec.epoch } })
   const boards = new Boards("boards", {
@@ -438,6 +438,8 @@ const _estate = (
     deploy: { id: identity.result },
   })
   secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
+  Array.map(Record.toEntries(boards.viewers), ([tenant, key]) =>
+    secrets.store(`GRAFANA_VIEWER_${tenant.toUpperCase()}`, key)) // tenant read identities ride the same custody as the automation token
   if (spec.profile.tenancy.mode !== "single") {
     new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
   }
@@ -505,9 +507,21 @@ const _AWS: {
       taskDefinitionArgs: { container: { name: "app", image: image.imageUri, portMappings: [{ containerPort: pins.port }] } },
     }, opts)
     const bucket = new aws.s3.BucketV2("objects", {}, opts)
+    new aws.s3.BucketVersioningV2("objects-versioning", { bucket: bucket.id, versioningConfiguration: { status: "Enabled" } }, opts)
+    const served = pins.site === undefined
+      ? {}
+      : {
+          served: Source.distribute("frontend", {
+            arm: "aws",
+            path: pins.site.path,
+            bucket: bucket.bucket,
+            assets: pins.site.assets,
+          }, { providers: [opts.provider] }).served, // the distribution cell the map advertises: the served plane arms the ui codec gate
+        }
     return {
       object: { endpoint: bucket.bucketRegionalDomainName, bucket: bucket.bucket },
       ingress: { hostname: alb.loadBalancer.dnsName },
+      ...served,
     }
   },
   cluster: (spec, pins, app, opts) => {
@@ -552,6 +566,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           entries: {
             DB_ADMIN_PASSWORD: { generate: {} },
             DB_PASSWORD: { generate: {} },
+            DB_ANALYST_PASSWORD: { generate: {} },
             OBJECT_USER: { generate: { special: false, length: 20 } },
             OBJECT_PASSWORD: { generate: {} },
             GRAFANA_PASSWORD: { generate: {} },
@@ -631,6 +646,35 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         const database = new postgresql.Database("app", { name: spec.app, owner: role.name }, { provider: sql })
         Array.map(spec.profile.extensions, (extension) =>
           new postgresql.Extension(extension, { name: extension, database: database.name }, { provider: sql }))
+        const analyst = new postgresql.Role("analyst-role", {
+          name: `${spec.app}_analyst`,
+          login: true,
+          password: secrets.read("DB_ANALYST_PASSWORD"),
+        }, { provider: sql })
+        new postgresql.GrantRole("analyst-read-all", {
+          role: analyst.name,
+          grantRole: "pg_read_all_data", // the built-in read tier: membership, never a second grant surface
+        }, { provider: sql })
+        new postgresql.Grant("analyst-select", {
+          database: database.name,
+          role: analyst.name,
+          schema: "public",
+          objectType: "table",
+          privileges: ["SELECT"],
+        }, { provider: sql })
+        new postgresql.DefaultPrivileges("analyst-future", {
+          database: database.name,
+          role: analyst.name,
+          owner: role.name,
+          schema: "public",
+          objectType: "table",
+          privileges: ["SELECT"], // future objects inherit the ACL: the analyst tier never chases new relations
+        }, { provider: sql })
+        new postgresql.ReplicationSlot("outbox", {
+          database: database.name,
+          name: `${spec.app}_outbox`,
+          plugin: "pgoutput", // the logical seam as a typed row: a replication topology is rows here, never a rewrite
+        }, { provider: sql })
         new docker.Container("app", {
           image: image.ref,
           restart: "unless-stopped",
@@ -701,8 +745,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         const secrets = new Secrets("secrets", { spec, entries: { DB_PASSWORD: { generate: {} } } })
         const provider = new gcp.Provider("gcp", { project, region, credentials: secrets.read("GCP_CREDENTIALS") })
         const opts = { provider }
-        new gcp.container.Cluster("plane", { location: region, initialNodeCount: 2 }, opts)
-        const bucket = new gcp.storage.Bucket("objects", { location: region, uniformBucketLevelAccess: true }, opts)
+        const bucket = new gcp.storage.Bucket("objects", { location: region, uniformBucketLevelAccess: true, versioning: { enabled: true } }, opts)
         const sql = new gcp.sql.DatabaseInstance("data", {
           databaseVersion: pins.managedData.engine,
           region,
@@ -710,9 +753,20 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         }, opts)
         new gcp.sql.Database("app", { instance: sql.name, name: spec.app }, opts)
         new gcp.sql.User("app-role", { instance: sql.name, name: `${spec.app}_app`, password: secrets.read("DB_PASSWORD") }, opts)
+        const served = pins.site === undefined
+          ? {}
+          : {
+              served: Source.distribute("frontend", {
+                arm: "gcp",
+                path: pins.site.path,
+                bucket: bucket.name,
+                assets: pins.site.assets,
+              }, { providers: [provider] }).served,
+            }
         return {
           object: { endpoint: bucket.url, bucket: bucket.name },
           data: { host: sql.publicIpAddress, port: 5432, database: spec.app, role: `${spec.app}_app` },
+          ...served,
         }
       },
     ),
@@ -727,6 +781,16 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         const secrets = new Secrets("secrets", { spec, entries: {} })
         const provider = new cloudflare.Provider("cf", { apiToken: secrets.read("CLOUDFLARE_API_TOKEN") })
         const store = new cloudflare.R2Bucket("objects", { accountId: account, name: `${spec.app}-artifacts` }, { provider })
+        new cloudflare.R2BucketLifecycle("objects-aging", {
+          accountId: account,
+          bucketName: store.name,
+          rules: [{
+            id: "abort-stale-multipart",
+            enabled: true,
+            conditions: { prefix: "" },
+            abortMultipartUploadsTransition: { condition: { type: "Age", maxAge: 604800 } }, // stale upload fragments age out; referenced objects never age here — the reference ledger owns deletion
+          }],
+        }, { provider })
         const site = new cloudflare.PagesProject("site", {
           accountId: account,
           name: spec.app,
@@ -765,3 +829,12 @@ const Dispatch = {
 
 export { Bootstrap, Dispatch }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

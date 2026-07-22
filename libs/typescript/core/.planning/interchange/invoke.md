@@ -1,6 +1,6 @@
 # [CORE_INVOKE]
 
-The capability plane of the interchange: both directions of the command contract under one page. Outbound — `CapabilityDescriptor`, the content-keyed command-shape identity admitted once at bind time through the plane's parity gate; `Dial`, the invocation service whose protocol axis (`connect` | `connect-http` | `grpc-web`) is a Config-decoded policy record over three lane rows — the two `@connectrpc/connect-web` fetch factories plus the Effect-native `./protocol-connect` transport assembled over the platform `HttpClient`, so the dense lane inherits the shared net-client retry/proxy/pooling/tracing posture with no fetch hop — and whose lane ladder is one `ExecutionPlan` value so transport failover is a policy ladder, never a recovery cascade; the Effect lifts wire fiber interruption to the call's `AbortSignal`, stamp W3C trace headers per call, charge a typed `ContextValues` carrier per call from the `Dial.Ambient` reference under the plane's own `ContextKey` vocabulary, and fold every caught value through the total `ConnectError` reconstruction into the codec `FaultDetail`; retry rides the `value` `Budget` schedules class-gated through the fault's own classification, with the row's `attempt`/`total` deadlines layered below and above the retry per the rails budget geometry, and every bound method and gateway dispatch emits through the plane's observability transformers — the span with the winning lane stamped, the fault frequency, and the `Exit`-folded outcome counter on every modality, the latency timer on the unary and gateway lanes — named by `observe/convention` rows. Inbound — `Gateway`, the verb dispatch built by one generic fold over the app's verb-row table: each row correlates the verb's body schema, its receipt schema, and its handler, so an admitted verb has exactly one decoded payload and one typed receipt, the handler census is total over the table by construction, an unknown verb refuses as `drift` evidence at admission, and the duplex command/outcome channel derives its outbound schema from the same rows — the frame row is a vocabulary lookup over the fused codec transformers (`MsgPack.duplexSchema`, `Ndjson.duplexSchema`, `Ndjson.duplexSchemaString`), each row owning the socket lift its frame demands, one stage from socket to typed duplex under an unchanged asymmetric schema seam. The module is `core/src/interchange/invoke.ts`; a fourth protocol is one lane row, a new verb is one row in the app's table, and a per-method retry posture is one budget row at the bind call.
+Interchange capability owns both directions of the command contract. Outbound `CapabilityDescriptor` admits content-keyed command identity at bind time, while `Dial` derives its Connect protocol axis and failover `ExecutionPlan` from policy rows. Per-call lifts carry interruption, typed ambient values, W3C context, classified retry budgets, reconstructed `FaultDetail`, and `observe/convention` telemetry on one Effect rail. Inbound `Gateway` folds each verb row's body, receipt, handler, and duplex frame into one total dispatch surface that refuses unknown verbs as drift. Fused MsgPack and NDJSON transformers preserve the asymmetric schema seam from socket to typed duplex. Module `core/src/interchange/invoke.ts` admits a protocol as one lane row, a verb as one app-table row, and retry posture as one bind-time budget row.
 
 ## [01]-[CLUSTERS]
 
@@ -28,7 +28,7 @@ import type { UniversalClientFn } from "@connectrpc/connect/protocol"
 import { createTransport as createConnectHttpTransport } from "@connectrpc/connect/protocol-connect"
 import { createConnectTransport, createGrpcWebTransport } from "@connectrpc/connect-web"
 import { isMessage, type DescService, type MessageInitShape } from "@bufbuild/protobuf"
-import { Headers, HttpClient, HttpClientRequest, HttpTraceContext, MsgPack, Ndjson, Socket } from "@effect/platform"
+import { Headers, HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from "@effect/platform"
 import {
   Array,
   Cause,
@@ -62,6 +62,7 @@ import { type ContentKey, Digest } from "../value/contentKey.ts"
 import { Budget } from "../value/fault.ts"
 import { TenantContext } from "../value/identity.ts"
 import { Ingress } from "../value/schema.ts"
+import { Carrier } from "./carrier.ts"
 import { FaultDetail, Hops, Parity, WireFault } from "./codec.ts"
 import { Proto } from "./format.ts"
 
@@ -98,16 +99,16 @@ const Transport: {
 
 ## [03]-[DIAL_AXIS]
 
-- Owner: `Dial`, the invocation service — `Dial.Config` is the Schema the composition root decodes (`lanes` as a non-empty, protocol-unique ordered row set carrying each lane's attempt count, plus `baseUrl`, `useBinaryFormat`, and `timeoutMs`); the Layer factory takes decoded policy and the root's `fetch`/`interceptors` seam, constructs every `Transport` once, and exposes the lane-keyed `client(service)` record, the `ExecutionPlan`, and the `unary`/`stream` lifts.
-- Law: three lanes, one policy shape — `connect` and `grpc-web` ride the `@connectrpc/connect-web` fetch factories with the instrumented `fetch` and shared `Interceptor` chain, and `connect-http` is the Effect-native lane: `./protocol-connect` `createTransport` over a `UniversalClientFn` whose body runs the platform `HttpClient`, so the dense lane inherits the net-client retry/proxy/pooling/tracing posture directly and its read/write ceilings are the `Ingress` decode budget, never fresh literals. The `./protocol` surface is semver-internal under the exact catalog pin — the admission is deliberate and the pin owns drift.
+- Owner: `Dial`, the invocation service — `Dial.Config` is the Schema the composition root decodes (`lanes` as a non-empty, protocol-unique ordered row set carrying each lane's attempt count, `baseUrl`, `useBinaryFormat`, and `timeoutMs`); the Layer factory takes decoded policy and the root's `fetch`/`interceptors` seam, constructs every `Transport` once, and exposes the lane-keyed `client(service)` record, the `ExecutionPlan`, and the `unary`/`stream` lifts.
+- Law: three lanes, one policy shape — `connect` and `grpc-web` ride the `@connectrpc/connect-web` fetch factories with the instrumented `fetch` and shared `Interceptor` chain, and `connect-http` is the Effect-native lane: `./protocol-connect` `createTransport` over a `UniversalClientFn` whose body runs the platform `HttpClient`, so the dense lane inherits the net-client retry/proxy/pooling/tracing posture directly and its read/write ceilings are the `Ingress` decode budget, never fresh literals. Semver-internal `./protocol` stays admitted under the exact catalog pin, and the pin owns drift.
 - Law: the universal client is the plane's one promise-shaped platform seam — the captured `Runtime` re-enters the rail inside `_universal` and nowhere else, the response `Scope` is held open exactly as long as the body iterable drains, and the request's `AbortSignal` crosses into the run so connect's own deadline wiring interrupts the platform call.
-- Law: failover is one plan value — the primary lane engages first, later lanes engage only while the reconstructed fault's own `retryable` projection holds, each lane under the `_LADDER` attempt rows; a `catchAll` re-dial cascade is the deleted spelling, and a fourth protocol is one `_lanes` row plus one config literal.
+- Law: failover is one plan value — the primary lane engages first, later lanes engage only while the reconstructed fault's own `retryable` projection holds, each lane under the `_LADDER` attempt rows; a `catchAll` re-dial cascade is the deleted spelling, and a fourth protocol is one `_lanes` row and one config literal.
 - Law: interruption crosses with the call — both promise lifts receive `Effect.tryPromise`'s fiber-wired `AbortSignal`; unary calls pass it to `Transport.unary`, streaming opens pass it to `Transport.stream`, and the returned iterable remains owned by `Stream.fromAsyncIterable`, whose finalization closes the iterator on downstream interruption.
-- Law: per-call context is typed end to end — `Dial.Context` mints the plane's `ContextKey` vocabulary (`tenant`, `stamp`) once, `Dial.Ambient` is the `Context.Reference` carrying the fiber's tenancy and clock stamp (defaulting to `Option.none`, pinned by `Layer.succeed` at the root or a scoped `Effect.provideService` around one call), every lift charges a fresh `ContextValues` carrier from that reference before handing it to `CallOptions.contextValues`, and the root-supplied interceptors read and write the same keys instead of ambient state, so tenant and clock context cross the onion under one spelling; trace identity is per-call headers — the current span reads off the fiber, `HttpTraceContext.toHeaders` spells the W3C pair, absence of a span sends no header, and propagation is uniform across lanes because it rides `CallOptions`. The onion itself is transport-owned — every lane row hands the root's `Interceptor` chain to its factory options, and `applyInterceptors` remains the kit spelling solely for a hand-assembled lane; re-wrapping calls outside the factories re-implements what the options row already carries.
+- Law: per-call context is typed end to end — `Dial.Context` mints the plane's `ContextKey` vocabulary (`tenant`, `stamp`) once, `Dial.Ambient` is the `Context.Reference` carrying the fiber's tenancy and clock stamp (defaulting to `Option.none`, pinned by `Layer.succeed` at the root or a scoped `Effect.provideService` around one call), every lift charges a fresh `ContextValues` carrier from that reference before handing it to `CallOptions.contextValues`, and the root-supplied interceptors read and write the same keys instead of ambient state, so tenant and clock context cross the onion under one spelling. Trace identity and tenancy share the carrier rail — `Carrier.current` lifts the fiber's current span, `Carrier.promote` seats the ambient tenant when present, and `Carrier.inject("connect", ...)` prints the complete W3C triple into per-call headers for every lane; absence of either context axis omits only its headers. An interceptor attaching a typed protobuf metadata family (`TenantContextWire`, `HlcStampWire`) spells it through `Carrier.bin` on the `-bin` name rows, never a hand `encodeBinaryHeader` call at a lane. Transport factories own the onion — every lane row hands the root's `Interceptor` chain to its factory options, and `applyInterceptors` remains the kit spelling solely for a hand-assembled lane; re-wrapping calls outside the factories re-implements what the options row already carries.
 - Law: transports construct once at the Layer — per-call construction re-mints connection state and defeats interceptor identity; the service's scoped life owns every lane.
-- Growth: a per-call context axis is one `Dial.Context` key plus its `Dial.Ambient` field; a lane-policy axis (per-lane attempt bound, a lane gate) is one field on the lane row.
+- Growth: a per-call context axis is one `Dial.Context` key and its `Dial.Ambient` field; a lane-policy axis (per-lane attempt bound, a lane gate) is one field on the lane row.
 - Boundary: the factory option records are the `@connectrpc/connect-web` surface and `CommonTransportOptions` the `./protocol` surface; a lane needing XHR upload progress bypasses this axis for the platform XHR client, stated at the consumer; the root's instrumented `fetch` construction is the runtime wave's composition.
-- Packages: `@connectrpc/connect` (`createClient`, `Client`, `Interceptor`, `Transport`, `createContextKey`, `createContextValues`); `@connectrpc/connect/protocol` (`UniversalClientFn`); `@connectrpc/connect/protocol-connect` (`createTransport`); `@connectrpc/connect-web` (`createConnectTransport`, `createGrpcWebTransport`); `@bufbuild/protobuf` (`DescService`); `@effect/platform` (`Headers`, `HttpClient`, `HttpClientRequest`, `HttpTraceContext`); `effect` (`Context`, `Effect`, `ExecutionPlan`, `Exit`, `Layer`, `Record`, `Runtime`, `Scope`, `Stream`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/schema.ts` (`Ingress`).
+- Packages: `@connectrpc/connect` (`createClient`, `Client`, `Interceptor`, `Transport`, `createContextKey`, `createContextValues`); `@connectrpc/connect/protocol` (`UniversalClientFn`); `@connectrpc/connect/protocol-connect` (`createTransport`); `@connectrpc/connect-web` (`createConnectTransport`, `createGrpcWebTransport`); `@bufbuild/protobuf` (`DescService`); `@effect/platform` (`Headers`, `HttpClient`, `HttpClientRequest`); `effect` (`Context`, `Effect`, `ExecutionPlan`, `Exit`, `Layer`, `Record`, `Runtime`, `Scope`, `Stream`); `./carrier.ts` (`Carrier`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/schema.ts` (`Ingress`).
 
 ```typescript signature
 const _protocols = ["connect", "connect-http", "grpc-web"] as const
@@ -212,11 +213,16 @@ const _charged: Effect.Effect<ContextValues> = Effect.map(Ambient, (ambient) =>
   createContextValues().set(_CONTEXT.tenant, ambient.tenant).set(_CONTEXT.stamp, ambient.stamp))
 
 const _stamped: Effect.Effect<Headers.Headers> = Effect.map(
-  Effect.option(Effect.currentSpan),
-  Option.match({
-    onNone: () => Headers.empty,
-    onSome: (span) => HttpTraceContext.toHeaders(span),
-  }),
+  Effect.all({ ambient: Ambient, context: Carrier.current }),
+  ({ ambient, context }) =>
+    Carrier.inject(
+      "connect",
+      Option.match(ambient.tenant, {
+        onNone: () => context,
+        onSome: (tenant) => Carrier.promote(context, tenant),
+      }),
+      Headers.empty,
+    ),
 )
 
 const _unary = <O>(
@@ -671,3 +677,12 @@ const Gateway: {
 export { AvailabilityGate, Capability, Dial, Gateway, SupportCapture, SupportIntake, Transport }
 export type { Dispatched }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

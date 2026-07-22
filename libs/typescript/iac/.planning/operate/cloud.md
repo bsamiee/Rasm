@@ -1,6 +1,6 @@
 # [IAC_CLOUD]
 
-The hosted control plane, gated on one spec value: every resource here exists only when `StackSpec.backend` is `cloud` — the composing root reads `spec.hosted` and never constructs this page otherwise — and each is the hosted TWIN of a local owner, subject to the one-clock law: `DriftSchedule` twins `Drift.sweep` (`autoRemediate: false` mirrors evidence-then-deliberate-`refresh`), `TtlSchedule` twins the `Automation.ephemeral` bracket, `DeploymentSchedule.pulumiOperation` speaks the mutating-ledger vocabulary, the `Webhook` drift filter lands beside the Doppler secret-change webhook as one evidence-delivery law with two sources, and review stacks are three data rows (`vcs.previewPullRequests`, `pullRequestTemplate`, a TTL bound), never hand-rolled REST against `api.pulumi.com`. `CloudPlane` is the one tier carrying all of it — deployment settings with VCS triggers, the schedule family, the drift webhook, team RBAC with a stack-scoped token, and the graph-owned ESC `Environment` whose consumers pin through revision tags. `Environments` is the imperative half of the same lane: the `EscApi` client wrapped once onto the Effect rail for processes that are not a Pulumi program — open/read sessions, check-gated writes, revision-tag pinning — with Doppler remaining canonical on every arm: an ESC environment is a projection DAG composing canonical material through dynamic-provider opens, never a second store, and the short-lived OIDC credentials its `fn::open` providers mint are the prepared cloud arms' credential path over static keys. The module is `iac/src/operate/cloud.ts`; a new hosted automation is one resource row, a new environment consumer is one revision-tag pin, a new delivery sink is one webhook row.
+`CloudPlane` materializes only when `StackSpec.backend` is `cloud`. Its deployment settings, schedules, drift webhook, team RBAC, stack token, and ESC `Environment` are hosted twins of local owners under one-clock law. `Environments` wraps `EscApi` once on the Effect rail for open, read, check-gated write, and revision-tag pin operations. Doppler stays canonical; ESC composes dynamic-provider projections and short-lived OIDC credentials for cloud arms. Growth is one resource row, revision-tag pin, or webhook row.
 
 ## [01]-[CLUSTERS]
 
@@ -195,3 +195,12 @@ const Environments = {
 
 export { CloudPlane, Environments }
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

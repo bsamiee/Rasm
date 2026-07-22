@@ -155,7 +155,7 @@ public static class TokenValidation {
 ## [04]-[PRINCIPAL]
 
 - Owner: `Principal` — the ONE validated inbound-identity record every interior reads; `IdentityPrincipal` the ambient slot mirroring `TenantContext.Ambient` so deferred and marshalled work restores the caller identity without threading a parameter through every signature.
-- Entry: `IdentityPrincipal.Current` reads the ambient principal (`Option`-shaped — an unauthenticated in-process caller is `None`, never a synthetic anonymous principal); `Stamp(Principal principal)` seats the slot and returns the prior value for LIFO restore, the same discipline `TenantContext.Stamp` carries.
+- Entry: `IdentityPrincipal.Current` reads the ambient principal (`Option`-shaped — an unauthenticated in-process caller is `None`, never a synthetic anonymous principal); `Stamp(Principal principal)` seats the slot and returns one idempotent `IDisposable` scope on the explicit scope stack — top-only disposal, a non-top disposal refused, the prior value restored LIFO — the `TenantContext.Stamp` restoring-scope discipline with the stack enforced.
 - Packages: LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: a new projected claim is one field on `Principal` read at the one validation projection; zero new surface.
 - Boundary: the `Principal` is the one inbound-identity shape — its `TenantContext` is the value `Agent/capability#GRANT_BROKER` `ScopeOf` resolves a `GrantScope` from and `Runtime/ports` stamps on the causal frame, so authentication, authorization-policy, and capability-metering are three ordered seams over this one record; the Persistence far end maps the richer `Principal` onto its own `StoreActor` at the port boundary (`Element/graph`) — the `Principal` never crosses down; the ambient slot carries the VALIDATED record only — a raw token, a `ClaimsPrincipal`, or a half-projected identity in the slot is the deleted form; stamping is scoped and restored LIFO so a marshalled continuation reads its caller's principal, never a leaked ambient.
@@ -174,16 +174,34 @@ public sealed record Principal(
 }
 
 // The ambient identity slot: the validated Principal rides the runtime context exactly as the
-// TenantContext does — deferred work restores it, unauthenticated is None, never a synthetic anonymous.
+// TenantContext does — an explicit scope stack restores it LIFO under top-only disposal,
+// unauthenticated is None, never a synthetic anonymous.
 public static class IdentityPrincipal {
     static readonly RuntimeContextSlot<Principal> Ambient = RuntimeContext.RegisterSlot<Principal>(nameof(Principal));
+    static readonly RuntimeContextSlot<PrincipalScope> Scopes = RuntimeContext.RegisterSlot<PrincipalScope>(nameof(PrincipalScope));
 
     public static Option<Principal> Current => Optional(Ambient.Get());
 
-    public static Option<Principal> Stamp(Principal principal) {
-        var prior = Current;
+    public static IDisposable Stamp(Principal principal) {
+        Principal? prior = Ambient.Get();
+        PrincipalScope? parent = Scopes.Get();
+        var scope = new PrincipalScope(prior, parent);
         Ambient.Set(principal);
-        return prior;
+        Scopes.Set(scope);
+        return scope;
+    }
+
+    private sealed class PrincipalScope(Principal? prior, PrincipalScope? parent) : IDisposable {
+        private int disposed;
+
+        public void Dispose() {
+            if (Volatile.Read(ref disposed) != 0) return;
+            if (!ReferenceEquals(Scopes.Get(), this))
+                throw new InvalidOperationException("Principal scopes must be disposed in LIFO order.");
+            if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+            Ambient.Set(prior);
+            Scopes.Set(parent);
+        }
     }
 }
 ```
@@ -292,7 +310,7 @@ public sealed partial class PolicyDescriptor {
 public readonly record struct PolicyVerdict(string Subject, bool Granted, Seq<string> FailedRequirements) {
     public static PolicyVerdict Of(string subject, AuthorizationResult result) =>
         new(subject, result.Succeeded,
-            result.Succeeded ? Seq<string>() : result.Failure!.FailedRequirements.AsIterable().Map(static r => r.GetType().Name).ToSeq());
+            result.Succeeded ? Seq<string>() : result.Failure.FailedRequirements.AsIterable().Map(static r => r.GetType().Name).ToSeq());
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -307,7 +325,7 @@ public static class PolicyGate {
             .Map(result => result.Succeeded
                 ? Success<IdentityFault, PolicyVerdict>(PolicyVerdict.Of(principal.Subject, result))
                 : Fail<IdentityFault, PolicyVerdict>(new IdentityFault.PolicyDenied(
-                    string.Join(';', result.Failure!.FailureReasons.Select(static r => r.Message)))));
+                    string.Join(';', result.Failure.FailureReasons.Select(static r => r.Message)))));
 }
 ```
 

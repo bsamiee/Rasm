@@ -1,13 +1,13 @@
 # [DATA_SQLITE]
 
-ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and capability contracts running against node (`better-sqlite3`), bun (`bun:sqlite`), browser wasm-OPFS, libSQL edge-replica, and Cloudflare D1 — one relational contract degraded per profile, never a second relational universe. The degradation table is TOTAL over the spine's derived `Pg.Grant` vocabulary — its keys are guarded against that union in both directions, so a grant landing on the spine breaks this table at the declaration until every profile answers, and a degradation key outside the vocabulary cannot compile; the lane and the spine structurally cannot drift. The profile constructors are Layer rows on the runtime subpaths, and no neutral statement ever names a driver — `sql.onDialectOrElse` arms inside the shared statements are the entire dialect story. WAL is the durability mode every server profile runs; single-writer is the lane-wide concurrency law, deepening to single-tab on OPFS and primary-serialized on the edge rows.
+ONE sqlite lane runs journal, projection, tenancy, and capability contracts across node, bun, wasm-OPFS, libSQL, and D1. A TOTAL degradation table keys the spine's `Pg.Grant` union in both directions, so new or foreign grants fail its declaration. Runtime-subpath Layer rows select drivers; neutral statements use `sql.onDialectOrElse`. Server profiles use WAL and one writer, OPFS narrows to one tab, and edge profiles serialize at the primary.
 
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                              |
 | :-----: | :------------------ | :---------------------------------------------------------------------------------- |
 |  [01]   | `DEGRADATION_TABLE` | the grant-total capability-to-fallback matrix — the lane's whole difference as data |
-|  [02]   | `PROFILE_ROWS`      | the five Layer constructors and their runtime coordinates                           |
+|  [02]   | `PROFILE_ROWS`      | Layer constructors and their runtime coordinates                                    |
 |  [03]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
 |  [04]   | `PROFILE_HARVEST`   | the per-profile query-evidence arm — availability rows, timed EXPLAIN, page stats   |
 
@@ -17,14 +17,14 @@ ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and c
 - Packages: none — the table is pure vocabulary over `lane/postgres.md`'s grant keys, reached through the one `Pg` import.
 - Growth: a new spine grant breaks `_Rows` at this declaration the day it lands in the matrix — completeness is a compile fact, never a census; a sixth profile is one more column across every row.
 - Law: the table is consumed, never consulted ad hoc — the projection wake reads `channel` through the optional `PgClient` service, the append lock arm reads `advisory` through `onDialectOrElse`, tenancy reads `rls` by never constructing `Tenancy` scopes on this lane; the rows document dispatch that already exists in the statements.
-- Law: `none` is a lawful verdict — the analytics, geo, h3, timeseries, graphql, audit, and asyncIo grants have no profile substitute, so their rows record the refusal and every consumer gate simply never admits them here; a `none` row is a decision, and the guard makes an absent row impossible.
-- Law: the lane is capability-different, not capability-poor — `bm25` degrades to FTS5, `vector` to a loaded extension on the server profiles and to the edge row's built-in on libSQL, `virtualGenerated` and `skipScan` are engine-native (`builtIn`/`plannerOwned`), and FTS5 plus JSONB ship compiled into every profile.
-- Law: the evidence grants degrade to composed statements — `returningOldNew` becomes RETURNING of new values plus a pre-image read inside the same transaction (`preRead`), `conflictClaim` becomes the `ON CONFLICT` upsert discriminated by the explicit insert/update marker (`conflictChanges`), `merge` becomes the upsert arm pair (`upsert`), and `temporal` becomes an application overlap check serialized by the single writer (`appCheck`).
+- Law: `none` is a lawful verdict — analytics, geo, h3, timeseries, graphql, audit, statements, and asyncIo have no substitute, so consumer gates refuse them; guards make an absent row impossible. `statements` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the harvest table already prices the same refusal as `stmtStatus`, and the explicit harness-timed diagnosis arm is evidence, never a cumulative-statistics substitute.
+- Law: the lane is capability-different — `bm25` degrades to FTS5, `vector` to a server extension or libSQL built-in, `virtualGenerated` and `skipScan` are engine-native, and every profile includes FTS5 and JSONB.
+- Law: evidence grants degrade to composed statements — `returningOldNew` pairs RETURNING with a transactional pre-image, `conflictClaim` uses an explicit upsert marker, `merge` uses upsert arms, and `temporal` uses a single-writer overlap check.
 - Law: tenancy verdicts are residency verdicts — file-per-app on the server profiles, origin scope in the browser, database-per-tenant on both edge rows where cheap databases are the platform model; the RLS policy family never runs here.
-- Law: the D1 column additionally refuses the interactive transaction — the atomic-publish path is batch-shaped or routed to the pg spine; the refusal is a row, not a code fork.
+- Law: the D1 column refuses the interactive transaction — atomic publish is batch-shaped or routed to pg; the refusal is a row, not a code fork.
 
 ```typescript signature
-import { Pg } from "./postgres.ts" // the grant keys stay type-plane reads; the profile-receipt schema is the one value this lane consumes
+import { Pg } from "./postgres.ts" // Grant keys stay type-plane reads; profile receipt is the one consumed value.
 
 const _degrades = {
   rls: { server: "filePerApp", wasm: "originScope", libsql: "databasePerTenant", d1: "databasePerTenant" },
@@ -51,6 +51,7 @@ const _degrades = {
   phonetic: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none" },
   fuzzy: { server: "loadExtension", wasm: "none", libsql: "none", d1: "none" },
   jsonschema: { server: "schemaDecode", wasm: "schemaDecode", libsql: "schemaDecode", d1: "schemaDecode" },
+  statements: { server: "none", wasm: "none", libsql: "none", d1: "none" },
   parquet: { server: "none", wasm: "none", libsql: "none", d1: "none" },
   analytics: { server: "none", wasm: "none", libsql: "none", d1: "none" },
   graphql: { server: "none", wasm: "none", libsql: "none", d1: "none" },
@@ -71,12 +72,12 @@ declare namespace Sqlite {
 
 ## [03]-[PROFILE_ROWS]
 
-- Owner: the five Layer constructors — `Sqlite.node(app)` and `Sqlite.bun(app)` on the `./server` subpath, `Sqlite.opfs(worker)` and `Sqlite.memory` on `./wasm`, `Sqlite.libsql` and `Sqlite.d1(db)` at their edge composition roots — plus the worker-side entry `Sqlite.worker` the OPFS profile requires.
+- Owner: the Layer constructors — `Sqlite.node(app)` and `Sqlite.bun(app)` on `./server`, `Sqlite.opfs(worker)` and `Sqlite.memory` on `./wasm`, `Sqlite.libsql` and `Sqlite.d1(db)` at edge roots — and worker entry `Sqlite.worker`.
 - Packages: `@effect/sql-sqlite-node` (`SqliteClient.layerConfig`, `prepareCacheSize`, `disableWAL`, `readonly`); `@effect/sql-sqlite-bun` (`SqliteClient.layerConfig`, `create`, `readwrite`); `@effect/sql-sqlite-wasm` (`SqliteClient.layer`, `SqliteClient.layerMemory`, `OpfsWorker.run`, `installReactivityHooks`); `@effect/sql-libsql` (`LibsqlClient.layerConfig`); `@effect/sql-d1` (`D1Client.layer`); `effect` (`Config`, `Layer`, `Scope`).
 - Entry: the app root selects the profile row per the host runtime — all provide `SqlClient`, and every data surface above them is unchanged; the OPFS worker entry module runs `Sqlite.worker({ port, dbName })` and nothing else.
-- Growth: a profile-tuning knob is a `Config` field on its row; a sixth runtime is one more constructor under the same contract plus its degradation column.
+- Growth: a profile-tuning knob is a `Config` field on its row; another runtime adds a constructor and degradation column.
 - Law: the filename derives from the scope — file-per-app IS the server tenancy: `_filename(app)` keys the file, `":memory:"` serves specs, and the naming matches the pg spine so `onDialect` statements agree about column spellings; the OPFS `dbName` and the libSQL replica path key the same way.
-- Law: WAL stays on for journal profiles (readers concurrent with the single writer); `disableWAL` plus `readonly` is the explicit read-replica posture; the prepare cache is the node profile's hot-path lever, bun caches internally, D1 exposes its own cache pair — all layer facts, never statement facts.
+- Law: WAL stays on for journal profiles; `disableWAL` with `readonly` is the read-replica posture; node, bun, and D1 cache through their Layer facts, never statement facts.
 - Law: OPFS access is worker-only by platform contract — the durable browser constructor takes the worker effect, so a main-thread open is unspellable; `installReactivityHooks: true` restores `sql.reactive` in-tab, the same key vocabulary as every lane.
 - Law: the libSQL row is contract-level compatible, never byte-level — the replica engine is not the C library; its credentials and sync cadence ride `Config.redacted` and `Config` duration facts.
 - Law: the D1 row adopts the platform binding as a value — `env.DB` arrives at the Workers composition root; replication sessions and PITR are platform facts recorded as degradation semantics, never re-modeled.
@@ -146,9 +147,9 @@ const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClien
 - Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`, `client.loadExtension`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); the object plane's put entry consumes the exported bytes at the composition seam.
 - Entry: server snapshots feed the content-addressed object plane — the key IS the bytes, so a re-put is idempotent; the browser seeds a first-run database from a server-minted snapshot fetched by content key, and the memory profile persists by dump-then-seed through its own storage row.
 - Receipt: `backup` yields `BackupMetadata` — total and remaining pages — so a live backup is observable progress, not a blocking export; `dump` yields the raw bytes because the browser cannot mint into the object plane directly.
-- Growth: a new byte operation is one `Sqlite.Io` case plus its `$match` arm — every consumer breaks loudly until the arm exists; a new seed source (server snapshot, replay, fixture) is a caller decision — the surface takes bytes and nothing else; the libSQL row never composes these cases because replica sync IS its durability transport.
+- Growth: a byte operation is one `Sqlite.Io` case and `$match` arm; a seed source is a caller decision over bytes; libSQL excludes these cases because replica sync is its durability transport.
 - Law: `export` snapshots block the writer for the copy and suit specs and small files; `backup` is the production posture on the node profile — page-incremental, non-blocking, poll-observable.
-- Law: browser seed bytes transfer when their backing is an `ArrayBuffer`; `SharedArrayBuffer` cannot enter a transfer list and rides shared memory unchanged. The wasm client's export transport owns its response crossing, so this page never invents an unsupported return-transfer API.
+- Law: browser seed bytes transfer when their backing is an `ArrayBuffer`; `SharedArrayBuffer` cannot enter a transfer list and rides shared memory unchanged. Wasm client export transport owns its response crossing, so this page never invents an unsupported return-transfer API.
 - Law: seed-then-verify — after `import`, the lane's ensure relations probe exactly like server startup, so a truncated or foreign blob fails closed at seed time, never at first query.
 - Law: `loadExtension` is the degradation table's `loadExtension` verdict realized — its typed client failure aborts the admission effect, and the composition runs that effect before constructing the capability Layer whose registry probe grants the module.
 
@@ -203,11 +204,11 @@ const _bytes = (io: SqliteIo) =>
 
 ## [05]-[PROFILE_HARVEST]
 
-- Owner: the lane's arm of the one engine-profile receipt family — the `_harvest` availability table pricing what each profile can measure, `_profiled`, the timed harvest folding a statement's wall span, `EXPLAIN QUERY PLAN` structure, and page-statistics counters into `Pg.Profile`, and the `_dbstat` construction-time probe answering the virtual-table question at runtime instead of asserting a build fact — plus the assembled `Sqlite` export.
+- Owner: the lane's `Pg.Profile` arm — `_harvest` prices measures, `_profiled` folds wall span, plan structure, and page counters, `_dbstat` probes the virtual table once at arm construction (a `SELECT 1 … LIMIT 1` presence read, never a per-diagnosis aggregate scan), and `Sqlite` assembles the export.
 - Packages: `@effect/sql` (`SqlClient`, `SqlSchema`, `Statement` — the profiled statement is a `Fragment` value); `effect` (`Duration`, `Effect`, `Schema`); `./postgres.ts` (`Pg.Profile` — the shared receipt schema, the lane's one value read beside the type-only grant vocabulary).
-- Entry: an explicit diagnosis call runs `Sqlite.profile.of(sql, statement, label)` on any profile; the maintenance composition projects `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` exactly as the pg and DuckDB arms do — receipts stay the truth, the instrument the lossy channel.
+- Entry: the maintenance composition constructs the arm once per layer — `Sqlite.profile.of(sql, engine)` probes `dbstat` a single time and yields the diagnosis closure — and each explicit diagnosis call runs that closure with `(statement, label)` on any profile; the composition projects `wallMillis` onto the `Convention.instrument.profileDuration` histogram tagged `Convention.rasm.profileEngine` exactly as the pg and DuckDB arms do — receipts stay the truth, the instrument the lossy channel.
 - Receipt: `Pg.Profile` with `engine` selected by the live profile (`sqliteServer` | `sqliteWasm` | `libsql` | `d1`), operators from the `EXPLAIN QUERY PLAN` rows carrying `Option.none()` timing — the engine exposes plan structure without per-operator clocks, and an absent measure is omission, never a zero — and `counters` holding `pageCount`, `freelistCount`, and the `dbstat` aggregates where the probe granted them.
-- Growth: a new evidence source is one `_harvest` row plus its harvest line; a sixth profile is one more availability column — the guard breaks until it answers.
+- Growth: an evidence source is one `_harvest` row and harvest line; another profile adds an availability column that the guard requires.
 - Law: availability is priced as row data — `explainPlan` and the page pragmas are `builtIn` everywhere, `dbstat` is `probe` on the server and wasm profiles (the virtual table is a compile-time engine fact `_dbstat` answers per deployment, never a static claim) and `none` on the edge rows, and `stmtStatus` is `none` on every profile because the `sqlite3_stmt_status` C counters are unreachable through every admitted driver — the refusal is a recorded verdict, and no arm fabricates a zero where a counter is absent.
 - Law: wall span is harness-measured — the engine exposes no per-query clock through any admitted driver, so `_profiled` times the statement's own run with `Effect.timed` and the span covers exactly the profiled execution; the diagnosis therefore EXECUTES the statement, scoping the arm to explicit calls like the pg EXPLAIN arm.
 - Law: the harvest never re-parses driver rows by hand — `EXPLAIN QUERY PLAN` rows, `pragma_page_count()`/`pragma_freelist_count()` reads, and the `dbstat` aggregate all decode through `SqlSchema`, so a malformed cell is a `ParseError` on the admission rail.
@@ -237,11 +238,15 @@ const _PageRow = Schema.Struct({ pages: Schema.Number, freelist: Schema.Number }
 
 const _DbstatRow = Schema.Struct({ btrees: Schema.Number, unusedBytes: Schema.Number })
 
+// Availability probe, not a scan: `SELECT 1 … LIMIT 1` answers whether the dbstat module compiled in — the
+// prior `count(*)` aggregate walked every btree page on each diagnosis. It runs ONCE, at arm construction.
 const _dbstat = (sql: SqlClient.SqlClient): Effect.Effect<boolean> =>
-  Effect.match(sql`SELECT count(*) AS probed FROM dbstat LIMIT 1`, { onFailure: () => false, onSuccess: () => true })
+  Effect.match(sql`SELECT 1 AS probed FROM dbstat LIMIT 1`, { onFailure: () => false, onSuccess: () => true })
 
+// Construction-effect: the arm probes dbstat exactly once and closes over the verdict — a compile-time engine
+// fact never re-probes per diagnosis, and every diagnosis reuses the cached availability.
 const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
-  (statement: Statement.Fragment, label: string) =>
+  Effect.map(_dbstat(sql), (granted) => (statement: Statement.Fragment, label: string) =>
     Effect.gen(function* () {
       const plan = yield* SqlSchema.findAll({
         Request: Schema.Void,
@@ -254,8 +259,7 @@ const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
         Result: _PageRow,
         execute: () => sql`SELECT pragma_page_count() AS pages, pragma_freelist_count() AS freelist`,
       })(void 0)
-      const granted = yield* _dbstat(sql)
-      const space = yield* granted
+      const space = yield* (granted
         ? Effect.map(
             SqlSchema.single({
               Request: Schema.Void,
@@ -264,7 +268,7 @@ const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
             })(void 0),
             Option.some,
           )
-        : Effect.succeed(Option.none<typeof _DbstatRow.Type>())
+        : Effect.succeed(Option.none<typeof _DbstatRow.Type>()))
       return new Pg.Profile({
         engine,
         statement: label,
@@ -281,7 +285,7 @@ const _profiled = (sql: SqlClient.SqlClient, engine: Sqlite.ProfileEngine) =>
         },
         window: Option.none(),
       })
-    })
+    }))
 
 const Sqlite = {
   degrades: _degrades,
@@ -302,3 +306,12 @@ const Sqlite = {
 
 export { Sqlite, SqliteFault }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

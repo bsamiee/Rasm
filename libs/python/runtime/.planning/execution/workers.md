@@ -2,13 +2,13 @@
 
 One closed `WorkerKind` family carries every worker the branch runs — thread, subinterpreter, process, device-pinned process, daemon, remote, and sandboxed guest — each kind a `KIND_POLICY` row binding its fidelity obligation and restart class. `Kernel` is the single kernel-crossing owner: every callable that leaves the event loop crosses as one frozen value whose `KernelTrait` row derives isolation, worker-death retry, deadline enforcement, and shipping, so no consumer re-derives a modality, pairs a retry class by convention, or hand-builds a name-crossing gate. `WorkerPool` owns the warm reusable process pools and the fleet-host remote arm with spawn/warm/roll/drain/retire lifecycle, and `Supervisor` is the restart actuator — psutil probes, a windowed restart budget, and the health projection the serve owner advertises.
 
-Composition is settled: the thread and subinterpreter crossing arms stay `execution/lanes#LANE` owners the trait table projects onto, while both process arms ride `WorkerPool` under the `WORKER_BAND` this page mints; worker-death backoff rides `reliability/resilience#RESILIENCE` rows (`OCCT` for the anyio subinterpreter arm, `WORKER` for the pool executors, `SPAWN` for a daemon child); every pool fault converts through the `reliability/faults#FAULT` lift, whose pool-death row lands executor deaths on the `resource` case; pool and supervision evidence streams through the `observability/receipts#RECEIPT` contributor port. `cloudpickle` ships a closure or local callable by value across the pickle seams stdlib pickle refuses, `tblib` re-raises a worker fault parent-side with its worker frames, `loky` owns the crash-respawning warm process pool every cooperative `PROCESS` offload rides, `pebble` owns the terminal wall-clock kill, PEP 734 `anyio.to_interpreter` owns the subinterpreter substrate with zero package cost, `asyncssh` carries the sealed kernel to a fleet host over the one `transport/roots#RESOURCE` `RemoteEndpoint` channel under the `SSH` restart row, `wasmtime` runs a sandboxed guest module in-process under a shared epoch pacer, and the device arms pin an accelerator through loky's `env=` and pebble's initializer at spawn — placement rides the existing pools, zero new package.
+Composition is settled: the thread and subinterpreter crossing arms stay `execution/lanes#LANE` owners the trait table projects onto, while both process arms ride `WorkerPool` under the `WORKER_BAND` this page mints; worker-death backoff rides `reliability/resilience#RESILIENCE` rows (`OCCT` for the anyio subinterpreter arm, `WORKER` for the pool executors, `SPAWN` for a daemon child); every pool fault converts through the `reliability/faults#FAULT` lift, whose pool-death row lands executor deaths on the `resource` case; pool and supervision evidence streams through the `observability/receipts#RECEIPT` contributor port. `cloudpickle` ships a closure or local callable by value across the pickle seams stdlib pickle refuses, `tblib` re-raises a worker fault parent-side with its worker frames, `loky` owns the crash-respawning warm process pool every cooperative `PROCESS` offload rides, `pebble` owns the terminal wall-clock kill, PEP 734 `anyio.to_interpreter` owns the subinterpreter substrate with zero package cost, `asyncssh` carries the sealed kernel to a fleet host over the one `transport/roots#RESOURCE` `RemoteEndpoint` channel under the `SSH` restart row, `wasmtime` runs a sandboxed guest module in-process under a shared epoch pacer, and the device arms pin an accelerator through loky's `env=` and pebble's initializer at spawn — placement rides the existing pools, zero new package. Worker floors are parented emitters: every process arm boots the parent-captured telemetry install post-spawn through one `_worker_boot` initializer, the kernel span opens under the carried W3C parent, the profiler attaches where the cycles burn, and the two-read `Cost` bracket prices every crossing to the tenant that ran it.
 
 ## [01]-[INDEX]
 
-- [01]-[FABRIC]: the `WorkerKind` family and its policy rows, the `KernelTrait` isolation classifier, the one `Kernel` crossing owner with shipping, wire, deadline, and enforcement as fields, the shared-memory span channel, the worker-side stitch-and-resolve gate, the remote-floor entry, the guest sandbox arm with its epoch pacer, and the tblib fidelity latch.
-- [02]-[POOL]: the warm reusable `WorkerPool` capsule — loky, pebble, and per-device arms under one lifecycle vocabulary, band-bounded settle, in-band worker-death retry, and the asyncssh remote arm crossing the sealed kernel to a fleet host.
-- [03]-[SUPERVISION]: the restart actuator — kind-scoped psutil probes as data verdicts, the windowed restart budget, escalation, and the serve-facing health projection.
+- [01]-[FABRIC]: the `WorkerKind` family and its policy rows, the `KernelTrait` isolation classifier, the one `Kernel` crossing owner with shipping, wire, deadline, and enforcement as fields, the shared-memory span channel, the parented-emitter worker gate — kernel span, profiler phase, and cost bracket over the stitch-and-resolve pair — the remote-floor entry, the guest sandbox arm with its epoch pacer, and the tblib fidelity latch.
+- [02]-[POOL]: the warm reusable `WorkerPool` capsule — loky, pebble, and per-device arms under one lifecycle vocabulary, the `WorkerBoot` install seam and its exit-owned flush law, band-bounded settle, in-band worker-death retry, and the asyncssh remote arm crossing the sealed kernel to a fleet host.
+- [03]-[SUPERVISION]: the restart actuator — kind-scoped psutil probes as data verdicts, the windowed restart budget, escalation, the serve-facing health projection, and the bundle-facing verdict projection.
 
 ## [02]-[FABRIC]
 
@@ -19,10 +19,11 @@ Composition is settled: the thread and subinterpreter crossing arms stay `execut
 - Law: a worker-death retry re-runs the kernel whole, so the retry row binds only under the kernel's `idempotent` declaration — content-keyed inputs, run-scoped outputs, no external state — and `Kernel.of` drops the trait's retry default for a kernel declaring `idempotent=False`; the declaration gates the two live dispatch sites — `WorkerPool.submit` for the pooled kinds and the `execution/lanes#LANE` offload hop for the anyio arms — each reading `kernel.retry`, never a convention the call site remembers.
 - Law: `Wire` closes the payload-crossing axis — `PICKLE` copies arguments across the seam, `SHARED_MEMORY` exports every top-level ndarray argument once into a named `multiprocessing.shared_memory` block and crosses it as a `ShmSpan` the worker re-views through `numpy.frombuffer` — so a heavy-buffer kernel upgrades its crossing by one field with the call site untouched. Block custody stays loop-side: `exported` copies and names, `released` closes and unlinks after the offload settles, and the worker view is ingress-only — a kernel consumes the view inside its body and returns owned material, because the worker handle closes when the kernel returns. A buffer wrapped inside a struct stays `PICKLE`; only a bare ndarray argument rides the span channel. Named blocks are the chosen out-of-band channel because cloudpickle's protocol-5 `buffer_callback` collects buffers the executor transports have no side channel to carry, where a named block crosses at zero payload bytes.
 - Law: a native-gated worker module splits at the parse floor — the vocabulary module parses and imports on both interpreter floors while the worker-body module holds its eager native providers and loads only worker-side — and `REFERENCE` shipping resolves the kernel by qualified name through the one `shipped` gate; `covered(module, names)` is the worker-floor witness that same module runs at its own import, proving every dispatchable name resolves through the identical walk so a misspelled roster fails at worker import, never mid-offload. This gate is the canonical crossing law every native-gated consumer composes — `artifacts` scene rendering is the standing proof instance — never a page-local `getattr` gate re-spelled beside it. `cloudpickle.register_pickle_by_value` stays out: a worker floor that must import its module from disk is the stronger contract than shipping a module by value into an interpreter that drifts from it.
+- Law: `traced_kernel` is the parented-emitter gate every crossing resolves through — the receipts pair resolves the carried W3C parent, the `worker.<name>` span opens under it so worker-interior evidence joins the one trace, the profiler `phase` window tags the flame by kernel subject and shipping form, and the two-read `Cost` bracket records the kernel's own process spend onto the `rasm.cost.<measure>` rows under the attached context, the promoted `rasm.tenant` entry pricing the kernel to the tenant that ran it; an uninstalled floor resolves no-op providers and a null profiler window, so the gate never conditions on install state and costs two process reads.
 - Law: `remote_floor` is the fleet mirror of `shipped` — the far interpreter's module entry reads one sealed blob on stdin, resolves it through the same `sealed_kernel` gate, and writes one pickled `("value", T) | ("raise", BaseException)` verdict on stdout — so every `Shipping` form is total across the SSH channel (the seal cloudpickles the whole `Kernel`, a `LIVE` callable crossing by value, `REFERENCE` re-importing from the remote install, the worker-floor contract at fleet scale) and a kernel raise crosses home frame-whole under the latch `shipped` re-arms.
 - Law: `_guest` is `GUEST` shipping's worker-floor arm — zero-import instantiation (no WASI, no ambient capability), a fresh `Store` per call so guest state never leaks across kernels, `GUEST_MEMORY` bounding linear memory, and request/reply crossing as bytes over the `GUEST_ABI` exports; the module compiles once per digest per interpreter, so the per-call cost is instantiation alone.
 - Law: the guest deadline is the engine's epoch — one daemon pacer heartbeats the engine-global epoch every `EPOCH_TICK` while each store carries its own relative tick budget, so concurrent guests never kill each other and a guest dies mid-kernel at wall clock IN-PROCESS, the enforcement no thread or interpreter arm owns. `WasmtimeError` exposes no addressable trap code, so the arm discriminates by elapsed budget: an epoch kill re-raises `TimeoutError` onto the faults `deadline` row, and a genuine trap crosses whole into the catch-all `boundary` case with its trap message.
-- Growth: a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm.
+- Growth: a new worker kind is one `WorkerKind` member with one `KIND_POLICY` row; a new isolation answer is one `KernelTrait` member with one `TRAIT_ROW` row and every call site untouched; a new shipping form is one `Shipping` member with one `shipped` arm; a new enforcement arm is one `Enforcement` member with one offload projection row; a new payload crossing is one `Wire` member with one `exported` arm; a new cost measure is one `Cost` field at the receipts owner with one `INSTRUMENTS` row at the metrics owner, reaching this bracket through `measures` with zero gate edits.
 - Boundary: trait declaration stays consumer domain knowledge — this owner never inspects a callable for GIL behavior; picklability is the one property `Kernel.of` classifies itself. Thread and subinterpreter crossing arms and the offload hop stay `execution/lanes#LANE`'s; this page mints the vocabulary the hop consumes, the process bands, and the process pools.
 
 ```python signature
@@ -43,10 +44,13 @@ import cloudpickle
 from expression import Nothing, Option, Some
 from expression.collections import Map
 from msgspec import Struct
+from opentelemetry import trace
 from tblib import pickling_support
 
-from rasm.runtime.faults import RuntimeRail, boundary
-from rasm.runtime.receipts import Signals
+from rasm.runtime.faults import SCOPES, RuntimeRail, Scope, boundary
+from rasm.runtime.metrics import Metrics
+from rasm.runtime.profiles import Profiles
+from rasm.runtime.receipts import Cost, Signals
 from rasm.runtime.resilience import RetryClass
 
 lazy import numpy  # shared-memory reconstruction alone touches it; the wire stays dark for PICKLE-only processes
@@ -241,16 +245,30 @@ def shipped[T](kernel: Kernel[T], *args: object) -> T:
 
 
 def traced_kernel[T](carrier: dict[str, str], kernel: Kernel[T], *args: object) -> T:
-    # worker-side half of the offload stitch: the receipts pair — pure extract, token-paired attach scope — never an inline attach/detach
-    # dance; the kernel body resolves through the one `shipped` crossing gate.
+    # worker-side half of the offload stitch, the parented-emitter gate: the receipts pair — pure extract, token-paired
+    # attach scope — resolves the carried W3C parent, the kernel span opens under it so worker-interior evidence joins
+    # the one trace, the profiler `phase` window tags the flame by kernel subject, and the two-read `Cost` bracket
+    # records the kernel's own process spend onto the `rasm.cost.<measure>` rows under the attached context — the
+    # `rasm.tenant` baggage the carrier promotes prices the kernel to the tenant that ran it. An uninstalled floor
+    # resolves no-op providers and a null profiler window, so the gate costs exactly two process reads.
     with Signals.attach(Signals.continue_inbound(carrier)):
-        return shipped(kernel, *args)
+        span = trace.get_tracer(SCOPES[Scope.SERVICE]).start_span(f"worker.{kernel.name}")
+        with trace.use_span(span, end_on_exit=True), Profiles.phase({"kernel": kernel.name, "shipping": kernel.shipping.value}):
+            before = Cost.own()
+            try:
+                return shipped(kernel, *args)
+            finally:  # Exemption: the bracket's terminal read pairs with the entry read — two process reads per crossing, fault arm included.
+                Metrics.record(Cost.own().delta(before).measures(), domain="cost", kind=kernel.name)
 
 
 def sealed_kernel[T](blob: bytes) -> T:
     # pebble's stdlib pickler sees one bytes argument: the cloudpickle seal makes the TERMINAL arm total over
-    # closure-bearing arguments at one extra serialization pass, so no payload shape is unspellable under a kill deadline.
-    carrier, kernel, args = cloudpickle.loads(blob)
+    # closure-bearing arguments at one extra serialization pass, so no payload shape is unspellable under a kill
+    # deadline. A carried boot lands first — the remote floor's whole install rides the seal — while a pooled seal
+    # carries None because the pool initializer already booted the worker.
+    boot, carrier, kernel, args = cloudpickle.loads(blob)
+    if boot is not None:
+        _worker_boot(boot)
     return traced_kernel(carrier, kernel, *args)
 
 
@@ -259,7 +277,9 @@ def remote_floor() -> int:
     # verdict on stdout — an 8-byte big-endian length header ahead of the payload, so the parent validates the frame
     # against VERDICT_FRAME before buffering a byte; `shipped` re-arms the tblib latch before the kernel body, so the
     # raise arm crosses home frame-whole. stdout is the verdict channel ALONE — the kernel runs with stdout re-pointed
-    # at stderr so a stray print inside a shipped body never corrupts the binary frame.
+    # at stderr so a stray print inside a shipped body never corrupts the binary frame. The seal-carried boot installs
+    # the floor's telemetry, and interpreter exit runs the boot-registered atexit drain AFTER the verdict frame lands,
+    # so the short-lived floor exports completely without delaying the parent's read.
     channel, sys.stdout = sys.stdout, sys.stderr
     try:
         verdict: tuple[str, object] = ("value", sealed_kernel(sys.stdin.buffer.read()))
@@ -434,22 +454,25 @@ KIND_POLICY: Final[Map[WorkerKind, KindPolicy]] = Map.of_seq([
 
 ## [03]-[POOL]
 
-- Owner: `WorkerPool` is the warm reusable pool capsule — one polymorphic surface over the process-executor, device, and fleet remote arms: `loky.get_reusable_executor` for `COOPERATIVE` (process-global warm pool, crash-respawning, cloudpickle payloads, idle reap on `timeout`), `pebble.ProcessPool` for `TERMINAL` (`schedule(timeout=)` kills a running worker at wall-clock and reclaims the slot; `max_tasks` recycles a worker after N tasks bounding RSS creep), one `asyncssh` channel per `WorkerKind.REMOTE` arm (a memoized `SSHClientConnection` off `transport/roots#RESOURCE` `RemoteEndpoint.dialed`, per-submit `create_process` sessions running `remote_floor`, a per-arm session limiter bounding fleet in-flight), and one instance-owned loky executor per `WorkerKind.GPU` device arm — the process-global singleton cannot hold per-device state, so device custody is pebble-style instance ownership, `env=` pinning the device before any worker module loads on the cooperative arm and `_device_latch` pinning it in the pebble initializer on the terminal arm. Custody follows each substrate's own topology: the pebble pool is instance-owned, the loky singleton arm holds acquisition arguments and re-acquires through the factory per use because loky is process-global and a broken instance is replaced only by re-acquisition — a field pinning the executor pins the corpse — the remote arm re-dials a closed channel per use under the same law, and a broken device instance drops its corpse at the submit seam so the next acquisition mints fresh. Arm selection is `(WorkerKind, Enforcement, placement key)` — one derived key off the `Placement` shape, endpoint key, device key, or `""` local, never a caller-facing executor knob — and the subinterpreter and sandbox kinds ride no pool: the anyio arms are already own-GIL or in-process-killable substrates a package pool duplicates without adding respawn or kill capability.
+- Owner: `WorkerPool` is the warm reusable pool capsule — one polymorphic surface over the process-executor, device, and fleet remote arms: `loky.get_reusable_executor` for `COOPERATIVE` (process-global warm pool, crash-respawning, cloudpickle payloads, idle reap on `timeout`), `pebble.ProcessPool` for `TERMINAL` (`schedule(timeout=)` kills a running worker at wall-clock and reclaims the slot; `max_tasks` recycles a worker after N tasks bounding RSS creep), one `asyncssh` channel per `WorkerKind.REMOTE` arm (a memoized `SSHClientConnection` off `transport/roots#RESOURCE` `RemoteEndpoint.dialed`, per-submit `create_process` sessions running `remote_floor`, a per-arm session limiter bounding fleet in-flight), and one instance-owned loky executor per `WorkerKind.GPU` device arm — the process-global singleton cannot hold per-device state, so device custody is pebble-style instance ownership, `env=` pinning the device before any worker module loads on the cooperative arm and the `_worker_boot` initializer pinning it on the terminal arm. Custody follows each substrate's own topology: the pebble pool is instance-owned, the loky singleton arm holds acquisition arguments and re-acquires through the factory per use because loky is process-global and a broken instance is replaced only by re-acquisition — a field pinning the executor pins the corpse — the remote arm re-dials a closed channel per use under the same law, and a broken device instance drops its corpse at the submit seam so the next acquisition mints fresh. Arm selection is `(WorkerKind, Enforcement, placement key)` — one derived key off the `Placement` shape, endpoint key, device key, or `""` local, never a caller-facing executor knob — and the subinterpreter and sandbox kinds ride no pool: the anyio arms are already own-GIL or in-process-killable substrates a package pool duplicates without adding respawn or kill capability.
 - Entry: `WorkerPool.acquire(kind, enforcement, placement)` memoizes one live pool per arm key behind a membership guard — an effectful `setdefault` mint is the deleted form — so every call site shares the warm workers; `live` is the read-only accessor the supervisor and the drain fold consult without minting, `alive` reads the arm's own liveness (pebble `active`; the loky arms self-heal per acquisition; the remote arm reads `is_closed` off its dialed channel), and `pids` names a loky arm's live worker set for the arm-scoped probe. `submit(kernel, *args)` injects the trace carrier, drives the arm's executor with `traced_kernel`, and settles the future on a `WORKER_BAND`-bounded thread with `abandon_on_cancel=True` — the band token bounds pool in-flight and settle threads in one acquisition, and a cooperative cancel abandons the settle while the worker runs to completion under the pool's reaper, exactly the `COOPERATIVE` law; on the terminal arm the same cancel instead escalates through `ProcessFuture.cancel`, pebble terminating the RUNNING task so the killable slot reclaims immediately rather than holding to the wall-clock kill. In-band worker-death retry reads `kernel.retry` before the terminal lift, and each attempt re-acquires the executor, so a `TerminatedWorkerError` re-submission genuinely lands on the respawned pool and a non-idempotent kernel never re-runs.
-- Law: the remote crossing seals `(carrier, kernel, args)` as the one cloudpickle blob the TERMINAL arm already ships — stdin in, one pickled verdict out — and the hop honours `kernel.deadline` itself since no lane wraps a direct fleet submit: the deadline scope sits OUTSIDE the retry and rails the typed `deadline` fault when tripped, the in-flight session's cancellation cleanup escalating on the way out — `TERMINAL` kills the far process mid-kernel, `COOPERATIVE` terminates the session so the channel reaps the floor — while a torn or empty verdict raises `ConnectionError` into the `SSH` retry band. In-band retry re-keys to `KIND_POLICY[REMOTE].restart` under the kernel's `idempotent` declaration — executor-death names are meaningless across a channel — and `Wire.SHARED_MEMORY` is refused as a typed `config` fault because a span name never resolves across hosts; silently downgrading a declared zero-copy crossing to a copy betrays the declaration.
-- Auto: every process arm pins an explicit spawn-family start method — `get_context("spawn")` on pebble, the loky spawn-based `"loky"` method on both loky arms — so crossing semantics never fork by platform default; each initializer runs the fidelity latch its `KIND_POLICY` row obliges and the capsule latches parent-side at construction, so a worker raise re-crosses with frames intact and the settle-side unpickle resolves them; every lifecycle transition self-emits its `PoolReceipt` — the phase methods through the `@receipted` harvest, the SPAWNED mint at `acquire`'s membership guard — so pool chronology rides the one receipt rail. A worker-local cache or native handle is a module-level `@cache` in the worker-body module, so the warm prime pays it once per spawned worker and a reaped worker's respawn re-pays it. Elasticity is the substrate's own pair — the idle reap shrinks a quiet pool and a later submit respawns to the cap — so a sizing knob never lands. Worker-death evidence is typed per arm — loky raises `TerminatedWorkerError`/`BrokenProcessPool` on the pending future, pebble raises `ProcessExpired` (pid, exitcode) or `TimeoutError` on the deadline kill — and the faults pool-death row lands each on the `resource` case while the deadline kill converts to the `deadline` case, never retried because the `WORKER` row's target excludes it; loky's exit-code forensics never land — re-acquisition replaces the corpse before a forensic read, so death evidence is the typed raise and pebble's pid/exitcode.
+- Law: the remote crossing seals `(boot, carrier, kernel, args)` as the one cloudpickle blob the TERMINAL arm already ships — stdin in, one pickled verdict out — and the hop honours `kernel.deadline` itself since no lane wraps a direct fleet submit: the deadline scope sits OUTSIDE the retry and rails the typed `deadline` fault when tripped, the in-flight session's cancellation cleanup escalating on the way out — `TERMINAL` kills the far process mid-kernel, `COOPERATIVE` terminates the session so the channel reaps the floor — while a torn or empty verdict raises `ConnectionError` into the `SSH` retry band. `boot` is the parent-captured worker floor and may be `None` only when the pebble initializer already installed it. In-band retry re-keys to `KIND_POLICY[REMOTE].restart` under the kernel's `idempotent` declaration — executor-death names are meaningless across a channel — and `Wire.SHARED_MEMORY` is refused as a typed `config` fault because a span name never resolves across hosts; silently downgrading a declared zero-copy crossing to a copy betrays the declaration.
+- Auto: every process arm pins an explicit spawn-family start method — `get_context("spawn")` on pebble, the loky spawn-based `"loky"` method on both loky arms — so crossing semantics never fork by platform default; every process arm's initializer is the one `_worker_boot` — device visibility pins first, the fidelity latch re-arms per its `KIND_POLICY` row, and the parent-captured `WorkerBoot` installs telemetry, instruments, and the profiler post-spawn under `WORKER_SIGNAL_PROFILE` with the exit drain registered — while the capsule latches parent-side at construction, so a worker raise re-crosses with frames intact and the settle-side unpickle resolves them; every lifecycle transition self-emits its `PoolReceipt` — the phase methods through the `@receipted` harvest, the SPAWNED mint at `acquire`'s membership guard — so pool chronology rides the one receipt rail. A worker-local cache or native handle is a module-level `@cache` in the worker-body module, so the warm prime pays it once per spawned worker and a reaped worker's respawn re-pays it. Elasticity is the substrate's own pair — the idle reap shrinks a quiet pool and a later submit respawns to the cap — so a sizing knob never lands. Worker-death evidence is typed per arm — loky raises `TerminatedWorkerError`/`BrokenProcessPool` on the pending future, pebble raises `ProcessExpired` (pid, exitcode) or `TimeoutError` on the deadline kill — and the faults pool-death row lands each on the `resource` case while the deadline kill converts to the `deadline` case, never retried because the `WORKER` row's target excludes it; loky's exit-code forensics never land — re-acquisition replaces the corpse before a forensic read, so death evidence is the typed raise and pebble's pid/exitcode.
+- Law: the worker flush law is exit-owned — `_worker_boot` registers the telemetry drain then the profiler stop through `atexit`, so a graceful settle (`shutdown(wait=True)`, pebble `close`/`join`, the remote floor's process exit) drains every worker's buffered tail, a roll's double-buffer drains the stale arm's workers the same way, and only the kill paths (`kill_workers`, pebble `stop`, the remote `abort`) forfeit at most one `WORKER_SIGNAL_PROFILE` export window. The boot is captured parent-side as data off `Telemetry.receipt`/`Profiles.receipt`, so a silent parent spawns silent workers, no endpoint knob rides the pool surface, and the worker geometry keeps the HTTP transport the fork fence requires — the gRPC egress row stays structurally refused on every spawned floor.
 - Receipt: `PoolReceipt` carries `phase`, `kind`, `enforcement`, and `workers` — lifecycle evidence, never task outcomes; task outcomes stay the lane's `DrainReceipt`.
-- Growth: a new executor arm is one constructor match arm keyed by `(WorkerKind, Enforcement)`; a new fleet host is one `RemoteEndpoint` value and a new accelerator one `Device` value, each acquiring its own arm at zero new surface; a new lifecycle phase is one `PoolPhase` member; a new warm-state obligation is one initializer fold.
+- Growth: a new executor arm is one constructor match arm keyed by `(WorkerKind, Enforcement)`; a new fleet host is one `RemoteEndpoint` value and a new accelerator one `Device` value, each acquiring its own arm at zero new surface; a new lifecycle phase is one `PoolPhase` member; a new warm-state obligation is one initializer fold; a new worker-boot fact is one `WorkerBoot` field the one initializer reads.
 - Boundary: pools serve the lanes offload hop, the daemon drain fold, the fleet and device consumers, and the supervisor — a consumer never imports an executor class, holds a future, or sizes a pool; sizing derives from `loky.cpu_count(only_physical_cores=True)`, which already folds the `LOKY_MAX_CPU_COUNT` deploy override and the cgroup budget, so a cgroup-capped batch arm is deploy placement with zero new surface — the capped daemon's workers inherit its cgroup and every pool self-sizes to the quota, scheduling class and affinity riding the same deploy custody, never a kind — and `WORKER_BAND` bounds in-flight admission above the pool, refusing burst past physical cores. `REMOTE` and `GPU` are caller placement, never trait-derived — the lanes offload never routes to them, and a consumer acquires the arm with its `RemoteEndpoint` or `Device` exactly as trait declaration is consumer domain knowledge on the fabric; priority is the same placement axis — a latency class acquires its own arm key, never a queue-discipline knob. Fan-out modality stays the lane's `drain` — the pools expose `submit` alone, never a second `map`, stream, or priority surface. `Kernel.of` is the whole payload-classification surface and `ShmSpan` the one out-of-band buffer channel, so no per-object wrap, pickler swap, or reducer registration exists beside them.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+import atexit
 import os
 from collections.abc import Iterable
 from concurrent.futures import Future
 from functools import partial
 from multiprocessing import get_context
 from typing import Final, Literal, assert_never
+from uuid import uuid4
 
 import anyio
 import anyio.to_thread
@@ -460,11 +483,15 @@ import pebble
 from anyio import CapacityLimiter, move_on_after
 from expression import Error, Nothing, Option, Result, Some
 from opentelemetry import propagate
+from opentelemetry.exporter.otlp.proto.http import Compression
+from opentelemetry.sdk.resources import SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_NAMESPACE, Resource
 
+from rasm.runtime.admission import RuntimeProfile
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
 from rasm.runtime.receipts import OPEN, Receipt, Signals, receipted
 from rasm.runtime.resilience import guard
 from rasm.runtime.roots import RemoteEndpoint
+from rasm.runtime.telemetry import NAMESPACE, SCHEMA_URL, SignalProfile, Telemetry
 
 # every FABRIC-region owner — the kind/trait/shipping/wire vocabulary, `Kernel`, the policy tables, the crossing gates, and their
 # imports (`cloudpickle`, `StrEnum`, `Struct` included) — resolves in this same module; one module, three regions.
@@ -495,6 +522,13 @@ WORKER_BAND: Final[CapacityLimiter] = CapacityLimiter(loky.cpu_count(only_physic
 # module — the REFERENCE worker-floor contract at fleet scale.
 REMOTE_FLOOR: Final[str] = "-m rasm.runtime.workers"
 
+# worker-shaped egress geometry: small queues and a short interval so kernel-grain evidence exports continuously and
+# the atexit drain carries only a tail window; the HTTP transport default IS the fork fence — the gRPC row never
+# rides a spawned or forked floor.
+WORKER_SIGNAL_PROFILE: Final[SignalProfile] = SignalProfile(
+    export_interval_ms=5000, schedule_delay_ms=1000, max_queue_size=512, max_export_batch_size=128, compression=Compression.Gzip
+)
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -511,6 +545,37 @@ class Device(Struct, frozen=True, gc=False):
     @property
     def env(self) -> dict[str, str]:
         return {self.selector: str(self.index)}
+
+
+class WorkerBoot(Struct, frozen=True):
+    # the parent's EFFECTIVE install captured as data off `Telemetry.receipt`/`Profiles.receipt`: a silent parent
+    # captures no endpoint and spawns silent workers, so no emission knob rides the pool surface and the worker's own
+    # install re-evaluates the same profile gate the parent passed. `device` folds accelerator pinning into the one
+    # initializer, so visibility lands before any native runtime import reads it.
+    kind: WorkerKind
+    profile: RuntimeProfile
+    otel: str | None = None
+    pyroscope: str | None = None
+    tenant: str | None = None
+    device: Device | None = None
+
+    @staticmethod
+    def captured(kind: WorkerKind, device: Device | None = None) -> "WorkerBoot":
+        telemetry = Telemetry.receipt()
+        profiles = Profiles.receipt()
+        return WorkerBoot(
+            kind=kind,
+            profile=telemetry.map(lambda held: held.profile).default_value(RuntimeProfile.PACKAGE),
+            otel=telemetry.map(lambda held: held.endpoint).to_optional(),
+            pyroscope=profiles.map(lambda held: held.endpoint).to_optional(),
+            tenant=profiles.bind(lambda held: Option.of_optional(held.tenant)).to_optional(),
+            device=device,
+        )
+
+    def env(self) -> dict[str, str]:
+        # daemon-spawn seam: a supervised child reads the standard SDK variable at its own admission, so the parent's
+        # effective endpoint crosses by environment beside the device visibility, never a re-plumbed setting.
+        return {**({"OTEL_EXPORTER_OTLP_ENDPOINT": self.otel} if self.otel else {}), **(self.device.env if self.device is not None else {})}
 
 
 class PoolReceipt(Struct, frozen=True, gc=False):
@@ -531,11 +596,38 @@ def _placed(placement: Placement) -> str:
     return placement.key if placement is not None else ""
 
 
-def _device_latch(device: Device) -> None:
-    # pebble ships no env= slot, so the terminal device arm pins the binding in the initializer — it runs before the
-    # first kernel body imports a native runtime, which reads the visibility variable at its own first initialization.
-    os.environ.update(device.env)
-    fidelity()
+def worker_resource(kind: WorkerKind) -> Resource:
+    # hand-built worker identity: a spawned worker is its own emitter, so a per-process instance id keys every worker
+    # distinctly and the worker axes ride beside the service triple — no detector carries worker semantics.
+    return Resource.create(
+        {
+            SERVICE_NAMESPACE: NAMESPACE,
+            SERVICE_NAME: SCOPES[Scope.SERVICE],
+            SERVICE_INSTANCE_ID: uuid4().hex,
+            "worker.kind": kind.value,
+            "worker.pid": os.getpid(),
+        },
+        schema_url=SCHEMA_URL,
+    )
+
+
+def _worker_boot(boot: WorkerBoot) -> None:
+    # the ONE initializer every process arm runs post-spawn: device visibility pins first (pebble ships no env= slot,
+    # and a native runtime reads the variable at its own first initialization), the tblib latch re-arms per the kind's
+    # KIND_POLICY row, and the parent-captured install lands fresh — a spawned or forked worker inherits no live batch
+    # thread, so the pipeline mints in-process under WORKER_SIGNAL_PROFILE with the exit drain registered LIFO:
+    # interpreter exit stops the profiler push first, then drains telemetry last, mirroring the daemon drain order.
+    if boot.device is not None:
+        os.environ.update(boot.device.env)
+    if KIND_POLICY[boot.kind].fidelity:
+        fidelity()
+    if boot.otel is not None:
+        atexit.register(Telemetry.shutdown)
+        Telemetry.install(boot.profile, boot.otel, resource=worker_resource(boot.kind), signal_profile=WORKER_SIGNAL_PROFILE)
+        Metrics.install()
+    if boot.pyroscope is not None:
+        atexit.register(Profiles.shutdown)
+        Profiles.install(boot.profile, boot.pyroscope, tags={"worker.kind": boot.kind.value}, tenant=boot.tenant)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -549,8 +641,9 @@ class WorkerPool:
         self._kind, self._enforcement, self._workers, self._placement = kind, enforcement, workers, placement
         self._key: ArmKey = (kind, enforcement, _placed(placement))
         self._phase = PoolPhase.SPAWNED
-        self._latch = fidelity if KIND_POLICY[kind].fidelity else None
-        if self._latch is not None:
+        # the one initializer payload: parent-effective install + device pinning + fidelity obligation captured as data.
+        self._boot = WorkerBoot.captured(kind, placement if isinstance(placement, Device) else None)
+        if KIND_POLICY[kind].fidelity:
             fidelity()  # parent-side latch: the settle-side unpickle resolves tblib reducers before the first worker raise crosses back
         match kind, enforcement, placement:
             case (WorkerKind.GPU, _, placed) if not isinstance(placed, Device):
@@ -572,8 +665,9 @@ class WorkerPool:
                 self._loky: loky.ProcessPoolExecutor | None = None
                 self._executor()  # instance mints here; env= applies the device binding before any worker module loads
             case (_, Enforcement.TERMINAL, _):
-                latch = partial(_device_latch, placement) if isinstance(placement, Device) else self._latch
-                self._pebble = pebble.ProcessPool(max_workers=workers, max_tasks=64, initializer=latch, context=get_context("spawn"))
+                self._pebble = pebble.ProcessPool(
+                    max_workers=workers, max_tasks=64, initializer=partial(_worker_boot, self._boot), context=get_context("spawn")
+                )
             case (_, Enforcement.COOPERATIVE, _):
                 self._held: loky.ProcessPoolExecutor | None = None  # observation snapshot for pids(); never a submit target
                 self._executor()  # loky is process-global: the capsule holds acquisition ARGS, never the instance — see _executor
@@ -593,11 +687,12 @@ class WorkerPool:
             if self._loky is None:
                 self._loky = loky.ProcessPoolExecutor(
                     max_workers=self._workers, timeout=120, context=loky.backend.context.get_context("loky"),
-                    initializer=self._latch, env=self._placement.env,
+                    initializer=partial(_worker_boot, self._boot), env=self._placement.env,
                 )
             return self._loky
         self._held = loky.get_reusable_executor(
-            max_workers=self._workers, context="loky", timeout=120, kill_workers=kill_workers, reuse="auto", initializer=self._latch
+            max_workers=self._workers, context="loky", timeout=120, kill_workers=kill_workers, reuse="auto",
+            initializer=partial(_worker_boot, self._boot),
         )
         return self._held
 
@@ -705,7 +800,9 @@ class WorkerPool:
             sealed = await async_boundary(
                 "workers.remote",
                 lambda: anyio.to_thread.run_sync(
-                    lambda: cloudpickle.dumps((carrier, kernel, args)), abandon_on_cancel=True, limiter=WORKER_BAND
+                    # the remote seal carries the boot: the floor is a fresh process per submit, so its whole install
+                    # rides the blob and the atexit drain flushes the short-lived floor after the verdict lands.
+                    lambda: cloudpickle.dumps((self._boot, carrier, kernel, args)), abandon_on_cancel=True, limiter=WORKER_BAND
                 ),
             )
             match sealed:
@@ -739,7 +836,8 @@ class WorkerPool:
                 # a large closure/array payload's dumps otherwise stalls the event loop for its whole duration, while
                 # schedule stays non-blocking and thread-safe once the inert bytes exist.
                 sealed = await anyio.to_thread.run_sync(
-                    lambda: cloudpickle.dumps((carrier, kernel, args)), abandon_on_cancel=True, limiter=WORKER_BAND
+                    # a pooled seal carries no boot — the pebble initializer already booted the worker it lands on.
+                    lambda: cloudpickle.dumps((None, carrier, kernel, args)), abandon_on_cancel=True, limiter=WORKER_BAND
                 )
                 pending: Future[T] = self._pebble.schedule(sealed_kernel, args=(sealed,), timeout=kernel.deadline.to_optional())
                 try:
@@ -767,7 +865,8 @@ class WorkerPool:
     @receipted(OPEN)
     async def warm(self, count: int | None = None) -> "PoolReceipt":
         # concurrent priming spawns the full worker set — a sequential await would keep one warm worker busy N times —
-        # and each spawned worker runs the fidelity latch as its initializer before the first no-op kernel lands; the
+        # and each spawned worker runs the `_worker_boot` initializer (device pin, fidelity latch, telemetry and
+        # profiler install) before the first no-op kernel lands; the
         # remote arm's same fold proves the channel and session capacity, its floor latching inside `shipped`. Handles
         # keep each priming rail, so a refused prime subtracts from the advertised count and an all-refused warm never flips WARM.
         primed = self._workers if count is None else max(0, min(count, self._workers))  # explicit 0 primes nothing; the arm cap bounds the request
@@ -836,8 +935,8 @@ class WorkerPool:
 
 - Owner: `Supervisor` binds the probe evidence, the restart rows, and the health projection into the one actuator loop the branch lacked: every ingredient existed — psutil probes, retry backoff, health status, worker-death markers — and this owner closes them. A `SupervisionPolicy` row per supervised subject carries the probe ceilings and the windowed restart budget; verdicts are data the loop folds, never inline judgment.
 - Cases: `Verdict` closes the probe outcomes — `LIVE`, `DEGRADED` (a ceiling breached: rss over budget, involuntary context-switch storm), `DEAD` (child gone, pool retired) — and `_actuate` maps each onto its actuation: `LIVE` re-arms the probe, `DEGRADED` rolls the arm, `DEAD` flips the subject down and re-spawns under the kind's restart row with stamina backoff. Budgets are windowed: `restarts` actuations inside `window` seconds park the subject `NOT_SERVING` until the window drains, so a crash storm holds down instead of thrashing.
-- Entry: `Supervisor.watch(group)` starts one probe loop per supervised subject inside the caller's task group — the daemon composition root's supervision group, never a private loop — each cycle fenced so a probe or actuation raise emits one rejected receipt and the rhythm survives. Probes are arm-scoped: a `DAEMON` charge reads its own child handle under one `oneshot` with the listing-to-reading race fenced, and a pool charge reads capsule presence and the arm's own `alive()` before weighing exactly its workers — the loky arms (device arms included) by their published pid maps, the pebble arm by complement over the children that are neither daemons nor a sibling arm's named workers — so one heavy child never marks an unrelated subject degraded; a `REMOTE` charge reads channel liveness alone, resource ceilings belonging to the far host's own supervisor, and a `GPU` charge weighs host RSS alone — device-memory evidence stays the kernel's own receipt, unobservable through a psutil scan. Verdicts project onto the serve owner's per-service flip — the injected awaited `ServerHost.status` coroutine — so any `DEAD` subject flips its service `NOT_SERVING` and recovery flips it back, the health poller the estate shipped only the server half of; no second verdict surface exists beside the flip.
-- Daemon kind: a `DAEMON` worker is a supervised long-lived child — `psutil.Popen` fuses the subprocess handle with the probe surface, `terminate()` then `kill()` after the grace window is the stop escalation, restart rides the `SPAWN` row targeting spawn transients, and an empty spawn command is a config refusal that parks the subject down; a daemon's readiness is its next `LIVE` verdict, never a sleep. `Supervisor.stop()` runs that same escalation over every surviving child as the serve drain fold's daemon row, so a child never outlives the daemon that spawned it.
+- Entry: `Supervisor.watch(group)` starts one probe loop per supervised subject inside the caller's task group — the daemon composition root's supervision group, never a private loop — each cycle fenced so a probe or actuation raise emits one rejected receipt and the rhythm survives. Probes are arm-scoped: a `DAEMON` charge reads its own child handle under one `oneshot` with the listing-to-reading race fenced, and a pool charge reads capsule presence and the arm's own `alive()` before weighing exactly its workers — the loky arms (device arms included) by their published pid maps, the pebble arm by complement over the children that are neither daemons nor a sibling arm's named workers — so one heavy child never marks an unrelated subject degraded; a `REMOTE` charge reads channel liveness alone, resource ceilings belonging to the far host's own supervisor, and a `GPU` charge weighs host RSS alone — device-memory evidence stays the kernel's own receipt, unobservable through a psutil scan. Verdicts project onto the serve owner's per-service flip — the injected awaited `ServerHost.status` coroutine — so any `DEAD` subject flips its service `NOT_SERVING` and recovery flips it back, the health poller the estate shipped only the server half of; the `verdicts` accessor publishes the same last-verdict state as data for the bundle capsule, so no second verdict surface exists beside the flip and the projection.
+- Daemon kind: a `DAEMON` worker is a supervised long-lived child — `psutil.Popen` fuses the subprocess handle with the probe surface, the spawn environment forwards the parent's effective OTLP endpoint through `WorkerBoot.env` so the child's own composition root installs against the same collector, `terminate()` then `kill()` after the grace window is the stop escalation, restart rides the `SPAWN` row targeting spawn transients, and an empty spawn command is a config refusal that parks the subject down; a daemon's readiness is its next `LIVE` verdict, never a sleep. `Supervisor.stop()` runs that same escalation over every surviving child as the serve drain fold's daemon row, so a child never outlives the daemon that spawned it.
 - Growth: a new probe dimension is one `SupervisionPolicy` ceiling field with one `_weighed` term; a new actuation is one `_actuate` arm; a new supervised subject is one `Supervisor.watch` registration.
 - Boundary: the supervisor actuates pooled arms — device arms included — remote channels, and daemon children only — `ChargeKind` seals that subject set by construction — and it never restarts the serve host, never owns the signal seam (`transport/serve#ENTRY`'s), and never emits health protocol wire (the serve owner's `HealthServicer` is the sole advertiser). Probe evidence emits through the contributor port under the `OPEN` policy.
 
@@ -996,7 +1095,10 @@ class Supervisor:
                         # is_running() still answers True, and the replacement below would strand it unreaped.
                         with anyio.move_on_after(charge.policy.grace):
                             await anyio.to_thread.run_sync(stale.wait, abandon_on_cancel=True, limiter=WORKER_BAND)
-                self._children[subject] = psutil.Popen(list(charge.command))
+                # spawn environment forwards the parent's effective OTLP endpoint beside the inherited environment, so
+                # the child's own composition root installs against the same collector — the daemon row of the worker
+                # install seam, its telemetry owned by the child's boot, never a parent-side patch.
+                self._children[subject] = psutil.Popen(list(charge.command), env={**os.environ, **WorkerBoot.captured(WorkerKind.DAEMON).env()})
                 return True
             case kind:
                 # roll receipt is the respawn verdict: a fresh arm that never flips WARM is a failed restart, held down
@@ -1006,13 +1108,15 @@ class Supervisor:
 
     async def _cycle(self, charge: Charge) -> None:
         while True:  # Exemption: the supervision loop is the daemon's standing probe rhythm, cancelled by its owning task group.
-            outcome = await async_boundary(f"supervise.{charge.policy.subject}", lambda: self._actuate(charge, self._probe(charge)))
-            match outcome:
-                case Result(tag="error", error=fault):
-                    Signals.emit(Receipt.of("workers", fault), OPEN)  # the rhythm survives a probe or actuation raise
-                case _:
-                    ...
+            (await async_boundary(f"supervise.{charge.policy.subject}", lambda: self._actuate(charge, self._probe(charge)))).swap().map(
+                lambda fault: Signals.emit(Receipt.of("workers", fault), OPEN)
+            )  # the rhythm survives a probe or actuation raise
             await anyio.sleep(charge.policy.interval)
+
+    def verdicts(self) -> Map[str, str]:
+        # bundle-facing projection: the last per-subject verdict as data, never the live mutable dict — the diagnostic
+        # capsule reads supervision state through this one accessor.
+        return Map.of_seq((subject, verdict.value) for subject, verdict in self._verdicts.items())
 
     def watch(self, group: TaskGroup) -> None:
         for charge in self._charges:  # Exemption: task-group registration is the one imperative spawn seam.

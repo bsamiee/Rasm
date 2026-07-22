@@ -1149,3 +1149,12 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 - [10]-[SPARSE_OWNERS]: CSR invariants + lock-guarded AMD factor cache over CSparse.
 - [11]-[EVIDENCE]: `ValidityClaim.All` fold + semantic claim rows.
 - [12]-[KERNEL]: the ONE MathNet+CSparse access path (dense/sparse/gauge/eigen/LOBPCG).
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

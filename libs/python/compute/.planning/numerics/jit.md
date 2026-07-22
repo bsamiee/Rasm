@@ -12,10 +12,10 @@ This owner mints the `LoweredSpec` vocabulary of the symbolic-to-jit-to-consumer
 
 - Owner: `JitBackend` — each case carries its route's option payload, and the bare `_capture_*` function IS the `_JIT_ROUTES` row, so `compile` indexes one row rather than fanning the shared decorate/warm-probe/read-IR pattern across match arms; the gated `numba`/`jax` imports stay inside each capture body, so the table is an eager import-free module constant.
 - Cases: `Specimen` is the one typed warm-probe carrier every route consumes — numba forces one dispatcher specialization against it, jax traces one `make_jaxpr` over it, and the empty `Specimen()` is the unarmed probe a route ignores — so no route reads a positional `probe[0]` off an erased varargs tuple.
-- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag.
+- Output: `JitEvidence` gives each route its own case with a total `facts()` projection of native scalars, so an LLVM specialization never smuggles jax fields and the receipt spreads only the matched case's slots; `diagnostics_lines` is the realized parallel-region evidence, distinct from the requested `parallel` flag. `EngineProfile` is the engine-native profile band the `llvm` case carries and `solvers/receipt.md#RECEIPT` mounts as its optional `profile` slot — specialization count beside the `inspect_llvm`/`inspect_asm`/`inspect_types` extents and the realized `parallel_diagnostics` tally, harvested off the dispatcher the capture already holds, so a slow compile or solve explains itself from the receipt with no profiler attach; the `xla` case carries its captured-jaxpr statistics as its own profile evidence.
 - Packages: the numba dispatcher and jax trace handles are typed through `TYPE_CHECKING` `Protocol`s so every capture reads a named member rather than a phantom off `object`; `Specimen` and `Jitted` stay GC-tracked because each holds a container field — `gc=False` is reserved for container-free leaves.
 - Receipt: `compile` runs under the hub weave as `evidence_run(EvidenceScope.JIT, f"compile.{self.tag}", rail, facts=...)` — LLVM/XLA lowering is the canonical measured surface, the span carries the backend, kernel, and armed discriminants, and the weave harvest emits the `Jitted` receipts on the clean exit, so `contribute()` needs no page-local emit call.
-- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here.
+- Growth: a new compiler is one `JitBackend` case, one `_JIT_ROUTES` row, and its `JitEvidence` case — the `Cfunc` row is exactly that path realized; a new option is one column absorbed by the existing decorator call; a new lowering producer emits `LoweredSpec` values and adds zero surface here; a new profile statistic is one `EngineProfile` field and one `_profiled` read, reaching the solve receipt's mount with zero receipt edits.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -27,22 +27,30 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
 from beartype.door import is_bearable
 from expression import Error, case, tag, tagged_union
 from expression.collections import Map
-from msgspec import Struct
+from msgspec import Struct, structs
 
 from rasm.compute.graduation.handoff import EvidenceScope, evidence_run
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 
+lazy import jax
+lazy import numba
+
 if TYPE_CHECKING:
-    # `numba`/`jax` never import at runtime; the `_capture_*` bodies annotate their handles through these `Protocol`s so a route
-    # reads a named capture member rather than a phantom off a bare `object`.
+    # Capture handles read named members through protocols rather than phantom attributes on `object`.
     class Dispatcher(Protocol):  # the numba `CPUDispatcher` a decorated kernel becomes
         signatures: list[object]
 
         def __call__(self, *args: object) -> object: ...
+        def inspect_asm(self) -> dict[object, str]: ...
         def inspect_llvm(self) -> dict[object, str]: ...
+        def inspect_types(self) -> None: ...
         def parallel_diagnostics(self, signature: object = ..., level: int = ...) -> None: ...
+
+    class CFunc(Protocol):
+        address: int
+        ctypes: Callable[..., object]
 
     class Jaxpr(Protocol):  # the traced jax program `make_jaxpr` returns; `repr` is the IR text
         def __repr__(self) -> str: ...
@@ -78,18 +86,33 @@ class Specimen(Struct, frozen=True):
         return len(self.args) > 0
 
 
+class EngineProfile(Struct, frozen=True, gc=False):
+    # engine-native profile band — what the compiler already measured, harvested off the held dispatcher:
+    # specialization count beside the lowered-IR, native-asm, typed-source, and parallel-diagnostics extents.
+    # Shared outward: `solvers/receipt.md#RECEIPT` mounts it as the optional per-case `profile` slot.
+    specializations: int
+    ir_lines: int
+    asm_lines: int
+    typed_lines: int
+    diagnostics_lines: int
+
+    def facts(self, prefix: str = "") -> dict[str, int]:
+        # one derived projection; `prefix` parameterizes the mount — bare on the jit receipt, `profile.`-namespaced on the solve receipt.
+        return {f"{prefix}{name}": value for name, value in structs.asdict(self).items()}
+
+
 @tagged_union(frozen=True)
 class JitEvidence:
     tag: Literal["llvm", "ufunc", "cabi", "xla", "host"] = tag()
-    llvm: tuple[str, bool, bool, bool, int, int] = case()  # signature, parallel, fastmath, cached, ir_lines, diagnostics_lines
+    llvm: tuple[str, bool, bool, bool, EngineProfile] = case()  # signature, parallel, fastmath, cached, profile
     ufunc: tuple[str, str, str] = case()  # signature, layout, target
     cabi: tuple[str, int] = case()  # signature, address
     xla: tuple[tuple[int, ...], tuple[int, ...], str, int] = case()  # static_argnums, out_shape, out_dtype, jaxpr_lines
     host: tuple[()] = case()
 
     @staticmethod
-    def Llvm(signature: str, *, parallel: bool, fastmath: bool, cached: bool, ir_lines: int, diagnostics_lines: int) -> "JitEvidence":
-        return JitEvidence(llvm=(signature, parallel, fastmath, cached, ir_lines, diagnostics_lines))
+    def Llvm(signature: str, *, parallel: bool, fastmath: bool, cached: bool, profile: EngineProfile) -> "JitEvidence":
+        return JitEvidence(llvm=(signature, parallel, fastmath, cached, profile))
 
     @staticmethod
     def Ufunc(signature: str, layout: str, target: str) -> "JitEvidence":
@@ -109,16 +132,8 @@ class JitEvidence:
 
     def facts(self) -> dict[str, object]:
         match self:
-            case JitEvidence(tag="llvm", llvm=(signature, parallel, fastmath, cached, ir_lines, diagnostics_lines)):
-                return {
-                    "mode": "llvm",
-                    "signature": signature,
-                    "parallel": parallel,
-                    "fastmath": fastmath,
-                    "cached": cached,
-                    "ir_lines": ir_lines,
-                    "diagnostics_lines": diagnostics_lines,
-                }
+            case JitEvidence(tag="llvm", llvm=(signature, parallel, fastmath, cached, profile)):
+                return {"mode": "llvm", "signature": signature, "parallel": parallel, "fastmath": fastmath, "cached": cached, **profile.facts()}
             case JitEvidence(tag="ufunc", ufunc=(signature, layout, target)):
                 return {"mode": "gufunc" if layout else "ufunc", "signature": signature, "layout": layout or "<elementwise>", "target": target}
             case JitEvidence(tag="cabi", cabi=(signature, address)):
@@ -216,31 +231,21 @@ class JitBackend:
 
 
 def _capture_njit(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
-    import numba
-
     parallel, fastmath, cache, boundscheck, nogil = backend.njit
     fn: "Dispatcher" = numba.njit(cache=cache, parallel=parallel, fastmath=fastmath, boundscheck=boundscheck, nogil=nogil)(kernel)
     if specimen.is_armed:
-        fn(*specimen.args)  # forces one `CPUDispatcher` specialization so `signatures`/`inspect_llvm` are non-empty
+        fn(*specimen.args)  # forces one `CPUDispatcher` specialization so `signatures`/`inspect_*` are non-empty
     signature = ", ".join(str(s) for s in fn.signatures) or "<unspecialized>"
-    llvm = next(iter(fn.inspect_llvm().values()), "") if fn.signatures else ""
-    diagnostics = _diagnostics_lines(fn) if parallel and fn.signatures else 0
-    return fn, JitEvidence.Llvm(
-        signature, parallel=parallel, fastmath=fastmath, cached=cache, ir_lines=llvm.count("\n"), diagnostics_lines=diagnostics
-    )
+    return fn, JitEvidence.Llvm(signature, parallel=parallel, fastmath=fastmath, cached=cache, profile=_profiled(fn, parallel))
 
 
 def _capture_vectorize(kernel: Kernel, _specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
-    import numba
-
     signatures, target, layout = backend.vectorize
     fn = numba.guvectorize(list(signatures), layout, target=target)(kernel) if layout else numba.vectorize(list(signatures), target=target)(kernel)
     return fn, JitEvidence.Ufunc(" | ".join(signatures), layout, target)
 
 
 def _capture_jax(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
-    import jax
-
     static_argnums, donate_argnums = backend.jax_jit
     fn = jax.jit(kernel, static_argnums=static_argnums, donate_argnums=donate_argnums)
     # `make_jaxpr(return_shape=True)` stages the jaxpr AND returns the out-structure pytree in one trace — no separate `eval_shape`
@@ -249,31 +254,50 @@ def _capture_jax(kernel: Kernel, specimen: "Specimen", backend: "JitBackend") ->
         jaxpr: "Jaxpr"
         jaxpr, out_tree = jax.make_jaxpr(kernel, static_argnums=static_argnums, return_shape=True)(*specimen.args)
         out: "ShapeDtypeStruct" = jax.tree_util.tree_leaves(out_tree)[0]
-        return fn, JitEvidence.Xla(static_argnums, tuple(out.shape), str(out.dtype), repr(jaxpr).count("\n"))
+        return fn, JitEvidence.Xla(static_argnums, tuple(out.shape), str(out.dtype), _text_lines(repr(jaxpr)))
     return fn, JitEvidence.Xla(static_argnums, (), "<unspecialized>", 0)
 
 
 def _capture_cfunc(kernel: Kernel, _specimen: "Specimen", backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
-    import numba
-
     # `.address` is the callback pointer a quadax/scipy `LowLevelCallable` consumer binds; the compiled object stays
-    # Python-callable through `.ctypes`, so the returned kernel is uniformly invocable.
+    # Python-callable through `.ctypes`, which is the uniform callable returned to consumers.
     (signature,) = backend.cfunc
-    fn = numba.cfunc(signature)(kernel)
-    return fn, JitEvidence.Cabi(signature, int(fn.address))
+    fn: "CFunc" = numba.cfunc(signature)(kernel)
+    return fn.ctypes, JitEvidence.Cabi(signature, int(fn.address))
 
 
 def _capture_host(kernel: Kernel, _specimen: "Specimen", _backend: "JitBackend") -> tuple[Kernel, JitEvidence]:
     return kernel, JitEvidence.Host()
 
 
-def _diagnostics_lines(fn: "Dispatcher") -> int:
-    # `parallel_diagnostics(level=)` writes its report to stdout rather than returning it; the line tally is present-vs-absent
-    # evidence that never couples to a specific report phrase.
+def _profiled(fn: "Dispatcher", parallel: bool) -> EngineProfile:
+    # profile harvest off the held dispatcher — everything the compiler already measured, no profiler attach:
+    # `inspect_llvm`/`inspect_asm` return per-signature dicts whose values all join the extent through the one
+    # non-blank tally, while `inspect_types` and `parallel_diagnostics` print their reports and ride the stdout form.
+    armed = bool(fn.signatures)
+    return EngineProfile(
+        specializations=len(fn.signatures),
+        ir_lines=sum(_text_lines(text) for text in fn.inspect_llvm().values()) if armed else 0,
+        asm_lines=sum(_text_lines(text) for text in fn.inspect_asm().values()) if armed else 0,
+        typed_lines=_printed_lines(fn.inspect_types) if armed else 0,
+        diagnostics_lines=_printed_lines(lambda: fn.parallel_diagnostics(level=1)) if parallel and armed else 0,
+    )
+
+
+def _text_lines(text: str) -> int:
+    # one report-extent rule for every profile tally: non-blank lines via splitlines, so a report without a trailing
+    # newline counts whole and blank padding never inflates the extent — a `count("\n")` separator tally is the
+    # rejected form on every LLVM, ASM, and jaxpr report.
+    return sum(1 for line in text.splitlines() if line.strip())
+
+
+def _printed_lines(emit: Callable[[], object]) -> int:
+    # `inspect_types` and `parallel_diagnostics(level=)` write their reports to stdout rather than returning them; the
+    # non-blank line tally is present-vs-absent extent evidence that never couples to a specific report phrase.
     sink = io.StringIO()
     with redirect_stdout(sink):
-        fn.parallel_diagnostics(level=1)
-    return sum(1 for line in sink.getvalue().splitlines() if line.strip())
+        emit()
+    return _text_lines(sink.getvalue())
 
 
 # --- [TABLES] ------------------------------------------------------------------------------

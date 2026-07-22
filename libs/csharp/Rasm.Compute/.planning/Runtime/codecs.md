@@ -1,6 +1,6 @@
 # [COMPUTE_CODECS]
 
-Rasm.Compute owns the compute-and-transport half of artifact interchange: the chunked error-bounded field/result codec over the simulation-field carrier, the FastCDC structural geometry-delta codec over meshes, B-reps, point clouds, and NURBS, the two-hop IFC-to-geometry tessellation bridge crossing to the IfcOpenShell companion, the 3D-Tiles streamable-LOD octree partition with its `EXT_structural_metadata` semantic layer joining IFC classification and solver field values at the content-key, and the content-addressed interchange-cache identity folding format key plus deflection/tolerance policy into one policy-seeded `XxHash128` cache-partition key. `Rasm.Bim` owns the IFC/glTF/STEP semantic object model and its import-export surface, reached at the companion seam; this lane is HOST-LOCAL and carries no TS_PROJECTION.
+Rasm.Compute owns the compute-and-transport half of artifact interchange: the chunked error-bounded field/result codec over the simulation-field carrier, the FastCDC structural geometry-delta codec over meshes, B-reps, point clouds, and NURBS, the two-hop IFC-to-geometry tessellation bridge crossing to the IfcOpenShell companion, the 3D-Tiles streamable-LOD octree partition with its `EXT_structural_metadata` semantic layer joining IFC classification and solver field values at the content-key, and the content-addressed interchange-cache identity folding format key with each owner's complete output policy into one policy-seeded `XxHash128` cache-partition key. `Rasm.Bim` owns the IFC/glTF/STEP semantic object model and its import-export surface, reached at the companion seam; this lane is HOST-LOCAL and carries no TS_PROJECTION.
 
 Owner types are `FieldCodec`/`DeltaCodec`, the `TessellationRequest` companion bridge, the `TileSet` octree with its `MetadataProperty`/`PropertyTable`/`TileMetadata`/`FeatureBand` family, and the `CanonicalForm`/`InterchangeIdentity` content-key. Composed as settled vocabulary: the suite `XxHash128` hash law, the `ArtifactIndexRow` blob owner, the model-lane `ModelIdentity` precedent, the `Solver/discretization#DISCRETIZATION_MESH` `FieldSpace` shape, the SharpGLTF glTF-extension write surface, the meshoptimizer LOD kernels, and the `Substrate.RemoteGrpc` companion hop. GLB geometry-content identity is the kernel seed-zero `XxHash128` `GeometryHash` composed here, never re-minted with a policy seed.
 
@@ -11,16 +11,17 @@ Owner types are `FieldCodec`/`DeltaCodec`, the `TessellationRequest` companion b
 - [03]-[GEOMETRY_DELTA]: FastCDC chunking; structural mesh/B-rep/point-cloud/NURBS delta; progressive.
 - [04]-[TILE_PARTITION]: 3D-Tiles octree partition; streamable LOD over the content-keyed geometry.
 - [05]-[CONTENT_ADDRESSING]: policy-seeded canonical-form `XxHash128` interchange-cache key (the GLB geometry-content identity is the kernel seed-zero `GeometryHash` composed, distinct); empty-artifact sentinel; HLC two-half compose.
+- [06]-[ARROW_BATCH]: `Solver/sweep` `DoeDataset` and `Runtime/receipts` `ChargebackDataset` project into a self-describing Arrow `RecordBatch` — per-axis/objective bulk-span `DoubleArray` columns, the `OnFront` `BooleanArray`, content-key/strategy/window as `Schema` metadata; the surrogate-training and billing lake egress the Persistence Flight-SQL landing redeems.
 
 ## [02]-[TWO_HOP_TESSELLATION]
 
 - Owner: `TessellationRequest` — the two-hop bridge crossing IFC geometry evaluation to the IfcOpenShell companion (`IfcConvert` producing GLB) and re-importing the GLB through the Bim glTF path, host-local and riding the existing companion rpc, never a new transport; `IdsAuditRequest` the companion-rpc leg passing IDS-XML to the Python ifctester oracle and projecting the per-specification pass/fail `GlobalId` set into the Bim `IdsAudit` shape (one invocation beside `IfcConvert`); `ImportedGeometry` the decoded mesh-scene carrier the re-import lands and the tile partition reads; `TessellationPolicy` the deflection/tolerance/tile-partition policy folded into the content-key.
 - Entry: `public static Fin<TessellationRequest> Plan(string formatKey, bool requiresCompanion, ReadOnlyMemory<byte> ifcBytes, TessellationPolicy policy)` builds the request keyed on the IFC content and the deflection/tolerance policy; the companion round-trip rides the existing `Runtime/wire#PROTO_VOCABULARY` `Solve`/artifact transport, and the GLB re-enters the Bim glTF import rail as an `ImportedGeometry`.
-- Auto: `Plan` gates the hop on the source format's companion-tessellation flag so a non-IFC format never crosses; the request carries the IFC bytes, deflection, tolerance, and content-key so a re-cross at the same policy is gated. Durable GLB residence is keyed by the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` dual `SourceKey`/`ContentKey` (kernel seed-zero content-hash, never a policy seed) plus the Persistence object-store `ContentAddress`, the Bim bridge performing that durable reuse before crossing; this leg's policy-seeded `IfcContentKey` is the companion-rpc cache-partition over source IFC plus evaluation policy that gates re-crossing — distinct cache layers, neither re-minting the other's key.
+- Auto: `Plan` gates the hop on the source format's companion-tessellation flag so a non-IFC format never crosses; the request carries the IFC bytes, deflection, tolerance, and content-key so a re-cross at the same policy is gated. Durable GLB residence is keyed by the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` dual `SourceKey`/`ContentKey` (kernel seed-zero content-hash, never a policy seed) with the Persistence object-store `ContentAddress`, the Bim bridge performing that durable reuse before crossing; this leg's policy-seeded `IfcContentKey` is the companion-rpc cache-partition over source IFC and evaluation policy that gates re-crossing — distinct cache layers, neither re-minting the other's key.
 - Receipt: the `RemoteCall` receipt carries the companion transport, the IFC content-key, the deflection, and the elapsed; a cache hit on the prior GLB stamps a `Cache` receipt instead of crossing.
 - Packages: LanguageExt.Core, NodaTime, System.IO.Hashing, Rasm.Persistence (project), BCL inbox
 - Growth: a new tessellation companion is one transport-row consumption (never a new transport); a new evaluation parameter is one column on `TessellationRequest` folded into the content-key; a geospatial mesh payload is one `GeoArrowRequest` over the same companion operation and GLB result (never a second spatial codec); zero new surface.
-- Boundary: two-hop rail is the single IFC-to-geometry path — the Bim IFC object model carries no tessellation kernel, so a managed IFC BRep evaluator is the deleted form; companion is the IfcOpenShell PyPI package in `libs/python/geometry`, never a NuGet pin, reached only over the existing `Runtime/transport#TRANSPORT_AXIS` UDS/InProcess companion rpc, so this page mints no transport, channel, or second wire vocabulary; a returned GLB re-enters the Bim glTF import rail as one `ImportedGeometry`, and the Bim IFC semantic graph and this hop's tessellated geometry are two projections of one content-keyed IFC artifact joined by the content-key; `python:data/spatial/geospatial` emits `EgressFormat.GEOARROW` as Arrow IPC bytes, and `GeoArrowRequest` carries that exact artifact to the companion for native geometry conversion before the existing GLB return — C# never invents a coordinate/offset ABI or hand-triangulates GeoArrow rings; `IdsAuditRequest` adds one ifctester invocation beside `IfcConvert` over the same companion rpc, passing IDS-XML plus IFC content to the `python:geometry/ifc-companion` ifctester (`ids` oracle) and relaying the per-specification verdict wire back, which the Bim-owned `Review/validation#IDS_FACETS` `IdsAudit.Reconcile` composes into `IdsVerdict` rows and joins the C# self-audit against on the (GlobalId, `FacetKey`) axis — `FacetKey` the Bim composite join token unique within a specification (facet-type prefix plus value discriminator), never the bare facet-type word — Compute referencing no Bim type and owning only the rpc orchestration and verdict relay, a Compute-minted IDS parser or a second transport the rejected form.
+- Boundary: two-hop rail is the single IFC-to-geometry path — the Bim IFC object model carries no tessellation kernel, so a managed IFC BRep evaluator is the deleted form; companion is the IfcOpenShell PyPI package in `libs/python/geometry`, never a NuGet pin, reached only over the existing `Runtime/transport#TRANSPORT_AXIS` UDS/InProcess companion rpc, so this page mints no transport, channel, or second wire vocabulary; a returned GLB re-enters the Bim glTF import rail as one `ImportedGeometry`, and the Bim IFC semantic graph and this hop's tessellated geometry are two projections of one content-keyed IFC artifact joined by the content-key; `python:data/spatial/geospatial` emits `EgressFormat.GEOARROW` as Arrow IPC bytes, and `GeoArrowRequest` carries that exact artifact to the companion for native geometry conversion before the existing GLB return — C# never invents a coordinate/offset ABI or hand-triangulates GeoArrow rings; `IdsAuditRequest` adds one ifctester invocation beside `IfcConvert` over the same companion rpc, passing IDS-XML with IFC content to the `python:geometry/ifc-companion` ifctester (`ids` oracle) and relaying the per-specification verdict wire back, which the Bim-owned `Review/validation#IDS_FACETS` `IdsAudit.Reconcile` composes into `IdsVerdict` rows and joins the C# self-audit against on the (GlobalId, `FacetKey`) axis — `FacetKey` the Bim composite join token unique within a specification (facet-type prefix and value discriminator), never the bare facet-type word — Compute referencing no Bim type and owning only the rpc orchestration and verdict relay, a Compute-minted IDS parser or a second transport the rejected form.
 
 ```csharp signature
 public sealed record ImportedGeometry(
@@ -42,7 +43,7 @@ public sealed record TessellationRequest(
     public static Fin<TessellationRequest> Plan(string formatKey, bool requiresCompanion, ReadOnlyMemory<byte> ifcBytes, TessellationPolicy policy) =>
         requiresCompanion
             ? Fin.Succ(new TessellationRequest(
-                InterchangeIdentity.Key(formatKey, ifcBytes.Span, policy.Deflection, policy.Tolerance, policy.AngleTolerance), ifcBytes,
+                InterchangeIdentity.Key(formatKey, ifcBytes.Span, [policy.Deflection, policy.Tolerance, policy.AngleTolerance]), ifcBytes,
                 policy.Deflection, policy.Tolerance, policy.AngleTolerance, "glb"))
             : Fin.Fail<TessellationRequest>(new ComputeFault.ModelRejected($"<tessellation-not-required:{formatKey}>"));
 
@@ -55,7 +56,7 @@ public sealed record GeoArrowRequest(UInt128 ContentKey, ReadOnlyMemory<byte> Ar
     public static Fin<GeoArrowRequest> Plan(ReadOnlyMemory<byte> arrowIpc) =>
         arrowIpc.IsEmpty
             ? Fin.Fail<GeoArrowRequest>(new ComputeFault.PayloadOverBounds("<geoarrow-ipc-empty>"))
-            : Fin.Succ(new GeoArrowRequest(InterchangeIdentity.Key("geoarrow", arrowIpc.Span, 0d, 0d, 0d), arrowIpc, "glb"));
+            : Fin.Succ(new GeoArrowRequest(InterchangeIdentity.Key("geoarrow", arrowIpc.Span, []), arrowIpc, "glb"));
 
     public string ArtifactKey => $"{ContentKey:x32}:glb";
 }
@@ -77,7 +78,7 @@ public sealed record IdsAuditRequest(
         idsXml.IsEmpty
             ? Fin.Fail<IdsAuditRequest>(new ComputeFault.ModelRejected("<ids-audit-empty-spec>"))
             : Fin.Succ(new IdsAuditRequest(
-                InterchangeIdentity.Key("ids", ifcBytes.Span, policy.Deflection, policy.Tolerance, policy.AngleTolerance), ifcBytes, idsXml, "ids-verdict"));
+                InterchangeIdentity.Key("ids", ifcBytes.Span, [policy.Deflection, policy.Tolerance, policy.AngleTolerance]), ifcBytes, idsXml, "ids-verdict"));
 
     public string ArtifactKey => $"{IfcContentKey:x32}:ids";
 }
@@ -247,7 +248,7 @@ public static class FieldCodec {
 
     static ComputeArtifact Packed(FieldArtifact encoded, string formatKey, FieldCodecPolicy policy, Instant at) {
         ReadOnlyMemory<byte> packed = Pack(encoded, policy);
-        return ComputeArtifact.Of(formatKey, packed, at, policy.Residence.QuantizationBits, policy.Residence.ErrorBound, 0d);
+        return ComputeArtifact.Of(formatKey, packed, at, [policy.Residence.QuantizationBits, policy.Residence.ErrorBound]);
     }
 
     static Fin<FieldArtifact> ResidualEncode(FieldArtifact field, FieldResidence.Predicted residence, ResidualPredictor net) {
@@ -459,13 +460,14 @@ public static class FieldCodec {
         }
     }
 }
+
 ```
 
 ## [04]-[GEOMETRY_DELTA]
 
 - Owner: `GeometryDeltaKind` `[SmartEnum<string>]` structural-diff target rows; `GeometryDelta` the content-addressed delta record; `DeltaCodec` the static FastCDC-chunked structural-diff surface over meshes, B-reps, point clouds, and NURBS with quantization-aware bounded-lossy chunks, columnar layout, and progressive transmission.
 - Cases: `GeometryDeltaKind` rows mesh-vertex · mesh-topology · brep-face · pointcloud-octant · nurbs-control.
-- Entry: `public static Fin<GeometryDelta> Diff(GeometryDeltaKind kind, ReadOnlyMemory<byte> baseBytes, ReadOnlyMemory<byte> targetBytes, DeltaPolicy policy)` content-defined-chunks both artifacts and emits the ordered target chunk recipe (`TargetChunks`) plus the new-chunk payload (`Added`, hashes absent from the base); `public static Fin<ReadOnlyMemory<byte>> Apply(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes)` walks the recipe and reconstructs the target by pulling each chunk from the payload or the re-chunked base; `Fin<T>` aborts on invalid chunk policy or float alignment, base or target hash mismatch, corrupt payload framing, and an unresolved recipe hash.
+- Entry: `public static Fin<GeometryDelta> Diff(GeometryDeltaKind kind, ReadOnlyMemory<byte> baseBytes, ReadOnlyMemory<byte> targetBytes, DeltaPolicy policy)` content-defined-chunks both artifacts and emits the ordered target chunk recipe (`TargetChunks`) with the new-chunk payload (`Added`, hashes absent from the base); `public static Fin<ReadOnlyMemory<byte>> Apply(GeometryDelta delta, ReadOnlyMemory<byte> baseBytes)` walks the recipe and reconstructs the target by pulling each chunk from the payload or the re-chunked base; `Fin<T>` aborts on invalid chunk policy or float alignment, base or target hash mismatch, corrupt payload framing, and an unresolved recipe hash.
 - Auto: `Diff` first `Normalize`s a quantizable kind (vertex/point/control-point floats round to the finer of the bit-budget grid and `Tolerance` so a sub-tolerance perturbation hashes to one chunk, bounded-lossy within `Tolerance`; topology and B-rep-face streams pass verbatim), then runs FastCDC over the normalized bytes — a 256-entry SplitMix64 `Gear` table rolls the fingerprint, a STRICT mask below `AvgChunk` and a LOOSE mask above normalize the chunk-size distribution so an inserted vertex shifts only its local chunk; `TargetChunks` records the ordered hash recipe and `Added` the distinct new chunks stamped with the quantization `GeometricError`; the progressive column orders new chunks largest-first so a transmission renders coarse coverage before fine detail; the delta carries its own `DeltaPolicy` so `Apply` re-chunks the base identically and round-trips deterministically.
 - Receipt: the `Cache` receipt carries the delta content-key, the changed-chunk count, the base byte count, and the delta byte count so a structural diff's compression ratio is auditable; a progressive transmission stamps the coarse-chunk-first ordering count.
 - Packages: System.IO.Hashing, System.Numerics.Tensors, LanguageExt.Core, Rasm.Persistence (project), BCL inbox (`System.Numerics.BitOperations` mask sizing)
@@ -652,7 +654,8 @@ public static class DeltaCodec {
 
 ```csharp signature
 // Compute-lane geometry-quality + tile-partition policy, RENAMED off `InterchangePolicy` — the Bim
-// Exchange/export `InterchangePolicy` (codec emit columns) is a DISTINCT owner; the quality triple salts every compute content key.
+// Exchange/export `InterchangePolicy` (codec emit columns) is a DISTINCT owner; every output-affecting quality
+// and partition column salts the owning compute content key.
 public sealed record TessellationPolicy(
     double Deflection,
     double Tolerance,
@@ -748,7 +751,18 @@ public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDe
     static TileNode Partition(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, TessellationPolicy policy, int depth) {
         float[] bounds = Bounds(geometry);
         double error = policy.TileGeometricErrorRoot / Math.Pow(2, depth);
-        UInt128 contentKey = InterchangeIdentity.Key(geometry.FormatKey, MemoryMarshal.AsBytes(geometry.Vertices.Span), policy.Deflection, policy.Tolerance, policy.AngleTolerance);
+        UInt128 contentKey = InterchangeIdentity.Key(
+            geometry.FormatKey,
+            MemoryMarshal.AsBytes(geometry.Vertices.Span),
+            MemoryMarshal.AsBytes(geometry.Indices.Span),
+            MemoryMarshal.AsBytes(geometry.Normals.Span), [
+            policy.Deflection,
+            policy.Tolerance,
+            policy.AngleTolerance,
+            policy.TileMaxDepth,
+            policy.TileGeometricErrorRoot,
+            policy.TileSplitThreshold,
+        ]);
         return depth >= policy.TileMaxDepth || geometry.TriangleCount <= policy.TileSplitThreshold
             ? new TileNode(depth, bounds, error, contentKey, metadata(contentKey), Seq<TileNode>())
             : new TileNode(depth, bounds, error, contentKey, None,
@@ -768,9 +782,8 @@ public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDe
         return [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2, (maxX - minX) / 2, 0, 0, 0, (maxY - minY) / 2, 0, 0, 0, (maxZ - minZ) / 2];
     }
 
-    // Triangle vertices resolve through ImportedGeometry.Indices — the landed topology owner — so an indexed
-    // shared-vertex mesh partitions its REAL corners; a triangle-soup ordinal (`triangle * 9`) addressing is
-    // the deleted form that mis-partitions any mesh whose index buffer is not the identity.
+    // Triangle vertices resolve through ImportedGeometry.Indices, so indexed shared-vertex meshes partition
+    // real corners; triangle-soup ordinal addressing mis-partitions non-identity index buffers.
     static Seq<ImportedGeometry> Split(ImportedGeometry geometry, float[] bounds) {
         (float cx, float cy, float cz) = (bounds[0], bounds[1], bounds[2]);
         return Range(0, geometry.TriangleCount)
@@ -805,7 +818,7 @@ public sealed record TileSet(TileNode Root, double GeometricErrorRoot, int MaxDe
     }
 }
 
-// Tileset EXPORT the partition owns: the real tileset.json Manifest (this page's product) plus the LeafContent
+// Tileset EXPORT the partition owns: the real tileset.json Manifest (this page's product) and the LeafContent
 // reference set it names — the typed handoff to the Bim glTF leaf codec, resolved against the Persistence index, never a body here.
 public sealed record LeafContent(UInt128 ContentKey, string Uri, int MetadataColumns);
 
@@ -822,7 +835,7 @@ public static class TilePartition {
             || IndexOutOfRange(geometry)
             ? Fin.Fail<TilesetExport>(new ComputeFault.PayloadOverBounds($"<tileset-geometry:{geometry.VertexCount}:{geometry.TriangleCount}:{geometry.Vertices.Length}:{geometry.Indices.Length}>"))
             : Fin.Succ(TileSet.Build(geometry, metadata, policy, clock))
-                .Bind(tiles => Tileset(tiles, clock).Map(manifest => new TilesetExport(manifest, Leaves(tiles.Root))));
+                .Bind(tiles => Tileset(tiles, policy, clock).Map(manifest => new TilesetExport(manifest, Leaves(tiles.Root))));
 
     static bool IndexOutOfRange(ImportedGeometry geometry) {
         ReadOnlySpan<long> indices = geometry.Indices.Span[..(geometry.TriangleCount * 3)];
@@ -832,8 +845,15 @@ public static class TilePartition {
 
     // tileset.json: refine REPLACE, box bounding volumes off each node's Aabb, geometricError halving per level,
     // leaf content URIs {contentKey:x32}.glb the AppUi/web consumer resolves against the Persistence index.
-    static Fin<ComputeArtifact> Tileset(TileSet tiles, IClock clock) =>
-        Try.lift(() => ComputeArtifact.Of("tileset.json", TilesetBytes(tiles.Root), clock.GetCurrentInstant())).Run()
+    static Fin<ComputeArtifact> Tileset(TileSet tiles, TessellationPolicy policy, IClock clock) =>
+        Try.lift(() => ComputeArtifact.Of("tileset.json", TilesetBytes(tiles.Root), clock.GetCurrentInstant(), [
+            policy.Deflection,
+            policy.Tolerance,
+            policy.AngleTolerance,
+            policy.TileMaxDepth,
+            policy.TileGeometricErrorRoot,
+            policy.TileSplitThreshold,
+        ])).Run()
             .MapFail(static error => (Error)new ComputeFault.ModelRejected($"<tileset-emit:{error.Message}>"));
 
     // One LeafContent per octree leaf — content-key, {contentKey:x32}.glb URI, metadata-column count — the typed
@@ -891,13 +911,13 @@ public static class TilePartition {
 
 ## [06]-[CONTENT_ADDRESSING]
 
-- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `CanonicalForm` the static byte-normalization kernel reducing every keyed input to one machine-independent canonical byte form before the hash seed; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding canonicalized source bytes plus deflection/tolerance policy into one policy-seeded `XxHash128` identity (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key and `SeedZero` minting the empty-artifact sentinel; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
-- Entry: `public static UInt128 Key(string formatKey, ReadOnlySpan<byte> bytes, double policyA, double policyB, double policyC)` — pure value; identity derives from the canonical bytes and the axis-neutral policy triple (tessellation folds deflection/tolerance/angleTolerance, residency folds coneWeight/simplifyTarget/quantizationBits, the field codec folds bits/bound/0), never from a path or filename; the `ReadOnlySequence<byte>` overload keys a pooled multi-segment payload through the seeded incremental hasher with no contiguous flatten; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, double policyA, double policyB, double policyC)` is the empty-artifact sentinel identity; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes plus the policy triple.
-- Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, `CanonicalForm.Write` lays the tag and three scalars little-endian in fixed order; artifact bytes pass into the byte hash verbatim (the producing owner already emits canonical order); `Key` then seeds `XxHash128.HashToUInt128` over the canonical bytes with a seed `XxHash3.HashToUInt64` mixes from the tag and the three little-endian scalar doubles, so a re-tessellation at a different deflection keys distinctly and a re-import of identical bytes keys identically on any RID; a zero-length artifact never reaches the byte hash — `Key` routes empty bytes to `SeedZero` over the policy seed alone (one-byte sentinel domain) so absent and present-but-empty carry distinct defined identities; `Compose` lays the physical half first (NodaTime `Instant` Unix-tick count) and the logical half second (monotone `ulong`), both little-endian, exactly the `AppHost/Runtime/ports#PORT_RECORDS` `ReceiptEnvelope` order; `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns.
+- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `CanonicalForm` the static byte-normalization kernel reducing every keyed input to one machine-independent canonical byte form before the hash seed; `InterchangeIdentity` the interchange CACHE-PARTITION key derivation folding canonicalized source bytes with the complete ordered output-policy vector into one policy-seeded `XxHash128` identity (distinct from the kernel seed-zero `GeometryHash` the seam/Bim/Persistence/peers share), mirroring the model-lane `ModelIdentity.Snapshot` precedent, with `Compose` sealing the content key and HLC two-half stamp into one frame key and `SeedZero` minting the empty-artifact sentinel; `ComputeArtifact` the emitted-bytes carrier the field, tile, and Bim export rails feed, landing content-addressed on the Persistence blob lane through `ArtifactIndexRow.Admit` with no second cache.
+- Entry: `public static UInt128 Key(...)` — pure value; the contiguous and pooled-sequence cases derive identity from canonical bytes and the complete ordered policy vector, while the geometry case frames vertices, indices, and normals by ordinal and byte length before one incremental hash; `public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical)` folds the content key with the causal stamp in the fixed (physical, logical) half order; `public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy)` is the empty-artifact sentinel identity; `ComputeArtifact.Of` is the one emit-carrier mint deriving the content key from bytes with its complete policy vector.
+- Auto: every keyed input passes through `CanonicalForm` before the seed — `CanonicalForm.Tag` lower-cases invariant culture and trims the format/codec tag so `"GLB"` and `" glb "` key one identity, `CanonicalForm.Scalar` collapses negative zero to positive zero and maps every NaN pattern to one quiet-NaN payload, and `CanonicalForm.Write` lays the length-prefixed tag, the policy scalar count, and every ordered policy scalar little-endian — injective framing, so distinct `(formatKey, policy)` tuples never share a canonical byte vector; artifact bytes pass into the byte hash verbatim. `Key` seeds `XxHash128.HashToUInt128` with the `XxHash3.HashToUInt64` of that canonical vector, so tessellation folds deflection, tolerance, angle tolerance, tile depth, root geometric error, and split threshold while field residence folds bits and bound. A zero-length artifact routes to `SeedZero` over the same policy vector so absent and present-but-empty remain distinct. `Compose` lays the physical half first and logical half second, both little-endian, matching `AppHost/Runtime/ports#PORT_RECORDS`; `Admit` projects onto `ArtifactIndexRow.Admit` under the interchange classification and retention columns.
 - Receipt: the `Cache` receipt carries the content-key and the hit/miss/store outcome; a stored artifact rides the `ArtifactIndexRow` checksum and byte size into the receipt; a sentinel-keyed empty artifact stamps the `SeedZero` identity so an absent-versus-empty distinction is auditable.
 - Packages: System.IO.Hashing, NodaTime, LanguageExt.Core, Rasm.Persistence (project), BCL inbox
 - Growth: a new evaluation parameter that changes the artifact is one canonical-scalar column folded into the seed; a new keyed-input kind is one `CanonicalForm` arm; zero new surface.
-- Boundary: interchange-cache identity is `XxHash128` over the canonical source bytes — the suite hash law the `Runtime/transport#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the KERNEL seed-zero (`seed=0`) `XxHash128` `GeometryHash` over the canonical bytes (`csharp:Rasm/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted with a policy seed — a policy-seeded GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design; the empty-artifact `SeedZero` sentinel is the absent-versus-empty law (policy-seeded empty case, distinct from the kernel `seed=0`) — empty bytes key to `SeedZero` over the policy alone, never the byte hash of an empty span, so a cache key never collides absent against present-but-empty; the HLC compose order is byte-identical to `AppHost/Runtime/ports#PORT_RECORDS` (physical half first, logical second, both little-endian), a logical-half-first composition the named defect folding a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; deflection and tolerance fold into the seed so evaluation settings partition the key and a coarse and a fine tessellation of one IFC never collide, a cross-setting hit the named defect; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-seeded cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and the IFC-semantic graph of one source IFC share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints purely over the source bytes (tolerance-independent, so the in-process semantic-graph ingest re-derives it without the deflection), NOT the policy-seeded cache key — so the Persistence `Query/cache#ARTIFACT_BLOB_INDEX` `ArtifactIndexRow.Project` returns the two-projection family under that kernel-seed-zero key, the `Option<UInt128> sourceKey` admission carrying the pure key and each row's blob residence the kernel seed-zero `ContentAddress.Of` (`ArtifactIndexRow.Admit`), never a GLB self-key off the policy-seeded partition stranding the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
+- Boundary: interchange-cache identity is `XxHash128` over the canonical source bytes — the suite hash law the `Runtime/transport#ARTIFACT_FRAMES` whole-artifact identity and the model-lane `ModelIdentity` checksum hold, never a second hashing pass and never a path-keyed identity; canonical-form normalization is the cross-machine reproducibility floor — case-folded trimmed tag, little-endian policy scalars, negative-zero collapsed to positive zero, every NaN payload mapped to one quiet NaN — so two semantically-equal source artifacts on osx-arm64, linux-x64, and win-x64 cache-key one identity (the `lang:python:runtime/evidence/identity#IDENTITY` `ContentIdentity` folds the same format/deflection/tolerance, the cross-runtime peer), a raw-string-interpolated seed (`$"{formatKey}|{deflection:R}|..."`) the rejected drift defect keying distinctly across cultures and float renderings; the SHARED geometry WIRE hash is a DISTINCT key — the GLB geometry-content identity the seam `Rasm.Element/Graph/element#NODE_MODEL` `RepresentationContentHash`, the Persistence `Store/blobstore#OBJECT_STORE` blob name, and the `lang:typescript:core/interchange/frame#GEOMETRY_PLANE` + `lang:typescript:data/object/store` `ObjectKey` peers reproduce is the KERNEL seed-zero (`seed=0`) `XxHash128` `GeometryHash` over the canonical bytes (`csharp:Rasm/Spatial/reconciliation#ONE_WIRE_FIXTURE_CORPUS` the golden vector anchoring C#/Python/TypeScript byte-parity), composed here and never re-minted with a policy seed — a policy-seeded GLB geometry-content hash the named cross-runtime defect, the two keys coexisting by design; the empty-artifact `SeedZero` sentinel is the absent-versus-empty law (policy-seeded empty case, distinct from the kernel `seed=0`) — empty bytes key to `SeedZero` over the policy alone, never the byte hash of an empty span, so a cache key never collides absent against present-but-empty; the HLC compose order is byte-identical to `AppHost/Runtime/ports#PORT_RECORDS` (physical half first, logical second, both little-endian), a logical-half-first composition the named defect folding a fresh op as stale; the key takes a format-key string rather than the Bim `InterchangeFormat` owner so the content identity stays a Compute concern decoupled from the moved format axis; every output-affecting scalar folds in owner order, so deflection, tolerance, angle tolerance, tile depth, root error, or split-threshold movement partitions a tileset key and prevents cross-setting hits; addressed bytes land on the Persistence blob lane through `ArtifactIndexRow.Admit` under the content-key string `Path`, so the IFC semantic graph (Bim), the tessellated GLB, the field artifact, and a re-exported glTF are rows under the ONE kernel seed-zero `XxHash128` residence identity the Persistence index re-derives (`ArtifactIndexRow.Admit` -> `ContentAddress.Of`) — Compute owning only the policy-seeded cache-key derivation (the logical label), the kernel/seam the seed-zero residence identity, Persistence the blob residence, none re-declaring another; the export-rail field/tile/re-exported-glTF artifacts self-key (their `SourceKey` their own `ContentHash`, single-projection) while the tessellated GLB and the IFC-semantic graph of one source IFC share one cross-projection `sourceKey` — the kernel seed-zero `SourceKey` the Bim `Exchange/tessellation#TESSELLATION_BRIDGE` mints purely over the source bytes (tolerance-independent, so the in-process semantic-graph ingest re-derives it without the deflection), NOT the policy-seeded cache key — so the Persistence `Query/cache#ARTIFACT_BLOB_INDEX` `ArtifactIndexRow.Project` returns the two-projection family under that kernel-seed-zero key, the `Option<UInt128> sourceKey` admission carrying the pure key and each row's blob residence the kernel seed-zero `ContentAddress.Of` (`ArtifactIndexRow.Admit`), never a GLB self-key off the policy-seeded partition stranding the geometry projection off the semantic one; a managed copy of the artifact bytes beside the blob lane is the rejected form.
 
 ```csharp signature
 
@@ -909,13 +929,15 @@ public sealed record ComputeArtifact(
     UInt128 ContentKey,
     long ByteCount,
     Instant At) {
-    public static ComputeArtifact Of(string formatKey, ReadOnlyMemory<byte> bytes, Instant at, double policyA = 0d, double policyB = 0d, double policyC = 0d) =>
-        new(formatKey, bytes, InterchangeIdentity.Key(formatKey, bytes.Span, policyA, policyB, policyC), bytes.Length, at);
+    public static ComputeArtifact Of(string formatKey, ReadOnlyMemory<byte> bytes, Instant at, ReadOnlySpan<double> policy = default) =>
+        new(formatKey, bytes, InterchangeIdentity.Key(formatKey, bytes.Span, policy), bytes.Length, at);
 }
 
-// Three policy scalars are AXIS-NEUTRAL by design — tessellation folds (deflection, tolerance,
-// angleTolerance), residency folds (coneWeight, simplifyTarget, quantizationBits), the field codec folds
-// (quantizationBits, errorBound, 0) — one canonical triple per keyed lane, never a per-lane seed recipe.
+// Ordered policy vectors are axis-neutral: each keyed lane supplies every output-affecting scalar in owner order,
+// and CanonicalForm supplies the one scalar normalization and byte layout. Framing is injective: the tag byte
+// length and the policy scalar count prefix their payloads little-endian, so no (formatKey, policy) pair can
+// spell another pair's canonical bytes — a bare tag-then-scalars concatenation lets an 8-byte tag suffix
+// masquerade as a policy scalar and collide two distinct identities into one seed.
 public static class CanonicalForm {
     public const long QuietNaNBits = unchecked((long)0x7FF8000000000000UL);
 
@@ -926,17 +948,23 @@ public static class CanonicalForm {
         : raw == 0d ? 0d
         : raw;
 
-    public static int Write(Span<byte> destination, string formatKey, double policyA, double policyB, double policyC) {
-        int written = Encoding.UTF8.GetBytes(Tag(formatKey), destination);
-        BinaryPrimitives.WriteDoubleLittleEndian(destination[written..], Scalar(policyA));
-        BinaryPrimitives.WriteDoubleLittleEndian(destination[(written + 8)..], Scalar(policyB));
-        BinaryPrimitives.WriteDoubleLittleEndian(destination[(written + 16)..], Scalar(policyC));
-        return written + 24;
+    public static int Write(Span<byte> destination, string formatKey, ReadOnlySpan<double> policy) {
+        string tag = Tag(formatKey);
+        int tagBytes = Encoding.UTF8.GetByteCount(tag);
+        BinaryPrimitives.WriteInt32LittleEndian(destination, tagBytes);
+        int written = sizeof(int) + Encoding.UTF8.GetBytes(tag, destination[sizeof(int)..]);
+        BinaryPrimitives.WriteInt32LittleEndian(destination[written..], policy.Length);
+        written += sizeof(int);
+        foreach (double scalar in policy) {
+            BinaryPrimitives.WriteDoubleLittleEndian(destination[written..], Scalar(scalar));
+            written += sizeof(double);
+        }
+        return written;
     }
 
-    public static long Seed(string formatKey, double policyA, double policyB, double policyC) {
-        Span<byte> canonical = stackalloc byte[Encoding.UTF8.GetByteCount(Tag(formatKey)) + 24];
-        int length = Write(canonical, formatKey, policyA, policyB, policyC);
+    public static long Seed(string formatKey, ReadOnlySpan<double> policy) {
+        Span<byte> canonical = stackalloc byte[sizeof(int) * 2 + Encoding.UTF8.GetByteCount(Tag(formatKey)) + policy.Length * sizeof(double)];
+        int length = Write(canonical, formatKey, policy);
         return unchecked((long)XxHash3.HashToUInt64(canonical[..length]));
     }
 }
@@ -944,25 +972,47 @@ public static class CanonicalForm {
 public static class InterchangeIdentity {
     public const ulong SeedZeroDomain = 0xFFFF_FFFF_FFFF_FFFFUL;
 
-    public static UInt128 Key(string formatKey, ReadOnlySpan<byte> bytes, double policyA, double policyB, double policyC) =>
+    public static UInt128 Key(string formatKey, ReadOnlySpan<byte> bytes, ReadOnlySpan<double> policy) =>
         bytes.IsEmpty
-            ? SeedZero(formatKey, policyA, policyB, policyC)
-            : XxHash128.HashToUInt128(bytes, CanonicalForm.Seed(formatKey, policyA, policyB, policyC));
+            ? SeedZero(formatKey, policy)
+            : XxHash128.HashToUInt128(bytes, CanonicalForm.Seed(formatKey, policy));
 
     // Incremental sibling for pooled multi-segment payloads (a chunked field blob, a reassembled frame sequence):
     // Seeded incremental hashing avoids flattening a multi-segment artifact.
-    public static UInt128 Key(string formatKey, ReadOnlySequence<byte> bytes, double policyA, double policyB, double policyC) {
-        if (bytes.IsEmpty) { return SeedZero(formatKey, policyA, policyB, policyC); }
-        XxHash128 hasher = new(CanonicalForm.Seed(formatKey, policyA, policyB, policyC));
+    public static UInt128 Key(string formatKey, ReadOnlySequence<byte> bytes, ReadOnlySpan<double> policy) {
+        if (bytes.IsEmpty) { return SeedZero(formatKey, policy); }
+        XxHash128 hasher = new(CanonicalForm.Seed(formatKey, policy));
         foreach (ReadOnlyMemory<byte> segment in bytes) { hasher.Append(segment.Span); }
         return hasher.GetCurrentHashAsUInt128();
     }
 
-    public static UInt128 SeedZero(string formatKey, double policyA, double policyB, double policyC) {
+    public static UInt128 Key(
+        string formatKey,
+        ReadOnlySpan<byte> vertices,
+        ReadOnlySpan<byte> indices,
+        ReadOnlySpan<byte> normals,
+        ReadOnlySpan<double> policy) {
+        if (vertices.IsEmpty && indices.IsEmpty && normals.IsEmpty) { return SeedZero(formatKey, policy); }
+        XxHash128 hasher = new(CanonicalForm.Seed(formatKey, policy));
+        AppendComponent(hasher, 0, vertices);
+        AppendComponent(hasher, 1, indices);
+        AppendComponent(hasher, 2, normals);
+        return hasher.GetCurrentHashAsUInt128();
+    }
+
+    static void AppendComponent(XxHash128 hasher, byte ordinal, ReadOnlySpan<byte> bytes) {
+        Span<byte> header = stackalloc byte[sizeof(byte) + sizeof(int)];
+        header[0] = ordinal;
+        BinaryPrimitives.WriteInt32LittleEndian(header[sizeof(byte)..], bytes.Length);
+        hasher.Append(header);
+        hasher.Append(bytes);
+    }
+
+    public static UInt128 SeedZero(string formatKey, ReadOnlySpan<double> policy) {
         Span<byte> sentinel = stackalloc byte[16];
         BinaryPrimitives.WriteUInt64LittleEndian(sentinel, SeedZeroDomain);
         BinaryPrimitives.WriteUInt64LittleEndian(sentinel[8..], 0UL);
-        return XxHash128.HashToUInt128(sentinel, CanonicalForm.Seed(formatKey, policyA, policyB, policyC));
+        return XxHash128.HashToUInt128(sentinel, CanonicalForm.Seed(formatKey, policy));
     }
 
     public static UInt128 Compose(UInt128 contentKey, Instant physical, ulong logical) {
@@ -979,7 +1029,107 @@ public static class InterchangeIdentity {
 }
 ```
 
-## [07]-[RESEARCH]
+## [07]-[ARROW_BATCH]
+
+- Owner: `ArrowBatch` — the one columnar-construction owner projecting the `Solver/sweep` `DoeDataset` and the `Runtime/receipts` `ChargebackDataset` into a self-describing `Apache.Arrow` `RecordBatch`; `Doe`/`Chargeback` the two producers, `Strided`/`Doubles` the shared column folds. Core `Apache.Arrow` is the sole reference: the IPC writer, the LZ4/Zstd `CompressionCodecFactory`, the ADBC query surface, and the Flight-SQL transport are the Persistence `api-arrow` overlay's egress rails, absent from the Compute closure.
+- Entry: `public static Fin<RecordBatch> Doe(DoeDataset dataset, MemoryAllocator? allocator = null)` admits checked row-major dimensions and a non-empty, ordinal-unique field vocabulary excluding `on_front`, then projects the `Coordinates`/`Responses` blocks into one `DoubleArray` column per axis and per objective and the `OnFront` mask into one `BooleanArray` column, `ContentKey`/`Strategy`/`At`/`points` riding `Schema.Builder.Metadata`; `public static Fin<RecordBatch> Chargeback(ChargebackDataset dataset, MemoryAllocator? allocator = null)` folds the tenant-partitioned rows into `tenant`/`route` `StringArray`, four `CostVector` `DoubleArray`, and a `facts` `Int64Array` column, window bounds and content-key as metadata.
+- Auto: each column bulk-appends one span — `OnFront` drives `BooleanArray.Builder.Append(onFront.Span)`, which copies the span once into the allocator-owned BooleanArray buffer, and each axis/objective column drives one `DoubleArray.Builder.Append(ReadOnlySpan<double>)` after a single row-major→columnar strided gather pre-sized by `Reserve(points)`, never a per-element `Append(T)` loop; the `Schema` field order and the batch column order are the one append sequence so the reader recovers columns positionally, and `ContentKey` rides `Schema` metadata so a batch whose metadata omits the content key is the drift defect.
+- Receipt: none new — the batch is a projection of the standing `DoeDataset`/`ChargebackDataset` shapes; the sealed `RecordBatch` crosses to Persistence over the existing `Runtime/transport` wire plane and the Persistence `Query/columnar` `Land(LandingArm.Doe, …)` port redeems it.
+- Packages: Apache.Arrow, NodaTime (`InstantPattern.ExtendedIso` the metadata instant), Thinktecture.Runtime.Extensions (`DoeDesign`/`Substrate` `.Key`), LanguageExt.Core, BCL inbox (`CultureInfo.InvariantCulture`)
+- Growth: a new dataset producer is one `ArrowBatch` method reusing the shared column folds, never a per-dataset columnar encoder; a per-row-instant lake producer (the receipt-journal egress) adds one `TimestampArray` column under `TimestampType.Default`, the NodaTime clock seam the metadata instant already shares; a new column is one `Field` and its bulk-span fold; the `MemoryAllocator` injects per lane so a staging-bounded arena charges the batch buffers against the lane budget rather than the shared `MemoryAllocator.Default` fallback.
+- Boundary: Compute BUILDS the columnar table; the Persistence `api-arrow` overlay OWNS everything that CARRIES it — `ArrowStreamWriter`/`ArrowFileWriter` IPC, the `Apache.Arrow.Compression.CompressionCodecFactory` LZ4/Zstd codec, the ADBC query surface, and the `FlightClient`/`FlightSqlClient` — so Compute holds one core `Apache.Arrow` reference, references none of the four egress packages, and opens no Flight listener; the row-major→columnar transpose is the one unavoidable gather (a `Reserve`+`Append(span)` per column, never a per-element builder loop); a bare `DateTime` where the NodaTime instant crosses, the shared `MemoryAllocator.Default` where a lane arena is available, a schema field order diverging from the column order, or a hand-rolled columnar byte layout `RecordBatch` already owns are the rejected forms; the sealed `RecordBatch` stops at the Compute edge — `[08]-[RESEARCH]` `FLIGHT_SQL_PUSH` (the Persistence `Query/columnar` landing over `Apache.Arrow.Flight.Sql`) is the reciprocal obligation, and the opaque `GeoArrowRequest.ArrowIpc` relay bytes are never decoded or re-encoded here.
+
+```csharp signature
+
+// One Arrow construction owner, two dataset producers (Solver/sweep DoeDataset, Runtime/receipts ChargebackDataset)
+// — never a per-dataset bespoke columnar encoder. Compute BUILDS the columnar table; the Persistence api-arrow
+// overlay OWNS everything that carries it (IPC writer, LZ4/Zstd codec, ADBC, Flight-SQL). Every builder takes a
+// per-lane MemoryAllocator; a null allocator falls back to the process-global MemoryAllocator.Default, so a
+// staging-bounded lane charges its own arena.
+public static class ArrowBatch {
+    // Surrogate-training egress: the DoeDataset row-major Coordinates/Responses blocks project to one DoubleArray
+    // column PER axis and PER objective (the tabular training shape), the OnFront mask to one allocator-owned BooleanArray
+    // column, and ContentKey/Strategy/At/shape ride Schema metadata so the batch is self-describing across the wire.
+    public static Fin<RecordBatch> Doe(DoeDataset dataset, MemoryAllocator? allocator = null) {
+        int rows = dataset.Points, d = dataset.Axes.Count, m = dataset.Objectives.Count;
+        long coordinateCount = checked((long)rows * d);
+        long responseCount = checked((long)rows * m);
+        Seq<string> labels = dataset.Axes + dataset.Objectives;
+        bool shape = rows > 0
+            && d > 0
+            && m > 0
+            && coordinateCount <= int.MaxValue
+            && responseCount <= int.MaxValue
+            && dataset.Coordinates.Length == coordinateCount
+            && dataset.Responses.Length == responseCount
+            && dataset.OnFront.Length == rows;
+        bool fields = labels.ForAll(static label => !string.IsNullOrWhiteSpace(label))
+            && labels.ToArray().Distinct(StringComparer.Ordinal).Count() == labels.Count
+            && !labels.Exists(static label => string.Equals(label, "on_front", StringComparison.Ordinal));
+        if (!shape) {
+            return Fin.Fail<RecordBatch>(ComputeFault.Create("<arrow-doe-shape>"));
+        }
+        if (!fields) { return Fin.Fail<RecordBatch>(ComputeFault.Create("<arrow-doe-fields>")); }
+        Seq<(Field Field, IArrowArray Array)> axisCols = toSeq(Enumerable.Range(0, d)).Map(lane =>
+            (new Field(dataset.Axes[lane], DoubleType.Default, false), (IArrowArray)Strided(dataset.Coordinates, d, lane, rows, allocator)));
+        Seq<(Field Field, IArrowArray Array)> objectiveCols = toSeq(Enumerable.Range(0, m)).Map(lane =>
+            (new Field(dataset.Objectives[lane], DoubleType.Default, false), (IArrowArray)Strided(dataset.Responses, m, lane, rows, allocator)));
+        (Field Field, IArrowArray Array) frontCol =
+            (new Field("on_front", BooleanType.Default, false), new BooleanArray.Builder().Append(dataset.OnFront.Span).Build(allocator));
+        Seq<(Field Field, IArrowArray Array)> columns = axisCols + objectiveCols + Seq1(frontCol);
+        Schema schema = columns.Fold(new Schema.Builder(), static (builder, column) => builder.Field(column.Field))
+            .Metadata("content_key", $"{dataset.ContentKey:x32}")
+            .Metadata("strategy", dataset.Strategy.Key)
+            .Metadata("at", InstantPattern.ExtendedIso.Format(dataset.At))
+            .Metadata("points", rows.ToString(CultureInfo.InvariantCulture))
+            .Build();
+        return Fin.Succ(new RecordBatch(schema, columns.Map(static column => column.Array), rows));
+    }
+
+    // Billing egress folds the same construction surface: one row per (tenant, route), the CostVector lanes as
+    // DoubleArray columns, facts as an Int64Array, tenant/route as StringArray, window+content-key as metadata.
+    public static Fin<RecordBatch> Chargeback(ChargebackDataset dataset, MemoryAllocator? allocator = null) {
+        int rows = dataset.Rows.Count;
+        Seq<(Field Field, IArrowArray Array)> columns = Seq<(Field Field, IArrowArray Array)>(
+            (new Field("tenant", StringType.Default, false),
+                new StringArray.Builder().AppendRange(dataset.Rows.Map(static row => row.Tenant.Slug)).Build(allocator)),
+            (new Field("route", StringType.Default, true),
+                new StringArray.Builder().AppendRange(dataset.Rows.Map(static row => row.Route.Match(
+                    Some: route => route.Key,
+                    None: () => (string)null!))).Build(allocator)),
+            (new Field("elapsed_units", DoubleType.Default, false),
+                Doubles(dataset.Rows.Map(static row => row.Vector.ElapsedUnits), allocator)),
+            (new Field("token_units", DoubleType.Default, false),
+                Doubles(dataset.Rows.Map(static row => row.Vector.TokenUnits), allocator)),
+            (new Field("byte_units", DoubleType.Default, false),
+                Doubles(dataset.Rows.Map(static row => row.Vector.ByteUnits), allocator)),
+            (new Field("remote_units", DoubleType.Default, false),
+                Doubles(dataset.Rows.Map(static row => row.Vector.RemoteUnits), allocator)),
+            (new Field("facts", Int64Type.Default, false),
+                new Int64Array.Builder().Reserve(rows).Append(dataset.Rows.Map(static row => row.Facts).ToArray()).Build(allocator)));
+        Schema schema = columns.Fold(new Schema.Builder(), static (builder, column) => builder.Field(column.Field))
+            .Metadata("content_key", $"{dataset.ContentKey:x32}")
+            .Metadata("window_start", InstantPattern.ExtendedIso.Format(dataset.WindowStart))
+            .Metadata("window_end", InstantPattern.ExtendedIso.Format(dataset.WindowEnd))
+            .Build();
+        return Fin.Succ(new RecordBatch(schema, columns.Map(static column => column.Array), rows));
+    }
+
+    // Row-major → columnar transpose: ONE bulk Append(ReadOnlySpan<double>) per column after a strided gather,
+    // never a per-element Append(T) loop; Reserve pre-sizes the buffer to the known row count before the span append.
+    static DoubleArray Strided(ReadOnlyMemory<double> block, int stride, int lane, int rows, MemoryAllocator? allocator) {
+        Span<double> gather = rows <= 512 ? stackalloc double[rows] : new double[rows];
+        ReadOnlySpan<double> source = block.Span;
+        for (int row = 0; row < rows; row++) { gather[row] = source[row * stride + lane]; }
+        return new DoubleArray.Builder().Reserve(rows).Append(gather).Build(allocator);
+    }
+
+    static DoubleArray Doubles(Seq<double> values, MemoryAllocator? allocator) =>
+        new DoubleArray.Builder().Reserve(values.Count).Append(values.ToArray()).Build(allocator);
+}
+```
+
+## [08]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
@@ -991,3 +1141,4 @@ public static class InterchangeIdentity {
 - [TILE_CONTENT]-[OPEN]: what is the Bim tile-emit codec entry the leaf-tile b3dm/glTF content encode grounds against; the `Rasm.Bim` glTF/tile codec surface at cross-package alignment.
 - [EXT_STRUCTURAL_METADATA]-[OPEN]: what is the `EXT_structural_metadata` property-table buffer-view binary layout and the `EXT_mesh_features` `_FEATURE_ID_0` vertex-attribute emit against the SharpGLTF `ExtensionsFactory`/`JsonSerializable` write surface; the SharpGLTF extension API (`Rasm.Compute/.api` catalogue) and the 3D-Tiles 1.1 / glTF `EXT_structural_metadata` spec at the leaf-emit admission gate.
 - [ARTIFACT_INDEX_ROW]-[OPEN]: what classification value the interchange artifact carries at `InterchangeIdentity.Admit`; `ArtifactKind.Interchange` owns retention and `sourceKey` is explicit at the Persistence seam.
+- [FLIGHT_SQL_PUSH]-[BLOCKED]: Persistence `Query/columnar` `Land(LandingArm.Doe, …)` already redeems the content-keyed DOE batch server-side over `Apache.Arrow.Flight.Sql`, and Compute crosses the sealed `RecordBatch` over the existing `Runtime/transport` wire plane (no Compute Flight listener) — unresolved is the exact transport framing of the batch bytes and a reciprocal `LandingArm` for the `ChargebackDataset` billing batch; bind the framing, add the billing landing arm.

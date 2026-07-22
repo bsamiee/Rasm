@@ -6,7 +6,7 @@ Rasm.Persistence owns one content-addressed artifact index, model-result recency
 
 - [01]-[ARTIFACT_BLOB_INDEX]: the `ArtifactKind` taxonomy axis, the content-keyed `ArtifactIndexRow` admission, and the source-keyed projection fold.
 - [02]-[MODEL_RESULT_INDEX]: the per-call `ModelResultKey`, the content-addressed `ModelResultIndex` recency/dedup horizon owner with the horizon gate folded into the lookup, and the lookup/publish reuse seam.
-- [03]-[BENCHMARK_INDEX]: the `BenchmarkRow` durable claim row and the fingerprint-gated, recency-bounded `Claim` resolution.
+- [03]-[BENCHMARK_INDEX]: the `BenchmarkFamily` standing corpus roster, the `BenchmarkRow` durable claim row, and the fingerprint-gated, recency-bounded `Claim` resolution.
 - [04]-[L2_CONTRIBUTION]: the `Store`-keyed `IBufferDistributedCache` buffer-contract L2 store, the one `IHybridCacheSerializerFactory` MessagePack codec, the `TenantId`-partitioned content-address key the AppHost cache port resolves over, and the `CacheLane.Store`-gated Redis invalidation backplane beside it.
 - [05]-[INDEX_RESIDENCY]: the `IndexResidency` deployment axis (`marten-pg` default · `scylla-widecolumn` scale-out), the LWT claim-gated wide-column admission and `PagingState` sweep, and the `WideColumnFault` one-boundary `DriverException` fold.
 
@@ -259,27 +259,92 @@ public sealed class ModelResultIndex {
 
 ## [04]-[BENCHMARK_INDEX]
 
-- Owner: `BenchmarkRow` carries a durable benchmark observation and derives `RetentionClass.Cache`; `ModelResultIndex.Claim` owns fingerprint and recency admission through the closed horizon and clock.
-- Cases: `ModelResultIndex.Claim(rows, fingerprint)` returns the newest matching live row or `None`; no call shape can omit or replace the index horizon and clock.
-- Entry: `ModelResultIndex.Claim(Seq<BenchmarkRow>, string)` filters and folds once; `BenchmarkRow.Retention` supplies `RetentionClass.Cache`.
-- Auto: `Claim` filters the rows to the exact running fingerprint (so a benchmark claimed under managed never wins on a host that resolved native-MKL because the `DeterminismTag` drifts the fingerprint string) and the horizon bound in one pass, then folds to the latest-`At` survivor through one `MostRecent` reduction (never a full `OrderByDescending` materialization, the recency horizon read by reference from `ModelResultIndex` gating the speed claim exactly as it gates result reuse — an optional bound whose absence retained every row was the horizon bypass the mandatory pair deletes); the row registers in the `Version/retention#RETENTION_CLASSES` `cache` class so a re-derivable claim evicts past the age bound and the sweep governs it.
+- Owner: `BenchmarkRow` carries a durable benchmark observation and derives `RetentionClass.Cache`; `BenchmarkFamily` the standing corpus roster — one row per hot-path family naming its subject owner and its claim-key prefix, so the folder's performance claims are a closed vocabulary the index admits, never review intuition; `ModelResultIndex.Claim` owns fingerprint and recency admission through the closed horizon and clock.
+- Cases: `BenchmarkFamily` rows are `Codec` (subject `SnapshotCodec` — chunk, compress, hash), `StoreAppend` (subject `GraphStoreOp` — append and AS-OF fold), `Merge` (subject `StructuralMerge` — three-way structural merge), `Columnar` (subject `ColumnarLane` — analytical aggregate), `VectorRoute` (subject `VectorCodebook` — ANN route), `Multipart` (subject `MultipartTransfer` — blob multipart transfer); `ModelResultIndex.Claim(rows, fingerprint)` returns the newest matching live row or `None`; no call shape can omit or replace the index horizon and clock.
+- Entry: `ModelResultIndex.Claim(Seq<BenchmarkRow>, string)` filters and folds once; `BenchmarkFamily.Claim(CacheToken, …)` returns `Fin<BenchmarkRow>` from the sole row mint and derives `BenchmarkRow.Key`, so every key is family-owned; `BenchmarkRow.Retention` supplies `RetentionClass.Cache`.
+- Auto: the mint admits nonnegative median, allocation, and operation measurements, orders P95 at or above median, and requires a nonblank case token, route, and fingerprint before construction — the zero-init struct case ghost and a blank route both refuse before the `{Suite}/{Case}/{Route}` identity forms; `Claim` filters admitted rows to the exact running fingerprint (so a benchmark claimed under managed never wins on a host that resolved native-MKL because the `DeterminismTag` drifts the fingerprint string) and the horizon bound in one pass, then folds to the latest-`At` survivor through one `MostRecent` reduction (never a full `OrderByDescending` materialization, the recency horizon read by reference from `ModelResultIndex` gating the speed claim exactly as it gates result reuse — an optional bound whose absence retained every row was the horizon bypass the mandatory pair deletes); the row registers in the `Version/retention#RETENTION_CLASSES` `cache` class so a re-derivable claim evicts past the age bound and the sweep governs it.
 - Receipt: a claim admission rides `store.cache.benchmark` carrying the claim key and fingerprint; the sweep run that produces the claim rows rides the upstream Compute lane's own `TensorRun`/`ModelRun` facts, read by reference, never re-emitted here.
 - Packages: NodaTime, LanguageExt.Core, BCL inbox.
 - Growth: a new claim dimension is one column on `BenchmarkRow`; a new claim key shape is one folded into the upstream `BenchmarkClaim.Key`; zero new surface — a second benchmark store, a profiler add-on owner, or prose performance claims are the deleted form because the claim is a row and the gate is one `Claim` resolution.
-- Boundary: the row holds the fingerprint as a STRING (the upstream `HostFingerprint.ToString`/`DeterminismTag`) so the benchmark index carries no Compute type and the strata dependency stays one-directional — the upstream `Rasm.Compute` numeric and SIMD lanes compose `Claim` by reference (`Tensor/blas#PROVIDER_CLAIMS` resolves the winner against the running fingerprint and `ModelResultIndex.RecencyHorizon` then hands it to `LinearProvider.Select`) and a second benchmark store beside this index is the named defect; the claim is fingerprint-gated and recency-bounded so a stale or wrong-host benchmark never wins a route, and the recency horizon is the `ModelResultIndex` owner's, never a second `Duration` minted here; the retention class is the `cache` row because a benchmark claim is re-derivable by re-running the equivalence sweep, so the sweep governs eviction and a never-evict benchmark store is the named defect.
+- Boundary: the row is the AppHost `BenchmarkReceipt` custody projection under the benchmarks claim-field map — measurement and identity columns persist (`Median`, `P95`, `AllocatedBytes`, `Operations`, `Corpus`, `ArtifactKey`), while `Verdict` and `Correlation` are per-run facts that never persist, so a stale verdict cannot masquerade as truth; invalid measurements and blank fingerprints fail the mint and cannot enter persistence; the row holds the fingerprint as a STRING (the upstream `HostFingerprint.ToString`/`DeterminismTag`, or the `HostEvidence` digest hex for gate-minted claims — one render per row, never mixed) so the benchmark index carries no Compute type and the strata dependency stays one-directional — the upstream `Rasm.Compute` numeric and SIMD lanes compose `Claim` by reference (`Tensor/blas#PROVIDER_CLAIMS` resolves the winner against the running fingerprint and `ModelResultIndex.RecencyHorizon` then hands it to `LinearProvider.Select`) and a second benchmark store beside this index is the named defect; the claim is fingerprint-gated and recency-bounded so a stale or wrong-host benchmark never wins a route, and the recency horizon is the `ModelResultIndex` owner's, never a second `Duration` minted here; the retention class is the `cache` row because a benchmark claim is re-derivable by re-running the equivalence sweep, so the sweep governs eviction and a never-evict benchmark store is the named defect.
 
 ```csharp signature
+// --- [TYPES] ------------------------------------------------------------------------------
+// Standing benchmark corpus: one row per hot-path family, its subject owner named as data and its claim
+// keys suite-owned, so a regression gates on a measured fingerprint-matched delta — a slower codec or merge
+// fold FAILS a claim, never a vibe check — and a new hot path is one row, zero index edits. Corpus runs land
+// on the branch test substrate (BenchmarkDotNet); only RESULT rows persist here.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class BenchmarkFamily {
+    public static readonly BenchmarkFamily Codec       = new("codec", nameof(SnapshotCodec), "chunk/compress/hash over the canonical snapshot bytes");
+    public static readonly BenchmarkFamily StoreAppend = new("store-append", nameof(GraphStoreOp), "delta append and AS-OF reconstruction fold");
+    public static readonly BenchmarkFamily Merge       = new("merge", nameof(StructuralMerge), "three-way structural merge over graph structure");
+    public static readonly BenchmarkFamily Columnar    = new("columnar", nameof(ColumnarLane), "analytical aggregate over the in-process engine");
+    public static readonly BenchmarkFamily VectorRoute = new("vector-route", "VectorCodebook", "PQ/ADC ANN routing over the retrieval codebook");
+    public static readonly BenchmarkFamily Multipart   = new("multipart", nameof(MultipartTransfer), "resumable multipart blob transfer");
+
+    public string Subject { get; }
+    public string Measures { get; }
+    private BenchmarkFamily(string key, string subject, string measures) : this(key) => (Subject, Measures) = (subject, measures);
+
+    // Suite-owned row mint: the generated family instance and admitted case token derive the complete key.
+    public Fin<BenchmarkRow> Claim(CacheToken @case, string route, Duration median, Duration p95, long allocatedBytes,
+        long operations, Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
+        BenchmarkRow.Mint(this, @case, route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 
-public sealed record BenchmarkRow(
-    string Key,
-    string Route,
-    Duration Median,
-    Duration P95,
-    long AllocatedBytes,
-    string Fingerprint,
-    Instant At) {
+// Custody projection of the AppHost BenchmarkReceipt under the benchmarks claim-field map: Key carries
+// `{Suite}/{Case}/{Route}` (the suite IS a `BenchmarkFamily` key; route joins the durable identity so two
+// routes of one family+case never collide into one latest-wins row), Fingerprint the one host-identity string (Compute
+// HostFingerprint.ToString or the HostEvidence digest hex), Corpus the input identity a corpus-bound family
+// stamps; Verdict and Correlation are per-run facts and never persist. Every measurement column folds from the
+// BenchmarkDotNet `Summary` graph the substrate mints — `Median`/`P95` from
+// `Summary.Reports[case].ResultStatistics.Median`/`.Percentiles.P95`, `AllocatedBytes` from
+// `BenchmarkReport.GcStats`, `Operations` from the result-stage `AllMeasurements` — and `ArtifactKey`
+// content-addresses the `JsonExporter.Full` per-run artifact, so the durable row references the full
+// distribution by key rather than re-embedding it; the transient `Summary` and its child-process artifacts
+// never cross the strata boundary.
+public sealed record BenchmarkRow {
+    BenchmarkRow(string key, string route, Duration median, Duration p95, long allocatedBytes, long operations,
+        Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
+        (Key, Route, Median, P95, AllocatedBytes, Operations, Corpus, ArtifactKey, Fingerprint, At) =
+        (key, route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
+
+    public string Key { get; }
+    public string Route { get; }
+    public Duration Median { get; }
+    public Duration P95 { get; }
+    public long AllocatedBytes { get; }
+    public long Operations { get; }
+    public Option<UInt128> Corpus { get; }
+    public Option<string> ArtifactKey { get; }
+    public string Fingerprint { get; }
+    public Instant At { get; }
     public RetentionClass Retention => RetentionClass.Cache;
+
+    internal static Fin<BenchmarkRow> Mint(BenchmarkFamily family, CacheToken @case, string route, Duration median, Duration p95,
+        long allocatedBytes, long operations, Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
+        string.IsNullOrWhiteSpace((string)@case)
+            // CacheToken is a struct value object: null is unrepresentable, zero-init is the admission-bypassing
+            // ghost — the identity embeds the case, so the mint reads the key member before the key forms.
+            ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("case", "<default>"))
+            : string.IsNullOrWhiteSpace(route)
+                ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("route", route ?? "<null>"))
+                : median < Duration.Zero
+                    ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("median", median.ToString()))
+                    : p95 < median
+                        ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("p95", p95.ToString()))
+                        : allocatedBytes < 0
+                            ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("allocated-bytes", allocatedBytes.ToString(CultureInfo.InvariantCulture)))
+                            : operations < 0
+                                ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("operations", operations.ToString(CultureInfo.InvariantCulture)))
+                                : string.IsNullOrWhiteSpace(fingerprint)
+                                    ? Fin.Fail<BenchmarkRow>(new CacheFault.InvalidPolicy("fingerprint", fingerprint ?? "<null>"))
+                                    : Fin.Succ(new BenchmarkRow(string.Create(CultureInfo.InvariantCulture, $"{family.Key}/{(string)@case}/{route}"), route, median, p95, allocatedBytes,
+                                        operations, corpus, artifactKey, fingerprint, at));
 }
 ```
 
@@ -289,6 +354,8 @@ public sealed record BenchmarkRow(
 |  [02]   | recency bound   | closed index horizon and clock      | `ModelResultIndex.Of`; no bypass shape         |
 |  [03]   | head fold       | one `MostRecent` reduction          | no full `OrderByDescending` materialization    |
 |  [04]   | retention class | `cache` (re-derivable by re-sweep)  | the sweep governs eviction; never never-evict  |
+|  [05]   | corpus roster   | one `BenchmarkFamily` row per family | typed case mint derives the complete row key   |
+|  [06]   | measurement src | `Summary.ResultStatistics`/`GcStats` | the BenchmarkDotNet graph; never a Stopwatch loop |
 
 ## [05]-[L2_CONTRIBUTION]
 
@@ -594,3 +661,12 @@ public static class WideColumnIndex {
 |  [03]   | sweep scan        | `FetchPageAsync` + `PagingState` cursor             | partition-paged; never a full-table read                |
 |  [04]   | consistency/retry | named `IExecutionProfile` rows + `TokenAwarePolicy` | policy declared once; never per-call branching          |
 |  [05]   | fault fold        | `WideColumnFault.Lift` at ONE boundary              | `FaultBand.WideColumn + n`; no driver exception crosses |
+
+## [07]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -215,7 +215,7 @@ public sealed class FederationPlan {
 - Auto: the lowering is a VISITOR fold, never a switch over relation type names — `Relation.Accept` double-dispatches into the typed `Visit*` overrides so a new Substrait relation kind surfaces as the base-class throw the funnel converts to `UnsupportedRelation`; only a one-column `id` schema enters the key-selection arm, preventing a filtered multi-column relation from losing its row payload; predicate pushdown resolves a root `StructReferenceSegment.Field` through the relation's `NamedStruct.Names`, admits the result through `SetPath`, and composes comparison, range, `LIKE`, null, `AND`, and `OR` functions into `SetExpr`; the full `RelationVisitor` roster lowers explicitly, with engine-owned plan, normalization, iteration-reference, buffer, substream, and exchange-reference relations remaining tabular; the `(plan-digest·full-cut·watermark)` replay frame includes the `Hlc.Logical` counter and optional stream version before `ContentHash.Of` mints `FederatedResult.ReplayKey`; an unreachable live endpoint lifts at the columnar/ADBC boundary into `SourceUnreachable`, structurally distinct from the `SourceUncapable` capability refusal.
 - Receipt: an execution rides `store.federation.execute` carrying the digest, the cut, the watermark gap, the source row, and the arm taken (`keyed`/`tabular`/`materialized`); a replay hit rides the `Query/cache` reuse index receipts, never a second fact stream here; the `Materialized` arm's fact rides `store.federation.materialize` carrying the view table.
 - Packages: FlowtideDotNet.Substrait (`RelationVisitor<TReturn,TState>`/`ExpressionVisitor<TOutput,TState>`/`Relation` roster/`SetOperation`/`Conversion.SubstraitToDifferentialCompute`), Apache.Arrow (`RecordBatch` — the owned batch currency the `Tabular` port drains inside the columnar ADBC statement window; a live `QueryResult` never crosses the port), Rasm (`Rasm.Domain` `ContentHash`/`IValidityEvidence`/`ValidityClaim`), Rasm.Element (`NodeId`), Rasm.Persistence (`Query/lane#ELEMENT_SET_ALGEBRA` `SetExpr`/`SetResolve`/`ElementSet`, `Query/lane#READ_ROUTING` `StalenessWatermark`, `Query/columnar` `AdbcQuery`, `Version/timetravel#TIME_CUT` `TimeCut` — frozen vocabulary), NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new relation kind is one `Visit*` override lowering to an existing arm; a new execution surface is one `LoweringTarget` case plus one `Execute` arm; a new pushdown predicate is one `SetPredicate` mapping row in the expression fold; zero new surface — a second engine beside the standing lanes, a thin single-door single-relation-arm lowering, a switch over relation type names beside the visitor, a `Seq<Error>`-flattened lowering failure, or a replay key minted off a second hasher is the deleted form because the owner is a router/lowerer, the visitor is total-by-throw, and the replay identity composes the kernel digest.
+- Growth: a new relation kind is one `Visit*` override lowering to an existing arm; a new execution surface is one `LoweringTarget` case and one `Execute` arm; a new pushdown predicate is one `SetPredicate` mapping row in the expression fold; zero new surface — a second engine beside the standing lanes, a thin single-door single-relation-arm lowering, a switch over relation type names beside the visitor, a `Seq<Error>`-flattened lowering failure, or a replay key minted off a second hasher is the deleted form because the owner is a router/lowerer, the visitor is total-by-throw, and the replay identity composes the kernel digest.
 - Boundary: `SetExpr` executes only when `SourceKind.IsLive` is false; live sources ship the retained wire to the tabular port. `WriteRelation` refuses fail-closed. `SubstraitToDifferentialCompute.Convert` mutates and returns a `Plan`, and the materialization port must execute that returned plan before a receipt succeeds; a materialized mode without a primary key rails `MaterializationRejected` at `FederationPlan.Admit`. `FederationPlan` and `FederatedResult` expose no public constructor, so admission and success stamping cannot be bypassed; an empty keyed or tabular result remains valid execution evidence. `FederatedResult` frames the complete cut, source, and mode identity into `ReplayKey`, so distinct HLC cells, stream versions, bindings, and materialized views cannot collide.
 
 ```csharp signature
@@ -541,28 +541,28 @@ public sealed class FederatedResult : IValidityEvidence {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                      |
-| :-----: | :---------------- | :------------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | one entry         | `Execute(FederationPlan, Option<TimeCut>, ports)`  | router/lowerer over standing lanes; never a second engine      |
-|  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, Unit>`       | total-by-throw; unknown relation → `UnsupportedRelation`       |
-|  [03]   | key-selection arm | `SetExpr` via `lane#SetResolve`                    | local non-live sources; unsupported set ops stay tabular       |
-|  [04]   | tabular arm       | `ColumnarProfile.Federation` + `AdbcQuery` doors   | `from_substrait(blob)` local; ext `SubstraitPlan`/`SqlQuery`   |
-|  [05]   | write posture     | `WriteRelation` → `WriteRejected`                  | fail-closed; federation reads, the store rail writes           |
-|  [06]   | default cut       | `Option<TimeCut>` resolved INSIDE `Execute`        | `HeadSequence` head under the clock `Hlc`; never ambient now   |
-|  [07]   | replay identity   | `(digest·cut·watermark·source·mode)` → `ReplayKey` | bindings and materialized views remain distinct                |
-|  [08]   | receipt validity  | `IValidityEvidence` + `ValidityClaim.All`          | the kernel [C] floor; never a hand-rolled `&&` chain           |
-|  [09]   | streaming cadence | `Mode.Materialized(View, Keys)` case dispatch      | one plan IR, one entry; never a sibling execution surface      |
+| [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                    |
+| :-----: | :---------------- | :------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | one entry         | `Execute(FederationPlan, Option<TimeCut>, ports)`  | router/lowerer over standing lanes; never a second engine    |
+|  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, Unit>`       | total-by-throw; unknown relation → `UnsupportedRelation`     |
+|  [03]   | key-selection arm | `SetExpr` via `lane#SetResolve`                    | local non-live sources; unsupported set ops stay tabular     |
+|  [04]   | tabular arm       | `ColumnarProfile.Federation` + `AdbcQuery` doors   | `from_substrait(blob)` local; ext `SubstraitPlan`/`SqlQuery` |
+|  [05]   | write posture     | `WriteRelation` → `WriteRejected`                  | fail-closed; federation reads, the store rail writes         |
+|  [06]   | default cut       | `Option<TimeCut>` resolved INSIDE `Execute`        | `HeadSequence` head under the clock `Hlc`; never ambient now |
+|  [07]   | replay identity   | `(digest·cut·watermark·source·mode)` → `ReplayKey` | bindings and materialized views remain distinct              |
+|  [08]   | receipt validity  | `IValidityEvidence` + `ValidityClaim.All`          | the kernel [C] floor; never a hand-rolled `&&` chain         |
+|  [09]   | streaming cadence | `Mode.Materialized(View, Keys)` case dispatch      | one plan IR, one entry; never a sibling execution surface    |
 
 ## [04]-[FLIGHT_RESULT_PLANE]
 
-- Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the RESULT half of the plan wire: a portable plan flows IN through `#PLAN_INGRESS` and its batches flow BACK OUT through this producer as zero-copy Arrow record streams, so a Python or TypeScript analytics consumer never re-serializes through files or an ad-hoc wire; the ticket registry is the constructor-injected `Atom<HashMap<UInt128, FederatedResult>>` hold keyed by `ReplayKey`.
-- Cases: `GetFlightInfo` takes a COMMAND descriptor whose `Command` bytes are the protobuf plan wire — it admits through `FederationPlan.Admit(new PlanWire.Protobuf(...), source, new FederationMode.OneShot())`, executes through the ONE `Federation.Execute`, holds the result under its `ReplayKey`, and answers a `FlightInfo` carrying the result schema, ONE `FlightEndpoint` whose `FlightTicket` is the big-endian `ReplayKey` bytes, and the honest `TotalRecords`/`TotalBytes`; `DoGet` redeems the 16-byte ticket against the hold and streams every batch through `FlightServerRecordBatchStreamWriter.WriteAsync` (the first write auto-emits the schema message); an unknown or expired ticket rails `FederationFault.TicketUnknown`.
-- Entry: `public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context)` and `public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)` — the two overridden verbs; every other base verb keeps its base throw because this plane is a read-only result producer, never an ingest door (`DoPut`/`DoExchange` stay unimplemented by decision, not omission).
-- Auto: the ticket IS the content-addressed result identity — `ReplayKey` already frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the SAME ticket and reuse is identity, never a session table; a keyed (`ElementSet`) result projects to ONE single-column `id` batch through `StringArray.Builder.AppendRange` over the set's sorted keys so keyed and tabular results stream through one verb with no result-shape fork; the hold is an `Atom` swap (idempotent CAS re-add under a race) whose eviction rides the `Query/cache` reuse index cadence — the hold is a serving window over already-executed results, never a second cache; the typed `TicketUnknown` fault converts to the gRPC `NotFound` status at the verb edge because a `FlightServer` verb has no rail return — the one platform-forced throw seam this plane carries.
+- Owner: `FederationFlight` the `Apache.Arrow.Flight.Server` `FlightServer` subclass — the result half of the plan wire: a portable plan flows in through `#PLAN_INGRESS` and its batches flow back through zero-copy Arrow record streams; the ticket registry is one constructor-injected `Atom<HashMap<UInt128, FederatedResult>>` hold keyed by `ReplayKey`.
+- Cases: `GetFlightInfo` takes a COMMAND descriptor whose `Command` bytes are the protobuf plan wire — it admits through `FederationPlan.Admit(new PlanWire.Protobuf(...), source, new FederationMode.OneShot())`, executes through the ONE `Federation.Execute`, holds the result under its `ReplayKey`, and answers a `FlightInfo` carrying the result schema, ONE `FlightEndpoint` whose `FlightTicket` is the big-endian `ReplayKey` bytes, the honest `TotalRecords`, and `TotalBytes` `-1` — the held batches carry no serialized-byte figure, so the Flight unknown sentinel is the honest claim, never a fabricated total; `DoGet` redeems the 16-byte ticket against the hold and streams every batch through `FlightServerRecordBatchStreamWriter.WriteAsync` (the first write auto-emits the schema message); an unknown or expired ticket rails `FederationFault.TicketUnknown`.
+- Entry: `public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context)` admits the command plan and mints a `ReplayKey` ticket; `public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)` redeems that ticket. Every other base verb keeps its base throw because this plane is a read-only result producer.
+- Auto: the ticket is the content-addressed result identity — `ReplayKey` frames `(plan-digest·full-cut·watermark·source·mode)`, so a byte-identical plan re-described at the same cut redeems the same ticket; a keyed result projects to one single-column `id` batch; the hold is an idempotent `Atom` swap whose eviction rides the `Query/cache` reuse cadence; `TicketUnknown` converts to gRPC `NotFound` at the platform-forced verb edge.
 - Receipt: a described plan rides `store.federation.flight.describe` carrying the digest and the minted ticket; a redeemed stream rides `store.federation.flight.stream` carrying the ticket, the batch count, and the drained rows.
-- Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightLocation`/`FlightServerRecordBatchStreamWriter` — the served node; `api-arrow` Flight server family), Apache.Arrow (`RecordBatch`/`Schema.Builder`/`Field.Builder`/`StringArray.Builder`), Google.Protobuf (`ByteString` — the descriptor command and ticket payload carrier), Grpc.Core (`ServerCallContext`/`RpcException`/`StatusCode` — the hosting seam's per-call context), LanguageExt.Core, BCL inbox.
-- Growth: a new result consumer is zero surface — it dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field (the `#PLAN_LOWERING` frame already owns it); a discovery need is the `ListFlights` verb overridden over the same hold; zero new surface — a bespoke result file drop, a second result wire beside the ticket plane, a session-keyed ticket, or a `DoPut` ingest arm on this producer is the deleted form because the ticket is the replay identity and plan ingress stays the `#PLAN_INGRESS` door.
-- Boundary: AppHost owns the gRPC channel, TLS, credentials, and service binding — the `FlightServer` subclass is Persistence's contribution mapped at the host composition root exactly as the `Version/egress` `WireNative` sink rides the AppHost `OutboundHop` (the standing delivery-honesty split; a Persistence-owned listener is the strata inversion); the `python:data` consumer leg rides the `ARCHITECTURE.md [02]-[SEAMS]` Flight-ticket return edge beside the inbound `SubstraitPlan` wire; `DoGet` streams the HELD batches — a live `QueryResult` never crosses (the `#PLAN_LOWERING` `Tabular` port drained it inside the ADBC statement window), so the plane serves owned memory only; the hold's serving window bounds memory (an evicted result re-executes through `GetFlightInfo`, cost never correctness), and `Authority.Admit` gates the demand at the caller exactly as the `Store/blobstore` issuer grants are gated.
+- Packages: Apache.Arrow.Flight (`FlightServer`/`FlightDescriptor`/`FlightTicket`/`FlightInfo`/`FlightEndpoint`/`FlightServerRecordBatchStreamWriter`), Apache.Arrow (`RecordBatch`/`Schema.Builder`/`Field.Builder`/`StringArray.Builder`), Google.Protobuf (`ByteString`), Grpc.Core (`ServerCallContext`/`RpcException`/`StatusCode`), LanguageExt.Core, BCL inbox.
+- Growth: a new result consumer dials the host channel and redeems tickets; a new served identity axis is one `ReplayKey` preimage field; a discovery need is the `ListFlights` verb over the same hold. A bespoke file drop, a second result wire, a session-keyed ticket, or a `DoPut` ingest arm is the deleted form.
+- Boundary: AppHost owns the gRPC channel, TLS, credentials, and service binding; Persistence contributes the `FlightServer` subclass. `DoGet` streams held batches, never a live `QueryResult`; the serving window bounds memory, an evicted result re-executes, and `Authority.Admit` gates demand at the caller.
 
 ```csharp signature
 using Apache.Arrow.Flight;
@@ -574,12 +574,16 @@ using Grpc.Core;
 namespace Rasm.Persistence.Query;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// The result half of the federation wire: plans in through PLAN_INGRESS, batches out through DoGet.
+// result half of the federation wire: plans in through PLAN_INGRESS, batches out through DoGet.
 // AppHost binds the gRPC service; this class is the Persistence contribution, constructor-injected.
 public sealed class FederationFlight(FederationPorts ports, SourceKind source, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
-    public override async Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) {
+    public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) =>
+        Describe(new PlanWire.Protobuf(descriptor.Command.Memory), descriptor, source, ports, hold);
+
+    // ONE admit-execute-hold-describe chain owns command admission and ticket minting.
+    internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, Atom<HashMap<UInt128, FederatedResult>> hold) {
         Fin<FederatedResult> executed = await FederationPlan
-            .Admit(new PlanWire.Protobuf(descriptor.Command.Memory), source, new FederationMode.OneShot())
+            .Admit(wire, source, new FederationMode.OneShot())
             .Match(
                 Succ: plan => Federation.Execute(plan, None, ports),
                 Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault)))
@@ -598,9 +602,13 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
             Fail: fault => throw new RpcException(new Status(StatusCode.InvalidArgument, fault.Message)));   // gRPC verb edge: no rail return exists on FlightServer
     }
 
-    public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) {
-        // Exact-width admission BEFORE the fixed-width decode: FlightTicket is an opaque caller-controlled token,
-        // so a non-16-byte payload terminates through the declared gRPC fault boundary, never a decode throw.
+    public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) =>
+        Redeem(ticket, responseStream, hold);
+
+    // ONE ticket-redemption body — exact-width admission BEFORE the fixed-width decode:
+    // FlightTicket is an opaque caller-controlled token, so a non-16-byte payload terminates through the
+    // declared gRPC fault boundary, never a decode throw.
+    internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, Atom<HashMap<UInt128, FederatedResult>> hold) {
         if (ticket.Ticket.Length != 16) { throw new RpcException(new Status(StatusCode.InvalidArgument, $"<flight-ticket-width:{ticket.Ticket.Length}!=16>")); }
         UInt128 key = BinaryPrimitives.ReadUInt128BigEndian(ticket.Ticket.Span);
         await hold.Value.Find(key).Match(
@@ -614,18 +622,23 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, A
 
     static Schema KeySchema() => new Schema.Builder().Field(new Field.Builder().Name("id").DataType(StringType.Default).Nullable(false).Build()).Build();
 
-    static byte[] TicketBytes(UInt128 key) {
+    internal static byte[] TicketBytes(UInt128 key) {
         byte[] bytes = new byte[16];
         BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
         return bytes;
     }
 }
+
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                        | [BINDING]                                                     |
-| :-----: | :--------------- | :---------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | ticket identity  | `ReplayKey` big-endian 16 bytes                 | content-addressed; a re-described identical plan re-redeems   |
-|  [02]   | verbs            | `GetFlightInfo` + `DoGet` only                  | read-only result plane; `DoPut`/`DoExchange` stay base throws |
-|  [03]   | keyed projection | one `id` `StringArray` batch                    | keyed and tabular results share one stream verb               |
+| [INDEX] | [POLICY]         | [VALUE]                                          | [BINDING]                                                     |
+| :-----: | :--------------- | :----------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | ticket identity  | `ReplayKey` big-endian 16 bytes                  | content-addressed; a re-described identical plan re-redeems   |
+|  [02]   | verbs            | `GetFlightInfo` + `DoGet` only                   | read-only result plane; `DoPut`/`DoExchange` stay base throws |
+|  [03]   | keyed projection | one `id` `StringArray` batch                     | keyed and tabular results share one stream verb               |
 |  [04]   | hosting          | AppHost gRPC channel, Persistence `FlightServer` | the `WireNative` delivery-honesty split; no local listener    |
-|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`       | serving window over executed results; eviction re-executes    |
+|  [05]   | hold             | `Atom<HashMap<UInt128, FederatedResult>>`        | one serving window; eviction re-executes                      |
+
+## [05]-[RESEARCH]
+
+- [FLIGHT_SQL_HANDLER_ROSTER]-[OPEN]: which exact protected abstract handler roster and signatures must a read-only `FlightSqlServer` subclass realize; rebuild `libs/csharp/Rasm.Persistence/.api/api-arrow.md` from the admitted assembly with `tools.assay api --package Apache.Arrow.Flight.Sql --type Apache.Arrow.Flight.Sql.FlightSqlServer`, restoring `FederationFlightSql` only after every handler row joins the catalog.

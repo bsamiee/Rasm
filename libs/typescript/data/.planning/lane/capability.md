@@ -1,6 +1,6 @@
 # [DATA_CAPABILITY]
 
-The fail-closed capability rail of the folder: one closed row/ensure vocabulary, one `Capability` service that proves every extension row, every declared relation, and every dependency demand at Layer construction through two roster-batched probes, and one fault family for everything a probe refuses. Nothing in the folder assumes an extension, a version floor, or a relation — presence is proven or the capability does not exist, and the granted set is a value siblings gate on: `require` fails typed, `when` degrades to `Option`. Extension proof is one `RequestResolver`-batched dialect-honest catalog lookup; relation proof is one schema-qualified census over the complete ensure roster. The same rail carries the DDL split: the provisioning plane applies the idempotent ensure rows, this service proves them at startup, runtime never mutates schema.
+This folder's fail-closed capability rail: one closed row/ensure vocabulary, one `Capability` service that proves every extension row, every declared relation, and every dependency demand at Layer construction through two roster-batched probes, and one fault family for everything a probe refuses. Nothing in the folder assumes an extension, a version floor, or a relation — presence is proven or the capability does not exist, and the granted set is a value siblings gate on: `require` fails typed, `when` degrades to `Option`. Extension proof is one `RequestResolver`-batched dialect-honest catalog lookup; relation proof is one schema-qualified census over the complete ensure roster. This same rail carries the DDL split: the provisioning plane applies the idempotent ensure rows, this service proves them at startup, runtime never mutates schema.
 
 ## [01]-[CLUSTERS]
 
@@ -12,11 +12,12 @@ The fail-closed capability rail of the folder: one closed row/ensure vocabulary,
 
 ## [02]-[ROW_VOCABULARY]
 
-- Owner: `Capability.Row<G, F>` — the structural bound every `lane/postgres.md` matrix row inhabits, parameterized by its value-derived grant and flag vocabularies; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; `Capability.Demand<F, G>` — the `[flag, grant]` dependency pair; the segment-numeric version order; the one reason-discriminated fault.
+- Owner: `Capability.Row<G, F>` — the structural bound every `lane/postgres.md` matrix row inhabits, parameterized by its value-derived grant and flag vocabularies; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; `Capability.Demand<F, G>` — the `[flag, grant]` dependency pair; `Capability.Atomicity` — the closed interactive-transaction versus batch grant; the segment-numeric version order; the one reason-discriminated fault.
 - Packages: `effect` (`Data`, `Order`, `String`).
 - Growth: a new probe posture is a `probeSql` override on the owning matrix row; a new ensure dialect is one field on the ensure shape; a new dependency edge is one demand pair — the shapes never widen per extension.
-- Law: `floor` compares segment-numeric through `_byVersion`; `"0.0.0"` is the presence-only floor — the probe still fails closed on absence. The floor gate itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
+- Law: `floor` compares segment-numeric through `_byVersion`; `"0.0.0"` is the presence-only floor — the probe still fails closed on absence. Floor gating itself is a pg fact: the sqlite arm answers presence only, so its admission is membership and no pg-authored floor can refuse a present module.
 - Law: ensure rows are authored by the page owning the relation and collected by `lane/tenant.md` at Layer construction; demand pairs are authored by the page owning the matrix (`Pg.demands`). `G` and `F` infer from those values through the service factory, so `require` and `when` accept only the roster's closed grant vocabulary and a misspelled gate is unrepresentable.
+- Law: `transaction` admits `SqlClient.withTransaction`; `batch` admits an engine-native atomic batch but refuses an interactive transaction. PostgreSQL, server sqlite, wasm sqlite, and libSQL seed `transaction`; D1 seeds only `batch`, so the generic journal publisher cannot compose on D1 and a D1 publisher must submit its whole write set through the batch boundary. Atomicity is a demandable grant like any other — `Demand`'s grant slot is the full `Grant<G>` vocabulary, so a flagged row may demand `transaction` or `batch` and the fixed-point fold refuses it on D1 exactly as it refuses an absent extension grant.
 - Fault: one `CapabilityFault` family, reason-discriminated — `absent` (extension not installed), `floor` (installed below floor), `schema` (declared relation missing), `requires` (dependency grant refused); all four route identically (fail or shrink at startup, repair provision), so one class carries them and no policy table is earned.
 
 ```typescript signature
@@ -36,7 +37,9 @@ declare namespace Capability {
     readonly pg: string
     readonly sqlite: string
   }
-  type Demand<F extends string = string, G extends string = string> = readonly [flag: F, grant: G]
+  type Atomicity = "transaction" | "batch"
+  type Grant<G extends string = string> = G | Atomicity
+  type Demand<F extends string = string, G extends string = string> = readonly [flag: F, grant: Grant<G>]
   type Reason = "absent" | "floor" | "schema" | "requires"
   type Fault = CapabilityFault
 }
@@ -105,13 +108,13 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 
 ## [04]-[PROBE_SERVICE]
 
-- Owner: the `Capability` service — one `Effect.Service` whose parameterized `Default(build)` Layer factory batch-probes the extension roster, scans the complete ensure roster at the build's physical schema coordinate in one statement, seeds the granted set with the caller's dialect core grants, computes the dependency closure, and publishes the closed granted set, the installed-version report, and the refused evidence.
+- Owner: the `Capability` service — one `Effect.Service` whose parameterized `Default(build)` Layer factory batch-probes the extension roster, scans the complete ensure roster at the build's physical schema coordinate in one statement, seeds the granted set with the caller's dialect core and atomicity grants, computes the dependency closure, and publishes the closed granted set, the installed-version report, and the refused evidence.
 - Packages: `effect` (`Effect.Service`, `HashMap`, `HashSet`, `Array`, `Either`, `Option`); `@effect/sql` (`SqlClient`, `sql.onDialectOrElse`); `lane/postgres.md` (`Pg.rows`, `Pg.core`, `Pg.demands` arrive as arguments, never imports — the service is roster-agnostic).
-- Entry: `Capability.Default({ rows: Pg.rows, ensures, core: Pg.core.pg, demands: Pg.demands, schema: locus.schema })` composes under every scope in `lane/tenant.md`; sqlite profiles pass their dialect core keys, an empty demand set, and `main`, so `require("channel")` reads one vocabulary and an unprovisioned scope fails at the Layer, never at first query.
+- Entry: `Capability.Default({ rows: Pg.rows, ensures, core: Pg.core.pg, atomicity: "transaction", demands: Pg.demands, schema: locus.schema })` composes under every pg scope in `lane/tenant.md`; sqlite profiles pass their dialect core keys, an empty demand set, `main`, and `atomicity: profile === "d1" ? "batch" : "transaction"`. Generic journal construction requires `transaction`; D1 composes a batch publisher or routes writes to pg.
 - Receipt: `Capability.Report` — `granted`, `versions`, `refused` — the typed probe evidence startup logging and the fact journal consume; a tally beside it restates what the report carries.
 - Growth: a consumer needing a new gate composes `require`/`when`, never a second probe path; a new dialect's relation probe is one `onDialectOrElse` arm.
 - Law: probes are fail-closed — an absent row is refused, never assumed; a refused ensure relation fails Layer construction (the DDL split was violated), a refused extension row only shrinks the granted set and consumers degrade through `when`.
-- Law: demands compute a least fixed point from core grants — each pass admits only rows whose demanded grants already exist in the accepted set, then widens that set with their capabilities; convergence refuses unresolved and cyclic rows with reason `requires`, so one starved row can never satisfy another row transiently. The pair table arrives as data, and the deploy plane's image derivation reads the same pairs at provision.
+- Law: demands compute a least fixed point from core grants — each pass admits only rows whose demanded grants already exist in the accepted set, then widens that set with their capabilities; convergence refuses unresolved and cyclic rows with reason `requires`, so one starved row can never satisfy another row transiently. Demand pairs arrive as data, and the deploy plane's image derivation reads the same pairs at provision.
 - Law: `require` is the hard gate (`Effect<void, CapabilityFault>`), `when` the soft gate (refusal reifies as `Option.none`); a boolean read of the granted set outside these two members is the smuggled knob.
 - Law: probing runs once per Layer construction and the report is immutable thereafter — a live re-probe is scope invalidation on the owning `Stores` map, never a poll.
 - Boundary: which rows exist is `lane/postgres.md`'s; where the Layer composes and which ensures collect is `lane/tenant.md`'s; the image that makes `"image"` rows probe true is the deployment plane's.
@@ -124,11 +127,12 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
     readonly rows: ReadonlyArray<Capability.Row<G, F>>
     readonly ensures: ReadonlyArray<Capability.Ensure>
     readonly core: ReadonlyArray<G>
+    readonly atomicity: Capability.Atomicity
     readonly demands: ReadonlyArray<Capability.Demand<F, G>>
     readonly schema: string
   }) =>
     Effect.gen(function* () {
-      const { core, demands, ensures, rows, schema } = build
+      const { atomicity, core, demands, ensures, rows, schema } = build
       const sql = yield* SqlClient.SqlClient
       const resolver = _probeResolver(sql)
       const relations = SqlSchema.findAll({
@@ -187,7 +191,7 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
         pending: typeof held,
       ): readonly [accepted: typeof held, refused: ReadonlyArray<CapabilityFault>] => {
         const available = HashSet.union(
-          HashSet.fromIterable(core),
+          HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
           HashSet.fromIterable(Array.flatMap(accepted, ([row]) => row.capabilities)),
         )
         const [waiting, ready] = Array.partitionMap(pending, (entry) => {
@@ -214,7 +218,7 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
       const [granted, starved] = resolve([], held)
       const report: Capability.Report<G> = {
         granted: HashSet.union(
-          HashSet.fromIterable(core),
+          HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
           HashSet.fromIterable(Array.flatMap(granted, ([row]) => row.capabilities)),
         ),
         versions: HashMap.fromIterable(Array.map(granted, ([row, installed]) => [row.extension, installed] as const)),
@@ -223,11 +227,11 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
       return {
         report,
         granted: report.granted,
-        require: (key: G): Effect.Effect<void, CapabilityFault> =>
+        require: (key: Capability.Grant<G>): Effect.Effect<void, CapabilityFault> =>
           HashSet.has(report.granted, key)
             ? Effect.void
             : Effect.fail(new CapabilityFault({ reason: "absent", subject: key, detail: "<ungranted>" })),
-        when: <A, E, R>(key: G, effect: Effect.Effect<A, E, R>): Effect.Effect<Option.Option<A>, E, R> =>
+        when: <A, E, R>(key: Capability.Grant<G>, effect: Effect.Effect<A, E, R>): Effect.Effect<Option.Option<A>, E, R> =>
           Effect.when(effect, () => HashSet.has(report.granted, key)),
       }
     }),
@@ -235,7 +239,7 @@ class Capability extends Effect.Service<Capability>()("data/Capability", {
 
 declare namespace Capability {
   type Report<G extends string = string> = {
-    readonly granted: HashSet.HashSet<G>
+    readonly granted: HashSet.HashSet<Capability.Grant<G>>
     readonly versions: HashMap.HashMap<string, string>
     readonly refused: ReadonlyArray<CapabilityFault>
   }
@@ -245,3 +249,12 @@ declare namespace Capability {
 
 export { Capability, CapabilityFault }
 ```
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

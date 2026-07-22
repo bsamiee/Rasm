@@ -333,3 +333,12 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [03]-[RECONSTRUCTION_WEIGHTS]: `[SmartEnum<int>]` with `Interpolating` capability column.
 - [04]-[RADIAL_DECAY]: `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case.
 - [05]-[NOISE_LATTICES]: deterministic Perlin/simplex/Worley over the canonical table.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

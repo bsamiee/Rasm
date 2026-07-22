@@ -1,6 +1,6 @@
 # [UI_SCENE]
 
-The GLB scene owner: content-key-keyed mesh residency rendered through one of two backends behind one `Schema.Literal` discriminant — the imperative `three` scene (custom materials, instancing, animation, compute, receipts) or the declarative `<model-viewer>` embed (zero GL handle) — with every mesh byte arriving through the `GlbViewport` port this module declares and the app composition satisfies by forwarding `runtime/browser/fetch#DEPOT_SCHEDULER`'s `Depot.haul` arrivals and ledger. The renderer acquisition owns the ONE `GPUDevice` and publishes it for every compute adopter — `three/tsl` scene-resident kernels and `typegpu` standalone kernels share it, split by scene residency. The graft fold keeps GLB animation alive (one mixer per animated subtree under one `Clock`, derived from the one `Ref` ledger), broadcasts the arrival feed to graft, census, and telemetry lanes, collapses draw calls through merge/instanced/batched rows, and binds the C#-owned OpenPBR algebra field-for-field onto `MeshPhysicalMaterial` lobes with color crossing the linear seam through the one `system/token` authority. Georeferenced element instancing rides the `@deck.gl/mesh-layers` pair as layer values `geo` sinks. GPU resources are `Scope`-bracketed without exception, the frame loop parks under `system/act#DOCUMENT_RAIL`'s hidden `<Activity>` row, the backend lifecycle is a `Machine` statechart bound through the atom bridge, faults ride one `GlbFault` family over a closed reason vocabulary, and meshopt decode stays gated `[R23]`. The module is `ui/viewer/src/scene.ts`.
+Glb owns content-keyed scene residency behind a `three` or `<model-viewer>` backend discriminant. One `GlbViewport` port supplies verified bytes and ledger facts; one renderer acquisition shares its `GPUDevice`; one graft ledger owns subtrees, mixers, disposal, and typed residency evidence. OpenPBR binding carries the C# algebra verbatim, and georeferenced instances remain deck layer values. Scoped GPU resources, a parked hidden loop, one lifecycle machine, and one `GlbFault` family close the plane. Module: `ui/viewer/src/scene.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -9,7 +9,7 @@ The GLB scene owner: content-key-keyed mesh residency rendered through one of tw
 |  [01]   | `VIEWPORT_PORT`   | the `GlbViewport` port — residency ledger read + verified-arrival ingress as a Tag | `GlbViewport` |
 |  [02]   | `FAULT_FAMILY`    | `GlbFault` — the closed reason vocabulary and its policy table                     | `GlbFault`    |
 |  [03]   | `BACKEND_SELECT`  | the backend literal, renderer acquisition, output policy, light rig, compute lane  | `Glb`         |
-|  [04]   | `RESIDENCY_GRAFT` | the one-`Scene` graft/dispose/animate fold and the codec-injected loader           | `Glb`         |
+|  [04]   | `RESIDENCY_GRAFT` | the asset-identity roster, codec-injected loader, and graft/dispose/animate fold | `Glb`         |
 |  [05]   | `DRAW_COLLAPSE`   | merge/instanced/batched rows — repeated element geometry as bounded draw calls     | `Glb`         |
 |  [06]   | `APPEARANCE_BIND` | the OpenPBR lobe assignment, color contract, census resolve, node-material mirror  | `Pbr`         |
 |  [07]   | `INSTANCED_ROWS`  | `@deck.gl/mesh-layers` — georeferenced element instances as deck layer values      | `Instanced`   |
@@ -171,31 +171,65 @@ const _renderer = (canvas: HTMLCanvasElement) =>
 ## [05]-[RESIDENCY_GRAFT]
 
 [RESIDENCY_GRAFT]:
-- Owner: `Glb.graft` — the residency fold over the port: one `Scene` roots the graph, ONE `Ref`-held ledger (`HashMap<ContentKey, Glb.Graft>`) is the single truth for grafted subtrees AND their mixers, and the port's arrival stream broadcasts into lanes — the graft lane parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and commits the ledger atomically; the surplus lane returns on `Glb.Loop.arrivals` for the probe residency census and telemetry taps, so one source feeds many consumers without a second subscription protocol. Its eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the ledger drops the key — both arms mutate ONLY the `Ref`, so the fold is race-free by construction. `Glb.Loop.advance(delta)` derives live mixers from the same ledger inside the marked frame-loop kernel — no second roster exists.
-- Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoadingManager`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
-- Law: codec injection is capability wiring — the loader constructs over one `LoadingManager` whose `onProgress`/`onError` fold per-graft dependency progress into the residency telemetry tap; `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder paths pinned self-hosted (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and the `[R23]` gate has admitted a decoder identity — until then such an asset refuses with `codec-absent`.
+- Owner: `Glb.AssetRoster` — the encoded, slug-unique `{ slug, digest, file }` identity roster for every self-hosted decoder and wasm asset; `Glb.asset` resolves one row with `codec-absent` on absence, and `Glb.assetPath` derives the immutable `assets/<digest>/<file>` address. `Glb.graft` owns the residency fold over the port: one `Scene` roots the graph, ONE `Ref`-held ledger (`HashMap<ContentKey, Glb.Graft>`) is the single truth for grafted subtrees AND their mixers, and the port's arrival stream enters one graft lane — the lane parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and commits the ledger atomically. One bounded fact queue receives `Arrived` only after that commit and `Refused` from the contained failure leg; `Glb.hook(loop)` adopts the queue stream for probe and telemetry taps, so one source feeds every consumer without parallel subscriptions or speculative arrival facts. Its eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the ledger drops the key — both arms mutate ONLY the `Ref`, so the fold is race-free by construction. `Glb.Loop.advance(delta)` derives live mixers from the same ledger inside the marked frame-loop kernel — no second residency roster exists.
+- Packages: `three` (`Scene`, `Mesh`, `AnimationMixer`, `Clock`, `LoadingManager`, `LoopRepeat`); `three/addons` (`GLTFLoader`); `effect` (`Effect`, `HashMap`, `Option`, `Queue`, `Ref`, `Stream`, `Scope`); `@rasm/ts/core` (`ContentKey`).
+- Law: codec injection is capability wiring — the loader constructs over one `LoadingManager` whose `onProgress`/`onError` fold per-graft dependency progress into the residency telemetry tap; `setDRACOLoader`/`setKTX2Loader` attach at loader construction with transcoder addresses resolved from `Glb.AssetRoster` (`setDecoderPath`/`setTranscoderPath`, `detectSupport(renderer)` reading the compressed-format capability); `setMeshoptDecoder` attaches ONLY when the asset flags `EXT_meshopt_compression` and `Glb.asset(roster, "meshopt")` has admitted its served identity — until then such an asset refuses with `codec-absent`. Perspective wasm reads the same roster through its own slug, and no consumer accepts a free-form asset path.
 - Law: the disposal kernel is total over GPU handles — every visited `Mesh` releases its geometry, every texture slot its materials hold, then the materials themselves, because `material.dispose()` frees the program and never its textures; three's `traverse` callback is the kernel's platform-forced statement seam, marked on its first line, and no reference escapes it.
-- Law: the graft lane outlives any refusal — a per-arrival `GlbFault` (`decode-refused`, `codec-absent`) folds into the bounded refusal channel (`PubSub.bounded` → `Glb.Loop.refusals`) and the lane keeps consuming; an arrival stream that dies on one bad mesh is the named defect, the policy table's `evict` column governs the ledger consequence, and the telemetry/probe taps subscribe `refusals` beside the surplus lane.
-- Law: the graft lane is woven — each arrival's graft effect carries `Effect.withSpan("rasm.ui.scene.residency")` with the content key and byte count as log-and-span material, `_GRAFTED` counts committed grafts, and `_REFUSED` folds refusal reasons through `Metric.trackErrorWith` over the closed `GlbFault.Reason` vocabulary (bounded tags by construction — the key never a tag); the surplus and refusal lanes are the adopted source behind the `rasm.ui.scene.residency` hook point (`system/hook`), so the app bridge (`system/atom#STORE_ROOT`'s seam) and probe boards consume rows, never wrap the fold.
+- Law: the graft lane outlives any refusal — a per-arrival `GlbFault` (`decode-refused`, `codec-absent`) folds into the bounded fact queue and the lane keeps consuming; an arrival stream that dies on one bad mesh is the named defect, the policy table's `evict` column governs the ledger consequence, and success and refusal join only after their respective settlement edges.
+- Law: the graft lane is woven — each arrival's graft effect carries `Effect.withSpan("rasm.ui.scene.residency")` with the content key and byte count as log-and-span material, successful grafts feed `1` through `Effect.withMetric` into `_GRAFTED`, and `_REFUSED` folds refusal reasons through `Metric.trackErrorWith` over the closed `GlbFault.Reason` vocabulary (bounded tags by construction — the key never a tag); `Glb.hook` adopts the one fact stream behind the observe point, so app and probe taps never wrap the fold.
 - Law: `preload`/`preinit` hints warm decoder wasm and imminent GLB fetches ahead of first frame (`react-dom` hint family), issued from the ledger's `pending` census, never per-mesh at draw time.
 - Exemption: the frame-loop tick is the platform-forced synchronous seam — `advance` reads the ledger through `Effect.runSync(Ref.get(held))` inside the marked kernel (a pure sync read, total by construction) and only immutable snapshots leave the fold.
-- Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one more broadcast lane, never a second port subscription.
+- Growth: a new residency policy (priority lanes, partial LOD) is a fold arm over new ledger rows minted at `core/interchange/frame` — the graft signature never changes; a new animation policy (clip selection, cross-fade) is one action-policy row applied at mint; a new arrival consumer is one hook tap over the adopted fact stream, never a second port subscription; a new codec or wasm is one `Glb.AssetRoster` row consumed through `Glb.asset`, never a parallel identity or path surface.
 
 ```typescript
 import type { ContentKey } from "@rasm/ts/core"
-import { Context, Effect, HashMap, Metric, Option, PubSub, Ref, Scope, Stream } from "effect"
+import { Context, Effect, HashMap, Metric, Option, Queue, Ref, Schema, Scope, Stream } from "effect"
 import { AnimationMixer, Clock, LoadingManager, LoopRepeat, Mesh, Scene, Texture } from "three"
 import type { Object3D, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
+import { Hook } from "../../src/system/hook.ts"
 
 declare namespace Glb {
   type Backend = typeof _Backend.Type
+  type AssetIdentity = typeof _AssetIdentity.Type
+  type AssetIdentityWire = typeof _AssetIdentity.Encoded
+  type AssetRoster = typeof _AssetRoster.Type
+  type AssetRosterWire = typeof _AssetRoster.Encoded
   type Graft = { readonly node: Object3D; readonly mixer: Option.Option<AnimationMixer> }
   type Ledger = HashMap.HashMap<ContentKey, Glb.Graft>
+  type ResidencyFact =
+    | { readonly _tag: "Arrived"; readonly arrival: GlbViewport.Arrival }
+    | { readonly _tag: "Refused"; readonly refusal: GlbFault }
   type Loop = {
     readonly advance: (delta: number) => void
-    readonly arrivals: Stream.Stream<GlbViewport.Arrival, GlbFault>
-    readonly refusals: Stream.Stream<GlbFault>
+    readonly facts: Stream.Stream<Glb.ResidencyFact, GlbFault>
+  }
+}
+
+const _AssetIdentity = Schema.Struct({
+  slug: Schema.NonEmptyString,
+  digest: Schema.NonEmptyString,
+  file: Schema.NonEmptyString,
+})
+
+const _AssetRoster = Schema.Array(_AssetIdentity).pipe(
+  Schema.filter(
+    (rows) => new Set(rows.map((row) => row.slug)).size === rows.length,
+    { identifier: "UniqueAssetSlugs" },
+  ),
+)
+
+const _asset = (roster: Glb.AssetRoster, slug: string): Effect.Effect<Glb.AssetIdentity, GlbFault> =>
+  Option.match(Option.fromNullable(roster.find((row) => row.slug === slug)), {
+    onNone: () => Effect.fail(new GlbFault({ reason: "codec-absent", mesh: slug, detail: "<asset-identity>" })),
+    onSome: Effect.succeed,
+  })
+
+const _assetPath = (asset: Glb.AssetIdentity): string => `assets/${asset.digest}/${asset.file}`
+
+declare module "../../src/system/hook.ts" {
+  interface Points {
+    readonly "rasm.ui.scene.residency": { readonly modality: "observe"; readonly payload: Glb.ResidencyFact }
   }
 }
 
@@ -224,9 +258,8 @@ const _graft = (
 ): Effect.Effect<Glb.Loop, GlbFault, Scope.Scope> =>
   Effect.gen(function* () {
     const held = yield* Ref.make(HashMap.empty<ContentKey, Glb.Graft>())
-    const refused = yield* PubSub.bounded<GlbFault>(16)
-    const [grafting, surplus] = yield* Stream.broadcast(port.arrivals, 2, 16)
-    const insert = Stream.runForEach(grafting, (arrival) =>
+    const facts = yield* Queue.bounded<Glb.ResidencyFact>(32)
+    const insert = Stream.runForEach(port.arrivals, (arrival) =>
       Effect.gen(function* () {
         const gltf = yield* Effect.tryPromise({
           try: () => loader.parseAsync(arrival.octets.buffer, ""),
@@ -243,12 +276,13 @@ const _graft = (
             )
         yield* Effect.sync(() => root.add(gltf.scene))
         yield* Ref.update(held, HashMap.set(arrival.key, { node: gltf.scene, mixer }))
-        yield* Metric.increment(_GRAFTED)
+        yield* Effect.asVoid(Effect.withMetric(Effect.succeed(1), _GRAFTED))
+        yield* Queue.offer(facts, { _tag: "Arrived", arrival } as const)
       }).pipe(
         Metric.trackErrorWith(_REFUSED, (fault: GlbFault) => fault.reason),
         Effect.withSpan("rasm.ui.scene.residency", { attributes: { "glb.bytes": arrival.octets.byteLength } }),
         Effect.annotateLogs({ mesh: `${arrival.key}` }),
-        Effect.catchAll((fault) => PubSub.publish(refused, fault)),
+        Effect.catchAll((refusal) => Queue.offer(facts, { _tag: "Refused", refusal } as const)),
       )))
     const evict = Stream.runForEach(port.ledger.changes, (rows) =>
       Effect.gen(function* () {
@@ -278,10 +312,15 @@ const _graft = (
         HashMap.forEach(Effect.runSync(Ref.get(held)), (graft) =>
           Option.map(graft.mixer, (live) => live.update(delta)))
       },
-      arrivals: surplus,
-      refusals: Stream.fromPubSub(refused),
+      facts: Stream.fromQueue(facts),
     }
   })
+
+const _residencyHook = (loop: Glb.Loop): Hook.Row<"rasm.ui.scene.residency"> => ({
+  modality: "observe",
+  depth: 32,
+  source: Option.some(loop.facts),
+})
 
 const _codecs = (taps: {
   readonly progress: (url: string, loaded: number, total: number) => void
@@ -463,7 +502,7 @@ const Instanced: Instanced.Shape = { mesh: _mesh, scene: _scene }
 ## [09]-[EMBED_ROW]
 
 [EMBED_ROW]:
-- Owner: the `model-viewer` backend row — the zero-GL-handle embed: `.src` takes a `model/gltf-binary` object URL minted over a port arrival's bytes, `camera-controls` enables orbit, and the element owns decode, upload, camera, and dispose internally; decoder statics (`dracoDecoderLocation`, `ktx2TranscoderLocation`, `meshoptDecoderLocation`) pin to self-hosted paths BEFORE the first model or the element side-loads from a foreign CDN — a CSP breach. Its animation surface is native: `play`/`pause` with `PlayAnimationOptions`, `appendAnimation` for additive blend, `availableAnimations` as the clip census — the embed arm's mirror of `[5]`'s mixer family.
+- Owner: the `model-viewer` backend row — the zero-GL-handle embed: `.src` takes a `model/gltf-binary` object URL minted over a port arrival's bytes, `camera-controls` owns orbit interaction, and the element owns decode, upload, camera, and dispose internally; decoder statics (`dracoDecoderLocation`, `ktx2TranscoderLocation`, `meshoptDecoderLocation`) resolve the matching `Glb.AssetRoster` rows BEFORE the first model or the element side-loads from a foreign CDN — a CSP breach; the statics are process-global upstream, so `Glb.pinned` is token-gated — the first roster fixes the process decoder set, an identical re-pin no-ops, and a divergent roster refuses `manifest-skew` instead of re-pointing decoders under a live element. Its animation surface is native: `play`/`pause` with `PlayAnimationOptions`, `appendAnimation` for additive blend, `availableAnimations` as the clip census — the embed arm's mirror of `[5]`'s mixer family.
 - Packages: `@google/model-viewer` (`ModelViewerElement` — the const IS the statics owner and the instance type).
 - Law: the element and the three arm share ONE physical `three` module (peer-deduped) but never a renderer, canvas, or GL context — sibling backends the backend literal selects per viewport.
 - Law: the object URL lifecycle is bracketed — `URL.createObjectURL` acquires, `URL.revokeObjectURL` releases with the viewport scope; a leaked object URL pins the blob.
@@ -472,11 +511,35 @@ const Instanced: Instanced.Shape = { mesh: _mesh, scene: _scene }
 ```typescript
 import { ModelViewerElement } from "@google/model-viewer"
 
-const _pinned: Effect.Effect<void> = Effect.sync(() => {
-  ModelViewerElement.dracoDecoderLocation = "<self-hosted>/draco/"
-  ModelViewerElement.ktx2TranscoderLocation = "<self-hosted>/basis/"
-  ModelViewerElement.meshoptDecoderLocation = "<self-hosted>/meshopt/"
-})
+// decoder statics are process-global upstream, so the pin is token-gated: the first roster fixes
+// process-wide decoder paths, an identical re-pin no-ops, and a divergent roster refuses as skew — no
+// per-roster re-point ever races a live element
+let _pin: Option.Option<{ readonly draco: string; readonly ktx2: string; readonly meshopt: string }> = Option.none()
+
+const _pinned = (roster: Glb.AssetRoster): Effect.Effect<void, GlbFault> =>
+  Effect.gen(function* () {
+    const assets = yield* Effect.all({
+      draco: _asset(roster, "draco"),
+      ktx2: _asset(roster, "ktx2"),
+      meshopt: _asset(roster, "meshopt"),
+    })
+    const paths = { draco: _assetPath(assets.draco), ktx2: _assetPath(assets.ktx2), meshopt: _assetPath(assets.meshopt) }
+    yield* Effect.suspend(() =>
+      Option.match(_pin, {
+        onNone: () =>
+          Effect.sync(() => {
+            _pin = Option.some(paths)
+            ModelViewerElement.dracoDecoderLocation = paths.draco
+            ModelViewerElement.ktx2TranscoderLocation = paths.ktx2
+            ModelViewerElement.meshoptDecoderLocation = paths.meshopt
+          }),
+        onSome: (held) =>
+          held.draco === paths.draco && held.ktx2 === paths.ktx2 && held.meshopt === paths.meshopt
+            ? Effect.void
+            : Effect.fail(new GlbFault({ reason: "manifest-skew", mesh: "<decoder-pin>", detail: "<divergent-roster>" })),
+      }),
+    )
+  })
 
 const _embed = (element: ModelViewerElement, octets: Uint8Array) =>
   Effect.acquireRelease(
@@ -491,6 +554,10 @@ const _embed = (element: ModelViewerElement, octets: Uint8Array) =>
 declare namespace Glb {
   type Shape = {
     readonly Backend: typeof _Backend
+    readonly AssetIdentity: typeof _AssetIdentity
+    readonly AssetRoster: typeof _AssetRoster
+    readonly asset: typeof _asset
+    readonly assetPath: typeof _assetPath
     readonly backends: typeof _backends
     readonly tone: typeof _TONE
     readonly output: typeof _OUTPUT
@@ -499,6 +566,7 @@ declare namespace Glb {
     readonly renderer: typeof _renderer
     readonly codecs: typeof _codecs
     readonly graft: typeof _graft
+    readonly hook: typeof _residencyHook
     readonly loop: typeof _loop
     readonly instanced: typeof _instanced
     readonly batched: typeof _batched
@@ -510,6 +578,10 @@ declare namespace Glb {
 
 const Glb: Glb.Shape = {
   Backend: _Backend,
+  AssetIdentity: _AssetIdentity,
+  AssetRoster: _AssetRoster,
+  asset: _asset,
+  assetPath: _assetPath,
   backends: _backends,
   tone: _TONE,
   output: _OUTPUT,
@@ -518,6 +590,7 @@ const Glb: Glb.Shape = {
   renderer: _renderer,
   codecs: _codecs,
   graft: _graft,
+  hook: _residencyHook,
   loop: _loop,
   instanced: _instanced,
   batched: _batched,
@@ -530,3 +603,12 @@ const Glb: Glb.Shape = {
 
 export { Glb, GlbFault, GlbViewport, Instanced, Pbr }
 ```
+
+## [10]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

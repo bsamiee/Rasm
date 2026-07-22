@@ -12,7 +12,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 
 - Owner: `ScanRegistration` — the frozen owner discriminating by `RegistrationMode` over a `RegistrationSession`; `RegistrationPolicy` is the one tuning carrier for every voxel/correspondence/Tukey/solver-gain/multiway bar including the graduation ceilings, with a derived `voxel_schedule`; `RegistrationResult` the `gc=False` receipt whose `of` factory ravels the transform once and defaults the single-pose tuple, sharing one `_from_tensor` projector across the tensor arms and conforming structurally to the `ReceiptContributor` the weave's harvest reads; `BootstrapEngine` (`KISS_MATCHER` | `OPEN3D_FGR`) the global-coarse-pose vocabulary.
 - Cases: `RegistrationMode` rows — `GLOBAL` (initialization-free coarse pose, no initial pose), `MULTISCALE` (coarse-to-fine tensor ICP, Tukey-robust point-to-plane), `COLORED_ICP` (colored point-to-plane), `VGICP` (`small-gicp` voxelized parallel fine-refinement speed path), `MULTIWAY` (N-cloud pose-graph). `GLOBAL`'s coarse pose seeds every fine mode and every multiway pairwise edge; each arm binds the engine and estimator that owns it.
-- Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span.
+- Entry: `register` admits a session and a mode and returns `RuntimeRail[RegistrationResult]`. Its weave opens the seeded span, `async_boundary` fences the offload, `_flat` absorbs the lane's already-fenced rail un-nested, and the harvest emits the conforming result once on the cleared `Ok` while an `open3d`/`kiss-matcher` raise stays an `Error(BoundaryFault)` on the live span. The kernel takes the lane conduit's pickled tap as its trailing offload arg and beats the graduation `GeometryPulse.REGISTRATION` point through `pulsed` — one solve-start beat per mode, one per multiway edge — so a `Hooks` tap streams convergence progress under the lane's lossy drop law.
 - Auto: `_engine` resolves the bootstrap backend once per worker lane — `KISS_MATCHER` when `kiss_matcher` resolves, else `OPEN3D_FGR` — and every arm (`GLOBAL`, each `MULTIWAY` edge) reuses that one decision; the tensor arms share the `_tukey` robust kernel and the `_from_tensor` projector rather than re-reading the `open3d` result per arm.
 - Receipt: emission is the weave's harvest — the conforming `RegistrationResult.contribute` streams once on the cleared `Ok`, never an inline emit or page-local `@receipted` leg. `graduates` measures two keys against two policy ceilings, `inlier_rmse` against `rmse_ceiling` and the `1 - fitness` misfit against `misfit_ceiling`, so a coarse `GLOBAL` pose minting a `0.0` placeholder RMSE cannot clear on the vacuous key alone — its inlier-ratio misfit must clear the floor too. That misfit rides the graduation owner's single `_admit` residual-over-ceiling direction, so no second admission direction is minted here.
 - Bench: `bench` rides the graduation `bench_seam` fold over the whole `register` crossing — arity re-proof, offload, solver, weave — cloud-size-parameterized: the subject keys the exact `RegistrationMode` row and the source point count as `rasm.geometry.scan.registration.<mode>.p<points>`, so a latency row compares like-for-like across scan densities; latency and throughput rows per arm, zero instrument rows, graduation's `bench_terminal` wrapping the fold in the runtime `JobRun.bounded` envelope for a process-terminal run.
@@ -25,6 +25,7 @@ Point-cloud and 3D-scan registration over an N-cloud session, not a fixed pair: 
 from enum import StrEnum
 from functools import partial
 from importlib.util import find_spec
+from queue import Queue
 from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
@@ -32,11 +33,11 @@ from expression import Error
 from expression.collections import Block
 from msgspec import Struct, field
 
-from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometrySubject, bench_seam, evidence_run
+from rasm.geometry.graduation import EvidenceScope, GeometryHandoff, GeometryPulse, GeometrySubject, PulseBeat, bench_seam, evidence_run
 from rasm.geometry.scan.ingestion import Cloud
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentKey
-from rasm.runtime.lanes import LanePolicy
+from rasm.runtime.lanes import LanePolicy, PulseFact, pulsed
 from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
@@ -236,11 +237,14 @@ def _edge(
     reg: "o3d.pipelines.registration",
     legacy: tuple["o3d.geometry.PointCloud", ...],
     i: int,
+    total: int,
     solution: RegistrationResult,
     policy: RegistrationPolicy,
+    tap: "Queue[PulseFact | None]",
 ) -> tuple["o3d.pipelines.registration.PoseGraphNode", "o3d.pipelines.registration.PoseGraphEdge"]:
     # uncertain = measured fitness vs the policy floor, never hardcoded False; the pose maps cloud(i+1)->cloud(0),
     # so the edge is source=i+1,target=0 — an (0, i+1) edge carries it inverted
+    pulsed(tap, GeometryPulse.REGISTRATION, PulseBeat(stage="edge", done=i + 1, total=total))  # per-edge convergence beat, lossy by lane law
     pose = np.reshape(np.asarray(solution.transform), (4, 4))
     fitness = reg.evaluate_registration(legacy[i + 1], legacy[0], policy.max_correspondence, pose).fitness
     node = reg.PoseGraphNode(pose)
@@ -248,14 +252,16 @@ def _edge(
     return node, edge
 
 
-def _multiway(session: RegistrationSession, policy: RegistrationPolicy) -> RegistrationResult:
+def _multiway(session: RegistrationSession, policy: RegistrationPolicy, tap: "Queue[PulseFact | None]") -> RegistrationResult:
     import open3d as o3d  # noqa: PLC0415
 
     reg = o3d.pipelines.registration
     engine = _engine()  # one engine read; every edge solves on the same bootstrap engine
     legacy = tuple(cloud.legacy() for cloud in session)  # one worker-side rebuild per cloud, reused by every edge evaluation
     # folds once into decided (node, edge) pairs; the PoseGraph bind is a pure append
-    pairs = Block.of_seq(session[1:]).mapi(lambda i, cloud: _edge(reg, legacy, i, _bootstrap(cloud, session[0], engine, policy), policy))
+    pairs = Block.of_seq(session[1:]).mapi(
+        lambda i, cloud: _edge(reg, legacy, i, len(session) - 1, _bootstrap(cloud, session[0], engine, policy), policy, tap)
+    )
     graph = reg.PoseGraph()
     graph.nodes.append(reg.PoseGraphNode(np.eye(4)))
     for node, edge in pairs:
@@ -286,12 +292,15 @@ def _multiway(session: RegistrationSession, policy: RegistrationPolicy) -> Regis
     )
 
 
-def _register_kernel(session: RegistrationSession, mode: RegistrationMode, policy: RegistrationPolicy) -> RegistrationResult:
+def _register_kernel(
+    session: RegistrationSession, mode: RegistrationMode, policy: RegistrationPolicy, tap: "Queue[PulseFact | None]"
+) -> RegistrationResult:
     # module-level HOSTILE kernel: Cloud carriers cross the process seam as arrays, each arm re-inflates the o3d form
     # its solver needs, and a raise converts through the lane's async_boundary onto the rail
     import open3d as o3d  # noqa: PLC0415
 
     source, target = session[0], session[1]
+    pulsed(tap, GeometryPulse.REGISTRATION, PulseBeat(stage=f"solve.{mode.value}", done=0, total=1))  # solve-start beat before the native arm
     reg_t = o3d.t.pipelines.registration
     match mode:
         case RegistrationMode.VGICP:
@@ -333,7 +342,7 @@ def _register_kernel(session: RegistrationSession, mode: RegistrationMode, polic
         case RegistrationMode.GLOBAL:
             return _bootstrap(source, target, _engine(), policy)
         case RegistrationMode.MULTIWAY:
-            return _multiway(session, policy)
+            return _multiway(session, policy, tap)
         case unreachable:
             assert_never(unreachable)
 
@@ -352,12 +361,13 @@ class ScanRegistration(Struct, frozen=True):
             # instead of an unwitnessed early return or a worker-side IndexError.
             if len(session) < 2:
                 return Error(BoundaryFault(config=(f"scan.registration.{mode}", f"session-arity:{len(session)}<2")))
-            # HOSTILE is the declared trait because the compiled registration band imports under no isolated subinterpreter
-            return await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy)
+            # HOSTILE is the declared trait because the compiled registration band imports under no isolated subinterpreter;
+            # the trailing tap is the lane conduit's pickled proxy the kernel's pulse beats write through.
+            return await self.lane.offload(Kernel.of(_register_kernel, KernelTrait.HOSTILE), session, mode, self.policy, self.lane.pulses.tap)
 
         return await evidence_run(EvidenceScope.SCAN_REGISTRATION, f"register.{mode}", dispatch)
 
-    def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> Block[BenchmarkReceipt]:
+    def bench(self, session: RegistrationSession, mode: RegistrationMode, *, rounds: int = 32, warmup: int = 4) -> BenchmarkReceipt:
         # cloud-size-parameterized macro-bench: the subject keys the exact mode row and the source point count, so
         # a latency row compares like-for-like across scan densities; each round drives the whole register crossing
         # — arity re-proof, offload, solver, weave — never an in-kernel probe (the pulse boundary).

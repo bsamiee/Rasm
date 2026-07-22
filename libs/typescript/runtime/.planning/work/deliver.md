@@ -180,16 +180,32 @@ const _mailReceipt = (info: SMTPPool.SentMessageInfo, at: DateTime.Utc): Effect.
 - Owner: `Hook` — signed webhook egress under byte identity: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
 - Law: the HTTP leg is the branch client — `Client` default-policy rows own timeout, retry pacing, and proxy; this row adds only the signed request construction and the settlement fold: 2xx settles to `Receipt`, 410 folds `bounced` (the endpoint is gone — suppression consumes it), 429/5xx fold `dial` (the lease redelivers), a client timeout folds `timeout`.
 - Law: endpoint secrets are per-destination `Redacted` material resolved through `Hook.Secret` by the payload's non-secret `keyRef`; raw key bytes never enter the persisted outbox body, a receipt, or a fault. Security composition supplies the resolver and rotates the material behind a stable reference without rewriting queued work.
-- Boundary: the inbound half — verifying a foreign webhook, resolving a `flow#SIGNAL_GATE` token from a verified callback — is the serving plane's mount; this row is egress only.
+- Boundary: envelope construction is upstream payload admission — `HookPayload.body` and `headers` preserve the admitted bytes and band unchanged; this row signs and transmits them and does not invent an envelope dialect. Framing (`content-type`, `content-length`, `transfer-encoding`) and the signature triple are reserved names the header-band admission refuses, so `payload.media` alone mints the outbound content type and a caller cannot smuggle contradictory framing beside it.
 - Growth: a signing-scheme revision is a new version prefix beside `v1` in the same header; a destination policy axis (mTLS, custom header band) is a field on the destination row.
 - Packages: `@effect/platform` (`HttpClientRequest`, `HttpBody`); `@rasm/ts/security` (`Crypto`); `../net/client.ts` (`Client`).
 
 ```typescript
+// single-sourced framing: media alone mints the content type, the signer alone mints the triple —
+// a caller band re-spelling either refuses at the admission filter
+const _RESERVED: ReadonlyArray<string> = [
+  "content-type", "content-length", "transfer-encoding",
+  "webhook-id", "webhook-timestamp", "webhook-signature",
+]
+
 const HookPayload = Schema.Struct({
   tenant: Schema.NonEmptyString,
   destination: Schema.URL,
   deliverable: Schema.NonEmptyString,
   body: Schema.Uint8ArrayFromSelf,
+  media: Schema.NonEmptyString,
+  headers: Schema.optionalWith(
+    Schema.Record({ key: Schema.String, value: Schema.String }).pipe(
+      Schema.filter((band) => Object.keys(band).every((name) => !_RESERVED.includes(name.toLowerCase())), {
+        message: () => "framing and signature headers are reserved — media mints the content type, the signer mints the triple",
+      }),
+    ),
+    { default: () => ({}) },
+  ),
   keyRef: Schema.NonEmptyString,
   weight: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
@@ -223,11 +239,12 @@ const _hook = (payload: typeof HookPayload.Type) =>
       "batch",
       HttpClientRequest.post(payload.destination.toString()).pipe(
         HttpClientRequest.setHeaders({
+          ...payload.headers,
           "webhook-id": payload.deliverable,
           "webhook-timestamp": stamp,
           "webhook-signature": `v1,${signed}`,
         }),
-        HttpClientRequest.setBody(HttpBody.uint8Array(payload.body, "application/json")),
+        HttpClientRequest.setBody(HttpBody.uint8Array(payload.body, payload.media)),
       ),
     ).pipe(
       Effect.scoped,
@@ -468,3 +485,7 @@ const Hook = { Secret: _HookSecret, transmit: _hook, payload: HookPayload }
 
 export { Deliver, DeliverFault, Hook, Mailer, Receipt, Relay }
 ```
+
+## [07]-[RESEARCH]
+
+- [CLOUDEVENTS_EGRESS]-[BLOCKED]: which exact CloudEvents constructor and HTTP binary/structured declarations preserve structured content type, binary data bytes, and W3C extension attributes before `HookPayload` signs the resulting bytes; route first through `libs/typescript/runtime/.api/cloudevents.md`, then `libs/typescript/core/.api/cloudevents.md`; arm only when either catalog carries exact rows for every composed member.

@@ -199,6 +199,20 @@ class TessellationReceipt(Struct, frozen=True):
     semantic_header: Packed = msgspec.field(default_factory=dict)
     artifact_hash: str = ""
     replay_phase: str = ""
+
+
+class SupportBundleRequest(Struct, frozen=True):
+    # diagnostic-capsule pull: an empty roster selects every collector, a named roster bounds the capture to the rows.
+    collectors: tuple[str, ...] = ()
+
+
+class SupportBundleReply(Struct, frozen=True):
+    # Capsule bytes cross as one zstd-compressed archive beside their content key; rosters witness what a capture
+    # collected and what its gates or fences skipped, so an operator reads coverage without opening the archive.
+    content_key: str = ""
+    archive: bytes = b""
+    collected: tuple[str, ...] = ()
+    skipped: tuple[str, ...] = ()
 ```
 
 ## [03]-[REGISTRY_AND_DRIFT]
@@ -299,5 +313,7 @@ def aligned() -> RuntimeRail[int]:
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
 -->
+
+BUNDLE_PROTO-[BLOCKED]: Which generated messages bind `SupportBundleRequest` and `SupportBundleReply` onto the standing diagnostic RPC? Mint both messages and `CaptureBundle` at `libs/csharp/Rasm.Compute/.planning/Runtime/wire.md`, regenerate `rasm.runtime._pb2.channels_pb2`, then restore the two `PROTO_VOCABULARY` rows here.
 
 (none)

@@ -528,3 +528,12 @@ One owner per axis; capability is a case, row, or member on the owning carrier, 
 - [02]-[COEFFICIENT_CARRIER]: order-condition-validated record + `ButcherMomentReceipt` `ValidityClaim.All` receipt.
 - [03]-[CONTINUOUS_EXTENSION]: exact-rational tables + moment-fit fallback via `matrix.md`; carriers `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput`.
 - [04]-[STEP_ALGEBRA]: carrier-generic policy records + `[Union]` stepper — `IntegrationModule<TState,TDelta>` (THE `Combine`) with `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan`.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

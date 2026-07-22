@@ -1,12 +1,12 @@
 # [APPHOST_REASONING_RUNTIME]
 
-The in-process reasoning surface for the runtime spine — the third agent front door beside the MCP server projection at `Agent/mcp.md` and the MCP client federation at `Agent/federation.md`: the host runs its own `IChatClient` tool-calling loop over its own capabilities with no external orchestrator. A `ReasoningSession` drives `IChatClient.GetStreamingResponseAsync` whose `ChatOptions.Tools` are the SAME brokered `CommandAIFunction` instances `Agent/mcp#METHOD_AXIS` mints — one tool-adoption seam, two front doors, never a second tool projection — so every model-invoked tool call routes through `CommandAlgebra.Run`, the `GrantBroker`, and the cost preview exactly as an operator or MCP tool call does. A `SemanticDiscovery` fold embeds each `CapabilityDescriptor` op surface through `IEmbeddingGenerator` and ranks by cosine similarity, adding `DiscoveryQuery.ByIntent(string)` as one new case on the `Agent/capability#DISCOVERY_FOLD` `[Union]` so an agent resolves intent to a capability by meaning rather than exact id and the flat lookup gains an intent-ranked path. The function-invocation transcript projects to `CommandReceipt` rows the `Runtime/determinism#EVENT_LOG` chains and the `#MACRO_ENGINE` records, so an agent reasoning run is a replayable, grant-metered, cost-bounded, content-addressed command sequence, never an opaque LLM call. One `ModelGovernance` middleware fold composes the `Microsoft.Extensions.AI` `ChatClientBuilder` decorators — `UseFunctionInvocation`/`UseDistributedCache`/`UseOpenTelemetry` — into the single model-governance owner: every model draw is metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the `Runtime/resources#CACHE_PORT` `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`, so a recorded reasoning turn replays from cache bit-identically and the in-process loop and the MCP server-sampling leg share one governance pipeline. The page owns the reasoning loop, the embedding-ranked intent discovery and its new query case, the replayable transcript, the model-governance middleware fold, and the feature-gated modal-input row; it consumes `CapabilityRegistry`/`DiscoveryQuery`/`CapabilityDescriptor`, `CommandAIFunction`/`McpRuntime`, `CommandAlgebra`/`CommandReceipt`, `GrantBroker`/`CostVector`/`CostUnit`, `EventLog`/`MacroEngine`/`DeterminismContext`, `CacheLane`/`HybridCache`, `TenantContext`, `ClockPolicy`, and `ReceiptSinkPort` as settled vocabulary and mints no eighth port.
+Rasm.AppHost owns the in-process reasoning front door beside MCP server projection and client federation. `ReasoningSession` drives `IChatClient.GetStreamingResponseAsync` with the same brokered `CommandAIFunction` instances `Agent/mcp#METHOD_AXIS` mints, so model-invoked tools route through `CommandAlgebra.Run` and `GrantBroker`. `SemanticDiscovery` embeds each `CapabilityDescriptor` surface and ranks it by cosine similarity through `DiscoveryQuery.ByIntent`. Function transcripts retain exact `CommandReceipt` values only when `FunctionResultContent.Result` carries them; a `ToolResult` never inflates into a fabricated commit. `ModelGovernance` composes `UseFunctionInvocation`, `UseDistributedCache`, and `UseOpenTelemetry` into one draw owner, while the completed `ReasoningTranscript` rides the receipt sink under `InstrumentFan.ModelKind`.
 
 ## [01]-[INDEX]
 
 - [01]-[REASONING_LOOP]: `ReasoningSession` over `IChatClient` streaming; `ChatOptions.Tools` is the brokered `CommandAIFunction`.
 - [02]-[SEMANTIC_DISCOVERY]: `IEmbeddingGenerator` cosine fold; the `DiscoveryQuery.ByIntent` case over the registry.
-- [03]-[REPLAYABLE_TRANSCRIPT]: Function-invocation transcript to `CommandReceipt` rows the `EventLog` chains and `MacroEngine` records.
+- [03]-[REPLAYABLE_TRANSCRIPT]: Exact function-result receipts chain into `EventLog`; absent joins remain explicit.
 - [04]-[MODEL_GOVERNANCE]: One middleware fold: model-selection routing, content-filter guardrail, token-to-cost-to-ledger, cached-response replay, and two model front doors.
 - [05]-[MODAL_INPUT]: Gated `ModalClient` `[Union]` reading the same descriptor catalog.
 - [06]-[TS_PROJECTION]: Reasoning-session, transcript, and intent-match wire shapes the dashboard consumes.
@@ -14,10 +14,10 @@ The in-process reasoning surface for the runtime spine — the third agent front
 ## [02]-[REASONING_LOOP]
 
 - Owner: `ReasoningPolicy` the per-session loop-bound and tool-mode record; `ReasoningTurn` `[Union]` the streamed-turn disposition; `ReasoningSession` the static in-process agent-loop surface over `IChatClient.GetStreamingResponseAsync`.
-- Cases: `ReasoningTurn` = Thinking | ToolCalled | Message | Completed | Faulted — the disposition a streamed reasoning turn folds to as the chat client surfaces text, reasoning content, function calls, and the finish reason.
+- Cases: `ReasoningTurn` = Thinking | ToolCalled | Message | Completed | Faulted — the disposition a streamed reasoning turn folds to as the chat client surfaces text, reasoning content, function calls, and the finish reason; `ToolCalled` carries the call id, descriptor, canonical argument element, and exact optional command receipt as one identity row.
 - Entry: `Reason(ReasoningRuntime runtime, ReasoningPolicy policy, Seq<ChatMessage> conversation)` returns `IO<ReasoningTranscript>` — the loop streams `IChatClient.GetStreamingResponseAsync` with `ChatOptions.Tools` set to the brokered `CommandAIFunction` set, accumulates the `ChatResponseUpdate` stream into one `ChatResponse`, records each `FunctionCallContent`/`FunctionResultContent` pair as a transcript row, and terminates on the `ChatFinishReason` with the projected `ReasoningTranscript`.
 - Auto: the `ChatOptions.Tools` list is the exact brokered `CommandAIFunction` set the `Agent/mcp#METHOD_AXIS` `ToolProjection.Adopt` mints — the loop reuses the one tool-adoption seam and never news up a second projection, so a model tool call and an MCP tool call route through the identical brokered invoker over `CommandAlgebra.Run`; the function-invocation iteration is the `MODEL_GOVERNANCE` `FunctionInvokingChatClient` decorator, not a hand-rolled call-and-feed loop — `ReasoningSession` supplies the tool set and the conversation, the decorator runs the tool-call cycle, and the session folds the resulting stream into turns; `ChatOptions.ToolMode` is the policy's `AutoChatToolMode`/`RequiredChatToolMode`/`NoneChatToolMode` row so a session forces, permits, or forbids tool use without a parallel flag; the streaming accumulation uses the `ChatResponseUpdate` stream so a long reasoning turn surfaces incrementally and the host fans interim `Thinking`/`Message` turns to the session reporter exactly as `STREAM_PROGRESS` fans MCP progress; `ChatOptions.Seed` binds to the `DeterminismContext` RNG seed so a recorded reasoning turn replays under the same sampling seed, and `MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest` trace to the policy's `DeadlineClass`-derived loop bound, never a literal.
-- Receipt: each completed reasoning run mints one `ReasoningTranscript` (REPLAYABLE_TRANSCRIPT) whose rows are the `CommandReceipt`s the tool calls minted, fanned under `InstrumentFan.ModelKind` so the GenAI token and duration instruments project off the one reasoning envelope; the per-turn fan is the streamed turn itself, not a separate receipt; the session-open transition logs through one `SpineLog` event in the 1000-1099 EVENT stride (`FaultBand.SpineEvents`).
+- Receipt: each completed reasoning run mints one `ReasoningTranscript` fanned under `InstrumentFan.ModelKind`; a tool-call row carries `Some(CommandReceipt)` only when the function result exposes the exact minted receipt, otherwise `None`; the per-turn fan is the streamed turn itself, not a separate receipt.
 - Packages: Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one turn disposition is one `ReasoningTurn` case breaking every fold arm; a new loop-policy column is one field on `ReasoningPolicy`; a new tool front door is the SAME `CommandAIFunction` set adopted by a new caller, never a new projection; zero new surface.
 - Boundary: the reasoning loop is the in-process model-driven command owner — it never executes an op itself, it routes every tool call through the brokered `CommandAIFunction` onto the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the loop is the model-driven dispatch over them; a tool set divorced from the `Agent/mcp#METHOD_AXIS` adoption seam is the deleted form, so the in-process loop and the MCP server share one tool catalog; the `IChatClient` the loop drives is the `MODEL_GOVERNANCE`-wrapped client, never a raw provider client, so an unmetered un-ledgered model draw cannot reach the loop; the loop owns the turn vocabulary and the session-scoped conversation buffer, while `MODEL_GOVERNANCE` owns the metering, caching, tracing, and content-addressing — the two never merge, so the loop stays the orchestration and the middleware stays the policy; a model call that bypasses the function-invocation decorator to invoke a tool directly is the deleted form, because the decorator is the one seam where `ChatOptions.Tools` becomes executed calls.
@@ -48,9 +48,9 @@ public sealed record ReasoningPolicy(
 public abstract partial record ReasoningTurn {
     private ReasoningTurn() { }
     public sealed record Thinking(string Reasoning) : ReasoningTurn;
-    public sealed record ToolCalled(string CallId, string Tool, CommandReceipt Receipt) : ReasoningTurn;
+    public sealed record ToolCalled(string CallId, string Descriptor, JsonElement Arguments, Option<CommandReceipt> Receipt) : ReasoningTurn;
     public sealed record Message(string Text) : ReasoningTurn;
-    public sealed record Completed(ChatFinishReason Reason, UsageDetails Usage) : ReasoningTurn;
+    public sealed record Completed(Option<ChatFinishReason> Reason, Option<UsageDetails> Usage) : ReasoningTurn;
     public sealed record Faulted(string Detail) : ReasoningTurn;
 }
 
@@ -71,24 +71,21 @@ public static class ReasoningSession {
         from started in IO.lift(() => runtime.Clocks.Now)
         from response in IO.liftAsync(async () => await Accumulate(runtime.Chat, conversation, policy.Options(tools)))
         from elapsed in IO.lift(() => runtime.Clocks.Now - started)
-        let rows = TranscriptRows(response)
-        from transcript in IO.lift(() => ReasoningTranscript.Of(response, rows, started, elapsed))
+        let rows = TranscriptRows(response, runtime.Wire)
+        from transcript in IO.lift(() => ReasoningTranscript.Of(response, rows, started, elapsed, runtime.Wire))
         from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost.Key, InstrumentFan.ModelKind, JsonSerializer.SerializeToElement(transcript, runtime.Wire))
         select transcript;
 
+    // ONE tool-adoption seam, in-process front door: the loop consumes McpAdoptedTool.Function —
+    // the SAME caller-neutral brokered CommandAIFunction (ApprovalRequiredAIFunction-wrapped on an
+    // irreversible effect) the MCP server registers through ServerTool — so neither consumer
+    // reconstructs the function surface and tenant/correlation resolve per invocation inside the
+    // one invoker. A local re-construction of the function pair is the deleted form.
     static Seq<AITool> AdoptedTools(ReasoningRuntime runtime) =>
-        ToolProjection.Project(runtime.Tools.Registry, runtime.Level(), runtime.Tools.SchemaOf, ReceiptSchema(runtime)).Tools
-            .Map(tool => Function(runtime.Tools, tool, runtime.Wire));
-
-    // The ONE tool-adoption seam, in-process front door: the SAME CommandAIFunction the MCP
-    // server adopts at Agent/mcp#METHOD_AXIS, wrapped in ApprovalRequiredAIFunction
-    // on an irreversible effect, but bound straight onto ChatOptions.Tools rather than through
-    // McpServerTool.Create — the chat loop drives the AIFunction directly, the server registers
-    // the same instance. A second tool projection is the deleted form.
-    static AITool Function(McpRuntime runtime, McpTool tool, JsonSerializerOptions wire) =>
-        new CommandAIFunction(runtime, tool, TenantContext.Current, Correlation.Mint(), wire) is var fn && tool.Irreversible
-            ? new ApprovalRequiredAIFunction(fn)
-            : fn;
+        ToolProjection.Adopt(
+            runtime.Tools,
+            ToolProjection.Project(runtime.Tools.Registry, runtime.Level(), runtime.Tools.SchemaOf, ReceiptSchema(runtime)))
+            .Map(static adopted => (AITool)adopted.Function);
 
     static async Task<ChatResponse> Accumulate(IChatClient chat, Seq<ChatMessage> conversation, ChatOptions options) {
         var updates = new List<ChatResponseUpdate>();
@@ -97,27 +94,31 @@ public static class ReasoningSession {
         return updates.ToChatResponse();
     }
 
-    static Seq<ReasoningTurn> TranscriptRows(ChatResponse response) =>
-        response.Messages.AsIterable()
-            .Bind(static message => message.Contents.AsIterable())
-            .Choose(static content => Row(content))
-            .ToSeq();
+    static Seq<ReasoningTurn> TranscriptRows(ChatResponse response, JsonSerializerOptions wire) {
+        var contents = response.Messages.AsIterable().Bind(static message => message.Contents.AsIterable()).ToSeq();
+        var results = contents.OfType<FunctionResultContent>()
+            .ToFrozenDictionary(static result => result.CallId, StringComparer.Ordinal);
+        return contents.Choose(content => Row(content, results, wire)).ToSeq()
+            .Add(new ReasoningTurn.Completed(Optional(response.FinishReason), Optional(response.Usage)));
+    }
 
-    static Option<ReasoningTurn> Row(AIContent content) => content switch {
+    static Option<ReasoningTurn> Row(
+        AIContent content,
+        FrozenDictionary<string, FunctionResultContent> results,
+        JsonSerializerOptions wire) => content switch {
         TextReasoningContent reasoning => Some<ReasoningTurn>(new ReasoningTurn.Thinking(reasoning.Text)),
         TextContent text => Some<ReasoningTurn>(new ReasoningTurn.Message(text.Text)),
-        FunctionResultContent result => Some<ReasoningTurn>(
-            new ReasoningTurn.ToolCalled(result.CallId, FunctionName(result), ReceiptOf(result))),
+        FunctionCallContent call => Some<ReasoningTurn>(new ReasoningTurn.ToolCalled(
+            call.CallId,
+            call.Name,
+            JsonSerializer.SerializeToElement(call.Arguments, wire),
+            results.TryGetValue(call.CallId, out var result) ? ReceiptOf(result) : None)),
+        FunctionResultContent => None,
         _ => None,
     };
 
-    static string FunctionName(FunctionResultContent result) =>
-        result.RawRepresentation is FunctionCallContent call ? call.Name : result.CallId;
-
-    static CommandReceipt ReceiptOf(FunctionResultContent result) =>
-        result.Result is ToolResult tool && tool.Content.HeadOrNone().IsSome
-            ? new CommandReceipt(tool.Tool, new CommandTxn.Committed(SelectionReceipt.None), CostVector.Zero, None, Duration.Zero, tool.Correlation, TenantContext.Current, default)
-            : new CommandReceipt("unknown", new CommandTxn.Refused(new CommandFault.Text("non-tool-result")), CostVector.Zero, None, Duration.Zero, Correlation.Mint(), TenantContext.Current, default);
+    static Option<CommandReceipt> ReceiptOf(FunctionResultContent result) =>
+        result.Result is CommandReceipt receipt ? Some(receipt) : None;
 
     static JsonNode ReceiptSchema(ReasoningRuntime runtime) =>
         JsonNode.Parse(SuiteContracts.Schema<CommandReceipt>(runtime.Wire).GetRawText())!;
@@ -129,11 +130,11 @@ public static class ReasoningSession {
 - Owner: `IntentMatch` the ranked descriptor-to-intent projection; `EmbeddingIndex` the frozen descriptor-embedding cell; `SemanticDiscovery` the static embedding-rank fold; the new `DiscoveryQuery.ByIntent(string)` case extending `Agent/capability#DISCOVERY_FOLD`.
 - Cases: `DiscoveryQuery` gains one case — `ByIntent(string Intent)` — alongside the settled `ById`/`BySurface`/`ByEffect`/`Permitting`/`All`, so the `Discover` switch is a total dispatch the new case breaks at compile time on every consumer arm; the registry's `Discover` fold gains the `byIntent` arm reading the embedding index.
 - Entry: `Index(CapabilityRegistry registry, IEmbeddingGenerator<string, Embedding<float>> embedder)` returns `IO<EmbeddingIndex>` — embeds each descriptor's op-surface text into one frozen `Embedding<float>` per descriptor id at composition; `Rank(EmbeddingIndex index, IEmbeddingGenerator<string, Embedding<float>> embedder, string intent, int top)` returns `IO<Seq<IntentMatch>>` — embeds the intent string and ranks descriptors by cosine similarity over the frozen index, returning the top matches.
-- Auto: the embedding index is a FROZEN projection over the registry built once at composition — `Index` folds `DiscoveryQuery.All` into the descriptor rows, embeds each row's `{surface}.{op}` text plus its effect/idempotency keys through one batched `IEmbeddingGenerator.GenerateAsync`, and freezes the result into a `FrozenDictionary<string, ReadOnlyMemory<float>>`, so discovery is a read-only vector lookup, never a runtime mutation, mirroring the `CapabilityRegistry` composition-freeze law; the cosine rank is `TensorPrimitives.CosineSimilarity` over the `Embedding<float>.Vector` span so the similarity computation rides the BCL numerics primitive, never a hand-rolled dot-product loop; `ByIntent` folds `Rank` to its top descriptors and projects them through the same `DiscoveryResult` projection the other query cases produce so an intent query and an id query return the identical result shape; the embedder is the `MODEL_GOVERNANCE`-wrapped `IEmbeddingGenerator` (`UseDistributedCache`/`UseOpenTelemetry` on the embedding builder) so an intent embedding is content-cached and an identical intent re-resolves from the cache without a fresh embedding draw.
+- Auto: the embedding index is a FROZEN projection over the registry built once at composition — `Index` folds `DiscoveryQuery.All` into the descriptor rows, embeds each row's `{surface}.{op}` text and its effect/idempotency keys through one batched `IEmbeddingGenerator.GenerateAsync`, and freezes the result into a `FrozenDictionary<string, ReadOnlyMemory<float>>`, so discovery is a read-only vector lookup, never a runtime mutation, mirroring the `CapabilityRegistry` composition-freeze law; the cosine rank is `TensorPrimitives.CosineSimilarity` over the `Embedding<float>.Vector` span so the similarity computation rides the BCL numerics primitive, never a hand-rolled dot-product loop; `ByIntent` folds `Rank` to its top descriptors and projects them through the same `DiscoveryResult` projection the other query cases produce so an intent query and an id query return the identical result shape; the embedder is the `MODEL_GOVERNANCE`-wrapped `IEmbeddingGenerator` (`UseDistributedCache`/`UseOpenTelemetry` on the embedding builder) so an intent embedding is content-cached and an identical intent re-resolves from the cache without a fresh embedding draw.
 - Receipt: `IntentMatch` carries the descriptor id, the cosine score, and the projected `DiscoveryResult`; the index build logs one `SpineLog` event; no parallel discovery receipt.
 - Packages: Microsoft.Extensions.AI.Abstractions, LanguageExt.Core, Thinktecture.Runtime.Extensions, System.Numerics.Tensors, BCL inbox
 - Growth: the `ByIntent` case is one `DiscoveryQuery` row breaking every consumer; a new ranking signal is one column on `IntentMatch`; a new embedding model is one `IEmbeddingGenerator` injection, never a second index; zero new surface.
-- Boundary: the semantic discovery is the only intent-resolution owner — a keyword-match heuristic, a hand-tuned synonym table, and a per-op intent annotation are the deleted forms, so an agent resolving "compute the union of these meshes" to `TensorOpFamily.boolean-union` reads the one embedding rank; the `ByIntent` case extends the `Agent/capability#DISCOVERY_FOLD` `[Union]` rather than adding a parallel discovery surface, so the registry's `Discover` stays the single discovery entrypoint and the intent path is one fold arm; the embedding index is frozen at composition so a descriptor added after freeze is invisible to intent resolution until re-index, the same read-only-after-freeze contract the registry carries — a runtime descriptor-embedding mutation is the deleted form; the cosine rank is a similarity heuristic, not a guarantee, so an intent below the policy floor returns no match and the agent falls back to the exact-id path rather than dispatching a wrong tool; the embedded text is the op surface's self-description (`{surface}.{op}` plus effect/classification), never the op's body or arguments, so the index is metadata-only and an op's payload never leaks into an embedding.
+- Boundary: the semantic discovery is the only intent-resolution owner — a keyword-match heuristic, a hand-tuned synonym table, and a per-op intent annotation are the deleted forms, so an agent resolving "compute the union of these meshes" to `TensorOpFamily.boolean-union` reads the one embedding rank; the `ByIntent` case extends the `Agent/capability#DISCOVERY_FOLD` `[Union]` rather than adding a parallel discovery surface, so the registry's `Discover` stays the single discovery entrypoint and the intent path is one fold arm; the embedding index is frozen at composition so a descriptor added after freeze is invisible to intent resolution until re-index, the same read-only-after-freeze contract the registry carries — a runtime descriptor-embedding mutation is the deleted form; the cosine rank is a similarity heuristic, not a guarantee, so an intent below the policy floor returns no match and the agent falls back to the exact-id path rather than dispatching a wrong tool; the embedded text is the op surface's self-description (`{surface}.{op}` and effect/classification), never the op's body or arguments, so the index is metadata-only and an op's payload never leaks into an embedding.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -190,13 +191,13 @@ public static class SemanticDiscovery {
 
 ## [04]-[REPLAYABLE_TRANSCRIPT]
 
-- Owner: `ReasoningTranscript` the function-invocation transcript record; `TranscriptDigest` the content-address of the whole reasoning turn; `TranscriptProjection` the static transcript-to-`CommandReceipt`-and-`LogEntry` fold over the `Runtime/determinism#EVENT_LOG` chain and the `#MACRO_ENGINE`.
-- Entry: `Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context)` returns `IO<(EventLog.Chain Chain, Seq<LogEntry> Entries)>` — folds each transcript tool-call row's `CommandReceipt` into the event-log chain through `EventLog.Append` so the reasoning turn's command sequence becomes a content-addressed, hash-chained log slice; `AsMacro(string macroId, Seq<LogEntry> entries, Seq<MacroParameter> parameters)` returns `Macro` — records the chained transcript slice as a reusable parameterized macro through `MacroEngine`-equivalent `Macro.Record`.
-- Auto: the transcript's tool-call rows ARE the `CommandReceipt`s the brokered `CommandAIFunction` minted through `CommandAlgebra.Run`, so the transcript is a slice of the command-execution stream, never a separate recording format — each `ReasoningTurn.ToolCalled` carries the `CommandReceipt` the EVENT_LOG already knows how to chain; `Chain` folds those receipts through `EventLog.Append(chain, receipt, context, physical, logical)` so a reasoning turn's commands chain into the SAME hash-chained content-addressed log a live command chains into, and the chain's tamper-evidence proves the reasoning trace is unaltered; the transcript digest composes the kernel `ContentHash.Of` over the ordered tool-call content hashes plus the model response digest so an identical reasoning turn under an identical determinism context produces an identical transcript digest — the replay-skip and dedup key, one federation-wide content-identity algorithm; `AsMacro` records the chained log slice through `Macro.Record` so a reasoning run becomes a reusable parameterized workflow the `MacroEngine.Play` replays as an all-or-nothing batch, turning a one-off agent session into a callable operation; the model response itself content-addresses into the EVENT_LOG as one `LogEntry` (descriptor `agent.reasoning`, arguments digest = the conversation digest, determinism digest = the context fingerprint) so the model draw is on the chain beside its tool calls and `MODEL_GOVERNANCE` replays it from the `HybridCache` content key.
-- Receipt: each chained tool-call row is one `LogEntry` on the event-log chain; the model response is one `LogEntry`; the whole turn is one `ReasoningTranscript` carrying its `TranscriptDigest`; the chain advance is the EVENT_LOG's own evidence, never a parallel transcript receipt.
+- Owner: `ReasoningTranscript` the function-invocation transcript record; `TranscriptDigest` the content-address of the whole reasoning turn; `TranscriptProjection` the exact-receipt-to-`LogEntry` fold over `Runtime/determinism#EVENT_LOG` and `#MACRO_ENGINE`.
+- Entry: `Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context)` returns `IO<(EventLog.Chain Chain, Seq<LogEntry> Entries, Seq<string> Missing)>` — folds each exact tool-call `CommandReceipt` into the event-log chain through `EventLog.Append` and carries the receiptless call ids beside the projected entries, so the chained slice and its completeness gap travel as one product; `AsMacro(string macroId, ReasoningTranscript transcript, Seq<LogEntry> entries, Seq<MacroParameter> parameters)` returns `Fin<Macro>` — records the chained slice through `Macro.Record` only when `transcript.MissingReceipts` is empty, refusing an incomplete transcript with the typed `CommandFault.MacroIncomplete` naming every receiptless call.
+- Auto: each `ReasoningTurn.ToolCalled` carries `Some(CommandReceipt)` only when `FunctionResultContent.Result` exposes the exact value; `ToolResult`, null, and foreign results carry `None`, so projection never invents transaction, cost, dispatch, elapsed, tenant, or instant fields; `Chain` folds only exact receipts through `EventLog.Append` while `Missing` names each call whose receipt never joined; the transcript digest composes kernel `ContentHash.Of` over ordered call identities and the model response digest; `AsMacro` gates on `ReasoningTranscript.MissingReceipts` before `Macro.Record` runs, so completeness is a structural refusal, never prose; the reasoning transcript itself rides the receipt sink and never masquerades as a model `CommandReceipt`.
+- Receipt: each exact tool-call receipt becomes one `LogEntry`; the whole turn remains one `ReasoningTranscript` carrying its `TranscriptDigest`; absent receipt joins produce no fabricated log entry.
 - Packages: System.IO.Hashing, LanguageExt.Core, NodaTime, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one transcript column is one field on `ReasoningTranscript`; a new macro substitution point is one `MacroParameter` row on the recorded slice; a new digest input is one component on the kernel `ContentHash.Of` canonical bytes; zero new surface.
-- Boundary: the transcript is the only reasoning-replay owner — an opaque LLM-call log, a free-text reasoning dump, and a separate agent-trace store are the deleted forms, so an agent reasoning run is a replayable command sequence the EVENT_LOG chains and the `REPLAY_VERIFY` rail proves bit-identical; the transcript rides the determinism kernel's owners (`EventLog`/`Macro`/`ContentHash`) so the reasoning trace and the command log are one stream, never a second event-sourcing truth — a reasoning turn's commands chain into the same `OpLog` changefeed a live command chains into; the macro projection reuses `Macro.Record`/`MacroEngine.Play` so a recorded reasoning run gains no privileged execution — it replays through the command algebra's brokered, grant-metered batch exactly as a hand-recorded macro does; the transcript digest is the bit-identity key so a replayed reasoning turn under the same context and the same cached model response reproduces the identical command sequence, and a divergent digest names the turn as non-reproducible; the model response `LogEntry` is content-addressed by the response digest so an identical prompt-under-context replays the SAME response from cache, making the model draw deterministic on replay — a fresh non-deterministic draw on replay is the deleted form.
+- Boundary: transcript projection never creates evidence absent from the function result; exact command receipts ride the existing event-log chain, while missing joins remain explicit and block macro completeness; `Macro.Record`/`MacroEngine.Play` reuse the command algebra for every captured receipt; `TranscriptDigest` addresses the observed response and call identities but makes no bit-identical model-replay claim beyond the cache owner's guarantee.
 
 ```csharp signature
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -210,10 +211,15 @@ public sealed record ReasoningTranscript(
     long OutputTokens,
     Instant Started,
     Duration Elapsed) {
-    public static ReasoningTranscript Of(ChatResponse response, Seq<ReasoningTurn> turns, Instant started, Duration elapsed) {
+    public static ReasoningTranscript Of(
+        ChatResponse response,
+        Seq<ReasoningTurn> turns,
+        Instant started,
+        Duration elapsed,
+        JsonSerializerOptions wire) {
         var responseDigest = ContentHash.Of(
             Encoding.UTF8.GetBytes(string.Join("\n", response.Messages.AsIterable().Map(static m => m.Text)))).ToString("x32");
-        var digest = TranscriptDigest.Of(turns, responseDigest);
+        var digest = TranscriptDigest.Of(turns, responseDigest, wire);
         return new(
             TranscriptId: digest.Value,
             Digest: digest,
@@ -227,7 +233,14 @@ public sealed record ReasoningTranscript(
     }
 
     public Seq<CommandReceipt> Receipts =>
-        Turns.Choose(static turn => turn is ReasoningTurn.ToolCalled called ? Some(called.Receipt) : Option<CommandReceipt>.None);
+        Turns.Choose(static turn => turn is ReasoningTurn.ToolCalled called ? called.Receipt : Option<CommandReceipt>.None);
+
+    // Completeness is a transcript fact: every ToolCalled row whose exact receipt never joined is
+    // named by call id, so the macro gate and the chain product read one roster, never a re-derivation.
+    public Seq<string> MissingReceipts =>
+        Turns.Choose(static turn => turn is ReasoningTurn.ToolCalled { Receipt.IsNone: true } called ? Some(called.CallId) : None);
+
+    public bool Complete => MissingReceipts.IsEmpty;
 }
 
 [ValueObject<string>(
@@ -235,10 +248,54 @@ public sealed record ReasoningTranscript(
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct TranscriptDigest {
-    // Kernel content identity — one algorithm, one seed; hex is the boundary projection.
-    public static TranscriptDigest Of(Seq<ReasoningTurn> turns, string responseDigest) =>
-        TranscriptDigest.Create(ContentHash.Of(Encoding.UTF8.GetBytes(
-            $"{responseDigest}:{string.Join(':', turns.Choose(static t => t is ReasoningTurn.ToolCalled c ? Some(c.Receipt.Descriptor) : Option<string>.None))}")).ToString("x32"));
+    // Fixed field order and ordinal object-property order make call identity independent of dictionary insertion order.
+    public static TranscriptDigest Of(Seq<ReasoningTurn> turns, string responseDigest, JsonSerializerOptions wire) {
+        using var bytes = new MemoryStream();
+        using (var json = new Utf8JsonWriter(bytes)) {
+            json.WriteStartObject();
+            json.WriteString("response", responseDigest);
+            json.WritePropertyName("calls");
+            json.WriteStartArray();
+            turns.Choose(static turn => turn is ReasoningTurn.ToolCalled call ? Some(call) : Option<ReasoningTurn.ToolCalled>.None)
+                .Iter(call => {
+                    json.WriteStartObject();
+                    json.WriteString("callId", call.CallId);
+                    json.WriteString("descriptor", call.Descriptor);
+                    json.WritePropertyName("arguments");
+                    Canonical(json, call.Arguments);
+                    json.WritePropertyName("receipt");
+                    if (call.Receipt is { IsSome: true, Case: CommandReceipt receipt })
+                        Canonical(json, JsonSerializer.SerializeToElement(receipt, wire));
+                    else
+                        json.WriteNullValue();
+                    json.WriteEndObject();
+                });
+            json.WriteEndArray();
+            json.WriteEndObject();
+        }
+        return TranscriptDigest.Create(ContentHash.Of(bytes.ToArray()).ToString("x32"));
+    }
+
+    static void Canonical(Utf8JsonWriter writer, JsonElement element) {
+        switch (element.ValueKind) {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (var property in element.EnumerateObject().OrderBy(static property => property.Name, StringComparer.Ordinal)) {
+                    writer.WritePropertyName(property.Name);
+                    Canonical(writer, property.Value);
+                }
+                writer.WriteEndObject();
+                break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray()) Canonical(writer, item);
+                writer.WriteEndArray();
+                break;
+            default:
+                element.WriteTo(writer);
+                break;
+        }
+    }
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -249,18 +306,20 @@ public sealed record TranscriptRuntime(
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 public static class TranscriptProjection {
-    public static IO<(EventLog.Chain Chain, Seq<LogEntry> Entries)> Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context) =>
+    public static IO<(EventLog.Chain Chain, Seq<LogEntry> Entries, Seq<string> Missing)> Chain(TranscriptRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context) =>
         from now in IO.lift(() => runtime.Clocks.Now)
-        let model = new CommandReceipt("agent.reasoning", new CommandTxn.Committed(SelectionReceipt.None), transcript.ModelCost, None, transcript.Elapsed, Correlation.Mint(), TenantContext.Current, now)
-        let receipts = model.Cons(transcript.Receipts)
-        let folded = receipts.Fold((Chain: chain, Entries: Seq<LogEntry>(), Logical: 0UL), (acc, receipt) => {
+        let folded = transcript.Receipts.Fold((Chain: chain, Entries: Seq<LogEntry>(), Logical: 0UL), (acc, receipt) => {
             var (next, entry) = EventLog.Append(acc.Chain, receipt, context, now, acc.Logical);
             return (next, acc.Entries.Add(entry), acc.Logical + 1UL);
         })
-        select (folded.Chain, folded.Entries);
+        select (folded.Chain, folded.Entries, transcript.MissingReceipts);
 
-    public static Macro AsMacro(string macroId, Seq<LogEntry> entries, Seq<MacroParameter> parameters) =>
-        Macro.Record(macroId, entries, parameters);
+    // Macro recording demands the complete receipt slice: a receiptless call refuses with the typed
+    // fault naming every gap, so no macro replays a turn whose command evidence never joined.
+    public static Fin<Macro> AsMacro(string macroId, ReasoningTranscript transcript, Seq<LogEntry> entries, Seq<MacroParameter> parameters) =>
+        transcript.Complete
+            ? Fin.Succ(Macro.Record(macroId, entries, parameters))
+            : Fin.Fail<Macro>(new CommandFault.MacroIncomplete(string.Join(',', transcript.MissingReceipts)));
 }
 ```
 
@@ -268,16 +327,16 @@ public static class TranscriptProjection {
 
 - Owner: `ModelRoute` `[SmartEnum<string>]` the model-selection row family discriminating target model by cost-tier/capability/variant under the `ComparerAccessors.StringOrdinal` accessor; `GovernanceLedger` the per-turn token-and-cost cell; `GovernedClient` the composed delegating-pipeline handle; `ModelGovernance` the static middleware-fold surface composing the `Microsoft.Extensions.AI` `ChatClientBuilder` decorators into the one model-governance owner, route, meter, cache, trace, and content-filter on one decorator chain.
 - Cases: `ModelRoute` rows — `Economy`, `Balanced`, `Frontier`, `LongContext` — each carrying its provider model id and the `EffectClass` ceiling it admits, so a model draw routes to a target model by feature verdict rather than a fixed client; the routing arm reads the `Runtime/features#FLAG_VERDICT` `FlagVerdict` variant and maps it to the row, and an absent or below-floor verdict falls to the policy default route, never a hard-coded model.
-- Entry: `Compose(GovernanceRuntime runtime, IChatClient inner)` returns `GovernedClient` — folds the inner `IChatClient` through `AsBuilder().UseOpenTelemetry(...).UseDistributedCache(...).Use(client => new GoverningChatClient(client, runtime)).UseFunctionInvocation(...).Build(sp)` so every model call rides the OTel span enclosing the cache lookup enclosing the one `GoverningChatClient` (model-selection rewrite plus content-filter guard) enclosing the function-invocation loop; `Charge(GovernanceRuntime runtime, GrantBroker broker, UsageDetails usage, CommandArguments arguments)` returns `Fin<CostVector>` — projects `ChatResponse.Usage` onto a `CostVector` charging `CostUnit.ModelTokens` through `GrantBroker.Admit` before the model commits; `Route(GovernanceRuntime runtime, EvaluationContext targeting)` returns `ModelRoute` — resolves the feature verdict to the target row the selection arm seats on `ChatOptions.ModelId`.
-- Auto: the decorators compose ONCE at the capability-agent composition edge through `ChatClientBuilder` — `UseOpenTelemetry` (the GenAI `gen_ai.*` span the `Observability/telemetry#PROFILE_SIGNAL` fourth-signal source name registers), `UseDistributedCache` over the `Runtime/resources#CACHE_PORT` `CacheLane.ModelResult` `HybridCache` exposed as `IDistributedCache` so the model response cache and the suite content cache share one store, the one `GoverningChatClient : DelegatingChatClient` over `ChatClientBuilder.Use(client => new GoverningChatClient(client, runtime))` folding both governance arms into one public middleware subclass — its `GetResponseAsync`/`GetStreamingResponseAsync` overrides read the `Runtime/features#FLAG_VERDICT` `FlagVerdict` the admitted `OpenFeature` provider projects and rewrite `ChatOptions.ModelId` to the resolved `ModelRoute.Target` so an A/B variant or cost-tier verdict routes the draw without a second routing client beside `GovernedClient`, and run the pre-call prompt and post-call response (non-streaming `ChatResponse` and each streaming `ChatResponseUpdate`) through the `Wire/companion#CONTROL_SERVICE` `RedactionRegistration` `IRedactorProvider.GetRedactor(DataClassificationSet)` so a classified prompt redacts before the provider sees it and a PII-bearing completion redacts before it returns, and `UseFunctionInvocation` whose tools are the brokered `CommandAIFunction` from REASONING_LOOP so every model tool call routes through the command algebra; the `GoverningChatClient` overrides the inner client's response verbs through the public `DelegatingChatClient` base (the internal `AnonymousDelegatingChatClient` is uninstantiable from this package, so the one subclass over `Use(clientFactory)` is the public middleware seam) so the model-id rewrite is a per-request option mutation, never a per-route client instance, the cache key downstream incorporates the rewritten `ModelId` so two routes cache independently, and the response redacts in place through the resolved `Redactor.Redact` span API so the guard adds no second classification taxonomy beside `DataClassification`; the token-to-cost projection reads `ChatResponse.Usage` (`UsageDetails.InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`) and maps it onto a `CostVector` carrying `CostUnit.ModelTokens` which `GrantBroker.Admit` charges against the tenant budget exactly as a native op's cost charges, so a model draw is metered in the same broker a tensor op is metered in, never a parallel model meter; the cached-response replay rides the `DistributedCachingChatClient` content key — an identical request-under-key (messages plus options including the routed `ModelId`) replays the cached `ChatResponse` rather than re-calling the provider, and the response-digest `LogEntry` the REPLAYABLE_TRANSCRIPT chains content-addresses the response so a recorded turn replays from the `HybridCache` content key bit-identically; `FunctionInvokingChatClient.MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest` are the REASONING_LOOP policy values, never literals, so the function-invocation loop bound traces to the agent's deadline class; the same fold composes the MCP server-sampling leg's `IChatClient` (the second model front door — `Agent/mcp#STREAM_PROGRESS` `SampleAsync`/`AsSamplingChatClient`) so both front doors inherit the same routing, content-filter, metering, caching, and tracing pipeline.
-- Receipt: the broker charge is the `CommandReceipt.Charged` vector for the `agent.reasoning` model command the REPLAYABLE_TRANSCRIPT chains; the OTel span is the GenAI trace the observability fold carries; the selected `ModelRoute` key and the content-filter redaction count ride the same GenAI span as `gen_ai.*` attributes; the cached-response hit is one `SpineLog` event; no parallel governance receipt.
+- Entry: `Compose(GovernanceRuntime runtime, IChatClient inner)` returns `GovernedClient` — folds the inner `IChatClient` through `AsBuilder().UseOpenTelemetry(...).UseDistributedCache(...).Use(client => new GoverningChatClient(client, runtime)).UseFunctionInvocation(...).Build(sp)` so every model call rides the OTel span enclosing the cache lookup enclosing the one `GoverningChatClient` (model-selection rewrite and content-filter guard) enclosing the function-invocation loop; `Charge(GovernanceRuntime runtime, GrantBroker broker, UsageDetails usage, CommandArguments arguments)` returns `Fin<CostVector>` — projects `ChatResponse.Usage` onto a `CostVector` charging `CostUnit.ModelTokens` through `GrantBroker.Admit` before the model commits; `Route(GovernanceRuntime runtime, EvaluationContext targeting)` returns `ModelRoute` — resolves the feature verdict to the target row the selection arm seats on `ChatOptions.ModelId`.
+- Auto: one `ChatClientBuilder` chain composes OTel, distributed cache, `GoverningChatClient`, and function invocation; `GoverningChatClient` clones each `ChatOptions` value before rewriting `ModelId` from the feature verdict and redacts only `TextContent.Text` and `TextReasoningContent.Text` through the shared classification owner while preserving every other `AIContent` value unchanged; usage projects to `CostUnit.ModelTokens` through `GrantBroker`; cache identity includes the routed model id; function-invocation bounds come from `ReasoningPolicy`; the same governed client shape serves the reasoning and MCP-sampling front doors. Cache replay is a cache-owner guarantee and does not mint an event-log row.
+- Receipt: the completed `ReasoningTranscript` carries `ModelCost` from usage and fans under `InstrumentFan.ModelKind`; the OTel span carries the GenAI trace, selected route, and filter count; the cached-response hit is one `SpineLog` event; no fabricated `agent.reasoning` command receipt enters the event log.
 - Packages: Microsoft.Extensions.AI, Microsoft.Extensions.AI.Abstractions, Microsoft.Extensions.Caching.Hybrid, Microsoft.Extensions.Compliance.Redaction, OpenFeature, System.IO.Hashing, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new decorator is one `ChatClientBuilder.Use` arm on the fold; a new model route is one `ModelRoute` row carrying its provider model id and effect ceiling; a new content-filter classification is one `DataClassification` row the resolver reads; a new metered model resource rides the existing `CostUnit` axis; a new front door is the same `Compose` fold over a new `IChatClient`, never a second pipeline; zero new surface.
-- Boundary: the middleware fold is the suite's only model-governance owner — a hand-rolled retry loop, a per-call OTel span beside the decorators, a second model-response cache, a model-routing client beside `GovernedClient`, a second `IChatClient` pipeline, and an unmetered un-ledgered model draw are the deleted forms, exactly the `ARCHITECTURE.md#[4]-[PROHIBITIONS]` NEVER-an-opaque-model-call clause; every `IChatClient` invocation across both front doors (the in-process reasoning loop and the MCP server-sampling leg) composes this one pipeline so the host has one model-governance seam covering the whole route-meter-cache-trace-filter category, not a per-call-site assembly; the model-selection arm reads the `Runtime/features#FLAG_VERDICT` `FlagVerdict` at the composition seam and routes by rewriting `ChatOptions.ModelId`, so routing is one decorator arm composing against the feature verdict rather than a parallel model cache or a routing client — an unrouted draw falls to the policy default `ModelRoute`, never an unguarded provider default; the content-filter arm redacts through the one `RedactionRegistration` `Redactor` over the `DataClassification` taxonomy so prompt classification and response PII redaction reuse the existing compliance owner, never a second filter taxonomy, and every routed-and-filtered draw still charges `Charge -> GrantBroker.Admit` so a content-gated draw is metered exactly as an ungated one; the cache is the `Runtime/resources#CACHE_PORT` `HybridCache` exposed as `IDistributedCache` so there is one cache owner across the model response cache and the suite content cache, never a second; the cost meter is the `Agent/capability#GRANT_BROKER` charging `CostUnit.ModelTokens` so the model budget rides the one broker and a budget-exhausted tenant degrades to `ReadOnly` through the same degradation rail rather than a parallel throttle; the OTel span is the `Observability/telemetry#PROFILE_SIGNAL` GenAI source so the model trace, the route key, and the filter count are one signal, never a per-call span; the content-addressed response `LogEntry` is the replay key so a recorded reasoning turn replays its model response from cache deterministically — a fresh provider draw on replay is the deleted form.
+- Boundary: the middleware fold is the suite's only model-governance owner; routing rewrites `ChatOptions.ModelId`, redaction reuses `DataClassification`, metering charges `CostUnit.ModelTokens`, cache storage stays on `HybridCache`, and tracing stays on the GenAI source. `TranscriptProjection` chains exact command receipts only; model response cache identity and event-log identity remain distinct until an admitted response-log owner exists.
 
 ```csharp signature
 // --- [TYPES] ----------------------------------------------------------------------------
-// The model-selection axis: one row per cost-tier/capability/variant carrying the provider model
+// Model-selection axis: one row per cost-tier/capability/variant carrying the provider model
 // id and the EffectClass ceiling it admits. The UseModelSelection arm maps a Runtime/features
 // FlagVerdict variant onto a row and rewrites ChatOptions.ModelId — never a routing client per row.
 [SmartEnum<string>]
@@ -294,7 +353,7 @@ public sealed partial class ModelRoute {
 
     public static readonly ModelRoute Default = Balanced;
 
-    // The feature verdict's variant string keys the route; an unknown or below-floor variant
+    // Feature verdict's variant string keys the route; an unknown or below-floor variant
     // resolves to the policy default, never a hard-coded provider default.
     public static ModelRoute From(FlagVerdict verdict) =>
         TryGet(verdict.Variant, out var row) ? row : Default;
@@ -326,26 +385,51 @@ public sealed record GovernanceRuntime(
     IRedactorProvider Redactors);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
-// The model-selection-and-content-filter arm is one named DelegatingChatClient subclass — the public
+// Model-selection-and-content-filter arm is one named DelegatingChatClient subclass — the public
 // recommended middleware base (Microsoft.Extensions.AI.DelegatingChatClient, the one whose GetResponseAsync/
 // GetStreamingResponseAsync are virtual pass-throughs over InnerClient). The internal AnonymousDelegatingChatClient
-// is uninstantiable from this package, so a model-id rewrite plus a prompt/response redaction compose as ONE
+// is uninstantiable from this package, so a model-id rewrite and prompt/response redaction compose as ONE
 // subclass overriding both response verbs, woven through the public ChatClientBuilder.Use(inner => ...) seam —
 // never a second pipeline, never the internal type. Two parallel decorator arms collapse into one governing client.
 public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime runtime) : DelegatingChatClient(inner) {
-    ChatOptions? Route(ChatOptions? options) =>
-        ModelGovernance.Route(runtime, runtime.Targeting()) is var route
-            ? (options ?? new ChatOptions()) is var o && o.ModelId != route.Target ? o with { ModelId = route.Target } : o
-            : options;
+    ChatOptions Route(ChatOptions? options) {
+        var routed = options?.Clone() ?? new ChatOptions();
+        var target = ModelGovernance.Route(runtime, runtime.Targeting()).Target;
+        if (routed.ModelId != target) routed.ModelId = target;
+        return routed;
+    }
 
     Seq<ChatMessage> Guard(Redactor redactor, IEnumerable<ChatMessage> messages) =>
-        messages.AsIterable().Map(m => m.Text is { Length: > 0 } text ? new ChatMessage(m.Role, redactor.Redact(text)) : m).ToSeq();
+        messages.AsIterable().Map(message => {
+            var guarded = message.Clone();
+            guarded.Contents = guarded.Contents.ToList();
+            Redact(redactor, guarded.Contents);
+            return guarded;
+        }).ToSeq();
+
+    static AIContent Redacted(Redactor redactor, AIContent content) => content switch {
+        TextContent { Text: { Length: > 0 } text } body => new TextContent(redactor.Redact(text)) {
+            Annotations = body.Annotations,
+            RawRepresentation = body.RawRepresentation,
+            AdditionalProperties = body.AdditionalProperties,
+        },
+        TextReasoningContent { Text: { Length: > 0 } text } reasoning => new TextReasoningContent(redactor.Redact(text)) {
+            ProtectedData = reasoning.ProtectedData,
+            Annotations = reasoning.Annotations,
+            RawRepresentation = reasoning.RawRepresentation,
+            AdditionalProperties = reasoning.AdditionalProperties,
+        },
+        _ => content,
+    };
+
+    static void Redact(Redactor redactor, IList<AIContent> contents) {
+        for (var index = 0; index < contents.Count; index++)
+            contents[index] = Redacted(redactor, contents[index]);
+    }
 
     static ChatResponse Redact(Redactor redactor, ChatResponse response) {
         foreach (var message in response.Messages)
-            for (var i = 0; i < message.Contents.Count; i++)
-                if (message.Contents[i] is TextContent { Text: { Length: > 0 } body })
-                    message.Contents[i] = new TextContent(redactor.Redact(body));
+            Redact(redactor, message.Contents);
         return response;
     }
 
@@ -357,9 +441,7 @@ public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime run
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default) {
         var redactor = runtime.Redactors.GetRedactor(runtime.FilterClassification);
         await foreach (var update in base.GetStreamingResponseAsync(Guard(redactor, messages), Route(options), cancellationToken).ConfigureAwait(false)) {
-            for (var i = 0; i < update.Contents.Count; i++)
-                if (update.Contents[i] is TextContent { Text: { Length: > 0 } body })
-                    update.Contents[i] = new TextContent(redactor.Redact(body));
+            Redact(redactor, update.Contents);
             yield return update;
         }
     }
@@ -404,25 +486,23 @@ public static class ModelGovernance {
 }
 ```
 
-The `FlagVerdict` the `UseModelSelection` arm reads is the `Runtime/features#FLAG_VERDICT` seam shape the admitted `OpenFeature` provider projects — `(string FlagKey, string Variant, bool Enabled, string Reason)` over `FlagEvaluationDetails<Value>`. This page composes against that verdict at the seam and never owns the `OpenFeature` evaluator; the `Runtime/features.md` owner lands it as the `TARGETED_DELIVERY_EXPERIMENTATION` leg, so a host without the features rail seats the policy-default `ModelRoute.From` fallback and the routing arm is inert.
+`FlagVerdict` read by the `UseModelSelection` arm is the `Runtime/features#FLAG_VERDICT` seam shape the admitted `OpenFeature` provider projects — `(string FlagKey, string Variant, bool Enabled, string Reason)` over `FlagEvaluationDetails<Value>`. This page composes against that verdict at the seam and never owns the `OpenFeature` evaluator; the `Runtime/features.md` owner lands it as the `TARGETED_DELIVERY_EXPERIMENTATION` leg, so a host without the features rail seats the policy-default `ModelRoute.From` fallback and the routing arm is inert.
 
 ```mermaid
 ---
 config:
   layout: elk
-  look: neo
-  theme: base
 ---
 flowchart LR
     accTitle: One model-governance pipeline, two front doors
-    accDescr: The in-process reasoning loop and the MCP server-sampling leg both compose the one ChatClientBuilder decorator chain; usage charges the broker, the response content-addresses into the event log.
+    accDescr: Both model front doors compose one ChatClientBuilder chain; usage charges the broker and the completed transcript enters the receipt fan.
     Loop["ReasoningSession (in-process)"] --> Pipe
     Sampling["MCP SampleAsync (server-sampling)"] --> Pipe
     Pipe["UseOpenTelemetry -> UseDistributedCache -> UseFunctionInvocation"] --> Usage["ChatResponse.Usage"]
     Usage --> Charge["GrantBroker.Admit: CostUnit.ModelTokens"]
     Pipe --> Cache["HybridCache content key"]
-    Charge --> Log["EventLog.Append: response-digest LogEntry"]
-    Cache --> Log
+    Charge --> Receipt["ReasoningTranscript: ModelCost"]
+    Cache --> Receipt
 ```
 
 ## [06]-[MODAL_INPUT]
@@ -477,13 +557,13 @@ public static class ModalIntake {
 
 ## [07]-[TS_PROJECTION]
 
-- Owner: `ReasoningTranscriptWire`, `ReasoningTurnWire`, `IntentMatchWire`, `GovernanceUsageWire` — the reasoning-session, transcript, intent-match, and token-usage wire shapes the dashboard consumes; the per-command receipts ride the existing `Runtime/ports#TS_PROJECTION` `ReceiptEnvelopeWire` and the `Agent/capability#TS_PROJECTION` `CapabilityCommandReceiptWire`, single-minted there and bound here as the transcript's tool-call payload, never re-authored.
+- Owner: `ReasoningTranscriptWire`, `ReasoningTurnWire`, `IntentMatchWire`, `GovernanceUsageWire` — the reasoning-session, transcript, intent-match, and token-usage wire shapes the dashboard consumes; an exact per-command receipt reuses `CapabilityCommandReceiptWire`, while an absent result join crosses as null.
 - Entry: the reasoning transcript crosses as the `ReasoningTranscriptWire` the dashboard reasoning timeline ingests, the turn sequence crosses as a literal-discriminated union the timeline renders, the intent matches cross as the ranked `IntentMatchWire[]` the command palette surfaces, and the token usage crosses as the `GovernanceUsageWire` the cost dashboard charts.
 - Packages: BCL inbox
 - Growth: one wire-member row per new transcript or turn field; the turn sequence crosses as a literal-discriminated union; zero new surface.
-- Boundary: the reasoning turn reconstructs in TS as a literal-discriminated union on the turn kind, mirroring the `ReasoningTurn` `[Union]` cases, so the dashboard renders a reasoning trace without re-deriving the turn shape; the transcript digest crosses as the content-address string so the dashboard groups replayable turns by digest and a re-run identical turn renders as the same trace; the tool-call rows carry the `Agent/capability#TS_PROJECTION` `CapabilityCommandReceiptWire` (the same wire the command palette already reads) so a reasoning-driven command and an operator-driven command render identically — a branch-side reasoning-receipt mint is the named drift defect this projection deletes; the intent match crosses as the descriptor id, the cosine score, and the projected `DiscoveryResultWire` so the dashboard ranks an intent resolution by score without re-running the embedding fold; the token usage crosses as the input/output/total counts the cost dashboard charts against the `CostUnit.ModelTokens` budget the broker meters.
+- Boundary: the reasoning turn reconstructs in TS as a literal-discriminated union; transcript digest crosses as content-address text; tool-call receipt is nullable and reuses `CapabilityCommandReceiptWire` only when the exact value crossed, so the dashboard cannot mistake a `ToolResult` for committed command evidence; intent scores and token usage cross as their existing projections.
 
-```ts contract
+```ts signature
 interface GovernanceUsageWire {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -492,9 +572,9 @@ interface GovernanceUsageWire {
 
 type ReasoningTurnWire =
   | { readonly kind: "thinking"; readonly reasoning: string }
-  | { readonly kind: "tool-called"; readonly callId: string; readonly tool: string; readonly receipt: CapabilityCommandReceiptWire }
+  | { readonly kind: "tool-called"; readonly callId: string; readonly descriptor: string; readonly arguments: unknown; readonly receipt: CapabilityCommandReceiptWire | null }
   | { readonly kind: "message"; readonly text: string }
-  | { readonly kind: "completed"; readonly reason: string; readonly usage: GovernanceUsageWire }
+  | { readonly kind: "completed"; readonly reason: string | null; readonly usage: GovernanceUsageWire | null }
   | { readonly kind: "faulted"; readonly detail: string };
 
 interface ReasoningTranscriptWire {
@@ -518,12 +598,4 @@ interface IntentMatchWire {
 
 ## [08]-[RESEARCH]
 
-The settled-fence members verify against the folder `.api/api-extensions-ai.md` (`Microsoft.Extensions.AI.Abstractions`) and `.api/api-extensions-ai-middleware.md` (`Microsoft.Extensions.AI`) catalogues: `IChatClient.GetStreamingResponseAsync(messages, options?, ct)` returning `IAsyncEnumerable<ChatResponseUpdate>` ([api-extensions-ai.md] entry `[2]`), `ChatOptions` carrying `Tools`/`ToolMode`/`Temperature`/`Seed`/`AllowMultipleToolCalls` (`ChatOptions` properties `[9]`/`[10]`/`[1]`/`[7]`/`[15]`), `IEmbeddingGenerator<TInput,TEmbedding>.GenerateAsync(values, options?, ct)` (embedding entry `[1]`) with the scalar `EmbeddingGeneratorExtensions.GenerateAsync` overload (`[3]`), `Embedding<TEmbedding>` (embedding type `[4]`) carrying the typed vector, `UsageDetails` (`[12]`) with `InputTokenCount`/`OutputTokenCount`/`TotalTokenCount`, the `ChatClientBuilder.AsBuilder()`/`UseOpenTelemetry`/`UseDistributedCache`/`UseFunctionInvocation`/`Build` builder chain (middleware entries `[1]`/`[6]`/`[5]`/`[4]`/`[3]`), `FunctionInvokingChatClient.MaximumIterationsPerRequest`/`MaximumConsecutiveErrorsPerRequest`/`TerminateOnUnknownCalls` (decorator-tuning `[1]`/`[2]`/`[6]`), and the `[Experimental("MEAI001")]` `ISpeechToTextClient.GetTextAsync`/`IImageGenerator.GenerateAsync` modal clients (modal type `[1]`/`[3]`, modal entry `[1]`/`[5]`). The brokered `CommandAIFunction : AIFunction` tool-adoption seam and `ToolProjection.Project`/`Adopt` verify against `Agent/mcp#METHOD_AXIS`; the `CommandReceipt`/`CommandAlgebra.Run`/`CostVector`/`CostUnit.ModelTokens`/`GrantBroker.Admit`/`DiscoveryQuery`/`DiscoveryResult` vocabulary against `Agent/capability`; `EventLog.Append`/`VerifyChain`/`Macro.Record`/`ContentHash` against `Runtime/determinism#EVENT_LOG`/`#MACRO_ENGINE`; the `CacheLane.ModelResult` `HybridCache`-as-`IDistributedCache` against `Runtime/resources#CACHE_PORT`. Each card below states the binding shape over the catalogued members.
-
-- [STREAM_ACCUMULATION]: the `ChatResponseUpdate` stream folds to one `ChatResponse` through `ToChatResponse(this IEnumerable<ChatResponseUpdate>)` (the `Microsoft.Extensions.AI.Abstractions` streaming-update extension, with the `ToChatResponseAsync(this IAsyncEnumerable<ChatResponseUpdate>, CT)` async sibling); the `FunctionResultContent.Result` (`object?`) and `FunctionResultContent.RawRepresentation` (`object?`, inherited from `AIContent`) accessors and `FunctionCallContent.Name` (`string`) the transcript projection reads are catalogue-settled members the projection composes directly. The `IChatClient` the loop drives is always the MODEL_GOVERNANCE `GovernedClient.Client`, so the function-invocation iteration is the `FunctionInvokingChatClient` decorator's loop, never a host-rolled call-and-feed.
-- [EMBEDDING_RANK]: the cosine rank is `System.Numerics.Tensors.TensorPrimitives.CosineSimilarity(ReadOnlySpan<float>, ReadOnlySpan<float>)` over the `Embedding<float>.Vector` `ReadOnlyMemory<float>` span; `IEmbeddingGenerator<string, Embedding<float>>.GenerateAsync` batches the descriptor surfaces into one `GeneratedEmbeddings<Embedding<float>>` the index freezes. `System.Numerics.Tensors` is admitted at `Directory.Packages.props` (the single-owner manifest), so the SEMANTIC_DISCOVERY cosine fold carries no manifest delta; the embedding generator and the descriptor surface text are catalogue-settled. The embedding index is a frozen composition projection, host-validatable with no live embedding probe — an identical descriptor set produces an identical index, so the index build is reproducible offline.
-- [MODEL_GOVERNANCE_PIPELINE]: the decorator fold composes the catalogued `ChatClientBuilder` extensions at the capability-agent composition edge; the `IDistributedCache` the `UseDistributedCache` decorator rides is the `Runtime/resources#CACHE_PORT` `CacheLane.ModelResult` `HybridCache` exposed as `IDistributedCache` (the `Microsoft.Extensions.Caching.Hybrid` `HybridCache` implements the `IDistributedCache`-compatible store the decorator keys over), so the model response cache and the suite content cache share one store. The `Microsoft.Extensions.AI` concrete package is ALREADY admitted (README `[CAPABILITY_AGENT]` registry + the central manifest's `Concrete model-governance middleware` row), so the `[MODEL_GOVERNANCE]` cluster carries no manifest delta — the abstractions package and the concrete middleware package are both present.
-- [GUARDRAIL_MIDDLEWARE]: the one `GoverningChatClient` arm is a subclass of the public `Microsoft.Extensions.AI.DelegatingChatClient` base (the custom-`IChatClient`-middleware base whose `GetResponseAsync`/`GetStreamingResponseAsync`/`GetService` are `virtual` pass-throughs over the `protected InnerClient`; `public class DelegatingChatClient : IChatClient` in `Microsoft.Extensions.AI.Abstractions`), woven through `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)` (`api-extensions-ai-middleware.md` builder-call `[02]`) as `Use(client => new GoverningChatClient(client, runtime))` — the internal `Microsoft.Extensions.AI.AnonymousDelegatingChatClient` (`internal sealed class` in `Microsoft.Extensions.AI`, the implementation behind the public `Use(sharedFunc)`/`ConfigureOptions` overloads) is uninstantiable from this package, and its `sharedFunc` overload exposes only a `Func<...,Task>` `next` with no response handle so it cannot redact a `ChatResponse`, so the response-mutating governance arm is the `DelegatingChatClient` subclass, never the internal type and never the `sharedFunc` overload; a per-request `ChatOptions.ModelId` rewrite and an in-place prompt/response redaction compose as the subclass's two response-verb overrides with no provider coupling, and the `ChatMessage`/`TextContent` `with`-rewrite, the `ChatResponse.Messages[].Contents[]` mutation, and the per-`ChatResponseUpdate.Contents[]` streaming mutation are catalogue-settled `Microsoft.Extensions.AI.Abstractions` shapes. The content-filter redactor is `IRedactorProvider.GetRedactor(DataClassificationSet)` returning a `Redactor` whose `Redact(string)` span API masks in place (`libs/csharp/.api/api-redaction.md` provider-lookup `[07]`, redactor-contract `[01]`), the same `Microsoft.Extensions.Compliance.Redaction` owner the `Wire/companion#CONTROL_SERVICE` `RedactionRegistration` binds — no second redaction taxonomy. `Microsoft.Extensions.Compliance.Redaction` and `OpenFeature` are both already admitted (`Rasm.AppHost.csproj` `[OBSERVABILITY]`/`[FEATURE_FLAGS]` rows), so the guardrail cluster carries no manifest delta.
-- [MODEL_ROUTING_VERDICT]: the `UseModelSelection` arm reads the `Runtime/features#FLAG_VERDICT` `FlagVerdict` the admitted `OpenFeature` provider projects through `FeatureClient.GetObjectDetailsAsync` returning `FlagEvaluationDetails<Value>` (`api-openfeature.md` value-surface, with `OpenFeature.Model.Value`/`FlagEvaluationDetails`/`EvaluationContext` catalogue-settled), so the `Variant`/`Reason` the route reads is the standard OpenFeature evaluation result; the `ModelRoute.From(verdict)` fold maps the variant string to the row and falls to `ModelRoute.Default` on an unknown or below-floor variant. The `Runtime/features.md` owner (the `TARGETED_DELIVERY_EXPERIMENTATION` leg) lands the config-backed provider and the `FlagVerdict` shape; this page composes against the verdict seam and is design-complete against the seam contract, with the routing arm inert (default route) on a host without the features rail.
-- [SDK_SAMPLING_FRONT_DOOR]: the second model front door — the MCP server-sampling leg (`McpServer.SampleAsync(IEnumerable<ChatMessage> messages, ChatOptions?, JsonSerializerOptions?, CT)` returning `Task<ChatResponse>` / `AsSamplingChatClient(JsonSerializerOptions?)` returning `IChatClient`) — is the SAME `GovernedClient` the in-process loop drives, composed once and shared, so both front doors meter through the one pipeline. These `McpServer` session verbs are catalogue-settled at `.api/api-mcp.md` server-session-long-running-verb rows [1]-[3] (the `T-MCP-LONG-RUNNING-CATALOG` catalogue landed them at their true declaring type `McpServer`, with `AsSamplingChatClient` filed as the SDK server-sampling-to-`IChatClient` bridge, never an `Microsoft.Extensions.AI` member), so the second-front-door spellings are catalogue-verified and the governance fold composes the `AsSamplingChatClient` `IChatClient` directly. The governance fold rests on catalogue-settled `Microsoft.Extensions.AI` middleware members plus this MCP bridge, so the cluster is design-complete.
-- [BUILD_ORDER]: `ReasoningRuntime` embeds `McpRuntime` (the `Agent/mcp#TOOL_DISPATCH` runtime record) and `GovernanceLedger` by type, transitively pulling `CapabilityRegistry`/`CommandRuntime`/`GrantBroker` and the cross-page settled vocabulary, so `Agent/mcp.md`, `Agent/capability.md`, `Runtime/determinism.md`, and `Runtime/resources.md` settle before this page transcribes. The `ModelGovernance.Compose` fold runs at the capability-agent composition edge once over the injected provider `IChatClient`, and the `SemanticDiscovery.Index` runs once at composition over the frozen registry; both are composition-time folds, not interior per-call constructions.
+- [TOOL_RECEIPT_JOIN]-[BLOCKED]: Which `CommandAIFunction` result shape carries the exact `CommandReceipt` through `FunctionResultContent.Result` without changing the MCP `ToolResult` wire contract? Route: `libs/csharp/Rasm.AppHost/.planning/Agent/mcp.md#[METHOD_AXIS]`, then `libs/csharp/Rasm.AppHost/.planning/Agent/reasoning.md#[REASONING_LOOP]`; keep missing receipts as `None` and exclude them from `EventLog` and macro projection until the join lands.

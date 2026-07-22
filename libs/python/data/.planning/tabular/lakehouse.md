@@ -1,6 +1,6 @@
 # [PY_DATA_LAKEHOUSE]
 
-The transactional table-format interchange owner: one `LakeOp` operation axis crossed with one `TableFormat` provider axis on one `Lakehouse` owner over Delta, Iceberg, Lance, and DuckLake. `Lakehouse.run` folds the write/read/delete/update/merge/evolve/optimize/vacuum/changefeed/index/restore lifecycle through the `LakeOp` tagged union and dispatches one `(TableFormat, tag)` arm to a `RuntimeRail[LakeReceipt]` — the operation axis format-agnostic, the format binding a separate discriminant, so a new format is one `TableFormat` row plus its arms, never a parallel Iceberg or Lance owner. The owner commits and reads snapshots over the provider surface; it holds no durable store.
+Transactional table-format interchange crosses one `LakeOp` operation axis with one `TableFormat` provider axis on one `Lakehouse` owner over Delta, Iceberg, Lance, and DuckLake. `Lakehouse.run` folds the write/read/delete/update/merge/evolve/optimize/vacuum/changefeed/index/restore lifecycle through the `LakeOp` tagged union and dispatches one `(TableFormat, tag)` arm to a `RuntimeRail[LakeReceipt]` — the operation axis format-agnostic, the format binding a separate discriminant, so a new format is one `TableFormat` row and its arms, never a parallel Iceberg or Lance owner. `Lakehouse` commits and reads snapshots over the provider surface; it holds no durable store.
 
 Iceberg's read path is the core-loadable DuckDB `iceberg` extension with `pyiceberg` the catalog-write fallback; Lance carries the multimodal-asset versioning and `create_index` ANN rail; DuckLake rides one `ATTACH 'ducklake:<dsn>'` over the shared `tabular/columnar#SCAN` `DuckDbSession`, the single session every DuckDB-backed arm reuses. `changefeed` is the Delta `load_cdf` and DuckLake `table_changes` feed the `tabular/materialize#MATERIALIZE` `DerivedSnapshot._materialize` consumer reads. Every commit contributes through runtime `ReceiptContributor`, keys by `ContentIdentity`, and — when mutating — rides the `reliability/resilience#RESILIENCE` `RetryClass.LAKE_COMMIT` `guarded_sync` envelope; `open`/`run` admit through `@beartype(conf=FAULT_CONF)`, the shared config the sibling `interop`/`egress`/`columnar` seams bind. Table-protocol governance — deletion vectors, `TableFeatures` — is DECLINED here: the C# `Rasm.Persistence` at-rest owner holds it, never a data-side commit toggle.
 
@@ -11,11 +11,11 @@ Iceberg's read path is the core-loadable DuckDB `iceberg` extension with `pyiceb
 ## [02]-[LAKEHOUSE]
 
 - Owner: `Lakehouse` over the `LakeOp` operation axis (a `tagged_union` matched by `match (self.table_format, op)`) and the `TableFormat` `StrEnum` provider axis, dispatched one `(format, tag)` arm — two orthogonal discriminants, so a new operation is one `LakeOp` case and a new format one `TableFormat` row, never a `read_delta`/`write_delta`/`delete_delta` method family and never a parallel `IcebergLakehouse`/`LanceLakehouse` pair. Writer tuning rides one `WriteTuning` policy `Struct` carried on `Write`, never a parallel `WriteTuned` op or a knob tail; the merge delete-on-no-match rides one `delete_unmatched` discriminant selecting the third `when_not_matched_by_source_delete` clause, never a `MergeDelete` op.
-- Entry: `Lakehouse.open` admits a `DatasetRef` plus an explicit `TableFormat` (default `DELTA`) and cross-validates it against `dataset.kind` rather than recovering it — `DatasetKind` carries no `LANCE` member, so the format cannot be folded from the kind and the explicit axis is the one carrier admitting every provider; a `DELTA` over a non-`DELTA` dataset, an `ICEBERG` missing `catalog`/`identifier`, and a `DUCKLAKE` missing `dsn`/`identifier` each return `Error(BoundaryFault(resource=...))` directly. `run` folds one `LakeOp` through the `(format, op)` cross-product with a `case _, _` total reject, each portable arm returning a `RuntimeRail[LakeReceipt]` so a provider-thrown exception crosses `boundary` once; time-travel is `Read(version=...)` and a standalone delete is `Delete(...)`, never a parallel `read_at_version` or `delete_iceberg` entrypoint.
+- Entry: `Lakehouse.open` admits a dataset, format policy, and composition scope. `run` folds one `LakeOp` through the format cross-product with a total reject. Every committing arm fires `LAKE_COMMIT_POINT` through that scope before the guarded commit, while `Read`, `ChangeFeed`, and dry-run `Vacuum` share the bare boundary rail.
 - Receipt: the snapshot identity is one polymorphic `_snapshot` method discriminating `match self.table_format`, folded by one `_receipt` projector — never three sibling `_<format>_snapshot` factories nor a parallel `_SNAPSHOT` dispatch dict. `LakeReceipt` keys by `ContentIdentity.of("lake", f"{table_uri}@{version}")`, which returns a rail the projector threads through `.map` so a digest fault propagates rather than a `Result` landing in the `content_key` slot; the `(table_uri, version)` payload pins the committed snapshot stable across a re-open of an unchanged version. `contribute` emits `Receipt.of("lakehouse", ("emitted", subject, facts))` whose `version`/`added` ride as native `int` the `enc_hook=repr` renderer serializes without a pre-coerce.
-- Packages: `deltalake` owns the Delta arms — its `PostCommitHookProperties` and `TableAlterer.add_constraint` are MINED as `WriteTuning` hook fields and the `Evolve.constraints` clause, while `TableFeatures`/deletion-vector protocol enablement is DECLINED as the C# `Rasm.Persistence` at-rest concern; the predicate-bearing Delta read pushes SQL through the native `QueryBuilder` DataFusion surface, no SQL->pyarrow-DNF lowering owner minted. `pyiceberg` is the catalog-write fallback only (its `Table` annotation rides `TYPE_CHECKING`), gated behind the runtime lacking the core-loadable DuckDB `iceberg` read extension; `PartitionSpec`/`PartitionField` plus the `Bucket`/`Year`/`Month`/`Day` transforms are the table-spec authoring vocabulary the partition capability names. `pylance` owns the Lance dataset/version-travel/index arms and `pyarrow` the write carrier. `tabular/columnar#SCAN` `DuckDbSession`/`DuckDbExtension` is the ONE session rail every DuckLake `ATTACH 'ducklake:'` and Iceberg `iceberg_scan` arm reuses; the `ducklake` and `iceberg_scan` SQL surfaces are the `data/.api/ducklake.md` and `data/.api/duckdb.md` catalogs. runtime supplies `RuntimeRail`/`BoundaryFault`/`boundary`/`ContentIdentity`/`ReceiptContributor`/`Receipt` plus the `FAULT_CONF`, `RetryClass.LAKE_COMMIT`, and `guarded_sync` the admission and commit rails bind.
-- Growth: a new lake operation is one `LakeOp` case absorbed by the `(format, tag)` dispatch; a new write mode a `Literal` row on `Write`; a new writer-tuning knob a `WriteTuning` field; a new Lance vector index kind a `VectorIndex` `Literal` row (a scalar/FTS kind a `ScalarIndex` row), both absorbed by the one `_VECTOR_INDEX`-routed `Index` arm; a new DuckDB-backed capability one `DuckDbExtension` row plus its `(DUCKLAKE|ICEBERG, *)` SQL arm; a fifth table format (Hudi, Paimon) one `TableFormat` member plus its arms on this same owner. DEFERRED: the version-reference authoring pair — Lance `tags.create`/`create_branch` and Iceberg `ManageSnapshots.create_branch`/`create_tag` — lands as ONE reference-authoring `LakeOp` case with per-format arms when a consumer names it; the read side is already landed (tag-string/`asof` time-travel on `Read`, `checkout_version`/`restore` on `Restore`).
-- Boundary: no durable store, no schema migration, no global Delta or catalog connection; the metadata-only `Read` count is not the read lane — column-projected zero-copy reads route to the `tabular/columnar#SCAN` reader, not this commit owner. The reject-law is data: `_PORTABLE` names each format's reachable tags and the `case _, _` arm returns `Error(BoundaryFault(...))` carrying the typed key, never a `raise` into a `boundary` that re-keys and discards it, and never a hand-opened `stamina.retry_context` where `guarded_sync` owns the envelope. Each format rejects the ops its provider surface cannot portably reach as a typed fault, never a silent no-op: Iceberg `Update`/`Optimize`/`ChangeFeed`/`Index` (`rewrite_data_files` and `load_cdf` absent from `pyiceberg`), Lance `Update`/`Evolve`/`ChangeFeed` (its `Restore` is portable), DuckLake `Index`/`Restore`/`Evolve`.
+- Packages: `deltalake` owns the Delta arms — its `PostCommitHookProperties` and `TableAlterer.add_constraint` are MINED as `WriteTuning` hook fields and the `Evolve.constraints` clause, while `TableFeatures`/deletion-vector protocol enablement is DECLINED as the C# `Rasm.Persistence` at-rest concern; the predicate-bearing Delta read pushes SQL through the native `QueryBuilder` DataFusion surface, no SQL->pyarrow-DNF lowering owner minted. `pyiceberg` is the catalog-write fallback only (its `Table` annotation rides `TYPE_CHECKING`), gated behind the runtime lacking the core-loadable DuckDB `iceberg` read extension; `PartitionSpec`/`PartitionField` and the `Bucket`/`Year`/`Month`/`Day` transforms are the table-spec authoring vocabulary the partition capability names. `pylance` owns the Lance dataset/version-travel/index arms and the predicate-scoped `LanceDataset.update` mutation; `pyarrow` is the write carrier. `tabular/columnar#SCAN` `DuckDbSession`/`DuckDbExtension` is the ONE session rail every DuckLake `ATTACH 'ducklake:'` and Iceberg `iceberg_scan` arm reuses; the `ducklake` and `iceberg_scan` SQL surfaces are the `data/.api/ducklake.md` and `data/.api/duckdb.md` catalogs. runtime supplies `RuntimeRail`/`BoundaryFault`/`boundary`/`ContentIdentity`/`ReceiptContributor`/`Receipt` with the `FAULT_CONF`, `RetryClass.LAKE_COMMIT`, and `guarded_sync` the admission and commit rails bind.
+- Growth: a new lake operation is one `LakeOp` case absorbed by the `(format, tag)` dispatch; a new write mode a `Literal` row on `Write`; a new writer-tuning knob a `WriteTuning` field; a new Lance vector index kind a `VectorIndex` `Literal` row (a scalar/FTS kind a `ScalarIndex` row), both absorbed by the one `_VECTOR_INDEX`-routed `Index` arm; a new DuckDB-backed capability one `DuckDbExtension` row and its `(DUCKLAKE|ICEBERG, *)` SQL arm; a fifth table format (Hudi, Paimon) one `TableFormat` member and its arms on this same owner; a new commit-governance concern is one subscriber the app root attaches on `LAKE_COMMIT_POINT`, zero owner edits. DEFERRED: the version-reference authoring pair — Lance `tags.create`/`create_branch` and Iceberg `ManageSnapshots.create_branch`/`create_tag` — lands as ONE reference-authoring `LakeOp` case with per-format arms when a consumer names it; the read side is already landed (tag-string/`asof` time-travel on `Read`, `checkout_version`/`restore` on `Restore`).
+- Boundary: no durable store, no schema migration, no global Delta or catalog connection; the metadata-only `Read` count is not the read lane — column-projected zero-copy reads route to the `tabular/columnar#SCAN` reader, not this commit owner. Reject law is data: `_PORTABLE` names each format's reachable tags and the `case _, _` arm returns `Error(BoundaryFault(...))` carrying the typed key, never a `raise` into a `boundary` that re-keys and discards it, and never a hand-opened `stamina.retry_context` where `guarded_sync` owns the envelope. Each format rejects the ops its provider surface cannot portably reach as a typed fault, never a silent no-op: Iceberg `Update`/`Optimize`/`ChangeFeed`/`Index` (`rewrite_data_files` and `load_cdf` absent from `pyiceberg`), Lance `Evolve`/`ChangeFeed` (its `Update` and `Restore` are portable), DuckLake `Index`/`Restore`/`Evolve`.
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -45,10 +45,14 @@ from msgspec import Struct, field
 from opentelemetry import trace
 from sqlglot import exp
 
+lazy from pyiceberg.catalog import load_catalog
+lazy from pyiceberg.types import IcebergType
+
 from rasm.data.tabular.columnar import DatasetKind, DatasetRef, DuckDbExtension, DuckDbSession
 from rasm.runtime.faults import BoundaryFault, FAULT_CONF, RuntimeRail, boundary
+from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
 
 if TYPE_CHECKING:
@@ -126,8 +130,12 @@ class LakeOp:
     restore: tuple[int | datetime] = case()
 
     @property
-    def mutating(self) -> bool:
-        return self.tag not in _READ_ONLY
+    def committing(self) -> bool:
+        match self:
+            case LakeOp(tag="read") | LakeOp(tag="changefeed") | LakeOp(tag="vacuum", vacuum=(_, True)):
+                return False
+            case LakeOp():
+                return True
 
     @staticmethod
     def Write(
@@ -181,6 +189,17 @@ class LakeOp:
         return LakeOp(restore=(target,))
 
 
+class LakeCommit(Struct, frozen=True):
+    # pre-flight commit fact — a receipt exists only post-commit, so the veto edge fires this intent shape.
+    table_uri: str
+    table_format: TableFormat
+    operation: str
+
+
+# mutation-edge hook point: the data composition fold registers the row; a VETO tap gates commit pre-flight.
+LAKE_COMMIT_POINT: Final[HookPoint[LakeCommit]] = HookPoint(id="rasm.data.lakehouse.commit", payload=LakeCommit, modality=Modality.VETO)
+
+
 class LakeReceipt(Struct, frozen=True):
     table_uri: str
     table_format: TableFormat
@@ -207,6 +226,7 @@ class Lakehouse(Struct, frozen=True):
     identifier: str | None = None
     # DuckLake catalog DSN — caller-resolved through the runtime `TransportResource` seam, never minted here.
     dsn: str | None = None
+    scope: ScopeKey = DEFAULT_SCOPE
 
     @classmethod
     @beartype(conf=FAULT_CONF)
@@ -218,6 +238,7 @@ class Lakehouse(Struct, frozen=True):
         catalog: str | None = None,
         identifier: str | None = None,
         dsn: str | None = None,
+        scope: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[Lakehouse]":
         if table_format is TableFormat.DELTA and dataset.kind is not DatasetKind.DELTA:
             return Error(BoundaryFault(resource=("not-delta", dataset.ref.relative)))
@@ -225,7 +246,7 @@ class Lakehouse(Struct, frozen=True):
             return Error(BoundaryFault(resource=("iceberg-needs-catalog", dataset.ref.relative)))
         if table_format is TableFormat.DUCKLAKE and (dsn is None or identifier is None):
             return Error(BoundaryFault(resource=("ducklake-needs-dsn", dataset.ref.relative)))
-        return Ok(cls(table_uri=str(dataset.ref.path), table_format=table_format, catalog=catalog, identifier=identifier, dsn=dsn))
+        return Ok(cls(table_uri=str(dataset.ref.path), table_format=table_format, catalog=catalog, identifier=identifier, dsn=dsn, scope=scope))
 
     @beartype(conf=FAULT_CONF)
     def run(self, op: LakeOp, data: pa.Table | None = None) -> "RuntimeRail[LakeReceipt]":
@@ -233,9 +254,20 @@ class Lakehouse(Struct, frozen=True):
         # transactional leg's trace surface — table format and op ride as dimensions, the fence marks a failed leg's span.
         subject = f"lake.{self.table_format}.{op.tag}"
         with _TRACER.start_as_current_span(subject, attributes={"rasm.lake.format": self.table_format.value, "rasm.lake.op": op.tag}):
-            fenced = (
-                guarded_sync(RetryClass.LAKE_COMMIT, self._apply, op, data, subject=subject)
-                if op.mutating
+            # every committing op fires the commit VETO point pre-flight under the already-open span — a subscriber
+            # rejection returns before the guarded provider commit; read-only and dry-run rows stay on the bare fence.
+            gated = (
+                Hooks.fire(
+                    LAKE_COMMIT_POINT.id,
+                    LakeCommit(table_uri=self.table_uri, table_format=self.table_format, operation=op.tag),
+                    scope=self.scope,
+                )
+                if op.committing
+                else Ok(None)
+            )
+            fenced = gated.bind(
+                lambda _pre: guarded_sync(RetryClass.LAKE_COMMIT, self._apply, op, data, subject=subject)
+                if op.committing
                 else boundary(subject, lambda: self._apply(op, data))
             )
             return fenced.bind(lambda rail: rail)
@@ -260,7 +292,7 @@ class Lakehouse(Struct, frozen=True):
                 )
                 return self._receipt("write")
             case TableFormat.DELTA, LakeOp(tag="read", read=(version, _columns, predicate)):
-                # the predicate path pushes SQL through `QueryBuilder`; else the metadata-only `to_pyarrow_dataset().count_rows()`.
+                # Predicate path pushes SQL through `QueryBuilder`; else metadata-only `to_pyarrow_dataset().count_rows()`.
                 table = DeltaTable(self.table_uri, version=version)
                 rows = (
                     QueryBuilder().register("t", table).execute(f"SELECT count(*) AS n FROM t WHERE {predicate}").read_all().column("n")[0].as_py()
@@ -347,8 +379,6 @@ class Lakehouse(Struct, frozen=True):
             case TableFormat.ICEBERG, LakeOp(tag="evolve", evolve=(_adds, _drops, _renames, constraints)) if constraints:
                 return Error(BoundaryFault(boundary=("lake.iceberg.evolve", "constraint governance is Delta alter.add_constraint only")))
             case TableFormat.ICEBERG, LakeOp(tag="evolve", evolve=(adds, drops, renames, _constraints)):
-                from pyiceberg.types import IcebergType  # noqa: PLC0415
-
                 with self._iceberg().update_schema() as schema:
                     for name, dtype in adds:
                         schema.add_column(name, IcebergType.model_validate(dtype))
@@ -362,7 +392,14 @@ class Lakehouse(Struct, frozen=True):
                     return Error(BoundaryFault(boundary=("lake.iceberg.restore", "iceberg rollback takes an int snapshot_id")))
                 self._iceberg().manage_snapshots().rollback_to_snapshot(target).commit()
                 return self._receipt("restore")
-            case TableFormat.ICEBERG, LakeOp(tag="vacuum", vacuum=(retention_hours, _dry_run)):
+            case TableFormat.ICEBERG, LakeOp(tag="vacuum", vacuum=(retention_hours, True)):
+                # real dry-run: the expirable set projects off the snapshots metadata table — the provider's expire
+                # builder has no preview, so the count derives from `inspect.snapshots()` and nothing commits; the
+                # default Vacuum() therefore succeeds on every format with honest removed-count evidence.
+                cutoff = _retention(retention_hours)
+                aged = sum(1 for committed in self._iceberg().inspect.snapshots().column("committed_at").to_pylist() if committed < cutoff)
+                return self._receipt("vacuum", removed=aged)
+            case TableFormat.ICEBERG, LakeOp(tag="vacuum", vacuum=(retention_hours, False)):
                 self._iceberg().maintenance.expire_snapshots().older_than(_retention(retention_hours)).commit()
                 return self._receipt("vacuum")
             case TableFormat.LANCE, LakeOp(tag="write", write=(mode, _partition_by, _evolve, tuning)):
@@ -384,6 +421,9 @@ class Lakehouse(Struct, frozen=True):
             case TableFormat.LANCE, LakeOp(tag="delete", delete=(predicate,)):
                 lance.dataset(self.table_uri).delete(predicate)
                 return self._receipt("delete")
+            case TableFormat.LANCE, LakeOp(tag="update", update=(predicate, updates)):
+                lance.dataset(self.table_uri).update(dict(updates.items()), where=predicate)
+                return self._receipt("update")
             case TableFormat.LANCE, LakeOp(tag="merge", merge=(_predicate, updates, _delete_unmatched)):
                 # `merge_insert(on)` keys on column name(s), so the join key is the update columns, not the `predicate`.
                 builder = lance.dataset(self.table_uri).merge_insert(list(updates.keys()))
@@ -397,7 +437,14 @@ class Lakehouse(Struct, frozen=True):
             case TableFormat.LANCE, LakeOp(tag="optimize", optimize=(target_size, _zorder)):
                 metrics = lance.dataset(self.table_uri).optimize.compact_files(target_rows_per_fragment=target_size)
                 return self._receipt("optimize", snapshot=metrics.fragments_added)
-            case TableFormat.LANCE, LakeOp(tag="vacuum", vacuum=(retention_hours, _dry_run)):
+            case TableFormat.LANCE, LakeOp(tag="vacuum", vacuum=(retention_hours, True)):
+                # real dry-run: version history older than the retention window counts off `versions()` — timestamps
+                # arrive naive-UTC, so the cutoff strips its zone — and no cleanup runs; the default Vacuum()
+                # therefore succeeds on every format with honest removed-count evidence.
+                cutoff = datetime.now(UTC).replace(tzinfo=None) - _age(retention_hours)
+                aged = sum(1 for row in lance.dataset(self.table_uri).versions() if row["timestamp"] < cutoff)
+                return self._receipt("vacuum", removed=aged)
+            case TableFormat.LANCE, LakeOp(tag="vacuum", vacuum=(retention_hours, False)):
                 stats = lance.dataset(self.table_uri).cleanup_old_versions(older_than=_age(retention_hours))
                 return self._receipt("vacuum", removed=stats.old_versions)
             case TableFormat.LANCE, LakeOp(tag="restore", restore=(target,)):
@@ -470,8 +517,6 @@ class Lakehouse(Struct, frozen=True):
             yield con
 
     def _iceberg(self) -> "Table":
-        from pyiceberg.catalog import load_catalog  # noqa: PLC0415
-
         return load_catalog(self.catalog).load_table(self.identifier)
 
     def _snapshot(self, con: "duckdb.DuckDBPyConnection | None" = None) -> tuple[int, int]:
@@ -515,10 +560,7 @@ _DEFAULT_RETENTION_HOURS: Final[int] = 168
 
 _VECTOR_INDEX: Final[frozenset[str]] = frozenset({"IVF_PQ", "IVF_HNSW_PQ", "IVF_HNSW_SQ"})
 
-# the tags `mutating` excludes from `LAKE_COMMIT` — `read`/`changefeed` only scan; every other op can conflict.
-_READ_ONLY: Final[frozenset[str]] = frozenset({"read", "changefeed"})
-
-# the Delta WriteMode projected onto Lance `create|overwrite|append`: `error`/`ignore`->`create`; `ignore`
+# Delta WriteMode projected onto Lance `create|overwrite|append`: `error`/`ignore`->`create`; `ignore`
 # no-ops on an existing dataset via `_lance_exists`, Lance owning no native ignore mode.
 _LANCE_MODE: Final[Map[WriteMode, LanceMode]] = Map.of_seq([
     ("error", "create"),
@@ -530,7 +572,7 @@ _LANCE_MODE: Final[Map[WriteMode, LanceMode]] = Map.of_seq([
 _PORTABLE: Final[Map[TableFormat, frozenset[str]]] = Map.of_seq([
     (TableFormat.DELTA, frozenset({"write", "read", "delete", "update", "merge", "evolve", "optimize", "vacuum", "changefeed", "restore"})),
     (TableFormat.ICEBERG, frozenset({"write", "read", "delete", "merge", "evolve", "vacuum", "restore"})),
-    (TableFormat.LANCE, frozenset({"write", "read", "delete", "merge", "index", "optimize", "vacuum", "restore"})),
+    (TableFormat.LANCE, frozenset({"write", "read", "delete", "update", "merge", "index", "optimize", "vacuum", "restore"})),
     (TableFormat.DUCKLAKE, frozenset({"write", "read", "delete", "update", "merge", "changefeed", "optimize", "vacuum"})),
 ])
 

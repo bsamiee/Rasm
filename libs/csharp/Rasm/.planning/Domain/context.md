@@ -208,3 +208,12 @@ One admitted unit regime and one context factory family own every model-space in
 |  [01]   | tolerance scalars | `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` | generated scalar admission                  |
 |  [02]   | unit regime       | `ModelUnit`                                              | built-in/custom identity and metric scale   |
 |  [03]   | model context     | `Context`                                                | polymorphic factory and derived projections |
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

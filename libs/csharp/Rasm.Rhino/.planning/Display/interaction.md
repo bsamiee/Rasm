@@ -872,8 +872,8 @@ public sealed class WidgetHost : IDisposable {
     }
 
     private Fin<Unit> ReleaseAll(Op op) {
-        return Aggregate(toSeq(mounted.Value.Keys)
-                .Map(identity => Find(identity, op).Bind(value => Retire(identity, value, op))))
+        return Aggregate(toSeq(mounted.Value)
+                .Map(row => Retire(identity: row.Key, value: row.Value, op: op)))
             .Bind(_ => Aggregate(Seq(
                 op.Catch(() => Fin.Succ((channel.Writer.TryComplete(), unit).Item2)),
                 op.Catch(() => { sprites.Dispose(); return Fin.Succ(unit); }))));
@@ -898,7 +898,7 @@ public sealed class WidgetHost : IDisposable {
 ## [05]-[HOOKS]
 
 - Owner: `DisplayHooks.Mount` registers the two display hook points — `rasm.rhino.display.pointer` granting a `PointerLease` and `rasm.rhino.display.widget` granting a `WidgetHost` — each bind minting a fresh owner so no two consumers contend for one bounded channel.
-- Law: one ask shape serves both points — `PointerRequest.Mount` already carries capacity, overflow, and settle policy, and `WidgetHost.Of` consumes the identical triple, so the widget point reuses the admitted request instead of a parallel ask record.
+- Law: one ask shape serves both points — `PointerRequest.Mount` already carries capacity, overflow, and settle policy, and `WidgetHost.Of` consumes the identical triple, so the widget point reuses the admitted request instead of a parallel ask record; `MountRegistry.MountAll` releases the first seat when the second point refuses.
 - Law: display modality is observe — `MouseCallbackEventArgs` exposes no cancel member and widget `MouseState` callbacks run post-hoc; the two veto-capable display seams (`CullObjectEventArgs.CullObject`, `DrawObjectEventArgs.DrawObject`) belong to the conduit owner, so no row here mints a veto.
 - Law: gumball evidence returns on the `Gumballs.Configure` request rail, never as a detached stream, so no gumball point exists — a detached fact stream is the point prerequisite, and gumball occupancy already rides every `PointerFact`.
 
@@ -907,8 +907,10 @@ public sealed class WidgetHost : IDisposable {
 public static class DisplayHooks {
     public static Fin<Seq<IDisposable>> Mount(PluginKey plugin, Op? key = null) {
         Op op = key.OrDefault();
-        return Seq(
-                new HookMount(
+        return MountRegistry.MountAll(
+            mounts: Seq(
+                (Func<Fin<IDisposable>>)(() => MountRegistry.Mount(
+                    mount: new HookMount(
                     Point: HookPoint.DisplayPointer,
                     Plugin: plugin,
                     Ask: typeof(PointerRequest.Mount),
@@ -920,7 +922,9 @@ public static class DisplayHooks {
                         }),
                         _ => Fin.Fail<object>(error: Op.Of(name: nameof(DisplayHooks)).InvalidInput()),
                     }),
-                new HookMount(
+                    key: op)),
+                () => MountRegistry.Mount(
+                    mount: new HookMount(
                     Point: HookPoint.DisplayWidget,
                     Plugin: plugin,
                     Ask: typeof(PointerRequest.Mount),
@@ -932,9 +936,18 @@ public static class DisplayHooks {
                                 settleWithin: request.SettleWithin)
                             .Map(static host => (object)host),
                         _ => Fin.Fail<object>(error: Op.Of(name: nameof(DisplayHooks)).InvalidInput()),
-                    }))
-            .TraverseM(mount => HookRegistry.Mount(mount: mount, key: op))
-            .As();
+                    }),
+                    key: op)),
+            key: op);
     }
 }
 ```
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

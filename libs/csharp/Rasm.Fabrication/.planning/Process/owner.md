@@ -25,11 +25,11 @@
 
 - Owner: `FabricationInput`, `FabricationRuntime`, `FabricationPolicy`, `PostSource`, `FabricationResult`, `EgressKind`, `CanonicalWriter`, `ContentKey`, `RunEvidence`, `RunLineage`, and `Fabrication` own the production lifecycle.
 - Cases: `FabricationPolicy` carries plane-specific intent, `FabricationResult` carries plane-specific evidence, and `DeliveryTarget` carries destination-specific provenance.
-- Entry: `Fabrication.Run` consumes admitted `FabricationInput` and `FabricationRuntime`; `Fabrication.Lineage` consumes the resulting `RunEvidence` receipt.
+- Entry: `Fabrication.Run` consumes admitted `FabricationInput` and `FabricationRuntime`, awaits the policy-selected plane kernel, and returns `ValueTask<Fin<RunEvidence>>`; `Fabrication.Lineage` consumes the resulting `RunEvidence` receipt.
 - Auto: generated total dispatch routes each policy case; `FabricationPolicy.Egress` declares admissible artifact alternatives and request cardinality once, and `FabricationResult.Evidence` proves the produced keys cover the request while centralizing consumed and produced content projection.
 - Receipt: `RunEvidence` carries requested and produced artifacts, required motion diagnostics, inspection outcomes, verification state, and content keys. `Run`'s terminal fold fires `FabricationFact.Run.Of(evidence, elapsed)` through `FabricationRuntime.Telemetry` with elapsed read from `Clock`, projecting duration, artifact kinds, and warnings onto `rasm.fabrication.run.duration`, `rasm.fabrication.run.artifacts`, and `rasm.fabrication.run.warnings` through `Process/telemetry#FACT_PROJECTION` as kind `run`.
 - Growth: a production modality adds one policy case, one result case, and one dispatch arm; an artifact adds one `EgressKind` row, one entry on the owning `FabricationPolicy.Egress` arm, and its enrollment counterpart.
-- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; clock, cancellation, the `FabricationTap` telemetry port, and the `FabricationHooks` point roster enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine.
+- Boundary: consumers preserve field order while `CanonicalWriter` owns int32, IEEE-754 double, UInt128, UTF-8 string, and presence-tag framing; every egress then hashes those bytes under its unchanged `EgressKind` frame through `ContentKey.Of`. Every ingress re-enters through aggregate admission; clock, cancellation, the `FabricationTap` telemetry port, the `FabricationHooks` point roster, and the optional `HybridCache` solver-memo tier enter through `FabricationRuntime`; `Run` observes cancellation before any plane kernel, fires the admission veto before dispatch, the per-key egress-mint veto, the stage-advance and verify-verdict points off the settled result, and the delivery hand-off after evidence — so any app observes, vetoes, or replays the spine without a code edit — and domain kernels stay tap-free: facts fire only where receipts settle on the run spine.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -45,6 +45,7 @@ using CavalierContours.Spatial;
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
+using Microsoft.Extensions.Caching.Hybrid;
 using MTConnect;
 using MTConnect.Assets;
 using MTConnect.Assets.CuttingTools;
@@ -1687,55 +1688,75 @@ public sealed partial class FabricationRuntime {
     public FabricationTap Telemetry { get; }
     public FabricationHooks Hooks { get; }
 
+    // The memo tier is app-neutral runtime capability, never process-global state: two runtimes composing the
+    // library hold two caches, and a headless kernel run holds none with zero branching.
+    public Option<HybridCache> Memo { get; }
+
     public static Fin<FabricationRuntime> Admit(
         IClock clock,
         CancellationToken cancel,
         FabricationTap? telemetry = null,
-        FabricationHooks? hooks = null) =>
-        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), out FabricationRuntime runtime) is { } error
+        FabricationHooks? hooks = null,
+        HybridCache? memo = null) =>
+        Validate(clock, cancel, telemetry ?? FabricationTap.Silent, hooks ?? FabricationHooks.Live(), Optional(memo), out FabricationRuntime runtime) is { } error
             ? Fin.Fail<FabricationRuntime>(new GeometryFault.DegenerateInput(Kind.Brep, -1, error.Message).ToError())
             : Fin.Succ(runtime);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Fabrication {
-    public static Fin<RunEvidence> Run(FabricationInput input, FabricationRuntime runtime) =>
-        from candidate in Optional(input).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:input").ToError())
-        from context in Optional(runtime).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:runtime").ToError())
-        from _ in context.Cancel.IsCancellationRequested
-            ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:cancelled").ToError())
-            : Fin.Succ(unit)
-        let started = context.Clock.GetCurrentInstant()
-        from admitted in context.Hooks.Admission.Fire(candidate)
-        from result in admitted.Policy.Switch(
-            state:      (Input: admitted, Runtime: context),
-            hiddenLine: static (state, policy) => Hlr.Solve(
+    public static ValueTask<Fin<RunEvidence>> Run(FabricationInput input, FabricationRuntime runtime) =>
+        (from candidate in Optional(input).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:input").ToError())
+         from context in Optional(runtime).ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:runtime").ToError())
+         from _ in Ready(context)
+         let started = context.Clock.GetCurrentInstant()
+         from admitted in context.Hooks.Admission.Fire(candidate)
+         from _dispatch in Ready(context)
+         select (Input: admitted, Runtime: context, Started: started)).Match(
+            Succ: static state => Dispatch(state.Input, state.Runtime, state.Started),
+            Fail: static error => ValueTask.FromResult(Fin.Fail<RunEvidence>(error)));
+
+    private static Fin<Unit> Ready(FabricationRuntime runtime) => runtime.Cancel.IsCancellationRequested
+        ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:cancelled").ToError())
+        : Fin.Succ(unit);
+
+    private static async ValueTask<Fin<RunEvidence>> Dispatch(
+        FabricationInput input,
+        FabricationRuntime runtime,
+        Instant started) {
+        Fin<FabricationResult> dispatched = await input.Policy.Switch(
+            state:      (Input: input, Runtime: runtime),
+            hiddenLine: static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Hlr.Solve(
                 policy,
                 state.Input,
-                projection => new FabricationResult.HiddenLineResult(projection, projection.Sources)),
-            cam:        static (state, policy) => Cam.Solve(policy, state.Input),
-            nest:       static (state, policy) => Nest.Solve(policy, state.Input, state.Runtime.Telemetry),
-            additive:   static (state, policy) => Slice.Solve(policy, state.Input),
-            verify:     static (state, policy) => Removal.Verify(policy.Policy, state.Input),
-            inspect:    static (state, policy) => Probe.Inspect(policy.Policy, state.Input, state.Runtime.Telemetry),
-            post:       static (state, policy) => Post.Lower(policy.Source, policy.Dialect, state.Input, policy.Policy)
-                .Map(static result => (FabricationResult)result),
-            document:   static (state, policy) => Traveler.Assemble(
+                projection => new FabricationResult.HiddenLineResult(projection, projection.Sources))),
+            cam:        static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Cam.Solve(policy, state.Input)),
+            nest:       static (state, policy) => Nest.Solve(policy, state.Input, state.Runtime.Telemetry, state.Runtime.Memo),
+            additive:   static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Slice.Solve(policy, state.Input)),
+            verify:     static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Removal.Verify(policy.Policy, state.Input)),
+            inspect:    static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Probe.Inspect(policy.Policy, state.Input, state.Runtime.Telemetry)),
+            post:       static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(
+                Post.Lower(policy.Source, policy.Dialect, state.Input, policy.Policy)
+                    .Map(static result => (FabricationResult)result)),
+            document:   static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Traveler.Assemble(
                 policy,
                 state.Input,
                 state.Runtime.Clock,
-                static artifact => new FabricationResult.TravelerDocument(artifact)),
-            derive:     static (state, policy) => Derivation.Plan(policy, state.Input),
-            form:       static (state, policy) =>
+                static artifact => new FabricationResult.TravelerDocument(artifact))),
+            derive:     static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(Derivation.Plan(policy, state.Input)),
+            form:       static (state, policy) => ValueTask.FromResult<Fin<FabricationResult>>(
                 from unfold in FlatPattern.Unfold(policy.Policy, state.Input)
                 from bends in BendSequence.Plan(unfold, policy.Policy, policy.Envelope)
-                select FlatPattern.Formed(unfold, bends))
-        from evidence in result.Evidence(admitted, Consumed(admitted))
-        from _mint in evidence.Produced.TraverseM(key => context.Hooks.EgressMint.Fire(key)).As().Map(static _ => unit)
-        let _points = Fired(context.Hooks, result)
-        let _handoff = context.Hooks.Delivery.Fire(evidence)
-        let _fact = context.Telemetry.Fire(FabricationFact.Run.Of(evidence, context.Clock.GetCurrentInstant() - started))
-        select evidence;
+                let _engine = FabricationFact.Engine.Of(bends).Map(state.Runtime.Telemetry.Fire).Strict()
+                select FlatPattern.Formed(unfold, bends.Steps)));
+        return from result in dispatched
+               from evidence in result.Evidence(input, Consumed(input))
+               from _mint in evidence.Produced.TraverseM(key => runtime.Hooks.EgressMint.Fire(key)).As().Map(static _ => unit)
+               let _points = Fired(runtime.Hooks, result)
+               let _handoff = runtime.Hooks.Delivery.Fire(evidence)
+               let _fact = runtime.Telemetry.Fire(FabricationFact.Run.Of(evidence, runtime.Clock.GetCurrentInstant() - started))
+               select evidence;
+    }
 
     public static Fin<RunLineage> Lineage(RunEvidence run) => Optional(run)
         .ToFin(new GeometryFault.DegenerateInput(Kind.Brep, -1, "fabrication:run-evidence").ToError())
@@ -1818,3 +1839,12 @@ flowchart LR
     class Atoms,Family data
     class Persist boundary
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

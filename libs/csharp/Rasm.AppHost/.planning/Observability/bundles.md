@@ -1,6 +1,6 @@
 # [APPHOST_SUPPORT_BUNDLES]
 
-Support capture is the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every capture cause, one capture fold freezes the evidence window, fans contributor artifact rows in declared order, redacts by classification before any byte is written, caps with truncation receipts, and lands one zip whose wire-neutral manifest and export receipt the dashboard ingests unchanged. The page owns the trigger axis, the artifact-row vocabulary, the capture and retention policy values, and the manifest and receipt wire shapes. A bundle is process-local evidence; cross-process incidents correlate by HLC stamp at the evidence layer.
+Support capture owns the runtime spine's bounded diagnostic evidence surface: one `SupportTrigger` union admits every cause, and one fold freezes the window, gathers ordered artifact rows, redacts before write, caps with receipts, and lands one zip. Capture law owns the trigger, artifact vocabulary, policy values, manifest, and receipt wire shapes. Each bundle is process-local evidence; HLC stamps correlate cross-process incidents.
 
 ## [01]-[INDEX]
 
@@ -16,7 +16,7 @@ Support capture is the runtime spine's bounded diagnostic evidence surface: one 
 - Auto: `FaultTransition` carries the wire-stable `FaultRecord` the `Runtime/lifecycle#FAULT_SPINE` `FaultRecord.From` flatten produces — the one fault-to-capture fact `FaultSpine.ArmTraps` emits for every `FaultSource` entry, the live unhandled/unobserved/signalled commits and the `ProbeMarkers` host-crash-marker boot probe alike, so a fault commit and its capture trigger are one fact rather than an untyped capture delegate beside a `PhaseTrigger.FaultCommitted` emission; the case holds `FaultRecord` (kind-discriminated, `Error`-free) so the trigger payload is the exact shape the bundle manifest serializes, never the live `Error`-bearing `FaultSource`; `WatchdogTimeout` fires on a missed heartbeat deadline and `Scheduled` fires from a `ScheduleEntry` row on the schedule port; `ExternalCommand` admits the `ControlService` capture-support verb for service modalities.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core
 - Growth: one case lands a new capture cause and breaks the `Facts` dispatch at compile time; a new fault cause is one `FaultSource` case the `FaultRecord.From` flatten and the one `FaultTransition` payload both absorb, never a second trigger case per fault kind — zero new surface.
-- Boundary: the private root constructor plus deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total `Facts` dispatch; the `FaultTransition` payload is the wire-stable `FaultRecord` whose `kind` literals (`unhandled`/`unobserved-task`/`posix-signal`/`host-crash-marker`) the `Facts` rendering reads, so the durable-orchestration crash-recovery (`Runtime/orchestration#CRASH_RESUME`) and the bundle manifest read one kind-discriminated fault fact, and a flattened trigger that loses the `FaultRecord` kind fields is the deleted form.
+- Boundary: the private root constructor and deleted value conversion seal ingress; fault, health, and schedule causes carry their typed evidence whole, and rendering happens exactly once inside the total `Facts` dispatch; the `FaultTransition` payload is the wire-stable `FaultRecord` whose `kind` literals (`unhandled`/`unobserved-task`/`posix-signal`/`host-crash-marker`) the `Facts` rendering reads, so the durable-orchestration crash-recovery (`Runtime/orchestration#CRASH_RESUME`) and the bundle manifest read one kind-discriminated fault fact, and a flattened trigger that loses the `FaultRecord` kind fields is the deleted form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -40,7 +40,7 @@ public static class SupportTriggerOps {
             externalCommand: static e => (e.Correlation, "external-command", e.Reason, e.WindowOverride),
             scheduled:       static s => (s.Correlation, "scheduled", s.Entry.ToString(), s.WindowOverride));
 
-        // The fault reason carries the FaultRecord kind literal plus its wire-stable payload, so the
+        // Fault reasons carry the FaultRecord kind literal with its wire-stable payload; the
         // manifest's flat reason string preserves the kind-discriminated evidence the [Union] pins.
         static string FaultReason(FaultRecord record) => record.Switch(
             unhandled:       static u => $"unhandled:{(u.Terminating ? "terminating" : "observed")}:{u.Evidence}",
@@ -53,20 +53,21 @@ public static class SupportTriggerOps {
 
 ## [03]-[CAPTURE_PIPELINE]
 
-- Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportFault` `[Union]` fault family deriving its codes through `FaultBand.Support`; `DumpPolicy` the dump-completeness policy row; `SupportPolicy` and `SupportRuntime` the bound capture context.
+- Owner: `SupportCapture` — the window-freeze, ordered fan-in, redact, and cap fold; `SupportArtifact` the contributor factory row; `SupportFault` `[Union]` fault family deriving its codes through `FaultBand.Support`; `DumpPolicy` the dump-completeness policy row carrying the `CensusCap`/`TriageRows`/`FrameCap` walk bounds; `DumpTriage` the ClrMD post-capture fold projecting the captured dump into bounded heap-sample, thread, and root rows; `SupportPolicy` and `SupportRuntime` the bound capture context.
 - Entry: `Capture(SupportRuntime runtime, SupportTrigger trigger)` returns `IO<SupportReceipt>` — `IO` carries the freeze-fan-redact-cap-bundle effect.
 - Auto: `GlobalLogBuffer.Flush` replays the fault buffer into the frozen window before contributor fan-in; the `DeadlineClass.SupportWindow` row bounds the capture run on the cancel spine.
 - Receipt: per-artifact written bytes, truncated bytes, and redaction counts land as `SupportManifest.Entry` rows.
-- Packages: Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one `SupportArtifact` factory row lands a new contributor; a new dump completeness is one `DumpPolicy` value (`Triage` routine, `WithHeap`/`Full` escalation-only); a new fault is one `SupportFault` case; zero new surface.
-- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, `ServerNotAvailableException`/IO faults mapping to the typed `SupportFault.DumpRejected` — and the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, decode faults mapping to `SupportFault.DecodeFaulted` and landing `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has NO reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` TOOL boundary — deleting the column is capability deletion, the forbidden form; `PerfMapLease` brackets perf-map emission around a profiled window — `EnablePerfMap(PerfMapType)` at open, `DisablePerfMap()` at disposal — so the continuous-profiling and benchmark flame graphs resolve jitted native frames, the kind row a caller policy value the bench and profiler roots pass.
+- Packages: Rasm (kernel `Dimension`), Microsoft.Diagnostics.NETCore.Client, Microsoft.Diagnostics.Runtime, Microsoft.Diagnostics.Tracing.TraceEvent, Microsoft.Extensions.Telemetry.Abstractions, Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Configuration, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
+- Growth: one `SupportArtifact` factory row lands a new contributor; a new dump completeness is one `DumpPolicy` value (`Triage` routine, `WithHeap`/`Full` escalation-only) and a triage-depth retune is one `CensusCap`/`TriageRows`/`FrameCap` value; a new triage dimension is one `DumpTriage` row family; a new fault is one `SupportFault` case; zero new surface.
+- Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to `SupportReceipt.Coalesced` and never opens a second window; classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their redaction count and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row, and `Assemble` brackets the whole contributor fan then folds every cleanup before bundle sealing, so cancellation, a skipped dependent row, or analysis failure cannot bypass staging cleanup and a cleanup refusal becomes a zero-byte `SupportFault.CleanupFaulted` manifest row; `ReleaseDump` owns every raw-dump delete, and eager release suppresses its refusal while the outer custody row reports that same refusal without replacing a capture or analysis fault; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the resolved `Redactor` so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value` and the redaction count rises per masked entry, carrying no unredacted secret; the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDump(DumpType, path, WriteDumpFlags)` captures under the frozen window with completeness as `DumpPolicy` row data, materializes the manifest bytes, and registers the raw path's cleanup independently of `DumpAnalysis`; `DumpAnalysis` retains a local `finally` as the eager release after ClrMD consumption while the outer custody row remains the guaranteed release; `DumpAnalysis` folds through `Microsoft.Diagnostics.Runtime` — `DataTarget.LoadDump(string filePath, DataTargetOptions? options = null)` opens the dump, `DataTarget.ClrVersions[0].CreateRuntime()` materializes the `ClrRuntime`, `ClrHeap.EnumerateObjects` samples at most `CensusCap` objects before grouping by `ClrObject.Type?.Name` and summing shallow `ClrObject.Size`, `ClrRuntime.Threads` projects `OSThreadId`/`ManagedThreadId`/`GCMode`/`State` with `ClrThread.CurrentException?.Type?.Name` and the `EnumerateStackTrace(includeContext, maxFrames)`-bounded frame walk discriminated on `ClrStackFrameKind.ManagedMethod` versus the runtime `FrameName`, and `ClrHeap.EnumerateRoots` samples at most `CensusCap` roots before counting `ClrRoot.RootKind`; `CensusCap`, `TriageRows`, and `FrameCap` bound every enumeration and output family; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a dedicated pump inside the `DeadlineClass.SupportWindow` bound, and the admitted `Dimension` supplies both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; `PerfMapLease` brackets perf-map emission around a profiled window — `EnablePerfMap(PerfMapType)` at open, `DisablePerfMap()` at disposal — so continuous-profiling and benchmark flame graphs resolve jitted native frames.
 
 ```csharp signature
 public sealed record SupportArtifact(
     string Name,
     DataClassification Classification,
     long EstimatedBytes,
-    Func<Interval, IO<(ReadOnlyMemory<byte> Bytes, int Redactions)>> Produce) {
+    Func<Interval, IO<(ReadOnlyMemory<byte> Bytes, int Redactions)>> Produce,
+    Option<Func<Fin<Unit>>> Cleanup = default) {
     public static SupportArtifact EffectiveConfig(IConfigurationRoot root, Redactor redactor) => new(
         Name: "effective-config",
         Classification: DataClassification.Operational,
@@ -83,7 +84,7 @@ public sealed record SupportArtifact(
             return (new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(view)), redactions);
         }));
 
-    // The [DUMP_ADMISSION] fill: DiagnosticsClient.WriteDump captures under the frozen window with
+    // Dump admission composes DiagnosticsClient.WriteDump under the frozen window with
     // completeness as row policy; a capture-tool fault is the typed registry-banded case, never a
     // bare Error.New and never an orphan code outside every band.
     public static SupportArtifact ProcessDump(DumpPolicy policy, string captureRoot) => new(
@@ -91,19 +92,53 @@ public sealed record SupportArtifact(
         Classification: DataClassification.HostIdentity,
         EstimatedBytes: policy.EstimatedBytes,
         Produce: _ => IO.lift(() => {
-            var path = Path.Join(captureRoot, $"dump-{Environment.ProcessId}.dmp");
-            new DiagnosticsClient(Environment.ProcessId).WriteDump(policy.Kind, path, policy.Flags);
-            return (new ReadOnlyMemory<byte>(File.ReadAllBytes(path)), 0);
+            var path = DumpPath(captureRoot);
+            try {
+                new DiagnosticsClient(Environment.ProcessId).WriteDump(policy.Kind, path, policy.Flags);
+                return (new ReadOnlyMemory<byte>(File.ReadAllBytes(path)), 0);
+            } catch {
+                ignore(ReleaseDump(captureRoot));
+                throw;
+            }
+        }).MapFail(static error => (Error)new SupportFault.DumpRejected(error.Message)),
+        Cleanup: Some<Func<Fin<Unit>>>(() => ReleaseDump(captureRoot)));
+
+    // Dump triage folds the just-captured dump through ClrMD into bounded typed rows serialized
+    // as the bundle's ANALYZED evidence — top heap types by shallow object bytes, per-thread managed
+    // stacks with in-flight exceptions, root census — so first response reads diagnosis from the
+    // bundle alone; ordered after the process-dump row, post-freeze inside the capture-window
+    // deadline. ProcessDump already materialized the raw bytes; this consumer releases eagerly,
+    // while the ProcessDump cleanup row remains the outer guarantee when this row never runs.
+    public static SupportArtifact DumpAnalysis(DumpPolicy policy, string captureRoot, JsonTypeInfo<DumpTriage> contract) => new(
+        Name: "dump-triage",
+        Classification: DataClassification.HostIdentity,
+        EstimatedBytes: 256L << 10,
+        Produce: _ => IO.lift(() => {
+            var path = DumpPath(captureRoot);
+            try {
+                return (new ReadOnlyMemory<byte>(JsonSerializer.SerializeToUtf8Bytes(DumpTriage.Walk(path, policy), contract)), 0);
+            } finally {
+                ignore(ReleaseDump(captureRoot));
+            }
         }).MapFail(static error => (Error)new SupportFault.DumpRejected(error.Message)));
 
-    // The event-STREAM leg: an EventPipe session decodes through TraceEvent's EventPipeEventSource on a
+    static string DumpPath(string captureRoot) => Path.Join(captureRoot, $"dump-{Environment.ProcessId}.dmp");
+
+    static Fin<Unit> ReleaseDump(string captureRoot) => Try.lift(() => {
+        string path = DumpPath(captureRoot);
+        if (File.Exists(path)) File.Delete(path);
+        return unit;
+    }).Run();
+
+    // Event-stream capture decodes an EventPipe session through TraceEvent's EventPipeEventSource on a
     // dedicated pump; records clone before retention and a decode fault lands the bundle PARTIAL.
-    public static SupportArtifact EventTrace(Seq<EventPipeProvider> providers, Duration window) => new(
+    public static SupportArtifact EventTrace(Seq<EventPipeProvider> providers, Duration window, Dimension circularBufferMiB) => new(
         Name: "event-trace",
         Classification: DataClassification.Operational,
-        EstimatedBytes: 32L << 20,
+        EstimatedBytes: (long)circularBufferMiB.Value << 20,
         Produce: _ => IO.lift(() => {
-            using var session = new DiagnosticsClient(Environment.ProcessId).StartEventPipeSession([.. providers], requestRundown: false);
+            using var session = new DiagnosticsClient(Environment.ProcessId).StartEventPipeSession(
+                [.. providers], requestRundown: false, circularBufferMB: circularBufferMiB.Value);
             var sink = new StringBuilder();
             var source = new EventPipeEventSource(session.EventStream);
             source.Dynamic.All += evt => sink.AppendLine($"{evt.TimeStamp:O} {evt.ProviderName}/{evt.EventName}");
@@ -113,14 +148,52 @@ public sealed record SupportArtifact(
         }).MapFail(static error => (Error)new SupportFault.DecodeFaulted(error.Message)));
 }
 
-// Dump completeness is policy DATA: Triage is the routine row, WithHeap/Full escalation-only.
-public sealed record DumpPolicy(DumpType Kind, WriteDumpFlags Flags, long EstimatedBytes) {
-    public static readonly DumpPolicy Routine = new(DumpType.Triage, WriteDumpFlags.None, 64L << 20);
-    public static readonly DumpPolicy Escalated = new(DumpType.WithHeap, WriteDumpFlags.None, 512L << 20);
+// Dump completeness and walk breadth are policy data; every enumeration consumes a bound.
+public sealed record DumpPolicy(DumpType Kind, WriteDumpFlags Flags, long EstimatedBytes, int CensusCap, int TriageRows, int FrameCap) {
+    public static readonly DumpPolicy Routine = new(DumpType.Triage, WriteDumpFlags.None, 64L << 20, CensusCap: 250_000, TriageRows: 32, FrameCap: 64);
+    public static readonly DumpPolicy Escalated = new(DumpType.WithHeap, WriteDumpFlags.None, 512L << 20, CensusCap: 2_000_000, TriageRows: 64, FrameCap: 128);
+}
+
+// ClrMD projects a bounded heap sample, thread census, and root sample into typed rows. Raw dump
+// custody stays on its manifest row; this fold makes no retained-size or leak-causality claim.
+public sealed record DumpTriage(
+    ImmutableArray<DumpTriage.HeapRow> HeapSample,
+    ImmutableArray<DumpTriage.ThreadRow> Threads,
+    ImmutableArray<DumpTriage.RootRow> Roots) {
+    public readonly record struct HeapRow(string Type, long Count, long ShallowBytes);
+    public readonly record struct ThreadRow(uint OsId, int ManagedId, string GcMode, string State, Option<string> Exception, ImmutableArray<string> Frames);
+    public readonly record struct RootRow(string Kind, long Count);
+
+    public static DumpTriage Walk(string dumpPath, DumpPolicy policy) {
+        using DataTarget target = DataTarget.LoadDump(dumpPath);
+        using ClrRuntime runtime = target.ClrVersions[0].CreateRuntime();
+        return new(
+            HeapSample: [.. runtime.Heap.EnumerateObjects()
+                .Take(policy.CensusCap)
+                .GroupBy(static row => row.Type?.Name ?? "<free>")
+                .Select(static group => new HeapRow(group.Key, group.LongCount(), group.Sum(static row => (long)row.Size)))
+                .OrderByDescending(static row => row.ShallowBytes)
+                .Take(policy.TriageRows)],
+            Threads: [.. runtime.Threads
+                .Take(policy.TriageRows)
+                .Select(thread => new ThreadRow(
+                    thread.OSThreadId,
+                    thread.ManagedThreadId,
+                    thread.GCMode.ToString(),
+                    thread.State.ToString(),
+                    Optional(thread.CurrentException?.Type?.Name),
+                    [.. thread.EnumerateStackTrace(includeContext: false, maxFrames: policy.FrameCap)
+                        .Select(static frame => frame.Kind == ClrStackFrameKind.ManagedMethod ? frame.Method?.Name ?? "<method>" : frame.FrameName ?? "<runtime>")]))],
+            Roots: [.. runtime.Heap.EnumerateRoots()
+                .Take(policy.CensusCap)
+                .CountBy(static root => root.RootKind.ToString())
+                .Select(static pair => new RootRow(pair.Key, pair.Value))]);
+    }
 }
 
 // Native-symbol lease: perf-map emission spans exactly the profiled window so sample and eBPF
-// profilers resolve jitted frames; the kind row is caller policy, disposal always disables.
+// profilers resolve jitted frames; the kind row is caller policy from the verified PerfMapType
+// cases (None, All, JitDump, PerfMap), disposal always disables.
 public sealed record PerfMapLease(DiagnosticsClient Client) : IDisposable {
     public static PerfMapLease Open(PerfMapType kind) {
         var client = new DiagnosticsClient(Environment.ProcessId);
@@ -139,6 +212,7 @@ public abstract partial record SupportFault : Expected, IValidationError<Support
     public sealed record DumpRejected : SupportFault { public DumpRejected(string detail) : base(detail, FaultBand.Support.Code(1)) { } }
     public sealed record DecodeFaulted : SupportFault { public DecodeFaulted(string detail) : base(detail, FaultBand.Support.Code(2)) { } }
     public sealed record ContributorFaulted : SupportFault { public ContributorFaulted(string artifact, string detail) : base($"{artifact}: {detail}", FaultBand.Support.Code(3)) { } }
+    public sealed record CleanupFaulted : SupportFault { public CleanupFaulted(string artifact, string detail) : base($"{artifact}: {detail}", FaultBand.Support.Code(4)) { } }
 }
 
 public sealed record SupportPolicy(
@@ -183,19 +257,33 @@ public static class SupportCapture {
         let closed = at + runtime.Policy.Settle
         let window = new Interval(opened, closed)
         from _ in IO.lift(fun(runtime.Buffer.Flush))
+        let cleanup = Atom(Seq<(SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes)>())
         // Per-row recovery is the partial-receipt fold: a faulting contributor lands a zero-byte
         // ContributorFaulted entry and the bundle exports partial — one row never aborts the capture.
-        from produced in runtime.Contributors
-            .TraverseM(row => (row.Produce(window).Map(payload => Written(row, payload, runtime.Policy))
-                | @catch<IO, (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes)>(static _ => true,
-                    error => IO.pure(Faulted(row, new SupportFault.ContributorFaulted(row.Name, error.Message))))).As())
-            .As()
-        let rows = Capped(produced, runtime.Policy)
+        from produced in IO.pure(unit).Bracket(
+            Use: _ => runtime.Contributors
+                .TraverseM(row => (row.Produce(window).Map(payload => Written(row, payload, runtime.Policy))
+                    | @catch<IO, (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes)>(static _ => true,
+                        error => IO.pure(Faulted(row, new SupportFault.ContributorFaulted(row.Name, error.Message))))).As())
+                .As(),
+            Fin: _ => IO.lift(() => ignore(cleanup.Swap(_ => runtime.Contributors.Fold(
+                Seq<(SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes)>(),
+                (faults, row) => row.Cleanup.Match(
+                    None: () => faults,
+                    Some: release => Try.lift(release).Run().Bind(static outcome => outcome).Match(
+                        Succ: _ => faults,
+                        Fail: error => faults.Add(CleanupFaulted(row, error))))))))))
+        let rows = Capped(produced + cleanup.Value, runtime.Policy)
         from receipt in SupportLedger.Bundle(runtime, SupportManifest.From(facts, opened, closed, rows, runtime), rows, mark)
         select receipt;
 
     static (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes) Faulted(SupportArtifact row, SupportFault fault) =>
         (new SupportManifest.Entry(row.Name, row.Classification.ToString(), Bytes: 0L, TruncatedBytes: 0L, Redactions: 0, Fault: Some(fault.Message)),
+         ReadOnlyMemory<byte>.Empty);
+
+    static (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes) CleanupFaulted(SupportArtifact row, Error error) =>
+        (new SupportManifest.Entry($"{row.Name}-cleanup", row.Classification.ToString(), Bytes: 0L, TruncatedBytes: 0L, Redactions: 0,
+             Fault: Some(new SupportFault.CleanupFaulted(row.Name, error.Message).Message)),
          ReadOnlyMemory<byte>.Empty);
 
     static (SupportManifest.Entry Entry, ReadOnlyMemory<byte> Bytes) Written(
@@ -243,7 +331,8 @@ Canonical AppHost artifact rows are current; `process-dump` is the designed capt
 |  [03]   | phase-receipts   | lifecycle receipts in the frozen window                                                        |
 |  [04]   | health-snapshot  | latest health fold                                                                             |
 |  [05]   | process-dump     | `DiagnosticsClient.WriteDump` under `DumpPolicy`; gcdump via the `dotnet-gcdump` tool boundary |
-|  [06]   | event-trace      | EventPipe session decoded through TraceEvent `EventPipeEventSource`                            |
+|  [06]   | dump-triage      | ClrMD `DumpTriage.Walk` bounded heap/thread/root rows over the captured dump                   |
+|  [07]   | event-trace      | EventPipe session decoded through TraceEvent `EventPipeEventSource`                            |
 
 ## [04]-[MANIFEST_RECEIPT]
 
@@ -346,7 +435,7 @@ public static class SupportLedger {
 - Growth: one field row per additive manifest extension; the TS dashboard tolerates additive fields — zero new surface.
 - Boundary: instants and durations serialize as ISO-8601 text through the NodaTime converters; correlation and profile serialize as their keys through the generated Thinktecture converters; record property names ride the camelCase wire policy and the receipt kind discriminator is the JsonPolymorphic metadata property.
 
-```ts contract
+```typescript signature
 type SupportTriggerKind =
   | "user-requested"
   | "fault-transition"
@@ -384,4 +473,9 @@ type SupportReceipt =
 
 ## [06]-[RESEARCH]
 
-- [PERFMAP_CASES]-[OPEN]: the `PerfMapType` enum case spellings the lease kind row passes; verify against the admitted `Microsoft.Diagnostics.NETCore.Client` assembly via `tools.assay` before the bench and profiler roots pin the row.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

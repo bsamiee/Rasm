@@ -186,3 +186,12 @@ Three seams reach sibling owners this page composes but does not write — noted
 - `Meshing/mesh.md` `TopologyReceipt.Project` Genus-tolerant row: `ManifoldStatus.Of` binds the un-gated `(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)` `ProjectionRow` landed beside the Genus-gated triple — every field already rides the `TopologyReceipt` carrier, so the projection is a re-read, never a recomputation; the Genus-gated triple row stays for consumers whose contract requires a validated genus.
 - `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` content-address: `HealSession.Healed` is the canonical hash-friendly `MeshSpace` the `CanonicalTopology.OfMesh`/`Encode` content-addresses through the Persistence `GeometryHash`. The heal computes NO hash — it emits the healed mesh and the receipt chain; the naming/hash fence reads the result. The post-heal re-hash (a manifold-repaired mesh re-hashes distinctly because adjacency changed, a welded-but-shape-stable mesh may re-hash identically at the topology level) is the morph-vs-break law the golden fixture asserts — flagged so the heal-then-rehash round-trip is in the cross-package fixture scope. `MeshEdit.Of` triangulates quads by the exact `Predicate.Orient2D` `QuadDiagonal` choice (not a fixed `(A,C)` fan) so a healed n-gon re-hashes diagonal-stable against a shape-identical input — the seam owner confirms `CanonicalTopology.OfMesh` admits an already-triangulated working mesh without re-triangulating on a different diagonal.
 - `Spatial/naming#TOPO_NAMING` edge-keying: `RebuildReceipt.Affected` seeds `Edges` as empty for every op — welds re-anchor `Vertices`, splits/collapses re-anchor `Faces`, and `ManifoldRepair`'s edge-fork re-anchors the forked `Faces`/`Vertices` rather than a distinct `Edge` set, because the working arena keys topology by face triples, not half-edge handles. The naming `Track` resolves edges via `VertexNames` (as `Spatial/naming#TOPO_NAMING` `Track(NameTable, CanonicalTopology, Generation)` does), so the empty `Edge` seed is correct; a `Track` that re-anchored edge `TopoName`s from a seeded `Edge` set would under-seed, and the seam owner confirms the `VertexNames` resolution before any edge-key change.
+
+## [05]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

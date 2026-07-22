@@ -212,7 +212,7 @@ public sealed record MeshletCluster(
 - Auto: residency keys each tile by the payload's own `ContentKey` and tracks its byte cost and last-touch frame; the transition touches every frustum-visible tile at `frame`, carries the prior plan's out-of-frustum residents forward at their old touch, admits the union in touch-recency order under the byte budget (visible tiles admit first by construction because their touch is current), and EVICTS every tile that was resident in the prior plan and is not resident in the next — a tile that left the frustum either survives as a carried resident or lands in `Evict`, so no resident tile can persist outside the reported residency state; prefetch admits the velocity-reachable non-resident tiles greedily into the remaining byte headroom only, its bytes carried on `PrefetchBytes`, so the budget governs resident and prefetch admissions from one derivable total; instanced geometry collapses into one `InstanceBuffer` per mesh key carrying the per-instance transform run so a forest of repeated objects is one draw call, never N draws.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new residency policy is one watermark value; a new instance channel is one `InstanceBuffer` column; zero new surface.
-- Boundary: frame budget is the invariant the plan enforces — a plan that overruns the VRAM budget evicts before it admits, and every accepted plan threads `ResidencyCells.Observe` so the evict and prefetch level gauges read the live plan, out-of-core budget-bounded by construction; tile bytes stream from the Persistence blob lane as opaque versioned payloads through the blob-read delegate so the residency manager never opens files; the predictive prefetch is a pure velocity-extrapolation fold and a background IO thread is the rejected form — prefetch issues blob-read requests the caller's IO scheduler drains; the GPU upload of a resident tile to a bindless slot rides the `Render/pipeline` render-graph lease under VIEWPORT_GPU; the residency manifest the web leg consumes projects through the `Render/pipeline` `ResidencyManifest.Mint` off the resident set, so the residency owner mints no second wire; the watermark scales by the `Diagnostics/governor.md` `QualityVerdict.WatermarkFactor` — one quality authority.
+- Boundary: frame budget is the invariant the plan enforces — a plan that overruns the VRAM budget evicts before it admits, and every accepted plan threads `ResidencyBudget.Observe` over the composition cells so the evict and prefetch level gauges read the live plan, out-of-core budget-bounded by construction; tile bytes stream from the Persistence blob lane as opaque versioned payloads through the blob-read delegate so the residency manager never opens files; the predictive prefetch is a pure velocity-extrapolation fold and a background IO thread is the rejected form — prefetch issues blob-read requests the caller's IO scheduler drains; the GPU upload of a resident tile to a bindless slot rides the `Render/pipeline` render-graph lease under VIEWPORT_GPU; the residency manifest the web leg consumes projects through the `Render/pipeline` `ResidencyManifest.Mint` off the resident set, so the residency owner mints no second wire; the watermark scales by the `Diagnostics/governor.md` `QualityVerdict.WatermarkFactor` — one quality authority.
 
 ```csharp signature
 public readonly record struct ResidencyTile(UInt128 ContentKey, long Bytes, BoundingSphere Bounds, long LastTouch);
@@ -295,27 +295,22 @@ public sealed record ResidencyBudget(
     public const string PrefetchInstrument = "rasm.appui.viewport.residency.prefetch";
     public const string PoolInstrument = "rasm.appui.viewport.residency.pool";
 
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(EvictInstrument, InstrumentKind.Level, "{page}", "tiles the current plan marked for eviction",
-                Level: static () => ResidencyCells.Live.Evict.Value),
+                Level: cells.Reader(EvictInstrument)),
             new(PrefetchInstrument, InstrumentKind.Level, "{page}", "tiles the current plan queued for prefetch",
-                Level: static () => ResidencyCells.Live.Prefetch.Value),
+                Level: cells.Reader(PrefetchInstrument)),
             new(PoolInstrument, InstrumentKind.Levels, "By", "planned VRAM bytes by residency pool",
-                Levels: UiLevelCells.Reader(UiLevelCells.Live.PoolVram, "pool")));
-}
+                Levels: cells.Reader(PoolInstrument, "pool")));
 
-// Level cells beside their writer: the caller threads every accepted plan through Observe, so the
-// residency gauges — evict, prefetch, and the per-pool byte levels — read the live plan at collection
-// cadence and never re-derive a scan.
-public sealed record ResidencyCells(Atom<long> Evict, Atom<long> Prefetch) {
-    public static readonly ResidencyCells Live = new(Atom(0L), Atom(0L));
-
-    public ResidencyPlan Observe(ResidencyPlan plan) =>
-        (Evict.Swap(_ => plan.Evict.Count), Prefetch.Swap(_ => plan.Prefetch.Count),
-         UiLevelCells.Live.PoolVram.Swap(state => state
-             .AddOrUpdate("resident", plan.ResidentBytes)
-             .AddOrUpdate("prefetch", plan.PrefetchBytes)), plan).Item4;
+    // Levels beside their writer: the caller threads every accepted plan through Observe, so the residency
+    // gauges — evict, prefetch, and the per-pool byte levels — read the live plan at collection cadence.
+    public static ResidencyPlan Observe(LevelCells cells, ResidencyPlan plan) =>
+        (cells.Level(EvictInstrument, plan.Evict.Count),
+         cells.Level(PrefetchInstrument, plan.Prefetch.Count),
+         cells.Level(PoolInstrument, "resident", plan.ResidentBytes),
+         cells.Level(PoolInstrument, "prefetch", plan.PrefetchBytes), plan).Item5;
 }
 ```
 

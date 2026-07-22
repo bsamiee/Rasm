@@ -10,8 +10,8 @@ Only CDF-changed partitions recompute — an unchanged partition's content key i
 
 ## [02]-[MATERIALIZE]
 
-- Auto: `load_cdf` returns an `arro3.core.RecordBatchReader`, and the arro3 frame carries no `pyarrow` sort or compute surface — so the zero-copy `pa.table(...)` PyCapsule re-import is the load-bearing hop before the key-sorted partition split, never a direct `pc` call on the arro3 frame. Partitioning is ONE sorted pass over EVERY CDF record — deletes included, so a delete-only partition still recomputes: adjacent runs over the key tuples bound each partition, every delta is a zero-copy slice, and each slice keeps only its post-state rows — insert and `update_postimage`, a kept `update_preimage` doubling every updated row — so a fully-deleted partition recomputes over an empty input and overrides its stale prior, never a fresh full-table filter per partition. A non-Delta source returns `Error(BoundaryFault(...))` directly rather than raising into the fence re-key, so the typed fault key survives.
-- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one arm on the same recompute plane through the `lakehouse` `TableFormat` axis, zero change here.
+- Auto: `load_cdf` returns an `arro3.core.RecordBatchReader`, and the arro3 frame carries no `pyarrow` sort or compute surface — so the zero-copy `pa.table(...)` PyCapsule re-import is the load-bearing hop before the key-sorted partition split. Partitioning is one strict sorted pass over every CDF record. `register_data_hooks(scope)` folds the package point table through `Hooks.register`; every emitting owner carries that same scope, so registry custody and fire cannot cross compositions. Each recomputed bundle fires `REFRESH_POINT` on that scoped registry, and a late subscriber drains the bounded replay ring.
+- Growth: a new transform is a different `QuerySpec`; a new partition strategy is one `partition_by` tuple; a second CDF source is one arm on the lakehouse format axis; a new data hook is one `DATA_HOOK_POINTS` row and its owner fire.
 - Boundary: composes the `lakehouse` `ChangeFeed` op, the `query` engine, the `columnar` `arrow_bytes` fold, and the owner's composition-root-bound `lane` — `refresh` accepts only operation inputs, the partition fan-out drains under `LanePolicy.drain`, never a page-local task-group rig; a casualty fails the refresh closed, no durable derived store, no parallel materialization module, no second CDF reader.
 
 ```python signature
@@ -29,13 +29,16 @@ from opentelemetry import trace
 from typing import Final
 
 from rasm.data.tabular.columnar import arrow_bytes
-from rasm.data.tabular.lakehouse import Lakehouse, TableFormat
+from rasm.data.tabular.contract import VERDICT_POINT
+from rasm.data.tabular.egress import COPY_POINT, DELETE_POINT, PUT_POINT, RENAME_POINT
+from rasm.data.tabular.lakehouse import LAKE_COMMIT_POINT, Lakehouse, TableFormat
 from rasm.data.tabular.query import QueryEngine, QuerySpec
 from rasm.runtime.faults import BoundaryFault, RuntimeRail, async_boundary
+from rasm.runtime.hooks import HookPoint, Hooks, Modality
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import Admit, LanePolicy, on_thread
 from rasm.runtime.metrics import Metrics
-from rasm.runtime.receipts import Receipt
+from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
 _TRACER: Final = trace.get_tracer("rasm.data.tabular.materialize")
 
@@ -56,12 +59,39 @@ class PartitionBundle(Struct, frozen=True):
         return (Receipt.of("derived-snapshot", ("emitted", self.partition, {"rows": self.rows})),)
 
 
+# late-attach replay edge: every recomputed bundle fires the REPLAY row inside its composition scope.
+REFRESH_POINT: Final[HookPoint[PartitionBundle]] = HookPoint(
+    id="rasm.data.materialize.refresh", payload=PartitionBundle, modality=Modality.REPLAY, buffer=64
+)
+
+DATA_HOOK_POINTS: Final[tuple[HookPoint[Struct], ...]] = (
+    LAKE_COMMIT_POINT,
+    PUT_POINT,
+    DELETE_POINT,
+    COPY_POINT,
+    RENAME_POINT,
+    REFRESH_POINT,
+    VERDICT_POINT,
+)
+
+
+def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[tuple[HookPoint[Struct], ...]]":
+    # one composition fold consumes every registration rail; duplicate ids and malformed rows fail the root.
+    return Block.of_seq(DATA_HOOK_POINTS).fold(
+        lambda registered, point: registered.bind(
+            lambda rows: Hooks.register(point, scope=scope).map(lambda admitted: (*rows, admitted))
+        ),
+        Ok(()),
+    )
+
+
 class DerivedSnapshot(Struct, frozen=True):
     partition_by: tuple[str, ...]
     transform: QuerySpec
     # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner,
     # and a consumer hands `refresh` only operation inputs while capacity, deadline, and cancellation ride this binding.
     lane: LanePolicy
+    scope: ScopeKey = DEFAULT_SCOPE
 
     def __post_init__(self) -> None:
         # an empty partition column set has no partition identity to key or slice on, so it refuses at construction.
@@ -93,10 +123,10 @@ class DerivedSnapshot(Struct, frozen=True):
         ordered = cdf.sort_by([(col, "ascending") for col in self.partition_by])
         tuples = list(zip(*(ordered.column(col).to_pylist() for col in self.partition_by), strict=True))
         runs = tuple((key, sum(1 for _ in members)) for key, members in groupby(tuples))
-        offsets = accumulate((count for _key, count in runs), initial=0)
+        offsets = tuple(accumulate((count for _key, count in runs), initial=0))[:-1]
         deltas = tuple(
             (ordered.slice(offset, count).filter(pc.field("_change_type").isin(_POST_STATE)), self._key_id(key))
-            for (key, count), offset in zip(runs, offsets, strict=False)
+            for (key, count), offset in zip(runs, offsets, strict=True)
         )
         # independent recomputes drain as bare units under the owner's lane — capacity, deadline, cancellation, and the
         # drain receipt arrive from the fabric instead of a page-local task-group rig; any casualty fails the refresh
@@ -119,7 +149,7 @@ class DerivedSnapshot(Struct, frozen=True):
         return tuple(merged[partition] for partition in sorted(merged))
 
     async def _recompute(self, delta: pa.Table, partition: str) -> "RuntimeRail[PartitionBundle]":
-        # a query fault PROPAGATES — keying the raw delta in place of the transform's output would land untransformed
+        # a query fault PROPAGATES — keying the raw delta in place of the transform's output lands untransformed
         # rows under a materialized identity; `arrow_bytes` is the imported `columnar` public fold, never a re-spelled
         # serialization.
         railed = await QueryEngine.of({"delta": delta}).run(self.transform)
@@ -127,7 +157,7 @@ class DerivedSnapshot(Struct, frozen=True):
             lambda result: ContentIdentity.of("partition", arrow_bytes(result)).map(
                 lambda key: PartitionBundle(partition=partition, rows=result.num_rows, content_key=key)
             )
-        )
+        ).bind(lambda bundle: Hooks.fire(REFRESH_POINT.id, bundle, scope=self.scope))
 
 
 def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> "RuntimeRail[ContentKey]":

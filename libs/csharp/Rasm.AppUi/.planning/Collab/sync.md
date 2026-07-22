@@ -1,6 +1,6 @@
 # [APPUI_COLLAB_SYNC]
 
-One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, issue threads, tables, graph structure, and live-data annotations; the durable seam encodes AppUi intents as Persistence-owned `CrdtOpWire` payloads on the `Version/ledger` `crdt` lane and rehydrates through `ReplayWindow.ForEntity`; `Presence` owns text carets, awareness identity, and viewport presence as disjoint ephemeral channels; and `TimeTravel` commits inverse intents through the same ledger rail. Loro bytes never cross durable truth.
+One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, issue threads, tables, graph structure, and live-data annotations; the durable seam encodes AppUi intents as `CrdtOpWire` payloads — the wire vocabulary `Version/commits#CRDT_WIRE` owns — carried on the `Version/ledger` `crdt` lane and rehydrated through `ReplayWindow.ForEntity`; `Presence` owns text carets, awareness identity, and viewport presence as disjoint ephemeral channels; and `TimeTravel` commits inverse intents through the same ledger rail. Loro bytes never cross durable truth.
 
 ## [01]-[INDEX]
 
@@ -176,7 +176,7 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
 
 - Owner: `EditIntent` — the SINGLE typed edit-intent `[Union]` whose rows the domain planes contribute; `IntentLedger` — the projection onto Persistence-owned rows, the ONE live+durable commit rail, and the replay-window cold-load; `SessionEpoch` — the epoch identity that makes cold-load honest; `TextRunGate` — the producer-side probe gate on the text arm.
 - Cases: `EditIntent` = CellInsert | CellEdit | CellMove | CellDelete | CommentAdd | CommentEdit | CommentResolve | CommentRoute | TableRowCommit | GraphStructure | Annotation | TextRun — every collaborative surface's committed edit is ONE row here, never a parallel per-page op union; `CommentRoute` projects resolved mention recipients into their mergeable notification inboxes; `history.md`'s `RevertibleOp` stays the LOCAL revert algebra that projects onto this same family; `GraphOp` = NodeAdd | NodeAt | NodeMove | NodeRemove | EdgeAdd | EdgeRemove — each case carrying exactly its own payload, so no arm reads an `Option` a sibling case never populates: `NodeAdd` carries the complete `GraphNodeRow` so cold replay rehydrates template, title, position, and pins, `NodeAt` is the canvas position-commit meta-column write, the move arm rides the tree's identity-preserving `MovTo`, and the edge arms carry pin-qualified `GraphEndpoint` pairs; `TextRunOp` = Insert | Delete | Mark over unicode-index positions the ledger decode resolves from the Persistence stable-position rows in window order.
-- Entry: `public IO<Fin<Unit>> Project(EditIntent intent)` — encodes the intent as the payload of a Persistence-owned `CrdtOpWire` on the `Version/ledger` `crdt` lane; `public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin)` — appends durably before applying through the same `IntentApply.Apply` dispatch replay uses; `ColdLoad` reads `ReplayWindow.ForEntity` and replays into a fresh `LoroDoc` in ledger order.
+- Entry: `public IO<Fin<Unit>> Project(EditIntent intent)` — encodes the intent as the payload of a `CrdtOpWire` (the `Version/commits#CRDT_WIRE`-owned wire vocabulary) carried on the `Version/ledger` `crdt` lane; `public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin)` — appends durably before applying through the same `IntentApply.Apply` dispatch replay uses; `ColdLoad` reads `ReplayWindow.ForEntity` and replays into a fresh `LoroDoc` in ledger order.
 - Auto: cold-load is DETERMINISTIC HYDRATION — no Loro byte is read from durable truth; each decoded intent applies through the same container verbs a live edit uses, so the rehydrated state is a pure function of the ledger window; the SESSION-EPOCH law makes it honest: a rehydrated `LoroDoc`'s version vector is unrelated to any live session's, so a live peer's `Export(Updates(vv))` delta CANNOT import over it (`LoroException.ImportUpdatesThatDependsOnOutdatedVersion`/`DecodeVersionVectorException` are the verified failure surface, folding to `CollabFault.EpochMismatch`) — replay-window rehydration is the cold-START path that SEEDS a session epoch, and a peer joining an ACTIVE session syncs Loro-native session state from a live peer over the AppHost transport (in-session wire, ephemeral, never persisted), never by replaying the log beside a live epoch.
 - Receipt: every projected intent seals a receipt through the `ReceiptSinkPort` envelope carrying the ledger sequence and the intent kind; the replay-window read receipt carries the window bounds and the replayed op count.
 - Packages: LoroCs, Rasm.Persistence (project), Rasm (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -425,14 +425,14 @@ public static class IntentApply {
 ## [04]-[LIVE_WIRE]
 
 - Owner: `LiveWire` the in-session sync path, the collab-frame W3C wire-context carrier, and the pre-commit/JSON forensics owner; `CollabWireContext` the W3C carrier value and `CollabFrame` the carrier-plus-delta frame; `SnapshotAccelerator` the content-keyed cold-start accelerator.
-- Entry: `public IDisposable Broadcast(Func<CollabFrame, IO<Unit>> sink)` — subscribes each local op-log delta, frames it with the injected W3C carrier, and pushes the `CollabFrame` to the composition-bound transport sink; `public IO<Fin<CollabSyncReceipt>> Merge(params CollabFrame[] frames)` — extracts the lead frame's ORIGINATING correlation and tenant, imports one framed delta through `ImportWith` or a reconnect burst through `ImportBatch` arity-discriminated by input shape, and seals the receipt on that originating correlation; `public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink, Func<Error, IO<Unit>> faults)` — the pre-commit forensics tap producing the dev-loop `PreCommitFact`; `public Fin<string> ExportJson(VersionVector from, VersionVector to)` — the readable op-window export.
-- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; each outbound delta frames through the AppHost `TraceContext` setter adapter so `traceparent`, `tracestate`, `baggage`, and the promoted `rasm.tenant` tenant baggage ride the frame AS METADATA, and the receiver extracts the originating correlation and tenant before sealing so a merge applied on one client JOINS the originating client's estate timeline rather than the local session's; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop evidence stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the document topic carries framed deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
-- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the pending-span count, and the import success — sealed through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case with the ORIGINATING correlation; `TelemetryRow` contributes the merge, delta, byte, and pending instruments through the AppHost `TelemetryContributorPort`, every write fan-fed off this receipt's envelope; the pre-commit fact seals onto the dev-loop evidence sink under the `DevLoop.PreCommitKind` row (composition-bound), never a second receipt union.
+- Entry: `public IDisposable Broadcast(Func<CollabFrame, IO<Unit>> sink)` — subscribes each local op-log delta, frames it with the injected W3C carrier, and pushes the `CollabFrame` to the composition-bound transport sink; `public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames)` — extracts the lead frame's ORIGINATING correlation and tenant, imports one framed delta through `ImportWith` or a reconnect burst through `ImportBatch` arity-discriminated by input shape, collapses the import verdict onto the one `IO` rail, and seals the receipt on both originating values; `public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink, Func<Error, IO<Unit>> faults)` — the pre-commit forensics tap producing the dev-loop `PreCommitFact`; `public Fin<string> ExportJson(VersionVector from, VersionVector to)` — the readable op-window export.
+- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; each outbound delta frames through the composition-bound W3C setter so `traceparent`, `tracestate`, baggage, and promoted `rasm.tenant` metadata ride beside the delta, and merge retains the extracted correlation and tenant on `CollabSyncReceipt`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; `SubscribePreCommit` surfaces each pending commit as a `PreCommitFact` for the dev-loop evidence stream and `ExportJsonUpdates` renders any version window as readable JSON, so a merge dispute reads as an inspectable operation log without a second collab surface; the live delta rides the AppHost bus/topics law — the document topic carries framed deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
+- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, pending-span count, import success, originating correlation, and originating tenant — sealed through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case without replacing either carrier value; `TelemetryRow` contributes the merge, delta, byte, and pending instruments through the AppHost `TelemetryContributorPort`, every write fan-fed off this receipt's envelope; the pre-commit fact seals onto the dev-loop evidence sink under the `DevLoop.PreCommitKind` row (composition-bound), never a second receipt union.
 - Packages: LoroCs, Rasm (project), Rasm.Persistence (project), Rasm.AppHost (project, seam types), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one sync instrument is one `InstrumentRow` on `LiveWire.TelemetryRow`; a new wire-context field is one carrier key; a new forensics verb is one member on this owner; zero new surface.
 - Boundary:
   - The session delta is IN-SESSION wire only — `SubscribeLocalUpdate` -> frame -> broadcast and `Merge` -> import within one epoch; a central merge server is the deleted form; Loro bytes crossing durable truth on either path is the deleted form.
-  - W3C injection and extraction are AppHost `TraceContext`'s — the seam owner of every crossing owns the getter/setter adapter pair, so AppUi holds only `CollabWireContext` (the carrier value) and the composition-bound `Inject`/`Extract` delegates; a page-local propagator, a `traceparent` string parsed in AppUi, or the wrong claim that `CommitWith(CommitOptions)` origin metadata carries the context (`CommitOptions` seals only change-origin/timestamp/message, and `SubscribeLocalUpdate` yields opaque bytes) is the deleted form; the carrier is frame metadata, never a transport reference. Ripple: AppHost `[COLLAB-WIRE-CONTEXT]` carries the reciprocal `TraceContext` collab-frame adapter and the `COLLAB_DELTA_FEED` frame schema.
+  - W3C injection and extraction belong to AppHost `TraceContext`; AppUi holds only `CollabWireContext` and composition-bound `Inject`/`Extract` delegates. AppHost carries the generic propagation spine and the `[COLLAB_DELTA_FEED]` topic row, but no collab carrier adapter row exists, so `[COLLAB_WIRE_CONTEXT]` remains blocked on that exact reciprocal. A page-local propagator, a `traceparent` parse, or the false claim that `CommitWith(CommitOptions)` carries W3C context is the deleted form.
   - The pre-commit tap OBSERVES — the `ChangeModifier` on `PreCommitCallbackPayload` is left untouched, so forensics never rewrites a pending commit's message or timestamp; `ExportJsonUpdates` is a READ producing cross-implementation JSON for debugging, never a durable wire — the durable stream stays the `EditIntent` union.
   - `SnapshotAccelerator` is the ONLY surviving durable Loro artifact: the `Export(Snapshot)` blob crosses the Persistence blob lane as a content-keyed cold-start ACCELERATOR — its key composes the kernel `ContentHash.Of` one-hasher entry (the page-local `XxHash128` mint is the deleted form), it is derivable, deletable, and verified reconstructible from the op-log alone, and it is NEVER system-of-record; the cold-load acceptance holds with the blob deleted.
   - `ExportShallowSnapshot(Frontiers)` is the gc-trimmed accelerator variant for bounded history — same accelerator charter.
@@ -445,7 +445,15 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
         new(key, ContentHash.Of(blob.Span), blob.Length, blob);
 }
 
-public readonly record struct CollabSyncReceipt(string Key, int Deltas, long Bytes, int Pending, bool Applied, Instant At, CorrelationId Correlation);
+public readonly record struct CollabSyncReceipt(
+    string Key,
+    int Deltas,
+    long Bytes,
+    int Pending,
+    bool Applied,
+    Instant At,
+    CorrelationId Correlation,
+    Option<TenantContext> Tenant);
 
 // The W3C carrier is a string map — the getter/setter adapter pair AppHost `TraceContext` owns injects
 // on broadcast and extracts on merge; AppUi holds only the carrier value and the composition-bound
@@ -482,14 +490,14 @@ public sealed record LiveWire(
     // Merge, delta, and byte counts ride the evidence fan's collab-sync arm; the pending levels read
     // the fan-swapped keyed family, so a stalled peer surfaces as a standing per-document gauge, never
     // a stale count.
-    public static TelemetryContributorPort TelemetryRow(string version) =>
-        AppUiTelemetry.Contribute(version,
+    public static TelemetryContributorPort TelemetryRow(LevelCells cells, string version, string schemaUrl) =>
+        AppUiTelemetry.Contribute(version, schemaUrl,
             new(AppliedInstrument, InstrumentKind.Count, "{merge}", "collab merges applied by document"),
             new(RejectedInstrument, InstrumentKind.Count, "{merge}", "collab merges rejected by document"),
             new(DeltasInstrument, InstrumentKind.Count, "{delta}", "collab deltas imported by document"),
             new(BytesInstrument, InstrumentKind.Count, "By", "collab delta bytes imported by document"),
             new(PendingInstrument, InstrumentKind.Levels, "{span}", "pending collab spans awaiting merge by document",
-                Levels: UiLevelCells.Reader(UiLevelCells.Live.CollabPending, "doc")));
+                Levels: cells.Reader(PendingInstrument, "doc")));
 
     // Each local delta frames with the injected W3C carrier before it reaches the transport, so the
     // broadcast is a CollabFrame (carrier + bytes), never bare bytes; Inject is the AppHost TraceContext
@@ -508,21 +516,23 @@ public sealed record LiveWire(
     // epoch is the origin), a reconnect burst rides ImportBatch. The lead frame's carrier extracts the
     // ORIGINATING correlation and tenant, so the sealed receipt joins the remote edit onto the
     // originating client's timeline rather than the local session's.
-    public IO<Fin<CollabSyncReceipt>> Merge(params CollabFrame[] frames) =>
+    public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames) =>
         IO.lift(() => {
             (CorrelationId Correlation, Option<TenantContext> Tenant) origin =
                 frames is [var lead, ..] ? Extract(lead.Context) : (Correlation, Tenant);
             ReadOnlyMemory<byte>[] deltas = [.. frames.AsIterable().Map(static frame => frame.Delta)];
-            return CollabDoc.Lift(() => deltas is [var single]
+            return deltas.Length == 0
+                ? Fin.Fail<CollabSyncReceipt>(new CollabFault.Text("live merge requires at least one framed delta"))
+                : CollabDoc.Lift(() => deltas is [var single]
                     ? Document.Doc.ImportWith(single.ToArray(), Epoch.Epoch.ToString("N"))
                     : Document.Doc.ImportBatch([.. deltas.AsIterable().Map(static delta => delta.ToArray())]))
-                .Map(status => new CollabSyncReceipt(
-                    Document.Key, deltas.Length, deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length),
-                    status.Pending?.Count ?? 0, status.Pending is not { Count: > 0 }, Clocks.Now, origin.Correlation));
+                    .Map(status => new CollabSyncReceipt(
+                        Document.Key, deltas.Length, deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length),
+                        status.Pending?.Count ?? 0, status.Pending is not { Count: > 0 }, Clocks.Now, origin.Correlation, origin.Tenant));
         })
             .Bind(result => result.Match(
-                Succ: receipt => Sink(receipt).Map(_ => Fin.Succ(receipt)),
-                Fail: error => IO.pure(Fin.Fail<CollabSyncReceipt>(error))));
+                Succ: receipt => Sink(receipt).Map(_ => receipt),
+                Fail: static error => IO.fail<CollabSyncReceipt>(error)));
 
     // Pre-commit forensics tap: SubscribePreCommit fires BEFORE each change seals, so a pending commit
     // surfaces as a PreCommitFact for the dev-loop evidence stream; the ChangeModifier is left untouched
@@ -560,7 +570,7 @@ public sealed record LiveWire(
 
 ```mermaid
 flowchart LR
-    Edit[typed EditIntent] -->|Commit: durable-first| Ledger["Persistence Version/ledger (CrdtOpWire / ReplayWindow.ForEntity)"]
+    Edit[typed EditIntent] -->|Commit: durable-first| Ledger["Persistence Version/ledger crdt lane (Version/commits CrdtOpWire · ReplayWindow.ForEntity)"]
     Edit -->|IntentApply.Apply| CollabDoc
     Ledger -->|ReplayWindow decode| Fresh["fresh LoroDoc (session epoch seed)"]
     CollabDoc -->|SubscribeLocalUpdate| LiveWire

@@ -6,15 +6,15 @@ This owner produces local evidence — typed receipts and structured log facts �
 
 ## [01]-[INDEX]
 
-- [01]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
+- [01]-[RECEIPT]: the minted drain taxonomy and composition-scope vocabulary, the bracket-cheap `Cost` process-spend evidence, the self-projecting receipt union, the contributor port, the `@receipted` aspect and the `measured` weave, the `emit`/`emit_async` sink pair, the emit-bound redaction policy, and the inbound trace-context pair.
 
 ## [02]-[RECEIPT]
 
 - Owner: `Receipt` owns its own projection — every case folds to a `(LogLevel, name, EventDict)` triple through one total `project`, the event name its own slot, never packed under an `"event"` key the sink re-pops — so `Signals.emit` is a renderer-agnostic fold, never three hand-built dict arms. Case log disposition is data: the `fact` case reads its level off `PHASE_LEVEL`, so a new phase is one row, never a phase branch.
 - Cases: the three lifecycle phases share the one `fact` case as a `Phase` value, never three identical-payload sibling cases. `rejected` carries the whole fault and spreads the `reliability/faults#FAULT`-owned `BoundaryFault.facts()` projection — the subject is never a pre-extracted slot beside the fault, and no private fault walk re-implements the owner's fold. Correlation flows through `merge_contextvars`, never a per-case field.
 - Entry: `Signals.emit`/`emit_async` are polymorphic on both axes — input normalized through one `_stream`, output any `FilteringBoundLogger`, so a `capture_logs` test or `wrap_logger` consumer drives the same fold without a second emit surface. This page mints the folder's composition-scope vocabulary — `ScopeKey` and the pinned `DEFAULT_SCOPE` spelling every scope-keyed custody surface (hooks tables, metrics state, the install-receipt maps) imports from here, receipts being the observability tier below every consumer — and the default-sink resolution is its first custody surface: the default scope resolves the bare global logger preserving the standing call shape, a non-default scope resolves a `composition`-bound logger, so two compositions' lines partition and self-identify with no second emit surface. `emit_async` awaits the `a*` mirror, so a high-volume async serve path offloads render-and-sink to a worker thread rather than blocking the event loop. This `continue_inbound`/`attach` split is load-bearing at the `execution/lanes#LANE` offload stitch — the loop side injects, the worker kernel extracts then attaches around exactly the offloaded body, a placement one fused extract-and-activate scope cannot serve — and the gRPC ingress composes neither: the `transport/serve#SERVE` interceptor is that seam's one context authority. Before the telemetry install the extract reads the default no-op propagator and the C# parent drops — the mechanical reason the extract sequences after the install.
-- Auto: `@receipted` is parameterized over the concrete contributor type through the `R: ReceiptContributor` bound, so a decorated operation statically returns its concrete receipt rather than collapsing to the bare Protocol, and a consumer's `Ok` arm reads concrete members without a static error. Span creation belongs to the measured operation, never to emission — emit writes under whatever span is active, and `measured` is that operation-owned weave stated once: one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span, a rail-returning dispatch flattened so an offload composes without double-nesting, emission fenced so a render or sink raise folds onto the rail, and the status close two-sided — OK set exactly once on the clean exit, ERROR with the fault-fact event landing at the rail lift, so a pre-railed fault marks the same span the raise path marks through the faults-owned conversion and the OTLP trace carries every fault the receipt stream reports. Its drained projection reads the outcome counts per column off `DRAIN_COLUMNS` — a full `asdict` allocates the receipt's containers per emit only to drop them — and the metrics counter keys the identical columns, so the line and the counter cannot disagree. A `hash`-class field renders a stable correlation token, so two lines carrying the same secret correlate without leaking the value. Receipts' RSS slot is a point fact and the metrics gauge the stream over one `psutil` source, each owner holding its own handle.
-- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line, the metrics counter, and the lanes fold through the one `DRAIN_COLUMNS` derivation with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method; a new composition one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
+- Auto: `@receipted` is parameterized over the concrete contributor type through the `R: ReceiptContributor` bound, so a decorated operation statically returns its concrete receipt rather than collapsing to the bare Protocol, and a consumer's `Ok` arm reads concrete members without a static error. Its admitted `ScopeKey` reaches both contributor harvest arms, so a composition never falls back to the default sink during decorator emission. Span creation belongs to the measured operation, never to emission — emit writes under whatever span is active, and `measured` is that operation-owned weave stated once: one entry discriminating modality on the dispatch shape, the caller's `facts` mapping stamped at span open with `scope`/`subject` authoritative last, the fault fence INSIDE the live span so a provider raise records on a recording span, a rail-returning dispatch flattened so an offload composes without double-nesting, emission fenced under the same `ScopeKey` so a render or sink raise folds onto the rail, and the status close two-sided — OK set exactly once on the clean exit, ERROR with the fault-fact event landing at the rail lift, so a pre-railed fault marks the same span the raise path marks through the faults-owned conversion and the OTLP trace carries every fault the receipt stream reports. Its drained projection reads the outcome counts per column off `DRAIN_COLUMNS` — a full `asdict` allocates the receipt's containers per emit only to drop them — and the metrics counter keys the identical columns, so the line and the counter cannot disagree. A `hash`-class field renders a stable correlation token, so two lines carrying the same secret correlate without leaking the value. Receipts' RSS slot is a point fact and the metrics gauge the stream over one `psutil` source, each owner holding its own handle.
+- Growth: a new drain outcome is one `DrainOutcome` member with its `DrainReceipt` field, reaching the drained line, the metrics counter, and the lanes fold through the one `DRAIN_COLUMNS` derivation with zero consumer edits; a new cost column is one `Cost` field reaching the drained line, the fabric bracket, and the `rasm.cost.<measure>` projection through `facts`/`measures` with zero consumer edits; a new lifecycle phase one `Phase` literal and one `PHASE_LEVEL` row; a distinct-payload evidence kind one `Receipt` case with its `project` and `of` arms; a new classified field one `Redaction` table row; a new classification transform one `Classification` member and one `_reduce` arm; a producer's new crossing fact one `facts` entry at its own call site with zero weave edits; a new log level one `LogLevel` literal and one `LEVEL_METHOD` row reaching the floor and both emit arms at once; a new sink target the `sink` argument, never a second emit method; a new composition one `ScopeKey` value threaded through the `scope` keyword, never a sibling registry.
 - Boundary: the `observability/logging#PIPELINE` owner wires the processor chain and the stdlib bridge this fold renders through — this page emits and never configures; no private `LogRecordProcessor`/`OTLPLogExporter` beside the composition-root egress, and no second drain vocabulary or upward `lanes` import beside the taxonomy this page mints.
 
 ```python signature
@@ -92,6 +92,69 @@ PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (psutil.NoSuchProcess, p
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class Cost(Struct, frozen=True, gc=False):
+    # bracket-cheap process-spend evidence: two `sampled` reads per bracket, `delta` the spend between them. `rss_bytes`
+    # is an instantaneous sample whose signed delta attributes retained-memory change without claiming an unobserved peak;
+    # `io_bytes` platform-gates independently because an unavailable counter cannot erase the CPU, RSS, or switch sample.
+    cpu_ms: float = 0.0
+    rss_bytes: int = 0
+    io_bytes: int = 0
+    switches: int = 0
+
+    @classmethod
+    def sampled(cls, process: psutil.Process) -> "Cost":
+        with suppress(*PROCESS_FAULTS), process.oneshot():
+            times = process.cpu_times()
+            io_bytes = 0
+            if hasattr(process, "io_counters"):
+                with suppress(*PROCESS_FAULTS):
+                    io = process.io_counters()
+                    io_bytes = io.read_bytes + io.write_bytes
+            ctx = process.num_ctx_switches()
+            return cls(
+                cpu_ms=(times.user + times.system) * 1000.0,
+                rss_bytes=process.memory_info().rss,
+                io_bytes=io_bytes,
+                switches=ctx.voluntary + ctx.involuntary,
+            )
+        return cls()
+
+    @classmethod
+    def own(cls) -> "Cost":
+        return cls.sampled(_PROCESS)
+
+    def delta(self, prior: "Cost") -> "Cost":
+        return Cost(
+            cpu_ms=max(self.cpu_ms - prior.cpu_ms, 0.0),
+            rss_bytes=self.rss_bytes - prior.rss_bytes,
+            io_bytes=max(self.io_bytes - prior.io_bytes, 0),
+            switches=max(self.switches - prior.switches, 0),
+        )
+
+    @staticmethod
+    def combined(left: "Cost", right: "Cost") -> "Cost":
+        # receipts-monoid cost instance: aggregation over brackets, never a generic accumulator.
+        return Cost(
+            cpu_ms=left.cpu_ms + right.cpu_ms,
+            rss_bytes=left.rss_bytes + right.rss_bytes,
+            io_bytes=left.io_bytes + right.io_bytes,
+            switches=left.switches + right.switches,
+        )
+
+    def facts(self) -> EventDict:
+        return {"cpu_ms": self.cpu_ms, "rss_bytes": self.rss_bytes, "io_bytes": self.io_bytes, "switches": self.switches}
+
+    def measures(self) -> dict[str, float]:
+        # instrument projection keyed by the metrics-owned `rasm.cost.<measure>` rows — the bench correspondence
+        # pattern: the producer spells the mapping, the one `INSTRUMENTS` table owns the rows.
+        return {
+            "rasm.cost.cpu_time": self.cpu_ms,
+            "rasm.cost.memory_delta": float(self.rss_bytes),
+            "rasm.cost.io_bytes": float(self.io_bytes),
+            "rasm.cost.ctx_switches": float(self.switches),
+        }
+
+
 class DrainReceipt[T](Struct, frozen=True):
     accepted: int
     completed: int
@@ -101,6 +164,7 @@ class DrainReceipt[T](Struct, frozen=True):
     cache: Map[ContentKey, T] = Map.empty()
     faults: Block[BoundaryFault] = Block.empty()
     hit: int = 0
+    cost: Cost = Cost()
 
     @staticmethod
     def of[U](
@@ -109,6 +173,7 @@ class DrainReceipt[T](Struct, frozen=True):
         resolved: Block[tuple[Option[ContentKey], RuntimeRail[U]]],
         replayed: Block[tuple[ContentKey, U]],
         cache: Map[ContentKey, U],
+        cost: Cost = Cost(),
     ) -> "DrainReceipt[U]":
         merged = resolved.append(replayed.map(lambda pair: (Some(pair[0]), Ok(pair[1]))))
         completed = resolved.choose(lambda pair: pair[1].to_option())
@@ -125,6 +190,7 @@ class DrainReceipt[T](Struct, frozen=True):
             cache=threaded,
             faults=faults,
             hit=hit,
+            cost=cost,
         )
 
 
@@ -155,7 +221,7 @@ class Receipt:
             case Receipt(tag="rejected", rejected=(owner, fault)):
                 return "warning", "rejected", {"owner": owner, **fault.facts()}
             case Receipt(tag="drained", drained=(owner, drain)):
-                return "info", "drained", {"owner": owner, **_rss(), **{column: getattr(drain, column) for column in DRAIN_COLUMNS}}
+                return "info", "drained", {"owner": owner, **_rss(), **drain.cost.facts(), **{column: getattr(drain, column) for column in DRAIN_COLUMNS}}
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -275,18 +341,18 @@ def _flat[T](value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
     return value.map_error(_marked) if isinstance(value, Result) else Ok(value)
 
 
-def _harvested[T](value: T, redaction: Redaction) -> T:
+def _harvested[T](value: T, redaction: Redaction, scope: ScopeKey) -> T:
     # fenced emit step: a ReceiptContributor streams its receipts, a plain value passes through untouched.
     if isinstance(value, ReceiptContributor):
-        Signals.emit(value, redaction)
+        Signals.emit(value, redaction, scope=scope)
     return value
 
 
-async def _harvested_async[T](value: T, redaction: Redaction) -> T:
+async def _harvested_async[T](value: T, redaction: Redaction, scope: ScopeKey) -> T:
     # async mirror of the fenced emit step: the woven arm awaits `Signals.emit_async` so a contributor harvest
     # never runs a sync sink on the event loop.
     if isinstance(value, ReceiptContributor):
-        await Signals.emit_async(value, redaction)
+        await Signals.emit_async(value, redaction, scope=scope)
     return value
 
 
@@ -296,7 +362,7 @@ def _closed[T](span: Span, value: T) -> T:
 
 
 def measured[T](
-    scope: str, subject: str, redaction: Redaction, dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
+    scope: ScopeKey, subject: str, redaction: Redaction, dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
     facts: Mapping[str, str | int | float | bool] = Map.empty(),
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
     # Exemption: the span lifecycle and the modality probe are the platform-forced seam every evidence producer
@@ -312,12 +378,12 @@ def measured[T](
         # hands the SAME still-open span its dispatch ran under — a sync-minted awaitable finishes inside the original
         # span, never a sibling pair whose first member closed un-statused at the mint.
         with trace.use_span(span, end_on_exit=True):
-            rail = (await async_boundary(f"{scope}.{subject}", pending)).bind(_flat)
+            rail = (await async_boundary(f"{scope}.{subject}", pending)).map_error(_marked).bind(_flat)
             match rail:  # one total carrier match — `expression` ships no async builder, and the harvest awaits emit_async
                 case Result(tag="ok", ok=value):
-                    return (await async_boundary(f"{scope}.emit", lambda: _harvested_async(value, redaction))).map(
-                        lambda live: _closed(span, live)
-                    )
+                    return (
+                        await async_boundary(f"{scope}.emit", lambda: _harvested_async(value, redaction, scope))
+                    ).map_error(_marked).map(lambda live: _closed(span, live))
                 case _:
                     return rail
 
@@ -326,28 +392,30 @@ def measured[T](
         return settled(opened(), dispatch)
     span = opened()
     with trace.use_span(span, end_on_exit=False):
-        railed = boundary(f"{scope}.{subject}", dispatch).bind(_flat)
+        railed = boundary(f"{scope}.{subject}", dispatch).map_error(_marked).bind(_flat)
         match railed:
             case Result(tag="ok", ok=pending) if isawaitable(pending):
                 # a sync-declared callable can still RETURN an awaitable (a lambda minting a coroutine); the settle
                 # continues under the SAME open span, which ends when the awaited half resolves — Ok(coroutine) never escapes.
                 return settled(span, lambda: pending)
             case _:
-                outcome = railed.bind(lambda value: boundary(f"{scope}.emit", lambda: _harvested(value, redaction))).map(
-                    lambda value: _closed(span, value)
-                )
+                outcome = railed.bind(
+                    lambda value: boundary(f"{scope}.emit", lambda: _harvested(value, redaction, scope)).map_error(_marked)
+                ).map(lambda value: _closed(span, value))
                 span.end()
                 return outcome
 
 
-def receipted[**P, R: ReceiptContributor](redaction: Redaction) -> Callable[[Contributing[P, R]], Contributing[P, R]]:
+def receipted[**P, R: ReceiptContributor](
+    redaction: Redaction, *, scope: ScopeKey = DEFAULT_SCOPE
+) -> Callable[[Contributing[P, R]], Contributing[P, R]]:
     def wrap(operation: Contributing[P, R]) -> Contributing[P, R]:
         if iscoroutinefunction(operation):
 
             @wraps(operation)
             async def harvested_async(*args: P.args, **kwargs: P.kwargs) -> R:
                 contributor = await operation(*args, **kwargs)
-                await Signals.emit_async(contributor, redaction)
+                await Signals.emit_async(contributor, redaction, scope=scope)
                 return contributor
 
             return harvested_async
@@ -355,7 +423,7 @@ def receipted[**P, R: ReceiptContributor](redaction: Redaction) -> Callable[[Con
         @wraps(operation)
         def harvested(*args: P.args, **kwargs: P.kwargs) -> R:
             contributor = operation(*args, **kwargs)
-            Signals.emit(contributor, redaction)
+            Signals.emit(contributor, redaction, scope=scope)
             return contributor
 
         return harvested

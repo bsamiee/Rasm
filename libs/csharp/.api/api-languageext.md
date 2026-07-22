@@ -97,11 +97,12 @@
 |  [01]   | `Try.lift` / `Try.Succ` / `Try.Fail`                 | factory   | exception-trapping thunk        |
 |  [02]   | `TryExtensions.Run`                                  | extension | force thunk to `Fin`            |
 |  [03]   | `Eff.lift` / `Prelude.liftEff`                       | factory   | sync or async effect admission  |
-|  [04]   | `EffExtensions.Run` / `RunUnsafe`                    | extension | typed or throwing execution     |
-|  [05]   | `Eff.Map` / `MapFail` / `MapIO` / `Bind`             | instance  | effect composition and recovery |
-|  [06]   | `IO.pure` / `IO.fail` / `IO.lift`                    | factory   | terminal-effect construction    |
-|  [07]   | `IO.Run` / `RunAsync`                                | instance  | sync or `ValueTask` execution   |
-|  [08]   | `IO.Fork` / `Timeout` / `RepeatUntil` / `RetryUntil` | instance  | structured scheduled execution  |
+|  [04]   | `Eff<RT, RT> Eff.runtime<RT>()`                      | factory   | supplied-runtime reader effect  |
+|  [05]   | `EffExtensions.Run` / `RunUnsafe`                    | extension | typed or throwing execution     |
+|  [06]   | `Eff.Map` / `MapFail` / `MapIO` / `Bind`             | instance  | effect composition and recovery |
+|  [07]   | `IO.pure` / `IO.fail` / `IO.lift`                    | factory   | terminal-effect construction    |
+|  [08]   | `IO.Run` / `RunAsync`                                | instance  | sync or `ValueTask` execution   |
+|  [09]   | `IO.Fork` / `Timeout` / `RepeatUntil` / `RetryUntil` | instance  | structured scheduled execution  |
 
 [ENTRYPOINT_SCOPE]: `Seq` — construction, transform, and the INDEXED-MAP argument-order law
 - rail: functional substrate
@@ -143,7 +144,7 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 [RAIL_TOPOLOGY]:
 - one result rail: domain operations return `Fin<A>`; `Fin.Succ`/`Fin.Fail` are the only success/failure spellings, and `Error` (usually a domain `Fault` record deriving it) is the only failure payload
 - accumulation is a mode switch, not a second rail: independent gates lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin` — `Validation<Error, A>` exists exactly between those two conversions; every tuple leg must be K-KINDED (`K<Validation<Error>, A>`) because the tuple `Apply` extensions bind only on `(K<F,A>, …)` receivers — a concrete-`Validation` tuple neither infers nor converts at the extension receiver, so gate helpers declare the K return and `.As()` re-anchors after the join
-- deferral tiers: `Try.lift(...).Run()` traps a throwing boundary into `Fin<A>` synchronously; `Eff`/`IO` defer the same shape for composed/async execution and land on `Fin<A>` at `Run()` — the tier is chosen by WHEN the effect runs, never by which failure type it carries
+- deferral tiers: `Try.lift(...).Run()` traps a throwing boundary into `Fin<A>` synchronously; `Eff`/`IO` defer the same shape for composed/async execution and land on `Fin<A>` at `Run()` — the tier is chosen by WHEN the effect runs, never by which failure type it carries; `Eff.runtime<RT>()` is the exact reader constructor and returns `Eff<RT, RT>`
 - `Guard<Error, Unit>` is the predicate form: `guard(condition, error).ToFin()` replaces `condition ? Succ: Fail` ternaries at admission gates
 - `Match` argument order is per-rail law: `Fin.Match(Succ, Fail)` but `Validation.Match(Fail, Succ)` — named lambdas (`Succ:`, `Fail:`) make the transposition impossible
 

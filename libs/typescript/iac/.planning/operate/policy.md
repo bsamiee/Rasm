@@ -1,6 +1,6 @@
 # [IAC_POLICY]
 
-The policy plane in one owner with three verdict directions: `Guard` judges desired state before apply — one `PolicyPackArgs` value of policies-as-data rows, pack-level `mandatory` enforcement with per-policy overrides, compliance frames riding the rows they cover, attached to every run through `Automation.Options.policyPacks` so no `up` or `preview` executes ungated — `Drift` judges live state after it, projecting `Automation.reconcile` receipts into `DriftReport` rows plus the docker-cell store-conformance read-back, and `Reconcile` closes the loop in-cluster: the Pulumi Kubernetes Operator as a chart row with typed `Stack` CRs, so desired state re-asserts continuously between deploy-host sweeps and a tenant-submitted CR can trigger provisioning without a deploy-host actor. Guard policies narrow against the exact resource classes the tier pages construct through the typed helper family, and the rows encode this folder's own laws as machine pressure ON THE ARM THAT SHIPS: digest-pinned images, no superuser roles on BOTH the bridged `postgresql.Role` class and the CNPG `managed.roles` rows the primary arm actually creates, TLS at the Gateway and legacy-Ingress edges, protected data planes with their scheduled backups present, namespace network fences, managed-by stamps through the one combined validate-remediate callback. The previewRefresh mechanics live on the automation driver — drift here is pure projection over the shared receipt vocabulary, so deploy evidence and drift evidence cannot fork. `Evidence` is the deploy plane's one delivery vocabulary: run settle, drift verdicts, rotation windows, the Doppler secret-change delivery, and the hosted webhook deliveries all speak one tagged union into one never-failing sink contract, so observability subscribes to deploy facts as a tap and a new evidence source is one row. The module is `iac/src/operate/policy.ts`; a new invariant is one policy row, a new drift dimension is one report field folded from rows already carried, a new evidence source is one union row, a new reconcile subject is one `Stack` CR row, and no validator ever branches — growth is rows, never arms.
+`Guard`, `Drift`, and `Reconcile` own the policy plane's verdict directions. `Guard` judges desired state before apply through one `PolicyPackArgs` value of policies-as-data rows attached by `Automation.Options.policyPacks`. Typed helpers narrow each policy onto the resource class its tier constructs: digest-pinned images, non-superuser Postgres roles, TLS edges, protected data with scheduled backups, namespace fences, and managed-by stamps. `Drift` projects `Automation.reconcile` receipts into `DriftReport` rows with docker-cell store conformance. `Reconcile` carries typed `Stack` CR rows through the Pulumi Kubernetes Operator. `Evidence` unifies run settlement, drift, rotation, secret-change, and hosted-webhook deliveries under one tagged union and never-failing sink. Growth is one policy row, report field, evidence case, or `Stack` CR row.
 
 ## [01]-[CLUSTERS]
 
@@ -33,14 +33,19 @@ The policy plane in one owner with three verdict directions: `Guard` judges desi
 - Law: the data plane cannot vanish or run unarchived — `data-plane-protected` demands `opts.protect` on every CNPG `Cluster`, and `backup-beside-cluster` is the dependency-aware cross-resource row: every `Cluster` CR must have a `ScheduledBackup` CR whose `spec.cluster.name` references it, so an unprotected or unarchived database is unshippable.
 - Law: traffic is TLS-only at both edges — `ingress-tls-required` narrows the legacy `k8s.networking.v1.Ingress` and rejects a spec whose `tls` block is empty; `gateway-tls-required` walks Gateway API `Gateway` CRs and rejects a listener set with no `HTTPS`-terminating member carrying `certificateRefs`; the `kube/traffic` sink law becomes machine pressure on whichever edge row the estate selects.
 - Law: workloads carry fences — `namespace-network-fence` narrows the stack to the `Deployment` class through `validateStackResourcesOfType` and demands a `k8s.networking.v1.NetworkPolicy` beside any member, judged over the dependency-aware `PolicyResource` graph because presence-beside is a cross-resource fact no single-resource validator can see.
-- Law: remediation and validation are one callback — `managed-by-stamp` rides `validateRemediateResourceOfType`, whose single callback yields both halves spread into the row: the returned prop bag fixes forward under `"remediate"`, the same callback judges under stricter levels, and a remediation that mints credential material wraps it in `new policy.Secret(...)` so the engine encrypts it in state.
+- Law: remediation and validation are one callback — `managed-by-stamp` rides `validateRemediateResourceOfType`, whose single callback yields both halves spread into the row: the returned prop bag fixes forward under `"remediate"`, and the same callback judges under stricter levels.
+- Law: cloud arms gate at the same bar — `bucket-versioned-aws` is the dependency-aware durability row (every `aws.s3.BucketV2` must have a `BucketVersioningV2` beside it, the same presence-beside shape as the backup row), `bucket-versioned-gcp` narrows `gcp.storage.Bucket` and rejects a spec whose `versioning.enabled` is not true, `iam-floor` admits string and object policy documents through one `_IamPolicy` schema, normalizes singular and array statement forms, marks malformed documents not applicable, and rejects an admitted granting statement whose string action set carries a wildcard — an explicit `Deny` wildcard is the hardening posture and passes; `tenant-fence` walks Capsule `Tenant` CRs (matched on the CR's own `apiVersion`/`kind` props) and rejects a tenant whose `networkPolicies.items` set is empty — every tenant namespace carries its fence by construction when tenancy escalates.
+- Law: preview-unknowns are engine-guarded — the policy host wraps every validator's deserialized props in its own unknown-checking proxy and converts the raised unknown-value signal into the advisory verdict, so a validator body never guards a possibly-unknown read and never throws one; a hand guard around prop reads restates the engine's own seam.
 - Law: validators read unwrapped props totally — optional chains over the generated arg shapes, `report(message, urn?)` once per finding, `args.notApplicable(reason)` where a policy cannot judge a resource; a validator that throws is a defect, not a verdict; the validator bodies are boundary-framework kernels over foreign prop bags, the one place native iteration is ruled.
-- Growth: one row per invariant appended to `_policies`; a prepared-arm invariant (bucket retention, IAM floor) lands as a row narrowing that provider's class when the arm's realizer settles; a tenant-isolation row (every tenant namespace carries its fence) lands beside `namespace-network-fence` when the tenancy mode escalates.
+- Growth: one row per invariant appended to `_policies`; a new cloud-arm invariant is one row narrowing that provider's class; a new tenancy governance axis is one row beside `tenant-fence`.
 
 ```typescript
+import * as aws from "@pulumi/aws"
+import * as gcp from "@pulumi/gcp"
 import * as k8s from "@pulumi/kubernetes"
 import * as policy from "@pulumi/policy"
 import * as postgresql from "@pulumi/postgresql"
+import { Either, Schema } from "effect"
 
 type _DigestConfig = { readonly allowRegistries?: ReadonlyArray<string> }
 
@@ -164,9 +169,80 @@ const _managedBy: policy.ResourceValidationPolicy = {
   })),
 }
 
+const _versionedAws: policy.StackValidationPolicy = {
+  name: "bucket-versioned-aws",
+  description: "every s3 bucket has a versioning row beside it",
+  severity: "high",
+  validateStack: (args, report) => {
+    const versioned = new Set(
+      args.resources
+        .filter((resource) => resource.isType(aws.s3.BucketVersioningV2))
+        .map((resource) => resource.props.bucket),
+    )
+    return args.resources
+      .filter((resource) => resource.isType(aws.s3.BucketV2))
+      .filter((resource) => !versioned.has(resource.props.bucket))
+      .forEach((resource) => report("<bucket-without-versioning>", resource.urn))
+  },
+}
+
+const _versionedGcp: policy.ResourceValidationPolicy = {
+  name: "bucket-versioned-gcp",
+  description: "gcs buckets keep versioning enabled",
+  severity: "high",
+  validateResource: policy.validateResourceOfType(gcp.storage.Bucket, (bucket, _args, report) =>
+    void (bucket.versioning?.enabled !== true && report("<bucket-without-versioning>"))),
+}
+
+const _IamStatement = Schema.Struct({
+  Effect: Schema.optional(Schema.Literal("Allow", "Deny")),
+  Action: Schema.optional(Schema.Union(Schema.String, Schema.Array(Schema.String))),
+})
+
+const _IamPolicy = Schema.Struct({
+  Statement: Schema.optional(Schema.Union(_IamStatement, Schema.Array(_IamStatement))),
+})
+
+const _iamJson = Schema.decodeUnknownEither(Schema.parseJson(_IamPolicy))
+const _iamValue = Schema.decodeUnknownEither(_IamPolicy)
+
+const _iamFloor: policy.ResourceValidationPolicy = {
+  name: "iam-floor",
+  description: "iam policies never grant wildcard actions",
+  severity: "critical",
+  framework: _CIS,
+  validateResource: policy.validateResourceOfType(aws.iam.Policy, (row, args, report) => {
+    const parsed = typeof row.policy === "string" ? _iamJson(row.policy) : _iamValue(row.policy ?? {})
+    return Either.match(parsed, {
+      onLeft: () => args.notApplicable("<invalid-iam-policy>"),
+      onRight: (document) => (document.Statement === undefined
+        ? []
+        : Array.isArray(document.Statement) ? document.Statement : [document.Statement])
+        .filter((statement) => {
+          // an explicit Deny legitimately wildcards; only a granting statement trips the floor
+          const actions = typeof statement.Action === "string" ? [statement.Action] : (statement.Action ?? [])
+          return statement.Effect !== "Deny" && actions.some((action) => action.includes("*"))
+        })
+        .forEach(() => report("<wildcard-iam-action>")),
+    })
+  }),
+}
+
+const _tenantFence: policy.StackValidationPolicy = {
+  name: "tenant-fence",
+  description: "every capsule tenant carries its network fence",
+  severity: "high",
+  validateStack: (args, report) =>
+    args.resources
+      .filter((resource) => String(resource.props.apiVersion ?? "").startsWith("capsule.clastix.io") && resource.props.kind === "Tenant")
+      .filter((resource) => (resource.props.spec?.networkPolicies?.items ?? []).length === 0)
+      .forEach((resource) => report("<tenant-without-network-fence>", resource.urn)),
+}
+
 const _policies: policy.Policies = [
   _digestPinned, _noSuperuser, _noManagedSuperuser, _protectedData,
   _backupBeside, _tlsIngress, _tlsGateway, _networkFence, _managedBy,
+  _versionedAws, _versionedGcp, _iamFloor, _tenantFence,
 ]
 
 const Guard: policy.PolicyPackArgs = {
@@ -179,7 +255,7 @@ const Guard: policy.PolicyPackArgs = {
 ## [04]-[DRIFT_REPORT]
 
 [DRIFT_REPORT]:
-- Owner: `DriftReport`, one `Schema.Class` reusing the automation owner's field schemas — `summary` and `drifted` are `RunReceipt.fields.summary` and `RunReceipt.fields.steps` composed directly, so the drift vocabulary cannot fork from the receipt vocabulary — plus `rotations` (the urns of certificate resources whose reissue window is open) and the `Option`-carried `skew` pair.
+- Owner: `DriftReport`, one `Schema.Class` reusing the automation owner's field schemas — `summary` and `drifted` are `RunReceipt.fields.summary` and `RunReceipt.fields.steps` composed directly, so the drift vocabulary cannot fork from the receipt vocabulary — with `rotations` (the urns of certificate resources whose reissue window is open) and the `Option`-carried `skew` pair.
 - Law: `clean` is a projection — no drifted row and no open rotation; a report is evidence, and acting on it (re-running `up`, bumping an epoch) is the caller's decision over data.
 - Law: rotation is type-token matched — a `tls:`-prefixed step whose op is not `same` is a certificate moving through its renewal window, the deploy-plane read of the `Certs` `earlyRenewalHours`/`readyForRenewal` law; the ACME lane's ARI-window reissue surfaces through the same prefix watch on its own type token, so one channel covers both lanes.
 - Law: skew is fold-audit evidence — the engine's change summary and the event-folded buckets must agree; a disagreement ships as the `skew` pair rather than a silent preference, because a fold that quietly trusts one source cannot detect its own decode drift.
@@ -275,7 +351,7 @@ const Evidence = {
 ## [06]-[DRIFT_SWEEP]
 
 [DRIFT_SWEEP]:
-- Owner: `Drift` — `check(stack, name)` composes `Automation.reconcile` (the driver's read-only leg) and projects the receipt through `_report`; `sweep(fleet, cadence, sink)` repeats the fleet check under the caller's `Schedule` at the fiber's inherited concurrency budget, and each stack's failure is isolated through `Effect.either` so one faulted stack never starves the rest of the fleet cycle — the sweep folds every cycle's verdicts, faults included, through `Evidence.ofVerdict` into the sink, then advances the `_CURSOR` checkpoint where the root provides the store; `conform(database, expected)` is the docker-cell store read-back over `postgresql.getTables`, returning the relations the expected roster names that the live store does not carry; `cursor` is the `KeyValueStore`-backed checkpoint Layer the composing root merges when sweep progress must survive a restart.
+- Owner: `Drift` — `check(stack, name)` composes `Automation.reconcile` (the driver's read-only leg) and projects the receipt through `_report`; `sweep(fleet, cadence, sink)` repeats the fleet check under the caller's `Schedule` at the fiber's inherited concurrency budget, and each stack's failure is isolated through `Effect.either` so one faulted stack never starves the rest of the fleet cycle — the sweep folds every cycle's verdicts, faults included, through `Evidence.ofVerdict` into the sink, then advances the `_CURSOR` checkpoint where the root provides the store; `conform(database, expected)` is the docker-cell store read-back over the `postgresql.getTables` and `postgresql.getSequences` pair, returning the relations and sequences the expected roster names that the live store does not carry — sequence-level drift is first-class evidence beside table drift; `cursor` is the `KeyValueStore`-backed checkpoint Layer the composing root merges when sweep progress must survive a restart.
 - Law: the leg never mutates — `reconcile` is the engine's non-mutating previewRefresh; the mutating `refresh` stays a ledger op a human or workflow chooses after reading a report; the event-shaped triggers between sweep cycles are the two webhooks of one evidence-delivery law — the Doppler secret-change delivery (`operate/secret.md`) and the Pulumi Cloud `DriftDetected` filter (`operate/cloud.md`, when the backend is hosted) — both decoding through `Evidence.wire` at a sink that runs `check`.
 - Law: observed buckets fold from steps — group by op, count, compare per `OpType` against the receipt summary with absent buckets read as zero; the comparison is total over the anchored vocabulary, so a new engine op is a compile-time event here, never a silent bucket.
 - Law: the projection is expression-shaped end to end — the callback seam lives inside the driver's one stream bridge; this page folds decoded values only.
@@ -328,10 +404,19 @@ const Drift = {
           (parse) => new DeployFault({ reason: "alien", stack: name, detail: parse.message }),
         )),
     ),
-  conform: (database: string, expected: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<string>, DeployFault> =>
+  conform: (
+    database: string,
+    expected: { readonly tables: ReadonlyArray<string>; readonly sequences: ReadonlyArray<string> },
+  ): Effect.Effect<{ readonly tables: ReadonlyArray<string>; readonly sequences: ReadonlyArray<string> }, DeployFault> =>
     Effect.map(
-      Effect.tryPromise({ try: () => postgresql.getTables({ database }), catch: DeployFault.triaged(database) }),
-      (result) => Array.difference(expected, Array.map(result.tables, (table) => table.objectName)),
+      Effect.all({
+        tables: Effect.tryPromise({ try: () => postgresql.getTables({ database }), catch: DeployFault.triaged(database) }),
+        sequences: Effect.tryPromise({ try: () => postgresql.getSequences({ database }), catch: DeployFault.triaged(database) }),
+      }, { concurrency: 2 }),
+      ({ tables, sequences }) => ({
+        tables: Array.difference(expected.tables, Array.map(tables.tables, (table) => table.objectName)),
+        sequences: Array.difference(expected.sequences, Array.map(sequences.sequences, (sequence) => sequence.objectName)),
+      }),
     ),
   sweep: <R>(
     fleet: ReadonlyArray<readonly [StackSpec, Stack]>,
@@ -433,3 +518,12 @@ class Reconcile extends Tier {
 
 export { Drift, DriftReport, Evidence, Guard, Reconcile }
 ```
+
+## [08]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

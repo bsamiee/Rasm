@@ -1,6 +1,6 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail: a sixteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, the telemetry spine declares every `rasm.appui.*` instrument as a kind-typed row and mounts the one AppUi meter the evidence fan writes onto, one correlation join projects per-package envelope streams into deterministic uncertainty-grouped timelines with symmetric skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. This page owns the evidence union with the package wire context, the telemetry spine, the join fold with its tenant-usage projection, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract with the viewport SLO coordinate rows; `InstrumentRow`, `InstrumentSet`, `TelemetryIdentity.Mint`, `Buckets.Advised`, `HookRail`, and the AppHost ports compose as settled sibling vocabulary. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail: a sixteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, the telemetry spine declares every `rasm.appui.*` instrument as a kind-typed row and mounts the one AppUi meter the evidence fan writes onto, one correlation join projects per-package envelope streams into deterministic uncertainty-grouped timelines with symmetric skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. This page owns the evidence union with the package wire context, the telemetry spine, the join fold with its tenant-usage projection, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract with the viewport SLO coordinate rows; `InstrumentRow`, `InstrumentSet`, `LevelCells`, `ReceiptFan`, `TelemetryIdentity.Mint`, and `Buckets.Advised` compose as settled kernel vocabulary, `HookRail` and the AppHost ports as settled sibling vocabulary. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
 
 ## [01]-[INDEX]
 
@@ -69,7 +69,7 @@ public abstract partial record EvidenceReceipt {
 
     public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant) =>
         IO.lift(() => JsonSerializer.SerializeToElement(this, AppUiWireContext.Default.EvidenceReceipt))
-            .Bind(payload => sink.Send(correlation, tenant, TelemetrySource.AppUi.Key, Kind, payload));
+            .Bind(payload => sink.Send(correlation, tenant, AppUiTelemetry.Scope, Kind, payload));
 }
 
 public static class EvidenceOps {
@@ -179,13 +179,13 @@ public partial class AppUiWireContext : JsonSerializerContext;
 
 ## [03]-[TELEMETRY_SPINE]
 
-- Owner: `InstrumentKind` — the kind vocabulary carrying the bind derivation; `InstrumentSpec` — the per-instrument declaration row; `UiBuckets` — the explicit-bucket advice policy; `UiLevelCells` — the fan-written scalar and keyed level cells; `AppUiTelemetry` — the contribution and mount owner; `EvidenceFan` — the receipt-to-instrument projection.
+- Owner: `InstrumentKind` — the kind vocabulary carrying the bind derivation; `InstrumentSpec` — the per-instrument declaration row; `AppUiTelemetry` — the contribution and mount owner; `EvidenceFan` — the receipt-to-instrument projection over the kernel `ReceiptFan`; advice rows are the kernel `Buckets`, level cells the kernel `LevelCells`.
 - Cases: kind rows `Count` (`Counter<long>`), `Distribution` (`Histogram<double>` under declared `Bounds` advice), `Level` (`ObservableGauge` over a scalar cell reader), `Levels` (`ObservableGauge` over a keyed cell family projected as tagged `Measurement<long>` batches through the multi-measurement observe overload); three write modalities — a fan arm where the fact rides a sealed envelope, a composition-bound `InstrumentSet.Count`/`Record` delegate where the owner holds the typed value in hand, a level cell where the fact is a current level, scalar or keyed.
-- Entry: `AppUiTelemetry.Contribute(string version, params ReadOnlySpan<InstrumentSpec> instruments)` — the one page-side declaration surface every `TelemetryRow` composes; `AppUiTelemetry.Mount(IMeterFactory factory, string version, CorrelationId root, Seq<TelemetryContributorPort> contributions)` — mints the AppUi meter through the sibling identity entry and materializes every contributed row into one `InstrumentSet`; `EvidenceFan.Tap(HookRail rail, InstrumentSet set)` — registers the fan as one observe row on the AppHost receipt hook point, so projection is call-site-free.
-- Auto: `Row` derives each bind delegate from the kind row, so a page declares name, kind, UCUM unit, and description and never spells a meter call; the fan guards on the AppUi package key and folds only kinds its table carries — an unmapped kind stays receipt-only by declaration; the quality cell and the keyed families swap inside fan arms, so the level gauges read a current level at collection cadence, never a re-derived scan; a keyed family reads through `UiLevelCells.Reader`, projecting each map entry as one tagged `Measurement<long>` so per-key cardinality rides one instrument and a per-key instrument mint is the deleted form.
+- Entry: `AppUiTelemetry.Contribute(string version, string schemaUrl, params ReadOnlySpan<InstrumentSpec> instruments)` — the one page-side declaration surface every `TelemetryRow` composes, filling the port's `SchemaUrl` slot with the AppUi semconv schema coordinate; `AppUiTelemetry.Mount(IMeterFactory factory, string version, string schemaUrl, CorrelationId root, Seq<TelemetryContributorPort> contributions)` — mints the AppUi meter through the kernel identity entry, which stamps the coordinate as `MeterOptions.TelemetrySchemaUrl`, and materializes every contributed row into one `InstrumentSet`; `EvidenceFan.Fan(InstrumentSet set, LevelCells cells)` — the mounted kernel `ReceiptFan` over the AppUi arm table; `EvidenceFan.Tap(HookRail rail, ReceiptFan fan)` — registers the fan as one observe row on the AppHost receipt hook point, so projection is call-site-free.
+- Auto: `Row` derives each bind delegate from the kind row, so a page declares name, kind, UCUM unit, and description and never spells a meter call; the fan guards on the AppUi package key and folds only kinds its table carries — an unmapped kind stays receipt-only by declaration; the quality cell and the keyed families swap inside fan arms, so the level gauges read a current level at collection cadence, never a re-derived scan; a keyed family reads through the kernel `LevelCells.Reader`, projecting each map entry as one tagged `Measurement<long>` so per-key cardinality rides one instrument and a per-key instrument mint is the deleted form.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one instrument is one `InstrumentSpec` row on its owning page's `TelemetryRow`; one projected kind is one fan arm; a new instrument kind is one `InstrumentKind` row whose bind delegate lands at the declaration; a new keyed level family is one `UiLevelCells` map plus one `Levels` row on its declaring page.
-- Boundary: instrument names are dotted `rasm.appui.<domain>.<measure>` with UCUM units (`s`, `By`, `1`, `{thing}`), never pre-baked `_total` or unit suffixes; `Mount` is the single write surface and its frozen-dictionary build throws on a duplicate name at composition — the same structural-collision law the identity registry carries; exemplar filtering, tenant cardinality caps, and export governance ride the AppHost signal-governance rows, so a measurement recorded inside an active span carries its trace identity with zero wiring here; the fan reads payload fields inside its arms alone — the one place wire names meet instrument writes — and never re-validates what the typed owner admitted; keyed families keep declaration beside their producer — per-doc collab pending declares at `Collab/sync.md`, per-screen disposables at `Shell/screens.md`, per-pool resident bytes at `Render/meshlets.md` — each a `Levels` row over its `UiLevelCells` map, the fan or the plan fold swapping entries and the reader projecting tags, so the tenant-cardinality caps the AppHost signal-governance rows apply govern one instrument per family.
+- Growth: one instrument is one `InstrumentSpec` row on its owning page's `TelemetryRow`; one projected kind is one fan arm; a new instrument kind is one `InstrumentKind` row whose bind delegate lands at the declaration; a new keyed level family is one `cells.Level` write site and one `Levels` row on its declaring page.
+- Boundary: instrument names are dotted `rasm.appui.<domain>.<measure>` with UCUM units (`s`, `By`, `1`, `{thing}`), never pre-baked `_total` or unit suffixes; the contributor's semconv schema coordinate threads as one `(version, schemaUrl)` pair from composition through every `TelemetryRow` into the port's `SchemaUrl` slot — the string-scoped `TelemetryContributorPort` shape and the kernel `TelemetryIdentity.Mint` are the settled contract, so a port or mint without the coordinate is structurally unconstructible; `Mount` is the single write surface and its frozen-dictionary build throws on a duplicate name at composition — the same structural-collision law the identity registry carries; exemplar filtering, tenant cardinality caps, and export governance ride the AppHost signal-governance rows, so a measurement recorded inside an active span carries its trace identity with zero wiring here; the fan reads payload fields inside its arms alone — the one place wire names meet instrument writes — and never re-validates what the typed owner admitted; keyed families keep declaration beside their producer — per-doc collab pending declares at `Collab/sync.md`, per-screen disposables at `Shell/screens.md`, per-pool resident bytes at `Render/meshlets.md` — each a `Levels` row over the composition cells, the fan or the plan fold swapping entries and the reader projecting tags, so the tenant-cardinality caps the AppHost signal-governance rows apply govern one instrument per family.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -205,12 +205,6 @@ public sealed partial class InstrumentKind {
     public partial Func<Meter, string, string, string, Instrument> Bind(InstrumentSpec spec);
 }
 
-public static class UiBuckets {
-    public static readonly ImmutableArray<double> FrameSeconds = [0.002, 0.004, 0.008, 0.0167, 0.0333, 0.0667, 0.1, 0.25, 1];
-    public static readonly ImmutableArray<double> InteractionSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5];
-    public static readonly ImmutableArray<double> DivergenceRatio = [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2];
-}
-
 public sealed record InstrumentSpec(
     string Name,
     InstrumentKind Kind,
@@ -220,21 +214,6 @@ public sealed record InstrumentSpec(
     Func<double>? Level = null,
     Func<IEnumerable<Measurement<long>>>? Levels = null);
 
-// QualityRank stays scalar — one active tier is one level; the keyed families carry per-key levels as
-// tagged measurements of one instrument, swapped entry-wise and read whole at collection cadence.
-public sealed record UiLevelCells(
-    Atom<long> QualityRank,
-    Atom<HashMap<string, long>> CollabPending,
-    Atom<HashMap<string, long>> PoolVram,
-    Atom<HashMap<string, long>> ScreenDisposables) {
-    public static readonly UiLevelCells Live =
-        new(Atom(0L), Atom(HashMap<string, long>()), Atom(HashMap<string, long>()), Atom(HashMap<string, long>()));
-
-    public static Func<IEnumerable<Measurement<long>>> Reader(Atom<HashMap<string, long>> family, string tag) =>
-        () => toSeq(family.Value).Map(pair =>
-            new Measurement<long>(pair.Value, new KeyValuePair<string, object?>(tag, pair.Key)));
-}
-
 public static class AppUiTelemetry {
     // Construction guard, not rail flow: an under-specified declaration fails when the owning page's
     // TelemetryRow first materializes at composition, never at scrape time.
@@ -243,13 +222,16 @@ public static class AppUiTelemetry {
             || (spec.Kind == InstrumentKind.Level && spec.Level is null)
             || (spec.Kind == InstrumentKind.Levels && spec.Levels is null)
             ? throw new InvalidOperationException($"{spec.Name}: {spec.Kind.Key} row missing bounds or cell reader")
-            : new(TelemetrySource.AppUi, spec.Name, spec.Unit, spec.Description, spec.Kind.Bind(spec));
+            : new(spec.Name, spec.Unit, spec.Description, spec.Kind.Bind(spec));
 
-    public static TelemetryContributorPort Contribute(string version, params ReadOnlySpan<InstrumentSpec> instruments) =>
-        new(TelemetrySource.AppUi, version, toSeq(instruments.ToArray()).Map(Row));
+    public const string Scope = "Rasm.AppUi";
 
-    public static InstrumentSet Mount(IMeterFactory factory, string version, CorrelationId root, Seq<TelemetryContributorPort> contributions) {
-        var (_, meter) = TelemetryIdentity.Mint(factory, TelemetrySource.AppUi, version, root);
+    public static TelemetryContributorPort Contribute(string version, string schemaUrl, params ReadOnlySpan<InstrumentSpec> instruments) =>
+        new(Scope, version, schemaUrl, toSeq(instruments.ToArray()).Map(Row));
+
+    public static InstrumentSet Mount(IMeterFactory factory, string version, string schemaUrl, CorrelationId root, Seq<TelemetryContributorPort> contributions) {
+        var (_, meter) = TelemetryIdentity.Mint(factory, Scope, version, schemaUrl,
+            new KeyValuePair<string, object?>(nameof(CorrelationId), root.ToString()));
         return new InstrumentSet(contributions
             .Bind(static port => port.Instruments)
             .ToFrozenDictionary(static row => row.Name, row => row.Bind(meter, row.Name, row.Unit, row.Description), StringComparer.Ordinal));
@@ -259,8 +241,8 @@ public static class AppUiTelemetry {
 public static class EvidenceFan {
     // Slot and outcome dispatch stays inside the arms: the render arm counts only the custom-visual
     // slot, the edit arm drops observed and host-routed outcomes, and every other kind projects total.
-    static readonly FrozenDictionary<string, Action<InstrumentSet, UiLevelCells, JsonElement>> Table =
-        new Dictionary<string, Action<InstrumentSet, UiLevelCells, JsonElement>> {
+    internal static readonly FrozenDictionary<string, InstrumentArm> Table =
+        new Dictionary<string, InstrumentArm> {
             ["surface"] = static (set, _, payload) =>
                 ignore(set.Count(Surfaces.MountInstrument, 1L,
                     new KeyValuePair<string, object?>("host", payload.GetProperty("host").GetString()))),
@@ -280,8 +262,8 @@ public static class EvidenceFan {
                     ignore(set.Count(name, 1L, new KeyValuePair<string, object?>("surface", payload.GetProperty("surface").GetString())));
             },
             ["disposal"] = static (_, cells, payload) =>
-                ignore(cells.ScreenDisposables.Swap(state => state.AddOrUpdate(
-                    payload.GetProperty("screenId").GetString()!, payload.GetProperty("disposables").GetInt64()))),
+                ignore(cells.Level("rasm.appui.screen.disposables",
+                    payload.GetProperty("screenId").GetString()!, payload.GetProperty("disposables").GetInt64())),
             ["command"] = static (set, _, payload) =>
                 ignore(set.Count(CommandExecution.OutcomeInstrument, 1L,
                     new KeyValuePair<string, object?>("outcome", payload.GetProperty("receipt").GetProperty("outcome").GetProperty("kind").GetString()))),
@@ -301,14 +283,16 @@ public static class EvidenceFan {
                 ignore(set.Count(payload.GetProperty("applied").GetBoolean() ? LiveWire.AppliedInstrument : LiveWire.RejectedInstrument, 1L, doc));
                 ignore(set.Count(LiveWire.DeltasInstrument, payload.GetProperty("deltas").GetInt64(), doc));
                 ignore(set.Count(LiveWire.BytesInstrument, long.Parse(payload.GetProperty("bytes").GetString()!, System.Globalization.CultureInfo.InvariantCulture), doc));
-                ignore(cells.CollabPending.Swap(state => state.AddOrUpdate(
-                    payload.GetProperty("docKey").GetString()!, payload.GetProperty("pending").GetInt64())));
+                ignore(cells.Level("rasm.appui.collab.pending",
+                    payload.GetProperty("docKey").GetString()!, payload.GetProperty("pending").GetInt64()));
             },
             ["media"] = static (set, _, payload) =>
                 ignore(set.Count(payload.GetProperty("outcome").GetString() == "ready" ? MediaSurfaces.MountedInstrument : MediaSurfaces.FailedInstrument,
                     1L, new KeyValuePair<string, object?>("codec", payload.GetProperty("codec").GetString()))),
             ["quality"] = static (_, cells, payload) =>
-                ignore(QualityTier.TryGet(payload.GetProperty("tier").GetString(), out var tier) ? cells.QualityRank.Swap(_ => tier.Rank) : 0L),
+                ignore(QualityTier.TryGet(payload.GetProperty("tier").GetString(), out var tier)
+                    ? cells.Level("rasm.appui.governor.tier", (double)tier.Rank)
+                    : unit),
             ["gpu-frame"] = static (set, _, payload) =>
                 ignore(set.Record(RenderGraph.GpuInstrument,
                     long.Parse(payload.GetProperty("measuredNanoseconds").GetString()!, System.Globalization.CultureInfo.InvariantCulture) / 1e9,
@@ -316,12 +300,13 @@ public static class EvidenceFan {
                     new KeyValuePair<string, object?>("unmeasured", payload.GetProperty("unmeasured").GetInt32()))),
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    public static Unit Project(InstrumentSet set, UiLevelCells cells, ReceiptEnvelope envelope) =>
-        Table.TryGetValue(envelope.Kind, out var arm) ? fun(() => arm(set, cells, envelope.Payload))() : unit;
+    public static ReceiptFan Fan(InstrumentSet set, LevelCells cells) => ReceiptFan.Of(set, cells, Table);
 
-    public static IDisposable Tap(HookRail rail, InstrumentSet set) =>
-        rail.Receipt.Observe(envelope => IO.lift(() =>
-            envelope.Package == TelemetrySource.AppUi.Key ? Project(set, UiLevelCells.Live, envelope) : unit));
+    public static Unit Project(ReceiptFan fan, ReceiptEnvelope envelope) =>
+        envelope.Package == AppUiTelemetry.Scope ? fan.Project(envelope.Kind, envelope.Payload) : unit;
+
+    public static IDisposable Tap(HookRail rail, ReceiptFan fan) =>
+        rail.Receipt.Observe(envelope => IO.lift(() => Project(fan, envelope)));
 }
 ```
 
@@ -332,7 +317,7 @@ public static class EvidenceFan {
 - Auto: rows order by the HLC pair physical-then-logical with the package name as the deterministic tiebreaker; every row derives the symmetric interval `Physical ± SkewBound`, and the fold assigns transitively overlapping intervals to one `UncertaintyGroup`, so presentation never invents a causal order inside an overlap component; the report projection includes that group identity beside the ordinal, package, kind, physical instant, and skew band.
 - Receipt: `EvidenceTimeline` and `TenantUsage` serialize through the package wire context for dashboard export; a usage row is derived evidence — every field folds from sealed envelope payloads, so chargeback carries envelope-grade provenance.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
-- Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; one usage axis is one `TenantUsage` field plus one accrual arm; zero new surface.
+- Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; one usage axis is one `TenantUsage` field and one accrual arm; zero new surface.
 - Boundary: the join consumes only `ReceiptEnvelope` — no Compute or Persistence receipt shape enters the fold, and each per-package payload stays an opaque `JsonElement` decoded against its owning wire contract at the view edge; a second correlation vocabulary beside `CorrelationId` and the HLC stamp is the rejected form; `Overlaps` is the band algebra — a causal-order claim between rows whose bands overlap is structurally unrepresentable, so the timeline renders overlapping bands as one uncertainty region; the report-PDF crossing composes the export plane's `ReportBlock` vocabulary and `FlowReport.Render` — the projection produces blocks, the export owner paginates, and neither side re-mints the other's shapes; the usage fold partitions on the envelope's own `Tenant` field and reads payload fields inside kind arms alone — the same one-seam law the fan carries — so per-tenant GPU time, path-trace samples, render and export bytes, and collab deltas derive from evidence and a second measurement path is the deleted form; the tenant crosses outward as the invariant-decimal `TenantId.Value` text the `rasm.tenant` baggage already carries, and the estate cost-attribution join over that dimension is the cross-libs consumer's, never re-derived here.
 
 ```csharp signature
@@ -387,8 +372,8 @@ public static class EvidenceReport {
 ```
 
 ```csharp signature
-// Usage truth is derived evidence: every column folds from sealed envelope payloads inside kind arms —
-// the one seam where wire names meet accrual — and the tenant key is the same invariant-decimal
+// Usage truth is derived evidence: every column folds from sealed envelope payloads inside kind arms,
+// one seam where wire names meet accrual — and the tenant key is the same invariant-decimal
 // TenantId.Value text the rasm.tenant baggage dimension carries.
 public sealed record TenantUsage(
     string Tenant,
@@ -406,7 +391,7 @@ public sealed record TenantUsage(
 public static class TenantUsageFold {
     public static Seq<TenantUsage> Fold(Seq<ReceiptEnvelope> envelopes, Duration window) =>
         envelopes
-            .Filter(static envelope => envelope.Package == TelemetrySource.AppUi.Key)
+            .Filter(static envelope => envelope.Package == AppUiTelemetry.Scope)
             .GroupBy(envelope => (envelope.Tenant, Bucket: Floor(envelope.Physical, window)))
             .AsIterable()
             .Map(group => group.Fold(
@@ -620,11 +605,17 @@ public sealed record SloCoordinate(
     double Objective,
     Duration Window,
     double BurnThreshold) {
-    public static readonly Seq<SloCoordinate> Viewport = Seq(
-        new SloCoordinate(RenderGraph.FrameInstrument, Some(RenderGraph.OverrunInstrument), 0.99, Duration.FromMinutes(5), 14.4),
-        new SloCoordinate(RenderGraph.FrameInstrument, Some(RenderGraph.OverrunInstrument), 0.99, Duration.FromHours(1), 6.0),
-        new SloCoordinate(RenderGraph.GpuInstrument, None, 0.99, Duration.FromMinutes(5), 14.4),
-        new SloCoordinate(RenderGraph.GpuInstrument, None, 0.99, Duration.FromHours(1), 6.0));
+    static readonly Seq<(string Instrument, Option<string> Breach)> ViewportSignals = Seq(
+        (RenderGraph.FrameInstrument, Some(RenderGraph.OverrunInstrument)),
+        (RenderGraph.GpuInstrument, Option<string>.None));
+
+    static readonly Seq<(Duration Window, double BurnThreshold)> ViewportWindows = Seq(
+        (Duration.FromMinutes(5), 14.4d),
+        (Duration.FromHours(1), 6.0d));
+
+    public static readonly Seq<SloCoordinate> Viewport = ViewportSignals.Bind(signal =>
+        ViewportWindows.Map(window => new SloCoordinate(
+            signal.Instrument, signal.Breach, 0.99d, window.Window, window.BurnThreshold)));
 
     public double Burn(long breaching, long total) =>
         total == 0L ? 0d : breaching / (double)total / (1d - Objective);

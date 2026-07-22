@@ -10,14 +10,14 @@ Narrow-phase triangle and closest-distance work rides `System.Numerics.Vector3` 
 
 ## [02]-[CLASH_AND_TWIN]
 
-- Owner: `AccelerationKind` `[SmartEnum<string>]` carries BVH/octree child arity; `AccelerationStructure` carries one decoded `(Bounds, Nodes, BuildParameter)` wire; `ClashKind` classifies hard · clearance · duplicate; `ClashScale` owns admission, traversal, intersection, and clearance; `DigitalTwin` owns residual-window scoring composed over the Stats detector plus the `Update` FE-updating fold with its `ModelUpdatePolicy`/`UpdateVerdict` carriers.
+- Owner: `AccelerationKind` `[SmartEnum<string>]` carries BVH/octree child arity; `AccelerationStructure` carries one decoded `(Bounds, Nodes, BuildParameter)` wire; `ClashKind` classifies hard · clearance · duplicate; `ClashScale` owns admission, traversal, intersection, and clearance; `DigitalTwin` owns residual-window scoring composed over the Stats detector and the `Update` FE-updating fold with its `ModelUpdatePolicy`/`UpdateVerdict` carriers; `TwinLoop` owns typed `SensorEnvelope<TwinSignal>` admission, revisioned atomic held-window scoring, anomaly control through the injected `Runtime/receipts#HOOK_POINTS` veto fold, and edge-consuming recalibration cadence.
 - Cases: `AccelerationKind` bvh · octree; `ClashKind` hard · clearance · duplicate; `ClashPair.Separation` is `0` for a confirmed triangle-surface intersection and positive for clearance because the decoded surface wire carries no volumetric penetration domain.
-- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the confirmed pairs, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg additionally ray-tests the surface so a crossing between samples reports zero clearance instead of the two positive endpoint distances — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form.
-- Auto: `Detect` walks the contiguous `[FirstChild, FirstChild+ChildCount)` child range as one hierarchical descent — a BVH node and an octree cell traverse identically, so the prior parallel `BvhPairs`/`OctreePairs` bodies collapse to one `NodeLinkPairs` fold and the Morton-cell decode that mis-read the node-link array as a per-element cell map is the deleted form; each overlapping leaf-pair runs the complete two-direction Möller–Trumbore test plus the Ericson closest distance and bands by `ClashPolicy`. `DigitalTwin` pushes the `Surrogate` residual onto the bounded `TwinWindow` and reads the injected `Stats/estimator#ESTIMATOR_LANE` detector's last-row score and change flag into a verdict plus a control suggestion — one anomaly owner, twin-local control only.
+- Entry: `AdmittedScene.Of(AccelerationStructure index, ReadOnlyMemory<float> triangles, ClashPolicy policy)` runs the complete `Admit` traversal ONCE and mints the private-ctor scene evidence every query reads — `Fin<T>` aborts on a malformed wire (mis-aligned bounds/triangle buffer, out-of-range child/leaf range, out-of-range leaf primitive id), and a per-query re-validation is the deleted quadratic form; `Detect(scene)` returns the confirmed pairs, `Clearance(scene, Vector3 point)` and `SweptClearance(scene, path)` descend the same tree for the point-to-scene nearest-surface distance and the CAM/motion swept-volume minimum clearance — each path leg additionally ray-tests the surface so a crossing between samples reports zero clearance instead of the two positive endpoint distances — and `Occluded(scene, origin, direction, maxDistance)` answers the ray test. Detection is a pure geometry fold, so the `CorrelationId`/`IClock` receipt tail enters only at `Receipt`, never as a dead entry param. Incremental edits are the kernel `SpatialOp.Refit` seam — a moved element re-bounds there and re-projects through `SpatialOp.Wire` unchanged, so a Compute-local `Insert`/`Remove` index rebuild is the rejected double-owner form. `TwinLoop.Of(baseline, detector, policy, suggested, clock)` is the validated mint — an invalid `TwinLoopPolicy` fails before any held state constructs — and `TwinLoop.Ingest(SensorEnvelope<TwinSignal> envelope)` is the typed telemetry entry; a caller enqueues each decoded envelope onto `WorkLane.CaptureIngest`, and the lane dispatch routes admitted signals here. `TwinLoop.ClaimRecalibration()` consumes each scoring-cadence edge once before composition drives `Update` with `Stats/signal` `Transform.Modal` measured modes.
+- Auto: `Detect` walks the contiguous `[FirstChild, FirstChild+ChildCount)` child range as one hierarchical descent — a BVH node and an octree cell traverse identically, so the prior parallel `BvhPairs`/`OctreePairs` bodies collapse to one `NodeLinkPairs` fold and the Morton-cell decode that mis-read the node-link array as a per-element cell map is the deleted form; each overlapping leaf-pair runs the complete two-direction Möller–Trumbore test and the Ericson closest distance and bands by `ClashPolicy`. `DigitalTwin` pushes the `Surrogate` residual onto the bounded `TwinWindow` and reads the injected `Stats/estimator#ESTIMATOR_LANE` detector's last-row score and change flag into a verdict and a control suggestion — one anomaly owner, twin-local control only.
 - Receipt: the `Clash` `ComputeReceipt` case carries the index kind, candidate-pair count, confirmed hard-clash and clearance-violation counts, and total pairs; the `Twin` case carries the signal id, predicted-versus-measured residual, detector anomaly flag, and suggested control delta, so a twin loop is auditable and a machine-control suggestion is receipted before it leaves the boundary.
 - Packages: System.Numerics (`Vector3`), System.Runtime.InteropServices (`MemoryMarshal`), CommunityToolkit.HighPerformance (`ArrayPoolBufferWriter`), System.Numerics.Tensors (`TensorPrimitives.Dot`/`SumOfSquares` in the MAC), MathNet.Numerics (`Vector<double>`/`Matrix<double>` the LM contract carries), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox.
 - Growth: a new clash kind is one `ClashKind` row; a new twin scoring channel is one field on `TwinSignal`/`TwinVerdict`; a new updating residual term (mode-shape components, static deflections) is one weighted row pair on the `Update` stacked residual with its `ModelUpdatePolicy` weight column; a new broad-phase kernel that still emits the node-link wire reuses `NodeLinkPairs` untouched; zero new surface — a `BvhTree`/`OctreeIndex`/`SdfField` sibling family collapses onto the one decoded `AccelerationStructure` wire and the one `NodeLinkPairs` traversal, and a standalone `ModelUpdater` service collapses onto `DigitalTwin.Update`.
-- Boundary: `AccelerationStructure` is the decoded read-only node-link wire, and `AccelerationKind` validates only the builder-specific child arity. `Admit` verifies finite ordered boxes, finite nondegenerate triangles, leaf primitive ranges, child ranges, root reachability, and acyclicity before traversal. `NodeLinkPairs` canonicalizes and deduplicates node pairs; equal internal nodes expand upper-triangular child pairs. `Separation` reports surface intersection as `0` and clearance as positive; volumetric penetration depth requires a solid-domain carrier absent from this wire. `DigitalTwin.Score` faults malformed signals, windows, policies, surrogate outputs, and non-Anomaly detector carriers; changepoint state, thresholds, and anomaly classification live on the injected Stats detector, and corrective control opposes the raw residual only on a flagged change. `Update` composes the settled ends — measured modes from `Stats/signal` `Transform.Modal`, computed modes from the caller's modal oracle over `Solver/contract` `SolveLane`, the fit from `Tensor/blas` `LevenbergMarquardt.Minimize` — pairing one-to-one greedy by complex MAC (magnitude AND phase) under the MAC floor so a spurious FDD peak never calibrates a parameter and no computed mode pairs twice; the modal oracle crosses the full FE solve, outside hyper-dual reach, so the central-difference Jacobian authored here is the black-box arm's legitimate ingress, and the updated verdict rides the existing `ComputeReceipt.Fit` case (`Family` `model-update`, `Quality` the paired-MAC mean), never a new receipt surface.
+- Boundary: `AccelerationStructure` is the decoded read-only node-link wire, and `AccelerationKind` validates only the builder-specific child arity. `Admit` verifies finite ordered boxes, finite nondegenerate triangles, leaf primitive ranges, child ranges, root reachability, and acyclicity before traversal. `NodeLinkPairs` canonicalizes and deduplicates node pairs; equal internal nodes expand upper-triangular child pairs. `Separation` reports surface intersection as `0` and clearance as positive; volumetric penetration depth requires a solid-domain carrier absent from this wire. `DigitalTwin.Score` faults malformed signals, windows, policies, surrogate outputs, and non-Anomaly detector carriers; changepoint state, thresholds, and anomaly classification live on the injected Stats detector, and corrective control opposes the raw residual only on a flagged change. `TwinLoop.Ingest` snapshots state, runs detector scoring outside the atom, and commits only against the sampled revision; a competing commit spends one policy-owned rescore attempt, exhaustion returns typed contention, and the control callback runs only after the winning commit, so no foreign callback executes under state custody. `Update` composes the settled ends — measured modes from `Stats/signal` `Transform.Modal`, computed modes from the caller's modal oracle over `Solver/contract` `SolveLane`, the fit from `Tensor/blas` `LevenbergMarquardt.Minimize` — pairing one-to-one greedy by complex MAC (magnitude AND phase) under the MAC floor so a spurious FDD peak never calibrates a parameter and no computed mode pairs twice; the modal oracle crosses the full FE solve, outside hyper-dual reach, so the central-difference Jacobian authored here is the black-box arm's legitimate ingress, and the updated verdict rides the existing `ComputeReceipt.Fit` case (`Family` `model-update`, `Quality` the paired-MAC mean), never a new receipt surface.
 
 ```csharp signature
 // --- [TYPES] -----------------------------------------------------------------------------------------------
@@ -458,7 +458,7 @@ public static class ClashScale {
 // --- [TWIN] ------------------------------------------------------------------------------------------------
 
 public static class DigitalTwin {
-    // The detector arrives as the fitted Stats/estimator partial application (EstimatorFold.Predict over a
+    // Fitted Stats/estimator partial application supplies the detector (EstimatorFold.Predict over a
     // Detector-kind EstimatorModel); the twin pushes the residual, hands the window as detector evidence, and
     // reads the LAST row's score and change flag — one anomaly owner, twin-local control projection downstream.
     public static Fin<(TwinVerdict Verdict, TwinWindow Window)> Score(
@@ -490,7 +490,7 @@ public static class DigitalTwin {
     // FE model updating: measured modes calibrate the stiffness/mass parameter vector through the blas
     // LevenbergMarquardt black-box arm — the modal oracle crosses the full FE solve, outside hyper-dual reach, so the
     // Jacobian is the central-difference column sweep this owner authors. Pairing is one-to-one greedy by complex MAC (magnitude AND phase) under the MAC floor;
-    // the residual stacks weighted frequency errors over paired-mode MAC deficits.
+    // Residual stacks weighted frequency errors over paired-mode MAC deficits.
     public static Fin<UpdateVerdict> Update(
         Func<ImmutableArray<double>, Fin<Seq<(double FrequencyHz, ReadOnlyMemory<double> Shape)>>> modalOracle,
         Seq<MeasuredMode> measured,
@@ -602,4 +602,94 @@ public static class DigitalTwin {
                     .Map(delta => { jacobian.SetColumn(column, delta); return jacobian; });
             }));
 }
+
+// --- [TWIN_LOOP] -------------------------------------------------------------------------------------------
+
+public sealed record TwinLoopPolicy(TwinPolicy Scoring, int RecalibrateEvery, int CommitAttempts) {
+    public static readonly TwinLoopPolicy Canonical = new(TwinPolicy.Canonical, RecalibrateEvery: 256, CommitAttempts: 8);
+
+    public bool Invalid => Scoring.Invalid || RecalibrateEvery < 8 || CommitAttempts < 1;
+}
+
+// Capture-lane twin loop: lane dispatch calls Ingest after a verified broker adapter enqueues; this owner
+// serializes signal admission, held-window scoring, anomaly control veto, and recalibration cadence.
+// Admission-once: the loop exists only over a valid policy — Of refuses before any held state mints, so an
+// Atom<TwinState> over an invalid window capacity is unconstructible and Ingest never re-validates per call.
+public sealed class TwinLoop {
+    private readonly record struct TwinState(TwinWindow Window, long Scored, long Recalibrated, bool Claimed, long Revision, long Commit);
+
+    private readonly Surrogate baseline;
+    private readonly Func<Matrix<double>, Fin<Prediction>> detector;
+    private readonly TwinLoopPolicy policy;
+    private readonly Func<TwinVerdict, Fin<TwinVerdict>> suggested;
+    private readonly IClock clock;
+    private readonly Atom<TwinState> held;
+    private long tickets;
+
+    private TwinLoop(Surrogate baseline, Func<Matrix<double>, Fin<Prediction>> detector, TwinLoopPolicy policy, Func<TwinVerdict, Fin<TwinVerdict>> suggested, IClock clock) {
+        (this.baseline, this.detector, this.policy, this.suggested, this.clock) = (baseline, detector, policy, suggested, clock);
+        held = Atom(new TwinState(TwinWindow.Of(policy.Scoring), Scored: 0L, Recalibrated: 0L, Claimed: false, Revision: 0L, Commit: 0L));
+    }
+
+    public static Fin<TwinLoop> Of(
+        Surrogate baseline,
+        Func<Matrix<double>, Fin<Prediction>> detector,
+        TwinLoopPolicy policy,
+        Func<TwinVerdict, Fin<TwinVerdict>> suggested,
+        IClock clock) =>
+        policy.Invalid
+            ? Fin.Fail<TwinLoop>(ComputeFault.Create("<twin-loop-policy>"))
+            : Fin.Succ(new TwinLoop(baseline, detector, policy, suggested, clock));
+
+    // Edge-consuming cadence: the first claimant at a scored boundary advances Recalibrated; later probes at the
+    // same boundary return false, so one modal update cannot replay from a level-triggered property.
+    public bool ClaimRecalibration() {
+        TwinState next = held.Swap(state => {
+            bool due = state.Scored > state.Recalibrated && state.Scored % policy.RecalibrateEvery == 0L;
+            return state with { Recalibrated = due ? state.Scored : state.Recalibrated, Claimed = due };
+        });
+        return next.Claimed;
+    }
+
+    public static Fin<TwinSignal> Admit(SensorEnvelope<TwinSignal> envelope) =>
+        !envelope.Data.Invalid
+            ? Fin.Succ(envelope.Data)
+            : Fin.Fail<TwinSignal>(ComputeFault.Create($"<twin-envelope-data:{envelope.Event.Id}>"));
+
+    public Fin<TwinVerdict> Ingest(SensorEnvelope<TwinSignal> envelope) =>
+        Admit(envelope).Bind(Score);
+
+    private Fin<TwinVerdict> Score(TwinSignal signal) =>
+        Range(0, policy.CommitAttempts).Fold(
+            Fin.Succ(Option<TwinVerdict>.None),
+            (settled, _) => settled.Bind(verdict => verdict.IsSome ? Fin.Succ(verdict) : TryCommit(signal)))
+        .Bind(verdict => verdict.Match(
+            Some: won => won.Anomaly ? suggested(won) : Fin.Succ(won),
+            None: () => Fin.Fail<TwinVerdict>(ComputeFault.Create("<twin-contention>"))));
+
+    private Fin<Option<TwinVerdict>> TryCommit(TwinSignal signal) {
+        TwinState snapshot = held.Value;
+        return DigitalTwin.Score(baseline, signal, snapshot.Window, detector, policy.Scoring, clock).Map(scored => {
+            long ticket = Interlocked.Increment(ref tickets);
+            TwinState committed = held.Swap(state => state.Revision == snapshot.Revision
+                ? state with {
+                    Window = scored.Window,
+                    Scored = state.Scored + 1L,
+                    Claimed = false,
+                    Revision = state.Revision + 1L,
+                    Commit = ticket,
+                }
+                : state);
+            return committed.Commit == ticket ? Some(scored.Verdict) : Option<TwinVerdict>.None;
+        });
+    }
+}
 ```
+
+## [03]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+-->
+
+(none)

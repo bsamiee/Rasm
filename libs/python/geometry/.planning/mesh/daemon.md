@@ -13,7 +13,8 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 - Owner: `TessellationDaemon` — the boundary capsule draining SOURCE-keyed units through one `LanePolicy.drain`, so the lane's content cache owns the hit/miss short-circuit and the daemon holds no private warm pool or subprocess primitive; `_cache` is the lane's own session cache threaded as a value across drains, never a second replay mechanism beside it. `TessellationSource` discriminates AEC versus mechanical geometry by case, never a parallel `SourceFormat` enum drifting against a `fmt` field; the mesher knobs are `TessellationPolicy` fields folded into the cache seed — no runtime `IdentityPolicy` field carries a mesher knob.
 - Entry: `tessellate` RETURNS the results — the flagship egress the `mesh/serve` servicer streams; receipts stay on `contribute`, and a partial failure rides the stream as a `rejected` row, never a silent drop and never a fluent `self` stranding the GLB in the cache.
 - Auto: `num_threads` binds from `LanePolicy.capacity` so the iterator's intra-kernel parallelism and the lane's slot allocator share one capacity, never a hardcoded literal.
-- Profile: `_tessellate_ifc`/`_tessellate_cad` are the `MESH_SERVE` worker-attach flame subjects on the graduation `PROFILE_SUBJECTS` row — the runtime lane spine owns the worker bootstrap and tags each flame window with these kernel names, so a slow serve evidence span clicks through to its worker flame; the daemon adds no in-kernel instrumentation.
+- Profile: runtime `Kernel.of` mints `_tessellate_ifc`/`_tessellate_cad` as `Kernel.name`, and `traced_kernel` passes that name to `Profiles.phase`; the daemon adds no profile registry or in-kernel instrumentation beyond the pulse proxy write.
+- Pulse: both kernels take the lane conduit's pickled `tap` as a trailing offload arg and beat the graduation `GeometryPulse.TESSELLATION` point through `pulsed` — the IFC iterator every `PULSE_STRIDE` elements, the CAD arm once per opaque bridge hop — so a `Hooks` tap streams live tessellation progress under the lane's lossy drop law with the worker reaching only the queue proxy.
 - Receipt: the daemon mints no `GeometrySubject` — the C# `IfcSemanticModel` projects the IFC graph in-process, and the downstream `mesh/repair#MESH`/`scan/reconstruction#RECONSTRUCTION` owners graduate the conditioned solid.
 - Packages: `ifcopenshell` (`file.from_string`, `geom.settings`/`iterator`/`serializers.gltf`/`serializer_settings`), the `mesh/cad#BRIDGE` bridge surface, and the runtime identity/lane/fault/receipt rails per the fence imports; the kernel crosses as `Kernel.of(kernel, KernelTrait.HOSTILE)` — the native OCCT body rides the warm process pool, its trait row supplying the `WORKER` worker-death retry at the offload leg.
 - Growth: a new tessellation knob is one `TessellationPolicy` field folded into both the `geom.settings()` bind and the cache seed; a new CAD source is one `BridgeFormat` row reached through the existing `cad` case; a new source modality is one `TessellationSource` case and one `_dispatch` arm and its module-level kernel; a new semantic field is one `SemanticHeader` field.
@@ -22,6 +23,7 @@ Every source enters `LanePolicy.drain` as a SOURCE-keyed `Admit` whose `ContentK
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from queue import Queue
 from tempfile import TemporaryDirectory
 from typing import Final, Literal, assert_never
 
@@ -30,10 +32,11 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.structs import replace
 
+from rasm.geometry.graduation import GeometryPulse, PulseBeat
 from rasm.geometry.mesh.cad import CANONICAL_TESSELLATION, BridgeFormat, StepBridge, TessellationPolicy
 from rasm.runtime.faults import BoundaryFault, RuntimeRail
 from rasm.runtime.identity import ContentIdentity, ContentKey
-from rasm.runtime.lanes import Admit, LanePolicy
+from rasm.runtime.lanes import Admit, LanePolicy, PulseFact, pulsed
 from rasm.runtime.receipts import Phase, Receipt
 from rasm.runtime.workers import Kernel, KernelTrait
 
@@ -60,6 +63,10 @@ class SemanticHeader(Struct, frozen=True, gc=False):
 
 # a B-rep model holds no IFC schema.
 SEMANTIC_EMPTY: Final[SemanticHeader] = SemanticHeader()
+
+# element stride between TESSELLATION pulse beats: coarse enough that a beat costs one lossy queue write per
+# window, fine enough that a long IFC iteration reads as live progress rather than silence.
+PULSE_STRIDE: Final[int] = 64
 
 
 @tagged_union(frozen=True)
@@ -98,7 +105,7 @@ def _settings(mesher: TessellationPolicy) -> "ifcopenshell.geom.settings":
 
 # `serializers.gltf` is a `WriteOnlyGeometrySerializer` with a FILENAME sink only — never the OBJ/SVG buffer cast — so the GLB
 # rides a scoped temp path read back through `Path.read_bytes`; `use-element-guids` names each glTF node off the IFC GlobalId.
-def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads: int) -> KernelYield:
+def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads: int, tap: "Queue[PulseFact | None]") -> KernelYield:
     settings = _settings(mesher)
     serializer_settings = ifcopenshell.geom.serializer_settings()
     serializer_settings.set("use-element-guids", True)
@@ -117,6 +124,8 @@ def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads
                 serializer.write(shape)
                 elements += 1
                 triangles += len(shape.geometry.faces) // 3
+                if elements % PULSE_STRIDE == 0:  # lossy stride beat: the kernel's whole observability reach is this proxy write
+                    pulsed(tap, GeometryPulse.TESSELLATION, PulseBeat(stage="iterate", done=elements))
                 if not iterator.next():
                     break
         serializer.finalize()
@@ -125,9 +134,10 @@ def _tessellate_ifc(source_bytes: bytes, mesher: TessellationPolicy, num_threads
 
 # bridge's contributor-free `glb` view (a live contributor cannot cross the pickle seam); the tally is `(1, 0)` —
 # one assembly root, per-element count deferred to the bridge receipt.
-def _tessellate_cad(source_bytes: bytes, fmt: BridgeFormat, mesher: TessellationPolicy, _num_threads: int) -> KernelYield:
+def _tessellate_cad(source_bytes: bytes, fmt: BridgeFormat, mesher: TessellationPolicy, _num_threads: int, tap: "Queue[PulseFact | None]") -> KernelYield:
     # re-raising `RuntimeError(detail)` keeps the `step-bridge.<stage>` classification across the pickle seam under the
     # fidelity latch rather than degrading to a bare `"RuntimeError"`; the lane's `async_boundary` lands it in the fault case.
+    pulsed(tap, GeometryPulse.TESSELLATION, PulseBeat(stage=f"bridge.{fmt.value}", done=0, total=1))  # one beat per opaque bridge hop
     match StepBridge.tessellate(source_bytes, fmt, mesher):
         case Result(tag="ok", ok=glb):
             return glb, SEMANTIC_EMPTY, 1, 0
@@ -186,8 +196,8 @@ class TessellationDaemon:  # structural ReceiptContributor conformance — no su
         async def work() -> RuntimeRail[TessellationResult]:
             # HOSTILE routes the native OCCT body onto the warm process pool, its trait-default WORKER row retrying a
             # transient worker death while the unit stays content-keyed for the cache short-circuit; the trailing
-            # `mesher`/`num_threads` are positional kernel offload args.
-            offloaded = await self._lane.offload(Kernel.of(kernel, KernelTrait.HOSTILE), *args, self._mesher, self._lane.capacity)
+            # `mesher`/`num_threads`/`tap` are positional kernel offload args, the tap the lane conduit's pickled proxy.
+            offloaded = await self._lane.offload(Kernel.of(kernel, KernelTrait.HOSTILE), *args, self._mesher, self._lane.capacity, self._lane.pulses.tap)
             return offloaded.map(lambda y: TessellationResult(key, y[0], y[2], y[3], y[1]))
 
         return key, tag, Admit(keyed=(key, work))

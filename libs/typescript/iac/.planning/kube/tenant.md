@@ -1,6 +1,6 @@
 # [IAC_TENANT]
 
-Tenant isolation on the `selfhosted-k8s` arm as one tier over one dispatch: `Tenants` realizes the spec's tenancy mode through the `_MODES` handler record — `namespace` installs Capsule once and mints one typed `Tenant` CR per tenant slug (policy-governed soft isolation: RBAC, `NetworkPolicy`, and `ResourceQuota` propagation over vanilla namespaces at the highest density), `vcluster` realizes one virtual control plane per tenant (hard isolation for the untrusted or external tenant that needs its own API surface, CRDs, and version skew) — so escalating a tenant's isolation is a spec delta the record interprets, never a second program body. The Capsule classes are committed `crd2pulumi` output; the vcluster row is one chart per tenant. The cross-stack seam rides the same page: `Tenants.platform` wraps `StackReference` so a tenant stack reads the platform stack's published planes (`getOutput`/`requireOutput` over the same `StackOutputs` channel vocabulary), which is how a tenant-per-stack estate composes against one shared platform stack without either importing the other. The data-plane escalation this page's modes pair with is `kube/data.md`'s `_TENANCY` record (`shared-rls`/`db-per-tenant`/`cluster-per-tenant`), tenant secret access is `operate/secret.md`'s `_ACCESS` rows, tenant boards are `operate/observe.md`'s per-tenant organizations, and tenant vanity hostnames are `kube/traffic.md`'s `vanity` rows — one tenancy axis, five owners reading it. The module is `iac/src/kube/tenant.ts`; a new isolation mode is one `_MODES` row, a new tenant is one spec slug.
+Tenant isolation on the `selfhosted-k8s` arm is one tier over one dispatch: `Tenants` realizes the spec's tenancy mode through the `_MODES` handler record — `namespace` installs Capsule once and mints one typed `Tenant` CR per tenant slug with ownership, namespace-count quota, and propagated `NetworkPolicy` rows; `vcluster` realizes one virtual control plane per tenant for workloads needing an independent API surface, CRD estate, or version line. Capsule classes are committed `crd2pulumi` output, and each vcluster is one chart. `Tenants.platform` wraps `StackReference` so a tenant stack reads the platform stack's published planes through the same `StackOutputs` channel vocabulary. Data isolation is `kube/data.md`'s `_TENANCY` record, secret access is `operate/secret.md`'s `_ACCESS` rows, boards are `operate/observe.md`'s per-tenant organizations, and vanity hostnames are `kube/traffic.md`'s rows. Module `iac/src/kube/tenant.ts` grows by one `_MODES` row per isolation mode and one spec slug per tenant.
 
 ## [01]-[CLUSTERS]
 
@@ -12,8 +12,8 @@ Tenant isolation on the `selfhosted-k8s` arm as one tier over one dispatch: `Ten
 ## [02]-[ISOLATION_MODES]
 
 [ISOLATION_MODES]:
-- Owner: `Tenants` — the `_MODES` record keyed by the escalated tenancy modes (`single` never reaches this tier; the arm gates construction), exhaustive by mapped annotation so a new mode literal in the spec fails compilation here until its row lands; the `namespace` row installs the Capsule chart once (`skipCrds: false`) and folds one `Tenant` CR per slug — owner binding to the tenant's group identity, a namespace quota, and Capsule's propagated `NetworkPolicy`/`ResourceQuota` governance riding the CR's typed spec; the `vcluster` row mints one namespace per tenant and realizes one `helm.v4.Chart` inside it, each a full virtual control plane whose kubeconfig egresses through the chart's own secret convention; both rows receive the tier's option fold as a scope callback, so ownership threads without a public option surface.
-- Law: tenancy is policy rows, never bespoke paths — a tenant is a slug in `spec.profile.tenancy.tenants`; everything realized for it (Tenant CR, vcluster release, database, secret access, organization, vanity hostname) derives from that one vocabulary, and per-tenant special-casing in any tier is the split this owner exists to forbid.
+- Owner: `Tenants` — the `_MODES` record keyed by the escalated tenancy modes (`single` never reaches this tier; the arm gates construction), exhaustive by mapped annotation so a new mode literal in the spec fails compilation here until its row lands; the `namespace` row installs the Capsule chart once (`skipCrds: false`) and folds one `Tenant` CR per slug with group ownership, a namespace-count quota, and propagated `NetworkPolicy` rows; the `vcluster` row mints one namespace per tenant and realizes one `helm.v4.Chart` inside it; both rows receive the tier's option fold as a scope callback, so ownership threads without a public option surface.
+- Law: tenancy is policy rows, never bespoke paths — a tenant is a slug in `spec.profile.tenancy.tenants`; this tier, the database tier, board organizations, and vanity hostnames consume that vocabulary directly, and per-tenant special-casing in any tier is the split this owner exists to forbid.
 - Law: the isolation ladder is deliberate — `namespace` (Capsule) is the default escalation: highest density, one API server, policy-enforced boundaries; `vcluster` is the hard row for the tenant whose workloads are untrusted, need their own CRD estate, or must version-skew from the host plane; choosing per-tenant rather than per-estate isolation mixes is a spec-shape growth this record absorbs as a row parameter, not a new owner.
 - Law: the tenant's blast radius is closed from both sides — Capsule governs what the tenant's namespaces may express, the `kube/traffic.md` fence governs what reaches them, `operate/policy.md`'s rows judge what they ship, and the PKO loop (`operate/policy.md` `Reconcile`) executes tenant-submitted desired state inside the same envelope, so self-service provisioning never widens the boundary.
 - Entry: `new Tenants("tenants", { spec, versions }, opts)` inside the k8s arm when `tenancy.mode !== "single"`.
@@ -127,3 +127,12 @@ declare namespace Tenants {
 
 export { Tenants }
 ```
+
+## [04]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

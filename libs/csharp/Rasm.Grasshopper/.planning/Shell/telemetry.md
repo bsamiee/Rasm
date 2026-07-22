@@ -10,62 +10,66 @@
 
 ## [02]-[CUSTODY]
 
-- Owner: `GhTelemetry` — the composition capsule pairing the minted instrument spine with logger admission under one inverse. `GhInstruments` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag.
-- Entry: `GhTelemetry.Of(IMeterFactory factory, string plugin, Option<ILoggerFactory> logs = default, Option<string> version = default)` — the one admission gate; `Instruments` and `Logs` are the two capability slots consumers reach.
-- Law: the injected factory is the per-ALC lifetime owner — a composing plugin passes its `PluginTelemetryHost.Meters`, and `AssemblyLoadContext.Unloading` drives the host's `ForceFlush`-then-`Dispose` on both providers, so no instrument outlives its plugin and an unload never drops the tail of an export batch. `GhTelemetry.Dispose` releases the minted meter as the composition-local inverse; factory disposal is the authoritative release.
+- Owner: `GhTelemetry` — the composition capsule pairing the factory-owned instrument spine with logger admission. `GhInstruments` mints the `Rasm.Grasshopper` meter through `IMeterFactory.Create(MeterOptions)` exactly once, stamping the composing plugin's identity as a meter-scope tag.
+- Entry: `GhTelemetry.Of(IMeterFactory factory, string plugin, Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null)` → `Fin<GhTelemetry>` — the one admission gate; `Instruments` and `Logs` are the two capability slots consumers reach.
+- Law: the injected factory is the sole per-ALC meter lifetime owner — a composing plugin passes its `PluginTelemetryHost.Meters`, and `AssemblyLoadContext.Unloading` drives the host's `ForceFlush`-then-`Dispose` on both providers, so no instrument outlives its plugin and an unload never drops the tail of an export batch. `GhTelemetry.Dispose` unbinds the composition logger only; disposing the minted meter here competes with provider custody.
 - Law: a composition that runs logger-less takes `NullLoggerFactory.Instance` through the `Option` default, never a nullable factory; fault-family `[LoggerMessage]` partials live beside their retaining owners (`Canvas/paint.md` `PaintLog`, `Shell/events.md` `UiEventsLog`, `Eto/runtime.md` `RuntimeLog`, `Platform/native.md` `NativeLog`) and resolve their `ILogger` through `GhLog.For` at the fault-record site, so a retained fault emits once when it lands and no consumer polls a `LastFault` cell.
-- Law: `GhLog` is the per-load-context ambient logger cell — `Of` binds the admitted factory and `Dispose` restores `NullLoggerFactory.Instance`; collectible plugin ALCs isolate the static per plugin, so two co-resident plugins never share a binding, and an unbound context emits into the null logger at zero cost. A `GhFault`-raising Components page takes `ILogger` by injection alone because the island imports no UI-thread sibling.
+- Law: `GhLog` is the per-load-context ambient logger cell under first-mount-wins seat custody — `Of` binds a SUPPLIED factory only while the seat is free and holds the seat token, a later capsule keeps its own `Logs` without overwriting the live binding, and `Dispose` restores `NullLoggerFactory.Instance` only through its own token, so disposing one capsule never disables another still-live one; collectible plugin ALCs isolate the static per plugin, so two co-resident plugins never share a binding, and an unbound context emits into the null logger at zero cost. A `GhFault`-raising Components page takes `ILogger` by injection alone because the island imports no UI-thread sibling.
 - Law: two co-resident plugins each `Of` over their own per-ALC factory, so identical `rasm.grasshopper.*` instrument names stay isolated by provider scope and the `gh.plugin` meter tag attributes each series to its composing plugin.
+- Boundary: the contributor port is kernel vocabulary — the app root mints the string-scoped `TelemetryContributorPort` over this page's roster with `Scope` `Rasm.Grasshopper` and admits the meter by name, while `GhInstruments` keeps its meter minted through the injected per-ALC factory and projects the typed `GhEvidence` union pre-envelope (the typed-fold family beside Compute `ComputeInstrumentFan`); an envelope kind-arm table on this side is a second truth beside the typed fold and never lands here.
 - Boundary: app-root obligations — the provider admits the `Rasm.Grasshopper` meter by name; sampler, exemplar filter, views, cardinality caps, and OTLP egress bind at the provider; `HybridCacheOptions.ReportTagMetrics` with the `gh-doc:{documentId:N}` dimension, the raster serializer, and the `MaximumPayloadBytes` sizing ride `.api/api-hybrid-cache.md` `[APP_ROOT_OBLIGATIONS]` — this folder emits receipts and cache tags, never provider registrations.
 - Packages: BCL inbox (`System.Diagnostics.Metrics` — `IMeterFactory`, `MeterOptions`, `Meter`, `InstrumentAdvice<T>`), Microsoft.Extensions.Logging.Abstractions (`ILoggerFactory`, `NullLoggerFactory`), LanguageExt.Core.
 - Growth: a new capability slot on the capsule is one property with its admission default; a new attribution axis is one meter-scope tag at the mint.
 
 ## [03]-[ROSTER]
 
-- Owner: `GhInstruments` — the instrument roster minted once at construction; `GhBuckets` — the explicit-bucket advice rows the frame and acknowledgement histograms ship as the fallback a backend without base2-exponential histograms reads.
+- Owner: `GhInstruments` — the instrument roster minted once at construction; the frame and acknowledgement histograms ship the kernel `Buckets.CanvasFrameSeconds` and `Buckets.AckSeconds` advice rows through `Buckets.Advised` as the fallback a backend without base2-exponential histograms reads.
 - Law: instrument identity de-duplicates by name inside the meter, so name, unit, and description are declaration facts spelled once at the create site; units are UCUM (`s`, `{mark}`, `{command}`) and never pre-baked into the name.
 - Law: every row is a projection of a typed receipt already on disk — a metric minted beside this roster is a second truth, and a receipt field no row projects stays receipt-only by declaration.
 - Law: the kind table is the closed field-to-instrument correspondence; a new projected field is one table row, one instrument declaration, and one arm edit, never a call-site meter write.
 
-| [INDEX] | [FACT_FIELD]                      | [INSTRUMENT]                        | [UNIT]        | [KIND]              | [TAGS]                          |
-| :-----: | :-------------------------------- | :---------------------------------- | :------------ | :------------------ | :------------------------------ |
-|  [01]   | `PaintReceipt.Latency`            | `rasm.grasshopper.paint.duration`   | `s`           | `Histogram<double>` | `gh.doc`, `rasm.op`             |
-|  [02]   | `PaintReceipt.Drawn`/`Culled`     | `rasm.grasshopper.paint.marks`      | `{mark}`      | `Counter<long>`     | `gh.doc`, `disposition`         |
-|  [03]   | `FrameWindow.Cost`                | `rasm.grasshopper.frame.window`     | `s`           | `Histogram<double>` | `gh.doc`                        |
-|  [04]   | `FramePulse` seven phase spans    | `rasm.grasshopper.frame.phase`      | `s`           | `Histogram<double>` | `gh.doc`, `phase`               |
-|  [05]   | `SessionReceipt.Latency`          | `rasm.grasshopper.session.ack`      | `s`           | `Histogram<double>` | `gh.doc`, `rasm.op`, `deferred` |
-|  [06]   | `SessionReceipt` per command      | `rasm.grasshopper.session.commands` | `{command}`   | `Counter<long>`     | `gh.doc`, `rasm.op`, `deferred` |
-|  [07]   | `RunPulse.InvalidCount`           | `rasm.grasshopper.solution.invalid` | `{parameter}` | `Histogram<long>`   | `gh.doc`                        |
-|  [08]   | `RunEvidence` per completed run   | `rasm.grasshopper.solution.runs`    | `{run}`       | `Counter<long>`     | `gh.doc`, `culmination`         |
-|  [09]   | `RunEvidence.Solved`/`Expired`    | `rasm.grasshopper.solution.objects` | `{object}`    | `Counter<long>`     | `gh.doc`, `disposition`         |
-|  [10]   | `SolutionTrace.Pulses` per row    | `rasm.grasshopper.solution.pulses`  | `{pulse}`     | `Counter<long>`     | `gh.doc`, `signal`              |
-|  [11]   | drain drop evidence per shed fact | `rasm.grasshopper.drain.dropped`    | `{fact}`      | `Counter<long>`     | `source`                        |
-|  [12]   | `DispatchPulse.Elapsed`           | `rasm.grasshopper.dispatch.body`    | `s`           | `Histogram<double>` | `lane`, `rasm.op`               |
-|  [13]   | `DispatchPulse.Breached` per lane | `rasm.grasshopper.dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`, `rasm.op`               |
-|  [14]   | `BudgetBreach` per judged subject | `rasm.grasshopper.frame.breach`     | `{breach}`    | `Counter<long>`     | `gh.doc`, `gate`                |
-|  [15]   | hook subscriber fault per point   | `rasm.grasshopper.hook.faults`      | `{fault}`     | `Counter<long>`     | `point`                         |
+Instrument cells extend the `rasm.grasshopper.` prefix.
 
-- Boundary: feeders are the receipt owners — `Canvas/paint.md` (`PaintReceipt`), `Canvas/motion.md` (`FrameWindow`, `BudgetBreach`), `Canvas/canvas.md` (`FramePulse`), `Shell/session.md` (`SessionReceipt`), `Document/solution.md` (`RunPulse`, `RunEvidence`, `SolutionTrace`), `Eto/runtime.md` (`DispatchPulse` through `EtoDispatch.Watch`), `Shell/hooks.md` (fault evidence through `GhHooks.Faults`), and the `Shell/events.md` bounded drain's drop accounting; session-cache hit/miss stays off this roster because `ReportTagMetrics` surfaces it per `gh-doc` tag on the `HybridCache` EventSource.
-- Growth: a new bucket policy is one `GhBuckets` row; a per-phase or per-disposition family is one instrument with a tag axis, never sibling instruments per value.
+| [INDEX] | [FACT_FIELD]                      | [INSTRUMENT]       | [UNIT]        | [KIND]              | [TAGS]                          |
+| :-----: | :-------------------------------- | :----------------- | :------------ | :------------------ | :------------------------------ |
+|  [01]   | `PaintReceipt.Latency`            | `paint.duration`   | `s`           | `Histogram<double>` | `gh.doc`, `rasm.op`             |
+|  [02]   | `PaintReceipt.Drawn`/`Culled`     | `paint.marks`      | `{mark}`      | `Counter<long>`     | `gh.doc`, `disposition`         |
+|  [03]   | `FrameWindow.Cost`                | `frame.window`     | `s`           | `Histogram<double>` | `gh.doc`                        |
+|  [04]   | `FramePulse` seven phase spans    | `frame.phase`      | `s`           | `Histogram<double>` | `gh.doc`, `phase`               |
+|  [05]   | `SessionReceipt.Latency`          | `session.ack`      | `s`           | `Histogram<double>` | `gh.doc`, `rasm.op`, `deferred` |
+|  [06]   | `SessionReceipt` per command      | `session.commands` | `{command}`   | `Counter<long>`     | `gh.doc`, `rasm.op`, `deferred` |
+|  [07]   | `RunPulse.InvalidCount`           | `solution.invalid` | `{parameter}` | `Histogram<long>`   | `gh.doc`                        |
+|  [08]   | `RunEvidence` per completed run   | `solution.runs`    | `{run}`       | `Counter<long>`     | `gh.doc`, `culmination`         |
+|  [09]   | `RunEvidence.Solved`/`Expired`    | `solution.objects` | `{object}`    | `Counter<long>`     | `gh.doc`, `disposition`         |
+|  [10]   | `SolutionTrace.Pulses` per row    | `solution.pulses`  | `{pulse}`     | `Counter<long>`     | `gh.doc`, `signal`              |
+|  [11]   | drain drop evidence per shed fact | `drain.dropped`    | `{fact}`      | `Counter<long>`     | `source`                        |
+|  [12]   | `DispatchPulse.Elapsed`           | `dispatch.body`    | `s`           | `Histogram<double>` | `lane`, `rasm.op`               |
+|  [13]   | `DispatchPulse.Breached` per lane | `dispatch.stalls`  | `{stall}`     | `Counter<long>`     | `lane`, `rasm.op`               |
+|  [14]   | `BudgetBreach` per judged subject | `frame.breach`     | `{breach}`    | `Counter<long>`     | `gh.doc`, `gate`                |
+|  [15]   | hook subscriber fault per point   | `hook.faults`      | `{fault}`     | `Counter<long>`     | `point`                         |
+
+- Boundary: feeders are the receipt owners — `Canvas/paint.md` (`PaintReceipt`), `Canvas/motion.md` (`FrameWindow`, `BudgetBreach`), `Canvas/canvas.md` (`FramePulse`), `Shell/session.md` (`SessionReceipt`), `Document/solution.md` (`RunPulse`, `RunEvidence`, `SolutionTrace`), `Eto/runtime.md` (`DispatchPulse` through `EtoDispatch.Watch`), `Shell/hooks.md` (parked `IsolatedFault` evidence through the `GhHooks.Faults` cell's `Change` tap), and the `Shell/events.md` bounded drain's drop accounting; session-cache hit/miss stays off this roster because `ReportTagMetrics` surfaces it per `gh-doc` tag on the `HybridCache` EventSource.
+- Growth: a new bucket policy is one kernel `Buckets` row; a per-phase or per-disposition family is one instrument with a tag axis, never sibling instruments per value.
 
 ## [04]-[PROJECTION]
 
 - Owner: `GhEvidence` `[Union]` — the one fact family closing the folder's receipt corpus; `GhInstruments.Project` — the one total fold from evidence into tagged writes.
-- Entry: `Project(Guid document, GhEvidence fact)` → `Unit` — document identity arrives as the `DocumentToken` guid and every document-scoped write carries `gh.doc = {documentId:N}`, the same identity axis the session cache spells as its `gh-doc:{documentId:N}` tag, so metric series and cache tag metrics join on one dimension.
+- Entry: `Project(GhEvidence fact)` → `Unit` — every document-scoped case carries its `DocumentToken` guid, and `GhEvidence.Document` projects `Some(document)` for those cases and `None` for process-scoped evidence. Every document-scoped write carries `gh.doc = {documentId:N}`, the same identity axis the session cache spells as its `gh-doc:{documentId:N}` tag, so metric series, cache tag metrics, and journal partitions join on one dimension.
 - Law: the fold is the generated total `Switch` — a new receipt family is one union case, and the build breaks every projection site until its arm decides instrument writes or returns `unit` explicitly.
 - Law: drop evidence is process-scoped — the `DropCase` write carries its `source` lane and no document tag, because a shed fact's document identity died with the fact.
+- Law: document attribution is fact-owned — `PaintCase`, `WindowCase`, `PulseCase`, `SessionCase`, `ProbeCase`, `RunCase`, `TraceCase`, and `BreachCase` carry `DocumentId`; `DropCase`, `DispatchCase`, and `HookFaultCase` project no document. `SessionJournal.Append` derives its partition from the enclosing `JournalFact` projection and takes no independently supplied document argument.
 - Law: per-document tag fan-out is bounded by open documents, and the app-root views own cardinality caps; the fold never re-validates a receipt — the typed owner already admitted it, and `IsValid` stays the acceptance oracle at the emitting seam.
-- Boundary: span brackets, hook rails, and log emission are sibling surfaces — the kernel `TelemetrySink` owns `rasm.kernel.*`, `Shell/hooks.md` owns the veto/observe/replay points, and this fold owns only metric projection; `EtoDispatch` lane latency arrives as `DispatchCase` through the `EtoDispatch.Watch` tap and hook faults as `HookFaultCase` through `GhHooks.Faults`, both subscribed at the composition root so neither emitting owner names an instrument.
+- Boundary: span brackets, hook rails, and log emission are sibling surfaces — the kernel `TelemetrySink` owns `rasm.kernel.*`, `Shell/hooks.md` owns the veto/observe/replay points, and this fold owns only metric projection; `EtoDispatch` lane latency arrives as `DispatchCase` through the `EtoDispatch.Watch` tap and a hook fault as `HookFaultCase` minted from each `IsolatedFault` the `GhHooks.Faults` cell's `Change` tap appends (the composition root projects `fault.Point.ToString()` as the point tag), both subscribed at the composition root so neither emitting owner names an instrument.
 - Packages: BCL inbox, LanguageExt.Core, Thinktecture.Runtime.Extensions, `Rasm.Csp` (`Op`), `Canvas/paint.md`/`Canvas/motion.md`/`Canvas/canvas.md`/`Document/solution.md`/`Shell/session.md` receipt owners.
-- Growth: a new evidence case is one union case plus one arm and its roster row; a new tag axis on an existing write is one `Tag` pair at the arm.
+- Growth: a new evidence case is one union case and one arm with its roster row; a new tag axis on an existing write is one `Tag` pair at the arm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using System.Collections.Immutable;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rasm.Csp;
+using Rasm.Domain;
 using Rasm.Grasshopper.Canvas;
 using Rasm.Grasshopper.Document;
 using Rasm.Grasshopper.Eto;
@@ -76,32 +80,35 @@ namespace Rasm.Grasshopper.Shell;
 [Union]
 public abstract partial record GhEvidence {
     private GhEvidence() { }
-    public sealed record PaintCase(PaintReceipt Receipt) : GhEvidence;
-    public sealed record WindowCase(FrameWindow Window) : GhEvidence;
-    public sealed record PulseCase(FramePulse Pulse) : GhEvidence;
-    public sealed record SessionCase(SessionReceipt Receipt) : GhEvidence;
-    public sealed record ProbeCase(RunPulse Pulse) : GhEvidence;
-    public sealed record RunCase(RunEvidence Evidence) : GhEvidence;
-    public sealed record TraceCase(SolutionTrace Trace) : GhEvidence;
+    public sealed record PaintCase(Guid DocumentId, PaintReceipt Receipt) : GhEvidence;
+    public sealed record WindowCase(Guid DocumentId, FrameWindow Window) : GhEvidence;
+    public sealed record PulseCase(Guid DocumentId, FramePulse Pulse) : GhEvidence;
+    public sealed record SessionCase(Guid DocumentId, SessionReceipt Receipt) : GhEvidence;
+    public sealed record ProbeCase(Guid DocumentId, RunPulse Pulse) : GhEvidence;
+    public sealed record RunCase(Guid DocumentId, RunEvidence Evidence) : GhEvidence;
+    public sealed record TraceCase(Guid DocumentId, SolutionTrace Trace) : GhEvidence;
     public sealed record DropCase(string Source, long Dropped) : GhEvidence;
     public sealed record DispatchCase(DispatchPulse Pulse) : GhEvidence;
-    public sealed record BreachCase(BudgetBreach Breach) : GhEvidence;
+    public sealed record BreachCase(Guid DocumentId, BudgetBreach Breach) : GhEvidence;
     public sealed record HookFaultCase(string Point) : GhEvidence;
-}
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-internal static class GhBuckets {
-    public static readonly ImmutableArray<double> FrameSeconds = [0.0005, 0.001, 0.0025, 0.005, 0.008, 0.017, 0.033, 0.066, 0.1, 0.25];
-    public static readonly ImmutableArray<double> AckSeconds = [0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5];
-
-    public static Histogram<double> Advised(Meter meter, string name, string unit, string description, ImmutableArray<double> bounds) =>
-        meter.CreateHistogram<double>(name: name, unit: unit, description: description, tags: null,
-            advice: new InstrumentAdvice<double> { HistogramBucketBoundaries = bounds });
+    public Option<Guid> Document => this.Switch(
+        paintCase: static fact => Some(fact.DocumentId),
+        windowCase: static fact => Some(fact.DocumentId),
+        pulseCase: static fact => Some(fact.DocumentId),
+        sessionCase: static fact => Some(fact.DocumentId),
+        probeCase: static fact => Some(fact.DocumentId),
+        runCase: static fact => Some(fact.DocumentId),
+        traceCase: static fact => Some(fact.DocumentId),
+        dropCase: static _ => Option<Guid>.None,
+        dispatchCase: static _ => Option<Guid>.None,
+        breachCase: static fact => Some(fact.DocumentId),
+        hookFaultCase: static _ => Option<Guid>.None);
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 [BoundaryAdapter]
-public sealed class GhInstruments : IDisposable {
+public sealed class GhInstruments {
     private const string MeterName = "Rasm.Grasshopper";
 
     private readonly Meter meter;
@@ -123,16 +130,16 @@ public sealed class GhInstruments : IDisposable {
 
     private GhInstruments(Meter meter) {
         this.meter = meter;
-        paintSeconds = GhBuckets.Advised(meter: meter, name: "rasm.grasshopper.paint.duration", unit: "s",
-            description: "Paint plan execution wall time per receipt.", bounds: GhBuckets.FrameSeconds);
+        paintSeconds = Buckets.Advised(meter, "rasm.grasshopper.paint.duration", unit: "s",
+            text: "Paint plan execution wall time per receipt.", bounds: Buckets.CanvasFrameSeconds);
         paintMarks = meter.CreateCounter<long>(name: "rasm.grasshopper.paint.marks", unit: "{mark}",
             description: "Paint marks by disposition, drawn against culled.");
-        frameWindow = GhBuckets.Advised(meter: meter, name: "rasm.grasshopper.frame.window", unit: "s",
-            description: "Motion draw-window cost per sampled frame.", bounds: GhBuckets.FrameSeconds);
-        framePhase = GhBuckets.Advised(meter: meter, name: "rasm.grasshopper.frame.phase", unit: "s",
-            description: "Canvas frame cost per paint phase.", bounds: GhBuckets.FrameSeconds);
-        sessionAck = GhBuckets.Advised(meter: meter, name: "rasm.grasshopper.session.ack", unit: "s",
-            description: "Session command acknowledgement latency.", bounds: GhBuckets.AckSeconds);
+        frameWindow = Buckets.Advised(meter, "rasm.grasshopper.frame.window", unit: "s",
+            text: "Motion draw-window cost per sampled frame.", bounds: Buckets.CanvasFrameSeconds);
+        framePhase = Buckets.Advised(meter, "rasm.grasshopper.frame.phase", unit: "s",
+            text: "Canvas frame cost per paint phase.", bounds: Buckets.CanvasFrameSeconds);
+        sessionAck = Buckets.Advised(meter, "rasm.grasshopper.session.ack", unit: "s",
+            text: "Session command acknowledgement latency.", bounds: Buckets.AckSeconds);
         sessionCommands = meter.CreateCounter<long>(name: "rasm.grasshopper.session.commands", unit: "{command}",
             description: "Session commands by operation and posture.");
         solutionInvalid = meter.CreateHistogram<long>(name: "rasm.grasshopper.solution.invalid", unit: "{parameter}",
@@ -145,8 +152,8 @@ public sealed class GhInstruments : IDisposable {
             description: "Solution lifecycle pulses by signal ordinal.");
         drainDropped = meter.CreateCounter<long>(name: "rasm.grasshopper.drain.dropped", unit: "{fact}",
             description: "Evidence facts shed by the bounded drain per source lane.");
-        dispatchBody = GhBuckets.Advised(meter: meter, name: "rasm.grasshopper.dispatch.body", unit: "s",
-            description: "UI-thread marshal body wall time per lane.", bounds: GhBuckets.AckSeconds);
+        dispatchBody = Buckets.Advised(meter, "rasm.grasshopper.dispatch.body", unit: "s",
+            text: "UI-thread marshal body wall time per lane.", bounds: Buckets.AckSeconds);
         dispatchStalls = meter.CreateCounter<long>(name: "rasm.grasshopper.dispatch.stalls", unit: "{stall}",
             description: "Dispatch bodies breaching their lane budget.");
         frameBreach = meter.CreateCounter<long>(name: "rasm.grasshopper.frame.breach", unit: "{breach}",
@@ -161,22 +168,20 @@ public sealed class GhInstruments : IDisposable {
             Tags = [new KeyValuePair<string, object?>("gh.plugin", plugin)],
         }));
 
-    public Unit Project(Guid document, GhEvidence fact) =>
-        fact.Switch<(GhInstruments Spine, string Doc), Unit>(
-            state: (Spine: this, Doc: document.ToString("N")),
-            paintCase: static (s, c) => s.Spine.Painted(doc: s.Doc, receipt: c.Receipt),
-            windowCase: static (s, c) => s.Spine.Windowed(doc: s.Doc, window: c.Window),
-            pulseCase: static (s, c) => s.Spine.Pulsed(doc: s.Doc, pulse: c.Pulse),
-            sessionCase: static (s, c) => s.Spine.Settled(doc: s.Doc, receipt: c.Receipt),
-            probeCase: static (s, c) => s.Spine.Probed(doc: s.Doc, pulse: c.Pulse),
-            runCase: static (s, c) => s.Spine.Ran(doc: s.Doc, evidence: c.Evidence),
-            traceCase: static (s, c) => s.Spine.Chronicled(doc: s.Doc, trace: c.Trace),
-            dropCase: static (s, c) => s.Spine.Dropped(source: c.Source, dropped: c.Dropped),
-            dispatchCase: static (s, c) => s.Spine.Marshalled(pulse: c.Pulse),
-            breachCase: static (s, c) => s.Spine.Breached(doc: s.Doc, breach: c.Breach),
-            hookFaultCase: static (s, c) => s.Spine.Hooked(point: c.Point));
-
-    public void Dispose() => meter.Dispose();
+    public Unit Project(GhEvidence fact) =>
+        fact.Switch<GhInstruments, Unit>(
+            state: this,
+            paintCase: static (spine, evidence) => spine.Painted(doc: evidence.DocumentId.ToString("N"), receipt: evidence.Receipt),
+            windowCase: static (spine, evidence) => spine.Windowed(doc: evidence.DocumentId.ToString("N"), window: evidence.Window),
+            pulseCase: static (spine, evidence) => spine.Pulsed(doc: evidence.DocumentId.ToString("N"), pulse: evidence.Pulse),
+            sessionCase: static (spine, evidence) => spine.Settled(doc: evidence.DocumentId.ToString("N"), receipt: evidence.Receipt),
+            probeCase: static (spine, evidence) => spine.Probed(doc: evidence.DocumentId.ToString("N"), pulse: evidence.Pulse),
+            runCase: static (spine, evidence) => spine.Ran(doc: evidence.DocumentId.ToString("N"), evidence: evidence.Evidence),
+            traceCase: static (spine, evidence) => spine.Chronicled(doc: evidence.DocumentId.ToString("N"), trace: evidence.Trace),
+            dropCase: static (spine, evidence) => spine.Dropped(source: evidence.Source, dropped: evidence.Dropped),
+            dispatchCase: static (spine, evidence) => spine.Marshalled(pulse: evidence.Pulse),
+            breachCase: static (spine, evidence) => spine.Breached(doc: evidence.DocumentId.ToString("N"), breach: evidence.Breach),
+            hookFaultCase: static (spine, evidence) => spine.Hooked(point: evidence.Point));
 
     private static KeyValuePair<string, object?> Doc(string doc) => new("gh.doc", doc);
 
@@ -254,37 +259,58 @@ public sealed class GhInstruments : IDisposable {
 
 [BoundaryAdapter]
 public static class GhLog {
-    private static readonly Atom<ILoggerFactory> Cell = Atom<ILoggerFactory>(NullLoggerFactory.Instance);
+    private static readonly Atom<(long Seat, ILoggerFactory Factory)> Cell =
+        Atom((Seat: 0L, Factory: (ILoggerFactory)NullLoggerFactory.Instance));
+    private static long nextSeat;
 
-    public static ILogger For(string category) => Cell.Value.CreateLogger(categoryName: category);
+    public static ILogger For(string category) => Cell.Value.Factory.CreateLogger(categoryName: category);
 
-    internal static Unit Bind(ILoggerFactory factory) => ignore(Cell.Swap(_ => factory));
+    // first-mount-wins seat custody: a free seat commits the factory and hands back the seat token; a held seat keeps
+    // its live binding untouched and returns None, so a later capsule never overwrites or disables an earlier one.
+    internal static Option<long> Bind(ILoggerFactory factory) {
+        long seat = Interlocked.Increment(location: ref nextSeat);
+        return Cell.Swap(current => current.Seat == 0L ? (Seat: seat, Factory: factory) : current).Seat == seat
+            ? Some(seat)
+            : Option<long>.None;
+    }
 
-    internal static Unit Unbind() => ignore(Cell.Swap(_ => NullLoggerFactory.Instance));
+    // exact-owner restore: only the token that bound releases the seat back to the null sink; a stale dispose no-ops.
+    internal static Unit Unbind(long seat) => ignore(Cell.Swap(current =>
+        current.Seat == seat ? (Seat: 0L, Factory: (ILoggerFactory)NullLoggerFactory.Instance) : current));
 }
 
 [BoundaryAdapter]
 public sealed class GhTelemetry : IDisposable {
-    private GhTelemetry(GhInstruments instruments, ILoggerFactory logs) =>
-        (Instruments, Logs) = (instruments, logs);
+    private readonly Option<long> seat;
+
+    private GhTelemetry(GhInstruments instruments, ILoggerFactory logs, Option<long> seat) =>
+        (Instruments, Logs, this.seat) = (instruments, logs, seat);
 
     public GhInstruments Instruments { get; }
 
     public ILoggerFactory Logs { get; }
 
-    public static GhTelemetry Of(
+    public static Fin<GhTelemetry> Of(
         IMeterFactory factory, string plugin,
-        Option<ILoggerFactory> logs = default, Option<string> version = default) {
-        GhTelemetry telemetry = new(
-            instruments: GhInstruments.Of(factory: factory, plugin: plugin, version: version),
-            logs: logs.IfNone(NullLoggerFactory.Instance));
-        ignore(GhLog.Bind(factory: telemetry.Logs));
-        return telemetry;
+        Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from owner in op.Need(factory)
+               from identity in guard(!string.IsNullOrWhiteSpace(plugin), op.InvalidInput()).ToFin()
+                   .Map(_ => plugin.Trim())
+               from telemetry in op.Catch(body: () => {
+                   // only a SUPPLIED factory contends for the ambient seat — an Option-defaulted null sink never binds,
+                   // so a logger-less capsule cannot displace a live binding; the held seat is the disposal token.
+                   Option<long> seat = logs.Bind(supplied => GhLog.Bind(factory: supplied));
+                   return Fin.Succ(new GhTelemetry(
+                       instruments: GhInstruments.Of(factory: owner, plugin: identity, version: version),
+                       logs: logs.IfNone(NullLoggerFactory.Instance),
+                       seat: seat));
+               })
+               select telemetry;
     }
 
     public void Dispose() {
-        ignore(GhLog.Unbind());
-        Instruments.Dispose();
+        ignore(seat.Map(GhLog.Unbind));
     }
 }
 ```
@@ -318,8 +344,17 @@ flowchart LR
 | [INDEX] | [CONCERN]           | [OWNER]         | [RAIL]                                   | [CASES] |
 | :-----: | :------------------ | :-------------- | :--------------------------------------- | :-----: |
 |  [01]   | receipt ingress     | `GhEvidence`    | closed union → one total projection fold |   11    |
-|  [02]   | instrument roster   | `GhInstruments` | `Project(Guid, GhEvidence) → Unit`       |   15    |
-|  [03]   | telemetry admission | `GhTelemetry`   | `Of → GhTelemetry`; `Dispose` inverse    |    1    |
+|  [02]   | instrument roster   | `GhInstruments` | `Project(GhEvidence) → Unit`             |   15    |
+|  [03]   | telemetry admission | `GhTelemetry`   | `Of → Fin<GhTelemetry>`; logger inverse  |    1    |
 |  [04]   | ambient log seam    | `GhLog`         | `For(category) → ILogger`                |    1    |
 
 `Op`, `Lease<T>`, `DocumentToken`, and every receipt owner are composed upstream; the app root owns `IMeterFactory` custody, provider binding, views, and OTLP egress — nothing on this page names an exporter.
+
+## [06]-[RESEARCH]
+
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)
