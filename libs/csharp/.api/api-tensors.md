@@ -76,27 +76,39 @@
 [ENTRYPOINT_SCOPE]: `Tensor<T>` and span-view members
 - `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>` carry one member set through `ITensor<TSelf,T>` and `IReadOnlyTensor<TSelf,T>`, so an algorithm generic over `TSelf` binds the heap owner and either borrowed window; the mutating half rides `ITensor<TSelf,T>` alone.
 - [LAYOUT]: `Rank` `Lengths` `Strides` `FlattenedLength` `IsDense` `HasAnyDenseDimensions` `IsEmpty` `IsPinned`
+- Every indexer and `Slice` overload takes `ReadOnlySpan<nint>`, `ReadOnlySpan<NIndex>`, or `ReadOnlySpan<NRange>` positions; an element position yields `ref T` and a range position a `TSelf` window.
+- Each copy and span read mirrors a `Try*` form returning `bool` where the bare form raises on a shape or length mismatch — `TryCopyTo`, `TryFlattenTo`, `TryGetSpan`.
 - Implicit conversions lift `T[]` to `Tensor<T>` and `TensorSpan<T>`, widen `Tensor<T>` to both span views, and narrow `TensorSpan<T>` to `ReadOnlyTensorSpan<T>`.
 
-| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                        |
-| :-----: | :--------------------------------------------------------- | :------- | :---------------------------------- |
-|  [01]   | `this[ReadOnlySpan<nint>] -> ref T`                        | property | address one element by native index |
-|  [02]   | `this[ReadOnlySpan<NIndex>] -> ref T`                      | property | address one element end-relative    |
-|  [03]   | `this[ReadOnlySpan<NRange>] -> TSelf`                      | property | window a sub-tensor by ranges       |
-|  [04]   | `Slice(ReadOnlySpan<NRange>) -> TSelf`                     | instance | window a sub-tensor                 |
-|  [05]   | `GetDimensionSpan(int) -> TensorDimensionSpan<T>`          | instance | walk one dimension as sub-spans     |
-|  [06]   | `GetSpan(ReadOnlySpan<nint>, int) -> Span<T>`              | instance | flat span over a contiguous run     |
-|  [07]   | `TryGetSpan(ReadOnlySpan<nint>, int, out Span<T>) -> bool` | instance | probe contiguity before reading     |
-|  [08]   | `FlattenTo(Span<T>)`                                       | instance | copy strided data flattened         |
-|  [09]   | `TryFlattenTo(Span<T>) -> bool`                            | instance | flatten when the destination fits   |
-|  [10]   | `CopyTo(TensorSpan<T>)`                                    | instance | copy into a shaped destination      |
-|  [11]   | `TryCopyTo(TensorSpan<T>) -> bool`                         | instance | copy when the shapes match          |
-|  [12]   | `ToDenseTensor() -> TSelf`                                 | instance | materialize dense from strided      |
-|  [13]   | `Fill(T)`                                                  | instance | write one value across the window   |
-|  [14]   | `Clear()`                                                  | instance | zero the window                     |
-|  [15]   | `GetPinnableReference() -> ref T`                          | instance | pin the backing storage             |
-|  [16]   | `Tensor<T>.GetPinnedHandle() -> MemoryHandle`              | instance | hold a pin across native calls      |
-|  [17]   | `Tensor<T>.GetEnumerator() -> Enumerator`                  | instance | walk elements in flattened order    |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------ | :------- | :-------------------------------- |
+|  [01]   | `Slice(ReadOnlySpan<NRange>) -> TSelf`            | instance | window a sub-tensor               |
+|  [02]   | `GetDimensionSpan(int) -> TensorDimensionSpan<T>` | instance | walk one dimension as sub-spans   |
+|  [03]   | `GetSpan(ReadOnlySpan<nint>, int) -> Span<T>`     | instance | flat span over a contiguous run   |
+|  [04]   | `FlattenTo(Span<T>)`                              | instance | copy strided data flattened       |
+|  [05]   | `CopyTo(TensorSpan<T>)`                           | instance | copy into a shaped destination    |
+|  [06]   | `ToDenseTensor() -> TSelf`                        | instance | materialize dense from strided    |
+|  [07]   | `Fill(T)`                                         | instance | write one value across the window |
+|  [08]   | `Clear()`                                         | instance | zero the window                   |
+|  [09]   | `GetPinnableReference() -> ref T`                 | instance | pin the backing storage           |
+|  [10]   | `Tensor<T>.GetPinnedHandle() -> MemoryHandle`     | instance | hold a pin across native calls    |
+|  [11]   | `Tensor<T>.GetEnumerator() -> Enumerator`         | instance | walk elements in flattened order  |
+
+[ENTRYPOINT_SCOPE]: `NIndex` and `NRange` native-sized positions
+- Both mirror `Index` and `Range` at `nint` width: an implicit operator lifts the BCL form in, an explicit operator narrows it back out, and `ToIndexUnchecked`/`ToRangeUnchecked` skip the bound check `ToIndex`/`ToRange` apply.
+- [ANCHOR]: `NIndex.Start` `NIndex.End` `NIndex.Value` `NIndex.IsFromEnd` `NRange.Start` `NRange.End` `NRange.All`
+
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `NIndex.FromStart(nint) -> NIndex`                | factory  | position from the dimension head |
+|  [02]   | `NIndex.FromEnd(nint) -> NIndex`                  | factory  | position from the dimension tail |
+|  [03]   | `NIndex.GetOffset(nint) -> nint`                  | instance | resolve against a length         |
+|  [04]   | `NIndex.ToIndex() -> Index`                       | instance | narrow to the BCL index          |
+|  [05]   | `NRange(NIndex, NIndex)`                          | ctor     | bound a range by two positions   |
+|  [06]   | `NRange.StartAt(NIndex) -> NRange`                | factory  | open-ended from a head           |
+|  [07]   | `NRange.EndAt(NIndex) -> NRange`                  | factory  | prefix up to a tail              |
+|  [08]   | `NRange.GetOffsetAndLength(nint) -> (nint, nint)` | instance | resolve offset with length       |
+|  [09]   | `NRange.ToRange() -> Range`                       | instance | narrow to the BCL range          |
 
 [ENTRYPOINT_SCOPE]: `Tensor` comparison and mask families
 - Each relational op takes `(ReadOnlyTensorSpan<T> x, ReadOnlyTensorSpan<T>|T y, TensorSpan<bool> destination)`, returns the mask by `ref readonly`, and mints `<Name>All` and `<Name>Any` `bool` reducers over the same operands.
@@ -104,7 +116,7 @@
 - `SequenceEqual(ReadOnlyTensorSpan<T>, ReadOnlyTensorSpan<T>) -> bool` compares shape and elements in one call.
 
 [ENTRYPOINT_SCOPE]: `TensorPrimitives` unary elementwise operators
-- Each operator takes `(ReadOnlySpan<T> x, Span<T> destination)` under the generic-math constraint its family names, and `destination` may alias `x` for an in-place pass.
+- Each operator takes `(ReadOnlySpan<T> x, Span<T> destination)` under the generic-math constraint its family names.
 - [TRIGONOMETRY]: `Sin` `Cos` `Tan` `SinPi` `CosPi` `TanPi` `Asin` `Acos` `Atan` `AsinPi` `AcosPi` `AtanPi` `Sinh` `Cosh` `Tanh` `Asinh` `Acosh` `Atanh` `DegreesToRadians` `RadiansToDegrees`
 - [EXPONENTIAL]: `Exp` `Exp2` `Exp10` `ExpM1` `Exp2M1` `Exp10M1` `Log` `Log2` `Log10` `LogP1` `Log2P1` `Log10P1` `Sqrt` `Cbrt` `Reciprocal` `ReciprocalEstimate` `ReciprocalSqrt` `ReciprocalSqrtEstimate` `Sigmoid` `SoftMax`
 - [ARITHMETIC]: `Abs` `Negate` `Increment` `Decrement` `Round` `Floor` `Ceiling` `Truncate` `BitIncrement` `BitDecrement`
@@ -159,7 +171,7 @@
 
 [TOPOLOGY]:
 - Each `TensorPrimitives` operator lowers to the widest `System.Runtime.Intrinsics` ISA the target carries and falls back to a scalar loop, so the operator is correct on every target and vectorized wherever the hardware admits.
-- An elementwise operator writes into a caller-owned destination that may alias its input, so a fused chain reuses one buffer across every stage; a reduction returns a scalar and a predicate family writes `Span<bool>`.
+- An elementwise `destination` may alias its input, so a fused chain reuses one buffer across every stage.
 - Generic-math constraints select the admitted element type per family — `INumberBase<T>`, `IFloatingPointIeee754<T>`, `IRootFunctions<T>`, `IBinaryInteger<T>`, `IBitwiseOperators<T,T,T>`, `IShiftOperators<T,int,T>` — so an integer-only family rejects a floating element at the constraint.
 - `Tensor<T>` and both span views conform to `ITensor<TSelf,T>`, so one algorithm generic over `TSelf` binds the heap owner and either borrowed window without an overload family.
 - `Tensor` carries the arithmetic, bitwise, and shift operator set (`+` `-` `*` `/` `&` `|` `^` `~` `<<` `>>` `>>>`) as C# extension blocks over `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>`, each operator constrained on its matching generic-math interface and minting a fresh `Tensor<T>`.
