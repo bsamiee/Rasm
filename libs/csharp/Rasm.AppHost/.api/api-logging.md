@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_LOGGING]
 
-`Microsoft.Extensions.Logging.Abstractions` supplies logging contracts, category identity, scope identity, event identity, buffered records, null implementations, provider aliases, and generated logger delegates.
+`Microsoft.Extensions.Logging.Abstractions` owns the structured-logging contract every runtime port binds and every provider implements, keying each event to a stable `EventId` through source-generated delegates. This package holds contracts and the source generator alone; sink and formatting policy bind in a provider package downstream.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,9 +14,8 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logging contracts
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [CAPABILITY]          |
 | :-----: | :----------------------- | :------------------ | :-------------------- |
 |  [01]   | `ILogger`                | logger contract     | typed event emission  |
 |  [02]   | `ILogger<TCategoryName>` | category logger     | category-bound events |
@@ -29,9 +28,8 @@
 |  [09]   | `LogLevel`               | severity enum       | event severity        |
 
 [PUBLIC_TYPE_SCOPE]: generated and buffered family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [RAIL]                  |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]            |
 | :-----: | :-------------------------- | :------------------- | :---------------------- |
 |  [01]   | `LoggerMessage`             | delegate factory     | precompiled log methods |
 |  [02]   | `LoggerMessageAttribute`    | generator attribute  | generated log methods   |
@@ -50,56 +48,56 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: event and scope operations
-- rail: telemetry
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]       | [RAIL]                  |
-| :-----: | :---------------------------- | :------------------- | :---------------------- |
-|  [01]   | `ILogger.Log<TState>`         | core event method    | structured event emit   |
-|  [02]   | `IsEnabled`                   | enablement predicate | guarded event creation  |
-|  [03]   | `BeginScope<TState>`          | logger scope         | scoped event context    |
-|  [04]   | `IExternalScopeProvider.Push` | provider scope       | provider scope stack    |
-|  [05]   | `ForEachScope`                | provider scope read  | scope projection        |
-|  [06]   | `LogTrace`                    | severity extension   | trace event             |
-|  [07]   | `LogDebug`                    | severity extension   | debug event             |
-|  [08]   | `LogInformation`              | severity extension   | information event       |
-|  [09]   | `LogWarning`                  | severity extension   | warning event           |
-|  [10]   | `LogError`                    | severity extension   | error event             |
-|  [11]   | `LogCritical`                 | severity extension   | critical event          |
-|  [12]   | `CreateLogger<T>`             | factory extension    | category logger         |
-|  [13]   | `CreateLogger(Type)`          | factory extension    | runtime category logger |
+| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :---------------------------- | :------- | :---------------------- |
+|  [01]   | `ILogger.Log<TState>`         | instance | structured event emit   |
+|  [02]   | `IsEnabled`                   | instance | guarded event creation  |
+|  [03]   | `BeginScope<TState>`          | instance | scoped event context    |
+|  [04]   | `IExternalScopeProvider.Push` | instance | provider scope stack    |
+|  [05]   | `ForEachScope`                | instance | scope projection        |
+|  [06]   | `LogTrace`                    | static   | trace event             |
+|  [07]   | `LogDebug`                    | static   | debug event             |
+|  [08]   | `LogInformation`              | static   | information event       |
+|  [09]   | `LogWarning`                  | static   | warning event           |
+|  [10]   | `LogError`                    | static   | error event             |
+|  [11]   | `LogCritical`                 | static   | critical event          |
+|  [12]   | `CreateLogger<T>`             | static   | category logger         |
+|  [13]   | `CreateLogger(Type)`          | static   | runtime category logger |
 
 [ENTRYPOINT_SCOPE]: generated and batch operations
-- rail: telemetry
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]     | [RAIL]                   |
-| :-----: | :----------------------------- | :----------------- | :----------------------- |
-|  [01]   | `LoggerMessage.Define`         | compiled delegate  | cached event delegate    |
-|  [02]   | `LoggerMessage.Define<T1..T6>` | compiled delegate  | typed template delegate  |
-|  [03]   | `LoggerMessage.DefineScope`    | compiled scope     | cached scope delegate    |
-|  [04]   | `LoggerMessageAttribute`       | generator marker   | generated partial method |
-|  [05]   | `SkipEnabledCheck`             | generator option   | explicit guard policy    |
-|  [06]   | `EventName`                    | generator metadata | event name payload       |
-|  [07]   | `ProviderAliasAttribute`       | provider metadata  | provider alias payload   |
-|  [08]   | `IBufferedLogger.LogRecords`   | batch emission     | buffered event flush     |
+| [INDEX] | [SURFACE]                      | [SHAPE]  | [CAPABILITY]             |
+| :-----: | :----------------------------- | :------- | :----------------------- |
+|  [01]   | `LoggerMessage.Define`         | static   | cached event delegate    |
+|  [02]   | `LoggerMessage.Define<T1..T6>` | static   | typed template delegate  |
+|  [03]   | `LoggerMessage.DefineScope`    | static   | cached scope delegate    |
+|  [04]   | `LoggerMessageAttribute`       | ctor     | generated partial method |
+|  [05]   | `SkipEnabledCheck`             | property | explicit guard policy    |
+|  [06]   | `EventName`                    | property | event name payload       |
+|  [07]   | `ProviderAliasAttribute`       | ctor     | provider alias payload   |
+|  [08]   | `IBufferedLogger.LogRecords`   | instance | buffered event flush     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[LOGGING_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.Logging.Abstractions`
-- generator assets: logging generator analyzers under package analyzers
-- generated shape: partial methods marked with `LoggerMessageAttribute`
-- generator payload: event id, event name, level, message template, skip-enabled-check policy
-- delegate arity: `LoggerMessage.Define` and `DefineScope` admit zero through six template values
-- structured state: category, message template, event id, severity, exception, scope, state, formatter
-- buffered shape: timestamp, level, event id, exception, activity ids, thread id, formatted message, template, attributes
-- null implementations: null logger, null typed logger, null factory, null provider, null scope provider
+[TOPOLOGY]:
+- Every emission folds through `ILogger.Log<TState>`: a `TState` payload and a `Func<TState,Exception?,string>` formatter render one message keyed by `EventId`, so severity extensions, `LoggerMessage` delegates, and generated methods share one call shape and a string message never defines identity.
+- `IsEnabled(LogLevel)` guards payload construction ahead of `Log`; a generated `[LoggerMessage]` method and a `LoggerMessage.Define` delegate both skip allocation on a disabled level, `unless` `SkipEnabledCheck` or `LogDefineOptions.SkipEnabledCheck` forces the call.
+- Source generation is the hot path: `[LoggerMessage]` on a partial method emits a cached `LoggerMessage.Define<T0..T5>` delegate over zero through six template values, retiring per-call boxing and format parsing.
+- `IExternalScopeProvider.Push` and `ForEachScope` thread ambient scope through every provider; a provider opts into the shared stack through `ISupportExternalScope`.
+- `IBufferedLogger.LogRecords` replays a `BufferedLogRecord` batch off the hot path, each record carrying timestamp, level, event id, exception, activity and thread ids, formatted message, template, and attributes.
+- `NullLogger`, `NullLoggerFactory`, `NullLoggerProvider`, and `NullExternalScopeProvider` bind the no-op sink a disabled rail or a test uses without a live provider.
+
+[STACKING]:
+- `Microsoft.Extensions.Telemetry.Abstractions`(`api-telemetry-abstractions.md`): its `[LogProperties]` and `[TagProvider]` source-generated methods marshal tags through `LoggerMessageHelper` into this package's `ILogger.Log<TState>`, and `LoggingSampler.ShouldSample(in LogEntry<TState>)` reads this package's `LogEntry<TState>` off one shared delegate cache.
+- `Microsoft.Extensions.Hosting`(`api-hosting.md`): `ConfigureLogging` admits `ILoggingBuilder`, and the built `IHost` resolves `ILoggerFactory` and `ILogger<T>` into hosted services and runtime ports.
+- `Serilog.Extensions.Hosting`(`api-serilog-hosting.md`): the Serilog provider implements `ILoggerProvider` and `ISupportExternalScope`, and `writeToProviders` wraps registered `ILoggerProvider` sinks, so this package's contracts are the sink boundary every provider binds behind.
+- AppHost runtime ports: every port takes an injected `ILogger<T>` and emits through `[LoggerMessage]` partial methods guarded by `IsEnabled`, allocating a payload only when a level is enabled.
 
 [LOCAL_ADMISSION]:
-- Logger methods are generated or precompiled delegates on hot paths.
-- Provider aliases are explicit package-facing names for telemetry projection.
-- Event identity is explicit and stable; string messages never define event identity.
-- Scopes carry typed context and do not replace runtime receipts.
-- Buffered logging is projection surface material and does not replace runtime receipts.
+- Runtime ports emit through generated or precompiled `LoggerMessage` delegates on hot paths.
+- `ProviderAliasAttribute` names a provider for telemetry projection; `EventId` carries stable, explicit event identity.
+- Scopes carry typed context and buffered records are projection material; neither replaces a runtime receipt.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Logging.Abstractions`

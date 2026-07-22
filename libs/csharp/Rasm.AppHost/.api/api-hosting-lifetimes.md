@@ -1,67 +1,76 @@
 # [RASM_APPHOST_API_HOSTING_LIFETIMES]
 
-`Microsoft.Extensions.Hosting.Systemd` binds the generic host lifetime to the systemd service manager through the sd_notify protocol on the Linux-server host backend, carrying READY/STOPPING state and the watchdog keep-alive over the notify socket.
+`Microsoft.Extensions.Hosting.Systemd` binds the Generic Host lifetime to the systemd service manager over the sd_notify socket, signaling READY on start and STOPPING on graceful shutdown and bridging SIGTERM into `IHostApplicationLifetime`; the Linux-server host profile is its sole consumer.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting.Systemd`
 - package: `Microsoft.Extensions.Hosting.Systemd`
 - assembly: `Microsoft.Extensions.Hosting.Systemd`
-- namespace: `Microsoft.Extensions.Hosting`
-- namespace: `Microsoft.Extensions.Hosting.Systemd`
-- asset: runtime library
+- namespace: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.Hosting.Systemd`
 - rail: composition
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: systemd lifetime family
-- rail: composition
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]                     |
-| :-----: | :----------------------------- | :---------------- | :------------------------------- |
-|  [01]   | `SystemdHostBuilderExtensions` | builder surface   | systemd lifetime registration    |
-|  [02]   | `SystemdLifetime`              | host lifetime     | notify-aware start and stop      |
-|  [03]   | `ISystemdNotifier`             | notifier contract | sd_notify channel                |
-|  [04]   | `SystemdNotifier`              | notifier          | notify socket writer             |
-|  [05]   | `ServiceState`                 | state value       | READY/STOPPING/WATCHDOG payloads |
-|  [06]   | `SystemdHelpers`               | environment probe | systemd service detection        |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                  |
+| :-----: | :----------------------------- | :------------ | :---------------------------- |
+|  [01]   | `SystemdHostBuilderExtensions` | class         | systemd lifetime registration |
+|  [02]   | `SystemdLifetime`              | class         | notify-aware `IHostLifetime`  |
+|  [03]   | `ISystemdNotifier`             | interface     | sd_notify channel contract    |
+|  [04]   | `SystemdNotifier`              | class         | notify socket writer          |
+|  [05]   | `ServiceState`                 | struct        | sd_notify state payload       |
+|  [06]   | `SystemdHelpers`               | class         | systemd host detection        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifetime registration
-- rail: composition
 
-| [INDEX] | [SURFACE]    | [CALL_SHAPE]                   | [CAPABILITY]                 |
-| :-----: | :----------- | :----------------------------- | :--------------------------- |
-|  [01]   | `UseSystemd` | `IHostBuilder` extension       | conditional systemd lifetime |
-|  [02]   | `AddSystemd` | `IServiceCollection` extension | systemd lifetime services    |
+| [INDEX] | [SURFACE]                                              | [SHAPE] | [CAPABILITY]                                  |
+| :-----: | :----------------------------------------------------- | :------ | :-------------------------------------------- |
+|  [01]   | `UseSystemd(IHostBuilder) -> IHostBuilder`             | static  | install the lifetime when hosted as a service |
+|  [02]   | `AddSystemd(IServiceCollection) -> IServiceCollection` | static  | register the lifetime services                |
 
-[ENTRYPOINT_SCOPE]: lifetime operations
-- rail: composition
+[ENTRYPOINT_SCOPE]: lifetime and notify operations
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]             | [CAPABILITY]                   |
-| :-----: | :------------------ | :----------------------- | :----------------------------- |
-|  [01]   | `IsSystemdService`  | static environment probe | detects systemd service host   |
-|  [02]   | `Notify`            | `ServiceState` payload   | sends sd_notify state          |
-|  [03]   | `IsEnabled`         | notifier property        | reports notify socket presence |
-|  [04]   | `WaitForStartAsync` | lifetime start hook      | signals READY running state    |
-|  [05]   | `StopAsync`         | lifetime stop hook       | signals STOPPING               |
+| [INDEX] | [SURFACE]                                                      | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `SystemdHelpers.IsSystemdService() -> bool`                    | static   | detect a systemd service host  |
+|  [02]   | `ISystemdNotifier.Notify(ServiceState)`                        | instance | send an sd_notify state        |
+|  [03]   | `ISystemdNotifier.IsEnabled -> bool`                           | property | report notify socket presence  |
+|  [04]   | `SystemdLifetime.WaitForStartAsync(CancellationToken) -> Task` | instance | arm notify hooks, signal READY |
+|  [05]   | `SystemdLifetime.StopAsync(CancellationToken) -> Task`         | instance | complete host stop             |
+
+[ENTRYPOINT_SCOPE]: service state vocabulary
+
+| [INDEX] | [SURFACE]               | [SHAPE] | [CAPABILITY]             |
+| :-----: | :---------------------- | :------ | :----------------------- |
+|  [01]   | `ServiceState.Ready`    | static  | `READY=1` payload        |
+|  [02]   | `ServiceState.Stopping` | static  | `STOPPING=1` payload     |
+|  [03]   | `ServiceState(string)`  | ctor    | custom sd_notify payload |
+
+- `SystemdLifetime.WaitForStartAsync`: arms the `ApplicationStarted`/`ApplicationStopping` registrations that write the notifications; `StopAsync` completes without notifying, since STOPPING fires from the stopping token.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[LIFETIME_TOPOLOGY]:
-- registration model: `UseSystemd` installs the lifetime only when `SystemdHelpers.IsSystemdService` detects the service manager
-- systemd channel: `SystemdNotifier` writes `ServiceState.Ready` and `ServiceState.Stopping` to the notify socket
-- watchdog channel: `ISystemdNotifier.Notify(new ServiceState("WATCHDOG=1"))` rides the heartbeat tick, the period derived from the `WATCHDOG_USEC` environment deadline the service manager sets
-- backend scope: the Linux-server host profile is the only consuming row; no Windows service-control-manager backend is admitted
+[TOPOLOGY]:
+- `UseSystemd` installs the lifetime only when `SystemdHelpers.IsSystemdService` detects a PID-1, `NOTIFY_SOCKET`, or systemd-parent host.
+- `SystemdNotifier` writes `ServiceState.Ready` on `ApplicationStarted` and `ServiceState.Stopping` on `ApplicationStopping` to the `NOTIFY_SOCKET` datagram socket.
+- SIGTERM routes to graceful shutdown through `IHostApplicationLifetime.StopApplication`.
+- `ServiceState(string)` admits any custom sd_notify payload; the package names only `Ready` and `Stopping`.
+
+[STACKING]:
+- `api-hosting.md`(`Microsoft.Extensions.Hosting`): `UseSystemd` extends `IHostBuilder` and `AddSystemd` extends `IServiceCollection`; `SystemdLifetime` implements `IHostLifetime`, replacing the console lifetime and driving both notifications off `IHostApplicationLifetime` tokens.
+- `Profiles`/`Modules` composition root: the Linux-server host-variance profile binds `UseSystemd` as its lifetime adapter, folded into the frozen service graph.
 
 [LOCAL_ADMISSION]:
-- The systemd lifetime is a composition-time admission gated by the environment probe; the Linux-server host profile selects it and every other host row omits it.
+- Linux-server host profile alone selects the systemd lifetime at composition; every other host row omits it.
 - Service-manager state transitions stay inside the lifetime; application code observes `IHostApplicationLifetime` only.
-- Environment probes select composition shape and never gate domain logic.
+- `SystemdHelpers.IsSystemdService` selects composition shape, never domain logic.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Hosting.Systemd`
-- Owns: host lifetime binding to the systemd service manager on the Linux-server backend
+- Owns: Generic Host lifetime binding to the systemd service manager on the Linux-server backend
 - Accept: environment-gated systemd lifetime registration at composition
-- Reject: hand-rolled signal handling, Windows service-control-manager code, and notify-protocol re-implementation
+- Reject: hand-rolled sd_notify socket writes, manual SIGTERM signal handling, and custom systemd-service detection

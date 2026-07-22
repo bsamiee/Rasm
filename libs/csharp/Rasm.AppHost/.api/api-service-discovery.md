@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_SERVICE_DISCOVERY]
 
-`Microsoft.Extensions.ServiceDiscovery` supplies outbound endpoint resolution, a standalone `ServiceEndpointResolver`, configuration- and pass-through endpoint providers, round-robin client-side load balancing, and `HttpClient` integration over the abstractions surface (`ServiceEndpointQuery`, `ServiceEndpointSource`, `ServiceEndpoint`, `IServiceEndpointProvider`). It serves the AppHost wire/coordination rail that resolves cluster membership and election endpoints and balances calls across resolved instances.
+`Microsoft.Extensions.ServiceDiscovery` resolves an outbound service name into a live endpoint set and balances calls across it: `ServiceEndpointResolver` folds configuration and pass-through providers into a change-token-refreshed `ServiceEndpointSource`, and the `HttpClient`/gRPC integration picks one instance per request through the registered round-robin selector. AppHost's wire/coordination rail dials cluster membership and election endpoints by service name over this surface.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,21 +8,15 @@
 - package: `Microsoft.Extensions.ServiceDiscovery`
 - assembly: `Microsoft.Extensions.ServiceDiscovery`
 - assembly: `Microsoft.Extensions.ServiceDiscovery.Abstractions`
-- namespace: `Microsoft.Extensions.ServiceDiscovery`
-- namespace: `Microsoft.Extensions.ServiceDiscovery.Configuration`
-- namespace: `Microsoft.Extensions.ServiceDiscovery.Http`
-- namespace: `Microsoft.Extensions.ServiceDiscovery.LoadBalancing`
-- namespace: `Microsoft.Extensions.ServiceDiscovery.PassThrough`
-- namespace: `Microsoft.Extensions.DependencyInjection`
+- namespace: `Microsoft.Extensions.ServiceDiscovery`, `Microsoft.Extensions.ServiceDiscovery.Configuration`, `Microsoft.Extensions.ServiceDiscovery.Http`, `Microsoft.Extensions.ServiceDiscovery.LoadBalancing`, `Microsoft.Extensions.ServiceDiscovery.PassThrough`, `Microsoft.Extensions.DependencyInjection`
 - asset: runtime library
 - rail: discovery
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: abstractions and endpoint family
-- rail: discovery
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [RAIL]                         |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]                   |
 | :-----: | :-------------------------------- | :------------------ | :----------------------------- |
 |  [01]   | `ServiceEndpointQuery`            | query value         | service name plus schemes      |
 |  [02]   | `ServiceEndpointSource`           | endpoint collection | resolved endpoints plus token  |
@@ -34,9 +28,8 @@
 |  [08]   | `IHostNameFeature`                | endpoint feature    | host-name metadata             |
 
 [PUBLIC_TYPE_SCOPE]: resolver, options, and HTTP family
-- rail: discovery
 
-| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [RAIL]                           |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [CAPABILITY]                     |
 | :-----: | :-------------------------------------------- | :------------------ | :------------------------------- |
 |  [01]   | `ServiceEndpointResolver`                     | standalone resolver | service-name endpoint resolution |
 |  [02]   | `ServiceDiscoveryOptions`                     | options             | scheme and refresh policy        |
@@ -46,59 +39,59 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
-- rail: discovery
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]        | [RAIL]                                    |
-| :-----: | :---------------------------------------------------------- | :-------------------- | :---------------------------------------- |
-|  [01]   | `AddServiceDiscovery()`                                     | service registration  | core plus configuration plus pass-through |
-|  [02]   | `AddServiceDiscovery(configureOptions)`                     | service registration  | core registration with options            |
-|  [03]   | `AddServiceDiscoveryCore()`                                 | service registration  | resolver, watcher, selector wiring        |
-|  [04]   | `AddServiceDiscoveryCore(configureOptions)`                 | service registration  | core wiring with options binding          |
-|  [05]   | `AddConfigurationServiceEndpointProvider()`                 | provider registration | `IConfiguration` endpoint provider        |
-|  [06]   | `AddConfigurationServiceEndpointProvider(configureOptions)` | provider registration | configuration provider with options       |
-|  [07]   | `AddPassThroughServiceEndpointProvider()`                   | provider registration | no-resolution pass-through provider       |
-|  [08]   | `IHttpClientBuilder.AddServiceDiscovery()`                  | client integration    | resolving handler plus gRPC filter        |
+| [INDEX] | [SURFACE]                                         | [SHAPE] | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------ | :------ | :---------------------------------------- |
+|  [01]   | `AddServiceDiscovery()`                           | static  | core plus configuration plus pass-through |
+|  [02]   | `AddServiceDiscovery(Action)`                     | static  | core registration with options            |
+|  [03]   | `AddServiceDiscoveryCore()`                       | static  | resolver, watcher, selector wiring        |
+|  [04]   | `AddServiceDiscoveryCore(Action)`                 | static  | core wiring with options binding          |
+|  [05]   | `AddConfigurationServiceEndpointProvider()`       | static  | `IConfiguration` endpoint provider        |
+|  [06]   | `AddConfigurationServiceEndpointProvider(Action)` | static  | configuration provider with options       |
+|  [07]   | `AddPassThroughServiceEndpointProvider()`         | static  | no-resolution pass-through provider       |
+|  [08]   | `IHttpClientBuilder.AddServiceDiscovery()`        | static  | resolving handler plus gRPC filter        |
 
 [ENTRYPOINT_SCOPE]: resolution and selection operations
-- rail: discovery
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]    | [RAIL]                             |
-| :-----: | :--------------------------------------------------------- | :---------------- | :--------------------------------- |
-|  [01]   | `ServiceEndpointResolver.GetEndpointsAsync`                | resolution call   | `ValueTask<ServiceEndpointSource>` |
-|  [02]   | `ServiceEndpointQuery.TryParse`                            | guarded parse     | input to query value               |
-|  [03]   | `ServiceEndpoint.TryParse`                                 | guarded parse     | string to endpoint value           |
-|  [04]   | `ServiceEndpoint.Create`                                   | endpoint factory  | `EndPoint` plus features           |
-|  [05]   | `IServiceEndpointProvider.PopulateAsync`                   | provider populate | builder endpoint contribution      |
-|  [06]   | `IServiceEndpointProviderFactory.TryCreateProvider`        | provider create   | query-keyed provider               |
-|  [07]   | `IServiceEndpointBuilder.AddChangeToken`                   | builder mutation  | refresh change-token sink          |
-|  [08]   | `ServiceDiscoveryOptions.ApplyAllowedSchemes`              | scheme filter     | allowed-scheme intersection        |
-|  [09]   | `IServiceDiscoveryHttpMessageHandlerFactory.CreateHandler` | handler creation  | resolving handler over inner       |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :--------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `ServiceEndpointResolver.GetEndpointsAsync`                | instance | `ValueTask<ServiceEndpointSource>` |
+|  [02]   | `ServiceEndpointQuery.TryParse`                            | static   | input to query value               |
+|  [03]   | `ServiceEndpoint.TryParse`                                 | static   | string to endpoint value           |
+|  [04]   | `ServiceEndpoint.Create`                                   | factory  | `EndPoint` plus features           |
+|  [05]   | `IServiceEndpointProvider.PopulateAsync`                   | instance | builder endpoint contribution      |
+|  [06]   | `IServiceEndpointProviderFactory.TryCreateProvider`        | instance | query-keyed provider               |
+|  [07]   | `IServiceEndpointBuilder.AddChangeToken`                   | instance | refresh change-token sink          |
+|  [08]   | `ServiceDiscoveryOptions.ApplyAllowedSchemes`              | instance | allowed-scheme intersection        |
+|  [09]   | `IServiceDiscoveryHttpMessageHandlerFactory.CreateHandler` | instance | resolving handler over inner       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DISCOVERY_TOPOLOGY]:
-- abstractions surface: `ServiceEndpointQuery`, `ServiceEndpointSource`, `ServiceEndpoint`, `UriEndPoint`, `IServiceEndpointProvider`, `IServiceEndpointProviderFactory`, `IServiceEndpointBuilder`, and `IHostNameFeature` live in `Microsoft.Extensions.ServiceDiscovery.Abstractions` and are the public consumer contract.
-- resolver surface: `ServiceEndpointResolver` is the public standalone entry; `GetEndpointsAsync(serviceName, cancellationToken)` returns `ValueTask<ServiceEndpointSource>` and throws `InvalidOperationException` when no endpoints resolve.
-- query surface: `ServiceEndpointQuery` carries `ServiceName`, ordered `IncludedSchemes`, and `EndpointName`; `TryParse` converts `scheme+scheme://_endpoint.service` form to a query value.
-- endpoint surface: `ServiceEndpoint` is abstract, exposes `EndPoint` and a `Features` feature collection, and builds through `Create(EndPoint, features)`; `UriEndPoint` wraps a `Uri` as a `System.Net.EndPoint`.
-- source surface: `ServiceEndpointSource` exposes `Endpoints`, a `ChangeToken` for refresh, and a `Features` feature collection.
-- provider surface: `IServiceEndpointProvider.PopulateAsync` fills an `IServiceEndpointBuilder` whose `Endpoints` list and `AddChangeToken` sink carry endpoints and refresh triggers; `IServiceEndpointProviderFactory.TryCreateProvider(query, out provider)` keys provider creation by query.
-- selection surface: `IServiceEndpointSelector` and `RoundRobinServiceEndpointSelector` are `internal`; round-robin is the registered default selector, advances by `Interlocked.Increment` modulo endpoint count, and throws `InvalidOperationException` on an empty endpoint collection. No random selector type ships in this assembly.
-- configuration provider: `ConfigurationServiceEndpointProvider` resolves from `IConfiguration`; `ConfigurationServiceEndpointProviderOptions.SectionName` defaults to `"Services"`, and `ShouldApplyHostNameMetadata` defaults to a delegate returning `false`.
-- pass-through provider: `PassThroughServiceEndpointProvider` returns the input `EndPoint` without resolution for already-addressable targets.
-- options surface: `ServiceDiscoveryOptions.AllowAllSchemes` defaults to `true`, `RefreshPeriod` defaults to 60 seconds for providers without active change callbacks, and `AllowedSchemes` gates schemes when `AllowAllSchemes` is `false`.
-- HTTP surface: `IHttpClientBuilder.AddServiceDiscovery` installs a `ResolvingHttpDelegatingHandler` plus an `IHttpMessageHandlerBuilderFilter` that disables built-in gRPC load balancing for resolved clients; `IServiceDiscoveryHttpMessageHandlerFactory.CreateHandler(handler)` wraps an inner `HttpMessageHandler` in a standalone resolving handler.
-- lifecycle: `ServiceEndpointResolver` is `IAsyncDisposable`, caches per-service resolvers in a `ConcurrentDictionary`, and runs a 10-second cleanup timer that evicts unused resolver entries.
+[TOPOLOGY]:
+- `...Abstractions` assembly holds the public consumer contract; the main assembly carries the resolver, providers, and selector.
+- `ServiceEndpointResolver` caches one resolver per service name in a `ConcurrentDictionary`, evicts idle entries on a cleanup timer, and is `IAsyncDisposable`.
+- Resolving a service name that yields no endpoints throws `InvalidOperationException`; the round-robin selector faults identically on an empty endpoint set.
+- Round-robin is the sole shipped selector — `internal`, registered as the default, advancing by `Interlocked.Increment` modulo endpoint count; no random selector ships.
+- Refresh rides `ServiceEndpointSource.ChangeToken`; consumers observe membership change through the token, never by polling endpoint values.
+- `ServiceDiscoveryOptions.AllowAllSchemes` defaults `true`, `RefreshPeriod` defaults to 60 seconds absent an active change callback, and `AllowedSchemes` gates schemes once `AllowAllSchemes` is `false`.
+- `ConfigurationServiceEndpointProvider` binds the `"Services"` configuration section by default; `PassThroughServiceEndpointProvider` returns an already-addressable `EndPoint` unresolved.
+- `IHttpClientBuilder.AddServiceDiscovery` installs a resolving delegating handler and a filter that disables built-in gRPC load balancing for resolved clients.
+
+[STACKING]:
+- `Microsoft.Extensions.Http.Resilience`(`.api/api-resilience.md`): the resolving delegating handler that `IHttpClientBuilder.AddServiceDiscovery` installs chains ahead of `AddStandardResilienceHandler` on one outbound pipeline — resolution picks the instance, the resilience handler owns retry and circuit-breaking over it.
+- `Grpc.Net.Client`(`.api/api-grpc-client.md`): `IHttpClientBuilder.AddServiceDiscovery` installs the gRPC load-balancing filter, so a `Wire/coordination` channel resolves its cluster election endpoint through this resolver rather than a hand-subclassed `Resolver`/`LoadBalancer`.
+- `Wire/coordination`: dials cluster membership and election endpoints by service name through `ServiceEndpointResolver.GetEndpointsAsync`, the round-robin selector picking one instance per call.
 
 [LOCAL_ADMISSION]:
-- Endpoint resolution composes through `ServiceEndpointResolver.GetEndpointsAsync`; membership and election targets are service names, not hard-coded host strings.
-- Outbound calls select one instance through the registered round-robin selector; selection stays inside the resolution call, never reimplemented at call sites.
-- Provider registration is explicit: `AddConfigurationServiceEndpointProvider` for `IConfiguration`-backed cluster rows and `AddPassThroughServiceEndpointProvider` for already-addressable endpoints.
-- `ServiceEndpointSource.ChangeToken` drives refresh; consumers observe membership change through the token, not by polling endpoint values.
-- Scheme admission flows through `ServiceDiscoveryOptions`; resolved URIs honor `AllowedSchemes` when `AllowAllSchemes` is disabled.
+- Membership and election targets resolve as service names through `ServiceEndpointResolver.GetEndpointsAsync`, never hard-coded host strings.
+- Instance selection stays inside the resolver's round-robin selector, never reimplemented at a call site.
+- Providers register explicitly — `AddConfigurationServiceEndpointProvider` for `IConfiguration`-backed cluster rows, `AddPassThroughServiceEndpointProvider` for already-addressable endpoints.
+- Scheme filtering is package policy through `ServiceDiscoveryOptions.AllowedSchemes`, never a call-site URI check.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.ServiceDiscovery`
 - Owns: outbound endpoint resolution and client-side load balancing
 - Accept: service-name queries and registered endpoint providers
 - Reject: hard-coded endpoint strings or hand-rolled instance round-robin
+</content>
+</invoke>

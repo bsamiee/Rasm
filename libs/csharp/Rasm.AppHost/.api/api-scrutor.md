@@ -1,101 +1,101 @@
 # [RASM_APPHOST_API_SCRUTOR]
 
-`Scrutor` supplies assembly scanning, type filtering, service mapping, registration strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
+`Scrutor` folds assembly scanning into convention-driven `ServiceDescriptor` registration on the AppHost DI rail, and decorates a resolved service behind its own public contract.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Scrutor`
 - package: `Scrutor`
 - assembly: `Scrutor`
-- namespace: `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
+- namespace: `Scrutor`, `Microsoft.Extensions.DependencyInjection`
 - rail: composition
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: scan family
-- rail: composition
+[PUBLIC_TYPE_SCOPE]: scan and decoration family
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]        | [RAIL]                   |
-| :-----: | :---------------------------- | :------------------- | :----------------------- |
-|  [01]   | `ITypeSourceSelector`         | scan root            | source selection         |
-|  [02]   | `IAssemblySelector`           | assembly selector    | assembly selection       |
-|  [03]   | `ITypeSelector`               | type selector        | explicit type selection  |
-|  [04]   | `IImplementationTypeSelector` | implementation stage | class admission          |
-|  [05]   | `IImplementationTypeFilter`   | type filter          | implementation filtering |
-|  [06]   | `IServiceTypeSelector`        | service mapping      | service contract mapping |
-|  [07]   | `ILifetimeSelector`           | lifetime mapping     | service lifetime         |
-|  [08]   | `RegistrationStrategy`        | conflict policy      | duplicate registration   |
-|  [09]   | `ReplacementBehavior`         | replacement policy   | replacement detail       |
-|  [10]   | `DecorationStrategy`          | decoration policy    | decorator selection      |
-|  [11]   | `DecoratedService<T>`         | decoration handle    | decorated service access |
-|  [12]   | `ServiceDescriptorAttribute`  | service attribute    | attribute-based mapping  |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                  |
+| :-----: | :---------------------------- | :------------ | :---------------------------- |
+|  [01]   | `ITypeSourceSelector`         | interface     | fluent scan pipeline root     |
+|  [02]   | `IAssemblySelector`           | interface     | assembly source selection     |
+|  [03]   | `ITypeSelector`               | interface     | explicit type source          |
+|  [04]   | `IImplementationTypeSelector` | interface     | concrete class admission      |
+|  [05]   | `IImplementationTypeFilter`   | interface     | implementation-type filtering |
+|  [06]   | `IServiceTypeSelector`        | interface     | service-contract mapping      |
+|  [07]   | `ILifetimeSelector`           | interface     | service lifetime mapping      |
+|  [08]   | `RegistrationStrategy`        | class         | duplicate-registration policy |
+|  [09]   | `ReplacementBehavior`         | enum          | replacement match behavior    |
+|  [10]   | `DecorationStrategy`          | class         | decorator selection policy    |
+|  [11]   | `DecoratedService<T>`         | class         | decorated-service handle      |
+|  [12]   | `ServiceDescriptorAttribute`  | class         | attribute-based mapping       |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: scan operations
-- rail: composition
+[ENTRYPOINT_SCOPE]: scan, source, and filter operations
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                     |
-| :-----: | :---------------------------- | :---------------- | :------------------------- |
-|  [01]   | `Scan`                        | scan root         | starts scan pipeline       |
-|  [02]   | `FromEntryAssembly`           | assembly selector | entry assembly source      |
-|  [03]   | `FromApplicationDependencies` | assembly selector | dependency closure source  |
-|  [04]   | `FromAssemblyDependencies`    | assembly selector | assembly dependency source |
-|  [05]   | `FromDependencyContext`       | assembly selector | dependency context source  |
-|  [06]   | `FromAssemblyOf<T>`           | assembly selector | marker-type source         |
-|  [07]   | `FromAssembliesOf`            | assembly selector | marker-type set source     |
-|  [08]   | `FromAssemblies`              | assembly selector | explicit assembly source   |
-|  [09]   | `FromTypes`                   | type selector     | explicit type source       |
-|  [10]   | `AddClasses`                  | class selector    | concrete class admission   |
-|  [11]   | `AssignableTo`                | type filter       | assignability filter       |
-|  [12]   | `AssignableToAny`             | type filter       | multi-type filter          |
-|  [13]   | `WithAttribute`               | attribute filter  | attribute inclusion        |
-|  [14]   | `WithoutAttribute`            | attribute filter  | attribute exclusion        |
-|  [15]   | `InNamespaces`                | namespace filter  | namespace inclusion        |
-|  [16]   | `NotInNamespaces`             | namespace filter  | namespace exclusion        |
-|  [17]   | `Where`                       | predicate filter  | custom type filter         |
+| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]                |
+| :-----: | :---------------------------- | :------- | :-------------------------- |
+|  [01]   | `Scan`                        | static   | start scan pipeline         |
+|  [02]   | `FromEntryAssembly`           | instance | entry assembly source       |
+|  [03]   | `FromApplicationDependencies` | instance | dependency closure source   |
+|  [04]   | `FromAssemblyDependencies`    | instance | assembly dependency source  |
+|  [05]   | `FromDependencyContext`       | instance | dependency context source   |
+|  [06]   | `FromAssemblyOf<T>`           | instance | marker-type assembly source |
+|  [07]   | `FromAssembliesOf`            | instance | marker-type set source      |
+|  [08]   | `FromAssemblies`              | instance | explicit assembly source    |
+|  [09]   | `FromTypes`                   | instance | explicit type source        |
+|  [10]   | `AddClasses`                  | instance | concrete class admission    |
+|  [11]   | `AssignableTo`                | instance | assignability filter        |
+|  [12]   | `AssignableToAny`             | instance | multi-type assignability    |
+|  [13]   | `WithAttribute`               | instance | attribute inclusion filter  |
+|  [14]   | `WithoutAttribute`            | instance | attribute exclusion filter  |
+|  [15]   | `InNamespaces`                | instance | namespace inclusion filter  |
+|  [16]   | `NotInNamespaces`             | instance | namespace exclusion filter  |
+|  [17]   | `Where`                       | instance | custom predicate filter     |
 
-[ENTRYPOINT_SCOPE]: mapping lifetime and decoration operations
-- rail: composition
+- `InNamespaces` and `NotInNamespaces` carry `Of`, `Of<T>`, and `Exact` overloads keyed on a marker type.
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]      | [RAIL]                   |
-| :-----: | :----------------------------- | :------------------ | :----------------------- |
-|  [01]   | `AsSelf`                       | service mapping     | self registration        |
-|  [02]   | `As<T>`                        | service mapping     | explicit service type    |
-|  [03]   | `AsImplementedInterfaces`      | service mapping     | interface registration   |
-|  [04]   | `AsSelfWithInterfaces`         | service mapping     | self plus interfaces     |
-|  [05]   | `AsMatchingInterface`          | service mapping     | convention interface     |
-|  [06]   | `UsingAttributes`              | service mapping     | attribute mapping        |
-|  [07]   | `WithSingletonLifetime`        | lifetime mapping    | singleton registration   |
-|  [08]   | `WithScopedLifetime`           | lifetime mapping    | scoped registration      |
-|  [09]   | `WithTransientLifetime`        | lifetime mapping    | transient registration   |
-|  [10]   | `WithLifetime`                 | lifetime mapping    | explicit lifetime        |
-|  [11]   | `WithServiceKey`               | keyed mapping       | keyed registration       |
-|  [12]   | `RegistrationStrategy.Replace` | conflict policy     | replacement registration |
-|  [13]   | `Decorate`                     | decorator admission | required decoration      |
-|  [14]   | `TryDecorate`                  | decorator admission | optional decoration      |
-|  [15]   | `IsDecorated`                  | decorator predicate | decoration detection     |
-|  [16]   | `GetDecoratedServices<T>`      | decorator lookup    | decorated enumerable     |
+[ENTRYPOINT_SCOPE]: mapping, lifetime, and decoration operations
+
+| [INDEX] | [SURFACE]                        | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :------------------------------- | :------- | :---------------------------- |
+|  [01]   | `AsSelf`                         | instance | self registration             |
+|  [02]   | `As<T>`                          | instance | explicit service type         |
+|  [03]   | `AsImplementedInterfaces`        | instance | interface registration        |
+|  [04]   | `AsSelfWithInterfaces`           | instance | self plus interfaces          |
+|  [05]   | `AsMatchingInterface`            | instance | convention interface          |
+|  [06]   | `UsingAttributes`                | instance | attribute-driven mapping      |
+|  [07]   | `UsingRegistrationStrategy`      | instance | mid-chain conflict policy     |
+|  [08]   | `WithSingletonLifetime`          | instance | singleton lifetime            |
+|  [09]   | `WithScopedLifetime`             | instance | scoped lifetime               |
+|  [10]   | `WithTransientLifetime`          | instance | transient lifetime            |
+|  [11]   | `WithLifetime`                   | instance | explicit lifetime             |
+|  [12]   | `WithServiceKey`                 | instance | keyed registration            |
+|  [13]   | `RegistrationStrategy.Replace`   | factory  | replacement conflict policy   |
+|  [14]   | `Decorate`                       | static   | required decoration           |
+|  [15]   | `TryDecorate`                    | static   | optional decoration           |
+|  [16]   | `IsDecorated`                    | static   | decoration predicate          |
+|  [17]   | `GetDecoratedServices<T>`        | static   | decorated-service enumeration |
+|  [18]   | `GetRequiredDecoratedService<T>` | static   | required decorated lookup     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SCAN_TOPOLOGY]:
-- namespaces: `Scrutor`, `Microsoft.Extensions.DependencyInjection`
-- assembly selectors: entry assembly, dependency context, explicit assemblies, marker types
-- type filters: assignable type, multi-type assignability, attribute, namespace, exact namespace, predicate
-- service mapping: implemented interfaces, self, explicit type, matching interface, attribute mapping
-- lifetime mapping: singleton, scoped, transient, explicit lifetime, keyed service
-- registration policy: append, skip, throw, replace
-- decoration policy: required decoration, optional decoration, decorated-service handles
+[TOPOLOGY]:
+- `Scan` folds one fluent chain — source selection, assembly selection, class admission, type filtering, service mapping, lifetime — into `ServiceDescriptor` rows, each intermediate stage a selector interface returning the next stage.
+- `RegistrationStrategy` resolves each descriptor against the existing collection as `Append`, `Skip`, `Throw`, or `Replace`; `ReplacementBehavior` scopes what a replace matches.
+- Decoration is an axis orthogonal to scanning: `Decorate` rewrites an already-registered descriptor to wrap the resolved service behind the same contract, the decorated instance resolved through a generated service key `GetDecoratedServices` reads back.
+
+[STACKING]:
+- `api-di`(`.api/api-di.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate`/`TryDecorate` rewrite an existing descriptor — every scan result is a descriptor this rail resolves.
+- within-lib: AppHost's composition root runs one `Scan` chain per assembly, narrowing `FromApplicationDependencies` through `AddClasses`, a filter, `AsImplementedInterfaces`, and `WithScopedLifetime` before `RegistrationStrategy` resolves conflicts against the hand-registered ports.
 
 [LOCAL_ADMISSION]:
-- Scanning is bootstrap-only composition work.
-- Scan filters are package-owned and deterministic; runtime reflection loops stay rejected.
-- Decoration is admitted for cross-cutting ports where the decorated service contract remains the public contract.
+- Scanning runs only at composition bootstrap.
+- Scan filters are deterministic and package-owned.
+- Decoration admits a cross-cutting port only where the decorated contract stays the public contract.
 
 [RAIL_LAW]:
 - Package: `Scrutor`
-- Owns: assembly scanning and decoration
-- Accept: scans populate composition records
-- Reject: reflection loops in runtime code
+- Owns: assembly scanning, convention registration, and decoration
+- Accept: scan chains mint `ServiceDescriptor` rows onto the composition collection
+- Reject: runtime reflection loops and hand-rolled registration conventions

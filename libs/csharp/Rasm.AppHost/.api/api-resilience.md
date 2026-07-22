@@ -1,22 +1,21 @@
 # [RASM_APPHOST_API_RESILIENCE]
 
-`Microsoft.Extensions.Http.Resilience` supplies outbound HTTP resilience handlers, standard pipelines, hedging pipelines, routing groups, predicates, request context bridges, and policy options for remote hops.
+`Microsoft.Extensions.Http.Resilience` owns the outbound HTTP resilience rail: it folds standard, hedging, and custom `Polly` pipelines onto an `IHttpClientBuilder`, resolves a pipeline per request authority, and bridges request metadata into the resilience context. Every remote hop crosses one seam-local policy chain built on `Polly.Core`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Http.Resilience`
 - package: `Microsoft.Extensions.Http.Resilience`
 - assembly: `Microsoft.Extensions.Http.Resilience`
-- namespace: `Microsoft.Extensions.Http.Resilience`
+- namespace: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.DependencyInjection`, `Polly`, `System.Net.Http`
 - asset: runtime library
 - rail: resilience
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handler and pipeline family
-- rail: resilience
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [RAIL]                    |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [CAPABILITY]              |
 | :-----: | :--------------------------------------- | :----------------- | :------------------------ |
 |  [01]   | `ResilienceHandler`                      | delegating handler | outbound pipeline         |
 |  [02]   | `ResilienceHandlerContext`               | handler context    | named pipeline context    |
@@ -26,9 +25,8 @@
 |  [06]   | `IRoutingStrategyBuilder`                | routing builder    | hedging route setup       |
 
 [PUBLIC_TYPE_SCOPE]: strategy options family
-- rail: resilience
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]     | [RAIL]                  |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]     | [CAPABILITY]            |
 | :-----: | :------------------------------------- | :---------------- | :---------------------- |
 |  [01]   | `HttpStandardResilienceOptions`        | standard policy   | retry/timeout/breaker   |
 |  [02]   | `HttpStandardHedgingResilienceOptions` | hedging policy    | hedging pipeline        |
@@ -40,9 +38,8 @@
 |  [08]   | `HedgingEndpointOptions`               | endpoint policy   | endpoint resilience     |
 
 [PUBLIC_TYPE_SCOPE]: routing and predicate family
-- rail: resilience
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]     | [RAIL]                   |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]     | [CAPABILITY]             |
 | :-----: | :-------------------------------------- | :---------------- | :----------------------- |
 |  [01]   | `OrderedGroupsRoutingOptions`           | route policy      | ordered endpoint groups  |
 |  [02]   | `WeightedGroupsRoutingOptions`          | route policy      | weighted endpoint groups |
@@ -57,66 +54,66 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: handler operations
-- rail: resilience
 
-| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]        | [RAIL]                     |
-| :-----: | :------------------------------------ | :-------------------- | :------------------------- |
-|  [01]   | `AddStandardResilienceHandler`        | HTTP client extension | standard pipeline setup    |
-|  [02]   | `AddStandardHedgingHandler`           | HTTP client extension | hedging pipeline setup     |
-|  [03]   | `AddResilienceHandler`                | HTTP client extension | custom pipeline setup      |
-|  [04]   | `RemoveAllResilienceHandlers`         | HTTP client extension | pipeline reset             |
-|  [05]   | `Configure(configuration)`            | options binding       | configuration-section bind |
-|  [06]   | `Configure(Action)`                   | options delegate      | direct policy setup        |
-|  [07]   | `Configure(Action, IServiceProvider)` | options delegate      | service-aware setup        |
-|  [08]   | `SelectPipelineByAuthority`           | pipeline selector     | authority-keyed pipeline   |
-|  [09]   | `SelectPipelineBy`                    | pipeline selector     | custom-keyed pipeline      |
-|  [10]   | `DisableForUnsafeHttpMethods`         | retry filter          | idempotency guard          |
-|  [11]   | `DisableFor`                          | retry filter          | method-specific guard      |
-|  [12]   | `ResilienceHandler(pipeline)`         | handler construction  | direct pipeline handler    |
-|  [13]   | `ResilienceHandler(pipelineProvider)` | handler construction  | per-request pipeline       |
+| [INDEX] | [SURFACE]                             | [SHAPE] | [CAPABILITY]               |
+| :-----: | :------------------------------------ | :------ | :------------------------- |
+|  [01]   | `AddStandardResilienceHandler`        | fold    | standard pipeline setup    |
+|  [02]   | `AddStandardHedgingHandler`           | fold    | hedging pipeline setup     |
+|  [03]   | `AddResilienceHandler`                | fold    | custom pipeline setup      |
+|  [04]   | `RemoveAllResilienceHandlers`         | fold    | pipeline reset             |
+|  [05]   | `Configure(configuration)`            | fold    | configuration-section bind |
+|  [06]   | `Configure(Action)`                   | fold    | direct policy setup        |
+|  [07]   | `Configure(Action, IServiceProvider)` | fold    | service-aware setup        |
+|  [08]   | `SelectPipelineByAuthority`           | fold    | authority-keyed pipeline   |
+|  [09]   | `SelectPipelineBy`                    | fold    | custom-keyed pipeline      |
+|  [10]   | `DisableForUnsafeHttpMethods`         | static  | idempotency guard          |
+|  [11]   | `DisableFor`                          | static  | method-specific guard      |
+|  [12]   | `ResilienceHandler(pipeline)`         | ctor    | direct pipeline handler    |
+|  [13]   | `ResilienceHandler(pipelineProvider)` | ctor    | per-request pipeline       |
 
 [ENTRYPOINT_SCOPE]: routing and context operations
-- rail: resilience
 
-| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]    | [RAIL]                   |
-| :-----: | :------------------------ | :---------------- | :----------------------- |
-|  [01]   | `ConfigureOrderedGroups`  | routing setup     | ordered route groups     |
-|  [02]   | `ConfigureWeightedGroups` | routing setup     | weighted route groups    |
-|  [03]   | `IsTransient`             | predicate         | retry/hedging predicate  |
-|  [04]   | `EnableReloads<TOptions>` | context reload    | named options reload     |
-|  [05]   | `GetOptions<TOptions>`    | context lookup    | named options lookup     |
-|  [06]   | `OnPipelineDisposed`      | context callback  | pipeline disposal hook   |
-|  [07]   | `ServiceProvider`         | context read      | handler service provider |
-|  [08]   | `BuilderName`             | context read      | pipeline builder name    |
-|  [09]   | `InstanceName`            | context read      | pipeline instance name   |
-|  [10]   | `GetResilienceContext`    | request extension | request context read     |
-|  [11]   | `SetResilienceContext`    | request extension | request context write    |
-|  [12]   | `GetRequestMessage`       | Polly extension   | context request read     |
-|  [13]   | `SetRequestMessage`       | Polly extension   | context request write    |
+| [INDEX] | [SURFACE]                 | [SHAPE]  | [CAPABILITY]             |
+| :-----: | :------------------------ | :------- | :----------------------- |
+|  [01]   | `ConfigureOrderedGroups`  | fold     | ordered route groups     |
+|  [02]   | `ConfigureWeightedGroups` | fold     | weighted route groups    |
+|  [03]   | `IsTransient`             | static   | retry/hedging predicate  |
+|  [04]   | `EnableReloads<TOptions>` | instance | named options reload     |
+|  [05]   | `GetOptions<TOptions>`    | instance | named options lookup     |
+|  [06]   | `OnPipelineDisposed`      | instance | pipeline disposal hook   |
+|  [07]   | `ServiceProvider`         | property | handler service provider |
+|  [08]   | `BuilderName`             | property | pipeline builder name    |
+|  [09]   | `InstanceName`            | property | pipeline instance name   |
+|  [10]   | `GetResilienceContext`    | static   | request context read     |
+|  [11]   | `SetResilienceContext`    | static   | request context write    |
+|  [12]   | `GetRequestMessage`       | static   | context request read     |
+|  [13]   | `SetRequestMessage`       | static   | context request write    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RESILIENCE_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.DependencyInjection`, `System.Net.Http`, `Polly`
-- handler rails: standard resilience handler, custom resilience handler, standard hedging handler
-- policy families: retry, timeout, circuit breaker, rate limiter, attempt timeout, total request timeout
-- retry policy: transient retry honoring the `Retry-After` response header, opt-out for unsafe HTTP methods
-- hedging families: hedging strategy, endpoint timeout, endpoint breaker, endpoint rate limiter
-- selection surface: authority-based pipeline selection and custom request-key selection
-- routing surface: ordered groups, weighted groups, weighted endpoints, selection mode
-- predicate surface: transient HTTP status, transient exception, and timeout outcomes, with a cancellation-token overload
-- context surface: request-message resilience context, handler-scoped service provider and pipeline identity, options reload, pipeline disposal callback
-- generated validators: option validators for strategy and routing option records
+[TOPOLOGY]:
+- Standard handler folds retry, total-request-timeout, circuit-breaker, rate-limiter, and attempt-timeout onto one `Polly` pipeline; hedging handler adds parallel endpoint attempts, each with its own timeout and breaker.
+- Every strategy binds one `Http…StrategyOptions` record, `HttpStandardResilienceOptions` and `HttpStandardHedgingResilienceOptions` compose the per-strategy records, and source-generated validators reject an invalid option record at build.
+- Retry honors the `Retry-After` response header and opts out of unsafe HTTP methods through `DisableForUnsafeHttpMethods`.
+- `HttpClientResiliencePredicates.IsTransient` classifies transient status, exception, and timeout outcomes; the hedging predicate family carries its own transient test.
+- One handler resolves a pipeline per request key — `SelectPipelineByAuthority` keys on request authority, `SelectPipelineBy` on a custom key.
+- Hedging routing folds ordered or weighted `UriEndpoint` groups, and `WeightedGroupSelectionMode` drives weighted selection.
+- `ResilienceHandlerContext` threads the handler-scoped service provider, pipeline identity, options reload, and disposal callback into each named pipeline; request metadata bridges into the `Polly` `ResilienceContext` through the request-message extensions.
+
+[STACKING]:
+- `Polly.Core`(`.api/api-polly-core.md`): the standard and hedging handlers build their strategy chains on `ResiliencePipelineBuilder`, `ResilienceHandler(pipeline)` wraps the built `ResiliencePipeline<HttpResponseMessage>`, and request metadata threads into `ResilienceContext.Properties` through the request-message extensions.
+- `Microsoft.Extensions.ServiceDiscovery`(`.api/api-service-discovery.md`): `AddResilienceHandler` and `IHttpClientBuilder.AddServiceDiscovery` fold onto one client builder with resilience outermost, so a retried attempt re-resolves the endpoint the discovery handler produced.
+- Wire outbound composition: the outbound boundary folds one resilience handler per seam and selects the pipeline by authority, so each remote host carries its own retry schedule and breaker state.
 
 [LOCAL_ADMISSION]:
-- Each outbound seam has one resilience policy chain.
+- Each outbound seam carries one resilience policy chain.
 - Hedging is admitted only when the remote operation is idempotent by policy.
-- Routing groups are explicit package policy, not hidden URI rewriting.
-- Request metadata enters the Polly context through request-message extensions.
-- Domain retry schedules and HTTP resilience pipelines never stack on the same seam.
+- Routing groups are explicit package policy, never hidden URI rewriting.
+- Request metadata enters the `Polly` context through the request-message extensions.
+- Domain retry schedules and HTTP resilience pipelines never stack on one seam.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Http.Resilience`
-- Owns: HTTP boundary resilience
-- Accept: outbound retry policy stays seam-local
-- Reject: nested retry loops
+- Owns: outbound HTTP boundary resilience
+- Accept: seam-local retry, timeout, breaker, and hedging pipelines keyed by authority
+- Reject: nested retry loops and hand-rolled transient-error classification

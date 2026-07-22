@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_DI]
 
-`Microsoft.Extensions.DependencyInjection` supplies service registration, provider construction, scope ownership, keyed service lookup, and boundary activation.
+`Microsoft.Extensions.DependencyInjection` owns the AppHost composition rail: every registration mints one `ServiceDescriptor` onto an `IServiceCollection`, `BuildServiceProvider` freezes that graph into a validated `ServiceProvider`, and resolution runs through lifetime-scoped and keyed lookup. Its boundary is composition — descriptors land only at composition roots, and `ActivatorUtilities` constructs boundary objects the container never registered.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,116 +8,109 @@
 - package: `Microsoft.Extensions.DependencyInjection`
 - assembly: `Microsoft.Extensions.DependencyInjection`
 - contract_assembly: `Microsoft.Extensions.DependencyInjection.Abstractions`
-- namespace: `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
+- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`
 - rail: composition
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider implementation
-- rail: composition
 
-| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]     | [RAIL]               |
-| :-----: | :-------------------------------------------- | :---------------- | :------------------- |
-|  [01]   | `DefaultServiceProviderFactory`               | provider factory  | host provider bridge |
-|  [02]   | `ServiceCollectionContainerBuilderExtensions` | provider builder  | root provider build  |
-|  [03]   | `ServiceProvider`                             | resolved provider | service resolution   |
-|  [04]   | `ServiceProviderOptions`                      | validation policy | provider proof       |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY] | [CAPABILITY]               |
+| :-----: | :-------------------------------------------- | :------------ | :------------------------- |
+|  [01]   | `DefaultServiceProviderFactory`               | class         | host provider bridge       |
+|  [02]   | `ServiceCollectionContainerBuilderExtensions` | class         | root provider build        |
+|  [03]   | `ServiceProvider`                             | class         | service resolution         |
+|  [04]   | `ServiceProviderOptions`                      | class         | provider validation policy |
 
 [PUBLIC_TYPE_SCOPE]: composition contracts
-- rail: composition
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]          | [RAIL]                  |
-| :-----: | :--------------------------------------- | :--------------------- | :---------------------- |
-|  [01]   | `IServiceCollection`                     | descriptor collection  | registration boundary   |
-|  [02]   | `ServiceCollection`                      | mutable collection     | registration staging    |
-|  [03]   | `ServiceDescriptor`                      | descriptor algebra     | registration identity   |
-|  [04]   | `ServiceLifetime`                        | lifetime enum          | scope policy            |
-|  [05]   | `IServiceScope`                          | disposable scope       | scoped lifetime         |
-|  [06]   | `AsyncServiceScope`                      | async disposable scope | async lifetime          |
-|  [07]   | `IServiceScopeFactory`                   | scope factory          | scope construction      |
-|  [08]   | `IServiceProviderFactory<TBuilder>`      | provider factory seam  | host builder interop    |
-|  [09]   | `IServiceProviderIsService`              | availability probe     | optional resolution     |
-|  [10]   | `IServiceProviderIsKeyedService`         | keyed availability     | keyed optional lookup   |
-|  [11]   | `IKeyedServiceProvider`                  | keyed lookup contract  | keyed policy resolution |
-|  [12]   | `KeyedService`                           | keyed sentinel         | enumerable keyed lookup |
-|  [13]   | `FromKeyedServicesAttribute`             | parameter attribute    | keyed constructor input |
-|  [14]   | `ServiceKeyAttribute`                    | parameter attribute    | key injection           |
-|  [15]   | `ServiceKeyLookupMode`                   | keyed lookup enum      | key inheritance         |
-|  [16]   | `ActivatorUtilities`                     | boundary activator     | explicit construction   |
-|  [17]   | `ActivatorUtilitiesConstructorAttribute` | constructor selector   | activation selection    |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]              |
+| :-----: | :--------------------------------------- | :------------ | :------------------------ |
+|  [01]   | `IServiceCollection`                     | interface     | registration boundary     |
+|  [02]   | `ServiceCollection`                      | class         | registration staging      |
+|  [03]   | `ServiceDescriptor`                      | class         | registration identity     |
+|  [04]   | `ServiceLifetime`                        | enum          | scope policy              |
+|  [05]   | `IServiceScope`                          | interface     | scoped lifetime           |
+|  [06]   | `AsyncServiceScope`                      | struct        | async scoped lifetime     |
+|  [07]   | `IServiceScopeFactory`                   | interface     | scope construction        |
+|  [08]   | `IServiceProviderFactory<TBuilder>`      | interface     | host builder interop      |
+|  [09]   | `IServiceProviderIsService`              | interface     | optional resolution probe |
+|  [10]   | `IServiceProviderIsKeyedService`         | interface     | keyed resolution probe    |
+|  [11]   | `IKeyedServiceProvider`                  | interface     | keyed policy resolution   |
+|  [12]   | `KeyedService`                           | class         | keyed enumerable sentinel |
+|  [13]   | `FromKeyedServicesAttribute`             | class         | keyed constructor input   |
+|  [14]   | `ServiceKeyAttribute`                    | class         | key injection             |
+|  [15]   | `ServiceKeyLookupMode`                   | enum          | key inheritance           |
+|  [16]   | `ActivatorUtilities`                     | class         | explicit construction     |
+|  [17]   | `ActivatorUtilitiesConstructorAttribute` | class         | activation selection      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
-- rail: composition
 
-| [INDEX] | [SURFACE]                     | [CAPABILITY]                 |
-| :-----: | :---------------------------- | :--------------------------- |
-|  [01]   | `BuildServiceProvider`        | root provider creation       |
-|  [02]   | `AddSingleton`                | singleton registration       |
-|  [03]   | `AddScoped`                   | scoped registration          |
-|  [04]   | `AddTransient`                | transient registration       |
-|  [05]   | `AddKeyedSingleton`           | keyed singleton policy       |
-|  [06]   | `AddKeyedScoped`              | keyed scoped policy          |
-|  [07]   | `AddKeyedTransient`           | keyed transient policy       |
-|  [08]   | `TryAdd`                      | idempotent default           |
-|  [09]   | `TryAddEnumerable`            | ordered extension-set add    |
-|  [10]   | `TryAddKeyed{Lifetime}`       | idempotent keyed default     |
-|  [11]   | `Replace`                     | explicit descriptor override |
-|  [12]   | `RemoveAll`                   | unkeyed contract reset       |
-|  [13]   | `RemoveAllKeyed`              | keyed contract reset         |
-|  [14]   | `ServiceDescriptor.Describe`  | typed descriptor factory     |
-|  [15]   | `DescribeKeyed`               | keyed descriptor factory     |
-|  [16]   | `ServiceDescriptor.Singleton` | lifetime descriptor factory  |
+| [INDEX] | [SURFACE]                     | [SHAPE] | [CAPABILITY]                 |
+| :-----: | :---------------------------- | :------ | :--------------------------- |
+|  [01]   | `BuildServiceProvider`        | static  | root provider creation       |
+|  [02]   | `AddSingleton`                | static  | singleton registration       |
+|  [03]   | `AddScoped`                   | static  | scoped registration          |
+|  [04]   | `AddTransient`                | static  | transient registration       |
+|  [05]   | `AddKeyedSingleton`           | static  | keyed singleton policy       |
+|  [06]   | `AddKeyedScoped`              | static  | keyed scoped policy          |
+|  [07]   | `AddKeyedTransient`           | static  | keyed transient policy       |
+|  [08]   | `TryAdd`                      | static  | idempotent default           |
+|  [09]   | `TryAddEnumerable`            | static  | ordered extension-set add    |
+|  [10]   | `TryAddKeyed{Lifetime}`       | static  | idempotent keyed default     |
+|  [11]   | `Replace`                     | static  | explicit descriptor override |
+|  [12]   | `RemoveAll`                   | static  | unkeyed contract reset       |
+|  [13]   | `RemoveAllKeyed`              | static  | keyed contract reset         |
+|  [14]   | `ServiceDescriptor.Describe`  | factory | typed descriptor factory     |
+|  [15]   | `DescribeKeyed`               | factory | keyed descriptor factory     |
+|  [16]   | `ServiceDescriptor.Singleton` | factory | lifetime descriptor factory  |
 
-[LIFETIME_DESCRIPTOR_OVERLOADS]: `ServiceDescriptor.Singleton` exposes `Singleton(Type, object)` plus generic instance and factory overloads, with parallel `Scoped` and `Transient` factories.
+- `ServiceDescriptor.Singleton`: `(Type, object)`, generic-instance, and factory overloads, paralleled on `Scoped` and `Transient`.
 
 [ENTRYPOINT_SCOPE]: resolution and activation operations
-- rail: composition
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]        | [RAIL]                    |
-| :-----: | :--------------------------- | :-------------------- | :------------------------ |
-|  [01]   | `GetService<T>`              | optional lookup       | nullable contract lookup  |
-|  [02]   | `GetRequiredService<T>`      | required lookup       | required contract lookup  |
-|  [03]   | `GetServices<T>`             | enumerable lookup     | ordered extension lookup  |
-|  [04]   | `GetKeyedService<T>`         | optional keyed lookup | keyed policy lookup       |
-|  [05]   | `GetRequiredKeyedService<T>` | required keyed lookup | required keyed policy     |
-|  [06]   | `GetKeyedServices<T>`        | keyed enumerable      | keyed extension lookup    |
-|  [07]   | `CreateScope`                | scope factory         | synchronous scope         |
-|  [08]   | `CreateAsyncScope`           | async scope factory   | asynchronous disposal     |
-|  [09]   | `CreateFactory`              | activation compiler   | cached constructor plan   |
-|  [10]   | `CreateInstance`             | activation factory    | explicit boundary object  |
-|  [11]   | `GetServiceOrCreateInstance` | activation fallback   | optional service fallback |
-|  [12]   | `MakeReadOnly`               | collection lock       | registration freeze       |
+| [INDEX] | [SURFACE]                    | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :--------------------------- | :------- | :------------------------ |
+|  [01]   | `GetService<T>`              | static   | nullable contract lookup  |
+|  [02]   | `GetRequiredService<T>`      | static   | required contract lookup  |
+|  [03]   | `GetServices<T>`             | static   | ordered extension lookup  |
+|  [04]   | `GetKeyedService<T>`         | static   | keyed policy lookup       |
+|  [05]   | `GetRequiredKeyedService<T>` | static   | required keyed policy     |
+|  [06]   | `GetKeyedServices<T>`        | static   | keyed extension lookup    |
+|  [07]   | `CreateScope`                | static   | synchronous scope         |
+|  [08]   | `CreateAsyncScope`           | static   | asynchronous disposal     |
+|  [09]   | `CreateFactory`              | static   | cached constructor plan   |
+|  [10]   | `CreateInstance`             | static   | explicit boundary object  |
+|  [11]   | `GetServiceOrCreateInstance` | static   | optional service fallback |
+|  [12]   | `MakeReadOnly`               | instance | registration freeze       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[COMPOSITION_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`
-- lifetime families: singleton, scoped, transient, keyed
-- descriptor shapes: implementation type, factory, instance
-- keyed descriptor shapes: keyed implementation type, keyed factory, keyed instance
-- scope law: root provider owns singleton state; created scopes own scoped disposal
-- validation law: `ValidateScopes` guards scoped-from-root capture; `ValidateOnBuild` guards provider construction
-- activation law: `ActivatorUtilities` is boundary activation, not hidden service lookup
+[TOPOLOGY]:
+- Each registration mints one `ServiceDescriptor` selecting a `ServiceLifetime` — singleton, scoped, or transient — on an axis orthogonal to the `object` service key; the root provider owns singleton state and every created scope owns its scoped disposal.
+- A descriptor carries one construction form — implementation type, factory, or singleton instance — the keyed axis mirroring each form behind the service key.
+- `ValidateScopes` guards scoped-from-root capture and `ValidateOnBuild` forces eager provider construction, both `ServiceProviderOptions` policy proven at `BuildServiceProvider`.
+- `ActivatorUtilities` constructs a boundary object from unregistered constructor dependencies, never a hidden service-locator lookup.
+- A keyed factory receives `IServiceProvider` and the `object` key; `FromKeyedServicesAttribute` selects a keyed constructor dependency, `ServiceKeyAttribute` injects the ambient key, and `ServiceKeyLookupMode` decides key inheritance.
+- `KeyedService.AnyKey` selects the keyed enumerable and never resolves a single service.
 
-[KEYED_TOPOLOGY]:
-- key input: `object` service key
-- parameter attributes: `FromKeyedServicesAttribute`, `ServiceKeyAttribute`
-- lookup modes: explicit key, inherited key, no inherited key
-- sentinel: `KeyedService.AnyKey` selects keyed enumerables and never resolves a single service
-- factory shape: keyed factories receive `IServiceProvider` and the service key
+[STACKING]:
+- `api-hosting`(`.api/api-hosting.md`): `HostApplicationBuilder.Services` is the `IServiceCollection` this surface populates, `UseServiceProviderFactory`/`ConfigureContainer` bind an `IServiceProviderFactory<TBuilder>`, and `Build` runs `BuildServiceProvider` under the `ServiceProviderOptions` from `UseDefaultServiceProvider`.
+- `api-scrutor`(`.api/api-scrutor.md`): `Scan` emits `ServiceDescriptor` rows onto the `IServiceCollection` under a `RegistrationStrategy`, and `Decorate` rewrites a descriptor to wrap the resolved service — assembly scanning resolves to descriptor registration on this rail.
+- `api-options`(`.api/api-options.md`): `AddOptions`/`Configure`/`PostConfigure` register `IConfigureOptions`/`IPostConfigureOptions`/`IValidateOptions` through `TryAddEnumerable` idempotency, and `IOptions`/`IOptionsSnapshot`/`IOptionsMonitor` resolve as singleton, scoped, and singleton services.
+- `api-validation-di`(`.api/api-validation-di.md`): `AddValidatorsFromAssemblies` registers each discovered `IValidator<T>` as a `ServiceDescriptor` at an explicit `ServiceLifetime`, resolved through `GetRequiredService`.
+- within-lib: AppHost's one composition root folds every port record onto the `IServiceCollection`, models bounded policy variants as keyed registrations, then `MakeReadOnly` freezes the collection before `BuildServiceProvider` proves the graph under `ValidateOnBuild` and `ValidateScopes`.
 
 [LOCAL_ADMISSION]:
-- AppHost ports are constructor-visible dependencies registered at composition roots.
-- Keyed services model bounded policy variants where the key is part of AppHost policy.
-- Descriptor mutation is allowed only in composition assembly setup.
-- Provider validation is enabled for package proof and rejected for runtime probing.
-- Runtime code receives dependencies through explicit records and constructors, never provider lookups.
+- AppHost ports register as constructor-visible dependencies at composition roots.
+- Keyed registrations model bounded policy variants whose key is AppHost policy.
+- Descriptor mutation stays in composition-assembly setup; runtime code never mutates the collection.
+- `ValidateOnBuild` and `ValidateScopes` are enabled for package proof, rejected as runtime probes.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.DependencyInjection`
-- Owns: composition and lifetime scopes
-- Accept: registrations stay at composition roots
-- Reject: service locator logic
+- Owns: the service graph, lifetime scopes, and keyed resolution
+- Accept: registrations mint descriptors at composition roots
+- Reject: runtime service-locator lookups and hand-rolled provider caches

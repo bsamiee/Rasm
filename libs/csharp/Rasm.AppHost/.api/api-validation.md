@@ -1,22 +1,21 @@
 # [RASM_APPHOST_API_VALIDATION]
 
-`FluentValidation` supplies validators, rule graphs, built-in validators, conditions, rule sets, child and polymorphic validation, validation contexts, descriptors, results, failures, exceptions, global options, and scanner facts.
+`FluentValidation` owns boundary input and options validation: `AbstractValidator<T>` folds one rule graph over a policy or request record and accumulates every field failure into a `ValidationResult` before any runtime state changes. Its boundary is the composition edge — a policy record validates once at bootstrap, a request record at ingress — and the accumulated result folds onto the typed rail, never an exception on the domain path.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation`
-- package: `FluentValidation`
+- package: `FluentValidation` (Apache-2.0, © Jeremy Skinner, .NET Foundation)
 - assembly: `FluentValidation`
-- namespace: `FluentValidation`
+- namespace: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`
 - asset: runtime library
 - rail: validation
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validator and rule family
-- rail: validation
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]       | [RAIL]                 |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]       | [CAPABILITY]           |
 | :-----: | :------------------------------------------ | :------------------ | :--------------------- |
 |  [01]   | `AbstractValidator<T>`                      | validator base      | rule graph owner       |
 |  [02]   | `InlineValidator<T>`                        | inline validator    | inline rule graph      |
@@ -33,10 +32,9 @@
 |  [13]   | `ValidationStrategy<T>`                     | selector strategy   | partial validation     |
 |  [14]   | `IConditionBuilder`                         | condition builder   | otherwise branch       |
 
-[PUBLIC_TYPE_SCOPE]: result option and scanner family
-- rail: validation
+[PUBLIC_TYPE_SCOPE]: result, option, and scanner family
 
-| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [RAIL]                     |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [CAPABILITY]               |
 | :-----: | :-------------------------------------------- | :------------------ | :------------------------- |
 |  [01]   | `ValidationResult`                            | result value        | validation receipt         |
 |  [02]   | `ValidationFailure`                           | failure value       | field failure              |
@@ -53,9 +51,8 @@
 |  [13]   | `AsyncValidatorInvokedSynchronouslyException` | async exception     | async rule guard           |
 
 [PUBLIC_TYPE_SCOPE]: validator implementation family
-- rail: validation
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]         | [RAIL]                    |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]         | [CAPABILITY]              |
 | :-----: | :------------------------------------- | :-------------------- | :------------------------ |
 |  [01]   | `DefaultValidatorExtensions`           | rule extensions       | built-in validators       |
 |  [02]   | `DefaultValidatorOptions`              | rule options          | message/severity/options  |
@@ -70,101 +67,95 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: rule graph operations
-- rail: validation
 
-| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                   |
-| :-----: | :------------------------ | :----------------- | :----------------------- |
-|  [01]   | `RuleFor`                 | property rule      | property validation      |
-|  [02]   | `RuleForEach`             | collection rule    | item validation          |
-|  [03]   | `RuleSet`                 | rule grouping      | named validation set     |
-|  [04]   | `Include`                 | rule composition   | validator inclusion      |
-|  [05]   | `SetValidator`            | child validator    | nested validation        |
-|  [06]   | `SetAsyncValidator`       | child validator    | async nested validation  |
-|  [07]   | `ChildRules`              | inline child rules | nested inline rules      |
-|  [08]   | `SetInheritanceValidator` | polymorphic rules  | subtype validation       |
-|  [09]   | `DependentRules`          | dependency rules   | ordered rule branch      |
-|  [10]   | `When`                    | condition branch   | positive condition       |
-|  [11]   | `Unless`                  | condition branch   | negative condition       |
-|  [12]   | `WhenAsync`               | async condition    | async positive condition |
-|  [13]   | `UnlessAsync`             | async condition    | async negative condition |
+| [INDEX] | [SURFACE]                 | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :------------------------ | :------- | :------------------------ |
+|  [01]   | `RuleFor`                 | instance | property rule graph       |
+|  [02]   | `RuleForEach`             | instance | collection item rules     |
+|  [03]   | `RuleSet`                 | instance | named rule grouping       |
+|  [04]   | `Include`                 | instance | validator composition     |
+|  [05]   | `SetValidator`            | static   | child validator attach    |
+|  [06]   | `SetAsyncValidator`       | static   | async child validator     |
+|  [07]   | `ChildRules`              | static   | inline nested rules       |
+|  [08]   | `SetInheritanceValidator` | static   | polymorphic subtype rules |
+|  [09]   | `DependentRules`          | instance | ordered dependent branch  |
+|  [10]   | `When`                    | instance | positive condition scope  |
+|  [11]   | `Unless`                  | instance | negative condition scope  |
+|  [12]   | `WhenAsync`               | instance | async positive condition  |
+|  [13]   | `UnlessAsync`             | instance | async negative condition  |
 
 [ENTRYPOINT_SCOPE]: built-in validator operations
-- rail: validation
 
-| [INDEX] | [SURFACE]          | [ENTRY_FAMILY]       | [RAIL]                  |
-| :-----: | :----------------- | :------------------- | :---------------------- |
-|  [01]   | `NotNull`          | null validator       | required value          |
-|  [02]   | `NotEmpty`         | empty validator      | required content        |
-|  [03]   | `Length`           | string validator     | length range            |
-|  [04]   | `Matches`          | regex validator      | pattern match           |
-|  [05]   | `EmailAddress`     | string validator     | email shape             |
-|  [06]   | `Equal`            | comparison validator | equality comparison     |
-|  [07]   | `NotEqual`         | comparison validator | inequality comparison   |
-|  [08]   | `LessThan`         | comparison validator | upper bound             |
-|  [09]   | `GreaterThan`      | comparison validator | lower bound             |
-|  [10]   | `InclusiveBetween` | range validator      | inclusive range         |
-|  [11]   | `ExclusiveBetween` | range validator      | exclusive range         |
-|  [12]   | `IsInEnum`         | enum validator       | enum value              |
-|  [13]   | `IsEnumName`       | enum validator       | enum name               |
-|  [14]   | `PrecisionScale`   | decimal validator    | decimal precision       |
-|  [15]   | `Must`             | predicate validator  | custom sync predicate   |
-|  [16]   | `MustAsync`        | predicate validator  | custom async predicate  |
-|  [17]   | `Custom`           | custom validator     | manual failure emission |
-|  [18]   | `CustomAsync`      | custom validator     | async manual failure    |
+| [INDEX] | [SURFACE]          | [SHAPE] | [CAPABILITY]            |
+| :-----: | :----------------- | :------ | :---------------------- |
+|  [01]   | `NotNull`          | static  | required value          |
+|  [02]   | `NotEmpty`         | static  | required content        |
+|  [03]   | `Length`           | static  | length range            |
+|  [04]   | `Matches`          | static  | regex pattern match     |
+|  [05]   | `EmailAddress`     | static  | email shape             |
+|  [06]   | `Equal`            | static  | equality comparison     |
+|  [07]   | `NotEqual`         | static  | inequality comparison   |
+|  [08]   | `LessThan`         | static  | upper bound             |
+|  [09]   | `GreaterThan`      | static  | lower bound             |
+|  [10]   | `InclusiveBetween` | static  | inclusive range         |
+|  [11]   | `ExclusiveBetween` | static  | exclusive range         |
+|  [12]   | `IsInEnum`         | static  | enum value              |
+|  [13]   | `IsEnumName`       | static  | enum name               |
+|  [14]   | `PrecisionScale`   | static  | decimal precision       |
+|  [15]   | `Must`             | static  | custom sync predicate   |
+|  [16]   | `MustAsync`        | static  | custom async predicate  |
+|  [17]   | `Custom`           | static  | manual failure emission |
+|  [18]   | `CustomAsync`      | static  | async manual failure    |
 
 [ENTRYPOINT_SCOPE]: execution and result operations
-- rail: validation
 
-| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]      | [RAIL]                   |
-| :-----: | :------------------------------------ | :------------------ | :----------------------- |
-|  [01]   | `Validate`                            | sync execution      | validation result        |
-|  [02]   | `ValidateAsync`                       | async execution     | async validation result  |
-|  [03]   | `ValidateAndThrow`                    | exception execution | throws validation errors |
-|  [04]   | `CreateDescriptor`                    | metadata extraction | rule descriptor          |
-|  [05]   | `ValidationContext.CreateWithOptions` | context factory     | selector strategy        |
-|  [06]   | `IncludeProperties`                   | selector strategy   | property subset          |
-|  [07]   | `IncludeRuleSets`                     | selector strategy   | ruleset subset           |
-|  [08]   | `IncludeAllRuleSets`                  | selector strategy   | all rulesets             |
-|  [09]   | `ThrowOnFailures`                     | selector strategy   | exception mode           |
-|  [10]   | `ValidationContext.AddFailure`        | failure emission    | custom failure           |
-|  [11]   | `ValidationResult.ToDictionary`       | result projection   | grouped failures         |
+| [INDEX] | [SURFACE]                             | [SHAPE]  | [CAPABILITY]               |
+| :-----: | :------------------------------------ | :------- | :------------------------- |
+|  [01]   | `Validate`                            | instance | sync validation result     |
+|  [02]   | `ValidateAsync`                       | instance | async validation result    |
+|  [03]   | `ValidateAndThrow`                    | static   | throw on failure           |
+|  [04]   | `CreateDescriptor`                    | instance | rule descriptor extraction |
+|  [05]   | `ValidationContext.CreateWithOptions` | factory  | selector strategy context  |
+|  [06]   | `IncludeProperties`                   | instance | property subset selector   |
+|  [07]   | `IncludeRuleSets`                     | instance | ruleset subset selector    |
+|  [08]   | `IncludeAllRuleSets`                  | instance | all rulesets selector      |
+|  [09]   | `ThrowOnFailures`                     | instance | exception mode selector    |
+|  [10]   | `ValidationContext.AddFailure`        | instance | custom failure emission    |
+|  [11]   | `ValidationResult.ToDictionary`       | instance | grouped failure projection |
 
 [ENTRYPOINT_SCOPE]: rule option operations
-- rail: validation
 
-| [INDEX] | [SURFACE]              | [ENTRY_FAMILY]       | [RAIL]                  |
-| :-----: | :--------------------- | :------------------- | :---------------------- |
-|  [01]   | `Cascade`              | cascade option       | stop/continue policy    |
-|  [02]   | `WithMessage`          | message option       | failure message         |
-|  [03]   | `WithErrorCode`        | error-code option    | failure code            |
-|  [04]   | `WithName`             | display-name option  | display name            |
-|  [05]   | `OverridePropertyName` | property-name option | failure property name   |
-|  [06]   | `WithState`            | state option         | custom failure state    |
-|  [07]   | `WithSeverity`         | severity option      | failure severity        |
-|  [08]   | `Configure`            | rule mutation        | low-level rule mutation |
+| [INDEX] | [SURFACE]              | [SHAPE] | [CAPABILITY]            |
+| :-----: | :--------------------- | :------ | :---------------------- |
+|  [01]   | `Cascade`              | static  | stop/continue policy    |
+|  [02]   | `WithMessage`          | static  | failure message         |
+|  [03]   | `WithErrorCode`        | static  | failure code            |
+|  [04]   | `WithName`             | static  | display name            |
+|  [05]   | `OverridePropertyName` | static  | failure property name   |
+|  [06]   | `WithState`            | static  | custom failure state    |
+|  [07]   | `WithSeverity`         | static  | failure severity        |
+|  [08]   | `Configure`            | static  | low-level rule mutation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[VALIDATION_TOPOLOGY]:
-- namespaces: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`
-- rule families: property rule, collection rule, child validator, include rule, ruleset
-- validator families: null/empty, string, regex, comparison, range, enum, decimal, predicate, custom, async
-- condition rails: `When`, `Unless`, async conditions, rule-level condition scope
-- selector rails: properties, rulesets, all rulesets, custom selector, throw-on-failures
-- failure shape: property name, error code, attempted value, severity, custom state
-- descriptor shape: rules, member validators, member rules, ruleset metadata
-- cascade policy: class-level and rule-level cascade modes
-- global policy: cascade defaults, language manager, selector factories, resolver delegates
+[TOPOLOGY]:
+- `AbstractValidator<T>` folds one rule graph per type; each property chain short-circuits or continues on its `CascadeMode`.
+- One `ValidationResult` accumulates every `ValidationFailure` — property name, error code, attempted value, severity, custom state — before any runtime state changes.
+- Rule sets and `When`/`Unless` conditions are explicit boundary variants a `ValidationStrategy` selects, never hidden control flow.
+
+[STACKING]:
+- `api-languageext.md`(`libs/csharp/.api/api-languageext.md`): each `ValidationResult.Errors` failure maps to a LanguageExt `Error` accumulated as `Validation<Error, T>`, egressed through `.ToFin()` onto the `Fin<T>` rail every AppHost boundary op returns.
+- `api-validation-di.md`(`.api/api-validation-di.md`): `AbstractValidator<T>` implementations register as `IValidator<T>` through the DI scanner, resolved at the composition root the boundary op reads.
+- within-lib: AppHost composes one `AbstractValidator<T>` per policy or request record, and `ValidationContext.CreateWithOptions` under a `ValidationStrategy` drives partial validation over a property or ruleset subset at ingress.
 
 [LOCAL_ADMISSION]:
-- Boundary validators accumulate input failures before runtime state changes.
-- Async validators stay outside hot runtime paths unless the boundary explicitly owns I/O.
-- Rule sets are explicit boundary variants and do not become hidden conditional branches.
-- Custom state and severity must map to typed rail errors.
-- Validation failures fold into typed rail errors; exception-driven validation stays rejected.
+- Boundary validators accumulate every input failure before runtime state changes.
+- Async validators stay off hot runtime paths unless the boundary owns I/O.
+- Rule sets stay explicit boundary variants, never hidden conditional branches.
+- Custom state and severity map onto typed rail `Error` codes.
 
 [RAIL_LAW]:
 - Package: `FluentValidation`
-- Owns: input and options validation
-- Accept: failures fold into typed rails
-- Reject: inline imperative guards
+- Owns: input and options validation at the composition boundary
+- Accept: accumulated failures fold onto the typed rail
+- Reject: inline imperative guard branches

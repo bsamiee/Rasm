@@ -1,12 +1,12 @@
 # [RASM_APPHOST_API_OPCUA]
 
-`OPCFoundation.NetStandard.Opc.Ua` is a meta-package that aggregates `Opc.Ua.Types`, `Opc.Ua.Core`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Configuration`, `Opc.Ua.Client`, and `Opc.Ua.Server` into a single dependency; `OPCFoundation.NetStandard.Opc.Ua.PubSub` adds the publish-subscribe application, connection, dataset encoding, and transport surfaces for MQTT and UDP delivery.
+`OPCFoundation.NetStandard.Opc.Ua` owns the AppHost OPC UA client stack: managed `Session`/`Subscription`/`MonitoredItem` streaming above the low-level RPC `SessionClient`, application-configuration loading, and certificate-store PKI. `OPCFoundation.NetStandard.Opc.Ua.PubSub` owns the publish-subscribe dataset transport over MQTT and UDP.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OPCFoundation.NetStandard.Opc.Ua`
 - package: `OPCFoundation.NetStandard.Opc.Ua`
-- assembly: `Opc.Ua.Core` (primary); also `Opc.Ua.Client`, `Opc.Ua.Server`, `Opc.Ua.Configuration`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Types`
+- assembly: `Opc.Ua.Core` primary, aggregating `Opc.Ua.Client`, `Opc.Ua.Server`, `Opc.Ua.Configuration`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Types` — no DLL of its own
 - namespace: `Opc.Ua`, `Opc.Ua.Bindings`, `Opc.Ua.Configuration`, `Opc.Ua.Security`, `Opc.Ua.Security.Certificates`
 - asset: runtime library
 - rail: opcua-core
@@ -21,7 +21,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application and configuration — `Opc.Ua.Configuration`
-- rail: opcua-core
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                |
 | :-----: | :----------------------------- | :------------ | :------------------------------------------ |
@@ -33,10 +32,9 @@
 |  [06]   | `TraceConfiguration`           | configuration | diagnostic trace settings                   |
 |  [07]   | `ConfiguredEndpointCollection` | collection    | persisted endpoint registry                 |
 |  [08]   | `ConfiguredEndpoint`           | record class  | one persisted server endpoint               |
-|  [09]   | `ServerSecurityPolicy`         | record class  | one security policy (mode + URI)            |
+|  [09]   | `ServerSecurityPolicy`         | record class  | one security policy, mode plus URI          |
 
 [PUBLIC_TYPE_SCOPE]: session and client — `Opc.Ua`
-- rail: opcua-core
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                     |
 | :-----: | :------------------- | :------------ | :----------------------------------------------- |
@@ -50,9 +48,6 @@
 |  [08]   | `SessionChannel`     | class         | session-scoped transport channel                 |
 
 [PUBLIC_TYPE_SCOPE]: managed client — `Opc.Ua.Client`
-- rail: opcua-client
-
-The high-level managed session/subscription/monitored-item surface the live-wire `OpcUaLane` composes; it sits above `SessionClient` and owns the publish loop, keep-alive, and notification fan the low-level RPC client does not.
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                                |
 | :-----: | :----------------------------------- | :------------ | :---------------------------------------------------------- |
@@ -67,7 +62,6 @@ The high-level managed session/subscription/monitored-item surface the live-wire
 |  [09]   | `MonitoringMode`                     | enum          | `Disabled` / `Sampling` / `Reporting`                       |
 
 [PUBLIC_TYPE_SCOPE]: address-space and value primitives — `Opc.Ua`
-- rail: opcua-core
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                               |
 | :-----: | :---------------------- | :------------ | :--------------------------------------------------------- |
@@ -84,7 +78,6 @@ The high-level managed session/subscription/monitored-item surface the live-wire
 |  [11]   | `TimestampsToReturn`    | enum          | `Source` / `Server` / `Both` / `Neither`                   |
 
 [PUBLIC_TYPE_SCOPE]: certificate and PKI — `Opc.Ua.Security.Certificates`
-- rail: opcua-core
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                    |
 | :-----: | :--------------------------- | :------------ | :---------------------------------------------- |
@@ -99,7 +92,6 @@ The high-level managed session/subscription/monitored-item surface the live-wire
 |  [09]   | `X509CertificateStore`       | class         | Windows X.509 store adapter                     |
 
 [PUBLIC_TYPE_SCOPE]: PubSub application — `Opc.Ua.PubSub`
-- rail: opcua-pubsub
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]  | [CAPABILITY]                              |
 | :-----: | :------------------------------- | :------------- | :---------------------------------------- |
@@ -121,135 +113,111 @@ The high-level managed session/subscription/monitored-item surface the live-wire
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: application configuration construction
-- rail: opcua-core
 
-Configuration loads pivot by source type; application type, system type, logger, telemetry, and trace policy stay call-specific parameters.
+Configuration loads pivot by source; application type, system type, logger, telemetry, and trace policy stay call-specific parameters.
 
-| [INDEX] | [SOURCE]          | [SURFACE]                                | [ENTRY_FAMILY] | [CAPABILITY]                      |
-| :-----: | :---------------- | :--------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | section           | `Load(section)`                          | sync load      | loads app.config section          |
-|  [02]   | section           | `LoadAsync(section)`                     | async load     | loads section with telemetry      |
-|  [03]   | file              | `Load(file)`                             | sync load      | loads explicit file path          |
-|  [04]   | file              | `LoadAsync(file)`                        | async load     | loads file with trace policy      |
-|  [05]   | stream            | `Load(stream)`                           | sync load      | loads stream payload              |
-|  [06]   | endpoint registry | `ConfiguredEndpointCollection.Load(...)` | static load    | loads persisted endpoint registry |
-
-[CONFIG_LOAD_PARAMETERS]:
-- Section forms carry section name plus application type and may add logger, telemetry, and cancellation.
-- File and stream forms carry application type, system type, and optional trace application policy.
-- Endpoint-registry loading carries the resolved `ApplicationConfiguration`, file path, and telemetry context.
+| [INDEX] | [SURFACE]                                     | [SHAPE] | [CAPABILITY]                     |
+| :-----: | :-------------------------------------------- | :------ | :------------------------------- |
+|  [01]   | `ApplicationConfiguration.LoadAsync(section)` | factory | loads an app.config section      |
+|  [02]   | `ApplicationConfiguration.LoadAsync(file)`    | factory | loads an explicit file path      |
+|  [03]   | `ApplicationConfiguration.LoadAsync(stream)`  | factory | loads a stream payload           |
+|  [04]   | `ConfiguredEndpointCollection.Load(...)`      | factory | loads the persisted endpoint set |
 
 [ENTRYPOINT_SCOPE]: session client lifecycle
-- rail: opcua-core
 
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `SessionClient(ITransportChannel, ITelemetryContext)`                        | constructor    | creates client over existing channel  |
-|  [02]   | `SessionClient.CreateSessionAsync(requestHeader, ..., ct)`                   | async call     | creates OPC UA session                |
-|  [03]   | `SessionClient.ActivateSessionAsync(requestHeader, ..., ct)`                 | async call     | activates session with identity token |
-|  [04]   | `SessionClient.CloseSessionAsync(requestHeader, delete, ct)`                 | async call     | closes session                        |
-|  [05]   | `SessionClient.ReadAsync(requestHeader, maxAge, timestamps, nodes, ct)`      | async call     | reads node values                     |
-|  [06]   | `SessionClient.WriteAsync(requestHeader, nodesToWrite, ct)`                  | async call     | writes node values                    |
-|  [07]   | `SessionClient.BrowseAsync(requestHeader, view, maxRefs, nodesToBrowse, ct)` | async call     | browses address space                 |
-|  [08]   | `SessionClient.CreateSubscriptionAsync(requestHeader, ..., ct)`              | async call     | creates subscription                  |
+| [INDEX] | [SURFACE]                                             | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `SessionClient(ITransportChannel, ITelemetryContext)` | ctor     | creates a client over a channel      |
+|  [02]   | `SessionClient.CreateSessionAsync(...)`               | instance | creates an OPC UA session            |
+|  [03]   | `SessionClient.ActivateSessionAsync(...)`             | instance | activates a session with an identity |
+|  [04]   | `SessionClient.CloseSessionAsync(...)`                | instance | closes a session                     |
+|  [05]   | `SessionClient.ReadAsync(...)`                        | instance | reads node values                    |
+|  [06]   | `SessionClient.WriteAsync(...)`                       | instance | writes node values                   |
+|  [07]   | `SessionClient.BrowseAsync(...)`                      | instance | browses the address space            |
+|  [08]   | `SessionClient.CreateSubscriptionAsync(...)`          | instance | creates a subscription               |
 
 [ENTRYPOINT_SCOPE]: managed session, subscription, and monitored-item lifecycle
-- rail: opcua-client
 
-The managed client pivots by lifecycle stage; configuration, reverse-connect, endpoint, identity, locales, and timeout stay call-specific parameters to `Session.CreateAsync`. Subscription publishing-interval (`int PublishingInterval`) and keep-alive/lifetime counts (`uint`) set the publish cadence; the negotiated `double CurrentPublishingInterval` reads back the server-resolved interval (never a `TimeSpan`). Monitored items arm on a node id, attribute, sampling interval, and monitoring mode and raise `Notification`.
+Managed lifecycle pivots by stage; configuration, reverse-connect, endpoint, identity, locales, and timeout stay call-specific parameters to `Session.CreateAsync`.
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------ | :------------- | :----------------------------------------------- |
-|  [01]   | `Session.CreateAsync(...)`                        | static factory | mints + activates a managed session              |
-|  [02]   | `Session.AddSubscription(Subscription)`           | bool call      | attaches a subscription to the session           |
-|  [03]   | `Subscription(ITelemetryContext)`                 | constructor    | creates a subscription with telemetry context    |
-|  [04]   | `Subscription.AddItem(MonitoredItem)`             | void call      | adds a monitored item before create              |
-|  [05]   | `Subscription.CreateAsync(CancellationToken)`     | async call     | arms the subscription on the server              |
-|  [06]   | `Subscription.CurrentPublishingInterval`          | `double` prop  | server-negotiated publishing interval            |
-|  [07]   | `MonitoredItem(ITelemetryContext)`                | constructor    | creates a monitored item with telemetry context  |
-|  [08]   | `MonitoredItem.Notification`                      | event          | per-value notification fan                       |
-|  [09]   | `MonitoredItem.DetachNotificationEventHandlers()` | void call      | detaches notification handlers on teardown       |
-|  [10]   | `Session.ReadAsync(...)`                          | async call     | inherited managed read                           |
-|  [11]   | `Session.WriteAsync(...)`                         | async call     | inherited managed write; `WriteResponse.Results` |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :------------------------------------------------ | :------- | :----------------------------------------------- |
+|  [01]   | `Session.CreateAsync(...)`                        | factory  | mints + activates a managed session              |
+|  [02]   | `Session.AddSubscription(Subscription)`           | instance | attaches a subscription; returns `bool`          |
+|  [03]   | `Subscription(ITelemetryContext)`                 | ctor     | creates a subscription with telemetry context    |
+|  [04]   | `Subscription.AddItem(MonitoredItem)`             | instance | adds a monitored item before create              |
+|  [05]   | `Subscription.CreateAsync(CancellationToken)`     | instance | arms the subscription on the server              |
+|  [06]   | `Subscription.CurrentPublishingInterval`          | property | server-negotiated `double` publishing interval   |
+|  [07]   | `MonitoredItem(ITelemetryContext)`                | ctor     | creates a monitored item with telemetry context  |
+|  [08]   | `MonitoredItem.Notification`                      | event    | per-value notification fan                       |
+|  [09]   | `MonitoredItem.DetachNotificationEventHandlers()` | instance | detaches notification handlers on teardown       |
+|  [10]   | `Session.ReadAsync(...)`                          | instance | inherited managed read                           |
+|  [11]   | `Session.WriteAsync(...)`                         | instance | inherited managed write; `WriteResponse.Results` |
 
-[MANAGED_SIGNATURES]:
-- Create: `Session.CreateAsync(ApplicationConfiguration, ReverseConnectManager, ConfiguredEndpoint, bool, bool, string, uint, IUserIdentity, IList<string>, CancellationToken)`
-- Notification: `event MonitoredItemNotificationEventHandler MonitoredItem.Notification`
-- Read: `Session.ReadAsync(RequestHeader, double, TimestampsToReturn, ReadValueIdCollection, CancellationToken)`
-- Write: `Session.WriteAsync(RequestHeader, WriteValueCollection, CancellationToken)`
-
-[MANAGED_VALUE_PROJECTION]:
-- `MonitoredItemNotificationEventArgs.NotificationValue` casts to `MonitoredItemNotification` whose `DataValue Value` carries `object Value`, `StatusCode StatusCode`, and `DateTime SourceTimestamp`.
-- `NodeId.Parse(string)` resolves a node-id string; `new DataValue(new Variant(double))` wraps an outbound scalar; `StatusCode.IsGood(code)` grades quality; `Attributes.Value` selects the value attribute.
+- `MonitoredItem.Notification`: `MonitoredItemNotificationEventArgs.NotificationValue` casts to `MonitoredItemNotification`, whose `DataValue Value` carries the value, `StatusCode`, and `SourceTimestamp`.
 
 [ENTRYPOINT_SCOPE]: managed arming and write-request members
-- rail: opcua-client
 
-The `Subscription` and `MonitoredItem` arming columns set on the object initializer before `CreateAsync`/`AddItem`; publishing and sampling intervals use milliseconds, keep-alive counts govern empty publishes, and lifetime counts govern server-side subscription expiry. `WriteValue` carries one node-write request in the `WriteValueCollection` passed to `Session.WriteAsync`.
+Arming members set on the object initializer before `Subscription.AddItem` and `Subscription.CreateAsync`; publishing and sampling intervals are milliseconds.
 
-| [INDEX] | [MEMBER]                          | [SIGNATURE]                                   | [ROLE]                  |
-| :-----: | :-------------------------------- | :-------------------------------------------- | :---------------------- |
-|  [01]   | `Subscription.PublishingInterval` | `int PublishingInterval { get; set; }`        | publish cadence         |
-|  [02]   | `Subscription.KeepAliveCount`     | `uint KeepAliveCount { get; set; }`           | empty-publish threshold |
-|  [03]   | `Subscription.LifetimeCount`      | `uint LifetimeCount { get; set; }`            | subscription lifetime   |
-|  [04]   | `MonitoredItem.StartNodeId`       | `NodeId StartNodeId { get; set; }`            | monitored node          |
-|  [05]   | `MonitoredItem.AttributeId`       | `uint AttributeId { get; set; }`              | monitored attribute     |
-|  [06]   | `MonitoredItem.SamplingInterval`  | `int SamplingInterval { get; set; }`          | sample cadence          |
-|  [07]   | `MonitoredItem.MonitoringMode`    | `MonitoringMode MonitoringMode { get; set; }` | notification mode       |
-|  [08]   | `WriteValue.NodeId`               | `NodeId NodeId { get; set; }`                 | write node              |
-|  [09]   | `WriteValue.AttributeId`          | `uint AttributeId { get; set; }`              | write attribute         |
-|  [10]   | `WriteValue.Value`                | `DataValue Value { get; set; }`               | write payload           |
+| [INDEX] | [SURFACE]                         | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :-------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Subscription.PublishingInterval` | property | `int` publish cadence, ms          |
+|  [02]   | `Subscription.KeepAliveCount`     | property | `uint` empty-publish threshold     |
+|  [03]   | `Subscription.LifetimeCount`      | property | `uint` server-side expiry          |
+|  [04]   | `MonitoredItem.StartNodeId`       | property | `NodeId` monitored node            |
+|  [05]   | `MonitoredItem.AttributeId`       | property | `uint` monitored attribute         |
+|  [06]   | `MonitoredItem.SamplingInterval`  | property | `int` sample cadence, ms           |
+|  [07]   | `MonitoredItem.MonitoringMode`    | property | `MonitoringMode` notification mode |
+|  [08]   | `WriteValue.NodeId`               | property | `NodeId` write node                |
+|  [09]   | `WriteValue.AttributeId`          | property | `uint` write attribute             |
+|  [10]   | `WriteValue.Value`                | property | `DataValue` write payload          |
 
 [ENTRYPOINT_SCOPE]: certificate PKI operations
-- rail: opcua-core
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]  | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------------ | :-------------- | :--------------------------------------- |
-|  [01]   | `CertificateFactory.CreateCertificate(subjectName)`                       | builder factory | starts `ICertificateBuilder` chain       |
-|  [02]   | `CertificateFactory.CreateCertificate(appUri, appName, subject, domains)` | builder factory | creates application certificate          |
-|  [03]   | `CertificateFactory.RevokeCertificate(issuer, crls, revoked)`             | static call     | produces updated CRL                     |
-|  [04]   | `CertificateFactory.CreateSigningRequest(certificate, domainNames)`       | static call     | generates CSR bytes                      |
-|  [05]   | `CertificateValidator.Validate(certificate)`                              | validation call | validates against configured trust lists |
-|  [06]   | `CertificateStoreIdentifier.CreateStore(storeTypeName, telemetry)`        | static factory  | opens a certificate store by type name   |
+| [INDEX] | [SURFACE]                                                                 | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------ | :------- | :--------------------------------------- |
+|  [01]   | `CertificateFactory.CreateCertificate(subjectName)`                       | factory  | starts an `ICertificateBuilder` chain    |
+|  [02]   | `CertificateFactory.CreateCertificate(appUri, appName, subject, domains)` | factory  | creates an application certificate       |
+|  [03]   | `CertificateFactory.RevokeCertificate(issuer, crls, revoked)`             | static   | produces an updated CRL                  |
+|  [04]   | `CertificateFactory.CreateSigningRequest(certificate, domainNames)`       | static   | generates CSR bytes                      |
+|  [05]   | `CertificateValidator.Validate(certificate)`                              | instance | validates against configured trust lists |
+|  [06]   | `CertificateStoreIdentifier.CreateStore(storeTypeName, telemetry)`        | factory  | opens a certificate store by type name   |
 
 [ENTRYPOINT_SCOPE]: PubSub application lifecycle
-- rail: opcua-pubsub
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]  | [CAPABILITY]                             |
-| :-----: | :------------------------------------------------------------------ | :-------------- | :--------------------------------------- |
-|  [01]   | `UaPubSubApplication.Create(ITelemetryContext)`                     | static factory  | creates application with no data store   |
-|  [02]   | `UaPubSubApplication.Create(IUaPubSubDataStore, ITelemetryContext)` | static factory  | creates application with data store      |
-|  [03]   | `UaPubSubApplication.Create(configFilePath, telemetry, dataStore?)` | static factory  | creates application from config file     |
-|  [04]   | `UaPubSubApplication.SupportedTransportProfiles`                    | static property | returns supported transport profile URIs |
-|  [05]   | `UaPubSubApplication.Start()`                                       | lifecycle call  | starts all configured connections        |
-|  [06]   | `UaPubSubApplication.Stop()`                                        | lifecycle call  | stops all connections                    |
-|  [07]   | `UaPubSubApplication.Dispose()`                                     | lifetime call   | releases connections and data store      |
-|  [08]   | `UaPubSubApplication.DataReceived`                                  | event           | received dataset fan                     |
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------ | :------- | :---------------------------------------- |
+|  [01]   | `UaPubSubApplication.Create(ITelemetryContext)`                     | factory  | creates an application with no data store |
+|  [02]   | `UaPubSubApplication.Create(IUaPubSubDataStore, ITelemetryContext)` | factory  | creates an application with a data store  |
+|  [03]   | `UaPubSubApplication.Create(configFilePath, telemetry, dataStore?)` | factory  | creates an application from a config file |
+|  [04]   | `UaPubSubApplication.SupportedTransportProfiles`                    | property | returns supported transport profile URIs  |
+|  [05]   | `UaPubSubApplication.Start()`                                       | instance | starts all configured connections         |
+|  [06]   | `UaPubSubApplication.Stop()`                                        | instance | stops all connections                     |
+|  [07]   | `UaPubSubApplication.Dispose()`                                     | instance | releases connections and data store       |
+|  [08]   | `UaPubSubApplication.DataReceived`                                  | event    | received dataset fan                      |
 
-[DATA_RECEIVED_EVENT]:
-- Handler: `event EventHandler<SubscribedDataEventArgs>`
-- Siblings: `RawDataReceived`, `MetaDataReceived`
-- Payload: `SubscribedDataEventArgs.NetworkMessage` (`UaNetworkMessage`) and `Source`
+- `UaPubSubApplication.DataReceived`: `EventHandler<SubscribedDataEventArgs>` carrying `NetworkMessage` and `Source`; `RawDataReceived` and `MetaDataReceived` are the raw and metadata siblings.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[OPCUA_TOPOLOGY]:
-- meta-package: `OPCFoundation.NetStandard.Opc.Ua` aggregates `Opc.Ua.Types`, `Opc.Ua.Core`, `Opc.Ua.Security.Certificates`, `Opc.Ua.Configuration`, `Opc.Ua.Client`, `Opc.Ua.Server` — no library DLL of its own
-- core namespace: `Opc.Ua` contains 1000+ types; configuration, certificate, channel, and address-space types coexist in this namespace
-- supported transports (PubSub): UDP-UADP, MQTT-JSON, MQTT-UADP — declared in `UaPubSubApplication.SupportedTransportProfiles`
-- certificate store types: directory (PEM/DER), Windows X.509, and `CertificateIdentifierCollectionStore`
-- session call pattern: async variants (`*Async`) accept `CancellationToken`; sync and `IAsyncResult` variants coexist
+[TOPOLOGY]:
+- `Opc.Ua` holds over 1000 types; configuration, certificate, channel, and address-space types coexist in this one namespace.
+- Managed `Opc.Ua.Client` (`Session`/`Subscription`/`MonitoredItem`) sits above `SessionClient` and owns the publish loop, keep-alive, and notification fan; the `SessionClient`/`ClientBase` RPC surface is the inherited read/write base, never the direct subscription owner.
+- `Subscription.PublishingInterval` is the `int` policy the row sets; `CurrentPublishingInterval` reads back the server-negotiated `double`, never cast to a `TimeSpan`.
+- PubSub transports UDP-UADP, MQTT-JSON, and MQTT-UADP, declared in `UaPubSubApplication.SupportedTransportProfiles`.
+- Certificate stores are directory (PEM/DER), Windows X.509, and `CertificateIdentifierCollectionStore`.
+- Session and PKI operations use the `*Async` variants, each taking a `CancellationToken`.
+
+[STACKING]:
+- `Wire/livewire.md` `OpcUaLane`: composes the managed `Session`/`Subscription`/`MonitoredItem` surface; each `MonitoredItem.Notification` projects one `DataValue` into `ExternalValue` and writes it to one bounded `Channel<ExternalValue>`, never running the interior on the OPC UA publish thread; `PubSubLane` composes `UaPubSubApplication.DataReceived`, fanning each dataset field into the same lane.
+- `api-mqtt`(`.api/api-mqtt.md`): the peer `MQTTnet` transport row; its `IMqttClient` fan and this surface's `UaPubSubApplication.DataReceived` fan drain into the one bounded `Channel<ExternalValue>` the live-wire studio owns.
 
 [LOCAL_ADMISSION]:
-- Application configuration loads from file, stream, or .NET configuration section; `ApplicationConfiguration.LoadAsync` is preferred for telemetry
-- Session construction requires a transport channel; `ClientChannelManager` owns channel lifecycle
-- Certificate validation uses `CertificateValidator` initialized from `SecurityConfiguration`; trust lists persist as directory stores
-- PubSub entry point is `UaPubSubApplication.Create(...)` — one application per process; connections are registered through configuration
-
-[MANAGED_CLIENT_LAW]:
-- The `Opc.Ua.Client` managed cluster (`Session`/`Subscription`/`MonitoredItem`) is the live-wire `OpcUaLane` owner — it sits above `SessionClient` and owns the publish loop, keep-alive, and notification fan; the low-level `SessionClient`/`ClientBase` RPC surface is the inherited read/write base, never the direct subscription owner.
-- The notification fan crosses on the `MonitoredItem.Notification` event thread; the host projects each `DataValue` into the suite carrier and hands it to a bounded channel, never running the interior on the OPC-UA publish thread.
-- Subscription publishing interval is an `int` policy column the row sets; `CurrentPublishingInterval` is a `double` read-back of the server-negotiated interval and is never cast to a `TimeSpan`.
+- Application configuration loads through `ApplicationConfiguration.LoadAsync` from a file, stream, or .NET configuration section.
+- Low-level session construction requires a transport channel; `ClientChannelManager` owns channel lifecycle, while managed `Session.CreateAsync` builds its own channel from the configuration-loaded endpoint.
+- Certificate validation runs through `CertificateValidator` initialized from `SecurityConfiguration`; trust lists persist as directory stores.
+- PubSub admits one `UaPubSubApplication` per process; connections register through configuration.
 
 [RAIL_LAW]:
 - Package: `OPCFoundation.NetStandard.Opc.Ua` + `OPCFoundation.NetStandard.Opc.Ua.PubSub`

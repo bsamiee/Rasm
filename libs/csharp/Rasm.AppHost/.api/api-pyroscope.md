@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_PYROSCOPE]
 
-`Pyroscope` hosts the native continuous-profiler agent as a process-wide `Profiler` singleton — dynamic tags, per-signal tracking toggles, ingest credentials, and span-context correlation that degrade to a no-op when the native library is absent. `Pyroscope.OpenTelemetry` bridges the OpenTelemetry trace pipeline into that singleton: a `BaseProcessor<Activity>` propagates each root span's `SpanId` into the profiler as a `profileId`, correlating traces to profiles through the `pyroscope.profile.id` span tag. `Profiler.Instance` is the singleton seam the two packages meet at.
+`Pyroscope` hosts the native continuous-profiler agent as a process-wide `Profiler` singleton — dynamic tags, per-signal capture toggles, ingest credentials, and span-context correlation, each degrading to a no-op when the native library is absent. `Pyroscope.OpenTelemetry` bridges the OpenTelemetry trace pipeline into that singleton: `PyroscopeSpanProcessor` folds every root span's context through `SetSpanContext` and stamps the `pyroscope.profile.id` tag onto the span. `Profiler.Instance` is the singleton seam both packages meet at.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -20,75 +20,67 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[AGENT_TYPES]: native profiler control (namespace `Pyroscope`)
-- rail: profiling
+[AGENT_TYPES]: native profiler control, namespace `Pyroscope`
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]      | [RAIL]                                        |
-| :-----: | :----------------- | :----------------- | :-------------------------------------------- |
-|  [01]   | `Profiler`         | profiler singleton | native profiler control seam                  |
-|  [02]   | `LabelSet`         | label frame        | immutable tag set with `Activate`/`BuildUpon` |
-|  [03]   | `LabelSet.Builder` | label builder      | `Add`/`Build` over a prior set                |
-|  [04]   | `LabelsWrapper`    | scoped label span  | runs an action under a `LabelSet`             |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :----------------- | :------------ | :---------------------------------- |
+|  [01]   | `Profiler`         | class         | native profiler control seam        |
+|  [02]   | `LabelSet`         | class         | immutable tag frame with `Activate` |
+|  [03]   | `LabelSet.Builder` | class         | `Add`/`Build` over a prior frame    |
+|  [04]   | `LabelsWrapper`    | class         | brackets a delegate under a frame   |
 
-[BRIDGE_TYPES]: span processor family (namespace `Pyroscope.OpenTelemetry`)
-- rail: telemetry
+[BRIDGE_TYPES]: span processor, namespace `Pyroscope.OpenTelemetry`
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [RAIL]                             |
-| :-----: | :----------------------- | :------------- | :--------------------------------- |
-|  [01]   | `PyroscopeSpanProcessor` | span processor | `BaseProcessor<Activity>` subclass |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :----------------------- | :------------ | :--------------------------------- |
+|  [01]   | `PyroscopeSpanProcessor` | class         | `BaseProcessor<Activity>` subclass |
 
 ## [03]-[ENTRYPOINTS]
 
-[AGENT_SCOPE]: profiler control surface (namespace `Pyroscope`)
-- rail: profiling
+[AGENT_SCOPE]: profiler control surface, namespace `Pyroscope`
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]     | [RAIL]                                         |
-| :-----: | :------------------------------------------ | :----------------- | :--------------------------------------------- |
-|  [01]   | `Profiler.Instance`                         | singleton accessor | lazy process-wide profiler handle              |
-|  [02]   | `SetProfileId`                              | correlation seam   | sets or clears the active profile id           |
-|  [03]   | `SetSpanContext`                            | correlation seam   | local-root span id plus trace id hi/lo         |
-|  [04]   | `SetDynamicTag` / `SetDynamicTags`          | dynamic tags       | set or replace tags, `ClearDynamicTags` clears |
-|  [05]   | `Set*TrackingEnabled`                       | signal toggles     | `CPU`/`Allocation`/`Contention`/`Exception`    |
-|  [06]   | `SetAuthToken` / `SetBasicAuth`             | ingest auth        | server credential seam                         |
-|  [07]   | `LabelsWrapper.Do`                          | scoped labels      | runs an action under a `LabelSet`, then resets |
-|  [08]   | `LabelSet.BuildUpon` / `Build` / `Activate` | label lifecycle    | derive, seal, and activate a tag frame         |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------ | :------- | :--------------------------------------- |
+|  [01]   | `Profiler.Instance`                               | property | lazy process-wide profiler handle        |
+|  [02]   | `Profiler.SetSpanContext(ulong, ulong, ulong)`    | instance | bind local-root span and trace id hi/lo  |
+|  [03]   | `Profiler.SetDynamicTag(string, string)`          | instance | set or replace one scope tag             |
+|  [04]   | `Profiler.SetDynamicTags(Dictionary)`             | instance | replace the full scope tag set           |
+|  [05]   | `Profiler.ClearDynamicTags()`                     | instance | reset all scope tags                     |
+|  [06]   | `Profiler.Set*TrackingEnabled(bool)`              | instance | CPU/Allocation/Contention/Exception      |
+|  [07]   | `Profiler.SetAuthToken(string)`                   | instance | bearer ingest credential                 |
+|  [08]   | `Profiler.SetBasicAuth(string, string)`           | instance | basic-auth ingest credential             |
+|  [09]   | `LabelSet.Empty`                                  | static   | base immutable tag frame                 |
+|  [10]   | `LabelSet.BuildUpon() -> Builder`                 | instance | derive a builder from a frame            |
+|  [11]   | `LabelSet.Builder.Add(string, string) -> Builder` | instance | chain one tag onto the builder           |
+|  [12]   | `LabelSet.Builder.Build() -> LabelSet`            | instance | seal the builder into a frame            |
+|  [13]   | `LabelSet.Activate()`                             | instance | push the frame's tags onto the profiler  |
+|  [14]   | `LabelsWrapper.Do(LabelSet, Action)`              | static   | run a delegate under a frame, then reset |
 
-[BRIDGE_SCOPE]: processor lifecycle hooks (namespace `Pyroscope.OpenTelemetry`)
-- rail: telemetry
+[BRIDGE_SCOPE]: processor lifecycle hooks, namespace `Pyroscope.OpenTelemetry`
 
-| [INDEX] | [SURFACE]                | [ENTRY_FAMILY]  | [RAIL]                                            |
-| :-----: | :----------------------- | :-------------- | :------------------------------------------------ |
-|  [01]   | `OnStart(Activity data)` | span start hook | sets `profileId` on profiler for root spans       |
-|  [02]   | `OnEnd(Activity data)`   | span end hook   | resets `profileId` to `0` on root span completion |
+| [INDEX] | [SURFACE]                                  | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :----------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `PyroscopeSpanProcessor.OnStart(Activity)` | instance | root-span context into the profiler |
+|  [02]   | `PyroscopeSpanProcessor.OnEnd(Activity)`   | instance | clears the profiler context         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[AGENT_TOPOLOGY]:
-- singleton: `Profiler.Instance` resolves a lazy process-wide handle via `LazyInitializer.EnsureInitialized`; one profiler owns the process.
-- correlation: `SetProfileId(ulong)` and `SetSpanContext(ulong localRootSpanId, ulong traceIdHi, ulong traceIdLo)` bind the active profile to a trace; the bridge package drives `SetProfileId`.
-- tags: `SetDynamicTag`/`SetDynamicTags` mutate per-scope profile tags, `ClearDynamicTags` resets them, and `LabelSet` + `LabelsWrapper.Do` scope a tag frame around a delegate.
-- signals: `SetCPUTrackingEnabled`, `SetAllocationTrackingEnabled`, `SetContentionTrackingEnabled`, and `SetExceptionTrackingEnabled` toggle per-signal capture; `SetAuthToken`/`SetBasicAuth` carry ingest credentials.
-- degradation: native interop faults (`DllNotFoundException`) are swallowed per call, so every `Profiler` method is a no-op when the native profiler library is absent.
-
-[PYROSCOPE_TOPOLOGY]:
-- namespace: `Pyroscope.OpenTelemetry`; one public type
-- root span detection: `data.Parent?.HasRemoteParent ?? true` — a span is root when it has no parent or its parent is remote
-- profile id: `SpanId.ToString()` converted to `ulong` via `Convert.ToUInt64(hexString.ToUpper(), 16)`
-- span tag: `pyroscope.profile.id` is added to the `Activity` so the profile id appears in the trace
-- `Profiler.Instance.SetProfileId(0uL)` resets the profiler state when the root span ends
-- constructor exceptions are caught and written to `Console.WriteLine`; they do not propagate
+[TOPOLOGY]:
+- `Profiler.Instance` is a lazy process-wide singleton over `LazyInitializer.EnsureInitialized`; one profiler owns the process and every native-interop fault degrades the calling method to a no-op.
+- `SetSpanContext(localRootSpanId, traceIdHi, traceIdLo)` is the sole trace-to-profile correlation seam, and the zero triple clears it.
+- Dynamic tags scope through `LabelSet`: `Activate` clears then re-applies the frame, and `LabelsWrapper.Do` brackets a delegate and restores the prior frame on exit.
+- `PyroscopeSpanProcessor` folds only root spans (`data.Parent?.HasRemoteParent ?? true`): `OnStart` casts the span and trace ids into `SetSpanContext` and stamps `pyroscope.profile.id` (`SpanId.ToString()`) onto the `Activity`, `OnEnd` clears the context, and `OnStart` swallows any fault to `Console.WriteLine`.
 
 [STACKING]:
-- `PyroscopeSpanProcessor` writes profile ids INTO the `Pyroscope` agent: `OnStart` calls `Profiler.Instance.SetProfileId(spanId)` and `OnEnd` calls `Profiler.Instance.SetProfileId(0uL)`. `Profiler.Instance` is the singleton seam — the OpenTelemetry package holds no profiler of its own.
-- `OpenTelemetry`(`api-opentelemetry.md`): `PyroscopeSpanProcessor` registers on the tracer provider through `AddProcessor` beside the OTLP exporter; the agent package needs no OpenTelemetry reference to run standalone.
+- `PyroscopeSpanProcessor` writes span context into the `Pyroscope` agent through `Profiler.Instance.SetSpanContext`; the bridge holds no profiler of its own, and the agent package runs standalone without an OpenTelemetry reference.
+- `OpenTelemetry`(`.api/api-otel.md`): the processor registers on `TracerProviderBuilder` through `AddProcessor` beside the OTLP exporter.
 
 [LOCAL_ADMISSION]:
-- Register `PyroscopeSpanProcessor` with the OpenTelemetry tracer provider as an additional processor alongside the OTLP exporter; the processor operates on root spans only, and nested spans inherit the profiler state from the active root.
-- Agent configuration — tracking toggles, dynamic tags, and ingest auth — enters through `Profiler.Instance` at the composition root; direct `SetProfileId` calls stay out of application code, owned solely by the span processor.
-- No configuration properties on `PyroscopeSpanProcessor`; it is stateless beyond its lifecycle hook calls.
+- `PyroscopeSpanProcessor` registers on the tracer provider as an added processor beside the OTLP exporter; it carries no configuration and stays stateless past its lifecycle hooks.
+- Agent configuration — tracking toggles, dynamic tags, ingest auth — enters through `Profiler.Instance` at the composition root, and `SetSpanContext` stays owned by the processor alone.
 
 [RAIL_LAW]:
 - Package: `Pyroscope`, `Pyroscope.OpenTelemetry`
-- Owns: native continuous-profiler control and Pyroscope profile-id injection into OpenTelemetry span metadata
-- Accept: `Profiler.Instance` configuration at the composition root; trace-provider registration via `AddProcessor<PyroscopeSpanProcessor>()`
-- Reject: manual `Profiler.Instance.SetProfileId` calls outside the processor; a second profiler handle beside the singleton
+- Owns: native continuous-profiler control and root-span profile correlation into OpenTelemetry traces
+- Accept: `Profiler.Instance` configuration at the composition root; processor registration via `AddProcessor`
+- Reject: `SetSpanContext` calls outside the processor; a second profiler handle beside the singleton

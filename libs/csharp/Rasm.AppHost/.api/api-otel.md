@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_OTEL]
 
-`OpenTelemetry` supplies trace, metric, log, resource, processor, exporter, reader, sampling, context, and propagation surfaces for telemetry projection.
+`OpenTelemetry` owns the SDK provider pipeline projecting trace, metric, and log signals through processors, readers, and exporters. Every provider builds once at the composition root over a `Resource` identity, and no exporter binds below it.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,16 +8,15 @@
 - package: `OpenTelemetry`
 - assembly: `OpenTelemetry`
 - api_assembly: `OpenTelemetry.Api`
-- namespace: `OpenTelemetry`
+- namespace: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`, `OpenTelemetry.Resources`, `OpenTelemetry.Context`, `OpenTelemetry.Context.Propagation`
 - asset: runtime library
 - rail: telemetry
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider and resource family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [RAIL]                |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]          |
 | :-----: | :---------------------- | :---------------- | :-------------------- |
 |  [01]   | `TracerProvider`        | trace provider    | trace pipeline        |
 |  [02]   | `TracerProviderBuilder` | trace builder     | trace pipeline setup  |
@@ -31,9 +30,8 @@
 |  [10]   | `BaseProvider`          | provider base     | provider lifetime     |
 
 [PUBLIC_TYPE_SCOPE]: processor exporter and reader family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [RAIL]                 |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [CAPABILITY]           |
 | :-----: | :------------------------------- | :----------------- | :--------------------- |
 |  [01]   | `BaseProcessor<T>`               | processor base     | signal processing      |
 |  [02]   | `BaseExporter<T>`                | exporter base      | signal export          |
@@ -49,9 +47,8 @@
 |  [12]   | `MetricReaderOptions`            | reader options     | reader policy          |
 
 [PUBLIC_TYPE_SCOPE]: signal model family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [RAIL]                                   |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [CAPABILITY]                             |
 | :-----: | :--------------------------- | :------------------- | :--------------------------------------- |
 |  [01]   | `Tracer`                     | trace emitter        | span creation                            |
 |  [02]   | `TelemetrySpan`              | span handle          | span mutation                            |
@@ -69,16 +66,16 @@
 |  [14]   | `Exemplar`                   | exemplar value       | trace-linked measurement                 |
 |  [15]   | `ExemplarFilterType`         | exemplar filter enum | exemplar admission policy                |
 |  [16]   | `ReadOnlyExemplarCollection` | exemplar collection  | metric-point exemplars                   |
-|  [17]   | `OpenTelemetryLoggerOptions` | logger options       | log capture policy                       |
-|  [18]   | `LogRecord`                  | log payload          | log export payload                       |
-|  [19]   | `LogRecordData`              | log data             | log emission payload                     |
-|  [20]   | `LogRecordAttributeList`     | log attributes       | log attribute payload                    |
-|  [21]   | `LogRecordSeverity`          | log severity enum    | log severity vocabulary                  |
+|  [17]   | `Logger`                     | log emitter          | log record emission                      |
+|  [18]   | `OpenTelemetryLoggerOptions` | logger options       | log capture policy                       |
+|  [19]   | `LogRecord`                  | log payload          | log export payload                       |
+|  [20]   | `LogRecordData`              | log data             | log emission payload                     |
+|  [21]   | `LogRecordAttributeList`     | log attributes       | log attribute payload                    |
+|  [22]   | `LogRecordSeverity`          | log severity enum    | log severity vocabulary                  |
 
 [PUBLIC_TYPE_SCOPE]: context and propagation family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                  |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [CAPABILITY]            |
 | :-----: | :--------------------------- | :------------------ | :---------------------- |
 |  [01]   | `Baggage`                    | baggage value       | cross-boundary metadata |
 |  [02]   | `PropagationContext`         | propagation value   | trace/baggage carrier   |
@@ -93,95 +90,86 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider builder operations
-- rail: telemetry
 
-Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
+| [INDEX] | [SURFACE]                                     | [SHAPE] | [CAPABILITY]            |
+| :-----: | :-------------------------------------------- | :------ | :---------------------- |
+|  [01]   | `Sdk.CreateTracerProviderBuilder`             | factory | trace builder creation  |
+|  [02]   | `Sdk.CreateMeterProviderBuilder`              | factory | metric builder creation |
+|  [03]   | `AddSource`                                   | static  | trace source admission  |
+|  [04]   | `AddLegacySource`                             | static  | legacy source admission |
+|  [05]   | `AddMeter`                                    | static  | meter admission         |
+|  [06]   | `AddInstrumentation<T>`                       | static  | instrumentation hook    |
+|  [07]   | `SetResourceBuilder`                          | static  | resource replacement    |
+|  [08]   | `ConfigureResource`                           | static  | resource augmentation   |
+|  [09]   | `AddProcessor`                                | static  | processor admission     |
+|  [10]   | `AddReader`                                   | static  | metric reader admission |
+|  [11]   | `AddView`                                     | static  | stream shaping          |
+|  [12]   | `SetExemplarFilter`                           | static  | exemplar policy         |
+|  [13]   | `SetSampler`                                  | static  | sampler instance        |
+|  [14]   | `SetSampler<T>()`                             | static  | generic sampler         |
+|  [15]   | `SetSampler(Func<IServiceProvider, Sampler>)` | static  | sampler factory         |
+|  [16]   | `Build`                                       | factory | provider construction   |
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]        | [RAIL]                  |
-| :-----: | :-------------------------------------------- | :-------------------- | :---------------------- |
-|  [01]   | `Sdk.CreateTracerProviderBuilder`             | SDK factory           | trace builder creation  |
-|  [02]   | `Sdk.CreateMeterProviderBuilder`              | SDK factory           | metric builder creation |
-|  [03]   | `Sdk.CreateLoggerProviderBuilder`             | SDK factory           | log builder creation    |
-|  [04]   | `AddSource`                                   | trace source setup    | trace source admission  |
-|  [05]   | `AddLegacySource`                             | trace source setup    | legacy source admission |
-|  [06]   | `AddMeter`                                    | meter setup           | meter admission         |
-|  [07]   | `AddInstrumentation<T>`                       | instrumentation setup | instrumentation hook    |
-|  [08]   | `SetResourceBuilder`                          | resource setup        | resource replacement    |
-|  [09]   | `ConfigureResource`                           | resource setup        | resource augmentation   |
-|  [10]   | `AddProcessor`                                | processor setup       | processor admission     |
-|  [11]   | `AddReader`                                   | reader setup          | metric reader admission |
-|  [12]   | `AddView`                                     | metric view setup     | stream shaping          |
-|  [13]   | `SetExemplarFilter`                           | metric exemplar setup | exemplar policy         |
-|  [14]   | `SetSampler`                                  | trace sampler setup   | sampler instance        |
-|  [15]   | `SetSampler<T>()`                             | trace sampler setup   | generic sampler         |
-|  [16]   | `SetSampler(Func<IServiceProvider, Sampler>)` | trace sampler setup   | sampler factory         |
-|  [17]   | `Build`                                       | provider factory      | provider construction   |
+- `SetSampler`: accepts `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler)`, `TraceIdRatioBasedSampler(double)` on the tracer-provider builder.
+- `SetExemplarFilter`: `ExemplarFilterType` gates trace-linked sample admission on the meter-provider builder — `AlwaysOff`, `AlwaysOn`, `TraceBased`.
 
 [ENTRYPOINT_SCOPE]: signal operations
-- rail: telemetry
 
-| [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                  |
-| :-----: | :---------------------------- | :---------------- | :---------------------- |
-|  [01]   | `GetTracer`                   | trace access      | tracer lookup           |
-|  [02]   | `StartSpan`                   | span creation     | inactive span           |
-|  [03]   | `StartActiveSpan`             | span creation     | ambient active span     |
-|  [04]   | `StartRootSpan`               | span creation     | parentless root span    |
-|  [05]   | `SetAttribute`                | span mutation     | span attribute          |
-|  [06]   | `AddEvent`                    | span mutation     | span event              |
-|  [07]   | `AddLink`                     | span mutation     | linked span context     |
-|  [08]   | `SetStatus`                   | span mutation     | status projection       |
-|  [09]   | `RecordException`             | span/log mutation | exception projection    |
-|  [10]   | `EmitLog`                     | log emission      | log record creation     |
-|  [11]   | `LogRecordAttributeList.Add`  | log attributes    | log attribute admission |
-|  [12]   | `MetricReader.Collect`        | metric collection | metric snapshot         |
-|  [13]   | `MetricReader.ForceFlush`     | metric drain      | reader flush            |
-|  [14]   | `MetricPoint.TryGetExemplars` | exemplar read     | metric-point exemplars  |
+| [INDEX] | [SURFACE]                     | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :---------------------------- | :------- | :---------------------- |
+|  [01]   | `GetTracer`                   | instance | tracer lookup           |
+|  [02]   | `StartSpan`                   | instance | inactive span           |
+|  [03]   | `StartActiveSpan`             | instance | ambient active span     |
+|  [04]   | `StartRootSpan`               | instance | parentless root span    |
+|  [05]   | `SetAttribute`                | instance | span attribute          |
+|  [06]   | `AddEvent`                    | instance | span event              |
+|  [07]   | `AddLink`                     | instance | linked span context     |
+|  [08]   | `SetStatus`                   | instance | status projection       |
+|  [09]   | `RecordException`             | instance | exception projection    |
+|  [10]   | `EmitLog`                     | instance | log record creation     |
+|  [11]   | `LogRecordAttributeList.Add`  | instance | log attribute admission |
+|  [12]   | `MetricReader.Collect`        | instance | metric snapshot         |
+|  [13]   | `MetricReader.ForceFlush`     | instance | reader flush            |
+|  [14]   | `MetricPoint.TryGetExemplars` | instance | metric-point exemplars  |
 
 [ENTRYPOINT_SCOPE]: processor exporter and propagation operations
-- rail: telemetry
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]     | [RAIL]              |
-| :-----: | :------------------------------------- | :----------------- | :------------------ |
-|  [01]   | `BaseProcessor.OnStart`                | processor callback | signal start        |
-|  [02]   | `BaseProcessor.OnEnd`                  | processor callback | signal end          |
-|  [03]   | `BaseExporter.Export`                  | exporter callback  | batch export        |
-|  [04]   | `ForceFlush`                           | drain operation    | bounded flush       |
-|  [05]   | `Shutdown`                             | drain operation    | bounded shutdown    |
-|  [06]   | `TextMapPropagator.Inject`             | propagation write  | outbound carrier    |
-|  [07]   | `TextMapPropagator.Extract`            | propagation read   | inbound carrier     |
-|  [08]   | `Propagators.DefaultTextMapPropagator` | default propagator | process propagation |
-|  [09]   | `Baggage.SetBaggage`                   | baggage mutation   | baggage write       |
-|  [10]   | `RuntimeContext.RegisterSlot`          | context setup      | typed context slot  |
-|  [11]   | `Baggage.Current`                      | baggage ambient    | ambient get/set     |
-|  [12]   | `GetBaggage`                           | baggage access     | ambient lookup      |
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]        |
+| :-----: | :------------------------------------- | :------- | :------------------ |
+|  [01]   | `BaseProcessor.OnStart`                | instance | signal start        |
+|  [02]   | `BaseProcessor.OnEnd`                  | instance | signal end          |
+|  [03]   | `BaseExporter.Export`                  | instance | batch export        |
+|  [04]   | `ForceFlush`                           | instance | bounded flush       |
+|  [05]   | `Shutdown`                             | instance | bounded shutdown    |
+|  [06]   | `TextMapPropagator.Inject`             | instance | outbound carrier    |
+|  [07]   | `TextMapPropagator.Extract`            | instance | inbound carrier     |
+|  [08]   | `Propagators.DefaultTextMapPropagator` | property | process propagation |
+|  [09]   | `Baggage.SetBaggage`                   | static   | baggage write       |
+|  [10]   | `RuntimeContext.RegisterSlot`          | static   | typed context slot  |
+|  [11]   | `Baggage.Current`                      | property | ambient get/set     |
+|  [12]   | `GetBaggage`                           | static   | ambient lookup      |
 
-[BAGGAGE_ADMISSION]:
-- sequence: `Baggage.Current` receives inbound baggage after `Extract`
+- `Baggage.Current`: carries inbound baggage after `Extract` populates the propagation context.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TELEMETRY_TOPOLOGY]:
-- namespaces: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`, `OpenTelemetry.Resources`
-- context namespaces: `OpenTelemetry.Context`, `OpenTelemetry.Context.Propagation`
-- signal rails: traces, metrics, logs
-- provider rails: tracer provider, meter provider, logger provider
-- resource rail: resource builder, resource detectors, service attributes
-- processor rails: simple processor, batch processor, composite processor
-- exporter rail: exporter, export result, batch payload, export processor options
-- reader contract: metric readers own collection cadence and export cadence
-- propagation rail: trace context, baggage, composite propagators
-- sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, set through `SetSampler` on the tracer-provider builder
-- exemplar rail: `SetExemplarFilter(ExemplarFilterType)` on the meter-provider builder gates trace-linked sample admission (`AlwaysOff`, `AlwaysOn`, `TraceBased`); `MetricPoint.TryGetExemplars` reads the per-point `ReadOnlyExemplarCollection`
+[TOPOLOGY]:
+- Every signal folds through a provider built once at the composition root; processors and readers pipeline it to exporters, and a `Resource` binds identity at construction.
+- Trace context and baggage cross process and sidecar boundaries only through explicit `TextMapPropagator` carriers.
+
+[STACKING]:
+- `api-otel-exporter`(`.api/api-otel-exporter.md`): `OtlpTraceExporter`/`OtlpMetricExporter`/`OtlpLogExporter` bind onto these builders through `AddProcessor`/`AddReader`, or `UseOtlpExporter` wires all three signals at once.
+- `api-otel-aspnetcore`(`.api/api-otel-aspnetcore.md`): instrumentation registers its `ActivitySource` and hosting meters onto the builders through `AddSource`/`AddMeter` under the `AddInstrumentation` family.
+- Observability composition root (`.planning/Observability/telemetry.md`): folds `Sdk.CreateTracerProviderBuilder`/`CreateMeterProviderBuilder` and `Build` once, threading `Resource` identity and the processor/reader chain into the built providers.
 
 [LOCAL_ADMISSION]:
-- Runtime code emits signals through provider builders and processor chains.
-- Force-flush and shutdown are drain actions tied to unload receipts.
-- Resource identity is required before provider construction.
-- Context propagation crosses process and sidecar boundaries through explicit propagators.
-- Projection failures never mutate runtime state directly.
+- `Resource` identity binds before provider construction.
+- Signals emit only through a built provider; `ForceFlush` and `Shutdown` drain on unload receipts.
+- Cross-boundary trace and baggage flow crosses only through explicit propagators.
+- Telemetry projection failures never mutate runtime state.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry`
-- Owns: trace and metric provider construction
-- Accept: signals project through providers
-- Reject: exporter packages inside lower runtime logic
+- Owns: trace, metric, and log provider construction and the signal-processing pipeline
+- Accept: signals project through built providers over resources, processors, readers, and samplers
+- Reject: the SDK provider pipeline or any exporter bound below the composition root; a hand-rolled collect/export loop the `MetricReader` and processor chain already own

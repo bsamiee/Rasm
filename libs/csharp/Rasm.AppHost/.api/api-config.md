@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_CONFIG]
 
-`Microsoft.Extensions.Configuration` supplies hierarchical configuration roots, mutable configuration managers, sections, provider chains, in-memory sources, stream sources, key comparison, and reload tokens.
+`Microsoft.Extensions.Configuration` owns the AppHost configuration tree: ordered `IConfigurationSource` inputs merge into one `IConfigurationRoot` of colon-delimited string keys with provider precedence by source order, and every reload propagates through a change token. Its boundary is bootstrap — sources mount and the root builds at composition, and runtime policy binds typed projections off the binder rail, never a raw section read.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,88 +8,78 @@
 - package: `Microsoft.Extensions.Configuration`
 - assembly: `Microsoft.Extensions.Configuration`
 - contract_assembly: `Microsoft.Extensions.Configuration.Abstractions`
-- namespace: `Microsoft.Extensions.Configuration`
-- asset: runtime library
+- namespace: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Memory`
 - rail: configuration
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration contracts
-- rail: configuration
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [RAIL]                  |
-| :-----: | :----------------------- | :---------------- | :---------------------- |
-|  [01]   | `IConfiguration`         | read contract     | configuration tree read |
-|  [02]   | `IConfigurationRoot`     | root contract     | provider root           |
-|  [03]   | `IConfigurationSection`  | section contract  | section path/value      |
-|  [04]   | `IConfigurationBuilder`  | builder contract  | source composition      |
-|  [05]   | `IConfigurationManager`  | mutable contract  | builder plus root       |
-|  [06]   | `IConfigurationProvider` | provider contract | key/value provider      |
-|  [07]   | `IConfigurationSource`   | source contract   | provider factory        |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                    |
+| :-----: | :----------------------- | :------------ | :------------------------------ |
+|  [01]   | `IConfiguration`         | interface     | read view over the merged tree  |
+|  [02]   | `IConfigurationRoot`     | interface     | provider root with reload       |
+|  [03]   | `IConfigurationSection`  | interface     | one path, value, and children   |
+|  [04]   | `IConfigurationBuilder`  | interface     | ordered source composition      |
+|  [05]   | `IConfigurationManager`  | interface     | builder and root in one surface |
+|  [06]   | `IConfigurationProvider` | interface     | key/value provider contract     |
+|  [07]   | `IConfigurationSource`   | interface     | provider factory                |
 
-[PUBLIC_TYPE_SCOPE]: configuration implementation family
-- rail: configuration
+[PUBLIC_TYPE_SCOPE]: configuration implementations
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [RAIL]               |
-| :-----: | :---------------------------- | :------------------ | :------------------- |
-|  [01]   | `ConfigurationBuilder`        | builder surface     | source composition   |
-|  [02]   | `ConfigurationManager`        | mutable root        | build and read root  |
-|  [03]   | `ConfigurationProvider`       | provider base       | key/value provider   |
-|  [04]   | `ConfigurationRoot`           | root implementation | provider merge       |
-|  [05]   | `ConfigurationSection`        | section value       | path/value view      |
-|  [06]   | `ConfigurationReloadToken`    | reload token        | reload signal        |
-|  [07]   | `ConfigurationKeyComparer`    | key comparer        | path segment order   |
-|  [08]   | `ConfigurationPath`           | path helper         | key/path operations  |
-|  [09]   | `ConfigurationExtensions`     | read extensions     | value/key projection |
-|  [10]   | `ConfigurationRootExtensions` | root extensions     | root diagnostics     |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                    |
+| :-----: | :---------------------------- | :------------ | :------------------------------ |
+|  [01]   | `ConfigurationBuilder`        | class         | source list building a root     |
+|  [02]   | `ConfigurationManager`        | class         | mutable builder-and-root        |
+|  [03]   | `ConfigurationProvider`       | class         | key/value provider base         |
+|  [04]   | `ConfigurationRoot`           | class         | merged provider tree            |
+|  [05]   | `ConfigurationSection`        | class         | path and value view             |
+|  [06]   | `ConfigurationReloadToken`    | class         | reload change-token signal      |
+|  [07]   | `ConfigurationKeyComparer`    | class         | numeric-aware path segment sort |
+|  [08]   | `ConfigurationPath`           | class         | key path split and combine      |
+|  [09]   | `ConfigurationExtensions`     | class         | value and key projection        |
+|  [10]   | `ConfigurationRootExtensions` | class         | root reload diagnostics         |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: configuration operations
-- rail: configuration
+[ENTRYPOINT_SCOPE]: source composition, section access, and reload
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]        | [CAPABILITY]               |
-| :-----: | :---------------------- | :------------------ | :------------------------- |
-|  [01]   | `Add`                   | source registration | admits provider source     |
-|  [02]   | `AddConfiguration`      | chained source      | chains configuration root  |
-|  [03]   | `AddInMemoryCollection` | memory source       | admits memory values       |
-|  [04]   | `Build`                 | root factory        | creates configuration root |
-|  [05]   | `GetSection`            | section lookup      | resolves section path      |
-|  [06]   | `GetChildren`           | child enumeration   | reads child sections       |
-|  [07]   | `GetReloadToken`        | reload token lookup | resolves reload token      |
-|  [08]   | `AsEnumerable`          | flattening iterator | projects key values        |
-|  [09]   | `Reload`                | reload command      | refreshes configuration    |
-|  [10]   | `OnReload`              | provider signal     | triggers reload token      |
-|  [11]   | `Exists`                | section predicate   | tests section presence     |
-
-[EXISTS_PREDICATE]:
-- surface: `ConfigurationExtensions.Exists`
-- truth: section exists with a value or children
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `IConfigurationBuilder.Add(IConfigurationSource)`            | instance | mounts a provider source            |
+|  [02]   | `IConfigurationBuilder.AddConfiguration(IConfiguration)`     | static   | chains an existing tree             |
+|  [03]   | `IConfigurationBuilder.AddInMemoryCollection(IEnumerable)`   | static   | mounts in-memory values             |
+|  [04]   | `IConfigurationBuilder.Build() -> IConfigurationRoot`        | instance | merges providers into a root        |
+|  [05]   | `IConfiguration.GetSection(string) -> IConfigurationSection` | instance | resolves a section path             |
+|  [06]   | `IConfiguration.GetChildren() -> IEnumerable`                | instance | reads child sections                |
+|  [07]   | `IConfiguration.GetReloadToken() -> IChangeToken`            | instance | hands out the reload token          |
+|  [08]   | `IConfiguration.AsEnumerable() -> IEnumerable`               | static   | flattens to key/value pairs         |
+|  [09]   | `IConfigurationRoot.Reload()`                                | instance | reloads every provider              |
+|  [10]   | `ConfigurationReloadToken.OnReload()`                        | instance | fires the reload signal             |
+|  [11]   | `IConfigurationSection.Exists() -> bool`                     | static   | true when value or children present |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CONFIGURATION_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Memory`
-- source model: `IConfigurationSource` builds an `IConfigurationProvider`
-- provider contract: `TryGet`, `Set`, `Load`, `GetChildKeys`, `GetReloadToken`
-- root contract: merged provider tree with reload propagation
-- key model: colon-delimited path segments with provider precedence by source order
+[TOPOLOGY]:
+- `IConfigurationSource` builds one `IConfigurationProvider`, which answers `TryGet` and `GetChildKeys` reads and owns `Load`, `Set`, and `GetReloadToken` lifecycle.
+- `IConfigurationRoot` merges the provider tree in source order, a later provider overriding an earlier key, and folds every provider reload into one change token.
+- Keys are colon-delimited path segments ordered by `ConfigurationKeyComparer` across numeric and string segments.
+- `ConfigurationManager` is builder and root at once, rebuilding live as a source mounts.
+- `MemoryConfigurationSource` and `StreamConfigurationSource` carry in-memory and stream inputs; `AddConfiguration` mounts an existing tree as a chained source.
 
-[INPUT_TOPOLOGY]:
-- chained source: `AddConfiguration` mounts an existing configuration tree
-- memory source: `MemoryConfigurationSource` and `MemoryConfigurationProvider`
-- stream source: `StreamConfigurationSource` and `StreamConfigurationProvider`
-- mutable root: `ConfigurationManager` is both builder and root
-- comparison rail: `ConfigurationKeyComparer` sorts numeric and string path segments
+[STACKING]:
+- `api-config-providers`(`.api/api-config-providers.md`): each provider package contributes one `IConfigurationSource` mounted through `IConfigurationBuilder.Add`, and `OptionsBuilder.BindConfiguration` threads this root's reload token onward.
+- `api-binder`(`.api/api-binder.md`): `ConfigurationBinder.Get<T>`, `Bind`, and `GetValue<T>` consume an `IConfiguration` or `IConfigurationSection` from this surface and produce the typed policy record.
+- `api-options`(`.api/api-options.md`): `OptionsBuilder.Bind(IConfiguration)` and `BindConfiguration(path)` project a section onto a named options value and feed `GetReloadToken` into `IOptionsMonitor`.
+- within-lib: AppHost bootstrap folds ranked sources onto one `ConfigurationManager`, builds the root once, and binds typed projections into Runtime policy records so no runtime consumer reads a raw section.
 
 [LOCAL_ADMISSION]:
-- Configuration sources enter bootstrap composition as ordered inputs.
-- Runtime policy consumes typed projections, not raw configuration sections.
-- Reload tokens trigger policy replacement only through owned state transitions.
-- Mutable configuration is bootstrap material; runtime mutation enters through state transitions.
+- Configuration sources enter bootstrap composition as ordered inputs in explicit precedence.
+- Runtime policy consumes typed projections, never a raw `IConfigurationSection`.
+- A reload replaces policy only through an owned state transition, never an ambient re-read.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Configuration`
-- Owns: runtime configuration trees
-- Accept: configuration enters policy records
-- Reject: stringly local lookup
+- Owns: the merged runtime configuration tree and its reload propagation
+- Accept: ordered sources building one root, bound to typed policy records
+- Reject: stringly local `IConfiguration.GetValue` lookups past bootstrap

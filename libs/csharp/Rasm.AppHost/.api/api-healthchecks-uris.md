@@ -1,89 +1,95 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_URIS]
 
-`AspNetCore.HealthChecks.Uris` supplies a single `IHealthCheck` contributor (`UriHealthCheck`) that probes one or more outbound HTTP(S) endpoints and grades each against an expected-status-code window, an expected response substring, and a per-probe timeout, registered through the `AddUrlGroup` builder family. It is the outbound-dependency leg of the AppHost health rail: where `AspNetCore.HealthChecks.NpgSql`, `.Redis`, and `.Kafka` probe owned backing services, `.Uris` probes the upstream HTTP services the host calls — the same endpoints `Microsoft.Extensions.ServiceDiscovery` resolves and `Microsoft.Extensions.Http.Resilience` guards — and folds the result into the one `HealthReport` projected by `Microsoft.Extensions.Diagnostics.HealthChecks`.
+`AspNetCore.HealthChecks.Uris` (Xabaril) is one concrete `IHealthCheck` (`UriHealthCheck`) that grades outbound HTTP(S) endpoint liveness across a URI set, scoring each probe against a status-code window, an optional exact body match, and a per-request timeout, registered through the `AddUrlGroup` builder family. It enters the AppHost health fold as one `Remote`-tagged driver probe over a service-discovery-resolved endpoint; a faulted upstream routes through the `ReducedRemote` degradation rule, never a thrown exception.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Uris`
 - package: `AspNetCore.HealthChecks.Uris`
+- license: `Apache-2.0`
 - assembly: `HealthChecks.Uris`
 - namespace: `HealthChecks.Uris`
 - namespace: `Microsoft.Extensions.DependencyInjection`
+- target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset
 - asset: runtime library
-- license: Apache-2.0
-- abi: ships `lib/net8.0` + `lib/netstandard2.0`; no `net10.0` asset, so the workspace `net10.0` consumer binds the `net8.0` facade (forward-compatible, no consumer-TFM surface drift)
 - rail: health-outbound
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: contributor and per-probe policy — `HealthChecks.Uris`
-- rail: health-outbound
+[PUBLIC_TYPE_SCOPE]: contributor and per-probe policy
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]        | [RAIL]                                   |
-| :-----: | :---------------------- | :------------------- | :--------------------------------------- |
-|  [01]   | `UriHealthCheck`        | contributor class    | `IHealthCheck` over an HTTP probe set    |
-|  [02]   | `UriHealthCheckOptions` | fluent options       | URI set, method, timeout, status window  |
-|  [03]   | `IUriOptions`           | per-URI policy       | per-endpoint method/timeout/code/headers |
-|  [04]   | `UriOptions`            | per-URI policy value | `IUriOptions` implementation             |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :---------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `UriHealthCheck`        | contributor   | `IHealthCheck` grading an HTTP(S) probe set   |
+|  [02]   | `UriHealthCheckOptions` | options       | group default method, timeout, status window  |
+|  [03]   | `IUriOptions`           | interface     | per-endpoint override contract                |
+|  [04]   | `UriOptions`            | value         | `IUriOptions` value carrying one probe policy |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration overloads — `Microsoft.Extensions.DependencyInjection`
-- rail: health-outbound
 
-Every overload returns `IHealthChecksBuilder` for chaining, and every overload accepts the shared `name`, `failureStatus`, `tags`, `timeout`, `configureClient`, and `configurePrimaryHttpMessageHandler` tail. The `Action<IServiceProvider, HttpClient>` and `Func<IServiceProvider, HttpMessageHandler>` hooks are the seam where the probe's `HttpClient` adopts the host's resilience handler and service-discovery resolver rather than a bare socket.
+Every overload is a `static` extension on `IHealthChecksBuilder` returning it for chaining, carrying the shared `name`, `failureStatus`, `tags`, `timeout`, `configureClient`, and `configurePrimaryHttpMessageHandler` tail; `configureClient` (`Action<IServiceProvider, HttpClient>`) and `configurePrimaryHttpMessageHandler` (`Func<IServiceProvider, HttpMessageHandler>`) are the seam binding the probe's named `HttpClient` to the host resilience handler and service-discovery resolver.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]   | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------- | :--------------- | :-------------------------------------------- |
-|  [01]   | `AddUrlGroup(Uri uri, …)`                                      | single-URI GET   | one endpoint, default GET                     |
-|  [02]   | `AddUrlGroup(Uri uri, HttpMethod httpMethod, …)`               | single-URI verb  | one endpoint, explicit method                 |
-|  [03]   | `AddUrlGroup(IEnumerable<Uri> uris, …)`                        | URI-group GET    | many endpoints, default GET                   |
-|  [04]   | `AddUrlGroup(IEnumerable<Uri> uris, HttpMethod httpMethod, …)` | URI-group verb   | many endpoints, explicit method               |
-|  [05]   | `AddUrlGroup(Action<UriHealthCheckOptions> uriOptions, …)`     | options-driven   | per-URI method/timeout/code/content/headers   |
-|  [06]   | `AddUrlGroup(Func<IServiceProvider, Uri> uriProvider, …)`      | resolved-URI GET | endpoint resolved from DI (service discovery) |
+| [INDEX] | [SURFACE]                                    | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `AddUrlGroup(Uri)`                           | one endpoint, default GET                      |
+|  [02]   | `AddUrlGroup(Uri, HttpMethod)`               | one endpoint, explicit verb                    |
+|  [03]   | `AddUrlGroup(IEnumerable<Uri>)`              | many endpoints, default GET                    |
+|  [04]   | `AddUrlGroup(IEnumerable<Uri>, HttpMethod)`  | many endpoints, explicit verb                  |
+|  [05]   | `AddUrlGroup(Action<UriHealthCheckOptions>)` | per-URI method, timeout, code, content, header |
+|  [06]   | `AddUrlGroup(Func<IServiceProvider, Uri>)`   | endpoint resolved from DI (service discovery)  |
 
-[ENTRYPOINT_SCOPE]: fluent option assembly — `UriHealthCheckOptions`
-- rail: health-outbound
+[ENTRYPOINT_SCOPE]: fluent group assembly — `UriHealthCheckOptions`
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                                  |
-| :-----: | :-------------------------------------------------- | :-------------- | :-------------------------------------- |
-|  [01]   | `AddUri(Uri uriToAdd, Action<IUriOptions>? setup)`  | URI admission   | adds one endpoint with per-URI override |
-|  [02]   | `UseGet()` / `UsePost()`                            | default method  | sets group-wide GET/POST                |
-|  [03]   | `UseHttpMethod(HttpMethod methodToUse)`             | default method  | sets group-wide arbitrary verb          |
-|  [04]   | `UseTimeout(TimeSpan timeout)`                      | default timeout | sets group-wide per-probe timeout       |
-|  [05]   | `ExpectHttpCode(int codeToExpect)`                  | status policy   | exact expected code                     |
-|  [06]   | `ExpectHttpCodes(int minCodeToExpect, int maxCode)` | status policy   | inclusive expected-code window          |
+Each member is an `instance` fluent call returning `UriHealthCheckOptions`.
 
-[ENTRYPOINT_SCOPE]: per-URI policy override — `IUriOptions`
-- rail: health-outbound
+| [INDEX] | [SURFACE]                           | [CAPABILITY]                           |
+| :-----: | :---------------------------------- | :------------------------------------- |
+|  [01]   | `AddUri(Uri, Action<IUriOptions>?)` | add one endpoint with per-URI override |
+|  [02]   | `UseGet()` / `UsePost()`            | group-wide GET/POST                    |
+|  [03]   | `UseHttpMethod(HttpMethod)`         | group-wide arbitrary verb              |
+|  [04]   | `UseTimeout(TimeSpan)`              | group-wide per-probe timeout           |
+|  [05]   | `ExpectHttpCode(int)`               | exact expected code                    |
+|  [06]   | `ExpectHttpCodes(int, int)`         | inclusive expected-code window         |
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                                  |
-| :-----: | :----------------------------------------- | :-------------- | :-------------------------------------- |
-|  [01]   | `UseHttpMethod(HttpMethod method)`         | per-URI method  | overrides the group method for one URI  |
-|  [02]   | `UseTimeout(TimeSpan timeout)`             | per-URI timeout | overrides the group timeout for one URI |
-|  [03]   | `ExpectHttpCode(int code)`                 | per-URI status  | exact code for one URI                  |
-|  [04]   | `ExpectHttpCodes(int min, int max)`        | per-URI status  | code window for one URI                 |
-|  [05]   | `ExpectContent(string expectedContent)`    | per-URI body    | required response substring             |
-|  [06]   | `AddCustomHeader(string name, string val)` | per-URI header  | request header (e.g. auth bearer)       |
+[ENTRYPOINT_SCOPE]: per-URI override — `IUriOptions`
+
+Each member is an `instance` fluent call returning `IUriOptions`, overriding the group default for one endpoint.
+
+| [INDEX] | [SURFACE]                         | [CAPABILITY]                 |
+| :-----: | :-------------------------------- | :--------------------------- |
+|  [01]   | `UseHttpMethod(HttpMethod)`       | override method for one URI  |
+|  [02]   | `UseTimeout(TimeSpan)`            | override timeout for one URI |
+|  [03]   | `ExpectHttpCode(int)`             | exact code for one URI       |
+|  [04]   | `ExpectHttpCodes(int, int)`       | code window for one URI      |
+|  [05]   | `ExpectContent(string)`           | exact required response body |
+|  [06]   | `AddCustomHeader(string, string)` | request header (auth bearer) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[URIS_TOPOLOGY]:
-- contributor shape: `UriHealthCheck(UriHealthCheckOptions options, Func<HttpClient> httpClientFactory)` resolves a fresh `HttpClient` per evaluation from the factory and runs `CheckHealthAsync(HealthCheckContext, CancellationToken)` across the configured URI set
-- probe grading: each URI passes when the response status falls inside its `ExpectedHttpCodes` `(int Min, int Max)?` window and, when set, the body contains `ExpectedContent`; the first failing URI short-circuits the group to the registered `failureStatus`
-- per-URI vs group policy: `UriHealthCheckOptions` carries the group default method/timeout/status; `AddUri(uri, setup)` projects an `IUriOptions` whose `UseHttpMethod`/`UseTimeout`/`ExpectHttpCode(s)`/`ExpectContent`/`AddCustomHeader` override the group default for that one endpoint
-- timeout layering: `UriOptions.Timeout` is the per-probe `HttpClient.Timeout`; the registration `timeout` is the outer `HealthCheckRegistration.Timeout` ceiling the `HealthCheckService` enforces around the whole contributor
-- client construction: the `AddUrlGroup` overloads register a named `HttpClient` through `IHttpClientFactory`; `configureClient` mutates that client and `configurePrimaryHttpMessageHandler` supplies its primary handler — the hooks that thread the host's resilience pipeline and service-discovery resolver into the probe transport
+[TOPOLOGY]:
+- contributor shape: `UriHealthCheck(UriHealthCheckOptions, Func<HttpClient>)` invokes the factory per URI and runs `CheckHealthAsync(HealthCheckContext, CancellationToken)` across the configured set.
+- probe grading: a URI passes when its status falls inside the `ExpectedHttpCodes` `(int Min, int Max)` window and, when `ExpectedContent` is set, the whole response body equals it; the first failing URI short-circuits the group to `failureStatus`.
+- per-URI vs group policy: `UriHealthCheckOptions` carries the group default method, timeout, and status window; `AddUri(uri, setup)` projects a `UriOptions` whose overrides replace the group default for that endpoint.
+- timeout layering: each probe's effective timeout — per-URI `UriOptions.Timeout` when set, else the group `UseTimeout` — bounds one `SendAsync` through a linked `CancellationTokenSource`; the registration `timeout` is the outer `HealthCheckRegistration` ceiling `HealthCheckService` enforces around the whole contributor.
+- client construction: each overload registers a named `HttpClient` through `IHttpClientFactory` under the registration name, mapping `configureClient` to `ConfigureHttpClient` and `configurePrimaryHttpMessageHandler` to `ConfigurePrimaryHttpMessageHandler`.
+
+[STACKING]:
+- `Microsoft.Extensions.ServiceDiscovery`(`api-service-discovery.md`): the `Func<IServiceProvider, Uri>` overload resolves each probe endpoint, targeting the resolved address the host calls rather than an embedded literal.
+- `Microsoft.Extensions.Http.Resilience`(`api-resilience.md`): `configurePrimaryHttpMessageHandler` supplies the shared resilience handler, so probe and live traffic share one circuit-breaker state.
+- `OpenIddict.Client`(`api-openiddict-client.md`): `AddCustomHeader` carries the bearer token the client rail acquires for an authenticated endpoint.
+- `Microsoft.Extensions.Diagnostics.HealthChecks`(`api-health.md`): `UriHealthCheck` implements `IHealthCheck`, and its `HealthCheckResult` folds into the one `HealthReport`.
+- `Observability/health.md`: `DriverProbe.Upstream` binds `UriHealthCheck` as one `Remote`-tagged contributor through `HealthContributorRow.Driver` and `HealthSurface.Register`; a faulted upstream drives `Rule(Remote, Unhealthy, ReducedRemote)`.
 
 [LOCAL_ADMISSION]:
-- Register one `AddUrlGroup` per outbound dependency class, naming each probe and tagging it (`"outbound"`, `"ready"`) so the readiness projection filters to outbound liveness through `CheckHealthAsync(predicate)`.
-- Resolve endpoints through the `Func<IServiceProvider, Uri>` overload or `configureClient` against `Microsoft.Extensions.ServiceDiscovery` rather than embedding absolute URIs, so the probe targets the same resolved endpoint the host calls.
-- Set `failureStatus` to `HealthStatus.Degraded` for soft dependencies and `Unhealthy` for hard ones; the status maps into the typed degradation receipt the host's health rail projects, never an exception.
-- Use `ExpectHttpCodes(min, max)` plus `ExpectContent` for endpoints whose 200 masks a body-level fault; use `AddCustomHeader` to carry the bearer token acquired through the `OpenIddict.Client` rail when the probed endpoint is authenticated.
-- Carry the probe `HttpClient` through `configurePrimaryHttpMessageHandler` so the resilience handler's circuit-breaker state is shared, not duplicated, between live calls and health probes.
+- `HealthContributorRow.Driver(DriverProbe.Upstream, cadence, UriHealthCheck)` admits the probe as one `Remote`-tagged row through `HealthSurface.Register`, never a standalone `AddUrlGroup` face beside the health fold.
+- Resolve every probe endpoint through the `Func<IServiceProvider, Uri>` overload against `Microsoft.Extensions.ServiceDiscovery`, so the probe and the live call target one resolved address.
+- Carry the probe `HttpClient` through `configurePrimaryHttpMessageHandler` so the resilience circuit-breaker state is shared between live calls and probes.
+- Pair `ExpectHttpCodes` with `ExpectContent` for an endpoint whose 200 masks a body-level fault; carry the bearer token through `AddCustomHeader` for an authenticated endpoint.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Uris`
-- Owns: outbound HTTP(S) endpoint liveness probing graded by status window, body content, and per-probe timeout
-- Accept: `AddUrlGroup` registration over a URI set with named/tagged/failure-status policy; per-URI override through `UriHealthCheckOptions.AddUri`
-- Reject: hand-rolled `HttpClient` ping loops, bare-socket reachability checks, probe clients that bypass the host's resilience/service-discovery pipeline, string-status health reporting
+- Owns: outbound HTTP(S) endpoint liveness graded by status window, exact body match, and per-probe timeout
+- Accept: `AddUrlGroup` over a URI set with per-URI override through `UriHealthCheckOptions.AddUri`, its `HttpClient` bound to the host resilience and service-discovery seam
+- Reject: a hand-rolled `HttpClient` ping loop, a bare-socket reachability check, a probe transport bypassing the host resilience/service-discovery pipeline, a string-status report

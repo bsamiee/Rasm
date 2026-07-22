@@ -1,22 +1,21 @@
 # [RASM_APPHOST_API_SERILOG]
 
-`Serilog` supplies structured event construction, enrichment, sinks, audit sinks, filters, batching, levels, message templates, property values, failure listeners, formatters, and log context for projection.
+`Serilog` owns structured log projection: every runtime signal folds into one `LogEvent` that the `WriteTo` and `AuditTo` sink rails emit outward on the telemetry rail. Enrichers, filters, destructuring policies, and level switches shape each event at configuration time, while `LogContext` threads scoped properties into enrichment. This core owns the event model and its configuration rails; concrete sinks and host integration bind downstream.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog`
 - package: `Serilog`
 - assembly: `Serilog`
-- namespace: `Serilog`
+- namespace: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`
 - asset: runtime library
 - rail: telemetry
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger configuration family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                  |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [CAPABILITY]            |
 | :-----: | :--------------------------------- | :--------------------- | :---------------------- |
 |  [01]   | `ILogger`                          | logger contract        | structured event emit   |
 |  [02]   | `Log`                              | static logger          | process logger facade   |
@@ -32,9 +31,8 @@
 |  [12]   | `BatchingOptions`                  | batch policy           | batched sink behavior   |
 
 [PUBLIC_TYPE_SCOPE]: event value and extension family
-- rail: telemetry
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]        | [RAIL]                  |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]        | [CAPABILITY]            |
 | :-----: | :------------------------ | :------------------- | :---------------------- |
 |  [01]   | `LogEvent`                | event value          | structured event        |
 |  [02]   | `LogEventLevel`           | level enum           | event severity          |
@@ -57,79 +55,78 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: logging operations
-- rail: telemetry
+[ENTRYPOINT_SCOPE]: configuration and sink operations
 
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]       | [RAIL]                   |
-| :-----: | :------------------------------------- | :------------------- | :----------------------- |
-|  [01]   | `WriteTo`                              | sink chain           | sink configuration       |
-|  [02]   | `AuditTo`                              | audit sink chain     | audit sink configuration |
-|  [03]   | `Sink`                                 | sink registration    | sink admission           |
-|  [04]   | `Logger`                               | sub-logger setup     | sub-pipeline admission   |
-|  [05]   | `Conditional`                          | sink predicate       | conditional sink         |
-|  [06]   | `FallbackChain`                        | sink fallback        | fallback sinks           |
-|  [07]   | `Enrich.With`                          | enricher admission   | enricher chain           |
-|  [08]   | `Enrich.WithProperty`                  | property enrichment  | fixed property           |
-|  [09]   | `Enrich.FromLogContext`                | context enrichment   | ambient properties       |
-|  [10]   | `Filter.ByExcluding`                   | filter predicate     | event exclusion          |
-|  [11]   | `Filter.ByIncludingOnly`               | filter predicate     | event inclusion          |
-|  [12]   | `MinimumLevel.ControlledBy`            | level switch         | dynamic level floor      |
-|  [13]   | `MinimumLevel.Override`                | source override      | category level override  |
-|  [14]   | `Destructure.With`                     | destructuring policy | payload shaping          |
-|  [15]   | `Destructure.ToMaximumDepth`           | destructuring limit  | depth bound              |
-|  [16]   | `Destructure.ToMaximumStringLength`    | destructuring limit  | string-length bound      |
-|  [17]   | `Destructure.ToMaximumCollectionCount` | destructuring limit  | collection-count bound   |
-|  [18]   | `CreateLogger`                         | logger factory       | logger construction      |
-|  [19]   | `Fallible`                             | sink failure wrap    | failure observation      |
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :------------------------------------- | :------- | :------------------------ |
+|  [01]   | `WriteTo`                              | property | sink chain admission      |
+|  [02]   | `AuditTo`                              | property | audit sink chain          |
+|  [03]   | `Sink`                                 | instance | sink registration         |
+|  [04]   | `Logger`                               | instance | sub-logger pipeline       |
+|  [05]   | `Conditional`                          | instance | predicate-gated sink      |
+|  [06]   | `FallbackChain`                        | instance | ordered fallback sinks    |
+|  [07]   | `Enrich.With`                          | instance | enricher chain            |
+|  [08]   | `Enrich.WithProperty`                  | instance | fixed property            |
+|  [09]   | `Enrich.FromLogContext`                | instance | ambient properties        |
+|  [10]   | `Filter.ByExcluding`                   | instance | event exclusion           |
+|  [11]   | `Filter.ByIncludingOnly`               | instance | event inclusion           |
+|  [12]   | `MinimumLevel.ControlledBy`            | instance | dynamic level floor       |
+|  [13]   | `MinimumLevel.Override`                | instance | per-source level override |
+|  [14]   | `Destructure.With`                     | instance | destructuring policy      |
+|  [15]   | `Destructure.ToMaximumDepth`           | instance | depth bound               |
+|  [16]   | `Destructure.ToMaximumStringLength`    | instance | string-length bound       |
+|  [17]   | `Destructure.ToMaximumCollectionCount` | instance | collection-count bound    |
+|  [18]   | `CreateLogger`                         | factory  | logger construction       |
+|  [19]   | `Fallible`                             | instance | failure-listener wrap     |
 
-[FALLIBLE]: `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink`, so the listener observes every reported failure.
+- `Fallible(Action<LoggerSinkConfiguration>, ILoggingFailureListener)`: wraps the sink chain in a `FailureListenerSink`, so the listener observes every reported sink failure.
 
 [ENTRYPOINT_SCOPE]: event context and formatting operations
-- rail: telemetry
 
-| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                    |
-| :-----: | :------------------------ | :----------------- | :------------------------ |
-|  [01]   | `Write`                   | event emission     | level-bound event         |
-|  [02]   | `Verbose`                 | event emission     | verbose event             |
-|  [03]   | `Debug`                   | event emission     | debug event               |
-|  [04]   | `Information`             | event emission     | information event         |
-|  [05]   | `Warning`                 | event emission     | warning event             |
-|  [06]   | `Error`                   | event emission     | error event               |
-|  [07]   | `Fatal`                   | event emission     | fatal event               |
-|  [08]   | `ForContext`              | context logger     | property/source context   |
-|  [09]   | `LogContext.PushProperty` | ambient context    | scoped property           |
-|  [10]   | `LogContext.Push`         | ambient context    | scoped enricher           |
-|  [11]   | `LogContext.Clone`        | ambient context    | captured context          |
-|  [12]   | `LogContext.Suspend`      | ambient context    | temporary context removal |
-|  [13]   | `BindMessageTemplate`     | template binding   | template/property bind    |
-|  [14]   | `BindProperty`            | property binding   | property value bind       |
-|  [15]   | `RenderMessage`           | event rendering    | rendered message          |
-|  [16]   | `MessageTemplate.Render`  | template rendering | rendered template         |
-|  [17]   | `SelfLog.Enable`          | self diagnostic    | internal error output     |
-|  [18]   | `CloseAndFlush`           | logger lifecycle   | final sink flush          |
+| [INDEX] | [SURFACE]                 | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :------------------------ | :------- | :------------------------ |
+|  [01]   | `Write`                   | instance | level-bound event         |
+|  [02]   | `Verbose`                 | instance | verbose event             |
+|  [03]   | `Debug`                   | instance | debug event               |
+|  [04]   | `Information`             | instance | information event         |
+|  [05]   | `Warning`                 | instance | warning event             |
+|  [06]   | `Error`                   | instance | error event               |
+|  [07]   | `Fatal`                   | instance | fatal event               |
+|  [08]   | `ForContext`              | instance | property/source context   |
+|  [09]   | `LogContext.PushProperty` | static   | scoped property           |
+|  [10]   | `LogContext.Push`         | static   | scoped enricher           |
+|  [11]   | `LogContext.Clone`        | static   | captured context          |
+|  [12]   | `LogContext.Suspend`      | static   | temporary context removal |
+|  [13]   | `BindMessageTemplate`     | instance | template/property bind    |
+|  [14]   | `BindProperty`            | instance | property value bind       |
+|  [15]   | `RenderMessage`           | instance | rendered message          |
+|  [16]   | `MessageTemplate.Render`  | instance | rendered template         |
+|  [17]   | `SelfLog.Enable`          | static   | internal error output     |
+|  [18]   | `CloseAndFlush`           | static   | final sink flush          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SERILOG_TOPOLOGY]:
-- namespaces: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`
-- event model: message template, properties, level, timestamp, exception
-- trace model: event trace id and span id fields
-- configuration rails: minimum level, enrichment, destructuring, sinks, audit sinks, filters
-- sink rails: sink, batched sink, sub-logger, conditional sink, fallback chain, failure-listener wrap (`WriteTo.Fallible`)
-- level control: fixed level, source override, `LoggingLevelSwitch`
-- context rail: `LogContext` pushes scoped properties through ambient context
-- failure rail: logging failure listener, failure kind, self log
-- formatter rail: text formatter, display formatter, JSON formatter, JSON value formatter
+[TOPOLOGY]:
+- Every event folds into one `LogEvent` — message template, typed properties, level, timestamp, exception, and trace/span ids — so a formatter renders identity from the template and properties, never from a pre-rendered string.
+- `LoggerConfiguration` threads one fluent fold through its `MinimumLevel`, `Enrich`, `Destructure`, `Filter`, `WriteTo`, and `AuditTo` properties; each rail returns the builder so a whole config reads as one chain.
+- `WriteTo` composes sinks by wrapping: `Sink` registers one, `Logger` nests a sub-pipeline, `Conditional` gates on a `LogEvent` predicate, `FallbackChain` orders alternates, and `Fallible` wraps the chain in failure observation.
+- Level control resolves at three grains: a fixed floor, a per-source `MinimumLevel.Override`, and a runtime `LoggingLevelSwitch` that `ControlledBy` rebinds live.
+- `LogContext` pushes scoped properties through ambient context, so an enricher reads request-scoped state without a domain handle.
+- `SelfLog` and `ILoggingFailureListener` route sink failures to diagnostics; text, display, and JSON formatters render the emitted event.
+
+[STACKING]:
+- `Serilog.Sinks.Console` / `Serilog.Sinks.File`(`api-serilog-sinks.md`): both extend this package's `LoggerSinkConfiguration` with `WriteTo.Console`/`WriteTo.File` overloads, folding concrete sinks onto the rail this catalog owns.
+- `Serilog.Extensions.Hosting`(`api-serilog-hosting.md`): `UseSerilog`/`AddSerilog` bind the constructed `ILogger` into `IHostBuilder`, and `CreateBootstrapLogger` returns a `ReloadableLogger` this pipeline reconfigures in place after services resolve.
+- AppHost bootstrap: the composition root builds one `LoggerConfiguration`, folds every enrichment, destructuring, filter, and sink rail through it, and hands lower runtime logic an `ILogger` alone.
 
 [LOCAL_ADMISSION]:
-- Serilog projects signal facts to structured logs.
-- Destructuring policy must preserve redaction and bounded payload shape.
-- Sink failures emit diagnostics and do not mutate runtime state.
-- Context properties are scoped projection metadata, not domain state.
-- Sink configuration belongs to bootstrap composition and never to lower runtime logic.
+- Destructuring policy preserves redaction and bounded payload shape.
+- Context properties are scoped projection metadata, never domain state.
+- Sink failures emit diagnostics and never mutate runtime state.
+- Sink configuration binds at bootstrap composition, never at lower runtime logic.
 
 [RAIL_LAW]:
 - Package: `Serilog`
 - Owns: structured log projection
-- Accept: Serilog projects telemetry outward
-- Reject: runtime receipts as log strings
+- Accept: telemetry projected outward as `LogEvent`s
+- Reject: runtime receipts serialized as log strings

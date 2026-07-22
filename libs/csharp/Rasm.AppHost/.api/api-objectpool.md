@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_OBJECTPOOL]
 
-`Microsoft.Extensions.ObjectPool` supplies pooled runtime resources, object policies, reset contracts, leak-tracking diagnostics, and StringBuilder pools for bounded allocation lanes.
+`Microsoft.Extensions.ObjectPool` owns bounded instance reuse for allocation-hot AppHost lanes: a policy mints and resets pooled objects, a provider caps how many survive a return, and a StringBuilder policy pools text buffers. Retention bounds live retained instances, never total allocation.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -14,60 +14,59 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pool family
-- rail: pooling
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [RAIL]                 |
-| :-----: | :-------------------------------- | :------------------ | :--------------------- |
-|  [01]   | `ObjectPool<T>`                   | pool contract       | object checkout        |
-|  [02]   | `DefaultObjectPool<T>`            | default pool        | retained object store  |
-|  [03]   | `ObjectPool`                      | static factory      | direct pool creation   |
-|  [04]   | `ObjectPoolProvider`              | provider contract   | pool factory           |
-|  [05]   | `DefaultObjectPoolProvider`       | default provider    | retained-count policy  |
-|  [06]   | `IPooledObjectPolicy<T>`          | policy contract     | create/return decision |
-|  [07]   | `PooledObjectPolicy<T>`           | policy base         | custom pool policy     |
-|  [08]   | `DefaultPooledObjectPolicy<T>`    | default policy      | default construction   |
-|  [09]   | `IResettable`                     | reset contract      | return-time cleanup    |
-|  [10]   | `StringBuilderPooledObjectPolicy` | text buffer policy  | StringBuilder reuse    |
-|  [11]   | `LeakTrackingObjectPool<T>`       | diagnostic pool     | lease leak detection   |
-|  [12]   | `LeakTrackingObjectPoolProvider`  | diagnostic provider | leak-tracking factory  |
-|  [13]   | `ObjectPoolProviderExtensions`    | extension family    | StringBuilder pool     |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [CAPABILITY]                   |
+| :-----: | :-------------------------------- | :------------- | :----------------------------- |
+|  [01]   | `ObjectPool<T>`                   | abstract class | pooled-instance lease contract |
+|  [02]   | `DefaultObjectPool<T>`            | class          | retained-instance store        |
+|  [03]   | `ObjectPool`                      | static class   | policy-driven pool creation    |
+|  [04]   | `ObjectPoolProvider`              | abstract class | pool factory contract          |
+|  [05]   | `DefaultObjectPoolProvider`       | class          | retained-count pool factory    |
+|  [06]   | `IPooledObjectPolicy<T>`          | interface      | pooled-object lifecycle policy |
+|  [07]   | `PooledObjectPolicy<T>`           | abstract class | base for a custom pool policy  |
+|  [08]   | `DefaultPooledObjectPolicy<T>`    | class          | default-construction policy    |
+|  [09]   | `IResettable`                     | interface      | return-time reset contract     |
+|  [10]   | `StringBuilderPooledObjectPolicy` | class          | StringBuilder reuse policy     |
+|  [11]   | `ObjectPoolProviderExtensions`    | static class   | StringBuilder pool extension   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool operations
-- rail: pooling
 
-| [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]     | [RAIL]                    |
-| :-----: | :----------------------------- | :----------------- | :------------------------ |
-|  [01]   | `ObjectPool<T>.Get`            | checkout           | leases pooled object      |
-|  [02]   | `ObjectPool<T>.Return`         | return             | returns pooled object     |
-|  [03]   | `ObjectPool.Create<T>`         | static factory     | creates direct pool       |
-|  [04]   | `ObjectPoolProvider.Create<T>` | provider factory   | creates provider pool     |
-|  [05]   | `IPooledObjectPolicy.Create`   | policy factory     | constructs pooled object  |
-|  [06]   | `IPooledObjectPolicy.Return`   | policy decision    | accepts or rejects return |
-|  [07]   | `IResettable.TryReset`         | reset predicate    | cleans returned object    |
-|  [08]   | `MaximumRetained`              | provider setting   | caps retained instances   |
-|  [09]   | `InitialCapacity`              | buffer setting     | StringBuilder capacity    |
-|  [10]   | `MaximumRetainedCapacity`      | buffer setting     | StringBuilder retention   |
-|  [11]   | `CreateStringBuilderPool`      | provider extension | creates text buffer pool  |
+| [INDEX] | [SURFACE]                                                 | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :-------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `ObjectPool<T>.Get()`                                     | instance | leases a pooled instance        |
+|  [02]   | `ObjectPool<T>.Return(T)`                                 | instance | returns an instance for reuse   |
+|  [03]   | `ObjectPool.Create<T>(IPooledObjectPolicy<T>)`            | static   | mints a default-bounded pool    |
+|  [04]   | `ObjectPoolProvider.Create<T>(IPooledObjectPolicy<T>)`    | factory  | mints a provider-bounded pool   |
+|  [05]   | `IPooledObjectPolicy<T>.Create()`                         | instance | constructs a pooled instance    |
+|  [06]   | `IPooledObjectPolicy<T>.Return(T)`                        | instance | return-eligibility decision     |
+|  [07]   | `IResettable.TryReset()`                                  | instance | resets a returned instance      |
+|  [08]   | `DefaultObjectPoolProvider.MaximumRetained`               | property | caps retained instances         |
+|  [09]   | `StringBuilderPooledObjectPolicy.InitialCapacity`         | property | StringBuilder seed capacity     |
+|  [10]   | `StringBuilderPooledObjectPolicy.MaximumRetainedCapacity` | property | StringBuilder retention ceiling |
+|  [11]   | `ObjectPoolProvider.CreateStringBuilderPool(int, int)`    | static   | mints a StringBuilder pool      |
+
+- `ObjectPool.Create<T>` and `ObjectPoolProvider.Create<T>` each carry a parameterless overload defaulting to `DefaultPooledObjectPolicy<T>`.
+- `ObjectPoolProvider.Create<T>` returns a disposal-aware pool for a `T : IDisposable`, disposing every instance it declines to retain.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[POOL_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.ObjectPool`
-- pool contracts: `ObjectPool<T>`, `ObjectPoolProvider`, `IPooledObjectPolicy<T>`
-- policy contracts: create object, decide return, reset object
-- retained count: provider policy controls retained instances, not total allocations
-- string builder policy: initial capacity and maximum retained capacity
-- diagnostics: leak-tracking pool provider is diagnostic-only material
+[TOPOLOGY]:
+- Provider policy caps retained instances, never total allocation.
+- A returned instance re-pools only when its policy `Return` accepts it, folding `IResettable.TryReset` first; a rejected instance is discarded.
+- A pool of `IDisposable` instances disposes each instance it declines to retain.
+
+[STACKING]:
+- `Runtime/resources.md`: `PoolPolicy<T> : PooledObjectPolicy<T>` mints each row's pool once through `ObjectPool.Create<T>` and folds `IResettable.TryReset` in `Return`; `Pools` composes the `StringBuilderPooledObjectPolicy` text pool and `DefaultObjectPoolProvider.MaximumRetained` bounded pools.
 
 [LOCAL_ADMISSION]:
-- Pools are injected policy values for bounded allocation lanes.
-- Returned objects reset through `IResettable` or policy-owned cleanup.
-- Pooled instances never carry request, document, host, or user state across returns.
+- Pools are injected policy values on allocation-hot AppHost lanes.
+- Returned instances reset through `IResettable` or policy-owned cleanup.
+- Pooled instances carry no request, document, host, or user state across returns.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.ObjectPool`
-- Owns: bounded resource reuse
-- Accept: pools are runtime policy inputs
-- Reject: ad hoc static pools
+- Owns: bounded instance reuse on allocation-hot lanes
+- Accept: pools as injected runtime policy values
+- Reject: ad hoc static pools and per-site `StringBuilder` churn

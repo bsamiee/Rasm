@@ -1,95 +1,55 @@
 # [RASM_APPHOST_API_HEALTHCHECKS_REDIS]
 
-`AspNetCore.HealthChecks.Redis` (Xabaril) is a single concrete `IHealthCheck` that proves Redis reachability by pinging every non-`Cluster` server of an admitted `StackExchange.Redis` `IConnectionMultiplexer` and asserting `cluster_state:ok` on cluster servers. It is one `store`-tagged probe row feeding the AppHost capability-health fold; the integration-bearing path passes the SAME multiplexer the L2 cache lane already owns, so a faulted cache routes through the `ReadOnly` degradation rule.
+`AspNetCore.HealthChecks.Redis` (Xabaril) is one concrete `IHealthCheck` proving Redis reachability: it pings every non-`Cluster` server of a supplied `IConnectionMultiplexer` and asserts `cluster_state:ok` on each cluster server. It enters the AppHost health fold as one deploy-gated `store`-tagged driver row bound to the redis sink's shared multiplexer, so a faulted redis degrades the host to `ReadOnly` through the existing Store rule, never a thrown exception.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Redis`
-- package: `AspNetCore.HealthChecks.Redis`
-- license: `Apache-2.0`
+- package: `AspNetCore.HealthChecks.Redis` (`Apache-2.0`, Xabaril)
 - assembly: `HealthChecks.Redis`
-- namespace: `HealthChecks.Redis`
-- namespace: `Microsoft.Extensions.DependencyInjection`
-- target: `net8.0` (also `netstandard2.0`); the `net10.0` consumer binds the `net8.0` asset, `RefSafetyRules(11)` nullable-annotated
-- dependency floor: `Microsoft.Extensions.Diagnostics.HealthChecks` (`IHealthCheck`/`HealthCheckResult`/`HealthCheckRegistration`), `StackExchange.Redis` (`IConnectionMultiplexer`, `ConnectionMultiplexer`, `IServer`, `IDatabase`, `RedisResult`) — both admitted in this folder at higher pins (`StackExchange.Redis` 3.x)
-- asset: runtime library
+- namespace: `HealthChecks.Redis`, `Microsoft.Extensions.DependencyInjection`
+- target: `net8.0` (also `netstandard2.0`)
 - rail: health
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe family
-- rail: health
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]        | [RAIL]                                                       |
-| :-----: | :----------------- | :------------------- | :----------------------------------------------------------- |
-|  [01]   | `RedisHealthCheck` | `IHealthCheck` probe | endpoint ping + cluster-state probe (no public options type) |
-
-[PUBLIC_MEMBER_SCOPE]: `RedisHealthCheck` constructors
-- rail: health
-
-The connection-string constructor connects lazily through a static multiplexer cache; the instance constructor binds the supplied multiplexer without opening a connection.
-
-| [INDEX] | [MEMBER]                                               | [ADMISSION]        |
-| :-----: | :----------------------------------------------------- | :----------------- |
-|  [01]   | `RedisHealthCheck(string redisConnectionString)`       | connection string  |
-|  [02]   | `RedisHealthCheck(IConnectionMultiplexer multiplexer)` | shared multiplexer |
+`RedisHealthCheck` is the sole public type — an `IHealthCheck` with no public options type and no cluster/endpoint configuration, its probe behavior fixed. Its two public constructors admit the connection: `RedisHealthCheck(string)` connects lazily through a static multiplexer cache, and `RedisHealthCheck(IConnectionMultiplexer)` binds a supplied multiplexer without connecting.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration operations (`RedisHealthCheckBuilderExtensions`, default name `"redis"`)
-- rail: health
+[ENTRYPOINT_SCOPE]: registration overloads (`RedisHealthCheckBuilderExtensions`, default name `"redis"`)
 
-Each `AddRedis(this IHealthChecksBuilder, ...)` overload appends `string? name, HealthStatus? failureStatus, IEnumerable<string>? tags, TimeSpan? timeout` after its admission parameter.
+Every `AddRedis` overload is a static `IHealthChecksBuilder` extension appending `name, failureStatus, tags, timeout` after its admission argument; the string and instance forms delegate to their factory siblings, and every path adds `HealthCheckRegistration(name ?? "redis", factory, failureStatus, tags, timeout)` with a null `failureStatus` defaulting to `HealthStatus.Unhealthy`.
 
-| [INDEX] | [ADMISSION]               | [PARAMETER]                                                                   | [RESOLUTION] |
-| :-----: | :------------------------ | :---------------------------------------------------------------------------- | :----------- |
-|  [01]   | connection string         | `string redisConnectionString`                                                | lazy cache   |
-|  [02]   | connection-string factory | `Func<IServiceProvider, string> connectionStringFactory`                      | DI           |
-|  [03]   | multiplexer instance      | `IConnectionMultiplexer connectionMultiplexer`                                | supplied     |
-|  [04]   | multiplexer factory       | `Func<IServiceProvider, IConnectionMultiplexer> connectionMultiplexerFactory` | DI           |
+| [INDEX] | [SURFACE]                                                  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `AddRedis(string)`                                         | connection string, lazy static cache |
+|  [02]   | `AddRedis(Func<IServiceProvider, string>)`                 | DI-resolved connection string        |
+|  [03]   | `AddRedis(IConnectionMultiplexer)`                         | shared multiplexer, no connect       |
+|  [04]   | `AddRedis(Func<IServiceProvider, IConnectionMultiplexer>)` | DI-resolved multiplexer              |
 
-[ENTRYPOINT_SCOPE]: probe operation
-- rail: health
-
-[PROBE]: `RedisHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)`
-- family: probe
-- behavior: pings every non-`Cluster` server and asserts `cluster_state:ok` on each `Cluster` server
-- failure: maps every exception to `FailureStatus`
+[PROBE]: `RedisHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)` is the sole probe operation.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[REDIS_TOPOLOGY]:
-- one type: `RedisHealthCheck : IHealthCheck`; the public surface is two constructors and the four `AddRedis` extension overloads. There is NO public options type and NO public cluster/endpoint configuration — the probe behavior is fixed.
+[TOPOLOGY]:
+- `RedisHealthCheck : IHealthCheck` is the entire surface — the constructors, the `AddRedis` overloads, and one probe method, with no options type.
+- `CheckHealthAsync` resolves the injected instance, the factory result, or the connection-string-keyed entry in a static `ConcurrentDictionary<string, IConnectionMultiplexer>`, then over `GetEndPoints(configuredOnly: true)` pings each `Standalone`/`Sentinel` server (database and server) and asserts `cluster_state:ok` on each `Cluster` server via `ExecuteAsync("CLUSTER", "INFO")`.
+- Success returns `HealthCheckResult.Healthy()`; an exception returns `new HealthCheckResult(FailureStatus, null, exception)` and evicts and disposes the cached connection-string entry so the next probe reconnects; a linked-token timeout returns `FailureStatus` with `"Healthcheck timed out"`.
 
-[PROBE_MECHANICS]:
-- resolution: `CheckHealthAsync` reads the injected instance, the factory result, or the connection-string-keyed entry in a static `ConcurrentDictionary<string, IConnectionMultiplexer>`
-- endpoints: `GetEndPoints(configuredOnly: true)` selects every configured server
-- non-cluster: `Standalone=0` and `Sentinel=1` servers receive `PingAsync` against both the default database and the server
-- cluster: `Cluster=2` servers receive `ExecuteAsync("CLUSTER", "INFO")`, and the reply must contain `cluster_state:ok`
-- result: success returns `HealthCheckResult.Healthy()`; an exception returns `new HealthCheckResult(FailureStatus, null, exception)`
-
-[CONNECTION_CACHING]:
-- admission: the connection-string overloads call `ConnectionMultiplexer.ConnectAsync` lazily and cache the multiplexer by connection string
-- timeout: the cancellation-linked timeout returns `Unhealthy("Healthcheck timed out")`
-- recovery: a probe exception evicts and disposes the cached entry, so the next probe rebuilds the connection
-- supplied instance: the instance and factory overloads read the supplied multiplexer without connecting
-
-[REGISTRATION_POLICY]: The string and instance overloads delegate to their factory overloads; every path adds `HealthCheckRegistration(name ?? "redis", factory, failureStatus, tags, timeout)`, and a null `failureStatus` defaults to `HealthStatus.Unhealthy`.
+[STACKING]:
+- `api-health.md`(`.api/api-health.md`): `RedisHealthCheck` registers as one `HealthCheckRegistration` on the `IHealthChecksBuilder` and emits `HealthCheckResult`, the `Microsoft.Extensions.Diagnostics.HealthChecks` contract this probe plugs into.
+- within-lib: the `RedisHealthCheck(IConnectionMultiplexer)` instance path (`AddRedis` overload [03]/[04]) binds the deploy-bound redis sink's shared singleton multiplexer, defining endpoints and cluster topology once; the connection-string static cache is the within-lib rejected form.
 
 [LOCAL_ADMISSION]:
-- The probe is one `HealthContributorRow.Peer` row tagged `Store`, never a parallel cache-health surface — its `Probe` adapts `RedisHealthCheck.CheckHealthAsync` and registers through `HealthSurface.Register`, sharing `DeadlineClass.HealthProbe` and the cadence policy with every other contributor.
-- The probe binds the SAME `IConnectionMultiplexer` the L2 cache lane registers (overload [03]/[04]), so the connection, endpoints, and cluster topology are defined once; the connection-string overloads with their static cache are the rejected form here because they create a second, probe-only connection outside the app's pooled multiplexer.
-- A ping failure, a cluster node off `cluster_state:ok`, or a connect timeout is a typed `HealthCheckResult` with `FailureStatus`, folded by `HealthReport.Snapshot` into a `HealthSnapshot.Entry` — never a thrown exception crossing the fold.
-
-[STACK]:
-- health fold: `HealthSurface.Register(...)` admits the canonical `HealthContributorRow.Peer(name: "redis", tag: HealthContributorRow.Store, cadence, probe: ct => new ValueTask<HealthCheckResult>(redisCheck.CheckHealthAsync(ctx, ct)))` row.
-- degradation rail: `Rule(HealthContributorRow.Store, HealthStatus.Unhealthy, DegradationLevel.ReadOnly)` degrades a faulted Redis host to `ReadOnly` with the existing hysteresis and no probe-local branching.
-- multiplexer reuse: the probe and the `Microsoft.Extensions.Caching.StackExchangeRedis` L2 / `HybridCache` lane share its singleton `IConnectionMultiplexer`, so cache outage and probe degradation are the same fact while `TenantContext` cache-key partitioning remains unchanged.
-- wire-health projection: the tag-predicate mapping carries the contributor result into `HealthServiceImpl.SetStatus`, so Redis reachability reaches the gRPC health service.
-- resilience boundary: the probe deadline is `DeadlineClass.HealthProbe`, separate from the cache-access path; a slow probe degrades a row without consuming cache-operation budget.
+- `HealthContributorRow.Driver(DriverProbe.Redis, cadence, check)` adapts the probe into one deploy-gated `Store`-tagged sink-tracking row, registering only when the redis sink is bound — never a `Peer` row, never a parallel `AddRedis` registration face; the degradation rule, gRPC projection, and probe deadline stay owned by the health fold.
+- It binds the redis sink's shared `IConnectionMultiplexer`, so the connection-string overloads that open a second probe-only multiplexer are the rejected form here.
+- A ping failure, an off-`ok` cluster node, or a connect timeout folds into a `HealthSnapshot.Entry` as a typed `HealthCheckResult`, never a thrown exception crossing the fold.
 
 [RAIL_LAW]:
 - Package: `AspNetCore.HealthChecks.Redis`
-- Owns: Redis reachability and cluster-state as one `store`-tagged contributor probe
-- Accept: a shared `IConnectionMultiplexer`, endpoint ping, and cluster-state assertion
-- Reject: a probe-only connection-string multiplexer beside the app's singleton, or a thrown probe failure crossing the health fold
+- Owns: Redis reachability and cluster-state as one `store`-tagged driver probe
+- Accept: a shared sink `IConnectionMultiplexer`, endpoint ping, cluster-state assertion
+- Reject: a probe-only connection-string multiplexer beside the app's sink, or a thrown probe failure crossing the health fold

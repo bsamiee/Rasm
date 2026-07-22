@@ -1,59 +1,40 @@
 # [RASM_APPHOST_API_RESOURCE_MONITORING]
 
-`Microsoft.Extensions.Diagnostics.ResourceMonitoring` admits observable process, container, disk-I/O, and network instruments, container-aware resource quotas, platform snapshot sources, and metric-shaping option policy into the observability rail.
+`Microsoft.Extensions.Diagnostics.ResourceMonitoring` admits observable process, container, disk-I/O, and network instruments, container-aware resource quota reads, and metric-shaping option policy into the observability rail. Its read surface is the package meter's observable instruments, sampled through a `MeterListener` or the OpenTelemetry `MeterProvider`; domain code never reads utilization directly.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+- package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring` (`MIT`, dotnet/extensions)
 - assembly: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- namespace: `Microsoft.Extensions.DependencyInjection`
-- meter: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+- namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, `Microsoft.Extensions.DependencyInjection`
 - asset: runtime library
 - rail: observability
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: snapshot and quota contracts
-- rail: observability
+[PUBLIC_TYPE_SCOPE]: quota and option contracts
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]    | [CAPABILITY]                      |
-| :-----: | :---------------------- | :---------------- | :-------------------------------- |
-|  [01]   | `ISnapshotProvider`     | snapshot contract | platform snapshot and limits read |
-|  [02]   | `ResourceQuotaProvider` | quota provider    | current container quota read      |
-
-[PUBLIC_TYPE_SCOPE]: sample, limit, and option values
-- rail: observability
-
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE] | [CAPABILITY]                               |
-| :-----: | :-------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `Snapshot`                  | sample value   | total/kernel/user time and memory bytes    |
-|  [02]   | `SystemResources`           | limits value   | guaranteed and maximum CPU/memory          |
-|  [03]   | `ResourceQuota`             | quota value    | baseline and maximum memory/CPU quota      |
-|  [04]   | `ResourceMonitoringOptions` | option value   | metric-shaping flags and telemetry sources |
-
-[PUBLIC_TYPE_SCOPE]: registration surface
-- rail: observability
-
-| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]    | [CAPABILITY]         |
-| :-----: | :---------------------------------------------- | :---------------- | :------------------- |
-|  [01]   | `ResourceMonitoringServiceCollectionExtensions` | service extension | monitor registration |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                               |
+| :-----: | :-------------------------- | :------------ | :----------------------------------------- |
+|  [01]   | `ResourceQuotaProvider`     | class         | current container CPU/memory quota read    |
+|  [02]   | `ResourceQuota`             | class         | baseline and maximum memory/CPU quota      |
+|  [03]   | `ResourceMonitoringOptions` | class         | metric-shaping flags and telemetry sources |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration
-- rail: observability
+[ENTRYPOINT_SCOPE]: registration and quota read
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE] | [CAPABILITY]                                   |
-| :-----: | :---------------------- | :----------- | :--------------------------------------------- |
-|  [01]   | `AddResourceMonitoring` | no-arg       | registers OS providers, meter, and instruments |
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `AddResourceMonitoring()`                                   | static   | registers OS quota provider, meter, and instruments |
+|  [02]   | `ResourceQuotaProvider.GetResourceQuota() -> ResourceQuota` | instance | current container CPU/memory quota ceilings         |
 
 [ENTRYPOINT_SCOPE]: observable instruments
-- rail: observability
-- read model: `MeterListener` over the meter's observable instruments
 
-| [INDEX] | [INSTRUMENT]                                | [KIND]                    | [SEMANTICS]                                      |
+A `MeterListener` samples the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring` over these observable instruments.
+
+| [INDEX] | [INSTRUMENT]                                | [KIND]                    | [CAPABILITY]                                     |
 | :-----: | :------------------------------------------ | :------------------------ | :----------------------------------------------- |
 |  [01]   | `process.cpu.utilization`                   | `ObservableGauge`         | process CPU share in `[0, 1]`                    |
 |  [02]   | `dotnet.process.memory.virtual.utilization` | `ObservableGauge`         | process virtual-memory share in `[0, 1]`         |
@@ -68,46 +49,39 @@
 |  [11]   | `system.disk.operations`                    | `ObservableCounter`       | disk operations                                  |
 |  [12]   | `system.network.connections`                | `ObservableUpDownCounter` | TCP connection counts by state                   |
 
-[ENTRYPOINT_SCOPE]: snapshot and quota reads
-- rail: observability
-
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                 | [CAPABILITY]                                   |
-| :-----: | :----------------- | :--------------------------- | :--------------------------------------------- |
-|  [01]   | `GetSnapshot`      | `ISnapshotProvider` no-arg   | samples CPU times and memory bytes to Snapshot |
-|  [02]   | `Resources`        | `ISnapshotProvider` property | static CPU/memory limits as SystemResources    |
-|  [03]   | `GetResourceQuota` | `ResourceQuotaProvider` read | reads the current container resource quota     |
-
 [ENTRYPOINT_SCOPE]: option policy
-- rail: observability
-- call shape: option property on `ResourceMonitoringOptions`, bound via the standard options pattern
-- gate: the `EXTEXP0008` diagnostic admits the gated rows below; a consumer opts into it to compile them, while `SourceIpAddresses` binds unconditionally
+
+`EXTEXP0008` admits the four gated rows a consumer opts into to compile them; `SourceIpAddresses` binds unconditionally. Every row is a property on `ResourceMonitoringOptions` bound through the options pattern.
 
 | [INDEX] | [SURFACE]                          | [GATE]        | [CAPABILITY]                                     |
 | :-----: | :--------------------------------- | :------------ | :----------------------------------------------- |
-|   [01]  | `UseLinuxCalculationV2`            | `EXTEXP0008`  | cgroup v2 CPU-limit calculation on Linux         |
-|   [02]  | `UseZeroToOneRangeForLinuxMetrics` | `EXTEXP0008`  | normalized `[0, 1]` Linux metric range           |
-|   [03]  | `UseZeroToOneRangeForMetrics`      | `EXTEXP0008`  | normalized `[0, 1]` metric range all platforms   |
-|   [04]  | `EnableSystemDiskIoMetrics`        | `EXTEXP0008`  | system disk I/O instruments                      |
-|   [05]  | `SourceIpAddresses`                | unconditional | Windows source-IPv4 set for connection telemetry |
+|  [01]   | `UseLinuxCalculationV2`            | `EXTEXP0008`  | cgroup v2 CPU-limit calculation on Linux         |
+|  [02]   | `UseZeroToOneRangeForLinuxMetrics` | `EXTEXP0008`  | normalized `[0, 1]` Linux metric range           |
+|  [03]   | `UseZeroToOneRangeForMetrics`      | `EXTEXP0008`  | normalized `[0, 1]` metric range all platforms   |
+|  [04]   | `EnableSystemDiskIoMetrics`        | `EXTEXP0008`  | system disk I/O instruments                      |
+|  [05]   | `SourceIpAddresses`                | unconditional | Windows source-IPv4 set for connection telemetry |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MONITOR_TOPOLOGY]:
-- registration root: `AddResourceMonitoring()` wires the OS-appropriate snapshot provider, quota provider, meter, and observable instruments; a job/cgroup-hosted process picks the container snapshot and quota providers, a bare process picks the host providers
-- observable-instrument read model: the read path samples the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring` via a `MeterListener` over its observable instruments — process share off `process.cpu.utilization` and `dotnet.process.memory.virtual.utilization`, container-relative pressure off the `container.*` gauges, and I/O off the `system.disk.*`/`system.network.connections` instruments
-- cgroup vs host semantics: `container.*` instruments report against the cgroup limit/request the process runs under, process instruments report the raw process share, and `UseLinuxCalculationV2` selects the cgroup v2 CPU-limit delta over the host-CPU delta on Linux
-- quota model: `ResourceQuotaProvider.GetResourceQuota()` returns the current `ResourceQuota` carrying `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings so a container-row grade compares against the limit the process runs under, not the host total
-- snapshot source: `ISnapshotProvider.GetSnapshot()` samples a `Snapshot` (total/kernel/user `TimeSpan` and `MemoryUsageInBytes`) and `Resources` exposes the static `SystemResources` (`GuaranteedCpuUnits`/`MaximumCpuUnits`, `GuaranteedMemoryInBytes`/`MaximumMemoryInBytes`)
-- platform model: Linux and Windows snapshot and quota sources stay internal behind `ISnapshotProvider` and `ResourceQuotaProvider`
+[TOPOLOGY]:
+- registration root: `AddResourceMonitoring()` wires the OS-appropriate quota provider, meter, and observable instruments; a cgroup- or job-hosted process picks the container providers, a bare process the host providers.
+- read model: the read path samples the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring` through a `MeterListener` over its observable instruments — process share off `process.cpu.utilization`/`dotnet.process.memory.virtual.utilization`, container pressure off the `container.*` gauges, I/O off `system.disk.*`/`system.network.connections`.
+- cgroup vs host semantics: `container.*` instruments report against the cgroup limit/request the process runs under, process instruments report the raw process share, and `UseLinuxCalculationV2` selects the cgroup v2 CPU-limit delta over the host-CPU delta on Linux.
+- quota model: `ResourceQuotaProvider.GetResourceQuota()` returns the current `ResourceQuota` carrying `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings, so a container-row grade compares against the limit the process runs under, not the host total.
+- platform model: Linux and Windows quota sources stay internal behind `ResourceQuotaProvider`.
+
+[STACKING]:
+- `api-otel`(`.api/api-otel.md`): the `Microsoft.Extensions.Diagnostics.ResourceMonitoring` meter binds onto `MeterProviderBuilder` through `AddMeter`, projecting every observable instrument onto the OTel metric pipeline.
+- Observability composition root (`.planning/Observability/telemetry.md`): folds the meter name into the `AddMeter` source roster once, and the in-process `MeterListener` read model samples the same observable instruments for host-row grading.
 
 [LOCAL_ADMISSION]:
 - Resource monitoring is host-level observability; domain code never reads utilization directly.
-- Instrument reads flow through a `MeterListener` on the package meter, not ad-hoc snapshot polling.
-- Option policy binds at composition through the standard options pattern on `ResourceMonitoringOptions`.
+- Instrument reads flow through a `MeterListener` on the package meter.
+- Option policy binds at composition through the options pattern on `ResourceMonitoringOptions`.
 - Utilization evidence is read-only; throttling decisions live in owning policy surfaces.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - Owns: process and container resource utilization evidence
-- Accept: observable-instrument reads, snapshot and quota reads
+- Accept: observable-instrument reads and container quota reads
 - Reject: hand-rolled `/proc`, cgroup, or job-object sampling

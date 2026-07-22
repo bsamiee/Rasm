@@ -1,25 +1,22 @@
 # [RASM_APPHOST_API_MTCONNECT]
 
-`MTConnect.NET-Common` (TrakHound) is the model-and-adapter slice of the MTConnect stack: the observation/device/asset/streams object model, the `ResponseDocumentFormatter` that parses an agent's `/current`/`/sample` response document (XML or JSON), the `MTConnectAdapter` SHDR output relay, and `MTConnectClientInformation` incremental-poll cursor state. It is the machine-tool connectivity model the AppHost live-wire `mtconnect` transport row binds behind the one `TransportRow` adapter; the HTTP/MQTT transport itself is firewalled to the AppHost `OutboundHop` (this `-Common` pin carries the model slice ONLY, never a bundled HTTP/MQTT client package).
+`MTConnect.NET-Common` (TrakHound) owns the machine-tool connectivity model slice: the observation/device/asset/streams object graph, the `ResponseDocumentFormatter` parse of an agent `/current`/`/sample` document, the `MTConnectAdapter` SHDR relay, and `MTConnectClientInformation` incremental-poll cursor state. AppHost binds it behind the one `TransportRow` adapter through the `mtconnect` live-wire row, decoding the fetched document to `ExternalValue` at the boundary while the HTTP/MQTT transport firewalls to the `OutboundHop`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
-- package: `MTConnect.NET-Common`
-- license: `MIT`
+- package: `MTConnect.NET-Common` (`MIT`, TrakHound)
 - assembly: `MTConnect.NET-Common`
 - namespace: `MTConnect.Adapters`, `MTConnect.Input`, `MTConnect.Observations`, `MTConnect.Streams`, `MTConnect.Devices`, `MTConnect.Assets.CuttingTools`, `MTConnect.Clients`, `MTConnect.Formatters`
-- target: `net9.0` (multi-tfm down to `netstandard2.0`); 1183 types across 34 namespaces; the `net10.0` consumer binds `net9.0`
-- dependency floor: `System.Text.Json`, `YamlDotNet` (agent/device config) — the `-Common` slice pulls no HTTP/MQTT transport package
+- target: `net9.0` (multi-tfm to `netstandard2.0`); the `net10.0` consumer binds `net9.0`
 - asset: runtime library
 - rail: live-wire
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: input and adapter surfaces
-- rail: live-wire
 
-Observation inputs carry `DeviceKey`, `DataItemKey`, and `Timestamp`; scalar inputs add `Values` and `IsUnavailable`.
+Every observation input carries `DeviceKey`, `DataItemKey`, `Timestamp`, and `Values`; `IsUnavailable` marks a dropped point.
 
 | [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY] | [CAPABILITY]         |
 | :-----: | :------------------------------------------- | :------------ | :------------------- |
@@ -34,15 +31,8 @@ Observation inputs carry `DeviceKey`, `DataItemKey`, and `Timestamp`; scalar inp
 |  [09]   | `MTConnect.Input.DeviceInput`                | input         | device model         |
 
 [PUBLIC_TYPE_SCOPE]: streams model, client-state, and asset surfaces
-- rail: live-wire
 
-`StreamsResponseDocument` groups observations by `DeviceStream` and then `ComponentStream`.
-
-Each `Observation` carries the data-item value, timestamp, and sequence.
-
-`MTConnectClientInformation` carries `DeviceKey`, `InstanceId`, `LastSequence`, and `ChangeToken` as incremental-poll state.
-
-`CuttingToolAsset` supplies life and geometry to the magazine tool-life consumer.
+`MTConnectClientInformation` carries `DeviceKey`, `InstanceId`, `LastSequence`, and `ChangeToken` as durable incremental-poll cursor state.
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]     | [CAPABILITY]            |
 | :-----: | :----------------------------------------------- | :---------------- | :---------------------- |
@@ -57,52 +47,48 @@ Each `Observation` carries the data-item value, timestamp, and sequence.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SHDR adapter (observation relay)
-- rail: live-wire
 
-| [INDEX] | [MEMBER]                                                                            | [KIND] | [RETURN]           |
-| :-----: | :---------------------------------------------------------------------------------- | :----- | :----------------- |
-|  [01]   | `new MTConnectAdapter(int? interval = null, bool bufferEnabled = false)`            | ctor   | `MTConnectAdapter` |
-|  [02]   | `MTConnectAdapter.Start()` / `Stop()`                                               | call   | `void`             |
-|  [03]   | `MTConnectAdapter.AddObservation(string dataItemKey, object value, long timestamp)` | call   | `void`             |
-|  [04]   | `MTConnectAdapter.AddObservation(IObservationInput observation)`                    | call   | `void`             |
-|  [05]   | `MTConnectAdapter.AddObservations(IEnumerable<IObservationInput> observations)`     | call   | `void`             |
-|  [06]   | `MTConnectAdapter.AddAsset(IAssetInput asset)` / `AddDevice(IDeviceInput device)`   | call   | `void`             |
-|  [07]   | `MTConnectAdapter.SetUnavailable(long timestamp = 0)`                               | call   | `void`             |
-|  [08]   | `MTConnectAdapter.SendChanged()` / `SendBuffer()`                                   | call   | `bool`             |
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                |
+| :-----: | :------------------------------------------------------------------- | :------- | :-------------------------- |
+|  [01]   | `MTConnectAdapter(int?, bool)`                                       | ctor     | buffered SHDR relay         |
+|  [02]   | `MTConnectAdapter.Start()` / `Stop()`                                | instance | open / close the SHDR line  |
+|  [03]   | `MTConnectAdapter.AddObservation(string, object, long)`              | instance | buffer a scalar observation |
+|  [04]   | `MTConnectAdapter.AddObservation(IObservationInput)`                 | instance | buffer a typed observation  |
+|  [05]   | `MTConnectAdapter.AddObservations(IEnumerable<IObservationInput>)`   | instance | buffer an observation batch |
+|  [06]   | `MTConnectAdapter.AddAsset(IAssetInput)` / `AddDevice(IDeviceInput)` | instance | buffer asset / device model |
+|  [07]   | `MTConnectAdapter.SetUnavailable(long)`                              | instance | mark all points unavailable |
+|  [08]   | `MTConnectAdapter.SendChanged()` / `SendBuffer() -> bool`            | instance | flush changed / full buffer |
 
 [ENTRYPOINT_SCOPE]: consume path (poll + decode)
-- rail: live-wire
 
-The decode path traverses `StreamsResponseDocument` through `DeviceStream` and `ComponentStream` to each `Observation`.
+Decode traverses `StreamsResponseDocument` through `DeviceStream` and `ComponentStream` to each `Observation`.
 
-`Read` restores the poll cursor, `Save` persists `LastSequence` after a drain, and `GetValue` extracts one named observation value.
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :------------------------------ |
+|  [01]   | `ResponseDocumentFormatter.CreateStreamsResponseDocument(string, Stream)`       | static   | parse an agent document         |
+|  [02]   | `MTConnectClientInformation.Read(string, string) -> MTConnectClientInformation` | static   | restore the poll cursor         |
+|  [03]   | `MTConnectClientInformation.Save(string)`                                       | instance | persist `LastSequence` on drain |
+|  [04]   | `IObservationInput.GetValue(string) -> string`                                  | instance | extract one named value         |
 
-| [INDEX] | [MEMBER]                                                                | [KIND]      | [RETURN]                     |
-| :-----: | :---------------------------------------------------------------------- | :---------- | :--------------------------- |
-|  [01]   | `ResponseDocumentFormatter` parse over the fetched agent document       | call        | `StreamsResponseDocument`    |
-|  [02]   | `MTConnectClientInformation.Read(string deviceKey, string path = null)` | static call | `MTConnectClientInformation` |
-|  [03]   | `MTConnectClientInformation.Save(string path = null)`                   | call        | `void`                       |
-|  [04]   | `IObservationInput.GetValue(string valueKey)`                           | call        | `string`                     |
+- `ResponseDocumentFormatter.CreateStreamsResponseDocument`: returns `FormatReadResult<IStreamsResponseDocument>`, the result-wrapped streams graph.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IMPLEMENTATION_LAW]: model semantics
-- rail: live-wire
+[TOPOLOGY]:
+- `-Common` owns the observation/device/asset/streams object graph and the `ResponseDocumentFormatter` parse; it decodes the agent document AppHost fetches over the `OutboundHop`, never opening an HTTP or MQTT socket.
+- `MTConnectClientInformation` drives the incremental consume path: `InstanceId` and `LastSequence` cursor state, a poll requesting `from=LastSequence+1`, decode advancing and `Save`ing the cursor, so a restart resumes from the committed sequence and an agent `InstanceId` change forces a full re-current — the outbox-watermark durable-cursor discipline.
+- One `Observation` decodes to one `ExternalValue` (data-item value, declared unit/type from the device model, good flag from observation quality, source instant from the observation timestamp) at the boundary; the boxed MTConnect model type never enters the interior.
+- `MTConnectAdapter` is the SHDR relay case: AppHost re-publishes observations to a downstream agent, `AddObservation`/`SendChanged` buffering and flushing on the SHDR line, a distinct row shape from the consume path sharing the one transport row's binding spec.
 
-- `-Common` is the MODEL slice: it owns the observation/device/asset/streams object graph and the `ResponseDocumentFormatter` (XML/JSON parse), NOT an HTTP or MQTT client. The AppHost `mtconnect` transport row fetches the agent document over its own `OutboundHop` (HTTP `/sample` poll or MQTT subscribe), and `-Common` decodes the document into observations — the transport is firewalled here per the `-Common` pin.
-- the consume path is incremental: `MTConnectClientInformation` carries `InstanceId` + `LastSequence`; a poll requests `from=LastSequence+1` and, on decode, advances the cursor and `Save`s it, so a restart resumes from the committed sequence and an agent `InstanceId` change (agent restart) forces a full re-current — the same durable-cursor discipline the outbox watermark rides.
-- one `Observation` decodes to one `ExternalValue` (data-item value, declared unit/type from the device model, good flag from the observation quality, source instant from the observation timestamp) at the boundary; the boxed MTConnect model type never enters the interior.
-- the `MTConnectAdapter` (SHDR producer) is the relay case: where AppHost RE-PUBLISHES observations to a downstream MTConnect agent, `AddObservation`/`SendChanged` buffers and flushes on the SHDR line — a distinct row shape from the consume/poll case, sharing the one transport row's binding spec.
+[STACKING]:
+- within-lib: the `mtconnect` row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, `Subscribe` for an MQTT-relay agent, `Writable: false` for pure consume) and one `LiveClient` case wrapping the poll-decode-cursor loop, no bespoke poller beyond the `OutboundHop`; the SHDR relay case binds `Writable: true` over the same row.
 
-[IMPLEMENTATION_LAW]: AppHost usage
-- rail: live-wire
-
-- the live-wire `mtconnect` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, or `Subscribe` for MQTT-relay agents, `Writable: false` for the pure-consume case) and one `LiveClient` case wrapping the poll-decode-cursor loop — no second MTConnect surface, no bespoke poller beyond the `OutboundHop`.
-- the data-item map (device key, data-item keys, poll interval, sequence cursor) is binding-spec policy DATA; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
-- the named forward consumers are Fabrication `Tooling/magazine` mid-job tool-life reload — decoding `CuttingToolAsset` life/wear observations — and `Verify/probing` measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport here, the observation crossing the seam as a wire row exactly as `api-bacnet.md` feeds the twin-calibration lane. OPC-UA/umati machine data stays on the kept `OPCFoundation` runtime, never re-homed here.
+[LOCAL_ADMISSION]:
+- A data-item map (device key, data-item keys, poll interval, sequence cursor) is binding-spec policy data; the per-row retry is the `OutboundHop` breaker, never an MTConnect re-poll loop.
+- Fabrication `Tooling/magazine` mid-job tool-life reload decodes `CuttingToolAsset` life/wear observations, and `Verify/probing` binds measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport to the `OutboundHop`. OPC-UA/umati machine data stays on the `OPCFoundation` runtime, never re-homed here.
 
 [RAIL_LAW]:
 - Package: `MTConnect.NET-Common`
 - Owns: the MTConnect observation/device/asset/streams model, response-document parse, SHDR adapter relay, and incremental-poll cursor state
 - Accept: an agent document fetched over the AppHost `OutboundHop`, decoded to `ExternalValue` at the boundary, with `MTConnectClientInformation` as the durable sequence cursor
-- Reject: a bundled HTTP/MQTT transport client (firewalled — transport is the `OutboundHop`), a second MTConnect poller, or the boxed model type crossing into the interior
+- Reject: a bundled HTTP/MQTT transport client, a second MTConnect poller, or the boxed model type crossing into the interior

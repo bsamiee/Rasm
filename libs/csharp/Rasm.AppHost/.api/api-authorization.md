@@ -1,131 +1,124 @@
 # [RASM_APPHOST_API_AUTHORIZATION]
 
-`Microsoft.AspNetCore.Authorization` supplies the host-neutral attribute-based access control core: an injected `IAuthorizationService` that evaluates a `ClaimsPrincipal`, an optional resource, and a set of requirements through registered handlers into an `AuthorizationResult`. The evaluation core runs standalone over `AddAuthorizationCore()` with no `HttpContext` and no ASP.NET pipeline, serving the AppHost agent/policy rail.
+`Microsoft.AspNetCore.Authorization` owns the host-neutral ABAC evaluation core: an injected `IAuthorizationService` folds a `ClaimsPrincipal`, an optional resource, and a requirement set through registered handlers into an `AuthorizationResult`. `AddAuthorizationCore` registers that core standalone — no `HttpContext`, no ASP.NET pipeline — serving the AppHost agent/policy rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.Authorization`
 - package: `Microsoft.AspNetCore.Authorization`
 - assembly: `Microsoft.AspNetCore.Authorization`
-- namespace: `Microsoft.AspNetCore.Authorization`
-- namespace: `Microsoft.AspNetCore.Authorization.Infrastructure`
-- namespace: `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
+- namespace: `Microsoft.AspNetCore.Authorization`, `Microsoft.AspNetCore.Authorization.Infrastructure`, `Microsoft.Extensions.DependencyInjection`
 - rail: authorization
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluation and result family
-- rail: authorization
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]      | [RAIL]                        |
-| :-----: | :---------------------------- | :----------------- | :---------------------------- |
-|  [01]   | `IAuthorizationService`       | evaluation service | policy/requirement evaluation |
-|  [02]   | `AuthorizationResult`         | result value       | succeeded/failure outcome     |
-|  [03]   | `AuthorizationFailure`        | failure value      | explicit/reasoned failure     |
-|  [04]   | `AuthorizationFailureReason`  | failure detail     | handler-attributed message    |
-|  [05]   | `AuthorizationHandlerContext` | evaluation context | pending/succeed/fail ledger   |
-|  [06]   | `AuthorizationOptions`        | options            | named-policy registration     |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                 |
+| :-----: | :---------------------------- | :------------ | :--------------------------- |
+|  [01]   | `IAuthorizationService`       | interface     | requirement-set evaluation   |
+|  [02]   | `AuthorizationResult`         | class         | succeeded-or-failure outcome |
+|  [03]   | `AuthorizationFailure`        | class         | explicit reasoned failure    |
+|  [04]   | `AuthorizationFailureReason`  | class         | handler-attributed message   |
+|  [05]   | `AuthorizationHandlerContext` | class         | pending-succeed-fail ledger  |
+|  [06]   | `AuthorizationOptions`        | class         | named-policy registration    |
 
 [PUBLIC_TYPE_SCOPE]: handler and requirement family
-- rail: authorization
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]      | [RAIL]                     |
-| :-----: | :--------------------------------------------- | :----------------- | :------------------------- |
-|  [01]   | `IAuthorizationHandler`                        | handler contract   | requirement evaluation     |
-|  [02]   | `AuthorizationHandler<TRequirement>`           | handler base       | single-requirement handler |
-|  [03]   | `AuthorizationHandler<TRequirement,TResource>` | handler base       | resource-typed handler     |
-|  [04]   | `IAuthorizationRequirement`                    | requirement marker | handler dispatch key       |
-|  [05]   | `ClaimsAuthorizationRequirement`               | requirement        | claim-type/value match     |
-|  [06]   | `RolesAuthorizationRequirement`                | requirement        | role membership            |
-|  [07]   | `NameAuthorizationRequirement`                 | requirement        | user-name match            |
-|  [08]   | `DenyAnonymousAuthorizationRequirement`        | requirement        | authenticated-user gate    |
-|  [09]   | `OperationAuthorizationRequirement`            | requirement        | resource-operation match   |
-|  [10]   | `AssertionRequirement`                         | requirement        | inline predicate           |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [CAPABILITY]               |
+| :-----: | :--------------------------------------------- | :------------ | :------------------------- |
+|  [01]   | `IAuthorizationHandler`                        | interface     | requirement evaluation     |
+|  [02]   | `AuthorizationHandler<TRequirement>`           | class         | single-requirement handler |
+|  [03]   | `AuthorizationHandler<TRequirement,TResource>` | class         | resource-typed handler     |
+|  [04]   | `IAuthorizationRequirement`                    | interface     | handler dispatch key       |
+|  [05]   | `ClaimsAuthorizationRequirement`               | class         | claim-type-value match     |
+|  [06]   | `RolesAuthorizationRequirement`                | class         | role membership            |
+|  [07]   | `NameAuthorizationRequirement`                 | class         | user-name match            |
+|  [08]   | `DenyAnonymousAuthorizationRequirement`        | class         | authenticated-user gate    |
+|  [09]   | `OperationAuthorizationRequirement`            | class         | resource-operation match   |
+|  [10]   | `AssertionRequirement`                         | class         | inline predicate           |
 
 [PUBLIC_TYPE_SCOPE]: policy construction and provider family
-- rail: authorization
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                        |
-| :-----: | :----------------------------- | :-------------- | :---------------------------- |
-|  [01]   | `AuthorizationPolicy`          | policy value    | requirement set plus schemes  |
-|  [02]   | `AuthorizationPolicyBuilder`   | policy builder  | fluent requirement assembly   |
-|  [03]   | `IAuthorizationPolicyProvider` | policy provider | named/default/fallback lookup |
-|  [04]   | `AuthorizationBuilder`         | DI builder      | named-policy registration     |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                  |
+| :-----: | :----------------------------- | :------------ | :---------------------------- |
+|  [01]   | `AuthorizationPolicy`          | class         | requirement set plus schemes  |
+|  [02]   | `AuthorizationPolicyBuilder`   | class         | fluent requirement assembly   |
+|  [03]   | `IAuthorizationPolicyProvider` | interface     | named-default-fallback lookup |
+|  [04]   | `AuthorizationBuilder`         | class         | named-policy registration     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: evaluation operations
-- rail: authorization
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]       | [RAIL]                         |
-| :-----: | :--------------------------------------------- | :------------------- | :----------------------------- |
-|  [01]   | `AuthorizeAsync(user, resource, requirements)` | service evaluation   | requirement-set evaluation     |
-|  [02]   | `AuthorizeAsync(user, resource, policyName)`   | service evaluation   | named-policy evaluation        |
-|  [03]   | `AuthorizeAsync(user, resource, requirement)`  | extension evaluation | single-requirement evaluation  |
-|  [04]   | `AuthorizeAsync(user, resource, policy)`       | extension evaluation | policy-value evaluation        |
-|  [05]   | `AuthorizeAsync(user, policy)`                 | extension evaluation | resourceless policy evaluation |
-|  [06]   | `AuthorizeAsync(user, policyName)`             | extension evaluation | resourceless named evaluation  |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :--------------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `AuthorizeAsync(user, resource, requirements)` | instance | requirement-set evaluation     |
+|  [02]   | `AuthorizeAsync(user, resource, policyName)`   | instance | named-policy evaluation        |
+|  [03]   | `AuthorizeAsync(user, resource, requirement)`  | static   | single-requirement evaluation  |
+|  [04]   | `AuthorizeAsync(user, resource, policy)`       | static   | policy-value evaluation        |
+|  [05]   | `AuthorizeAsync(user, policy)`                 | static   | resourceless policy evaluation |
+|  [06]   | `AuthorizeAsync(user, policyName)`             | static   | resourceless named evaluation  |
 
 [ENTRYPOINT_SCOPE]: context and result operations
-- rail: authorization
 
-| [INDEX] | [SURFACE]                                                    | [CAPABILITY]                  |
-| :-----: | :----------------------------------------------------------- | :---------------------------- |
-|  [01]   | `HandleAsync(context)`                                       | requirement evaluation pass   |
-|  [02]   | `HandleRequirementAsync(context, req)`                       | typed requirement decision    |
-|  [03]   | `Context.Succeed(requirement)`                               | mark requirement satisfied    |
-|  [04]   | `Context.Fail()` / `Fail(reason)`                            | explicit or reasoned failure  |
-|  [05]   | `Context.PendingRequirements`                                | unsatisfied requirements      |
-|  [06]   | `Context.HasSucceeded` / `HasFailed`                         | aggregate evaluation state    |
-|  [07]   | `AuthorizationResult.Success()`                              | successful result factory     |
-|  [08]   | `AuthorizationResult.Failed(failure)`                        | failed-result carrier factory |
-|  [09]   | `AuthorizationFailure.FailedRequirements` / `FailureReasons` | failure details               |
-
-[FAILURE_DETAILS]: A failed result's `Failure` exposes the unmet `IEnumerable<IAuthorizationRequirement>` set and its `IEnumerable<AuthorizationFailureReason>` reasons.
+| [INDEX] | [SURFACE]                                 | [SHAPE]  | [CAPABILITY]                |
+| :-----: | :---------------------------------------- | :------- | :-------------------------- |
+|  [01]   | `HandleAsync(context)`                    | instance | requirement evaluation pass |
+|  [02]   | `HandleRequirementAsync(context, req)`    | instance | typed requirement decision  |
+|  [03]   | `Context.Succeed(requirement)`            | instance | mark requirement satisfied  |
+|  [04]   | `Context.Fail(reason)`                    | instance | latch reasoned or bare fail |
+|  [05]   | `Context.PendingRequirements`             | property | unsatisfied requirement set |
+|  [06]   | `Context.HasSucceeded`                    | property | aggregate success state     |
+|  [07]   | `Context.HasFailed`                       | property | aggregate failure state     |
+|  [08]   | `AuthorizationResult.Success()`           | factory  | successful result           |
+|  [09]   | `AuthorizationResult.Failed(failure)`     | factory  | failed-result carrier       |
+|  [10]   | `AuthorizationFailure.FailedRequirements` | property | unmet requirement set       |
+|  [11]   | `AuthorizationFailure.FailureReasons`     | property | attributed failure reasons  |
 
 [ENTRYPOINT_SCOPE]: policy construction and registration
-- rail: authorization
 
-| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]    | [RAIL]                         |
-| :-----: | :------------------------------------------------- | :---------------- | :----------------------------- |
-|  [01]   | `RequireClaim(type, allowedValues)`                | builder extension | claim requirement              |
-|  [02]   | `RequireRole(roles)`                               | builder extension | role requirement               |
-|  [03]   | `RequireUserName(userName)`                        | builder extension | name requirement               |
-|  [04]   | `RequireAuthenticatedUser()`                       | builder extension | deny-anonymous requirement     |
-|  [05]   | `RequireAssertion(handler)`                        | builder extension | inline predicate requirement   |
-|  [06]   | `AddRequirements(requirements)`                    | builder extension | explicit requirement admission |
-|  [07]   | `Combine(policy)` / `Build()`                      | builder lifecycle | policy assembly                |
-|  [08]   | `AuthorizationPolicy.Combine(policies)`            | policy combinator | merged policy value            |
-|  [09]   | `GetPolicyAsync(name)`                             | provider lookup   | named-policy resolution        |
-|  [10]   | `GetDefaultPolicyAsync` / `GetFallbackPolicyAsync` | provider lookup   | default/fallback resolution    |
-|  [11]   | `AddAuthorizationCore()`                           | DI registration   | standalone evaluation core     |
-|  [12]   | `AddAuthorizationCore(configure)`                  | DI registration   | options-configured core        |
+| [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :-------------------------------------- | :------- | :----------------------------- |
+|  [01]   | `RequireClaim(type, values)`            | instance | claim requirement              |
+|  [02]   | `RequireRole(roles)`                    | instance | role requirement               |
+|  [03]   | `RequireUserName(name)`                 | instance | name requirement               |
+|  [04]   | `RequireAuthenticatedUser()`            | instance | deny-anonymous requirement     |
+|  [05]   | `RequireAssertion(handler)`             | instance | inline predicate requirement   |
+|  [06]   | `AddRequirements(requirements)`         | instance | explicit requirement admission |
+|  [07]   | `Combine(policy)`                       | instance | fold an existing policy in     |
+|  [08]   | `Build()`                               | instance | assemble the policy value      |
+|  [09]   | `AuthorizationPolicy.Combine(policies)` | static   | merged policy value            |
+|  [10]   | `GetPolicyAsync(name)`                  | instance | named-policy resolution        |
+|  [11]   | `GetDefaultPolicyAsync()`               | instance | default-policy resolution      |
+|  [12]   | `GetFallbackPolicyAsync()`              | instance | fallback-policy resolution     |
+|  [13]   | `AddAuthorizationCore()`                | static   | standalone evaluation core     |
+|  [14]   | `AddAuthorizationCore(configure)`       | static   | options-configured core        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[AUTHORIZATION_TOPOLOGY]:
-- namespaces: evaluation core (`Microsoft.AspNetCore.Authorization`), built-in requirements (`Microsoft.AspNetCore.Authorization.Infrastructure`), DI registration (`Microsoft.Extensions.DependencyInjection`)
-- evaluation surface: `IAuthorizationService.AuthorizeAsync` accepts a `ClaimsPrincipal`, an optional `object?` resource, and either an `IEnumerable<IAuthorizationRequirement>` or a `string` policy name
-- result surface: `AuthorizationResult` carries `bool Succeeded` and a nullable `AuthorizationFailure?`; `[MemberNotNullWhen(false, "Failure")]` makes `Failure` non-null exactly when `Succeeded` is `false`
-- failure surface: `AuthorizationFailure` distinguishes `ExplicitFail()`, `Failed(reasons)`, and `Failed(failedRequirements)`; it exposes the `FailedRequirements` (`IEnumerable<IAuthorizationRequirement>`) and `FailureReasons` (`IEnumerable<AuthorizationFailureReason>`) read properties consumers project off a failed `AuthorizationResult.Failure`, and `AuthorizationFailureReason` attributes a `Message` to the originating `IAuthorizationHandler`
-- handler surface: `IAuthorizationHandler.HandleAsync(AuthorizationHandlerContext)` is the dispatch contract; `AuthorizationHandler<TRequirement>` and `AuthorizationHandler<TRequirement, TResource>` iterate matching requirements and dispatch to a typed `HandleRequirementAsync` override
-- context surface: `AuthorizationHandlerContext` is the evaluation ledger carrying `Requirements`, `User`, `Resource`, `PendingRequirements`, and `FailureReasons`; `Succeed(requirement)` removes from the pending set, `Fail()`/`Fail(reason)` latches failure, and `HasSucceeded` holds only when `Succeed` was called, `Fail` was not, and no requirements remain pending
-- requirement surface: `IAuthorizationRequirement` is an empty marker; built-in requirements (`ClaimsAuthorizationRequirement`, `RolesAuthorizationRequirement`, `NameAuthorizationRequirement`, `DenyAnonymousAuthorizationRequirement`, `OperationAuthorizationRequirement`, `AssertionRequirement`) are both the requirement and its self-handler
-- policy surface: `AuthorizationPolicy` is an immutable value of `IReadOnlyList<IAuthorizationRequirement> Requirements` and `IReadOnlyList<string> AuthenticationSchemes`; construction with an empty requirement set throws `InvalidOperationException`
-- builder surface: `AuthorizationPolicyBuilder` exposes fluent `Require*` methods that each append a requirement and return `this`, terminating in `Build()`
-- provider surface: `IAuthorizationPolicyProvider` resolves `GetPolicyAsync(name)`, `GetDefaultPolicyAsync()`, and `GetFallbackPolicyAsync()`, with `AllowsCachingPolicies` defaulting to `false`
-- registration surface: `AddAuthorizationCore()` registers `IAuthorizationService` (`DefaultAuthorizationServiceImpl`), `IAuthorizationPolicyProvider`, `IAuthorizationHandlerProvider`, `IAuthorizationEvaluator`, `IAuthorizationHandlerContextFactory`, and the enumerable `PassThroughAuthorizationHandler` as transient services with no HTTP dependency
+[TOPOLOGY]:
+- `IAuthorizationService.AuthorizeAsync` accepts a `ClaimsPrincipal`, an optional `object?` resource, and either an `IEnumerable<IAuthorizationRequirement>` or a `string` policy name.
+- `AuthorizationResult` carries `bool Succeeded` and a nullable `AuthorizationFailure?`; `[MemberNotNullWhen(false, "Failure")]` makes `Failure` non-null exactly when `Succeeded` is `false`.
+- `AuthorizationFailure` distinguishes `ExplicitFail()`, `Failed(reasons)`, and `Failed(failedRequirements)`, exposing `FailedRequirements` (`IEnumerable<IAuthorizationRequirement>`) and `FailureReasons` (`IEnumerable<AuthorizationFailureReason>`); each `AuthorizationFailureReason` attributes a `Message` to its originating `IAuthorizationHandler`.
+- `AuthorizationHandlerContext.HasSucceeded` holds only when `Succeed` was called, `Fail` was not, and no requirement remains pending; `Succeed(requirement)` drops from the pending set and `Fail` latches failure.
+- Each built-in requirement is both the `IAuthorizationRequirement` and its own `IAuthorizationHandler`; `IAuthorizationRequirement` is an empty marker.
+- `AuthorizationPolicy` is an immutable value of `IReadOnlyList<IAuthorizationRequirement> Requirements` and `IReadOnlyList<string> AuthenticationSchemes`; an empty requirement set throws `InvalidOperationException`, and `IAuthorizationPolicyProvider.AllowsCachingPolicies` defaults to `false`.
+- `AddAuthorizationCore` registers the evaluation core — service, policy provider, handler provider, evaluator, and context factory — as transient services with no HTTP dependency.
+
+[STACKING]:
+- `api-di`(`.api/api-di.md`): `AddAuthorizationCore` mints the evaluation-core `ServiceDescriptor` set onto the `IServiceCollection`, and both `IAuthorizationService` and every custom `IAuthorizationHandler` resolve through `GetRequiredService`.
+- `api-identitymodel-jwt`(`.api/api-identitymodel-jwt.md`): a validated `TokenValidationResult.ClaimsIdentity` becomes the `ClaimsPrincipal` argument to `AuthorizeAsync`, joining the token-validation leg to the access decision.
+- within-lib: AppHost's agent/policy rail injects `IAuthorizationService`, evaluates a domain resource object under an `OperationAuthorizationRequirement` and a resource-typed `AuthorizationHandler<TRequirement, TResource>`, and projects `AuthorizationFailure.FailureReasons` onto the host failure rail.
 
 [LOCAL_ADMISSION]:
-- The AppHost agent/policy rail consumes the evaluation core through `AddAuthorizationCore()`; the HTTP-coupled `AddAuthorization()` and middleware surface stay out of the host.
-- Authorization is an injected `IAuthorizationService` capability; evaluation passes a `ClaimsPrincipal`, a domain resource object, and requirements with no `HttpContext`.
-- Custom requirements implement `IAuthorizationRequirement` and pair with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
-- Decisions read `AuthorizationResult.Succeeded` and project `AuthorizationFailure.FailureReasons` into the host failure rail; the boolean and nullable `Failure` flow through typed results without throwing from handler callbacks.
-- Named policies register through `AuthorizationOptions`/`AuthorizationBuilder`; the resource-bound rail prefers explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` over string policy names.
+- AppHost binds the evaluation core through `AddAuthorizationCore`; the HTTP-coupled `AddAuthorization` and middleware surface stay out of the host.
+- A custom requirement implements `IAuthorizationRequirement` and pairs with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
+- Decisions read `AuthorizationResult.Succeeded` and project `AuthorizationFailure.FailureReasons`; the typed result flows through handler callbacks that never throw.
+- AppHost's resource-bound rail binds explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` ahead of string policy names, which register through `AuthorizationOptions`/`AuthorizationBuilder`.
 
 [RAIL_LAW]:
 - Package: `Microsoft.AspNetCore.Authorization`
-- Owns: host-neutral ABAC requirement/policy evaluation
+- Owns: host-neutral ABAC requirement and policy evaluation
 - Accept: `IAuthorizationService` over claims, resources, and registered handlers
 - Reject: HTTP-pipeline authorization middleware or hand-rolled claim/role checks

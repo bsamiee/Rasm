@@ -1,34 +1,30 @@
 # [RASM_APPHOST_API_MCP]
 
-`ModelContextProtocol.Core` owns the MCP session, client, server, transport, and primitive surfaces; `ModelContextProtocol` binds DI composition, builder extensions, and hosted-service plumbing; `ModelContextProtocol.AspNetCore` binds HTTP transport, SSE event-stream persistence, and authentication handler registration for ASP.NET Core hosts.
+`ModelContextProtocol.Core` owns the MCP session, client, server, transport, and primitive surfaces; `ModelContextProtocol` binds DI composition, builder extensions, and hosted-service plumbing; `ModelContextProtocol.AspNetCore` binds HTTP transport, SSE event-stream persistence, and ASP.NET Core authentication-handler registration.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ModelContextProtocol.Core`
 - package: `ModelContextProtocol.Core`
-- assembly: `ModelContextProtocol`
+- assembly: `ModelContextProtocol.Core`
 - namespace: `ModelContextProtocol`, `ModelContextProtocol.Client`, `ModelContextProtocol.Server`, `ModelContextProtocol.Protocol`
-- asset: runtime library
 - rail: mcp-protocol
 
 [PACKAGE_SURFACE]: `ModelContextProtocol`
 - package: `ModelContextProtocol`
 - assembly: `ModelContextProtocol`
 - namespace: `ModelContextProtocol`, `ModelContextProtocol.Server`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
 - rail: mcp-host
 
 [PACKAGE_SURFACE]: `ModelContextProtocol.AspNetCore`
 - package: `ModelContextProtocol.AspNetCore`
 - assembly: `ModelContextProtocol.AspNetCore`
 - namespace: `ModelContextProtocol.AspNetCore`, `ModelContextProtocol.AspNetCore.Authentication`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
-- asset: runtime library
 - rail: mcp-host
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and protocol primitives — `ModelContextProtocol.Core`
-- rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]       | [CAPABILITY]                     |
 | :-----: | :-------------------------- | :------------------ | :------------------------------- |
@@ -47,20 +43,11 @@
 |  [13]   | `UriTemplate`               | class               | RFC 6570 template evaluation     |
 |  [14]   | `Implementation`            | sealed class        | protocol identity                |
 
-[PROGRESS_NOTIFICATION_VALUE]:
-- Progress: `required float Progress`.
-- Total: `float? Total`.
-- Message: `string? Message`.
-- Setter: `init`.
+[PROGRESS_NOTIFICATION_VALUE]: `required float Progress`, `float? Total`, `string? Message`, all `init`.
 
-[IMPLEMENTATION]:
-- Namespace: `ModelContextProtocol.Protocol`.
-- Required identity: `required string Name` and `required string Version`.
-- Title: `Title`.
-- Consumers: `McpClientOptions.ClientInfo` and `McpServerOptions.ServerInfo`.
+[IMPLEMENTATION]: `ModelContextProtocol.Protocol`; `required string Name` and `required string Version` with `string? Title`, bound at `McpClientOptions.ClientInfo` and `McpServerOptions.ServerInfo`.
 
 [PUBLIC_TYPE_SCOPE]: server primitives — `ModelContextProtocol.Server`
-- rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]    | [CAPABILITY]                                          |
 | :-----: | :--------------------------- | :--------------- | :---------------------------------------------------- |
@@ -79,66 +66,37 @@
 |  [13]   | `StreamServerTransport`      | class            | stream-backed server transport                        |
 
 [TOOL_CREATE_OPTIONS]:
-- Identity: `Name`, `Title`, and `Description`.
-- Safety annotations: `ReadOnly`, `Destructive`, `Idempotent`, and `OpenWorld`.
-- Structured output: `UseStructuredContent` and `OutputSchema`.
-- Serializer and schema policy: `SerializerOptions` and `SchemaCreateOptions`.
-- Metadata: `Metadata`.
-- Services: `Services`.
+- Identity: `Name`, `Title`, `Description`.
+- Safety annotations: `ReadOnly`, `Destructive`, `Idempotent`, `OpenWorld` (nullable tri-state).
+- Structured output: `UseStructuredContent`, `OutputSchema`, `Execution` (`ToolExecution?`).
+- Policy: `SerializerOptions`, `SchemaCreateOptions`, `Services`, `Metadata`, `Icons`, `Meta`.
 
 [PUBLIC_TYPE_SCOPE]: client primitives — `ModelContextProtocol.Client`
-- rail: mcp-protocol
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                    |
-| :-----: | :------------------------------- | :------------ | :------------------------------ |
-|  [01]   | `McpClientTool`                  | sealed class  | server-tool function adapter    |
-|  [02]   | `McpClientPrompt`                | sealed class  | prompt accessor                 |
-|  [03]   | `McpClientResource`              | sealed class  | resource accessor               |
-|  [04]   | `McpClientResourceTemplate`      | sealed class  | resource-template accessor      |
-|  [05]   | `McpClientOptions`               | class         | client configuration            |
-|  [06]   | `McpClientHandlers`              | class         | notification-handler registry   |
-|  [07]   | `IClientTransport`               | interface     | session-transport factory       |
-|  [08]   | `HttpClientTransport`            | sealed class  | HTTP session transport          |
-|  [09]   | `StdioClientTransport`           | sealed class  | stdio session transport         |
-|  [10]   | `StreamClientTransport`          | sealed class  | paired-stream session transport |
-|  [11]   | `StdioClientTransportOptions`    | class         | stdio transport configuration   |
-|  [12]   | `HttpClientTransportOptions`     | class         | HTTP transport configuration    |
-|  [13]   | `HttpTransportMode`              | enum          | HTTP session-transport mode     |
-|  [14]   | `ClientTransportClosedException` | class         | transport-closed failure        |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                     |
+| :-----: | :------------------------------- | :------------ | :------------------------------- |
+|  [01]   | `McpClientTool`                  | sealed class  | server-tool `AIFunction` adapter |
+|  [02]   | `McpClientPrompt`                | sealed class  | prompt accessor                  |
+|  [03]   | `McpClientResource`              | sealed class  | resource accessor                |
+|  [04]   | `McpClientResourceTemplate`      | sealed class  | resource-template accessor       |
+|  [05]   | `McpClientOptions`               | class         | client configuration             |
+|  [06]   | `McpClientHandlers`              | class         | notification-handler registry    |
+|  [07]   | `IClientTransport`               | interface     | session-transport factory        |
+|  [08]   | `HttpClientTransport`            | sealed class  | HTTP session transport           |
+|  [09]   | `StdioClientTransport`           | sealed class  | stdio session transport          |
+|  [10]   | `StreamClientTransport`          | sealed class  | paired-stream session transport  |
+|  [11]   | `StdioClientTransportOptions`    | class         | stdio transport configuration    |
+|  [12]   | `HttpClientTransportOptions`     | class         | HTTP transport configuration     |
+|  [13]   | `HttpTransportMode`              | enum          | HTTP session-transport mode      |
+|  [14]   | `ClientTransportClosedException` | class         | transport-closed failure         |
 
-[CLIENT_TOOL]:
-- Base: `AIFunction`.
-- Payload: server tool.
+Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` lives in `ModelContextProtocol.Protocol` and constructs from `(Stream serverInput, Stream serverOutput, ILoggerFactory?)`.
 
-[HTTP_CLIENT_TRANSPORT]:
-- Contract: `IClientTransport`.
-- Selector: `HttpClientTransportOptions.TransportMode`.
-- Modes: streamable HTTP and SSE.
-
-[STDIO_CLIENT_TRANSPORT]:
-- Contract: `IClientTransport`.
-
-[STREAM_CLIENT_TRANSPORT]:
-- Contract: `IClientTransport`.
-- Position: third public implementor.
-- Namespace: `ModelContextProtocol.Protocol`.
-- Constructor: `(Stream serverInput, Stream serverOutput, ILoggerFactory?)`.
-
-[STDIO_CLIENT_TRANSPORT_OPTIONS]:
-- Required: `required string Command`.
-- Additional: `Arguments` and `Name`.
-
-[HTTP_CLIENT_TRANSPORT_OPTIONS]:
-- Required: `required Uri Endpoint`.
-- Mode: `HttpTransportMode TransportMode`.
-- Name: `Name`.
-
-[HTTP_TRANSPORT_MODE]:
-- Values: `AutoDetect`, `StreamableHttp`, and `Sse`.
-- Selection: `HttpClientTransport` connect-time session transport.
+- `StdioClientTransportOptions`: `required string Command`, with `Arguments` and `Name`.
+- `HttpClientTransportOptions`: `required Uri Endpoint`, `HttpTransportMode TransportMode`, `Name`.
+- `HttpTransportMode`: `AutoDetect`, `StreamableHttp`, `Sse`; `HttpClientTransport` selects at connect time.
 
 [PUBLIC_TYPE_SCOPE]: DI and builder — `Microsoft.Extensions.DependencyInjection` (in `ModelContextProtocol`)
-- rail: mcp-host
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                      |
 | :-----: | :---------------------------------- | :------------ | :-------------------------------- |
@@ -149,12 +107,10 @@
 |  [05]   | `McpMessageFilterBuilderExtensions` | static class  | message-filter registration       |
 |  [06]   | `McpRequestFilterBuilderExtensions` | static class  | per-operation filter registration |
 
-[SERVER_BUILDER_EXTENSIONS]: `WithTools`, `WithPrompts`, and `WithResources`.
-
-[MESSAGE_FILTER_BUILDER_EXTENSIONS]: `AddIncomingFilter` and `AddOutgoingFilter`.
+[SERVER_BUILDER_EXTENSIONS]: `WithTools` `WithPrompts` `WithResources`.
+[MESSAGE_FILTER_BUILDER_EXTENSIONS]: `AddIncomingFilter` `AddOutgoingFilter`.
 
 [PUBLIC_TYPE_SCOPE]: ASP.NET Core host — `ModelContextProtocol.AspNetCore`
-- rail: mcp-host
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                   |
 | :-----: | :---------------------------------- | :------------ | :--------------------------------------------- |
@@ -168,225 +124,105 @@
 |  [08]   | `McpAuthenticationHandler`          | class         | `AuthenticationHandler` implementation         |
 |  [09]   | `ResourceMetadataRequestContext`    | class         | resource metadata request context              |
 
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: server registration
-- rail: mcp-host
-
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]  | [CAPABILITY]                   |
-| :-----: | :--------------------------------- | :-------------- | :----------------------------- |
-|  [01]   | `AddMcpServer`                     | DI registration | server registration            |
-|  [02]   | `WithTools<TToolType>`             | builder fluent  | attributed tool discovery      |
-|  [03]   | `WithTools`                        | builder fluent  | programmatic tool registration |
-|  [04]   | `WithPrompts<TPromptType>`         | builder fluent  | attributed prompt discovery    |
-|  [05]   | `WithResources<TResourceType>`     | builder fluent  | attributed resource discovery  |
-|  [06]   | `WithToolsFromAssembly`            | builder fluent  | assembly tool discovery        |
-|  [07]   | `WithListToolsHandler`             | builder fluent  | list-tools handler             |
-|  [08]   | `WithCallToolHandler`              | builder fluent  | call-tool handler              |
-|  [09]   | `WithHttpTransport`                | builder fluent  | HTTP and SSE transport         |
-|  [10]   | `MapMcp`                           | routing         | endpoint registration          |
-|  [11]   | `AddMcp`                           | auth            | authentication scheme          |
-|  [12]   | `McpServerTool.Create(AIFunction)` | static factory  | function-backed tool           |
-|  [13]   | `McpServerTool.Create(Delegate)`   | static factory  | delegate-backed tool           |
-|  [14]   | `WithStdioServerTransport`         | builder fluent  | stdio transport                |
-
-[SERVER_REGISTRATION_SIGNATURES]:
-- `AddMcpServer(this IServiceCollection)`
-- `WithTools<TToolType>(this IMcpServerBuilder)`
-- `WithTools(this IMcpServerBuilder, IEnumerable<McpServerTool>)`
-- `WithPrompts<TPromptType>(this IMcpServerBuilder)`
-- `WithResources<TResourceType>(this IMcpServerBuilder)`
-- `WithToolsFromAssembly(this IMcpServerBuilder, Assembly?)`
-- `WithListToolsHandler(this IMcpServerBuilder, McpRequestHandler<..>)`
-- `WithCallToolHandler(this IMcpServerBuilder, McpRequestHandler<..>)`
-- `WithHttpTransport(this IMcpServerBuilder, ...)`
-- `MapMcp(this IEndpointRouteBuilder, pattern)`
-- `AddMcp(this AuthenticationBuilder, ...)`
-- `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)`
-- `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`
-- `WithStdioServerTransport(this IMcpServerBuilder)`
-
-[SERVER_REGISTRATION_CONTRACTS]:
-- `AddMcpServer`: Returns `IMcpServerBuilder`.
-- `WithTools<TToolType>`: Discovers `[McpServerTool]` methods.
-- `WithStdioServerTransport`: Belongs to the host `ModelContextProtocol` package rather than `ModelContextProtocol.Core`.
-
-[ENTRYPOINT_SCOPE]: client construction
-- rail: mcp-protocol
-
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]  | [CAPABILITY]                 |
-| :-----: | :------------------------------------- | :-------------- | :--------------------------- |
-|  [01]   | `McpClient.CreateAsync`                | static factory  | initialized client           |
-|  [02]   | `McpClient.ResumeSessionAsync`         | static factory  | detached-session resumption  |
-|  [03]   | `McpClient.ListToolsAsync`             | session call    | server tool enumeration      |
-|  [04]   | `McpClient.CallToolAsync`              | session call    | named tool invocation        |
-|  [05]   | `McpClient.ListPromptsAsync`           | session call    | server prompt enumeration    |
-|  [06]   | `McpClient.GetPromptAsync`             | session call    | prompt content retrieval     |
-|  [07]   | `McpClient.ListResourcesAsync`         | session call    | server resource enumeration  |
-|  [08]   | `McpClient.SubscribeToResourceAsync`   | session call    | resource update subscription |
-|  [09]   | `McpClient.ListResourceTemplatesAsync` | session call    | template enumeration         |
-|  [10]   | `McpClientTool.InvokeAsync`            | tool call       | `AIFunction` invocation      |
-|  [11]   | `McpClientOptions.ClientInfo`          | option property | initialize identity          |
-
-[CLIENT_CONSTRUCTION_SIGNATURES]:
-- `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)`
-- `McpClient.ResumeSessionAsync(IClientTransport, ResumeClientSessionOptions, ...)`
-- `McpClient.ListToolsAsync(RequestOptions?, CT)`
-- `McpClient.CallToolAsync(string toolName, IReadOnlyDictionary<string,object?>? args, IProgress<ProgressNotificationValue>? progress, RequestOptions?, CT)`
-- `McpClient.ListPromptsAsync(RequestOptions?, CT)`
-- `McpClient.GetPromptAsync(name, args, RequestOptions?)`
-- `McpClient.ListResourcesAsync(RequestOptions?, CT)`
-- `McpClient.SubscribeToResourceAsync(string uri, RequestOptions?, CT)`
-- `SubscribeToResourceAsync(string uri, Func<ResourceUpdatedNotificationParams,CancellationToken,ValueTask> handler, RequestOptions?, CT)`
-- `McpClient.ListResourceTemplatesAsync(RequestOptions?, CT)`
-- `McpClientTool.InvokeAsync(args, CT)`
-
-[CALL_TOOL]:
-- Return: `ValueTask<CallToolResult>`.
-- Position: `IProgress<ProgressNotificationValue>? progress` precedes `RequestOptions?`.
-- Binding: `progress`, `options`, and `cancellationToken` use named arguments.
-
-[SUBSCRIBE_TO_RESOURCE]:
-- Base overload: Returns `Task`.
-- Handler overload: Registers the per-URI update handler and returns `Task<IAsyncDisposable>`.
-- Position: `handler` precedes `RequestOptions?`.
-- Binding: `options` and `cancellationToken` use named arguments.
-
-[LIST_RESOURCE_TEMPLATES]:
-- Return: `ValueTask<IList<McpClientResourceTemplate>>`.
-- Template: `McpClientResourceTemplate` carries `UriTemplate`.
-
-[CLIENT_INFO]:
-- Binding: `CreateAsync` options.
-- Type: `Implementation?`.
-- Identity: `Name` and `Version`.
-- Exchange: initialize handshake.
-
-[ENTRYPOINT_SCOPE]: server options surface
-- rail: mcp-protocol
-
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]  | [CAPABILITY]                  |
-| :-----: | :--------------------------------------------- | :-------------- | :---------------------------- |
-|  [01]   | `McpServerOptions.ServerInfo`                  | option property | server identity               |
-|  [02]   | `McpServerOptions.Capabilities`                | option property | advertised capabilities       |
-|  [03]   | `McpServerOptions.ProtocolVersion`             | option property | protocol version              |
-|  [04]   | `McpServerOptions.InitializationTimeout`       | option property | handshake timeout             |
-|  [05]   | `McpServerOptions.ServerInstructions`          | option property | client instructions           |
-|  [06]   | `McpServerOptions.ToolCollection`              | option property | tool collection               |
-|  [07]   | `McpServerOptions.PromptCollection`            | option property | prompt collection             |
-|  [08]   | `McpServerOptions.ResourceCollection`          | option property | resource collection           |
-|  [09]   | `McpServerOptions.TaskStore`                   | option property | out-of-band task persistence  |
-|  [10]   | `McpServerOptions.SendTaskStatusNotifications` | option property | task-status notification flag |
-
-[SERVER_INFO]: `Implementation` name and version.
-
-[SERVER_CAPABILITIES]: `ServerCapabilities` advertised to clients.
-
-[PROTOCOL_VERSION]: Date-versioned protocol string.
-
-[INITIALIZATION_TIMEOUT]: 60-second default.
-
-[SERVER_COLLECTIONS]:
-- Tools: `McpServerPrimitiveCollection<McpServerTool>`.
-- Prompts: `McpServerPrimitiveCollection<McpServerPrompt>`.
-- Resources: `McpServerResourceCollection`.
-
-[TASK_STORE]:
-- Type: `IMcpTaskStore?`.
-- Payload: out-of-band task results.
-- Default: `InMemoryMcpTaskStore` when polling is enabled.
-
-[TASK_STATUS_NOTIFICATIONS]:
-- Type: `bool`.
-- Event: `notifications/tasks/status`.
-- Timing: long-running task advancement.
-
-[ENTRYPOINT_SCOPE]: server session long-running verbs — `ModelContextProtocol.Server` (`McpServer`)
-- rail: mcp-protocol
-
-| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]                  |
-| :-----: | :------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `McpServer.SampleAsync`                | server→client  | server-initiated LLM sampling |
-|  [02]   | `McpServer.SampleAsync`                | server→client  | chat-client sampling          |
-|  [03]   | `McpServer.AsSamplingChatClient`       | bridge         | sampling chat-client adapter  |
-|  [04]   | `McpServer.ElicitAsync`                | server→client  | structured mid-call input     |
-|  [05]   | `McpServer.ElicitAsync<T>`             | server→client  | typed mid-call input          |
-|  [06]   | `McpServer.GetTaskAsync`               | task poll      | task status                   |
-|  [07]   | `McpServer.GetTaskResultAsync<T>`      | task poll      | stored task result            |
-|  [08]   | `McpServer.WaitForTaskResultAsync<T>`  | task await     | terminal task result          |
-|  [09]   | `McpServer.PollTaskUntilCompleteAsync` | task poll      | terminal-status poll loop     |
-
-[SERVER_SESSION_SIGNATURES]:
-- `McpServer.SampleAsync(CreateMessageRequestParams, CT)`
-- `McpServer.SampleAsync(IEnumerable<ChatMessage>, ChatOptions?, JsonSerializerOptions?, CT)`
-- `McpServer.AsSamplingChatClient(JsonSerializerOptions?)`
-- `McpServer.ElicitAsync(ElicitRequestParams, CT)`
-- `McpServer.ElicitAsync<T>(string message, RequestOptions?, CT)`
-- `McpServer.GetTaskAsync(string taskId, CT)`
-- `McpServer.GetTaskAsync(string, string? sessionId, CT)`
-- `McpServer.GetTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`
-- `McpServer.WaitForTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`
-- `McpServer.PollTaskUntilCompleteAsync(string taskId, CT)`
-- `McpServer.PollTaskUntilCompleteAsync(string, RequestOptions?, CT)`
-
-[SERVER_SESSION_RETURNS]:
-- `SampleAsync(CreateMessageRequestParams, CT)`: `ValueTask<CreateMessageResult>`.
-- `SampleAsync(IEnumerable<ChatMessage>, ChatOptions?, JsonSerializerOptions?, CT)`: `Task<ChatResponse>`.
-- `AsSamplingChatClient(JsonSerializerOptions?)`: `IChatClient`.
-- `ElicitAsync(ElicitRequestParams, CT)`: `ValueTask<ElicitResult>`.
-- `ElicitAsync<T>(string message, RequestOptions?, CT)`: `ValueTask<ElicitResult<T>>` bound to a generated schema.
-- `GetTaskAsync(string taskId, CT)`: `ValueTask<McpTask>` carrying current status.
-- `GetTaskAsync(string, string? sessionId, CT)`: `Task<McpTask?>`.
-- `GetTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`: `ValueTask<T?>` decoding the stored payload.
-- `WaitForTaskResultAsync<T>(string taskId, JsonSerializerOptions?, CT)`: `ValueTask<(McpTask Task, T? Result)>` after terminal status.
-- `PollTaskUntilCompleteAsync`: `ValueTask<McpTask>` after terminal status.
-
 [PUBLIC_TYPE_SCOPE]: request-context surface — `ModelContextProtocol.Server`
-- rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]          |
 | :-----: | :------------------ | :------------ | :-------------------- |
 |  [01]   | `MessageContext`    | base class    | shared request state  |
 |  [02]   | `RequestContext<T>` | sealed class  | typed request context |
 
-[MESSAGE_CONTEXT]:
-- Server: `.Server` (`McpServer`).
-- Services: `.Services` (`IServiceProvider?`).
-- User: `.User` (`ClaimsPrincipal?`).
-- Items: `.Items` (`IDictionary<object,object>?`).
+[MESSAGE_CONTEXT]: declares `.Server`, `.Services`, `.User`, `.Items`.
+[REQUEST_CONTEXT]: `RequestContext<T> : MessageContext` adds `.Params`, `.MatchedPrimitive`, `.JsonRpcRequest`, `EnablePollingAsync(TimeSpan)`, and constructs from `(McpServer, JsonRpcRequest, T)`; `.Server` is inherited from `MessageContext`, never a direct `RequestContext<T>` member.
 
-[REQUEST_CONTEXT]:
-- Base: `MessageContext`.
-- Parameters: `.Params` (`T?`).
-- Primitive: `.MatchedPrimitive`.
-- Request: `.JsonRpcRequest`.
-- Polling: `EnablePollingAsync(TimeSpan, CT)`.
-- Constructor: `(McpServer, JsonRpcRequest, T)`.
+## [03]-[ENTRYPOINTS]
+
+[ENTRYPOINT_SCOPE]: server registration extensions on `IMcpServerBuilder`; `AddMcpServer` seeds the builder, `WithStdioServerTransport` ships in the host `ModelContextProtocol` package beside `WithTools`/`WithPrompts`/`WithResources`.
+
+| [INDEX] | [SURFACE]                                                       | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------- | :------ | :------------------------------------- |
+|  [01]   | `AddMcpServer(IServiceCollection)`                              | static  | seeds `IMcpServerBuilder`              |
+|  [02]   | `WithTools<TToolType>`                                          | static  | attributed `[McpServerTool]` discovery |
+|  [03]   | `WithTools(IEnumerable<McpServerTool>)`                         | static  | programmatic tool registration         |
+|  [04]   | `WithPrompts<TPromptType>`                                      | static  | attributed prompt discovery            |
+|  [05]   | `WithResources<TResourceType>`                                  | static  | attributed resource discovery          |
+|  [06]   | `WithToolsFromAssembly(Assembly?)`                              | static  | assembly tool discovery                |
+|  [07]   | `WithListToolsHandler(McpRequestHandler<..>)`                   | static  | list-tools handler                     |
+|  [08]   | `WithCallToolHandler(McpRequestHandler<..>)`                    | static  | call-tool handler                      |
+|  [09]   | `WithHttpTransport(Action<HttpServerTransportOptions>?)`        | static  | HTTP and SSE transport                 |
+|  [10]   | `MapMcp(string pattern)`                                        | static  | endpoint registration; default `""`    |
+|  [11]   | `AddMcp(AuthenticationBuilder)`                                 | static  | authentication scheme                  |
+|  [12]   | `McpServerTool.Create(AIFunction, McpServerToolCreateOptions?)` | factory | function-backed tool                   |
+|  [13]   | `McpServerTool.Create(Delegate, McpServerToolCreateOptions?)`   | factory | delegate-backed tool                   |
+|  [14]   | `WithStdioServerTransport`                                      | static  | stdio transport                        |
+
+[ENTRYPOINT_SCOPE]: client construction and calls; `McpClient.CreateAsync` is the sole construction point, and every session call trails `RequestOptions?` and `CancellationToken`.
+
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?)` | factory  | `-> Task<McpClient>`, initialized       |
+|  [02]   | `McpClient.ResumeSessionAsync(IClientTransport, ResumeClientSessionOptions)`  | factory  | detached-session resumption             |
+|  [03]   | `McpClient.ListToolsAsync()`                                                  | instance | `-> IList<McpClientTool>`               |
+|  [04]   | `McpClient.CallToolAsync(string, IReadOnlyDictionary, IProgress)`             | instance | `-> ValueTask<CallToolResult>`          |
+|  [05]   | `McpClient.ListPromptsAsync()`                                                | instance | `-> IList<McpClientPrompt>`             |
+|  [06]   | `McpClient.GetPromptAsync(string, IReadOnlyDictionary?)`                      | instance | `-> GetPromptResult`                    |
+|  [07]   | `McpClient.ListResourcesAsync()`                                              | instance | `-> IList<McpClientResource>`           |
+|  [08]   | `McpClient.SubscribeToResourceAsync(string)`                                  | instance | resource-update subscription            |
+|  [09]   | `McpClient.ListResourceTemplatesAsync()`                                      | instance | `-> IList<McpClientResourceTemplate>`   |
+|  [10]   | `McpClientTool.InvokeAsync(AIFunctionArguments?)`                             | instance | `AIFunction` invocation                 |
+|  [11]   | `McpClientOptions.ClientInfo`                                                 | property | initialize identity (`Implementation?`) |
+
+- `McpClient.SubscribeToResourceAsync`: its `Func<ResourceUpdatedNotificationParams, CancellationToken, ValueTask>` handler overload returns `Task<IAsyncDisposable>` and registers a per-URI update handler.
+
+[ENTRYPOINT_SCOPE]: server configuration on `McpServerOptions`.
+
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------- | :------- | :---------------------------------------------------- |
+|  [01]   | `McpServerOptions.ServerInfo`                  | property | server identity (`Implementation`)                    |
+|  [02]   | `McpServerOptions.Capabilities`                | property | advertised `ServerCapabilities`                       |
+|  [03]   | `McpServerOptions.ProtocolVersion`             | property | date-versioned protocol string                        |
+|  [04]   | `McpServerOptions.InitializationTimeout`       | property | handshake timeout; 60s default                        |
+|  [05]   | `McpServerOptions.ServerInstructions`          | property | client instructions                                   |
+|  [06]   | `McpServerOptions.ToolCollection`              | property | `McpServerPrimitiveCollection<McpServerTool>`         |
+|  [07]   | `McpServerOptions.PromptCollection`            | property | `McpServerPrimitiveCollection<McpServerPrompt>`       |
+|  [08]   | `McpServerOptions.ResourceCollection`          | property | `McpServerResourceCollection`                         |
+|  [09]   | `McpServerOptions.TaskStore`                   | property | `IMcpTaskStore?`; `InMemoryMcpTaskStore` when polling |
+|  [10]   | `McpServerOptions.SendTaskStatusNotifications` | property | emits `notifications/tasks/status`                    |
+
+[ENTRYPOINT_SCOPE]: `McpServer` session long-running verbs; server-initiated legs require a stateful session and trail `RequestOptions?`/`CancellationToken`.
+
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `McpServer.SampleAsync(CreateMessageRequestParams)`                   | instance | server LLM sampling `-> CreateMessageResult` |
+|  [02]   | `McpServer.SampleAsync(IEnumerable<ChatMessage>, ChatOptions?)`       | instance | chat sampling `-> Task<ChatResponse>`        |
+|  [03]   | `McpServer.AsSamplingChatClient(JsonSerializerOptions?)`              | instance | sampling-to-`IChatClient` bridge             |
+|  [04]   | `McpServer.ElicitAsync(ElicitRequestParams)`                          | instance | structured mid-call input `-> ElicitResult`  |
+|  [05]   | `McpServer.ElicitAsync<T>(string message)`                            | instance | typed mid-call input `-> ElicitResult<T>`    |
+|  [06]   | `McpServer.GetTaskAsync(string)`                                      | instance | task status `-> McpTask`                     |
+|  [07]   | `McpServer.GetTaskResultAsync<T>(string, JsonSerializerOptions?)`     | instance | stored result `-> T?`                        |
+|  [08]   | `McpServer.WaitForTaskResultAsync<T>(string, JsonSerializerOptions?)` | instance | terminal result `-> (McpTask, T?)`           |
+|  [09]   | `McpServer.PollTaskUntilCompleteAsync(string)`                        | instance | terminal-status poll `-> McpTask`            |
+
+- `McpServer.ElicitAsync<T>`: binds the result to a source-generated schema for `T`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SESSION_TOPOLOGY]:
-- namespace roots: `ModelContextProtocol`, `ModelContextProtocol.Client`, `ModelContextProtocol.Server`
-- session base: `McpSession : IAsyncDisposable`; both `McpServer` and `McpClient` extend it
-- tool integration: `McpClientTool : AIFunction` — client-side tools surface as `AIFunction` instances
-- primitive base: `McpServerTool`, `McpServerPrompt`, `McpServerResource` all implement `IMcpServerPrimitive`
-- attribute discovery: `[McpServerTool]` on public methods drives reflection-based tool registration
-- task persistence: `IMcpTaskStore` / `InMemoryMcpTaskStore` back the out-of-band task-result protocol; `McpServerOptions.TaskStore` wires the store and `SendTaskStatusNotifications` toggles `notifications/tasks/status`
-- request context: `MessageContext` is the declaring owner of `.Server`/`.Services`/`.User`/`.Items`; `RequestContext<T> : MessageContext` adds `.Params`/`.MatchedPrimitive`/`.JsonRpcRequest`/`EnablePollingAsync(TimeSpan, CT)` and arrives through the `(McpServer, JsonRpcRequest, T)` ctor — never read `.Server` as a direct `RequestContext<T>` property, it is inherited from `MessageContext`
-- server long-running verbs: `McpServer.SampleAsync` / `AsSamplingChatClient` / `ElicitAsync` / `ElicitAsync<T>` / `GetTaskAsync` / `GetTaskResultAsync<T>` / `WaitForTaskResultAsync<T>` / `PollTaskUntilCompleteAsync` are `McpServer` session members; `AsSamplingChatClient` is the SDK server-sampling-to-`IChatClient` bridge declared on `McpServer` (host/Core), NOT an `Microsoft.Extensions.AI` member, and is filed here, never in `api-extensions-ai.md`
-- stdio transport attribution: `WithStdioServerTransport(IMcpServerBuilder)` is declared on `Microsoft.Extensions.DependencyInjection.McpServerBuilderExtensions` in the **host `ModelContextProtocol`** package beside `WithTools`/`WithPrompts`/`WithResources`, NOT in `ModelContextProtocol.Core`; the `StdioServerTransport`/`StreamServerTransport` types are Core, the builder shortcut is host-package
+[TOPOLOGY]:
+- `McpSession : IAsyncDisposable`; `McpServer` and `McpClient` both extend it.
+- `McpServerTool`, `McpServerPrompt`, `McpServerResource` all implement `IMcpServerPrimitive`; `[McpServerTool]` on public methods drives reflection-based tool registration.
+- `IMcpTaskStore`/`InMemoryMcpTaskStore` back the out-of-band task-result protocol.
+
+[STACKING]:
+- `api-extensions-ai.md`(`.api/api-extensions-ai.md`): `McpClientTool : AIFunction`, so server tools surface as MEAI `AIFunction` instances registered in `ChatOptions.Tools`; `AIFunctionMcpServerTool` wraps a MEAI `AIFunction` as a server-side tool, and `AIContentExtensions` bridges `AIContent` across the boundary.
+- `api-extensions-ai.md`(`.api/api-extensions-ai.md`): `McpServer.AsSamplingChatClient(JsonSerializerOptions?)` projects the server-sampling leg as an `IChatClient` the in-process reasoning loop reuses; it is declared on `McpServer` (host/Core), never an `Microsoft.Extensions.AI` member.
+- within-host DI: `AddMcpServer().WithTools(...)/WithHttpTransport(...)` folds server registration into the host `IServiceCollection`, and `McpJsonUtilities.DefaultOptions` supplies the canonical `JsonSerializerOptions` at every boundary.
 
 [LOCAL_ADMISSION]:
-- DI registration entry: `services.AddMcpServer()` returns `IMcpServerBuilder`; `WithHttpTransport()` attaches HTTP/SSE
-- HTTP host entry: `MapMcp(pattern)` registers the endpoint; default pattern is `""`
-- Auth extension: `authBuilder.AddMcp()` registers scheme; `McpAuthenticationHandler` implements token exchange
-- Client construction: `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)` is the sole construction point; `ResumeSessionAsync` resumes a detached session
-- JSON options: `McpJsonUtilities.DefaultOptions` carries the canonical `JsonSerializerOptions`; use it at boundaries
-- long-running task admission: `McpServerOptions.TaskStore` + `SendTaskStatusNotifications` arm the out-of-band task protocol; a tool method opts a request into polling through `RequestContext<T>.EnablePollingAsync(interval, ct)`, and a client drives the result through `McpServer.GetTaskAsync`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`
-- server-initiated legs: `SampleAsync` (server→client LLM sampling) and `ElicitAsync`/`ElicitAsync<T>` (mid-call structured input) require a stateful session — over HTTP they force `HttpServerTransportOptions.Stateless = false`; `AsSamplingChatClient(JsonSerializerOptions?)` projects the sampling leg as an `IChatClient` the in-process reasoning loop reuses
+- `services.AddMcpServer()` seeds `IMcpServerBuilder`; `WithHttpTransport()` attaches HTTP/SSE; `MapMcp(pattern)` registers the endpoint; `authBuilder.AddMcp()` registers the scheme and `McpAuthenticationHandler` implements token exchange.
+- `McpServerOptions.TaskStore` and `SendTaskStatusNotifications` arm the out-of-band task protocol; a tool method opts a request into polling through `RequestContext<T>.EnablePollingAsync(interval, ct)`, and the client drives the result through `GetTaskAsync`/`WaitForTaskResultAsync<T>`/`PollTaskUntilCompleteAsync`.
+- `SampleAsync` and `ElicitAsync`/`ElicitAsync<T>` require a stateful session; over HTTP they force `HttpServerTransportOptions.Stateless = false`.
 
 [RAIL_LAW]:
-- Package: `ModelContextProtocol.Core` + `ModelContextProtocol` + `ModelContextProtocol.AspNetCore`
-- Owns: MCP session, server primitives, client tools, transport selection, DI registration, HTTP hosting, the server long-running task/sampling/elicitation session surface
-- Accept: session-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`; long-running calls through `RequestContext<T>.EnablePollingAsync` + the `McpServer` task verbs
-- Reject: hand-rolled JSON-RPC framing, out-of-session protocol message construction, reading `.Server`/`.Services`/`.User`/`.Items` as direct `RequestContext<T>` members (they are inherited from `MessageContext`), filing `AsSamplingChatClient` under the MEAI catalogue
+- Package: `ModelContextProtocol.Core`, `ModelContextProtocol`, `ModelContextProtocol.AspNetCore`
+- Owns: MCP session, server primitives, client tools, transport selection, DI registration, HTTP hosting, and the server long-running task/sampling/elicitation surface.
+- Accept: session-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`; long-running calls through `RequestContext<T>.EnablePollingAsync` plus the `McpServer` task verbs.
+- Reject: hand-rolled JSON-RPC framing; out-of-session protocol message construction; reading `.Server`/`.Services`/`.User`/`.Items` as direct `RequestContext<T>` members; filing `AsSamplingChatClient` under the MEAI catalogue.

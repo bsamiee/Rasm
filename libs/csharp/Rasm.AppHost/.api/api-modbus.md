@@ -1,144 +1,103 @@
 # [RASM_APPHOST_API_MODBUS]
 
-`FluentModbus` owns managed Modbus TCP, RTU, and ASCII client/server transport through typed, `Span<T>`-windowed coil and register operations. `ModbusEndianness` governs byte order, reason-coded faults cross the live-wire seam, and the `modbus` and serial-Modbus transport rows bind through one `TransportRow` adapter.
+`FluentModbus` owns managed Modbus TCP, RTU, and ASCII client transport through one `ModbusClient` register and coil surface windowed as typed `Span<T>`. `ModbusEndianness` fixes register byte order at `Connect`, a `ModbusException` carries the reason-coded protocol fault, and every client folds behind the AppHost live-wire `TransportRow` adapter.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentModbus`
-- package: `FluentModbus`
-- license: `MIT`
+- package: `FluentModbus` (`MIT`)
 - assembly: `FluentModbus`
 - namespace: `FluentModbus`
-- target: `netstandard2.1`; the `net10.0` consumer binds it
-- asset: runtime library
+- target: `netstandard2.1`
 - rail: live-wire
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: client and base surfaces
-- rail: live-wire
+[PUBLIC_TYPE_SCOPE]: client and server surfaces
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]                                  |
-| :-----: | :---------------- | :------------ | :-------------------------------------------- |
-|  [01]   | `ModbusClient`    | abstract base | shared read/write function-code operations    |
-|  [02]   | `ModbusTcpClient` | client        | Modbus-TCP transport over a socket            |
-|  [03]   | `ModbusRtuClient` | client        | Modbus-RTU/ASCII transport over a serial port |
-|  [04]   | `ModbusTcpServer` | server        | in-process Modbus-TCP server (test/loopback)  |
-|  [05]   | `ModbusRtuServer` | server        | in-process Modbus-RTU server                  |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [CAPABILITY]                                  |
+| :-----: | :----------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `ModbusClient`           | abstract class | shared register and coil function-code ops    |
+|  [02]   | `ModbusTcpClient`        | class          | Modbus-TCP transport over a socket            |
+|  [03]   | `ModbusRtuClient`        | class          | Modbus-RTU/ASCII transport over a serial port |
+|  [04]   | `ModbusRtuOverTcpClient` | class          | RTU frames tunneled over a TCP socket         |
+|  [05]   | `ModbusTcpServer`        | class          | in-process Modbus-TCP server                  |
+|  [06]   | `ModbusRtuServer`        | class          | in-process Modbus-RTU server                  |
 
 [PUBLIC_TYPE_SCOPE]: policy and fault surfaces
-- rail: live-wire
 
-`ModbusEndianness` selects `LittleEndian` or `BigEndian` register order, and `ModbusRtuSerialFormat` governs baud, parity, and stop-bit settings.
+RTU line format rides `ModbusRtuClient` `BaudRate`/`Parity`/`StopBits`/`Handshake` properties, the `Parity`/`StopBits`/`Handshake` enums owned by `System.IO.Ports`.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                     |
-| :-----: | :---------------------- | :------------ | :------------------------------- |
-|  [01]   | `ModbusEndianness`      | enum          | register byte-order policy       |
-|  [02]   | `ModbusFrameError`      | enum          | frame-level error classification |
-|  [03]   | `ModbusExceptionCode`   | enum          | Modbus protocol exception codes  |
-|  [04]   | `ModbusException`       | exception     | reason-coded protocol fault      |
-|  [05]   | `ModbusRtuSerialFormat` | enum/options  | RTU line format                  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :-------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `ModbusEndianness`    | enum          | `LittleEndian`/`BigEndian` register order |
+|  [02]   | `ModbusFunctionCode`  | enum          | protocol function-code vocabulary         |
+|  [03]   | `ModbusExceptionCode` | enum          | protocol exception codes                  |
+|  [04]   | `ModbusException`     | exception     | reason-coded protocol fault               |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection lifecycle
-- rail: live-wire
 
-Timeout properties use milliseconds.
+Timeout properties carry milliseconds; `ModbusEndianness` defaults to `LittleEndian` when the overload omits it.
 
-| [INDEX] | [MEMBER]                                                 | [KIND]      | [TYPE] |
-| :-----: | :------------------------------------------------------- | :---------- | :----- |
-|  [01]   | `ModbusTcpClient.Connect(IPEndPoint, ModbusEndianness)`  | client call | `void` |
-|  [02]   | `ModbusTcpClient.Connect(IPAddress, ModbusEndianness)`   | client call | `void` |
-|  [03]   | `ModbusRtuClient.Connect(string port, ModbusEndianness)` | client call | `void` |
-|  [04]   | `ModbusClient.Disconnect()`                              | client call | `void` |
-|  [05]   | `ModbusTcpClient.ConnectTimeout`                         | property    | `int`  |
-|  [06]   | `ModbusTcpClient.ReadTimeout`                            | property    | `int`  |
-|  [07]   | `ModbusTcpClient.WriteTimeout`                           | property    | `int`  |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------ | :------- | :----------------------------------- |
+|  [01]   | `ModbusTcpClient.Connect(IPEndPoint, ModbusEndianness)`       | instance | open the TCP socket, set byte order  |
+|  [02]   | `ModbusTcpClient.Connect(IPAddress, ModbusEndianness)`        | instance | open the TCP socket to an address    |
+|  [03]   | `ModbusRtuClient.Connect(string, ModbusEndianness)`           | instance | open the serial port, set byte order |
+|  [04]   | `ModbusTcpClient.Disconnect()`                                | instance | close the TCP socket                 |
+|  [05]   | `ModbusRtuClient.Close()`                                     | instance | close the serial port                |
+|  [06]   | `ModbusClient.IsConnected`                                    | property | live connection status               |
+|  [07]   | `ModbusRtuClient.BaudRate / Parity / StopBits / Handshake`    | property | RTU serial line format               |
+|  [08]   | `ModbusTcpClient.ConnectTimeout / ReadTimeout / WriteTimeout` | property | TCP timeout policy                   |
 
 [ENTRYPOINT_SCOPE]: register and coil operations
-- rail: live-wire
 
-`ModbusClient` owns register and coil operations through shared unit, address-window, and payload parameters.
+`ModbusClient` owns these; each leads with `int unitIdentifier` and an address window, and every generic element is `T : unmanaged`. `WriteSingleRegister` also takes `ushort` and `byte[]` overloads, and `ReadWriteMultipleRegisters` carries a read window then a write window with its `TWrite[]` dataset.
 
-| [INDEX] | [MEMBER]                                    | [KIND]   | [RETURN]      |
-| :-----: | :------------------------------------------ | :------- | :------------ |
-|  [01]   | `ReadHoldingRegisters<T>`                   | read     | `Span<T>`     |
-|  [02]   | `ReadInputRegisters<T>`                     | read     | `Span<T>`     |
-|  [03]   | `WriteSingleRegister`                       | write    | `void`        |
-|  [04]   | `WriteMultipleRegisters<T>`                 | write    | `void`        |
-|  [05]   | `ReadWriteMultipleRegisters<TRead, TWrite>` | exchange | `Span<TRead>` |
-|  [06]   | `ReadCoils`                                 | read     | `Span<byte>`  |
-|  [07]   | `ReadDiscreteInputs`                        | read     | `Span<byte>`  |
-|  [08]   | `WriteSingleCoil`                           | write    | `void`        |
-|  [09]   | `WriteMultipleCoils`                        | write    | `void`        |
-|  [10]   | `ReadHoldingRegisters`                      | raw read | `Span<byte>`  |
-
-[READ_REGISTER_PARAMETERS]:
-- Members: `ReadHoldingRegisters<T>`, `ReadInputRegisters<T>`
-- Parameters: `int unitIdentifier`, `int startingAddress`, `int count`
-- Constraint: `T : unmanaged`
-
-[WRITE_REGISTER_PARAMETERS]:
-- `WriteSingleRegister`: `int unitIdentifier`, `int registerAddress`, `short value`; overloads accept `ushort` and `byte[]` values.
-- `WriteMultipleRegisters<T>`: `int unitIdentifier`, `int startingAddress`, `T[] dataset`; `T : unmanaged`.
-
-[READ_WRITE_REGISTER_PARAMETERS]:
-- Parameters: `int unitIdentifier`, `int readStartingAddress`, `int readCount`, `int writeStartingAddress`, `TWrite[] dataset`
-- Constraints: `TRead : unmanaged`, `TWrite : unmanaged`
-
-[COIL_PARAMETERS]:
-- `ReadCoils` and `ReadDiscreteInputs`: `int unitIdentifier`, `int startingAddress`, `int quantity`.
-- `WriteSingleCoil`: `int unitIdentifier`, `int registerAddress`, `bool value`.
-- `WriteMultipleCoils`: `int unitIdentifier`, `int startingAddress`, `bool[] values`.
-
-[RAW_REGISTER_PARAMETERS]:
-- `ReadHoldingRegisters`: `byte unitIdentifier`, `ushort startingAddress`, `ushort quantity`.
+| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :-------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `ReadHoldingRegisters<T>(int, int, int) -> Span<T>`             | instance | read holding registers, typed      |
+|  [02]   | `ReadInputRegisters<T>(int, int, int) -> Span<T>`               | instance | read input registers, typed        |
+|  [03]   | `WriteSingleRegister(int, int, short)`                          | instance | write one register                 |
+|  [04]   | `WriteMultipleRegisters<T>(int, int, T[])`                      | instance | write a typed register block       |
+|  [05]   | `ReadWriteMultipleRegisters<TRead, TWrite>(...) -> Span<TRead>` | instance | write-then-read in one transaction |
+|  [06]   | `ReadCoils(int, int, int) -> Span<byte>`                        | instance | read coils, one bit per coil       |
+|  [07]   | `ReadDiscreteInputs(int, int, int) -> Span<byte>`               | instance | read discrete inputs               |
+|  [08]   | `WriteSingleCoil(int, int, bool)`                               | instance | write one coil                     |
+|  [09]   | `WriteMultipleCoils(int, int, bool[])`                          | instance | write a coil block                 |
+|  [10]   | `ReadHoldingRegisters(byte, ushort, ushort) -> Span<byte>`      | instance | raw untyped register window        |
 
 [ENTRYPOINT_SCOPE]: async operations
-- rail: live-wire
 
-`ModbusClient` owns cancellation-aware asynchronous register operations and await-safe return storage.
+Each async op mirrors its sync member with a trailing `CancellationToken = default` and returns `Task<Memory<T>>`, so register storage survives `await` where the sync path returns `Span<T>`.
 
-| [INDEX] | [MEMBER]                                              | [KIND]   | [RETURN]              |
-| :-----: | :---------------------------------------------------- | :------- | :-------------------- |
-|  [01]   | `ReadHoldingRegistersAsync<T>`                        | read     | `Task<Memory<T>>`     |
-|  [02]   | `WriteMultipleRegistersAsync<T>`                      | write    | `Task`                |
-|  [03]   | `ReadInputRegistersAsync<T>`                          | read     | `Task<Memory<T>>`     |
-|  [04]   | `ReadWriteMultipleRegistersAsync<TRead, TWrite>(...)` | exchange | `Task<Memory<TRead>>` |
-
-[ASYNC_READ_PARAMETERS]:
-- Members: `ReadHoldingRegistersAsync<T>`, `ReadInputRegistersAsync<T>`
-- Parameters: `int unitIdentifier`, `int startingAddress`, `int count`, `CancellationToken = default`
-- Constraint: `T : unmanaged`
-
-[ASYNC_WRITE_PARAMETERS]:
-- Parameters: `int unitIdentifier`, `int startingAddress`, `T[] dataset`, `CancellationToken = default`
-- Constraint: `T : unmanaged`
+| [INDEX] | [SURFACE]                                                                           | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `ReadHoldingRegistersAsync<T>(int, int, int, CancellationToken) -> Task<Memory<T>>` | instance | await-safe holding-register read |
+|  [02]   | `ReadInputRegistersAsync<T>(int, int, int, CancellationToken) -> Task<Memory<T>>`   | instance | await-safe input-register read   |
+|  [03]   | `WriteMultipleRegistersAsync<T>(int, int, T[], CancellationToken) -> Task`          | instance | await-safe register block write  |
+|  [04]   | `ReadWriteMultipleRegistersAsync<TRead, TWrite>(...) -> Task<Memory<TRead>>`        | instance | await-safe write-then-read       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[IMPLEMENTATION_LAW]: client semantics
-- rail: live-wire
+[TOPOLOGY]:
+- `ModbusEndianness` fixes at `Connect` and governs the byte order of every multi-byte register `T`; the AppHost binding carries it as a `TransportRow` policy column, never a per-read flag.
+- `ReadHoldingRegisters<T>` reinterprets each `T : unmanaged` register window as a `Span<T>` over `short`, `ushort`, `int`, `float`, or `double`, decoded to one `ExternalValue`; the async mirror returns `Task<Memory<T>>` for storage that outlives `await`.
+- `unitIdentifier` is the slave address and the address window (`startingAddress`, `count`) is binding-spec policy data, never a parallel poller.
+- one `ModbusClient` register and coil surface serves the TCP, RTU, and RTU-over-TCP transports alike.
+- a `ModbusException` carrying a `ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating into the interior.
 
-- `ModbusEndianness` is set at `Connect` and governs the byte order of every multi-byte register `T`; the AppHost binding carries it as a `TransportRow`/binding-spec policy column, never a per-read flag.
-- `unitId` is the Modbus slave address; `startingAddress`/`count` define the register window the binding spec carries.
-- a protocol exception surfaces as `ModbusException` carrying a `ModbusExceptionCode`; the AppHost binding projects it to `WireFault.ReadFailed`/`WriteRejected` at the boundary, never propagating the exception into the interior.
-- `ModbusRtuClient` binds over `System.IO.Ports` for RTU/ASCII fieldbus and shares one register-operation surface with the TCP client.
+[STACKING]:
+- `System.IO.Ports`(`.api/api-serialport.md`): `ModbusRtuClient` binds a `SerialPort` line for RTU/ASCII fieldbus, its `Parity`/`StopBits`/`Handshake` line policy carried by that owner.
+- within-lib: the live-wire `modbus` transport row binds `ModbusTcpClient`/`ModbusRtuClient` behind one `TransportRow.Read`/`Write` adapter, a typed `Span<T>` read projecting one `ExternalValue` (raw value, declared unit, good flag, source instant) onto the row's `OutboundHop`, the boxed register never entering the interior.
 
-[TYPED_REGISTER_WINDOWS]:
-- Sync: `ReadHoldingRegisters<T>` reinterprets each `T : unmanaged` register window as a `Span<T>` over `short`, `ushort`, `int`, `float`, or `double`, then decodes the window to one `ExternalValue`.
-- Async: the async mirror returns `Task<Memory<T>>`, so register storage survives `await` while the synchronous path remains `Span<T>`.
-- Write: `WriteMultipleRegisters<T>` takes a `T[] dataset`.
-- Raw: the non-generic `byte` and `ushort` overloads carry untyped register windows.
+[LOCAL_ADMISSION]:
+- `ModbusTcpClient` binds an `OutboundHop.ServerStream` direct-TCP hop and `ModbusRtuClient` an `OutboundHop.CompanionSpawn` over the serial owner; the `modbus` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with `ReadShape.Poll` and `Writable: true`, its register map binding-spec policy carried on the row.
 
-[IMPLEMENTATION_LAW]: AppHost usage
-- rail: live-wire
-
-- the live-wire `modbus` transport row binds `ModbusTcpClient`/`ModbusRtuClient` behind the one `TransportRow.Read`/`Write` adapter; the register window read projects one `ExternalValue` (raw register value, declared unit, good flag, source instant) riding the row's `OutboundHop`.
-- a register map (start address, count, endianness, unit id) is binding-spec policy data, never a parallel Modbus poller; the per-row retry is the `OutboundHop` breaker, never a FluentModbus retry loop.
-
-[STACK]:
-- transport axis: the `modbus` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with `ReadShape.Poll` and `Writable: true`; `ModbusTcpClient` binds an `OutboundHop.ServerStream` direct-TCP hop, and `ModbusRtuClient` binds an `OutboundHop.CompanionSpawn` over `System.IO.Ports`.
-- value projection: a typed `Span<T>` register read decodes to one `ExternalValue` (raw value, declared unit, good flag, source instant) at the boundary; the boxed register never enters the interior.
-- fault seam: a `ModbusException`/`ModbusExceptionCode` projects to `WireFault.ReadFailed`/`WriteRejected` at the boundary, folded through the live-wire registry band, never propagating into the interior.
+[RAIL_LAW]:
+- Package: `FluentModbus`
+- Owns: managed Modbus TCP/RTU/ASCII client transport and typed `Span<T>` register and coil windows
+- Accept: a typed register window decoded to one `ExternalValue`, and a `ModbusException`/`ModbusExceptionCode` projected to `WireFault.ReadFailed`/`WriteRejected` at the boundary
+- Reject: a hand-rolled Modbus frame codec, a boxed per-register allocation, or a FluentModbus-internal retry loop the `OutboundHop` breaker forecloses
