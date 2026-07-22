@@ -69,7 +69,7 @@ Tables enumerate, cards legislate. A table is a lookup grid, not a prose contain
 [MECHANICS]:
 - Enumerable tables open with a centered `[INDEX]` column numbered `[01]` through `[NN]`; non-enumerable matrices use a bracketed stub rubric instead. Every header is a bracketed uppercase rubric.
 - Left-align text, paths, code, enums, and identifiers; right-align numeric and date columns; center only `[INDEX]`, compact markers, and values three characters or fewer.
-- Keep tables under 15 columns and 20 rows with at most one trailing prose column that still obeys the cell budget. A registry table — a closed roster of atomic rows in four columns or fewer whose payload is the roster itself — is legal past the row ceiling.
+- Tables hold as many rows as their roster has — row count is never capped, and a fact that belongs in a row stays a row. Width alone bounds a table: the 150-column rendered cap is the sole size law, so an oversized table relieves its cells or decomposes on the column axis, never sheds rows or tears into prose. Column count stays under 15 with at most one trailing prose column that still obeys the cell budget.
 - A label colon in a cell capitalizes its first following word as a sentence start; an identifier, path, or code span is verbatim.
 
 [CONVERSION]:

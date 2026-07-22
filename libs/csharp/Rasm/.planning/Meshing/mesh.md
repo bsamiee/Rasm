@@ -1,23 +1,23 @@
 # [RASM_SUBSTRATE_MESH]
 
-The mesh substrate owner: the validated `MeshSpace` snapshot handle every mesh-consuming page composes, the `LaplacianCache` memoization service the entire DDG suite rides, the frozen `IntrinsicMesh` triangulation with Gillespie-Sharp-Crane normal-coordinate flips, THE one `Cotangent` primitive (intrinsic edge-length and extrinsic face-geometry arithmetic under one owner — the three parallel cotangent computations formerly scattered across cotangent assembly, DEC star construction, and divergence scatter are dead), the cotangent/intrinsic-Delaunay/tufted-intrinsic Laplacian assembly behind the `MeshLaplacian` selector, the `(M + tL)` SPD system assembly, the `MeshKernel.TopologyDetailed` diagnostics producing the `TopologyReceipt` the public `VectorIntent.Topology` projection re-emits, the signpost tangent transport with the common-subdivision overlay (partition-of-unity gated), and the `RestrictedPowerDiagram` Laguerre cells restricted to the mesh (Sutherland-Hodgman radical clip) whose sole consumer is the `Processing/sample` BNOT driver — the coupling preserved by decision. This page is the substrate ONLY: the DEC operator assembly lives in `Meshing/dec`, the reconstruction and signed-heat spine in `Meshing/reconstruct`, and every DDG solver (heat geodesics, MCF, cross fields, vector heat, log maps, stripes, descriptors, segmentation, remesh) in its owning `Processing/` page — the one-file-owns-thirty-concerns shape is dead.
+`Rasm.Meshing.mesh` owns the mesh substrate every DDG consumer composes: the validated `MeshSpace` snapshot, its `LaplacianCache` memoization, the intrinsic triangulation and `MeshLaplacian` assembly, and the topology, transport, and power-diagram witnesses. DEC operator assembly homes at `Meshing/dec`, reconstruction at `Meshing/reconstruct`, and every DDG solver at its owning `Processing/` page.
 
-`MeshSpace`, `LaplacianCache`, `IntrinsicMesh`, `MeshAdjointSnapshot`, `MeshKernel.TopologyDetailed`, and `TopologyReceipt` are frozen names — twelve settled Geometry pages, the `Processing/receipts` route, and the `Rasm.Compute` adjoint seam bind them. `LaplacianCache` identity, GC, and concurrency semantics survive VERBATIM: `ConditionalWeakTable` keyed by `Mesh` reference identity (a cache dies with its snapshot, never leaks across duplicates), `Atom<HashMap>` success-only memos (a failed compute is never cached), `Lock`-guarded CSparse factor solves owned by `Numerics/matrix` `CholeskySparse`, and the `SpdMassShift` mesh-scale Tikhonov shift (mean edge length floored at `RhinoMath.ZeroTolerance`, squared, scaled by `RhinoMath.SqrtEpsilon` — never a bare literal). Receipt validity is ONE `ValidityClaim.All` fold per receipt over the `Domain/rails` claim vocabulary — a receipt declares WHICH claims hold (cover closure, partition of unity, crossing conservation, count and measure claims), never HOW a predicate computes; the hand-rolled private `&&`-chain litanies are dead. `Op` stays the explicit value key on every kernel signature per the one threading law. Failures route `Op` fault factories over `Fin<T>`; this owner computes no hash and mints no second identity.
+`MeshSpace`, `MeshAdjointSnapshot`, and `TopologyReceipt` are the public cross-package decode names the Geometry pages, the `Processing/receipts` route, and the `Rasm.Compute` adjoint seam bind.
 
 ## [01]-[INDEX]
 
-- [02]-[MESH_SUBSTRATE]: `MeshSpace` handle; `LaplacianCache` service; `Cotangent` primitive; `IntrinsicMesh`/`IntrinsicEdge` frozen triangulation + FLIP-N normal coordinates; `MeshLaplacian` selector over cotangent/IDT/tufted assembly; `(M + tL)` SPD assembly; `TopologyReceipt`; `MeshAdjointSnapshot`; signpost transport + common subdivision; `RestrictedPowerDiagram`.
+- [02]-[MESH_SUBSTRATE]: snapshot admission, Laplacian memoization and assembly, the cotangent primitive, and the topology, transport, and power-diagram witnesses.
 
 ## [02]-[MESH_SUBSTRATE]
 
-- Owner: `MeshSpace` `[BoundaryAdapter]` the validated defensive-snapshot mesh handle (`Of` duplicates the native mesh once; interior code never re-validates); `MeshLaplacian` `[SmartEnum<int>]` the discretization selector whose constructor delegate routes to the owning cache memo (`Cotangent`/`IntrinsicDelaunay`/`TuftedIntrinsic`); `LaplacianCache` the per-snapshot memoization service; `Cotangent` THE one cotangent-weight primitive with the intrinsic (`OfLengths`, law-of-cosines over edge lengths) and extrinsic (`OfEdges`, dot-over-doubled-area) arithmetic paths plus the shared `AngleOfLengths` corner recovery — `Meshing/dec` star-1 construction, Crouzeix-Raviart pairs, divergence scatter, and both assembly paths below all compose it; `IntrinsicMesh`/`IntrinsicEdge` the mutable-build/frozen-read intrinsic triangulation (`internal` to the assembly; the PUBLIC cross-package handle is `MeshAdjointSnapshot`); `MeshKernel` the substrate assembly kernel (cotangent/IDT/tufted assembly, SPD system, topology, signpost transport, common subdivision, restricted power cells — nothing else); `TuftedCoverMesh` the Sharp-Crane closed edge-manifold double cover; `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` the Laguerre diagram restricted to the mesh surface.
-- Cases: `MeshLaplacian` rows `Cotangent` · `IntrinsicDelaunay` · `TuftedIntrinsic` (3, `RequiresQualityGate`/`PreservesInputTriangulation` columns + `Select`/`Snapshot` delegates — the quality gate, the triangulation law, the cache memo, and the kind-consistent intrinsic snapshot are ALL row data; no call site branches on row equality); `SignpostEncoding` rows `Signposts` · `NormalCoordinates` · `Both` (3); `SignpostGauge` rows `FirstHalfedge` · `LowestVertexNeighbor` (2); `PowerDensityPolicy` rows `Constant` · `ScalarFanQuadrature` (2, `RequiresField`/`QuadratureNodes`/`NodeFraction` columns — the fan-quadrature geometry is row data, never a stray const).
-- Entry: `public static Fin<MeshSpace> Of(Mesh native, Context context, MeshAssemblyPolicy? assembly = null, Op? key = null)` admits once (null gate, `Mesh.IsValid` gate, defensive `DuplicateMesh` snapshot) and FIXES the assembly policy for the snapshot's lifetime — one policy per snapshot keeps the Unit-keyed snapshot memos coherent, so the ceiling and flip budget are reachable knobs without per-call aliasing; `public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null)` is the ONE Laplacian entry — the kind row's `Select` delegate routes the cache memo, and the cotangent row's `RequiresQualityGate` column routes the `space.Assembly.AspectRatioCeiling` guard (intrinsic kinds mollify instead of gating); `MeshAdjointSnapshot.Of(MeshSpace space, Op? key = null)` is the public adjoint-seam entry projecting the cached `DiscreteCalculus`; `MeshKernel.TopologyDetailed(MeshSpace space)` is the total topology diagnostic (never fails — every field is a witness); `MeshKernel.RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density, Op key)` is the power-diagram entry. No `AssembleCotangent`/`AssembleIdt`/`AssembleTufted` public siblings — one selector row per discretization.
-- Auto: `LaplacianCache.For(space)` resolves the per-snapshot cache through the `ConditionalWeakTable` keyed by the snapshot's `Mesh` reference — two `MeshSpace` values over one snapshot share one cache, a re-snapshot mints a fresh one, and the table entry dies with the mesh (GC semantics preserved verbatim). Every memo is success-only: `Memo<K,T>` holds `Atom<HashMap<K,T>>` and swaps the map only on `Fin.Succ`, so a transient failure re-computes instead of pinning a poisoned entry. Downstream solver artifacts ride the ONE type-keyed `Memoized<TKey,T>` slot — the slot materializes from the `(TKey, T)` type pair on first use, the caller supplies key record and compute, and the substrate names no downstream type. `SpdMassShift` derives the Tikhonov mass scale from `MeanEdgeLength` squared gated at `RhinoMath.ZeroTolerance`, travels on the owning receipt (`SignedHeatReceipt.SpdMassShift` in `Meshing/reconstruct`) so every regularized solve is replayable. Intrinsic assembly runs `FromMesh` (quads triangulated once, non-triangles counted) → `FlipToDelaunay` (deterministically ordered edge queue, the snapshot's `Assembly.FlipCapPerEdge` budget, `IsDelaunay` cos-sum gate at `-RhinoMath.SqrtEpsilon`) → `Freeze` (edge pruning, ordered edge index, Heron face areas, first-incident-edge table); the FLIP-N integer normal-coordinate update runs inside `Flip` with doubled corner coordinates keeping the kernel integral and the parity invariant (`quadrupled & 3 == 2` flags an orientation defect) exact. The tufted path constructs the double cover (front sheet `2t`, orientation-reversed back sheet `2t+1`, fan-glued so every cover edge is incident to exactly two cover faces and boundary edges glue front-to-back), applies GLOBAL Sharp-Crane mollification (one epsilon = max corner deficit added to every cover edge), flips the cover to Delaunay, and admits only when the structural guards hold (gluing bijection, edge-manifold, closed, zero non-Delaunay remainder, flip budget unexhausted). Degenerate-area floors are scale-derived everywhere: `DegenerateAreaFloorOf(scale) = max(scale, ZeroTolerance)² · SqrtEpsilon` — one owner, no scattered literals.
-- Receipt: `SparseLaplacian` (stiffness + consistent mass + lumped mass + skip/negative-cotangent witnesses + optional tufted receipt) — dimension-agreement claims; `TuftedLaplacianReceipt` the full cover-construction witness (mollification epsilon, length scale, flip counts, gluing/symmetry/row-sum residuals) with the cover-law conjunction as a claim row; `TopologyReceipt` the 19-field TOTAL topology witness — never gated, every field is evidence — with the validated-genus derivation (`genus = (2·components − boundary − χ)/2` only when manifold ∧ oriented ∧ even ∧ nonnegative) and a typed `(Euler, Genus, BoundaryComponents)` projection row; `SignpostTransportReceipt` (transported/fallback/missing edge counts, flip count, normal-coordinate parity, max angle/length/update residuals, optional `CommonSubdivision`) with the conservation claim `CommonSubdivisionSegments == SumNormalCoordinates`; `CommonSubdivision` (overlay counts, per-side source-face maps, interpolation matrices, row-sum + arrival residuals) with the partition-of-unity claims (`RowSumResidual ≤ SqrtEpsilon` per side) and the `Finite` arrival-residual claim; `RestrictedPowerReceipt` (site/fragment/incident-pair/queue-peak counts, area extrema, integration residual, degeneracy witnesses, scale-derived tolerances) inside `RestrictedPowerDiagram` whose law checks cell/facet/receipt agreement. Every gated receipt is one `ValidityClaim.All` fold over the rails claim rows — finiteness/count predicates are claims, never per-receipt re-derivations; `TopologyReceipt` alone stays gate-free as the total witness.
-- Packages: RhinoCommon (`Mesh`, `MeshFace`, `Point3d`/`Vector3d`, `RhinoMath` — this page is genuinely Rhino-boundary per the Tier-0 capture law, never thinned), `Rasm.Numerics` `Numerics/matrix` (`SparseMatrix.FromTriplets`, `CholeskySparse`, `Dimension`), `Numerics/spectral` (`DiscreteCalculus` carrier for the adjoint handle), `Numerics/atoms` (`AtomProjection.Rows`/`ProjectionRow`, `PositiveMagnitude`/`UnitInterval`/`Dimension`), `Spatial/neighbors` (`NeighborIndex.Of` + the `NeighborQuery` nearest/pairs probes — the power-incident k-NN seed rides the ONE neighborhood substrate, never a private RTree wrapper), `Domain/rails` (`Op`, `IValidityEvidence`, the `ValidityClaim` fold), `Domain/context` (`Context`), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`, `Atom`, `HashMap`, `Seq`, `Arr`, `Option`), BCL (`ConditionalWeakTable`, `ConcurrentDictionary`, `CollectionsMarshal`, `Lazy`).
-- Growth: a fourth Laplacian discretization is one `MeshLaplacian` row (its column values, `Select`/`Snapshot` delegates) + one cache memo + one assembly member with every call site untouched — never a sibling selector; a new memoized solver artifact is ZERO cache edits — the owning page mints its key record and calls `Memoized`; a new signpost gauge is one `SignpostGauge` row; a power-diagram density model is one `PowerDensityPolicy` row; a new topology witness is one `TopologyReceipt` field (the receipt is the total witness — no gate to extend); zero new public surface.
-- Boundary: `LaplacianCache` semantics are the load-bearing correctness contract — replacing the `ConditionalWeakTable` with a keyed dictionary leaks caches across snapshot lifetimes and re-keys on value equality (two duplicates would alias), and caching failures poisons every downstream solve: both are the named rebuild defects this page exists to prevent. The cotangent arithmetic lives in ONE `Cotangent` owner — a consumer re-deriving `(a·b)/(2A)` or the law-of-cosines form inline is the collapsed duplication re-opening. `IntrinsicMesh` stays `internal`: the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, and exposing the mutable triangulation would let a consumer mutate a frozen snapshot mid-cache. The cotangent-kind aspect-ratio guard and the intrinsic-kind mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, never resurrected constants — and `MeshAssemblyPolicy` travels on `MeshSpace.Of`, one value per snapshot: a per-call assembly knob would alias the Unit-keyed intrinsic/cotangent memos under two flip budgets, so per-run variation means a fresh snapshot, never a cache poke. The `Memoized` anti-aliasing law is load-bearing: two solver families sharing one `(key-record, artifact)` type pair would alias one slot, so every family declares its own key record beside its kernel — re-adding named per-solver accessors here re-opens the downward type dependency this collapse killed. `PowerFacet.OffsetI` stays `Option<double>.None` at construction — the BNOT driver recomputes the weighted offset `d_ij = l_ij/2 + (w_i−w_j)/(2·l_ij)` from live dual weights each outer iteration, so a populated midpoint here would be silently trusted stale data; `A_ij == A_ji` holds because the FIFO incident-pair frontier pushes both cell views of every power facet. Euclidean k-NN seeds the power-incident set through the `Spatial/neighbors` substrate (Euclidean, not power-nearest), so with non-trivial weights the k-th neighbour can under-clip — `KNearest` is a policy row and `IncidentPairCount`/`IntegrationResidual`/`QueuePeakDepth` make any under-clip observable in the receipt, never silent. A thrown exception on a degenerate mesh is forbidden — the defect routes `Op` faults over `Fin<T>`.
+- Owner: `MeshSpace` `[BoundaryAdapter]` mints the validated defensive-snapshot handle; `MeshLaplacian` `[SmartEnum<int>]` selects the discretization and routes the owning cache memo; `LaplacianCache` mints the per-snapshot memoization service; `Cotangent` mints the one weight primitive both assembly paths, `Meshing/dec` star-1 construction, Crouzeix-Raviart pairs, and divergence scatter compose; `IntrinsicMesh`/`IntrinsicEdge` mint the mutable-build/frozen-read triangulation internal to the assembly; `MeshKernel` mints the substrate assembly kernel; `TuftedCoverMesh` mints the Sharp-Crane double cover; `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` mint the Laguerre diagram restricted to the mesh surface.
+- Cases: `MeshLaplacian` rows `Cotangent`/`IntrinsicDelaunay`/`TuftedIntrinsic` carry the quality gate, triangulation law, cache memo, and kind-consistent intrinsic snapshot as row data, so no call site branches on row equality; `SignpostEncoding`, `SignpostGauge`, and `PowerDensityPolicy` carry their encoding, gauge, and fan-quadrature geometry the same way.
+- Entry: `MeshSpace.Of` admits once (null gate, `Mesh.IsValid` gate, defensive `DuplicateMesh` snapshot) and fixes the assembly policy for the snapshot lifetime, so the ceiling and flip budget stay reachable knobs without per-call aliasing; `MeshSpace.Laplacian` is the one Laplacian entry, the kind row's delegate routing the cache memo and the cotangent row's quality-gate column routing the aspect-ratio guard while intrinsic kinds mollify; `MeshAdjointSnapshot.Of` projects the cached `DiscreteCalculus` for the adjoint seam; `MeshKernel.TopologyDetailed` is the total topology diagnostic; `MeshKernel.RestrictedPowerCells` is the power-diagram entry. One selector row owns each discretization, no per-kind assembly sibling.
+- Auto: `LaplacianCache.For` resolves the per-snapshot cache; each memo swaps its `Atom<HashMap>` only on `Fin.Succ`, so a transient failure re-computes. Downstream solver artifacts ride the one type-keyed `Memoized` slot materialized from the `(TKey, T)` pair, so the substrate names no downstream type. Intrinsic assembly runs `FromMesh` → `FlipToDelaunay` → `Freeze` with the FLIP-N integer normal-coordinate update keeping the kernel integral and the parity invariant exact; the tufted path builds the double cover, applies global Sharp-Crane mollification, flips to Delaunay, and admits only under the structural guards. Every degenerate-area floor is scale-derived from `DegenerateAreaFloorOf`, one owner.
+- Receipt: `SparseLaplacian` carries the stiffness/mass/witness bundle under dimension-agreement claims; `TuftedLaplacianReceipt` witnesses the full cover construction with the cover-law conjunction as a claim row; `TopologyReceipt` is the total un-gated topology witness — every field is evidence and a new witness is one field — carrying the validated-genus derivation and its typed `(Euler, Genus, BoundaryComponents)` projection row; `SignpostTransportReceipt`, `CommonSubdivision`, and `RestrictedPowerReceipt` witness transport, overlay partition-of-unity, and radical-clip degeneracy. Every gated receipt is one `ValidityClaim.All` fold over the rails claim rows declaring which claims hold, never re-deriving a predicate inline; `TopologyReceipt` alone stays gate-free.
+- Packages: RhinoCommon is a genuine Rhino boundary here per the Tier-0 capture law, never thinned; `Numerics/matrix` owns sparse assembly and the Cholesky factor, `Numerics/spectral` the `DiscreteCalculus` carrier, `Numerics/atoms` the projection and magnitude value objects, `Spatial/neighbors` the one k-NN substrate the power-incident seed rides rather than a private RTree; `Domain/rails` owns `Op` and the `ValidityClaim` fold, `Domain/context` the `Context`; Thinktecture.Runtime.Extensions, LanguageExt.Core, and BCL concurrency complete the floor.
+- Growth: a fourth Laplacian discretization is one `MeshLaplacian` row, one cache memo, and one assembly member, every call site untouched; a new memoized solver artifact is zero cache edits — the owning page mints its key record and calls `Memoized`; a new signpost gauge, power-density model, or topology witness is one row or one field. Zero new public surface.
+- Boundary: cache identity keys on the snapshot `Mesh` reference and memoizes success only — a keyed dictionary leaks across snapshot lifetimes and re-keys on value equality, so the `ConditionalWeakTable` is the load-bearing contract. `Cotangent` arithmetic lives in one owner; a consumer re-deriving `(a·b)/(2A)` or the law-of-cosines form inline re-opens the collapsed duplication. `IntrinsicMesh` stays `internal` and the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, so no consumer mutates a frozen snapshot mid-cache. Aspect-ratio guard and intrinsic mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, and `MeshAssemblyPolicy` travels on `MeshSpace.Of` one value per snapshot, so per-run variation means a fresh snapshot rather than a per-call knob aliasing the Unit-keyed memos. Two solver families sharing one `(key-record, artifact)` pair alias one `Memoized` slot, so every family declares its own key record beside its kernel. `PowerFacet.OffsetI` stays `None` at construction — the BNOT driver recomputes the weighted offset from live dual weights each outer iteration, and `A_ij == A_ji` holds because the FIFO incident-pair frontier pushes both cell views. Euclidean k-NN seeds the power-incident set through `Spatial/neighbors`, so non-trivial weights can under-clip the k-th neighbour; `KNearest` is a policy row and `IncidentPairCount`/`IntegrationResidual`/`QueuePeakDepth` make any under-clip observable. A degenerate mesh routes an `Op` fault over `Fin<T>`, never a throw.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -41,8 +41,7 @@ using Dimension = Rasm.Numerics.Dimension;
 namespace Rasm.Meshing;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-// Discretization differences are ROW DATA: the quality-gate flag, the triangulation law, the cache memo,
-// and the kind-consistent intrinsic snapshot all live on the row — no call site branches on row equality.
+// Discretization differences are ROW DATA — no call site branches on row equality.
 [SmartEnum<int>]
 public sealed partial class MeshLaplacian {
     public static readonly MeshLaplacian Cotangent = new(key: 0, requiresQualityGate: true, preservesInputTriangulation: true,
@@ -83,8 +82,7 @@ public sealed partial class PowerDensityPolicy {
 }
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Assembly ceilings are policy rows, never consts: the cotangent-kind quality gate and the IDT flip budget.
-// The policy is FIXED per snapshot at MeshSpace.Of — per-call variation would alias the Unit-keyed snapshot memos.
+// Policy rows, not consts; FIXED per snapshot at MeshSpace.Of — per-call variation aliases the Unit-keyed snapshot memos.
 public readonly record struct MeshAssemblyPolicy(PositiveMagnitude AspectRatioCeiling, Dimension FlipCapPerEdge) {
     public static readonly MeshAssemblyPolicy Default = new(
         AspectRatioCeiling: PositiveMagnitude.Create(value: 11.5), FlipCapPerEdge: Dimension.Create(value: 16));
@@ -162,7 +160,7 @@ public readonly record struct SparseLaplacian(
         ValidityClaim.Of(Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
 }
 
-// The tufted-cover construction witness: measure/count claims plus the cover-law conjunction as claim rows.
+// Cover-construction witness: measure/count claims plus the cover-law conjunction as a claim row.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TuftedLaplacianReceipt(
     MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges,
@@ -196,7 +194,6 @@ internal readonly record struct TuftedBaseFaces(Mesh Triangulated, int TriangleC
     internal static Fin<TuftedBaseFaces> Of(Mesh source, Op key);   // quad-convert once; any residual non-triangle fails
 }
 
-// FROZEN NAME + SHAPE — settled receipts.md routes it; Analysis/inspect and reconstruct admission compose it.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TopologyReceipt(
     int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons,
@@ -208,8 +205,7 @@ public readonly record struct TopologyReceipt(
             ProjectionRow.Of<(int Euler, int Genus, int BoundaryComponents)>(() => self.Genus.Match(
                 Some: genus => Fin.Succ((self.EulerCharacteristic, genus, self.BoundaryComponents)),
                 None: () => Fin.Fail<(int Euler, int Genus, int BoundaryComponents)>(key.InvalidResult()))),
-            // Genus-tolerant total row: un-gated over non-manifold/boundaried/odd-Euler meshes — the heal
-            // rail's own input class projects instead of failing; Genus stays Option (absence, no sentinel).
+            // Genus-tolerant total row: un-gated over non-manifold/boundaried/odd-Euler meshes; Genus stays Option, no sentinel.
             ProjectionRow.Of<(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)>(() =>
                 Fin.Succ((self.EulerCharacteristic, self.BoundaryComponents, self.IsManifold, self.IsOriented, self.NonManifoldEdges, self.Genus))));
     }
@@ -257,8 +253,7 @@ public readonly record struct CommonSubdivision(
         ValidityClaim.Finite(EdgeLengthInterpolationResidual));
 }
 
-// Laguerre power diagram restricted to the mesh. OffsetI stays None at construction — the BNOT driver recomputes the
-// weighted offset from live dual weights each outer iteration; a populated midpoint here would be trusted stale.
+// OffsetI stays None at construction — the BNOT driver recomputes from live dual weights; a populated midpoint would be trusted stale.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PowerFacet(int SiteI, int SiteJ, double Length, Option<double> OffsetI, Point3d Centroid) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -273,8 +268,7 @@ public readonly record struct PowerCell(
         ValidityClaim.CountAtLeast(count: FragmentCount, floor: 0), ValidityClaim.Nonnegative(Area), ValidityClaim.Finite(TransportCost));
 }
 
-// DegenerateClipCount = fragments discarded below MinPolygonVertices/AreaFloor; ClipDegeneracyCount = numerical
-// degeneracies inside the radical clip itself — distinct mature counters, never twins to collapse.
+// DegenerateClipCount = fragments below MinPolygonVertices/AreaFloor; ClipDegeneracyCount = radical-clip numerical degeneracies — distinct, never collapsed.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RestrictedPowerReceipt(
     int SiteCount, int ClippedTriangleCount, int FragmentCount, int IncidentPairCount, int QueuePeakDepth,
@@ -312,8 +306,7 @@ public readonly record struct RestrictedPowerDiagram(Arr<PowerCell> Cells, Arr<P
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// VERBATIM identity/GC/concurrency semantics: ConditionalWeakTable keyed by the snapshot Mesh reference (a cache dies
-// with its snapshot); Atom<HashMap> memos swap only on Succ (failures never cached); factor Lock lives on CholeskySparse.
+// Cache dies with its snapshot via ConditionalWeakTable GC; the CSparse factor Lock lives on CholeskySparse, never here.
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
     private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
@@ -336,10 +329,8 @@ internal sealed class LaplacianCache {
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
     private readonly Memo<double, EdgeConnectionFactor> edgeConnectionCholesky = new();
-    // ONE open slot family for every downstream solver artifact: the slot materializes from the (TKey, T) type pair,
-    // so a new memoized solver family lands with ZERO cache edits. Key records and solution carriers stay declared
-    // beside their owning kernels — the cache names NO Processing-tier type; the dec assembly partner's carriers
-    // (DiscreteCalculus, SpectralBasisBundle, EdgeConnectionFactor) are the ONE sanctioned pair seam, blueprint unit 5.
+    // ONE open slot for every downstream solver artifact — materializes from the (TKey, T) pair, so a new family is ZERO cache edits.
+    // Key records and carriers stay beside their owning kernels; the cache names no Processing-tier type.
     private readonly ConcurrentDictionary<(Type Key, Type Value), object> solverSlots = new();
     private readonly Lazy<double> meanEdgeLength;
     private readonly MeshSpace space;
@@ -350,7 +341,7 @@ internal sealed class LaplacianCache {
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
     internal double MeanEdgeLength => meanEdgeLength.Value;
-    // Scale-derived Tikhonov shift: (mean edge)^2 * SqrtEpsilon, gated at ZeroTolerance; travels on the owning receipt.
+    // (mean edge)^2 * SqrtEpsilon gated at ZeroTolerance; travels on the owning receipt.
     internal double SpdMassShift =>
         Math.Max(MeanEdgeLength, RhinoMath.ZeroTolerance) * Math.Max(MeanEdgeLength, RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
     internal Fin<SparseLaplacian> Cotangent(Op key) =>
@@ -389,16 +380,14 @@ internal sealed class LaplacianCache {
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key);
     internal Fin<CholeskySparse> ScalarHeatCholesky(double time, Op key);
     internal Fin<EdgeConnectionFactor> EdgeConnectionCholeskyDetailed(double time, Op key);
-    // THE one downstream memo entry. LAW: one distinct key-record type per solver family — two families sharing the
-    // same (TKey, T) pair would alias one slot; the anti-aliasing law is load-bearing.
+    // One distinct key-record type per solver family — two sharing a (TKey, T) pair alias one slot.
     internal Fin<T> Memoized<TKey, T>(TKey probe, Func<Fin<T>> compute) where TKey : notnull =>
         ((Memo<TKey, T>)solverSlots.GetOrAdd(key: (typeof(TKey), typeof(T)), valueFactory: static _ => new Memo<TKey, T>()))
             .Of(probe: probe, compute: compute);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// THE one cotangent primitive. Intrinsic path from edge lengths (law of cosines over 4A), extrinsic path from edge
-// vectors (dot over 2A), corner angle shared. dec.md star-1/CR/divergence and both assemblies compose these three.
+// Intrinsic path: law of cosines over 4A. Extrinsic path: dot over 2A. Corner angle shared.
 internal static class Cotangent {
     internal static double OfLengths(double adjacent1, double adjacent2, double opposite, double area) =>
         ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / (4.0 * area);
@@ -440,8 +429,7 @@ internal static class MeshKernel {
     internal static Fin<Unit> AspectRatioGuard(Mesh mesh, double ceiling, Op key);   // Caution fault above the policy row
 
     // --- [COTANGENT_ASSEMBLY] — extrinsic path over face geometry; one scale-derived degenerate floor.
-    // Quad faces split through the arena's exact diagonal gate (Kernels.QuadDiagonal — edit.md's ONE
-    // quad-split owner); Faces.ConvertQuadsToTriangles is the rejected shortest-diagonal float heuristic.
+    // Quad faces split through the exact Kernels.QuadDiagonal gate; Faces.ConvertQuadsToTriangles is the rejected float heuristic.
     internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh, Op key) {
         using Mesh active = mesh.DuplicateMesh();
         for (int f = 0; f < active.Faces.Count; f++) {
@@ -480,8 +468,7 @@ internal static class MeshKernel {
         from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
         from flipped in FlipToDelaunay(imesh: source, assembly: assembly, key: key)
         select flipped.Freeze();
-    // The row's PreservesInputTriangulation column: cotangent keeps the input triangulation (intrinsic angles
-    // consistent with extrinsic positions); Delaunay/tufted kinds run the IDT flip.
+    // PreservesInputTriangulation column: cotangent keeps the input triangulation; Delaunay/tufted kinds run the IDT flip.
     internal static Fin<IntrinsicMesh> FrozenIntrinsicFor(Mesh mesh, MeshLaplacian kind, MeshAssemblyPolicy assembly, Op key) =>
         kind.PreservesInputTriangulation
             ? IntrinsicMesh.FromMesh(mesh: mesh, key: key).Map(static source => source.Freeze())
@@ -496,8 +483,7 @@ internal static class MeshKernel {
         internal int Crossings => Math.Max(val1: NormalCoord, val2: 0);
     }
 
-    // Mutable during FromMesh/Flip, frozen for every reader: ordered edge index, Heron face areas, first-incident-edge
-    // table. INTERNAL to Rasm.Meshing — the public cross-package handle is MeshAdjointSnapshot.
+    // Mutable during FromMesh/Flip, frozen for every reader. INTERNAL — the public handle is MeshAdjointSnapshot.
     internal sealed class IntrinsicMesh {
         internal int VertexCount;
         internal Point3d[] Positions;
@@ -532,16 +518,14 @@ internal static class MeshKernel {
         internal int NormalCoordOf(int i, int j);
         internal bool IsDelaunay(int i, int j);              // cos-sum >= -SqrtEpsilon via Cotangent.AngleOfLengths terms
         internal Seq<(int, int)> Flip(int i, int j);         // intrinsic diagonal replace + FlipNormalCoordinate update
-        // --- [NORMAL_COORDINATES] (FLIP-N) — Gillespie-Sharp-Crane integer update for the new diagonal kl after
-        // flipping ij in quad i-k-j-l. Reference edges carry n=-1; corner coordinates carried DOUBLED to keep the
-        // kernel integral; (quadrupled & 3 == 2) flags a corner-to-edge orientation defect into ParityErrorCount.
+        // --- [NORMAL_COORDINATES] (FLIP-N) — Gillespie-Sharp-Crane integer update for the new diagonal kl.
+        // Reference edges carry n=-1; corner coordinates DOUBLED keep the kernel integral; (quadrupled & 3 == 2) flags an orientation defect into ParityErrorCount.
         private int FlipNormalCoordinate(int nij, int njk, int nki, int nil, int nlj);
     }
 
-    // Sharp-Crane tufted double cover: front sheet 2t, orientation-reversed back sheet 2t+1, per-base-edge fans glued
-    // into one cyclic chain (boundary edges glue front-to-back) so the cover is closed and edge-manifold. GLOBAL
-    // mollification: one epsilon = max corner triangle-inequality deficit, added to every cover edge. Admission
-    // requires bijection + edge-manifold + closed + zero non-Delaunay + flip budget unexhausted; the receipt witnesses.
+    // Sharp-Crane tufted double cover: front sheet 2t, orientation-reversed back sheet 2t+1, per-base-edge fans glued into
+    // one cyclic chain (boundary edges front-to-back) so the cover is closed and edge-manifold; GLOBAL mollification adds one
+    // epsilon = max corner triangle-inequality deficit to every cover edge. Admission requires the structural-guard conjunction the receipt witnesses.
     internal sealed class TuftedCoverMesh {
         internal static Fin<TuftedCoverMesh> Construct(IntrinsicMesh imesh, TuftedCoverPolicy policy, Op key);
         internal Fin<SparseLaplacian> Assemble(TuftedCoverPolicy policy, Op key);
@@ -552,7 +536,7 @@ internal static class MeshKernel {
     // ONE scale-relative degenerate floor: max(scale, ZeroTolerance)^2 * SqrtEpsilon — the same form SpdMassShift uses.
     internal static double DegenerateAreaFloorOf(double scale) =>
         Math.Max(scale, RhinoMath.ZeroTolerance) * Math.Max(scale, RhinoMath.ZeroTolerance) * RhinoMath.SqrtEpsilon;
-    // FROZEN member — total diagnostic; validated genus only when manifold+oriented and the Euler numerator is even>=0.
+    // Total diagnostic; validated genus only when manifold+oriented and the Euler numerator is even>=0.
     internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool hasBoundary);
@@ -573,28 +557,22 @@ internal static class MeshKernel {
     }
     private static (int BoundaryComponents, int NonManifoldEdges) TopologyEdgeStatsOf(Mesh mesh);   // GetNakedEdges + >2-face edges
 
-    // --- [SIGNPOST_TRANSPORT] — per-vertex gauge halfedge angles from intrinsic corners, one-ring rescaled to span
-    // 2pi (interior) / pi (boundary); fans ordered face-to-face via FaceAcrossEdge so flipped fans land in true angular
-    // order; a non-closing fan leaves its neighbors unset for the witnessed chord fallback (never a partial rescale).
+    // --- [SIGNPOST_TRANSPORT] — per-vertex gauge halfedge angles from intrinsic corners, one-ring rescaled to 2pi (interior) / pi (boundary).
+    // Fans ordered face-to-face via FaceAcrossEdge survive flips; a non-closing fan routes the witnessed chord fallback, never a partial rescale.
     internal static Fin<SignpostTransportReceipt> SignpostTransportReceiptOf(MeshSpace space, IntrinsicMesh imesh, Op key, Option<SignpostPolicy> policy = default);
-    // The transport-row seam: (i < j, weight, rho) per intrinsic edge, cone-adjusted — the SAME rows the cached
-    // connection Cholesky assembles from; Processing/segment builds its Hermitian eigen system from these, never a
-    // page-local transport derivation.
+    // Transport-row seam: (i<j, weight, rho) per intrinsic edge, cone-adjusted — the same rows the cached connection Cholesky assembles from.
     [StructLayout(LayoutKind.Auto)] internal readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransportReceipt Receipt);
     internal static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, SignpostPolicy policy, Op key);
 
-    // --- [COMMON_SUBDIVISION] — overlay(M,T): shared vertices + one crossing vertex per normal-coordinate unit; each
-    // transverse T-edge traced by the ONE face-unfolding walk owner (GeodesicKernel.WalkChart under
-    // GeodesicWalkMode.EdgeOverlay, Processing/geodesics — its overlay seat records raw (CutEdge,U) crossings for
-    // exactly this replay) recovering its ordered M-edge crossings; InterpolationA scatters M-barycentric rows
-    // ((1-u), u), InterpolationB T-barycentric rows at t_k=(k+1)/(c+1); the arrival residual is the trace's
-    // relative gap (+inf on a failed recovery) so a wrong overlay fails IsValid, never silently.
+    // --- [COMMON_SUBDIVISION] — overlay(M,T): shared vertices + one crossing vertex per normal-coordinate unit; each transverse
+    // T-edge traced by GeodesicKernel.WalkChart under GeodesicWalkMode.EdgeOverlay recovers its ordered M-edge crossings.
+    // InterpolationA scatters M-barycentric rows ((1-u), u), InterpolationB T-barycentric rows at t_k=(k+1)/(c+1); the arrival
+    // residual is the trace's relative gap (+inf on failed recovery), so a wrong overlay fails IsValid, never silently.
     private static CommonSubdivision BuildCommonSubdivision(MeshSpace space, IntrinsicMesh imesh, Op key);
 
-    // --- [POWER_CELLS] — NAMED STATEMENT-KERNEL EXEMPTION: the Sutherland-Hodgman radical clip, the FIFO incident-pair
-    // frontier, and the shoelace area/first-moment accumulation run as in-place kernels; the surface returns Fin.
-    // Origin-shifted weighted sites: power(x)=|x-p'|^2-w with x,p' both bbox-centre shifted so only weight DIFFERENCES
-    // survive the radical constant and binary cancellation dies. Keep g<=band against the affine radical
+    // --- [POWER_CELLS] — Sutherland-Hodgman radical clip, FIFO incident-pair frontier, shoelace area/first-moment accumulation.
+    // Origin-shifted weighted sites: power(x)=|x-p'|^2-w with x,p' both bbox-centre shifted so only weight DIFFERENCES survive the
+    // radical constant, killing binary cancellation. Keep g<=band against the affine radical
     // g_ij(x) = 2(p_j'-p_i')·x - (|p_j'|^2 - w_j - |p_i'|^2 + w_i) evaluated at lifted 3D polygon vertices.
     internal static Fin<RestrictedPowerDiagram> RestrictedPowerCells(MeshSpace space, Seq<Point3d> sites, Option<Arr<double>> weights, Option<ScalarField> density, Op key) {
         BoundingBox box = space.Native.GetBoundingBox(accurate: true);
@@ -632,7 +610,7 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a row, case, memo slot, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail; the per-axis kind rides the indexed notes below.
+Each `[RAIL]` cell names the one return rail; the per-axis kind rides the indexed notes below.
 
 | [INDEX] | [AXIS_CONCERN]      | [OWNER]                               | [RAIL]                                               | [CASES] |
 | :-----: | :------------------ | :------------------------------------ | :--------------------------------------------------- | :-----: |
@@ -656,20 +634,14 @@ One owner per axis; capability is a row, case, memo slot, or fold arm, never a s
 - [08]-[TANGENT_TRANSPORT]: policy + gauge-angle kernel + overlay.
 - [09]-[POWER_DIAGRAM]: receipt-carrying Laguerre diagram, scale-derived clip policy.
 
-`MeshSpace`/`LaplacianCache`/`Cotangent`/`TopologyDetailed`/`AssembleCotangent`/`AssembleMassStiffnessSystem` are transcription-complete. Four cache recipes (`SpectralBasisBundleOf`/`ConnectionCholesky`/`ScalarHeatCholesky`/`EdgeConnectionCholeskyDetailed`), the `IntrinsicMesh` cluster, `TuftedCoverMesh`, signpost/overlay kernels, and the power-clip run are statement-kernel exemptions fixed to the `[05]` research algorithms.
+## [04]-[RESEARCH]
 
-Owning receipt gates preserve FLIP-N parity, cover closure, fan ordering, partition of unity, and radical-clip degeneracy counts; losing one fails the receipt.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
-## [04]-[CROSS_PAGE_SEAMS]
-
-- `Meshing/dec` composes `IntrinsicMesh`/`Cotangent`/`LaplacianCache.Cholesky`/`TopologyDetailed` and populates the `Calculus` memo this page's `MeshAdjointSnapshot.Of` projects; the receipt types it produces land beside their algorithms there, never here.
-- `Meshing/reconstruct` reaches the `EdgeConnectionCholeskyDetailed`/`Cholesky` factor memos and memoizes its signed-heat solutions through the `Memoized` slot; the signed-heat policies, kernels, keys, and receipts are that page's owners — this page carries only the factor recipes, the slot, and the `SpdMassShift` scale law.
-- `Processing/geodesics`, `Processing/segment`, and `Spatial/fields` mesh-aware cases reach every solver artifact through the ONE type-keyed `Memoized` slot plus the shared factor memos (`ScalarHeatCholesky`, `ConnectionCholesky`, `SpectralBasisBundleOf`) — each family's key record and solution carrier are declared beside its owning kernel (`GeodesicKey`/`McfKey`/`VectorHeatKey` on `Processing/geodesics`, `CrossFieldKey` on `Processing/segment`, `BoundarySignedHeatKey`/`ClosedSignedHeatKey` on `Meshing/reconstruct`), one distinct key-record type per family by the anti-aliasing law; the cache stays the ONE memo service and mints no second entry.
-- `Processing/sample` `PowerCcvtRun` is the sole `RestrictedPowerDiagram` consumer; settled `Processing/receipts` routes `MeshKernel.TopologyDetailed`; `Meshing/edit` owns `MeshEdit` — this page mints no edit surface; the two-carrier seam holds `MeshSpace` (this page's immutable admission snapshot) ⟂ `MeshEdit` (edit's single-writer build arena), publish-by-freeze re-entering through `MeshSpace.Of`, and no third mesh carrier exists.
-
-## [05]-[RESEARCH]
-
-- [INTRINSIC_DELAUNAY] — `FlipToDelaunay` restores the intrinsic Delaunay property by the cos-sum criterion (`cosA + cosB >= -SqrtEpsilon` over the two opposite corners, angles recovered from edge lengths alone) under a deterministic queue and the `FlipCapPerEdge` budget; the terminal full re-check proves the invariant or fails the rail. `Flip` replaces the diagonal with the law-of-cosines fourth side and runs the FLIP-N integer normal-coordinate update (Gillespie-Sharp-Crane): corner coordinates carried doubled keep the update integral, and `(quadrupled & 3) == 2` increments `ParityErrorCount` — the exact-overlay gate `SignpostTransportReceipt.ExactCommonSubdivision` requires zero. The law-matrix (`IntrinsicLaws`, CsCheck) asserts: post-flip complex validity (every live face's three edges resolve), flip-count monotone under the budget, Delaunay property total on success, and normal-coordinate crossing conservation `CommonSubdivisionSegments == SumNormalCoordinates`.
-- [TUFTED_COVER] — `TuftedCoverMesh.Construct` builds the Sharp-Crane closed edge-manifold double cover over any non-manifold or boundary input: duplicate every intrinsic triangle into front (`2t`) and orientation-reversed back (`2t+1`) sheets, side-glue each base edge's incident fan into one cyclic chain (boundary edges glue front-to-back), apply GLOBAL mollification (one epsilon = max corner deficit `max(0, delta − slack)` added to every cover edge so the triangle inequality holds with delta-margin everywhere), flip the cover to Delaunay, assemble with the intrinsic `Cotangent.OfLengths` path, and average the two sheets back to base vertices. Admission is the structural-guard conjunction on the receipt law (bijection, edge-manifold, closed, zero non-Delaunay remainder, budget unexhausted, symmetry/row-sum residuals within `SqrtEpsilon`) — a cover failing any guard routes `Op.InvalidResult` with the guard states in the fault detail.
-- [SIGNPOST_OVERLAY] — signpost angles rescale each vertex one-ring to span exactly `2π` (interior) / `π` (boundary); the closure residual witnesses the rescaled float error, never the cone-point defect. The fan is ordered by face adjacency through `FaceAcrossEdge` (an IDT flip emits co-oriented triangles that collide on a prev-keyed chain, so face-to-face walking is the only order that survives flips); a non-closing fan returns empty and its edges route the witnessed chord fallback (`ChordFallbackEdges`), never a partial rescale. The common subdivision `overlay(M,T)` places one crossing vertex per normal-coordinate unit by replaying each transverse T-edge as a straight geodesic over M — a page-local intrinsic face-unfolding replay whose honesty is the receipt, never a downward reach into a Processing tracer (the substrate depends on nothing above it; the `Processing/geodesics` walk-chart owner is that stratum's own unfold seat); `InterpolationA`/`InterpolationB` carry the M-side/T-side barycentric rows, the partition-of-unity gate rejects any malformed row, and the arrival residual (`+∞` on a failed crossing recovery) rejects a wrong overlay through `CommonSubdivision.IsValid` — the `Finite` claim on `EdgeLengthInterpolationResidual` is the enforcing row.
-- [RESTRICTED_POWER] — `RestrictedPowerCells` clips each mesh triangle against the affine radical half-planes of its power-incident sites (Sutherland-Hodgman in the triangle frame, lifted evaluation), floods site-face incidence through the FIFO frontier (both cell views of every facet are pushed, so `A_ij == A_ji` by construction), and accumulates shoelace area/first-moment/transport integrals per cell. Density mass integrates by the symmetric fan quadrature the `PowerDensityPolicy.ScalarFanQuadrature` row parameterizes — `QuadratureNodes` nodes at `NodeFraction` of `sqrt(area)` about the centroid. Euclidean k-NN under-clip with non-trivial weights is observable through `IncidentPairCount`/`QueuePeakDepth`/`IntegrationResidual` — the receipt is the honesty contract. Sole consumer: the `Processing/sample` de Goes BNOT continuous power-CCVT driver, which recomputes weighted facet offsets from live dual weights each outer iteration.
+- [INTRINSIC_DELAUNAY]-[OPEN]: which transcription-complete `FlipToDelaunay`/`Flip` bodies restore the intrinsic Delaunay property under the deterministic queue and `FlipCapPerEdge` budget while preserving the FLIP-N integer normal-coordinate update and its parity invariant; verify the terminal re-check and `CommonSubdivisionSegments == SumNormalCoordinates` against the `SignpostTransportReceipt` gates.
+- [TUFTED_COVER]-[OPEN]: which transcription-complete `TuftedCoverMesh.Construct`/`Assemble` body builds the Sharp-Crane closed edge-manifold double cover with global mollification and admits only under the structural guards; verify bijection, edge-manifold, closure, zero non-Delaunay remainder, and the symmetry/row-sum residual bounds against `TuftedLaplacianReceipt`.
+- [SIGNPOST_OVERLAY]-[OPEN]: which transcription-complete signpost-transport and `BuildCommonSubdivision` bodies rescale each one-ring to `2π`/`π`, order fans by `FaceAcrossEdge`, and place one crossing vertex per normal-coordinate unit; verify the partition-of-unity rows and the arrival residual against `CommonSubdivision.IsValid`.
+- [RESTRICTED_POWER]-[OPEN]: which transcription-complete `RestrictedPowerCells` body clips each triangle against the affine radical half-planes, floods the FIFO incident-pair frontier, and integrates density by the fan quadrature; verify `A_ij == A_ji` and Euclidean-k-NN under-clip observability against `RestrictedPowerReceipt`.

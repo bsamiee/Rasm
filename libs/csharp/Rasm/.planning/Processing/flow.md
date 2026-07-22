@@ -1,33 +1,31 @@
 # [RASM_VECTORS_FLOW]
 
-The streamline/trace owner — ONE `Termination` `[Union]` (`StepCount`/`ArcLength`/`MagnitudeFloor`/`CrossSurface`/`RegionThreshold`/`LoopDetected`) that decides every stop and localizes every crossing event by dense-output root bisection, and ONE `FlowKernel.Trace<TOut>` entry that advances any `VectorField` under the `Numerics/integrate.md` stepper through a fold-shaped immutable `StreamlineState`, terminating by a `Schedule.recurs`-driven `RepeatWhile` whose iteration ceiling is the `TracePolicy.MaxIterations` policy row — never a compiled-in constant. The stepper seam is `Numerics/integrate.md`'s carrier-generic `FieldIntegrator.Step`: THIS page declares the ONE spatial `IntegrationModule<Point3d, Vector3d>` instance the stepper folds over (`integrate.md` assigns its consumer exactly one module declaration), and the step outcome arrives as the settled `IntegrationStep<Point3d, Vector3d>` accepted/rejected union carrying the `DenseOutputSpan<Point3d, Vector3d>` continuous extension — no parallel step or dense-output vocabulary exists here, and `IntegratorKind`, `ButcherTableau`, `DenseOutputCoefficientFamily`, `DenseWeightsAt`, and the module's single `Combine` fold are composed as settled numerics, never re-derived. Event localization is exact where the integrator grants it: a bracketed sign change refines through the accepted step's `DenseOutputSpan.PointAt` so the localized point lies ON the high-order solution curve (`DenseOutputRoot`), and only a dense-less segment falls back to chord bisection (`BoundedBisection`) — the localization kind is receipt evidence, not a mode flag.
+`FlowKernel.Trace` advances any `VectorField` into a streamline under the `Numerics/integrate.md` adaptive stepper, deciding every stop through one `Termination` `[Union]` and localizing every crossing onto the high-order solution curve.
 
-`Op` stays the explicit value key threaded positionally through every kernel signature — these pipelines are short, so no `Eff<Env>` lift is warranted, and no dual paradigm exists. Every receipt (`TraceEvent`, `StreamlineTrace`, the composed `DenseOutputReceipt`) rides the `Domain/rails.md` validity fold: `IsValid` is one `ValidityClaim.All` over claim rows — finiteness, non-negative counts, unit-interval parameters, ordering, nested evidence — plus the cross-field claims only this page can state; a hand-rolled `&&` chain in a receipt body is the deleted form. Result projection routes through `Numerics/atoms.md`'s `AtomProjection.Rows` typed-row dispatch with the receipt as the implicit self row — `typeof(TOut)` reflection switching is dead corpus-wide. Termination admission leans on the `Spatial/support.md` adapter directly: an admitted `SupportSpace` is closest-capable by construction, and the per-hit `AdmitsSignedDistance(hit)` gate runs exactly where the hit exists; raw ingress gates once through the `Domain/rails.md` acceptance bridge (`Op.Need`/`Op.Finite`/`Op.AcceptValidated`) — the `Admit` member name shadows the `Rasm.Domain.Admit` class inside `Termination`, so the Op-owned gates are the canonical form here.
+Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold under page-only cross-field claims, and raw ingress gates through its acceptance bridge; `Numerics/atoms.md` `AtomProjection.Rows` resolves projection with the receipt as its implicit self row.
 
 ## [01]-[INDEX]
 
-- [02]-[TERMINATION]: the 6-stop `Termination` union; stop/event vocabularies (`StreamlineStopKind`/`TraceEventKind`/`TraceEventStatus`/`TraceEventLocalizationKind`); endpoint-touch and bracketed-crossing event evaluation; dense-output root localization with chord-bisection fallback; the `TraceEvent` receipt.
-- [03]-[TRACE]: `TracePolicy` (iteration ceiling as a policy row); the ONE spatial `IntegrationModule` instance; the `StreamlineState` fold over `integrate.md`'s `IntegrationStep` outcomes; `FlowKernel.Trace<TOut>` + `ProjectTrace<TOut>` typed-row projection (`StreamlineTrace`/`Seq<Point3d>`/`Polyline`/`Curve`); the `StreamlineTrace` receipt.
+- [02]-[TERMINATION]: `Termination` `[Union]` stop vocabulary and the tiered localizer refining each crossing onto the dense-output curve.
+- [03]-[TRACE]: `FlowKernel.Trace` folding the immutable streamline state under the numerics stepper into the typed-row projection.
 
 ## [02]-[TERMINATION]
 
-- Owner: `Termination` `[Union]` — `StepCountCase(Dimension)`, `ArcLengthCase(PositiveMagnitude)`, `MagnitudeFloorCase(PositiveMagnitude)`, `CrossSurfaceCase(SupportSpace, Dimension LocalizationBudget)`, `RegionThresholdCase(ScalarField, double Threshold, Dimension LocalizationBudget)`, `LoopDetectedCase(PositiveMagnitude ClosureRadius)` — one closed stop vocabulary the tracer evaluates each accepted step; `TraceEventKind` (`CrossSurface`/`RegionThresholdCrossing`) names WHAT crossed, `TraceEventStatus` (`InitialEndpointTouch`/`PreviousEndpointTouch`/`CurrentEndpointTouch`/`BracketedCrossing`) names WHERE the localizer found it, `TraceEventLocalizationKind` (`BoundedBisection`/`DenseOutputRoot`) names HOW — three orthogonal receipt vocabularies, never merged into one flag.
-- Entry: `Termination.Evaluate(StreamlineState, Vector3d currentSample, Context, Op)` → `Fin<(bool Stop, Option<TraceEvent> Event)>` — a total generated `Switch`: the three scalar stops (`Steps`/`Arc`/`Magnitude`) and the loop stop decide from state alone; the two event stops sample a signed value function (`CrossSurface` = the support signed distance through `SupportSpace.SignedDistance` off the closest hit, gated per hit by `AdmitsSignedDistance(hit)`; `RegionThreshold` = `ScalarField.SampleScalar − Threshold`) and run the event localizer.
-- Auto: event localization is a three-tier decision — an endpoint already inside tolerance emits an endpoint-touch event with zero iterations; a sign change over the segment brackets and bisects to the case's `LocalizationBudget`, refining the midpoint through the accepted step's `DenseOutputSpan.PointAt` when the integrator produced one (so the localized point lies ON the high-order solution curve, `DenseOutputRoot`) and through the chord otherwise (`BoundedBisection`); no sign change and no touch emits no event. `CrossSurface` tolerance is `Context.Absolute`; `RegionThreshold` tolerance is `Context.Fractional` scaled by the threshold magnitude — both scale-derived, never bare literals. `LoopDetected` tests the squared closure radius against every non-adjacent trail vertex.
-- Receipt: `TraceEvent` — kind, status, the `(Previous, Current, Localized)` point triple with its value triple, the segment parameter, the governing tolerance, the localized residual, the bisection iteration count, the localization kind, and the composed `Option<DenseOutputReceipt>` — `ValidityClaim.All` over the finiteness/parameter/count rows plus the cross-field claims (the residual restates `|Values.Localized|`, a `DenseOutputRoot` event REQUIRES its dense receipt); `IsValidFor(terminationPoint)` additionally welds the event to the trace terminus.
-- Boundary: `CrossSurfaceCase` admits any constructed `SupportSpace` — the `Spatial/support.md` `Of` gate already proves closest capability, so no god-predicate is re-minted here; signed-distance capability is a PER-HIT fact (`AdmitsSignedDistance(hit)`) and an unsupported hit is a typed `Unsupported` fault naming the source type at evaluation, never a silent zero. Factories admit raw doubles through `Op.AcceptValidated<PositiveMagnitude>` and budgets through `Dimension`; a non-positive step count, budget, or radius is a typed `InvalidInput` fault, never a clamp.
+- Owner: `Termination` `[Union]` mints one closed stop vocabulary the tracer evaluates at each accepted step; `TraceEventKind`, `TraceEventStatus`, and `TraceEventLocalizationKind` stay three orthogonal receipt vocabularies, never one merged flag.
+- Entry: `Termination.Evaluate` folds a total generated `Switch` — scalar and loop stops decide from state alone, an event stop samples its signed value function and runs the localizer.
+- Auto: localization refines a bracketed sign change through `DenseOutputSpan.PointAt` onto the high-order curve and falls to the chord where the segment carries no dense span; an endpoint inside tolerance short-circuits to a zero-iteration touch. Every tolerance derives from `Context`, never a bare literal.
+- Boundary: `CrossSurfaceCase` admits any constructed `SupportSpace` on the `Spatial/support.md` `Of` gate's closest-capability proof, re-checking signed-distance capability per hit and raising a typed `Unsupported` fault naming the source type. Factories admit raw doubles through `Op.AcceptValidated<PositiveMagnitude>`; a non-positive magnitude is a typed `InvalidInput` fault, never a clamp.
 
 ## [03]-[TRACE]
 
-- Owner: `TracePolicy(Dimension MaxIterations, Dimension LocalizationBudget)` — the outer iteration ceiling and the default event-localization budget as ONE policy record with `Default` (100 000 / 64); `SpatialIntegration.Module` — the ONE `IntegrationModule<Point3d, Vector3d>` instance in the corpus (`Add: p + h·v`, `Scale`, `Sum`, `Norm: |v|`, `Zero`), the consumer-side declaration `integrate.md` assigns to this page; `StreamlineState` — the immutable fold state (trail, current, step, arc, accepted/rejected counters, min/max step, error extrema, live `DenseOutputSpan<Point3d, Vector3d>`, event, stop) whose `Accept`/`Reject` members fold the `integrate.md` `IntegrationStep<Point3d, Vector3d>` outcome and are the only transitions.
-- Entry: `FlowKernel.Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key, Option<TracePolicy> policy = default)` — the one trace entrypoint; `TOut` discriminates the projection (`StreamlineTrace` receipt, `Seq<Point3d>` trail, `Polyline`, `Curve`), and an incomplete trace refuses the geometric projections while still surfacing its receipt.
-- Auto: the trace loop is a `Schedule.recurs(policy.MaxIterations)`-driven `RepeatWhile` over an `Atom<Fin<StreamlineState>>` — the continue-or-done discriminant is `state.Stop`, budget exhaustion is the typed terminal `MaxIterationsExhausted`, and reject-budget exhaustion (the adaptive integrator's `RejectBudget`) is `RejectBudgetExhausted` — never `Fin.Fail`, never a raw counter. Each advance samples the field at the current point, evaluates `Termination` (stop ⇒ record the event and terminate), else folds one `FieldIntegrator.Step` outcome — `Step(module, sample, state, h, key)` over `SpatialIntegration.Module` with the field abstracted as the derivative sampler — through `Accept`/`Reject`. The emitted polyline substitutes the localized event point for the final trail vertex so the geometry ends exactly at the crossing.
-- Receipt: `StreamlineTrace` — trail, stop kind, accepted/rejected step counts, arc length, final/min/max step, method + embedded order (read off the integrator), last/max error, termination point, and the optional `TraceEvent` — `ValidityClaim.All` rows plus the cross-field claims (`AcceptedSteps == Trail.Count − 1`, `MinStep ≤ MaxStep`, an event present must satisfy `IsValidFor(TerminationPoint)`); `IsComplete` gates the `Polyline`/`Curve` projections.
-- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegratorKind`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseOutputReceipt` — the `integrate.md` stepper floor, composed never re-derived; `AtomProjection`/`ProjectionRow` — the typed projection rail; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`SupportSpace` closest + per-hit signed distance; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op` fault/acceptance factory, `Context` tolerances, `Admit` vocabulary, `IValidityEvidence`/`ValidityClaim` fold), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve` — value carriers at the seam).
-- Growth: a new stop condition is one `Termination` case + one `Evaluate` arm (the generated `Switch` breaks every dispatch site loudly); a new event source is one `TraceEventKind` row over the SAME localizer; a new output shape is one `ProjectionRow` in `ProjectTrace`; a bidirectional or multi-seed trace is a fold over this SAME entry, never a sibling tracer.
-- Boundary: the tracer is total over the `Fin` rail — field-sampling failure, a rejected dense endpoint, or an unlocalizable bracket routes a typed fault, never a throw; the loop state is immutable and the `Atom` cell is the ONE boundary state seam (`Swap` transitions are idempotent per the rails law); a local step-outcome union or dense-output carrier beside the `integrate.md` `IntegrationStep`/`DenseOutputSpan` owners is the deleted parallel-rail form; `Polyline`/`Curve` leave only from a `Terminated` trace so a budget-exhausted trail can never masquerade as a completed streamline; the localized event point and the trace terminus agree to the event tolerance by the `IsValidFor` weld — a receipt that disagrees is invalid by construction, not by convention.
+- Owner: `TracePolicy` carries the iteration ceiling and localization budget as policy rows, never compiled-in constants; `SpatialIntegration.Module` is the one `IntegrationModule<Point3d, Vector3d>` instance `integrate.md` assigns this consumer; `StreamlineState.Accept`/`Reject` are the immutable fold state's only transitions.
+- Entry: `FlowKernel.Trace<TOut>` is the one trace entrypoint, `TOut` discriminating the projection.
+- Auto: `PolylineOf` substitutes the localized event point for the final trail vertex, so emitted geometry ends exactly at the crossing.
+- Packages: `Rasm`/Numerics (`FieldIntegrator`/`IntegrationModule`/`IntegrationStep`/`DenseOutputSpan`/`DenseOutputReceipt` stepper floor; `AtomProjection`/`ProjectionRow`; `Dimension`/`PositiveMagnitude`), `Rasm`/Spatial (`SupportSpace`; `ScalarField.SampleScalar`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<int>]`), RhinoCommon (`Point3d`/`Vector3d`/`Polyline`/`Curve.ToPolylineCurve`).
+- Growth: a new stop condition is one `Termination` case and one `Evaluate` arm, the generated `Switch` breaking every dispatch site loudly; a new event source is one `TraceEventKind` row over the same localizer; a new output shape is one `ProjectionRow`; a bidirectional or multi-seed trace folds over this same entry, never a sibling tracer.
+- Boundary: every failure routes a typed fault, keeping the tracer total over the `Fin` rail. One `Atom` cell holds the immutable loop state as the sole boundary state seam under idempotent `Swap` transitions, and `Polyline`/`Curve` project only a `Terminated` trace, so a budget-exhausted trail never masquerades as a completed streamline.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
@@ -102,9 +100,7 @@ public abstract partial record Termination {
     public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) =>
         Positive(candidate: closureRadius, create: static value => new LoopDetectedCase(ClosureRadius: value), key: key);
 
-    // An admitted SupportSpace is closest-capable by construction (support.md Of gate); the signed-distance
-    // gate is per-hit and runs at Evaluate, where the hit exists. Op.Need/Finite are the gates here:
-    // the Admit member name shadows the Rasm.Domain.Admit class inside this type.
+    // Admit shadows the Rasm.Domain.Admit class inside this type, so Op.Need/Finite are the gates reachable here.
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
@@ -148,8 +144,6 @@ public abstract partial record Termination {
     private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
         Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
 
-    // Tiered event localizer: endpoint touch -> bracketed root -> none. The dense-output PointAt keeps the
-    // localized point on the high-order solution curve; a dense-less segment refines along the chord.
     private static Fin<Option<TraceEvent>> EvaluateEvent(StreamlineState state, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
         from currentValue in sample(state.Current)
         from output in state.Trail.Count < 2
@@ -173,10 +167,7 @@ public abstract partial record Termination {
                 Residual: Math.Abs(value: values.Localized), Iterations: 0,
                 LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseOutputReceipt>.None)))
             : Fin.Succ(Option<TraceEvent>.None);
-    // Bounded bisection over the sign-changing bracket; each midpoint evaluates through the dense output when present.
-    // The evaluand is the Fin-railed host sample (Closest/SignedDistance/SampleScalar), so the bracket refines ON the
-    // rail — MathNet's scalar root-finders take a total Func<double,double>, and a NaN-sentinel bridge to
-    // Brent.TryFindRoot is the mid-pipeline collapse that erases the typed fault and the per-iteration receipt evidence.
+    // Each midpoint samples through the Fin-railed callback, so the bracket refines on-rail where a total-Func root-finder cannot.
     private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) =>
         from bracket in toSeq(Enumerable.Range(start: 0, count: budget)).Fold(
             initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Localized: previous, FLocalized: previousValue, TLocalized: 0.0, Done: false, Iterations: 0)),
@@ -219,8 +210,6 @@ public sealed record TracePolicy(Dimension MaxIterations, Dimension Localization
         LocalizationBudget: Dimension.Create(value: 64));
 }
 
-// THE one spatial IntegrationModule instance — integrate.md assigns its consumer exactly one module
-// declaration; a second Point3d/Vector3d module anywhere in the corpus is the deleted parallel-rail form.
 internal static class SpatialIntegration {
     internal static readonly IntegrationModule<Point3d, Vector3d> Module = new(
         Add: static (state, h, delta) => state + (h * delta),
@@ -231,8 +220,6 @@ internal static class SpatialIntegration {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------------
-// IsValid = ONE ValidityClaim.All fold (Domain/rails.md); the cross-field claims are the rows only
-// this receipt can state: the residual restates |Values.Localized|, DenseOutputRoot requires evidence.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TraceEvent(
     TraceEventKind Kind, TraceEventStatus Status,
@@ -271,8 +258,6 @@ public readonly record struct StreamlineTrace(
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------
-// Immutable fold state; Accept/Reject fold the integrate.md IntegrationStep outcome and are the only
-// transitions. Stop is the continue-or-done discriminant.
 internal readonly record struct StreamlineState(
     Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps,
     double MinStep, double MaxStep, Option<double> LastError, double MaxError,
@@ -309,7 +294,6 @@ internal static class FlowKernel {
         from output in ProjectTrace<TOut>(trace: trace, key: key)
         select output;
 
-    // Typed-row projection through the atoms.md rail — the receipt is the implicit self row.
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
         from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
         from output in AtomProjection.Rows<StreamlineTrace, TOut>(self: valid, key: key,
@@ -320,8 +304,6 @@ internal static class FlowKernel {
                 : Fin.Fail<Curve>(key.InvalidResult())))
         select output;
 
-    // Schedule-driven advance: the Atom cell holds Fin<StreamlineState>; RepeatWhile retires the counter and
-    // budget exhaustion lands as the typed MaxIterationsExhausted terminal, never Fin.Fail.
     private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, TracePolicy policy, Context context, Op key) {
         Atom<Fin<StreamlineState>> cell = Atom(value: Fin.Succ(StreamlineState.Start(seed: seed, h: initialStep.Value)));
         _ = IO.lift(() => { _ = cell.Swap(f: state => state.Bind(active => active.Stop.IsSome ? Fin.Succ(active) : AdvanceState(state: active, source: source, integrator: integrator, termination: termination, context: context, key: key))); })
@@ -331,8 +313,6 @@ internal static class FlowKernel {
             .Run();
         return cell.Value;
     }
-    // One advance: sample -> terminate-or-step; the stepper is integrate.md's carrier-generic Step folded
-    // over the ONE spatial module with the field as the derivative sampler.
     private static Fin<StreamlineState> AdvanceState(StreamlineState state, VectorField source, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
         from vector in source.SampleVector(sample: state.Current, context: context, key: key)
         from decision in termination.Evaluate(state: state, currentSample: vector, context: context, key: key)

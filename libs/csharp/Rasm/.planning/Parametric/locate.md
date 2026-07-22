@@ -1,35 +1,35 @@
 # [RASM_PARAMETRIC_LOCATE]
 
-The curve/surface location algebra — the measured-query family the `Rasm.Analysis` runtime executes, answering WHERE on a parametric geometry and WHAT lives there: `Locator` (the addressing algebra: curve parameter, arc length, normalized arc-length station, surface UV, closest-to-probe, perpendicular parameter sets), `LocationValue` (the value algebra: point, frame, normal, tangent, curvature, derivative, parameter, length), `Division` (by-count/by-length subdivision), `CurvatureMode` + `CurvatureAggregation` (the curvature sweep: raw samples, per-metric scalars, Welford `Stat` summaries, tolerance-banded extrema), and the `Location` aspect union folding all of it to one `Operation<TGeometry, TOut>` the `Analysis/query` runtime executes under `Eff<Env, Seq<TOut>>`. `AnalysisQuery.Location(Location)` is the routing fence: the query union's `LocationCase` calls `Location.Operation<TGeometry, TOut>()` and nothing else — this page owns everything behind that call. The page sits in the `Parametric` folder with its domain (parameter-addressed evaluation) and the folder law names its namespace — `Rasm.Parametric` — while the frozen `Rasm.Analysis` `AnalysisQuery` contract composes it across the one-assembly namespace seam.
+`Rasm.Parametric` location algebra measures WHERE a point sits on a live `Curve`/`Surface` and WHAT value lives there, folding every addressing, value, subdivision, and curvature query to one `Operation<TGeometry, TOut>` the `Rasm.Analysis` runtime executes under `Eff<Env, Seq<TOut>>`. `AnalysisQuery.Location` is the sole public route in — everything behind that call is this owner's.
 
-The structural law is the (value × locator) matrix as CASE-OWNED rows: each `LocationValue` case declares its curve-family arm, surface-family arm, closest-projection column (a `Spatial/support` `SupportProjection` row — the closest modality is table data, not code), and perpendicular arm — a flat central tuple mega-switch over the matrix is the killed shape, and adding a value case is one case with its columns, every consumer untouched. `Locator` owns its own parameter resolution (`ResolveParameter`) and its own requirement derivation (`CurveRequirement`), so addressing policy travels with the address. The operation spine is the page-local `Locate` static owner — the `Analyze` facade stays the `Analysis/query` page's, and spreading location builders across a corpus-wide partial class is the killed shape. Curve-frame/tangent/curvature evaluation delegates to the `Parametric/projections` `CurveProjection` rows through the `Processing/intent` rail; surface evaluation composes the `Domain/evaluation` `NormalAt`/`FrameAt`/`SurfaceUv`/`SurfaceSampleUv`/`CurveSampleParameters` lattice; coercion rides the `Domain/normalization` `CurveForm`/`SurfaceForm` leases; statistics ride `Domain/stats` (`Stat.Of` Welford, `Stat.Extrema` tolerance-banded, `ScalarMetric`, `StatContext`, `ExtremumDirection`); every scalar-projecting `SurfaceCurvature` read runs inside a `Lease` scope with the `IsSet` gate inside the lease, and the two bundle-valued rows transfer disposal to the caller on success — a refused or unset bundle, or an acquired batch that fails the gate, is disposed in full before the fault leaves.
+Structural law is the (value × locator) matrix as CASE-OWNED rows: each `LocationValue` case owns its curve, surface, and perpendicular arms with a `Spatial/support` `SupportProjection` closest column, and the fold discriminates only the locator family. `Locator` carries its own `ResolveParameter` and `CurveRequirement`, so policy travels with the address; the page-local `Locate` static owner is the operation spine, the `Analysis/query` `Analyze` facade its only caller. Curve frame/tangent/curvature delegates to the `Parametric/projections` `CurveProjection` rows through `Processing/intent`, surface evaluation composes the `Domain/evaluation` lattice directly, coercion rides `Domain/normalization` leases, and statistics ride `Domain/stats`; every builder lands in `Operation<TGeometry, TOut>.Build`, whose substrate owns readiness and cancellation through `Prepare` so no arm re-checks them.
 
 ## [01]-[INDEX]
 
-- [02]-[LOCATION]: the vocabulary — `Locator` addressing (+ case-owned parameter resolution and requirement derivation), `LocationValue` value rows (+ the three family arms and the closest column), `Division`, `CurvatureMode`, `CurvatureAggregation`, and the `Location` aspect union with its `Operation<TGeometry, TOut>()` fold.
-- [03]-[OPERATIONS]: the `Locate` spine — the one `Admits` capability gate, the curve/surface/closest/perpendicular/divide/orientation/contains/short-path builders over `Operation.Build`, and the curvature sweep (sample folds, lease-scoped bundle reads, `Stat`/`Extrema` aggregation, the merged output-projection arms).
+- [02]-[LOCATION]: vocabulary unions — `Locator` addressing, `LocationValue` value rows over the case-owned matrix, `Division`, `CurvatureMode`/`CurvatureAggregation`, and the `Location` aspect the query folds.
+- [03]-[OPERATIONS]: `Locate` spine — the one `Admits` gate, the aspect builders, and the curvature sweep.
 
 ## [02]-[LOCATION]
 
-- Owner: `Locator` `[Union]` — `CurveParameter(double T)` / `ArcLength(double Distance)` / `NormalizedLength(double S)` / `SurfaceParameter(Point2d Uv)` / `ClosestTo(Point3d Probe)` / `PerpendicularParameters(Seq<double> Ts)`; `NormalizedMid` survives as the `NormalizedLength(0.5)` factory spelling — the parameterless mid case was the weaker owner, and the whole arc-length-normalized station family is one payload. The addressing algebra carries its own behavior: `ResolveParameter(Curve, Context, Op)` resolves the three curve addresses to a parameter (`Domain.IncludesParameter` gate; unit-interval admission then `Curve.NormalizedLengthParameter(s: S, ...)`; `Curve.LengthParameter(segmentLength, ...)` — both under `Context.Fractional`), and `CurveRequirement` derives the readiness gate (`Requirement.CurveLength` for the two length-driven addresses, `Requirement.Basic` otherwise) so requirement policy is a locator column, never a per-arm literal.
-- Owner: `LocationValue` `[Union]` — `Point` / `Frame` / `Normal` / `Tangent` / `Curvature` / `Derivative(int Order)` / `Parameter` / `Length` (static factories preserve the vocabulary spelling). Each case is a ROW of the (value × locator) matrix: an `Op Key` column (`nameof`-derived, one operation identity per value), an `Option<SupportProjection>` closest column (`Point`→`Closest`, `Frame`→`Frame`, `Normal`→`Normal`, `Tangent`→`Tangent`, `Parameter`→`Parameter`; the rest `None`), and virtual `OnCurve`/`OnSurface`/`OnPerpendicular` arms defaulting to `Unsupported` — `Resolve<TGeometry, TOut>(Locator)` folds the locator FAMILY to the owning arm in four arms, the curve family riding the default route because `Locator` is closed and every non-curve case peels off above it. Curve arms delegate frame/tangent/curvature to `VectorIntent.Curve(source, parameter, mode: CurveProjection.Frame|Tangent|Curvature, key)` — the `Parametric/projections` rows, never a second evaluation path; surface arms compose `Evaluation.FrameAt`/`NormalAt`/`Surface.PointAt`/`Surface.CurvatureAt`; `Length` measures `Curve.GetLength` from `Domain.T0` to the resolved parameter uniformly across all three curve addresses; `Parameter` surfaces the resolved address itself (the arc-length→parameter and normalized-station→parameter conversions the resolution already computes — discarding them was the mature dead cell); `Derivative` gates `Order >= 0` at the arm and indexes `Curve.DerivativeAt(t, derivativeCount)`.
-- Owner: `Division` `[Union]` — `ByCount(int)` / `ByLength(double)` with `Operation<TGeometry, TOut>()` validating at the fold (`Count <= 0`, non-finite or sub-tolerance `Length` → `Reject`) and lowering to `Curve.DivideByCount(segmentCount, includeEnds: true, out points)` / `Curve.DivideByLength(segmentLength, includeEnds: true, out points)`; `ByLength` carries `Requirement.CurveLength`.
-- Owner: `CurvatureMode` `[Union]` — `Vector` / `Scalar(ScalarMetric)` with the two derivation columns the sweep reads: `IsCurveMagnitude` (vector mode or magnitude metric) and `SurfaceMetrics` (vector mode → `Seq(Gaussian, Mean)`, a surface scalar → its singleton). `CurvatureAggregation` `[Union]` — `Samples` / `Extrema(ExtremumDirection Direction, double Band)` with the `Key` column selecting the operation identity; `Band` parameterizes the `Stat.Extrema` tolerance band (the sweep's exact-extremum default is band `0.0`, and a plateau sweep widens it — a policy value, not a second fold).
-- Owner: `Location` `[Union]` — the aspect the query routes: `At(Locator, LocationValue)` / `Curvature(Count, Mode, Aggregation)` / `Divide(Division)` / `Orientation(Plane)` / `Contains(Point3d, Plane)` / `ShortPath(Point2d, Point2d)`. Factories keep the full public spelling (`At`/`Curvature`/`CurvatureExtrema`/`DivideByCount`/`DivideByLength`/`Orientation`/`Contains`/`ShortPath`); twin sample/extrema aspect cases collapse to ONE `CurvatureCase` discriminated by `CurvatureAggregation` — aggregation is a value, not a sibling case.
-- Entry: `internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>()` — the generated `Switch` fold from aspect to operation: `At` → `Value.Resolve(Locator)`, `Curvature` → `Locate.Curvature`, `Divide` → `Division.Operation`, and the three curve/surface aspects → their `Locate` builders. `AnalysisQuery.Location(Location)` is the ONLY public route in; no aspect exposes a second executable surface.
-- Receipt: none minted here — the typed value sequence IS the result (`Point3d`/`Plane`/`Vector3d`/`SurfaceCurvature`/`double`/`Stat`/`CurveOrientation`/`PointContainment`/`Curve` rows), `Stat` is the `Domain/stats` summary carrier, and refusals ride the `Op` fault taxonomy: `Reject` for admission-invalid requests (non-positive counts, degenerate lengths, negative derivative order), `Unsupported` for impossible (value, locator, geometry, output) combinations, `InvalidResult` for host-evaluation refusals (`PointContainment.Unset`, a failed `ShortPath`).
-- Growth: a new value (an `Osculating` circle at a parameter, a `Torsion` scalar) is one `LocationValue` case with its arms and columns; a new address (a domain-normalized `NormalizedParameter(double)` locator — distinct from the arc-length-normalized `NormalizedLength` already landed) is one `Locator` case plus its `ResolveParameter` arm — the curve family rides `Resolve`'s default route, so the fold stays untouched; a non-curve address adds its own `Resolve` arm; a new aggregation (an `Inflections` zero-crossing report) is one `CurvatureAggregation` case read by the sweep; a new aspect is one `Location` case plus one `Switch` arm. Zero new entrypoints, zero new runtimes.
-- Boundary: this owner is Rhino-parametric ANALYSIS altitude — it measures live `Curve`/`Surface` geometry through RhinoCommon evaluation under the `Analysis` runtime, and the host-neutral vendored-NURBS `Parametric/curve` owner carries the same parametric concept for the non-Rhino runtime (division, closest-point, arc-length live in BOTH by decision — the split is runtime, they meet at the wire); the (value × locator) matrix lives in the value cases and a resurrected central tuple-switch over the matrix is the named collapse-regression; closest-point addressing composes `SupportSpace.Of` + `VectorIntent.Support` + the `SupportProjection` column — a locator-local closest-point implementation is the named parallel-rail defect; coercion is always the `CurveForm`/`SurfaceForm` LEASE (a `BrepEdge` yields an owned duplicate the lease disposes; a live `Curve` passes borrowed) and a raw cast beside the lease is the named ownership leak; `SurfaceCurvature` bundles are lease-read everywhere except the two rows whose OUTPUT is the bundle (`Curvature` at a surface UV; the sweep's vector mode) — there disposal transfers to the caller by contract, stated on each row, and the refusal path still disposes (an unset bundle or a failed batch never escapes); curve value arms route through the `CurveProjection` rows because row semantics (tiny-vector gates, magnitude admission, frame choice) live there, while surface point/frame/normal arms compose the `Domain/evaluation` floor DIRECTLY — the operation has already normalized the UV, so re-entering `SurfaceProjection.Project` would re-admit and re-normalize (the double-validation defect); the floor is the one derivation site, so the direct read is composition, never a parallel rail.
+- Owner: `Locator` `[Union]` is the addressing algebra — `CurveParameter`, `ArcLength`, `NormalizedLength`, `SurfaceParameter`, `ClosestTo`, `PerpendicularParameters`; `NormalizedMid` is the `NormalizedLength(0.5)` factory, the arc-length-normalized station family one payload. Addressing carries its own policy: `ResolveParameter` lowers the three curve addresses to a parameter under `Context.Fractional`, and `CurveRequirement` derives the readiness gate (`Requirement.CurveLength` for the length-driven addresses, `Requirement.Basic` otherwise), never a per-arm literal.
+- Owner: `LocationValue` `[Union]` — `Point`, `Frame`, `Normal`, `Tangent`, `Curvature`, `Derivative`, `Parameter`, `Length`, each a ROW of the (value × locator) matrix carrying a `nameof`-derived `Op Key`, an `Option<SupportProjection>` closest column, and virtual `OnCurve`/`OnSurface`/`OnPerpendicular` arms defaulting to `Unsupported`; `Resolve` folds the locator FAMILY to the owning arm, the curve family riding the default route. Curve arms delegate frame/tangent/curvature to the `Parametric/projections` `CurveProjection` rows through `VectorIntent.Curve`, never a second evaluation path; surface arms compose the `Domain/evaluation` floor; `Length` measures `Curve.GetLength` from `Domain.T0` to the resolved parameter; `Parameter` surfaces the address the resolution already computed; `Derivative` gates non-negative order.
+- Owner: `Division` `[Union]` — `ByCount`, `ByLength`, validating at the fold (non-positive count, non-finite or sub-tolerance length → `Reject`) and lowering to `Curve.DivideByCount`/`DivideByLength`; `ByLength` carries `Requirement.CurveLength`.
+- Owner: `CurvatureMode` `[Union]` — `Vector`, `Scalar`, with the two derivation columns the sweep reads (`IsCurveMagnitude`; `SurfaceMetrics`, vector mode yielding `Gaussian`+`Mean` and a surface scalar its singleton); `CurvatureAggregation` `[Union]` — `Samples`, `Extrema`, its `Key` column selecting the operation identity and `Band` parameterizing the `Stat.Extrema` tolerance band (band `0.0` the exact extremum, a positive band the plateau set — a policy value, not a second fold).
+- Owner: `Location` `[Union]` — the aspect the query routes: `At`, `Curvature`, `Divide`, `Orientation`, `Contains`, `ShortPath`; twin sample/extrema cases collapse to ONE `CurvatureCase` discriminated by `CurvatureAggregation`, aggregation a value, not a sibling case.
+- Entry: `Operation<TGeometry, TOut>()` is the generated `Switch` fold from aspect to operation, and `AnalysisQuery.Location` the ONLY public route in — no aspect exposes a second executable surface.
+- Receipt: none minted — the typed value sequence IS the result, `Stat` the `Domain/stats` summary carrier, and refusals ride the `Op` fault taxonomy: `Reject` for admission-invalid requests, `Unsupported` for impossible (value, locator, geometry, output) combinations, `InvalidResult` for host-evaluation refusals.
+- Growth: a new value is one `LocationValue` case with its arms and columns; a new curve address is one `Locator` case with its `ResolveParameter` arm and the fold untouched, a non-curve address adding its own `Resolve` arm; a new aggregation is one `CurvatureAggregation` case; a new aspect is one `Location` case and one `Switch` arm — zero new entrypoints, zero new runtimes.
+- Boundary: this owner is Rhino-parametric ANALYSIS altitude, measuring live `Curve`/`Surface` under the `Analysis` runtime; `Parametric/curve` is the host-neutral counterpart for the non-Rhino runtime. Matrix rows live in the value cases — a central tuple-switch over them is the collapse-regression. Closest-point addressing composes `SupportSpace.Of` + `VectorIntent.Support` + the `SupportProjection` column; a locator-local closest-point implementation is the parallel-rail defect. Coercion is always the `CurveForm`/`SurfaceForm` LEASE, a raw cast beside it the ownership leak. `SurfaceCurvature` bundles read lease-scoped everywhere except the two rows whose OUTPUT is the bundle — there disposal transfers to the caller by contract and the refusal path still disposes. Surface point/frame/normal arms compose the `Domain/evaluation` floor DIRECTLY: the operation has normalized the UV, so re-entering `SurfaceProjection.Project` re-admits and re-normalizes (the double-validation defect).
 
 ## [03]-[OPERATIONS]
 
-- Owner: `Locate` `internal static class` — the location operation spine. `Admits<TGeometry, TOut, TNative, TValue>()` is the ONE capability gate (native-form coercibility of `TGeometry` via the `Domain/normalization` `Capability.CurveForm`/`Capability.SurfaceForm` rows or assignability, AND `TOut == TValue`); `Curve`/`Surface` are the two family builders threading `Op`-keyed state through `Operation<TGeometry, TValue>.Build` — coerce the lease, resolve the address (`Locator.ResolveParameter` / `Evaluation.SurfaceUv`), project under the runtime `Context`, re-key through `As<TGeometry, TOut>`; `Closest` composes the support rail; `Perpendicular` orders and dedups parameters into `Curve.GetPerpendicularFrames`; `Divide`/`Orientation` (`Curve.ClosedCurveOrientation`)/`Contains` (`Curve.Contains(testPoint, plane, tolerance)`, context-required, `Unset` → fail)/`ShortPath` (`Surface.ShortPath(uvStart, uvEnd, tolerance)` over two normalized UVs) each lower one aspect.
-- Owner: the curvature sweep — `Curvature<TGeometry, TOut>(count, mode, aggregation)` resolves the native family once, then folds the (mode, aggregation, output) matrix over ONE shared `Sweep` builder (lease the native form, sample `count` stations via `Evaluation.CurveSampleParameters`/`SurfaceSampleUv`, project): curve rows — curvature vectors, magnitudes, magnitude `Stat`, banded extrema; surface rows — raw `SurfaceCurvature` bundles, per-metric scalars, per-metric `Stat` set (one sampling pass, metrics transposed from lease-scoped bundle rows — the double-sample per metric is dead), banded extrema. `ExtremaOf<TOut>` merges the four old extrema arms into one output-projected fold over `Stat.Extrema` hits (`Point3d` → station points, `double` → extremal values); `CurvatureSample(Point3d, double)` is the private station carrier on the `Domain/rails` validity fold — every station fold drains through the acceptance oracle, so a degenerate host evaluation faults the sweep instead of feeding the extrema, and the bundle-valued path disposes an acquired batch in full on the refusal route.
-- Boundary: the output-type gates (`typeof(TOut) == typeof(...)` inside `Admits`, the sweep matrix, `ExtremaOf`) are COMPILE-SHAPE capability gates on a generic operation — the legitimate generic-dispatch idiom this runtime altitude requires — never the runtime raw→typed projection dispatch, which stays the `Numerics/atoms` `ProjectionRow` rail's; `Sweep` is the one native-sampling builder and a per-row bespoke `Operation.Build` for a new sweep output is the named spam this fold absorbs; requirement values (`CurveLength`/`SurfaceEvaluation`/`Basic`) always arrive from locator columns or family builders, never inline per arm.
+- Owner: `Locate` `internal static class` — the operation spine. `Admits` is the ONE capability gate (native-form coercibility of `TGeometry` via the `Domain/normalization` capability rows or assignability, AND output-type fit); `Curve`/`Surface` are the two family builders threading `Op`-keyed state through `Operation.Build` — coerce the lease, resolve the address, project under the runtime `Context`, re-key through `As`; `Closest` composes the support rail; `Perpendicular` orders and dedups into `Curve.GetPerpendicularFrames`; `Divide`/`Orientation`/`Contains`/`ShortPath` each lower one aspect.
+- Owner: the curvature sweep — `Curvature` resolves the native family once, then folds the (mode, aggregation, output) matrix over ONE shared `Sweep` builder (lease, sample `count` stations, project): curve rows give vectors, magnitudes, magnitude `Stat`, banded extrema; surface rows give raw bundles, per-metric scalars, a per-metric `Stat` set (one sampling pass, metrics transposed from lease-scoped bundle rows), banded extrema. `ExtremaOf` folds `Stat.Extrema` hits to one output-projected arm; `CurvatureSample` is the private station carrier on the `Domain/rails` validity fold, so every station drains through the acceptance oracle and a degenerate host evaluation faults the sweep instead of feeding the extrema.
+- Boundary: the output-type gates are COMPILE-SHAPE capability gates on a generic operation — the legitimate generic-dispatch idiom, never the runtime raw→typed projection dispatch the `Numerics/atoms` `ProjectionRow` rail owns; `Sweep` is the one native-sampling builder, a per-row bespoke `Operation.Build` the spam it absorbs; requirement values arrive from locator columns or family builders, never inline per arm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// Rhino.Geometry, the LanguageExt prelude, and Thinktecture arrive as global usings; Rasm.Analysis, Rasm.Domain, Rasm.Processing, and Rasm.Spatial do not.
+// Rhino.Geometry, the LanguageExt prelude, and Thinktecture are global usings; the Rasm.* namespaces are explicit.
 
 using Rasm.Analysis;
 using Rasm.Domain;
@@ -50,10 +50,8 @@ public abstract partial record Locator {
     public sealed record ClosestTo(Point3d Probe) : Locator;
     public sealed record PerpendicularParameters(Seq<double> Ts) : Locator;
 
-    // The mature NormalizedMid vocabulary is the 0.5 station of the generalized arc-length-normalized address.
     public static Locator NormalizedMid => new NormalizedLength(S: 0.5);
 
-    // Addressing policy travels with the address: requirement derivation + parameter resolution are locator columns.
     internal Requirement CurveRequirement => this switch { ArcLength or NormalizedLength => Requirement.CurveLength, _ => Requirement.Basic };
     internal Fin<double> ResolveParameter(Curve curve, Context context, Op key) => this switch {
         CurveParameter { T: double t } => guard(curve.Domain.IncludesParameter(t: t), key.InvalidInput()).ToFin().Map(_ => t),
@@ -112,8 +110,7 @@ public abstract partial record LocationValue {
                 VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature, key: key)
                     .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
                     .Bind(curvature => key.Accept(value: curvature)));
-        // Output IS the disposable bundle: success transfers disposal to the caller; an unset bundle is
-        // disposed on the refusal path inside the lease, never leaked and never handed out.
+        // Output IS the disposable bundle: success transfers disposal to the caller, the unset path disposes inside the lease.
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, SurfaceCurvature>(key: LocationKeys.CurvatureAt, uv: uv, project: static (key, surface, p) =>
                 Optional(surface.CurvatureAt(u: p.X, v: p.Y)).ToFin(key.InvalidResult())
@@ -134,8 +131,7 @@ public abstract partial record LocationValue {
     public sealed record ParameterCase : LocationValue {
         internal override Op Key => LocationKeys.ParameterAt;
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Parameter);
-        // The resolved address IS the value: At(ArcLength(d), Parameter) answers the arc-length→parameter query
-        // the resolution already computes — the mature matrix discarded it as a dead cell.
+        // Resolved address IS the value: At(ArcLength(d), Parameter) answers the arc-length→parameter query resolution already computed.
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, double>(key: LocationKeys.ParameterAt, locator: locator, project: static (key, _, t, _) => key.Accept(value: t));
     }
@@ -144,7 +140,7 @@ public abstract partial record LocationValue {
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, double>(key: LocationKeys.LengthAt, locator: locator, requirement: Requirement.CurveLength, project: static (key, curve, t, context) =>
                 curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(t0: curve.Domain.T0, t1: t)) switch {
-                    // Host-read scalar: IsValidDouble screens the unset sentinel — the host-scalar law projections.md states.
+                    // Host-read scalar: IsValidDouble screens Rhino's unset sentinel.
                     double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => key.Accept(value: length),
                     _ => Fin.Fail<Seq<double>>(key.InvalidResult()),
                 });
@@ -159,7 +155,7 @@ public abstract partial record LocationValue {
     public static LocationValue Parameter => new ParameterCase();
     public static LocationValue Length => new LengthCase();
 
-    // The (value × locator) matrix: rows live on the cases, the fold discriminates only the locator FAMILY.
+    // Matrix rows live on the cases; the fold discriminates only the locator FAMILY.
     internal abstract Op Key { get; }
     internal virtual Option<SupportProjection> Closest => None;
     internal virtual Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) where TGeometry : notnull => Key.Unsupported<TGeometry, TOut>();
@@ -171,8 +167,7 @@ public abstract partial record LocationValue {
             Some: projection => Locate.Closest<TGeometry, TOut>(key: Key, target: ct.Probe, projection: projection),
             None: () => Key.Unsupported<TGeometry, TOut>()),
         Locator.PerpendicularParameters ps => OnPerpendicular<TGeometry, TOut>(parameters: ps.Ts),
-        // Curve family rides the default: Locator is closed and every non-curve case peels above, so a new
-        // curve address is one ResolveParameter arm with this fold untouched; a non-curve address adds its arm HERE.
+        // Curve family rides the default: Locator is closed and every non-curve case peels above, so a new curve address is one ResolveParameter arm and a non-curve address adds its arm HERE.
         _ => OnCurve<TGeometry, TOut>(locator: locator),
     };
 }
@@ -201,7 +196,6 @@ public abstract partial record CurvatureMode {
     public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
     public static CurvatureMode Vector => new VectorCase();
     public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
-    // Row-identity folds over the stats.md vocabulary: the metric rows carry payload-shaped Of arms, not classification columns.
     internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.Equals(ScalarMetric.Magnitude), _ => false };
     internal Seq<ScalarMetric> SurfaceMetrics => this switch {
         VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean),
@@ -250,7 +244,7 @@ public abstract partial record Location {
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// The one nameof-derived operation-key table; per-arm Op literals are the named defect.
+// One nameof-derived operation-key table; per-arm Op literals are the named defect.
 internal static class LocationKeys {
     internal static readonly Op PointAt = Op.Of(name: nameof(PointAt));
     internal static readonly Op FrameAt = Op.Of(name: nameof(FrameAt));
@@ -270,7 +264,6 @@ internal static class LocationKeys {
 }
 
 internal static class Locate {
-    // The ONE capability gate: native-form coercibility of TGeometry AND output-type fit.
     private static bool Admits<TGeometry, TOut, TNative, TValue>() =>
         ((typeof(TNative) == typeof(Curve) && Capability.CurveForm.Admits(type: typeof(TGeometry)))
             || (typeof(TNative) == typeof(Surface) && Capability.SurfaceForm.Admits(type: typeof(TGeometry)))
@@ -424,8 +417,7 @@ internal static class Locate {
                     .Bind(lease => lease.Use((State: state, Context: context), static (s, native) => s.State.Project(arg1: s.State.Key, arg2: native, arg3: s.State.Count, arg4: s.Context))).ToEff()
                 select result);
 
-    // Station carrier on the rails validity fold: the acceptance oracle gates every sweep station, so a NaN
-    // curvature or unset point faults the sweep instead of riding silently into Stat.Extrema.
+    // Station carrier on the rails validity fold: the acceptance oracle gates every station, so a NaN curvature or unset point faults the sweep instead of riding into Stat.Extrema.
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct CurvatureSample(Point3d Point, double Curvature) : IValidityEvidence {
         public bool IsValid => ValidityClaim.All(ValidityClaim.Finite(point: Point), ValidityClaim.Nonnegative(value: Curvature));
@@ -447,14 +439,12 @@ internal static class Locate {
         Evaluation.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
             .Bind(parameters => key.Accept(values: parameters.Map(t => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length))));
 
-    // Every scalar-projecting bundle read is lease-scoped with the IsSet gate INSIDE the lease — an unset
-    // bundle is disposed on the refusal path, never projected (the same shape as projections.md WithCurvature).
+    // Every scalar-projecting bundle read is lease-scoped with the IsSet gate INSIDE the lease — an unset bundle disposes on the refusal path, never projected.
     private static Fin<T> WithBundle<T>(Op key, Surface surface, Point2d uv, Func<SurfaceCurvature, Fin<T>> project) =>
         Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())
             .Bind(bundle => new Lease<SurfaceCurvature>.Owned(Value: bundle)
                 .Use(scoped => scoped.IsSet ? project(arg: scoped) : Fin.Fail<T>(key.InvalidResult())));
-    // Output IS the live bundle seq: acquisition is total (memoized Seq), the IsSet gate runs after, and a
-    // refused batch disposes in full before the fault leaves — a TraverseM abort would leak the acquired prefix.
+    // Output IS the live bundle seq: acquisition is total then IsSet-gated, and a refused batch disposes in full before the fault leaves — a TraverseM abort would leak the acquired prefix.
     private static Fin<Seq<SurfaceCurvature>> SurfaceBundles(Op key, Surface surface, int count, Context context) =>
         Evaluation.SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.CurvatureAt(u: uv.X, v: uv.Y)))
@@ -499,7 +489,7 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, column, or fold arm, never a sibling surface. `[RAIL]` names the one return rail each owner exposes.
+One owner per axis; capability is a case, column, or fold arm, never a sibling surface. `[RAIL]` names each owner's one return rail.
 
 | [INDEX] | [AXIS_CONCERN]        | [OWNER]                | [RAIL]                                    | [CASES] |
 | :-----: | :-------------------- | :--------------------- | :---------------------------------------- | :-----: |
@@ -511,12 +501,13 @@ One owner per axis; capability is a case, column, or fold arm, never a sibling s
 |  [06]   | curvature aggregation | `CurvatureAggregation` | carrier (read by the sweep)               |    2    |
 |  [07]   | operation spine       | `Locate`               | `Operation.Build → Eff<Env, Seq<TOut>>`   |    —    |
 
-[KIND] by index — [01]: `[Union]` folded to one operation by generated `Switch`. [02]: `[Union]` + `ResolveParameter`/`CurveRequirement` columns. [03]: `[Union]` — `Key`/`Closest` columns + three family arms per case. [04]: `[Union]` validating at the fold. [05]: `[Union]` + `IsCurveMagnitude`/`SurfaceMetrics` derivation columns. [06]: `[Union]` + `Key` column, `Band` policy on the extrema case. [07]: `internal static` — one `Admits` gate, 8 aspect builders, the `Curvature` matrix over one `Sweep`, 7 sample folds.
-
-The vocabulary unions, the case rows, `Resolve`, the `Locate` builders, the curvature matrix, and the sample folds are transcription-complete against the RhinoCommon location surface (`DivideByCount`/`DivideByLength`/`GetPerpendicularFrames`/`NormalizedLengthParameter`/`LengthParameter`/`ClosedCurveOrientation`/`Contains`/`ShortPath`/`DerivativeAt`/`CurvatureAt`/`GetLength`). `Operation<TGeometry,TOut>`/`Env`/`Requirement`/`Op`/`Lease<T>`/`Stat`/`ScalarMetric`/`StatContext`/`ExtremumDirection`/`SupportSpace`/`SupportProjection`/`VectorIntent`/`CurveProjection` and the `Normalization`/`Capability`/`Evaluation` lattices are composed upstream owners, never re-minted here.
+Every union, case row, `Resolve`, and `Locate` builder composes the RhinoCommon location surface and the upstream `Domain` lattices; no location arm re-mints an evaluation kernel.
 
 ## [05]-[RESEARCH]
 
-- [LOCATION_MATRIX] — the (value × locator) matrix is the page's structural thesis: forty-eight combinations, thirty-one supported, and the support pattern is per-VALUE, so the rows live on the `LocationValue` cases and the fold discriminates only the locator family — four arms (surface, closest, perpendicular, the curve family as the default route) replace a flat tuple switch whose every extension touches one central method, and a new curve address never edits the fold at all. The closest family proves the collapse hardest: five values (`Point`/`Frame`/`Normal`/`Tangent`/`Parameter`) differ ONLY in which `SupportProjection` row projects the `ClosestHit`, so the closest modality is one `Option<SupportProjection>` column and one shared `Locate.Closest` builder over `SupportSpace` + `VectorIntent.Support` — the value case contributes data, not code; the mature matrix left `Tangent × ClosestTo` and `Parameter × curve-family` dead even though the projection row and the resolved parameter both already existed, and this shape realizes them as one data cell and one arm. Unsupported combinations fault as `Unsupported` (an impossible request shape), never `InvalidInput` (a malformed value) — the two refusal species stay distinct because the GH binding surfaces them differently.
-- [CURVATURE_SWEEP] — the sweep is one sampling spine under a policy matrix: `count` stations resolve through the `Domain/evaluation` samplers (arc-length-uniform curve parameters; area-stratified surface UVs), the native form arrives leased, and the (mode, aggregation, output) matrix selects the projection — raw vectors/bundles for downstream math, magnitude/metric scalars for direct reading, Welford `Stat` for summary (the multi-metric surface path samples ONCE and transposes lease-scoped metric rows — Gaussian and Mean ride the same `CurvatureAt` call), banded `Stat.Extrema` for extremal stations. The `Band` policy on the extrema case exposes the fold's plateau semantics: band `0.0` returns strict extrema, a positive band returns the tolerance-equivalent set — the difference between "the maximum-curvature point" and "the high-curvature region's stations" is one policy value. Stations are evidence: `CurvatureSample` implements the `rails.md` validity fold and every sample fold drains through the acceptance oracle, so a NaN curvature or unset point faults the sweep; bundle acquisition is total-then-gated, so a refused batch disposes in full — the `TraverseM`-abort prefix leak the mature source carried is the named defect this shape kills.
-- [RUNTIME_COMPOSITION] — every builder lands in `Operation<TGeometry, TOut>.Build` with its requirement (derived from the locator or the family, never inline), its `Op` key (the `nameof`-derived `Keys` table — one operation identity per concern, `SYMBOLIC_REFERENCE` over string literals), and an evaluator reading `Env.Asks` for the runtime `Context` — cancellation and readiness gating are `Prepare`'s inside the runtime substrate, so no location arm re-checks them. The coercion leases make polymorphic ingress safe: a `Brep` edge request coerces to an owned duplicate curve the lease disposes after projection, a live `Curve` passes borrowed, and the projection window is the only region where the native form exists — the same discipline the curvature `Sweep` applies to its native handle and `WithBundle` applies to every `SurfaceCurvature`.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

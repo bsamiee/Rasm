@@ -120,7 +120,7 @@ Permission verbs — `supports`, `allows`, `enables`, `provides`, `offers` — w
 - Rejected: The package offers an optional self-hosted graph lane.
 - Accepted: The graph lane binds only under the self-hosted profile row.
 - Reason: The package is material the owner consumes, never a benefactor that supplies; the deployment condition is a policy row, not a hedge in the verb.
-- Reframe: Rewrite around an owning subject and owning verb — mints, owns, folds, routes, drives, binds, derives, admits, rejects; an opener leads with the owner's name, a quantifier, a possessive, a demonstrative, or a bare noun, and lowercasing `The` to `the` clears nothing.
+- Reframe: Recast the clause so its owning subject leads — a code-spanned owner, its name, a quantifier, a possessive, a demonstrative, or a bare noun — under an owning verb: mints, owns, folds, routes, drives, binds, derives, admits, rejects. A voice rewrite is the only cure, never a surface edit of the article, since lowercasing `The` to `the` or dropping it leaves the subject buried one word deep or the entry headless. A marker hook `- [NN]-[TOKEN]: the …` hides the same opener behind its label and recasts owner-first the same way.
 
 ## [13]-[PROCESS_LEDGER]
 
@@ -271,3 +271,13 @@ A header entry enumerates the members of a set, and the following entries each e
 - Accepted: `RED-TEAM — the terminal pre-mortem that rebuilds rather than annotates`, the detailed moves owned by their own entries and only an undetailed move named in the charter.
 - Reason: The detail entries own each expanded member; the header re-lists what they already carry, and a member with no detail entry is the only one the charter still names.
 - Reframe: Cut the header roster to a bare charter; keep in it only the members no detail entry expands.
+
+## [28]-[REGISTER_FILLER]
+
+Vocabulary carrying zero domain load: a grade word rating a fact the fact already states, an AI-register lexeme or summary tail imported from generic prose, the additive `plus` that joins nothing, and the sentence-initial `So` that delays the subject. Each reads as emphasis and spends a reader's word on nothing; the gate's `no-op-word`, `ai-lexicon`, and `filler-word` checks own the mechanical roster, and a surviving hit marks prose written for effect over law.
+
+- Detection: Delete the word and re-read — no law lost proves it filler. A term the corpus owns as domain vocabulary stays legal and off the roster: `robust` predicates, `optimal` collapse, an algebraic `ideal`, `perfect` forwarding, `first-class` packages, `rich` host features, `leverage` as the stacking axis, and the contrastive `rather than`.
+- Rejected: So the resolver is a very powerful component that provides comprehensive support for the batch case.
+- Accepted: `Resolver` maps every key, batch included.
+- Reason: Each grade rates a claim the verb already carries, and the lead-in `So` buries the owner behind a connective; recovering the owning subject shortens the sentence as a consequence, never as the goal.
+- Reframe: Delete a grade word outright — no synonym, no softer grade. An AI lexeme deletes, or its clause recasts around the owner; a synonym swap that preserves the register is not a repair. A sentence-initial `So` is a voice signal rather than a word defect — recast the clause owner-first, never swap it for a comma join, because the causal `, so …` join states real consequence law and stays legal.

@@ -218,3 +218,19 @@ Sibling entries each re-carrying one decision in different words are sediment we
     ```
 - Reason: Entries one through three re-spell one decision — table-owned dispatch — while the fourth carries a distinct failure law; the merge keeps the strongest spelling with its call-site clause intact and the failure entry whole, so resolution rises as the run shrinks.
 - Reframe: Classify each sibling against the strongest one before deleting: a restatement merges into it, a distinct decision survives as its own entry with its clause intact — never a concatenated mega-entry, never a paragraph flood.
+
+## [10]-[ARTICLE_HOOK]
+
+An entry opening on `the` buries its owner one word deep and reads as a caption, not a law; an index-line hook is the commonest hiding spot, the article trailing a `[NN]-[TOKEN]:` leader that scans as structure.
+
+- Detection: The body after the marker colon opens on `The`/`the`. Lowercasing or deleting the article clears nothing — the subject is still not leading; the cure is a voice recast, not a surface edit.
+- Rejected:
+    ```markdown rejected
+    - [02]-[SOLVE_VOCABULARY]: the solve, eigen, norm, and gauge route algebra every receipt discriminates on.
+    ```
+- Accepted:
+    ```markdown accepted
+    - [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every receipt discriminates on.
+    ```
+- Reason: The rejected hook fronts the article and buries its four owners behind it; the recast promotes the route families to the subject under the owning verb `route`, so the reader meets the owner first and the hook states law in the same span.
+- Reframe: Recast the entry so its owning subject leads — a code-spanned owner, name, quantifier, possessive, demonstrative, or bare noun — under an owning verb; deleting or lowercasing the article and leaving the subject buried is the non-cure.

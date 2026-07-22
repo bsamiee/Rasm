@@ -1,23 +1,21 @@
 # [RASM_REGISTRATION_REGISTER]
 
-ONE rigid-registration owner that closes point-cloud alignment over an `AlignKind` `[SmartEnum<int>]` six-row ICP dispatcher — point Umeyama-SVD Procrustes · plane Chen-Medioni linearization · symmetric Rusinkiewicz oriented-normal-sum · robust MAD-scaled Welsch IRLS · normal-weighted point-to-plane · generalized GICP (Mahalanobis precision field minimized through the Solving `Lm` functor) — behind one `AlignmentPolicy` record with a `Default` preset. Every variant shares the ONE iterative outer fold (correspond → solve step → compose → converge); the inner solve is the smart-enum row's `[UseDelegateFromConstructor]` delegate, so a new variant is a row, never a sibling solver. Correspondences ride the one neighborhood substrate (`NeighborKernel.GraphOf` over a `NeighborIndex` — the private `RTree` wrapper this page's mature ancestor carried is deleted), every linear solve routes through the `matrix` owners (`Matrix`, `SymmetricMatrix`, `SolveReceipt`) — the raw-MathNet bypass (`DenseMatrix`/`Evd`/`Cholesky` reached directly from the GICP precision builder) is deleted — and the GICP nonlinear inner optimizer INSTANTIATES `Solving/solver.md`'s `ILmModel` floor and rides `Lm.Minimize`, the corpus's one damped Gauss-Newton iterate: a register-local damped normal solve plus backtracking line search is the double-owner form that page names deleted.
+Rigid registration closes point-cloud alignment: two `VectorCloud` clusters enter, one gated `Transform` leaves, and every ICP variant rides one policy record and one solver body.
 
-Registration owns the stop vocabularies (`AlignmentStopKind`, `AlignmentOptimizerStopKind`), one `AlignmentPolicy`, the typed receipt family, and the `AlignKernel` solver body. Its entry is `AlignKind.AlignDetailed(source, target, policy, key)` over two `VectorCloud` clusters; `VectorIntent.Align` is the consumer rail, and `AlignmentReceipt.Project<Transform>` gates convergence. `CloudCorrespondence` and `CloudCorrespondenceSet` compose the `transport` vocabulary; neighborhood PCA composes `neighbors`; admission and receipt validity compose `validation` and `ValidityClaim.All`.
+Correspondence rides the one `neighbors` substrate `NeighborKernel.GraphOf` and lands in the `transport` `CloudCorrespondenceSet`; every linear solve routes through the `matrix` owners; the GICP inner optimizer instantiates `Solving/solver.md`'s `ILmModel` over `Lm.Minimize`, composed never re-derived; admission and receipt validity fold through `validation`'s `ValidityClaim.All`.
 
 ## [01]-[INDEX]
 
-- [02]-[REGISTRATION]: `AlignKind` six-row ICP dispatcher + `AlignmentPolicy` + the receipt family + `AlignKernel` (shared outer fold, six inner solves, GICP precision field/objective + the `GicpModel : ILmModel` instantiation over `Lm.Minimize`, Procrustes cross-covariance SVD, SE(3) axis-angle composition).
+- [02]-[REGISTRATION]: `AlignKind` dispatch, `AlignmentPolicy`, the receipt family, and the `AlignKernel` solver body.
 
 ## [02]-[REGISTRATION]
 
-- Owner: `AlignmentStopKind` (Converged/MaxIterationsExhausted/OptimizerStopped) and `AlignmentOptimizerStopKind` (StepAccepted/StepBelowTolerance/BudgetExhausted) stop vocabularies; `AlignKind` `[SmartEnum<int>]` — six rows each carrying `NeedsTargetNormals`/`NeedsSourceNormals`/`NeedsCovariances` capability columns and the `[UseDelegateFromConstructor]` `SolveStep` delegate, so the dispatcher IS the vocabulary and the outer loop reads requirements from the row, never from a switch; `AlignmentPolicy` the ONE policy record (`MaxIterations`, outer `ConvergenceTolerance`, optimizer `ResidualTolerance`/`StepTolerance`, `RobustScale`, `CovarianceRidge`, `MadToSigma`, `OptimizerBudget`) with `Default` and monadic `Admit`; `AlignmentMatch`/`AlignmentStep` internal step carriers; `AlignmentRobustReceipt`/`AlignmentOptimizerReceipt`/`AlignmentReceipt` the typed evidence family; `AlignKernel` the internal static solver body with its `GicpModel : ILmModel` instantiation.
-- Cases: `AlignKind` rows `Point` · `Plane` · `Symmetric` · `Robust` · `NormalWeightedPointToPlane` · `Generalized` (6); stop kinds (3); optimizer stops (3).
-- Entry: `AlignKind.AlignDetailed(VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op? key)` → `Fin<AlignmentReceipt>` — the ONE entry; the variant is the receiver row, the policy is one record, and the overload without `policy` seats `AlignmentPolicy.Default`. `VectorIntent.Align` composes it; `AlignmentReceipt.Project<Transform>(key)` is the gated output projection (a non-converged run projects `InvalidResult`, never a half-aligned transform).
-- Auto: the outer fold runs `MaxIterations` rounds of correspond → solve → compose, short-circuiting on a row-emitted stop or on `DeltaMagnitude(delta) < ConvergenceTolerance`; correspondences transform the source by the current estimate, query the ONE kNN substrate (a k=1 `NeighborKernel.GraphOf` against the target's `NeighborIndex`), and assemble the `transport` correspondence set with per-row mass and the one-pass coverage/quantile statistics fold its record declares; `Point` solves weighted Procrustes — cross-covariance `H = Σ wᵢ(sᵢ−s̄)(tᵢ−t̄)ᵀ` → `Matrix.DecomposeSvd` → `R = V·diag(1,1,det(VUᵀ))·Uᵀ` with reflection correction → translation `t̄ − R·s̄`; `Plane` linearizes small-angle rows `[p×n | n]·[ω;t] = (q−p)·n` into one `Matrix.LeastSquaresDetailed`; `Symmetric` rotates the once-estimated source normals by the current transform (PCA normals are rigid-equivariant, and the row sign-aligns to the target normal so the estimate's sign ambiguity is inert), and rows the unitized sum (Rusinkiewicz second-order widening of the point-to-plane well); `Robust` computes MAD-scaled Welsch weights in the log domain (`ν = max(MadToSigma·median·RobustScale, ε)`, exponents offset by the log-max and floored above the underflow bound so EVERY weight stays strictly positive — an extreme outlier down-weights to numeric dust, never to a zero that fails the positive-weight admission) and re-runs Procrustes on the reweighted rows; `NormalWeightedPointToPlane` weights each row by `sqrt(max(|nₛ·nₜ|, ε))`; `Generalized` builds the per-correspondence fused metric `Σₜ + R·Σₛ·Rᵀ` from `neighbors` PCA covariances ONCE per transform (a held precision handle memoized inside the model — rebuilding it per fold double-pays the conditioning), inverts it through the one spectral-clamp route, and minimizes the SE(3) increment through `Lm.Minimize` over a `GicpModel : ILmModel` — `Norm` folds the weighted Mahalanobis objective at the trial transform (a failed field build evaluates `+∞`, so the λ-ladder rejects and climbs), `Linearize` scatters the analytic SE(3) Jacobian into the packed-upper 6×6 `JᵀJ`/`Jᵀr` in the `Lm.PackedIndex` layout, and the solver's own accept/reject λ-ladder replaces the register-local damping floor and Armijo backtracking under `OptimizerBudget`; every increment composes as an exact axis-angle rotation plus translation, never a drifting linearized matrix.
-- Receipt: `AlignmentReceipt` (final transform, kind, stop, iterations, final delta, robust/solve/optimizer sub-evidence, the final-round correspondence set) with `Project<TOut>` routing through the `AtomProjection` typed rows; `AlignmentRobustReceipt` (Welsch scale + weight extrema); `AlignmentOptimizerReceipt` (LM evidence: costs, step norm, terminal λ, accepted-iteration count, Mahalanobis mean/max, regularized-covariance count, ridge, PCA sub-receipts). Validity is the rails `ValidityClaim.All` fold — finite-nonnegative numerics, non-null vocabulary rows, nested-evidence recursion — with no hand-rolled conjunction litany; the mature fifteen-term `IsValid` is deleted.
-- Packages: MathNet.Numerics only through the `matrix` owners; `Rasm.Solving` (`Lm.Minimize`/`ILmModel`/`SolvePolicy`/`SolveStatus` — the one damped Gauss-Newton owner, composed never re-derived); TYoshimura.DoubleDouble (`ddouble` — the `ILmModel.Norm` 106-bit contract); Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`/`Seq`/`Arr`/`Option`/`guard`).
-- Growth: a new ICP variant (trimmed, LM-ICP, anisotropic) is ONE `AlignKind` row with its `SolveStep` delegate and capability columns; scale estimation (Umeyama similarity) is one policy column read by the Procrustes arm; a correspondence rejection rule (distance percentile, normal compatibility) is one policy row applied inside the correspondence fold; a coarse-to-fine schedule is a policy column over the same outer fold — zero new surfaces.
-- Boundary: the six solvers differ ONLY in their inner step — one outer fold owns iteration, correspondence, and convergence, and a per-variant `AlignPoint`/`AlignPlane` sibling family is the deleted form. Correspondence search composes the `neighbors` substrate (a k=1 `NeighborKernel.GraphOf` over the target's `NeighborIndex.CloudCase`; the batch spine, not the per-anchor query) and a page-local `RTree.PointCloudKNeighbors` reach is the deleted parallel rail. Source normals for the symmetric and normal-weighted rows are estimated ONCE on the source cluster and rotated per round — the mature per-round re-estimation over transformed points is the deleted recompute (rigid equivariance makes them identical up to sign, and both consumers are sign-insensitive). GICP precision follows ONE spectral route — `SymmetricMatrix.DecomposeEigenDetailed` with eigenvalues clamped to the ridge floor (`Regularized` counts every clamp) — and deletes the mature Cholesky-try/spectral-catch dual path plus its `#pragma` exception swallow: a 3×3 eigensolve is trivially cheap, the clamp IS the nearest-SPD projection, and one path is one correctness argument. GICP optimization composes `Lm.Minimize` over `GicpModel : ILmModel`; `Solving/solver.md` deletes the register-local damped normal solve, damping floor, directional-derivative bookkeeping, and Armijo loop. `MadToSigma` and `OptimizerBudget` are `AlignmentPolicy` rows, never consts. Fused metrics accumulate directly into packed-upper `SymmetricMatrix` storage and delete the raw `DenseMatrix` bypass. Every failure routes the `Op` rail (`InvalidInput`/`InvalidResult`); a thrown solver exception is forbidden.
+- Owner: `AlignKind` mints the one dispatcher — each row's capability columns declare the normals and covariances the fold provisions for it, its delegate owns the inner solve, and one outer fold (correspond → solve step → compose → converge) owns iteration for every row; `AlignmentPolicy` is the one knob record, admitted monadically before any round runs.
+- Entry: `AlignDetailed` is the one entry, the variant riding the receiver row and an absent policy seating `AlignmentPolicy.Default`; `VectorIntent.Align` composes it, and `AlignmentReceipt.Project<Transform>` gates on convergence, so a stalled run faults rather than yielding a half-aligned transform.
+- Receipt: `AlignmentReceipt` carries the run's transform, stop, iteration evidence, and final correspondence set with the robust and optimizer sub-receipts nested inside it, projecting through the `AtomProjection` typed rows.
+- Packages: TYoshimura.DoubleDouble mints the `ddouble` cost fold, Thinktecture.Runtime.Extensions the smart-enum row vocabulary and its delegate binding, and LanguageExt.Core the `Fin` rail.
+- Growth: a new ICP variant is one `AlignKind` row with its delegate and capability columns; scale estimation, a correspondence rejection rule, and a coarse-to-fine schedule are each one `AlignmentPolicy` column the standing fold reads — zero new surfaces.
+- Boundary: source-normal estimation runs once on the raw cluster and the round rotation transports the result — rigid equivariance leaves the two identical up to sign, and both consumers sign-align. GICP precision follows one spectral route: eigenvalues clamp at the ridge floor, the clamp is the nearest-SPD projection and `Regularized` counts it, so one path carries one correctness argument. Every increment composes as an exact axis-angle rotation and translation. Members stay behind the kernel owners, the statement kernels excepted as measured numeric hot loops under `Fin` admission, and every failure routes the `Op` rail.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -94,7 +92,7 @@ public readonly record struct AlignmentPolicy(
         ResidualTolerance: PositiveMagnitude.Create(value: 1.0e-6), StepTolerance: PositiveMagnitude.Create(value: 1.0e-6),
         RobustScale: PositiveMagnitude.Create(value: 0.1), CovarianceRidge: PositiveMagnitude.Create(value: 1.0e-9),
         MadToSigma: PositiveMagnitude.Create(value: 1.4826), OptimizerBudget: Dimension.Create(value: 8));
-    // Guards the default-struct hole: a defaulted value-object field carries 0 and fails its claim row.
+    // Default-struct hole: a defaulted value-object field carries 0 and fails its claim row.
     internal Fin<AlignmentPolicy> Admit(Op key) {
         AlignmentPolicy self = this;
         return guard(ValidityClaim.All(
@@ -108,8 +106,7 @@ public readonly record struct AlignmentPolicy(
                 ValidityClaim.CountAtLeast(count: self.OptimizerBudget.Value, floor: 1)), key.InvalidInput())
             .ToFin().Map(_ => self);
     }
-    // GICP rides the canonical Solving λ rows; its stopping quantities and budget project from
-    // this policy while outer transform convergence remains independently tunable.
+    // Outer transform convergence stays tunable apart from the inner ladder projected here.
     internal SolvePolicy Ladder => SolvePolicy.Canonical with {
         ResidualTolerance = this.ResidualTolerance, StepFloor = StepTolerance.Value, MaxIterations = OptimizerBudget.Value,
     };
@@ -174,7 +171,7 @@ public readonly record struct AlignmentReceipt(
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class AlignKernel {
-    // Numeric-representation bound (double exp underflows below ~-745), not a tunable — never a policy row.
+    // double exp underflows below ~-745: a representation bound, not a tunable.
     private const double WelschLogFloor = -700.0;
 
     private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
@@ -217,7 +214,6 @@ internal static class AlignKernel {
         return diff;
     }
 
-    // Correspondence rides the one kNN substrate; the per-row carriers are the transport vocabulary.
     private static Fin<AlignmentMatch> Correspond(Seq<Point3d> source, Arr<double> sourceMass, VectorCloud.ClusterCase target, Arr<double> targetMass, Vector3d[] normals, Vector3d[] sourceNormals, Transform current, NeighborhoodPolicy nearestPolicy, Option<NeighborhoodPcaResult> sourcePca, Option<NeighborhoodPcaResult> targetPca, Op key) {
         int n = source.Count;
         Fin<Unit> admitted = from sourceCount in Admit.SameCount(expected: n, key: key, counts: [sourceMass.Count])
@@ -250,8 +246,7 @@ internal static class AlignKernel {
         });
     }
 
-    // CloudCorrespondenceSet folds hard-kNN statistics once: coupling mass = row mass, every source
-    // row retained, covered targets = distinct nearest hits; quantiles read ONE sorted distance array.
+    // Hard kNN retains every source row, so coverage and retained mass are the source totals; covered targets are the distinct nearest hits.
     private static CloudCorrespondenceSet CorrespondenceSetOf(List<CloudCorrespondence> items, double[] distances, double[] rowMass, int[] targetIndices, Arr<double> targetMass, int sourceCount, int targetCount) {
         double totalMass = 0.0, weightedSquares = 0.0;
         for (int i = 0; i < distances.Length; i++) { totalMass += rowMass[i]; weightedSquares += rowMass[i] * distances[i] * distances[i]; }
@@ -300,8 +295,7 @@ internal static class AlignKernel {
             double nu = Math.Max(val1: policy.MadToSigma.Value * median * policy.RobustScale.Value, val2: RhinoMath.SqrtEpsilon);
             double[] logs = [.. residuals.Select(residual => -(residual * residual) / (2.0 * nu * nu))];
             double offset = logs.Max();
-            // Exponent floored above the exp underflow bound: an extreme outlier down-weights to numeric dust, never
-            // to an exact zero that would fail the strictly-positive weight admission the shared Procrustes rail runs.
+            // An outlier down-weights to numeric dust, never to the exact zero the strictly-positive Procrustes admission rejects.
             for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: Math.Max(val1: logs[i] - offset, val2: WelschLogFloor));
             return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
                    select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
@@ -313,9 +307,6 @@ internal static class AlignKernel {
             source: source, target: target, normals: targetNormals, rowMass: rowMass, current: current, key: key,
             rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: (current * sourceNormals[i]) * normal), val2: RhinoMath.SqrtEpsilon)))));
 
-    // GICP uses the Solving functor: seed field + objective mint Fin-railed, then the
-    // model rides Lm.Minimize — the λ-ladder owns damping and step acceptance, and a SingularSystem
-    // failure from the functor surfaces unchanged.
     internal static Fin<AlignmentStep> SolveGeneralizedIcp(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, Op key) =>
         from sourcePca in match.SourcePca.ToFin(key.InvalidInput())
         from targetPca in match.TargetPca.ToFin(key.InvalidInput())
@@ -329,10 +320,7 @@ internal static class AlignKernel {
         from result in Lm.Minimize(model: model, policy: policy.Ladder, key: key)
         select GicpStep(model: model, result: result, initial: initial, sourcePca: sourcePca, targetPca: targetPca);
 
-    // LmResult → AlignmentStep: a zero-iteration converged run holds the pose (StepBelowTolerance ⇒
-    // outer Converged); an accepted increment composes exactly (StepAccepted); an inner-budget stall
-    // applies its best-so-far increment, records BudgetExhausted, and stops the outer fold on
-    // OptimizerStopped — the receipt gate then refuses the transform projection.
+    // A zero-iteration convergence holds the pose; a budget stall applies its best increment and stops the outer fold, so the receipt gate refuses the transform projection.
     private static AlignmentStep GicpStep(GicpModel model, LmResult result, GicpObjective initial, NeighborhoodPcaResult sourcePca, NeighborhoodPcaResult targetPca) {
         double stepNorm = Math.Sqrt(d: result.Parameters.Sum(static value => value * value));
         GicpObjective at = result.Iterations == 0 ? initial : model.Objective;
@@ -435,11 +423,9 @@ internal static class AlignKernel {
     }
 
     // --- [GICP]
-    // Cost folds at 106-bit ddouble — the ILmModel.Norm contract: the accept-deciding digits of two
-    // nearly equal trial costs survive; receipts narrow to double at readout.
+    // 106-bit ddouble per the ILmModel.Norm contract: the digits deciding between two near-equal trial costs survive, and receipts narrow to double at readout.
     [StructLayout(LayoutKind.Auto)] private readonly record struct GicpObjective(ddouble Cost, double MeanMahalanobis, double MaxMahalanobis, int RegularizedCount, double Ridge);
-    // Held precision handle: the fused inverse metric is rotation-dependent, built once per transform and memoized
-    // inside GicpModel beside its objective; recomputing it per functor callback double-pays the eigensolve.
+    // Rotation-dependent, so the field builds once per transform and memoizes inside GicpModel; a per-callback rebuild double-pays the eigensolve.
     [StructLayout(LayoutKind.Auto)] private readonly record struct GicpPrecisionField(SymmetricMatrix[] Inverses, int RegularizedCount, double Ridge);
 
     private static Fin<GicpPrecisionField> PrecisionFieldOf(Seq<Point3d> source, AlignmentMatch match, NeighborhoodPcaResult sourcePca, NeighborhoodPcaResult targetPca, Transform current, double covarianceRidge, Op key) =>
@@ -452,9 +438,7 @@ internal static class AlignKernel {
 
     [StructLayout(LayoutKind.Auto)] private readonly record struct GicpPrecision(SymmetricMatrix Inverse, bool Regularized, double Ridge);
 
-    // Fused metric Sigma_t + R Sigma_s R^T accumulated directly into packed-upper symmetric storage; the inverse is the ONE
-    // spectral route — eigenvalues clamped at the ridge floor rebuild V diag(1/max(lambda,floor)) V^T, so an indefinite or
-    // near-singular metric regularizes deterministically and the clamp count is the evidence. No dense-library bypass.
+    // Fused metric Sigma_t + R Sigma_s R^T in packed-upper storage; eigenvalues clamped at the ridge floor rebuild V diag(1/max(lambda,floor)) V^T, and the clamp count is the evidence.
     private static Fin<GicpPrecision> PrecisionOf(Transform current, SymmetricMatrix source, SymmetricMatrix target, double covarianceRidge, Op key) {
         Span<double> rs = stackalloc double[9];
         for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) { double sum = 0.0; for (int k = 0; k < 3; k++) sum += current[i, k] * source.At(i: k, j: j); rs[(i * 3) + j] = sum; }
@@ -510,11 +494,7 @@ internal static class AlignKernel {
                 : Fin.Fail<GicpObjective>(key.InvalidResult());
         });
 
-    // GicpModel owns the SE(3) increment: parameters = [ω; t] composed onto the base
-    // transform. Norm rebuilds the rotation-dependent fused precision field at the trial transform —
-    // a failed build evaluates +∞ so the λ-ladder rejects and climbs, the same collapse the retired
-    // line search spelled — and memoizes field + objective, so Linearize (which the functor calls only
-    // at parameters an accepting Norm already evaluated) reads the held handle: one build per transform.
+    // Parameters are the SE(3) increment [ω; t] composed onto the base transform; a failed field build at the trial transform evaluates +∞, so the λ-ladder rejects and climbs.
     private sealed class GicpModel(
         Seq<Point3d> source, AlignmentMatch match, NeighborhoodPcaResult sourcePca, NeighborhoodPcaResult targetPca,
         Transform current, GicpPrecisionField seedField, GicpObjective seedObjective, double covarianceRidge, Op key) : ILmModel {
@@ -586,7 +566,6 @@ internal static class AlignKernel {
         return aligned;
     }
 
-    // Compose the linearized increment as an exact axis-angle rotation plus translation, never a drifting matrix sum.
     private static Transform ComposeRigidTransform(Vector3d omega, Vector3d translation) {
         double theta = omega.Length;
         Transform rot = theta < RhinoMath.SqrtEpsilon
@@ -612,28 +591,11 @@ flowchart LR
     Fold -.->|Fin fail| Op
 ```
 
-## [03]-[DENSITY_BAR]
+## [03]-[RESEARCH]
 
-One owner per axis; a variant is a row, a knob is a policy column, and evidence is a typed receipt. Each `[RAIL]` names one return rail, and each owner kind rides an indexed note.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
-| [INDEX] | [CONCERN]           | [OWNER]                              | [RAIL]                                  | [CASES] |
-| :-----: | :------------------ | :----------------------------------- | :-------------------------------------- | :-----: |
-|  [01]   | Variant dispatch    | `AlignKind`                          | `AlignDetailed → Fin<AlignmentReceipt>` |    6    |
-|  [02]   | Solve configuration | `AlignmentPolicy`                    | `Admit → Fin<AlignmentPolicy>`          |    —    |
-|  [03]   | Stop vocabulary     | `AlignmentStopKind` + optimizer kind | pure rows                               |   3+3   |
-|  [04]   | Evidence            | `AlignmentReceipt` family            | `Project<Transform> → Fin<Transform>`   |    3    |
-|  [05]   | Solver body         | `AlignKernel`                        | `AlignClouds → Fin<AlignmentReceipt>`   |    —    |
-
-- [01]-[VARIANT_DISPATCH]: `[SmartEnum<int>]` + capability columns + `[UseDelegateFromConstructor]`.
-- [02]-[SOLVE_CONFIGURATION]: one record, six policy rows, `Default` preset, monadic `Admit`.
-- [03]-[STOP_VOCABULARY]: two `[SmartEnum<int>]` stop rows.
-- [04]-[EVIDENCE]: `ValidityClaim.All` receipts + gated `Project<TOut>` projection rows.
-- [05]-[SOLVER_BODY]: internal static: one outer fold + six inner solves + GICP precision field + `GicpModel : ILmModel`.
-
-Pure-managed author-kernel throughout: correspondence rides the `neighbors` substrate, dense solves ride the `matrix` owners, and no member of this page reaches a raw provider surface. Statement kernels (cross-covariance accumulation, linearized-row assembly, the packed 6×6 `Linearize` scatter, the packed-upper fused-metric build) are the named exemption — measured numeric hot loops behind `Fin` admission.
-
-## [04]-[RESEARCH]
-
-- [ICP_RECOVERY] — Random bounded SE(3) fixtures recover each `AlignKind` within its stated basin and stop `Converged`. Contamination holds `Robust` within the clean-run band while `Point` drifts; MAD scale tracks noise, and all Welsch weights remain positive. Near-planar reflection probes require determinant +1, and re-aligning an aligned pair returns identity within one iteration.
-- [GICP_PRECISION] — Degenerate PCA covariances produce finite SPD fused metrics, with every spectral clamp counted against the scale-relative ridge. A successful `Norm` establishes the exact precision memo `Linearize` reads; failures remain +∞, never zero systems. Packed scatter matches a dense 6×6 reference, and solver status preserves convergence, accepted increments, stalls, and `SingularSystem` evidence.
-- [RECEIPT_LAWS] — the `ValidityClaim.All` fold and the gated projection: `AlignmentReceipt.Project<Transform>` must fail with `InvalidResult` on every non-`Converged` stop and accept only the validated transform on `Converged`; the fold-derived `IsValid` must reject any receipt carrying a NaN cost, a negative count, or invalid nested PCA evidence, with zero hand-rolled conjunction terms in this page — the deleted fifteen-term litany is the regression this law guards against.
+(none)

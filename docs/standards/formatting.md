@@ -161,7 +161,7 @@ project/
 
 [GFM_INTEGRITY]:
 - GFM tables are flat: no row spans, column spans, nested lists, or reliable multiline cells.
-- Every row has an equal cell count after escaped pipes, escape every literal pipe inside a cell, and a table over the row or column ceiling decomposes by the dominant violation.
+- Every row has an equal cell count after escaped pipes, escape every literal pipe inside a cell, and a table over the width cap or column ceiling decomposes by that violation, never by shedding rows.
 
 [ENFORCEMENT]:
 - `prose_gate.py` is the deterministic gate: its `Check` vocabulary owns the mechanical census, and a class it does not carry — header compression, carrier choice — is review work.

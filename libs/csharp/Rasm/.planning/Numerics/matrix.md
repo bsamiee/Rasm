@@ -1,29 +1,27 @@
 # [RASM_NUMERICS_MATRIX]
 
-The dense/sparse/complex linear-algebra owner of `Rasm.Numerics` — the one numeric substrate every solver in the kernel rides (DEC assembly, reconstruction FEM, registration, BNOT sampling, dense-output moment fits). The page owns the solve/eigen route vocabularies, the `GaugePolicy` singular-system algebra, the four matrix owners (`Matrix` dense row-major, `SymmetricMatrix` packed-upper, `SparseMatrix` CSR with structural invariants, `SparseHermitian` upper-store complex), the `CholeskySparse` lock-guarded AMD SPD factor cache, the typed solve/eigen/gauge receipts on the rails validity fold, and `MatrixKernel` — dense decompositions and solves over MathNet, sparse direct and iterative solves over CSparse and MathNet BiCgStab with a typed-receipt fallback, the three-mode `SingularGaugeSolve` (pin reduction, M-orthogonal deflation, Lagrange KKT saddle — with Tikhonov-regularized Gram solves and `GaugeShift` post-shifts), generalized eigenpairs by Cholesky congruence, and LOBPCG (Knyazev) for real and Hermitian operators with Rayleigh-Ritz on the `[X|W|P]` subspace, modified-Gram-Schmidt reorthonormalization, Jacobi preconditioning, deterministic basis seeding, and NO hidden dense fallback.
+`Rasm.Numerics` grounds every kernel solver on one linear-algebra substrate: the dense, sparse, and complex matrix owners, the solve/eigen/gauge route algebra, and `MatrixKernel`, the sole MathNet and CSparse access path they compose. Every operation leaves as a typed receipt carrying its route, stop, and recomputed residual; a raw `Matrix<double>` or bare factorization never crosses the surface.
 
-The floor is host-neutral-shaped: finiteness is `double.IsFinite` over flat spans (`TensorPrimitives.IsFiniteAll`), epsilons are `EpsilonPolicy` rows, and no `RhinoMath` member appears — the assembly stays RhinoCommon-aware, this page is portable by inspection. MathNet and CSparse are mined at full depth as the standard library; every result leaves as a typed receipt carrying its route, stop, and the recomputed true relative residual against the original operator — never a raw `Matrix<double>` or factorization instance. Sibling solvers compose these owners; a raw-MathNet reach beside them (the mature registration kernel's `Evd`/`Cholesky` bypass) is the named deleted form.
+A rebuild composes the `Rasm.Domain` rails as the receipt validity floor and stays host-neutral: finiteness reads through `TensorPrimitives.IsFiniteAll` over flat spans, every tolerance draws from an `EpsilonPolicy` row, and no `RhinoMath` member or absolute literal appears. MathNet and CSparse are the mined standard library.
 
 ## [01]-[INDEX]
 
-- [02]-[SOLVE_VOCABULARY]: `EigenSolvePath`/`EigenSolveStop`/`SolvePath`/`SolveStop`/`MatrixNormKind`/`GaugeSolverKind`/`GaugeShift` smart enums + `GaugePolicy` `[Union]` — the route, stop, norm, and gauge algebra every receipt discriminates on.
-- [03]-[DENSE_OWNERS]: `Matrix` · `SymmetricMatrix` + `SvdResult`/`LuResult`/`QrResult`/`CholeskyResult` decomposition carriers.
-- [04]-[SPARSE_OWNERS]: `SparseMatrix` CSR (+ structural invariants) · `SparseHermitian` upper-store · `CholeskySparse` lock-guarded AMD SPD factor cache.
-- [05]-[RECEIPTS]: `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` — typed evidence on the rails `ValidityClaim.All` fold; the hand-rolled `IsValid` conjunction litany is the deleted form.
-- [06]-[SOLVE_KERNEL]: `MatrixKernel` — bridges, dense decompositions/solves, sparse assembly, iterative + direct sparse solves, `SingularGaugeSolve`, generalized eigen by congruence, LOBPCG real + Hermitian.
+- [02]-[SOLVE_VOCABULARY]: `Solve`, `eigen`, `norm`, and `gauge` route the algebra every receipt discriminates on.
+- [03]-[DENSE_OWNERS]: dense and packed-symmetric owners with the decomposition carriers holding live factors for repeated right-hand sides.
+- [04]-[SPARSE_OWNERS]: CSR and Hermitian owners with their structural invariants and the lock-guarded AMD factor cache.
+- [05]-[RECEIPTS]: typed solve, eigen, and gauge evidence carriers on the rails validity fold.
+- [06]-[SOLVE_KERNEL]: `MatrixKernel`, the one MathNet and CSparse access path for every decomposition, solve, and eigen route.
 
 ## [02]-[SOLVE_VOCABULARY]
 
-- Owner: seven smart enums carrying the solve/eigen route space as data — `EigenSolvePath` (5; `IsSparse`/`IsComplex` columns), `EigenSolveStop` (3; `IsUsable` column), `SolvePath` (7; `IsSparse`/`IsFallback`/`UsesDiagonalPreconditioner` columns), `SolveStop` (7; `IsUsable` column), `MatrixNormKind` (4; `[UseDelegateFromConstructor]` compute column so the norm IS the row), `GaugeSolverKind` (3; `IsDirect`/`IsIterative`/`Path` — the declared-route column on the gauge receipt, while the minted `SolveReceipt.Path` reports the stage's ACTUAL route, so neither the KKT SparseLU route nor a deflation solve that landed on the recorded direct fallback ever masquerades), `GaugeShift` (4 post-solve normalizations) — plus `GaugePolicy` the `[Union]` singular-system gauge algebra: `Pin(indices, values, mass, postShift)` reduces the system by eliminating pinned rows, `MeanZeroDeflation(nullspace, mass, postShift)` solves then M-orthogonally projects the nullspace out, `LagrangeKKT(nullspace, mass, postShift)` solves the saddle system with explicit multipliers.
-- Cases: `EigenSolvePath` `DenseSymmetricEvd` · `DenseGeneralEvd` · `SparseLobpcg` · `SparseHermitianLobpcg` · `SparseGeneralizedCholeskyCongruence`; `SolvePath` `DenseLu` · `DenseQrLeastSquares` · `DenseCholesky` · `SparseBiCgStabDiagonal` · `SparseMathNetDirectFallback` · `SparseCholesky` · `SparseLuIndefinite`; `SolveStop` `DirectSolved` · `LeastSquaresSolved` · `ResidualConverged` · `DirectFallbackSolved` · `RankDeficient` · `IterativeExhausted` · `FallbackRejected`; `GaugeShift` `None` · `MeanZero` · `MinZero` · `PinZero`; `GaugePolicy` `Pin` · `MeanZeroDeflation` · `LagrangeKKT` (3).
-- Entry: `GaugePolicy.PinConstant(index)` / `Pinned(indices)` / `MeanZeroConstant(dimension)` / `KktConstant(dimension)` — the constant-nullspace presets every Laplacian-shaped consumer reaches for; `NullspaceDim`/`Shift`/`SolverKind` are total `Switch` projections off the case.
-- Auto: the mass diagonal rides `Option<Arr<double>>` on every case, so the SAME policy value selects Euclidean or M-weighted inner products throughout the gauge solve; `MeanZeroConstant` defaults its post-shift to `GaugeShift.MeanZero` because a deflated solve re-acquires the constant mode through rounding.
-- Receipt: none here — the vocabulary rows ARE the receipt discriminants section [05] carries.
+- Owner: route, stop, norm, and gauge-solver capability live as `[SmartEnum<int>]` vocabularies, never `bool` flags — each rides as a discriminant column a consumer reads off the row; `GaugePolicy` is the `[Union]` owning the singular-system gauge algebra.
+- Entry: constant-nullspace presets are the Laplacian consumer's entry; `NullspaceDim`, `Shift`, and `SolverKind` project off the case as total `Switch`.
+- Auto: mass diagonal rides one `Option<Arr<double>>` per case, so the same policy value selects Euclidean or M-weighted inner products throughout the gauge solve; `MeanZeroConstant` defaults its post-shift to `GaugeShift.MeanZero` because a deflated solve re-acquires the constant mode through rounding.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Arr`, `Seq`, `Option`).
-- Growth: a new solve substrate (a new iterative method, a new factorization) is one `SolvePath`/`EigenSolvePath` row plus one kernel arm — the receipt shape does not change; a new gauge modality is one `GaugePolicy` case with its `Switch` arms breaking loudly at compile time.
-- Boundary: routes and stops are never `bool` flags on receipts — the enum row carries `IsUsable`/`IsSparse` as columns so a consumer reads capability off the discriminant; a parallel `FactorKind` enum re-declaring the same space beside `SolvePath` is the deleted form.
+- Growth: a new solve substrate is one `SolvePath`/`EigenSolvePath` row, the receipt shape unchanged; a new gauge modality is one `GaugePolicy` case whose `Switch` arms break at compile time.
+- Boundary: capability reads off the discriminant column, so a parallel `FactorKind` enum re-declaring the route space beside `SolvePath` never mints.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
@@ -148,16 +146,14 @@ public abstract partial record GaugePolicy {
 
 ## [03]-[DENSE_OWNERS]
 
-- Owner: `Matrix` the dense row-major owner (`Dimension Rows` × `Dimension Cols` over `Arr<double>` — dimensions are admitted counts, entries an immutable flat span) and `SymmetricMatrix` the packed-upper symmetric owner (`n(n+1)/2` storage, `FlatIndex` triangular addressing) — both `Of`-gated on shape and one-pass span finiteness; `SvdResult`/`LuResult`/`QrResult`/`CholeskyResult` the decomposition carriers, with `LuResult`/`CholeskyResult` holding the live MathNet factorization `internal` so repeated right-hand sides stream through one factor (the held-handle law) while only typed receipts cross the public surface.
-- Cases: `Matrix` operations `Of` · `Identity` · `Transpose` · `Multiply` · `Inverse` · `PseudoInverse` · `DecomposeEigenDetailed` (complex general) · `DecomposeLu`/`DecomposeQr`/`DecomposeSvd` · `Norm(MatrixNormKind)` · `Trace` · `Determinant` · `Spectral` (σ₀) · `SolveDetailed` (square LU) · `LeastSquaresDetailed` (QR) · `Rank` · `At`/`With`; `SymmetricMatrix` `Of` · `ToDense` · `DecomposeEigenDetailed`/`DecomposeEigen` · `DecomposeCholesky` · `At`/`With`.
-- Entry: every fallible operation returns `Fin<T>` threading `Op? key = null`; `Matrix.Of(rows, cols, entries)` gates `entries.Count == rows·cols` then `TensorPrimitives.IsFiniteAll` over the flat span — the one-pass vectorized admission, never a strided per-element loop.
-- Auto: `Norm` dispatches through the `MatrixNormKind` compute column; `Spectral` reads σ₀ off a fresh SVD; `SymmetricMatrix.At(i, j)` folds `(min, max)` into the triangular index so the packed store is symmetric by construction — a written entry mirrors automatically.
-- Receipt: `SvdResult(U, Sigma, V, Rank)` — `Sigma` descending, `Rank` the MathNet conditioning rank; `LuResult(Source, Determinant, Factor)` with `SolveDetailed` streaming through the held factor; `QrResult(Q, R)`; `CholeskyResult(L, Source, Factor)` with `SolveDetailed`. All on the rails `ValidityClaim.All` fold.
-- Packages: MathNet.Numerics (`DenseMatrix.Build.DenseOfRowMajor`, `.Svd(computeVectors:)`, `.LU()`, `.QR(QRMethod.Full)`, `.Cholesky()`, `.Evd(Symmetricity.Symmetric/Asymmetric)`, `.PseudoInverse()`, norms), System.Numerics.Tensors (`TensorPrimitives.IsFiniteAll` admission), LanguageExt.Core, Thinktecture.Runtime.Extensions (`Dimension` composition).
-- Growth: a new dense decomposition is one `Decompose*` member returning a typed carrier plus one `SolvePath` row — never a sibling matrix type; a norm is one `MatrixNormKind` row.
-- Boundary: MathNet types never cross the public surface — `Matrix`/`Arr<double>` in, typed receipts out, and the `internal` factorization handles are the held-handle exception that stays inside the assembly; `Inverse()` in a hot loop is the named anti-pattern — solve through the held `LuResult` factor instead; symmetric consumers construct `SymmetricMatrix`, never a dense `Matrix` asserted symmetric, because MathNet's `IsSymmetric()` compares entries with exact `!=` and accumulation-built operators fail it.
+- Owner: `Matrix` the dense row-major owner and `SymmetricMatrix` the packed-upper owner, both `Of`-gated on shape and span finiteness; the decomposition carriers hold their live MathNet factor `internal` so repeated right-hand sides stream through one factor (the held-handle law), only typed receipts crossing the public surface.
+- Entry: every fallible operation returns `Fin<T>`; `Of` admits through one vectorized span check, never a strided per-element loop.
+- Auto: `Norm` dispatches through the `MatrixNormKind` compute column, and `SymmetricMatrix.At` folds `(min, max)` into the triangular index so a written entry mirrors by construction.
+- Packages: MathNet.Numerics (dense factorizations and norms), System.Numerics.Tensors (finiteness admission), LanguageExt.Core, Thinktecture.Runtime.Extensions (`Dimension`).
+- Growth: a new dense decomposition adds one `Decompose*` member returning a typed carrier and one `SolvePath` row, never a sibling matrix type; a norm is one `MatrixNormKind` row.
+- Boundary: MathNet types never cross the public surface — `Matrix`/`Arr<double>` in, typed receipts out, the `internal` factor handles the held-handle exception. A symmetric consumer constructs `SymmetricMatrix`, never a dense `Matrix` asserted symmetric — MathNet's `IsSymmetric()` compares with exact `!=`, which accumulation-built operators fail.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double> Entries) {
@@ -253,16 +249,14 @@ public readonly record struct CholeskyResult {
 
 ## [04]-[SPARSE_OWNERS]
 
-- Owner: `SparseMatrix` the CSR owner (`RowPtr`/`ColInd`/`Values` over `Arr` — immutable compressed rows) whose `IsValid` enforces the FULL structural contract: pointer bounds, monotone row pointers (`RowPointersAreMonotone`), strictly-increasing in-bounds columns per row (`RowColumnsAreStrict`), and span finiteness — factorizing invalid storage produces silently wrong factors, so the invariant is the admission; `SparseHermitian` the complex upper-store owner (row ≤ col triplets only, conjugate reconstruction on multiply, real-diagonal gate); `CholeskySparse` the SPD factor cache — CSparse `SparseCholesky` under AMD (`ColumnOrdering.MinimumDegreeAtPlusA`) with a `Lock`-guarded `Solve` because the factorization's constructor-allocated scratch is non-reentrant, `FactorNonZeros` as the symbolic-fill witness, and success-only construction so a broken factor never enters reuse.
-- Cases: `SparseMatrix` `FromTriplets` (duplicate-summing assembly) · `Multiply` · `ToDense` · `SolveDetailed`/`Solve` (BiCgStab + fallback) · `SingularSolveDetailed`/`SingularSolve` (gauge) · `SolveIndefiniteDetailed`/`SolveIndefinite` (SparseLU, pivot tol ∈ [0,1]) · `SmallestEigenpairsDetailed` (LOBPCG) · `GeneralizedEigenpairsDetailed` (A z = λ M z by Cholesky congruence — the `Meshing/dec` spectral-basis entry) · `NonZeros`; `SparseHermitian` `FromTriplets` · `Multiply` · `SmallestEigenpairsDetailed` (Hermitian LOBPCG); `CholeskySparse` `Of` · `SolveDetailed`/`Solve` · `FactorNonZeros`.
-- Entry: `FromTriplets` admits ANY triplet stream — out-of-range or non-finite entries fail typed, duplicates sum, exact zeros drop, rows compress sorted — so consumers assemble by accumulation and never hand-build CSR; `CholeskySparse.Of` symmetrizes through the normalized upper-entry view and catches the CSparse bare-`Exception` pivot-loss throw into the typed rail (`key.Catch`).
-- Auto: `SparseHermitian.IsValid` additionally gates the stored diagonal real within a scale-relative tolerance, so a drifted Hermitian assembly is caught at the owner, not inside LOBPCG; `AssembleHermitian` applies the SAME scale-relative band to the SUMMED diagonal before coercing it exactly real — conjugate-pair accumulation cancels instead of failing an absolute gate.
-- Receipt: solve receipts per [05]; `CholeskySparse` itself is the cached evidence (source + factor + order + fill).
-- Packages: CSparse (`CSparse.Double.SparseMatrix.OfIndexed`, `CSparse.Double.Factorization.SparseCholesky.Create`, `SparseLU.Create`, `ColumnOrdering.MinimumDegreeAtPlusA`), MathNet.Numerics (`SparseMatrix.OfIndexed`, `SparseCompressedRowMatrixStorage.OfCompressedSparseRowFormat` + `Build.Sparse(storage)`, BiCgStab + criterion stack), Rasm.Domain (`Admit.FiniteComplexSpan`/`HermitianDiagonalRealSpan` — the one complex-spectrum gate pair), LanguageExt.Core, BCL (`System.Threading.Lock`, `System.Numerics.Complex`).
-- Growth: a new sparse capability (rank-1 update, transpose solve, LDL) is one member + one `SolvePath` row over the same owners; a second CSR/CSC representation beside `SparseMatrix` is the deleted form — format bridges live inside `MatrixKernel`.
-- Boundary: the `Lock` on `CholeskySparse.Solve` is load-bearing concurrency law — CSparse solves share scratch and a concurrent second solve corrupts both results silently; deleting it on rebuild is the named correctness defect. The mesh Laplacian memoization (`Meshing/mesh`'s `LaplacianCache`) caches THESE factor objects — identity and locking semantics compose from here.
+- Owner: `SparseMatrix` the CSR owner whose `IsValid` is its admission — factorizing invalid storage produces silently wrong factors; `SparseHermitian` the complex upper-store owner with conjugate reconstruction on multiply and a real-diagonal gate; `CholeskySparse` the SPD factor cache over CSparse `SparseCholesky` under AMD, `Lock`-guarded because CSparse solves share scratch and a concurrent second solve corrupts both results silently, success-only so a broken factor never enters reuse.
+- Entry: `FromTriplets` admits any triplet stream — duplicates sum, zeros drop, out-of-range or non-finite fails typed — so consumers assemble by accumulation, never hand-build CSR; `CholeskySparse.Of` catches the CSparse bare-`Exception` pivot loss into the typed rail.
+- Auto: `SparseHermitian.IsValid` gates the stored diagonal real within a scale-relative band, so a drifted assembly is caught at the owner, not inside LOBPCG.
+- Packages: CSparse (SPD and LU factorization, AMD ordering), MathNet.Numerics (sparse storage, BiCgStab and criterion stack), Rasm.Domain (`Admit.FiniteComplexSpan`/`HermitianDiagonalRealSpan`, the one complex-spectrum gate pair), LanguageExt.Core, BCL (`System.Threading.Lock`, `System.Numerics.Complex`).
+- Growth: a new sparse capability (rank-1 update, transpose solve, LDL) adds one member and one `SolvePath` row over the same owners; a second CSR/CSC representation beside `SparseMatrix` is the deleted form — format bridges live inside `MatrixKernel`.
+- Boundary: mesh Laplacian memoization caches these factor objects, so their identity and `Lock` semantics compose from here.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<int> RowPtr, Arr<int> ColInd, Arr<double> Values) {
@@ -310,7 +304,6 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
         Op op = key.OrDefault();
         return Optional(upperTriplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleHermitian(order: order, triplets: active, op: op));
     }
-    // Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
     public bool IsValid =>
         RowPtr.Count == Order.Value + 1 && ColInd.Count == Values.Count && Admit.FiniteComplexSpan(Values.AsSpan())
         && RowPtr[0] == 0 && RowPtr[Order.Value] == Values.Count
@@ -369,15 +362,14 @@ public sealed record CholeskySparse {
 
 ## [05]-[RECEIPTS]
 
-- Owner: `SolveReceipt` the one linear-solve evidence carrier (solution + `SolvePath`/`SolveStop` + dimensions + iteration/tolerance witnesses + the recomputed true relative residual + optional rank/fill/gauge evidence), `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real/complex eigenvalues and real/complex vectors (pairs + path/stop + requested/returned + `MaxResidual`), `GaugeReceipt` the singular-solve evidence (solver kind, declared and numeric nullspace dimensions, operator scale, compatibility/post-gauge/M-weighted/relative residuals, pin rows, post-shift applied, rhs mutation and multiplier norms, orthogonality check, regularization shift, breakdown flag) — all three spelling the rails fold `public bool IsValid => ValidityClaim.All(…)` with `IValidityEvidence` conformance.
-- Entry: receipts are minted only by the `MatrixKernel` exits (`SolveSuccess`, `EigenReceiptOf`) under the two-tier evidence law — hard numerical garbage (non-finite residual, cap-exceeded residual, wrong-length or non-finite solution) never mints and fails typed; a usable-stop receipt is gated valid before release; a non-usable-stop receipt (`RankDeficient`, `IterativeExhausted`, KKT breakdown) is the WITNESSED refusal, returned as evidence the caller reads off `Stop.IsUsable`/`IsValid` before consuming the solution. Treating any minted receipt as a usable result without reading its stop is the named consumer defect.
-- Auto: validity is the ONE `rails.md` fold spelled explicitly — each receipt's `IsValid` is `ValidityClaim.All(…)` over authored claim rows: the mechanical gates off field shape (every `double` witness `Finite`/`Nonnegative`, every count nonnegative, every nested evidence field valid-when-some, every vocabulary field non-null) conjoined with the SEMANTIC couplings (residual within tolerance, solution length matches columns, iterations within budget, returned ≤ requested). The mature ~12-to-18-term hand-rolled boolean conjunction litany is the deleted form; the claim rows state each invariant once, one row per witness.
-- Receipt: these ARE the receipts — the typed evidence law: fields carry route, status, sampling, and solver evidence, so they stay typed records, never a generic ledger.
-- Packages: Rasm.Domain (project — `IValidityEvidence` + `ValidityClaim`, the rails validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
-- Growth: new evidence is one field plus at most one claim row; a new outcome family is one receipt type ONLY when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
-- Boundary: `Option<T>` carries absence of evidence (`Iterations` on direct solves), never sentinel values; the residual stored is ALWAYS recomputed against the original operator — a preconditioned or factor-reconstructed residual is the named lying witness.
+- Owner: `SolveReceipt` the one linear-solve evidence carrier, `EigenSolveReceipt<TEigen, TVector>` the one eigen carrier generic over real or complex spectra, and `GaugeReceipt` the singular-solve evidence — all three spelling the rails fold `IsValid => ValidityClaim.All(…)` under `IValidityEvidence`.
+- Entry: receipts mint only at the `MatrixKernel` exits (`SolveSuccess`, `EigenReceiptOf`) under the two-tier evidence law — hard numerical garbage never mints and fails typed, a usable-stop receipt is gated valid before release, and a non-usable-stop receipt (`RankDeficient`, `IterativeExhausted`, KKT breakdown) is the witnessed refusal the caller reads off `Stop.IsUsable` before consuming the solution. Consuming a minted receipt without reading its stop is the named consumer defect.
+- Auto: each `IsValid` conjoins the mechanical field-shape gates with the semantic couplings — residual within tolerance, solution length matches columns, iterations within budget — one claim row per invariant.
+- Packages: Rasm.Domain (`IValidityEvidence` and `ValidityClaim`, the rails validity floor), LanguageExt.Core (`Option`, `Seq`, `Arr`).
+- Growth: new evidence is one field and at most one claim row; a new outcome family is one receipt type only when its evidence shape is disjoint (the eigen/solve/gauge split), never per-algorithm receipt clones.
+- Boundary: `Option<T>` carries absence of evidence (`Iterations` on direct solves), never a sentinel; the stored residual is always recomputed against the original operator — a preconditioned or factor-reconstructed residual is the named lying witness.
 
-```csharp
+```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct SolveReceipt(
     Arr<double> Solution, SolvePath Path, SolveStop Stop, Dimension Rows, Dimension Cols, int RhsLength,
@@ -452,19 +444,16 @@ public readonly record struct GaugeReceipt(
 
 ## [06]-[SOLVE_KERNEL]
 
-- Owner: `MatrixKernel` the `internal static` numeric kernel — the ONE MathNet + CSparse access path in the corpus. Members by family: bridges (`ToMathNet`/`FromMathNet` row-major, `ToMathNetComplex`, `ToMathNetHermitian` conjugate-expanding, `ToMathNetSparse` CSR-storage, `ToCSparseSymmetric` via `NormalizeSymmetricUpperEntries` — which rejects contradictory duplicate mirror entries beyond a scale-relative band), dense decompositions (`Svd`/`Lu`/`Qr`/`Cholesky`/`SymmetricEigen`/`GeneralEigen` — symmetric pairs ordered by |λ| descending), dense solves (`Solve` LU, `LeastSquares` full QR with rank-deficiency stop, `LuSolve`/`CholeskySolve` through held factors with `√SqrtEpsilon` residual caps), sparse assembly (`AssembleSparse` duplicate-summing + zero-dropping + `CompressRows`, `AssembleHermitian` upper-only with real-diagonal gate, `AddHermitianRealBlockTriplets` the 2n×2n real-block embedding rows the connection-Laplacian assembly composes), sparse solves (`SparseSolve` — diagonal-preconditioned BiCgStab under the explicit criterion stack Failure→Divergence→Residual→IterationCount, falling back to the MathNet direct solve with the fallback recorded as `SparseMathNetDirectFallback`/`DirectFallbackSolved` and gated at the looser `√SqrtEpsilon` cap; `SparseLuSolve` — CSparse SparseLU under AMD with column-relative pivot tolerance for symmetric-indefinite systems), the gauge family (`SingularGaugeSolve` + `SolvePin`/`SolveMeanZeroDeflation`/`SolveKkt` + the M-orthogonal primitive set `DeflateRhs`/`ProjectRange`/`MassResidual`/`GaugeOrthogonality`/`ApplyShift`/`RegularizedGramSolve`), `GeneralizedEigenpairsDetailed` (A z = λ M z via the symmetric Cholesky congruence `L⁻¹AL⁻ᵀ`, real and complex variants sharing `CongruentReduce`/`BackTransform`), and the LOBPCG family (`Lobpcg`/`LobpcgHermitian` over one generic `LobpcgCore`).
-- Entry: every public-facing operation enters through the owning model member ([03]/[04]); the kernel is reached only through them.
-- Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale (`context.Fractional` relative gates — never absolute literals), projects the rhs onto range(A) only when the compatibility residual demands it, applies the case solver through one `Switch`, post-shifts through `GaugeShift`, witnesses BOTH the Euclidean and the M-weighted relative residuals against the original un-shifted operator, and reports the stage's ACTUAL `SolvePath` on the minted receipt (the KKT saddle assembles from the exact mirrored upper entries — a dense sweep or magnitude prune of operator entries is the deleted form); `RegularizedGramSolve` factors the SPD Gram, applying a diagonal-scaled Tikhonov shift ONLY on Cholesky breakdown (MathNet throws bare `Exception` on pivot loss — caught broadly at this one boundary, the algorithms-route exemption) and surfaces the applied shift plus the numeric rank read from the factor diagonal; `LobpcgCore` iterates span([X|W|P]) Rayleigh-Ritz: residual `R = AX − XΛ`, Jacobi-preconditioned `W`, one modified-Gram-Schmidt pass with rank-collapsed columns dropped (`SurvivingColumns`) and the reduced Ritz vectors scattered back (`ScatterRows`) so the block offsets survive — fewer survivors than `k` terminates typed as `MaxIterationsExhausted`, NEVER a hidden dense fallback; the initial basis is deterministic — `Deterministic.NextSignedUnit`/`NextSignedComplexUnit` (the `Domain/identity` splitmix64 owner; seeds 17 real / 19 Hermitian) orthonormalized, so eigen results replay bit-stable per provider.
-- Receipt: every path exits through `SolveSuccess`/`EigenReceiptOf`/`LobpcgReceiptOf` which mint the [05] receipts gated on their own validity.
-- Packages: MathNet.Numerics (factorizations, `SolveIterative` + `BiCgStab` + `DiagonalPreconditioner` + criterion stack, `Evd`, `Cholesky` — the managed provider path ONLY: no MathNet native provider ships an osx-arm64 asset, so the kernel references no provider package and no `Control.UseNative*` call exists; provider selection stays `UseManaged`), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (project — `Op`, `Context`, `Deterministic` splitmix64 derivation), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble` — the 106-bit lane `CompensatedNorm` folds every recorded residual witness through, so cancellation in `b − Ax` cannot lie in the evidence), BCL (`System.Numerics.Complex`).
-- Growth: a new solve route is one kernel member + one `SolvePath` row + receipt fields it already carries; a new gauge case is one `GaugePolicy` case + one `Solve*` arm; a new eigen substrate (shift-invert Lanczos, spectra-style transforms) is one `EigenSolvePath` row over the same receipt.
-- Boundary: this kernel is the ONE linear-algebra access path — `Processing/register`'s GICP precision-field and spectrum-rebuild math route through `Matrix`/`SymmetricMatrix` owners, and a direct `DenseMatrix`/`Evd`/`Cholesky` reach in a sibling page is the named deleted form; statement loops inside `CompressRows`, `SolvePin`, `SolveKkt`, and the MGS pass are the named statement-kernel exemption (measured assembly and elimination hot paths); `BiCgStabDivergenceFactor = 1e3` and `KktPivotTolerance = 1.0` are named kernel policy constants — the divergence criterion's relative-increase ceiling and CSparse's full-partial-pivot column threshold.
+- Owner: `MatrixKernel` the `internal static` numeric kernel and the one MathNet and CSparse access path in the corpus, organized by operation family.
+- Entry: every public-facing operation enters through the owning model member; the kernel is reached only through them.
+- Auto: `SingularGaugeSolve` derives every threshold from `OperatorFrobeniusScale` and the rhs scale — relative gates, never absolute literals — and witnesses the true residual against the original un-shifted operator; `LobpcgCore` seeds its basis deterministically off the `Domain/identity` splitmix64 owner for bit-stable replay and terminates typed, never a hidden dense fallback.
+- Packages: MathNet.Numerics (the managed provider path only — `UseManaged`, no `Control.UseNative*` call, no provider package), CSparse (`SparseCholesky`, `SparseLU`, AMD ordering), Rasm.Domain (`Op`, `Context`, `Deterministic` splitmix64), System.Numerics.Tensors, TYoshimura.DoubleDouble (`ddouble`, the 106-bit residual-witness lane), BCL (`System.Numerics.Complex`).
+- Growth: a new route, gauge case, or eigen substrate adds one kernel arm over its vocabulary row and the existing receipt shape.
+- Boundary: statement loops inside `CompressRows`, `SolvePin`, `SolveKkt`, and the MGS pass are the named statement-kernel exemption — measured assembly and elimination hot paths; `BiCgStabDivergenceFactor` (divergence ceiling) and `KktPivotTolerance` (CSparse full-partial-pivot column threshold) are the named kernel policy constants.
 
-```csharp
+```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MatrixKernel {
-    // Relative-increase ceiling for the BiCgStab divergence criterion; full-partial-pivot
-    // column-relative threshold for the KKT saddle SparseLU (CSparse tol in [0,1]).
     private const double BiCgStabDivergenceFactor = 1e3;
     private const double KktPivotTolerance = 1.0;
 
@@ -483,8 +472,7 @@ internal static class MatrixKernel {
     internal static Fin<CSparse.Storage.CompressedColumnStorage<double>> ToCSparseSymmetric(SparseMatrix s, Op key) =>
         NormalizeSymmetricUpperEntries(s: s, key: key).Map(upper =>
             CSparse.Double.SparseMatrix.OfIndexed(rows: s.Rows.Value, columns: s.Rows.Value, enumerable: upper));
-    // Rejects contradictory duplicate mirror entries beyond a scale-relative band, then yields the
-    // canonical (row <= col) upper view every symmetric consumer shares.
+    // Rejects contradictory duplicate mirror entries beyond a scale-relative band, yielding the canonical row<=col upper view.
     private static Fin<List<(int Row, int Col, double Value)>> NormalizeSymmetricUpperEntries(SparseMatrix s, Op key) {
         if (!s.IsValid || s.Rows.Value != s.Cols.Value) return Fin.Fail<List<(int Row, int Col, double Value)>>(key.InvalidInput());
         List<(int Row, int Col, double[] Values)> grouped = [.. Enumerable.Range(start: 0, count: s.Rows.Value)
@@ -519,8 +507,7 @@ internal static class MatrixKernel {
     // are the one span-gate pair — a kernel-local re-derivation is the named duplicate-kernel defect.
 
     // --- [WITNESS] ----------------------------------------------------------------------------
-    // The recorded residual is the ONE truth witness — its norm folds accumulate in 106-bit ddouble
-    // so ill-conditioned cancellation in b - Ax cannot inflate or deflate the evidence.
+    // RelativeResidual folds its norm in 106-bit ddouble, so cancellation in b - Ax cannot inflate or deflate the residual witness.
     private static double RelativeResidual(Matrix<double> a, LinearVector x, LinearVector b) =>
         CompensatedNorm(v: b - a.Multiply(x)) / Math.Max(val1: 1.0, val2: CompensatedNorm(v: b));
     private static double CompensatedNorm(LinearVector v) {
@@ -720,8 +707,7 @@ internal static class MatrixKernel {
                 triplets.Add(item: (i, matrix.ColInd[index: k], scale * matrix.Values[index: k]));
         return triplets;
     }
-    // Diagonal-preconditioned BiCgStab under the explicit criterion stack; the MathNet direct solve is the
-    // RECORDED fallback (SparseMathNetDirectFallback / DirectFallbackSolved), gated at the looser cap.
+    // Diagonal-preconditioned BiCgStab; the MathNet direct solve is the RECORDED fallback (SparseMathNetDirectFallback), gated at the looser cap.
     internal static Fin<SolveReceipt> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
         !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs)
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
@@ -764,10 +750,9 @@ internal static class MatrixKernel {
             });
 
     // --- [SINGULAR_GAUGE] --------------------------------------------------------------------------
-    // Gauge dual-solve over a singular SPSD operator: admit once, derive every threshold from the
-    // operator and rhs scales, witness the TRUE relative residual against the original un-shifted
-    // operator, and leave a typed GaugeReceipt. Pin/KKT triplet and projection loops are the named
-    // statement-kernel exemption.
+    // Gauge dual-solve over a singular SPSD operator: derive every threshold from the operator and rhs
+    // scales, witness the TRUE residual against the original un-shifted operator, leave a typed GaugeReceipt.
+    // Pin/KKT triplet and projection loops are the named statement-kernel exemption.
     internal static Fin<SolveReceipt> SingularGaugeSolve(SparseMatrix matrix, Arr<double> rhs, GaugePolicy gauge, Context context, Op key) =>
         gauge is null || !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || !SolveInputIsValid(rows: matrix.Rows.Value, rhs: rhs) || !GaugeNullspaceFits(gauge: gauge, dimension: matrix.Rows.Value)
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
@@ -849,9 +834,8 @@ internal static class MatrixKernel {
         gauge.Switch(pin: static p => p.Indices, meanZeroDeflation: static _ => new Arr<int>([]), lagrangeKKT: static _ => new Arr<int>([]));
     // M-orthogonal primitives: DeflateRhs, ProjectRange, MassResidual, GaugeOrthogonality share one mass inner product.
     private static double CompatibilityResidual(Matrix<double> nullspace, LinearVector b) => nullspace.TransposeThisAndMultiply(b).L2Norm();
-    // Shared M-orthogonal Gram solve: factor the SPD Gram Nt M N, applying a diagonal-scaled Tikhonov
-    // shift only when the plain Cholesky breaks down; surface the shift plus the numeric nullspace
-    // dimension (factor diagonal entries above a scale-relative floor).
+    // Shared M-orthogonal Gram solve: factor the SPD Gram Nt M N, applying a diagonal-scaled Tikhonov shift only on Cholesky breakdown,
+    // surfacing the shift and the numeric nullspace dimension (factor diagonal entries above a scale-relative floor).
     private static (LinearVector Coords, double Shift, int NumericRank) RegularizedGramSolve(Matrix<double> gram, LinearVector rhs) {
         double scale = Math.Max(val1: EpsilonPolicy.SqrtEpsilon, val2: gram.Diagonal().Enumerate().Aggregate(0.0, static (acc, value) => Math.Max(acc, Math.Abs(value))));
         (MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor, double shift) =
@@ -1125,32 +1109,7 @@ internal static class MatrixKernel {
 }
 ```
 
-## [07]-[DENSITY_BAR]
-
-One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. Rows [01]-[07] are the `[SmartEnum<int>]` route/stop vocabularies with capability columns; the remaining per-axis kinds ride the indexed notes below.
-
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                                                               | [CASES] |
-| :-----: | :-------------------- | :-------------------------------------------------------------------- | :-----: |
-|  [01]   | Route/stop vocabulary | `EigenSolvePath`                                                      |    5    |
-|  [02]   | Route/stop vocabulary | `EigenSolveStop`                                                      |    3    |
-|  [03]   | Route/stop vocabulary | `SolvePath`                                                           |    7    |
-|  [04]   | Route/stop vocabulary | `SolveStop`                                                           |    7    |
-|  [05]   | Route/stop vocabulary | `MatrixNormKind`                                                      |    4    |
-|  [06]   | Route/stop vocabulary | `GaugeSolverKind`                                                     |    3    |
-|  [07]   | Route/stop vocabulary | `GaugeShift`                                                          |    4    |
-|  [08]   | Gauge algebra         | `GaugePolicy`                                                         |    3    |
-|  [09]   | Dense owners          | `Matrix` · `SymmetricMatrix` (+ 4 decomposition carriers)             |    2    |
-|  [10]   | Sparse owners         | `SparseMatrix` · `SparseHermitian` · `CholeskySparse`                 |    3    |
-|  [11]   | Evidence              | `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` |    3    |
-|  [12]   | Kernel                | `MatrixKernel`                                                        |    1    |
-
-- [08]-[GAUGE_ALGEBRA]: `[Union]` Pin/MeanZeroDeflation/LagrangeKKT + presets.
-- [09]-[DENSE_OWNERS]: admission-gated `record struct` over MathNet.
-- [10]-[SPARSE_OWNERS]: CSR invariants + lock-guarded AMD factor cache over CSparse.
-- [11]-[EVIDENCE]: `ValidityClaim.All` fold + semantic claim rows.
-- [12]-[KERNEL]: the ONE MathNet+CSparse access path (dense/sparse/gauge/eigen/LOBPCG).
-
-## [08]-[RESEARCH]
+## [07]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

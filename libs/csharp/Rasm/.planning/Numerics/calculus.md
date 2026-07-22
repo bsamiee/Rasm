@@ -1,25 +1,25 @@
 # [RASM_NUMERICS_CALCULUS]
 
-The sample-anywhere analytic math floor of `Rasm.Numerics` — differential operators, weight-profile mathematics, and procedural noise lattices, each generic over a SAMPLER so no field union, mesh, or cloud type appears on this floor. The page owns `Nabla`, the six-axis central-difference stencil promoted from the mature validation grab-bag into a pure differential-calculus owner — `GradientAt`, `CurlAt`, `CurlNoiseAt`, `DivergenceAt`, `LaplacianAt`, `StrainMagnitudeAt` over `Func<Point3d, Fin<double>>` / `Func<Point3d, Fin<Vector3d>>` samplers, with the curl-noise decorrelation offsets and toroidal domain wrap as named policy values; the weight-profile family — `KernelProfileStatus`, `KernelProfile` (value + first + second derivative + smoothness status), `KernelKind` the six compactly-supported kernels (Wendland C², quintic, cosine, cubic, linear, Epanechnikov) whose rows carry the profile AND its two derivatives as delegate columns over one `SupportProfile` fold, `WeightKernelFamily` the five reconstruction-weight profiles (smooth-poly, Wendland C², Gaussian, compact-exponential, singular-interpolating) with the `Interpolating` capability column, and `Falloff` the radial-decay `[Union]` (constant, inverse, inverse-square, Gaussian, compact kernel, metric-anisotropic) whose anisotropic case takes a `SymmetricMatrix` METRIC SAMPLER — SPD-gated by leading principal minors per sample — so the tensor-field coupling stays downstream, every case carrying its `SlopeBound` slope-evidence column; and `FieldNoise`, the procedural lattices — Perlin gradient noise over the canonical 256-entry permutation table, skewed and smoothed simplex, and Worley cellular noise — seed-parameterized and deterministic.
+`Rasm.Numerics` calculus is the sample-anywhere analytic-math floor: differential operators, weight-profile mathematics, and procedural noise lattices, every owner generic over a sampler so no field, mesh, or cloud type reaches this floor.
 
-`Spatial/fields` composes these owners as its case mathematics (falloff-weighted influence fields, noise cases, kernel-windowed densities); `Meshing/reconstruct` composes `WeightKernelFamily` as its MLS/APSS/Levin weighting; the finite-difference operators serve any implicit field a sampler can express. The admission-guard half of the mature `FieldNabla` (NotNull/AllFinite/Plane/Cone/input gates) is `Rasm.Domain`'s validation vocabulary — this page carries ONLY the mathematics.
+Every operator threads `Op` and gates finite input through the Domain validation vocabulary, so admission composes upstream and this floor carries the mathematics alone; the `SlopeBound` and `DerivativeSupremum` slope evidence its kernels and profiles carry feeds the `Spatial/fields` Lipschitz fold downstream.
 
 ## [01]-[INDEX]
 
-- [02]-[DIFFERENTIAL_STENCIL]: `Nabla` — the six-axis central-difference stencil + gradient/curl/curl-noise/divergence/Laplacian/strain-magnitude over samplers + decorrelation offsets + toroidal wrap.
-- [03]-[WEIGHT_PROFILES]: `KernelProfileStatus` · `KernelProfile` · `KernelKind` (6 compact-support rows with derivative columns) · `WeightKernelFamily` (5 reconstruction rows) · `Falloff` (6-case radial-decay union with the metric-sampler anisotropic case).
-- [04]-[NOISE_LATTICES]: `FieldNoise` — Perlin/simplex/skewed-simplex/Worley lattices over the canonical permutation table.
+- [02]-[DIFFERENTIAL_STENCIL]: `Nabla` sampler-generic central-difference stencil and the differential operators folding through its one `SampleAxes` traversal.
+- [03]-[WEIGHT_PROFILES]: compact-support kernels, reconstruction weights, and the radial-decay `Falloff` union with its metric-sampler anisotropic case.
+- [04]-[NOISE_LATTICES]: `FieldNoise` deterministic Perlin, simplex, and Worley lattices over one seed-folded permutation substrate.
 
 ## [02]-[DIFFERENTIAL_STENCIL]
 
-- Owner: `Nabla` the `static` differential-calculus owner. `SampleAxes(sampler, point, eps, key)` evaluates the six axis-offset samples `f(p ± ε·eᵢ)` through ONE traversal that any operator below composes; `GradientAt` central-differences a scalar sampler into `∇f`; `CurlAt` assembles `∇×F` from the six vector samples; `CurlNoiseAt` builds a divergence-free field from three decorrelated gradient evaluations (Bridson curl-noise — the offsets `CurlOffset2`/`CurlOffset3` are the named decorrelation policy values); `DivergenceAt` reads `∇·F`; `LaplacianAt` runs the seven-point stencil `(Σf(p ± ε·eᵢ) − 6f(p))/ε²`; `StrainMagnitudeAt` forms the symmetric rate-of-strain tensor from the six vector samples and returns its Frobenius norm; `ToroidalWrap(sample, period)` the periodic domain fold.
-- Cases: six differential operators + the stencil + the wrap (8 members, one owner).
-- Entry: every operator takes `(sampler, point, eps, key)` — `eps` is the caller's scale-derived stencil width (a field consumer derives it from its `Context` tolerance or feature scale; this floor never guesses a scale), gated finite and above `EpsilonPolicy.ZeroTolerance`.
-- Auto: all six operators share the ONE `SampleAxes` traversal, so a sampler is invoked exactly six times per first-order operator (seven for the Laplacian's center tap) and failure at any tap short-circuits the rail with the sampler's own typed fault.
-- Receipt: none — the operators are pure projections; evidence belongs to the field or solver that composes them.
+- Owner: `Nabla` the `static` differential-calculus owner; `SampleAxes` evaluates the six axis-offset samples `f(p ± ε·eᵢ)` through one traversal every first- and second-order operator composes.
+- Cases: gradient, curl, curl-noise, divergence, Laplacian, and strain-magnitude over the shared stencil, with the periodic `ToroidalWrap`.
+- Entry: every operator takes `(sampler, point, eps, key)`; `eps` is the caller's scale-derived stencil width, gated finite and above `EpsilonPolicy.ZeroTolerance` — this floor never guesses a scale.
+- Auto: every operator shares the one `SampleAxes` traversal, and a failed tap short-circuits the rail with the sampler's own typed fault.
+- Receipt: none — the operators are pure projections, evidence owned by the composing field or solver.
 - Packages: LanguageExt.Core (`Fin`, query expressions), Rasm.Domain (`Op`), RhinoCommon (`Point3d`/`Vector3d` value structs).
-- Growth: a new differential operator (Hessian, Jacobian determinant, vector Laplacian) is one member over the same `SampleAxes` stencil; a higher-order stencil (fourth-order central differences) is one alternative stencil member the operators re-bind to — never a per-field re-implementation.
-- Boundary: the mature corpus hard-wired these operators to its field unions — the sampler signature inverts that dependency so `Spatial/fields` (downstream) plugs `field.SampleScalar` in as the sampler and this floor stays field-agnostic; the mesh-aware Laplacians (cotangent, intrinsic Delaunay) are `Meshing/mesh`'s operators over connectivity, NOT this stencil — this page differentiates ambient ℝ³ samplers only; `ToroidalWrap` assumes an admitted strictly-positive period — the `Period` guard in the Domain validation vocabulary is its upstream gate, so the wrap itself stays a total pure fold.
+- Growth: a new differential operator is one member over the `SampleAxes` stencil; a higher-order stencil is one alternative member the operators re-bind to, never a per-field re-implementation.
+- Boundary: mesh-aware Laplacians over connectivity are `Meshing/mesh`'s, this page differentiating ambient ℝ³ samplers alone; `ToroidalWrap` is a total pure fold over an admitted strictly-positive period the Domain `Period` guard gates upstream.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -29,8 +29,7 @@ namespace Rasm.Numerics;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Nabla {
-    // Bridson curl-noise decorrelation offsets: three gradient taps of one potential, offset far
-    // apart so their cross-assembly is divergence-free without visible lattice correlation.
+    // Bridson curl-noise: three gradient taps of one potential spread far apart, so the cross-assembly is divergence-free without lattice correlation.
     internal static readonly Vector3d CurlOffset2 = new(x: 31.4159, y: 27.1828, z: 41.4213), CurlOffset3 = new(x: -19.3274, y: 53.2186, z: -67.9531);
     public static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps, Op key) =>
         from _ in guard(double.IsFinite(eps) && eps > EpsilonPolicy.ZeroTolerance, key.InvalidInput()).ToFin()
@@ -90,14 +89,14 @@ public static class Nabla {
 
 ## [03]-[WEIGHT_PROFILES]
 
-- Owner: `KernelProfileStatus` the smoothness verdict vocabulary (`Smooth`/`SupportBoundary`/`NonsmoothOrigin`/`OutsideSupport`); `KernelProfile` the evaluation carrier — value, first derivative, second derivative, status — so a consumer differentiating a kernel-windowed quantity reads the derivative off the profile instead of re-differencing; `KernelKind` the `[SmartEnum<int>]` of six compactly-supported kernels whose rows carry `value(q)`, `value′(q)/r`, and `value″(q)/r²` as three delegate columns folded through ONE `SupportProfile` (support clamp at `q = d/r ≥ 1`, boundary band, nonsmooth-origin flag for the odd-power kernels) — Wendland C² `(1−q)⁴(1+4q)`, quintic `(1−q)⁵`, cosine `½(1+cos πq)`, cubic `(1−q)³`, linear `1−q`, Epanechnikov `1−q²` — each row also carrying `DerivativeSupremum` (`sup_{q∈[0,1]}|value′(q)|`, the dimensionless slope-bound numerator); `WeightKernelFamily` the `[SmartEnum<int>]` of five reconstruction-weight profiles — smooth-poly `(1−t²)²`, Wendland C², Gaussian `e^(−t²/σ²)` with `GaussianBandwidthSquared = 1/9`, compact-exponential, and the SINGULAR interpolating weight `1/max(t², ε)` — with the `Interpolating` capability column the MLS routes dispatch on; `Falloff` the `[Union]` radial-decay family — `Constant`, `Inverse` (`1/d`, degeneracy-gated), `InverseSquare`, `Gaussian(spread)`, `Kernel(kind, radius)` (compact support through `KernelKind`), and `Metric(kind, metric, radius)` — the anisotropic case whose `metric: Func<Point3d, Fin<SymmetricMatrix>>` SAMPLER yields the local 3×3 metric tensor, SPD-gated by the Sylvester leading-principal-minors fold, so the Mahalanobis distance `√(offsetᵀ·M·offset)` drives the kernel profile without this floor naming any field type. Every `Falloff` case carries the `SlopeBound` column — `sup|dw/dd|` over its admitted domain (`0` constant; `e^{−1/2}/σ` Gaussian at `d = σ`; `DerivativeSupremum/r` kernel; `None` for the inverse laws and the metric case, whose slopes are tolerance- and sampler-dependent) — the slope evidence the `Spatial/fields` `LipschitzBound` fold absorbs.
-- Cases: `KernelKind` 6 · `WeightKernelFamily` 5 · `Falloff` 6 · `KernelProfileStatus` 4.
-- Entry: `KernelKind.Profile(distance, radius, key)` — gated through `Admit.KernelInput`, returns the full `KernelProfile`; `KernelKind.Weight(distance, radius)` the bare-value fast path; `WeightKernelFamily.Weight(distance, support)` zero outside support; `Falloff.Weight(...)` three overloads discriminating on input shape — bare distance, offset vector, offset + sample point (the metric case's requirement) — all folding through one `WeightCore` gated by `Admit.FalloffInput`.
-- Auto: `SupportProfile` is the one clamp/status fold every kernel row shares — its bands live on the dimensionless `q = d/r` so support classification is invariant under model scale, outside-support and boundary yield exact zeros with their status, and the nonsmooth-origin flag fires only for kernels whose derivative jumps at `d = 0`; the metric falloff admits the sampled tensor as SPD by the three leading principal minors (Sylvester) before forming the quadratic — allocation-free per sample where a factorization would churn the hot loop — so an indefinite metric fails typed instead of producing `√negative`.
-- Receipt: `KernelProfile` IS the per-evaluation receipt (value + derivatives + status).
-- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `matrix.md` (`SymmetricMatrix` — the metric carrier), Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the one-type-argument `AcceptValidated<TVO>` bridge).
-- Growth: a new kernel is one `KernelKind` row (three delegate columns + its `DerivativeSupremum`); a new reconstruction weight is one `WeightKernelFamily` row; a new decay law is one `Falloff` case + one `WeightCore` arm + its `SlopeBound` column.
-- Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing `tensorField.Sampler(context)` — the tensor-field type NEVER appears here, keeping this page upstream of the field algebra; `Meshing/reconstruct` composes `KernelKind` for its RBF/MLS windows and `WeightKernelFamily` rows for its Levin/APSS weights — one profile mathematics, zero copies.
+- Owner: `KernelProfile` carries value, first and second derivative, and a `KernelProfileStatus` smoothness verdict, so a consumer reads a kernel's derivative off the profile instead of re-differencing; `KernelKind` mints the compact-support kernels, each row folding value and its two derivatives through one `SupportProfile` clamp and carrying `DerivativeSupremum`, its dimensionless slope-bound numerator; `WeightKernelFamily` mints the reconstruction-weight profiles with the `Interpolating` column the MLS dispatches on; `Falloff` the radial-decay `[Union]` whose anisotropic case takes a `SymmetricMatrix` metric sampler driving the Mahalanobis distance.
+- Cases: the `KernelProfileStatus` verdicts, the compact-support `KernelKind` rows, the `WeightKernelFamily` weights, and the `Falloff` decay cases including the metric-sampler anisotropic one.
+- Entry: `KernelKind.Profile(distance, radius, key)` returns the full gated profile and `Weight` the bare fast path; `WeightKernelFamily.Weight` zeros outside support; `Falloff.Weight` discriminates bare distance, offset vector, and offset-plus-sample-point through one `WeightCore` gated by `Admit.FalloffInput`.
+- Auto: `SupportProfile` is the one clamp/status fold every kernel shares, banded on the dimensionless `q = d/r` so classification is scale-invariant with exact zeros outside support; the metric falloff proves the sampled tensor SPD by leading principal minors before forming the quadratic, allocation-free, so an indefinite metric fails typed instead of producing `√negative`.
+- Receipt: `KernelProfile` is the per-evaluation receipt — value, both derivatives, and status.
+- Packages: Thinktecture.Runtime.Extensions (`[UseDelegateFromConstructor]` columns), LanguageExt.Core, `SymmetricMatrix` the metric carrier, Rasm.Domain (`Op`, the `Admit.KernelInput`/`FalloffInput` gates, the `AcceptValidated<TVO>` bridge).
+- Growth: a new kernel is one `KernelKind` row with its three delegate columns and `DerivativeSupremum`; a new reconstruction weight is one `WeightKernelFamily` row; a new decay law is one `Falloff` case, one `WeightCore` arm, and its `SlopeBound` column.
+- Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing the tensor sampler, so the tensor-field type never appears here; `Meshing/reconstruct` composes `KernelKind` and `WeightKernelFamily` for its RBF, MLS, and Levin windows — one profile mathematics, zero copies.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -122,8 +121,7 @@ public sealed partial class KernelKind {
     public static readonly KernelKind Cubic = new(key: 3, derivativeSupremum: 3.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 3), first: static (q, r) => -3.0 * Pow1(q: q, power: 2) / r, second: static (q, r) => 6.0 * (1.0 - q) / (r * r)));
     public static readonly KernelKind Linear = new(key: 4, derivativeSupremum: 1.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => 1.0 - q, first: static (_, r) => -1.0 / r, second: static (_, _) => 0.0));
     public static readonly KernelKind Epanechnikov = new(key: 5, derivativeSupremum: 2.0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
-    // sup over q ∈ [0,1] of |value′(q)| — the dimensionless slope-bound numerator Falloff.SlopeBound divides
-    // by r: Wendland peaks at q = 1/4 (135/64), the odd-power kernels at the origin, cosine at q = 1/2.
+    // DerivativeSupremum = sup_{q∈[0,1]}|value′(q)|, the slope-bound numerator; Wendland peaks at q=1/4, odd-power kernels at the origin, cosine at q=1/2.
     public double DerivativeSupremum { get; }
     [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     public Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
@@ -135,8 +133,6 @@ public sealed partial class KernelKind {
         select profile;
     public double Weight(double distance, double radius) => Evaluate(distance: distance, radius: radius).Value;
     private static double Pow1(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
-    // The one support clamp/status fold every kernel row shares. Bands live on the normalized
-    // coordinate q = d/r, so they are dimensionless — invariant under model scale.
     private static KernelProfile SupportProfile(double distance, double radius, bool nonsmoothAtOrigin, Func<double, double, double> value, Func<double, double, double> first, Func<double, double, double> second) {
         double q = distance / radius;
         return q > 1.0
@@ -169,14 +165,9 @@ public abstract partial record Falloff {
     public sealed record InverseSquareCase : Falloff { internal InverseSquareCase() { } public override Option<double> SlopeBound => None; }
     public sealed record GaussianCase : Falloff { internal GaussianCase(PositiveMagnitude Spread) => this.Spread = Spread; public PositiveMagnitude Spread { get; } public override Option<double> SlopeBound => Some(Math.Exp(-0.5) / Spread.Value); }
     public sealed record KernelCase : Falloff { internal KernelCase(KernelKind Kind, PositiveMagnitude Radius) { this.Kind = Kind; this.Radius = Radius; } public KernelKind Kind { get; } public PositiveMagnitude Radius { get; } public override Option<double> SlopeBound => Some(Kind.DerivativeSupremum / Radius.Value); }
-    // Anisotropic decay through a sampled SPD metric: the sampler yields the local 3x3 tensor, so the
-    // field algebra (downstream) plugs its TensorField in without this floor naming it.
     public sealed record MetricCase : Falloff { internal MetricCase(KernelKind Kind, Func<Point3d, Fin<SymmetricMatrix>> Metric, PositiveMagnitude Radius) { this.Kind = Kind; this.Metric = Metric; this.Radius = Radius; } public KernelKind Kind { get; } public Func<Point3d, Fin<SymmetricMatrix>> Metric { get; } public PositiveMagnitude Radius { get; } public override Option<double> SlopeBound => None; }
 
-    // sup|dw/dd| over the admitted domain — the slope evidence downstream Lipschitz folds read: 0 constant,
-    // e^{−1/2}/σ Gaussian (|w′| peaks at d = σ), DerivativeSupremum/r kernel. None where no tolerance-free
-    // bound exists: the inverse laws steepen toward the degeneracy gate; the sampled metric's spectral
-    // radius is unbounded a priori.
+    // None where no tolerance-free bound exists: inverse laws steepen toward the degeneracy gate, the sampled metric's spectral radius unbounded.
     public abstract Option<double> SlopeBound { get; }
     public static Falloff Constant => new ConstantCase();
     public static Falloff Inverse => new InverseCase();
@@ -210,8 +201,8 @@ public abstract partial record Falloff {
                 from m in s.Offset.ToFin(s.Key.Unsupported(geometryType: typeof(MetricCase), outputType: typeof(double)))
                 from tensor in k.Metric(arg: m.Sample)
                 from _ in guard(tensor.Dimension.Value == 3 && SpdByMinors(tensor: tensor), s.Key.InvalidInput())
-                // Zero offset (query at the source) is legal: quadratic 0 -> distance 0 -> kernel maximum;
-                // the -ZeroTolerance band absorbs rounding of tiny offsets under an SPD-proven tensor.
+                // Zero offset (query at source) is legal: quadratic 0 -> distance 0 -> kernel max; the
+                // -ZeroTolerance band absorbs rounding of tiny offsets under an SPD-proven tensor.
                 from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
                     (double x, double y, double z) when
                         (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
@@ -222,8 +213,6 @@ public abstract partial record Falloff {
                 }
                 from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value, key: s.Key)
                 select profile.Value));
-    // Sylvester SPD gate — three leading principal minors of the symmetric 3x3, allocation-free;
-    // a per-sample factorization is the deleted form in this hot path.
     private static bool SpdByMinors(SymmetricMatrix tensor) {
         double a = tensor.At(i: 0, j: 0), b = tensor.At(i: 0, j: 1), c = tensor.At(i: 0, j: 2);
         double d = tensor.At(i: 1, j: 1), e = tensor.At(i: 1, j: 2), f = tensor.At(i: 2, j: 2);
@@ -235,19 +224,18 @@ public abstract partial record Falloff {
 
 ## [04]-[NOISE_LATTICES]
 
-- Owner: `FieldNoise` the `internal static` procedural-noise owner — `PerlinAt(point, seed, frequency)` classic gradient noise over the canonical Ken-Perlin 256-entry permutation table (`Fade` quintic smoothing, `Grad` hashed gradient selection, trilinear `Lerp` lattice blend); `SimplexAt` the 3D simplex lattice (corner ranking by fractional ordering, `SimplexCorner` radial-falloff gradient contributions, ×32 amplitude normalization); `SkewedSimplexAt(point, seed, frequency, smooth)` the skew-transformed variant with the optional two-tap rotation smoothing; `WorleyAt` cellular noise (per-cell hashed feature points over the 27-cell neighborhood, nearest-feature Euclidean distance).
-- Cases: 3 internal lattice entries (`PerlinAt` · `WorleyAt` · `SkewedSimplexAt` with the smooth flag) spanning the four published lattice modes over one shared hash substrate (`Perm`, `HashCell`); `SimplexAt` is the private skew-domain kernel both simplex modes ride.
-- Entry: every lattice takes `(Point3d point, int seed, double frequency)` — deterministic for a given triple, so noise-driven fields replay across processes; input admission (octaves, persistence, lacunarity, frequency bounds for fractal sums) is the CONSUMER's policy admitted through `Admit.NoiseInput` — the lattice itself is total over finite input.
-- Auto: `Perm(x, seed)` folds the seed into the table lookup so seeds relabel the lattice without a table copy; Worley hashes three decorrelated channels (offsets 17/31) for the per-cell feature point.
+- Owner: `FieldNoise` the `internal static` procedural-noise owner — classic Perlin gradient noise over the canonical permutation table, the 3D simplex lattice and its skew-transformed variant with optional two-tap smoothing, and Worley cellular noise, all over one hashed lattice substrate.
+- Cases: Perlin, simplex, and Worley lattices over one `Perm`/`HashCell` substrate; `SkewedSimplexAt` carries the smooth flag and `SimplexAt` is the private skew-domain kernel both simplex modes ride.
+- Entry: every lattice takes `(point, seed, frequency)`, deterministic for a given triple so noise-driven fields replay across processes; octave, persistence, and lacunarity admission is the consumer's policy through `Admit.NoiseInput`, the lattice itself total over finite input.
+- Auto: `Perm(x, seed)` folds the seed into the table lookup so a seed relabels the lattice without a table copy; Worley hashes three decorrelated channels for its per-cell feature point.
 - Receipt: none — pure deterministic functions.
-- Packages: BCL only (`Math.Floor`, integer bit ops); RhinoCommon `Point3d` as the coordinate carrier.
-- Growth: a new lattice (open-simplex, curl-of-Worley) is one member over the same `Perm`/`HashCell` substrate; fractal octave sums (fBm, turbulence) are the CONSUMER's fold over these single-octave taps — `Spatial/fields` owns the octave policy row.
-- Boundary: `PermTable` is the canonical published Perlin permutation — hardcoded-by-specification, the one sanctioned literal table on this page; the noise VOCABULARY (`NoiseKind` rows with caution flags and sampler columns) is `Spatial/fields`' — this page owns only the lattice mathematics those rows point at.
+- Packages: BCL only (`Math.Floor`, integer bit ops), RhinoCommon `Point3d` as the coordinate carrier.
+- Growth: a new lattice is one member over the `Perm`/`HashCell` substrate; fractal octave sums (fBm, turbulence) are the consumer's fold over these single-octave taps, `Spatial/fields` owning the octave policy.
+- Boundary: `PermTable` is the canonical published Perlin permutation, the one sanctioned literal table on this page; the noise vocabulary — `NoiseKind` rows with caution flags and sampler columns — is `Spatial/fields`', this page owning only the lattice mathematics those rows point at.
 
 ```csharp
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class FieldNoise {
-    // Canonical Ken-Perlin permutation — hardcoded by specification, seed-folded at lookup.
     private static readonly int[] PermTable = [
         151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
     ];
@@ -316,25 +304,7 @@ internal static class FieldNoise {
 }
 ```
 
-## [05]-[DENSITY_BAR]
-
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The per-axis kind rides the indexed notes below.
-
-| [INDEX] | [AXIS_CONCERN]         | [OWNER]                                              | [CASES] |
-| :-----: | :--------------------- | :--------------------------------------------------- | :-----: |
-|  [01]   | Differential operators | `Nabla`                                              |    8    |
-|  [02]   | Kernel profiles        | `KernelKind` + `KernelProfile`/`KernelProfileStatus` |    6    |
-|  [03]   | Reconstruction weights | `WeightKernelFamily`                                 |    5    |
-|  [04]   | Radial decay           | `Falloff`                                            |    6    |
-|  [05]   | Noise lattices         | `FieldNoise`                                         |    4    |
-
-- [01]-[DIFFERENTIAL_OPERATORS]: sampler-generic central-difference stencil (one `SampleAxes`).
-- [02]-[KERNEL_PROFILES]: `[SmartEnum<int>]` rows with value + two derivative columns + `DerivativeSupremum`.
-- [03]-[RECONSTRUCTION_WEIGHTS]: `[SmartEnum<int>]` with `Interpolating` capability column.
-- [04]-[RADIAL_DECAY]: `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case.
-- [05]-[NOISE_LATTICES]: deterministic Perlin/simplex/Worley over the canonical table.
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

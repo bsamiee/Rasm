@@ -1,27 +1,25 @@
 # [RASM_HEALING_RECEIPTS]
 
-The typed per-op rebuild evidence the heal rail emits and the naming `Track` re-anchor consumes. The page owns `ManifoldStatus` — the before/after topological snapshot projected from the composed `Rasm.Meshing` `TopologyReceipt` through the Genus-tolerant six-field row `(Euler, BoundaryComponents, IsManifold, IsOriented, NonManifoldEdges, Option<int> Genus)`, un-gated, so the defective meshes the heal exists for (non-manifold, boundaried, odd-Euler) snapshot instead of failing — the `RebuildReceipt` `[Union]` (one typed case per `HealOp`, each carrying its policy tolerance, before/after status, and the affected entity refs seeded from the arena's dirty bitsets), the `HealSession` carrier the naming `Track` reads, and the `RebuildLog` fold that flattens a session into the per-`EntityKind` re-anchor seed. Convergence is not a standalone fold: every receipt case REGISTERS its per-op success witness as `IValidityEvidence.IsValid` — `NonManifoldEdges` reaching zero for the manifold split, manifold-coherence for the gap bridge (`BoundaryComponents` movement is evidence, never law — a slit bridge splits its loop), `IsOriented` for the orientation walk, the genus-consistent closed target `Euler = 2 − 2·Genus ∧ BoundaryComponents = 0` for the boolean — and `HealSession.IsValid` is the `ValidityClaim.All` fold over the chain.
+This page mints the typed heal evidence — `ManifoldStatus` snapshots, the `RebuildReceipt` per-op union, the `HealSession` carrier, and the `RebuildLog` re-anchor fold — that a `Heal.Repair` session emits and the naming `Track` re-anchor consumes. Every record is an interior type crossing only the in-process seam to the naming fold, never sitting between wire and rail.
 
-The boolean case carries the `Meshing/arrangement#ARRANGEMENT` `BooleanReceipt` as payload beside `ManifoldStatus` — ONE receipt type corpus-wide, never a renamed sibling — and its convergence witness is the boolean's OWN topological success, never a gate flag: a scale-gated boolean fails the arrangement rail with `NativeAssetMissing` 2423 and never reaches a mint, so every minted `MergeReceipt` is un-gated by construction. The receipt records op tolerances and affected refs but mints NO hash and asserts NO content identity — the healed mesh's content hash is the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` job; the receipt only names which entities changed so the reference identity (`TopoName`) re-binds. The `RebuildReceipt` chain crosses only the in-process seam to the naming `Track` fold; the records are interior types that never sit between wire and rail.
-
-`HealSession.FinalStatus` projects the last receipt's `StatusAfter` as `Option<ManifoldStatus>`; an empty session exposes `None`, so a consumer cannot confuse repair presence with post-repair closure evidence.
+`ManifoldStatus` is the composed `Rasm.Meshing` `TopologyReceipt` projected through the Genus-tolerant six-field row, un-gated so the non-manifold, boundaried, or odd-Euler meshes the heal exists for snapshot instead of failing. Each `RebuildReceipt` case registers its convergence witness as `IValidityEvidence.IsValid`, `HealSession.IsValid` folds `ValidityClaim.All` over the chain, and the boolean case carries the arrangement `BooleanReceipt` as payload.
 
 ## [01]-[INDEX]
 
-- [01]-[REBUILD_RECEIPTS]: `ManifoldStatus` six-field Genus-tolerant projection + `GenusClosed` witness; `RebuildReceipt` `[Union]` typed per-op evidence registering `IValidityEvidence`; `RebuildLog` re-anchor seed; `HealSession` carrier whose validity is the `ValidityClaim.All` fold over the chain.
+- [02]-[REBUILD_RECEIPTS]: `ManifoldStatus` Genus-tolerant projection + `GenusClosed` witness; `RebuildReceipt` `[Union]` typed per-op evidence registering `IValidityEvidence`; `HealSession` carrier folding `ValidityClaim.All` over the chain; `RebuildLog` re-anchor seed.
 
 ## [02]-[REBUILD_RECEIPTS]
 
-- Owner: `ManifoldStatus` the before/after topological snapshot — the SIX fields the public `VectorIntent.Topology(space, key).Project<(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)>` seam yields from the composed `Rasm.Meshing` `TopologyReceipt` via the Genus-tolerant `ProjectionRow` (`Meshing/mesh.md`), never re-counted: `NonManifoldEdges` is the actionable defect count the manifold kernel targets AND the gap bridge's coherence witness (`BoundaryComponents` moves ±1 per bridge — merge, split, or closure — so the count is evidence, never the gap law), `IsOriented` the orientation kernel's, and `Genus` stays `Option<int>` because a non-manifold or non-oriented snapshot has no validated genus — exactly the input class the heal admits; `GenusClosed` the derived closed-target witness (`Euler = 2 − 2·Genus` with zero boundary on a manifold — the boolean's success predicate, computed never stored); `RebuildReceipt` `[Union]` the typed per-op evidence — one case per `HealOp` carrying the op's policy tolerance, before/after `ManifoldStatus`, and the affected index sets seeded from the arena dirty bitsets, each case registering its own convergence witness as `IsValid`; `HealSession` the session carrier (input mesh, healed mesh, ordered receipt chain) whose `IsValid` is the `ValidityClaim.All` fold the corpus validity oracle reads; `RebuildLog` the fold projection that flattens a session into the `(EntityKind, affected-index-set)` re-anchor input the `Spatial/naming#TOPO_NAMING` `Track` reads.
-- Cases: `RebuildReceipt` cases `DegenerateReceipt` · `GapReceipt` · `WeldReceipt` · `ManifoldReceipt` · `SelfIntersectReceipt` · `OrientReceipt` · `MergeReceipt` (7, one per `HealOp`; the boolean case is `MergeReceipt` because its payload IS arrangement's `BooleanReceipt` — a local record named `BooleanReceipt` beside the composed type is the deleted duplicate); `ManifoldStatus` is one record (not a union) carrying the six projected scalars plus the derived `GenusClosed` witness.
-- Entry: `public static RebuildReceipt Of(HealOp op, RepairPolicy policy, ManifoldStatus before, ManifoldStatus after, MeshEdit result, Option<BooleanReceipt> merge)` mints the typed receipt for an applied op — the before/after status arrives ALREADY PROJECTED through the Genus-tolerant seam (the heal session binds the projection on the `Fin` rail before minting, never a swallowed default), the policy travels beside the stateless op so each case records ITS tolerance (`policy.Arena.WeldTolerance` on the weld, `policy.SliverAreaFloor` on the collapse, `policy.GapMaxSpan` on the gap, `policy.MaxManifoldPasses` on the split), the affected seeds read the arena dirty bitsets (`result.DirtyFaces()`/`DirtyVertices()` — monotone within an arena, so a seed over-approximates but never misses an entity; a boolean's fresh arena admits every slot dirty), and the boolean arm carries `merge` — the arrangement's own receipt the `Heal.Merge` step forwarded; `public RebuildLog ToLog()` on `HealSession` folds the chain into the per-`EntityKind` affected-ref set the naming `Track` re-anchors against, filtering by `HealStage.RebuildsTopology` so an `OrientNormals` op contributes nothing (winding leaves adjacency — and hence the `TopoSignature` — unchanged).
-- Auto: each `RebuildReceipt` case derives its convergence witness from the six-field delta it already carries — `WeldReceipt`/`DegenerateReceipt`/`SelfIntersectReceipt` assert no new non-manifold edges (a weld additionally never opens boundary), `GapReceipt` asserts a landed bridge minted NO non-manifold edge — a mis-paired strip trebles an edge and fires the witness — while `BoundaryComponents` movement stays evidence, never law: a cross-gap bridge MERGES two loops (−1), a slit bridge SPLITS its loop (+1), and a hole closure retires one, so a count law in either direction is the same trap as the global "boundary improved" heuristic an edge-split elsewhere already breaks, `ManifoldReceipt` asserts `NonManifoldEdges` reached zero (boundary regression is ADMITTED: the vertex-copy split deliberately opens boundary the later gap pass may close), `OrientReceipt` asserts `IsOriented` with the Euler characteristic unchanged, and `MergeReceipt` asserts `After.GenusClosed` — the boolean's own topological success witness, NOT a gate flag (the `AssetGated`-tested convergence this rebuild killed inverted the fold: a successful boolean never converged); `HealSession.IsValid` folds `ValidityClaim.All` over a non-empty chain of per-receipt witnesses — the ONE registered convergence surface, no standalone `Converged`/`Improved` hand-rolls beside it.
-- Receipt: this cluster IS the receipt owner — the `RebuildReceipt` chain on the `HealSession` is the heal evidence the naming `Track` consumes; no parallel heal-tracking ledger, the `ManifoldStatus` is the composed `TopologyReceipt` projection (never a second manifold computation), and the boolean payload is the composed arrangement `BooleanReceipt` (never a second census).
-- Packages: `Rasm.Meshing` (`TopologyReceipt` via the Genus-tolerant `Rasm.Numerics` `ProjectionRow` — composed), `Rasm.Meshing` (`MeshEdit` dirty-bitset seed), `Rasm.Meshing` (`BooleanOp`/`BooleanReceipt` + its canonical `Empty` — the composed payload; `BooleanRoute` rides inside the receipt), Rasm.Domain (`IValidityEvidence`/`ValidityClaim` — the registered validity fold), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new heal op is one `RebuildReceipt` case carrying its typed evidence and its own `IsValid` witness arm (mirroring its `HealOp` case — the generated `Switch` breaks every dispatch site until the arm lands); a new topological status field is one column on `ManifoldStatus` projected from the existing `TopologyReceipt` carrier plus one `ProjectionRow` widening at the mesh.md seam; zero new surface — never a generic receipt abstraction collapsing the typed cases.
-- Boundary: `RebuildReceipt` is the ONE typed receipt union and a generic `IReceipt`/`HealLedger`/reported-value abstraction erasing the per-kind evidence is the deleted form — a `WeldReceipt`'s merged-vertex set and a `ManifoldReceipt`'s forked-face set are different shapes and stay typed; the before/after status is the composed `Rasm.Meshing` `TopologyReceipt` projected into `ManifoldStatus` through the un-gated six-field row and a domain-local manifold/genus recomputation is the deleted form; the boolean payload is arrangement's `BooleanReceipt` and a renamed sibling record is the deleted duplicate this rebuild removed; convergence REGISTERS as `IValidityEvidence` and a standalone bool fold beside the registered witness is the deleted hand-roll; the `RebuildLog` feeds the `Spatial/naming#TOPO_NAMING` `Track` re-anchor and the receipt's affected-ref set IS the re-anchor seed — a heal that rebuilds topology without emitting its affected entities is the named defect (the naming fold re-anchors blind); the receipt records op tolerance and payload evidence but mints NO hash and asserts NO content identity — the healed mesh's content hash is the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` job, the receipt only names which entities changed so the reference identity (`TopoName`) re-binds.
+- Owner: `ManifoldStatus` the before/after topological snapshot — six scalars the `VectorIntent.Topology` projection seam yields from the composed `Rasm.Meshing` `TopologyReceipt` via the Genus-tolerant `ProjectionRow`, never re-counted: `NonManifoldEdges` is the actionable defect count the manifold kernel targets and the gap bridge's coherence witness (`BoundaryComponents` moves ±1 per bridge, so the count is evidence, never law), and `Genus` stays `Option<int>` because a non-manifold or non-oriented snapshot has no validated genus — exactly the input class the heal admits; `GenusClosed` derives the closed-target witness on a manifold, computed never stored; `RebuildReceipt` `[Union]` mints one typed case per `HealOp` carrying the op's policy tolerance, before/after `ManifoldStatus`, and the affected index sets seeded from the arena dirty bitsets, each case registering its convergence witness as `IsValid`; `HealSession` carries the input mesh, healed mesh, and ordered receipt chain, its `IsValid` the `ValidityClaim.All` fold the corpus validity oracle reads; `RebuildLog` flattens a session into the `(EntityKind, affected-index-set)` re-anchor input the naming `Track` reads.
+- Cases: `RebuildReceipt` cases `DegenerateReceipt` · `GapReceipt` · `WeldReceipt` · `ManifoldReceipt` · `SelfIntersectReceipt` · `OrientReceipt` · `MergeReceipt`, one per `HealOp`; the boolean case is `MergeReceipt` carrying the composed arrangement `BooleanReceipt`. `ManifoldStatus` is one record carrying the six projected scalars and the derived `GenusClosed` witness.
+- Entry: `public static RebuildReceipt Of(HealOp op, RepairPolicy policy, ManifoldStatus before, ManifoldStatus after, MeshEdit result, Option<BooleanReceipt> merge)` mints the typed receipt for an applied op — before/after status arrives already projected through the Genus-tolerant seam (the heal session binds the projection on the `Fin` rail before minting), the policy travels beside the stateless op so each case records its tolerance (`policy.Arena.WeldTolerance` on the weld, `policy.SliverAreaFloor` on the collapse, `policy.GapMaxSpan` on the gap, `policy.MaxManifoldPasses` on the split), the affected seeds read the arena dirty bitsets (`result.DirtyFaces()`/`DirtyVertices()` — monotone within an arena, so a seed over-approximates but never misses an entity, and a boolean's fresh arena admits every slot dirty), and the boolean arm carries the `merge` the `Heal.Merge` step forwarded; `public RebuildLog ToLog()` on `HealSession` folds the chain into the per-`EntityKind` affected-ref set, filtering by `HealStage.RebuildsTopology` so an `OrientNormals` op contributes nothing (winding leaves adjacency and the `TopoSignature` unchanged).
+- Auto: each `RebuildReceipt` case derives its convergence witness from the six-field delta it carries — `WeldReceipt`/`DegenerateReceipt`/`SelfIntersectReceipt` assert no new non-manifold edges (a weld also never opens boundary), `GapReceipt` asserts a landed bridge minted no non-manifold edge (a mis-paired strip trebles an edge and fires the witness) while `BoundaryComponents` movement stays evidence (a cross-gap bridge merges two loops −1, a slit bridge splits its loop +1, a hole closure retires one, so a count law in either direction is the trap the global boundary heuristic already breaks), `ManifoldReceipt` asserts `NonManifoldEdges` reached zero (boundary regression is admitted — the vertex-copy split opens boundary a later gap pass may close), `OrientReceipt` asserts `IsOriented` with the Euler characteristic unchanged, and `MergeReceipt` asserts `After.GenusClosed`, the boolean's own topological success witness rather than a gate flag; `HealSession.IsValid` folds `ValidityClaim.All` over the non-empty chain of per-receipt witnesses — the one registered convergence surface.
+- Receipt: this cluster is the receipt owner — the `RebuildReceipt` chain on the `HealSession` is the heal evidence the naming `Track` consumes, returned in the `Heal.Repair` rail; `ManifoldStatus` is the composed `TopologyReceipt` projection and the boolean payload the composed arrangement `BooleanReceipt`, neither re-computed here.
+- Packages: `Rasm.Meshing` (`TopologyReceipt` via the Genus-tolerant `Rasm.Numerics` `ProjectionRow`; `MeshEdit` dirty-bitset seed; `BooleanOp`/`BooleanReceipt` + `Empty` — the composed payload, `BooleanRoute` inside the receipt), Rasm.Domain (`IValidityEvidence`/`ValidityClaim` — the registered validity fold), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new heal op is one `RebuildReceipt` case carrying its typed evidence and its own `IsValid` witness arm (mirroring its `HealOp` case — the generated `Switch` breaks every dispatch site until the arm lands); a new topological status field is one column on `ManifoldStatus` projected from the existing `TopologyReceipt` carrier and one `ProjectionRow` widening at the mesh.md seam.
+- Boundary: `RebuildReceipt` stays the typed per-kind union — a `WeldReceipt`'s merged-vertex set and a `ManifoldReceipt`'s forked-face set are different shapes carried by different cases; the before/after status is the composed `Rasm.Meshing` `TopologyReceipt` projected through the un-gated six-field row; the boolean payload is the arrangement `BooleanReceipt`; convergence registers as `IValidityEvidence`. `RebuildLog` feeds the naming `Track` re-anchor and the receipt's affected-ref set is the re-anchor seed, so a topology-rebuilding op that emits no affected entities re-anchors the naming fold blind; `Affected` seeds `Edges` empty for every op because the arena keys topology by face triples and the `Track` resolves edges through `VertexNames`. Op tolerance and payload evidence ride the receipt, which mints no hash and asserts no content identity — the healed mesh's content hash is the reconciliation `Encode` job, the receipt only naming which entities changed so the reference identity (`TopoName`) re-binds.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
@@ -32,15 +30,14 @@ using static LanguageExt.Prelude;
 namespace Rasm.Processing;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// The Genus-tolerant six-field snapshot: total over non-manifold/boundaried/odd-Euler inputs —
-// Genus stays Option because an unvalidated genus is absence, never a sentinel.
+// Genus-tolerant six-field snapshot, total over non-manifold/boundaried/odd-Euler meshes; Option marks unvalidated genus absent, never a sentinel.
 public readonly record struct ManifoldStatus(
     int EulerCharacteristic, int BoundaryComponents, bool IsManifold, bool IsOriented,
     int NonManifoldEdges, Option<int> Genus) {
     public static ManifoldStatus Of((int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus) projection) =>
         new(projection.Euler, projection.BoundaryComponents, projection.IsManifold, projection.IsOriented, projection.NonManifoldEdges, projection.Genus);
 
-    // The genus-consistent closed target: the boolean success witness, derived never stored.
+    // Genus-consistent closed target — the boolean's success predicate.
     public bool GenusClosed =>
         Genus.Match(
             Some: genus => IsManifold && BoundaryComponents == 0 && NonManifoldEdges == 0
@@ -84,11 +81,8 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             selfIntersectReceipt: static s => s.After, orientReceipt: static o => o.After,
             mergeReceipt:         static m => m.After);
 
-    // Per-op convergence witness, REGISTERED into the validity fold: each case tests exactly the
-    // six-field delta its kernel moves — a global boundary heuristic is wrong (edge-split opens
-    // boundary), and a boundary-COUNT law is wrong for the gap too: a cross-gap bridge MERGES two
-    // loops (−1) while a slit bridge SPLITS its loop (+1), so the gap law is manifold-coherence —
-    // a mis-paired strip trebles an edge and fires it; the count movement is evidence, never law.
+    // Per-op witness registered into the validity fold: each case tests only the six-field delta its kernel moves. Boundary
+    // COUNT is never law — a cross-gap bridge merges loops (−1), a slit splits one (+1) — so the gap witness is manifold-coherence.
     public bool IsValid =>
         Switch(
             degenerateReceipt:    static d => d.After.NonManifoldEdges <= d.Before.NonManifoldEdges,
@@ -114,7 +108,7 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             orientNormals:        _ => new OrientReceipt(before, after, faces),
             boolean:              b => new MergeReceipt(
                 b.Op,
-                // Unreachable None by construction: a gated boolean failed the arrangement rail before any mint.
+                // Unreachable None: a gated boolean fails the arrangement rail before any mint.
                 merge.IfNone(BooleanReceipt.Empty),
                 before, after, faces, vertices));
     }
@@ -130,8 +124,7 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             mergeReceipt:         static m => (m.SelectedVertices, Set<int>.Empty, m.SelectedFaces));
 }
 
-// Ops carries the HealStage vocabulary itself — a consumer reads the typed row (or its Key), never a
-// re-parsed string.
+// Ops carries the HealStage vocabulary itself — consumers read the typed row or its Key, never a re-parsed string.
 public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Faces, Seq<HealStage> Ops) {
     public static readonly RebuildLog Empty = new(Set<int>.Empty, Set<int>.Empty, Set<int>.Empty, Seq<HealStage>());
 
@@ -141,14 +134,12 @@ public sealed record RebuildLog(Set<int> Vertices, Set<int> Edges, Set<int> Face
 public sealed record HealSession(MeshSpace Input, MeshSpace Healed, Seq<RebuildReceipt> Receipts) : IValidityEvidence {
     public Option<ManifoldStatus> FinalStatus => Receipts.Last.Map(static receipt => receipt.StatusAfter);
 
-    // THE registered convergence surface: ValidityClaim.All over the per-receipt witnesses —
-    // the standalone Converged/Improved bool folds are dead into this registration.
+    // THE registered convergence surface: ValidityClaim.All over the per-receipt witnesses.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Receipts.Count, floor: 1),
         ValidityClaim.Of(Receipts.ForAll(static receipt => receipt.IsValid)));
 
-    // Re-anchor seed: only topology-rebuilding stages contribute — the RebuildsTopology column decides,
-    // never a per-case special list.
+    // Re-anchor seed: the RebuildsTopology column selects the contributing stages.
     public RebuildLog ToLog() =>
         Receipts.Filter(static receipt => receipt.Stage.RebuildsTopology)
             .Fold(RebuildLog.Empty, static (log, receipt) => {
@@ -165,7 +156,7 @@ public sealed record HealSession(MeshSpace Input, MeshSpace Healed, Seq<RebuildR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure carriers, the receipts are returned in the `Heal.Repair` rail (`repair.md`); the per-axis kind rides the indexed notes below.
+Each `[RAIL]` cell names the one return rail its owner exposes; the receipts are pure carriers returned in the `Heal.Repair` rail.
 
 | [INDEX] | [AXIS_CONCERN]           | [OWNER]                    | [RAIL]                                      | [CASES] |
 | :-----: | :----------------------- | :------------------------- | :------------------------------------------ | :-----: |
@@ -173,21 +164,9 @@ One owner per axis; capability is a case or column, never a sibling surface. The
 |  [02]   | Topological status       | `ManifoldStatus`           | `ManifoldStatus.Of → ManifoldStatus` (pure) |    —    |
 |  [03]   | Heal session + re-anchor | `HealSession`/`RebuildLog` | `HealSession.ToLog → RebuildLog` (pure)     |    —    |
 
-- [01]-[REBUILD_RECEIPT]: `[Union]` 7 typed per-op cases + `Of` mint (policy-tolerances + dirty-bitset seeds) + `Affected` seed + per-case `IsValid` witness.
-- [02]-[TOPOLOGICAL_STATUS]: record projected from `Rasm.Meshing` `TopologyReceipt` via the Genus-tolerant six-field row + derived `GenusClosed` witness.
-- [03]-[HEAL_SESSION]: `IValidityEvidence` session carrier (`ValidityClaim.All` over the chain) + `ToLog` fold gated on `HealStage.RebuildsTopology`.
+`RebuildReceipt`, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold are transcription-complete pure-managed fences composing the `TopologyReceipt` projection seam, the arrangement `BooleanReceipt` payload, and the arena dirty bitsets — none depending on a live-host member spelling beyond the stable native `Mesh` surface the topology sibling pins.
 
-The typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold are transcription-complete pure-managed fences composing the `Rasm.Meshing` `TopologyReceipt` projection seam, the arrangement `BooleanReceipt` payload, and the arena dirty bitsets — none depending on a live-host member spelling beyond the stable native `Mesh` surface the topology sibling pins.
-
-## [04]-[CROSS_PAGE_SEAMS]
-
-Three seams reach sibling owners this page composes but does not write — noted for ALIGN, never edited here.
-
-- `Meshing/mesh.md` `TopologyReceipt.Project` Genus-tolerant row: `ManifoldStatus.Of` binds the un-gated `(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)` `ProjectionRow` landed beside the Genus-gated triple — every field already rides the `TopologyReceipt` carrier, so the projection is a re-read, never a recomputation; the Genus-gated triple row stays for consumers whose contract requires a validated genus.
-- `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` content-address: `HealSession.Healed` is the canonical hash-friendly `MeshSpace` the `CanonicalTopology.OfMesh`/`Encode` content-addresses through the Persistence `GeometryHash`. The heal computes NO hash — it emits the healed mesh and the receipt chain; the naming/hash fence reads the result. The post-heal re-hash (a manifold-repaired mesh re-hashes distinctly because adjacency changed, a welded-but-shape-stable mesh may re-hash identically at the topology level) is the morph-vs-break law the golden fixture asserts — flagged so the heal-then-rehash round-trip is in the cross-package fixture scope. `MeshEdit.Of` triangulates quads by the exact `Predicate.Orient2D` `QuadDiagonal` choice (not a fixed `(A,C)` fan) so a healed n-gon re-hashes diagonal-stable against a shape-identical input — the seam owner confirms `CanonicalTopology.OfMesh` admits an already-triangulated working mesh without re-triangulating on a different diagonal.
-- `Spatial/naming#TOPO_NAMING` edge-keying: `RebuildReceipt.Affected` seeds `Edges` as empty for every op — welds re-anchor `Vertices`, splits/collapses re-anchor `Faces`, and `ManifoldRepair`'s edge-fork re-anchors the forked `Faces`/`Vertices` rather than a distinct `Edge` set, because the working arena keys topology by face triples, not half-edge handles. The naming `Track` resolves edges via `VertexNames` (as `Spatial/naming#TOPO_NAMING` `Track(NameTable, CanonicalTopology, Generation)` does), so the empty `Edge` seed is correct; a `Track` that re-anchored edge `TopoName`s from a seeded `Edge` set would under-seed, and the seam owner confirms the `VertexNames` resolution before any edge-key change.
-
-## [05]-[RESEARCH]
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

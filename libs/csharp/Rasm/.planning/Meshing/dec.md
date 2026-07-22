@@ -1,23 +1,24 @@
 # [RASM_CALCULUS_DEC]
 
-The mesh-bound discrete-exterior-calculus assembly owner: ONE `DecAssembly` kernel builds the `Numerics/spectral` `DiscreteCalculus` operator bundle (d0 incidence, d1 curl, star0 lumped mass, star1 cotan weights, star2 inverse area) from the `Meshing/mesh` frozen `IntrinsicMesh` under the `∂∂ = 0` composition-residual gate, assembles the Crouzeix-Raviart edge-connection heat system as Hermitian-real blocks under a machine-epsilon symmetry gate, distributes CDS trivial-connection holonomy under the Gauss-Bonnet integer gate, builds the genus-dimensional Star1-orthonormalized harmonic 1-form basis, decomposes any edge 1-form as `ω = dα + δβ + η` (gauge-fixed Poisson exact part, harmonic projection, co-exact remainder by orthogonality — no indefinite solve on the hot path) returning the COMPONENT 1-forms on the `HodgeDecomposition` carrier with the Whitney edge-form evaluator lifting any component to a tangent vector at a surface sample — the mature receipt-only deliverable and its deferred Whitney lift are both dead, and the `Spatial/fields` frozen `Hodge` case Whitney-evaluates real components — carries the extrinsic face-gradient/divergence heat scaffold the heat-method solvers ride, and computes the mesh-side spectral eigenbasis (generalized eigen via `Numerics/matrix`) cached as `SpectralBasisBundle`. The DDG receipt fracture is healed HERE: `HodgeDecompositionReceipt` and `SpectralBasisBundle` are declared beside the algorithms that produce them — the algorithm-in-one-file/receipt-in-another split between the mature `Spectral.cs` and `Mesh.cs` is dead.
+`DecAssembly` owns mesh-bound discrete-exterior-calculus assembly: one kernel builds the `Numerics/spectral` `DiscreteCalculus` bundle, the Crouzeix-Raviart connection heat system, CDS holonomy, the genus-dim harmonic basis and `ω = dα + δβ + η` Hodge decomposition with its Whitney lift, the extrinsic heat scaffold, and the spectral eigenbasis from the `Meshing/mesh` frozen `IntrinsicMesh` under the `∂∂ = 0` gate. This page assembles and never re-owns the settled `Numerics/spectral` algebra; `HodgeDecompositionReceipt` and `SpectralBasisBundle` declare beside their algorithms.
 
-Every cotangent weight in this page routes THE one `Meshing/mesh` `Cotangent` owner — `ComputeIntrinsicStar1` and the CR pair emission use the intrinsic `OfLengths` path, the divergence scatter and extrinsic scaffold use the extrinsic `OfEdges` path; the three parallel cotangent computations the mature lane carried are dead. The mesh-free algebra is composed, never re-minted: `DiscreteCalculus`, `SpectralBasis`, `SpectralFilter`, `SpectralAssemblyReceipt`, `SpectralAssemblyKind`, `HarmonicOneFormReceipt`, and `HarmonicOneFormBasis` arrive settled from `Numerics/spectral` (the `Rasm.Compute` adjoint seam binds `DiscreteCalculus` by name); this page owns only the mesh-bound assembly that populates them. `Op` stays the explicit value key; every receipt is one `ValidityClaim.All` fold over the `Domain/rails` claim vocabulary; failures route `Op` fault factories over `Fin<T>`; the flipped-intrinsic rejection on the CR system is an `Unsupported` fault, never a silent fallback.
+`Numerics/spectral` delivers the mesh-free algebra settled; this page dispatches on the `MeshLaplacian` discretization row and populates its carriers, never re-minting them. Every cotangent weight routes the one `Meshing/mesh` `Cotangent` owner: the intrinsic `OfLengths` path for `ComputeIntrinsicStar1` and CR pair emission, the extrinsic `OfEdges` path for divergence scatter and the heat scaffold. `Op` is the explicit value key, every receipt folds one `ValidityClaim.All` over the `Domain/rails` vocabulary, and failures route `Op` fault factories over `Fin<T>`.
 
 ## [01]-[INDEX]
 
-- [02]-[DEC_ASSEMBLY]: `DecAssembly.Build` → `DiscreteCalculus` (d0/d1/stars + transport + harmonic, `∂∂ = 0` gated); Crouzeix-Raviart connection heat system; CDS trivial-connection holonomy; harmonic 1-form basis + Hodge decomposition (`HodgeDecomposition` components + `HodgeDecompositionReceipt` unified beside their algorithm) + the Whitney edge-form evaluator; extrinsic heat scaffold; spectral basis computation + `SpectralBasisBundle`.
+- [02]-[DEC_ASSEMBLY]: `DecAssembly.Build` → `DiscreteCalculus` under the `∂∂ = 0` gate, the CR connection heat system, CDS holonomy, the harmonic basis + Hodge decomposition + Whitney lift, the extrinsic heat scaffold, and the spectral eigenbasis.
+- [03]-[DENSITY_BAR]: one owner per assembly axis with its return rail.
 
 ## [02]-[DEC_ASSEMBLY]
 
-- Owner: `DecAssembly` the ONE mesh-bound DEC kernel — `Build` produces the complete `DiscreteCalculus` (operators, plus signpost transport when the transport witness succeeds and the harmonic basis when topology admits one — both `Option`, demanded at the consumer's projection row, never operator hostages) from a `MeshSpace` and a `MeshLaplacian` discretization row; `IntrinsicTriangle` the private per-face row (vertices, edges, Heron area, edge lengths, cotangents via `Cotangent.OfLengths`, orientation signs, CR pair projection, corner angles) every assembly fold reads — one row shape serving DEC, CR, holonomy, and divergence instead of four ad-hoc face decompositions; `HodgeDecomposition` the component carrier (exact/harmonic/co-exact edge 1-forms + witness) with `HodgeDecompositionReceipt` the unified Hodge witness; `WhitneyVectorAt` the one edge-1-form → tangent-vector lift; `SpectralBasisBundle` the cached eigenbasis carrier (basis + eigen receipt + cache/skip/factor witnesses).
-- Cases: none — this page owns kernels and two receipt models; the vocabularies (`SpectralAssemblyKind` `Dec`/`EdgeConnection`, `MeshLaplacian` rows) arrive settled from `Numerics/spectral` and `Meshing/mesh`.
-- Entry: `internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key)` defaulting to `MeshLaplacian.IntrinsicDelaunay` and `internal static Fin<DiscreteCalculus> Build(MeshSpace space, MeshLaplacian kind, Op key)` — the one assembly entry; snapshot routing is the `MeshLaplacian.Snapshot` row delegate (tufted → the tufted intrinsic snapshot, Delaunay → the IDT snapshot, cotangent → the unflipped frozen snapshot consistent with its extrinsic mass), never a call-site equality branch; `BuildCrouzeixRaviartHeatSystemDetailed(IntrinsicMesh mesh, double time, Op key)` the CR entry (frozen-snapshot gate, flipped-intrinsic `Unsupported` gate); `DistributeHolonomy(MeshSpace space, IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key)` the trivial-connection entry (closed genus-0 gate, Gauss-Bonnet integer gate); `HodgeDecomposeDetailed(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega, Context context, Op key)` the decomposition entry — the basis rides `calculus.Harmonic` (None = dimension 0: `η ≡ 0`, a genus-0 sphere decomposes as `ω = dα + δβ`) and the mass rides `calculus.Star0`, so the mature standalone basis and mass parameters die as desynchronizable duplicates; `WhitneyVectorAt(MeshSpace space, IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample, Op key)` the component-sampling entry; `ComputeSpectralBasisDetailed(MeshSpace space, int k, Op key)` the eigenbasis entry (k clamped to `VertexCount − 1`, generalized eigen over the IDT stiffness/consistent-mass pencil). Consumers reach cached artifacts through the `Meshing/mesh` cache (`Calculus`, `SpectralBasisBundleOf`, `EdgeConnectionCholeskyDetailed`), never by re-running assembly.
-- Auto: `AssembleDecOperators` excludes degenerate and edge-incomplete faces from the boundary operator — `D1` and `star2` span only admitted faces so `∂∂ = 0` holds per admitted triangle while the receipt witnesses every skip; the composition residual `max |D1·D0|` is gated at `SqrtEpsilon` scaled by the largest `D1` magnitude — the SAME band the receipt ships as `BoundaryCompositionTolerance`, so its conditional claim re-checks the enforced gate — and the harmonic dimension derives from topology as `2·genus + max(0, boundaryComponents − 1)`. `ComputeIntrinsicStar1` folds `0.5·(cot α + cot β)` over the two opposite corners of every edge through `Cotangent.OfLengths` — a boundary edge contributes its single corner, a missing face contributes zero. The CR system emits transpose-paired Hermitian-real blocks (`MatrixKernel.AddHermitianRealBlockTriplets`) and coalesces triplets to witness `max |M − Mᵀ|` against a machine-epsilon gate scaled by the largest assembled magnitude — any orientation-sign or length-degeneracy defect fails the gate, never enters the factor. `DistributeHolonomy` computes intrinsic angle defects (`2π − Σ corners`), validates discrete Gauss-Bonnet (`Σκ/2π` equals the integer Euler characteristic; the prescribed cone indices balance within the count-independent half-unit floor `0.25`), scatters the cone target onto first-incident edges as a primal 1-form, and solves the coexact potential through the cached `(L + SpdMassShift·M)` regularized-Poisson Cholesky. `BuildHarmonicOneForms` assembles the closed+coclosed normal operator (outer-product accumulation over `D1` rows and star1-weighted `D0` columns), takes the `expected`-smallest eigenpairs of the symmetrized operator, Star1-orthonormalizes them by modified Gram-Schmidt in the `⟨·,·⟩_{star1}` inner product, and gates closed/coclosed/orthonormality residuals at the operator-scale-relative tolerance. `HodgeDecomposeDetailed` solves the exact potential by the `Numerics/matrix` `SingularSolveDetailed` under `GaugePolicy.PinConstant(index: 0, calculus.Star0, GaugeShift.MeanZero)`, projects the remainder onto the `calculus.Harmonic` basis (empty fold when None), recovers the co-exact part by orthogonality, witnesses closed/coclosed/reconstruction residuals plus harmonic energy, and returns the three component 1-forms with the witness; `WhitneyVectorAt` lifts any component at a sample by folding `W_ij = λᵢ∇λⱼ − λⱼ∇λᵢ` over the containing face's three edges with `d0` orientation signs. `ComputeSpectralBasisDetailed` routes `SparseMatrix.GeneralizedEigenpairsDetailed` over the stiffness/consistent-mass pencil — the owning model member, never a direct kernel reach; the `Meshing/mesh` cache serves `k ≤ LaplacianCache.DefaultSpectralCount` by truncating one shared bundle (`CacheHit` witnessed) and recomputes above.
-- Receipt: `SpectralAssemblyReceipt` (settled shape from `Numerics/spectral`) produced per assembly with `Kind = Dec` (star counts, skip witnesses, composition residual + tolerance, genus, harmonic dimension) or `Kind = EdgeConnection` (block layout, positive-mass count, symmetry residual + tolerance); `HodgeDecompositionReceipt` — boundary-aware dimension agreement (`2g + max(0, b−1)`, ZERO admitted: dimension 0 ⇔ the harmonic receipt is None ⇔ basis count 0 — the one law the harmonic basis and DEC receipt also state), basis agreement, rank + nullity = edge count, finite-vector totality, closed/coclosed/orthonormal/reconstruction residuals gated operator-scale-relative (the eigen tolerance and the `√ε` floor both carry `max(1, spectralRadius)` when a basis exists, the bare `√ε` floor when none; `1e4` is the dimensionless rounding-accumulation slack the applied differentials incur above the eigenvalue tolerance — never a bare absolute), harmonic energy, the exact-part `GaugeReceipt`, and the producing `Option<HarmonicOneFormReceipt>` — its domain law is one `ValidityClaim.All` fold; `SpectralBasisBundle` (basis + `EigenSolveReceipt<double, Arr<double>>` + `CacheHit`/`SkippedDegenerateFaces`/`FactorNonZeros`).
-- Packages: `Rasm.Meshing` `Meshing/mesh` (`MeshSpace`, `LaplacianCache` accessors, `IntrinsicMesh`/`IntrinsicEdge`, `Cotangent`, `TopologyReceipt`, `MeshKernel.TopologyDetailed`, `SignpostTransportReceiptOf`), `Numerics/spectral` (`DiscreteCalculus`, `SpectralBasis`, `SpectralAssemblyReceipt`, `SpectralAssemblyKind`, `HarmonicOneFormBasis`/`HarmonicOneFormReceipt`), `Numerics/matrix` (`SparseMatrix.FromTriplets`/`SingularSolveDetailed`/`GeneralizedEigenpairsDetailed` — owning model members, `SymmetricMatrix.Of`/`DecomposeEigenDetailed`, `CholeskySparse`, `MatrixKernel.AddHermitianRealBlockTriplets` — the sanctioned assembly bridge, `GaugePolicy`/`GaugeShift`, `SolveReceipt`/`EigenSolveReceipt`/`GaugeReceipt`), `Domain/rails` (`Op`, the validity fold), RhinoCommon (`Mesh.Vertices`/`GetNakedEdges`, `Vector3d.CrossProduct` — the extrinsic scaffold and CR face-field sampling are genuinely Rhino-boundary), LanguageExt.Core, BCL (`CollectionsMarshal`).
-- Growth: a new DEC operator (a primal-dual wedge, a bundle-valued star) is one field on the settled `DiscreteCalculus` carrier plus one assembly fold arm here; a new connection discretization is one assembly member producing the same `(SparseMatrix, SpectralAssemblyReceipt)` pair under the same symmetry gate; a boundary-aware holonomy variant extends `DistributeHolonomy` behind its topology gate; a new basis normalization is one policy row on the settled spectral vocabulary — zero new receipt families, zero sibling kernels.
-- Boundary: this page assembles and never re-owns — a `DiscreteCalculus`/`SpectralBasis`/`SpectralFilter` redeclaration here is the named collapse violation (the `Rasm.Compute` adjoint seam binds the `Numerics/spectral` spellings); a local cotangent expression instead of `Cotangent.OfLengths`/`OfEdges` re-opens the three-path duplication this partition killed. The CR system REJECTS a flipped intrinsic snapshot (`Unsupported`) — CR edge sources are encoded against original-mesh edges, and running them over flipped connectivity would silently misattribute sources (the signpost transfer that would lift this gate is recorded growth, not a default). The Gauss-Bonnet gate is count-independent (never divided by cone count) and integer-anchored (`0.25` floor accepts any accumulation that rounds to the correct integer) — loosening it to a relative epsilon admits non-integer cone prescriptions that make the connection non-trivial. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality — re-introducing an indefinite co-exact solve on the hot path is the named performance-and-correctness defect (the residual gates already witness the orthogonality recovery). Assembly folds and outer-product accumulations are named statement-kernel exemptions (allocation-sensitive triplet scatter); the public surface stays `Fin`-railed and exception-free.
+- Owner: `DecAssembly` the one mesh-bound DEC kernel — `Build` produces the complete `DiscreteCalculus` (operators, and signpost transport and harmonic basis as `Option` demanded at the consumer's projection row, never operator hostages) from a `MeshSpace` and a `MeshLaplacian` row; `IntrinsicTriangle` the private per-face row every assembly fold reads, one shape serving DEC, CR, holonomy, and divergence; `HodgeDecomposition` the component carrier with `HodgeDecompositionReceipt` the unified Hodge witness; `WhitneyVectorAt` the edge-1-form → tangent-vector lift; `SpectralBasisBundle` the cached eigenbasis carrier.
+- Cases: none — this page owns kernels and two receipt models; the `SpectralAssemblyKind` and `MeshLaplacian` vocabularies arrive settled from `Numerics/spectral` and `Meshing/mesh`.
+- Entry: `Build` is the one assembly entry (defaulting `MeshLaplacian.IntrinsicDelaunay`, whose retriangulation clears the negative cotangent star1 weights obtuse triangles admit), routing snapshots through the `MeshLaplacian.Snapshot` row delegate — tufted, IDT, and unflipped-frozen each matched to its consistent mass — never a call-site equality branch; `BuildCrouzeixRaviartHeatSystemDetailed` seats the CR system behind frozen-snapshot and flipped-intrinsic gates, `DistributeHolonomy` the trivial connection behind closed-genus-0 and Gauss-Bonnet gates, `HodgeDecomposeDetailed` the decomposition with the basis riding `calculus.Harmonic` (None ⇒ dimension 0, `η ≡ 0`, a genus-0 sphere decomposing `ω = dα + δβ`) and the mass riding `calculus.Star0`, `WhitneyVectorAt` the component sample, and `ComputeSpectralBasisDetailed` the eigenbasis (`k` clamped to `VertexCount − 1`). Consumers reach cached artifacts through the `Meshing/mesh` cache, never by re-running assembly.
+- Auto: every gate lands as a receipt-witnessed invariant — `AssembleDecOperators` excludes degenerate and edge-incomplete faces so `∂∂ = 0` holds per admitted triangle under the composition residual gated at `SqrtEpsilon` × the largest `D1` magnitude, and the harmonic dimension derives as `2·genus + max(0, boundaryComponents − 1)`; the CR system emits transpose-paired Hermitian-real blocks whose `max |M − Mᵀ|` gate scaled to the largest assembled magnitude drops any orientation-sign or degeneracy defect before it enters the factor; `DistributeHolonomy` validates discrete Gauss-Bonnet before scattering the cone 1-form and solving the coexact potential through the cached `(L + SpdMassShift·M)` Cholesky; `BuildHarmonicOneForms` Star1-orthonormalizes the closed+coclosed kernel by modified Gram-Schmidt; `HodgeDecomposeDetailed` recovers `δβ` by orthogonality with no indefinite hot-path solve; `ComputeSpectralBasisDetailed` routes the generalized eigen through the owning `SparseMatrix` member and cache-truncates one shared bundle at `DefaultSpectralCount`.
+- Receipt: `SpectralAssemblyReceipt` per assembly (`Kind = Dec` with star, skip, and composition witnesses; `Kind = EdgeConnection` with block layout and symmetry residual); `HodgeDecompositionReceipt` folds one `ValidityClaim.All` over boundary-aware dimension agreement (`2g + max(0, b−1)`, admitting zero ⇔ `Harmonic` None), rank + nullity = edge count, and operator-scale-relative residuals; `SpectralBasisBundle` carries the eigen receipt with cache and skip witnesses.
+- Packages: `Rasm.Meshing` `Meshing/mesh` (`MeshSpace`, `LaplacianCache` accessors, `IntrinsicMesh`/`IntrinsicEdge`, `Cotangent`, `TopologyReceipt`, `MeshKernel.TopologyDetailed`, `SignpostTransportReceiptOf`), `Numerics/spectral` (`DiscreteCalculus`, `SpectralBasis`, `SpectralAssemblyReceipt`, `SpectralAssemblyKind`, `HarmonicOneFormBasis`/`HarmonicOneFormReceipt`), `Numerics/matrix` (`SparseMatrix.FromTriplets`/`SingularSolveDetailed`/`GeneralizedEigenpairsDetailed`, `SymmetricMatrix.Of`/`DecomposeEigenDetailed`, `CholeskySparse`, `MatrixKernel.AddHermitianRealBlockTriplets`, `GaugePolicy`/`GaugeShift`, `SolveReceipt`/`EigenSolveReceipt`/`GaugeReceipt`), `Domain/rails` (`Op`, the validity fold), RhinoCommon (`Mesh.Vertices`/`GetNakedEdges`, `Vector3d.CrossProduct` for the extrinsic scaffold and CR face-field sampling), LanguageExt.Core, BCL (`CollectionsMarshal`).
+- Growth: a new DEC operator is one field on `DiscreteCalculus` and one assembly fold arm; a new connection discretization is one member returning the same `(SparseMatrix, SpectralAssemblyReceipt)` pair under the same symmetry gate; a boundary-aware holonomy variant extends `DistributeHolonomy` behind its topology gate; a new basis normalization is one policy row on the settled spectral vocabulary — zero new receipt families.
+- Boundary: this page populates the settled `Numerics/spectral` carriers and routes every cotangent through `Cotangent.OfLengths`/`OfEdges` — the `Rasm.Compute` adjoint seam binds those `DiscreteCalculus` spellings, so a redeclaration here forks the wire. CR assembly rejects a flipped intrinsic snapshot as `Unsupported`: its edge sources are encoded against original-mesh edges, and the signpost lift that lifts this gate is recorded growth. Gauss-Bonnet stays count-independent and integer-anchored (`0.25` floor), admitting only cone prescriptions that round to the correct integer. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality, the residual gates witnessing the recovery. Assembly folds and outer-product accumulations are named statement-kernel exemptions; the public surface stays `Fin`-railed and exception-free.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -38,11 +39,9 @@ using Dimension = Rasm.Numerics.Dimension;
 namespace Rasm.Meshing;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// UNIFIED beside its algorithm — the Hodge witness. Residual gates are operator-scale-relative: the eigen tolerance
-// and the sqrt-machine-eps floor both carry max(1, spectralRadius) when a basis exists, bare sqrt-eps when none;
-// 1e4 is the dimensionless accumulation slack. Dimension law is boundary-aware (2g + max(0, b−1)) and ADMITS ZERO:
-// a genus-0 closed surface decomposes as omega = d(alpha) + delta(beta) with Harmonic None — the mature >=1 gate
-// that failed every sphere is dead.
+// Residual gates are operator-scale-relative: eigen tolerance and sqrt-machine-eps floor carry max(1, spectralRadius)
+// when a basis exists, bare sqrt-eps when none; 1e4 is the dimensionless accumulation slack. Dimension law is
+// boundary-aware (2g + max(0, b−1)) and ADMITS ZERO — a genus-0 closed surface decomposes as d(alpha) + delta(beta).
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct HodgeDecompositionReceipt(
     int ExpectedGenus, int ExpectedBoundaryComponents, int ExpectedDimension, int BasisCount, int EdgeCount,
@@ -75,8 +74,8 @@ public readonly record struct HodgeDecompositionReceipt(
     }
 }
 
-// The decomposition IS the deliverable: three edge 1-forms + the witness. Same-typed components stay named fields —
-// typed projection rows dispatch on TOut, so three Arr<double> rows could never discriminate.
+// Three edge 1-forms + the witness ARE the deliverable; same-typed components stay named fields because typed
+// projection rows dispatch on TOut — three anonymous Arr<double> rows could never discriminate.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct HodgeDecomposition(Arr<double> Exact, Arr<double> Harmonic, Arr<double> CoExact, HodgeDecompositionReceipt Receipt) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -91,15 +90,14 @@ public readonly record struct SpectralBasisBundle(
     SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen,
     bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
 
-// The CR factor + its assembly receipt travel together — the Meshing/mesh cache memoizes this pair per heat time.
+// CR factor and its assembly receipt travel together — the Meshing/mesh cache memoizes this pair per heat time.
 internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 internal static class DecAssembly {
     internal const double HarmonicEpsRankDefault = 1e-10;
 
-    // ONE per-face row for every assembly fold: vertices, edge indices, Heron area, lengths, orientation signs,
-    // cotangents via the one Cotangent owner, CR pair projection, corner angles. Null when degenerate/edge-incomplete.
+    // ONE per-face row every assembly fold reads, cotangents via the one Cotangent owner; Null when degenerate or edge-incomplete.
     private readonly record struct IntrinsicTriangle(int A, int B, int C, int[] Edges, double Area, double LAb, double LBc, double LCa) {
         internal (double A, double B, double C) Cotangents => (
             A: Cotangent.OfLengths(adjacent1: LAb, adjacent2: LCa, opposite: LBc, area: Area),
@@ -118,16 +116,16 @@ internal static class DecAssembly {
     // --- [DEC_OPERATORS]
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) =>
         Build(space: space, kind: MeshLaplacian.IntrinsicDelaunay, key: key);
-    // The row's Snapshot delegate keeps operators and mass on ONE discretization: cotangent rides the unflipped
-    // frozen snapshot matching its extrinsic mass — the mature lane's IDT-star1-against-extrinsic-star0 mix is dead.
+    // Row Snapshot delegate keeps operators and mass on ONE discretization: cotangent rides the unflipped
+    // frozen snapshot matching its extrinsic mass.
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, MeshLaplacian kind, Op key) =>
         from activeKind in Optional(kind).ToFin(key.InvalidInput())
         from imesh in activeKind.Snapshot(cache: space.Cache, key: key)
         from laplacian in space.Laplacian(kind: activeKind, key: key)
         from topology in MeshKernel.TopologyDetailed(space: space)
         from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
-        // Transport failure is witnessed ABSENCE, never an operator hostage: the operators stand alone, and a consumer
-        // demanding transport faults at its projection row — a Succ receipt is mint-gated valid.
+        // Transport failure is witnessed ABSENCE, never an operator hostage: operators stand alone, and a consumer
+        // demanding transport faults at its own projection row.
         let transport = MeshKernel.SignpostTransportReceiptOf(space: space, imesh: imesh, key: key).ToOption()
         from harmonic in topology.Genus.Map(genus => ((2 * genus) + Math.Max(0, topology.BoundaryComponents - 1)) > 0).IfNone(noneValue: false)
             ? BuildHarmonicOneForms(calculus: dec, topology: topology, epsRank: HarmonicEpsRankDefault, key: key).Map(Some)
@@ -136,8 +134,8 @@ internal static class DecAssembly {
         from valid in calculus.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         select calculus;
 
-    // Degenerate/edge-incomplete faces are EXCLUDED from D1 and star2 so dd=0 holds per admitted triangle; the
-    // receipt witnesses every skip. Composition residual max|D1*D0| gated at SqrtEpsilon x the largest D1 magnitude.
+    // Degenerate/edge-incomplete faces EXCLUDED from D1 and star2 so dd=0 holds per admitted triangle, every skip
+    // witnessed; composition residual max|D1*D0| gated at SqrtEpsilon x the largest D1 magnitude.
     private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
         int vertCount = imesh.VertexCount, edgeCount = imesh.EdgeCount;
         int[] liveFaces = [.. imesh.LiveFaceIndices()];
@@ -172,8 +170,8 @@ internal static class DecAssembly {
                   boundaryResidual: boundaryResidual, compositionTolerance: compositionTolerance, harmonicDimension: harmonicDimension)
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>([.. star2]), Receipt: receipt);
     }
-    // compositionTolerance lands as SpectralAssemblyReceipt.BoundaryCompositionTolerance — the ENFORCED
-    // dd=0 band, so the receipt's conditional gate carries real enforcement, never the witness-only 0.0 default.
+    // compositionTolerance lands as SpectralAssemblyReceipt.BoundaryCompositionTolerance — the ENFORCED dd=0 band,
+    // so the receipt's conditional gate carries real enforcement, never the witness-only 0.0 default.
     private static SpectralAssemblyReceipt DecReceiptOf(MeshKernel.IntrinsicMesh imesh, TopologyReceipt topology, SparseMatrix D0, SparseMatrix D1,
         Arr<double> mass, Arr<double> star1, List<double> star2, int admitted, int skippedDegenerate, int skippedMissing,
         double boundaryResidual, double compositionTolerance, int harmonicDimension);
@@ -199,10 +197,9 @@ internal static class DecAssembly {
     private static double MaxCoClosedResidual(SparseMatrix d0, Arr<double> star1, Arr<Arr<double>> forms);
     private static double Star1OrthonormalResidual(Arr<Arr<double>> forms, Arr<double> star1);
 
-    // --- [HODGE_DECOMPOSITION] — omega = d(alpha) + delta(beta) + eta. Exact part: mean-zero gauge-fixed Poisson via
-    // SingularSolveDetailed over the calculus.Star0 mass; harmonic part: Star1 projection onto calculus.Harmonic
-    // (None = dimension 0: eta ≡ 0); co-exact: remainder by orthogonality — no indefinite solve on the hot path.
-    // The edge/vertex apply folds are the named statement-kernel exemption.
+    // --- [HODGE_DECOMPOSITION] — omega = d(alpha) + delta(beta) + eta. Exact: mean-zero gauge-fixed Poisson via
+    // SingularSolveDetailed over calculus.Star0; harmonic: Star1 projection onto calculus.Harmonic (None = dimension 0,
+    // eta ≡ 0); co-exact: remainder by orthogonality, no indefinite hot-path solve. Edge/vertex apply folds are the named statement-kernel exemption.
     internal static Fin<HodgeDecomposition> HodgeDecomposeDetailed(DiscreteCalculus calculus, SparseMatrix stiffness, Arr<double> omega, Context context, Op key) =>
         AdmitHodgeShapes(calculus: calculus, stiffness: stiffness, omega: omega, key: key)
             .Bind(_ => stiffness.SingularSolveDetailed(
@@ -235,20 +232,17 @@ internal static class DecAssembly {
     private static double[] HadamardEdge(Arr<double> left, Arr<double> right);
     private static double[] D0Apply(SparseMatrix d0, Arr<double> vertexValues);
     private static double[] D0Transpose(SparseMatrix d0, double[] edgeValues);
-    // Whitney lift of an edge 1-form to a tangent vector: locate the containing face (ClosestMeshPoint barycentrics),
-    // fold W_ij = lambda_i*grad(lambda_j) - lambda_j*grad(lambda_i) over the face's three edges with d0 orientation
-    // signs. REJECTS a flipped intrinsic snapshot — flipped edges no longer correspond to embedded chords.
+    // Whitney lift of an edge 1-form: locate the containing face, fold W_ij = lambda_i*grad(lambda_j) -
+    // lambda_j*grad(lambda_i) over its three edges with d0 signs. REJECTS a flipped snapshot — flipped edges no longer match embedded chords.
     internal static Fin<Vector3d> WhitneyVectorAt(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Arr<double> oneForm, Point3d sample, Op key);
 
-    // --- [HODGE_POINT_EVALUATION] — the field-facing seat: Spatial/fields' VectorField.Hodge arm and the
-    // Processing/extract probe egress both land here. Solve ONCE per (space, source): sample the field at edge
-    // chords, edge-integrate into the 1-form omega (chord-tangent dot under d0 orientation), then
-    // HodgeDecomposeDetailed over the selected Laplacian's stiffness — memoized through the mesh.md type-keyed
-    // Memoized slot under HodgeSolutionKey (source identity keys the memo; sense never enters the key).
+    // --- [HODGE_POINT_EVALUATION] — the field-facing seat where Spatial/fields VectorField.Hodge and Processing/extract land.
+    // Solve ONCE per (space, source): edge-integrate the field into omega, HodgeDecomposeDetailed over the selected
+    // stiffness — memoized through the mesh.md type-keyed slot under HodgeSolutionKey; source identity keys the memo, sense never enters it.
     [StructLayout(LayoutKind.Auto)] internal readonly record struct HodgeSolutionKey(VectorField Source);
     internal static Fin<HodgeDecomposition> HodgeSolutionOf(VectorField source, MeshSpace space, Context context, Op key);
-    // Sense selects at evaluation, never a second solve: Toward -> Exact (the irrotational dα); Away -> the
-    // solenoidal remainder (CoExact + Harmonic summed edgewise) — Whitney-lifted at the sample.
+    // Sense selects at evaluation, never a second solve: Toward -> Exact (irrotational dα); Away -> the solenoidal
+    // remainder (CoExact + Harmonic summed edgewise) — Whitney-lifted at the sample.
     internal static Fin<Vector3d> HodgeVectorAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Context context, Op key) =>
         from solved in HodgeSolutionOf(source: source, space: space, context: context, key: key)
         from imesh in MeshLaplacian.IntrinsicDelaunay.Snapshot(cache: space.Cache, key: key)
@@ -259,8 +253,8 @@ internal static class DecAssembly {
         select value;
 
     // --- [CROUZEIX_RAVIART] — edge-based connection heat operator M = (mass + time*grad) as Hermitian-real blocks.
-    // Transpose-paired off-diagonals make max|M - M^T| a witness of any orientation-sign or degeneracy defect; the
-    // gate is machine-epsilon scaled by the largest assembled magnitude. Flipped intrinsic snapshots are Unsupported.
+    // Transpose-paired off-diagonals make max|M - M^T| the orientation-sign / degeneracy witness, gated machine-epsilon
+    // scaled by the largest assembled magnitude. Flipped intrinsic snapshots are Unsupported.
     internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
         if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0 || !mesh.IsFrozen || mesh.EdgeCount == 0)
             return Fin.Fail<(SparseMatrix, SpectralAssemblyReceipt)>(key.InvalidInput());
@@ -308,9 +302,8 @@ internal static class DecAssembly {
     internal static Arr<double> ComputeIntrinsicAngleDefects(MeshKernel.IntrinsicMesh imesh);        // 2*pi - sum(corner angles)
     internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) =>
         from topology in MeshKernel.TopologyDetailed(space: space)
-        // VALIDATED closed genus-0 ONLY: a bounded surface breaks Gauss-Bonnet without the geodesic-curvature term
-        // this kernel never computes, and an unvalidated genus (non-manifold/non-oriented) carries no trivial-
-        // connection guarantee — both route Unsupported, never a plausible-looking wrong connection.
+        // VALIDATED closed genus-0 ONLY: a bounded surface breaks Gauss-Bonnet without the geodesic-curvature term this
+        // kernel omits, and an unvalidated genus carries no trivial-connection guarantee — both route Unsupported.
         from _ in topology is { IsClosed: true, HasBoundary: false, Genus: { IsSome: true, Case: 0 } }
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(Arr<double>)))
@@ -322,8 +315,8 @@ internal static class DecAssembly {
         from beta in space.Cache.Cholesky(key: key).Bind(factor => factor.Solve(rhs: rhs, key: key))
         let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta)
         select new Arr<double>([.. dBeta.AsIterable().Select(static value => -value)]);
-    // Discrete Gauss-Bonnet: sum(kappa)/2pi equals the integer Euler characteristic and prescribed cone indices are
-    // integer-valued, so the balance is integer-valued; the 0.25 floor is count-independent rounding admission.
+    // Discrete Gauss-Bonnet: sum(kappa)/2pi equals the integer Euler characteristic and cone indices are integer-valued,
+    // so the balance is integer; the 0.25 floor is count-independent rounding admission.
     private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key);
     private static Arr<double> BuildConePrimalOneForm(MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones);
     private static Arr<double> IntrinsicCoexactRhs(MeshKernel.IntrinsicMesh imesh, Arr<double> star1, Arr<double> u);
@@ -366,7 +359,7 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis collapse kind, and the harmonic-Hodge member family, ride the indexed notes below.
+Each assembly axis seats one owner returning one rail:
 
 | [INDEX] | [AXIS_CONCERN]     | [OWNER]                                  | [RAIL]                                           | [CASES] |
 | :-----: | :----------------- | :--------------------------------------- | :----------------------------------------------- | :-----: |
@@ -378,25 +371,11 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |  [06]   | Heat scaffold      | `ComputeTriangleGradients`               | pure folds                                       |    2    |
 |  [07]   | Spectral basis     | `ComputeSpectralBasisDetailed`           | `→ Fin<SpectralBasisBundle>`                     |    —    |
 
-- [01]-[DEC_ASSEMBLY]: one kernel over the frozen intrinsic snapshot, `∂∂ = 0` gated.
-- [02]-[FACE_ROW]: one private per-face row serving DEC/CR/holonomy/divergence folds.
-- [03]-[CONNECTION_HEAT]: Hermitian-real block system, symmetry-residual gated.
-- [04]-[TRIVIAL_CONNECTION]: CDS cone 1-form, Gauss-Bonnet integer gate.
-- [05]-[HARMONIC_HODGE]: genus-dim Star1-orthonormal basis + `ω = dα + δβ + η` components + Whitney lift + the memoized field-facing point-evaluation seat; the family adds `HodgeDecomposeDetailed` / `WhitneyVectorAt` / `HodgeSolutionOf` + `HodgeVectorAt` over `→ Fin<HodgeDecomposition>` / `→ Fin<Vector3d>`.
-- [06]-[HEAT_SCAFFOLD]: extrinsic + intrinsic gradient/divergence pair; the pair adds `ComputeIntrinsicVertexDivergence`.
-- [07]-[SPECTRAL_BASIS]: generalized eigen over the (L, M) pencil, cache-truncated; the bundle projection is `SpectralBasisBundle`.
+## [04]-[RESEARCH]
 
-`Build`, `AssembleDecOperators`, `HodgeDecomposeDetailed`, `HodgeVectorAt`, `BuildCrouzeixRaviartHeatSystemDetailed`, `EmitCrouzeixRaviartPair`, `DistributeHolonomy`, `ComputeIntrinsicStar1`, and `ComputeSpectralBasisDetailed` are transcription-complete. Residual folds, receipt constructors, harmonic-basis MGS, the `WhitneyVectorAt` lift, the `HodgeSolutionOf` memo body, and scatter kernels are signature-fixed to the `[05]` algorithms. Every computed invariant lands as a gated receipt field, so no fixed body silently weakens.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
-## [04]-[CROSS_PAGE_SEAMS]
-
-- `Numerics/spectral` owns `DiscreteCalculus`/`SpectralBasis`/`SpectralFilter`/`SpectralAssemblyReceipt`/`HarmonicOneFormBasis`/`HarmonicOneFormReceipt` and the descriptor/filter algebra — this page populates those carriers and never re-teaches their projection or validity mechanics.
-- `Meshing/mesh` owns the `Cotangent` primitive, the intrinsic snapshot, the signpost transport this page's `Build` embeds, and the cache memos (`Calculus`, `SpectralBasisBundleOf`, `EdgeConnectionCholeskyDetailed`, `Cholesky`) that memoize this page's outputs; `MeshAdjointSnapshot` projects the `Calculus` memo to `Rasm.Compute`.
-- `Meshing/reconstruct` composes `BuildCrouzeixRaviartHeatSystemDetailed` + `SampleCrouzeixRaviartFaceField` + `ComputeIntrinsicVertexDivergence` as the surface row of its unified signed-heat spine; `Processing/geodesics` composes the heat scaffold and spectral basis; the `Spatial/fields` frozen `Hodge` case edge-integrates its source field into a 1-form, routes `HodgeDecomposeDetailed` (memoized through the `Meshing/mesh` type-keyed slot under a fields-owned key record), and samples the sense-selected component through `WhitneyVectorAt`; none re-assembles an operator this page owns.
-
-## [05]-[RESEARCH]
-
-- [DEC_OPERATORS] — the intrinsic DEC over edge lengths alone: `d0` is signed vertex-edge incidence, `d1` signed edge-face incidence over admitted faces, `star0` the lumped mass, `star1` the half-cotangent-sum edge weights, `star2` inverse Heron area. The law-matrix (`DecLaws`, CsCheck) asserts: `∂∂ = 0` exactly on the admitted complex (the composition residual is a float witness, gated scale-relative), `star0`/`star2` strictly positive, `star1` bounded below by `−ε·scale` (obtuse triangles admit small negatives; the intrinsic-Delaunay row makes them vanish), skip accounting exact (`admitted + skipped == live`), and the harmonic dimension formula `2g + max(0, b−1)` consistent with the validated `TopologyReceipt` genus.
-- [CROUZEIX_RAVIART] — the Stein-Wardetzky-Jacobson-Grinspun edge-based connection heat operator: per-face CR pairs emit `weight·sign·(cos θ, −sin θ)` rotation blocks scaled by `time`, edge lumped mass on both block diagonals. The block layout packs the complex operator as real `2e × 2e`; exact symmetry of the assembled matrix is the correctness witness (an orientation-sign error breaks transpose pairing before it can corrupt a solve). The `Meshing/reconstruct` boundary-source signed-heat spine is the primary consumer through the `Meshing/mesh` `EdgeConnectionCholeskyDetailed` memo.
-- [CDS_HOLONOMY] — Crane-Desbrun-Schröder trivial connections restricted to closed genus-0 surfaces: prescribed cone indices must balance the total angle defect (Gauss-Bonnet, integer-anchored); the cone target scatters onto first-incident edges as a primal 1-form `u`, the coexact potential solves through the cached `(L + SpdMassShift·M)` factor, and the returned adjustment `−dβ` feeds the `Processing/segment` cross-field cone variants as the `edgeAdjustment` on the connection system. Any topology except VALIDATED closed genus-0 routes `Unsupported` — bounded surfaces need the geodesic-curvature boundary term this kernel never computes, unvalidated genus carries no guarantee, and genus > 0 needs the harmonic part; the genus/boundary extensions are recorded growth on this entry, never a silent approximation.
-- [HODGE_SPECTRAL] — the decomposition asserts (law-matrix): exactness (`D1·dα` residual within gate), coexactness (`δ·coExact` residual within gate), reconstruction totality (`ω = dα + η + δβ` within gate), harmonic-energy nonnegativity, idempotence of the harmonic projection, and component-count agreement on the `HodgeDecomposition` carrier; on genus-0 closed surfaces the harmonic component is identically zero and the rail SUCCEEDS (`calculus.Harmonic` None) — the common case, never a fault. `WhitneyVectorAt` asserts the lift laws: `∫_e W(ω)·dl = ω_e` per containing-face edge and tangency to the face plane; it SUPERSEDES the mature per-vertex potential-gradient approximation (`HodgeProjectedAt`'s sampled bundle that never realized the star1-orthogonal split — its own comment admitted the gap) with the genuine component evaluation. `ComputeSpectralBasisDetailed` asserts eigenvalue nonnegativity within `−ε`, M-orthonormality of returned pairs (delegated to the `Numerics/matrix` `GeneralizedEigenpairsDetailed` receipt), and truncation consistency (a `k ≤ DefaultSpectralCount` cache hit equals the direct computation on the shared prefix). Consumers: `Processing/geodesics` (heat method, log maps), `Processing/segment` (descriptors, normalized cuts, cross fields, stripes), `Spatial/fields` spectral-distance + `Hodge` cases (edge-integrate → decompose → Whitney-evaluate the sense-selected component), and the `Rasm.Compute` adjoint seam through `MeshAdjointSnapshot`.
+(none)

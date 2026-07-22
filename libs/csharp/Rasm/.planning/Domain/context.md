@@ -1,8 +1,8 @@
 # [RASM_CONTEXT]
 
-The tolerance and units substrate (`Rasm.Domain`). `ModelUnit` admits built-in and custom unit identity with its meters-per-unit scale, while `Context` binds that evidence to the tolerance triad every kernel operation threads. Fractional tolerance, mesh-intersection tolerance, and cross-context scaling derive from this one bundle.
+`Context` binds one `ModelUnit` to the tolerance triad every kernel operation threads. `ModelUnit` admits built-in and custom unit identity with its meters-per-unit scale; `AbsoluteTolerance`, `RelativeTolerance`, and `AngleTolerance` gate the geometric predicates. Fractional tolerance, mesh-intersection tolerance, and cross-context scaling derive from this one bundle.
 
-`Context` is host-neutral-shaped by construction: every member is unit- and scalar-driven except the single `[BoundaryAdapter]` `Of(RhinoDoc?)` factory — the ONE doc-coupled seam in the whole substrate. Federation runtimes that never see a `RhinoDoc` construct the identical `Context` through the scalar and unit factories.
+`Context` is host-neutral by construction: every member is unit- and scalar-driven except the `[BoundaryAdapter]` `Of(RhinoDoc?)` factory, so a federation runtime that never sees a `RhinoDoc` constructs the identical bundle through the scalar and unit factories.
 
 ## [01]-[INDEX]
 
@@ -11,11 +11,11 @@ The tolerance and units substrate (`Rasm.Domain`). `ModelUnit` admits built-in a
 
 ## [02]-[TOLERANCE_TRIAD]
 
-- Owner: three `[ValueObject<double>]` readonly structs, each with a `ValidateFactoryArguments` admission guard — raw scalars are admitted exactly once; the interior reads `.Value` and never re-checks.
-- Cases: `AbsoluteTolerance` — finite and `> RhinoMath.ZeroTolerance` (a zero or negative distance tolerance cannot gate any geometric predicate) · `RelativeTolerance` — finite and in `[0, 1)` (a fractional tolerance at or above one is no tolerance) · `AngleTolerance` — finite and in `(RhinoMath.Epsilon, RhinoMath.TwoPI]` radians.
-- Entry: the generated `Create`/`TryCreate`/`Validate` factories; rail admission is the receiver-generic `TryCreateValidated<TVO>` bridge (`validation.md` — the extension-form call supplies the combined type-argument list, receiver width first: `absolute.TryCreateValidated<double, AbsoluteTolerance>()`) lifting the generated `ValidationError` into `Fault.OutOfRange` carrying the owner name, the rejected scalar, and the requirement text.
-- Law: `KeyMemberName = "Value"` with public access — tolerance scalars feed host math (`curve.IsShort(tolerance: ctx.Absolute.Value)`) without egress ceremony; the owner exists for admission and identity, not to hide the double.
-- Boundary: the guards read `RhinoMath` bounds because the triad gates host geometry; the values themselves are pure scalars and cross every runtime.
+- Owner: three `[ValueObject<double>]` readonly structs, each gating its raw scalar through a `ValidateFactoryArguments` guard admitted exactly once; the interior reads `.Value` and never re-checks.
+- Cases: `AbsoluteTolerance` rejects a zero-or-negative distance (cannot gate a geometric predicate); `RelativeTolerance` rejects a fraction at or above one (no tolerance); `AngleTolerance` admits only the finite radian interval its guard bounds.
+- Entry: the generated `Create`/`TryCreate`/`Validate` factories; rail admission composes the `validation.md` factory bridge, lifting a rejection into `Fault.OutOfRange` carrying the owner name, the rejected scalar, and the requirement text.
+- Law: `KeyMemberName = "Value"` is public so tolerance scalars feed host math without egress ceremony; the owner exists for admission and identity, not to hide the double.
+- Boundary: the guards read `RhinoMath` bounds because the triad gates host geometry; the values are pure scalars and cross every runtime.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -59,15 +59,14 @@ public readonly partial struct AngleTolerance {
 
 ## [03]-[MODEL_CONTEXT]
 
-- Owner: `ModelUnit` is the admitted unit regime: defined `UnitSystem`, positive finite meters per unit, and the required custom name. `Context` binds one `ModelUnit` to the three admitted tolerances.
-- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit`, derives defaults from either unit carrier, projects a document through `ModelUnits`, and retains `Millimeters()` as the canonical default. `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target.
-- Cases: `UnitSystem` ingress admits defined built-in rows. `LengthUnit` ingress admits built-in and custom rows, preserving custom name and scale; incomplete `CustomUnits`, `Unset`, `None`, and undefined ordinals fail before context construction.
-- Auto: `Fractional` — the arc-length fractional tolerance (`Relative.Value` when positive, else the `1.0e-8` default) feeding `Curve.GetLength`/`NormalizedLengthParameters`; `MeshIntersectionTolerance` — `Absolute.Value × Intersection.MeshIntersectionsTolerancesCoefficient`, the host-coefficient-scaled tolerance every mesh intersection call reads. Both derive once here; a consumer re-deriving either is the deleted form.
-- Law: `Of(RhinoDoc?)` is the document-coupled boundary adapter. It projects `ModelAbsoluteTolerance`, `ModelRelativeTolerance`, `ModelAngleToleranceRadians`, and `ModelUnits`, so custom document scale and name survive unchanged.
-- Law: threading is explicit — `Context` rides as a parameter on the synchronous rails and inside `Env` on `Eff` pipelines (the `rails.md` threading law); no operation reads a global default, and `Millimeters()` exists so a context-free entry can still construct a real validated bundle.
+- Owner: `ModelUnit` is the admitted unit regime — defined `UnitSystem`, positive finite meters per unit, required custom name; `Context` binds one `ModelUnit` to the three admitted tolerances.
+- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit`, derives defaults from either unit carrier, and retains `Millimeters()` as the context-free default; `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target.
+- Cases: `UnitSystem` ingress admits defined built-in rows; `LengthUnit` ingress admits built-in and custom rows, preserving custom name and scale; incomplete `CustomUnits`, `Unset`, `None`, and undefined ordinals fail before context construction.
+- Auto: `Fractional` (the arc-length tolerance feeding `Curve.GetLength`/`NormalizedLengthParameters`) and `MeshIntersectionTolerance` (host-coefficient-scaled, read by every mesh-intersection call) derive once here.
+- Law: `Of(RhinoDoc?)` is the document-coupled boundary adapter, projecting the document tolerances and units so custom scale and name survive unchanged.
 - Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath`, `Intersection`).
-- Growth: a new model-space fact (a fourth tolerance, a grid resolution policy, a document epoch) is one validated slot plus one factory argument on the scalar floor — every derived factory inherits it; a parallel context record or an optional-parameter tail is the rejected form.
-- Boundary: `Analyze.From(RhinoDoc)`/`Analyze.In(...)` (`Analysis/query.md`) are thin forwarders over this family; `Env` carries the constructed `Context`; this factory and that forwarder are the only two members in the corpus that name `RhinoDoc`.
+- Growth: a new model-space fact (a fourth tolerance, a grid-resolution policy, a document epoch) is one validated slot and one factory argument on the scalar floor, inherited by every derived factory.
+- Boundary: `Context` threads explicitly — a parameter on synchronous rails, inside `Env` on `Eff` pipelines (`rails.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------

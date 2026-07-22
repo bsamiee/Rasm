@@ -135,8 +135,7 @@ FENCE_INTENTS = frozenset({
     "signature",
     "test-only",
 })
-TABLE_COLUMN_CEILING = 15
-TABLE_ROW_CEILING = 20
+TABLE_COLUMN_CEILING = 15  # row count is never capped; the 150-column rendered-width cap (TABLE_WIDTH_CAP) is the sole size law, columns govern only the horizontal axis
 MARKERS: dict[str, str] = (
     dict.fromkeys((".py", ".sh", ".bash", ".zsh", ".nix", ".toml", ".jq"), "#")
     | dict.fromkeys((".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".cs", ".jsonc"), "//")
@@ -168,7 +167,8 @@ ARTICLE_ANNOTATION = re.compile(
     r"^\s*(?:(?:[-+*]|\d+[.)])\s+)?(?:\[[^\]]*\][-\u2013\u2014]?\s*)*(?:`[^`]+`|\[[^\]]+\]\([^)\s]+\))\s*(?:[\u2013\u2014:]|-)\s+[Tt]he\s"
 )
 # A list-entry body never opens on the definite article in either case, behind a marker label or bare; an entry leads with its owner's name or verb.
-ARTICLE_FRAGMENT = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+(?:\[[A-Z][A-Z0-9_]*\](?:-\[[A-Z][A-Z0-9_]*\])*:\s+)?[Tt]he\s")
+# The label token class spans the whole marker grammar — a numeric index (`[02]`), an UPPERCASE_SNAKE token, an alternation (`[OPEN|BLOCKED]`) — so an index-line hook `- [02]-[TOKEN]: the …` never slips the check on its numeric leader.
+ARTICLE_FRAGMENT = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+(?:\[[A-Z0-9][A-Z0-9_|]*\](?:-\[[A-Z0-9][A-Z0-9_|]*\])*:\s+)?[Tt]he\s")
 # A sentence never opens on the definite article, which buries the owning subject one word deep. Boundary strength picks
 # its case: a line start and a true sentence end admit neither `The` nor the lowercase dodge that clears the check while
 # leaving the subject buried, and a colon, semicolon, or leader dash keeps ordinary lowercase continuation legal. Spans
@@ -295,20 +295,32 @@ FRESHNESS_DEICTIC = re.compile(r"\b(?:currently|recently|nowadays|at\s+present|t
 WEAK_VERB = re.compile(r"\b(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)
 # Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the estate, so review adjudicates each.
 SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|etc)\b", re.IGNORECASE)
-# Grade and intensity words warn: each grades a fact the fact already carries, and deleting one costs no law. Roster
-# admits only the unambiguous — a domain term the corpus owns (`robust` predicates) and a contrastive `merely` stay legal.
+# Grade and intensity words fail: each grades a fact the fact already carries, and deleting one costs no law. Roster admits
+# only the unambiguous — a domain term the corpus owns (`robust` predicates, `optimal` collapse, `ideal` in the algebraic
+# sense, `perfect` forwarding/hashing), estate vocabulary (`first-class`, `rich`, `advanced`), and a contrastive `merely`
+# all stay legal, as does `rather` whose corpus mass is the contrastive `rather than`.
 NO_OP_WORD = re.compile(
     r"\b(?:simply|very|really|quite|basically|essentially|seamless(?:ly)?|effortless(?:ly)?|cutting-edge"
-    r"|state-of-the-art|best-in-class|world-class|powerful|utiliz(?:e|es|ed|ing)|comprehensive)\b",
+    r"|state-of-the-art|best-in-class|world-class|powerful|utiliz(?:e|es|ed|ing)|comprehensive"
+    r"|actually|literally|truly|completely|thoroughly|obviously|clearly|certainly|definitely|undoubtedly|arguably"
+    r"|extremely|highly|incredibly|significantly|substantially|notably|particularly|especially"
+    r"|blazing|lightning-fast|battle-tested|production-ready|enterprise-grade|next-generation|revolutionary|innovative)\b",
     re.IGNORECASE,
 )
-# AI-register lexemes warn: puffery, significance theater, transition filler, and summary tails carry zero domain load; each
-# hit is delete-or-reframe, never synonym-swap. `leverage` names the estate's stacking hunt axis and `overall` legally grades
-# shape and structure, and both stay off the roster.
+# Sentence-initial `So` is filler glue delaying the subject; its cure is a recast, never a comma swap. The causal `, so …`
+# join states real consequence law and is the corpus's canonical connector, so only the lead-in form answers here.
+SENTENCE_SO = re.compile(r"(?:^|[.!?]\s+)So\b")
+# AI-register lexemes fail: puffery, significance theater, transition filler, summary tails, and the abstract-noun register
+# carry zero domain load; each hit is delete-or-reframe, never synonym-swap. `leverage` names the estate's stacking hunt axis
+# and `overall` legally grades shape and structure; `therefore`, `thus`, and `likewise` state real logical order; `backbone`
+# names a real spine — all stay off the roster.
 AI_LEXICON = re.compile(
     r"\b(?:delv(?:e|es|ed|ing)|tapestry|testament|pivotal|meticulous(?:ly)?|showcas(?:e|es|ed|ing)|multifaceted"
     r"|myriad|plethora|holistic|intricate|nuanced|vibrant|additionally|moreover|furthermore"
-    r"|in conclusion|in summary|to summarize)\b",
+    r"|in conclusion|in summary|to summarize|as such|in essence|at its core|it'?s worth noting"
+    r"|it is worth noting|it is important to note|note that|keep in mind|bear in mind|that said"
+    r"|in other words|when it comes to|a wide range of|a variety of|needless to say|first and foremost"
+    r"|landscape|realm|journey|deep dive|game-changer|treasure trove|powerhouse|cornerstone)\b",
     re.IGNORECASE,
 )
 # Copula avoidance warns: an identity claim states is/are/has; a serves-as apposition re-labels the surface without owning its concern.
@@ -369,8 +381,9 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status, str], ...] = (
     (Check.HEDGE, SOFT_HEDGE, "warn", ""),
     (Check.EM_DASH, EM_DASH_ASCII, "fail", "; spell the em dash character"),
     (Check.ARTICLE_OPENER, SENTENCE_ARTICLE, "fail", "; lead with the owner's name or an owning verb"),
-    (Check.NO_OP_WORD, NO_OP_WORD, "warn", "; delete the grade — the fact carries its own weight"),
-    (Check.AI_LEXICON, AI_LEXICON, "warn", "; delete or reframe, never synonym-swap"),
+    (Check.NO_OP_WORD, NO_OP_WORD, "fail", "; delete the grade — the fact carries its own weight"),
+    (Check.NO_OP_WORD, SENTENCE_SO, "fail", "; sentence-initial `So` is filler — recast the clause owner-first, never swap it for a comma join"),
+    (Check.AI_LEXICON, AI_LEXICON, "fail", "; delete or reframe, never synonym-swap"),
     (Check.WEAK_VERB, COPULA_AVOIDANCE, "warn", "; state is/are/owns directly"),
     (Check.FILLER_WORD, FILLER_WORD, "fail", "; delete, folding the tail into the clause; else `with`; else FANBOYS `and`; else a shorter word"),
 )
@@ -633,7 +646,7 @@ def fenced(
     access, fm, style_indent = mermaid
     if fence_closes(FENCE.match(line), glyph, width, margin):
         if not access and mermaid_gate:
-            rows.append(row(path, start, Check.FENCE_INTENT, "warn", "mermaid fence lacks accTitle/accDescr accessibility directives"))
+            rows.append(row(path, start, Check.FENCE_INTENT, "fail", "mermaid fence lacks accTitle/accDescr accessibility directives"))
         return True, (access, fm, style_indent), tuple(rows)
     trimmed = line.strip()
     if ("codemap" in info or "seams" in info or any(mark in line for mark in GLYPHS)) and len(line) > cap:
@@ -714,7 +727,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                 pass
             elif len(tokens) == 1 and tokens[0] not in ("text", "mermaid"):
                 rows.append(
-                    row(path, number, Check.FENCE_INTENT, "warn", f"fence `{info}` carries no intent label; append one from the closed intent set")
+                    row(path, number, Check.FENCE_INTENT, "fail", f"fence `{info}` carries no intent label; append one from the closed intent set")
                 )
             elif len(tokens) > 1 and tokens[1] not in FENCE_INTENTS:
                 rows.append(
@@ -832,7 +845,7 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             bool(stripped) and not line.startswith((" ", "\t")) and not stripped.startswith(PLAIN_EXCLUDED) and NUMBERED_LEAD.match(stripped) is None
         )
         if plain and plain_run:
-            rows.append(row(path, number, Check.PROSE_WRAP, "warn", "hard-wrapped paragraph; write the paragraph as one logical line"))
+            rows.append(row(path, number, Check.PROSE_WRAP, "fail", "hard-wrapped paragraph; write the paragraph as one logical line"))
         if not template and (plain or LABELED_PARAGRAPH.match(stripped)):
             sentence_count = len(SENTENCE_END.findall(" ".join(span.text for span in prose_spans(stripped, number))))
             if len(stripped) > PROSE_CHAR_CAP or sentence_count > PROSE_SENTENCE_CAP:
@@ -914,17 +927,15 @@ def table_rows(doc: Document) -> tuple[Row, ...]:
                     rows.append(
                         row(doc.path, table.line + index + 1, Check.TABLE_INDEX, "fail", f"index cell {actual or '<empty>'} != {expected}; renumber")
                     )
-        fat = len(table.headers) > 4 or any(len(cell) > 100 for body in table.rows for cell in body)
-        # A registry table — a closed roster of atomic rows in four columns or fewer — is legal past the row ceiling.
-        registry = len(table.headers) <= 4
-        if len(table.headers) > TABLE_COLUMN_CEILING or (len(table.rows) > TABLE_ROW_CEILING and fat and not registry):
+        # row count is never capped: a row that belongs in the table stays a row, and an oversized table relieves cells or decomposes on the column axis, never sheds rows to prose
+        if len(table.headers) > TABLE_COLUMN_CEILING:
             rows.append(
                 row(
                     doc.path,
                     table.line,
                     Check.TABLE_BOUNDS,
-                    "warn",
-                    f"{len(table.headers)} columns x {len(table.rows)} rows exceeds the 15x20 ceiling; decompose on the dominant axis, never to prose",
+                    "fail",
+                    f"{len(table.headers)} columns exceeds the {TABLE_COLUMN_CEILING}-column ceiling; decompose on the column axis, never to prose",
                 )
             )
         linked = any(LINK.search(QUOTED_SPAN.sub("", cell)) for body in table.rows for cell in body)
@@ -1486,11 +1497,11 @@ def comment_rows(path: Path, text: str) -> tuple[Row, ...]:
             detail = f"{len(run)} stacked comment lines > cap {COMMENT_STACK_CAP}; merge toward the {CAP}-column width"
             rows.append(row(path, run[0][0], Check.COMMENT_STACK, "fail", detail))
         elif len(run) >= 2 and all(width < COMMENT_SHRED_FLOOR for _, width in run):
-            detail = f"{len(run)} stacked comment lines all under {COMMENT_SHRED_FLOOR} columns; merge toward the {CAP}-column width"
-            rows.append(row(path, run[0][0], Check.COMMENT_SHRED, "warn", detail))
+            detail = f"{len(run)} stacked comment lines all under {COMMENT_SHRED_FLOOR} columns; merge toward the {CAP}-column width, or delete a no-load comment whole"
+            rows.append(row(path, run[0][0], Check.COMMENT_SHRED, "fail", detail))
         elif len(run) >= 2 and run[-1][1] < COMMENT_RUNT_FLOOR:
-            detail = f"trailing runt line {run[-1][1]} < floor {COMMENT_RUNT_FLOOR}; re-flow the block into fewer or balanced lines"
-            rows.append(row(path, run[-1][0], Check.COMMENT_RUNT, "warn", detail))
+            detail = f"trailing runt line {run[-1][1]} < floor {COMMENT_RUNT_FLOOR}; re-flow into fewer balanced lines, refold the orphan into its neighbour, or delete the comment if it carries no load"
+            rows.append(row(path, run[-1][0], Check.COMMENT_RUNT, "fail", detail))
         run.clear()
 
     for number, line in enumerate(text.splitlines(), 1):
@@ -1550,19 +1561,20 @@ def divider_rows(path: Path, text: str) -> tuple[Row, ...]:
         body = DIVIDER_BODY.match(matched["body"])
         if not body:
             rows.append(
-                row(path, number, Check.SECTION_DIVIDER, "warn", f"divider label is not bracketed UPPER_SNAKE — `[LABEL]`: {matched['body'][:60]}")
+                row(path, number, Check.SECTION_DIVIDER, "fail", f"divider label is not bracketed UPPER_SNAKE — `[LABEL]`: {matched['body'][:60]}")
             )
         elif body["tail"] and not DASH_TAIL.match(body["tail"]):
             rows.append(row(path, number, Check.SECTION_DIVIDER, "fail", "divider carries content beyond the label and dash fill; move it below"))
         elif body["tail"] and len(line) != DIVIDER_WIDTH:
             rows.append(row(path, number, Check.SECTION_WIDTH, "fail", f"full divider width {len(line)} != {DIVIDER_WIDTH}; re-pad the dash fill"))
         # Full dividers charter sections: duplicate labels, empty sections, and orphan sub-dividers are phantom
-        # structure; every repair reads the enclosing section first, so the tier stays warn with no fixer arm.
+        # structure; every repair reads the enclosing section first, so the tier fails with no fixer arm — a divider
+        # is corrected in style, structure, or label by hand, never deleted and never scripted.
         if body and body["tail"]:
             if body["label"] in seen:
                 rows.append(
                     row(
-                        path, number, Check.SECTION_DIVIDER, "warn", f"[{body['label']}] duplicates the section divider at line {seen[body['label']]}"
+                        path, number, Check.SECTION_DIVIDER, "fail", f"[{body['label']}] duplicates the section divider at line {seen[body['label']]}"
                     )
                 )
             seen[body["label"]] = number
@@ -1572,20 +1584,20 @@ def divider_rows(path: Path, text: str) -> tuple[Row, ...]:
                         path,
                         open_section[0],
                         Check.SECTION_DIVIDER,
-                        "warn",
+                        "fail",
                         f"[{open_section[1]}] charters an empty section; phantom label or misplaced divider",
                     )
                 )
             open_section, payload = (number, body["label"]), 0
         elif body and open_section is None:
-            rows.append(row(path, number, Check.SECTION_DIVIDER, "warn", "sub-section divider precedes any chartering section"))
+            rows.append(row(path, number, Check.SECTION_DIVIDER, "fail", "sub-section divider precedes any chartering section"))
     if open_section and payload == 0:
         rows.append(
             row(
                 path,
                 open_section[0],
                 Check.SECTION_DIVIDER,
-                "warn",
+                "fail",
                 f"[{open_section[1]}] charters an empty section; phantom label or misplaced divider",
             )
         )

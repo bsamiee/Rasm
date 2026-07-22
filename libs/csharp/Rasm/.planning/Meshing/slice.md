@@ -1,23 +1,23 @@
 # [RASM_INTERSECTION_SLICE]
 
-The slice-stack owner of `Rasm.Meshing` — ONE `Slicing.Apply(SliceOp, Op? key = null)` section fold composing `Intersection.Apply(IntersectOp.PlaneMesh(...))` over a parallel-plane family, never a seventh `IntersectOp` case and never a second crossing kernel: crossing existence, on-plane vertex handling, segment orientation, and chain connectivity are the intersect owner's exact machinery (`Lpi` edge×plane constructions, projected `Orient2D` straddles, `Predicate.Compare` ordering — the V10b implicit sub-family), composed one level up. The plane family is GENERATED, not enumerated: `LayerPlan` is the layer-height policy union whose five seed rows — `Uniform` · `Adaptive` (cusp-height-bounded) · `BySlope` (slope-band table) · `SupportInterface` (densified support-contact bands) · `AtElevations` (caller-supplied elevations, the `Rasm.Compute` circulation story-elevation shape) — are height-law DATA over ONE `March` integrator, so the next layer policy is one case carrying one height law, never a sibling planner body.
+`Slicing.Apply(SliceOp, Op?)` owns the slice stack of `Rasm.Meshing` — one section fold composing `Intersection.Apply(IntersectOp.PlaneMesh(...))` over a parallel-plane family, never a crossing kernel of its own. Crossing existence, on-plane vertex handling, segment orientation, and chain connectivity are the intersect owner's exact machinery, composed one level up rather than re-founded as another `IntersectOp` case. `LayerPlan` generates the plane family rather than enumerating it: its cases are height-law data over one `March` integrator, so the next layer policy is one case carrying one height law, never a sibling planner body.
 
-Per-layer contours arrive ORIENTED from the composed fold — intersect stores every section segment `from → to` along `cut.Normal × faceNormal`, so closed loops close outer-CCW / holes-CW in the section frame by construction — and a non-watertight section arrives as typed OPEN `Chain(Closed: false)` rows, surfaced as first-class open-chain ordinals on the wire or, under `SlicePolicy.RequireWatertight`, as the typed `GeometryFault.SectionFault(layer, elevation, openChains)` 2425. Contour NESTING is an exact-parity containment fold: bounding-box-pruned pairs run the even-odd ray parity over exact `Predicate.Compare` straddles and `Predicate.Orient2D` side signs (signs exact; the operands are the canonical emission coordinates every downstream decoder also reads), the containment edges fold into a transient `BidirectionalGraph<int, SEdge<int>>`, `IsDirectedAcyclicGraph` gates the laminar invariant, and `ComputeTransitiveReduction` derives the immediate-parent forest in one call — QuikGraph serves in-computation only, and the RESULT is the kernel-owned SoA forest wire: `SliceStack` pins the FIVE channels — layers · contours · nesting parent/child index arrays · open chains · elevations — the complete schema the `Rasm.Fabrication` `Additive/slicing` `Slice.Layers` decoder and the `Rasm.Compute` circulation decoder bind (the Fabrication author-slicer dies for this seam). Typed `Chain` rows are PROJECTIONS minted from the channels on read, so the wire and the typed view are one storage, never a dual carriage.
+Per-layer contours arrive oriented from the composed fold — intersect stores each segment `from → to` along `cut.Normal × faceNormal`, so closed loops close outer-CCW and holes CW by construction — and a non-watertight section lands as typed open `Chain(Closed: false)` rows, or under `SlicePolicy.RequireWatertight` as the typed `GeometryFault.SectionFault` 2425. Contour nesting is an exact-parity containment fold over the same canonical coordinates every decoder reads, so the forest is a deterministic function of the wire it ships with; QuikGraph serves in-computation only per the bounded-lane law. `SliceStack`, the kernel-owned SoA forest wire, is the result the `Rasm.Fabrication` `Additive/slicing` and `Rasm.Compute` circulation decoders bind, `Chain` rows projecting from the channels on read.
 
 ## [01]-[INDEX]
 
-- [01]-[SLICING]: ONE `Slicing.Apply(SliceOp, Op?)` entry; `LayerPlan` height-law generator rows over one `March` integrator; `SliceFrame` the per-run elevation/slope facts; the parallel per-plane `IntersectOp.PlaneMesh` fold (`ParallelHelper` struct action over pooled result slots); exact-parity nesting → QuikGraph containment DAG → transitive-reduction forest; `SliceStack` the five-channel SoA wire + `Chain` projections.
+- [01]-[SLICING]: the `Slicing.Apply` section fold — `LayerPlan` height-law generator over one `March`, the parallel per-plane `IntersectOp.PlaneMesh` fold, exact-parity nesting into the `SliceStack` SoA forest wire and its `Chain` projections.
 
 ## [02]-[SLICING]
 
-- Owner: `SlicePolicy` the policy row (`RequireWatertight` — open chains fault instead of landing as typed rows; `MaxLayers` the plan-runaway ceiling; `FrameBins` the slope-table bin count the adaptive laws read; `ParallelFloor` the `minimumActionsPerThread` floor; `Intersect` the composed `IntersectPolicy` every per-plane fold threads) registering `IValidityEvidence`; `SliceFrame` the per-run derived facts computed ONCE from the soup — `Datum` plane, `Vertical` (the datum normal's dominant `Axis`, the nesting projection plane), `Lo`/`Hi` elevation extent, and the binned steepest-slope/overhang tables (`MaxSlope` per elevation bin; start-sorted overhang rows carrying start elevation + downward `|n·d|` so each plan filters by its OWN `OverhangCosine`) the height laws read; `LayerPlan` the `[Union]` height-law generator — five seed cases each answering ONE `Fin<Arr<double>>` `Elevations(SliceFrame, SlicePolicy)` fold, the four plan cases lowering to a `Func<double,double>` height law integrated by the ONE `March` body and `AtElevations` validating the caller family; `SliceOp` the request record (`Mesh` · `Datum` · `Plan` · `Policy` — one modality, so the request is a record and the MODALITY axis lives in the plan union, never a one-case request ceremony); `SliceStack` the frozen five-channel result (channel schema below) with `ContourAt`/`LayerAt`/`RootsOf`/`Depth` typed projections; `Slicing` the static surface.
-- Cases: `LayerPlan` cases `Uniform(Height)` · `Adaptive(CuspHeight, MinHeight, MaxHeight)` · `BySlope(Arr<(SlopeCeiling, Height)> Bands)` · `SupportInterface(BaseHeight, InterfaceHeight, InterfaceLayers, OverhangCosine)` · `AtElevations(Arr<double> Elevations)` (5 — ALL FOUR named Fabrication `[V6]` policies as seed rows plus the caller-supplied family the Compute circulation consumer binds; the family is OPEN: a new policy is one case carrying one height law).
-- Entry: `public static Fin<SliceStack> Apply(SliceOp op, Op? key = null)` — the ONE entry. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, witness)` 2400 on an inadmissible request (invalid datum plane, empty mesh, an invalid policy row, a non-positive plan height, an out-of-extent or unsorted explicit family, a plan marching past `MaxLayers`) and `GeometryFault.SectionFault(layer, elevation, openChains)` 2425 on a layer defect — a non-watertight layer under `RequireWatertight` (the open-chain count is the payload) or a nesting contradiction (a containment cycle or a multi-parent reduction, the overlapping-contour witness; the layer's open count rides the same payload slot). A composed per-plane failure (`DegenerateInput` from the intersect admission, `IntersectionFault` 2424 from a non-manifold junction) surfaces unchanged — the fold never re-labels a sibling's typed fault. No `SliceUniform`/`SliceAdaptive`/`SliceAt` sibling statics — one polymorphic `Apply`, the plan case discriminating.
-- Auto: `SliceFrame.Of` makes ONE soup pass (`MeshEdit.Of(space)` — the one adapter) projecting every vertex onto the datum normal for `Lo`/`Hi`, binning per-face elevation intervals with their `|n·d|` slope cosine into the `FrameBins` max-slope table, and collecting start-sorted overhang rows — every downward face contributes its low end WITH its `|n·d|`, so the interface law filters rows past its own `OverhangCosine` at read, never a frame re-pass per plan. `Elevations` folds the plan's generated `Switch`: `Uniform` is the constant law; `Adaptive` is the cusp-height bound `clamp(cusp / maxSlope(z .. z+hMax), hMin, hMax)` — the geometric-error law: a flat cap (`|n·d| → 1`) forces fine layers, a vertical wall (`|n·d| → 0`) admits coarse ones; `BySlope` reads the first band row whose `SlopeCeiling` covers the binned slope cosine (`|n·d| ∈ (0,1]`) — the table IS the law; `SupportInterface` answers `InterfaceHeight` inside any `InterfaceLayers × InterfaceHeight` band around an overhang start steeper than its `OverhangCosine`, else `BaseHeight`; `AtElevations` validates finite · strictly ascending · in-extent and passes through. `March` is the one integrator: `z ← Lo + h(Lo)`, append while `z < Hi`, `z ← z + h(z)`, `MaxLayers`-gated. The section fold rents `MemoryOwner<Fin<IntersectResult>>.Allocate(L)` and partitions the plane family through `ParallelHelper.For(0, L, in action, policy.ParallelFloor)` — a struct `IAction` whose slot `i` runs `Intersection.Apply(new IntersectOp.PlaneMesh(cut(eᵢ), mesh, policy.Intersect), key)` into its own disjoint slot (each plane's sweep is independent; the fold is the parallel axis, the intersect owner stays single-threaded per plane). Assembly drains the slots IN LAYER ORDER: each `Chains(walked, _)` partitions closed/open (the lattice drops — slice consumes chains, arrangement consumes lattices), the watertight gate fires, closed contours append their vertex rings to the pooled channel writers (`ArrayPoolBufferWriter<double>`/`<int>` — the growing-channel emit sink; closed rings store WITHOUT the duplicate terminal vertex, open chains store end to end), and nesting runs per layer: bbox-pruned candidate pairs (containment implies projected-bbox containment) run the exact even-odd parity — the inner contour's lexicographic-extreme vertex against the candidate ancestor's edges, a crossing counted iff the edge strictly straddles the ray line (`Predicate.Compare` on the frame's V ordinal, half-open at `Zero`) AND the exact `Predicate.Orient2D` side sign on the `Vertical` plane matches the edge's V direction — then containment edges fold into the transient `BidirectionalGraph<int, SEdge<int>>` (`AddVertexRange` admits every closed ordinal so an isolated outer boundary still roots), `IsDirectedAcyclicGraph` gates, `ComputeTransitiveReduction` yields the immediate-parent forest (laminar ⇒ reduced in-degree ≤ 1; a violation faults), and `InDegree`/`InEdge` project the `Parent` channel — an in-degree-0 vertex keeps `-1`, the root encoding `RootsOf` reads. `Freeze` materializes the five channels once from the writers — arrays, never live pool leases on the wire.
-- Receipt: none on a dedicated rail — `SliceStack` IS the typed result and the wire at once: the five channels are the evidence (layer census, contour census, nesting forest, open-chain set, elevation family) and the `Chain` projections are reads over them; the hash-eligible artifacts are the frozen channel arrays, never the pooled writers or slots.
-- Packages: `Rasm.Meshing` (sibling file — `Intersection.Apply`/`IntersectOp.PlaneMesh`/`IntersectResult.Chains`/`Chain`/`IntersectPolicy`, composed never re-founded), `Rasm.Numerics` (`Predicate.Orient2D(in Implicit, in Implicit, in Implicit, Axis)` + `Predicate.Compare` + `Sign`/`Axis` — the exact nesting signs), `Rasm.Meshing` (`MeshEdit.Of` — the one soup adapter feeding the frame pass), `Rasm.Numerics` (`GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Rasm.Meshing` (`MeshSpace`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Polyline`/`BoundingBox`), QuikGraph (`BidirectionalGraph<int, SEdge<int>>`, `AddVertexRange`/`AddEdge`, `IsDirectedAcyclicGraph`, `ComputeTransitiveReduction`, `InDegree`/`InEdge` — in-computation only, per the bounded-lane law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` pooled result slots, `ArrayPoolBufferWriter<T>` channel emit, `ParallelHelper.For` + `IAction` struct partition), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`Array.BinarySearch`).
-- Growth: a new layer policy is ONE `LayerPlan` case carrying its height law into the same `March`; a per-layer plane-slab broad-phase prune is the RECORDED growth row on `Spatial/index` (a plane-slab `SpatialQuery` case — never a slice-local acceleration structure); per-layer area/perimeter/centroid metrics are projection rows over the existing channels; a sixth wire channel (per-contour provenance, layer thickness) is one further frozen column beside the five, decoders re-binding loudly; zero new entry surface.
-- Boundary: the slice owner COMPOSES `Intersection.Apply` and a slice-local plane sweep, crossing kernel, or chain walker is the deleted re-founding — crossing geometry has ONE owner; contour orientation is inherited from intersect's material-oriented accumulation and a slice-side re-orientation pass is the deleted second decision; open sections are typed rows or the typed 2425 fault under the watertight policy and silent closure or silent drop is forbidden; the nesting verdict is exact parity signs and a float point-in-polygon (winding accumulation, epsilon ray offsets) is the deleted form — the prune alone is float, the decision is signs; QuikGraph is transient in-computation state and a stored graph field, a graph-typed result, or a hand-rolled O(C²) immediate-parent scan (the redundant-ancestor walk `ComputeTransitiveReduction` owns) is the deleted form; the wire is the frozen five-channel schema and a `Seq<Seq<Chain>>` nested-collection result beside it is the deleted dual carriage — typed rows mint FROM the channels; the channel arrays are materialized at freeze and a pooled lease crossing the seam is forbidden (the pool dies at assembly end); `Apply` is total over the `Fin` rail and a thrown exception on a degenerate plan or a non-watertight layer is forbidden.
+- Owner: `SlicePolicy` the policy row registering `IValidityEvidence` — watertight gate, layer ceiling, slope-bin count, parallel floor, and the composed `IntersectPolicy` every per-plane fold threads; `SliceFrame` the per-run facts computed once from the soup — datum, nesting axis, elevation extent, and the binned steepest-slope and start-sorted overhang tables the height laws read; `LayerPlan` the `[Union]` height-law generator, each case one `Fin<Arr<double>>` `Elevations(SliceFrame, SlicePolicy)` fold lowering to a `Func<double,double>` height law over the one `March` body; `SliceOp` the request record — one modality, so the modality axis lives in the plan union, never a one-case request ceremony; `SliceStack` the frozen result carrier with `ContourAt`/`LayerAt`/`RootsOf`/`Depth` projections; `Slicing` the static surface.
+- Cases: `LayerPlan` cases `Uniform(Height)` · `Adaptive(CuspHeight, MinHeight, MaxHeight)` · `BySlope(Arr<(SlopeCeiling, Height)> Bands)` · `SupportInterface(BaseHeight, InterfaceHeight, InterfaceLayers, OverhangCosine)` · `AtElevations(Arr<double> Elevations)` — height-law seed data the `Rasm.Fabrication` additive lane and the `Rasm.Compute` circulation bind, the family open to one more case.
+- Entry: `public static Fin<SliceStack> Apply(SliceOp op, Op? key = null)` — the one entry. `Fin<T>` routes `GeometryFault.DegenerateInput(Kind, index, witness)` 2400 on an inadmissible request and `GeometryFault.SectionFault(layer, elevation, openChains)` 2425 on a layer defect — a non-watertight layer under `RequireWatertight` or a nesting contradiction, a containment cycle or multi-parent reduction. A composed per-plane failure surfaces unchanged; the fold never re-labels a sibling's typed fault. No `SliceUniform`/`SliceAdaptive`/`SliceAt` siblings — one polymorphic `Apply`, the plan case discriminating.
+- Auto: `SliceFrame.Of` makes one soup pass — projecting vertices onto the datum normal for the extent, binning per-face `|n·d|` into the max-slope table, and collecting start-sorted overhang rows so the interface law filters past its own `OverhangCosine` at read, never a frame re-pass per plan. `Elevations` folds the plan's generated switch: `Adaptive` is the cusp-height bound `clamp(cusp / maxSlope, hMin, hMax)` — the geometric-error law, a height-`h` layer over cosine `|n·d|` leaving cusp `c = h·|n·d|`, so flat caps force fine layers and vertical walls admit coarse ones; `BySlope`'s band table IS the law; `SupportInterface` opens an interface band around overhangs steeper than its cosine floor; `AtElevations` validates finite, strictly ascending, in-extent. `March` is the one integrator, `MaxLayers`-gated. `ParallelHelper` partitions the plane family across pooled result slots the section fold rents — each plane's sweep independent, the fold the parallel axis and the intersect owner single-threaded per plane. Assembly drains the slots in layer order: the watertight gate fires, closed rings append their vertices without the duplicate terminal, and nesting runs per layer — bbox-pruned pairs over exact parity signs fold into the containment DAG, `ComputeTransitiveReduction` yields the immediate-parent forest (laminar ⇒ in-degree ≤ 1, a violation faults), and an in-degree-0 contour keeps `Parent = -1`, the root encoding. `Freeze` materializes the channels once as arrays, never live pool leases on the wire.
+- Receipt: none on a dedicated rail — `SliceStack` is the typed result and the wire at once, its channels the evidence (layer, contour, nesting-forest, open-chain, and elevation census) and the `Chain` projections reads over them; the hash-eligible artifacts are the frozen channel arrays, never the pooled writers or slots.
+- Packages: `Rasm.Meshing` (sibling — `Intersection.Apply`/`IntersectOp.PlaneMesh`/`IntersectResult.Chains`/`Chain`/`IntersectPolicy` composed never re-founded, `MeshEdit.Of` the one soup adapter, `MeshSpace`), `Rasm.Numerics` (`Predicate.Orient2D`/`Predicate.Compare` + `Sign`/`Axis` the exact nesting signs, `GeometryFault`), `Rasm.Domain` (`Op`, `Kind`, `ValidityClaim`/`IValidityEvidence`), `Rhino.Geometry` (`Point3d`/`Vector3d`/`Plane`/`Polyline`/`BoundingBox`), QuikGraph (`BidirectionalGraph`/`AddVertexRange`/`AddEdge`/`IsDirectedAcyclicGraph`/`ComputeTransitiveReduction`/`InDegree`/`InEdge` — in-computation only per the bounded-lane law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` slots, `ArrayPoolBufferWriter<T>` channel emit, `ParallelHelper.For` + `IAction`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL (`Array.BinarySearch`).
+- Growth: a new layer policy is one `LayerPlan` case carrying its height law into the same `March`; a per-layer plane-slab broad-phase prune is the recorded growth row on `Spatial/index` (a plane-slab `SpatialQuery` case, never a slice-local acceleration structure); per-layer area/perimeter/centroid metrics are projection rows over the existing channels; one more wire channel is a further frozen column the decoders re-bind loudly; zero new entry surface.
+- Boundary: the slice owner composes `Intersection.Apply` — a slice-local plane sweep, crossing kernel, or chain walker re-founds geometry that has one owner; contour orientation is inherited from intersect's material-oriented accumulation, so a slice-side re-orientation pass repeats a decision the fold already made. Open sections are typed rows or the typed 2425 fault under `RequireWatertight`, never silent closure or drop. Nesting verdicts are exact parity signs — the bbox prune alone is float, a winding-number point-in-polygon with epsilon ray offsets is the deleted form — and a hand-rolled O(C²) immediate-parent scan re-does what `ComputeTransitiveReduction` owns. Wire storage is the frozen channel schema; a `Seq<Seq<Chain>>` nested-collection result beside it is a dual carriage, typed rows minting from the channels instead. Channel arrays materialize at freeze and the pool dies at assembly end, so no pooled lease crosses the seam. `Apply` is total over the `Fin` rail — a thrown exception on a degenerate plan or non-watertight layer is unrepresentable.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -38,8 +38,7 @@ using static LanguageExt.Prelude;
 namespace Rasm.Meshing;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------------
-// RequireWatertight selects failure semantics for open layers (Fabrication solids demand closed
-// loops; documentation sections keep typed open rows). Intersect is the composed per-plane policy.
+// RequireWatertight: open layers fault (solids) or land as typed open rows (sections); Intersect is the composed per-plane policy.
 public sealed record SlicePolicy(bool RequireWatertight, int MaxLayers, int FrameBins, int ParallelFloor, IntersectPolicy Intersect) : IValidityEvidence {
     public static readonly SlicePolicy Canonical = new(RequireWatertight: false, MaxLayers: 1 << 14, FrameBins: 256, ParallelFloor: 1, Intersect: IntersectPolicy.Canonical);
 
@@ -50,10 +49,8 @@ public sealed record SlicePolicy(bool RequireWatertight, int MaxLayers, int Fram
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------------
-// Per-run facts the height laws read, computed in ONE soup pass: elevation extent along the datum
-// normal, a binned steepest-slope table (|n·d| per elevation bin), and the start-sorted overhang
-// rows (start elevation + downward |n·d|) the support-interface law filters against its OWN
-// OverhangCosine. Vertical = the nesting projection plane.
+// Per-run facts from ONE soup pass: elevation extent, a binned steepest-slope table (|n·d| per bin),
+// and start-sorted overhang rows the interface law filters against its OWN OverhangCosine; Vertical is the nesting projection plane.
 public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi, double[] MaxSlope, double[] OverhangStarts, double[] OverhangCosines) {
     public static Fin<SliceFrame> Of(MeshSpace mesh, Plane datum, SlicePolicy policy, Op? key = null) {
         using MeshEdit soup = MeshEdit.Of(mesh);
@@ -92,8 +89,7 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
         return double.Max(peak, double.Epsilon);
     }
 
-    // An interface band opens only around overhangs steeper than the PLAN's own cosine floor —
-    // the frame stores every downward row; the law selects.
+    // Interface band opens only around overhangs steeper than the plan's own cosine floor — the frame stores every downward row, the law selects.
     public bool NearInterface(double z, double band, double cosineFloor) {
         int at = Array.BinarySearch(OverhangStarts, z - band);
         for (int i = at >= 0 ? at : ~at; i < OverhangStarts.Length && OverhangStarts[i] <= z + band; i++) {
@@ -103,8 +99,7 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
     }
 }
 
-// GENERATOR_LAW: five seed cases, one height law each, ONE March integrator — a new layer policy is
-// a case row, never a sibling planner body. AtElevations is the Compute story-elevation ingress.
+// GENERATOR_LAW: one height law per case over ONE March integrator — a new policy is a case row, never a sibling planner; AtElevations is the Compute story-elevation ingress.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerPlan {
     private LayerPlan() { }
@@ -138,8 +133,7 @@ public abstract partial record LayerPlan {
     static Fin<Unit> Gate(bool holds, string witness) =>
         holds ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Plane, 0, witness).ToError());
 
-    // The ONE integrator: first plane one step above the tangent extreme, march while inside the
-    // extent, MaxLayers-gated against a runaway law.
+    // ONE integrator: first plane one step above the low extreme, march inside the extent, MaxLayers-gated against a runaway law.
     static Fin<Arr<double>> March(SliceFrame frame, SlicePolicy policy, Func<double, double> height) {
         List<double> rows = [];
         for (double z = frame.Lo + height(frame.Lo); z < frame.Hi; z += height(z)) {
@@ -161,11 +155,8 @@ public abstract partial record LayerPlan {
 
 public sealed record SliceOp(MeshSpace Mesh, Plane Datum, LayerPlan Plan, SlicePolicy Policy);
 
-// The five-channel SoA forest wire (the Fabrication Additive/slicing + Compute-circulation decoder schema) + typed
-// projections minted FROM the channels: [1] LayerPtr — contour-ordinal ranges per layer (CSR, len
-// L+1); [2] ContourPtr + X/Y/Z — vertex ranges + coordinate columns (closed rings store no duplicate
-// terminal vertex); [3] Parent + ChildPtr/Children — the immediate-parent forest (CSR children;
-// -1 = root or open); [4] Open — sorted open-chain ordinals; [5] Elevations — one per layer.
+// SoA forest wire, typed projections minting FROM the channels. CSR pointers: LayerPtr len L+1, ContourPtr
+// over X/Y/Z (closed rings store no duplicate terminal vertex); Parent forest, -1 = root or open.
 public sealed record SliceStack(
     double[] Elevations, int[] LayerPtr, int[] ContourPtr, double[] X, double[] Y, double[] Z,
     int[] Parent, int[] ChildPtr, int[] Children, int[] Open) {
@@ -211,8 +202,7 @@ public static class Slicing {
         : !op.Policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "invalid slice policy").ToError())
         : Fin.Succ(unit);
 
-    // Each plane's PlaneMesh sweep is independent: the struct action writes its own pooled slot,
-    // ParallelHelper partitions under the policy floor, and assembly drains in layer order.
+    // Each plane's PlaneMesh sweep is independent — the struct action writes its own pooled slot; assembly drains in layer order.
     readonly struct SectionAction(MeshSpace mesh, Plane datum, ReadOnlyMemory<double> elevations, IntersectPolicy policy, Memory<Fin<IntersectResult>> slots, Op? key) : IAction {
         public void Invoke(int i) {
             double e = elevations.Span[i];
@@ -232,8 +222,7 @@ public static class Slicing {
         using ArrayPoolBufferWriter<double> z = new();
         (List<int> layerPtr, List<int> contourPtr, List<int> parent, List<int> open) = ([0], [0], [], []);
 
-        // Sequential assembly kernel over the drained slots — the freeze-tier statement exemption;
-        // the rail re-enters per layer and the channels materialize once at the tail.
+        // Sequential assembly over the drained slots — the rail re-enters per layer, the channels materialize once at the tail.
         Fin<Unit> Layer(int k) =>
             slots.Span[k]
                 .Bind(static result => result is IntersectResult.Chains chains
@@ -280,12 +269,9 @@ public static class Slicing {
     }
 
     // --- [NESTING]
-    // Even-odd containment over exact signs: the inner contour's lexicographic-extreme vertex casts
-    // a +U ray; an ancestor edge counts iff it strictly straddles the ray line (Compare on the V
-    // ordinal, half-open at Zero) and the exact Orient2D side sign matches the edge's V direction.
-    // Bounding boxes prune candidates; signs alone decide. QuikGraph derives the immediate-parent
-    // forest: containment edges -> IsDirectedAcyclicGraph gate -> ComputeTransitiveReduction ->
-    // reduced in-degree <= 1 (laminar); in-degree-0 keeps Parent = -1, the root encoding.
+    // Even-odd containment over exact signs: the inner contour's lexicographic-extreme vertex casts a
+    // +U ray, an ancestor edge counting iff it strictly straddles the ray line (Compare on V, half-open
+    // at Zero) and the Orient2D side sign matches the edge's V direction. Bounding boxes prune, signs decide.
     static Fin<Unit> Nest(SliceFrame frame, Seq<Chain> closed, int baseOrdinal, List<int> parent, int layer, double elevation, int openCount) {
         int n = closed.Count;
         if (n <= 1) { return Fin.Succ(unit); }
@@ -331,8 +317,7 @@ public static class Slicing {
         return ((loU, hiU, loV, hiV), anchor);
     }
 
-    // true = inside (odd), false = outside (even), null = the anchor lands exactly ON the candidate
-    // boundary — overlapping contours, the nesting-contradiction witness.
+    // true = inside (odd), false = outside (even), null = anchor exactly ON the candidate boundary — overlapping contours, the nesting-contradiction witness.
     static bool? Parity(Point3d anchor, Polyline ring, Axis plane, Axis vAxis) {
         bool inside = false;
         for (int i = 0; i < ring.Count - 1; i++) {
@@ -368,7 +353,7 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis kind rides the indexed notes below.
 
 | [INDEX] | [AXIS_CONCERN] | [OWNER]       | [RAIL]                                | [CASES] |
 | :-----: | :------------- | :------------ | :------------------------------------ | :-----: |
@@ -379,13 +364,16 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 |  [05]   | Result + wire  | `SliceStack`  | carrier (channels frozen at assembly) |    —    |
 
 - [01]-[SLICE_STACK]: request record (one modality; the plan union is the modality axis) folded by ONE `Apply`.
-- [02]-[LAYER_POLICIES]: `[Union]` five height-law seed rows over ONE `March` integrator (`[GENERATOR_LAW]`).
+- [02]-[LAYER_POLICIES]: `[Union]` height-law seed rows over ONE `March` integrator (`[GENERATOR_LAW]`).
 - [03]-[RUN_FACTS]: derived record — extent, binned steepest slope, overhang start+cosine rows, nesting axis (one soup pass).
 - [04]-[SLICE_POLICY]: policy row — watertight gate · layer ceiling · bins · parallel floor · composed `IntersectPolicy`.
-- [05]-[RESULT_WIRE]: frozen five-channel SoA forest wire + `ContourAt`/`LayerAt`/`RootsOf`/`Depth` typed projections.
+- [05]-[RESULT_WIRE]: frozen SoA forest wire + `ContourAt`/`LayerAt`/`RootsOf`/`Depth` typed projections.
 
 ## [04]-[RESEARCH]
 
-- [COMPOSED_SECTION_EXACTNESS] — every per-plane section is `Intersection.Apply(IntersectOp.PlaneMesh(...))`: crossing existence is the exact `Orient3D` straddle, crossing points are `Lpi` edge×plane defining-entity constructions, on-plane vertices intern globally so the section curve passes THROUGH them, in-plane edges count exactly once, segments store material-oriented (`cut.Normal × faceNormal`, endpoint order by exact `Compare`), and the chain walk closes outer-CCW / holes-CW loops with typed open rows — the V10b implicit sub-family (LPI-3D + projected `Orient2D` + `Compare` ordering) rides entirely inside the composed fold, and slice re-founds none of it. Coordinates round ONCE, at the intersect owner's `Polyline` emission; the slice wire carries exactly those canonical coordinates, and the nesting parity runs the exact predicate family OVER them — the signs are exact, the operands are the same values every decoder reads, so the forest is a deterministic function of the wire it ships with. An anchor landing exactly ON a candidate boundary (coincident contours) is a detected `Zero`, never an epsilon nudge: it routes the typed 2425 fault as the overlapping-contour witness.
-- [ADAPTIVE_LAYER_LAW] — the cusp-height bound is the geometric-error law of layered manufacture: a layer of height `h` crossing surface with build-direction cosine `|n·d|` leaves a stair-step cusp `c = h·|n·d|`, so the admissible height at elevation `z` is `h(z) = clamp(c / max|n·d|, hMin, hMax)` over the faces the layer window crosses — flat caps force fine layers, vertical walls admit coarse ones. `SliceFrame` bins the per-face slope once (`FrameBins` policy row), so every height law reads O(window) bins, never a per-layer face sweep; the `BySlope` table and the `SupportInterface` band law read the same frame facts. All five policies are height laws over ONE `March` integrator — the family widens by a case, and the Fabrication `[V6]` demand (all four named policies) lands as seed DATA, not four planner bodies.
-- [FOREST_WIRE] — nesting is a laminar family for disjoint simple section contours, so the even-odd containment DAG's transitive reduction is a forest (reduced in-degree ≤ 1) — `ComputeTransitiveReduction` derives it in one call from the parity edges, `IsDirectedAcyclicGraph` gates the laminar invariant, `AddVertexRange` keeps isolated outers as roots, and `InDegree`/`InEdge` project the parent channel; a violated invariant (cycle or multi-parent) is the rounding-collapsed-contour witness routed 2425. QuikGraph is in-computation only per the bounded-lane law — the RESULT is the five frozen SoA channels (`LayerPtr` · `ContourPtr`+`X`/`Y`/`Z` · `Parent`+`ChildPtr`/`Children` · `Open` · `Elevations`), the complete decoder schema: `Rasm.Fabrication` `Additive/slicing` binds it for toolpath ordering (outermost-first per layer via `RootsOf`/`Depth`), the `RASM-CS-COMPUTE [V12]`a circulation reads story contours through `LayerPlan.AtElevations` + `LayerAt`, and a per-layer plane-slab broad-phase prune stays the recorded growth row on `Spatial/index`, never a slice-local structure.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

@@ -1,25 +1,25 @@
 # [RASM_NUMERICS_INTEGRATE]
 
-The ODE/Runge-Kutta integration floor of `Rasm.Numerics` — pure numerics with zero geometric content. The page owns `IntegratorKind`, the nine-tableau data-driven integrator vocabulary (Euler through Dormand-Prince, fixed and embedded-adaptive); `ButcherTableau`, the coefficient carrier whose admission VALIDATES the Runge-Kutta order conditions numerically (row-sum consistency plus the moment conditions through order four) rather than asserting them; `DenseOutputCoefficientFamily`, the continuous-extension coefficient owner carrying the exact-rational Dormand-Prince/Shampine and Bogacki-Shampine interpolant tables with Horner evaluation, plus the generic least-squares moment-fit fallback solved through the `matrix.md` owners; `ButcherDenseOutput`, the dense-output receipt derivation proving endpoint, derivative, and moment residuals ONCE at integrator admission; and the stepper — `IntegrationModule<TState, TDelta>`, the additive-module policy record that makes ONE step function serve scalar, vector, and geometric state carriers, `StepControl`, the adaptive step-control policy row, `FieldIntegrator`, the Fixed/Adaptive union whose factories derive and carry the dense-output receipt so the moment-fit least-squares never runs inside the step loop, and whose generic `Step` computes the RK stages, applies the embedded-pair proportional error control, and mints a `DenseOutputSpan` for event localization.
+`Rasm.Numerics` integration is the ODE/Runge-Kutta floor — pure numerics, zero geometric content. Every Butcher tableau admits by VALIDATING its order conditions numerically rather than asserting them, so a mis-transcribed coefficient is a construction-time typed failure, never a silently wrong trajectory; one carrier-generic `Step` serves scalar, vector, and geometric state, and continuous dense output localizes events without re-tracing. Geometry enters only at the `Processing/flow` consumer that supplies the spatial module; this page never names a geometric type.
 
-The one `Combine(coefficients, deltas)` linear-combination fold lives on the module — the mature corpus carried it twice verbatim; both copies collapse here. Geometry enters only at the `Processing/flow` consumer, which supplies the spatial `IntegrationModule` instance over `Point3d`/`Vector3d` and folds accepted steps into streamline state; this page never names a geometric type.
+`IntegrationModule.Combine` is the corpus' single linear-combination site; `FieldIntegrator` factories derive each dense-output receipt once at admission so the moment-fit least-squares never runs inside the step loop, and the reject loop stays the `Processing/flow` consumer's fold while the stepper stays a pure step function. Dense continuous-extension fallback solves its moment fit through the `matrix.md` least-squares route (`Matrix`, `SolveReceipt`); every moment sum accumulates in 106-bit `ddouble`, keeping the fold's rounding far below the residual band it witnesses.
 
 ## [01]-[INDEX]
 
-- [02]-[TABLEAU_VOCABULARY]: `IntegratorKind` nine-row tableau vocabulary + `ButcherTableau` order-condition-validated coefficient carrier + `ButcherMomentReceipt`.
-- [03]-[DENSE_OUTPUT]: `DenseOutputCoefficientFamily` exact-rational interpolant tables + `DenseOutputReceipt` + `ButcherDenseOutput` moment-fit derivation via `matrix.md`.
-- [04]-[STEPPER]: `IntegrationModule<TState,TDelta>` additive-module policy (THE one `Combine` fold) + `StepControl` + `FieldIntegrator` Fixed/Adaptive union + `IntegrationStep<TState,TDelta>` + `DenseOutputSpan<TState,TDelta>`.
+- [02]-[TABLEAU_VOCABULARY]: `IntegratorKind` tableau rows and the order-condition-validated `ButcherTableau` carrier with `ButcherMomentReceipt`.
+- [03]-[DENSE_OUTPUT]: exact-rational interpolant families and the `ButcherDenseOutput` derivation, moment-fit fallback via the `matrix.md` least-squares route.
+- [04]-[STEPPER]: the carrier-generic `IntegrationModule` step algebra, `StepControl`, and the `FieldIntegrator` Fixed/Adaptive union.
 
 ## [02]-[TABLEAU_VOCABULARY]
 
-- Owner: `IntegratorKind` the `[SmartEnum<int>]` whose nine rows ARE the Butcher tableaux — coupling matrix, abscissae (derived as row sums at declaration), weights, and for embedded pairs the error weights and embedded order — constructed through the two private `Fixed`/`Adaptive` factories so a row is one declaration; `ButcherTableau` the coefficient carrier (`Coupling`/`Abscissae`/`Weights`/`EmbeddedWeights`/`MethodOrder`/`EmbeddedOrder`) whose `IsValid` runs the REAL order-condition mathematics: weights sum to one, each coupling row sums to its abscissa, the moment conditions `Σbᵢcᵢ = 1/2`, `Σbᵢcᵢ² = 1/3`, `Σbᵢcᵢ³ = 1/4`, `Σbᵢ(Ac)ᵢ = 1/6` hold through the declared order, and the embedded weights independently satisfy their own order — a mis-transcribed coefficient is a construction-time typed failure, never a silently wrong trajectory; `ButcherMomentReceipt` the moment-validation evidence (checked/failed condition counts + max residual).
-- Cases: `Euler(1)` · `Heun(2)` · `Midpoint(2)` · `Ralston(2)` · `RK4(4)` · `RK38(4)` fixed; `BogackiShampine(3/2)` · `CashKarp(5/4)` · `DormandPrince(5/4)` adaptive (9).
-- Entry: `IntegratorKind.<Row>.Tableau` reads the validated carrier; `ButcherTableau.Admit(Op key)` gates a tableau onto the rail; `Tableau.MomentReceipt` re-derives the moment evidence on demand; `IsFunctionalSameAsLast` detects the FSAL structure (last stage equals the weight row) that fingerprints the method-specific dense-output families.
-- Auto: abscissae never enter as data — `Fixed`/`Adaptive` derive them as coupling row sums, so the consistency condition `cᵢ = Σaᵢⱼ` is true by construction and re-checked by `IsValid` as the transcription witness; `AdaptiveExponent` derives the step-control exponent `1/(q+1)` from the embedded order; the moment folds accumulate in 106-bit `ddouble` (`MomentSum`) so the fold's own rounding stays far below the tolerance band it witnesses.
-- Receipt: `ButcherMomentReceipt(StageCount, MethodOrder, EmbeddedOrder, CheckedConditionCount, FailedConditionCount, MaxResidual)` — on the rails `ValidityClaim.All` fold with the `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance` semantic gate.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Seq`, `Option`, `Fin`), TYoshimura.DoubleDouble (`ddouble` — the 106-bit accumulation `MomentSum` folds every order-condition and dense-output moment sum through).
-- Growth: a new integrator (Tsitouras 5(4), Verner 6(5)) is ONE `IntegratorKind` row — coupling, weights, error weights — with the order conditions validating the transcription automatically; a new order condition (order-5 moment rows) is one `Check` line in `MomentReceiptOf` tightening every row at once.
-- Boundary: `CoefficientTolerance = 1.0e-9` is the tableau's own documented order-condition residual band — exact-rational coefficients evaluate to residuals near machine epsilon, so the band catches transcription errors, not roundoff; tableau data lives ONLY on the vocabulary rows — a consumer never spells a coupling coefficient.
+- Owner: `IntegratorKind` mints the `[SmartEnum<int>]` whose rows ARE the Butcher tableaux, each a single declaration through the private `Fixed`/`Adaptive` factories; `ButcherTableau` carries the coefficients and its `IsValid` runs the real Runge-Kutta order-condition mathematics through order four rather than asserting it, so a mis-transcribed coefficient is a construction-time typed failure, never a silently wrong trajectory; `ButcherMomentReceipt` carries the moment-validation evidence.
+- Cases: `Euler` · `Heun` · `Midpoint` · `Ralston` · `RK4` · `RK38` fixed; `BogackiShampine` · `CashKarp` · `DormandPrince` embedded-adaptive.
+- Entry: `IntegratorKind.<Row>.Tableau` reads the validated carrier; `ButcherTableau.Admit` gates a tableau onto the rail; `IsFunctionalSameAsLast` detects the FSAL structure that fingerprints the method-specific dense-output families.
+- Auto: abscissae never enter as data — the factories derive them as coupling row sums, so the consistency condition holds by construction and `IsValid` re-checks it as the transcription witness; `AdaptiveExponent` derives the step-control exponent from the embedded order.
+- Receipt: `ButcherMomentReceipt` folds its validity through `ValidityClaim.All` under the semantic gate `FailedConditionCount == 0 && MaxResidual <= CoefficientTolerance`.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core (`Seq`, `Option`, `Fin`), TYoshimura.DoubleDouble (`ddouble` 106-bit moment accumulation).
+- Growth: a new integrator is ONE `IntegratorKind` row — the order conditions validate the transcription automatically; a new order condition is one `Check` line in `MomentReceiptOf`, tightening every row at once.
+- Boundary: `CoefficientTolerance` is the tableau's own order-condition residual band — exact-rational coefficients evaluate near machine epsilon, so the band catches transcription errors, not roundoff; tableau data lives ONLY on the vocabulary rows, and a consumer never spells a coupling coefficient.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -73,8 +73,7 @@ public sealed partial class IntegratorKind {
 public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<double> Abscissae, Seq<double> Weights, Option<Seq<double>> EmbeddedWeights, int MethodOrder, Option<int> EmbeddedOrder) {
     internal const double CoefficientTolerance = 1.0e-9;
     internal int StageCount => Weights.Count;
-    // FSAL fingerprint: last abscissa 1, last weight 0, last coupling row equal to the weight prefix —
-    // the structure the method-specific dense-output families key on.
+    // FSAL fingerprint — the structure the method-specific dense-output families key on.
     internal bool IsFunctionalSameAsLast =>
         StageCount > 1
         && Coupling.Count == StageCount
@@ -109,8 +108,7 @@ public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<doub
         state = Check(state: state, actual: MomentSum(weights: weights, against: Ac(coupling: Coupling, abscissae: Abscissae), power: 1), expected: 1.0 / 6.0, active: order >= 3);
         return new ButcherMomentReceipt(StageCount: StageCount, MethodOrder: order, EmbeddedOrder: embeddedOrder, CheckedConditionCount: state.Count, FailedConditionCount: state.Failed, MaxResidual: state.Max);
     }
-    // THE one moment fold — Σwᵢ·cᵢ^power in 106-bit ddouble; order-condition residuals sit at machine
-    // epsilon, so the fold's own rounding must stay far below the tolerance band it witnesses.
+    // THE one moment fold — Σwᵢ·cᵢ^power.
     internal static double MomentSum(Seq<double> weights, Seq<double> against, int power) =>
         (double)weights.Zip(against).Fold(initialState: (ddouble)0.0, f: (sum, pair) => sum + ((ddouble)pair.First * Math.Pow(x: pair.Second, y: power)));
     private static Seq<double> Ac(Seq<Seq<double>> coupling, Seq<double> abscissae) =>
@@ -135,14 +133,14 @@ public readonly record struct ButcherMomentReceipt(int StageCount, int MethodOrd
 
 ## [03]-[DENSE_OUTPUT]
 
-- Owner: `DenseOutputCoefficientFamily` the `[SmartEnum<int>]` continuous-extension owner — `DormandPrinceShampine` (dense order 4) and `BogackiShampine` (dense order 3) carry their published EXACT-RATIONAL interpolant coefficient tables as row data with an abscissae + FSAL fingerprint (`Identify` matches a tableau to its family, falling to `GenericMomentFit`); `WeightsAt`/`DerivativeAt` evaluate the polynomial rows by Horner and Horner-derivative; `ButcherDenseOutput` the derivation kernel — `Receipt` proves the interpolant ONCE per integrator admission (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient-consistency against the step weights), `WeightsAt` yields the stage weights of the continuous extension `b(θ)` for any θ ∈ [0,1], and the generic fallback solves the least-squares moment fit — a Vandermonde preimage (`MomentPreimage`) plus a moment-design least-squares correction (`Correction`) — through `Matrix.SolveDetailed`/`LeastSquaresDetailed`, so the interpolant construction itself leaves a `SolveReceipt` inside the dense-output evidence.
-- Cases: `GenericMomentFit` · `DormandPrinceShampine` · `BogackiShampine` (3).
-- Entry: consumers never reach the family directly — `tableau.DenseWeightsAt(theta, key)` and `tableau.DenseOutputReceipt(key)` are the two entries, with the family identified from the tableau fingerprint each time.
-- Auto: the generic route pins the endpoints exactly — `b(0) = 0`, `b(1) = weights` — and fits only the interior through the `θ(1−θ)`-scaled correction, so endpoint continuity is structural; `DenseOrderFor` caps the generic dense order by the count of distinct abscissae (the Vandermonde rank ceiling).
-- Receipt: `DenseOutputReceipt` — stage/order/dense-order + per-θ moment evidence + endpoint value/derivative residuals + coefficient residual + the identified family + the optional generic-fit `SolveReceipt` — on the rails `ValidityClaim.All` fold with the semantic gate coupling every residual to `CoefficientTolerance` and the family to its evidence shape (a method-specific family carries no correction solve; an aggregated generic receipt must carry its correction-solve evidence).
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, `matrix.md` owners (`Matrix`, `SolveReceipt`) — the moment fit is the first in-corpus consumer of the dense least-squares route.
-- Growth: a new published interpolant (Tsitouras dense output) is one family row — fingerprint, order, table; a tableau without a published interpolant costs nothing — the generic moment fit covers it at the Vandermonde-rank order.
-- Boundary: interpolant tables are exact rationals spelled as ratios (`-8048581381.0 / 2820520608.0`), never decimal approximations — the moment validation would flag the drift; dense output is the event-localization substrate `Processing/flow` binds for root bisection, and a consumer interpolating trajectories by chord instead of `b(θ)` re-derives a capability this owner already proves.
+- Owner: `DenseOutputCoefficientFamily` mints the `[SmartEnum<int>]` continuous-extension owner — `DormandPrinceShampine` and `BogackiShampine` carry their published EXACT-RATIONAL interpolant tables as row data, and `Identify` matches a tableau to its family by abscissae + FSAL fingerprint, falling to `GenericMomentFit`; `ButcherDenseOutput` proves the interpolant ONCE per integrator admission (moment residuals at θ ∈ {0, ½, 1}, endpoint value/derivative residuals, coefficient consistency against the step weights), and its generic fallback solves the least-squares moment fit through the `matrix.md` route so the interpolant construction leaves a `SolveReceipt` inside the dense-output evidence.
+- Cases: `GenericMomentFit` · `DormandPrinceShampine` · `BogackiShampine`.
+- Entry: consumers never reach the family directly — `tableau.DenseWeightsAt` and `tableau.DenseOutputReceipt` are the two entries, the family identified from the tableau fingerprint each call.
+- Auto: the generic route pins the endpoints exactly and fits only the interior through the `θ(1−θ)`-scaled correction, so endpoint continuity is structural; `DenseOrderFor` caps the generic dense order at the distinct-abscissa count, the Vandermonde rank ceiling.
+- Receipt: `DenseOutputReceipt` folds `ValidityClaim.All` coupling every residual to `CoefficientTolerance` and the family to its evidence shape — a method-specific family carries no correction solve, a generic receipt must carry its correction-solve `SolveReceipt`.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, `matrix.md` owners (`Matrix`, `SolveReceipt`).
+- Growth: a new published interpolant is one `DenseOutputCoefficientFamily` row — fingerprint, order, table; a tableau without a published interpolant costs nothing, the generic moment fit covering it at the Vandermonde-rank order.
+- Boundary: interpolant tables are exact rationals spelled as ratios, never decimal approximations — the moment validation flags the drift; dense output is the event-localization substrate `Processing/flow` binds for root bisection, and a consumer interpolating trajectories by chord instead of `b(θ)` re-derives a capability this owner already proves.
 
 ```csharp
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -252,8 +250,7 @@ internal static class ButcherDenseOutput {
             if (!distinct.Exists(active => Math.Abs(value: active - c) <= ButcherTableau.CoefficientTolerance)) distinct.Add(c);
         return distinct.Count;
     }
-    // Scratch per-theta carrier: Receipt aggregates only condition counts, max residual, and the
-    // correction solve from this; the surfaced receipt fills the endpoint slots from EndpointEvidence.
+    // Scratch per-theta carrier — Receipt aggregates only its condition counts, max residual, and correction solve; the endpoint slots fill from EndpointEvidence.
     private static Fin<DenseOutputReceipt> ReceiptAt(DenseOutputCoefficientFamily family, ButcherTableau tableau, int order, double theta, Op key) =>
         Weights(family: family, tableau: tableau, order: order, theta: theta, key: key).Bind(result => {
             Seq<double> weights = result.Values;
@@ -356,19 +353,17 @@ internal static class ButcherDenseOutput {
 
 ## [04]-[STEPPER]
 
-- Owner: `IntegrationModule<TState, TDelta>` the additive-module policy record — the four operations one Runge-Kutta step needs (`Add: (TState, h, TDelta) → TState`, `Scale: (double, TDelta) → TDelta`, `Sum: (TDelta, TDelta) → TDelta`, `Norm: TDelta → double`, plus the `Zero` delta) with `Combine(coefficients, deltas)` as THE one linear-combination fold in the corpus and the `Scalar` canonical instance for `double`/`double` state; `StepControl` the adaptive-control policy row (`SafetyFactor`/`MinScale`/`MaxScale`, `Default = (0.9, 0.2, 10.0)`) whose `Rescale` applies the proportional step law `h·clamp(safety·(tol/err)^(1/(q+1)))`; `FieldIntegrator` the `[Union]` Fixed/Adaptive integrator whose FACTORIES derive the [03] dense-output receipt once and carry it on the case — the moment-fit least-squares never runs inside the step loop — and whose generic `Step` computes the RK stages by folding the coupling rows through the derivative sampler, forms the primary (and for adaptive pairs the embedded) combination, applies the error control, and mints the dense-output span; `IntegrationStep<TState, TDelta>` the Accepted/Rejected step outcome union; `DenseOutputSpan<TState, TDelta>` the per-step continuous extension (`PointAt(θ)` through the dense weights) whose construction re-verifies the θ=1 weight combination against the tableau's declared weights.
-- Cases: `FieldIntegrator` `FixedCase(kind, dense)` · `AdaptiveCase(kind, tolerance, maxRejects, control, dense)` (2); `IntegrationStep` `AcceptedCase(next, suggestedStep, error, dense)` · `RejectedCase(suggestedStep, error)` (2).
-- Entry: `FieldIntegrator.Fixed(kind)` / `Adaptive(kind, tolerance, maxRejects = 3)` — admission re-validates the tableau, the kind/case agreement (a fixed integrator over an embedded kind or the reverse fails typed), and derives the carried `DenseOutputReceipt`; `Step(module, sample, state, h, key)` with `sample: Func<TState, Fin<TDelta>>` — the derivative field abstracted as a sampler, so the SAME stepper integrates a scalar ODE, a spatial streamline, or any admitted carrier; `AdmitOrFixed(value, key)` defaults an absent integrator to `Fixed(RK4)`.
-- Auto: stage computation is one fold over the coupling rows — each stage samples at `state + h·Combine(row, stages)`; the adaptive arm reads the error as `module.Norm(primary − secondary)` via the delta between combinations, rescales through `StepControl`, and returns `RejectedCase` with the shrunk suggestion instead of looping — the REJECT LOOP BELONGS TO THE CONSUMER's fold (`Processing/flow` owns the reject budget and iteration policy as state), so the stepper stays a pure step function.
-- Receipt: the dense span carries the [03] `DenseOutputReceipt`; step error and suggested step ride the outcome cases.
+- Owner: `IntegrationModule<TState, TDelta>` mints the additive-module policy record — the four operations one Runge-Kutta step needs and its `Zero` delta, carrying `Combine` as the corpus' single linear-combination fold and the `Scalar` canonical instance for `double` state; `StepControl` mints the adaptive-control policy row whose `Rescale` applies the proportional step law; `FieldIntegrator` mints the `[Union]` Fixed/Adaptive integrator whose factories derive the dense-output receipt once and carry it on the case, and whose generic `Step` folds the coupling rows into stages, forms the primary and embedded combinations, applies the error control, and mints the dense-output span; `IntegrationStep<TState, TDelta>` carries the Accepted/Rejected outcome; `DenseOutputSpan<TState, TDelta>` carries the per-step continuous extension, its construction re-verifying the θ=1 weight combination against the tableau's declared weights.
+- Cases: `FieldIntegrator` `FixedCase` · `AdaptiveCase`; `IntegrationStep` `AcceptedCase` · `RejectedCase`.
+- Entry: `FieldIntegrator.Fixed` and `Adaptive` admit — re-validating the tableau, enforcing kind/case agreement (a fixed integrator over an embedded kind, or the reverse, fails typed), and deriving the carried receipt; `Step` takes the derivative field as a `sample` function, so the one stepper integrates a scalar ODE, a spatial streamline, or any admitted carrier; `AdmitOrFixed` defaults an absent integrator to `Fixed(RK4)`.
+- Auto: stage computation is one fold over the coupling rows; the adaptive arm reads the error from the delta between the primary and embedded combinations, rescales through `StepControl`, and returns `RejectedCase` with the shrunk suggestion rather than looping.
+- Receipt: the dense span carries the `DenseOutputReceipt`; step error and suggested step ride the outcome cases.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core; zero geometry — `Rasm.Domain` `Op` only.
-- Growth: a new state carrier is one `IntegrationModule` instance at its consumer (the spatial `Point3d`/`Vector3d` module is `Processing/flow`'s one declaration); a new control law (PI with memory, Gustafsson) is one `StepControl` field set — the stepper body does not change.
-- Boundary: the mature corpus duplicated `Combine` verbatim in the stepper and the dense-output state and hard-wired both to `Vector3d` — the module collapse deletes both; the difference of two states never appears (only deltas subtract), so the module needs no `TState` subtraction — the error is measured between the two weight combinations BEFORE adding to the state, keeping the algebra minimal; `MaxRejects` is consumer policy carried on the Adaptive case, never a hidden kernel constant.
+- Growth: a new state carrier is one `IntegrationModule` instance at its consumer; a new control law (PI, Gustafsson) is one `StepControl` field set — the stepper body never changes.
+- Boundary: no state difference ever appears — only deltas subtract, so the module needs no `TState` subtraction, and the error is measured between the two weight combinations before adding to the state; `MaxRejects` is consumer policy carried on the `AdaptiveCase`, never a hidden kernel constant.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
-// The additive-module policy: one RK stepper serves every state carrier that supplies these four
-// operations. THE one Combine fold — the corpus' single linear-combination site.
 public sealed record IntegrationModule<TState, TDelta>(
     Func<TState, double, TDelta, TState> Add,      // state + h * delta
     Func<double, TDelta, TDelta> Scale,
@@ -402,10 +397,9 @@ public abstract partial record IntegrationStep<TState, TDelta> {
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DenseOutputSpan<TState, TDelta>(TState Start, TState End, double Step, Seq<TDelta> Stages, ButcherTableau Tableau, DenseOutputReceipt Receipt, IntegrationModule<TState, TDelta> Module) {
-    // The receipt arrives already derived (integrator admission); construction proves only the per-step
-    // facts: theta = 1 reproduces the declared weight combination within a SCALE-RELATIVE band on the
-    // MAX STAGE norm — drift is a coefficient-error combination of stages, so the stage magnitude is its
-    // true scale; an absolute gate fails large fields, a combined-norm gate fails near-cancelling ones.
+    // Receipt arrives already derived at admission; construction proves only the per-step fact — θ=1
+    // reproduces the declared weights within a SCALE-RELATIVE band on the max stage norm, drift being a
+    // coefficient-error combination of the stages: an absolute gate fails large fields, a combined-norm gate near-cancelling ones.
     internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, TState end, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseOutputReceipt receipt, Op key) =>
         tableau.DenseWeightsAt(theta: 1.0, key: key).Bind(weights => {
             TDelta reconstructed = module.Combine(coefficients: weights, deltas: stages);
@@ -438,8 +432,6 @@ public abstract partial record FieldIntegrator {
         public DenseOutputReceipt Dense { get; }
     }
     private FieldIntegrator() { }
-    // Admission derives the dense-output receipt ONCE and carries it on the case; the step loop
-    // reuses proved evidence instead of re-running the moment-fit least-squares per step.
     public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
@@ -483,8 +475,6 @@ public abstract partial record FieldIntegrator {
         Optional(value).ToFin(key.InvalidInput()).Bind(integrator => integrator.Admit(key: key));
     public static Fin<FieldIntegrator> AdmitOrFixed(FieldIntegrator? value, Op key) =>
         value is null ? Fixed(kind: IntegratorKind.RK4, key: key) : Admit(value: value, key: key);
-    // One generic step: stage fold -> combination(s) -> error control -> dense span. The reject loop
-    // is the CONSUMER's fold (Processing/flow owns budget and iteration state); this stays a pure step.
     public Fin<IntegrationStep<TState, TDelta>> Step<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, TState state, double h, Op key) => Switch(
         state: (Module: module, Sample: sample, State: state, H: h, Key: key),
         fixedCase: static (s, c) =>
@@ -515,7 +505,7 @@ public abstract partial record FieldIntegrator {
 
 ## [05]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. The `[OWNER]` cell names the canonical carrier; sibling carriers and the per-axis kind ride the indexed notes below.
+One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. Each `[OWNER]` cell names the canonical carrier; sibling carriers and the per-axis kind ride the indexed notes below.
 
 | [INDEX] | [AXIS_CONCERN]       | [OWNER]                            | [CASES] |
 | :-----: | :------------------- | :--------------------------------- | :-----: |

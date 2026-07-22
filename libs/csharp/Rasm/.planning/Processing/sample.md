@@ -1,32 +1,32 @@
 # [RASM_VECTORS_SAMPLE]
 
-Point sampling uses ONE `SampleKind` `[Union]` whose closed cases share ONE `SampleKernel.Sample` dispatch over the `extract.md` `ExtractionDomain`. Grouped `CapacityPolicy`, `MotionPolicy`, `ArmijoPolicy`, and `RegularityPolicy` values collapse the former flat `PowerCcvt` constructor under `PowerCcvtPolicy.Default`; one `with` mutation admits advanced overrides. Construction admits once through case factories, and the interior is total over admitted kinds.
+`SampleKind` owns point sampling: every draw is one closed `[Union]` case admitted at its factory, and `SampleKernel.Sample` folds all cases through one domain dispatch total over admitted kinds. Grouped `PowerCcvtPolicy.Default` presets the BNOT tuning surface one `with` mutation overrides.
 
-`PowerCcvtRun` composes `RestrictedPowerDiagram` and `SparseMatrix.SingularSolveDetailed`; `PowerCcvtGauge` selects the item-owned constant-nullspace gauge. Both convergence loops use `Schedule.recurs`-driven `RepeatWhile` over an `Atom`, with `Converged | StoppedWithoutConvergence` typed terminals. Deterministic draws derive from `Deterministic.OrderKey` and `Deterministic.UnitInterval`. ONE `Spacing` fold computes `√(2·measure/(√3·n))` for stopping scale, Lloyd fallback, and normalized Poisson radius. Mesh blue-noise evidence composes `SegmentKernel.ValidateSamplingSpectrum`, and every receipt uses ONE `ValidityClaim.All` fold. `Op` stays explicit end to end.
+A rebuild composes settled owners: `extract.md` `ExtractionDomain` carries the domain axis, `intent.md` the consumer rail, `evaluation.md` `SamplePoints` the support-space candidate draw, `matrix.md` `SparseMatrix.SingularSolveDetailed` the gauge-fixed solve, `segment.md` `SegmentKernel.ValidateSamplingSpectrum` the blue-noise witness, and `mesh.md` `RestrictedPowerDiagram` the restricted power cells this page reads one-directionally.
 
 ## [01]-[INDEX]
 
-- [02]-[SAMPLING]: `SampleKind` union and factories; algorithm, stop, and status vocabularies; `SampleKernel` domain dispatch; support, mesh, and cloud candidate projection; Bridson, farthest, FPO, Lloyd, capacity, priority-density, Yuksel, and Dwork arms; ONE `Spacing` fold; `SampleReceipt` and `SampleAlgorithmReceipt` evidence.
-- [03]-[POWER_CCVT]: the grouped `PowerCcvtPolicy` family; `PowerCcvtGauge` gauge selection over `matrix.md` `GaugePolicy`; `PowerCcvtRun` — capacity Newton (7a) + two-phase site motion (7b) + regularity break + surface lift; `PowerCellFragmentFacts`/`PowerCcvtReceipt` witnesses.
+- [02]-[SAMPLING]: `SampleKind` mints the draw vocabulary `SampleKernel` folds onto every extraction domain.
+- [03]-[POWER_CCVT]: `PowerCcvtRun` solves the continuous BNOT sampler under one grouped policy value.
 
 ## [02]-[SAMPLING]
 
-- Owner: `SampleKind` `[Union]` — `Explicit(Seq<Point3d>)` · `PoissonDisk(PositiveMagnitude Radius, Dimension Attempts, int Seed)` · `Farthest(Dimension)` · `Optimize(Dimension, Dimension)` · `Lloyd(Dimension, Dimension)` · `Capacity(Dimension Count, Dimension Limit, Dimension Iterations, PositiveMagnitude Tolerance)` · `Weighted(Seq<(Point3d, double)>)` · `ScalarDensity(ScalarField, Dimension)` · `Adaptive(ScalarField, Dimension, PositiveMagnitude MinSpacing)` · `SampleElimination(Dimension Count, Dimension OversampleFactor, PositiveMagnitude Alpha, PositiveMagnitude Beta, PositiveMagnitude Gamma, int Seed)` · `DworkVariableDensity(ScalarField Radius, Dimension Count, PositiveMagnitude MinRadius, Dimension Attempts, int Seed)` · `PowerCcvt(Dimension Count, PowerCcvtPolicy Policy)`; the vocabularies `SampleAlgorithmKind`, `SampleStopKind` (`Completed`/`CapacityLimited`/`AllRejected`/`CandidateExhausted`), `SampleDomainStatus` (`Projected`/`CandidateAccepted`/`CandidateRejected`), `DworkSamplingDomain` (`ContinuousMesh`/`CandidateSet`).
-- Entry: one factory per case admits raw scalars through `Op.AcceptValidated<Dimension|PositiveMagnitude>` and the case's `Admit` invariants (Yuksel `OversampleFactor > 1 ∧ Beta ≤ 1`; weighted mass through `CloudKernel.MassOf`; density fields non-null); evaluation is `SampleKind.Project<TOut>(ExtractionDomain, Context, Op?)` reached through the `intent.md` rail — `TOut` discriminates `Seq<Point3d>` / `VectorCloud` (weighted cluster when mass survives) / `SampleReceipt` through `AtomProjection.Rows` typed rows.
-- Auto: `SampleKernel.Sample` discriminates by domain shape — explicit/weighted points PROJECT onto the domain (closest support hit, `ClosestMeshPoint` within `Context.Absolute`, cluster-vertex coincidence); generated kinds on a support space draw candidates through `Domain/evaluation.md`'s geometry-extension `SamplePoints` oversampled by the kind's candidate scale (the algorithm row's default; `Adaptive` carries its own denser case-owned pool), then RUN the candidate suite over them (the retired file's silent projection-passthrough for density kinds is dead; `PoissonDisk` and `PowerCcvt` stay typed `Unsupported` off a support space); mesh domains generate surface candidates through the page-owned `SurfaceCandidatePoints` lattice at the kind's `MeshCandidateDensity` (area-derived, `PoissonDisk` from `radius²`), then run the candidate suite and witness the result through `SegmentKernel.ValidateSamplingSpectrum`; cloud domains sample the cluster's own vertices with `CloudKernel.MassOf` mass carried through. Candidate arms cover Bridson, farthest-point, FPO, Lloyd, capacity-limited Lloyd, weighted-priority density, Yuksel elimination, and Dwork variable density through the same receipt rail.
-- Receipt: `SampleReceipt` — attempted/emitted/rejected, candidate count, min/mean/max pairwise spacing, density error (`|emitted−target|/target` for density-driven kinds), density accepted/rejected, iterations, `SampleStopKind`, `SampleDomainStatus`, and the nested `SampleAlgorithmReceipt` carrying per-algorithm facts (seed, target, oversample, α/β/γ, radii, eliminations, neighbor updates, coverage/capacity/transport/spectrum validation flags, and the `DworkReceipt`/`PowerCcvtReceipt`/`MeshSamplingSpectrumReceipt` children) — one algorithm-evidence stream, never parallel receipt types per algorithm.
-- Packages: `Rasm`/Domain (`Op`/`Context`/`Admit`/`Deterministic.OrderKey`/`Deterministic.UnitInterval`/the `evaluation.md` geometry-extension `SamplePoints`/`ValidityClaim`), `Rasm`/Numerics (`Dimension`/`PositiveMagnitude`/`AtomProjection`/`ProjectionRow`), `Rasm`/Spatial (`VectorCloud`/`CloudKernel.MassOf`/`ScalarField`; `NeighborIndex.Of` + `NeighborSource` + `NeighborKernel.GraphOf` — the Lloyd assignment and ranked unique re-snap spine), `Rasm`/Meshing (`MeshSpace`/`MeshKernel.RestrictedPowerCells` + the `RestrictedPowerDiagram`/`PowerCell`/`PowerFacet` carriers), `Rasm`/Processing (`ExtractionDomain` ingress, `SegmentKernel.ValidateSamplingSpectrum`), LanguageExt.Core (`Fin`/`Seq`/`Arr`/`Option`/`Atom`/`IO`/`Schedule`), Thinktecture.Runtime.Extensions, RhinoCommon (`Point3d`/`Mesh.ClosestMeshPoint`/`Mesh.NormalAt`/`AreaMassProperties`/`Plane.FitPlaneToPoints`/`BoundingBox` — boundary-admitted).
-- Growth: a new sampling algorithm is one `SampleKind` case + one `SampleAlgorithmKind` row + one suite arm (the union `Switch` breaks loudly); a new per-algorithm fact is one `SampleAlgorithmReceipt` field; a new candidate domain is one `ExtractionDomain` case ripening here as one dispatch arm — never a sibling sampler class.
-- Boundary: the suite kernels (Bridson conflict scan, Dwork shell walk, Yuksel weight heap, FPO swap loop) are named statement-kernel exemptions — hot spatial loops with typed-receipt egress; every draw threads `Determinism` so identical seeds replay identical distributions; Dwork mesh frames compose `ClosestMeshPoint` and `Mesh.NormalAt` over one hit, and missing or invalid hit evidence rejects the candidate through its existing `Option` rail; hexagonal reference spacing, stopping scales, and local radii are scale-derived (`Spacing` fold over the domain measure), never absolute literals; a kind whose candidate demand the domain cannot meet terminates `CandidateExhausted` with the shortfall on the receipt — capability is never silently degraded.
+- Owner: `SampleKind` `[Union]` mints every draw case, and each discriminating axis rides its own closed typed vocabulary.
+- Entry: each case factory admits raw scalars through `Op.AcceptValidated` under the case's own `Admit` invariants; `Project<TOut>` is the one evaluation entry, `TOut` selecting the output shape.
+- Auto: `SampleKernel.Sample` discriminates on domain shape alone — supplied points project, generated kinds draw an oversampled candidate pool the selection suite reduces — and a kind whose candidates a domain cannot supply stays typed `Unsupported`.
+- Receipt: `SampleReceipt` nests `SampleAlgorithmReceipt`, so every algorithm's facts ride one evidence stream, never a parallel receipt type per algorithm.
+- Packages: RhinoCommon is the one boundary-admitted host surface; every other member composes the `Rasm` substrate.
+- Growth: a new algorithm is one `SampleKind` case, one `SampleAlgorithmKind` row, and one suite arm the total `Switch` breaks on; a new per-algorithm fact is one `SampleAlgorithmReceipt` field; a new candidate domain ripens one `ExtractionDomain` case into a dispatch arm.
+- Boundary: the candidate-suite kernels are the named statement-kernel exemption — hot spatial loops with typed-receipt egress; every draw threads `Determinism`, so identical seeds replay identical distributions; the `Spacing` fold derives every reference scale from the domain measure, never an absolute literal; a candidate shortfall terminates `CandidateExhausted` carrying the count on the receipt.
 
 ## [03]-[POWER_CCVT]
 
-- Owner: `PowerCcvtPolicy(Dimension Iterations, PositiveMagnitude Tolerance, Option<ScalarField> Density, CapacityPolicy Capacity, MotionPolicy Motion, ArmijoPolicy Search, RegularityPolicy Regularity, PowerCcvtGauge Gauge, int Seed)` with nested `CapacityPolicy(ResidualTol, NewtonFloor, MaxNewton)`, `MotionPolicy(LloydSweeps, GradientSteps, LloydPosTol, GradPosTol)`, `ArmijoPolicy(C1, Backtrack, InitialStep, MaxHalvings)` (shared verbatim by the dual-Newton ascent and the site-motion gradient ascent — one line-search policy, two consumers), `RegularityPolicy(AliasScale, JitterVariance, MagnitudeScale, RelocateFraction)`; `PowerCcvtGauge` (`ZeroMean`/`PinIndexZero`) whose `Policy(fragmentMasses)` column mints the `matrix.md` `GaugePolicy` row — the Hessian nullspace fix is the item's own behavior; `PowerCcvtStopKind` (`Converged`/`StoppedWithoutConvergence`).
-- Entry: `SampleKind.PowerCcvt(int count, Option<PowerCcvtPolicy> policy = default, Op? key = null)` — the preset is `PowerCcvtPolicy.Default`; the ONE advanced override is `PowerCcvtPolicy.Default with { … }` admitted through `policy.Admit` (backtrack < 1, C1 < 1, relocate ≤ 1, positive budgets); loose knobs collapse to one composed value.
-- Auto: `PowerCcvtRun` executes de Goes 2012 BNOT on the mesh: fit the canonical plane (`Plane.FitPlaneToPoints`, deviation witnessed as `PlanarityDeviation`), draw `n` density-importance sites (exponential-clock reservoir over the density field, farthest-point fallback for constant density), then iterate — (7a) ENFORCE-CAPACITY: rebuild the `RestrictedPowerDiagram` at live sites/weights, assemble the density-weighted power-graph Laplacian from facet lengths (`w_ij = l_ij/(2|p_i−p_j|)`, symmetric scatter + matched diagonal + scale-derived Tikhonov), solve `L·δ = g` (`g_i = m*−m_i`, `Σg_i = 0`) through `SingularSolveDetailed` under the selected gauge, Armijo-ASCEND the monotone dual objective `Φ = Σᵢ TransportCostᵢ + Σᵢ wᵢ(m*−mᵢ)`, converging on the scale-relative capacity residual; (7b) two-phase site motion: Lloyd sweeps `qᵢ ← bᵢ` (empty Aurenhammer-dominated cells hold their seat) then Armijo-INCREASE transport-energy gradient ascent along `+2mᵢ(bᵢ−qᵢ)` — a sufficient-DECREASE test stalls the concave maximization at iteration one; the joint stop is `displacement ≤ LloydPosTol·meanSpacing ∧ ‖∇q‖ ≤ GradPosTol·meanSpacing` with `meanSpacing` from the ONE `Spacing` fold. Both loops are `Atom` + `IO.lift` + `RepeatWhile(Schedule.recurs(budget))`. Terminal: break lattice regularity ONCE (alias radius `AliasScale·meanSpacing`; Box-Muller jitter and relocation offsets deterministic in seed via `Deterministic.UnitInterval`), lift sites to the surface by `ClosestMeshPoint` (a missed projection holds the in-plane site), and populate the receipt.
-- Receipt: `PowerCellFragmentFacts` (site/fragment/facet/empty-cell counts, total/min/max mass, integration residual) + `PowerCcvtReceipt` (target mass, ∞/L1/L2/normalized capacity residuals, outer/Lloyd/gradient/Newton iteration counts, weight extrema and mean, transport energy + delta, dual objective, centroid shift, position/weight gradient norms, halvings/rebuilds/aliased/jittered/relocated counts, normalized Poisson radius, planarity deviation, gauge, stop, fragment facts, the composed `SolveReceipt` dual-solve witness, and the `MeshSamplingSpectrumReceipt` surfaced INTO the receipt — one fact stream, no parallel spectrum field); `MeanZeroGaugeApplied` cross-checks the gauge against the solve's `GaugeShift` evidence.
-- Growth: a new gauge is one `PowerCcvtGauge` row minting its `GaugePolicy`; a new motion schedule or line-search variant is one policy record field on the SAME run; a density-transport variant (Lloyd energy vs. capacity weighting) is a `MotionPolicy` column — never a second solver class.
-- Boundary: the per-iteration diagram rebuild, triplet assembly, and Armijo searches are the named statement-kernel exemption; the OUTER schedules are domain flow; `d_ij` offsets are recomputed from live dual weights inside the diagram build, never trusted from stale facets; the transport energy reads the site-anchored cell integrals directly — a parallel-axis correction double-counts; the solver never reuses the discrete Sinkhorn/capacity-Lloyd machinery (continuous OT is a different estimator) and the diagram build never re-enters this page (the `mesh.md` coupling is one-directional).
+- Owner: `PowerCcvtPolicy` composes every BNOT tuning axis into one nested policy value whose single `ArmijoPolicy` line search serves both the dual-Newton and the site-motion ascent; `PowerCcvtGauge` mints the `matrix.md` `GaugePolicy` row and owns the Hessian nullspace fix.
+- Entry: `SampleKind.PowerCcvt` presets `PowerCcvtPolicy.Default`; `Default with { … }` re-admitted through `policy.Admit` is the whole override surface.
+- Auto: `PowerCcvtRun` executes BNOT on the mesh — capacity Newton enforces cell mass through the power-graph Laplacian under the selected gauge, then two-phase site motion runs Lloyd sweeps into Armijo transport-energy ascent, both loops stopping on scale-relative tolerances; its terminal breaks lattice regularity once and lifts every site to the surface.
+- Receipt: `PowerCcvtReceipt` folds the run's evidence with its `PowerCellFragmentFacts` and composed solve children into one stream, and `MeanZeroGaugeApplied` cross-checks the applied gauge against the solve's `GaugeShift`.
+- Growth: a new gauge is one `PowerCcvtGauge` row minting its `GaugePolicy`; a new motion schedule or line-search variant is one policy-record field on the same run; a density-transport variant is a `MotionPolicy` column.
+- Boundary: the per-iteration diagram rebuild, triplet assembly, and Armijo searches are the named statement-kernel exemption while the outer schedules stay domain flow; continuous BNOT transport is its own estimator, distinct from the `transport.md` discrete Sinkhorn plan.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -56,9 +56,7 @@ public sealed partial class DworkSamplingDomain {
     public static readonly DworkSamplingDomain CandidateSet = new(key: 1);
 }
 
-// CandidateScale: candidate-pool oversampling multiplier (support draws and mesh lattices); DensityDriven:
-// emits a density-error witness. Selection kinds NEED a strict oversample — a pool equal to the request
-// degenerates farthest selection to the identity and fixes Lloyd at iteration zero.
+// Selection kinds NEED a strict oversample: a pool equal to the request degenerates farthest to the identity and fixes Lloyd at iteration zero.
 [SmartEnum<int>]
 public sealed partial class SampleAlgorithmKind {
     public static readonly SampleAlgorithmKind Explicit = new(key: 0, candidateScale: 0.0, densityDriven: false);
@@ -92,8 +90,7 @@ public sealed partial class SampleStopKind {
     public static readonly SampleStopKind CandidateExhausted = new(key: 3);
 }
 
-// BNOT dual-weight gauge selector. The ENFORCE-CAPACITY Hessian is the density-weighted power-graph
-// Laplacian whose nullspace is the constant vector; the row mints the matrix.md GaugePolicy — never a parallel solve.
+// Capacity Hessian is the power-graph Laplacian, singular on the constant vector — hence one gauge row per dual-weight fix.
 [SmartEnum<int>]
 public sealed partial class PowerCcvtGauge {
     public static readonly PowerCcvtGauge ZeroMean = new(key: 0);
@@ -183,7 +180,6 @@ public abstract partial record SampleKind {
                from admitted in new DworkVariableDensityCase(Radius: radius, Count: c, MinRadius: min, Attempts: a, Seed: seed).Admit(key: op)
                select admitted;
     }
-    // Preset + one advanced override: PowerCcvtPolicy.Default `with { … }` is the whole tuning surface.
     public static Fin<SampleKind> PowerCcvt(int count, Option<PowerCcvtPolicy> policy = default, Op? key = null) {
         Op op = key.OrDefault();
         return from c in op.AcceptValidated<Dimension>(candidate: count)
@@ -192,8 +188,7 @@ public abstract partial record SampleKind {
                select admitted;
     }
 
-    // Generated total Switch: a new case breaks this member at compile time — the loud-break growth law.
-    // Op.Need is the null gate here: the Admit member name shadows the Rasm.Domain.Admit class inside this type.
+    // Op.Need is the null gate: the Admit member shadows the Rasm.Domain.Admit class inside this type.
     internal Fin<SampleKind> Admit(Op key) => Switch(
         state: key,
         explicitCase: static (op, c) => c.Points.IsEmpty ? Fin.Fail<SampleKind>(op.InvalidInput()) : Fin.Succ<SampleKind>(c),
@@ -215,11 +210,8 @@ public abstract partial record SampleKind {
 
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
         Admit(key: key).Bind(kind => SampleKernel.Sample(kind: kind, domain: domain, context: context, key: key));
-    // Adaptive's per-sample local radius rejects harder than plain density draws; its pool is case-owned,
-    // never borrowed from another algorithm row.
+    // Adaptive's per-sample local radius rejects harder than plain density draws, so its pool is case-owned.
     private const double AdaptiveCandidateScale = 12.0;
-    // One derived projection: per-case target/iteration/scale facts read off the payload + the algorithm row.
-    // Generated total Switch — a new case cannot silently mis-report; it breaks here at compile time.
     internal (Option<int> Count, Option<int> Iterations, double CandidateScale, SampleAlgorithmKind Algorithm) Facts => Switch(
         explicitCase: static _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.Explicit),
         poissonDiskCase: static _ => (Option<int>.None, Option<int>.None, 0.0, SampleAlgorithmKind.BridsonActiveListPoisson),
@@ -237,7 +229,7 @@ public abstract partial record SampleKind {
         Facts is { Algorithm.DensityDriven: true, Count: Option<int> count }
             ? count.Map(value => Math.Abs(value: emitted - value) / Math.Max(1.0, value))
             : Option<double>.None;
-    // Explicit/weighted kinds PROJECT and never reach this lattice density; only generated kinds dispatch here.
+    // Only generated kinds reach this lattice density; supplied points project instead.
     internal Fin<double> MeshCandidateDensity(double area, Op key) {
         double safeArea = Math.Max(val1: area, val2: double.Epsilon);
         double target = this switch {
@@ -273,7 +265,6 @@ public sealed record MotionPolicy(Dimension LloydSweeps, Dimension GradientSteps
 public sealed record ArmijoPolicy(PositiveMagnitude C1, PositiveMagnitude Backtrack, PositiveMagnitude InitialStep, Dimension MaxHalvings);
 public sealed record RegularityPolicy(PositiveMagnitude AliasScale, PositiveMagnitude JitterVariance, PositiveMagnitude MagnitudeScale, PositiveMagnitude RelocateFraction);
 
-// PowerCcvtPolicy groups BNOT tuning; Default is canonical, and `Default with { … }` is the advanced override.
 public sealed record PowerCcvtPolicy(
     Dimension Iterations, PositiveMagnitude Tolerance, Option<ScalarField> Density,
     CapacityPolicy Capacity, MotionPolicy Motion, ArmijoPolicy Search, RegularityPolicy Regularity,
@@ -292,7 +283,6 @@ public sealed record PowerCcvtPolicy(
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------------
-// Each receipt uses ONE ValidityClaim.All fold; receipt-local rows own cross-field claims.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DworkReceipt(
     DworkSamplingDomain Domain, double RMin, Option<double> BackgroundCellSize, Option<int> BackgroundGridCells,
@@ -308,7 +298,6 @@ public readonly record struct DworkReceipt(
         ValidityClaim.CountAtLeast(RejectedDomain, 0), ValidityClaim.Ordered(LocalRadiusMin, LocalRadiusMax));
 }
 
-// Restricted-power-cell fragment evidence the BNOT outer schedule rebuilds each iteration.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PowerCellFragmentFacts(
     int SiteCount, int FragmentCount, int FacetCount, int EmptyCellCount,
@@ -320,8 +309,6 @@ public readonly record struct PowerCellFragmentFacts(
         ValidityClaim.Ordered(MassMin, MassMax), ValidityClaim.Nonnegative(IntegrationResidual));
 }
 
-// BNOT witness: the capacity Newton populates the dual/weight/residual fields; the two-phase outer loop
-// populates motion/rebuild/regularity fields; the spectrum child is surfaced INTO this receipt (one stream).
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PowerCcvtReceipt(
     int SiteCount, double TargetMass, double ActualMassMin, double ActualMassMax,
@@ -353,8 +340,6 @@ public readonly record struct PowerCcvtReceipt(
         ValidityClaim.Evidence(DualSolve), ValidityClaim.Evidence(Spectrum));
 }
 
-// Every non-Kind slot defaults so call sites name only the facts their algorithm states — the former
-// 30-parameter forwarding helper is the deleted thin-indirection form.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SampleAlgorithmReceipt(
     SampleAlgorithmKind Kind, Option<int> Seed = default, Option<int> TargetCount = default, Option<int> OversampleCount = default, Option<int> OversampleFactor = default,
@@ -402,8 +387,6 @@ internal readonly record struct SampleCandidate(Point3d Point, Option<double> Ma
 internal readonly record struct SampleResult(Seq<Point3d> Points, Option<Arr<double>> Mass, SampleReceipt Receipt);
 internal readonly record struct SampleSelection(Point3d[] Points, Option<Arr<double>> Mass, Option<int> DensityAccepted, Option<int> DensityRejected, Option<SampleAlgorithmReceipt> Algorithm);
 
-// THE one spacing owner: hexagonal-packing reference, mean-nearest-neighbour scale, and normalized
-// Poisson radius all read Hexagonal — the three former recomputation sites are dead.
 internal static class Spacing {
     internal static double Hexagonal(double measure, int count) =>
         Math.Sqrt(d: 2.0 * measure / (Math.Sqrt(d: 3.0) * Math.Max(val1: 1, val2: count)));
@@ -448,8 +431,7 @@ internal static class SampleKernel {
                     : Fin.Fail<SampleResult>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(SampleResult)))),
         };
 
-    // Explicit/weighted points PROJECT onto the domain: support closest hit, mesh closest point within
-    // Context.Absolute, or cluster-vertex coincidence — never accepted raw.
+    // Supplied points project onto the domain, never accepted raw.
     private static Fin<SampleResult> SampleAdmitted(Seq<SampleCandidate> points, ExtractionDomain domain, SampleAlgorithmKind algorithm, Context context, Op key) =>
         from admitted in points.Fold(
             initialState: Fin.Succ((Accepted: (Seq<Point3d>)[], Mass: (Seq<double>)[], Weighted: false, Rejected: 0)),
@@ -478,7 +460,6 @@ internal static class SampleKernel {
                     .ToFin(state.Key.InvalidInput())
                 : Fin.Fail<Point3d>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(Point3d)))));
 
-    // Generated kinds on a support space: candidates via the Domain/evaluation.md sampler at CandidateScale.
     private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
         kind.Facts.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))).Bind(count =>
             from points in space.Value.SamplePoints(count: (int)Math.Ceiling(a: count * Math.Max(1.0, kind.Facts.CandidateScale)), context: context, key: key)
@@ -508,8 +489,6 @@ internal static class SampleKernel {
             select validated);
     }
 
-    // Mesh-boundary candidate lattice: per-triangle interior barycentric grid at area-proportional density.
-    // Sole consumer is this kernel; a second mesh candidate generator is the deleted parallel-rail form.
     private static Fin<Seq<Point3d>> SurfaceCandidatePoints(MeshSpace space, double density, Op key) {
         if (!double.IsFinite(density) || density <= 0.0) return Fin.Fail<Seq<Point3d>>(key.InvalidInput());
         List<Point3d> samples = [];
@@ -536,7 +515,6 @@ internal static class SampleKernel {
             : Fin.Fail<Seq<Point3d>>(key.InvalidResult());
     }
 
-    // de Goes BNOT: canonical plane fit + density-importance site draw feed the PowerCcvtRun two-phase solver.
     private static Fin<SampleResult> PowerCcvtMeshSolve(MeshSpace domain, SampleKind.PowerCcvtCase kind, Context context, Op key) {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return Optional(props).Map(static p => p.Area).Filter(static area => double.IsFinite(area) && area > 0.0).ToFin(key.InvalidResult()).Bind(meshArea =>
@@ -553,7 +531,7 @@ internal static class SampleKernel {
             (PlaneFitResult.Success, { IsValid: true } valid) => key.AcceptValue(value: valid).Bind(p => key.AcceptValue(value: deviation).Map(d => (Plane: p, Deviation: d))),
             _ => Fin.Fail<(Plane Plane, double Deviation)>(error: key.InvalidResult()),
         };
-    // Exponential-clock weighted reservoir (deterministic in seed); constant density falls to farthest coverage.
+    // Exponential-clock weighted reservoir; constant density falls to farthest coverage.
     private static Seq<Point3d> DensityImportanceSites(Seq<Point3d> candidates, int count, Option<ScalarField> density, Context context, int seed, Op key) =>
         density.Match(
             Some: field => toSeq(Enumerable.Range(start: 0, count: candidates.Count)
@@ -571,8 +549,6 @@ internal static class SampleKernel {
                 PowerCcvt = Some(pair.Ccvt with { Spectrum = pair.Algorithm.Spectrum }) }) } },
             None: () => result);
 
-    // BNOT uses a two-phase driver. Inner statement kernels (diagram rebuild, triplet assembly, Armijo searches)
-    // are the named exemption; both convergence schedules are Atom + RepeatWhile with typed terminals.
     private sealed class PowerCcvtRun(MeshSpace domain, Dimension count, PowerCcvtPolicy policy, Seq<Point3d> sites, double totalMass, double planarityDeviation, Context context, Op key) {
         private readonly int siteCount = sites.Count;
         private readonly double targetMass = totalMass / Math.Max(val1: 1, val2: sites.Count);
@@ -591,7 +567,6 @@ internal static class SampleKernel {
                 .Run();
             return cell.Value.Fault.Match(Some: Fin.Fail<OuterState>, None: () => Fin.Succ(cell.Value));
         }
-        // Two-phase site step (Lloyd then gradient ascent) off the capacity-converged diagram, then re-ENFORCE.
         private OuterState OuterStep(OuterState state) {
             SiteMotion motion = TwoPhaseSiteMotion(currentSites: state.Sites, capacity: state.Capacity);
             double meanSpacing = Spacing.MeanNearest(points: motion.Sites, measure: totalMass);
@@ -616,7 +591,7 @@ internal static class SampleKernel {
                 Displacement: PairwiseShift(from: currentSites, to: gradientSites),
                 PositionGradientNorm: Math.Sqrt(d: AscentDirection(sitesAt: gradientSites, diagram: gradientDiagram).Sum(static d => d.SquareLength)));
         }
-        // Lloyd q_i <- b_i; a rebuild failure freezes the last admissible partition rather than failing the rail.
+        // A rebuild failure freezes the last admissible partition rather than failing the rail.
         private (Seq<Point3d> Sites, int Sweeps, RestrictedPowerDiagram Diagram) LloydPhase(Seq<Point3d> currentSites, RestrictedPowerDiagram diagram, Arr<double> weights) =>
             toSeq(Enumerable.Range(start: 0, count: policy.Motion.LloydSweeps.Value)).Fold(
                 initialState: (Sites: currentSites, Sweeps: 0, Diagram: diagram),
@@ -628,7 +603,7 @@ internal static class SampleKernel {
                         Succ: rebuilt => (Sites: moved, Sweeps: state.Sweeps + 1, Diagram: rebuilt),
                         Fail: _ => state);
                 });
-        // Armijo-INCREASE gradient ascent on -E along +2 m_i (b_i - q_i); sufficient-decrease would stall at step 1.
+        // Ascent on -E: a sufficient-decrease test stalls this concave maximization at step one.
         private (Seq<Point3d> Sites, int Steps, int Halvings, RestrictedPowerDiagram Diagram) GradientPhase(Seq<Point3d> currentSites, RestrictedPowerDiagram diagram, Arr<double> weights) =>
             toSeq(Enumerable.Range(start: 0, count: policy.Motion.GradientSteps.Value)).Fold(
                 initialState: (Sites: currentSites, Steps: 0, Halvings: 0, Diagram: diagram, Live: true),
@@ -670,7 +645,7 @@ internal static class SampleKernel {
         private static double PairwiseShift(Seq<Point3d> from, Seq<Point3d> to) =>
             Enumerable.Range(start: 0, count: Math.Min(val1: from.Count, val2: to.Count)).Sum(i => from[index: i].DistanceTo(other: to[index: i]));
 
-        // Schedule-driven dual Newton: budget exhaustion is a typed terminal, never Fin.Fail.
+        // Budget exhaustion is a typed terminal, never a Fin.Fail.
         private Fin<NewtonState> ConvergeNewton(Seq<Point3d> currentSites, Fin<NewtonState> seed) =>
             seed.Bind(seedState => {
                 Atom<NewtonState> cell = Atom(value: seedState);
@@ -680,7 +655,6 @@ internal static class SampleKernel {
                 NewtonState terminal = cell.Value;
                 return terminal.Fault.Match(Some: Fin.Fail<NewtonState>, None: () => Fin.Succ(terminal with { Converged = terminal.Residual.Inf <= policy.Capacity.ResidualTol.Value * targetMass }));
             });
-        // One concave-Newton ascent step: L delta = g gauge-fixed through matrix.md SingularSolveDetailed.
         private NewtonState NewtonStep(Seq<Point3d> currentSites, NewtonState state) {
             Arr<double> gradient = new([.. Enumerable.Range(start: 0, count: siteCount).Select(i => targetMass - state.Diagram.Cells[index: i].Mass)]);
             double gradNorm = Math.Sqrt(d: gradient.AsIterable().Sum(static value => value * value));
@@ -707,8 +681,7 @@ internal static class SampleKernel {
                     ? Fin.Succ(rebuilt with { StepHalvings = state.StepHalvings + halvings, RebuildCount = state.RebuildCount + halvings + 2, NewtonIterations = state.NewtonIterations })
                     : AscentSearch(currentSites: currentSites, state: state, direction: direction, slope: slope, baseObjective: baseObjective, alpha: alpha * policy.Search.Backtrack.Value, halvings: halvings + 1));
         }
-        // Density-weighted power-graph Laplacian: w_ij = l_ij / (2 |p_i - p_j|); symmetric scatter + matched
-        // diagonal + scale-derived Tikhonov. d_ij re-derives from live dual weights inside the diagram build.
+        // d_ij re-derives from live dual weights inside the diagram build, never stale facets.
         private Fin<List<(int Row, int Col, double Value)>> HessianTriplets(Seq<Point3d> currentSites, RestrictedPowerDiagram diagram) {
             List<(int Row, int Col, double Value)> triplets = [];
             double[] diagonal = new double[siteCount];
@@ -730,7 +703,6 @@ internal static class SampleKernel {
         }
         private Arr<double> FragmentMasses(RestrictedPowerDiagram diagram) =>
             new([.. Enumerable.Range(start: 0, count: siteCount).Select(i => Math.Max(val1: diagram.Cells[index: i].Mass, val2: 0.0))]);
-        // Rebuild + recompute the dual facts: Phi = Sum TransportCost_i + Sum w_i (m* - m_i).
         private Fin<NewtonState> RebuildDiagram(Seq<Point3d> currentSites, Arr<double> weights) =>
             RebuildPowerCells(currentSites: currentSites, weights: weights).Map(diagram => {
                 double transport = TransportEnergyOf(diagram: diagram);
@@ -745,7 +717,6 @@ internal static class SampleKernel {
                     Converged: false, NewtonIterations: 0, StepHalvings: 0, RebuildCount: 0, Fault: Option<Error>.None,
                     DualSolve: Option<SolveReceipt>.None, WeightGradientNorm: 0.0);
             });
-        // Break lattice regularity ONCE, lift to surface, emit the witness with all outer fields populated.
         private Fin<SampleResult> Finalize(OuterState outer) {
             NewtonState terminal = outer.Capacity;
             double meanSpacing = Spacing.MeanNearest(points: outer.Sites, measure: totalMass);
@@ -791,7 +762,6 @@ internal static class SampleKernel {
                             PowerCcvt: Some(receipt))))))
                 : Fin.Fail<SampleResult>(key.InvalidResult());
         }
-        // Deterministic Box-Muller jitter + relocation; every offset replays from policy.Seed.
         private Regularity BreakRegularity(Seq<Point3d> currentSites, double meanSpacing) {
             if (currentSites.Count < 2 || meanSpacing <= double.Epsilon) return new Regularity(Sites: currentSites, AliasedCount: 0, JitteredCount: 0, RelocatedCount: 0);
             double aliasRadius = policy.Regularity.AliasScale.Value * meanSpacing;
@@ -837,7 +807,6 @@ internal static class SampleKernel {
         [StructLayout(LayoutKind.Auto)] private readonly record struct Regularity(Seq<Point3d> Sites, int AliasedCount, int JitteredCount, int RelocatedCount);
     }
 
-    // 11-arm candidate-suite dispatch; each arm reads its case payload and emits a SampleSelection.
     private static Fin<SampleResult> SampleOnCandidates(SampleKind kind, Seq<SampleCandidate> candidates, bool admitsPoisson, Option<(int Dimensions, double Measure)> domainMeasure, Context context, Op key) =>
         from selection in kind switch {
             SampleKind.PoissonDiskCase pd when admitsPoisson => PoissonDiskSelection(candidates: candidates, radius: pd.Radius, attempts: pd.Attempts, seed: pd.Seed, key: key),
@@ -893,7 +862,6 @@ internal static class SampleKernel {
         };
     private static Fin<Arr<double>> NormalizeMass(Seq<double> mass, Op key) =>
         CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: mass.Count, key: key);
-    // Weighted-priority density: exponential-clock ordering -log(U)/w, per-sample local radius from the weight.
     private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, Context context, Op key) {
         double[] weights = new double[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
@@ -927,8 +895,6 @@ internal static class SampleKernel {
 
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCell(long X, long Y, long Z);
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCandidate(int Index, double Radius);
-    // Dwork variable-density over an admitted candidate cloud: spatial hash at pitch rMin/sqrt(3), per-parent
-    // annulus band [r, 2r] resolved by a bounded shell ring query — named statement-kernel exemption.
     private static Fin<SampleSelection> DworkCandidateSelection(Seq<SampleCandidate> candidates, ScalarField radius, int count, double minRadius, int attempts, int seed, Context context, Op key) {
         DworkCandidate[] admitted = new DworkCandidate[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
@@ -1015,8 +981,6 @@ internal static class SampleKernel {
             });
     }
 
-    // Dwork on the live mesh surface: area-CDF barycentric seeding, hit-normal tangent frames, annulus proposals
-    // projected by ClosestMeshPoint, radius field re-sampled at every accepted point — statement-kernel exemption.
     private sealed class DworkMeshRun(Mesh mesh, ScalarField radius, int count, double minRadius, int attempts, int seed, Context context, Op key) {
         private readonly double cellSize = minRadius / Math.Sqrt(d: 3.0);
         private readonly List<DworkSurfacePoint> chosen = [];
@@ -1156,8 +1120,7 @@ internal static class SampleKernel {
         }
     }
 
-    // Radius and attempts retain their admitting value-object evidence through this interior seam;
-    // only the derived squared band needs a local representability gate.
+    // Radius and attempts keep their admitting value-object evidence; only the derived squared band takes a local gate.
     private static Fin<SampleSelection> PoissonDiskSelection(Seq<SampleCandidate> candidates, PositiveMagnitude radius, Dimension attempts, int seed, Op key) {
         (double r2, double r4) = (radius.Value * radius.Value, 4.0 * radius.Value * radius.Value);
         if (candidates.IsEmpty || !double.IsFinite(r4)) return Fin.Fail<SampleSelection>(key.InvalidInput());
@@ -1222,8 +1185,6 @@ internal static class SampleKernel {
         }
         return (Residual: (double)rejected / candidates.Count, Assigned: assigned, Unassigned: rejected);
     }
-    // Yuksel weighted sample elimination: (1 - d/dMax)^alpha weights, dMin = dMax (1 - (n/N)^gamma) beta,
-    // max-weight removal with neighbor decrement — statement-kernel exemption.
     private static Fin<(int[] Indices, SampleAlgorithmReceipt Algorithm)> SampleElimination(Seq<SampleCandidate> candidates, int count, double alpha, double beta, double gamma, int seed, Option<(int Dimensions, double Measure)> domainMeasure, Op key) {
         SampleCandidate[] input = [.. candidates.AsIterable()];
         (int dimensions, double measure) = domainMeasure.IfNone(BoundingMeasure(candidates: candidates));
@@ -1320,13 +1281,13 @@ internal static class SampleKernel {
     private static Fin<int[]> RelaxationSample(Seq<SampleCandidate> candidates, int count, int iterations, Option<int> capacity, Op key) {
         int total = capacity.Map(limit => Math.Min(val1: candidates.Count, val2: count * limit)).IfNone(candidates.Count);
         Seq<SampleCandidate> active = total == candidates.Count ? candidates : toSeq(Enumerable.Take(source: candidates.AsIterable(), count: total));
-        // CandidateIndex remains immutable across rounds; every centroid re-snaps through one all-candidate GraphOf.
+        // candidateIndex builds once and stays immutable across rounds; every centroid re-snaps through one GraphOf.
         return NeighborIndex.Of(source: new NeighborSource.StaticCase(Values: toSeq(active.AsIterable().Select(static candidate => candidate.Point))), key: key)
             .Bind(candidateIndex => toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
                 initialState: Fin.Succ(FarthestIndices(candidates: active, count: count)),
                 f: (state, _) => state.Bind(sites => RelaxSites(sites: sites, candidates: active, candidateIndex: candidateIndex, total: active.Count, capacity: capacity, key: key))));
     }
-    // Capacity assignment mutates feasibility per row; unconstrained assignment and re-snap use GraphOf.
+    // Capacity assignment mutates feasibility per row, so only it hand-rolls; the unconstrained path takes GraphOf.
     private static Fin<int[]> RelaxSites(int[] sites, Seq<SampleCandidate> candidates, NeighborIndex candidateIndex, int total, Option<int> capacity, Op key) {
         if (sites.Length == 0) return Fin.Succ(sites);
         Fin<int[]> assigned = capacity.Match(

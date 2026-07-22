@@ -1,23 +1,21 @@
 # [RASM_SIMPLIFICATION_DECIMATE]
 
-The predicate-guarded mesh decimation / LOD owner — ONE `SimplifyOp` `[Union]` (`QuadricCollapse`/`ProgressiveMesh`/`VoxelRemesh`/`FeaturePreserve`) that reduces a triangle mesh to a budgeted face count by a Garland-Heckbert quadric-error-metric edge-collapse priority queue whose every collapse is admitted ONLY when each incident face keeps the exact `Numerics/predicates#ROBUST_PREDICATES` `Predicate.Orient3D` sign AGAINST ITS ORIGINAL SUPPORTING PLANE under the moved survivor — the moved triangle is tested against the pre-collapse plane's reference point, so a fold that flips a face relative to where it was is refused by an exact sign, never by a float area band — and the manifold link condition holds on BOTH edge classes: an interior edge collapses when the endpoints' vertex links share exactly the two opposite corners, a boundary edge (one incident face) when they share exactly the one, so open meshes decimate instead of freezing at their rims. The collapse mutates the `Meshing/edit.md` arena in place (`SetPosition` the survivor re-seat, `SetFace` the fan re-point, `KillFace` the vanishing pair — face indices stable under mutation, exactly the corner-rewrite contract the arena declares), and the decimation state is `QuadricStore`, a decimate-LOCAL pooled-plane SoA over the arena: the 106-bit `ddouble` error-quadric plane, the version/valid planes the lazy queue reads, and the vertex→one-ring plus vertex→incident-face indexes that answer fan, link, and edge-incidence queries in O(degree) — the O(F²) full-face-table scans this index retires are the deleted form.
+`SimplifyOp` owns predicate-gated mesh decimation and LOD: one `[Union]` folds every modality through one quadric-error collapse queue admitting a fold only on an exact `Orient3D` sign against the pre-collapse supporting plane, so a flipped face is refused by construction and the boundary link condition decimates open-mesh rims. This owner mints the exact-plane gate, the directed Hausdorff budget, and the reversible vertex-split stream `Mesh.Reduce` lacks, and that host reduce keeps the fast face-count lane.
 
-The owner composes `Rhino.Geometry` `Point3d`/`Vector3d` and `Rasm.Meshing` `MeshSpace` carriers, the arena's own budgeted `Parallel` verb for the two-pass quadric accumulation (parallel per-FACE plane pass into disjoint face slots, then parallel per-VERTEX `ddouble` sums over the incidence index — a per-face scatter into shared vertex slots is the racing form this partition forbids), the `VectorCloudMetric.PrincipalCurvature` per-vertex curvature signal (the `ProgressiveMesh` quadric-weight modulation, composed at its `VectorCloud.Cluster` handle, rail-bound — a swallowed curvature failure silently degrading to uniform weights is the deleted form), the `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge` dihedral crease/boundary classification (`FeaturePreserve` pins a crease rather than smoothing it away), and the `Meshing/reconstruct.md` static `IsoSurface.Detailed(field, bounds, resolution, IsoSurfacePolicy, context, key)` marching-cubes extraction over a `ScalarField.SignedDistanceFromMeshCase` field (the `VoxelRemesh` resample — the SAME SDF/iso lane the field substrate owns, never a domain-local marcher, and never the dead `field.IsoSurfaceDetailed` instance spelling). The one-sided Hausdorff bound rides the `Spatial/index.md` ONE `Spatial.Apply` entry — `SpatialOp.Build` over the source faces once, `SpatialOp.Query(SpatialQuery.Nearest)` per stratified sample, every answer matched on the `SpatialAnswer` union through `Fin` (the hard `(QueryResult.Nearest)` cast is dead) — with per-sample distances filled in parallel into a pooled plane and reduced by ONE `TensorPrimitives.Max` vectorized pass. Every reachable failure routes the band-2400 `GeometryFault` union (`DecimationFault(FaceBudget, Achieved)` 2440 when the topology-preservation gate stalls before the budget; `DegenerateInput(Kind, int, string)` 2400 for a faceless input); the result records ARE the hash-friendly immutable carriers the `Spatial/reconciliation#RECONCILIATION_BRIDGE` `Encode` content-addresses through the `MeshSpace` seam — this owner computes no hash and mints no second identity. The mature `Mesh.Reduce` quick-reduce stays the host's fast face-count reduce; this owner produces what the host produces neither of — the exact-plane collapse gate, the directed Hausdorff budget, and the reversible vsplit stream — so it never thins the host reduce.
+A rebuild composes the `Meshing/edit` arena as sole position/face carrier, the `Numerics/predicates` exact `Orient3D` floor as collapse gate, the `Spatial/index` `Spatial.Apply` entry for the directed bound, the `Meshing/reconstruct` iso lane for the `VoxelRemesh` resample, the `Numerics/matrix` Cholesky for the optimal-position solve, and the kernel curvature and feature signals for the weight rows. Every failure routes the `GeometryFault` union on `Fin`, and the result carriers content-address through the `Spatial/reconciliation` `Encode` seam.
 
 ## [01]-[INDEX]
 
-- [01]-[ROBUST_MESH_DECIMATION]: `SimplifyKind` discriminant; `SimplifyPolicy` validated budget row; `VertexSplit` reversible-collapse record; `Quadric` 106-bit `ddouble` error quadric; `QuadricStore` decimate-local pooled SoA (quadric/version/valid planes + one-ring and incident-face indexes + collapse-cost queue); `SimplifyOp` `[Union]` folded by ONE `Simplify.Apply`; the exact-plane collapse gate, boundary-admitting link condition, arena-mutating collapse, parallel two-pass accumulation, SDF voxel resample, vectorized Hausdorff bound, and the typed `DecimationResult`.
+- [02]-[ROBUST_MESH_DECIMATION]: `SimplifyOp` folds every modality through one exact-plane-gated collapse queue to the typed `DecimationResult`.
 
 ## [02]-[ROBUST_MESH_DECIMATION]
 
-- Owner: `SimplifyKind` `[SmartEnum<string>]` the decimation-modality discriminant binding the shipped `ComparerAccessors.StringOrdinal` as its string-key comparer (`quadric-collapse`/`progressive-mesh`/`voxel-remesh`/`feature-preserve`) carrying the per-kind `Reversible` (`ProgressiveMesh`/`FeaturePreserve` publish the full vsplit stream so the result re-expands toward source; `QuadricCollapse` keeps only the budgeted mesh; `VoxelRemesh` is a resample and reconstructs no source connectivity — the emit gates `Splits` on this column), `PreservesTopology` (`VoxelRemesh` re-meshes the SDF level set so its output genus follows the iso-surface, not the source), and `Resamples` (the SDF pre-pass stance — a new resampling kind declares it at construction, never an op-case type test) columns plus the `Weigh` `[UseDelegateFromConstructor]` weight row (uniform, curvature-scaled, feature-pinned — behavior lands ON the vocabulary, so a kind cannot construct without its weight law); `SimplifyPolicy` the validated budget/tolerance row registering `IValidityEvidence` (target face count or fraction, Hausdorff ceiling — ENFORCED at emit, never a decorative field — boundary-quadric penalty, crease dihedral, curvature gain, voxel resolution, per-face sample count, deterministic seed); `VertexSplit` the reversible-collapse record (survivor/collapsed endpoint pair, their pre-collapse positions, the collapse cost — the exact inverse the continuous-LOD re-expansion replays); `Quadric` the 10-coefficient symmetric 4×4 error quadric at 106-bit `ddouble`; `QuadricStore` the decimate-LOCAL pooled-plane SoA over the arena — `MemoryOwner<Quadric>`/`MemoryOwner<int>`/`MemoryOwner<bool>` quadric, version, valid, and boundary-vertex planes (pooled, deterministically disposed — never raw `new T[]` staging), the vertex→one-ring and vertex→incident-face indexes every fan/link/edge query reads in O(degree), the boundary-edge roster with per-edge single incident face, the BCL `PriorityQueue<EdgeRef,double>` of cost-keyed live edges, the `VertexSplit` stream, and the live-face counter — distinct from the `MeshEdit` arena it annotates (positions and faces live on the ARENA; this store carries only decimation state); `DecimationResult` the typed evidence; `Simplify` the static surface whose ONE `Apply` runs the fold.
-- Cases: `SimplifyKind` rows `quadric-collapse` · `progressive-mesh` · `voxel-remesh` · `feature-preserve` (4); `SimplifyOp` cases `QuadricCollapse` · `ProgressiveMesh` · `VoxelRemesh` · `FeaturePreserve` (4). The four kinds share ONE quadric accumulation, ONE exact-plane-gated collapse loop, ONE Hausdorff bound, and ONE vsplit recorder — each kind contributes only its `Weigh` constructor row (uniform, curvature-scaled, feature-pinned) and its `Resamples` column (the SDF iso-surfacer pre-pass — `VoxelRemesh`) — never four decimator classes with a duplicated collapse queue.
-- Entry: `public static Fin<DecimationResult> Simplify.Apply(SimplifyOp op, Op? key = null)` — the ONE decimation entrypoint discriminating by `SimplifyOp` case; the tolerance model is the op's own `MeshSpace.Tolerance` `Context` (never a second tolerance parameter beside the value that already carries it); `Fin<T>` routes `GeometryFault.DecimationFault(faceBudget, achieved)` when the gate stalls with live collapses rejected before the requested budget (a budget a manifold-preserving collapse cannot satisfy is a typed defect, never a silently over-reduced mesh), `GeometryFault.DegenerateInput(Kind.Mesh, …)` for a faceless input or an invalid `SimplifyPolicy` (the `IValidityEvidence` row gates at entry — a raw-constructed policy never reaches the loop), and `key.InvalidResult(…)` when the achieved Hausdorff bound breaches the policy ceiling — the admitted `MeshSpace` is NOT re-validated for finiteness (admission happened once; the arena freeze re-gates at publish). No `Decimate`/`ReduceTo`/`RemeshVoxel` sibling entrypoints — one polymorphic `Apply` discriminates by kind.
-- Auto: each `SimplifyKind` row CARRIES its weight law as the `Weigh` `[UseDelegateFromConstructor]` delegate — a new kind cannot construct without its row (the kind-keyed runtime dictionary whose missing row compiled silently is the deleted form) — and every row fills the SAME pooled weight plane and lowers to the SAME `Collapse` loop. The fold: (1) `VoxelRemesh` resamples FIRST — `SdfMeshPolicy.GeneralizedWinding()` seeds a `ScalarField.SignedDistanceFromMeshCase`, `IsoSurface.Detailed` extracts the level set at `VoxelResolution`, and the clean manifold re-admits through `MeshSpace.Of` — then decimates like every other kind; (2) ONE arena opens (`MeshEdit.Of(space)` — quads split through the arena's exact diagonal gate) and `QuadricStore.Seed` builds the one-ring/incident-face indexes, the boundary roster, and the pooled planes; (3) the weight row fills the pooled weight plane ON THE RAIL — a curvature or feature projection failure routes `Fin`, never a silent uniform fallback; (4) `Accumulate` runs TWO partition-disjoint parallel passes through the arena's budgeted `Parallel` verb — per-FACE plane coefficients into disjoint face slots, then per-VERTEX `ddouble` quadric sums over the incidence index into disjoint vertex slots (the per-face scatter that races three vertex slots per face is the forbidden form) — and `Boundaries` adds the Garland-Heckbert constraint quadric on each boundary edge: the plane THROUGH the edge PERPENDICULAR to its single incident face (edge × face-normal), scaled by `BoundaryPenalty`, so a rim resists drift without freezing; (5) `Drain` pops the lowest-cost live edge, skips stale entries by version (no decrease-key), gates through `CollapseValid` — link condition per edge class (interior `shared == 2`, boundary `shared == 1`, and an interior edge joining two boundary vertices refused as the pinch it would create) plus the EXACT flip guard: every surviving fan face's moved triangle keeps `Predicate.Orient3D(moved, original-plane reference) == Sign.Positive` against its ORIGINAL supporting plane (the reference point `oa + (ob−oa)×(oc−oa)` is float-constructed — the axis-choice class — and the deciding sign is exact; `Sign.Zero` refuses the degenerate) — then applies: survivor re-seats via `SetPosition`, the collapsing fan dies via `KillFace`, the remaining fan re-points via `SetFace`, indexes re-home, quadrics merge `Qᵤ ← Qᵤ + Qᵥ`, versions bump, the one-ring re-enqueues; (6) termination at budget under an OUTER FIXPOINT — a drained queue above budget re-seeds when `NoAdmissibleCollapse` (a sweep of the live one-ring edge set, never the face table) still finds an admissible edge, because a rejected edge can become admissible after its neighborhood changes; each re-seed applies at least one collapse, and a genuine stall routes `DecimationFault(budget, achieved)`. `Emit` freezes ONCE through `edit.ToSpace(context, key)` (tombstone compaction and the finiteness gate are the arena's), computes the directed Hausdorff bound, enforces the ceiling, and lifts the preserved-feature set on the rail.
-- Receipt: `Apply` carries a `DecimationResult` typed to the decimation — `Mesh` (the frozen simplified `MeshSpace`), `Vertices`/`Faces` (the achieved live counts), `RequestedFaces` (the budget requested — dual evidence beside the achieved), `Hausdorff` (the one-sided directed bound from simplified to source — the error a LOD consumer thresholds), `Features` (the preserved crease/boundary `FeatureEdge` set), `Splits` (the reversible `VertexSplit` stream — published only on `Reversible` kinds, empty otherwise) — never a generic `IReceipt`/ledger. The Compute tile-pyramid reads `Mesh`+`Hausdorff` to seat a mesh at the LOD whose directed error fits the screen-space tolerance, the coarse-solver-seed reads the budgeted `Mesh` as the multigrid coarse level, the meshlet-residency reads the achieved `Faces` per residency tier, and the continuous-LOD consumer replays `Splits` — each through `Apply` and the result, never the interior `QuadricStore`.
-- Packages: `Rasm.Meshing` (`MeshSpace`), `Rasm.Spatial` (`VectorCloudMetric.PrincipalCurvature` + `VectorCloud.Cluster` → `CurvatureResult`/`CurvatureSample` the curvature signal; `ScalarField.SignedDistanceFromMeshCase` the SDF field case), `Rasm.Processing` (`MeshFeaturePolicy.Of` + `VectorIntent.Features`/`FeatureReceipt`/`FeatureEdge`/`MeshFeatureKind` the dihedral classification), `Rhino.Geometry` (`Point3d`/`Vector3d`), `Rasm.Meshing` (`MeshEdit` arena — `Of`/`SetPosition`/`SetFace`/`KillFace`/`Parallel`/`ToSpace`, composed never re-minted; `IsoSurface.Detailed` + `IsoSurfacePolicy` + `SdfMeshPolicy.GeneralizedWinding` the iso lane), `Rasm.Numerics` (`Predicate.Orient3D`/`Sign` — the exact collapse-validity floor), `Rasm.Spatial` (`Spatial.Apply` + `SpatialOp.Build`/`Query` + `SpatialQuery.Nearest` + `SpatialAnswer`/`QueryResult` — the ONE broad-phase entry the Hausdorff bound rides), `Rasm.Numerics` `Numerics/matrix` (`SymmetricMatrix.DecomposeCholesky` → `CholeskyResult.SolveDetailed` — the 3×3 optimal-position sub-solve through the ONE matrix owner, its `SolveReceipt` gating the solution all-finite), TYoshimura.DoubleDouble (`ddouble` — the 106-bit quadric coefficient killing the Garland-Heckbert catastrophic cancellation, narrowed to `double` only at the cost readout), System.Numerics.Tensors (`TensorPrimitives.Max` — the vectorized Hausdorff reduction over the pooled distance plane; the exact predicates and the `ddouble` fold stay scalar per the not-the-exact-predicate law), CommunityToolkit.HighPerformance (`MemoryOwner<T>` pooled planes + `IAction` struct rows the arena `Parallel` verb runs), Rasm.Domain (`Context`/`Op`/`Kind`/`IValidityEvidence`/`ValidityClaim`/`BenchClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox (`PriorityQueue<EdgeRef,double>`, `HashSet<int>`, `System.Random` the deterministic sampler).
-- Growth: a new decimation modality (appearance-preserving with a color/UV quadric, out-of-core uniform resample) is one `SimplifyKind` row carrying its `Weigh` delegate + one `SimplifyOp` case over the SAME `Collapse` loop; a new quadric weight is one `Weigh` row reading one `SimplifyPolicy` column; a new error bound (two-sided symmetric Hausdorff, mean L²) is one `DecimationResult` column over the SAME sampler and reduction plane; a new termination rule (error-threshold-driven collapse) is one `SimplifyPolicy` column on the same loop; zero new surface.
-- Boundary: the decimation owner is the ONE polymorphic `SimplifyOp` `[Union]` and a `QuadricDecimator`/`ProgressiveMeshBuilder`/`VoxelRemesher`/`FeaturePreservingSimplifier` sibling-class family is the named density defect collapsed onto one union folded by one `Apply`; the collapse-validity gate compares each fan face's exact `Orient3D` against its ORIGINAL supporting plane and the self-referential `before`/`after` pair that tests each triangle against its OWN offset point — identically `Positive`, deciding nothing — is the deleted vacuous form this rebuild killed; the link condition admits boundary edges at `shared == 1` and the `shared == 2` freeze that made open meshes undecimatable is the deleted form; fan, collapsed-face, and admissibility queries read the vertex→incident-face index in O(degree) and a full face-table scan per query is the deleted O(F²) form; positions and faces live on the ARENA (`SetPosition`/`SetFace`/`KillFace` — the corner-rewrite contract `edit.md` declares for exactly this collapse) and a store-private position column or face table beside the arena is the deleted third-carrier form; the voxel resample composes the REAL static `IsoSurface.Detailed(field, bounds, resolution, policy, context, key)` and the `field.IsoSurfaceDetailed` instance spelling is the deleted phantom; the Hausdorff bound routes the ONE `Spatial.Apply` entry with every answer matched on the union through `Fin` and a hard `(QueryResult.Nearest)` cast is the deleted form; the distance reduction is ONE `TensorPrimitives.Max` pass over the pooled plane (admissible because the sampled distances are raw `double`, not the exact-predicate lane) and a scalar `Math.Max` element loop is the rejected form — the vectorized lane holds its speed claim as the registered `Simplify.HausdorffClaim` ledger row (`Domain/telemetry.md` `BenchClaim`) the corpus gate proves, correctness never depending on it; the quadric accumulation carries 106-bit `ddouble` narrowing to `double` only at the priority-queue cost key, and the parallel accumulate partitions per-VERTEX over the incidence index because a per-face scatter races; `VoxelRemesh` (SDF resample of a defective/over-tessellated input, budgeted volumetric REDUCTION, genus follows the level set) is DISTINCT from `Processing/remesh.md`'s rewrite-toward-target-sampling tier (`Remeshing.Apply` Isotropic/QuadField — re-tessellation of a valid mesh under edge-length and cross-field targets) — the two coexist under the widened Simplification charter, one anchor each, never a merged rewriter; `Alimer.Bindings.MeshOptimizer` is `Rasm.Compute`'s residency-lane binding, never this kernel's decimator (recorded stratum split); the mature host `Mesh.Reduce` is NOT thinned — this owner adds the exact gate, the directed bound, and the reversible stream the host reduce lacks; `Apply` is total over the `Fin` rail and a thrown exception on a degenerate mesh or stalled budget is forbidden.
+- Owner: `Simplify` mints the one static `Apply` fold and owns modality dispatch; `SimplifyKind` carries each kind's `Weigh` weight law on the vocabulary, and `VertexSplit` is the reversible-collapse inverse a continuous-LOD consumer replays.
+- Cases: every modality shares one quadric accumulation, one exact-plane-gated collapse loop, one Hausdorff bound, and one vsplit recorder.
+- Entry: `Simplify.Apply(SimplifyOp, Op?)` is the one decimation entrypoint, discriminating by `SimplifyOp` case and total over `Fin<DecimationResult>`; an invalid `SimplifyPolicy` faults before the loop, and a budget no manifold-preserving collapse reaches faults typed.
+- Receipt: `DecimationResult` carries the directed `Hausdorff` bound a LOD consumer thresholds and gates its `VertexSplit` stream on `Reversible` kinds.
+- Growth: a new decimation modality is one `SimplifyKind` row with its `Weigh` delegate and one `SimplifyOp` case over the same collapse loop; a new quadric weight is one `Weigh` row reading one `SimplifyPolicy` column; a new error bound is one `DecimationResult` column over the same sampler and reduction plane.
+- Boundary: the `HausdorffClaim` `BenchClaim` registers the vectorized reduction's speed against its scalar reference lane, so the corpus gate proves it while correctness rides the exact predicates alone.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -57,8 +55,7 @@ public sealed partial class SimplifyKind {
     public bool PreservesTopology { get; }
     public bool Resamples { get; }
 
-    // Weight law ON the vocabulary: a new kind cannot construct without its weigh row — the
-    // kind-keyed runtime dictionary this replaces admitted a compile-silent missing row.
+    // Weight law ON the vocabulary: a new kind cannot construct without its weigh row.
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Weigh(SimplifyOp op, Context context, Op key, Memory<double> plane);
 }
@@ -102,9 +99,7 @@ public readonly record struct EdgeRef(int U, int V, int VersionU, int VersionV);
 // Per-face plane row the parallel plane pass writes (disjoint face slots); W = 0 marks dead/degenerate.
 public readonly record struct FacePlane(double A, double B, double C, double D, double W);
 
-// The Garland-Heckbert error quadric at 106-bit ddouble: the plane-sum Σ Kf, the collapse merge
-// Qᵤ ← Qᵤ + Qᵥ, and the near-cancelling xᵀQx on the supporting plane lose the queue-ordering digits
-// in double on a large mesh — coefficients stay 106-bit, narrowing only at the Evaluate cost readout.
+// 106-bit coefficients: the plane-sum, the merge, and the near-cancelling xᵀQx lose queue-ordering digits in double.
 public readonly record struct Quadric(
     ddouble A00, ddouble A01, ddouble A02, ddouble A03,
     ddouble A11, ddouble A12, ddouble A13,
@@ -130,9 +125,7 @@ public readonly record struct Quadric(
     }
 }
 
-// Decimate-LOCAL pooled SoA over the arena: positions/faces live on MeshEdit; this store carries only
-// decimation state. Planes rent through MemoryOwner (deterministic dispose); the incidence indexes
-// answer fan/link/edge queries in O(degree) — the face-table scans they retire were O(F) each.
+// Positions and faces live on the MeshEdit arena; this store holds decimation state alone, its incidence indexes answering fan/link/edge in O(degree).
 public sealed class QuadricStore : IDisposable {
     readonly MemoryOwner<Quadric> quadrics;
     readonly MemoryOwner<int> versions;
@@ -250,8 +243,6 @@ public abstract partial record SimplifyOp {
 }
 
 public static class Simplify {
-    // Registered speed claim (Domain/telemetry.md BenchClaim): the vectorized Hausdorff reduction
-    // proves itself under the corpus gate against the scalar reference row — correctness never rides it.
     public static readonly BenchClaim HausdorffClaim = new(
         Claim: Op.Of(name: nameof(Hausdorff)),
         VectorizedLane: "TensorPrimitives.Max<double> over the pooled distance plane",
@@ -278,15 +269,11 @@ public static class Simplify {
         });
     }
 
-    // Resample stance rides the kind column — a new resampling kind declares it at construction,
-    // never a silently-skipping op-case type test.
     static Fin<MeshSpace> Resample(SimplifyOp op, Context context, Op key) =>
         op.Kind.Resamples ? Voxelize(op.Mesh, op.Policy, context, key) : Fin.Succ(op.Mesh);
 
     // --- [COLLAPSE]
-    // Outer fixpoint: a drained queue above budget re-seeds when an admissible collapse remains (a
-    // rejected edge can become admissible after its neighborhood changes) — each re-seed applies at
-    // least one collapse, so the loop terminates; a genuine stall routes the typed fault.
+    // Outer fixpoint: a drained queue re-seeds while an admissible collapse remains, so it terminates and a genuine stall routes the typed fault.
     static Fin<Unit> Collapse(QuadricStore store, MeshEdit edit, SimplifyOp op, int budget, Context context, Op key) {
         using MemoryOwner<double> weights = MemoryOwner<double>.Allocate(edit.VertexCount, AllocationMode.Clear);
         return op.Kind.Weigh(op, context, key, weights.Memory).Bind(_ => {
@@ -303,9 +290,7 @@ public static class Simplify {
         });
     }
 
-    // Two partition-disjoint passes through the arena's budgeted Parallel verb: per-FACE planes into
-    // disjoint face slots, then per-VERTEX ddouble sums over the incidence index into disjoint vertex
-    // slots — the per-face scatter that races three vertex slots is the forbidden form.
+    // Per-VERTEX sums over the incidence index, never a per-face scatter: a scatter races three vertex slots per face.
     static void Accumulate(QuadricStore store, MeshEdit edit, ReadOnlyMemory<double> weights, SimplifyPolicy policy) {
         using MemoryOwner<FacePlane> planes = MemoryOwner<FacePlane>.Allocate(edit.FaceCount, AllocationMode.Clear);
         edit.Parallel(edit.FaceCount, new PlanePass(edit, weights, planes.Memory));
@@ -339,8 +324,7 @@ public static class Simplify {
         }
     }
 
-    // Boundary constraint quadric: the plane THROUGH the boundary edge PERPENDICULAR to its single
-    // incident face (edge × face-normal), penalty-weighted — a rim resists drift without freezing.
+    // Boundary constraint quadric: the plane THROUGH the edge PERPENDICULAR to its incident face, penalty-weighted — a rim resists drift.
     static void Boundaries(QuadricStore store, MeshEdit edit, ReadOnlyMemory<FacePlane> planes, SimplifyPolicy policy) {
         foreach ((int u, int v, int face) in store.BoundaryEdges) {
             FacePlane p = planes.Span[face];
@@ -385,9 +369,7 @@ public static class Simplify {
         !store.Alive(edge.U) || !store.Alive(edge.V)
         || store.Versions[edge.U] != edge.VersionU || store.Versions[edge.V] != edge.VersionV;
 
-    // Link condition per edge class — interior shared==2, boundary shared==1, and an interior edge
-    // joining two boundary vertices refused (the pinch it would create) — then the REAL flip guard:
-    // each surviving fan face's MOVED triangle against its ORIGINAL supporting plane's reference point.
+    // An interior edge joining two boundary vertices pinches the rim; the flip guard tests each surviving fan face's MOVED triangle against its ORIGINAL plane.
     static bool CollapseValid(QuadricStore store, MeshEdit edit, int u, int v, Point3d target) {
         int fan = store.EdgeFaces(u, v);
         int shared = store.SharedLink(u, v);
@@ -416,7 +398,6 @@ public static class Simplify {
     static void ApplyCollapse(QuadricStore store, MeshEdit edit, int u, int v, Point3d target, double cost) {
         store.Splits.Add(new VertexSplit(u, v, edit.Position(u), edit.Position(v), cost));
         edit.SetPosition(u, target);
-        // The collapsing fan (faces on edge (u,v)) dies; v's remaining faces re-point their v-corner to u.
         foreach (int f in store.Incident[v].ToArray()) {
             (int a, int b, int c) = edit.Face(f);
             if (Touches(a, b, c, u)) {
@@ -443,7 +424,7 @@ public static class Simplify {
         }
     }
 
-    // Stall verdict over the LIVE one-ring edge set — never a face-table sweep.
+    // Stall verdict swept over the LIVE one-ring edge set.
     static bool NoAdmissibleCollapse(QuadricStore store, MeshEdit edit) {
         for (int u = 0; u < edit.VertexCount; u++) {
             if (!store.Alive(u)) continue;
@@ -457,8 +438,7 @@ public static class Simplify {
     }
 
     // --- [QUADRIC_SOLVE]
-    // The 3x3 quadric SPD solve routes the matrix.md owners (the ONE MathNet access path); the minted
-    // SolveReceipt gates the solution all-finite, so a degenerate quadric falls to the midpoint arm.
+    // SolveReceipt gates the solution all-finite; a degenerate quadric falls to the midpoint arm.
     static (Point3d Target, double Cost) OptimalPosition(Quadric q, Point3d u, Point3d v) {
         Fin<Arr<double>> solve = SymmetricMatrix.Of(
                 Dimension.Create(3),
@@ -472,7 +452,6 @@ public static class Simplify {
     }
 
     // --- [WEIGHTS]
-    // Internal: the SimplifyKind weigh rows bind these method groups — behavior rows on the vocabulary.
     internal static Fin<Unit> Uniform(Memory<double> plane) {
         plane.Span.Fill(1.0);
         return Fin.Succ(unit);
@@ -515,8 +494,7 @@ public static class Simplify {
     }
 
     // --- [RESAMPLE]
-    // VoxelRemesh pre-pass: SDF over the source, marching-cubes through the REAL static IsoSurface.Detailed,
-    // clean level set re-admitted — a self-intersecting scan first becomes a manifold, then decimates.
+    // A self-intersecting scan becomes a manifold level set here, then decimates like every other kind.
     static Fin<MeshSpace> Voxelize(MeshSpace mesh, SimplifyPolicy policy, Context context, Op key) {
         BoundingBox bounds = mesh.DuplicateNative().GetBoundingBox(accurate: true);
         bounds.Inflate(context.Absolute.Value);
@@ -538,15 +516,10 @@ public static class Simplify {
                         budget,
                         bound,
                         features,
-                        // Reversible column gates the stream: only vsplit-replayable kinds publish it.
                         op.Kind.Reversible ? toSeq(store.Splits).Strict() : Seq<VertexSplit>()))
                     : Fin.Fail<DecimationResult>(key.InvalidResult($"hausdorff {bound:G6} over ceiling {op.Policy.HausdorffCeiling:G6}"))));
 
-    // One-sided directed bound d(simplified -> source): BVH over the source through the ONE Spatial.Apply
-    // entry, samples drawn off the LIVE collapse arena (geometrically identical to the just-frozen space —
-    // never a second arena duplication of the published mesh), per-sample distances filled in parallel into
-    // a pooled plane (disjoint slots, misses counted via Interlocked), ONE vectorized TensorPrimitives.Max
-    // reduction — raw-double lane, exact signs untouched.
+    // One-sided directed bound d(simplified -> source); sampled distances are raw double, so the vectorized reduction sits outside the exact-predicate lane.
     static Fin<double> Hausdorff(MeshEdit lod, MeshSpace source, SimplifyPolicy policy, Op key) {
         MeshEdit src = MeshEdit.Of(source);
         try {
@@ -656,31 +629,11 @@ flowchart LR
     DecimationResult -.->|Compute tile-pyramid / coarse-seed / meshlet residency| Seam
 ```
 
-## [03]-[DENSITY_BAR]
+## [03]-[RESEARCH]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the collapse loop, the quadric solve, or the resample can fail its post-condition, pure carriers for the projections; the per-axis kind rides the indexed notes below.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]          | [RAIL]                                                    | [CASES] |
-| :-----: | :------------------ | :--------------- | :-------------------------------------------------------- | :-----: |
-|  [01]   | Mesh decimation     | `SimplifyOp`     | `Simplify.Apply(SimplifyOp, Op?) → Fin<DecimationResult>` |    4    |
-|  [02]   | Decimation kind     | `SimplifyKind`   | `Weigh → Fin<Unit>` (rail-bound row)                      |    4    |
-|  [03]   | Budget policy       | `SimplifyPolicy` | value (composed by the op cases)                          |    —    |
-|  [04]   | Error quadric       | `Quadric`        | `Quadric.Evaluate → double` (pure)                        |    —    |
-|  [05]   | Decimation state    | `QuadricStore`   | interior (arena-tier scratch, `IDisposable`)              |    —    |
-|  [06]   | Reversible collapse | `VertexSplit`    | carrier (pure)                                            |    —    |
-
-- [01]-[MESH_DECIMATION]: `[Union]` (`QuadricCollapse`/`ProgressiveMesh`/`VoxelRemesh`/`FeaturePreserve`) folded by ONE `Apply`.
-- [02]-[DECIMATION_KIND]: `[SmartEnum<string>]` + `Reversible`/`PreservesTopology`/`Resamples` columns + `Weigh` `[UseDelegateFromConstructor]` row.
-- [03]-[BUDGET_POLICY]: `record` + `IValidityEvidence` — budget, ENFORCED Hausdorff ceiling, penalty/gain/resolution/sampling/seed columns.
-- [04]-[ERROR_QUADRIC]: symmetric 4×4 10-coefficient 106-bit `ddouble` value + `OfPlane`/`Add`/`Evaluate`.
-- [05]-[DECIMATION_STATE]: pooled-plane SoA over the arena — quadric/version/valid/boundary planes + one-ring & incident-face indexes + queue.
-- [06]-[REVERSIBLE_COLLAPSE]: per-collapse record — the continuous-LOD inverse.
-
-The `Apply` fold, the `[COLLAPSE]` cluster (`Collapse`/`Drain`/`Stale` the version-skipping cost queue, `Accumulate` the two-pass partition-disjoint parallel plane+quadric build, `Boundaries` the edge-perpendicular constraint quadric, `EnqueueAll`/`Enqueue` the ring-driven cost seed, `CollapseValid` the per-edge-class link condition plus the moved-vs-original-plane exact gate, `ApplyCollapse` the arena mutation + index re-home + vsplit record + ring re-enqueue, `NoAdmissibleCollapse` the ring-swept stall verdict), the `[QUADRIC_SOLVE]` cluster (`OptimalPosition` the 3×3 `argmin xᵀQx` Cholesky sub-solve with the midpoint singular fallback), the `[WEIGHTS]` cluster (rail-bound `Uniform`/`Curvature`/`FeaturePins` rows), the `[RESAMPLE]` cluster (`Voxelize` through the real `IsoSurface.Detailed`), and the `[EMIT]` cluster (`Hausdorff`/`DirectedDistance`/`SamplePoints`/`DistanceToFace` the parallel-filled, `TensorPrimitives.Max`-reduced directed bound with the enforced ceiling, `Preserved` the surviving-feature lift) are transcription-complete pure-managed fences composing the `Numerics/predicates` exact floor, the `Spatial/index` ONE entry, the `Meshing/edit` arena and its budgeted `Parallel` verb, the kernel curvature/feature surface, the `Meshing/reconstruct` iso lane, and the owner-routed dense linear lane.
-
-## [04]-[RESEARCH]
-
-- [GARLAND_HECKBERT_QEM] — `Accumulate` builds each vertex's error quadric `Qᵥ = Σ_{f∋v} Kf` where `Kf = ppᵀ` is the fundamental quadric of the incident face's homogeneous plane `p = (a,b,c,d)`, in TWO partition-disjoint parallel passes through the arena's budgeted `Parallel` verb: the per-FACE pass writes `FacePlane` rows into disjoint face slots, the per-VERTEX pass sums `ddouble` quadrics over the incidence index into disjoint vertex slots — the per-face scatter (`Q[a] += k; Q[b] += k; Q[c] += k`) races three shared slots per face and is the partition this design forbids. Coefficients accumulate at 106-bit `ddouble` and `Evaluate` narrows to `double` only at the cost readout — the plane-sum, the merge `Qᵤ ← Qᵤ + Qᵥ`, and the near-cancelling `xᵀQx` on the supporting plane are the textbook QEM catastrophic-cancellation points that lose the queue-ordering digits in `double` on a large mesh. `OptimalPosition` places the survivor at `argmin xᵀ(Qᵤ+Qᵥ)x` through the owner-routed `SymmetricMatrix` Cholesky (midpoint on a rank-deficient flat region), and `Drain` is the lazy-queue loop: a popped edge whose endpoint versions moved is skipped (no decrease-key), an accepted collapse merges quadrics, bumps versions, and re-enqueues the survivor's ring. The boundary constraint quadric is the plane through each boundary edge perpendicular to its single incident face — the Garland-Heckbert boundary form; an arbitrary-axis construction that ignores the face plane under-constrains a rim whose face is axis-aligned. The tier-2 law-matrix (`DecimationLaws`, a CsCheck property suite) asserts the collapse never increases the live face count, the achieved budget is at most the requested budget when an admissible sequence exists, and the popped cost sequence is monotone non-decreasing.
-- [EXACT_COLLAPSE_GATE] — `CollapseValid` is the topology-preservation gate the page name turns on, and BOTH halves are load-bearing. The link condition dispatches on the edge class read off the incidence index: an interior edge (two incident faces) collapses when `|Lk(u) ∩ Lk(v)| == 2` and not both endpoints sit on the boundary (the interior chord between two rim vertices pinches the surface), a boundary edge (one incident face) when the shared link is exactly the one opposite corner — so open meshes decimate along their rims, and the `shared == 2` freeze that faulted every boundaried mesh with a spurious `DecimationFault` is dead. The flip guard compares each surviving fan face's MOVED triangle against its ORIGINAL supporting plane: the reference point `oa + (ob−oa)×(oc−oa)` sits on the original plane's positive side by construction, so `Predicate.Orient3D(moved-a, moved-b, moved-c, reference) == Sign.Positive` holds exactly when the moved face keeps the original orientation, and `Sign.Zero` refuses the degenerate — a signed test that crosses PRE and POST states, where the deleted vacuous form tested each state against its own normal offset (identically `Positive`, admitting every fold the gate existed to refuse). The reference point is float-constructed — the axis-choice class the corpus admits — and the deciding sign is exact. The `DecimationLaws` matrix asserts no collapse flips a fan face against a `BigInteger` rational `Orient3D` oracle, the simplified mesh stays manifold per edge class, and a budget below the preservation floor routes `DecimationFault(budget, achieved)`.
-- [HAUSDORFF_AND_VSPLIT] — the directed bound `d(simplified → source)` rides the `Spatial/index` ONE entry: `SpatialOp.Build(SpatialKind.Bvh, sourceBoxes, BuildPolicy.Canonical)` once, then one `SpatialOp.Query(SpatialQuery.Nearest(sample, 1))` per stratified sample (per-face centroid plus barycentric draws under the deterministic seed), every answer matched on the `SpatialAnswer`/`QueryResult` unions through `Fin` — a wrong-case answer or a query miss increments the `Interlocked` counter and fails the bound typed, never a silent zero distance. Per-sample distances fill a pooled `MemoryOwner<double>` plane in parallel (disjoint slots through the arena `Parallel` verb; `DistanceToFace` is the exact scalar point-triangle kernel per sample), and the reduction is ONE `TensorPrimitives.Max` vectorized pass — admissible because the sampled distances are raw `double`, not the exact-predicate lane, and the vectorized lane holds its speed claim as the registered `Simplify.HausdorffClaim` `BenchClaim` row the corpus BenchmarkDotNet gate proves, the scalar fold named as its reference lane. The policy `HausdorffCeiling` is ENFORCED at emit: a bound over the ceiling refuses the result typed rather than shipping an over-erred LOD carrying a decorative threshold. The vsplit stream is the Hoppe progressive-mesh inverse — `ApplyCollapse` records each accepted collapse, so `Splits` replayed in reverse re-expands the budgeted mesh continuously toward source; `ProgressiveMesh`/`FeaturePreserve` carry the full stream (`Reversible: true`), `QuadricCollapse` keeps the budgeted mesh, `VoxelRemesh` reconstructs no source connectivity. The `DecimationLaws` matrix asserts the directed bound is monotone non-decreasing across successive LOD budgets and the reversed stream reconstructs the pre-collapse counts exactly.
-- [VOXEL_AND_FEATURE_COMPOSITION] — `Voxelize` composes the substrate at its real members: `SdfMeshPolicy.GeneralizedWinding()` admits the sign convention, `ScalarField.SignedDistanceFromMeshCase(mesh, policy)` is the field case, and the static `IsoSurface.Detailed(field, bounds, resolution, IsoSurfacePolicy.Default, context, key)` extracts the level set whose own receipt routes native validity through its `Fin` rail — so a self-intersecting or over-tessellated scan first becomes a clean manifold (output genus follows the iso-surface, hence `PreservesTopology: false`) then decimates through the SAME queue. `VoxelRemesh` is the defective-input resample lane and stays DISTINCT from `Processing/remesh.md` — the isotropic/quad re-tessellation substrate for VALID meshes under edge-length and cross-field targets; the two coexist under the widened `Rasm.Processing` mesh-rewrite-under-budget charter, one anchor each, never a merged rewriter. The weight rows compose the kernel owners at their public handles ON THE RAIL: `Curvature` reads `VectorCloudMetric.PrincipalCurvature` and scales `Kf` by `1 + gain·|κ|`, `FeaturePins` reads the `VectorIntent.Features` dihedral classification and pins `Crease`/`Boundary` vertices — a projection failure routes `Fin`, because silently decimating with uniform weights when the caller requested curvature-aware or feature-pinned budgets is a capability lie. `Alimer.Bindings.MeshOptimizer` stays `Rasm.Compute`'s residency-lane binding (recorded stratum split) — never this kernel's decimator. The `DecimationLaws` matrix asserts the `VoxelRemesh` output is manifold within the voxel-resolution band, a curvature weight keeps a high-curvature feature a uniform weight smooths away, and the `FeaturePreserve` crease set survives the budget.
+(none)

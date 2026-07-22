@@ -1,21 +1,22 @@
 # [RASM_IDENTITY]
 
-`Rasm.Domain` owns the kernel's two reproducibility surfaces: `ContentHash` — the federation content key, seed-zero `XxHash128` over canonical bytes — and `Deterministic` — the ONE splitmix64 derivation owner supplying order keys, unit-interval draws, and signed-unit streams to every reproducible algorithm. `ContentHash` answers "is this the same content" across packages and runtimes; `Deterministic` answers "in what reproducible order, with what reproducible draw" inside one algorithm. Neither is cryptographic; neither has a sibling.
+`Rasm.Domain` owns the kernel's two reproducibility surfaces with no sibling between them: `ContentHash`, the federation content key over caller-canonical bytes, and `Deterministic`, the one splitmix64 owner supplying order keys, unit-interval draws, and signed-unit streams to every reproducible algorithm. Neither is cryptographic.
+
+Identity and derivation never cross: a content key built from a `Deterministic` order key, or a sampler seeded from a `ContentHash`, is rejected by design. Every federation partner reproduces the zero-fixed seed byte-for-byte, so one content space addresses across packages and runtimes.
 
 ## [01]-[INDEX]
 
-- [02]-[CONTENT_KEY]: `ContentHash` — the one federation content-identity entry, seed-zero `XxHash128` → `UInt128`, verbatim contract.
-- [03]-[DETERMINISTIC_DERIVATION]: `Deterministic` — the one splitmix64 owner: finalizer, gamma-advance streams, coordinate order keys, clamped unit intervals.
+- [02]-[CONTENT_KEY]: `ContentHash` mints the seed-zero `XxHash128` federation content key.
+- [03]-[DETERMINISTIC_DERIVATION]: `Deterministic` owns order keys, unit draws, and signed-unit streams off one splitmix64 finalizer.
 
 ## [02]-[CONTENT_KEY]
 
-- Owner: `ContentHash` static class — one member, one algorithm, one seed. Caller owns the canonical byte projection; this owns the digest, so identity is byte-stable across packages and runtimes.
-- Entry: `Of(ReadOnlySpan<byte> canonicalBytes)` → `XxHash128.HashToUInt128(canonicalBytes)` → `UInt128`. Seed is the `HashToUInt128` default of zero — never overridden, never parameterized.
-- Law: THE federation content key, verbatim contract — every content hash in the federation composes this entry: the geometry content hash, the `Rasm.Element` projection/address seam, the `Rasm.Persistence` snapshot spine and artifact index, the python `runtime/evidence` peer, the typescript `kernel` peer, the rhino-bridge `CargoManifest.ContentHash`, and `Rasm.Rhino` block identity. One algorithm, one seed, no second hasher: a second hashing path anywhere in the federation forks identity and is the deleted form.
-- Law: canonicalization is the caller's proof — this entry hashes the bytes it is handed; byte-stable member order, numeric normalization, and encoding are the projecting owner's obligations, stated where the projection lives. Two semantically equal values with divergent canonical projections are two identities, by design.
-- Packages: System.IO.Hashing (`XxHash128.HashToUInt128` — the static one-shot; MIT, managed, no native dependency).
-- Growth: streaming identity over large payloads is the same algorithm's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) landing as one member on this owner — never a second algorithm, never a width change.
-- Boundary: `UInt128` is the identity currency; wire and storage encodings (hex, two-lane `ulong`, byte order) are boundary projections owned at the consuming seam, never here.
+- Owner: `ContentHash` static class — one member, one algorithm, seed zero; THE federation content key every partner composes. Caller owns the canonical byte projection, this owns the digest, so identity is byte-stable across packages and runtimes.
+- Entry: `Of(ReadOnlySpan<byte> canonicalBytes)` → `XxHash128.HashToUInt128(canonicalBytes)` → `UInt128`; seed is the `HashToUInt128` default zero.
+- Law: canonicalization is the caller's proof — this entry hashes the bytes it is handed, so byte-stable member order, numeric normalization, and encoding are the projecting owner's obligation, and two semantically equal values with divergent canonical projections are two identities.
+- Packages: `System.IO.Hashing` (`XxHash128.HashToUInt128` — the static one-shot; MIT, managed, no native asset).
+- Growth: streaming identity over large payloads is the same algorithm's incremental lifecycle (`XxHash128.Append` + `GetCurrentHashAsUInt128`, seed zero), landing as one member on this owner.
+- Boundary: `UInt128` is the identity currency; wire and storage encodings (hex, two-lane `ulong`, byte order) are boundary projections at the consuming seam.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -25,8 +26,6 @@ using Rasm.Csp;
 namespace Rasm.Domain;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// Kernel's ONE content-identity entry: seed-zero XxHash128 over canonical bytes -> UInt128.
-// Every federation content hash composes THIS entry — one algorithm, one seed, no second hasher.
 public static class ContentHash {
     [BoundaryAdapter] public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(canonicalBytes);
 }
@@ -34,15 +33,13 @@ public static class ContentHash {
 
 ## [03]-[DETERMINISTIC_DERIVATION]
 
-- Owner: `Deterministic` static class — the one splitmix64 owner. Finalizer `Mix` and the golden-gamma stream `Advance` are the private mechanism; the public family is the draws and keys — the unit projections `NextUnit`/`NextSignedUnit`/`NextSignedComplexUnit`, the coordinate `OrderKey`, and the clamped `UnitInterval` — one derivation family over one mixing function, with the mixer unreachable outside the owner so every new derivation lands HERE.
-- Entry: two modalities discriminated by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit(ref state)` for real bases, `NextSignedComplexUnit(ref state)` for Hermitian bases); coordinate keying is stateless (`OrderKey(coordinates, seed)` with the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point reproducible draws).
-- Law: ONE mixing function — the splitmix64 finalizer with its published constants (`0x9E3779B97F4A7C15` gamma, `0xBF58476D1CE4E5B9`/`0x94D049BB133111EB` mixers) — under every member: the matrix eigensolver's basis streams and the sampler's coordinate keys are derivations of this one finalizer. Both mature private PRNGs — the eigensolver's local splitmix64 and the sampler's ad-hoc coordinate mix — are the collapsed form; a mix minted outside this owner is the deleted form.
-- Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction, so the two zeros key identically — and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.
-- Law: unit projections take the top 53 bits (`>> 11`, scaled by `2^-53`) so every draw is an exact double; `UnitInterval` clamps to `[EpsilonPolicy.SqrtEpsilon, 1 - EpsilonPolicy.SqrtEpsilon]` so log-weighted rejection draws (`-log(u) / weight`) stay finite at both ends — the one named epsilon owner, never a `RhinoMath` reach on the floor.
-- Law: derivation is not identity — `ContentHash` owns content equality; `Deterministic` owns reproducible algorithm-internal ordering and sampling. A content key built from `OrderKey`, or a sampler seeded from a content hash, crosses the concerns and is rejected.
-- Cases: consumers by member — `matrix.md` LOBPCG deterministic starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy rows) · `sample.md` candidate ordering, active-set rotation, annulus draws, weighted-rejection keys (`OrderKey`/`UnitInterval`) · any reproducible tie-break in the processing suite (`OrderKey` over the deciding coordinates).
-- Growth: a new reproducible draw shape (a 2D unit pair, a unit sphere direction, an index shuffle) is one member on this owner composing `Advance`/`OrderKey` — never a local generator, never `System.Random`.
-- Boundary: the span fold in `OrderKey` and the state-advancing `ref` members are the named kernel exemption; determinism is the contract — no member reads time, thread identity, or process state.
+- Owner: `Deterministic` static class — the one splitmix64 owner: `Mix` (finalizer) and `Advance` (golden-gamma stream) are the private mechanism, the public family is the unit draws, order keys, and clamped interval, and the mixer is unreachable outside the owner so every new derivation lands here.
+- Entry: two modalities by input shape — stream sampling advances a `ref ulong state` seeded by the consuming algorithm's named policy seed (`NextSignedUnit` for real bases, `NextSignedComplexUnit` for Hermitian); coordinate keying is stateless (`OrderKey(coordinates, seed)`, the `Point3d` overload routing into the span floor, `UnitInterval(point, salt, seed)` for per-point draws).
+- Law: coordinate keys normalize the signed zero — `-0.0` projects to `+0.0` before bit extraction so the two zeros key identically, and the seed widens unsigned (`(uint)seed`) so a negative seed never sign-extends into the state.
+- Law: unit projections take the top 53 bits (`>> 11`, scaled `2^-53`) for an exact double; `UnitInterval` clamps to `[EpsilonPolicy.SqrtEpsilon, 1 - EpsilonPolicy.SqrtEpsilon]` — the one named epsilon owner — so log-weighted rejection draws (`-log(u) / weight`) stay finite at both ends.
+- Cases: consumers by member — the matrix eigensolver's LOBPCG starting bases (`NextSignedUnit`/`NextSignedComplexUnit` under its named basis-seed policy), the sampler's candidate ordering, active-set rotation, annulus, and weighted-rejection draws (`OrderKey`/`UnitInterval`), and any reproducible tie-break in the processing suite (`OrderKey`).
+- Growth: a new reproducible draw shape is one member on this owner composing `Advance`/`OrderKey`.
+- Boundary: the span fold in `OrderKey` and the state-advancing `ref` members are the named kernel exemption; no member reads time, thread identity, or process state.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -53,7 +50,6 @@ using Rhino.Geometry;
 namespace Rasm.Domain;
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
-// ONE splitmix64 owner: reproducible order keys, unit draws, and signed-unit streams.
 public static class Deterministic {
     private const ulong Gamma = 0x9E3779B97F4A7C15UL;
     private static ulong Mix(ulong state) {
@@ -84,16 +80,7 @@ public static class Deterministic {
 }
 ```
 
-## [04]-[DENSITY_BAR]
-
-Two owners, two concerns, zero siblings; every reproducibility need in the corpus resolves to one of these members.
-
-| [INDEX] | [CONCERN]               | [OWNER]         | [KIND]                              | [RAIL]                                     | [CASES] |
-| :-----: | :---------------------- | :-------------- | :---------------------------------- | :----------------------------------------- | :-----: |
-|  [01]   | Content identity        | `ContentHash`   | static entry, seed-zero `XxHash128` | `ReadOnlySpan<byte> → UInt128`             |    1    |
-|  [02]   | Reproducible derivation | `Deterministic` | splitmix64 — streams, keys, draws   | `ref ulong → double`/`coordinates → ulong` |    6    |
-
-## [05]-[RESEARCH]
+## [04]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

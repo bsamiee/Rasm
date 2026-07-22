@@ -1,33 +1,32 @@
 # [RASM_VECTORS_EXTRACT]
 
-The extraction/projection rail — ONE `ExtractionDomain` `[Union]` (`Support`/`Mesh`/`Cloud`) with the polymorphic `Of(object?)` ingress that admits raw `Mesh`/`VectorCloud`/`PointCloud`/`Brep`/`Surface` into a typed sampling domain, ONE `ContourPolicy` `[Union]` (`Plane`/`Axis`/`SurfaceIso`/`MeshScalar`) that sections every domain native-first (`Brep.CreateContourCurves`, `Mesh.CreateContourCurves`, `Surface.IsoCurve(direction, constantParameter)`, `BrepFace.TrimAwareIsoCurve`, `PointCloud.CreateContourCurves`/`CreateSectionCurve`) and falls to the owned marching-triangles scalar-isoline kernel ONLY where RhinoCommon has no surface (per-vertex scalar contouring), and ONE public `Extraction` `[Union]` (`Probe`/`Contour`/`IsoSurface`/`Sampled`) that is the extraction request vocabulary the `intent.md` rail carries as a single case. The `SurfaceIso` band resolves through ONE `IsoFrame` status resolver — `IsoStatus.X`/`Y` carry the caller parameter, the four edge statuses read the opposite-direction domain end — serving both backends (`TrimAwareIsoCurve` when the face carries trims, the raw `IsoCurve` otherwise); a second status ladder is the deleted form. The former `Glyph`/`Grid`/`StreamBundle` policy triple is dead: sampled extraction is ONE `SampledExtraction` `[Union]` whose cases (`Glyph(VectorField, PositiveMagnitude Scale)` / `Grid(ScalarField)` / `StreamBundle(VectorField, PositiveMagnitude InitialStep, FieldIntegrator, Termination)`) share one `SampleKind` seed generator and one `ProjectSamples` spine — a new sampled mode is one case plus one item arm, never a third near-identical policy struct.
+`ExtractionDomain` owns the extraction/projection rail: one polymorphic `Of` ingress admits any raw Rhino geometry into a typed sampling domain, `ContourPolicy` sections every domain native-first through RhinoCommon's own contour and iso adapters, and typed projection rows fold probe, contour, iso-surface, and sampled requests to any requested output type. Native routing is law — the one local marching-triangles kernel exists solely for the per-vertex scalar contouring RhinoCommon carries no surface for.
 
-Every `.Project<TOut>` on this page routes through `Numerics/atoms.md`'s `AtomProjection.Rows` typed-row dispatch — the `typeof(TOut)` reflection branching that this file's ancestor carried is the named kill: the receipt rides as the IMPLICIT self row (`Rows<TSelf, TOut>(self, key, rows…)` yields self when `TOut == TSelf`), a row is `ProjectionRow.Of<T>(producer)` lazily produced, and only the matched row runs. Receipt metadata is folded: `ExtractionRoute` (`Native`/`Local`) is the ONE retained vocabulary; completion status DERIVES from the counts (`Complete => Emitted == Attempted`, never stored beside them); tolerance provenance rides the tolerance value as the ONE `ExtractionTolerance` `[Union]` (`FromContext(double)` / `RhinoDefault` optionally witnessing the native evaluator's fixed internal via `RhinoFixed(double)` / `NotApplicable`) — the former three-enum spread (`ExtractionStatus`, `ToleranceSource`) is dead. The three parallel per-mode failure slots collapse to ONE `Option<int> ItemFailures` (the mode is already on the request). This page composes `sample.md` (`SampleKind` seed evaluation), `flow.md` (`FlowKernel.Trace` stream bundles), `Spatial/fields.md` (`ScalarField`/`VectorField`/`TensorField` sampling + the exposed `SampleSdfDetailed`/`SampleDetailed` tagged rails), `Processing/geodesics.md` (`GeodesicKernel.TangentLogMapAt` for the mesh-bound log-map probe), and `Meshing/reconstruct.md` (`IsoSurface.Detailed` marching-cubes extraction) — the ONE sampling/extraction rail invariant. `Op` stays the explicit value key; every receipt's `IsValid` is one `Domain/rails.md` `ValidityClaim.All` fold.
+Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt validity folds through `Domain/rails.md`'s `ValidityClaim` under the `Op` value key. Sampling owners compose unchanged — `sample.md` evaluates seeds, `flow.md` traces stream bundles, `Spatial/fields.md` samples the scalar, vector, and tensor fields through its tagged rails, `Processing/geodesics.md` resolves the mesh-bound log-map probe, and `Meshing/reconstruct.md` extracts the marching-cubes iso-surface — this rail re-implements none of them.
 
 ## [01]-[INDEX]
 
-- [02]-[SECTIONING]: `ExtractionDomain` ingress + admission; `ContourPolicy` union; the native-first contour adapters per geometry with the ONE `IsoFrame` status resolver; the marching-triangles scalar-isoline kernel (plateau rejection, quantized welding, dedup, incidence stitch with branch stops) and its `ScalarIsolineReceipt`.
-- [03]-[PROJECTION_RAIL]: `ExtractionProbe` field point-probe rows; the public `Extraction` request union + factories; the `SampledExtraction` mode family and the one `ProjectSamples` spine; `ExtractionTolerance`; the folded `ExtractionReceipt`.
+- [02]-[SECTIONING]: domain ingress, admission, and native-first contour/iso sectioning with the local scalar-isoline kernel.
+- [03]-[PROJECTION_RAIL]: `Extraction` request union and its typed `Project<TOut>` egress over probe, iso-surface, and sampled modes.
 
 ## [02]-[SECTIONING]
 
-- Owner: `ExtractionDomain` `[Union]` — `SupportCase(SupportSpace)` / `MeshCase(MeshSpace)` / `CloudCase(VectorCloud)`; `Of(object? value, Context, Op?)` is the polymorphic ingress discriminating on the RUNTIME shape (an already-typed domain re-admits; a raw `Mesh` lifts through `MeshSpace.Of`; a `VectorCloud` re-validates through its own `Admit`; a raw `PointCloud` clusters through `VectorCloud.Cluster`; any other geometry falls to `SupportSpace.Of`) — one arity owns every ingress modality. `ContourPolicy` `[Union]` — `PlaneCase(Plane)` / `AxisCase(Point3d Start, Point3d End, PositiveMagnitude Interval)` / `SurfaceIsoCase(IsoStatus, double Parameter)` / `MeshScalarCase(Arr<double> Values, Seq<double> Levels)` — each factory admits through the `Domain/validation.md` vocabulary (finite endpoints, non-degenerate span, iso-status/parameter coherence, finite scalar/level sets).
-- Entry: `domain.Contours(ContourPolicy, Context, Op)` → `Fin<CurveBatch>` — a total `Switch` routing by domain then by policy: Brep plane/axis contours, Mesh plane/axis contours at `Context.Absolute`, Surface/BrepFace iso curves through the ONE `IsoFrame` resolver (trim-aware on faces, raw `IsoCurve` on surfaces), Cloud plane sections and axis contours, and Mesh scalar isolines through the local kernel; every unsupported domain-policy pairing is a typed `Unsupported` fault naming both sides, never a silent empty.
-- Auto: the scalar-isoline kernel triangulates a duplicate (quads converted once), then per face per level — plateau faces reject (all three scalars within the scale-derived epsilon `EpsilonPolicy.SqrtEpsilon · max(1, |level|, max|scalar|)`); an edge lying ON the level emits the edge segment; a strict sign change interpolates the crossing; the per-face crossing set welds through the quantized `ScalarIsolinePointKey` (round-to-even at `1/max(tolerance, √ε)` pitch) and emits a segment only on exactly two distinct points. Dedup canonicalizes each segment's key pair; stitching builds the point-key incidence map and extends each seed polyline at both ends, stopping at branch nodes (>1 unused incident segment — recorded, never guessed through).
-- Receipt: `ScalarIsolineReceipt` — finite levels, raw/deduped segment counts, degenerate/plateau rejections, stitched candidates, branch stops/nodes, max incidence, emitted curves — the full kernel evidence on the `ValidityClaim.All` count fold; `CurveBatch` carries the accepted curves, the optional isoline result, and the composed `ExtractionReceipt`.
-- Boundary: the isoline kernel is the named statement-kernel boundary adapter — RhinoCommon owns no per-vertex scalar contour, so the PL kernel follows Rhino's triangulated topology and returns stitched candidates only; its accumulation ledger is kernel-local state inside the exemption. Native adapters wrap every RhinoCommon call in `Op.Catch` so a host throw converts at the boundary; curves filter through `IsValid` before acceptance and the rejected count lands on the receipt.
+- Owner: `ExtractionDomain` `[Union]`, whose polymorphic `Of` ingress discriminates on runtime shape and admits each arm through its own owner; `ContourPolicy` `[Union]`, whose factories admit every section policy through the `Domain/validation.md` vocabulary.
+- Entry: `domain.Contours(policy, …)` is a total `Switch` routing domain then policy to the native adapter, and every unsupported domain-policy pairing is a typed `Unsupported` fault naming both sides, never a silent empty.
+- Auto: the local scalar-isoline kernel triangulates, extracts per-face level crossings under a scale-derived epsilon, welds them through a quantized point key, dedups, and stitches seed polylines end-to-end, recording every branch node rather than guessing through it.
+- Receipt: `ScalarIsolineReceipt` carries the full kernel evidence — segment, rejection, stitch, and branch counts — folded to one validity claim; `CurveBatch` bundles the accepted curves with the composed `ExtractionReceipt`.
+- Boundary: native adapters wrap every RhinoCommon call in `Op.Catch` so a host throw converts at the boundary. Scalar-isoline extraction is the named statement-kernel exemption: RhinoCommon owns no per-vertex scalar contour, so the kernel follows Rhino's triangulated topology, returns stitched candidates only, and holds its accumulation ledger kernel-local inside the exemption.
 
 ## [03]-[PROJECTION_RAIL]
 
-- Owner: `ExtractionProbe` `[Union]` — `Vector(VectorField)` / `Scalar(ScalarField)` / `Tensor(TensorField)` — the field point-probe; `Extraction` `[Union]` (PUBLIC — the extraction request vocabulary `intent.md` wraps as ONE case) — `ProbeCase(ExtractionProbe, Point3d)` / `ContourCase(ExtractionDomain, ContourPolicy)` / `IsoSurfaceCase(ScalarField, BoundingBox, Dimension Resolution, Dimension MaxRootSteps)` / `SampledCase(SampledExtraction Mode, ExtractionDomain Domain, SampleKind Seeds)`; `SampledExtraction` `[Union]` — `GlyphCase(VectorField, PositiveMagnitude Scale)` / `GridCase(ScalarField)` / `StreamBundleCase(VectorField, PositiveMagnitude InitialStep, FieldIntegrator, Termination)` — ONE sampled-mode family over one shared seed generator; `ExtractionTolerance` `[Union]` — `FromContext(double)` / `RhinoDefault(Option<double> Witnessed)` with the `RhinoFixed` witness factory / `NotApplicable` — provenance and value as one carrier.
-- Entry: `Extraction.Probe/Contour/IsoSurface/Sampled(...)` factories admit once (probe source and sample gated — a null field union never reaches `Project` — domain re-admitted, policy validated through the mode's own `Admit`, iso bounds gated finite and non-degenerate); `extraction.Project<TOut>(Context, Op)` is the one egress — probe rows project field samples (`Vector3d`, magnitude `double`, and the `VectorSpan`/`Direction`/`Line` span family; the mesh-bound `TangentLogMapCase` routes to `Processing/geodesics.md`'s `GeodesicKernel.TangentLogMapAt` for `TangentLogMapResult`/`TangentLogMapReceipt`; scalar rows ride `Spatial/fields.md`'s exposed `SampleSdfDetailed` → `SdfSample` and `SampleDetailed` → `FieldSample` tagged rails; tensor rows project `SymmetricMatrix` or principal eigenpairs); contour rows project `Seq<Curve>`, `ExtractionReceipt`, `ScalarIsolineResult`/`ScalarIsolineReceipt`; iso-surface rows project `Mesh`/`IsoSurfaceResult`/`ExtractionReceipt` off `Meshing/reconstruct.md`'s `IsoSurface.Detailed` (the `IsoSurfaceReceipt` is the implicit self row); sampled rows project `Seq<Line>` glyphs, `Seq<(Point3d, double)>` grids, and `Seq<StreamlineTrace>`/`Seq<Polyline>`/`Seq<Curve>` bundles through `flow.md`'s `ProjectTrace`.
-- Auto: `ProjectSamples` is the ONE sampled spine — evaluate `Seeds` through `sample.md` (`SampleKind.Evaluate` over the domain), fold each seed through the mode's item arm (glyph = probe the vector field and scale a `Line` along the span; grid = sample the scalar; bundle = `FlowKernel.Trace`), mint the `ExtractionReceipt` (seed receipt + `ItemFailures` count), and project through ONE `Rows` call per mode with the receipt as the implicit self row — item rows are gated on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
-- Receipt: `ExtractionReceipt` — `Route` (`Native`/`Local`), `Attempted`/`Emitted` with DERIVED `Rejected` and `Complete`, the `ExtractionTolerance` carrier, `ParallelCallback`, the optional child receipts (`IsoSurfaceReceipt`/`ScalarIsolineReceipt`/`SampleReceipt`), and ONE `Option<int> ItemFailures` — the three former per-mode failure slots and the stored status/tolerance-source enums are dead; `IsValid` is one `ValidityClaim.All` fold over the count rows and nested evidence.
-- Packages: `Rasm`/Spatial (`ScalarField`/`VectorField`/`TensorField` sampling, `SampleSdfDetailed`/`SampleDetailed`, `SupportSpace`, `VectorCloud`), `Rasm`/Meshing (`MeshSpace`, `IsoSurface.Detailed` + `IsoSurfacePolicy`/`IsoSurfaceResult`/`IsoSurfaceReceipt`), `Rasm`/Processing (`SampleKind`/`SampleReceipt`, `FlowKernel`/`Termination`/`StreamlineTrace`, `GeodesicKernel.TangentLogMapAt`), `Rasm`/Numerics (`FieldIntegrator`, `AtomProjection`/`ProjectionRow`, `EpsilonPolicy`, `Dimension`/`PositiveMagnitude`, `VectorSpan`/`Direction`), `Rasm`/Domain (`Op`/`Context`/`Admit`/`ValidityClaim`), LanguageExt.Core, Thinktecture.Runtime.Extensions, RhinoCommon (contour/iso/section natives, `IsoStatus`, `CollectionsMarshal` welding).
-- Growth: a new section policy is one `ContourPolicy` case + one adapter arm per admitting domain; a new sampled mode is one `SampledExtraction` case + one item arm on the spine; a new probe output is one `ProjectionRow`; a new ingress shape is one `Of` arm — the request union, the mode family, and the row set absorb all growth.
-- Boundary: native-first is law — the local PL kernel exists ONLY for the scalar-contour hole in RhinoCommon and never shadows a native route; `Extraction` construction is the page's factories (sealed union, private root constructor) so no half-admitted request exists; sampled projection composes the `sample.md`/`flow.md`/`fields.md` owners and re-implements none of them — a domain-local sampler, tracer, or field evaluator beside the owning pages is the deleted parallel-rail form; `typeof(TOut)` comparison anywhere on this page is the named dead pattern, `AtomProjection.Rows` is the only output dispatch. The log-map pair is the probe's ONLY mesh-band special case — its result has no value-only form; the retired probe's second `typeof`-keyed special case (Hodge decomposition evidence) is ABSORBED, never carried: a Hodge field probes its sampled component vector here, and the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail (the declared `SampleDetailed` vector-sibling arm, whose nested-evidence slot is exactly this receipt) — a probe row that re-derives the 1-form beside `fields.md`'s edge-integration is the parallel-rail form this rail deletes.
+- Owner: `ExtractionProbe` `[Union]` is the field point-probe; `Extraction` `[Union]` is the public request vocabulary `intent.md` wraps as one case; `SampledExtraction` `[Union]` is the one sampled-mode family over one shared seed generator; `ExtractionTolerance` `[Union]` carries provenance and value as one.
+- Entry: the request factories admit once — probe source and sample gated, domain re-admitted, policy and mode validated through their own `Admit`, iso bounds gated finite and non-degenerate; `extraction.Project<TOut>(…)` is the one egress, each request kind resolving its output through typed projection rows.
+- Auto: `ProjectSamples` is the one sampled spine — evaluate the seeds, fold each through the mode's item arm, mint the receipt, and project through one `Rows` call; item rows gate on zero rejections, so a partial sampled extraction is a typed fault, never a truncated success.
+- Receipt: `ExtractionReceipt` carries the extraction route, attempted and emitted counts with derived rejected and completion, the tolerance carrier, one `ItemFailures` slot, and the optional child receipts, all folded to one validity claim.
+- Growth: a new section policy is one `ContourPolicy` case and one adapter arm per admitting domain, a new sampled mode one `SampledExtraction` case and one spine arm, a new probe output one `ProjectionRow`, a new ingress shape one `Of` arm.
+- Boundary: native-first is law — the local kernel never shadows a native route, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -55,8 +54,7 @@ public sealed partial class ExtractionRoute {
     public static readonly ExtractionRoute Local = new(key: 1);
 }
 
-// Tolerance provenance and value as ONE carrier; the stored ToleranceSource/Option<double> pair is dead.
-// RhinoDefault optionally WITNESSES the native evaluator's fixed internal value — recorded, never chosen.
+// RhinoDefault witnesses the native evaluator's fixed internal tolerance — recorded, never chosen.
 [Union]
 public abstract partial record ExtractionTolerance {
     public sealed record FromContextCase(double Value) : ExtractionTolerance;
@@ -129,7 +127,6 @@ public abstract partial record ExtractionDomain {
             .Bind(cloud => cloud.Admit(key: op))
             .Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     }
-    // The one polymorphic ingress: runtime shape discriminates, every arm admits through its owner.
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {
@@ -188,8 +185,7 @@ public abstract partial record ExtractionDomain {
             planeCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.PlaneCase))),
             axisCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.AxisCase))),
             meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.MeshScalarCase)))));
-    // THE one IsoStatus resolver: X/Y carry the caller parameter; edge statuses read the opposite-direction
-    // domain end. direction = which way the RESULTING curve runs (RhinoCommon IsoCurve law).
+    // RhinoCommon IsoCurve law: direction is which way the resulting curve runs; edge statuses read the opposite-direction domain end.
     private static Fin<(int Direction, double Parameter)> IsoFrame(IsoStatus status, double parameter, Func<int, Interval> domain, Op key) =>
         status switch {
             IsoStatus.X => key.Finite(parameter).Map(_ => (Direction: 1, Parameter: parameter)),
@@ -220,8 +216,7 @@ public abstract partial record ExtractionDomain {
             .Map(receipt => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: receipt));
     }
 
-    // BOUNDARY ADAPTER — RhinoCommon owns no per-vertex scalar contour; this PL kernel follows the
-    // triangulated topology and returns stitched candidates only. Named statement-kernel exemption.
+    // Named statement-kernel exemption: RhinoCommon owns no per-vertex scalar contour, so this PL kernel follows the triangulated topology and returns stitched candidates only.
     private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
         if (values.Count != mesh.Vertices.Count || values.Exists(static value => !double.IsFinite(value)) || levels.IsEmpty || levels.Exists(static value => !double.IsFinite(value)))
             return Fin.Fail<ScalarIsolineResult>(key.InvalidInput());
@@ -349,16 +344,13 @@ public abstract partial record ExtractionProbe {
     public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source);
     public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source);
     public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
-    // The bare constructors stay cheap; the request boundary (Extraction.Probe) runs this source gate,
-    // so a null field union never reaches Project. Op.Need: the member name shadows the Admit class.
+    // Source gate runs at the request boundary (Extraction.Probe), so a null field union never reaches Project. Op.Need: the member name shadows the Admit class.
     internal Fin<ExtractionProbe> Admit(Op key) => Switch(
         state: key,
         vectorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
         scalarCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
         tensorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe));
-    // Typed rows kill the typeof(TOut) branching; only the matched row's producer runs. The mesh-bound
-    // log-map rows route to geodesics.md's kernel; the Hodge evidence rows route to dec.md's memoized
-    // HodgeSolutionOf seat; scalar rows ride fields.md's tagged rails.
+    // Mesh-band rows route out: log-map to geodesics.md's kernel, Hodge evidence to dec.md's memoized HodgeSolutionOf seat, scalar rows to fields.md's tagged rails.
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) => Switch(
         state: (Sample: sample, Context: context, Key: key),
         vectorCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.VectorCase, TOut>(self: probe, key: state.Key, owner: typeof(VectorCase),
@@ -391,7 +383,6 @@ public abstract partial record ExtractionProbe {
             .Bind(vector => VectorSpan.Of(anchor: state.Sample, vector: vector, context: state.Context, key: state.Key));
 }
 
-// ONE sampled-mode family over one shared seed generator; the Glyph/Grid/StreamBundle policy triple is dead.
 [Union]
 public abstract partial record SampledExtraction {
     public sealed record GlyphCase(VectorField Field, PositiveMagnitude Scale) : SampledExtraction;
@@ -416,7 +407,7 @@ public abstract partial record SampledExtraction {
     }
 }
 
-// The public extraction request vocabulary; intent.md carries it as ONE case.
+// Public extraction request vocabulary; intent.md carries it as one case.
 [Union]
 public abstract partial record Extraction {
     public sealed record ProbeCase(ExtractionProbe Source, Point3d Sample) : Extraction;
@@ -499,8 +490,7 @@ public abstract partial record Extraction {
                     ProjectionRow.Of<Seq<Polyline>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<Polyline>(trace: trace, key: op)).As() : Fin.Fail<Seq<Polyline>>(op.InvalidResult())),
                     ProjectionRow.Of<Seq<Curve>>(() => rejected == 0 ? traces.TraverseM(trace => FlowKernel.ProjectTrace<Curve>(trace: trace, key: op)).As() : Fin.Fail<Seq<Curve>>(op.InvalidResult()))))));
 
-    // The ONE sampled spine: seed via sample.md, fold the mode's item arm, mint the receipt, project through
-    // one Rows call with the receipt as the implicit self row — items gate on zero rejections.
+    // Items gate on zero rejections: any per-item failure fails the whole projection, never a truncated success.
     private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionReceipt, Op, Fin<TOut>> project) =>
         from samples in seeds.Evaluate(domain: domain, context: context, key: key)
         let sampled = samples.Points.Fold(
@@ -527,11 +517,9 @@ internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) {
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 
-// Immutable kernel ledger folded through the isoline passes; the former mutable stats class is dead.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct IsolineLedger(int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
 
-// IsValid = ONE ValidityClaim.All fold (Domain/rails.md) over the count rows.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ScalarIsolineReceipt(bool NativeRouted, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -546,7 +534,6 @@ public readonly record struct ScalarIsolineReceipt(bool NativeRouted, int Finite
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
 
-// Route retained, completion DERIVED from the counts, tolerance provenance on the value, ONE failure slot.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ExtractionReceipt(
     ExtractionRoute Route, int Attempted, int Emitted, ExtractionTolerance Tolerance, bool ParallelCallback,

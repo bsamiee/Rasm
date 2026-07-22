@@ -1,40 +1,25 @@
 # [RASM_FAULTS]
 
-The consolidated geometry fault family (band 2400-2449). The page owns `GeometryFault` — the single `[Union]` every `Fin`/`Validation`/`Eff` rail in the geometry sub-domains routes through, one case per reachable domain failure carrying its TYPED discriminant payload and its band-2400 ordinal code, lowered into the LanguageExt `Error` rail through `ToError()` — plus `FaultCluster`, the 13-row cluster taxonomy the band arithmetic derives a code's owner from, and the two faults-minted stage vocabularies `ParametricStage`/`DevelopmentStage`. The union lives at the `Rasm.Numerics` ROOT namespace; the 13 clusters partition exactly 2400-2449 with each cluster row carrying its owning TIER-2 namespace (six namespaces own the 13 clusters — `Rasm.Spatial`/`Rasm.Processing`/`Rasm.Solving`/`Rasm.Meshing`/`Rasm.Drawing`/`Rasm.Parametric`), and every sibling routes a failure as `GeometryFault.<Case>(...).ToError()` — the cases live in one closed family, never as per-page error types.
+`GeometryFault` owns the geometry domain's one failure rail — a closed `[Union]` at the `Rasm.Numerics` root that every `Fin`/`Validation`/`Eff` path across the geometry sub-domains routes through, each case carrying its typed payload and a band-2400 ordinal `Code` lowered into the LanguageExt `Error` rail by `ToError()`. `FaultCluster` resolves a code's owning cluster and namespace by stride arithmetic, and `ParametricStage`/`DevelopmentStage` mint the stage vocabularies here; a reachable domain failure lands as one case in its sibling's sub-band, never a per-page error type.
 
-Two fault families exist by explicit decision and neither absorbs the other: `Rasm.Domain` owns the kernel-substrate `Expected`/`Fault` family (admission, validation, host-boundary faults on the generated-owner weave), and this page owns the band-2400 `GeometryFault` union (robust-core geometry failures on the `Fin` rail). `Domain/rails.md` states the seam from its side; this page states it from the geometry side: a geometry owner never mints a `Rasm.Domain` `Fault` case for a robust-core failure, a substrate owner never claims a band-2400 code, and the ordinal band keeps a telemetry reader banding by code from ever conflating the two — 2400-2449 sits strictly below the AEC `MaterialFault` band 2450.
-
-Every case payload is a typed discriminant owned by the failure's own sibling — never an erased `string Detail` carrier where a vocabulary row, an index, or a measure states the cause precisely. A `string` survives only as a WITNESS field beside typed discriminants (the free-text evidence a fold cannot type), never as the sole payload.
+Each payload discriminant composes from its owning sibling's vocabulary — the fault mints none of its own domain axes — while `ParametricStage`/`DevelopmentStage` mint here because no single Parametric page owns the tier-wide stage axis, every string key binding the shipped `ComparerAccessors.StringOrdinal` accessor once. Band 2400-2449 sits strictly below the AEC `MaterialFault` band 2450, so a telemetry reader banding by code never conflates a geometry failure with the `Rasm.Domain` `Expected`/`Fault` substrate family that neither union absorbs.
 
 ## [01]-[INDEX]
 
-- [01]-[FAULT_BAND]: `GeometryFault` `[Union]` (25 cases, band 2400-2449) — one closed family over every geometry failure, typed discriminant payloads, `Code`/`Message`/`Cluster` derived projections, `ToError()` lowering into the `Error` rail; `FaultCluster` the 13-row `[SmartEnum<int>]` cluster taxonomy keyed by stride base; `ParametricStage`/`DevelopmentStage` the two faults-minted stage vocabularies; the two-family seam against `Rasm.Domain` `Expected`/`Fault`.
+- [01]-[FAULT_BAND]: `GeometryFault` closed `[Union]`, `FaultCluster` stride taxonomy, and the `ParametricStage`/`DevelopmentStage` stage vocabularies — typed payloads, `Code`/`Message`/`Cluster` folds, `ToError()` lowering.
 
 ## [02]-[FAULT_BAND]
 
-- Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Numerics` root, one case per reachable domain failure carrying its typed payload and its band-2400 ordinal `Code`, lowered into the LanguageExt `Error` rail through `ToError()` (`Error.New(Code, Message)`); `FaultCluster` the `[SmartEnum<int>]` cluster taxonomy — 13 rows keyed by stride base, each carrying its cluster name and owning TIER-2 namespace, resolved from a code by the stride arithmetic `Items[(code - 2400) >> 2]` (the 12 four-wide strides index 0-11; the two-code `parametric` tail 2448-2449 both resolve to index 12) so telemetry bands a code to its owner with zero lookup table beside the vocabulary; `ParametricStage` (`construction`/`evaluation`/`station`/`offset`/`encode`) and `DevelopmentStage` (`subdivision`/`strip`/`panel`/`pattern`) the string-keyed `[SmartEnum<string>]` stage vocabularies minted HERE because their consumers (`ParametricFault`/`DevelopmentFault`) span the whole Parametric tier and no single tier page owns the stage axis — string-keyed, never keyless, because the stage renders into the wire-bound `Message` and rendered identity requires a key; every string-keyed enum binds the shipped `ComparerAccessors.StringOrdinal` accessor through `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, so the ordinal comparer is named once by the runtime library and never re-minted per enum.
-- Cases: 25, sub-banded by cluster on the ratified 13-cluster partition covering exactly 2400-2449 (12 × 4-wide + the 2-wide `parametric` tail — the century closes arithmetically, zero headroom remains):
-  - 2400-2403 `spatial` (`Rasm.Spatial`): `DegenerateInput(Kind, int, string)` 2400 — empty, non-finite, or kind-invalid primitive set; the ONE cross-cutting admission case any namespace routes (the recorded exception to cluster-locality) · `IndexMismatch(EntityKind, int, int)` 2401 — refit entity-count mismatch, expected vs actual · `KindMismatch(SpatialKind, QueryKind)` 2402 — a query modality the built index kind cannot answer (the silent-empty die).
-  - 2404-2407 `naming` (`Rasm.Spatial`): `NameCollision(UInt128, int)` 2404 · `HashMismatch(UInt128, int)` 2405.
-  - 2408-2411 `healing` (`Rasm.Processing`): `UnrepairableMesh(HealStage, int, int)` 2408 — the failing heal stage, iterations spent, defects remaining. `NativeAssetMissing` RE-CODES OUT of this cluster to 2423 — the tier-3 gate lives with the boolean owner.
-  - 2412-2415 `constraints` (`Rasm.Solving`): `OverConstrained(int, double)` 2412 · `SingularSystem(int, int)` 2413 (both rich, kept verbatim).
-  - 2416-2419 `offsetting` (`Rasm.Meshing`): `DegenerateOffset(int, double)` 2416 — the wavefront vertex the propagation dies at and the event time · `SkeletonStalled(int, double)` 2417 (rich, stays) · `CollapseStalled(int, double)` 2418 — a wavefront/MCF collapse iteration stalling with its residual.
-  - 2420-2423 `arrangement` (`Rasm.Meshing` — delaunay homed here; the `Tessellation` TYPE keeps its name inside this namespace): `DegenerateArrangement(int, string)` 2420 — cell count plus the manifold witness · `ConstraintUnrecoverable(int, int)` 2421 — the constraint id whose recovery exhausts its Steiner budget · `DegenerateTessellation(int, string)` 2422 — the simplex id plus the degeneracy witness · `NativeAssetMissing(string, string, long)` 2423 — engine, RID, and the `ScaleCeiling` the tier-3 route was gated behind (RE-CODED from 2409).
-  - 2424-2427 `intersection` (`Rasm.Meshing`): `IntersectionFault(PrimitiveKind, PrimitiveKind)` 2424 — the degenerate primitive pair by kind · `SectionFault(int, double, int)` 2425 — layer index, elevation, and the open-chain count of a non-watertight section.
-  - 2428-2431 `fitting` (`Rasm.Solving`): `FitFault(double, double)` 2428 (rich, stays).
-  - 2432-2435 `parameterization` (`Rasm.Processing`): `ParameterizationFault(ChartId, double)` 2432 — the diverging chart and its distortion; the curve borrow ENDS (parametric-tier failures route 2448).
-  - 2436-2439 `projection` (`Rasm.Drawing`): `ProjectionFault(EdgeKind, int)` 2436 — the projected-edge kind and segment index.
-  - 2440-2443 `simplification` (`Rasm.Processing` — the widened mesh-rewrite-under-budget charter): `DecimationFault(int, int)` 2440 (rich, stays) · `RemeshStalled(double, double, int)` 2441 — target edge length, achieved length, iterations spent.
-  - 2444-2447 `encoding` (`Rasm.Drawing`): `EncodingFault(EncodingChannel, ChannelDtype, string)` 2444 — the failing channel row, its quantization row, and the witness detail.
-  - 2448-2449 `parametric` (`Rasm.Parametric` — the deliberate two-code headroom spend forming the 13th cluster): `ParametricFault(ParametricStage, string, string)` 2448 — the failing stage, the carrier name, the witness · `DevelopmentFault(DevelopmentStage, int, double)` 2449 — the failing stage, the unit index, and the per-concern measure (refinement level · isometry error · panel defect · instance defect by stage).
-- Entry: each case is a positional record constructor on the union (`new GeometryFault.KindMismatch(index, query)`, `new GeometryFault.NativeAssetMissing(engine, rid, ceiling)`) returning the union value; `public Error ToError()` lowers it into the LanguageExt `Error` the `Fin<T>` failure channel carries (`Error.New(int, string)` threading the band-2400 `Code` and the rendered `Message`), so a sibling routes a failure as `GeometryFault.<Case>(...).ToError()` — the union value is matched and its typed payload read BEFORE lowering, and the lowering projects every discriminant into the banded `Code` plus the machine-parseable `Message` grammar, the two facts the `Error` carries; `public int Code` reads the ordinal; `public FaultCluster Cluster` derives the owning cluster row from `Code` by the stride arithmetic — telemetry reads cluster name and owning namespace off the code with no second map.
-- Auto: `Code` and `Message` are two total generated `Switch` folds over the 25 cases in code order — a new case breaks both folds loudly at compile time, never a runtime-silent `_` arm; `Message` renders `geometry:<case>:<field>=<value>` with every keyed discriminant — the stage vocabularies included — projected through its `Key` (recoverable to the vocabulary row); `Cluster` is pure stride arithmetic over the `FaultCluster` declaration order (`Items` order = code order), so the taxonomy has exactly one authoritative declaration.
-- Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries on the failure side; a fault IS the residual.
-- Packages: Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum]`/`[SmartEnum<int>]`, `ComparerAccessors.StringOrdinal`), LanguageExt.Core (`Error.New(int, string)`, the `Fin`/`Validation`/`Eff` failure channel), BCL inbox (`UInt128`).
-- Growth: a new reachable domain failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band — never a parallel error type, never an `int` error-code constant inlined at the routing site; the century 2400-2449 is FULLY ALLOCATED across the 13 clusters (the `parametric` 2448-2449 spend closed the last headroom), so a genuinely new cluster is a federation re-plan against the AEC 2450 boundary, never a silent squeeze; a new stage on `ParametricStage`/`DevelopmentStage` is one `static readonly` row every stage-reading `Switch` re-proves at compile time; the string-key comparer is `ComparerAccessors.StringOrdinal` for every string-keyed enum and a second ordinal comparer is the deleted form.
-- Boundary: `GeometryFault` is the ONE fault union for the geometry domain and a per-cluster `SpatialFault`/`NamingFault`/`HealFault` family is the named density defect collapsed onto this one closed union — the cluster is the sub-band, not a parallel union; an exception thrown from domain logic is forbidden, every failure routes the `Fin`/`Validation`/`Eff` rail as `GeometryFault.<Case>(...).ToError()`, and a `try`/`catch` in domain logic (rather than at an owning host-numeric or native boundary) is the deleted form; the union is NOT a generic `IFault`/erased-detail carrier — an erased `string Detail` standing where a sibling vocabulary row, an index, or a measure types the cause is the named defect and the deleted form; the two-family seam holds — `GeometryFault` (band 2400, robust core) ⟂ `Rasm.Domain` `Expected`/`Fault` (kernel substrate), neither absorbs, each page states its side; every payload discriminant is composed from its owning sibling, never re-minted here: `Kind` (`Rasm.Domain` normalization taxonomy), `EntityKind` (naming), `SpatialKind`/`QueryKind` (index), `HealStage` (repair), `PrimitiveKind` (intersect), `ChartId` (flatten), `EdgeKind` (view), `EncodingChannel`/`ChannelDtype` (pack), while `ParametricStage`/`DevelopmentStage` mint here because no single Parametric page owns the tier-wide stage axis; the upward namespace references (`Rasm.Processing`, `Rasm.Drawing`, `Rasm.Meshing`, `Rasm.Spatial`) are legal by the ONE-ASSEMBLY law — the kernel compiles as one `Rasm.csproj`, namespaces are cluster routing vocabulary with no build edge, and this consolidated union at the root is the recorded exception to strata direction (re-homing a discriminant beside the fault would drag its whole sibling vocabulary — `HealStage` carries `Option<Func<HealOp>>` mint columns — and erasing it to a string key deletes the typed-discriminant law above).
+- Owner: `GeometryFault` the closed `[Union]` at the `Rasm.Numerics` root, one case per reachable failure carrying its typed payload and band-2400 `Code`, lowered to the `Error` rail through `ToError()`; `FaultCluster` the `[SmartEnum<int>]` taxonomy resolving a code's cluster name and owning namespace by stride arithmetic with no lookup table beside the vocabulary; `ParametricStage`/`DevelopmentStage` the `StringOrdinal`-keyed stage vocabularies, string-keyed because the stage renders into the wire-bound `Message`.
+- Cases: cases sub-band by cluster across the 2400-2449 century — each sibling's cluster owns a four-wide stride, the `parametric` tail spending the final two codes; `DegenerateInput` at the band base is the one cross-cutting admission case every namespace routes, the recorded exception to cluster-locality, and the fence carries the case, code, and payload roster.
+- Entry: each case is a positional record constructor returning the union; a sibling routes a failure as `GeometryFault.<Case>(...).ToError()`, the payload matched and read before lowering, `ToError` projecting the band `Code` and the parseable `Message` into the `Error` the `Fin<T>` failure channel carries.
+- Auto: `Code`, `Message`, and `Cluster` are total generated folds — a new case breaks every site at compile time, never a silent `_` arm; `Message` renders the `geometry:<case>:<field>=<value>` wire grammar with every keyed discriminant projected through its `Key`; `Cluster` is stride arithmetic over the single `FaultCluster` declaration.
+- Receipt: none — `GeometryFault` is the failure rail itself, the terminal value a `Fin<T>` carries; a fault is the residual.
+- Packages: Thinktecture.Runtime.Extensions for `[Union]`/`[SmartEnum]` and the `StringOrdinal` accessor, LanguageExt.Core for the `Error`/`Fin` failure channel, BCL `UInt128`.
+- Growth: a new reachable failure is one `GeometryFault` case carrying its typed payload and the next free ordinal in its sibling's sub-band; the 2400-2449 century is fully allocated across its clusters, so a genuinely new cluster is a federation re-plan against the AEC materials boundary, never a silent squeeze, and a new stage is one `static readonly` row every stage-reading fold re-proves at compile time.
+- Boundary: `GeometryFault` is the one fault union for geometry — a per-cluster `SpatialFault`/`NamingFault` family is the density defect collapsed onto it, the cluster a sub-band not a parallel union; the payload is never a generic `IFault` or an erased `string Detail` where a sibling vocabulary row, index, or measure types the cause, a `string` surviving only as a `Witness` field beside typed discriminants; `try`/`catch` is legal only at a host-numeric or native boundary, never in domain logic; the upward namespace references are legal by the one-assembly law — the kernel compiles as one `Rasm.csproj`, namespaces are cluster routing vocabulary with no build edge, and this root-consolidated union is the recorded exception to strata direction.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -47,8 +32,7 @@ using Thinktecture;
 namespace Rasm.Numerics;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// The 13-cluster taxonomy as data: Items order = code order, so `(code - 2400) >> 2` indexes the
-// owning row — total over the band, the two-code parametric tail 2448-2449 both landing on index 12.
+// Items order MUST equal Code fold order: (code-2400)>>2 indexes the owning row; the 2-wide parametric tail 2448-2449 both land on index 12.
 [SmartEnum<int>]
 public sealed partial class FaultCluster {
     public static readonly FaultCluster Spatial          = new(2400, "spatial",          "Rasm.Spatial");
@@ -71,9 +55,6 @@ public sealed partial class FaultCluster {
     public static FaultCluster OfCode(int code) => Items[(code - 2400) >> 2];
 }
 
-// Stage vocabularies minted HERE: their consumers span the whole Parametric tier, so no tier page owns
-// the axis. String-keyed because the stage renders into the wire-bound Message — keyless reference rows
-// carry no verifiable rendered identity.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -96,11 +77,7 @@ public sealed partial class DevelopmentStage {
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
-// Declaration order = code order; Code and Message are total generated folds, so a new case
-// breaks every dispatch site at compile time. Payload discriminants compose their owning
-// sibling's vocabulary: Kind (Rasm.Domain), EntityKind (naming), SpatialKind/QueryKind (index),
-// HealStage (repair), PrimitiveKind (intersect), ChartId (flatten), EdgeKind (view),
-// EncodingChannel/ChannelDtype (pack).
+// Record declaration order = Code/Message fold order; both folds total over the union, no silent _ arm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryFault {
     private GeometryFault() { }
@@ -205,23 +182,7 @@ public abstract partial record GeometryFault {
 }
 ```
 
-## [03]-[DENSITY_BAR]
-
-One owner for the whole geometry fault rail; a new failure is a case in its sibling's sub-band, never a sibling union. The `[RAIL]` cell names the channel each owner serves, and the per-axis kind rides the indexed notes below.
-
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]            | [RAIL]                                                                       | [CASES] |
-| :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------- | :-----: |
-|  [01]   | Fault family       | `GeometryFault`    | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   25    |
-|  [02]   | Cluster taxonomy   | `FaultCluster`     | `FaultCluster.OfCode(code)` (pure, total over the band)                      |   13    |
-|  [03]   | Parametric stages  | `ParametricStage`  | payload row on the union                                                     |    5    |
-|  [04]   | Development stages | `DevelopmentStage` | payload row on the union                                                     |    4    |
-
-- [01]-[FAULT_FAMILY]: `[Union]` band 2400-2449, typed discriminant payloads + `Code`/`Message`/`Cluster` derived folds + `ToError` lowering.
-- [02]-[CLUSTER_TAXONOMY]: `[SmartEnum<int>]` keyed by stride base, `Name`/`Namespace` columns + `OfCode` stride arithmetic.
-- [03]-[PARAMETRIC_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`ParametricFault` discriminant).
-- [04]-[DEVELOPMENT_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`DevelopmentFault` discriminant).
-
-## [04]-[RESEARCH]
+## [03]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

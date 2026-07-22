@@ -1,25 +1,25 @@
 # [RASM_NUMERICS_SPECTRAL]
 
-The mesh-free spectral algebra of `Rasm.Numerics` — the discrete-exterior-calculus carrier layer and the spectral descriptor/filter algebra, owned WITHOUT any mesh coupling so the pure math floor is portable by inspection and the `Rasm.Compute` DDG-adjoint surface binds one clean seam. The page owns the five spectral policy vocabularies, `SpectralFilter` — the closed transfer-function `[Union]` (Heat/Wave/Biharmonic/Diffusion/CommuteTime/Identity) with the eigenvalue weight law and the partial-monoid `Compose` — `DiscreteCalculus`, the frozen-name DEC operator bundle (`D0`/`D1`/`Star0`/`Star1`/`Star2` plus optional transport and harmonic evidence — THE cross-package seam name), `SpectralBasis` the eigenpair carrier with `Truncate`, the assembly/harmonic receipt family (`SpectralAssemblyReceipt`, `HarmonicOneFormReceipt`, `HarmonicOneFormBasis`) with their scale-relative residual gates, and the descriptor algebra — `SpectralDescriptorPolicy`, `SpectralWaveReceipt`, `SpectralDescriptorReceipt`, `SpectralDescriptor` with `Normalize`/`Rank`, `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking`, and `SpectralKernel`, the dense-buffer descriptor evaluation (HKS/WKS-style filtered signatures, pairwise spectral distances), normalization (L1/L2/z-score via `TensorPrimitives`), and ranking (Euclidean/Manhattan/Cosine via `MathNet.Numerics.Distance`).
+`Rasm.Numerics` spectral owns the mesh-free discrete-exterior-calculus carrier layer and the spectral filter/descriptor algebra with zero mesh coupling, so the pure math floor stands independent of any `Mesh` and every eigenvalue-driven consumer meets one transfer-function and descriptor surface.
 
-Everything mesh-BOUND departs: operator assembly (d0 incidence, d1 curl, star mass/cotan/area), Crouzeix-Raviart connection systems, trivial-connection holonomy, harmonic 1-form construction, Hodge decomposition solves, and mesh-side spectral basis computation are `Meshing/dec`'s — that page PRODUCES the carriers and receipts declared here, healing the mature Spectral↔Mesh receipt fracture by fixing declaration here and construction there. Consumers of this page never touch a `Mesh`.
+`DiscreteCalculus` is the frozen cross-package seam name the `Rasm.Compute` adjoint surface binds; `Meshing/dec` constructs the DEC carriers and receipts this page only declares, and `Meshing/mesh` declares `SignpostTransportReceipt` as optional carried evidence, so each DDG receipt has one declaration site. `SpectralFilter` weights eigenvalues alone, the `[SmartEnum<int>]` policy vocabularies drive filter, normalization, and distance selection, and every consumer reads carriers and descriptors from this floor without touching a `Mesh`.
 
 ## [01]-[INDEX]
 
-- [02]-[FILTER_ALGEBRA]: five spectral policy vocabularies + `SpectralFilter` closed transfer-function union (weight law, partial-monoid `Compose`, `ApplyDetailed`).
-- [03]-[DEC_CARRIERS]: `DiscreteCalculus` (frozen seam name) · `SpectralBasis` · `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis` — the DEC evidence layer `Meshing/dec` mints and `Rasm.Compute` consumes.
-- [04]-[DESCRIPTOR_ALGEBRA]: `SpectralDescriptorPolicy` · `SpectralWaveReceipt` · `SpectralDescriptorReceipt` · `SpectralDescriptor` · `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` + `SpectralKernel` evaluation/normalization/ranking.
+- [02]-[FILTER_ALGEBRA]: the `[SmartEnum<int>]` policy vocabularies and `SpectralFilter`, the closed transfer-function `[Union]` with its eigenvalue weight law and partial-monoid `Compose`.
+- [03]-[DEC_CARRIERS]: `DiscreteCalculus` the frozen adjoint seam, `SpectralBasis`, and the assembly/harmonic receipt family `Meshing/dec` mints and `Rasm.Compute` consumes.
+- [04]-[DESCRIPTOR_ALGEBRA]: the descriptor policy, receipt, and carrier family and `SpectralKernel` filtered-signature evaluation, normalization, and ranking.
 
 ## [02]-[FILTER_ALGEBRA]
 
-- Owner: `SpectralAssemblyKind` (Dec/EdgeConnection — which operator family a receipt witnesses), `SpectralScaleNormalization` (Raw/FirstNonZeroEigenvalue — eigenvalue rescaling for cross-mesh comparability), `SpectralEnergyNormalization` (Raw/UnitL1/UnitL2/ZScore), `SpectralZeroModePolicy` (Keep/Drop), `SpectralDistanceKind` (Euclidean/Manhattan/Cosine — the distance IS the row's `[UseDelegateFromConstructor]` compute column over `MathNet.Numerics.Distance`) — the five `[SmartEnum<int>]` policy vocabularies; `SpectralFilter` the closed `[Union]` whose `Weight(eigenvalue)` IS the spectral transfer function: heat `e^(−tλ)`, wave the log-normal WKS band `e^(−½((ln e − ln λ)/σ)²)`, biharmonic `1/λ²`, diffusion `e^(−2tλ)`, commute-time `1/λ`, identity `1` — zero-protected where the function pole demands it — and whose `Compose` is a PARTIAL monoid: `Heat(t₁)∘Heat(t₂) = Heat(t₁+t₂)`, `Diffusion∘Diffusion` likewise, `Identity` the unit, every other pair `None` — composability is a property of the semigroup, not a runtime coincidence.
-- Cases: `HeatCase(time)` · `WaveCase(energy, bandwidth)` · `BiharmonicCase` · `DiffusionCase(time)` · `CommuteTimeCase` · `IdentityCase` (6).
-- Entry: `SpectralFilter.Heat(time)` / `Wave(energy, bandwidth)` / `Biharmonic` / `Diffusion(time)` / `CommuteTime` / `Identity` — parameters arrive as `PositiveMagnitude`, so a filter in hand is admitted; `ApplyDetailed(basis, sources, policy, key)` evaluates the filtered descriptor through `SpectralKernel`.
-- Auto: `Weight` carries `[MethodImpl(MethodImplOptions.AggressiveInlining)]` — it runs per eigenpair per vertex in the descriptor kernel's hot loop; the wave weight floors its bandwidth at `SpectralKernel.WaveBandwidthFloor` so a degenerate band never divides to infinity.
-- Receipt: none at this layer — the filter is policy; evidence lands on the [04] descriptor receipts.
+- Owner: `SpectralAssemblyKind`, `SpectralScaleNormalization`, `SpectralEnergyNormalization`, `SpectralZeroModePolicy`, and `SpectralDistanceKind` are the `[SmartEnum<int>]` policy vocabularies, the distance row carrying its `[UseDelegateFromConstructor]` compute column over `MathNet.Numerics.Distance`; `SpectralFilter` is the closed `[Union]` whose `Weight(eigenvalue)` is the spectral transfer function and whose `Compose` is a partial monoid — composable pairs fuse, `Identity` is the unit, every other pair is `None` by law.
+- Cases: `HeatCase(time)`, `WaveCase(energy, bandwidth)`, `BiharmonicCase`, `DiffusionCase(time)`, `CommuteTimeCase`, `IdentityCase`.
+- Entry: the `SpectralFilter.Heat`/`Wave`/`Biharmonic`/`Diffusion`/`CommuteTime`/`Identity` factories take their parameters as `PositiveMagnitude`, so a filter in hand is admitted; `ApplyDetailed(basis, sources, policy, key)` evaluates the filtered descriptor through `SpectralKernel`.
+- Auto: `Weight` carries `[MethodImpl(AggressiveInlining)]` for the descriptor kernel's per-eigenpair-per-vertex hot loop; the wave weight floors its bandwidth at `SpectralKernel.WaveBandwidthFloor` so a degenerate band never divides to infinity.
+- Receipt: none at this layer — the filter is policy, and evidence lands on the [04] descriptor receipts.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new transfer function (Mexican-hat, band-pass) is one case + one `Weight` arm + at most one `Compose` pair — the descriptor kernel and every consumer are untouched; a new normalization or distance is one vocabulary row.
-- Boundary: filters weight EIGENVALUES only — they never see a mesh, a basis matrix, or a vertex; the same filter value drives `Meshing/dec` heat scaffolds, `Processing/segment` HKS/WKS descriptors, and `Spatial/fields` spectral-distance cases, which is why it lives on this floor.
+- Growth: a new transfer function is one case, one `Weight` arm, and at most one `Compose` pair, the kernel and every consumer untouched; a new normalization or distance is one vocabulary row.
+- Boundary: filters weight eigenvalues alone — never a mesh, a basis matrix, or a vertex — so the one filter value drives `Meshing/dec` heat scaffolds, `Processing/segment` descriptors, and `Spatial/fields` spectral-distance cases from this floor.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -79,7 +79,7 @@ public abstract partial record SpectralFilter {
     public static SpectralFilter Diffusion(PositiveMagnitude time) => new DiffusionCase(Time: time);
     public static SpectralFilter CommuteTime => new CommuteTimeCase();
     public static SpectralFilter Identity => new IdentityCase();
-    // Partial monoid: composable pairs fuse, Identity is the unit, everything else is None by law.
+    // Partial monoid: composable pairs fuse, Identity is the unit, every other pair is None.
     public Option<SpectralFilter> Compose(SpectralFilter other) =>
         (this, other) switch {
             (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
@@ -113,13 +113,13 @@ public abstract partial record SpectralFilter {
 
 ## [03]-[DEC_CARRIERS]
 
-- Owner: `DiscreteCalculus` — the FROZEN-NAME discrete-exterior-calculus operator bundle: `D0` (vertex→edge incidence, `SparseMatrix`), `D1` (edge→face curl), `Star0`/`Star1`/`Star2` (the diagonal Hodge stars: vertex mass, edge cotan weights, inverse face areas — `Arr<double>` diagonals), the `SpectralAssemblyReceipt`, and the optional `Transport` (signpost intrinsic-transport evidence, declared by `Meshing/mesh`) and `Harmonic` (1-form basis) slots; its `Project<TOut>` routes the evidence family through typed `ProjectionRow` rows. `SpectralBasis` the eigenpair carrier (`Eigenvalues` finite and nonnegative within the ONE scale-relative `ZeroBand` — `SqrtEpsilon` × spectral radius, so unit-scaled spectra never fail an absolute gate; the eigen mints deliver them ascending, the gate does not re-derive ordering — `Eigenvectors` uniform-length) with `Truncate(k)`; the SAME band classifies zero modes in the descriptor kernel — one threshold declaration, zero drift. `SpectralAssemblyReceipt` the assembly evidence — vertex/edge/face census, admitted/skipped-degenerate/missing-edge face counts, matrix shape and nnz, positive-star counts, the `∂∂ = 0` boundary-composition residual, genus and harmonic dimension, topology census (boundary edges/components, non-manifold edges, Euler characteristic), and for edge-connection assemblies the symmetry residual against its tolerance. `HarmonicOneFormReceipt` — the harmonic-basis evidence with the dimension law `dim = 2g + max(0, b−1)`, the rank/nullity partition of the edge space, SVD/eps-rank thresholds, nullspace eigenvalue window, and the closed/coclosed/`Star1`-orthonormal residuals gated SCALE-RELATIVE (the gate carries `max(1, spectralRadius)` and a dimensionless `1e3` rounding-accumulation slack — never a bare absolute). `HarmonicOneFormBasis` the forms + receipt pair.
-- Entry: carriers are CONSTRUCTED by `Meshing/dec` (assembly) and `Meshing/mesh` (caching); this page owns their shape, validity law, and projection — consumers (`Rasm.Compute` adjoint surface, `Processing/geodesics`, `Processing/segment`, `Spatial/fields` spectral cases) read them from here.
-- Auto: `DiscreteCalculus.IsValid` cross-couples the stars to the operator shapes (`Star0.Count == D0.Cols`, `Star1.Count == D0.Rows`, `Star2.Count == D1.Rows`), requires strictly positive vertex/face stars, and admits edge stars down to a scale-relative negative band (intrinsic cotan weights of near-degenerate triangles legitimately dip below zero within roundoff of the Star1 scale).
-- Receipt: all three receipts spell the rails fold — `public bool IsValid => ValidityClaim.All(…)` with `IValidityEvidence` registration; the semantic gates preserve the mature couplings verbatim — the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, the residual-tolerance ladder.
+- Owner: `DiscreteCalculus` is the DEC operator bundle — incidence and curl operators, the diagonal Hodge stars, its `SpectralAssemblyReceipt`, and the optional `Transport` and `Harmonic` evidence slots — with `Project<TOut>` routing the evidence family through typed `ProjectionRow` rows. `SpectralBasis` is the eigenpair carrier with `Truncate(k)` and the ONE scale-relative `ZeroBand` (`SqrtEpsilon` × spectral radius) the descriptor kernel reuses to classify zero modes, so one threshold declaration carries every consumer with zero drift. `SpectralAssemblyReceipt`, `HarmonicOneFormReceipt`, and `HarmonicOneFormBasis` are the assembly and harmonic evidence, their semantic gates scale-relative against `max(1, spectralRadius)` rather than any bare absolute.
+- Entry: carriers are constructed by `Meshing/dec` (assembly) and `Meshing/mesh` (caching); this page owns their shape, validity law, and projection, and consumers — the `Rasm.Compute` adjoint surface, `Processing/geodesics`, `Processing/segment`, `Spatial/fields` — read them from here.
+- Auto: `DiscreteCalculus.IsValid` cross-couples the stars to the operator shapes, requires strictly positive vertex and face stars, and admits edge stars down to a scale-relative negative band, where near-degenerate intrinsic cotan weights legitimately dip below zero within roundoff of the `Star1` scale.
+- Receipt: all three receipts fold `ValidityClaim.All` with `IValidityEvidence` registration; the semantic gates carry the harmonic dimension law, the `Rank + Nullity == EdgeCount` partition, and the residual-tolerance ladder.
 - Packages: `matrix.md` owners (`SparseMatrix`, `EigenSolveReceipt`), LanguageExt.Core, Rasm.Domain (`IValidityEvidence` + `ValidityClaim`, `Op`).
-- Growth: a new DEC operator (a primal-dual wedge, a vector-valued star) is one field + one validity coupling + one `ProjectionRow`; a new assembly witness is one receipt field.
-- Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam — the name, field set, and projection rows are the cross-package contract and stay stable; `SignpostTransportReceipt` is DECLARED by `Meshing/mesh` (the intrinsic-triangulation owner) and only carried here as optional evidence, so the DDG receipt family has exactly one declaration site per receipt with this page owning the mesh-free members.
+- Growth: a new DEC operator is one field, one validity coupling, and one `ProjectionRow`; a new assembly witness is one receipt field.
+- Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam; `SignpostTransportReceipt` is declared by `Meshing/mesh`, the intrinsic-triangulation owner, and carried here only as optional evidence, so each DDG receipt has exactly one declaration site with this page owning the mesh-free members.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -162,9 +162,8 @@ public readonly record struct HarmonicOneFormReceipt(
         get {
             int expected = ExpectedDimension;
             int boundaryComponentCount = BoundaryComponentCount;
-            // Residual gate is operator-scale-relative: the eigen tolerance and the sqrt-machineEps floor both
-            // carry max(1, spectralRadius); 1e3 is the dimensionless rounding-accumulation slack the applied
-            // differential residuals incur above the eigenvalue tolerance — never a bare absolute.
+            // Residual gate is operator-scale-relative: SvdTolerance and the sqrt-machineEps floor carry
+            // max(1, spectralRadius); 1e3 is dimensionless rounding slack above the eigenvalue tolerance, never a bare absolute.
             double residualTolerance = Math.Max(val1: SvdTolerance, val2: EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: SpectralRadius)) * 1.0e3;
             return ValidityClaim.All(
                 ValidityClaim.Of(EdgeCount >= 0 && Rank >= 0 && Nullity >= 0 && BasisCount >= 0 && ConstraintRows >= 0),
@@ -197,8 +196,7 @@ public readonly record struct HarmonicOneFormBasis(Arr<Arr<double>> Forms, Harmo
     }
 }
 
-// THE Rasm.Compute adjoint seam — name, fields, and projection rows are the cross-package contract.
-// Transport evidence is declared by Meshing/mesh (the intrinsic-triangulation owner) and carried here.
+// THE Rasm.Compute adjoint seam — name, fields, and projection rows are the cross-package contract; Transport evidence is declared by Meshing/mesh and carried here.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt, Option<SignpostTransportReceipt> Transport = default, Option<HarmonicOneFormBasis> Harmonic = default) {
     public bool IsValid =>
@@ -224,8 +222,8 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
     internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
     internal double SpectralRadius => Eigenvalues.Fold(initialState: 0.0, f: static (max, lambda) => Math.Max(val1: max, val2: Math.Abs(value: lambda)));
-    // THE one zero band — scale-relative to the spectral radius: eigen error grows with the operator
-    // scale, and an absolute SqrtEpsilon band misclassifies every mode of an mm-unit spectrum as zero.
+    // THE one zero band, scale-relative to the spectral radius: eigen error grows with operator scale, so
+    // an absolute SqrtEpsilon band misclassifies every mode of an mm-unit spectrum as zero.
     internal double ZeroBand => EpsilonPolicy.SqrtEpsilon * Math.Max(val1: SpectralRadius, val2: EpsilonPolicy.ZeroTolerance);
     public bool IsValid {
         get {
@@ -244,13 +242,13 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 
 ## [04]-[DESCRIPTOR_ALGEBRA]
 
-- Owner: `SpectralDescriptorPolicy` the normalization bundle (scale × energy × zero-mode × optional crop, `Raw` the canonical no-op row, `IsRaw`/`IsValueOnly` derived predicates, `Admit` the gate); `SpectralWaveReceipt` the WKS normalization evidence (energy/bandwidth, first-nonzero scale, zero-mode and crop censuses, raw/normalized weight sums with the `Σw = 1` gate, log-eigenvalue range); `SpectralDescriptorReceipt` the descriptor evidence (filter, vertex/eigenpair/source censuses, pairwise and comparison-ready flags, the policy applied, optional wave evidence); `SpectralDescriptor` the values + receipt carrier with `Normalize(policy)` (value-only renormalization — a scale/crop change demands re-evaluation and fails typed; only the energy axis merges into the receipt's policy, so evaluation provenance survives) and `Rank(candidates, policy)`; `SpectralRankingPolicy` (`Default` = Raw + Euclidean) / `SpectralRank` / `SpectralRanking`; `SpectralKernel` the `internal static` evaluation owner — `EvaluateFilteredDetailed` (the dense-buffer filtered-signature kernel: point signatures `Σ w(λₖ)·φₖ(v)²` or pairwise distances `√(Σ w(λₖ)·(φₖ(v) − φₖ(s))²/|S|)` over admitted source sets, zero modes classified by the basis' scale-relative `ZeroBand`, crop policy applied to the eigen index set, scale normalization by first nonzero eigenvalue), `NormalizeDescriptor`/`NormalizeValues` (L1/L2 via `TensorPrimitives.SumOfMagnitudes`/`Norm`, z-score), `RankDescriptors` (candidates re-normalized to the query policy, distances read off the `SpectralDistanceKind` compute column, ranked ascending with index tiebreak), and the one named numeric-policy constant `WaveBandwidthFloor = 1e-9` — the harmonic eps-rank default is `Meshing/dec`'s assembly policy, declared beside the construction that applies it, never re-declared here.
+- Owner: `SpectralDescriptorPolicy` is the normalization bundle (scale × energy × zero-mode × optional crop) with `Raw` the no-op row and `Admit` the gate; `SpectralWaveReceipt` and `SpectralDescriptorReceipt` carry the WKS and descriptor evidence; `SpectralDescriptor` is the values and receipt carrier with `Normalize(policy)` and `Rank(candidates, policy)`; `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` carry ranking. `SpectralKernel` is the `internal static` evaluation owner — the dense-buffer filtered-signature kernel, energy normalization over `TensorPrimitives`, and ranking off the `SpectralDistanceKind` compute column — and declares `WaveBandwidthFloor`; the harmonic eps-rank default stays `Meshing/dec`'s, declared beside the construction that applies it.
 - Entry: `filter.ApplyDetailed(basis, sources, policy, key)` is the evaluation entry; `descriptor.Normalize(policy)` and `descriptor.Rank(candidates, policy)` the post-processing entries — one descriptor pipeline, no sibling evaluate/compare surfaces.
-- Auto: WKS weights normalize to unit sum with the full `SpectralWaveReceipt` minted inline; `ComparisonReady` derives from policy + wave evidence so a raw HKS never silently ranks against a normalized WKS; `RankDescriptors` re-normalizes every candidate to the query's policy before measuring — policy mismatch is repaired, not ignored.
-- Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` on the rails `ValidityClaim.All` fold with semantic gates (`CroppedEigenpairCount >= NonZeroEigenpairCount`, `RawWeightSum > 0`, WKS unit-sum within `1e-9`; source/eigenpair/vertex couplings).
+- Auto: WKS weights normalize to unit sum with the full `SpectralWaveReceipt` minted inline; `ComparisonReady` derives from policy and wave evidence so a raw HKS never ranks against a normalized WKS; `RankDescriptors` re-normalizes every candidate to the query policy before measuring.
+- Receipt: `SpectralWaveReceipt` and `SpectralDescriptorReceipt` fold `ValidityClaim.All` with semantic gates over the source, eigenpair, and vertex couplings and the WKS unit-sum.
 - Packages: MathNet.Numerics (`Distance.Euclidean/Manhattan/Cosine`), System.Numerics.Tensors (`TensorPrimitives.SumOfMagnitudes`/`Norm`/`IsFiniteAll`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
-- Growth: a new signature family (scale-invariant HKS, improved WKS variants) is one filter case + policy rows — the kernel loop is already generic over the weight function; a new distance is one `SpectralDistanceKind` row — the compute column IS the arm.
-- Boundary: `EvaluateFilteredDetailed`'s dense `double[]` buffer loop is the named statement-kernel exemption — per-eigenpair-per-vertex accumulation over `n·k` (·`|S|` pairwise) terms where a `Seq` fold would churn allocations; the kernel is mesh-free — vertex COUNT is the only topology it sees, so it serves tet bases, grid bases, and mesh bases identically; mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
+- Growth: a new signature family is one filter case and policy rows, the kernel loop already generic over the weight function; a new distance is one `SpectralDistanceKind` row, the compute column IS the arm.
+- Boundary: `EvaluateFilteredDetailed`'s dense `double[]` loop is the named statement-kernel exemption; the kernel is mesh-free, seeing vertex COUNT as its only topology, so it serves tet, grid, and mesh bases identically, while mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
 
 ```csharp
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -319,8 +317,7 @@ public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<Spec
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralKernel {
     internal const double WaveBandwidthFloor = 1e-9;
-    // STATEMENT-KERNEL EXEMPTION — dense per-eigenpair-per-vertex accumulation buffer; a Seq fold
-    // would churn allocations over n * k (* |S| pairwise) terms.
+    // STATEMENT-KERNEL EXEMPTION — dense per-eigenpair-per-vertex accumulation buffer; a Seq fold churns allocations over n * k (* |S| pairwise) terms.
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
         int[] sourceSet = sources is { IsSome: true, Case: Seq<int> values } ? [.. values.AsIterable()] : [];
@@ -367,8 +364,7 @@ internal static class SpectralKernel {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(SpectralDescriptor), outputType: typeof(SpectralDescriptorPolicy)))
         from values in NormalizeValues(values: [.. descriptor.Values.AsIterable()], policy: activePolicy, key: key)
-        // Energy is the ONLY re-normalizable axis: merge it into the evaluation policy so the receipt
-        // keeps its scale/zero-mode/crop provenance instead of overwriting it with the value-only policy.
+        // Energy is the ONLY re-normalizable axis: merge it into the evaluation policy so the receipt keeps its scale/zero-mode/crop provenance.
         let mergedPolicy = descriptor.Receipt.Policy with { EnergyNormalization = activePolicy.EnergyNormalization }
         let receipt = descriptor.Receipt with { ComparisonReady = !mergedPolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), Policy = mergedPolicy }
         select new SpectralDescriptor(Values: new Arr<double>(values), Receipt: receipt);
@@ -390,8 +386,7 @@ internal static class SpectralKernel {
         && left.CropCount.Match(
             Some: l => right.CropCount.Match(Some: r => l.Value == r.Value, None: static () => false),
             None: () => right.CropCount.IsNone);
-    // zeroBand arrives in the SAME units as the eigenvalue array (scaled by 1/firstNonZero when the
-    // policy scale-normalizes), so zero-mode classification is one law across raw and scaled spectra.
+    // zeroBand arrives in the SAME units as the eigenvalue array (scaled by 1/firstNonZero when the policy scale-normalizes), so zero-mode classification is one law across raw and scaled spectra.
     private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WeightsOf(SpectralFilter filter, double[] eigenvalues, double firstNonZero, double zeroBand, int zeroModeCount, int croppedCount) =>
         filter is SpectralFilter.WaveCase wave
             ? WaveWeightsOf(wave: wave, eigenvalues: eigenvalues, firstNonZero: firstNonZero, zeroBand: zeroBand, zeroModeCount: zeroModeCount, croppedCount: croppedCount)
@@ -440,22 +435,7 @@ internal static class SpectralKernel {
 }
 ```
 
-## [05]-[DENSITY_BAR]
-
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]                                                                               | [CASES] |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------ | :-----: |
-|  [01]   | Spectral policy    | `SpectralAssemblyKind` · `SpectralScaleNormalization` · `SpectralEnergyNormalization` |  2·2·4  |
-|  [02]   | Spectral policy    | `SpectralZeroModePolicy` · `SpectralDistanceKind`                                     |   2·3   |
-|  [03]   | Transfer functions | `SpectralFilter`                                                                      |    6    |
-|  [04]   | DEC carriers       | `DiscreteCalculus` (frozen seam) · `SpectralBasis`                                    |    2    |
-|  [05]   | Assembly evidence  | `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis`         |    3    |
-|  [06]   | Descriptor algebra | `SpectralDescriptorPolicy` · `SpectralWaveReceipt` · `SpectralDescriptorReceipt`      |    3    |
-|  [07]   | Descriptor algebra | `SpectralDescriptor` · `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking`       |    4    |
-|  [08]   | Evaluation kernel  | `SpectralKernel`                                                                      |    1    |
-
-[KIND] by index — [01]-[02]: `[SmartEnum<int>]` policy vocabularies. [03]: closed `[Union]` + partial-monoid `Compose` + inlined weight. [04]: operator bundle + eigenpair carrier. [05]: `ValidityClaim.All` fold + scale-relative residual gates. [06]-[07]: policy + evidence + carrier family. [08]: `SpectralKernel` dense filtered-signature/normalize/rank kernel.
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -1,24 +1,24 @@
 # [RASM_SUPPORT]
 
-The proximity boundary adapter: ONE `SupportSpace` `[BoundaryAdapter]` admitting any closest-point-capable Rhino geometry or cloud cluster behind one polymorphic handle, and ONE `SupportProjection` `[SmartEnum<int>]` owning all fourteen closest-hit output modalities behind a single capability-gated `Project<TOut>`. The pair is the corpus model of one-enum-all-modalities: a new proximity answer is one vocabulary row with its capability, acceptance, and projection columns — never a sibling method, never an output-typed overload family. Every proximity read in the corpus — field distance cases, hit-directed vector fields, conformance residuals, containment classification — routes through this one gate.
+`SupportSpace` and `SupportProjection` own the corpus proximity gate: one `[BoundaryAdapter]` handle over every closest-point-capable Rhino geometry and cloud cluster, and one `[SmartEnum<int>]` owning the closest-hit output modalities behind a single capability-gated `Project<TOut>`. A new proximity answer is one vocabulary row carrying its capability, acceptance, and projection columns. Every proximity read in the corpus routes through this gate.
 
-The page composes the `Domain` floor as settled vocabulary: `evaluation.md` owns `ClosestHit` (the 9-field evaluation receipt) and the `ClosestOf`/`SignedDistanceOf` polymorphic evaluation lattice this adapter drives; `normalization.md` owns the `Capability` admission rows (`Closest`/`ClosestNormal`/`ClosestTangent`/`ClosestFrame`/`SignedDistance`) whose verdicts gate admission once and every projection row after; `atoms.md` owns the `AtomProjection` raw→typed output rail — the canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) each project through it, and this enum's egress delegates to THOSE projections. `SurfaceSpace` is NOT here — parametric `(u,v)` evaluation is `Parametric/projections.md`'s family; this page owns proximity alone, and the two were welded in the retired source only by filename.
+This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit` and the `ClosestOf`/`SignedDistanceOf` evaluation lattice this adapter drives; `normalization.md` owns the `Capability` admission rows whose verdicts gate admission once and every projection after; `atoms.md` owns the `AtomProjection` raw→typed rail its canonical carriers (`ClosestHit`, `Direction`, `VectorSpan`) project through, and this enum's egress delegates to those. Parametric `(u,v)` evaluation homes at `Parametric/projections.md`; this page owns proximity alone.
 
 ## [01]-[INDEX]
 
-- [02]-[SUPPORT_PROJECTION]: fourteen capability-gated closest-hit projections behind one `Project<TOut>`; the projection state record; the canonical-owner egress resolution.
-- [03]-[SUPPORT_SPACE]: the polymorphic proximity handle over Rhino geometry and cloud clusters; admission, closest, signed-distance, containment-distance.
+- [02]-[SUPPORT_PROJECTION]: `SupportProjection`'s capability-gated closest-hit projections behind one `Project<TOut>`; the projection state record; canonical-owner egress resolution.
+- [03]-[SUPPORT_SPACE]: `SupportSpace` polymorphic proximity handle over Rhino geometry and cloud clusters; admission, closest, signed-distance, containment-distance.
 
 ## [02]-[SUPPORT_PROJECTION]
 
-- Owner: `SupportProjection` `[SmartEnum<int>]` — fourteen rows (`Closest`/`Direction`/`Span`/`Normal`/`Distance`/`Parameter`/`Uv`/`Component`/`MeshPoint`/`SignedDistance`/`ContainmentDistance`/`Tangent`/`Frame`/`SignedSpanAway`), each carrying three `[UseDelegateFromConstructor]` columns: `Capability(SupportSpace, ClosestHit)` (may this space answer this row), `Accepts(Type)` (which `TOut` shapes this row projects), and `ProjectRaw(SupportState)` (the row's canonical-value resolution). One internal `Project<TOut>(SupportSpace, ClosestHit, Point3d, Context, Op)` is the sole egress.
-- Cases: 14 — `Closest` (hit point or the whole `ClosestHit`), `Direction`/`Normal`/`Tangent` (unit carriers, `Direction` or raw `Vector3d`), `Span`/`SignedSpanAway` (the sample→hit displacement as `VectorSpan`/`Vector3d`/`Line`/`double`, sign ±1 a factory parameter — one `SpanOf(key, sign)` row builder, two rows), `Distance`/`Parameter`/`Uv`/`Component`/`MeshPoint`/`Frame` (`Option`-carried `ClosestHit` fields lifted through one `HitValue<T>` row builder), `SignedDistance`/`ContainmentDistance` (space-delegated signed evaluations).
-- Entry: `internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key)` — a three-gate switch: invalid hit → `key.InvalidResult()`; capability refused → `key.Unsupported(space.SourceType, typeof(TOut))`; output shape refused → `key.Unsupported(typeof(SupportProjection), typeof(TOut))`; then `ProjectRaw` yields a CANONICAL value and the egress resolves it — a direct `TOut` passes, a canonical carrier (`ClosestHit`/`Direction`/`VectorSpan`) delegates to its OWN `Project<TOut>`. The gates run in evidence order — hit validity before capability before shape — so a fault names the first real refusal.
-- Auto: row bodies are one-expression folds over the hit — `HitValue` rows lift an `Option` hit field with `ToFin(key.InvalidResult())` and accept it; `Direction`-family rows admit through `Direction.Of(vector, context, key)` so a degenerate direction faults at the atom, never as a raw zero vector; span rows read `state.Output` twice by design — the `Vector3d` and `double` answers are RAW reads (a sample lying ON the support has a legal zero displacement, and the signed scalar `sign·‖hit−sample‖` cannot ride the positive-by-construction magnitude), while `VectorSpan`/`Line` admit through `VectorSpan.Of`, whose direction gate is correct for the unit-carrying shapes. `CanProjectVector(space)` is the derived predicate (`Direction`/`Span`/`SignedSpanAway` unconditional; `Normal`/`Tangent` gated on the captured verdicts) the `fields.md` hit-field admission reads.
-- Receipt: none minted here — `ClosestHit` IS the evidence carrier and it is `evaluation.md`'s; a projection returns the typed answer or the typed fault.
-- Packages: RhinoCommon (`Point3d`/`Vector3d`/`Plane`/`Line` — composed), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new proximity modality is one `static readonly` row with its three columns; a new output shape on an existing row is one row on the canonical carrier's `Project<TOut>` (the egress picks it up unchanged); zero new entrypoints.
-- Boundary: the raw→typed resolution happens ONCE at the egress by delegating to the canonical owners' own `Project<TOut>` (`ClosestHit`, `Direction`, `VectorSpan` — each an `atoms.md` `AtomProjection` consumer) — a per-row `typeof` ladder or a local box-and-cast switch re-deriving those owners' dispatch is the deleted form; a `ProjectClosest`/`ProjectNormal`/`ProjectDistance` method family beside the enum is the rejected sibling surface; capability reads the handle's captured verdicts (`space.Admits.Normal`), never a per-call re-derivation of the `normalization.md` admission rows.
+- Owner: `SupportProjection` `[SmartEnum<int>]` mints one row per closest-hit modality, each row three `[UseDelegateFromConstructor]` columns — `Capability` (may this space answer), `Accepts` (which `TOut` shapes it projects), `ProjectRaw` (canonical-value resolution); one internal `Project<TOut>` is the sole egress.
+- Cases: span rows fold the sample→hit displacement with sign ±1 a factory parameter — one `SpanOf(key, sign)` builder mints `Span` and `SignedSpanAway`; the `ClosestHit`-field rows lift one `Option` field through the shared `HitValue<T>` builder; `SignedDistance`/`ContainmentDistance` delegate to the space's signed evaluations.
+- Entry: `Project<TOut>` is a three-gate switch — hit validity, capability, output shape, in evidence order so a fault names the first real refusal; `ProjectRaw` then yields a canonical value the egress resolves, a canonical carrier (`ClosestHit`/`Direction`/`VectorSpan`) delegating to its own `Project<TOut>`.
+- Auto: row bodies fold over the hit — `Direction`-family rows admit through `Direction.Of` so a degenerate direction faults at the atom, and span rows read the `Vector3d`/`double` answers raw. `CanProjectVector` is the derived predicate `fields.md`'s hit-field admission reads.
+- Receipt: none — `ClosestHit` (owned by `evaluation.md`) is the evidence carrier; a projection returns the typed answer or the typed fault.
+- Packages: RhinoCommon (`Point3d`/`Vector3d`/`Plane`/`Line`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new proximity modality is one `static readonly` row with its three columns; a new output shape is one row on the canonical carrier's `Project<TOut>`, picked up by the egress unchanged; zero new entrypoints.
+- Boundary: raw→typed resolves once at the egress by delegating to the canonical owners' `Project<TOut>`; capability reads the handle's captured verdicts (`space.Admits.Normal`), never re-deriving the `normalization.md` admission rows per call.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -65,8 +65,7 @@ public sealed partial class SupportProjection {
 
     private readonly record struct SupportState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
 
-    // Row builders: one shape per row family — hit-field lift, direction lift, signed span. Rows return
-    // CANONICAL owner values; the egress delegates owner -> requested shape through the owner's Project<TOut>.
+    // Row builders: one shape per row family; rows return CANONICAL owner values, the egress delegating each owner to its own Project<TOut>.
     private static SupportProjection Hit(int key, Func<Type, bool> accepts, Func<SupportState, Fin<object>> projectRaw,
         Func<SupportSpace, ClosestHit, bool>? capability = null) =>
         new(key: key, capability: capability ?? (static (_, _) => true), accepts: accepts, projectRaw: projectRaw);
@@ -75,8 +74,7 @@ public sealed partial class SupportProjection {
         Hit(key: key, accepts: static output => output == typeof(T), capability: capability,
             projectRaw: state => choose(state.Hit).ToFin(Fail: state.Key.InvalidResult())
                 .Bind(value => state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!)));
-    // Vector3d and double are RAW state.Output reads: a sample ON the support yields a legal zero
-    // displacement, and the signed scalar cannot ride VectorSpan's positive-by-construction magnitude.
+    // Vector3d/double are RAW state.Output reads: a sample ON the support has a legal zero displacement no positive-magnitude VectorSpan can carry.
     private static SupportProjection SpanOf(int key, double sign) =>
         Hit(key: key,
             accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
@@ -115,13 +113,13 @@ public sealed partial class SupportProjection {
 
 ## [03]-[SUPPORT_SPACE]
 
-- Owner: `SupportSpace` `[BoundaryAdapter]` sealed record — the ONE proximity handle over `Plane`/`Sphere`/`Box`/`BoundingBox`/`Line`/`Polyline`/`Curve`/`Surface`/`BrepFace`/`Brep`/`Mesh`/`PointCloud` reference-or-value geometry AND `VectorCloud.ClusterCase` clusters. The polymorphic `Value: object` slot plus the `Admits` verdict column read once at admission is the honest carrier: the admitted set is open over every closest-capable kind, so a closed union would re-mint the `normalization.md` taxonomy.
-- Entry: `public static Fin<SupportSpace> Of(object? value, Op? key = null)` — the ONE admission: a `ClusterCase` admits BY CONSTRUCTION — `cloud.md`'s factory already proved vertices, dedup, and mass, so the arm only captures the all-false projection verdicts, and re-traversing its vertices or re-proving `MassOf` here is the deleted cross-page double-admission; any other candidate admits by `Capability.Closest.Admits` on the runtime type (`object` roots refused) plus the `OpAcceptance.ValidityOf` oracle (`Domain/validation.md` — its compiled-lambda table covers the `Plane`/`Sphere`/`Box` value structs, so no per-shape validity special case survives here); the four projection verdicts (`ClosestNormal`/`ClosestTangent`/`ClosestFrame`/`SignedDistance`) are read from the `Capability` rows ONCE and captured as the `Admits` column.
-- Auto: `Closest(sample, key)` dispatches cluster → `ClusterCase.ClosestVertex` (the indexed native probe `cloud.md` owns) and geometry → the `evaluation.md` extension `Value.ClosestOf(target, key)` — the whole Point/PointCloud/Line/Polyline/Plane/Sphere/Box/Curve/BrepFace/Surface/Brep/Mesh evaluation lattice arrives composed, never re-derived. `SignedDistance` delegates to `Value.SignedDistanceOf(hit, sample, key)`. `ContainmentDistance` is the solid-aware refinement: solid `Brep`/`Mesh` sign the hit distance by `IsPointInside(sample, context.Absolute.Value, strictlyIn: false)`; non-solid `Brep`/`Mesh` refuse (`key.InvalidInput()` — an open shell has no interior); analytic half-space carriers fall through to `SignedDistance`. `AdmitsSignedDistance` is per-shape evidence: analytic carriers need only a hit distance, everything else needs the captured `Signed` verdict plus the hit normal; `AdmitsContainmentDistance` needs solidity.
+- Owner: `SupportSpace` `[BoundaryAdapter]` sealed record — the ONE proximity handle over any closest-point-capable Rhino geometry and `VectorCloud.ClusterCase` clusters, behind a polymorphic `Value: object` slot and the `Admits` verdicts captured once at admission; the admitted set is open over every closest-capable kind, owned by `normalization.md`.
+- Entry: `Of(object?, Op?)` is the ONE admission — a `ClusterCase` admits by construction (`cloud.md`'s factory proved its vertices, dedup, and mass), capturing only the all-false verdicts; any other candidate admits by `Capability.Closest.Admits` on the runtime type (`object` roots refused) and the `OpAcceptance.ValidityOf` oracle (`Domain/validation.md`, whose compiled-lambda table covers the value structs); the four projection verdicts read from the `Capability` rows once, captured as `Admits`.
+- Auto: `Closest` dispatches cluster to `ClusterCase.ClosestVertex` and geometry to `evaluation.md`'s `Value.ClosestOf`, the whole evaluation lattice arriving composed; `SignedDistance` delegates to `Value.SignedDistanceOf`; `ContainmentDistance` signs the hit distance for solid `Brep`/`Mesh` by `IsPointInside`, refuses non-solid (an open shell has no interior), and falls through to `SignedDistance` for analytic carriers.
 - Receipt: none — the handle carries admission evidence (`Admits`, `SourceType`) as columns; proximity answers travel as `ClosestHit`.
-- Packages: RhinoCommon (`Brep.IsPointInside`/`Mesh.IsPointInside`/`Brep.IsSolid`/`Mesh.IsSolid` — the containment coupling IS the asset), LanguageExt.Core.
-- Growth: a newly closest-capable Rhino kind is one `normalization.md` capability-row membership — this page changes ZERO lines; a new signed-distance species is one arm in `AdmitsSignedDistance`/`ContainmentDistance`.
-- Boundary: `SupportSpace` is the ONE proximity adapter and a `PlaneSpace`/`MeshSpaceProximity`/`ClusterSpace` per-kind wrapper family is the deleted form; capability is READ from the handle's captured verdicts (`space.Admits.Normal`), never re-derived per call from `SourceType`; the cluster arm reaches `cloud.md`'s indexed closest-vertex probe as a composed seam — a second native `PointCloud` index minted here would double the `ClusterCase` cache; admission is once and the law crosses pages — `Closest`/`SignedDistance`/`ContainmentDistance` never re-validate the payload the factory already proved, and a `ClusterCase` arrives factory-proven, its vertices never re-traversed here.
+- Packages: RhinoCommon (`Brep.IsPointInside`/`Mesh.IsPointInside`/`Brep.IsSolid`/`Mesh.IsSolid`), LanguageExt.Core.
+- Growth: a newly closest-capable Rhino kind is one `normalization.md` capability-row membership, changing zero lines here; a new signed-distance species is one arm in `AdmitsSignedDistance`/`ContainmentDistance`.
+- Boundary: `SupportSpace` is the ONE proximity adapter; capability reads the handle's captured verdicts (`space.Admits.Normal`), never re-deriving from `SourceType` per call. Its cluster arm composes `cloud.md`'s indexed closest-vertex probe; a second `PointCloud` index minted here doubles the `ClusterCase` cache. Admission runs once and crosses pages, so `Closest`/`SignedDistance`/`ContainmentDistance` never re-validate the factory-proven payload.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -132,8 +130,7 @@ public sealed record SupportSpace {
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return value switch {
-            // ClusterCase is valid by construction (cloud.md factory-proven vertices/dedup/mass) —
-            // re-proof here is the deleted double-admission; the arm only captures verdicts.
+            // ClusterCase valid by construction (cloud.md factory-proven vertices/dedup/mass); the arm only captures verdicts, never re-proving here.
             VectorCloud.ClusterCase cluster =>
                 Fin.Succ(new SupportSpace(value: cluster, admits: (Normal: false, Tangent: false, Frame: false, Signed: false))),
             _ => from source in Optional(value).ToFin(op.InvalidInput())
@@ -181,7 +178,7 @@ public sealed record SupportSpace {
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; a proximity capability is a row or a column, never a sibling surface. `SupportProjection` carries three `[UseDelegateFromConstructor]` columns (`Capability`/`Accepts`/`ProjectRaw`); `SupportSpace` captures the `Admits.Normal`/`Tangent`/`Frame`/`Signed` verdicts once at admission.
+One owner per axis; each `[RAIL]` cell names the owner's return rail and `[CASES]` its bounded-vocabulary count.
 
 | [INDEX] | [AXIS_CONCERN]     | [OWNER]             | [KIND]              | [RAIL]                                                | [CASES] |
 | :-----: | :----------------- | :------------------ | :------------------ | :---------------------------------------------------- | :-----: |

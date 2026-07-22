@@ -1,37 +1,33 @@
 export const meta = {
     name: 'docgen-pass',
     whenToUse:
-        'Seven-phase docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, repairs the fixer litter, hardens the dossier, and drives a further 20-30% reduction; a grader hostilely re-verifies losslessness and opens every demotion target; a bounded remediator repairs confirmed residuals; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md. First-pass prose cut ~50% then a further 20-30% off the current state, both subordinate to the zero-capability-loss demotion ledger, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
+        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
     description:
-        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Every agent is Opus. Route: one census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: one finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: one Opus fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch. Redteam: one Opus red-team per fixed page git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers), hardens the dossier, and drives a further 20-30% reduction under silent-removal and token-trim discipline with capability conserved, its receipt superseding the fixer receipt. Verify: one Opus grader per page re-derives losslessness of the final Fix+Redteam state from disk, opens every demotion target including the RULINGS dossiers, and runs the cold-rebuild frame counterfactual. Remediate: one Opus fixer per flagged page restores over-deleted law. Collect: one Opus collector per owning package/branch adjudicates its dossiers (dedup, drop already-homed, guard-grade repair, tier deferral) against the existing RULINGS.md and transcribes the survivors into it. Cap 14 agents per phase.',
+        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), then transcribes the survivors into the owning registries. Every phase gates the files it writes, so the run ends on the collector. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
     phases: [
         {
             title: 'Route',
-            detail: 'one Opus census: every .md under each target with total, prose, and in-fence-comment line counts, deduped by path — the baseline every finder and fixer derives from',
+            detail: 'a census of every .md under each target with total, prose, and in-fence-comment line counts, deduped by path — the baseline every finder and fixer derives from',
         },
         {
             title: 'Analyze',
-            detail: 'one Opus finder per folder-group under the pooled cap: docgen law read in full, the owner surfaces opened as fork targets, the ownership interrogation run, per-file findings and cross-file duplication returned, no edits',
+            detail: 'a finder per folder-group under the pooled cap: docgen law read in full, the owner surfaces opened as fork targets, the ownership interrogation run, per-file findings and cross-file duplication returned, no edits',
         },
         {
             title: 'Fix',
-            detail: 'one Opus fixer per file under the pooled cap: all prose and fence comments rebuilt in place to the register, removal the default repair, every demotion proven against its target, a folder-wide ruling on a planning page removed and written to a transcribe-ready RULINGS dossier, the file landed template-true, gate run to clean, ledgered receipt returned',
+            detail: 'a fixer per file under the pooled cap: all prose and fence comments rebuilt in place to the register, removal the default repair, every demotion proven against its target, a folder-wide ruling on a planning page removed and written to a transcribe-ready RULINGS dossier, the file landed template-true, gate run to clean, ledgered receipt returned',
         },
         {
             title: 'Redteam',
-            detail: 'one Opus red-team per OK-fixed page under the pooled cap: git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers), hardens the rulings dossier, and drives a further 20-30% reduction off the current disk state under silent-removal and token-trim discipline, capability conserved; its receipt supersedes the fixer',
+            detail: 'a red-team per batch of OK-fixed pages under the pooled cap: git-diffs HEAD to adjudicate every line the fixer removed (real law restored, narration left cut) and prove each demotion at its owner, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), re-verifies an .api catalog against the assembly and deepens its stacking law, hardens the rulings dossier, and drives a further reduction under silent-removal and token-trim discipline while holding the losslessness bar itself; its receipt supersedes the fixer',
         },
         {
             title: 'Verify',
-            detail: 'one Opus grader per page under the pooled cap: the final Fix+Redteam state re-derived hostilely from disk against the HEAD baseline, losslessness graded, every demotion target opened for pointer-set-widening and false over-deletion, the cold-rebuild counterfactual run for residual imported frame, residuals returned, no edits',
-        },
-        {
-            title: 'Remediate',
-            detail: 'one Opus fixer per grader-flagged page under the pooled cap: over-deleted law restored from the baseline, every demotion re-proven, the gate re-run — fires only for pages a grader flagged',
+            detail: 'a verifier per batch of rebuilt pages under the pooled cap, adversarial and WRITING: reads the cumulative HEAD->now diff and repairs in place what the aggressive passes compounded — lost law restored to the register, every claimed demotion re-proven at its owner across all candidates, a fresh twin left by a fold killed, a residual imported frame reframed, predecessor litter deleted, gate re-run; its receipt supersedes the red-team',
         },
         {
             title: 'Collect',
-            detail: 'one Opus collector per owning package/branch that got extractions: its dossiers adjudicated against the existing RULINGS.md (dedup, drop already-homed, guard-grade repair, tier deferral) and the survivors transcribed into RULINGS.md, gate run — fires only when a planning page extracted a folder-wide ruling',
+            detail: 'a single collector for every owner that got extractions, grounded in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md: the whole candidate set adjudicated at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, wider-scoped rulings deferred to their tier), survivors transcribed into the owning registries, gate run — fires only when a planning page extracted a folder-wide ruling',
         },
     ],
 };
@@ -40,8 +36,9 @@ export const meta = {
 
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CHAIN = ['/Users/bardiasamiee/.claude/CLAUDE.md', ROOT + '/CLAUDE.md']; // always-loaded fork surfaces: global [02] + project [02]
-const CAP = 14; // concurrent agents per phase; the 16-core harness caps agent() at 14 in lockstep
+const CAP = 13; // concurrent agents per phase; one under the 14-slot harness ceiling (min(16, cores-2)) to leave headroom
 const GROUP = 4; // finder files per analyze agent
+const BATCH = 3; // pages per agent for both adversarial passes (Redteam, Verify); batching amortizes their shared cold-review law across a small file group
 const PROSE_LO = 45; // prose reduction band the receipt grades against, percent of baseline prose lines
 const PROSE_HI = 60;
 const COMMENT_TARGET = 50; // non-load-bearing fence comments cut, percent of baseline comment lines
@@ -130,7 +127,9 @@ const dossierPath = (p) => DOSSIER_DIR + '/' + flatSlug(p) + '.md';
 const ownerSurfaces = (paths) => {
     const names = ['README.md', 'ARCHITECTURE.md', 'RULINGS.md'];
     const set = new Set();
-    const add = (base) => { for (const n of names) set.add(ROOT + '/' + (base ? base + '/' : '') + n); };
+    const add = (base) => {
+        for (const n of names) set.add(ROOT + '/' + (base ? base + '/' : '') + n);
+    };
     for (const p of paths) {
         add(p.lastIndexOf('/') >= 0 ? p.slice(0, p.lastIndexOf('/')) : ''); // registries sitting as the file's own directory siblings
         const pi = p.indexOf('/.planning');
@@ -268,23 +267,13 @@ const FIX_SCHEMA = {
         notes: S, // off-band honesty, judgment-tier gate rows resolved; empty when clean
     },
 };
-const VERIFY_SCHEMA = {
+// both adversarial passes batch BATCH pages per agent, so each returns one FIX_SCHEMA receipt per page in a files array, never a bare receipt
+const BATCH_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['file', 'grade', 'losslessness', 'overDeletion', 'demotionsProven', 'newTwin', 'frameClean', 'gateClean', 'residuals'],
-    properties: {
-        file: S,
-        grade: { type: 'string', enum: ['A', 'A-', 'B+', 'B', 'C'] },
-        losslessness: B, // every decision/invariant/boundary/trap from the baseline still present
-        overDeletion: { type: 'array', items: FINDING }, // law cut with no proven owner, or a demotion target that does not hold the full set
-        demotionsProven: B, // every pointer's target OPENED and confirmed to hold all demoted members at exact set width
-        newTwin: B, // false when a fold re-duplicated a rule at its destination
-        frameClean: B, // false when the cold-rebuild counterfactual proves a page still wears an inheritable imported frame
-        gateClean: B,
-        residuals: { type: 'array', items: FINDING }, // remaining defects for the remediator
-    },
+    required: ['files'],
+    properties: { files: { type: 'array', items: FIX_SCHEMA } },
 };
-
 const COLLECT_ROW = {
     type: 'object',
     additionalProperties: false,
@@ -294,22 +283,38 @@ const COLLECT_ROW = {
         row: S, // the transcribed RULINGS row, exact template grammar
     },
 };
+// ONE collector adjudicates every owner's dossiers in a single context, so it dedupes ACROSS owners and tiers a cross-cutting ruling once instead of duplicating it into two registries
 const COLLECT_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['owner', 'rulingsFile', 'created', 'admitted', 'rejected', 'deferred', 'gateClean'],
+    required: ['owners', 'rejected', 'deferred'],
     properties: {
-        owner: S, // the package/branch dir whose RULINGS.md this collector owns
-        rulingsFile: S, // the resolved (or created) RULINGS.md path it wrote
-        created: B, // true when no RULINGS.md existed and it was minted from the template
-        admitted: { type: 'array', items: COLLECT_ROW }, // rows transcribed into RULINGS.md this pass
+        owners: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['owner', 'rulingsFile', 'created', 'admitted', 'gateClean'],
+                properties: {
+                    owner: S, // the package/branch dir whose RULINGS.md this entry wrote
+                    rulingsFile: S, // the resolved (or minted) RULINGS.md path
+                    created: B, // true when no RULINGS.md existed and it was minted from the template
+                    admitted: { type: 'array', items: COLLECT_ROW }, // rows transcribed into THIS file this pass
+                    gateClean: B,
+                },
+            },
+        },
+        // adjudicated once across the whole extraction set, never per owner
         rejected: {
             type: 'array',
             items: {
                 type: 'object',
                 additionalProperties: false,
                 required: ['row', 'reason'],
-                properties: { row: S, reason: { type: 'string', enum: ['already-homed', 'merged-with-sibling', 'not-guard-grade'] } },
+                properties: {
+                    row: S,
+                    reason: { type: 'string', enum: ['already-homed', 'merged-with-sibling', 'not-guard-grade', 'contradicts-standing-law'] },
+                },
             },
         },
         deferred: {
@@ -318,10 +323,9 @@ const COLLECT_SCHEMA = {
                 type: 'object',
                 additionalProperties: false,
                 required: ['row', 'tier'],
-                properties: { row: S, tier: { type: 'string', enum: ['branch', 'cross-libs'] } }, // scoped wider than this owner; surfaced, never mis-homed
+                properties: { row: S, tier: { type: 'string', enum: ['branch', 'cross-libs'] } }, // scoped wider than any one owner; surfaced, never mis-homed
             },
         },
-        gateClean: B,
     },
 };
 
@@ -411,25 +415,108 @@ const silentAndTrim =
     'restated context, and throat-clearing lead-ins; state identical law in a third fewer TOKENS. A page hits its line band and still reads bloated at the character level — ' +
     'measure the cut in words and characters, not lines, and a dense-looking survivor that still carries a cuttable clause is unfinished.';
 
+// version/install anchor ban — appended to finder, fixer, and red-team for EVERY kind; the manifest owns versions, a page never does, but the domain word `Version` as a real member survives
+const versionBanLaw =
+    '\n\nVERSION AND INSTALL BAN — a durable page carries NO package-manager anchor: a package version number, range, floor, or pin (`Google.Protobuf (version, direct pin)`, `>= N`, ' +
+    '`transitive floor`, `the central pin wins the version-conflict resolution`), an install or add command (`dotnet add`, `nuget install`, `uv add`, `pnpm add`, `npm i`), or a ' +
+    'freshness / as-of / last-verified stamp. The owning manifest (`Directory.Packages.props`, `pyproject.toml`, `pnpm-workspace.yaml`) is the SOLE version owner; a version, pin, or ' +
+    'install line on a page is stale the day the manifest moves — DELETE it whole, the package id left as a bare code span, no `see manifest` tombstone and no substitute negation. ' +
+    'THIS IS NOT a ban on the domain word: a type, member, signature parameter, or emitted attribute literally named `Version` / `HttpVersion` / `os.version`, and a wire or protocol ' +
+    'version that is part of a format contract, are REAL surface and stay verbatim — ban the package-manager anchor, keep the domain member.';
+
+// .api truth verification — appended to the fixer and red-team for `api`-kind files ONLY; the catalog is a contract, its surface rows live in table cells, and truthfulness outranks trimming
+const apiVerifyLaw =
+    '\n\nAPI TRUTH — an `.api` catalog is a CONTRACT and truthfulness OUTRANKS trimming: every named surface it lists (type, member, signature, kind, capability) is PROVABLY real or it ' +
+    'does not survive, because a false member poisons every consumer that composes this catalog. The surface rows live in TABLE cells — prose you own — not fences. VERIFY each against ' +
+    'ground truth before trimming: a C# catalog (path under `libs/csharp`) decompiles and queries the real assembly — `cd ' +
+    ROOT +
+    ' && uv run python -m tools.assay api query` over the owning package/type (the polymorphic ilspy surface) — and confirms the package and type exist through the `nuget` MCP; any other ' +
+    'language resolves the library through `context7` and reads the real member. CORRECT a proven-wrong cell in place — a misspelled member, a wrong signature, a stale kind, an overclaimed ' +
+    'capability — this truthfulness repair is the ONE design-touching move an `.api` catalog authorizes, never invention. A surface you CANNOT verify against source is NEVER silently kept ' +
+    'as-if-true: flag it in notes with the exact unverifiable symbol. A fence code body proven wrong is flagged in notes, never edited. Record each correction in notes.';
+
+// .api ultra-stacking depth — appended to finder, fixer, and red-team for `api`-kind files ONLY; the catalog exists to extract 100% of an external library's value, never naive single-use
+const apiStackingLaw =
+    '\n\nAPI ULTRA-STACKING — an `.api` catalog exists to extract 100% of a library`s value, never naive single-import usage. It is the campaign`s deep-stacking source: read ' +
+    CAMPAIGN_METHOD +
+    ' [02]-[THE_BAR] and [03] external-lib ultra-stacking law before grading its `## [04]-[IMPLEMENTATION_LAW]` (TOPOLOGY, STACKING, LOCAL_ADMISSION, RAIL_LAW). Both `.api` tiers are ' +
+    'enumerated in full and mined to OPERATOR DEPTH; an admitted capability the domain admits but the catalog does not surface is a defect the pass CLOSES, and a cited member that ' +
+    'cannot be verified is a phantom the pass DELETES. TWO stacking axes both bind. CROSS-`.api`: the `[STACKING]` rows name each sibling `.api` package this one composes WITH and the ' +
+    'exact integration shape (`<sibling>`(`.api/<path>`): <shape>) — a shallow, missing, or one-word composition row is a defect; open the sibling catalog and state the real seam. ' +
+    'WITHIN-LIB: the catalog surfaces the library`s OWN capabilities stacked to their RICHEST composition — operator overloads chained, fold / pipeline / builder rails, generic-math or ' +
+    'typeclass conformances, context / policy threading, zero-copy or span paths, monadic and result rails — never a `using X; X.Do()` reduction. Where the guidance reads single-use or ' +
+    'UNDER-mines the surface, DEEPEN it to the true deepest composition, every added claim VERIFIED against the assembly or library per the API-TRUTH law (never invented, never a ' +
+    'plausible-sounding phantom). A catalog that merely lists members without the stacking law that composes their combined value is UNFINISHED — the density that survives is deep true ' +
+    'capability, not padded prose.';
+
+// markdown-table integrity — appended to fixer and red-team for EVERY kind; a table is repaired in place to docgen discipline, never torn into prose because a prior naive pass could not fit it
+const tableIntegrityLaw =
+    '\n\nTABLE INTEGRITY — a markdown table is a prose surface you repair IN PLACE to docgen table discipline (information-structure.md, examples/tables.md), never tear into a list or card ' +
+    'because a cell ran wide: hoist a value the whole column repeats to the header or a lead sentence, relieve an oversized cell to a lead or a row-owned record after the table, split a ' +
+    'crammed multi-value cell into atomic rows, and re-pad. Rows are UNBOUNDED — the 150-column rendered-width cap is the only size law, and a table over it relieves its cells, never sheds ' +
+    'rows or flattens to prose. A member roster, signature list, or enum a prior naive pass flattened into `[SLUG]:` cards or a run-on `- a, b, c` bullet is REBUILT as the table it should ' +
+    'be; conversion to records is earned only when every in-place relief fails, never by cell width alone.';
+
+// .api structural conformance — appended to fixer and red-team for `api`-kind files ONLY; rebuilds a deformed catalog to the hardened template structurally, fixing signature bloat and torn tables
+const apiStructureLaw =
+    '\n\nAPI STRUCTURE — land this `.api` catalog TEMPLATE-TRUE against ' +
+    templatePath('api') +
+    ', read IN FULL: it is the declared schema — the two body modes (ROSTER_FIRST default, CONCEPT_PARTITIONED for a large multi-namespace substrate), the closed column set, the fixed ' +
+    '`[04]` sub-labels, the `[01]` field vocabulary, and the abbreviated-signature rule. CONFORM the page to the schema STRUCTURALLY — understand it and rebuild the page to fit, never ' +
+    'mechanically paste a block. Repair each recurring deformation. (1) TEARDOWN: a member table torn into `[SLUG]:` card clusters or `- signature — desc` prose bullets is REBUILT AS A ' +
+    'TABLE (the teardown was never forced — a code-span signature is a legal atomic cell at any length, and rows are unbounded under the 150-column width cap). (2) SIGNATURE BLOAT: a ' +
+    'fully-qualified, fully-param-named signature is abbreviated to the caller`s three facts — member name, argument shape, return shape. C#/TS carry `Owner.member(TypeList)` or ' +
+    '`Owner.make(Type) -> Refined` (namespace dropped, parameter TYPES only, `-> Ret` only when load-bearing, a TS generic collapsed to its resolved shape not its type-level machinery); ' +
+    'Python carries `member(arg, *, kw) -> Ret` (parameter NAMES + `*`/`/` markers kept, hints stripped, a shared-kwarg family hoisted to one lead line). NEVER a fenced signature block in ' +
+    'an `.api` catalog — a fence only bloats the file; the transcription-complete declaration lives on the design page that composes this surface, never here. (3) RUN-ON MEMBERS: a ' +
+    '`- Members: a, b, c` mega-bullet or a `[SLUG]: - Members:` card becomes one table row per member, or one inline `[<TYPE>]: `a` `b` `c`` token line for a bare roster. (4) UNIVERSAL ' +
+    'RAIL COLUMN: a per-row `[RAIL]` column repeating one value is DELETED — the rail is a single `[01]-[PACKAGE_SURFACE]` field, never a column. (5) COLUMN / LABEL DRIFT: a drifted ' +
+    'column renames to the closed set (`[SYMBOL] [TYPE_FAMILY] [CAPABILITY]` for types, `[SURFACE] [SHAPE] [CAPABILITY]` for entrypoints, optional `[CONSUMER]` only where it varies and ' +
+    'is load-bearing) and a drifted `[04]` sub-label renames to `[TOPOLOGY] [STACKING] [LOCAL_ADMISSION] [RAIL_LAW]`; a `[<PKG>_TOPOLOGY]` or `[STACKS_WITH]`/`[STACK_LAW]` spelling is ' +
+    'the drift. (6) NO `version` FIELD and no install line in `[01]` — the manifest owns versions. Every rebuilt table lands within the 150-column cap by relieving cells, proven by the gate.';
+
+// .api legacy/obsolete purge — appended to fixer and red-team for `api`-kind files ONLY; a catalog carries only the library's current live surface, every outdated anchor silently removed under judgment
+const apiLegacyLaw =
+    '\n\nNO LEGACY SURFACE — an `.api` catalog presents ONLY the external library`s current, live surface: the one present-day way to use it, so a code-gen consumer never reaches for a ' +
+    'dead form. Every anchor to an OUTDATED, OBSOLETE, DEPRECATED, SUPERSEDED, or LEGACY shape is SILENTLY REMOVED. An obsolete member or overload is dropped WHOLE — catalog its live ' +
+    'replacement, never the dead form beside a `use Y instead` warning; a `replaced by` / `prior to` / `in older versions` / `the old <X>` / `no longer` caveat is deleted; a ' +
+    'version-conditional behavior band collapses to the current behavior; a compatibility note or migration hint dies; and a `- version:` / `- installed:` field or any package version number ' +
+    'leaves entirely (the manifest owns versions). This is JUDGMENT work — legacy anchoring hides in many shapes and no regex finds them all, so HUNT every surface (a caveat, a shadowed ' +
+    'member, an obsolete overload row, a since/until note, a deprecation mark the source carries): a member the source marks obsolete is not cataloged at all, only its live path. The ONE ' +
+    'exception is a domain symbol literally named `Legacy` / `Obsolete` / `Version` that IS the current live API — real surface, kept. Removal is SILENT: no tombstone, no `dropped obsolete X` ' +
+    'note, no substitute negation. The positive live surface forecloses the dead form by its absence.';
+
 // the terminal RESEARCH marker, transcribed BYTE-FOR-BYTE from spec.template.md — the exact block every spec page carries under its `## [NN]-[RESEARCH]` heading
 const RESEARCH_MARKER =
     '<!-- source-only: research row template:\n' +
     '[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.\n' +
     '[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.\n' +
     '-->';
-// terminal RESEARCH-section law for spec pages — appended to the fixer and red-team; the marker is a byte-exact transcription requirement, never a paraphrase
+// terminal RESEARCH-section law for spec pages — appended to the fixer and red-team; brings the section UNDER capability conservation (law re-homed, never deleted) and keeps
+// the marker a byte-exact transcription requirement. Three content kinds live under the heading — genuine rows (A), mis-homed law (B), empty (C) — each with one disposition
 const researchLaw =
-    '\n\nTERMINAL [RESEARCH] SECTION — a spec page ALWAYS ends with a `## [NN]-[RESEARCH]` section; NN is the contiguous section number after your edits settle the count. ' +
-    'Directly beneath that heading sits the source-only marker comment, and it is a BYTE-FOR-BYTE transcription from ' +
+    '\n\nTERMINAL [RESEARCH] SECTION — a spec page ALWAYS ends with a `## [NN]-[RESEARCH]` section (NN contiguous after your edits settle the section count), and it obeys the ' +
+    'SAME capability-conservation law as every other surface: content leaves it ONLY by a proven demotion or a proven resolution, NEVER by a bare delete. Three kinds of content ' +
+    'appear under the heading and each has ONE disposition — tell them apart by VOICE before touching anything.' +
+    '\n\n(A) A GENUINE RESEARCH ROW is epistemic debt: an OPEN or BLOCKED question paired with its verification route. Rewrite each to the exact grammar ' +
+    '`- [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>` (TOKEN UPPERCASE_SNAKE), and HARDEN it — a vague question gets the precise unknown, a hand-wave route ' +
+    'gets the concrete `.api` entry, member, or harness it resolves against. A row whose question the page`s own settled fences or prose now ANSWER is RESOLVED and deletes ' +
+    'WHOLE — no tombstone, no `resolved:` note, no trace — and a row the design has moved past is obsolete and deletes the same way; a row deletes ONLY against evidence the ' +
+    'answer is present on the page, never on a guess that it looks answerable, and a still-open question with an unresolved route STAYS and is sharpened.' +
+    '\n\n(B) MIS-HOMED LAW is the recurring catastrophe this pass forbids: a `[SLUG] — <present-tense fact>` bullet stating how an owner, algorithm, lattice, or protocol WORKS ' +
+    'is DESIGN LAW wearing a research slug, not a question. It is SUBSTANTIVE and capability conservation binds it — RE-HOME it: open the cluster owner it describes, confirm ' +
+    'that card or fence already carries the fact (a pure twin then dies as a demotion) or FOLD the missing nuance into that card`s field, and record the demotion. NEVER delete ' +
+    'a settled-law bullet as a `non-conforming row`, and NEVER blank a section to `(none)` while it still carries un-rehomed law — writing `(none)` over real design content is ' +
+    'a capability-loss FAIL the grader catches. The tell: a question in OPEN/BLOCKED state with a route is (A); a present-tense statement of fact is (B).' +
+    '\n\n(C) After (A) and (B) settle, the section carries the byte-exact source-only marker then its rows. The marker is a BYTE-FOR-BYTE transcription from ' +
     D +
-    'templates/spec.template.md — copy this exact block verbatim, every line, every backtick and token: never collapse it to one line, never drop the ' +
-    '`[SPLIT_MEMBER]` example line, never reword or reformat it.\n' +
+    'templates/spec.template.md — copy this block verbatim, every line, backtick, and token; never collapse it to one line, never drop the `[SPLIT_MEMBER]` line, never reword ' +
+    'or reformat it.\n' +
     RESEARCH_MARKER +
-    '\nBelow the marker come the rows: `(none)` alone on its line when the page has no open research, otherwise one row per line as `- [TOKEN]-[OPEN|BLOCKED]: <exact ' +
-    'question>; <verification route>` with TOKEN an UPPERCASE_SNAKE slug and every existing row rewritten to that exact grammar. CASES: a page MISSING the marker (rows but no ' +
-    'source-only comment) gets the exact block inserted above its rows; a page with a MANGLED marker (collapsed, truncated, or reworded) has it REPLACED with the exact block; ' +
-    'a page with NO research carries the marker plus `(none)`. NEVER invent rows to fill the section, NEVER delete the section or its marker, and keep the `## [01]-[INDEX]` in ' +
-    'sync with the real section numbers after any renumber the RESEARCH section forces.';
+    '\nBelow the marker: each surviving open/blocked row in the exact grammar, or `(none)` alone on its line ONLY when no genuine open question remains AND every substantive ' +
+    'bullet was re-homed. CASES: a MISSING marker (rows but no source-only comment) gets the exact block inserted above the rows; a MANGLED marker (collapsed, truncated, ' +
+    'reworded) is REPLACED with the exact block. NEVER invent rows to fill the section, NEVER delete the section or its marker, and keep `## [01]-[INDEX]` in sync with the real ' +
+    'section numbers after any renumber this forces.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -448,7 +535,7 @@ const analyzeMandate = (group) =>
     JSON.stringify(group.map((f) => ({ path: f.path, kind: f.kind }))) +
     '.' +
     '\n\nFOR EACH FILE return a findings list. Classify every suspect passage by its exact `[NN]-[CLASS]` heading in defects.md — the catalog you read IN FULL is the ' +
-    'authoritative roster (all 27 classes), never a list restated here that drifts the moment a class is minted. Hunt the two newest classes explicitly, an out-of-date reflex ' +
+    'authoritative roster, never a list restated here that drifts the moment a class is minted. Hunt the two newest classes explicitly, an out-of-date reflex ' +
     'misses them: `[26]-[DELEGATED_ANATOMY]` — a page that legally owns a delegated discipline re-spelling the sub-anatomy (row grammar, marker set, touch-point roster, (none) ' +
     'rule) a template or the chain owns, past the obligation delegated to it; keep the obligation, pointer the anatomy, and audit the same entry for a sibling anatomy left ' +
     'inline. `[27]-[ROSTER_PREAMBLE]` — a header entry enumerating a member set whose following detail entries each already expand one member; delete the header when the ' +
@@ -457,6 +544,24 @@ const analyzeMandate = (group) =>
     'it as context and inherits its shape; flag it `META_FRAME`, direction = rebuild template-true to the file kind. Cover prose AND fence comment lines; a bloated multi-line ' +
     'comment block, a comment restating adjacent code, or a narration comment is a ' +
     'finding. Do not flag fence code bodies, mermaid bodies, or section-divider comment lines.' +
+    versionBanLaw +
+    '\n\nHunt every VERSION/INSTALL anchor above as a finding (move=delete, or demote when a capability rides the anchor) — but never flag a real member, parameter, or attribute that ' +
+    'merely spells `Version`.' +
+    (group.some((f) => f.kind === 'api')
+        ? '\n\nAPI TRUTH (this group carries `.api` catalogs): a catalog is a contract — flag any named surface whose spelling, signature, kind, or capability reads WRONG or overclaimed ' +
+          'as a finding (move=reframe, direction naming the exact symbol to re-verify), so the fixer decompiles and corrects it.' +
+          apiStackingLaw +
+          '\n\nAS THE FINDER on an `.api` catalog, ALSO flag every STRUCTURAL deformation against the hardened template ' +
+          templatePath('api') +
+          ' (read it): a member table torn into `[SLUG]:` card clusters or `- signature — desc` prose bullets (move=reframe, direction "rebuild as table"); a bloated fully-qualified / ' +
+          'fully-param-named signature (direction "abbreviate to member+argshape+return"); a run-on `- Members: a, b, c` bullet or `[SLUG]: - Members:` card (direction "one row per member"); ' +
+          'a per-row `[RAIL]` column repeating one value (direction "delete, rail is a [01] field"); a drifted column or `[04]` sub-label (direction naming the closed token); a fenced ' +
+          'signature block (direction "abbreviate in-cell, no fence"). ALSO flag shallow ultra-stacking: a `[STACKING]` row that is one-word or missing a real sibling seam, an `[IMPLEMENTATION_LAW]` that ' +
+          'reads single-use / under-mines the library surface, and any admitted capability the catalog fails to surface — each a finding (move=reframe or demote) whose direction names ' +
+          'the deeper composition or the unexploited member the fixer must mine. ALSO flag every LEGACY anchor for silent removal: an obsolete / deprecated / superseded member or overload, a ' +
+          '`use Y instead` / `replaced by` / `in older versions` / `no longer` caveat, a version-conditional band, a `- version:` / `- installed:` field, or any package version number (move=delete, ' +
+          'direction "silent-remove, catalog only the live surface") — but never a domain symbol literally named `Legacy`/`Obsolete`/`Version` that is the current API. You make no edits and run no tools; you route the suspect.'
+        : '') +
     '\n\nEach finding: {class (the `[NN]-[CLASS]` name), anchor (heading or opening words), problem (one sentence, why fragile or poison), direction (one sentence, the reframe ' +
     'or the owner it demotes to), move (delete|demote|merge|split|reframe)}. move encodes the fixer disposition so it need not re-derive it: delete = regenerable frame, no ' +
     'payload; demote = payload to the named owner in direction; merge = same-decision spread, and direction NAMES every distinct clause to keep; split = compound ' +
@@ -468,7 +573,10 @@ const analyzeMandate = (group) =>
     'narrower form; an unopened winner is an unproven route and the loser keeps its copy until proven. Empty array when none.' +
     '\n\nINDEX/RESEARCH: for a spec-kind file report indexStatus and researchStatus. researchStatus is `ok` ONLY when the terminal `## [NN]-[RESEARCH]` section is present AND ' +
     'its source-only marker comment matches the spec.template.md block byte-for-byte AND every row conforms to `- [TOKEN]-[OPEN|BLOCKED]: <question>; <route>`; a marker that ' +
-    'is missing, collapsed to one line, truncated (the `[SPLIT_MEMBER]` line dropped), or reworded is `stale`, and an absent section is `missing`. indexStatus is `ok` when ' +
+    'is missing, collapsed to one line, truncated (the `[SPLIT_MEMBER]` line dropped), or reworded is `stale`, and an absent section is `missing`. A RESEARCH section carrying ' +
+    'SUBSTANTIVE settled-law content — a `[SLUG] — <present-tense fact>` bullet describing how an owner or algorithm WORKS, not an OPEN/BLOCKED question with a route — is ' +
+    'MIS-HOMED law, NOT a research row: report researchStatus `stale` AND flag each such bullet as a finding (move=demote, or split for a compound bullet) whose direction names ' +
+    'the cluster owner to re-home it into, so the fixer moves it under capability conservation and never deletes it. indexStatus is `ok` when ' +
     '`## [01]-[INDEX]` is present and its numbers match the real sections, else `stale`/`missing`. For every non-spec kind both are n/a.' +
     (group.some((f) => underPlanning(f.path))
         ? rulingsLaw +
@@ -540,6 +648,9 @@ const fixMandate = (f, seed) => {
         'NEGATION_ONLY sediment; naming a forbidden form primes its re-emission). The positive law already standing forecloses the removed form. Reframe only where the line ' +
         'carries load no other surface holds.' +
         silentAndTrim +
+        versionBanLaw +
+        tableIntegrityLaw +
+        (f.kind === 'api' ? apiVerifyLaw + apiStackingLaw + apiStructureLaw + apiLegacyLaw : '') +
         '\n\nCOLLAPSE IS A RESTRUCTURE, never a brute-delete: a SAME_DECISION_SPREAD merges pure restatements into the single strongest spelling and keeps every DISTINCT ' +
         'clause as its own clause or entry — only true restatements die, and a neighbor separating a different failure class or carrying a false-positive discriminator is ' +
         'distinct law. A nuance lost in the collapse is the same defect as the accumulation; resolution must rise while lines fall, and a merged form is never a concatenated ' +
@@ -615,133 +726,256 @@ const fixMandate = (f, seed) => {
     );
 };
 
-const redteamMandate = (f, fix) => {
-    const tpl = templatePath(f.kind);
-    const spec = f.kind === 'spec';
-    const planning = underPlanning(f.path);
-    const dossier = dossierPath(f.path);
+// the red-team runs over a GROUP of already-fixed pages (up to BATCH) — shared cold-review law stated once, then a per-file block carrying each page`s baseline, predecessor receipt, and kind-specific hunt
+const redteamMandate = (group) => {
+    const paths = group.map((g) => g.f.path);
+    const anySpec = group.some((g) => g.f.kind === 'spec');
+    const anyPlanning = group.some((g) => underPlanning(g.f.path));
+    const anyApi = group.some((g) => g.f.kind === 'api');
+    const perFile = group
+        .map((g, i) => {
+            const f = g.f;
+            const fix = g.fix;
+            const tpl = templatePath(f.kind);
+            const spec = f.kind === 'spec';
+            const planning = underPlanning(f.path);
+            const dossier = dossierPath(f.path);
+            return (
+                '\n\n--- FILE ' +
+                (i + 1) +
+                '/' +
+                group.length +
+                ': ' +
+                f.path +
+                ' (kind: ' +
+                f.kind +
+                ') --- ' +
+                'ORIGINAL HEAD baseline: prose ' +
+                f.prose +
+                ' lines, comments ' +
+                f.comments +
+                '. `cd ' +
+                ROOT +
+                ' && git show HEAD:' +
+                f.path +
+                '` is the pre-pass baseline; disk is the predecessor`s output — diff them for what it cut, kept, and reworded. Predecessor receipt: ' +
+                JSON.stringify({
+                    afterProse: fix.afterProse,
+                    afterComments: fix.afterComments,
+                    proseReductionPct: fix.proseReductionPct,
+                    notes: fix.notes,
+                }) +
+                '; it left this page at ~' +
+                fix.afterProse +
+                ' prose lines — drive the FURTHER ' +
+                REDTEAM_FURTHER +
+                '% off THAT state. Land template-true against ' +
+                (tpl || 'the docgen page-shape') +
+                '.' +
+                (spec
+                    ? ' SPEC: sync `## [01]-[INDEX]` to the real section numbers, and the RESEARCH law below binds this file — diff `## [NN]-[RESEARCH]` against HEAD, RESTORE any ' +
+                      'settled-law `[SLUG]` bullet the predecessor deleted or blanked to `(none)` and re-home it per (B), then harden the surviving rows per (A).'
+                    : '') +
+                (f.kind === 'api'
+                    ? ' API CATALOG: the surface rows are TABLE cells (prose), not fences — the API-TRUTH and API-ULTRA-STACKING law below bind this file; re-verify every named surface ' +
+                      'against the assembly before trimming, correct a proven-wrong cell, and deepen any shallow single-use `[STACKING]`/`[IMPLEMENTATION_LAW]` guidance to the true deepest ' +
+                      'cross-`.api` and within-library composition.'
+                    : '') +
+                (planning
+                    ? ' PLANNING: if the predecessor wrote ' +
+                      dossier +
+                      ', HARDEN every row to guard-grade anatomy; if it MISSED a genuine admission-bar folder-wide ruling still on the page, extract it now (remove from page, add ' +
+                      'the row, record the demotion); NEVER duplicate a row the dossier or the folder RULINGS.md already holds.'
+                    : ' RULINGS: not under `.planning/` — rulingsExtracted -1, rulingsDossier "".')
+            );
+        })
+        .join('');
     return (
         PREAMBLE +
         '\n\n' +
         ACID +
-        '\n\nYOU ARE THE RED-TEAM for ONE already-fixed page — the terminal, most aggressive pass. A predecessor ran one ~' +
+        '\n\nYOU ARE THE RED-TEAM for ' +
+        group.length +
+        ' already-fixed pages — the terminal, most aggressive pass. Process EACH file block below in turn. A predecessor ran one ~' +
         PROSE_LO +
         '-' +
         PROSE_HI +
-        '% reduction pass over this page; you hold its output NAIVE, INCOMPLETE, and LITTERED until disk proves otherwise, and you both REPAIR its weak work AND drive a ' +
-        'SECOND reduction. Read ' +
+        '% reduction pass over each; you hold every output NAIVE, INCOMPLETE, and LITTERED until disk proves otherwise, and you both REPAIR its weak work AND drive a SECOND ' +
+        'reduction. Read ' +
         CAMPAIGN_METHOD +
         ' [03] RED-TEAM discipline: a pre-mortem that rebuilds rather than annotates, a full cold re-review of every conformance dimension, the current shape never its own ' +
         'defense ("it also reads fine" refutes nothing).' +
         '\n\n' +
-        arm(tpl ? 'and the file-kind template: ' + tpl : 'the docgen page-shape law in formatting.md [03]-[PAGE_SHAPE]') +
-        ownershipClause([f.path]) +
-        '\n\nSEE WHAT THE PREDECESSOR DID: `cd ' +
-        ROOT +
-        ' && git show HEAD:' +
-        f.path +
-        '` is the PRE-PASS baseline; the file now on disk is the predecessor`s output. Diff them — what it cut, kept, and reworded. Its receipt: ' +
-        JSON.stringify({ afterProse: fix.afterProse, afterComments: fix.afterComments, proseReductionPct: fix.proseReductionPct, notes: fix.notes }) +
-        '.' +
-        '\n\nHUNT WHAT A FIRST PASS ALWAYS MISSES: litter it introduced (a tombstone note explaining its own removal, a substitute `never X` minted for a cut, a fold that ' +
-        'left a fresh twin at the destination, a pointer that re-narrates instead of naming its owner), weak or bloated survivors it kept out of caution, sediment it softened ' +
-        'instead of killing, an imported frame it left standing, and char-level padding under a line band it already hit. Read ' +
-        f.path +
-        ' IN FULL; the predecessor left it at ~' +
-        fix.afterProse +
-        ' prose lines — drive a FURTHER ' +
-        REDTEAM_FURTHER +
-        '% reduction off THAT current state (not off the original baseline).' +
+        arm('and the file-kind template named in each file block below') +
+        ownershipClause(paths) +
+        '\n\nHUNT WHAT A FIRST PASS ALWAYS MISSES, per file: litter it introduced (a tombstone note explaining its own removal, a substitute `never X` minted for a cut, a fold that ' +
+        'left a fresh twin at the destination, a pointer that re-narrates instead of naming its owner, a `## [NN]-[RESEARCH]` section BLANKED to `(none)` or stripped of its `[SLUG]` ' +
+        'settled-law bullets the predecessor mistook for junk rows), weak or bloated survivors it kept out of caution, sediment it softened instead of killing, an imported frame it ' +
+        'left standing, and char-level padding under a line band it already hit. Read each file IN FULL before touching it.' +
+        '\n\nADJUDICATE WHAT IT REMOVED — the diff`s deleted lines are half the evidence and the half a second pass usually skips: read EVERY line the predecessor cut and rule on it. ' +
+        'A cut that dropped a real decision, invariant, boundary ruling, or trap is RESTORED from the baseline; a cut that removed narration, restatement, frame, or hedge STANDS. Any ' +
+        'demotion it claimed is proven by OPENING the named owner and confirming that owner carries the full set at exact width — an unproven demotion restores to the page. On an `.api` ' +
+        'catalog a cut that dropped a verified member, its call shape, its capability, or a consumer-facing trap is real loss and restores; only bloat, narration, and dead legacy stay cut.' +
         silentAndTrim +
+        versionBanLaw +
+        tableIntegrityLaw +
+        '\n\nBE ADVERSARIAL ON CONTENT QUALITY, never wording alone: this file is worked by an agent with NO memory of why it was written, so judge every surviving line by what it does ' +
+        'to that agent`s next action. POISON prose — a frame, roster, count, or named shape that walls the next rebuild inside today`s design — and FRAGILE prose — a mirror, cross-reference, ' +
+        'or sibling-shape restatement that lies the day the corpus moves — are REMOVED even when they read well; fluency is not value, and a dense-looking line carrying no law is the prime ' +
+        'suspect. Removal stays evidence-based, never random: the bar is that deleting the line loses law no other surface holds.' +
         '\n\nTERRITORY and CAPABILITY are the fixer`s exactly: prose surfaces and fence COMMENTS only; fence code bodies, mermaid bodies, and section dividers UNTOUCHED. ' +
-        'Capability conservation is absolute — aggression cuts NOISE, never LAW: every decision, invariant, boundary ruling, and trap survives in fewer words or a proven ' +
-        'demotion, and a grader re-derives losslessness from the HEAD baseline after you. Land the page template-true against ' +
-        (tpl || 'the docgen page-shape') +
-        (spec ? ', its `## [01]-[INDEX]` synced to the real section numbers.' : '.') +
-        (spec ? researchLaw : '') +
-        (planning
-            ? rulingsLaw +
-              '\n\nRULINGS DOSSIER: the predecessor may have written ' +
-              dossier +
-              '. If it exists and carries rows, HARDEN it — every row to guard-grade anatomy, non-guard or page-local content removed, language sharpened to high signal. ' +
-              'If the predecessor MISSED a genuine admission-bar folder-wide ruling still sitting in the page, extract it now (remove from the page, add the row, record the ' +
-              'demotion). NEVER duplicate a row the dossier or the folder RULINGS.md already holds. Reflect the dossier`s post-hardening state in rulingsExtracted and rulingsDossier.'
-            : '') +
-        '\n\nGATE then RECEIPT: run `cd ' +
+        'Capability conservation is absolute — aggression cuts NOISE, never LAW: every decision, invariant, boundary ruling, and trap survives in fewer words or a proven demotion. ' +
+        'Before returning, re-read your own output against the HEAD baseline and restore anything real either you or the predecessor cut: the page you hand back is FINISHED work, never a ' +
+        'draft, and every defect you can see is one you fix now.' +
+        (anySpec ? researchLaw : '') +
+        (anyPlanning ? rulingsLaw : '') +
+        (anyApi ? apiVerifyLaw + apiStackingLaw + apiStructureLaw + apiLegacyLaw : '') +
+        '\n\nFILE BLOCKS:' +
+        perFile +
+        '\n\nPER FILE, after the rebuild run `cd ' +
         ROOT +
-        ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write ' +
-        f.path +
-        '` then the check; gateClean is the check exiting clean. Return the SAME shape a fixer returns — {file, ok, kind, beforeProse (the ORIGINAL baseline ' +
-        f.prose +
-        ', so proseReductionPct reads the cumulative HEAD->now cut), afterProse (your final re-measure), proseReductionPct, beforeComments (' +
-        f.comments +
-        '), afterComments, commentReductionPct, demotions (the cumulative proven ledger), capabilityConserved, indexLanded, researchRows, rulingsExtracted (' +
-        (planning ? 'the dossier`s final row count' : '-1') +
-        '), rulingsDossier (' +
-        (planning ? dossier : '""') +
-        '), gateClean, notes}.'
+        ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <file>` then the check; gateClean is that check exiting clean. Return {files:[<one receipt per file block ' +
+        'above, IN ORDER>]}, each receipt {file, ok, kind, beforeProse (the ORIGINAL HEAD baseline, so proseReductionPct reads the cumulative HEAD->now cut), afterProse (your final ' +
+        're-measure via ' +
+        PROSE_MEASURE +
+        '), proseReductionPct, beforeComments, afterComments, commentReductionPct (' +
+        COMMENT_MEASURE +
+        '), demotions (the cumulative proven ledger), capabilityConserved, indexLanded, researchRows, rulingsExtracted, rulingsDossier, gateClean, notes}.'
     );
 };
 
-const verifyMandate = (f) =>
-    PREAMBLE +
-    '\n\n' +
-    ACID +
-    '\n\nYOU ARE THE GRADER for ONE page a fixer then a red-team rebuilt. You re-derive the final page correctness HOSTILELY from disk and edit NOTHING. ' +
-    'Compare the current file against its pre-pass state — `cd ' +
-    ROOT +
-    ' && git show HEAD:' +
-    f.path +
-    '` is the baseline (if the page is new to HEAD, grade on internal losslessness alone). Grade four axes. (1) LOSSLESSNESS — every decision, invariant, boundary ruling, ' +
-    'and trap in the baseline survives, in fewer words or demoted into a fence comment or a sibling owner; a dropped law is a FAIL. A FOLDER-WIDE ruling correctly extracted ' +
-    "to a RULINGS dossier is such a demotion, never a loss — open the fixer's rulingsDossier and confirm the full ruling with its guard is present; a page-local design " +
-    'decision extracted as if it were a ruling IS an over-deletion. (2) NO OVER-DELETION — a law removed as a ' +
-    '"fork" is correct only if its owner PROVABLY holds it; open every demotion target and confirm the FULL member set (POINTER-SET-WIDENING: a 3-member enumeration demoted ' +
-    'to a roster owner that now carries 8 is wrong law; and the mirror — a false over-deletion where the true owner is a RULINGS registry the fixer never opened). ' +
-    '(3) NO NEW TWIN — a fold that re-duplicated a rule at its destination. (4) NO RESIDUAL FRAME — read the page as the COLD REBUILD AGENT that must work from it alone: name ' +
-    'the framing assumption it stands on (an inherited corpus shape, a heading census that does not match its file-kind template, a frozen member roster, a report/process ' +
-    "frame, prose restating a diagram), derive the form the page takes WITHOUT it, and set frameClean false when a cold rebuild from this page would inherit that frame; " +
-    '"the current frame also reads fine" is not a refutation, and a residual frame is also a residual finding with move=reframe. (5) GATE — the prose gate exits clean on the ' +
-    'current file. ' +
-    arm('') +
-    ownershipClause([f.path]) +
-    '\n\nEach overDeletion and residual finding carries the full FINDING shape {class, anchor, problem, direction, move} — move is the corrective the remediator applies ' +
-    '(reframe to restore over-deleted law or destroy a residual frame, merge or split where a fold or fork was mishandled). Return {file, grade, losslessness, overDeletion, ' +
-    'demotionsProven, newTwin, frameClean, gateClean, residuals}. Edit NOTHING.';
+// the verifier runs over a GROUP of rebuilt pages (up to BATCH) — the cumulative HEAD->now diff is its one lever, and it REPAIRS what it finds rather than reporting it
+const verifyMandate = (group) => {
+    const paths = group.map((g) => g.f.path);
+    const anySpec = group.some((g) => g.f.kind === 'spec');
+    const anyPlanning = group.some((g) => underPlanning(g.f.path));
+    const anyApi = group.some((g) => g.f.kind === 'api');
+    const perFile = group
+        .map((g, i) => {
+            const f = g.f;
+            const tpl = templatePath(f.kind);
+            return (
+                '\n\n--- FILE ' +
+                (i + 1) +
+                '/' +
+                group.length +
+                ': ' +
+                f.path +
+                ' (kind: ' +
+                f.kind +
+                ') --- ORIGINAL HEAD baseline: prose ' +
+                f.prose +
+                ' lines, comments ' +
+                f.comments +
+                '. `cd ' +
+                ROOT +
+                ' && git show HEAD:' +
+                f.path +
+                '` is the pre-pass baseline; disk is the current rebuilt state. Its final receipt: ' +
+                JSON.stringify({
+                    afterProse: g.fix.afterProse,
+                    demotions: g.fix.demotions,
+                    capabilityConserved: g.fix.capabilityConserved,
+                    notes: g.fix.notes,
+                }) +
+                '. Template: ' +
+                (tpl || 'the docgen page-shape') +
+                '.' +
+                (f.kind === 'api'
+                    ? ' API CATALOG: a cut that dropped a verified member, its call shape, its capability, or a consumer trap is REAL LOSS — restore it.'
+                    : '') +
+                (underPlanning(f.path)
+                    ? ' PLANNING: open ' + dossierPath(f.path) + ' and confirm every ruling removed from the page is present there in full.'
+                    : '')
+            );
+        })
+        .join('');
+    return (
+        PREAMBLE +
+        '\n\n' +
+        ACID +
+        '\n\nYOU ARE THE VERIFIER for ' +
+        group.length +
+        ' pages a fixer then a red-team rebuilt. You are ADVERSARIAL and you WRITE: every defect you find you FIX in place, on the page, now — you never merely grade, report, or hand a ' +
+        'residual onward. Nothing follows you, so the page you leave is the finished page.' +
+        '\n\n' +
+        arm('and the file-kind template named in each file block below') +
+        ownershipClause(paths) +
+        '\n\nTHE DIFF IS YOUR ONE LEVER. For each file, diff the HEAD baseline against the current disk state and read the CUMULATIVE change hostilely — two aggressive passes ran over ' +
+        'this page and the compounding is where real law dies. Work the DELETED lines hardest: a removal is correct only against evidence. Repair each of five defects in place. ' +
+        '(1) LOST LAW — a decision, invariant, boundary ruling, or trap present in the baseline and absent now, with no proven owner holding it: RESTORE it, rewritten to the register, ' +
+        'never pasted back verbatim. (2) UNPROVEN DEMOTION — for every demotion the ledger claims, OPEN the named owner across ALL candidate owners and confirm it carries EVERY demoted ' +
+        'member at exact set width; if it does not, restore the law to this page, and watch POINTER-SET-WIDENING (three members demoted to an owner that now implies eight is wrong law). ' +
+        '(3) FRESH TWIN — a fold that re-duplicated a rule at its destination: delete the copy at the losing site. (4) RESIDUAL FRAME — read the page as the COLD REBUILD AGENT working ' +
+        'from it alone: name the framing assumption it stands on (an inherited corpus shape, a heading census that does not match its file-kind template, a frozen roster, a report frame), ' +
+        'and if a rebuild would inherit that frame, REFRAME the page; "the current shape also reads fine" refutes nothing. (5) LITTER either predecessor introduced — a tombstone ' +
+        'explaining its own removal, a substitute `never X` minted for a cut, a pointer that re-narrates instead of naming its owner: delete it whole.' +
+        (anySpec
+            ? ' A `[SLUG] — <fact>` bullet that lived under the baseline `## [NN]-[RESEARCH]` heading is baseline LAW: if the section was blanked to `(none)` or those bullets dropped ' +
+              'without a proven re-home into the cluster owner they describe, RESTORE and re-home them.'
+            : '') +
+        silentAndTrim +
+        versionBanLaw +
+        tableIntegrityLaw +
+        '\n\nTERRITORY is the fixer`s exactly: prose surfaces and fence COMMENTS only; fence code bodies, mermaid bodies, and section dividers UNTOUCHED. Restoration is NOT a licence to ' +
+        're-bloat — you restore only law no other surface holds, in the fewest words that carry it, and you keep cutting any noise the predecessors left. A page that lost nothing and ' +
+        'carries no litter is left alone and reported honestly; inventing work to look busy is its own defect.' +
+        (anyPlanning ? rulingsLaw : '') +
+        (anyApi ? apiVerifyLaw + apiStackingLaw + apiStructureLaw + apiLegacyLaw : '') +
+        '\n\nFILE BLOCKS:' +
+        perFile +
+        '\n\nPER FILE, after your repairs run `cd ' +
+        ROOT +
+        ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <file>` then the check; gateClean is that check exiting clean. Return {files:[<one receipt per file block ' +
+        'above, IN ORDER>]}, each receipt {file, ok, kind, beforeProse (the ORIGINAL HEAD baseline), afterProse (your final re-measure via ' +
+        PROSE_MEASURE +
+        '), proseReductionPct, beforeComments, afterComments, commentReductionPct (' +
+        COMMENT_MEASURE +
+        '), demotions (the ledger as it now stands, every row re-proven by you), capabilityConserved, indexLanded, researchRows, rulingsExtracted, rulingsDossier, gateClean, notes ' +
+        '(what you restored, re-homed, or deleted; empty when the page needed nothing)}.'
+    );
+};
 
-const collectMandate = (owner, rulingsPaths, dossiers) =>
+// ONE collector for the whole run: it holds every owner's dossiers in one context, which is the only way cross-owner dedup and correct tier placement are decidable
+const collectMandate = (targets) =>
     PREAMBLE +
-    '\n\nYOU ARE THE COLLECTOR for one owner`s RULINGS.md — you transcribe the folder-wide rulings the fixers extracted into the decision registry, adjudicating each ' +
-    'candidate strictly. Nothing is admitted by default.' +
+    '\n\nYOU ARE THE COLLECTOR — the SINGLE adjudicator for every folder-wide ruling this run extracted, across every owner. You transcribe survivors into the owning ' +
+    '`RULINGS.md` decision registries and nothing else. Nothing is admitted by default; the registry is a guard against re-litigation, never a dumping ground, and a run ' +
+    'that admits zero rows is a correct outcome.' +
     rulingsLaw +
-    '\n\n' +
-    arm('and the RULINGS owner law above') +
-    '\n\nRESOLVE THE TARGET: the RULINGS.md for owner `' +
-    owner +
-    '` is the nearest EXISTING of ' +
-    JSON.stringify(rulingsPaths) +
-    ' (test -f each, package tier before branch tier). If NEITHER exists, mint the first from ' +
-    RULINGS_TEMPLATE +
-    ' — its charter lead plus the five sections each marked `(none)`, and set created true. Read the resolved file IN FULL; it is the admission authority.' +
-    '\n\nREAD THE DOSSIERS this owner`s fixers wrote: ' +
-    JSON.stringify(dossiers) +
-    '. Skip any whose sole content is `(none applicable)`.' +
-    '\n\nADJUDICATE every candidate row: (a) DEDUP — the same ruling extracted from two pages is ONE row, merged to the single strongest guard-grade spelling ' +
-    '(reason=merged-with-sibling for the dropped copy). (b) ALREADY-HOMED — the resolved RULINGS.md, a README/ARCHITECTURE registry, a manifest, or a fence already ' +
-    'carries the fact AND its why → reject (reason=already-homed); the fixer`s page-removal already stands and no new row is minted (no duplication). (c) GUARD-GRADE — a ' +
-    'row missing its wrong-move, route, or reopen predicate, or carrying two decisions, is repaired to anatomy or split into siblings; an irreparably non-guard candidate ' +
-    'is rejected (reason=not-guard-grade). (d) TIER — a ruling scoped WIDER than this owner (branch- or cross-libs-spanning) is NEVER forced into this file; record it in ' +
-    'deferred with its tier, and write nothing outside `' +
-    owner +
-    '`.' +
-    '\n\nTRANSCRIBE the survivors into the resolved RULINGS.md: append each at its section`s tail in arrival order (adjacency is arrival, never taxonomy), replace a ' +
-    'section`s `(none)` when you first populate it, keep the closed section order, and renumber headings contiguously. Subjects and members are code spans in verified ' +
-    'spelling; slugs UPPERCASE_SNAKE; paths repo-relative. Do NOT re-open or edit the source design pages — they are already trimmed; you write RULINGS.md alone.' +
-    '\n\nGATE: run `cd ' +
+    '\n\nGROUND YOURSELF FIRST — read ALL of these IN FULL before judging any candidate, because admission is decided against standing law, never against the dossier alone: ' +
+    'the always-loaded instruction chain ' +
+    CHAIN.join(' and ') +
+    ' (a candidate the chain already binds is CHAIN_RESTATEMENT, rejected); every `.md` under ' +
     ROOT +
-    ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <rulingsFile>` then the check on the same file; resolve judgment-tier SKIP rows by hand; ' +
-    'gateClean is the check exiting clean.' +
-    '\n\nRETURN {owner, rulingsFile, created, admitted:[{section, row}], rejected:[{row, reason}], deferred:[{row, tier}], gateClean}.';
+    '/libs/.planning/ — the Tier-0 corpus law (campaign method, architecture, authoring standard, planning targets, and the cross-`libs/` RULINGS registry) that governs ' +
+    'what a ruling IS and where it seats; the rulings template ' +
+    RULINGS_TEMPLATE +
+    ' (admission bar, closed section vocabulary, tier placement, `(none)` convention, guard-grade row anatomy); and EVERY target `RULINGS.md` listed below, each read in ' +
+    'full as its own admission authority.' +
+    '\n\nTARGETS — each owner with its candidate RULINGS.md paths (nearest EXISTING wins, package tier before branch tier; if neither exists, mint the first from the ' +
+    'template — charter lead plus the closed sections each marked `(none)` — and set created true) and the dossiers its pages wrote: ' +
+    JSON.stringify(targets) +
+    '. Read every dossier; skip any whose sole content is `(none applicable)`.' +
+    '\n\nADJUDICATE the WHOLE candidate set at once — holding every owner`s dossiers together is your one lever, and it decides two things a per-owner pass cannot. ' +
+    '(a) CROSS-OWNER DEDUP — the same ruling extracted from two pages, or from two different owners, is ONE row merged to the single strongest guard-grade spelling ' +
+    '(reason=merged-with-sibling for each dropped copy); near-similar candidates fold into one higher-resolution row where every distinct clause survives, never a ' +
+    'concatenated mega-row. (b) TIER — a ruling that governs siblings ACROSS owners does not belong in either package registry: it seats at the branch or cross-`libs/` ' +
+    'tier, recorded in deferred with its tier and written nowhere else. Then per candidate: (c) ALREADY-HOMED — the resolved RULINGS.md, a README/ARCHITECTURE registry, ' +
+    'a manifest, the instruction chain, or a fence already carries the fact AND its why → reject (reason=already-homed); the page-removal already stands and no row is ' +
+    'minted, so no duplication. (d) CONTRADICTION — a candidate that conflicts with a ruling already standing in any registry you read is rejected ' +
+    '(reason=contradicts-standing-law), never silently written beside the rule it contradicts. (e) GUARD-GRADE — a row missing its wrong-move, route, or reopen predicate, ' +
+    'or carrying two decisions, is repaired to anatomy or split into siblings; an irreparably non-guard candidate is rejected (reason=not-guard-grade).' +
+    '\n\nTRANSCRIBE the survivors into each resolved RULINGS.md: append each at its section`s tail in arrival order (adjacency is arrival, never taxonomy), replace a ' +
+    'section`s `(none)` when you first populate it, keep the closed section order, and renumber headings contiguously. Subjects and members are code spans in verified ' +
+    'spelling; slugs UPPERCASE_SNAKE; paths repo-relative. Write ONLY inside the owners listed above, and do NOT re-open or edit the source design pages — they are ' +
+    'already trimmed; you write RULINGS.md files alone.' +
+    '\n\nGATE each RULINGS.md you wrote or minted: `cd ' +
+    ROOT +
+    ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <rulingsFile>` then the check on the same file; resolve judgment-tier SKIP rows by hand; that ' +
+    'file`s gateClean is its check exiting clean.' +
+    '\n\nRETURN {owners:[{owner, rulingsFile, created, admitted:[{section, row}], gateClean}], rejected:[{row, reason}], deferred:[{row, tier}]} — one owners entry per ' +
+    'registry you touched (omit an owner whose every candidate was rejected or deferred), with rejected and deferred adjudicated once across the whole set.';
 
 const pool = async (thunks, cap, retries = 1) => {
     const results = new Array(thunks.length);
@@ -798,13 +1032,8 @@ const files = census.files
 // census file by path; Redteam and Remediate resolve an agent-returned receipt/grade back to its census file here and SKIP an unmatched one, so undefined never reaches a mandate (the `f.path` crash)
 const fileByPath = new Map(files.map((f) => [f.path, f]));
 
-// group FOLDER-FIRST so a spec sees its own README/ARCHITECTURE/RULINGS as siblings, not a global path-sort chunk that scatters them
-const byFolder = {};
-for (const f of files) {
-    const dir = f.path.lastIndexOf('/') >= 0 ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
-    (byFolder[dir] || (byFolder[dir] = [])).push(f);
-}
-const groups = Object.values(byFolder).flatMap((g) => chunk(g, GROUP));
+// even finder batches: a flat GROUP-sized chunk over the path-sorted file list fills every group and never strands a folder's lone tail as a 1-file batch; the sort keeps same-folder pages adjacent for cross-file TWIN_TRUTH
+const groups = chunk(files, GROUP);
 const baseProse = files.reduce((a, f) => a + f.prose, 0);
 const baseComments = files.reduce((a, f) => a + f.comments, 0);
 log(files.length + ' pages, ' + groups.length + ' finder group(s), ' + baseProse + ' prose + ' + baseComments + ' comment baseline lines');
@@ -849,157 +1078,123 @@ const fixReceipts = (
 // Redteam: adversarial cold second pass over every OK-fixed page — repairs the fixer's litter, hardens the rulings dossier, drives a further reduction. Its receipt
 // supersedes the fixer's; a file whose fix failed or whose red-team dropped keeps the fixer receipt so downstream Verify and the return still account for it.
 phase('Redteam');
+// batch BATCH OK-fixed pages per red-team agent; each agent returns {files:[receipt...]}, flattened back to per-file receipts that supersede the fixer's
+const redGroups = chunk(
+    fixReceipts.filter((r) => r.ok && fileByPath.has(r.file)).map((r) => ({ f: fileByPath.get(r.file), fix: r })),
+    BATCH,
+);
 const redteamed = (
     await pool(
-        fixReceipts
-            .filter((r) => r.ok && fileByPath.has(r.file))
-            .map(
-                (r) => () =>
-                    agent(redteamMandate(fileByPath.get(r.file), r), {
-                        label: 'redteam:' + r.file.split('/').slice(-1)[0],
-                        phase: 'Redteam',
-                        model: 'opus',
-                        effort: 'high',
-                        schema: FIX_SCHEMA,
-                    }),
-            ),
-        CAP,
-    )
-).filter(Boolean);
-const redByFile = new Map(redteamed.map((r) => [r.file, r]));
-const receipts = fixReceipts.map((r) => redByFile.get(r.file) || r);
-
-phase('Verify');
-const okReceipts = receipts.filter((r) => r.ok);
-// grade by iterating the census files that carry an ok receipt, never by re-finding from a receipt: an agent-returned receipt whose `file` does not match a census path
-// resolved to undefined and crashed verifyMandate at `f.path`. A receipt with no matching census file is simply not graded and surfaces under `unverified`.
-const okPaths = new Set(okReceipts.map((r) => r.file));
-const grades = (
-    await pool(
-        files
-            .filter((f) => okPaths.has(f.path))
-            .map(
-                (f) => () =>
-                    agent(verifyMandate(f), {
-                        label: 'grade:' + f.path.split('/').slice(-1)[0],
-                        phase: 'Verify',
-                        model: 'opus',
-                        effort: 'high',
-                        schema: VERIFY_SCHEMA,
-                    }),
-            ),
-        CAP,
-    )
-).filter(Boolean);
-
-phase('Remediate');
-const needFix = grades.filter(
-    (g) =>
-        !g.losslessness ||
-        g.overDeletion.length ||
-        !g.demotionsProven ||
-        g.newTwin === false ||
-        g.frameClean === false ||
-        !g.gateClean ||
-        g.residuals.length,
-);
-const remediated = (
-    await pool(
-        needFix
-            .filter((g) => fileByPath.has(g.file))
-            .map(
-                (g) => () =>
-                    agent(
-                        fixMandate(fileByPath.get(g.file), {
-                            findings: [...g.overDeletion, ...g.residuals],
-                            crossFile: [],
-                        }) +
-                            '\n\nSECOND PASS — a grader re-derived your predecessor from disk and found residuals: ' +
-                            JSON.stringify(g) +
-                            '. Restore any over-deleted law from `git show HEAD:' +
-                            g.file +
-                            '`, re-home a mis-folded twin, prove every demotion by opening its target across all candidate owners, then re-run the gate.',
-                        {
-                            label: 'remed:' + g.file.split('/').slice(-1)[0],
-                            phase: 'Remediate',
-                            model: 'opus',
-                            effort: 'high',
-                            schema: FIX_SCHEMA,
-                        },
-                    ),
-            ),
-        CAP,
-    )
-).filter(Boolean);
-
-const remByFile = new Map(remediated.map((r) => [r.file, r]));
-const finalReceipts = receipts.map((r) => remByFile.get(r.file) || r);
-const gradeByFile = new Map(grades.map((g) => [g.file, g]));
-
-// Collect fires ONLY when a .planning/ page actually extracted a folder-wide ruling; a .api/ tier, a tools/ target, or any folder with no .planning/ files skips it
-// whole — no phase, no dossier collection, no wasted agents. Owners are disjoint (one RULINGS.md each), so no write collision.
-const owners = [...new Set(finalReceipts.filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => ownerOf(r.file)))].filter(Boolean);
-let collected = [];
-if (owners.length) {
-    phase('Collect');
-    collected = (
-        await pool(
-            owners.map((owner) => () => {
-                const dossiers = files.filter((f) => underPlanning(f.path) && ownerOf(f.path) === owner).map((f) => dossierPath(f.path));
-                return agent(collectMandate(owner, rulingsCandidates(owner), dossiers), {
-                    label: 'rulings:' + owner.split('/').pop(),
-                    phase: 'Collect',
+        redGroups.map(
+            (grp) => () =>
+                agent(redteamMandate(grp), {
+                    label: 'redteam:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
+                    phase: 'Redteam',
                     model: 'opus',
                     effort: 'high',
-                    schema: COLLECT_SCHEMA,
-                });
-            }),
-            CAP,
-        )
-    ).filter(Boolean);
-    log(collected.length + '/' + owners.length + ' RULINGS.md owner(s) collected');
-}
+                    schema: BATCH_SCHEMA,
+                }),
+        ),
+        CAP,
+    )
+)
+    .filter(Boolean)
+    .flatMap((g) => g.files)
+    .filter(Boolean);
+const redByFile = new Map(redteamed.map((r) => [r.file, r]));
+const redteamReceipts = fixReceipts.map((r) => redByFile.get(r.file) || r);
 
-const beforeProseT = finalReceipts.reduce((a, r) => a + r.beforeProse, 0);
-const afterProseT = finalReceipts.reduce((a, r) => a + r.afterProse, 0);
-const beforeCommT = finalReceipts.reduce((a, r) => a + r.beforeComments, 0);
-const afterCommT = finalReceipts.reduce((a, r) => a + r.afterComments, 0);
+// Verify: the terminal WRITING pass, batched at BATCH like the red-team. It reads the cumulative HEAD->now diff adversarially and REPAIRS what two aggressive passes compounded —
+// lost law restored, every claimed demotion re-proven at its owner, a fresh twin killed, a residual frame reframed, predecessor litter deleted. Its receipt supersedes the red-team's.
+phase('Verify');
+const verifyGroups = chunk(
+    redteamReceipts.filter((r) => r.ok && fileByPath.has(r.file)).map((r) => ({ f: fileByPath.get(r.file), fix: r })),
+    BATCH,
+);
+const verified = (
+    await pool(
+        verifyGroups.map(
+            (grp) => () =>
+                agent(verifyMandate(grp), {
+                    label: 'verify:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
+                    phase: 'Verify',
+                    model: 'opus',
+                    effort: 'high',
+                    schema: BATCH_SCHEMA,
+                }),
+        ),
+        CAP,
+    )
+)
+    .filter(Boolean)
+    .flatMap((g) => g.files)
+    .filter(Boolean);
+const verByFile = new Map(verified.map((r) => [r.file, r]));
+const receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
+
+// Collect fires ONLY when a .planning/ page actually extracted a folder-wide ruling; a .api/ tier, a tools/ target, or any folder with no .planning/ files skips it
+// whole — no phase, no dossier collection, no wasted agent. ONE collector takes every owner: cross-owner dedup and tier placement are only decidable with the whole
+// candidate set in one context, and a single writer across disjoint registries cannot collide with itself.
+const owners = [...new Set(receipts.filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => ownerOf(r.file)))].filter(Boolean);
+let collected = null;
+if (owners.length) {
+    phase('Collect');
+    const collectTargets = owners.map((owner) => ({
+        owner,
+        rulings: rulingsCandidates(owner),
+        dossiers: files.filter((f) => underPlanning(f.path) && ownerOf(f.path) === owner).map((f) => dossierPath(f.path)),
+    }));
+    collected = await agent(collectMandate(collectTargets), {
+        label: 'rulings:' + owners.length,
+        phase: 'Collect',
+        model: 'opus',
+        effort: 'high',
+        schema: COLLECT_SCHEMA,
+    });
+    if (collected) log(collected.owners.length + ' RULINGS.md file(s) written across ' + owners.length + ' owner(s) with extractions');
+}
+const collectedOwners = collected ? collected.owners : [];
+
+const beforeProseT = receipts.reduce((a, r) => a + r.beforeProse, 0);
+const afterProseT = receipts.reduce((a, r) => a + r.afterProse, 0);
+const beforeCommT = receipts.reduce((a, r) => a + r.beforeComments, 0);
+const afterCommT = receipts.reduce((a, r) => a + r.afterComments, 0);
 const dropped = files.length - receipts.length;
 if (dropped) log(dropped + ' file agent(s) returned nothing after retry — rerun those files or resume');
 return {
     targets: TARGETS,
     pages: files.length,
     fixed: receipts.length,
-    remediated: remediated.length,
     proseReductionPct: beforeProseT ? Math.round(100 - (afterProseT / beforeProseT) * 100) : 0,
     commentReductionPct: beforeCommT ? Math.round(100 - (afterCommT / beforeCommT) * 100) : 0,
-    proseOffBand: finalReceipts
+    proseOffBand: receipts
         .filter((r) => r.ok && (r.proseReductionPct < PROSE_LO || r.proseReductionPct > TOTAL_HI))
         .map((r) => ({ file: r.file, pct: r.proseReductionPct, notes: r.notes })),
-    capabilityLoss: finalReceipts.filter((r) => r.ok && !r.capabilityConserved).map((r) => ({ file: r.file, notes: r.notes })),
-    demotionsUnverified: finalReceipts.flatMap((r) =>
+    capabilityLoss: receipts.filter((r) => r.ok && !r.capabilityConserved).map((r) => ({ file: r.file, notes: r.notes })),
+    demotionsUnverified: receipts.flatMap((r) =>
         (r.demotions || [])
             .filter((d) => !d.verified || d.setWidth !== 'exact')
             .map((d) => ({ file: r.file, payload: d.payload, owner: d.owner, verified: d.verified, setWidth: d.setWidth })),
     ),
-    indexMissing: finalReceipts.filter((r) => r.indexLanded === 'no').map((r) => r.file),
-    gateUnclean: finalReceipts.filter((r) => !r.gateClean).map((r) => r.file),
+    indexMissing: receipts.filter((r) => r.indexLanded === 'no').map((r) => r.file),
+    gateUnclean: receipts.filter((r) => !r.gateClean).map((r) => r.file),
     // rulings summary appears ONLY for a run that scoped in .planning/ files; a pure .api/, tools/, or non-libs cleanup returns none of it
     ...(files.some((f) => underPlanning(f.path))
         ? {
-              rulingsExtracted: finalReceipts.filter((r) => r.ok).reduce((a, r) => a + Math.max(0, r.rulingsExtracted), 0),
-              rulingsAdmitted: collected.reduce((a, c) => a + c.admitted.length, 0),
-              rulingsFilesWritten: collected.map((c) => ({ owner: c.owner, file: c.rulingsFile, created: c.created, admitted: c.admitted.length })),
-              rulingsRejected: collected.flatMap((c) => c.rejected.map((x) => ({ owner: c.owner, reason: x.reason, row: x.row }))),
-              rulingsDeferred: collected.flatMap((c) => c.deferred.map((x) => ({ owner: c.owner, tier: x.tier, row: x.row }))),
-              rulingsGateUnclean: collected.filter((c) => !c.gateClean).map((c) => c.rulingsFile),
+              rulingsExtracted: receipts.filter((r) => r.ok).reduce((a, r) => a + Math.max(0, r.rulingsExtracted), 0),
+              rulingsAdmitted: collectedOwners.reduce((a, c) => a + c.admitted.length, 0),
+              rulingsFilesWritten: collectedOwners.map((c) => ({
+                  owner: c.owner,
+                  file: c.rulingsFile,
+                  created: c.created,
+                  admitted: c.admitted.length,
+              })),
+              rulingsRejected: collected ? collected.rejected : [],
+              rulingsDeferred: collected ? collected.deferred : [],
+              rulingsGateUnclean: collectedOwners.filter((c) => !c.gateClean).map((c) => c.rulingsFile),
               dossierDir: owners.length ? SCRATCH : undefined,
           }
         : {}),
-    belowBar: grades
-        .filter((g) => !g.losslessness || g.overDeletion.length || !g.demotionsProven || g.newTwin === false || g.frameClean === false)
-        .map((g) => ({ file: g.file, grade: g.grade, remediated: remByFile.has(g.file) })),
-    unverified: okReceipts.filter((r) => !gradeByFile.has(r.file)).map((r) => r.file),
-    failed: finalReceipts.filter((r) => !r.ok).map((r) => ({ file: r.file, notes: r.notes })),
+    failed: receipts.filter((r) => !r.ok).map((r) => ({ file: r.file, notes: r.notes })),
     dropped,
 };

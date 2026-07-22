@@ -1,21 +1,19 @@
 # [RASM_TRANSPORT]
 
-The optimal-transport owner: ONE log-domain stabilized Sinkhorn kernel over weighted cluster pairs — balanced marginals, unbalanced KL-relaxed marginals, and Sinkhorn-divergence debiasing are POLICY rows of one iteration, never three solver bodies — projecting through ONE `SinkhornPlan.Project<TOut>` into every transport answer: the regularized distance, the full evidence receipt, the thresholded correspondence set, the coupling as a `matrix.md` `Matrix`, and the barycentric-transport image cloud. Transport mass is the cluster's own admitted normalized mass (`cloud.md` `MassOf`), so a weighted cluster IS a discrete measure and no second measure type exists.
+`CloudTransport` owns optimal transport between weighted vector clusters through ONE log-domain stabilized Sinkhorn kernel: balanced marginals, KL-relaxed unbalanced marginals, and Sinkhorn-divergence debiasing are POLICY columns of one iteration, never three solver bodies, and every answer leaves through ONE `SinkhornPlan.Project<TOut>` egress.
 
-The kernel is numerically owned end to end: every scaling update runs in log space through one `LogSumExp` fold, and the exponential-underflow policy is a NAMED constant — `LogUnderflowFloor = -708.396…`, the natural log of the smallest positive NORMAL double, below which `Math.Exp` degrades subnormal-then-zero, so the coupling exponent floors to exactly zero with the flooring recorded as receipt evidence, never a silent denormal (a floor at ln `double.Epsilon` ≈ −745 is the rejected constant — it passes the whole subnormal band (−745, −708.4] through silently). The iteration is a flat row-major `double[]` statement kernel — the retired raw-MathNet dense-matrix reach is deleted; linear algebra enters only at the egress where the coupling projects into the `matrix.md` owner.
+Transport mass is the cluster's own admitted normalized mass (`cloud.md` `MassOf`), so a weighted cluster IS a discrete measure and no second measure type exists; `register.md` consumes `CloudCorrespondenceSet` as its soft-assignment input without re-walking the coupling.
 
 ## [01]-[INDEX]
 
-- [02]-[TRANSPORT_POLICY]: the one policy record; stop/residual/numeric vocabularies.
-- [03]-[SINKHORN]: the log-domain kernel; the plan; the five typed projections; the receipt.
-- [04]-[CORRESPONDENCES]: the coupling-thresholded correspondence set and its coverage statistics.
+- [02]-[TRANSPORT_POLICY]: `CloudTransportPolicy` spans the whole solver product in one record.
+- [03]-[SINKHORN]: `CloudTransport` solves in log space and `SinkhornPlan` projects every answer.
+- [04]-[CORRESPONDENCES]: `CloudCorrespondenceSet` thresholds the coupling into pairings carrying coverage evidence.
 
 ## [02]-[TRANSPORT_POLICY]
 
-- Owner: `CloudTransportPolicy` — `Regularization: PositiveMagnitude` (the entropic ε), `MaxIterations: Dimension`, `Debiased: bool` (Sinkhorn divergence: subtract half of each self-transport), `MassRelaxation: Option<PositiveMagnitude>` (`None` = balanced marginals; `Some(λ)` = unbalanced KL relaxation with scaling exponent `λ/(λ+ε)`), `ConvergenceTolerance: PositiveMagnitude`, `CouplingCutoff: PositiveMagnitude` (the sparsification floor below which a coupling entry carries no correspondence). One record; balanced-versus-unbalanced and plain-versus-debiased are column values, never sibling policies.
-- Cases: `SinkhornStopKind` `[SmartEnum<int>]` — `BalancedMarginalsConverged` / `RelaxedScalingConverged` / `BalancedMarginalsStoppedWithoutConvergence` / `RelaxedScalingStoppedWithoutConvergence`, each carrying a `Converged` column so budget exhaustion stays a readable outcome, never a failure (the caller retries with a wider budget or accepts the partial plan). `SinkhornResidualKind` — `MarginalMass` (balanced: worst row/column marginal error against the target measures) / `ScalingChange` (unbalanced: worst log-scaling delta between sweeps — the marginal test is meaningless under relaxation). `SinkhornNumericStatus` — `FiniteAccepted` / `UnderflowFloored`.
-- Entry: `public static Fin<CloudTransportPolicy> Of(double regularization, int maxIterations, bool debiased = false, Option<double> massRelaxation = default, Option<double> convergenceTolerance = default, Option<double> couplingCutoff = default, Op? key = null)` — admits every column once through the value objects; tolerance and cutoff default to `1e-8`.
-- Boundary: the residual KIND derives from the policy (`MassRelaxation.IsSome` selects `ScalingChange`), never a caller flag; a `BalancedPolicy`/`UnbalancedPolicy`/`DebiasedPolicy` sibling family is the rejected form — the record's columns span the product.
+- Owner: `CloudTransportPolicy` columns span the balanced/unbalanced/debiased product in one record; `CouplingCutoff` is the single sparsification floor below which a coupling entry carries no correspondence.
+- Cases: `SinkhornStopKind` carries a `Converged` column, so budget exhaustion reads as a partial plan the caller retries under a wider budget, never a failure. `SinkhornResidualKind` derives from `MassRelaxation`, never a caller flag — the marginal test is meaningless under relaxation.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -71,19 +69,17 @@ public readonly record struct CloudTransportPolicy(
 
 ## [03]-[SINKHORN]
 
-- Owner: `CloudTransport` — the operation surface; `SinkhornPlan` — the internal solved-plan carrier (distance, row-major coupling buffer, convergence residual pair, iteration count, stop row, cutoff, underflow evidence) with the ONE `Project<TOut>` egress.
-- Entry: `public static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null)` — cluster×cluster only (any other case pairing is `Unsupported`); the requested `TOut` selects the projection row, so distance-only callers, receipt callers, correspondence callers, coupling-matrix callers, and transported-cloud callers share one entry and one solve.
-- Auto: the kernel iterates the log-domain scalings — `logU[i] = exp·(logA[i] − LSE_j(logK[i,j] + logV[j]))` then the column sweep, where `logK[i,j] = −‖sᵢ−tⱼ‖²/ε` and `exp = λ/(λ+ε)` (balanced: `exp = 1`) — until the policy residual falls under tolerance or the budget exhausts; `LogSumExp` is max-shifted so a fully-improbable row degrades to `−∞` gracefully. Debiasing runs the SAME kernel twice more on the self-pairs (`source×source`, `target×target`) and reports `W = plan − ½·self_s − ½·self_t` with both bias distances carried as receipt evidence. The coupling materializes once at the end — `exp(logU[i] + logK[i,j] + logV[j])` with the `LogUnderflowFloor` policy applied and recorded — and the distance is the entropic transport cost `−ε·Σ π·logK`, one vectorized `TensorPrimitives.Dot` over the flat coupling and log-kernel buffers. Non-finite anywhere (distance, residuals, coupling) faults the solve; budget exhaustion does NOT — it returns the plan under its `StoppedWithoutConvergence` stop row.
-- Receipt: `SinkhornReceipt` — distance + raw/bias distances, the full policy echo (regularization, relaxation, tolerance, cutoff, debiased), `ResidualKind`, `NumericStatus`, both convergence residuals, iterations, `Stop`, coupling mass, nonzero-coupling count, min-positive/max coupling extents, and the nested `CloudCorrespondenceSet` — `IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold. `Distance` claims finiteness, NOT sign: a debiased Sinkhorn divergence sits epsilon-negative numerically, so only the raw entropic cost carries the nonnegativity claim.
-- Packages: RhinoCommon (`Point3d.DistanceToSquared` — the cost kernel), System.Numerics.Tensors (`TensorPrimitives.Max`/`Sum` inside the LSE row folds, `TensorPrimitives.Dot` for the terminal entropic-cost reduction), LanguageExt.Core, Thinktecture.Runtime.Extensions.
-- Growth: DECLARED growth cases on this owner — `Barycenter(Seq<(VectorCloud, double)> weighted, policy)` (fixed-support Wasserstein barycenter: alternate the same scaling sweeps against N cost kernels sharing one support) and `GromovWasserstein(source, target, policy)` (entropic GW: the same Sinkhorn kernel inside an outer cost-tensor fixed-point over intra-cloud distance matrices — the non-rigid matcher `register.md` cannot express); both land as new entry arms over the SAME log-domain kernel and receipt vocabulary, zero new solver bodies.
-- Boundary: the scaling sweeps are the named statement kernel — flat `double[]` row-major buffers, index loops, in-place log-scaling updates — confined to the solve body with a `Fin` rail at both edges; MathNet does NOT appear on this page (the retired dense-matrix coupling is deleted) — the coupling exits as a `matrix.md` `Matrix` through its projection row and every downstream consumer reads the owner type; `LogUnderflowFloor` is THE underflow policy and an ad-hoc `Math.Exp` on an unfloored exponent inside any projection is the re-introduced silent-zero defect; the plan's `typeof(TOut)` resolution routes typed `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows` — never a reflection ladder.
+- Owner: `CloudTransport` owns the solve; `SinkhornPlan` carries the solved plan behind its ONE `Project<TOut>` egress.
+- Entry: `Sinkhorn<TOut>` solves once and the requested `TOut` selects the projection row, so every projection caller shares one entry and one solve.
+- Auto: log-domain scalings iterate to tolerance or budget under a max-shifted `LogSumExp`, so a fully-improbable row degrades to `−∞` gracefully; a non-finite distance or residual faults the solve.
+- Packages: RhinoCommon `Point3d.DistanceToSquared` is the cost kernel; System.Numerics.Tensors `TensorPrimitives` folds the LSE rows and the entropic-cost reduction; LanguageExt.Core and Thinktecture.Runtime.Extensions carry the rails and value objects.
+- Growth: a new transport mode is one entry arm over the same kernel and receipt vocabulary, never a second solver body.
+- Boundary: flat row-major `double[]` sweeps are the named statement kernel with a `Fin` rail at both edges, confined to the solve body; the coupling leaves only as a `matrix.md` `Matrix` through its projection row; `LogUnderflowFloor` is THE underflow policy, so an ad-hoc `Math.Exp` on an unfloored exponent re-introduces the silent-zero defect; `typeof(TOut)` resolution routes `ProjectionRow` entries through `atoms.md` `AtomProjection.Rows`, never a reflection ladder.
 
 ```csharp signature
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class CloudTransport {
-    // ln(smallest positive NORMAL double): below this exponent Math.Exp is subnormal or zero;
-    // the coupling floors to exactly 0 and the flooring is recorded — no denormal survives silently.
+    // ln of the smallest positive NORMAL double — below it Math.Exp degrades subnormal-then-zero, so the coupling floors to 0 and records it.
     internal const double LogUnderflowFloor = -708.3964185322641;
 
     public static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
@@ -106,7 +102,6 @@ public static class CloudTransport {
         };
     }
 
-    // Log-domain scaling kernel: named statement exemption — flat row-major buffers, in-place sweeps, Fin at both edges.
     private static Fin<SinkhornPlan> Solve(Seq<Point3d> source, Seq<Point3d> target, Arr<double> sourceMass, Arr<double> targetMass, CloudTransportPolicy policy, Op key) {
         (int m, int n, double eps) = (source.Count, target.Count, policy.Regularization.Value);
         double[] logK = new double[m * n];
@@ -152,8 +147,7 @@ public static class CloudTransport {
     }
 
     private static double LogSumExp(ReadOnlySpan<double> row, double[] shift) { /* max-shifted LSE over row[j]+shift[j] */ return default; }
-    // LogSumExpColumn (strided column LSE) / MaxDelta (worst |prev-next| log-scaling delta) /
-    // MarginalResiduals (worst row/column marginal error vs a and b): one-body private statics of the kernel.
+    // Private statics: LogSumExpColumn strided column LSE, MaxDelta worst |prev−next| scaling delta, MarginalResiduals row/column error vs a and b.
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -174,9 +168,7 @@ internal sealed record SinkhornPlan(
                 entries: new Arr<double>([.. self.Coupling]), key: key)),
             ProjectionRow.Of<VectorCloud>(() => self.BarycentricImage(source: source, target: target, key: key)));
     }
-    // BarycentricImage: row i maps to (Σ_j π[i,j]·t_j)/rowMass with rowMass as the transported weight — a
-    // positive-row-mass gate; re-admitted through VectorCloud.Cluster with mass (context: target.Tolerance —
-    // the image lives in the target's tolerance regime) so the image IS a measure.
+    // BarycentricImage: row i → (Σ_j π[i,j]·t_j)/rowMass, positive-rowMass gated; VectorCloud.Cluster re-admits it at target.Tolerance as a measure.
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -187,7 +179,7 @@ public readonly record struct SinkhornReceipt(
     double SourceConvergenceResidual, double TargetConvergenceResidual, int Iterations, SinkhornStopKind Stop,
     double CouplingMass, int NonZeroCouplings, Option<double> MinPositiveCoupling, Option<double> MaxCoupling,
     CloudCorrespondenceSet Correspondences) : IValidityEvidence {
-    // Distance claims finiteness only: a debiased divergence may sit epsilon-negative; the raw cost is nonnegative.
+    // Distance claims finiteness only — a debiased divergence sits epsilon-negative, so nonnegativity rides the raw cost alone.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Distance),
         ValidityClaim.Of(RawDistance.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(!Debiased)),
@@ -211,12 +203,11 @@ public readonly record struct SinkhornReceipt(
 
 ## [04]-[CORRESPONDENCES]
 
-- Owner: `CloudCorrespondence` — one thresholded coupling entry: source/target indices and points, residual vector, distance and squared distance, source/target/coupling masses, and a `Confidence` column (`min(1, π[i,j]/max(aᵢ, bⱼ))` — how decisively this pairing claims its endpoints); `CloudCorrespondenceSet` — the ordered collection with its coverage statistics.
-- Entry: `Correspondences.OfCoupling(source, target, coupling, rows, columns, cutoff, key)` — walks the coupling above the cutoff, emits the entries, and folds the statistics in one pass.
-- Auto: the set's statistics are mass-weighted where mass is meaningful — `Rmse = √(Σ π·d² / Σ π)` falling back to count-weighting on a vanishing total; the distance quantiles (`Median`/`Quantile90`/`Quantile95`/`Max`) read one sorted distance array; coverage is fourfold evidence: `CoveredSourceCount`/`CoveredTargetCount` (endpoints with any retained coupling) and `RetainedSourceMass`/`RetainedTargetMass` (the marginal mass surviving the cutoff — the sparsification-loss signal an unbalanced solve reads to see how much measure the relaxation dropped).
-- Receipt: the set IS the receipt — `IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold declaring the count terms (`NonZeroCount == Items.Count`, covered counts bounded by source/target counts) and the ordered quantile chain.
-- Growth: a correspondence consumer needing a new pairing statistic adds one column on the set and one term in the single-pass fold; `register.md` consumes this set as its soft-assignment input without re-walking the coupling.
-- Boundary: the cutoff is the policy's — a consumer re-thresholding retained entries at a second ad-hoc floor is the double-policy defect; quantiles read ONE sort of the distance array (never a re-sort per statistic); index pairs refer to ADMITTED cluster vertices, so `cloud.md`'s `OriginalToUnique` re-indexing has already happened upstream and correspondence indices never see pre-deduplication input positions.
+- Owner: `CloudCorrespondence` is one thresholded coupling entry and `CloudCorrespondenceSet` the ordered collection; `Confidence` is `min(1, π[i,j]/max(aᵢ, bⱼ))`, how decisively a pairing claims its endpoints.
+- Entry: `Correspondences.OfCoupling` walks the coupling above the cutoff and folds every statistic in one pass.
+- Auto: `Rmse = √(Σ π·d² / Σ π)` weights by mass and falls back to count-weighting on a vanishing total; retained source and target mass is the sparsification-loss signal an unbalanced solve reads to see how much measure the relaxation dropped.
+- Growth: a new pairing statistic is one column on the set and one term in the single-pass fold.
+- Boundary: the cutoff is the policy's, so a consumer re-thresholding retained entries at a second ad-hoc floor is the double-policy defect; quantiles read ONE sort of the distance array; index pairs refer to ADMITTED cluster vertices, so `cloud.md`'s `OriginalToUnique` re-indexing has already happened upstream and correspondence indices never see pre-deduplication positions.
 
 ```csharp signature
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -245,19 +236,7 @@ public readonly record struct CloudCorrespondenceSet(
 }
 ```
 
-## [05]-[DENSITY_BAR]
-
-One owner per axis; every rail reads `entry → Fin<result>`, the result named in each owner's Entry bullet.
-
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                         | [KIND]                                            | [RAIL]           | [CASES] |
-| :-----: | :-------------------- | :------------------------------ | :------------------------------------------------ | :--------------- | :-----: |
-|  [01]   | Transport policy      | `CloudTransportPolicy`          | one record; balanced/unbalanced/debiased columns  | `Of`             |    —    |
-|  [02]   | Stop outcome          | `SinkhornStopKind`              | `[SmartEnum<int>]` + `Converged` column           | receipt row      |    4    |
-|  [03]   | Solve + projection    | `CloudTransport`/`SinkhornPlan` | log-domain kernel; five `ProjectionRow` egresses  | `Sinkhorn<TOut>` |    5    |
-|  [04]   | Underflow policy      | `LogUnderflowFloor`             | named constant + `SinkhornNumericStatus` evidence | receipt row      |    2    |
-|  [05]   | Correspondence answer | `CloudCorrespondenceSet`        | thresholded entries + coverage/quantile fold      | `OfCoupling`     |    —    |
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

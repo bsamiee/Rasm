@@ -1,24 +1,22 @@
 # [RASM_CLOUD]
 
-`VectorCloud` owns the point-cloud union over closed planar rings, open polyline chains, and mass-weighted clusters, with tolerance-deduplicating admission, mass renormalization, and a copy-safe shared native-index extent on each cluster case. `VectorCloudMetric` owns every cloud measurement as a table row behind `Project<TOut>`. `CloudKernel` carries the canonical covariance/PCA fold, ring/polyline metrics, planar winding, omni-shape projection, and hull rail. Cloud capabilities remain metric rows, hull-kind rows, or shape columns.
+`VectorCloud` owns the point-cloud union under one admission that deduplicates by tolerance, renormalizes mass, and carries a copy-safe shared native index per cluster. `VectorCloudMetric` folds every cloud measurement behind one `Project<TOut>`, each row naming the `CloudKernel` fold that answers it. A new cloud capability lands as a metric row, a hull-kind row, or a shape column.
 
-Covariance is computed exactly once in the corpus: `CloudKernel.CovarianceOf` composes `Domain/stats.md` `SampleMoment` (weighted mean + upper-triangular second moments) into a `matrix.md` `SymmetricMatrix`, and every PCA consumer — principal axes, principal frames, best-fit spread, the settled `Solving/fit` robust-fit prior (it composes `CloudKernel.CovarianceOf` for its quality-ordered draw and reads the upstream `OrientedNormals` field), the `register.md` GICP precision field (via `NeighborKernel.PcaOf`) — reads THIS fold. Per-point neighborhoods, normal estimation, principal curvature, and rotation-minimizing frames are `neighbors.md`'s substrate; the metric rows for those measurements delegate there and this page re-implements none of them. Concave hull kinds execute over the admitted `MIConvexHull` Delaunay complex.
+`CloudKernel.CovarianceOf` is the corpus's one covariance fold, composing `Domain/stats.md` `SampleMoment` into a `matrix.md` `SymmetricMatrix` every PCA consumer reads.
 
 ## [01]-[INDEX]
 
-- [02]-[VECTOR_CLOUD]: the Ring/Polyline/Cluster union; tolerance-dedup mass-conserving admission; the lazy cluster index; the closest-vertex probe.
-- [03]-[CLOUD_METRICS]: the thirty-row metric vocabulary; the covariance/PCA fold; ring mass-property, polyline, and winding folds; the `VectorCloudShape` omni-projection.
-- [04]-[HULL]: the five-kind hull rail — native convex 3D/2D, chi-shape concave outline, alpha-complex — with typed receipts.
+- [02]-[VECTOR_CLOUD]: `VectorCloud` folds every cloud case under tolerance-dedup admission with the lazy cluster index and closest-vertex probe.
+- [03]-[CLOUD_METRICS]: `VectorCloudMetric` projects every measurement through one `Project<TOut>` over the kernel folds.
+- [04]-[HULL]: `CloudHullKind` rails native convex and Delaunay-filtered concave hulls into typed receipts.
 
 ## [02]-[VECTOR_CLOUD]
 
-- Owner: `VectorCloud` `[Union]` + `IDisposable` — `RingCase` (closed planar loop: vertices + validated `Polyline` native + `Context`), `PolylineCase` (open chain: vertices + `Context`), `ClusterCase` (point set + optional normalized mass `Arr<double>` + retained shared owner over one `Lease<PointCloud>` + `CloudAdmissionReceipt`). Weighted clusters are the SAME case with `Mass: Some` — never a fourth case. `CloudAdmissionPolicy` (deduplicate flag + optional merge tolerance + mass-conservation tolerance) is the admission policy value; `CloudAdmissionReceipt` witnesses the effective conservation tolerance.
-- Entry: three admitting factories — `Ring(points, context, key)` (drops a coincident closing vertex, requires ≥3 distinct vertices, rebuilds the closed `Polyline`, proves closure within tolerance AND zero self-intersections via `Intersection.CurveSelf` under a `Lease<PolylineCurve>.Owned`), `Polyline(points, context, key)` (≥2 finite vertices), `Cluster(points, context, admission?, mass?, key)` — one factory, mass an `Option<Seq<double>>` so weighted construction is an argument, not a sibling name. `Admit(key)` re-proves a rehydrated cloud through the same three paths with dedup off (already-unique vertices stay stable).
-- Auto: cluster admission is the ONE dedup-and-renormalize fold — walk input points, merge coordinate-equivalent points under the policy tolerance, accumulate merged mass, prove input-to-merged conservation, renormalize to unit total, mint the native `PointCloud` inside `Op.Catch`, wrap it in `Lease<PointCloud>.Owned`, and emit `OriginalToUnique` (the input-index → unique-index map every external per-point array re-indexes through — sampling weights, per-point normals, correspondence indices survive deduplication because of this column). `ClusterCase` record copies retain the same index owner, each case releases its handle idempotently, and the last release disposes the lease; probe windows retain independently while active. `UseIndex` is the sole native-index projection, keeps the `PointCloud` inside the retained callback, and returns only the callback result. `ClosestVertex` composes `PointCloud.ClosestPoint` and `PointAt` through that window inside `Op.Catch`, then lifts the hit into a `ClosestHit` with its `ComponentIndexType.PointCloudPoint` component; every radius or kNN neighborhood over a cluster rides the `neighbors.md` substrate (`NeighborIndex` cloud tier over this admitted index) — a cluster-local radius probe here is the deleted form.
-- Receipt: `CloudAdmissionReceipt` — input/output counts, duplicate/merged counts, merge and conservation tolerances, `OriginalToUnique`, and pre-merge/post-merge/normalized mass totals — `IValidityEvidence` with `IsValid` spelled as ONE `ValidityClaim.All` fold (`Domain/rails.md` mechanism): count/nonnegativity claims plus the cross-field terms `OutputCount + MergedCoordinateCount == InputCount`, merge-implies-dedup, re-index range, input-to-merged conservation, and normalized-output unit mass.
-- Packages: RhinoCommon (`PointCloud.AddRange`/`ClosestPoint`/`PointAt`, `Polyline.IsClosedWithinTolerance`/`SegmentCount`/`ToPolylineCurve`, `Intersection.CurveSelf`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
-- Growth: a new cloud modality is one union case + one factory + its arms in the metric adapters; a new admission rule is one policy column; mass semantics never fork into a parallel `WeightedCloud` type.
-- Boundary: admission runs ONCE at the factory — every kernel fold below consumes admitted vertices and never re-validates; `VectorCloud.Dispose` releases one cluster handle and no-ops for value-only cases, so copies share one safe extent while rehydrated clouds own independent extents; the native `PointCloud` probes are the named platform seam (mutating native containers under `key.Catch` inside the admission and probe bodies only); `OriginalToUnique` is the published re-index contract and a consumer re-deriving the merge map by coordinate comparison is the deleted form; the self-intersection preflight leases its `PolylineCurve` (`Lease<T>.Owned.Use`) so no native curve escapes the check.
+- Owner: `VectorCloud` mints one case per cloud modality, mass an `Option` column on `ClusterCase`, so a weighted cluster is that case rather than a case of its own.
+- Auto: cluster admission is the ONE dedup-and-renormalize fold, emitting `OriginalToUnique` — the input-index→unique-index map every external per-point array re-indexes through to survive deduplication.
+- Packages: RhinoCommon (native point cloud, polyline closure, self-intersection), LanguageExt.Core, Thinktecture.Runtime.Extensions.
+- Growth: a new cloud modality is one union case, one factory, and its metric-adapter arms; a new admission rule is one policy column.
+- Boundary: admission runs ONCE at the factory, so every kernel fold below consumes admitted vertices without re-validating and re-admission runs with dedup off to keep vertices index-stable; native `PointCloud` and `PolylineCurve` reads are the platform seam, held inside their lease windows under `key.Catch`; `Dispose` releases one shared cluster extent, so copies stay safe while a rehydrated cloud owns its own.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -201,14 +199,11 @@ public readonly record struct CloudAdmissionReceipt(
 
 ## [03]-[CLOUD_METRICS]
 
-- Owner: `VectorCloudMetric` `[SmartEnum<int>]` — thirty measurement rows, each carrying an `AdmitsCase(VectorCloud)` gate, an `Output` type column, and a `Measure(cloud, policy, key)` delegate, projected through ONE `Project<TOut>(cloud, policy?, key)`. Rows are declared through five row builders keyed by case family — `Ring<TOut>` (ring-only), `Poly<TOut>` (polyline-only), `Chain<TOut>` (any ordered case — ring or polyline), `Cluster<TOut>` (cluster-only, policy-aware overload for neighborhood-backed rows), `All<TOut>` (any case) — so a metric declaration is one line naming its fold.
-- Cases: 30 — ring mass-property rows `Normal`/`Area`/`Perimeter`/`EdgeAspect`/`Skewness`/`Compactness`/`MomentAnisotropy`/`RadiiOfGyration`/`AreaError`/`CentroidError`; whole-cloud rows `Centroid`/`BestFitPlane`/`PrincipalAxes`/`PrincipalFrame`/`Shape`; chain rows `BishopFrames`/`TangentFlow`/`CumulativeArcLength`/`EdgeCurvatures`/`OpenLength`; cluster rows `Covariance`/`PrincipalDirection`/`Spread`/`OrientedNormals`/`PrincipalCurvature`/`Curvedness`/`ShapeIndex`/`Admission`/`Neighborhood`/`CurvatureReceipt`.
-- Entry: `internal Fin<TOut> Project<TOut>(VectorCloud cloud, Op key)` and the policy overload `Project<TOut>(cloud, CloudMetricPolicy, key)` — case gate, output-type gate, then the row fold, faulting in evidence order (case refusal names the cloud type, output refusal names the metric owner — the `support.md` gate law); sequence-valued rows (`Seq<Plane>`/`Seq<Vector3d>`/`Seq<double>`) lift element-wise through `key.AcceptValue` before the typed cast. `CloudMetricPolicy` wraps the `neighbors.md` `NeighborhoodPolicy` — the ONE policy record neighborhood-backed rows thread; `AdmitOrDefault` derives the canonical default when the caller passes none.
-- Auto: the covariance spine is `CloudKernel.CovarianceOf` — cluster mass (or unit weights) + vertices fold through `SampleMoment.Of` into a `SymmetricMatrix`; `PrincipalStatsOf` chains `DecomposeEigen` and carries `(Mean, Eigen)` with derived `Axes`/`Spread` columns; `PrincipalFrameOf` builds the frame from the two dominant eigenvectors through `VectorFrame.Of`. Ring rows lease their native carriers — `WithRingCurve` (owned `PolylineCurve`) and `WithMassProperties` (owned `AreaMassProperties` from `AreaMassProperties.Compute(closedPlanarCurve, planarTolerance)`) — so every mass-property read happens inside a `Lease<T>.Owned.Use` window. Ring orientation reads `ClosedCurveOrientation` against the fitted plane and signs the normal CCW-positive; skewness is the worst normalized interior-angle deviation from the regular polygon ideal; compactness is `4πA/P²`; moment anisotropy is the in-plane principal-moment ratio (the two axes most orthogonal to the ring normal); planar winding is the angle-sum integer fold `round(Σ∠(vᵢ−q, vᵢ₊₁−q)/2π)` — the 2D ring-membership test, name-distinct from the mesh generalized winding number `reconstruct.md` owns — exposed as `PlanarWindingOf(ring, planeNormal, query, key)` (query-parameterized, so a kernel entry, never a metric row; the `intent.md` `WindingCase` composes it with the CCW-signed `RingNormalOf` normal — a sign-arbitrary best-fit-plane normal flips the winding integer). Chain rows are pure folds: unitized segment tangents, prefix-sum arc length, turning-angle-per-mean-edge discrete curvature, segment-length sum. `Shape` assembles `VectorCloudShape` — the 17-`Option`-column omni-projection (normal, signed and unsigned area, perimeter, aspect, skewness, planarity deviation, compactness, anisotropy, radii of gyration, error terms, best-fit plane, convexity, orientation, open length, spread) around the always-present centroid/principal-frame/principal-axes core — ONE shape answer per cloud case with absent columns as `None`, never three per-case shape records.
-- Receipt: `VectorCloudShape` is the projection carrier (`IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold over the present columns); neighborhood-backed rows return the `neighbors.md` receipts unchanged (`Admission` returns the cluster's own `CloudAdmissionReceipt`).
-- Packages: RhinoCommon (`AreaMassProperties.Compute` + `Centroid`/`Area`/`AreaError`/`CentroidError`/`CentroidCoordinatesRadiiOfGyration`/`CentroidCoordinatesPrincipalMomentsOfInertia`, `Plane.FitPlaneToPoints`, `PolylineCurve.TryGetPlane`/`ClosedCurveOrientation`, `Polyline.GetSegments`/`IsConvexLoop`, `Vector3d.VectorAngle`/`CrossProduct`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new measurement is ONE row through the matching builder; a new cloud case extends the builders' adapt arms; a policy knob is one column on `CloudMetricPolicy` — the thirty-row table is the proof the shape absorbs, three prior sibling surfaces (per-ring statics, per-cluster statics, ad-hoc shape structs) already collapsed into it.
-- Boundary: `BishopFrames`/`OrientedNormals`/`PrincipalCurvature`/`Curvedness`/`ShapeIndex`/`Neighborhood`/`CurvatureReceipt` rows DELEGATE to `neighbors.md` (`NeighborKernel.BishopChain`/`OrientNormals`/`PrincipalCurvatures`/`ReceiptOf`) — the fold lives on the neighborhood substrate, the metric row is its cloud-facing name, and a second RTree/kNN/RMF body here is the killed parallel rail; `SampleMoment` is READ from `Domain/stats.md`, never re-derived as a local weighted-covariance loop; `AreaMassProperties`/`PolylineCurve` natives never escape their lease windows; `PlanarWinding` is the 2D ring fold and naming it `WindingNumber` (colliding with the 3D solid-angle GWN family) is the rejected name.
+- Owner: `VectorCloudMetric` mints one row per measurement behind ONE `Project<TOut>`, each row a single declaration line naming its fold and its admissible cloud cases; `CloudMetricPolicy` wraps the `neighbors.md` `NeighborhoodPolicy` as the ONE policy record neighborhood-backed rows thread.
+- Auto: `PrincipalFrameOf` builds the frame from the two dominant eigenvectors, and ring orientation reads `ClosedCurveOrientation` against the fitted plane to sign the normal CCW-positive. Skewness is the worst normalized interior-angle deviation from the regular-polygon ideal, compactness `4πA/P²`, moment anisotropy the in-plane principal-moment ratio; chain rows are pure folds over unitized tangents, prefix-sum arc length, and turning-angle curvature. `PlanarWindingOf` takes the query point, so it is a kernel entry rather than a metric row, and the `intent.md` `WindingCase` composes it with the CCW-signed `RingNormalOf` normal — a sign-arbitrary best-fit-plane normal flips the winding integer. `Shape` answers one `VectorCloudShape` per cloud case, never a per-case sibling record.
+- Packages: RhinoCommon (area mass properties, plane fitting, polyline geometry), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new measurement is ONE row through the matching builder; a new cloud case extends the builders' adapt arms; a policy knob is one column on `CloudMetricPolicy`.
+- Boundary: neighborhood-backed rows delegate to `neighbors.md`, the fold living on that substrate while the metric row is its cloud-facing name and its receipt returns unchanged; `AreaMassProperties` and `PolylineCurve` natives stay inside their lease windows; `PlanarWinding` names the 2D ring fold, held distinct from the 3D solid-angle GWN family `reconstruct.md` owns.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -251,8 +246,6 @@ public sealed partial class VectorCloudMetric {
 
     internal Fin<TOut> Project<TOut>(VectorCloud cloud, Op key) =>
         CloudMetricPolicy.AdmitOrDefault(policy: None, key: key).Bind(policy => Project<TOut>(cloud: cloud, policy: policy, key: key));
-    // Gates fault in evidence order (the support.md gate law): case refusal names the cloud type,
-    // output refusal names the metric owner — one Unsupported never masks the other.
     internal Fin<TOut> Project<TOut>(VectorCloud cloud, CloudMetricPolicy policy, Op key) =>
         (AdmitsCase(cloud: cloud), Output == typeof(TOut)) switch {
             (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(TOut))),
@@ -266,7 +259,6 @@ public sealed partial class VectorCloudMetric {
         };
     private static Fin<TOut> ProjectSeq<TItem, TOut>(Seq<TItem> values, Op key) =>
         values.TraverseM(v => key.AcceptValue(value: v)).As().Map(static valid => (TOut)(object)valid);
-    // Row builders: All/Ring/Poly/Chain/Cluster(×2 arities) — declaration-shaped, one line per metric.
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -277,8 +269,7 @@ public readonly record struct CloudMetricPolicy(NeighborhoodPolicy Neighborhood)
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// VectorCloudShape projects one answer per cloud case; absent columns remain None, never a per-case
-// sibling record. Analysis/inspect.md embeds it inside MeshFaceShape — the field set is a contract.
+// Field set is a cross-page contract: Analysis/inspect.md embeds VectorCloudShape inside MeshFaceShape.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorCloudShape(
     Point3d Centroid, Plane PrincipalFrame, Seq<(double Moment, Vector3d Axis)> PrincipalAxes,
@@ -301,11 +292,10 @@ public readonly record struct VectorCloudShape(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class CloudKernel {
-    // THE corpus covariance/PCA fold: stats.md SampleMoment -> matrix.md SymmetricMatrix -> eigen.
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Option<Arr<double>> mass, Op key) =>
         from moment in SampleMoment.Of(
             rows: points.Map(static p => new Arr<double>([p.X, p.Y, p.Z])), dimension: 3, key: key,
-            weights: mass) // None rides SampleMoment's own unweighted arm — a unit-weight array here is redundant.
+            weights: mass) // None rides SampleMoment's unweighted arm; a unit-weight array here is redundant.
         from cov in SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: moment.UpperCovariance, key: key)
         select (Mean: AsVector3d(v: moment.Mean), Cov: cov);
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(VectorCloud.ClusterCase cluster, Op key) =>
@@ -326,7 +316,6 @@ internal static class CloudKernel {
         internal Seq<(double Moment, Vector3d Axis)> Axes => Eigen.Map(static p => (Moment: p.Eigenvalue, Axis: AsVector3d(v: p.Eigenvector)));
         internal Vector3d Spread => new(Eigen[0].Eigenvalue, Eigen[1].Eigenvalue, Eigen[2].Eigenvalue);
     }
-    // One covariance fold per call — the compute-once law applies to the call graph, not just the corpus.
     internal static Fin<PrincipalStats> PrincipalStatsOf(VectorCloud.ClusterCase cluster, Op key) =>
         from stats in CovarianceOf(cluster: cluster, key: key)
         from eigen in stats.Cov.DecomposeEigen(key: key)
@@ -336,7 +325,6 @@ internal static class CloudKernel {
         select full;
     internal static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
-    // Planar ring winding: angle-sum integer fold — the 2D membership test, distinct from the mesh GWN family.
     internal static Fin<int> PlanarWindingOf(Seq<Point3d> ring, Vector3d planeNormal, Point3d query, Op key) =>
         ring.Count < 3
             ? Fin.Fail<int>(key.InvalidInput())
@@ -344,26 +332,17 @@ internal static class CloudKernel {
                 ring.Map((v, i) => (V0: v - query, V1: ring[(i + 1) % ring.Count] - query))
                     .Fold(0.0, (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / (2.0 * Math.PI),
                 MidpointRounding.ToEven));
-
-    // Ring folds lease their natives: WithRingCurve (owned PolylineCurve), WithMassProperties (owned AreaMassProperties).
-    // RingNormalOf (CCW-signed — the PlanarWindingOf normal intent.md's WindingCase composes) / RingCompactnessOf /
-    // RingSkewnessOf / RingMomentAnisotropyOf / RingShapeOf / EdgeAspectOf,
-    // chain folds TangentFlowOf / CumulativeArcLengthOf / EdgeCurvaturesOf / OpenLengthOf,
-    // AdmitCluster (dedup + renormalize + OriginalToUnique fold), CentroidOf / BestFitPlaneOf / PrincipalAxesOf /
-    // PrincipalFrameOf / ShapeOf case dispatchers — the [03] card fixes each fold's law; every native read
-    // runs inside Lease<T>.Owned.Use and every scalar exits through key.AcceptValue.
 }
 ```
 
 ## [04]-[HULL]
 
-- Owner: `CloudHullKind` `[SmartEnum<int>]` — `Convex3D` / `ConvexFootprint2D` / `ConcaveOutline` / `AlphaShape` / `FootprintWrapper` (the 2D fallback row a rejected 3D hull degrades to); `CloudHullPolicy` (`Tolerance` + `AngleTolerance` + the concave columns `Lambda` edge-length ceiling for the chi-shape and `Alpha` circumradius bound for the alpha complex, both `Option<PositiveMagnitude>` deriving from the cluster's mean spacing when absent); `CloudHullReceipt` + `CloudHullResult` the typed outcome pair. `CloudHullPolicy.AdmitOrDefault` re-admits every supplied or context-derived scalar and both optional magnitudes before the hull fold.
-- Entry: `internal static Fin<CloudHullResult> ComputeHullDetailed(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy, Op key)` — cluster-only; every kind returns a `CloudHullResult` whose `Status` (`Completed`/`Rejected`) plus rejection evidence (coplanarity, containment failures, planarity deviation) states the outcome; there is NO `Unsupported` status — every declared kind computes.
-- Auto: `Convex3D` routes native — coplanar preflight (`Point3d.ArePointsCoplanar`), then `Mesh.CreateConvexHull3D(points, out hullFacets, tolerance, angleTolerance)` under a `using`, duplicated out of the window. `ConvexFootprint2D`/`FootprintWrapper` fit the PCA plane (`Plane.FitPlaneToPoints`), project, run `PolylineCurve.CreateConvexHull2d`, verify containment of every input point within tolerance, and mesh the loop via `Mesh.CreateFromClosedPolyline`. `ConcaveOutline` and `AlphaShape` are TWO POLICY ROWS OVER ONE DELAUNAY FOLD: project the cluster onto the PCA plane, wrap each planar coordinate pair as a `DefaultVertex` (`double[] Position` — the `IVertex` contract `Triangulation.CreateDelaunay<TVertex>` demands; raw `double[]` rows do NOT bind), triangulate through `Triangulation.CreateDelaunay<DefaultVertex>(vertices, PlaneDistanceTolerance)` (cells carry `Vertices` + `Adjacency`; the policy `Tolerance` feeds `PlaneDistanceTolerance`), then filter — the alpha complex keeps every triangle whose circumradius `≤ Alpha` (Edelsbrunner, radius convention: the policy column IS the circumradius ceiling, dimensionally a length exactly like `Lambda`, which is why both derive from mean spacing), the chi-shape iteratively erodes the longest boundary edge while the edge exceeds `Lambda` and removal preserves regularity (no vertex abandoned, boundary stays a single simple cycle — Duckham et al.); both extract the boundary loop as the edges with exactly one surviving incident cell, orient it CCW against the fitted plane, lift back to world, and mesh via `Mesh.CreateFromClosedPolyline`. `Triangulation.CreateDelaunay` throws `ConvexHullGenerationException` on degenerate input; `key.Catch` converts it to `Rejected` receipt evidence.
-- Receipt: `CloudHullReceipt` — kind, status, tolerances, input/output/facet counts, planarity deviation, coplanar/containment rejection evidence, native-vs-authored route, fallback flag, and for the concave kinds the surviving-triangle count plus the effective `Alpha`/`Lambda` actually applied (`IValidityEvidence`, `IsValid` one `ValidityClaim.All` fold). `CloudHullResult.Project<TOut>` resolves `CloudHullReceipt` / `Mesh` / `VectorCloud` (re-admitted boundary cluster) through typed `ProjectionRow.Of` rows.
-- Packages: RhinoCommon (`Mesh.CreateConvexHull3D`, `PolylineCurve.CreateConvexHull2d`, `Mesh.CreateFromClosedPolyline`, `Point3d.ArePointsCoplanar`, `Plane.ClosestParameter`/`PointAt`), MIConvexHull (`Triangulation.CreateDelaunay<DefaultVertex>` with `PlaneDistanceTolerance` — planar rows enter as `DefaultVertex{ Position }` per the `IVertex` contract; `ConvexHullGenerationException` is the degenerate-input seam, funneled through `key.Catch`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
-- Growth: a new hull species is one kind row + one arm in the hull fold (or one filter predicate over the shared Delaunay fold); a new concave criterion is one policy column.
-- Boundary: the two concave kinds share ONE Delaunay fold with the filter predicate as the only difference — two separate triangulate-filter-extract bodies is the rejected duplication; the Delaunay complex is `MIConvexHull`'s and a hand-rolled Bowyer-Watson here is the deleted form (the first-principles CDT is the settled `Meshing/delaunay.md` owner at a different altitude — this rail is the cloud-facing native-first tier, and the hull concern is two-tier by ruling: this rail owns the host/complex kinds — convex native, concave outline, alpha — while `Meshing/delaunay` `LowerHull` owns the predicate-gated exact fold for robust-grade envelopes; one anchor each side, never a second hull owner); the Delaunay call is the ONE foreign-exception seam on this page — `key.Catch` funnels it, and a bare `try`/`catch` or an unguarded call is the deleted form; declared-but-refusing hull kinds are the deleted anti-form this rail exists to kill — a kind row that cannot compute does not exist.
+- Owner: `CloudHullKind` names the hull species, `FootprintWrapper` the 2D fallback a rejected 3D hull degrades to; concave columns `Alpha` and `Lambda` derive from the cluster's mean spacing when the caller supplies neither.
+- Entry: `ComputeHullDetailed` is cluster-only, and every declared kind computes, so `CloudHullStatus` discriminates outcome alone.
+- Auto: `Convex3D` routes native through `Mesh.CreateConvexHull3D` behind a coplanar preflight, duplicating the mesh out of its `using` window; `ConvexFootprint2D` and `FootprintWrapper` fit the PCA plane, run `PolylineCurve.CreateConvexHull2d`, verify containment within tolerance, and mesh via `Mesh.CreateFromClosedPolyline`. `AlphaShape` keeps every triangle whose circumradius stays within `Alpha`; `ConcaveOutline` erodes the longest boundary edge while it exceeds `Lambda` and removal preserves regularity, abandoning no vertex and leaving the boundary a single simple cycle.
+- Packages: RhinoCommon (native convex hull, plane fitting, polyline meshing), MIConvexHull (`Triangulation.CreateDelaunay<DefaultVertex>`; planar rows enter as `DefaultVertex{ Position }` per its `IVertex` contract), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Growth: a new hull species is one kind row and one arm in the hull fold, or one filter predicate over the shared Delaunay fold; a new concave criterion is one policy column.
+- Boundary: both concave kinds share ONE Delaunay fold over `MIConvexHull`'s complex, the filter predicate their only difference; `Triangulation.CreateDelaunay` is the one foreign-exception seam on this page, funneled through `key.Catch` into `Rejected` evidence. This rail owns the native-first host and concave hull kinds; the predicate-exact envelope fold homes at `Meshing/delaunay` `LowerHull`.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -435,36 +414,11 @@ public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceip
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// Hull fold (CloudKernel): Convex3D native; ConvexFootprint2D/FootprintWrapper PCA-plane native 2D;
-// ConcaveOutline (chi-shape: erode longest boundary edge while > Lambda and regular) and AlphaShape
-// (keep circumradius <= Alpha, radius convention) as two filter predicates over ONE MIConvexHull Delaunay fold:
-//   project(PCA plane) -> wrap DefaultVertex{Position} -> Triangulation.CreateDelaunay<DefaultVertex>
-//   -> filter(cells) -> boundary(one-incident edges) -> orient CCW -> lift ->
-//   Mesh.CreateFromClosedPolyline; the ConvexHullGenerationException a degenerate
-//   (collinear/coincident) input throws funnels through key.Catch into Rejected evidence.
+// CloudKernel concave fold: project(PCA plane) -> DefaultVertex{Position} -> Triangulation.CreateDelaunay
+//   -> filter(cells) -> boundary(one-incident edges) -> orient CCW -> lift -> Mesh.CreateFromClosedPolyline
 ```
 
-## [05]-[DENSITY_BAR]
-
-One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. Each `[RAIL]` cell names the owner's return rail, and the per-axis kind rides the indexed notes below.
-
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                 | [RAIL]                                       | [CASES] |
-| :-----: | :-------------------- | :---------------------- | :------------------------------------------- | :-----: |
-|  [01]   | Cloud modality        | `VectorCloud`           | factories → `Fin<VectorCloud>`               |    3    |
-|  [02]   | Cloud measurement     | `VectorCloudMetric`     | `Project<TOut> → Fin<TOut>`                  |   30    |
-|  [03]   | Admission evidence    | `CloudAdmissionReceipt` | carried on `ClusterCase`                     |    —    |
-|  [04]   | Covariance/PCA        | `CloudKernel`           | `CovarianceOf/PrincipalStatsOf → Fin<…>`     |    —    |
-|  [05]   | Hull species          | `CloudHullKind`         | `ComputeHullDetailed → Fin<CloudHullResult>` |    5    |
-|  [06]   | Shape omni-projection | `VectorCloudShape`      | metric row payload                           |    —    |
-
-- [01]-[CLOUD_MODALITY]: `[Union]` Ring/Polyline/Cluster, mass as an `Option` column.
-- [02]-[CLOUD_MEASUREMENT]: `[SmartEnum<int>]` thirty rows through five row builders.
-- [03]-[ADMISSION_EVIDENCE]: `IValidityEvidence` receipt + `OriginalToUnique` re-index map.
-- [04]-[COVARIANCE_PCA]: one fold over `stats.md` `SampleMoment` + `matrix.md` eigen.
-- [05]-[HULL_SPECIES]: `[SmartEnum<int>]` native convex + Delaunay-filtered concave.
-- [06]-[SHAPE_OMNI]: 17-`Option`-column record around the always-present PCA core.
-
-## [06]-[RESEARCH]
+## [05]-[RESEARCH]
 
 <!-- source-only: research row template:
 [TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.

@@ -1,24 +1,23 @@
 # [RASM_SHAPE_SEGMENT]
 
-ONE spectral shape-analysis and restructure owner over the `mesh` substrate: `MeshDescriptor` spectral shape descriptors (HKS-like heat, WKS-style wave, biharmonic, diffusion, commute-time through the `spectral` `SpectralFilter` transfer algebra), spectral distance, sampling-spectrum blue-noise validation (the low-frequency energy gate the `sample` rail stamps into its receipts), dihedral/curvature feature-edge classification, the frozen `MeshSegmentation` six-algorithm union (scalar threshold · scalar bands · seeded region grow · descriptor clusters · watershed basins · normalized-cut spectral clustering), Knöppel globally-optimal direction fields (smoothest / hint-constrained / cone-prescribed) with their stripe-pattern level-set scalars, and the RhinoCommon-native restructure tier — `QuadRemesh`/`Reduce` behind the `RemeshKind`/`QuadTarget` unions and native LSCM unwrap/flatten. Host restructure is deliberate capture: it coexists by law with the settled robust `decimate`/`flatten` owners, which own the first-principles counterparts at a different altitude — this page owns the host-native surface, never a re-derivation.
+`SegmentKernel` owns spectral shape analysis and host-native restructure over the `mesh` substrate: spectral descriptors and distance, blue-noise sampling validation, feature-edge classification, `MeshSegmentation`, Knöppel globally-optimal direction fields with stripe patterns, and the RhinoCommon `QuadRemesh`/`Reduce`/LSCM restructure tier. Host restructure is capture — this page owns the native surface and never re-derives the first-principles counterparts.
 
-`SegmentKernel` page owns the descriptor evidence (`DescriptorReceipt`/`DescriptorResult`/`MeshSamplingSpectrumReceipt`), the feature vocabulary (`MeshFeatureAlgorithm`/`MeshFeatureKind`/`FeatureEdge`/`FeatureReceipt`/`MeshFeaturePolicy` with scale-derived thresholds), the segmentation vocabulary (`MeshSegmentation`, `MeshSegmentationAlgorithm`/`Status`, `MeshSegmentationReceipt`/`Result`), the restructure vocabulary (`QuadTarget`/`QuadGuideInfluence`/`QuadPreserveEdges`/`RemeshKind`/`RemeshReceipt`/`RemeshResult`/`FlattenReceipt`/`FlattenResult`), and the solver body. Eigen systems ride the `matrix` owners (`MatrixKernel.GeneralizedEigenpairsDetailed` for normalized cuts, `SparseHermitian.SmallestEigenpairsDetailed` LOBPCG for the smoothest field); spectral bases and connection factors ride the `mesh` `LaplacianCache` (`SpectralBasisBundleOf`, `ConnectionCholesky`, `CrossField` value-keyed memo); cone prescriptions ride the `dec` trivial-connection owner; sampling rides the sibling `MeshProbe` substrate; the frozen `ScalarField.SpectralDistance`/`Stripe` and `VectorField.CrossField` cases delegate here.
+Eigen systems ride the `matrix` owners — `MatrixKernel.GeneralizedEigenpairsDetailed` for normalized cuts, `SparseHermitian.SmallestEigenpairsDetailed` LOBPCG for the smoothest field; spectral bases and connection factors ride the `mesh` `LaplacianCache`, cone prescriptions the `dec` trivial-connection owner, sampling the `MeshProbe` substrate. A descriptor variant is a `SpectralFilter` row and a segmentation algorithm one `MeshSegmentation` case; the `ScalarField.SpectralDistance`/`Stripe` and `VectorField.CrossField` cases delegate here.
 
 ## [01]-[INDEX]
 
-- [02]-[DESCRIPTORS]: `MeshDescriptor` spectral descriptors + spectral distance + the sampling-spectrum blue-noise gate feeding the `sample` rail.
-- [03]-[FEATURES]: dihedral + curvature feature-edge classification over the eight-kind `MeshFeatureKind` vocabulary with scale-derived policy admission.
-- [04]-[SEGMENTATION]: the frozen `MeshSegmentation` union — six algorithms, one dispatch, one receipt family — with the connected-component, watershed union-find, farthest-first clustering, and normalized-cut internals.
-- [05]-[DIRECTION_FIELDS]: Knöppel GODF cross fields (smoothest eigenvector / constrained solve / cone holonomy) + stripe patterns.
-- [06]-[RESTRUCTURE]: host-native QuadRemesh/Reduce behind `RemeshKind` + native LSCM flatten with the distortion witness.
+- [02]-[DESCRIPTORS]: `MeshDescriptor` spectral descriptors, spectral distance, and the blue-noise sampling gate feeding the `sample` rail.
+- [03]-[FEATURES]: dihedral and curvature feature-edge classification over `MeshFeatureKind` with scale-derived policy admission.
+- [04]-[SEGMENTATION]: `MeshSegmentation` — one dispatch, one receipt family, over the shared scalar-derivation, adjacency, and component split.
+- [05]-[DIRECTION_FIELDS]: Knöppel GODF cross fields and stripe patterns.
+- [06]-[RESTRUCTURE]: host-native `QuadRemesh`/`Reduce` behind `RemeshKind` and native LSCM flatten with the distortion witness.
 
 ## [02]-[DESCRIPTORS]
 
-- Owner: `MeshDescriptor` `[Union]` — one `SpectralCase` (filter + optional sources + descriptor policy) by decision, not a thinned ShapeDNA clone: the `SpectralFilter` transfer algebra already spans heat/wave/biharmonic/diffusion/commute-time/identity, so a descriptor variant is a FILTER row, never a new descriptor case; `MeshSamplingSpectrumAlgorithm` (CandidateSpectrum); `DescriptorReceipt`/`DescriptorResult`/`MeshSamplingSpectrumReceipt` evidence; the `SegmentKernel` descriptor arms.
-- Entry: `SegmentKernel.DescribeShape<TOut>(space, kind, eigenpairs, key)` — output-typed projection through `AtomProjection` rows (`Arr<double>` values, `SpectralDescriptor`, `SpectralDescriptorReceipt`, `DescriptorReceipt`, plus the rail's identity fallthrough for the full `DescriptorResult`), with the assembly receipt computed ONLY when the requested output carries it; `SegmentKernel.SpectralDistanceAt(space, filter, sources, pairs, sample, key)` (the frozen `ScalarField.SpectralDistance` delegate); `SegmentKernel.ValidateSamplingSpectrum(space, result, key)` — stamps the blue-noise verdict into the `sample` result's algorithm receipt.
-- Auto: descriptors pull the cached `SpectralBasisBundle` (one generalized eigensolve per basis size per mesh snapshot — the cache-hit flag lands in the receipt), apply the filter's `ApplyDetailed` with source restriction and normalization policy, and project; the spectrum gate splats the sample set to a barycentric vertex indicator, projects it onto the low-frequency eigenmodes (first three of at most eight), and validates `low/total ≤ 0.5` — a blue-noise candidate set must not concentrate energy in the low band; the threshold is a defaulted entry parameter and the basis cap / low-mode count are named page constants, never bare literals.
-- Receipt: `DescriptorReceipt` (spectral receipt + eigen receipt + requested/returned pairs + cache/factor evidence + optional assembly receipt); `MeshSamplingSpectrumReceipt` on the rails fold with the declared gate `Validated == (SuppressionRatio ≤ ValidationThreshold)` and both ratios inside `[0,1]` — the verdict is recomputable from the receipt's own fields.
-- Boundary: output selection lives in `ProjectionRow` keys inside the `AtomProjection` dispatch — reflection branching in solver bodies is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate (`DescribeShape` computes the assembly receipt only when `TOut` carries it, so a value projection never pays a DEC build); the descriptor family is closed over the filter algebra and a `MeshDescriptorKind` sibling enum re-listing filter names is the rejected duplicate vocabulary.
+- Owner: `MeshDescriptor` `[Union]` carries one `SpectralCase` by decision, never a thinned ShapeDNA clone — the `spectral` `SpectralFilter` transfer algebra already spans the heat, wave, biharmonic, diffusion, and commute-time variants, so a descriptor variant is a filter row and a `MeshDescriptorKind` sibling enum re-listing filter names is the rejected duplicate vocabulary.
+- Entry: `DescribeShape<TOut>` projects output-typed through `AtomProjection` rows and computes the assembly receipt ONLY when `TOut` carries it, so a value projection never pays a DEC build; `SpectralDistanceAt` and `ValidateSamplingSpectrum`, which stamps the blue-noise verdict into the `sample` result's receipt, complete the arms.
+- Auto: descriptors pull the cached `SpectralBasisBundle` — one generalized eigensolve per basis size per mesh snapshot, the cache-hit flag in the receipt — apply the filter, and project; the blue-noise gate bounds low-band energy against a ceiling that is a defaulted entry parameter, and the basis cap and low-mode count are named constants, never bare literals.
+- Boundary: output selection lives in `ProjectionRow` keys, so reflection branching in a solver body is the deleted form, and the ONE sanctioned entry-level type test is the lazy-assembly gate; the descriptor family is closed over the filter algebra.
 
 ```csharp
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -78,7 +77,6 @@ public readonly record struct DescriptorReceipt(
 public readonly record struct MeshSamplingSpectrumReceipt(
     int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy,
     double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) : IValidityEvidence {
-    // Rails ValidityClaim.All fold keeps the verdict recomputable and both ratios unit-bounded.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Algorithm is not null && VertexCount >= 0 && SampleCount >= 0 && EigenpairCount >= 0),
         ValidityClaim.Nonnegative(value: LowFrequencyEnergy),
@@ -122,7 +120,6 @@ internal static partial class SegmentKernel {
         from interpolated in MeshProbe.ScalarOn(space: space, sample: sample, perVertex: descriptor.Values, key: key)
         select interpolated;
 
-    // Blue-noise gate: splat samples to a vertex indicator, project onto the low eigenmodes, bound low/total energy.
     internal static Fin<SampleResult> ValidateSamplingSpectrum(MeshSpace space, SampleResult result, Op key, double lowFrequencyCeiling = SpectrumLowFrequencyCeiling) =>
         result.Points.IsEmpty || result.Receipt.Algorithm.IsNone || space.Native.Vertices.Count < 3
             ? Fin.Succ(result)
@@ -156,8 +153,7 @@ internal static partial class SegmentKernel {
         }
         double ratio = total > RhinoMath.SqrtEpsilon ? low / total : 1.0;
         double bounded = Math.Max(val1: 0.0, val2: Math.Min(val1: 1.0, val2: ratio));
-        // Validated is EXACTLY the declared gate claim (SuppressionRatio <= ValidationThreshold) — a degenerate total
-        // is rejected by the gate's Positive(TotalEnergy) row, never by a divergent second condition here.
+        // Validated is EXACTLY the gate claim (SuppressionRatio <= ValidationThreshold); a degenerate total is rejected by the gate's Positive(TotalEnergy) row, never a divergent second condition here.
         MeshSamplingSpectrumReceipt receipt = new(VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count, LowFrequencyEnergy: low, TotalEnergy: total, SuppressionRatio: bounded, ValidationThreshold: lowFrequencyCeiling, Validated: bounded <= lowFrequencyCeiling, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
         return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
     }
@@ -166,10 +162,10 @@ internal static partial class SegmentKernel {
 
 ## [03]-[FEATURES]
 
-- Owner: `MeshFeatureAlgorithm` (DihedralProxy — the algorithm row future curvature-tensor detectors extend); `MeshFeatureKind` eight-kind edge taxonomy (Boundary/Crease/NonManifold/Unwelded/NgonInteriorSkipped/Ridge/Valley/RegionBoundary); `FeatureEdge` per-edge evidence (endpoints, kind, unsigned + signed dihedral, curvature signal); `FeatureReceipt` with per-kind counts and typed `Project<TOut>` rows (full edges, or endpoint pairs with ngon-interior edges filtered); `MeshFeaturePolicy` — the dihedral threshold is caller intent, the curvature threshold and smoothing scale are SCALE-DERIVED from the mean edge length at admission, and optional per-face regions turn region boundaries into features.
-- Entry: `SegmentKernel.DetectFeatureEdgesDetailed(space, dihedralRadians, key)` seats the derived policy; `SegmentKernel.DetectFeatureEdgesDetailed(space, policy, key)` is the full-control arity — one concept, input-shape discrimination.
-- Auto: topology edges classify by connected-face census (1 → Boundary, >2 → NonManifold, unwelded → Unwelded, ngon-interior → skipped-but-counted), then smooth 2-face edges classify by the signed dihedral (cross-product sign against the edge axis) against the threshold — ridge/valley when the length-normalized curvature signal (`|angle|/length`, endpoint-mean blended by `length/(length+smoothingScale)`) also exceeds the curvature threshold, plain crease otherwise; region-boundary classification precedes angle tests when face regions are declared.
-- Boundary: ngon interiors are COUNTED and skipped, never silently dropped, and the below-threshold remainder lands in `UnclassifiedEdges` — the receipt carries `TopologyEdgeCount` and its validity gate ENFORCES both census reconciliations (edge rows = per-kind counts; per-kind + unclassified = topology edges), so totality is recomputable from the receipt's own fields, never a prose promise; the curvature signal's endpoint smoothing is the anti-alias against single-edge noise and a raw per-edge threshold is the rejected form.
+- Owner: `MeshFeatureAlgorithm` (`DihedralProxy`, the row future curvature-tensor detectors extend); `MeshFeatureKind` the edge taxonomy; `MeshFeaturePolicy` derives the curvature threshold and smoothing scale from the mean edge length at admission while the dihedral threshold stays caller intent, and optional per-face regions turn region boundaries into features.
+- Entry: `DetectFeatureEdgesDetailed` seats the derived policy from a dihedral angle or admits a full policy — one concept, input-shape discrimination.
+- Auto: topology edges classify by connected-face census, then smooth two-face edges classify by the signed dihedral against the threshold — ridge or valley when the length-normalized curvature signal also clears the curvature threshold, plain crease otherwise; region-boundary classification precedes the angle tests when face regions are declared, and the curvature signal is endpoint-smoothed against single-edge noise, so a raw per-edge threshold is the rejected form.
+- Boundary: ngon interiors are counted and skipped, never dropped, and the below-threshold remainder lands in `UnclassifiedEdges`; the receipt's own gate enforces both census reconciliations, so totality is recomputable from its fields, never a prose promise.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -197,8 +193,6 @@ public readonly record struct FeatureReceipt(
     double DihedralThresholdRadians, int UnclassifiedEdges = 0, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0,
     double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0,
     int TopologyEdgeCount = 0, MeshFeatureAlgorithm? Algorithm = null) : IValidityEvidence {
-    // Census totality is the receipt's OWN gate: the edge rows reconcile the per-kind counts, and per-kind counts
-    // plus the unclassified census (smooth or faceless) reconcile every topology edge — recomputable, not a comment.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Of(Algorithm is not null && BoundaryEdges >= 0 && CreaseEdges >= 0 && NonManifoldEdges >= 0 && UnweldedEdges >= 0 && NgonInteriorSkippedEdges >= 0 && UnclassifiedEdges >= 0 && RidgeEdges >= 0 && ValleyEdges >= 0 && RegionBoundaryEdges >= 0),
         ValidityClaim.Of(CurvatureFiniteVertices >= 0 && CurvatureRejectedVertices >= 0),
@@ -219,7 +213,6 @@ public readonly record struct FeatureReceipt(
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
-    // Scale derivation: curvature threshold = 1/meanEdge, smoothing scale = meanEdge, both floored at the model tolerance.
     internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
         from dihedral in key.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
         from _ in guard(dihedral.Value > RhinoMath.ZeroTolerance, key.InvalidInput())
@@ -298,8 +291,7 @@ internal static partial class SegmentKernel {
         double sign = Vector3d.CrossProduct(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]) * axis;
         return sign < 0.0 ? -angle : angle;
     }
-    // Length-normalized dihedral signal blended toward the endpoint mean by length/(length+scale): single-edge noise
-    // damps out while genuine high-curvature bands survive.
+    // Length-normalized signal blended toward the endpoint mean by length/(length+scale): single-edge noise damps out, high-curvature bands survive.
     private static FeatureCurvatureSignals EdgeCurvatureSignals(Mesh mesh, Vector3f[] faceNormals, double smoothingScale) {
         double[] edgeSignals = new double[mesh.TopologyEdges.Count];
         double[] edgeLengths = new double[mesh.TopologyEdges.Count];
@@ -336,12 +328,12 @@ internal static partial class SegmentKernel {
 
 ## [04]-[SEGMENTATION]
 
-- Owner: `MeshSegmentation` `[Union]` (name frozen) — six cases with monadic factories internalizing admission (`ScalarThreshold`/`ScalarBands`/`SeededRegionGrow`/`DescriptorClusters`/`Watershed`/`NormalizedCut`); `MeshSegmentationAlgorithm`/`MeshSegmentationStatus` vocabularies; `MeshSegmentationReceipt` the one segmentation evidence record (algorithm, status, region/seed/assignment census, skipped-value census, optional iteration/tolerance/threshold/descriptor/solve/eigen/cut evidence) and `MeshSegmentationResult` (face regions + majority-vote vertex regions + receipt); the `SegmentKernel` dispatch and algorithm internals.
-- Cases: 6 algorithms; 2 statuses.
-- Entry: `SegmentKernel.Segment<TOut>(space, kind, key)` → generated total `Switch` over the union, projecting through `AtomProjection` rows (`Arr<int>` face regions, the full receipt, or the identity `MeshSegmentationResult` carrying face + majority-vote vertex regions) — one entry, the algorithm is the case, `TOut` is the projection.
-- Auto: face scalars derive once (vertex values averaged per face, degenerate faces skipped by a scale-derived area floor, non-finite values censused); threshold/bands bucket faces then split buckets into connected components over the topology-edge face adjacency; seeded region-grow advances breadth-first proposals under a scalar tolerance with deterministic tie-breaks (lowest region, then lowest source face) until stable or capped; descriptor clusters run the [02] descriptor then cluster face values; watershed floods faces in ascending scalar order into union-find basins, merging across saddles within the merge tolerance and counting the rest as saddles, then compacts labels densely; normalized-cut builds the Gaussian affinity graph over face adjacency (`σ = max(tolerance, range/√faceCount)` — scale-derived, never a knob), assembles graph Laplacian + degree mass, solves the generalized eigenproblem through the `matrix` owner, clusters the Fiedler projection, splits components, and evaluates the achieved normalized-cut value into the receipt; clustering is 1-D k-means with farthest-first seeding (deterministic — no RNG).
-- Receipt: one receipt shape for all six algorithms — algorithm-specific evidence rides `Option` columns (watershed saddle census, cut value, affinity non-zeros, eigen receipt), never sibling receipt types; the fold derives validity.
-- Boundary: `UnassignedRegion = -1` is the one sentinel, confined to the label arrays and censused in the receipt — an unassigned face is evidence, not an error; scalar admission requires at least one finite entry and treats NaN as a MASK (censused per algorithm, so a partial field segments its defined region instead of failing outright — an all-finite factory gate that dead-ends the census column is the rejected form); every factory admits through the `Op` rail so an invalid request never constructs; six algorithms share ONE scalar-derivation, ONE adjacency, and ONE component split — per-algorithm re-derivations are the deleted form.
+- Owner: `MeshSegmentation` `[Union]` carries one case per algorithm with monadic factories internalizing admission; `MeshSegmentationReceipt` is the one evidence record for every algorithm, and `MeshSegmentationResult` carries face regions, majority-vote vertex regions, and the receipt.
+- Cases: a new algorithm is one union case and one dispatch arm.
+- Entry: `Segment<TOut>` folds a generated total `Switch` over the union, projecting through `AtomProjection` rows — one entry, the algorithm is the case, `TOut` is the projection.
+- Auto: every algorithm shares ONE scalar derivation, ONE face adjacency, and ONE connected-component split, so a per-algorithm re-derivation is the deleted form; the normalized-cut affinity `σ` is scale-derived from the value range over `√faceCount`, never a knob, and clustering is deterministic farthest-first k-means with no RNG.
+- Receipt: one receipt shape carries every algorithm — algorithm-specific evidence rides `Option` columns, never sibling receipt types.
+- Boundary: `UnassignedRegion = -1` is the one sentinel, censused as evidence rather than an error; a NaN scalar is a MASK the algorithms census and segment around, so a partial field segments its defined region; every factory admits through the `Op` rail, so an invalid request never constructs.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -368,8 +360,7 @@ public abstract partial record MeshSegmentation {
         key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: admitted, MergeTolerance: tolerance, ValuesAreVertices: valuesAreVertices) };
     public static Fin<MeshSegmentation> NormalizedCut(Arr<double> values, int regionCount, int eigenpairs, int maxIterations, double tolerance, bool valuesAreVertices = false, Op? key = null) =>
         key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from _ in guard(regionCount > 1, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from __ in guard(eigenpairs > 1, op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new NormalizedCutCase(Values: admitted, RegionCount: regions, Eigenpairs: pairs, MaxIterations: cap, Tolerance: eps, ValuesAreVertices: valuesAreVertices) };
-    // NaN entries mark MASKED faces/vertices — every algorithm skips and censuses them (SkippedNonFiniteValues), so a
-    // partial field segments its defined region; only an empty or all-non-finite field is inert and fails admission.
+    // NaN marks a MASKED face/vertex every algorithm skips and censuses (SkippedNonFiniteValues); only an empty or all-non-finite field is inert and fails admission.
     private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
         values.Count == 0 || !values.AsIterable().Any(RhinoMath.IsValidDouble) ? Fin.Fail<Arr<double>>(key.InvalidInput()) : Fin.Succ(values);
 }
@@ -462,8 +453,7 @@ internal static partial class SegmentKernel {
                 from system in NormalizedCutSystemOf(adjacency: adjacency, scalars: scalars.FaceValues, tolerance: cut.Tolerance.Value, key: state.Key)
                 from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: system.Laplacian, mass: system.Degree, k: Math.Min(val1: cut.Eigenpairs.Value, val2: Math.Max(val1: 1, val2: state.Space.Native.Faces.Count - 1)), key: state.Key)
                 from projection in FiedlerProjection(eigen: eigen, expectedCount: scalars.FaceValues.Count, key: state.Key)
-                // Masked faces carry no affinity rows, so their Fiedler entries are gauge noise — NaN them out before
-                // clustering so the mask law holds here too (a masked face stays Unassigned, never eigen-labeled).
+                // Masked faces carry no affinity rows, so their Fiedler entries are gauge noise — NaN them out before clustering so a masked face stays Unassigned, never eigen-labeled.
                 let masked = MaskByScalars(projection: projection, scalars: scalars.FaceValues)
                 from kmeans in ClusterLabels(values: masked, count: cut.RegionCount.Value, maxIterations: cut.MaxIterations.Value, tolerance: cut.Tolerance.Value, key: state.Key)
                 let labels = ConnectedComponents(adjacency: adjacency, buckets: kmeans.Labels)
@@ -502,9 +492,7 @@ internal static partial class SegmentKernel {
     private static MeshSegmentationResult ComponentsOf(Mesh mesh, SegmentationScalars scalars, Func<double, int> bucket, SegmentationRun run) =>
         ResultOf(mesh: mesh, faceRegions: ConnectedComponents(adjacency: FaceAdjacencyOf(mesh: mesh), buckets: [.. scalars.FaceValues.AsIterable().Select(value => RhinoMath.IsValidDouble(x: value) ? bucket(arg: value) : UnassignedRegion)]), scalars: scalars, run: run);
     // Bucket-filtered component labeling composes the ONE graph-walk owner — QuikGraph
-    // ConnectedComponents over the same-bucket face-adjacency subgraph (the member remesh.md and
-    // repair.md already ride); a hand-rolled flood fill beside it is the deleted within-folder
-    // split-brain. Minimum face index canonically orders components; masked faces keep UnassignedRegion.
+    // Composes the ONE QuikGraph graph-walk owner over the same-bucket face-adjacency subgraph; a hand-rolled flood fill is the deleted split-brain. Minimum face index canonically orders components; masked faces keep UnassignedRegion.
     private static int[] ConnectedComponents(int[][] adjacency, int[] buckets) {
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         for (int face = 0; face < buckets.Length; face++) { if (buckets[face] >= 0) graph.AddVertex(v: face); }
@@ -764,10 +752,10 @@ internal static partial class SegmentKernel {
 
 ## [05]-[DIRECTION_FIELDS]
 
-- Owner: `CrossFieldKey` the value-identity cache probe (symmetry + canonically ordered constraints + canonically ordered cones — permuted prescriptions hit one memo, through the `mesh` cache's one type-keyed `Memoized` entry); the `SegmentKernel` GODF arms and the stripe scalar.
-- Entry: `SegmentKernel.CrossFieldAt(space, symmetry, constraints, cones, sample, key)` → `Fin<Vector3d>` (the frozen `VectorField.CrossField` delegate — the n-RoSy representative direction at the sample); `SegmentKernel.StripeAt(space, crossField, frequency, sample, key)` → `Fin<double>` (the frozen `ScalarField.Stripe` delegate — the cross-field-aligned level-set scalar). Both entries re-prove their raw ingress — `symmetry ∈ {1,2,4,6}`, positive finite frequency — so a direct kernel caller meets the same gate the field factories admit through.
-- Auto: the smoothest field solves the SMALLEST eigenpair of the Hermitian vertex connection Laplacian by the `matrix` LOBPCG owner — the residual tolerance travels RELATIVE to the operator scale (the full-Hermitian Frobenius norm, mirrored off-diagonals counted twice, floored at `SqrtEpsilon`) and the iteration ceiling travels off the Krylov dimension (`ceil(√n)` times the budget, clamped to `n`) — a bare absolute floor or a magic iteration const is the rejected form; the gate accepts ONLY `EigenSolveStop.ResidualConverged`. Constrained field encodes hints as `symmetry`-th powers of unit tangent complexes, rescales by the mass B-norm so hint energy is independent of hint count, stacks the mass-weighted RHS as `[Re; Im]`, and solves through the cached real-block connection Cholesky at the shift-reciprocal time. Cone prescriptions route the `dec` trivial-connection owner (`DistributeHolonomy` over cone indices `deficit/2π`) into the connection assembly as edge adjustments — the holonomy math is composed, never re-derived. Sampling decodes the n-RoSy angle (`atan2/symmetry`) through barycentrically blended vertex frames.
-- Boundary: per-vertex normalization floors at `ZeroTolerance` (a zero connection component decodes to the zero vector, not NaN); the connection transport angles (`Rho` rows) are the `mesh` signpost seam — `MeshKernel.ConnectionEntriesOf` over the intrinsic snapshot, the SAME rows the cached real-block `ConnectionCholesky` assembles from, and a page-local transport-angle derivation is the deleted fourth transport path; the Hermitian eigen path and the real-block Cholesky path are TWO discretizations of one operator, both assembled from the SAME connection entries.
+- Owner: `CrossFieldKey` the value-identity cache probe — symmetry with canonically ordered constraints and cones, so permuted prescriptions hit one memo; the GODF arms and the stripe scalar.
+- Entry: `CrossFieldAt` returns the n-RoSy representative direction and `StripeAt` the field-aligned level-set scalar, the `VectorField.CrossField` and `ScalarField.Stripe` case delegates; each re-proves its raw ingress — `symmetry ∈ {1,2,4,6}`, positive finite frequency — so a direct kernel caller meets the same gate the field factories admit through.
+- Auto: the smoothest field solves the smallest eigenpair of the Hermitian connection Laplacian by the `matrix` LOBPCG owner with the residual tolerance RELATIVE to the operator Frobenius scale and the iteration ceiling off the Krylov dimension — a bare absolute floor or a magic iteration constant is the rejected form, and the gate accepts ONLY `EigenSolveStop.ResidualConverged`; the constrained field rescales hints by the mass B-norm, so hint energy is independent of hint count; cone prescriptions route the `dec` trivial-connection owner as edge adjustments, the holonomy composed, never re-derived.
+- Boundary: per-vertex normalization floors at `ZeroTolerance`, so a zero connection component decodes to the zero vector, not NaN; the connection transport angles are the `mesh` signpost seam (`MeshKernel.ConnectionEntriesOf`), the SAME rows the cached real-block `ConnectionCholesky` assembles from, so a page-local transport-angle derivation is the deleted fourth path, and the Hermitian eigen path and the real-block Cholesky path are two discretizations of one operator from the same entries.
 
 ```csharp
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -784,8 +772,7 @@ internal static partial class SegmentKernel {
     private const int CrossFieldKrylovBudget = 16;
 
     // --- [CROSS_FIELD]
-    // Direct internal callers meet the same {1,2,4,6} proof the fields factory admits through — the
-    // n-RoSy classes the decode owns; an unproven symmetry never reaches the connection assembly.
+    // Direct internal callers meet the same {1,2,4,6} proof the fields factory admits through; an unproven symmetry never reaches the connection assembly.
     internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Point3d sample, Op key) =>
         from _ in guard(symmetry is 1 or 2 or 4 or 6, key.InvalidInput())
         from cached in space.Cache.Memoized(probe: CrossFieldKey.Of(symmetry: symmetry, constraints: constraints, cones: cones),
@@ -833,8 +820,7 @@ internal static partial class SegmentKernel {
         }
         return triplets;
     }
-    // Operator scale: full-matrix Frobenius norm of the upper-stored Hermitian (off-diagonals twice), floored at
-    // SqrtEpsilon — the sigma-scale the RELATIVE LOBPCG residual floor is measured against.
+    // Operator scale: full-matrix Frobenius norm of the upper-stored Hermitian (off-diagonals twice), floored at SqrtEpsilon — the scale the RELATIVE LOBPCG residual floor is measured against.
     private static double ConnectionOperatorScale(SparseHermitian connection) {
         double diagSq = 0.0; double offSq = 0.0;
         for (int row = 0; row < connection.Order.Value; row++)
@@ -919,10 +905,10 @@ internal static partial class SegmentKernel {
 
 ## [06]-[RESTRUCTURE]
 
-- Owner: `QuadTarget` `[Union]` (EdgeLength / QuadCount with adaptive size + count columns); `QuadGuideInfluence` (Approximate/InterpolateRing/InterpolateLoop) and `QuadPreserveEdges` (Off/Smart/Strict) native-parameter vocabularies; `RemeshKind` `[Union]` (Quad / Simplify over `ReduceMeshParameters`); `RemeshReceipt`/`RemeshResult` and `FlattenReceipt`/`FlattenResult` evidence, including the optional unwrap symmetry plane; the `SegmentKernel` host-capture arms.
-- Entry: `SegmentKernel.ApplyRemeshDetailed(kind, space, key)` → `Fin<RemeshResult>` — generated total `Switch` over the union; `SegmentKernel.ParameterizeFlattenDetailed(space, key, symmetryPlane?)` → `Fin<FlattenResult>` (native LSCM unwrap with optional symmetry and the edge-length distortion witness).
-- Auto: the quad arm translates the typed target into `QuadRemeshParameters` (the `UnitInterval` adaptive size scales by the native `[0,100]` unit — one named conversion constant), threads guide curves and face blocks, and captures the full pre/post topology + parameter echo into the receipt; the simplify arm duplicates, reduces, and captures the native `ReduceMeshParameters.Error` text into the receipt on failure detail; flatten admits the optional symmetry plane, sets the `MeshUnwrapper.SymmetryPlane` policy, runs LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS — per-edge UV/model length ratios under the energy-minimizing global scale `Σ(model·uv)/Σ(uv²)` — as the parameterization quality witness.
-- Boundary: this tier is HOST CAPTURE by the standing capture law — the robust first-principles decimation, flattening, and re-tessellation owners are the settled `decimate`/`flatten` pages and the author-kernel `remesh.md` (isotropic/quad rewrite beside this native `QuadRemesh` capture, one anchor each) at a different altitude, and this page never re-derives them; native failures dispose the partial output and route the `Op` rail with the native error text preserved as detail — failure IS the rail, so the mature `RemeshStatus` enum (whose only stampable row was `Completed`) is deleted rather than carried as constant evidence; receipts echo every native parameter so a remesh is reproducible from its receipt alone.
+- Owner: `QuadTarget`, `QuadGuideInfluence`, `QuadPreserveEdges`, and `RemeshKind` unions; `RemeshReceipt`/`FlattenReceipt` evidence including the optional unwrap symmetry plane; the host-capture arms.
+- Entry: `ApplyRemeshDetailed` folds a generated total `Switch` over `RemeshKind`; `ParameterizeFlattenDetailed` runs native LSCM unwrap with an optional symmetry plane and the edge-length distortion witness.
+- Auto: the quad arm translates the typed target into `QuadRemeshParameters` through one named conversion constant for the native `[0,100]` adaptive unit, threads guide curves and face blocks, and echoes the full pre/post topology into the receipt; the simplify arm captures the native reduce error text as failure detail; flatten runs LSCM, verifies texture-coordinate/vertex parity, and derives the edge-length distortion RMS under the energy-minimizing global scale as its quality witness.
+- Boundary: this tier captures the RhinoCommon `QuadRemesh`/`Reduce`/LSCM surface and never re-derives the first-principles restructure counterparts; a native failure disposes the partial output and routes the `Op` rail with the native error text preserved as detail — failure IS the rail, so a status enum whose only stampable row is `Completed` is deleted rather than carried as constant evidence; receipts echo every native parameter, so a remesh is reproducible from its receipt alone.
 
 ```csharp
 // --- [TYPES] --------------------------------------------------------------------------------
@@ -1096,7 +1082,6 @@ internal static partial class SegmentKernel {
         }
         Option<double> distortion = Option<double>.None;
         if (denominator > RhinoMath.SqrtEpsilon && comparable > 0) {
-            // Energy-minimizing global scale s = sum(model*uv)/sum(uv^2); RMS of (s*uv/model - 1) over comparable edges.
             double scale = numerator / denominator;
             double rmsSquared = ((scale * scale * sumRatioSquared) - (2.0 * scale * sumRatio) + comparable) / comparable;
             double rms = Math.Sqrt(d: Math.Max(val1: 0.0, val2: rmsSquared));
@@ -1147,7 +1132,7 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RAIL]` cell names the one return rail each owner exposes, and the per-owner kind rides the indexed notes below.
+One owner per axis; capability is a case, arm, or policy column, never a sibling surface. `[RAIL]` cells name the one return rail each owner exposes, and each owner kind rides the indexed note below.
 
 | [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                             | [CASES] |
 | :-----: | :---------------- | :-------------------------------------- | :------------------------------------------------- | :-----: |
@@ -1160,19 +1145,22 @@ One owner per axis; capability is a case, arm, or policy column, never a sibling
 |  [07]   | Host restructure  | `RemeshKind`/`QuadTarget`               | `ApplyRemeshDetailed → Fin<RemeshResult>`          |   2+2   |
 |  [08]   | Evidence          | receipt family                          | gated `Fin` projections                            |    —    |
 
-- [01]-[SHAPE_DESCRIPTORS]: descriptor arms — `[Union]` over the `spectral` filter algebra; typed projection rows.
-- [02]-[BLUE_NOISE_GATE]: gate arm — low-frequency energy bound stamped into the `sample` receipt.
-- [03]-[FEATURE_EDGES]: `+ FeatureReceipt` — eight-kind taxonomy, scale-derived policy, censused receipt.
-- [04]-[SEGMENTATION]: frozen six-case `[Union]`, one dispatch, one receipt shape.
-- [05]-[DIRECTION_FIELDS]: GODF arms — smoothest LOBPCG / constrained Cholesky / cone-prescribed, one memo.
+- [01]-[SHAPE_DESCRIPTORS]: descriptor arms — `[Union]` over the `spectral` filter algebra with typed projection rows.
+- [02]-[BLUE_NOISE_GATE]: gate arm — low-band energy bound stamped into the `sample` receipt.
+- [03]-[FEATURE_EDGES]: `FeatureReceipt` — edge taxonomy, scale-derived policy, censused receipt.
+- [04]-[SEGMENTATION]: `MeshSegmentation` `[Union]`, one dispatch, one receipt shape over the shared kernels.
+- [05]-[DIRECTION_FIELDS]: GODF arms — smoothest LOBPCG, constrained Cholesky, cone-prescribed, one memo.
 - [06]-[STRIPE_SCALAR]: cross-field-aligned level-set over blended vertex frames.
-- [07]-[HOST_RESTRUCTURE]: `+ ApplyRemeshDetailed` + flatten arm — host-capture unions + parameter-echo receipts.
-- [08]-[EVIDENCE]: `ValidityClaim.All` fold + declared gates + `AtomProjection` rows.
+- [07]-[HOST_RESTRUCTURE]: `ApplyRemeshDetailed` and the flatten arm — host-capture unions with parameter-echo receipts.
+- [08]-[EVIDENCE]: `ValidityClaim.All` fold, declared gates, `AtomProjection` rows.
 
-Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; QuadRemesh/Reduce/LSCM arms are the named platform-forced boundary (native calls returning nullable results, converted at the seam).
+Flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the `QuadRemesh`/`Reduce`/LSCM arms are the named platform-forced boundary, native calls returning nullable results converted at the seam.
 
 ## [08]-[RESEARCH]
 
-- [SEGMENTATION_LAWS] — the six-algorithm law-matrix over one dispatch: threshold and bands must partition exactly the finite faces (assigned + unassigned + skipped = face count, the receipt census law); a NaN-masked face stays `Unassigned` under EVERY algorithm — normalized-cut included, where the mask must gate the Fiedler projection because a masked face's eigenvector entry is affinity-free gauge noise; connected-component splitting is idempotent (re-segmenting a segmentation's own labels by equality buckets returns the same regions); watershed on a two-basin scalar field with a saddle above the merge tolerance yields exactly two regions and one saddle count, and raising the tolerance past the saddle height merges to one region with zero saddles (the union-find keep-lower-seed law); region-grow determinism — permuting seed order changes only region NUMBERING, never membership, by the lowest-region/lowest-source tie-break; farthest-first k-means seeding is RNG-free so identical inputs give identical labels bit-for-bit; normalized-cut asserts the achieved `NormalizedCutValue` is finite, non-increasing in eigenpair count on fixed inputs, and that `σ` tracks the value range over `√faceCount` (scale invariance: affinely rescaling the scalar field leaves labels unchanged).
-- [GODF_LAWS] — the direction-field correctness anchors: the smoothest field on a flat disk is globally parallel (zero connection energy — the smallest eigenvalue vanishes within the relative residual band); the LOBPCG gate accepts only `ResidualConverged` with the tolerance RELATIVE to the operator Frobenius scale (scaling all edge weights by a constant leaves convergence behavior unchanged — the law the absolute-floor form breaks); hint-constrained fields interpolate their hints (the field at a hinted vertex matches the hint's n-RoSy class) with the B-norm rescale making the solve invariant to duplicating a hint; cone-prescribed fields route holonomy through the `dec` trivial connection whose Gauss-Bonnet integer gate rejects an inconsistent prescription upstream of this page; the n-RoSy decode law — `CrossFieldAt` returns ONE representative of the symmetry class, and rotating the returned vector by `2π/symmetry` about the vertex normal stays within the class (probed through the stripe scalar's invariance: `StripeAt` is unchanged under representative rotation because the angle enters through `cos(frequency·angle)` of the class angle).
-- [RESTRUCTURE_EVIDENCE] — the host-capture receipts: every `QuadRemeshParameters` field set by the quad arm is recoverable from the receipt (parameter echo law — a remesh is reproducible from its receipt alone); reduce failures carry the native error text as the fail detail and never leak a disposed mesh; the flatten distortion witness is scale-invariant (uniformly scaling the mesh leaves `EdgeLengthDistortionRms` unchanged because the global scale `s` absorbs it) and zero for a developable input flattened without stretch; the LSCM parity gate (`TextureCoordinates.Count == Vertices.Count`) rejects partial unwraps before any UV read.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+(none)

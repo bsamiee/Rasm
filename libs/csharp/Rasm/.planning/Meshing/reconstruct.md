@@ -1,21 +1,23 @@
 # [RASM_RECONSTRUCTION_RECONSTRUCT]
 
-`Reconstruction` owns ONE `Reconstruct` entry over `ReconstructionPolicy`, and each policy case returns a `Spatial/fields` value with typed evidence. `SignedHeatSpine`, `MeshSdf`, and `IsoSurface` own the delegated signed-distance and extraction rails. Numeric kernels compose `Numerics/calculus` and `Numerics/matrix`; failures stay on `Fin`.
+`Reconstruction` owns one `Reconstruct` entry over `ReconstructionPolicy`; each policy case builds a `Spatial/fields` scalar field carrying typed reconstruction evidence. `SignedHeatSpine`, `MeshSdf`, and `IsoSurface` own the delegated signed-distance and native-extraction rails, every native callback boundary converted through `Op.Catch` and every failure kept on `Fin`.
+
+`Spatial/fields` owns the `ScalarField` union and its frozen cases; this page owns the kernels those cases delegate to. `Meshing/mesh` owns the type-keyed `Memoized` solver slot and `SpdMassShift`, so this page declares `BoundarySignedHeatKey`/`ClosedSignedHeatKey` and composes the memo at `SignedHeatSpine.BoundarySolutionOf`/`ClosedSolutionOf`. `Meshing/dec` owns the Crouzeix-Raviart assembly the boundary-source row composes, `Spatial/index` the accelerated winding lane the GWN row composes, `Numerics/matrix` every linear solve, and `Numerics/calculus` the kernel-profile math.
 
 ## [01]-[INDEX]
 
-- [02]-[RECONSTRUCTION]: `ReconstructionPolicy` union → one `Reconstruct` entry over RBF/MLS/Levin/APSS/Poisson; point evaluators; the `SignedHeatDiscretization` spine (tet FEM / boundary CR / closed volume grid); `SdfMeshMethod` mesh-SDF dispatch; native `IsoSurface` marching cubes; the reunited policy + receipt vocabulary.
+- [02]-[RECONSTRUCTION]: the `ReconstructionPolicy` construction discriminant and its one `Reconstruct` entry, the `SignedHeatDiscretization` four-stage spine, `SdfMeshMethod` mesh-SDF dispatch, and native `IsoSurface` extraction.
 
 ## [02]-[RECONSTRUCTION]
 
-- Owner: `ReconstructionPolicy` `[Union]` the ONE construction discriminant (`RbfCase`/`MlsCase`/`LevinCase`/`ApssCase`/`PoissonCase`, each carrying its typed policy payload; the `ReconstructionMode` row derives per case); `Reconstruction` the build/evaluate kernel; `SignedHeatDiscretization` `[Union]` the spine discriminant (`TetFem`/`BoundarySource`/`ClosedVolumeGrid`); `SignedHeatSpine` the one four-stage signed-heat law; `MeshSdf` the mesh-SDF dispatch (`SignedDistanceDetailed`/`Prewarm` over `SdfMeshMethod`); `IsoSurface` the native extraction adapter; `TetMeshDomain` the validated tetrahedral domain (full boundary-face topology derivation at admission); the policy family (`SdfMeshPolicy`, `TetSignedHeatPolicy`, `SignedHeatTime`, `VolumeGridPolicy`, `VolumeSolverPolicy`, `LevinMlsPolicy`, `ApssPolicy`, `PoissonPolicy`, `IsoSurfacePolicy`) — every knob a validated policy row with a preset, per the `TuftedCoverPolicy.Default` pattern.
-- Cases: `ReconstructionPolicy` cases `RbfCase` · `MlsCase` · `LevinCase` · `ApssCase` · `PoissonCase` (5); `ReconstructionMode` rows `RbfInterpolation` · `RbfApproximation` · `MovingLeastSquares` · `LevinMovingLeastSquares` · `AlgebraicPointSetSurfaces` · `Poisson` · `ScreenedPoisson` (7, `RequiresNormals`/`RequiresSparseSystem`/`PolynomialDegree`/`Status` columns); `SignedHeatDiscretization` cases `TetFem` · `BoundarySource` · `ClosedVolumeGrid` (3); `SdfMeshMethod` rows `GeneralizedWindingNumber` · `BoundarySignedHeat` · `ClosedSurfaceSignedHeat` (3 — the mature `Status`/`Domain` parallel enums were 1:1:1 renames of the method, collapsed); `SdfSignConvention` rows (2, `Multiplier` column); `PoissonBoundary` rows `Neumann` · `Dirichlet` (2, `Singular`/`ExteriorValue`/`IsDirichlet` columns — the mature `Free` twin collapsed); `ReconstructionStatus` (3, the `Status` column on `ReconstructionMode`); `IsoSurfaceStatus` (4, each row carrying its complete receipt-evidence predicate); `TetGaugePolicy` `PinnedFirstBoundary` (1); `TetInterpolation` `Barycentric` (1); `VolumeSolverKind` `SparseCholeskyPinned` (1); `VolumeBoundaryCondition` `NeumannGaugePinned` (1); `VolumeInterpolation` `Trilinear` (1).
-- Entry: `public static Fin<ReconstructionResult> Reconstruct(Seq<MlsSample> samples, ReconstructionPolicy policy, Context context, Op? key = null)` — the one reconstruction entry; the policy case selects the build kernel, admission is internalized per case (finite positions/normals/values, mode-specific guards), and the result carries the frozen `Spatial/fields` case with `ReconstructionReceipt`. `public static Fin<SignedHeatOutcome> Solve(SignedHeatDiscretization discretization, Op? key = null)` on `SignedHeatSpine` — the one signed-heat entry; the case carries its domain and policy, and the union `Switch` routes to the case's row kernel, each realizing the SAME four-stage law over its discretization. `MeshSdf.SignedDistanceDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op? key = null)` — the mesh-SDF sample entry dispatching on `policy.Method`; `MeshSdf.Prewarm(MeshSpace space, SdfMeshPolicy policy, Op? key = null)` factors and caches the solves without sampling. `IsoSurface.Detailed(ScalarField field, BoundingBox bounds, int resolution, IsoSurfacePolicy policy, Context context, Op? key = null)` — the extraction entry, returning the classified receipt for EVERY native outcome: admission failures alone fail the rail, consumers gate on `Receipt.Valid` (the mature gated/attempt entry PAIR collapses to this one receipt-honest entry with zero capability loss — the settled extract rail already re-gates). No per-mode public factory siblings anywhere on the surface.
-- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement ≥ 0.5 against the weighted normal. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes Dirichlet rows when `Boundary.IsDirichlet`, solves definite systems by `CholeskySparse` and singular ones by `SingularSolveDetailed` under `GaugePolicy.PinConstant(interior, GaugeShift.PinZero)` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Signed-heat rows specialize the same four stages across tet FEM, boundary CR, and closed volume-grid discretizations. Heat time resolves from `SignedHeatTime`, all residuals gate against `VolumeSolverPolicy`, and `IsoSurface.Detailed` classifies native callback failures through typed evidence.
-- Receipt: `ReconstructionReceipt` (mode — status and the interpolation verdict ride its column — optional kernel/radius/smoothing evidence, counts, actual fitted degree, solve) on every build; `ReconstructionSample` + `ReconstructionSampleReceipt` (mode — status rides its column — optional kernel/radius evidence mirroring the build receipt, neighborhood/rejection counts, weight sum, rank, condition, normal agreement, gradient norm, solve) on every point evaluation; `LevinMlsSampleReceipt` (plane frame, offset, step-1 iterations/energy/root residual/second derivative, normal iterations/residual, eigen spread, step-2 residual/RMS/condition/rank, projection witnesses) and `ApssSampleReceipt` (algebraic coefficients, Pratt norm, degeneracy ratio, sphere center/radius/mean curvature, field value/gradient, projection iterations/Taubin residual) on the deep evaluators; `PoissonReceipt` (lattice/system witnesses, splat counts, isovalue ± deviation, chi statistics, gradient/screening energies, data/gradient residuals, unscreened-equivalence law, gauge + solve) with its conservation law `Contribution + Rejected + Clamped == SampleCount` as a claim row; `SignedHeatReceipt` (boundary-source counts, heat + Poisson solves, edge assembly, `SpdMassShift`) and `VolumeGridReceipt` (grid geometry, source/degenerate counts, inside/outside/near-surface partitions, heat time, gauge node, surface shift, solver policy, operator/factor NNZ, residual) and `TetSignedHeatReceipt` (FEM witnesses + heat/Poisson solves + calibration shifts) per spine row; `SdfMeshReceipt` (method + `TopologyReceipt` + optional signed-heat/volume-grid receipts — the method row IS the classification) and `SdfMeshSample` on the mesh-SDF rail; `IsoSurfaceReceipt` (native routing, status, grid, root steps, evaluator failures, vertex/face counts, naked-boundary loops, native-fixed tolerance witnesses, mesh preflight) inside `IsoSurfaceResult`. Every receipt is one `ValidityClaim.All` fold.
-- Packages: `Rasm.Numerics` `Numerics/matrix` (`Matrix`, `SymmetricMatrix`, `SparseMatrix`, `CholeskySparse`, `GaugePolicy`/`GaugeShift`, `SolveReceipt`/`SvdResult`/`EigenSolveReceipt`), `Numerics/calculus` (`KernelKind`, `WeightKernelFamily`, `KernelProfile` — the profile math composed, never re-minted), `Meshing/mesh` (`MeshSpace`, cache memo slots, `TopologyReceipt`, `MeshKernel.TopologyDetailed`, `DegenerateAreaFloorOf`), `Meshing/dec` (`BuildCrouzeixRaviartHeatSystemDetailed`, `SampleCrouzeixRaviartFaceField`, `ComputeIntrinsicVertexDivergence`), `Spatial/fields` (`ScalarField` frozen cases as the build product), `Spatial/index` (`Rasm.Spatial` `Spatial.Apply` over `SpatialOp.Build`/`Query` — the `SpatialQuery.Winding` batch read as `QueryResult.Field`, the accelerated GWN lane), `Domain/rails` + `Domain/context`, MathNet.Numerics (`RootFinding.Brent.TryFindRoot` — the Levin energy root), RhinoCommon (`Mesh.CreateFromIsosurface`, `Mesh.IsPointInside`/`ClosestPoint`/`SolidOrientation`/`IsClosed`/`GetNakedEdges`, `Point3dList.ClosestIndexInList` — genuinely Rhino-boundary, never thinned), LanguageExt.Core, BCL (`Interlocked`).
+- Owner: `ReconstructionPolicy` `[Union]` is the one construction discriminant, each case carrying its typed policy payload and deriving its `ReconstructionMode` row; `Reconstruction` is the build/evaluate kernel; `SignedHeatDiscretization` `[Union]` the spine discriminant and `SignedHeatSpine` its one four-stage signed-heat law; `MeshSdf` the mesh-SDF dispatch over `SdfMeshMethod`; `IsoSurface` the native extraction adapter; `TetMeshDomain` the validated tetrahedral domain deriving its full boundary-face topology at admission. Every knob is a validated policy row carrying a preset.
+- Cases: `ReconstructionPolicy` cases `RbfCase`/`MlsCase`/`LevinCase`/`ApssCase`/`PoissonCase` select the build kernel; `ReconstructionMode` carries the seven modes with normals, sparse-system, degree, and status columns; `SignedHeatDiscretization` cases `TetFem`/`BoundarySource`/`ClosedVolumeGrid`; `SdfMeshMethod` carries `GeneralizedWindingNumber`/`BoundarySignedHeat`/`ClosedSurfaceSignedHeat`, and the method row IS the mesh-SDF classification; `PoissonBoundary` carries `Neumann` (singular) and `Dirichlet` (definite); `IsoSurfaceStatus` carries four rows, each with its own receipt-evidence predicate. Every single-value policy enum lands one row in the fence.
+- Entry: `Reconstruction.Reconstruct` is the one reconstruction entry — the policy case selects the build kernel, admission internalizes per case (finite positions/normals/values, mode-specific guards), and the result carries a frozen `Spatial/fields` case with `ReconstructionReceipt`. `SignedHeatSpine.Solve` routes each `SignedHeatDiscretization` case to its row kernel over the same four-stage law. `MeshSdf.SignedDistanceDetailed` dispatches on `policy.Method` and `MeshSdf.Prewarm` factors and caches the solves without sampling. `IsoSurface.Detailed` returns the classified receipt for every native outcome — admission failures alone fail the rail, consumers gate on `Receipt.Valid`. No per-mode public factory siblings on the surface.
+- Auto: RBF selects interpolation vs approximation by the smoothing row (`≤ ZeroTolerance` → exact kernel-matrix solve; `> 0` → `√smoothing`-diagonal-augmented least squares) — the mode split is a value consequence, not a knob. MLS solves the 4-equation-per-neighbor design (`[1, −offset] · [value; gradient]` rows weighted by `√profile`) and gates on rank ≥ 4 and normal agreement ≥ 0.5 against the weighted normal. Levin runs step one as covariance plane seed (smallest eigenvector, orientation-corrected) then alternates Brent root-finding on the weighted energy derivative along the normal (bracket/accuracy scale-derived from support) with normal re-estimation (at most `NormalMaxIter` inner steps against `NormalTau`, offset/normal convergence at `StepEps`/`NormalStepTol`), gated by the planarity ratio `λ0/λ2 ≤ PlanarityTau`; step two fits the ridge-regularized degree-`PolyDegree` height polynomial in the local tangent frame. APSS fits the algebraic sphere `(hc, hl, hq)` by Pratt normalization, classifies the plane-degenerate branch by `DegeneracyRatio ≤ EpsDegeneracy`, and projects iteratively with `StepDamping` under `ProjTol`. Poisson splats inward normals trilinearly onto the `2^Depth` lattice — the degree-1 discretization, the ONE splat the lattice owns (splat radius `Width`-scaled per cell; density estimate normalized by `SamplesPerNode` with weight floor `max(√ε, Density)`; bounding box grown by `Scale`) — assembles the 7-point Laplacian with one-sided boundary differences, adds `α = 8^Depth · PointWeight` screening outer products per sample when screened, imposes Dirichlet rows when `Boundary.IsDirichlet`, solves definite systems by `CholeskySparse` and singular ones by `SingularSolveDetailed` under `GaugePolicy.PinConstant(interior, GaugeShift.PinZero)` — residual-gated against `Solver.ResidualTolerance` like every other solve on this page — and derives the isovalue `γ` as the density-weighted mean sample indicator. Signed-heat rows specialize the same four stages across tet FEM, boundary CR, and closed volume-grid discretizations, heat time resolving per row from `SignedHeatTime`.
+- Receipt: every build, point evaluation, and spine step carries its typed receipt as one `ValidityClaim.All` fold. `ReconstructionReceipt`/`ReconstructionSampleReceipt` ride the RBF/MLS rail with the interpolation verdict on `Mode.Status`; the deep `LevinMlsSampleReceipt`/`ApssSampleReceipt` carry their solver witnesses; `PoissonReceipt` carries the splat-conservation claim; `SignedHeatReceipt`/`VolumeGridReceipt`/`TetSignedHeatReceipt` sit per spine row, `SdfMeshReceipt` on the mesh-SDF rail, and `IsoSurfaceReceipt` inside `IsoSurfaceResult`.
+- Packages: `Rasm.Numerics` `Numerics/matrix` (sparse and dense solves, gauge policy, solve receipts) and `Numerics/calculus` (kernel-profile math, composed never re-minted); `Meshing/mesh` (the `MeshSpace` snapshot, cache memo slots, `TopologyReceipt`) and `Meshing/dec` (CR heat-system assembly, face-field sampling, intrinsic divergence); `Spatial/fields` (`ScalarField` frozen cases as the build product); `Spatial/index` (`Spatial.Apply` over `SpatialQuery.Winding`, the accelerated GWN lane); `Domain/rails` and `Domain/context`; MathNet.Numerics (`RootFinding.Brent` for the Levin energy root); RhinoCommon (`Mesh.CreateFromIsosurface` and the inside/closest/orientation predicates, genuinely Rhino-boundary, never thinned); LanguageExt.Core; BCL (`Interlocked`).
 - Growth: a new reconstruction family (partition-of-unity implicits, neural pull) is one `ReconstructionPolicy` case + one `ReconstructionMode` row + one build arm producing a new frozen field case; a new signed-heat discretization (polygon FEM, adaptive octree grid) is one `SignedHeatDiscretization` case + one stage row on the same four-stage spine — never a parallel heat→Poisson pipeline; a new mesh-SDF method is one `SdfMeshMethod` row; a new lattice boundary condition is one `PoissonBoundary` row with its column values; a grid ceiling change is a policy-row edit; zero new entry surface.
-- Boundary: `SignedHeatSpine` owns one heat→divergence→Poisson→calibrate law. Dropped octree knobs and unread `Degree` stay excluded until a real discretization consumes them. Boundary-source rows reject flipped intrinsic snapshots; closed-grid rows admit only watertight, solid, closed, oriented topology. `PoissonGrid.SampleTrilinear` returns a positive outside value instead of clamping to an edge. Native evaluator callbacks count failures with `Interlocked`; every linear solve routes through `Numerics/matrix`, and `Op.Catch` converts the native callback boundary.
+- Boundary: `SignedHeatSpine` owns one heat→divergence→Poisson→calibrate law. Boundary-source rows reject flipped intrinsic snapshots; closed-grid rows admit only watertight, solid, closed, oriented topology. `PoissonGrid.SampleTrilinear` returns a positive outside value instead of clamping to an edge. Native evaluator callbacks count failures with `Interlocked`; every linear solve routes through `Numerics/matrix`, and `Op.Catch` converts the native callback boundary.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -45,8 +47,7 @@ public sealed partial class ReconstructionStatus {
     public static readonly ReconstructionStatus PoissonIndicator   = new(key: 2);
 }
 
-// Status is a COLUMN — it is a pure function of the mode row; a status field carried beside Mode on a receipt was
-// desynchronizable duplication violates this page's receipt law.
+// Status is a COLUMN — a pure function of the mode row, never a second bit carried beside Mode on a receipt.
 [SmartEnum<int>]
 public sealed partial class ReconstructionMode {
     public static readonly ReconstructionMode RbfInterpolation          = new(key: 0, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0, status: ReconstructionStatus.ExactInterpolation);
@@ -62,8 +63,6 @@ public sealed partial class ReconstructionMode {
     public ReconstructionStatus Status { get; }
 }
 
-// Dirichlet vs Neumann only: the mature Free row was byte-identical to Neumann on the dense lattice (both singular,
-// zero exterior value, one-sided stencils) — the twin collapsed; the octree-era distinction died with the octree.
 [SmartEnum<int>]
 public sealed partial class PoissonBoundary {
     public static readonly PoissonBoundary Neumann   = new(key: 0, singular: true, exteriorValue: 0.0, isDirichlet: false);
@@ -73,8 +72,7 @@ public sealed partial class PoissonBoundary {
     public bool IsDirichlet { get; }
 }
 
-// SdfMeshMethod IS the classification: mature Status/Domain enums were 1:1:1 renames carried
-// redundantly on the receipt with a gate that existed only to police the redundancy — both collapsed.
+// SdfMeshMethod IS the mesh-SDF classification — the method row carries it on the receipt.
 [SmartEnum<int>]
 public sealed partial class SdfMeshMethod {
     public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0);
@@ -194,8 +192,7 @@ public readonly record struct TetSignedHeatPolicy(
     internal Fin<TetSignedHeatPolicy> Admit(Op key);
 }
 
-// NormalMaxIter/NormalStepTol bound the inner normal re-estimation loop — the mature CgMaxIter/CgTol names lied
-// (no conjugate gradient exists anywhere on this rail); capability identical, names truthful.
+// NormalMaxIter/NormalStepTol bound the inner normal re-estimation loop — no conjugate gradient exists on this rail.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct LevinMlsPolicy(
     PositiveMagnitude Support, int PolyDegree, double NeglectEps, int MinNeighbors, double BracketFactor,
@@ -216,10 +213,8 @@ public readonly record struct ApssPolicy(
         double projTol = 1e-4, double stepDamping = 1.0, int minNeighbors = 6, Op? key = null);
 }
 
-// REBUILT for the dense regular lattice. The octree-era knobs (FullDepth/CgDepth/KernelDepth/Confidence/ConfidenceBias/
-// LinearFit/PrimalGrid) are DROPPED dead parameterization; Degree joins them — mature-validated, receipt-carried, read
-// by no splat or stencil (trilinear IS degree 1); the CG-era Iters/SolverTolerance pair collapsed into the ONE
-// VolumeSolverPolicy row — lattice solves are direct, and every solve on this page gates one way.
+// Dense regular lattice: trilinear interpolation IS degree 1, and every lattice solve routes the one VolumeSolverPolicy
+// as a direct factorization.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PoissonPolicy(
     Dimension Depth, PositiveMagnitude Width, PositiveMagnitude Scale, PositiveMagnitude SamplesPerNode,
@@ -238,9 +233,8 @@ public readonly record struct IsoSurfacePolicy(Dimension MaxRootSteps, long MaxC
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MlsSample(Point3d Position, Vector3d Normal, double Value);
 
-// Kernel/radius/smoothing are Option — evidence absent for the kernel-less modes, never fabricated zeros; the
-// interpolation verdict rides Mode.Status, never a second carried bit. PolynomialDegree is the ACTUAL fitted degree
-// (a Levin policy may override the mode column), so it stays carried.
+// Kernel/radius/smoothing are Option — absent for kernel-less modes, never fabricated zeros; the interpolation
+// verdict rides Mode.Status. PolynomialDegree is the ACTUAL fitted degree, which a Levin policy may override.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ReconstructionReceipt(
     ReconstructionMode Mode, Option<KernelKind> Kernel, Option<double> Radius, Option<double> Smoothing,
@@ -268,8 +262,8 @@ public readonly record struct ReconstructionSample(double Value, ReconstructionS
     internal Fin<TOut> Project<TOut>(Op key);        // typed rows: receipt | double
 }
 
-// Status rides Mode.Status — never a second carried axis. Kernel/Radius are Option like the build receipt: Levin and
-// APSS weight through WeightKernelFamily + Support on their deep receipts — a fabricated KernelKind here would lie.
+// Status rides Mode.Status. Kernel/Radius are Option like the build receipt — Levin and APSS weight through
+// WeightKernelFamily + Support on their deep receipts, so a fabricated KernelKind here would lie.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ReconstructionSampleReceipt(
     ReconstructionMode Mode, Option<KernelKind> Kernel, Option<double> Radius, int SampleCount,
@@ -451,8 +445,7 @@ public readonly record struct IsoSurfaceReceipt(
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceResult(Mesh Mesh, IsoSurfaceReceipt Receipt);
 
-// Spine carriers + memo key records — declared beside their kernels per the Memoized anti-aliasing law; the
-// Meshing/mesh type-keyed slot memoizes by these keys, and the cache never names them.
+// Spine carriers and memo key records for the Meshing/mesh type-keyed Memoized slot, declared beside their kernels.
 internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
 internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
 internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
@@ -474,7 +467,6 @@ public abstract partial record SignedHeatOutcome {
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Reconstruction {
-    // THE one reconstruction entry: the policy case selects the kernel; admission internalized per case.
     public static Fin<ReconstructionResult> Reconstruct(Seq<MlsSample> samples, ReconstructionPolicy policy, Context context, Op? key = null) =>
         key.OrDefault() switch {
             Op op => policy.Switch(
@@ -493,7 +485,7 @@ public static class Reconstruction {
     // or PinConstant singular solve -> density-weighted isovalue gamma. The lattice triple loops are the named kernel.
     private static Fin<ReconstructionResult> BuildPoisson(Seq<MlsSample> samples, PoissonPolicy policy, Context context, Op key);
 
-    // Point evaluators the frozen Spatial/fields cases delegate to (RbfCase/MlsCase/LevinMlsCase/ApssCase/PoissonCase).
+    // Point evaluators the frozen Spatial/fields cases delegate to.
     internal static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key);
     internal static Fin<ReconstructionSample> EvaluateMls(Seq<MlsSample> samples, KernelKind kernel, double radius, Point3d sample, Context context, Op key);
     internal static Fin<(ReconstructionSample Sample, LevinMlsSampleReceipt Levin)> EvaluateLevinMls(Seq<MlsSample> samples, LevinMlsPolicy policy, Point3d sample, Context context, Op key);
@@ -517,9 +509,8 @@ public static class SignedHeatSpine {
                                              .Map(solution => (SignedHeatOutcome)new SignedHeatOutcome.VolumeCase(Solution: solution))),
         };
 
-    // THE one memo composition point per cached row — the Meshing/mesh Memoized slot keyed by the row's key record.
-    // SignConvention and Method stay OUTSIDE the keys: the solution is sign-agnostic (the multiplier applies at
-    // sampling), so both conventions share one cached solve.
+    // THE one memo composition point per cached row, keyed by the row's key record. SignConvention and Method stay
+    // OUTSIDE the keys — the solution is sign-agnostic (the multiplier applies at sampling), so both conventions share one solve.
     internal static Fin<SignedHeatSolution> BoundarySolutionOf(MeshSpace space, SdfMeshPolicy policy, Op key) =>
         space.Cache.Memoized(probe: new BoundarySignedHeatKey(Heat: policy.Heat, Solver: policy.Solver),
             compute: () => ComputeSignedHeatDetailed(space: space, policy: policy, key: key));
@@ -600,13 +591,11 @@ public static class MeshSdf {
         };
     public static Fin<SdfMeshReceipt> Prewarm(MeshSpace space, SdfMeshPolicy policy, Op? key = null);
     private static Fin<SdfMeshReceipt> ReceiptOf(MeshSpace space, SdfMeshPolicy policy, Option<SignedHeatReceipt> signedHeat, Option<TopologyReceipt> topology = default, Option<VolumeGridReceipt> volumeGrid = default);
-    // GWN rides Spatial/index's accelerated Winding query — the ONE distance-field lane: TriangleSoup's
-    // per-triangle boxes build ONE Bvh per MeshSpace (Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh,
-    // boxes, BuildPolicy.Canonical)), memoized under WindingIndexKey in the mesh.md Memoized slot), then
-    // every probe batch is ONE Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Winding(samples,
-    // triangles, policy.WindingBetaSquared))) read SpatialAnswer.Result → QueryResult.Field(double[]).
-    // |w| > 0.5 -> inside -> negative native-ClosestPoint distance; a page-local solid-angle walker is
-    // SpatialIndex owns cached-moment descent and exact leaf solid angles; a local walker is deleted.
+    // GWN rides Spatial/index's accelerated Winding query, the ONE distance-field lane: TriangleSoup's per-triangle
+    // boxes build ONE Bvh per MeshSpace (Spatial.Apply over SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical),
+    // memoized under WindingIndexKey), then every probe batch is ONE Spatial.Apply over SpatialOp.Query with
+    // SpatialQuery.Winding(samples, triangles, policy.WindingBetaSquared), read SpatialAnswer.Result → QueryResult.Field.
+    // |w| > 0.5 -> inside -> negative native-ClosestPoint distance; SpatialIndex owns the solid-angle descent, so a local walker is deleted.
     internal readonly record struct WindingIndexKey;
     internal static Fin<double[]> WindingFieldOf(MeshSpace space, Point3d[] samples, SdfMeshPolicy policy, Op key);
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key);   // singleton batch over WindingFieldOf
@@ -615,8 +604,7 @@ public static class MeshSdf {
     private static Fin<double> InterpolateOnMesh(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key);   // barycentric at ClosestMeshPoint
 }
 
-// Native marching-cubes extraction: prewarm mesh-backed fields, count evaluator failures via Interlocked, classify
-// status from (failures, result); the Op.Catch funnel converts the one native callback boundary.
+// Native marching-cubes: prewarm mesh-backed fields, count evaluator failures via Interlocked, and the Op.Catch funnel converts the one native callback boundary.
 public static class IsoSurface {
     // RhinoCommon-owned evaluator internals — RECORDED as witnesses on the receipt, never chosen here.
     private const double NativeFixedTolerance = 0.001;
@@ -680,7 +668,7 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Each `[RAIL]` names one return rail, and indexed notes name each kind.
+Each `[RAIL]` cell names the one return rail its owner exposes; the per-axis collapse kind rides the indexed notes below.
 
 | [INDEX] | [AXIS_CONCERN]    | [OWNER]                                               | [RAIL]                                        | [CASES] |
 | :-----: | :---------------- | :---------------------------------------------------- | :-------------------------------------------- | :-----: |
@@ -700,18 +688,14 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 - [05]-[TET_DOMAIN]: validated domain, boundary topology derived at admission.
 - [06]-[VOLUME_GRID]: resolution-xor-cellsize + ceiling policy rows.
 - [07]-[ISO_EXTRACTION]: native marching-cubes adapter, failure-classified receipt.
-- [08]-[POLICY_FAMILY]: validated policy records with presets; dead octree knobs + the unread `Degree` dropped, CG-era solver knobs collapsed into `VolumeSolverPolicy`.
+- [08]-[POLICY_FAMILY]: validated policy records with presets over the one `VolumeSolverPolicy` solve gate.
 
-`Reconstruct`, `SignedHeatSpine.Solve`, `BoundarySolutionOf`/`ClosedSolutionOf`, `ComputeSignedHeatDetailed`, `MeshSdf.SignedDistanceDetailed`, and `IsoSurface.Detailed` are transcription-complete; the build kernels (`BuildRbf`/`BuildMls`/`BuildLevin`/`BuildApss`/`BuildPoisson`), the deep evaluators, the tet FEM assembly, the volume-grid row, and the `WindingFieldOf`/`TriangleSoup` index-lane seam are signature-fixed with their bodies the algorithms the terminal `[RESEARCH]` rows specify — each invariant they compute is a gated receipt field (Pratt norm positivity, splat conservation, residual tolerances, watertight admission), so a body cannot silently weaken.
+## [04]-[RESEARCH]
 
-## [04]-[CROSS_PAGE_SEAMS]
-
-- `Spatial/fields` owns the `ScalarField` union and its frozen case names; this page owns the kernels those cases delegate to and the `ReconstructionResult` build product — the field algebra is never re-taught here, and the SDF-primitive rail (`SdfKind`, `SdfStatus`, `SdfSample`) stays that page's own.
-- `Meshing/mesh` owns the `EdgeConnectionCholeskyDetailed`/`Cholesky` factor memos, the type-keyed `Memoized` solver slot, and `SpdMassShift`; this page declares the key records (`BoundarySignedHeatKey`/`ClosedSignedHeatKey`), solutions, kernels, and receipts that slot memoizes, with `SignedHeatSpine.BoundarySolutionOf`/`ClosedSolutionOf` the ONE memo composition point per row — the cache stays the one memo service and names no type of this page.
-- `Meshing/dec` owns the CR system assembly, face-field sampling, and intrinsic divergence the boundary-source row composes; `Numerics/calculus` owns the kernel-profile math; `Numerics/matrix` owns every solve; `Processing/extract` consumes `IsoSurface.Detailed` for its `IsoSurface` extraction case.
-- `Spatial/index` owns the accelerated winding evaluation the GWN row composes: the per-triangle-box Bvh builds once per `MeshSpace` and every probe batch routes ONE `Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Winding(queries, triangles, βSquared)))` read as `SpatialAnswer.Result` → `QueryResult.Field` (a single probe is a 1-length batch) — the ONE distance-field lane; `Spatial/fields` `SignedDistanceFromMeshCase` reaches it THROUGH this page, and a second GWN or solid-angle walker beside it is the deleted duplicate.
-
-## [05]-[RESEARCH]
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
 
 - [RECONSTRUCTION_KERNELS]-[OPEN]: Which transcription-complete bodies close the signature-fixed RBF, MLS, Levin, APSS, and Poisson kernels while preserving their receipt laws?; verify each body against `Numerics/calculus`, `Numerics/matrix`, and the declared residual and orientation gates.
 - [SCREENED_POISSON]-[OPEN]: Which transcription-complete dense-lattice body preserves trilinear normal splats, one-sided seven-point stencils, screening outer products, explicit boundary rows, and `UnscreenedEquivalence`?; verify definite and pinned-singular routes against `CholeskySparse` and `SingularSolveDetailed`.

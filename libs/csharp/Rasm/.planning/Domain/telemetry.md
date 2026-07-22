@@ -1,26 +1,26 @@
 # [RASM_TELEMETRY]
 
-Kernel signal owner (`Rasm.Domain`, `Domain/Telemetry.cs`) — the C# branch's one OTel-free signal capsule and the kernel's own receipt-as-truth consumption of it, with ZERO OpenTelemetry reference. This page mints the generic mechanism every stratum composes downward — `HookId`, `HookModality`, `HookPoint<TFact>`, `HookRegistry`, `InstrumentRow`/`InstrumentSet`, `Buckets`, `LevelCells`, `ReceiptFan`, `TelemetryContributorPort`, `TelemetryIdentity` — and its FIRST consumer: `SignalFact` the kernel fact union, `SignalRail` the keyed composition instance, `KernelInstruments` the `rasm.kernel` UCUM set, `OpCost`/`CostMark` the op-cost capsule, and `BenchClaim`/`BenchLedger` the enumerable speed-claim fold. A folder above this stratum composes an INSTANCE of the capsule against its own fact union; the capsule TYPE has one home.
+`Rasm.Domain` (`Domain/Telemetry.cs`) owns the C# branch's one OTel-free signal capsule — the generic hook, instrument, and receipt mechanism every stratum composes downward as an instance — and is its own first consumer. One home holds the capsule TYPE; a stratum above composes an INSTANCE against its own fact union, never a second capsule type.
 
-App-neutrality is absolute: every capsule, registry, meter set, rail, and ledger is instance-owned and composition-entered — no process-global static, no ambient meter, no registry slot two apps fight over. Dependency-cleanliness draws the capsule's split line: this page carries BCL `System.Diagnostics.Metrics`, LanguageExt, and Thinktecture alone; OTel-SDK wiring, exporters, sampling, the source roster, and the correlation-and-tenant-laced receipt envelope stay at the app platform, which maps plain contributor scope strings into its own meter and source admission. Fire is synchronous from any stratum; an effect-rail caller lifts `Fire` at its own composition seam and the capsule never threads a caller's rail.
+Every owner is instance-owned and composition-entered — the evidence cell, meter, and registry arrive from the composing app, so two compositions never contend for one slot. Dependency split draws the boundary: this page carries `System.Diagnostics.Metrics`, LanguageExt, and Thinktecture; OTel-SDK wiring, exporters, sampling, the source roster, and the correlation-and-tenant-laced receipt envelope stay at the app platform. Fire is synchronous from any stratum.
 
 ## [01]-[INDEX]
 
-- [02]-[SIGNAL_CAPSULE]: `HookId` grammar; `HookModality` veto/observe/replay rows with `CanVeto`; `IHookPoint` floor; `HookPoint<TFact>` the one synchronous-fire capsule; `IsolatedFault` + `HookDetacher`; `HookRegistry` the frozen composition mount.
-- [03]-[INSTRUMENT_MECHANISM]: `Buckets` the one advice holder with `Advised<T>`; `InstrumentRow`/`InstrumentSet`; `LevelCells` the keyed level owner with `Reader`; `InstrumentArm`/`ReceiptFan` the kind-keyed projection fold; `TelemetryContributorPort`; `TelemetryIdentity.Mint`.
-- [04]-[SIGNAL_TAP]: `KernelDomain` sub-domain vocabulary; `SignalFact` the kernel fact `[Union]`; `SignalRail` the keyed capsule instance; `TelemetrySink` the composition capsule; `KernelInstruments` the `rasm.kernel` rows, capsule, and contributor port; `TraceScope` and `SpanBand` the composition trace band.
-- [05]-[OP_COST]: `CostMark` capture pair and `OpCost` evidence — elapsed, allocated bytes, item count per `Op` key.
-- [06]-[BENCH_LEDGER]: `BenchClaim` typed speed-claim row and `BenchLedger` the duplicate-refusing enumerable fold the corpus gate ingests.
+- [02]-[SIGNAL_CAPSULE]: `HookPoint<TFact>` fires one synchronous point over the id grammar, veto/observe/replay modality, and the frozen registry.
+- [03]-[INSTRUMENT_MECHANISM]: `Buckets` advice, `LevelCells` levels, and the `ReceiptFan` kind-keyed wire-projection fold.
+- [04]-[SIGNAL_TAP]: `SignalFact` and its keyed rail, `TelemetrySink.Tap` the one emission entry, the `rasm.kernel` meters and trace band.
+- [05]-[OP_COST]: `OpCost` bills each `Op` — elapsed, allocated bytes, and item count.
+- [06]-[BENCH_LEDGER]: `BenchClaim` rows fold into the duplicate-refusing `BenchLedger` the corpus gate ingests.
 
 ## [02]-[SIGNAL_CAPSULE]
 
-- Owner: `HookId` `[ValueObject<string>]` — the point name under the one estate grammar `rasm.<pkg>.<domain>.<point>`, admitted at declaration so a malformed id is a typed refusal, never a silent registry miss. `HookModality` `[SmartEnum<string>]` — `Veto` (a subscriber may transform or refuse; `CanVeto` is the row's own column, so veto admission is row data, never a subscriber-supplied flag), `Observe` (fault-isolated tap), `Replay` (observe with a bounded buffer late subscribers drain). `HookPoint<TFact>` — the one typed point capsule over the `IHookPoint` floor; `IsolatedFault` the parked subscriber-failure evidence row; `HookDetacher` the disposable detacher every subscription returns; `HookRegistry` the composition-time mount folding declared points into one frozen id-keyed table.
-- Entry: `Fire` discriminates by call shape — `Fire(TFact) → Fin<TFact>` publishes a settled fact, `Fire<T>(TFact, Func<Fin<T>>) → Fin<T>` guards a seam body so vetoes refuse BEFORE the guarded action and observe taps run only from its success path; `Veto`, `Observe`, and `Drain` are the subscriber entries. Delegate admission rejects a null before use — a guarded `Fire` body and a `Veto` gate refuse on the typed rail, `Observe` throws at its immediate argument contract — so no null delegate reaches mount or dispatch.
-- Auto: fire order is law — retention first (replay truth is the last fact even under veto refusal), the veto fold second (vetoes fold left in registration order through `Bind`, the first refusal is the verdict, parked beside the return), observe taps last, forked through `IO.Fork` before their shielded execution so the synchronous fire path returns without waiting; a fork refusal or throwing tap parks as `IsolatedFault` on the composition's evidence cell and delivery continues to the remaining taps; a replay point prunes its buffer to `depth` oldest-first on every fire, and a fresh subscriber receives the held window on attach.
-- Receipt: a hook fire is the evidence event itself — the emitter's typed receipt already carries the fact, so a point mints nothing; the shared `Atom<Seq<IsolatedFault>>` cell is the one evidence surface — veto refusals and shielded tap faults, point-attributed — drained by the composing app or projected onto a rejects counter through the cell's `Change` tap.
+- Owner: `HookId` keys points under the estate grammar `rasm.<pkg>.<domain>.<point>`; `HookModality` carries `CanVeto` as row data, so veto admission is the modality's own column, never a subscriber-supplied flag — `Veto` transforms or refuses, `Observe` taps fault-isolated, `Replay` buffers for late drain.
+- Entry: `Fire` discriminates by call shape — unary publishes a settled fact, the guarded form refuses vetoes BEFORE the seam body and runs observe taps only from its success path; `Veto`, `Observe`, and `Drain` are the subscriber entries. A null delegate refuses on the typed rail (`Fire`, `Veto`) or throws at `Observe`'s argument contract, so no null reaches mount or dispatch.
+- Auto: fire order is law — retention first so replay truth is the last fact even under a veto refusal; the veto left-fold second, its first refusal the verdict parked beside the return; observe taps last, each forked before its shielded run so the synchronous path returns without waiting. A fork refusal or throwing tap parks as `IsolatedFault` and delivery continues; a replay point prunes its buffer to `depth` oldest-first per fire and hands a fresh subscriber the held window on attach.
+- Receipt: a point mints nothing — the fire IS the evidence event, the emitter's typed receipt already carrying the fact; one shared fault cell records veto refusals and shielded tap faults point-attributed, drained by the composing app or projected onto a rejects counter through its `Change` tap.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new delivery semantics is one `HookModality` row breaking every modality dispatch at compile time; a consuming folder's new hook point is one declared `HookPoint<TFact>` value on its own point vocabulary — the capsule type never widens per folder.
-- Boundary: the payload type closes at declaration — `TFact` is a typed record or union case from the owning folder, so a stringly payload cannot enter the rail; subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling — isolation is structural because every tap runs inside its own shield; a caller on an effect rail lifts the synchronous fire at its composition seam (`IO.lift(() => point.Fire(fact))`), and a second capsule type threading fire onto an effect rail is the two-shape drift this owner exists to delete; the evidence cell arrives from the owning composition, so two compositions hold two cells.
+- Growth: a new delivery semantics is one `HookModality` row breaking every modality dispatch at compile time; a consuming folder's new point is one `HookPoint<TFact>` value on its own vocabulary — the capsule type never widens per folder.
+- Boundary: `TFact` closes at declaration as a typed record or union case from the owning folder, so a stringly payload cannot enter the rail; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -30,8 +30,6 @@ using Rasm.Csp;
 namespace Rasm.Domain;
 
 // --- [TYPES] --------------------------------------------------------------------------------
-// Point-name grammar rasm.<pkg>.<domain>.<point> — four dot-separated lowercase segments, rasm first —
-// one spelling discipline serving hook points, instrumentation scopes, and metric names.
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -71,9 +69,7 @@ public interface IHookPoint {
     Type Fact { get; }
 }
 
-// One synchronous fire from any stratum: retain, veto-fold, then fork-and-shield the observe fan; the
-// evidence cell arrives from the owning composition — never a process-static — so two compositions hold
-// two cells, and an effect-rail caller lifts Fire at its own seam.
+// Evidence cell is a ctor param from the owning composition, never process-static — two compositions hold two cells.
 public sealed class HookPoint<TFact> : IHookPoint {
     private readonly HookId id;
     private readonly HookModality modality;
@@ -97,9 +93,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
 
     public Fin<TFact> Fire(TFact fact) => Fire(fact: fact, body: Fin.Succ);
 
-    // Guarded shape: veto precedes the seam body, taps fan only from its success path — one capsule, two
-    // call shapes, the input discriminating; a null body refuses on the rail before retention, matching
-    // every delegate admission on this capsule.
+    // Null body refuses on the rail before retention, matching every delegate admission on this capsule.
     public Fin<T> Fire<T>(TFact fact, Func<Fin<T>> body) =>
         body is null
             ? Fin.Fail<T>(new Fault.InvalidValue(Label: Id.ToString(), Requirement: "a guarded fire requires a non-null body"))
@@ -137,8 +131,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
 
     private Unit Dispatch(TFact fact) => ignore(taps.Value.Iter(tap => Forked(fact: fact, tap: tap)));
 
-    // Fork before forcing: IO.Fork queues on the thread pool and Run forces only the fork operation —
-    // never the subscriber body; fork and subscriber faults share one parked-evidence arm.
+    // Fork before forcing: Run forces only the fork queue, never the subscriber body; fork and subscriber faults share one parked-evidence arm.
     private Unit Forked(TFact fact, Func<TFact, IO<Unit>> tap) =>
         Try.lift(() => IO.lift(() => Shielded(fact: fact, tap: tap)).Fork(None).Run()).Run().Match(
             Succ: static _ => unit,
@@ -157,8 +150,7 @@ public sealed class HookPoint<TFact> : IHookPoint {
     }
 }
 
-// Composition-time mount: the frozen table is the audit surface, a duplicate id throws at composition,
-// and a fired id outside it is unreachable because firing requires the declared point value.
+// Frozen mount table is the audit surface; a fired id outside it is unreachable because firing requires the declared point value.
 public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
     public static HookRegistry Mount(params ReadOnlySpan<IHookPoint> points) =>
         new(Points: points.ToArray().ToFrozenDictionary(static point => point.Id.ToString(), static point => point, StringComparer.Ordinal));
@@ -167,12 +159,12 @@ public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
 
 ## [03]-[INSTRUMENT_MECHANISM]
 
-- Owner: `Buckets` — the one explicit-bucket advice holder: every stratum reads its named bound row here and binds it through the one generic `Advised<T>`, so a folder-local bound array is the forked-policy defect. `InstrumentRow` — the instrument declaration row (dotted name, UCUM unit, description, bind delegate whose created type IS the instrument kind, the closed per-instrument tag-key vocabulary) with `Observable<T>` the admitted state-reader row mint. `InstrumentSet` — the mounted-instrument capsule owning the composition's `LevelCells` and name-keyed tagged writes. `LevelCells` — the composition-owned level holder: scalar levels and keyed families swap by name, and `Reader` hands each observable gauge its collection-cadence callback. `InstrumentArm`/`ReceiptFan` — the kind-keyed projection fold every wire-borne fan composes. `TelemetryContributorPort` — the string-scoped contributor row set an app platform merges by scope. `TelemetryIdentity` — the one `(ActivitySource, Meter)` mint over `IMeterFactory.Create(MeterOptions)`.
-- Entry: `InstrumentSet.Of(Meter, LevelCells, Seq<InstrumentRow>)` materializes a roster once over a minted meter and the admitted state holder; `InstrumentRow.Observable<T>(name, unit, description, dimensions)` binds one state-reader projection through the cataloged `Meter.CreateObservableGauge<T>` row, and `InstrumentSet.Bind<T>(name, read)` seats the live owner callback its gauge reads at collection cadence; `LevelCells.Level` discriminates scalar versus keyed by call shape and `Reader` the scalar versus tagged-measurement callback the same way; `ReceiptFan.Of(set, tables)` merges contributed arm tables — a duplicate kind throws at the frozen merge — and `Project(kind, payload)` folds one payload through the mounted arm and its set-owned cells; `TelemetryIdentity.Mint(factory, scope, version, schemaUrl, tags)` mints the pair, stamping the semconv coordinate as `MeterOptions.TelemetrySchemaUrl`.
-- Auto: instrument identity de-duplicates by name inside a meter, so name, unit, description, and the state-reader projection are declaration facts a row carries once and an inline create with a drifted unit is the forked-stream defect; a keyed level family projects each map entry as one tagged `Measurement<long>` through the multi-measurement observe overload, so per-key cardinality rides ONE instrument and a per-key instrument mint is the deleted form; an unmapped kind projects nothing and stays receipt-only by declaration.
+- Owner: `Buckets` is the one advice holder — every stratum reads a named bound row and binds it through `Advised<T>`, so a folder-local bound array is the forked-policy defect; an `InstrumentRow`'s bind delegate whose created type IS the instrument kind fuses declaration and kind in one row.
+- Entry: `LevelCells.Level` and `Reader` each discriminate scalar versus keyed by call shape; `ReceiptFan.Of` merges contributed arm tables and a duplicate kind throws at the frozen merge; `Mint` stamps the semconv coordinate as `MeterOptions.TelemetrySchemaUrl`.
+- Auto: instrument identity de-duplicates by name inside a meter, so a row carries name, unit, and state-reader once and an inline create with a drifted unit is the forked-stream defect; a keyed level family projects each map entry as one tagged `Measurement<long>`, so per-key cardinality rides ONE instrument and a per-key instrument mint is the deleted form; an unmapped kind projects nothing and stays receipt-only.
 - Packages: LanguageExt.Core, BCL inbox (`System.Diagnostics.Metrics`, `System.Diagnostics.DiagnosticSource`, `System.Text.Json`).
-- Growth: a new bucket policy is one `Buckets` row; a new instrument kind is a bind delegate at its declaring row; a new projected kind is one arm-table row in the contributing folder; a new level family is one `Level` write site and one `Reader`-bound gauge row.
-- Boundary: the contributor port self-identifies by plain `string` scope — the app platform maps scope strings into its own meter and source admission, so a contributor never names a platform type and the port crosses every stratum legally; meter and instrument lifetime ride the minting factory — provider disposal owns them, so no capsule retains a meter handle or disposes one; a `new Meter(...)` construction is the rejected form everywhere.
+- Growth: a new bucket policy is one `Buckets` row, a new instrument kind a bind delegate at its declaring row, a new projected kind one arm-table row in the contributing folder, a new level family one `Level` write site and one `Reader`-bound gauge row.
+- Boundary: `TelemetryContributorPort` self-identifies by plain `string` scope — the app platform maps it into its own meter and source admission, so a contributor never names a platform type and crosses every stratum legally; meter and instrument lifetime ride the minting factory, so no capsule retains a meter handle or disposes one, and a `new Meter(...)` construction is the rejected form everywhere.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -186,8 +178,7 @@ using Rasm.Csp;
 namespace Rasm.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// One advice holder: named bound rows are estate policy data, and the fallback a backend without
-// base2-exponential histograms reads.
+// Named bound rows are estate policy data — the fallback a backend without base2-exponential histograms reads.
 public static class Buckets {
     public static readonly ImmutableArray<double> HopSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
     public static readonly ImmutableArray<double> RemoteSeconds = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30];
@@ -243,8 +234,6 @@ public sealed record InstrumentRow(
 public sealed record TelemetryContributorPort(string Scope, string Version, string SchemaUrl, Seq<InstrumentRow> Instruments);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Composition-owned level holder: Level and Reader each discriminate scalar versus keyed by call shape;
-// a keyed family reads whole at collection cadence as tagged measurements of ONE instrument.
 public sealed class LevelCells {
     private readonly Atom<HashMap<string, double>> scalars = Atom(HashMap<string, double>());
     private readonly Atom<HashMap<(string Family, string Key), long>> families = Atom(HashMap<(string Family, string Key), long>());
@@ -303,8 +292,7 @@ public sealed record InstrumentSet(FrozenDictionary<string, Instrument> ByName, 
 
 public delegate void InstrumentArm(InstrumentSet set, LevelCells cells, JsonElement payload);
 
-// Kind-keyed projection fold: the arm table is the parameter, a duplicate kind across contributed
-// tables throws at the frozen merge, and arm bodies are the one place wire names meet instrument writes.
+// Arm bodies are the one place wire names meet instrument writes.
 public sealed record ReceiptFan(InstrumentSet Set, FrozenDictionary<string, InstrumentArm> Arms) {
     public static ReceiptFan Of(InstrumentSet set, params ReadOnlySpan<FrozenDictionary<string, InstrumentArm>> tables) =>
         new(Set: set, Arms: toSeq(tables.ToArray())
@@ -330,14 +318,14 @@ public static class TelemetryIdentity {
 
 ## [04]-[SIGNAL_TAP]
 
-- Owner: `KernelDomain` `[SmartEnum<string>]` — the nine sub-domain rows mirroring the folder map (`domain` · `numerics` · `spatial` · `parametric` · `meshing` · `processing` · `solving` · `drawing` · `analysis`), each deriving its `SourceName` (`rasm.rasm.<domain>`) and minting point ids through `Point` — span-source name and hook-point prefix are ONE derivation off the row key, never two spellings. `SignalFact` — the kernel fact `[Union]` whose abstract `At` projects each case's own `Point` storage — one identity, `with`-safe by construction. `SignalRail` — the keyed composition instance of the capsule: composition declares each receipt-named point before emission, and every instance shares one evidence cell. `TelemetrySink` — the composition capsule `Env` carries, with `Tap` the one polymorphic emission entry. `KernelInstruments` — the `rasm.kernel` UCUM rows, the typed write capsule, and the kernel's own string-scoped contributor port. `TraceScope` admits one instrumentation-scope name; `SpanBand` mints one `ActivitySource` per kernel or external scope row and owns the rail-valued bracket.
-- Cases: `SignalFact` cases `ReceiptCase(HookId, Op, IValidityEvidence)` · `FaultCase(HookId, Op, Error)` · `CostCase(HookId, OpCost)` with the `Cost`/`Fault`/`Receipt` factories deriving canonical points (`<domain>.cost`, `<domain>.fault`, caller-named for receipts).
-- Entry: `SignalRail.Point(HookId, HookModality)` declares-or-resolves a point — first declaration fixes modality — and `Publish(SignalFact) → Fin<SignalFact>` admits only that declared point before firing; `TelemetrySink.Tap(SignalFact) → Fin<SignalFact>` discriminates on the fact case through the generated `Switch`, writes instruments, then publishes — no `RecordCost`/`CountFault`/`PublishReceipt` verb family.
-- Auto: instrument writes ride the tagged `params ReadOnlySpan` writes with the op key and domain as tag rows; a veto binds only at gate points consulted BEFORE the guarded action — a post-hoc fact publishes for observation and its veto verdict is advisory, discarded by the emitting runtime — and a refusal travels the same `Fin` rail every kernel failure travels.
-- Receipt: fact payloads are evidence, never live resources — `ReceiptCase` carries the receipt value (every kernel receipt implements `IValidityEvidence`), `FaultCase` carries the already-lowered `Error` (both fault families — the substrate `Fault` union and the band-2400 `GeometryFault` — arrive as `Error`, so one case serves both), and no case retains geometry, leases, or handles; both fault families land in ONE counter discriminated by tags, never two counters.
+- Owner: `KernelDomain` rows derive both `SourceName` (`rasm.rasm.<domain>`) and their point ids off one row key — span source and hook-point prefix are ONE derivation, never two spellings. `SignalFact`'s abstract `At` projects each case's own `Point` storage, so identity moves `with`-safe. `SignalRail` is the keyed capsule instance; `TelemetrySink` the composition capsule `Env` carries.
+- Cases: `ReceiptCase`, `FaultCase`, and `CostCase`; the `Receipt`/`Fault`/`Cost` factories derive canonical points — `<domain>.cost`, `<domain>.fault`, caller-named for receipts.
+- Entry: `SignalRail.Point` declares-or-resolves a point, the first declaration fixing its modality, and `Publish` admits only a declared point before firing; `TelemetrySink.Tap` discriminates on the fact case through the generated `Switch`, writes instruments, then publishes — one entry, never a `RecordCost`/`CountFault`/`PublishReceipt` verb family.
+- Auto: instrument writes carry the op key and domain as tag rows; a veto binds only at gate points consulted BEFORE the guarded action, so a post-hoc fact publishes for observation with its veto verdict advisory, and a refusal travels the same `Fin` rail every kernel failure travels.
+- Receipt: fact payloads are evidence, never live resources — `ReceiptCase` carries the receipt value, `FaultCase` the already-lowered `Error` (both the substrate `Fault` union and the band-2400 `GeometryFault` arrive as `Error`, so one case serves both), and no case retains geometry, leases, or handles; both fault families land in ONE tag-discriminated counter, never two.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new fact kind is one `SignalFact` case and one `Tap` arm; a new instrument is one `KernelInstruments` row and one write in the owning arm; a new sub-domain is one `KernelDomain` row — span source and point prefix derive; a package trace plane is one `TraceScope` row admitted when the composition mints its band.
-- Boundary: the sink is composition-entered — an app stratum mints one `TelemetrySink.Of(factory)` per composition and threads it (the analysis runtime carries it on `Env`; a synchronous kernel below the `Eff` floor that hosts a gate point takes the sink as an explicit trailing parameter per the rails threading law); a kernel page never constructs, caches, or reaches an ambient sink; instrument custody is one-per-composition — either `TelemetrySink.Of` materializes the rows or an app fan materializes the `KernelInstruments.Telemetry` port, never both; the kernel emits the `rasm.kernel` meter natively, and the app root admits every source row the band mints; `HasListeners` gates every bracket, so an unlistened span costs one null test and a failing rail lands `SetStatus(ActivityStatusCode.Error, message)` — the typed verdict, never an error tag. Package strata compose external scope rows into this band instead of minting a second bracket owner.
+- Growth: a new fact kind is one `SignalFact` case and one `Tap` arm; a new instrument one `KernelInstruments` row and one write in the owning arm; a new sub-domain one `KernelDomain` row, span source and point prefix deriving; a package trace plane one `TraceScope` row admitted when the composition mints its band.
+- Boundary: `TelemetrySink` is composition-entered — an app stratum mints one `TelemetrySink.Of(factory)` per composition and threads it on `Env` or as an explicit trailing parameter to a synchronous kernel below the `Eff` floor per the rails threading law, and a kernel page never constructs, caches, or reaches an ambient sink. Instrument custody is one-per-composition — `TelemetrySink.Of` or an app fan materializes the `KernelInstruments.Telemetry` port, never both. `HasListeners` gates every bracket, so an unlistened span costs one null test and a failing rail lands `SetStatus(ActivityStatusCode.Error, message)`, the typed verdict never an error tag; a package stratum composes its external scope rows into this band, never a second bracket owner.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -363,7 +351,6 @@ public sealed partial class KernelDomain {
     public static readonly KernelDomain Drawing = new("drawing");
     public static readonly KernelDomain Analysis = new("analysis");
 
-    // One derivation serves the span source AND the hook-point prefix — two spellings is the drift.
     public TraceScope Trace => TraceScope.Create(value: $"rasm.rasm.{Key}");
     public string SourceName => Trace.ToString();
 
@@ -387,8 +374,7 @@ public readonly partial struct TraceScope {
 public abstract partial record SignalFact {
     private SignalFact() { }
 
-    // One identity: each case's Point is the storage and At its derived projection, so a `with` rewrite
-    // moves both together — a second stored copy is the divergence this shape forbids.
+    // At projects each case's stored Point — a second stored copy diverges under `with`.
     public abstract HookId At { get; }
 
     public sealed record ReceiptCase(HookId Point, Op Key, IValidityEvidence Receipt) : SignalFact { public override HookId At => Point; }
@@ -401,8 +387,6 @@ public abstract partial record SignalFact {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Keyed instance of the one capsule over the kernel's receipt-named point space; composition declares
-// every point before firing, and the first declaration fixes its modality.
 public sealed class SignalRail {
     private readonly Atom<HashMap<HookId, HookPoint<SignalFact>>> points = Atom(HashMap<HookId, HookPoint<SignalFact>>());
 
@@ -418,8 +402,6 @@ public sealed class SignalRail {
             .Bind(point => point.Fire(fact: fact));
 }
 
-// Meter and instrument lifetime ride the minting factory — provider disposal owns them, so the capsule
-// retains no meter handle and disposes nothing.
 public sealed class KernelInstruments {
     public const string MeterName = "rasm.kernel";
     private const string OpDuration = "rasm.kernel.op.duration";
@@ -490,8 +472,6 @@ public sealed class TelemetrySink {
     }
 }
 
-// One trace band per composition: kernel domains arrive automatically and package planes enter as
-// admitted TraceScope rows; the unlistened path costs one probe.
 public sealed class SpanBand : IDisposable {
     private readonly FrozenDictionary<string, ActivitySource> sources;
 
@@ -523,10 +503,10 @@ public sealed class SpanBand : IDisposable {
 
 ## [05]-[OP_COST]
 
-- Owner: `CostMark` — the capture pair (`Stopwatch.GetTimestamp()` monotonic tick, `GC.GetAllocatedBytesForCurrentThread()` allocation counter) minted by `Start()` before the guarded work; `Stop` folds the pair into `OpCost`. `OpCost` — the uniform op-cost evidence: `Op` key, owning `KernelDomain`, `Stopwatch.GetElapsedTime` wall span, thread-local allocated-byte delta, item count, and the success bit — the kernel-side billing-truth feed the app strata attribute to tenants.
-- Law: the capsule is captured once at the operation runtime — the analysis `Operation.Apply` marks before its body fold (the `Prepare` gate runs inside the marked window, so admission cost is charged to the operation that demanded it) and charges on BOTH exits: the success leg records `Succeeded: true`, the fail leg records `Succeeded: false` AND publishes the fault fact, so cost and failure evidence never diverge.
-- Law: the allocation delta is thread-local evidence — valid because the synchronous runtime collapse runs the marked window on one thread; a lane that hops threads keeps elapsed truth and reads the delta as an allocation floor, never a total.
-- Boundary: `OpCost` registers `IValidityEvidence` so the fact reaches the one acceptance oracle like every kernel receipt; the capsule never wraps a second timer or a sampling profiler — profile capture is the app stratum's, this row is the per-op scalar truth.
+- Owner: `CostMark` is the capture pair — a monotonic tick and the thread allocation counter, minted by `Start()` before the guarded work and folded by `Stop` into `OpCost`. `OpCost` is the uniform per-op evidence (`Op` key, owning `KernelDomain`, wall span, allocated-byte delta, item count, success bit) — the kernel-side billing truth the app strata attribute to tenants.
+- Law: one capture per operation runtime — `Operation.Apply` marks before its body fold, the `Prepare` gate inside the marked window so admission cost charges to the operation that demanded it, and charges on BOTH exits: the success leg records `Succeeded: true`, the fail leg `Succeeded: false` and publishes the fault fact, so cost and failure evidence never diverge.
+- Law: allocation delta is thread-local evidence, valid because the synchronous runtime runs the marked window on one thread; a thread-hopping lane keeps elapsed truth and reads the delta as an allocation floor, never a total.
+- Boundary: `OpCost` registers `IValidityEvidence`, so the fact reaches the one acceptance oracle like every kernel receipt; the capsule never wraps a second timer or a sampling profiler — profile capture is the app stratum's, this row the per-op scalar truth.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -558,10 +538,10 @@ public readonly record struct CostMark(long Timestamp, long Allocated) {
 
 ## [06]-[BENCH_LEDGER]
 
-- Owner: `BenchClaim` — the typed speed-claim row: `Claim` the `Op` key naming the gated lane, `VectorizedLane` and `ReferenceLane` the exact member spellings under measurement, `SpeedupFloor` the admission threshold the corpus gate enforces; registers `IValidityEvidence`. `BenchLedger` — the enumerable fold: `Of(params ReadOnlySpan<BenchClaim>)` refuses an invalid row and a duplicate claim key typed, `Rows` is the enumeration the corpus gate ingests, and `Unproven(Seq<Op>)` returns every claim lacking a proven receipt — an unproven speed claim is a visible ledger defect, never a prose hunt.
-- Law: claim rows live BESIDE the lanes they gate — `Simplify.HausdorffClaim` (the `TensorPrimitives.Max` distance reduction), `Parametric.FrameDefectClaim` (the station-frame orthogonality reduction), `Surfaces.CurvatureSummaryClaim` (the curvature-band extrema reductions), and `Flatten.DistortionClaim` (the distortion-receipt folds) are `static readonly` rows on their owning pages; the ledger composes rows at the app composition root (`BenchLedger.Of([Simplify.HausdorffClaim, Parametric.FrameDefectClaim, Surfaces.CurvatureSummaryClaim, Flatten.DistortionClaim])`) because the substrate floor never references an upper stratum.
-- Law: a claim is correctness-independent — the vectorized lane's RESULT never depends on the claim holding; the claim gates only the lane's admission to the hot path, and a lane whose speed claim fails the gate reverts to its reference row with zero behavior change.
-- Boundary: the AppHost corpus gate reads `Rows` and resolves each claim to its `BenchmarkReceipt` verdict; judging, regression budgets, and host evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
+- Owner: `BenchClaim` is the typed speed-claim row — the `Op` key naming the gated lane, the exact vectorized and reference member spellings under measurement, and the `SpeedupFloor` the corpus gate enforces. `BenchLedger` is the enumerable fold: `Of` refuses an invalid row and a duplicate claim key on the typed rail, `Rows` is the enumeration the corpus gate ingests, and `Unproven` returns every claim lacking a proven receipt, so an unproven speed claim is a visible ledger defect, never a prose hunt.
+- Law: claim rows live BESIDE the lanes they gate as `static readonly` rows on their owning pages, and the app composition root composes them into the ledger — the substrate floor never references an upper stratum, so the ledger cannot mint the rows itself.
+- Law: a claim is correctness-independent — the vectorized lane's result never depends on it; the claim gates only admission to the hot path, and a lane whose claim fails reverts to its reference row with zero behavior change.
+- Boundary: `Rasm.AppHost`'s corpus gate reads `Rows` and resolves each claim to its `BenchmarkReceipt` verdict; judging, regression budgets, and host-evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -613,7 +593,7 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. Growth: a new fact kind is one `SignalFact` case and one `Tap` arm; a new instrument is one row and one write in the owning arm; a new sub-domain is one `KernelDomain` row (span source and point prefix derive); a new speed-gated lane is one `BenchClaim` row on its owning page and one composition-root ledger entry; a new stratum consumer is one composed instance of the capsule, never a re-declared type.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface, and a stratum consumer is one composed instance of the capsule, never a re-declared type.
 
 | [INDEX] | [AXIS_CONCERN]     | [OWNER]                               | [RAIL]                              | [CASES] |
 | :-----: | :----------------- | :------------------------------------ | :---------------------------------- | :-----: |
@@ -632,4 +612,9 @@ One owner per axis; capability is a case, row, or fold arm, never a sibling surf
 
 ## [08]-[RESEARCH]
 
-- [VETO_GATE_SITES]-[OPEN]: which kernel gate points consult `Veto` before their guarded action — the analysis `Prepare` fold is the natural first site (`rasm.rasm.analysis.prepare`, refusal routed as the operation's own `Fault` case) and the arrangement/decimate budget gates are candidates, with one subscriber-empty `Publish` per operation owing a dictionary-miss cost; land the first veto consultation on `Analysis/query.md` `Prepare` and verify the empty-rail fast path against the `BenchLedger` gate.
+<!-- source-only: research row template:
+[TOKEN]-[OPEN|BLOCKED]: <exact question>; <verification route>.
+[SPLIT_MEMBER]-[OPEN]: does `shape-core` expose `split_all`; verify against the member rail.
+-->
+
+- [VETO_GATE_SITES]-[OPEN]: which kernel gate points consult `Veto` before their guarded action, and what dictionary-miss cost a subscriber-empty `Publish` owes per operation; land the first consultation at `Analysis/query.md` `Prepare` and measure the empty-rail fast path against the `BenchLedger` gate.
