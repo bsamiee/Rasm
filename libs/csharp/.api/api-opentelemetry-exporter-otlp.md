@@ -1,6 +1,6 @@
 # [RASM_API_OPENTELEMETRY_EXPORTER_OTLP]
 
-`OpenTelemetry.Exporter.OpenTelemetryProtocol` pushes every signal to the collector gateway as OTLP frames: one `UseOtlpExporter()` claims traces, metrics, and logs on a hosted root, and per-signal `AddOtlpExporter` seats the same egress on hostless plugin builders.
+`OpenTelemetry.Exporter.OpenTelemetryProtocol` pushes every signal — traces, metrics, and logs — to the collector gateway as OTLP frames over gRPC or HTTP/protobuf, on hosted and hostless roots alike.
 
 ## [01]-[PACKAGE_SURFACE]
 

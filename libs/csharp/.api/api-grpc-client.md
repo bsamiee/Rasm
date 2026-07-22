@@ -269,7 +269,6 @@
 - Remote calls enter through client channels; server hosting stays outside this package graph.
 - `ServiceConfig` stays unset under `DisableResolverServiceConfig = true`, because the AppHost keyed pipeline owns hop retry and a second retry owner stacks budgets.
 - `StaticResolverFactory` admits a DNS-free fixed-endpoint set; a custom `LoadBalancer` or `SubchannelPicker` is composition-root work, never a call-path decision.
-- Generated clients are typed edge adapters over the request and receipt algebra.
 
 [RAIL_LAW]:
 - Package: `Grpc.Net.Client`

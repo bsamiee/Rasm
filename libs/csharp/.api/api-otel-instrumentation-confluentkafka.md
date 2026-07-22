@@ -1,6 +1,6 @@
 # [RASM_API_OTEL_INSTRUMENTATION_CONFLUENTKAFKA]
 
-`OpenTelemetry.Instrumentation.ConfluentKafka` owns messaging-semconv emission on the Kafka wire: instrumented builders subclass the Confluent builders so every client they mint spans and meters its own traffic, publish injects W3C context into Kafka `Headers`, and consume extracts it back. One name — `OpenTelemetry.Instrumentation.ConfluentKafka` — serves both its `ActivitySource` and its `Meter`.
+`OpenTelemetry.Instrumentation.ConfluentKafka` owns messaging-semconv emission on the Kafka wire: instrumented builders subclass the Confluent builders so every client they mint spans and meters its own traffic under one instrumentation name serving both the `ActivitySource` and the `Meter`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -53,19 +53,19 @@
 |  [10]   | `TryExtractPropagationContext(ConsumeResult, out PropagationContext) -> bool`            | static   | W3C context off message headers  |
 
 - `ConsumeAndProcessMessageAsync`: binds only a consumer `InstrumentedConsumerBuilder.Build()` minted; any other instance faults at the call.
-- `AddKafkaProducerInstrumentation`: builder-less overloads resolve the instrumented builder from DI, keyed when the name argument rides, and set the matching flag on it.
+- `AddKafkaProducerInstrumentation`: builder-less overloads resolve the instrumented builder from DI, keyed when the `name` argument rides.
 - `TryExtractPropagationContext`: a header-free message returns `true` on the default context, so callers discriminate on the extracted `ActivityContext`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
 - build root: `InstrumentedProducerBuilder` and `InstrumentedConsumerBuilder` are the client mints on this wire, so admission binds the builder instance the root registered or resolves.
-- context root: publish injects span context and current `Baggage` into Kafka `Headers` through `Propagators.DefaultTextMapPropagator`; consume extracts through the same propagator and hangs the producer context on the process span as a link, so each leg keeps its own trace id.
-- flag root: `EnableTraces` and `EnableMetrics` ride the two options classes; a root-registered admission verb sets its own flag on the builder it binds, and a code-built lift carries the options record.
+- context root: publish injects span context and current `Baggage` into Kafka `Headers` through `Propagators.DefaultTextMapPropagator`, and consume extracts through the same propagator.
+- flag root: `EnableTraces` and `EnableMetrics` on the two options classes are the only public flag carriers; a code-built lift passes the options record, and each admission verb flags the builder it binds or resolves.
 
 [STACKING]:
 - `OpenTelemetry`(`api-opentelemetry.md`): each admission verb folds `AddSource`/`AddMeter` on the shared name and registers the instrumentation object; both legs read `Propagators.DefaultTextMapPropagator`, so the root's propagator composite fixes the header format.
-- `System.Diagnostics.DiagnosticSource`(`api-diagnostics-activity.md`): the process span carries the extracted producer context as an `ActivityLink`, and a handler fault stamps `Activity.SetStatus(ActivityStatusCode.Error, …)` with an `error.type` tag before the throw resumes.
+- `System.Diagnostics.DiagnosticSource`(`api-diagnostics-activity.md`): the process span carries the extracted producer context as an `ActivityLink`, so each leg keeps its own trace id, and a handler fault stamps `Activity.SetStatus(ActivityStatusCode.Error, …)` with an `error.type` tag before the throw resumes.
 - `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the duration histogram ships its own `InstrumentAdvice<double>` boundary hint, so a provider `AddView` row re-buckets only where a backend rejects the advised shape.
 - within-lib: one closure pair composes ctor -> `Build()` -> `ConsumeAndProcessMessageAsync`, the handler's `Activity` parameter carrying the process span the caller enriches and the `ConsumeResult` return driving the commit; a loop owning its own span joins through `TryExtractPropagationContext`.
 

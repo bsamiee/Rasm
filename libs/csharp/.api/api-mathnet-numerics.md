@@ -1,6 +1,6 @@
 # [RASM_API_MATHNET_NUMERICS]
 
-`MathNet.Numerics` owns the branch's analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, and metric reduction — each a static owner folding plain `double[]`, `Func`, and `Complex[]` carriers. Every surface here runs on the managed provider; native-kernel selection and the dense factorization lane bind at their own owners, and `Vector<double>` enters only as the minimizer's carrier.
+`MathNet.Numerics` owns the branch's analytic numeric kernel, each domain a static owner folding plain `double[]`, `Func`, and `Complex[]` carriers. Every surface runs on the managed provider; native-kernel selection and the dense factorization lane bind at their own owners, and `Vector<double>` enters only as the minimizer's carrier.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -272,13 +272,13 @@
 
 [TOPOLOGY]:
 - `IDistribution` to `IUnivariateDistribution` to `IContinuousDistribution` or `IDiscreteDistribution` is the seam ladder: `CumulativeDistribution` rides the univariate seam and `InverseCumulativeDistribution` stays a concrete-distribution member.
-- Every distribution mints a parallel static family keyed on its constructor tuple, so a one-shot evaluation allocates no instance; an alternate parameterization arrives as a `With*` factory rather than a second constructor, and `Gamma`'s constructor takes a rate with `WithShapeScale` holding the scale form.
-- Omitting `System.Random` binds `SystemRandomSource.Default`; `Sample()` returns one value, `Samples(array)` fills the caller-owned buffer, and `Samples()` yields lazily, none allocating an internal store.
+- Every distribution mints a parallel static family keyed on its constructor tuple, so a one-shot evaluation allocates no instance; an alternate parameterization arrives as a `With*` factory rather than a second constructor.
+- Omitting `System.Random` binds `SystemRandomSource.Default`, and no sampling form allocates an internal store.
 - `Generate.*Map` fuses the projection into the axis walk and `Generate.*Sequence` yields it lazily, so neither materializes an intermediate array.
-- `OnClosedInterval` is the double-exponential rule at a `1e-8` absolute target; `GaussKronrod` is the adaptive rule whose `out error`/`out L1Norm` overload is the only quadrature carrying its own error estimate; `OnRectangle` and `OnCuboid` are fixed-order Legendre product rules whose `order` sets the per-axis node count.
+- `GaussKronrod`'s `out error`/`out L1Norm` overload is the only quadrature carrying its own error estimate; the `order` argument on `OnRectangle`/`OnCuboid` sets the per-axis node count.
 - Root finding is one static class per method with no aggregator: every iterative class mirrors `FindRoot` with `TryFindRoot`, whose `bool` return carries non-convergence where `FindRoot` raises `NonConvergenceException`.
 - `Broyden.FindRoot` solves a square system carrying no bounds; a rectangular residual or a per-parameter travel limit routes to `LevenbergMarquardtMinimizer.FindMinimum`, which takes the full residual and the bound vectors natively.
-- Least squares fits `f(parameters, observedX) -> predicted` against `observedY`, so a pure residual formulation passes a zero `observedY` of the residual's rank and `MinimizingPoint` minimizes the residual norm; `ReasonForExit` reports the stop condition while `Covariance` and `StandardErrors` carry the fit's uncertainty.
+- Least squares fits `f(parameters, observedX) -> predicted` against `observedY`, so a pure residual formulation passes a zero `observedY` of the residual's rank and `MinimizingPoint` minimizes the residual norm.
 - Every `Fourier` transform mutates the caller-owned buffer: `Default` applies symmetric scaling, `AsymmetricScaling` scales the inverse by `1/N`, and `NoScaling` omits it, so a forward-inverse round trip is identity under the first two and carries a factor of `N` under the third.
 - `Forward*` and `Inverse*` mirror at one signature across both transform owners, and each `Complex`/`double[]` carrier mirrors a `Complex32`/`float[]` twin: the split `double[] real, double[] imaginary` form keeps contiguous scalar spans for a vectorized magnitude-phase pass, and the packed `ForwardReal`/`InverseReal` form stores the conjugate-even half-spectrum in an `N+2` (even `N`) or `N+1` (odd `N`) buffer.
 - `FrequencyScale(length, sampleRate)` returns the per-bin axis: positive bins over the first `⌊N/2⌋+1` entries then the wrapped negative bins, spaced `sampleRate/length`.

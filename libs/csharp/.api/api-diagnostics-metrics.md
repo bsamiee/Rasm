@@ -39,7 +39,7 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: every create leads on `string name` and closes on optional `string? unit`, `string? description`, and an `IEnumerable<KeyValuePair<string, object?>>` tag tail, `CreateHistogram<T>` taking a final `InstrumentAdvice<T>?` and every observable create its callback second. Each synchronous write carries one-, two-, and three-`KeyValuePair<string, object?>` overloads beside `params KeyValuePair<string, object?>[]` and `in TagList`.
+[ENTRYPOINT_SCOPE]: every create leads on `string name`, closes on optional `string? unit`, `string? description`, and an `IEnumerable<KeyValuePair<string, object?>>` tag tail; `CreateHistogram<T>` appends `InstrumentAdvice<T>?`, every observable create takes its callback second. Each synchronous write overloads one-to-three `KeyValuePair<string, object?>` args over `params KeyValuePair<string, object?>[]` and `in TagList`.
 
 | [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                              |
 | :-----: | :---------------------------------------------------------------------------- | :------- | :---------------------------------------- |

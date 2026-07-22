@@ -1,13 +1,13 @@
 # [RASM_API_NODATIME_STJ]
 
-`NodaTime.Serialization.SystemTextJson` owns System.Text.Json codec registration for NodaTime semantic-time values: `NodaConverters` mints the pattern-backed converter singletons and the provider-bound zone factories, `NodaJsonSettings` holds one settable converter slot per type, and `ConfigureForNodaTime` folds that slot set onto a `JsonSerializerOptions` converter list.
+`NodaTime.Serialization.SystemTextJson` owns System.Text.Json codec registration for NodaTime semantic-time values: converter selection is data — one settable slot per type, folded onto a `JsonSerializerOptions` converter list through `ConfigureForNodaTime`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.SystemTextJson`
 - package: `NodaTime.Serialization.SystemTextJson`
 - assembly: `NodaTime.Serialization.SystemTextJson`
-- bound asset: `lib/net6.0` for `net10.0` consumers
+- bound asset: `lib/net6.0`
 - namespace: `NodaTime.Serialization.SystemTextJson`
 - rail: wire-json
 
@@ -43,7 +43,7 @@
 |  [09]   | `DelegatingConverterBase<T>(JsonConverter<T>)`                                  | ctor    | wraps a singleton under a named type       |
 |  [10]   | `NodaTimeDefaultJsonConverterFactory()`                                         | ctor    | admits value and `Nullable<T>` forms alike |
 
-- `NodaJsonSettings`: both constructors seed every slot from `NodaConverters` — `PeriodConverter` the roundtrip period form, the two zone slots the provider factories — and a slot left null drops its type from the registration `ConfigureForNodaTime` returns for chaining.
+- `NodaJsonSettings`: both constructors seed every slot from `NodaConverters`, and a slot left null drops its type from the registration `ConfigureForNodaTime` returns for chaining.
 - `Extensions.WithIsoIntervalConverter`: removes every converter already claiming the type before appending, so an interval swap lands regardless of call order.
 
 [SETTINGS_SLOTS]: `InstantConverter` `IntervalConverter` `LocalDateConverter` `LocalDateTimeConverter` `LocalTimeConverter` `AnnualDateConverter` `YearMonthConverter` `DateIntervalConverter` `OffsetConverter` `DateTimeZoneConverter` `DurationConverter` `PeriodConverter` `OffsetDateConverter` `OffsetTimeConverter` `OffsetDateTimeConverter` `ZonedDateTimeConverter`
@@ -85,7 +85,7 @@
 - `NodaTimeDefaultJsonConverterFactory` binds `DateTimeZoneProviders.Tzdb` at type initialization and answers for both the value type and its `Nullable<T>` form; `NodaTimeDefaultJsonConverterAttribute` resolves through the same table.
 
 [STACKING]:
-- `NodaTime`(`.api/api-nodatime.md`): `NodaPatternConverter<T>(IPattern<T>, Action<T>)` admits any `NodaTime.Text` pattern with a pre-write validator, so a wire needing a non-default text shape assigns one converter instance into the matching `NodaJsonSettings` slot rather than subclassing; the same catalog's `IDateTimeZoneProvider` feeds both zone factories, and its type roster is the space these converters cover.
+- `NodaTime`(`.api/api-nodatime.md`): `NodaPatternConverter<T>(IPattern<T>, Action<T>)` admits any `NodaTime.Text` pattern with a pre-write validator, so a wire needing a non-default text shape assigns one converter instance into the matching `NodaJsonSettings` slot rather than subclassing; the same catalog's `IDateTimeZoneProvider` feeds both zone factories.
 - `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): `ThinktectureJsonConverterFactory` and `ConfigureForNodaTime` append to one `JsonSerializerOptions.Converters` list under first-claim-wins order, the factory placed ahead of the per-type converters; the two claim disjoint type spaces, so order never contests.
 - `System.Text.Json`(`.api/api-json-schema.md`): a NodaTime converter describes no schema, so `JsonSchemaExporter` emits the unconstrained node for a converted type until a `TransformSchemaNode` arm keyed on `JsonSchemaExporterContext.TypeInfo` writes the string form the pattern produces.
 - Within the branch, one app-root `SuiteContracts.Wire` expression owns the merge: the Thinktecture factory registers, `NodaJsonSettings` takes its per-type replacements, `ConfigureForNodaTime` folds the slot set last, and the interval swaps run over the merged list.

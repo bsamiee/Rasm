@@ -67,7 +67,7 @@
 
 [ENTRYPOINT_SCOPE]: registration, endpoint mapping, and call-context access
 
-`IServiceCollection` extends with `AddGrpc`, `IGrpcServerBuilder` with `AddServiceOptions<TService>`, `IEndpointRouteBuilder` with `MapGrpcService`, and `ServerCallContext` with `GetHttpContext`; every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`, and both generic arms constrain `TService : class`.
+Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; both generic arms constrain `TService : class`.
 
 | [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                       |
 | :-----: | :------------------------------------------------------------------ | :------- | :--------------------------------- |
@@ -132,8 +132,6 @@
 
 [ENTRYPOINT_SCOPE]: server-side grpc-web
 
-`IApplicationBuilder` extends with `UseGrpcWeb` and every `IEndpointConventionBuilder` with the metadata pair, each returning its receiver.
-
 | [INDEX] | [SURFACE]                                           | [SHAPE]  | [CAPABILITY]                         |
 | :-----: | :-------------------------------------------------- | :------- | :----------------------------------- |
 |  [01]   | `UseGrpcWeb() -> IApplicationBuilder`               | static   | install translation on host defaults |
@@ -144,7 +142,7 @@
 
 [ENTRYPOINT_SCOPE]: gRPC health service
 
-`IServiceCollection` extends with `AddGrpcHealthChecks`, returning the `IHealthChecksBuilder` every check registers on, and `IEndpointRouteBuilder` with `MapGrpcHealthChecksService`; `ServiceMappingCollection` is an `ICollection<ServiceMapping>` whose `Map` and `Remove` key by service name.
+`ServiceMappingCollection` is an `ICollection<ServiceMapping>` whose `Map` and `Remove` key by service name.
 
 | [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]                     |
 | :-----: | :-------------------------------------------------------------------------- | :------- | :------------------------------- |
@@ -185,10 +183,9 @@
 
 [LOCAL_ADMISSION]:
 - AppHost hosts every gRPC service through `AddGrpc()` and `MapGrpcService<TService>`; `GrpcServiceOptions` and its per-service subclass carry all server policy.
-- Server interceptors register through `GrpcServiceOptions.Interceptors.Add<TInterceptor>()`, keeping the pipeline one ordered collection.
+- Server interceptors register through `GrpcServiceOptions.Interceptors.Add<TInterceptor>()`.
 - grpc-web is server policy: `app.UseGrpcWeb()` with per-endpoint `EnableGrpcWeb()`/`DisableGrpcWeb()`, or `GrpcWebOptions.DefaultEnabled` for a host-wide default.
 - Health status derives from the `Microsoft.Extensions.Diagnostics.HealthChecks` registrations, narrowed per service by `GrpcHealthChecksOptions.Services.Map` over `HealthCheckMapContext`.
-- Compute integration suites stand this rail up in-process through `UseTestServer()` and dial it through `GrpcChannelOptions.HttpHandler`.
 
 [RAIL_LAW]:
 - Package: `Grpc.AspNetCore`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`

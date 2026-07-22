@@ -1,30 +1,20 @@
 # [RASM_API_MANIFOLD]
 
-Manifold (`elalish/manifold`) is the tier-3 scale companion to the kernel's exact boolean owner: an in-kernel P/Invoke binding reaches the C++ engine through `manifoldc`. `ArrangementPolicy.ScaleCeiling` routes admitted high-scale operations to Manifold, while the managed exact arrangement retains the correctness rail.
+`manifoldc` binds the Manifold C++ engine as the arrangement's tier-3 scale companion behind the exact boolean owner: `ArrangementPolicy.ScaleCeiling` routes over-ceiling operands to guaranteed-manifold throughput while the managed exact arrangement holds the correctness rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
-- Package: `manifoldc`
-- Source: `elalish/manifold`
-- Headers: `bindings/c/include/manifold/manifoldc.h` and `bindings/c/include/manifold/types.h`
-- License: `Apache-2.0`
-- Binding: In-house P/Invoke over the C FFI
-- Build: CMake with `-DMANIFOLD_CBIND=ON` and `-DBUILD_SHARED_LIBS=ON`
-- Distribution: Source tarball; upstream publishes no prebuilt C binaries
-- Channels: PyPI wheels and npm WASM artifacts do not carry the RID C asset
-- Asset: Per-RID native library with `osx-arm64` as the primary RID
-- Handles: Opaque `typedef struct` pointers named `ManifoldManifold`, `ManifoldManifoldVec`, `ManifoldMeshGL`, `ManifoldMeshGL64`, `ManifoldBox`, `ManifoldSimplePolygon`, `ManifoldPolygons`, and `ManifoldExecutionContext`
-- Scalar: `ManifoldVec3` stores `double` components
-- Cross-section fill: The admitted ABI omits `ManifoldFillRule` from ingest
-- Cross-section compose: The admitted ABI omits `manifold_cross_section_compose`
-- Simplify: Parameter names derive from the selected header
-- Rail: Guaranteed-manifold boolean throughput above the arrangement scale ceiling
-
-The binding targets the C headers directly. The NuGet ID `Manifold` denotes the `Garume/Manifold` CLI and MCP operation source generator, and `ManifoldNET` does not participate in the binding.
+[PACKAGE_SURFACE]: `manifoldc`
+- package: `manifoldc` (`Apache-2.0`, `elalish/manifold`)
+- role: in-repo P/Invoke binding over the C FFI, no NuGet package
+- abi: C headers `manifoldc.h` and `types.h`; `ManifoldVec3` carries `double` components
+- handles: `ManifoldManifold` `ManifoldManifoldVec` `ManifoldMeshGL` `ManifoldMeshGL64` `ManifoldBox` `ManifoldSimplePolygon` `ManifoldPolygons` `ManifoldExecutionContext`
+- asset: per-RID native library, `osx-arm64` the primary RID
+- rail: guaranteed-manifold boolean throughput above the arrangement scale ceiling
 
 ## [02]-[MEMORY_LAW]
 
-Every constructor receives a leading `void* mem` sized by its `manifold_*_size()` twin, while `manifold_alloc_*()` mints a malloc-backed object. `manifold_destruct_*()` runs only the destructor for caller-owned storage, and `manifold_delete_*()` also frees storage minted by `manifold_alloc_*()`. Array accessors write into caller-owned output buffers sized from the corresponding `*_length` read. The binding capsules every handle with deterministic release.
+Every constructor takes a leading `void* mem` sized by its `manifold_*_size()` twin; `manifold_alloc_*()` mints a malloc-backed object. `manifold_destruct_*()` runs the destructor over caller-owned storage, `manifold_delete_*()` also frees allocated storage, and array accessors write caller-owned buffers sized from the paired `*_length` read.
 
 | [INDEX] | [SYMBOL]                    | [ROLE]     | [MEMORY_EFFECT]      |
 | :-----: | :-------------------------- | :--------- | :------------------- |
@@ -37,7 +27,7 @@ Every constructor receives a leading `void* mem` sized by its `manifold_*_size()
 
 [CONSTRUCTION_INGEST]:
 
-`manifold_meshgl` ingests `n_verts × n_props` interleaved floats with position properties first and `n_props >= 3`; the triangle buffer carries `3 × n_tris` indices. `manifold_meshgl64` mirrors that layout with `double` properties and `uint64_t` indices, receiving the kernel's SoA `double` lane at the boundary. Mesh raising records invalid input as nonzero `manifold_status`.
+`manifold_meshgl` ingests `n_verts × n_props` interleaved floats, positions first with `n_props >= 3`, and `3 × n_tris` triangle indices; `manifold_meshgl64` mirrors the layout with `double` properties and `uint64_t` indices, taking the kernel's SoA `double` lane. Invalid input raises nonzero `manifold_status`.
 
 | [INDEX] | [SURFACE]                                                                                | [CAPABILITY]         |
 | :-----: | :--------------------------------------------------------------------------------------- | :------------------- |
@@ -52,7 +42,7 @@ Every constructor receives a leading `void* mem` sized by its `manifold_*_size()
 
 [BOOLEAN]:
 
-`manifold_boolean` is the routed binary boolean entry, and `ManifoldOpType` maps the kernel's `BooleanOp` rows. Boolean operations build a lazy CSG tree; `manifold_status`, extraction, or refinement forces evaluation and propagates error status. Planar section and projection operations return `ManifoldPolygons`.
+`manifold_boolean` is the routed binary entry, `ManifoldOpType` mapping the kernel's `BooleanOp` rows. Booleans build a lazy CSG tree that `manifold_status`, extraction, or refinement forces to evaluate, propagating error status; planar section and projection return `ManifoldPolygons`.
 
 | [INDEX] | [SURFACE]                              | [CAPABILITY]           |
 | :-----: | :------------------------------------- | :--------------------- |
@@ -74,7 +64,7 @@ Every constructor receives a leading `void* mem` sized by its `manifold_*_size()
 
 [EXTRACTION]:
 
-Mesh extraction lowers a manifold into the float or double `MeshGL` representation. Array reads copy into the caller-sized output buffers, and merge reads expose the topological re-weld mapping for an open `MeshGL`.
+Extraction lowers a manifold into the float or double `MeshGL`; array reads copy into caller-sized buffers, and merge reads expose the topological re-weld map for an open `MeshGL`.
 
 | [INDEX] | [SURFACE]                                      | [CAPABILITY]         |
 | :-----: | :--------------------------------------------- | :------------------- |
@@ -94,7 +84,7 @@ Mesh extraction lowers a manifold into the float or double `MeshGL` representati
 
 [STATUS]:
 
-`ManifoldError` is the native error vocabulary, and the binding folds every member into `GeometryFault`. `manifold_status` is the first eager read after each boolean. Execution contexts carry cooperative cancellation and progress through the same error rail, with cancellation recording `MANIFOLD_CANCELLED`.
+`ManifoldError` is the native error vocabulary the binding folds into `GeometryFault`; `manifold_status` is the first eager read after each boolean. Execution contexts thread cooperative cancellation and progress through the same rail, cancellation recording `MANIFOLD_CANCELLED`.
 
 | [INDEX] | [SURFACE]                                       | [CAPABILITY]            |
 | :-----: | :---------------------------------------------- | :---------------------- |
@@ -114,7 +104,7 @@ Mesh extraction lowers a manifold into the float or double `MeshGL` representati
 
 [GUARANTEE_EVIDENCE]:
 
-Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without creating a second correctness rail.
+Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without a second correctness rail.
 
 | [INDEX] | [SURFACE]                              | [CAPABILITY]          |
 | :-----: | :------------------------------------- | :-------------------- |
@@ -129,39 +119,24 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without creating 
 |  [09]   | `manifold_volume(manifold)`            | volume evidence       |
 |  [10]   | `manifold_bounding_box(mem, manifold)` | bounds evidence       |
 
-## [04]-[LOCAL_ADMISSION]
+## [04]-[IMPLEMENTATION_LAW]
 
-[BOUNDARY]:
-- The arrangement tier-3 route owns every `manifoldc` call site.
-- Kind mismatch and nonzero `manifold_status` return a typed `Fin` failure.
-- A missing RID asset returns `NativeAssetMissing` `2423`.
-- The `Fin` boundary rail contains these failures without exceptions.
+[TOPOLOGY]:
+- Every op folds through the `void* mem` sizing ABI with deterministic release; Manifold guarantees manifold output at float precision, the managed exact arrangement retaining exact signs, implicit-point crossings, and cell classification.
+- `manifold_status` forces eagerly onto the single `BooleanReceipt`/`ManifoldStatus` evidence rail.
 
-[ACTIVATION]:
-- Face count: Combined operands exceed `ArrangementPolicy.ScaleCeiling` at `1_000_000` faces
-- Native asset: The RID library resolves at runtime
-- Fixture: The golden-boolean suite matches the managed exact rail
+[STACKING]:
+- Arrangement engine split: the managed arrangement owns exact signs, implicit-point crossings, and cell welds; Manifold owns throughput above `ArrangementPolicy.ScaleCeiling`; `ArrangementOp.MeshBoolean` discriminates engine from policy so consumers compose one operation.
+- Mesh edit: ingest lowers the published `MeshSpace` or `MeshEdit` through the `meshgl64` interleaved layout; extraction re-enters predicate-gated geometry once through `MeshEdit.Of`.
+- Fabrication split: PicoGK owns the voxel and implicit lane; Manifold owns the kernel boolean scale gate.
+- Native auxiliary: `manifold_slice`, `manifold_project`, and `manifold_hull` stay native-scale surfaces outside kernel routing — the kernel slice stack owns slicing, the drawing view projection, and the hull tiers hull operations.
 
-[PRECISION]:
-- Manifold guarantees manifold output at float precision.
-- The managed exact arrangement retains exact signs, implicit-point crossings, and cell classification.
-- `BooleanReceipt` and `ManifoldStatus` carry the selected engine's evidence.
+[LOCAL_ADMISSION]:
+- Arrangement tier-3 routing owns every `manifoldc` call site, activating when combined operands exceed `ArrangementPolicy.ScaleCeiling`, the per-RID native asset resolves, and the golden-boolean fixture matches the managed exact rail.
+- Kind mismatch and nonzero `manifold_status` fold to a typed `Fin` failure; a missing per-RID asset over the ceiling folds to `NativeAssetMissing`; the `Fin` boundary rail contains both without exceptions.
 
-## [05]-[STACKING_LAW]
-
-[ARRANGEMENT]:
-- The managed arrangement owns exact signs, implicit-point crossings, and cell welds.
-- Manifold owns throughput above `ArrangementPolicy.ScaleCeiling`.
-- `ArrangementOp.MeshBoolean` discriminates the engine from policy, so consumers compose one operation.
-
-[MESH_EDIT]:
-- Ingest lowers only the published `MeshSpace` or `MeshEdit` through the `meshgl64` interleaved layout.
-- Extraction re-enters predicate-gated geometry once through `MeshEdit.Of`.
-
-[PICO_GK]:
-- PicoGK owns Fabrication's voxel and implicit lane.
-- Manifold owns the kernel boolean scale gate.
-
-[NATIVE_AUXILIARY]:
-- `manifold_slice`, `manifold_project`, and `manifold_hull` remain native-scale surfaces outside kernel routing.
-- The kernel slice stack owns slicing, the drawing view owns projection, and the hull tiers own hull operations.
+[RAIL_LAW]:
+- Package: `manifoldc`
+- Owns: guaranteed-manifold boolean throughput above `ArrangementPolicy.ScaleCeiling`, its lazy CSG evaluation, float and double `MeshGL` ingest and extraction, the native `manifold_hull`/`manifold_slice`/`manifold_project` surfaces, the genus/area/volume/bounds guarantee reads, and the deterministic-release `void* mem` ABI with `ManifoldExecutionContext` cancellation and progress.
+- Accept: high-scale booleans routed above `ArrangementPolicy.ScaleCeiling`, the kernel SoA `double` lane lowered through `meshgl64`, `ManifoldError` folded into `GeometryFault`, and cancellation through the execution-context rail.
+- Reject: a NuGet reference, the in-repo binding owning no package and the `Manifold`/`ManifoldNET` NuGet IDs naming unrelated projects; the unrouted `manifold_union`/`manifold_difference`/`manifold_intersection` twins in place of `manifold_boolean`; a second correctness rail beside the managed exact arrangement; an exception in place of the `Fin` boundary fold.

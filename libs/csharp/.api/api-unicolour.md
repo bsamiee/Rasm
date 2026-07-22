@@ -1,6 +1,6 @@
 # [RASM_API_UNICOLOUR]
 
-`Wacton.Unicolour` owns an immutable colour value that admits any `ColourSpace` and lazily projects every other, with `Configuration` binding working-space policy across its RGB, XYZ, YBR, CAM, dynamic-range, and ICC slots. `DeltaE`, `BlendMode`, `Cvd`, and `GamutMap` extend the value into perceptual difference, W3C compositing, colour-vision-deficiency simulation, and gamut bounding, while `Spd` and `Pigment` intake carries measured spectral power and Kubelka-Munk reflectance to XYZ.
+`Wacton.Unicolour` owns an immutable colour value that admits any `ColourSpace` and lazily projects every other, with `Configuration` binding working-space policy across its slots. `DeltaE`, `BlendMode`, `Cvd`, and `GamutMap` extend the value into perceptual difference, compositing, vision-deficiency simulation, and gamut bounding; `Spd` and `Pigment` intake resolves measured spectral power and Kubelka-Munk reflectance to XYZ.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,7 +8,7 @@
 - package: `Wacton.Unicolour` (MIT, William Acton)
 - assembly: `Wacton.Unicolour`
 - namespace: `Wacton.Unicolour`, `Wacton.Unicolour.Icc`
-- asset: `netstandard2.0` pure-managed, zero-dependency, ALC-safe; bound under the net10 AppUi, Materials, and kernel consumers
+- asset: `netstandard2.0` pure-managed, zero-dependency, ALC-safe
 - rail: colour
 
 ## [02]-[PUBLIC_TYPES]
@@ -26,7 +26,7 @@
 |  [07]   | `HueSpan`     | enum          | mix and palette hue-traversal axis       |
 |  [08]   | `Locus`       | enum          | CCT-construction radiator selector       |
 
-`ColourSpace` doubles as the `Unicolour` accessor roster: reading `colour.Oklab` projects the `Oklab` case. Display primaries (`DisplayP3`, `Rec2020`, `A98`, `ProPhoto`, the ACES presets) are `RgbConfiguration` statics, not `ColourSpace` cases; the broadcast luma encoders (`Ycbcr`, `Yuv`, `Yiq`) are cases governed by `YbrConfiguration`.
+`ColourSpace` doubles as the `Unicolour` accessor roster: reading `colour.Oklab` projects the `Oklab` case. Display primaries (`DisplayP3`, `Rec2020`, the ACES presets) are `RgbConfiguration` statics, not `ColourSpace` cases; the broadcast luma encoders (`Ycbcr`, `Yuv`, `Yiq`) are `ColourSpace` cases whose matrix is `YbrConfiguration`-governed.
 
 [`ColourSpace`]: `Rgb` `Rgb255` `RgbLinear` `Hsb` `Hsl` `Hwb` `Hsi` `Xyz` `Xyy` `Wxy` `Lab` `Lchab` `Luv` `Lchuv` `Hsluv` `Hpluv` `Ypbpr` `Ycbcr` `Ycgco` `Yuv` `Yiq` `Ydbdr` `Tsl` `Xyb` `Lms` `Ipt` `Ictcp` `Jzazbz` `Jzczhz` `Oklab` `Oklch` `Okhsv` `Okhsl` `Okhwb` `Oklrab` `Oklrch` `Cam02` `Cam16` `Hct` `Munsell`
 [`DeltaE`]: `Cie76` `Cie94` `Cie94Textiles` `Ciede2000` `CmcAcceptability` `CmcPerceptibility` `Itp` `Z` `Hyab` `Ok` `Cam02` `Cam16`
@@ -38,7 +38,7 @@
 
 [PUBLIC_TYPE_SCOPE]: working-space configuration
 
-`Configuration.Default` binds sRGB, D65, Rec.601, sRGB CAM, HDR range, and no ICC profile; a custom `Configuration` overrides only selected slots and inherits `Default` elsewhere. `Configuration.Rgb`/`.Xyz`/`.Ybr`/`.Cam`/`.DynamicRange`/`.Icc` read each bound slot.
+`Configuration.Default` binds sRGB, D65, Rec.601, sRGB CAM, HDR range, and no ICC profile; a custom `Configuration` overrides only selected slots and inherits `Default` elsewhere.
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                   |
 | :-----: | :----------------- | :------------ | :--------------------------------------------- |
@@ -50,7 +50,7 @@
 |  [06]   | `DynamicRange`     | class         | SDR/HDR luminance span and HLG white level     |
 |  [07]   | `IccConfiguration` | class         | ICC profile plus rendering intent; `.None`     |
 
-`RgbConfiguration` and the custom `Configuration` slots each carry a constructor taking `Chromaticity` primaries, a `WhitePoint`, `FromLinear`/`ToLinear` transfer delegates, and a name for an unlisted working space; `Rec2100Pq`/`Rec2100Hlg` scale their transfer by `DynamicRange.WhiteLuminance / 203` at construction.
+`RgbConfiguration` and the custom `Configuration` slots each carry a constructor taking `Chromaticity` primaries, a `WhitePoint`, `FromLinear`/`ToLinear` transfer delegates, and a name, admitting an unlisted working space.
 
 [`RgbConfiguration`]: `StandardRgb` `DisplayP3` `Rec2020` `Rec2100Pq` `Rec2100Hlg` `A98` `ProPhoto` `Aces20651` `Acescg` `Acescct` `Acescc` `Rec601Line625` `Rec601Line525` `Rec709` `XvYcc` `Pal` `PalM` `Pal625` `Pal525` `Ntsc` `NtscSmpteC` `Ntsc525` `Secam` `Secam625`
 [`XyzConfiguration`]: `D65` `D50`
@@ -70,14 +70,14 @@
 |  [06]   | `Observer`     | class         | CIE colour-matching functions                     |
 |  [07]   | `Temperature`  | record        | `(Cct, Duv)` with `.IsValid`/`.IsHighAccuracy`    |
 
-`Spd` extends `SpectralCoefficients` and publishes `Spd.D65`; the other reference SPDs ride `Illuminant`. `Spd.IsValid` gates the interval before construction resolves to XYZ.
+`Spd` publishes only `Spd.D65`; the other reference SPDs ride `Illuminant`, and `Spd.IsValid` gates the interval before construction resolves to XYZ.
 
 [`Illuminant`]: `A` `C` `D50` `D55` `D65` `D75` `E` `F2` `F7` `F11`
 [`Observer`]: `Degree2` `Degree10`
 
 [PUBLIC_TYPE_SCOPE]: representation records and ICC types
 
-Every `ColourSpace` accessor returns its representation record exposing named channels with `.Triplet` (a `ColourTriplet`), `.Tuple`, `.ToArray()`, and `Deconstruct`; `Cam02`/`Cam16` carry `.Model` and `.Ucs` from the static `Cam` owner.
+Every `ColourSpace` accessor returns a representation record exposing named channels with `.Triplet` (`ColourTriplet`), `.Tuple`, `.ToArray()`, and `Deconstruct`; `Cam02`/`Cam16` add `.Model` and `.Ucs` from the static `Cam` owner.
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                |
 | :-----: | :--------------------- | :-------------- | :------------------------------------------ |
@@ -133,7 +133,7 @@ Every construction route carries a `Configuration`-first overload selecting the 
 
 [ENTRYPOINT_SCOPE]: projection accessors
 
-Space accessors carry the `ColourSpace` roster above. Scalar and metadata accessors project derived facts.
+Beyond the `ColourSpace` roster above, scalar and metadata accessors project derived facts.
 
 | [INDEX] | [SURFACE]                         | [SHAPE]  | [CAPABILITY]                                 |
 | :-----: | :-------------------------------- | :------- | :------------------------------------------- |
@@ -154,22 +154,22 @@ Space accessors carry the `ColourSpace` roster above. Scalar and metadata access
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `Unicolour` is immutable; every accessor is a lazy `Get(ref field, evaluator)` memo computed once, and every operation returns a fresh value carrying no shared state.
-- `ColourSpace` selects the input space and `Configuration` the working space; the six `Configuration` slots resolve independently, so a colour rebases through `ConvertToConfiguration` without re-authoring channels.
+- `Unicolour` is immutable; every accessor lazily memoizes on first read, and every operation returns a fresh value carrying no shared state.
+- `ColourSpace` selects the input space and `Configuration` the working space; the slots resolve independently, so a colour rebases through `ConvertToConfiguration` without re-authoring channels.
 - `Difference` and `Contrast` re-project a mismatched operand onto the reference's `Configuration` before measuring, so a cross-configuration comparison is well-defined without a manual rebase.
 
 [STACKING]:
-- `Avalonia.Controls.ColorPicker`(`Rasm.AppUi/.api/api-avalonia-color.md`): `ConvertToConfiguration(Configuration.Default).Rgb.Byte255` crosses outbound to an Avalonia `Color`, and `new Unicolour(ColourSpace.Rgb255, r, g, b)` reads inbound, keeping every perceptual transform on this value and never on framework brushes.
-- `Wacton.Unicolour.Datasets`(`Rasm.Materials/.api/api-unicolour-datasets.md`): the datasets package supplies `Pigment[]` reflectance tables the `Unicolour(Pigment[], double[])` ctor mixes and `Unicolour` reference sets the `Difference(patch, DeltaE.Ciede2000)` metric measures against.
-- within-lib: `Mix`/`Palette` over `Oklab`/`Oklch` under a `HueSpan` compose into `MapToRgbGamut(GamutMap.OklchChromaReduction)` for perceptually-even in-gamut ramps; `Spd` and `Pigment[]` reflectance intake feeds `DeltaE.Ciede2000` comparison; `IccConfiguration` profile-backed slots drive `.Icc` device-channel projection.
+- `Avalonia.Controls.ColorPicker`(`Rasm.AppUi/.api/api-avalonia-color.md`): `ConvertToConfiguration(Configuration.Default).Rgb.Byte255` crosses outbound to an Avalonia `Color`, and `new Unicolour(ColourSpace.Rgb255, r, g, b)` reads inbound, keeping every perceptual transform on this value.
+- `Wacton.Unicolour.Datasets`(`Rasm.Materials/.api/api-unicolour-datasets.md`): supplies the `Pigment[]` reflectance tables the `Unicolour(Pigment[], double[])` ctor mixes and the reference `Unicolour` sets the `Difference(patch, DeltaE.Ciede2000)` metric measures against.
+- within-lib: `Mix`/`Palette` over `Oklab`/`Oklch` under a `HueSpan` compose into `MapToRgbGamut(GamutMap.OklchChromaReduction)` for perceptually-even in-gamut ramps; `Spd` and `Pigment[]` reflectance intake feeds `DeltaE.Ciede2000` comparison; `IccConfiguration` profile slots drive `.Icc` device-channel projection.
 
 [LOCAL_ADMISSION]:
 - `GamutMap` is accepted only by `MapToRgbGamut`; `MapToPointerGamut` and `MapToMacAdamLimits` take no argument, and the four gamut predicates gate mapping.
-- Reflectance mixing enters through `Unicolour(Pigment[], double[])` under a `Spd` illuminant, never a direct `Spd` ctor; `Spd.IsValid` gates the interval.
-- A colour value carries an explicit `Configuration` whenever the working space affects meaning; consumers read the target-space accessor rather than re-deriving a transform.
+- Reflectance mixing enters through `Unicolour(Pigment[], double[])` under a `Spd` illuminant, distinct from the raw `Unicolour(Spd)` spectral ctor.
+- A colour value carries an explicit `Configuration` wherever the working space affects meaning.
 
 [RAIL_LAW]:
 - Package: `Wacton.Unicolour`
-- Owns: the immutable colour value, lazy conversion across every `ColourSpace`, `DeltaE` difference, WCAG contrast, `BlendMode` compositing, interpolation and palette, the three gamut maps, `Cvd` simulation, ICC channel transform, and spectral or Kubelka-Munk pigment construction
-- Accept: an explicit `ColourSpace` and `Configuration`, a `DeltaE` for difference, a `BlendMode` for compositing, a `GamutMap` for RGB mapping, gated by the gamut predicates
+- Owns: the immutable colour value and every lazy conversion, difference, contrast, compositing, gamut map, `Cvd` simulation, ICC transform, and spectral or Kubelka-Munk construction over it
+- Accept: an explicit `ColourSpace` and `Configuration`, a `DeltaE`, `BlendMode`, or `GamutMap` selector, gated by the gamut predicates
 - Reject: hand-rolled colour-space conversion, delta-E, blend, or gamut math; display primaries treated as `ColourSpace` cases; per-consumer luminance or contrast re-derivation from framework colour types

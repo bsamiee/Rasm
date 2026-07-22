@@ -8,7 +8,6 @@
 - package: `QuikGraph` (MS-PL, Alexandre Rabérin)
 - assembly: `QuikGraph`
 - namespace: `QuikGraph`, `.Algorithms`, `.Algorithms.Assignment`, `.Algorithms.Cliques`, `.Algorithms.Condensation`, `.Algorithms.ConnectedComponents`, `.Algorithms.Exploration`, `.Algorithms.GraphPartition`, `.Algorithms.MaximumFlow`, `.Algorithms.MinimumSpanningTree`, `.Algorithms.Observers`, `.Algorithms.RandomWalks`, `.Algorithms.RankedShortestPath`, `.Algorithms.Ranking`, `.Algorithms.Search`, `.Algorithms.Services`, `.Algorithms.ShortestPath`, `.Algorithms.TopologicalSort`, `.Algorithms.TSP`, `.Algorithms.VertexColoring`, `.Algorithms.VertexCover`, `.Collections`, `.Predicates`
-- asset: managed IL assembly with XML documentation, zero native dependency
 - abi: `TEdge : IEdge<TVertex>` constrains every container and algorithm; `TVertex` takes no constraint, so identity rides the caller's comparer
 - rail: graph
 
@@ -76,7 +75,7 @@
 |  [15]   | `IDistanceRelaxer`                                      | interface     | `InitialDistance` plus `Combine` accumulation |
 |  [16]   | `ICancelManager`                                        | interface     | `Cancel`, `IsCancelling`, `CancelRequested`   |
 
-[PUBLIC_TYPE_SCOPE]: algorithm objects — bound where events, mutable state, or augmentation lifecycle are part of the result
+[PUBLIC_TYPE_SCOPE]: algorithm objects — the stateful traversal, path, flow, matching, and coloring surface
 
 | [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]  | [CAPABILITY]                                    |
 | :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------- |
@@ -187,7 +186,7 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 
 - `AlgorithmExtensions.RankedShortestPathHoffmanPavley`: returns `IEnumerable<IEnumerable<TEdge>>` and defaults `maxCount` to `3`.
 - `AlgorithmExtensions.OfflineLeastCommonAncestor`: returns `TryFunc<SEquatableEdge<TVertex>, TVertex>` keyed on the pairs supplied up front.
-- `AlgorithmExtensions.MaximumFlow`: takes the mutable graph, a `Func<TEdge, double>` capacity, source, sink, an `out TryFunc<TVertex, TEdge>` flow predecessor, an `EdgeFactory<TVertex, TEdge>`, and a `ReversedEdgeAugmentorAlgorithm<TVertex, TEdge>` whose `AddReversedEdges()` already ran; it returns the flow as `double` and leaves the auxiliary edges until `RemoveReversedEdges()`.
+- `AlgorithmExtensions.MaximumFlow`: returns the max flow as `double` over a capacity fold, requires the passed `ReversedEdgeAugmentorAlgorithm` to have run `AddReversedEdges()`, and leaves the auxiliary edges until `RemoveReversedEdges()`.
 
 [ENTRYPOINT_SCOPE]: `GraphExtensions` container projection — every conversion mints a new container over the source's vertices and edges
 
@@ -229,11 +228,9 @@ Every graph interface named in a signature is `<TVertex, TEdge>`-parameterized a
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
-- `TVertex` carries domain identity under the caller's comparer, and `TEdge : IEdge<TVertex>` is the only constraint every container and algorithm binds.
 - `AddVerticesAndEdge` admits both endpoints where `AddEdge` requires them present, and `AddVertexRange` preserves the isolated vertices a later fold reads.
 - Direction is a container choice: `IVertexListGraph` serves outgoing traversal, `IBidirectionalGraph` predecessor access, `IUndirectedGraph` symmetric adjacency, and `GraphExtensions` converts between them.
-- A `TryFunc` accessor returns `bool` with its payload on `out`, so an unreachable target is a false return rather than a fault.
-- Mutable containers own the write path, a frozen form snapshots it, and a view re-keys one without copying its edges.
+- A `TryFunc` accessor signals an unreachable target as a `false` return, never a fault.
 - Every algorithm object folds through `AlgorithmBase<TGraph>`: `Compute()` runs it, `State` and the `Started`/`Finished`/`Aborted` events report it, and `Services` carries the `ICancelManager` an `Abort()` trips.
 - An observer scopes to the `IDisposable` its `Attach(...)` returns, so a recorder composes onto one traversal instead of subclassing it.
 - `IDistanceRelaxer` decides accumulation, and `DistanceRelaxers` carries one static relaxer per rule: `ShortestDistance` sums, `CriticalDistance` takes the longest path, `EdgeShortestDistance` relaxes per edge, `Prim` keeps the single edge weight.
