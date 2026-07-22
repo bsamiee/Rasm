@@ -79,6 +79,7 @@ Full signatures for the `...`-abbreviated block codecs:
 - dictionary axis: the block `dict` keyword primes both encode and decode with a shared initial dictionary for dense small-payload families.
 - evidence axis: each codec operation records frame-vs-block, mode, compression level, block size, checksum flags, native library version, binding version, compressed size, and uncompressed size.
 - boundary axis: imports happen at boundary scope; package consumers compose the public `lz4.frame` and `lz4.block` modules only.
+- artifacts binding: the `package/codec#CODEC` `LZ4` arm defaults to `lz4.frame` for self-describing bundles, `Lz4Knobs` carries frame/block selection, compression level, block size, checksum flags, linked-block policy, and bytearray-output policy as row data, raw `lz4.block` is admitted only where a codec row explicitly selects raw-block payloads, and the boundary encodes canonical payload bytes first — payload structure stays with `msgspec` or the package owner.
 
 [RUNTIME_CRDT_OPLOG_DECODE]:
 - blocked-seam law: `CRDT_OPLOG_LZ4_DECODE` names one injected `DecompressFn` port; runtime does not hardwire `lz4` into the codec while the seam remains blocked.

@@ -68,7 +68,7 @@ Every row is a `read`; `access_secret_version` is the one polymorphic entry over
 [INTEGRATION_STACK]:
 - settings leg: `GoogleSecretManagerSettingsSource(settings_cls, credentials=, project_id=, secret_client=)` (`.api/pydantic-settings.md`) is the one consuming fence — the runtime builds the client, the source folds it into `settings_customise_sources`, and the cloud tier probe reads the admitted settings field rather than a bare client call.
 - resilience leg: the cloud-tier probe rides the `reliability/resilience#RESILIENCE` `guarded(RetryClass.SECRET, ...)` retried-traced-railed envelope exactly as the keystore/file tiers do, offloaded through `anyio.to_thread.run_sync` when the sync client is used so the blocking gRPC read never stalls the loop.
-- transport leg: the client's own `SecretManagerServiceGrpcTransport` is the gRPC channel it manages internally; it is distinct from the `.api/grpcio.md` serve/dial channels the runtime owns — the runtime never reaches into the client's transport.
+- transport leg: the client's own `SecretManagerServiceGrpcTransport` is the gRPC channel it manages internally; it is distinct from the `libs/python/.api/grpcio.md` serve/dial channels the runtime owns — the runtime never reaches into the client's transport.
 
 [LOCAL_ADMISSION]:
 - the admission owner admits `SecretManagerServiceClient` construction and its injection as `secret_client=` into `GoogleSecretManagerSettingsSource`; `access_secret_version` and the async twin ride the source, never a direct runtime call.

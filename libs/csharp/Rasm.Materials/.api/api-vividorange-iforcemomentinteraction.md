@@ -103,7 +103,7 @@ Torque, Torque)` and adds NO new members, only the closed specialization.
   (`api-vividorange-forcemomentinteraction.md`) are the only shipping implementations; the engine constructs them
   but a consumer holds the interface, so a Materials-owned alternative mesh (e.g. a decimated hull) can implement
   the same floor.
-- units seam: `Force`/`Torque` are the in-folder `UnitsNet` quantities (`api-unitsnet.md`) — the capacity hull and
+- units seam: `Force`/`Torque` are the in-folder `UnitsNet` quantities (`libs/csharp/.api/api-unitsnet.md`) — the capacity hull and
   a measured applied-load demand are the SAME `Force`/`Torque` types, so a utilisation check `demand vs capacity`
   is one unit-typed comparison, and `UnitMath.Max<…>`/`Min<…>` fold over the hull's coordinates without a raw reduce.
 - geometry seam: the mesh is a `VividOrange.Geometry` `ICartesianMesh`/`IGeometryBase` (`VividOrange.ICartesianBase`

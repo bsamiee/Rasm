@@ -22,9 +22,9 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 
 [HYBRID_CACHE_ROOT]-[QUEUED]: GH plugin-root `HybridCache` registration discharges the session-cache app-root obligations.
 - Capability: one composition-root cache profile for the GH plugin — raster-byte `IHybridCacheSerializer` admission, `MaximumPayloadBytes` sized to the largest admitted canvas raster, `ReportTagMetrics` enabled with `gh-doc:{documentId:N}` as the per-document hit/miss dimension.
-- Shape: one `AddHybridCache`/`IHybridCacheBuilder` registration block at the plugin root composing the `.api/api-hybrid-cache.md` `[APP_ROOT_OBLIGATIONS]` rows.
+- Shape: one `AddHybridCache`/`IHybridCacheBuilder` registration block at the plugin root composing the app-root obligations the `libs/csharp/.api/api-hybrid-cache.md` Grasshopper row carries.
 - Unlocks: L1-only residency, sized raster caching, and per-document cache observability for every `SessionCache` consumer with zero folder edits.
-- Anchors: `Shell/session.md` `SlotPolicy` rows; the folder `.api/api-hybrid-cache.md` overlay; the branch `libs/csharp/.api/api-hybrid-cache.md` registration surface.
+- Anchors: `Shell/session.md` `SlotPolicy` rows; the branch `libs/csharp/.api/api-hybrid-cache.md` registration surface.
 - Tension: the APP stratum owning the GH plugin root carries no landed planning folder; this card holds the obligation until that stratum lands.
 - Atomic: one registration block.
 

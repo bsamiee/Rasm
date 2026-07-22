@@ -1,6 +1,6 @@
 # [RASM_MATERIALS_API_VIVIDORANGE_SECTIONS_SECTIONPROPERTIES]
 
-`VividOrange.Sections.SectionProperties` supplies the arbitrary-closed-polygon section-property solver: one shoelace / Green's-theorem polygon integral with void subtraction and parallel-axis transfer over any `IProfile` returns `Area`, elastic `Centroid`, `MomentOfInertia` Yy/Zz, `ElasticSectionModulus` Yy/Zz, `RadiusOfGyration` Yy/Zz, and `Perimeter` as `UnitsNet` quantities. `SectionProperties` is constructed from an `IProfile` or `ISection`. The sibling `ConcreteSectionProperties: SectionProperties, IConcreteSectionProperties` reinforced-concrete surface is first-class composable ([01]-[RC_COMPOSITION_PATH]): its `IConcreteSection` input and the `.Utility` `Rebars` kernel's `IRebar`/`ILongitudinalReinforcement`/`SectionFace` arguments come from the admitted `VividOrange.Sections` assembly over the admitted `VividOrange.ISections` floor, so a Materials RC owner builds a `ConcreteSection` and reads the transformed-section reinforcement properties without further admission. `VividOrange.Profiles.Catalogue` (`api-vividorange-profiles-catalogue.md`) supplies the `IProfile`; this computation owner replaces rectangular section-property literals across the timber, CMU, masonry, and composite families and composes the in-folder `UnitsNet` quantity owner (`api-unitsnet.md`).
+`VividOrange.Sections.SectionProperties` supplies the arbitrary-closed-polygon section-property solver: one shoelace / Green's-theorem polygon integral with void subtraction and parallel-axis transfer over any `IProfile` returns `Area`, elastic `Centroid`, `MomentOfInertia` Yy/Zz, `ElasticSectionModulus` Yy/Zz, `RadiusOfGyration` Yy/Zz, and `Perimeter` as `UnitsNet` quantities. `SectionProperties` is constructed from an `IProfile` or `ISection`. The sibling `ConcreteSectionProperties: SectionProperties, IConcreteSectionProperties` reinforced-concrete surface is first-class composable ([01]-[RC_COMPOSITION_PATH]): its `IConcreteSection` input and the `.Utility` `Rebars` kernel's `IRebar`/`ILongitudinalReinforcement`/`SectionFace` arguments come from the admitted `VividOrange.Sections` assembly over the admitted `VividOrange.ISections` floor, so a Materials RC owner builds a `ConcreteSection` and reads the transformed-section reinforcement properties without further admission. `VividOrange.Profiles.Catalogue` (`api-vividorange-profiles-catalogue.md`) supplies the `IProfile`; this computation owner replaces rectangular section-property literals across the timber, CMU, masonry, and composite families and composes the in-folder `UnitsNet` quantity owner (`libs/csharp/.api/api-unitsnet.md`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -131,7 +131,7 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 - `.Utility.Parts` decomposes the perimeter into `TrapezoidalPart` straight edges and `EllipseQuarterPart` fillet, rounded-HSS, and circular-pipe arcs. Each part contributes a closed-form area moment, so filleted W-shapes, rounded HSS, and circular pipes integrate without polygonization; catalogue `IIParallelFlange.FilletRadius` and HSS corner radii carry into `MomentOfInertia` without loss.
 - Properties are `UnitsNet` quantities, NOT raw `double` — `Area`, `Volume` (section modulus), `AreaMomentOfInertia`,
   `Length` (radius of gyration, perimeter), `Ratio` (reinforcement ratio); a consumer reads them typed and the
-  `UnitsNet` family-gate (`api-unitsnet.md`) applies.
+  `UnitsNet` family-gate (`libs/csharp/.api/api-unitsnet.md`) applies.
 - Property evaluation is LAZY and cached on the carrier (`Centroid`, `Extends` memoize); a single-property need
   calls the `.Utility` kernel directly (`Areas.CalculateArea(profile)`) without constructing a carrier.
 
@@ -139,7 +139,7 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 - The solver is admitted ONLY through the Materials Profiles boundary that computes section properties for the
   family axis; the `IProfile` input and the `UnitsNet` outputs map onto the canonical Profile/section owner at the edge.
 - Properties are read as `UnitsNet` quantities and never reduced to `double` inside an interior signature; an
-  aggregation over a measured-series (e.g. layered composite) folds through `UnitMath.Sum<T>` (`api-unitsnet.md`), never a raw accumulation.
+  aggregation over a measured-series (e.g. layered composite) folds through `UnitMath.Sum<T>` (`libs/csharp/.api/api-unitsnet.md`), never a raw accumulation.
 - The solver REPLACES the per-family rectangular section-property literals — a Profiles family that needs `Area`/
   `MomentOfInertia` computes it from the perimeter, never from an inline closed-form constant.
 
@@ -148,7 +148,7 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
   (`api-vividorange-profiles-catalogue.md`) — the DATA package produces the `IProfile`, this COMPUTATION package
   consumes it; the two meet at the `IProfile` contract, so one solver computes `Area`/`MomentOfInertiaYy`/
   `ElasticSectionModulusZz` for every catalogued AISC/EN section with no per-section literal.
-- units seam: every property is a `UnitsNet` quantity (`api-unitsnet.md`), so a computed section property and a
+- units seam: every property is a `UnitsNet` quantity (`libs/csharp/.api/api-unitsnet.md`), so a computed section property and a
   measured material property are the SAME quantity type — the Materials family axis folds catalogued, parametric,
   and computed sections through one `UnitsNet`-typed surface; section-modulus `Volume` and inertia
   `AreaMomentOfInertia` carry their dimension into any downstream structural check.

@@ -59,7 +59,7 @@
 
 [STACKING]:
 - `AngouriMath`(`.api/api-angourimath.md`): `Entity.Number.Rational` carries `ERational` and `Real` carries `EDecimal`; `FromEDecimal` is the one lift from a CAS literal into the exponent algebra.
-- `UnitsNet`(`.api/api-unitsnet.md`): the seven `BaseDimensions` `int` axes lift through `ERational.FromInt32` into the ℚ⁷ vector.
+- `UnitsNet`(`libs/csharp/.api/api-unitsnet.md`): the seven `BaseDimensions` `int` axes lift through `ERational.FromInt32` into the ℚ⁷ vector.
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `[ValueObject<Seq<ERational>>]` structural equality rides `ERational.Equals`, making the monomial a comparer-free dictionary key.
 
 [LOCAL_ADMISSION]:

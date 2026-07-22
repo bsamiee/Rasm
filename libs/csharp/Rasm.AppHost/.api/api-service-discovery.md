@@ -79,7 +79,7 @@
 
 [STACKING]:
 - `Microsoft.Extensions.Http.Resilience`(`.api/api-resilience.md`): the resolving delegating handler that `IHttpClientBuilder.AddServiceDiscovery` installs chains ahead of `AddStandardResilienceHandler` on one outbound pipeline — resolution picks the instance, the resilience handler owns retry and circuit-breaking over it.
-- `Grpc.Net.Client`(`.api/api-grpc-client.md`): `IHttpClientBuilder.AddServiceDiscovery` installs the gRPC load-balancing filter, so a `Wire/coordination` channel resolves its cluster election endpoint through this resolver rather than a hand-subclassed `Resolver`/`LoadBalancer`.
+- `Grpc.Net.Client`(`libs/csharp/.api/api-grpc-client.md`): `IHttpClientBuilder.AddServiceDiscovery` installs the gRPC load-balancing filter, so a `Wire/coordination` channel resolves its cluster election endpoint through this resolver rather than a hand-subclassed `Resolver`/`LoadBalancer`.
 - `Wire/coordination`: dials cluster membership and election endpoints by service name through `ServiceEndpointResolver.GetEndpointsAsync`, the round-robin selector picking one instance per call.
 
 [LOCAL_ADMISSION]:

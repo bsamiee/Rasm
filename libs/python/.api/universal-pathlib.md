@@ -113,7 +113,7 @@
 - transfer law: cross-root copies use `copy`/`move`/`copy_into`/`move_into`; cross-protocol transfer streams through `_copy_from` (`vfsopen` read/write), never a backend-specific bulk client the consumer must select.
 
 [STACKING]:
-- `fsspec`(`libs/python/.api/fsspec.md`): owns the `AbstractFileSystem` surface and dispatch law `UPath.fs` caches; data-folder DuckDB scan registration rides the folder overlay `libs/python/data/.api/fsspec.md`.
+- `fsspec`(`libs/python/.api/fsspec.md`): owns the `AbstractFileSystem` surface and dispatch law `UPath.fs` caches; data-folder DuckDB scan registration rides its data stack rows.
 - `pydantic`(`libs/python/.api/pydantic.md`): `UPath.__get_pydantic_core_schema__` validates from a `str` or a `{path, protocol, storage_options}` mapping and serialises back to that mapping, so a settings/config model carries a `UPath` directly and the artifact-store root deserialises with its `storage_options` intact — no `str`-field-then-reconstruct seam.
 
 [LOCAL_ADMISSION]:

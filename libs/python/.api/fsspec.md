@@ -85,13 +85,14 @@
 
 [STACK_LAW]:
 - runtime roots read through `UPath` over this filesystem surface; object-store roots use `obstore` directly and only bridge through `obstore.fsspec` when a downstream library requires a filesystem handle.
-- data scan sessions admit only the resolved `UPath.fs` handle passed to `DuckDBPyConnection.register_filesystem(fs)`; every data read slice stays downstream of that handle.
+- data scan sessions admit only the resolved `UPath.fs` handle passed to `DuckDBPyConnection.register_filesystem(fs)`; every data read slice stays downstream of that handle, the session receives a whole resolved backend — data never re-registers protocol classes and never instantiates `s3fs`, `gcsfs`, or a custom filesystem directly — and read caching stays with DuckDB `httpfs`, object-store caching, or the owning chunked-array backend, never a data-selected fsspec block-cache policy.
 - compute model assets compose `UPath` and fsspec for path resolution only; solver state never grows backend-specific file clients.
 
 [LOCAL_ADMISSION]:
 - Accept `UPath(...).fs`, `url_to_fs`, and `filesystem` as the branch construction and registration surfaces.
 - Accept `fs.open`, `cat_file`, `cat_ranges`, `info`, and async mirrors where the owning page names a byte/read-range rail.
 - Accept `FSMap`, transactions, and generic transfer only behind the owner that declares mutable mapping, atomic write, or bulk sync semantics.
+- data declines those surfaces at its boundary: egress atomicity is `obstore` conditional write or a table-format commit, chunk-range reads ride `obstore.get_range`/`get_ranges`, DuckDB `httpfs`, or a native reader, mutable chunk stores are `zarr`/`tensorstore`/`icechunk` owners, and bulk movement is content-keyed `obstore` put, never `fsspec.generic.rsync`.
 - Reject per-scheme `os`/cloud-client branching, inline credentials, direct construction of cloud extra drivers in folder code, blocking reads on an event loop, and wrapper-renames of filesystem operations.
 
 [RAIL_LAW]:

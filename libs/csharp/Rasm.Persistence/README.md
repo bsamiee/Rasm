@@ -21,7 +21,7 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [10]-[RETENTION](.planning/Version/retention.md): Retention-class sweep and full-history reachability GC.
 - [11]-[RECOVERY](.planning/Version/recovery.md): Backup-substrate routes and verified PITR choreography.
 - [12]-[EGRESS](.planning/Version/egress.md): CDC egress pump minting one CloudEvents envelope per sink with dedup and replay.
-- [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, CloudEvents decode, content-key dedup, store-first offsets.
+- [13]-[INGRESS](.planning/Version/ingress.md): Inbound CDC consume door — instrumented Kafka leg, CloudEvents decode, content-key dedup.
 
 [QUERY]:
 - [14]-[LANE](.planning/Query/lane.md): Read router discriminating authoritative from analytical over the selection algebra.
@@ -42,7 +42,7 @@ It persists the graph over a Marten append substrate, depends up on the `Rasm.El
 - [25]-[BLOBSTORE](.planning/Store/blobstore.md): Content-keyed geometry object store with its write-blob-first seal.
 - [26]-[PROVISIONING](.planning/Store/provisioning.md): Verification-first extension tier and provider-binding rows.
 - [27]-[COORDINATION](.planning/Store/coordination.md): Token-fenced lease store owning budget, CAS, lease, membership, and outbox.
-- [28]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the receipt-slot registry, the hook rail, usage attribution, and the instrument contributor.
+- [28]-[OBSERVABILITY](.planning/Store/observability.md): Engine-stat and plan-shape harvest receipts, the hook rail, and the instrument contributor.
 
 ## [02]-[DOMAIN_PACKAGES]
 
@@ -165,7 +165,6 @@ Cloud object stores, the Redis cache backplane, and KMS custody.
 - `StackExchange.Redis` — backs the `Query/cache` L2 backplane and the `Version/egress` `EgressSink.RedisStream` sink
 - `Microsoft.Extensions.Caching.StackExchangeRedis`
 - `OpenTelemetry.Instrumentation.StackExchangeRedis` — trace-only command spans hooking the held cache and egress multiplexers into the AppHost-root trace
-- `Microsoft.Extensions.Caching.Hybrid`
 - `AWSSDK.KeyManagementService`
 - `Azure.Security.KeyVault.Keys`
 - `Google.Cloud.Kms.V1`
@@ -195,6 +194,9 @@ Upward ProjectReferences — alignment by contract, never a sibling AEC peer ref
 - `NodaTime`
 - `NodaTime.Serialization.SystemTextJson`
 - `System.IO.Hashing`
+
+[RECENCY_CACHE]:
+- `Microsoft.Extensions.Caching.Hybrid` — L2-store and serializer half of the AppHost-owned two-tier cache.
 
 [PERF]:
 - `CommunityToolkit.HighPerformance` — spans, memory pools, and bit primitives on the cache and object-store path

@@ -14,7 +14,7 @@ and a spatial model share one load record discriminated by which interface a con
 This is the load-value counterpart to the `Model/structural#ANALYSIS_MODEL` `LoadGroup` record:
 the `AnalysisModel` graph owns load-group topology by GlobalId, while the typed `ILoad` carries
 the applied action quantity the Compute solver evaluates. The package STACKS directly on the
-`UnitsNet` rail the `.api/api-unitsnet` `QuantitySet` owner already governs — `Force`, `Torque`,
+`UnitsNet` rail the `libs/csharp/.api/api-unitsnet.md` `QuantitySet` owner already governs — `Force`, `Torque`,
 `Pressure`, `ForcePerLength`, `Length`, `Ratio` — so a load quantity coerces to SI-base through
 the same `ToUnit(UnitSystem.SI)` path, and it is QUANTITY-ISOMORPHIC to the SAF load model
 (`.api/api-structuralanalysisformat`): `PointForce`↔`ExcelStructuralPointAction<Force>`,
@@ -95,15 +95,15 @@ the same `ToUnit(UnitSystem.SI)` path, and it is QUANTITY-ISOMORPHIC to the SAF 
 
 [LOCAL_ADMISSION]:
 - the `Model/structural#ANALYSIS_MODEL` `LoadGroup` record owns load-group TOPOLOGY (GlobalId, `StructuralLoadKind`, the loaded-item GlobalId sequence); the typed `ILoad` carries the applied action VALUE — the group references items, the `ILoad` carries the force quantity, and the two never merge into one stringly-typed record
-- a load quantity is always a `UnitsNet` struct, never a bare `double` + unit string; coercion to the persisted SI-base form is the `.api/api-unitsnet` `ToUnit(UnitSystem.SI)` path
+- a load quantity is always a `UnitsNet` struct, never a bare `double` + unit string; coercion to the persisted SI-base form is the `libs/csharp/.api/api-unitsnet.md` `ToUnit(UnitSystem.SI)` path
 - combination factoring is `load.Factor(γ)` (or the `Cases` `Combinations.Utility.FactorLoads` fold), never an ad-hoc `force * gamma` over a raw scalar — `Factor` preserves the `Label` and the concrete type so the factored result is still a typed `ILoad`
 - the concrete `PointForce`/`LineForce`/… classes are MUTABLE settable-property carriers (`{ get; set; }`); treat them as boundary ingest DTOs and project onto the immutable Bim record set, never as the in-graph authority
 
 [STACKING]:
-- with `UnitsNet` (`.api/api-unitsnet`): every load component IS a `UnitsNet` typed quantity, so a `PointForce` reduction over an element set is `UnitMath.Sum(forces, ForceUnit.Newton)` and a unit-checked SI coercion is the shared `ToUnit(UnitSystem.SI)` — the same rail the `QuantitySet` `MeasureValue` carrier governs; the `Factor(Ratio)` argument is the `UnitsNet` `Ratio` whose `.DecimalFractions` is the dimensionless multiplier
+- with `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): every load component IS a `UnitsNet` typed quantity, so a `PointForce` reduction over an element set is `UnitMath.Sum(forces, ForceUnit.Newton)` and a unit-checked SI coercion is the shared `ToUnit(UnitSystem.SI)` — the same rail the `QuantitySet` `MeasureValue` carrier governs; the `Factor(Ratio)` argument is the `UnitsNet` `Ratio` whose `.DecimalFractions` is the dimensionless multiplier
 - with `VividOrange.ISerialization`: `ILoad: ITaxonomySerializable` is the empty marker the VividOrange serializer keys on; a load round-trips through the same taxonomy-serialization rail as `VividOrange.Cases`/`VividOrange.Countries`, so a single serialization seam covers the whole structural taxonomy
 - with `VividOrange.Cases` (`.api/api-vividorange-cases`): `ILoadCase.Loads` is an `IList<ILoad>` and `ILoadCombination.GetFactoredLoads()` returns `IList<ILoad>` — the load value taxonomy is the payload the Eurocode case/combination engine factors; `Combinations.Utility.FactorLoads<T>(γ, cases)` and `ENCombinationFactory.CreateStrGeoSetB` fold `ILoad.Factor` across a case set
-- with `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-json`): the canonical in-graph discriminant is the `Model/structural` `StructuralLoadKind` `[SmartEnum<string>]`; the VividOrange concrete load type and `LoadApplication` enum are the boundary vocabulary mapped onto the Bim record at ingest, never re-exported as the canonical shape
+- with `Thinktecture.Runtime.Extensions` (`libs/csharp/.api/api-thinktecture-json.md`): the canonical in-graph discriminant is the `Model/structural` `StructuralLoadKind` `[SmartEnum<string>]`; the VividOrange concrete load type and `LoadApplication` enum are the boundary vocabulary mapped onto the Bim record at ingest, never re-exported as the canonical shape
 - with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): the SAF load model is QUANTITY-ISOMORPHIC — `ExcelStructuralPointAction: ExcelStructuralPointLoadBase<Force, …>` ↔ `PointForce`, `ExcelStructuralCurveAction` (`ForcePerLength`) ↔ `LineForce`, `ExcelStructuralSurfaceAction` ↔ `AreaForce`; the SAF↔VividOrange round-trip is a per-component `UnitsNet` map, never a scalar reinterpretation, so a model authored against the Eurocode taxonomy exports to the SAF XLSX wire with no unit loss
 - with `LanguageExt.Core`: an out-of-range or unparseable foreign load quantity at the SAF/IFC ingest boundary lowers onto `Model/faults#FAULT_BAND` `BimFault.CodecReject`/`Fin<T>` through `.ToError()`, never a thrown exception inside the load fold
 

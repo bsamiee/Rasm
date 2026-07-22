@@ -81,14 +81,15 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 |  [32]   | `Activity.SetBaggage(string, string?) -> Activity`                                        | instance | set-or-replace one baggage key   |
 |  [33]   | `Activity.GetBaggageItem(string) -> string?`                                              | instance | baggage read across parents      |
 |  [34]   | `Activity.Context -> ActivityContext`                                                     | property | outbound propagation payload     |
-|  [35]   | `Activity.TraceStateString -> string?`                                                    | property | W3C `tracestate` passthrough     |
-|  [36]   | `Activity.SetParentId(ActivityTraceId, ActivitySpanId, ActivityTraceFlags) -> Activity`   | instance | manual parent outside a mint     |
-|  [37]   | `ActivityContext.TryParse(string?, string?, bool, out ActivityContext) -> bool`           | static   | `traceparent` admission          |
-|  [38]   | `ActivityTraceId.CreateRandom() -> ActivityTraceId`                                       | static   | fresh trace identity             |
-|  [39]   | `ActivitySpanId.CreateRandom() -> ActivitySpanId`                                         | static   | fresh span identity              |
-|  [40]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write     |
-|  [41]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat          |
-|  [42]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C `traceparent` carrier codec  |
+|  [35]   | `Activity.Id -> string?`                                                                  | property | W3C `traceparent` value          |
+|  [36]   | `Activity.TraceStateString -> string?`                                                    | property | W3C `tracestate` passthrough     |
+|  [37]   | `Activity.SetParentId(ActivityTraceId, ActivitySpanId, ActivityTraceFlags) -> Activity`   | instance | manual parent outside a mint     |
+|  [38]   | `ActivityContext.TryParse(string?, string?, bool, out ActivityContext) -> bool`           | static   | `traceparent` admission          |
+|  [39]   | `ActivityTraceId.CreateRandom() -> ActivityTraceId`                                       | static   | fresh trace identity             |
+|  [40]   | `ActivitySpanId.CreateRandom() -> ActivitySpanId`                                         | static   | fresh span identity              |
+|  [41]   | `TagList(params ReadOnlySpan<KeyValuePair<string, object?>>)`                             | ctor     | stack tag buffer for a write     |
+|  [42]   | `DistributedContextPropagator.Current`                                                    | static   | process propagator seat          |
+|  [43]   | `DistributedContextPropagator.CreateW3CPropagator()`                                      | static   | W3C `traceparent` carrier codec  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -98,6 +99,7 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 - `HasListeners()` gates the whole payload build ahead of the open; `IsAllDataRequested` gates per-span tag cost once a listener admits the span.
 - Failed typed rails stamp `ActivityStatusCode.Error` with the error message and record the exception through `AddException` over a stack-allocated `TagList`; the typed verdict stays domain truth, never a tag.
 - Parent context, causal links, and a backdated start ride the parent-bearing `StartActivity` overload; the name-and-kind form parents on `Activity.Current`.
+- `Activity.Current` is the Activity-visible baggage store — a BCL-only reader reaches only this chain, never the OTel SDK `Baggage.Current` store; app-tier propagation promotes allowed keys through `AddBaggage` or the extraction path before library instruments read them.
 - `AddActivityListener`, `ActivityListener.Sample`, and `DistributedContextPropagator.Current` bind at the composition root, so an emitting library holds the source and the bracket alone.
 - Exporters, resource identity, and exemplar linkage live outside this assembly on the OpenTelemetry SDK.
 
@@ -105,6 +107,8 @@ Every `tags` parameter resolves to `IEnumerable<KeyValuePair<string, object?>>?`
 - `System.Diagnostics.Metrics`(`.api/api-diagnostics-metrics.md`): one scope name and version spells both this `ActivitySource` mint and the `Meter` mint, so span and instrument admit together at the composition root.
 - `OpenTelemetry`(`.api/api-opentelemetry.md`): `TracerProviderBuilder.AddSource(params string[])` admits these source names and seats the sampler and processor chain an emitting library never references.
 - `SpanBand`: freezes one `ActivitySource` per `KernelDomain` trace scope, and `Traced` folds `HasListeners`, the `using` open, and `MapFail`-driven `SetStatus` into one `Fin` bracket every measured kernel entry composes.
+- `Rasm.Element`: `GraphInstrument.Traced` composes the general bracket — `StartActivity(name, ActivityKind.Internal)` over a rail-valued fold, `SetStatus(ActivityStatusCode.Error, error.Message)` on the fail side.
+- `Rasm.Bim`: `BimTelemetry.Attributed` reads `rasm.tenant`/`rasm.model` off `GetBaggageItem` once per fact; an absent key omits its tag, so no empty-string series mints and no domain signature grows a tenant slot.
 
 [LOCAL_ADMISSION]:
 - Span opens live inside a package's declared telemetry-spine fence; an emitting page declares its trace scopes and the spine owns every `StartActivity` call.

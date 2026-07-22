@@ -180,10 +180,12 @@ Full signatures for the `...`-abbreviated credential constructors:
 - `ChannelConnectivity` transitions (`IDLE`->`CONNECTING`->`READY`->`TRANSIENT_FAILURE`->`SHUTDOWN`) are observable via `channel.subscribe(callback)` and `channel_ready_future` for readiness gating
 - `Compression.Gzip`/`Deflate` set per-channel or per-call payload compression; pass at `insecure_channel`/`secure_channel` or per-invocation
 - runtime codegen: `protos`/`services`/`protos_and_services` import `.proto`-derived modules at runtime, removing the `grpcio-tools` protoc build step where a generated module is not pinned ahead of time
+- serve lifecycle: `grpc.aio.server(interceptors=[...])` drives one ordered drain through `add_secure_port(addr, creds)`/`add_insecure_port(addr)`, `start()`, `stop(grace)`, and `wait_for_termination(timeout)`; `add_insecure_port` admits only in-cluster and loopback targets
+- `grpc.aio.ServicerContext` carries the per-RPC surface handlers compose directly: `abort(code, details)`/`set_code`/`set_details` for status egress, `invocation_metadata()`/`send_initial_metadata`/`set_trailing_metadata` for the metadata seam, `read()`/`write(msg)` for the streaming pump, and `auth_context()`/`peer_identities()`/`peer()`/`time_remaining()` for verified peer identity and the inbound deadline budget — never a self-asserted metadata claim
 
 [STACKS_WITH]:
 - msgspec/protobuf wire: a gRPC RPC body is `bytes`; the servicer decodes it through the message owner (`protobuf` generated message or a `msgspec.Decoder(type=T)`), validates, and re-encodes the response via `Encoder.encode_into` into a reused buffer — the gRPC transport carries bytes only, never owns the message schema.
-- otel propagation: a client `UnaryUnaryClientInterceptor` calls `propagate.inject(metadata_dict)` to stamp the active `Context` into call metadata, and a `ServerInterceptor` calls `propagate.extract(invocation_metadata)` + `Tracer.start_as_current_span(kind=SpanKind.SERVER)` to continue the trace — `grpc.aio.Metadata` is the carrier, `opentelemetry-api` owns the W3C `traceparent` mapping.
+- otel propagation: a client `UnaryUnaryClientInterceptor` calls `propagate.inject(metadata_dict)` to stamp the active `Context` into call metadata, and a `ServerInterceptor` calls `propagate.extract(invocation_metadata)` + `Tracer.start_as_current_span(kind=SpanKind.SERVER)` to continue the trace — `grpc.aio.Metadata` is the carrier, `opentelemetry-api` owns the W3C `traceparent` mapping; the runtime serve leg takes the settled `aio_server_interceptor` from `opentelemetry-instrumentation-grpc`, never a hand-rolled tracing interceptor.
 - stamina retries: transient `StatusCode.UNAVAILABLE`/`DEADLINE_EXCEEDED`/`RESOURCE_EXHAUSTED` from `RpcError.code()` are the retriable predicate fed to a `stamina.retry_context`; the channel is reused across attempts (never recreated), and the retry span nests under the client interceptor's otel span.
 - structured logging: `RpcError.code().name` + `details()` + `trailing_metadata()` are the bound fields a `structlog` boundary logger emits when mapping a gRPC failure to a domain error rail.
 
@@ -192,6 +194,7 @@ Full signatures for the `...`-abbreviated credential constructors:
 - Use `grpc.aio` for async service code; `grpc` (sync) for sync or thread-pool wrappers; `aio.init_grpc_aio` binds the C-core to the running loop on first use.
 - mTLS: `ssl_channel_credentials(root_certificates=ca_pem, private_key=key_pem, certificate_chain=cert_pem)`; rotate server certs without downtime via `dynamic_ssl_server_credentials`.
 - Loopback/UDS: pair `local_channel_credentials(LocalConnectionType.UDS)` with `local_server_credentials` for in-host sidecar transport.
+- runtime serve: `transport/serve#SERVE` composes this transport for HTTP/2 RPC — no second RPC transport and no parallel channel type per security mode — and its `CredentialPolicy` decode, the Python half of the C#-minted axis of the same name, is the single mint point for the TLS, local-loopback, and per-call credential families; TLS material comes from the caller-owned settings model, never inline literals.
 
 [RAIL_LAW]:
 - Package: `grpcio`

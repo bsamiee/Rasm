@@ -94,7 +94,6 @@ Compute-domain libraries admitted by this folder; versions centralize in the C# 
 - `Microsoft.ML.OnnxRuntime` — ONNX inference session core.
 - `Microsoft.ML.OnnxRuntime.Extensions` — custom-op and string-tensor extension surface.
 - `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
-- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
 
 [SIMULATION_CARBON]:
 - `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
@@ -135,6 +134,9 @@ Shared substrate Compute consumes from the C# registry; the registry and its cha
 [IDENTITY_TIME]:
 - `NodaTime`
 - `System.IO.Hashing`
+
+[RECENCY_CACHE]:
+- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
 
 [GRAPH_GEOMETRY]:
 - `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.

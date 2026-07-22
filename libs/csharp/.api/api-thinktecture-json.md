@@ -75,14 +75,17 @@
 - `Thinktecture.Runtime.Extensions.MessagePack`(`.api/api-thinktecture-messagepack.md`): the same generated metadata drives the binary rail, and the owner's `SerializationFrameworks` value selects which codecs an object factory serves, so one declaration carries both wires.
 - Within the branch, one app-root `SuiteContracts.Wire` expression registers `ThinktectureJsonConverterFactory(skipObjectsWithJsonConverterAttribute: true)` once, so an attribute-wired owner keeps its own converter and every other generated owner rides the options-level factory.
 - A span-parsable owner reaching that registration decodes through `Utf8JsonReaderHelper`'s stack-allocated 128-char window with an `ArrayPool<char>` spill above it; a caller supplying a `readonly struct` `IUtf8JsonFactory<T, TValidationError>` to the three-argument `ValidateFromUtf8` gets devirtualized dispatch on the same pooled path.
+- Under source generation the factory rides the `JsonSerializerOptions.TypeInfoResolverChain` merge: a package's partial `JsonSerializerContext` appends after the Thinktecture key-scalar resolver, so the generated `[Union]` polymorphic `kind` discriminator and every `[SmartEnum]`/`[ValueObject]` spine field round-trip as their key scalar to the exact case, `Seq<string>` and LanguageExt collection members surviving the merge without a per-collection `JsonConverter` — the `Rasm.Compute` `Runtime/receipts#RECEIPT_VOCABULARY` `ComputeWireContext : JsonSerializerContext` is this merge over the `ComputeReceipt` `[Union]`, `UnmappedMemberHandling.Disallow` rejecting a drifted field at the consuming edge.
+- `Rasm.Bim`: `Bim/semantics/properties#PROPERTY_TEMPLATES` `PropertyKey` `[SmartEnum<string>]` and the `MeasureValue`/`PropertyValue` `[Union]` carriers serialize through these converters with their generated `Validate` rail intact, and the boundary capsule catches the serializer-edge `JsonException`, lowering it onto the `Fin<T>`/`BimFault` rail so a serializer exception never crosses into domain code.
 
 [LOCAL_ADMISSION]:
 - Generated owners cross a wire through one options-level `ThinktectureJsonConverterFactory` registration; a per-owner `[JsonConverter]` attribute is the exception the default constructor already honors.
 - Key conversion lives inside the converter, so the generated `Validate` rail sees every inbound key.
 - A hot string-keyed wire keeps the span path, opted out at the declaration through `DisableSpanBasedJsonConversion` or at the registration through the factory's `Func<Type, bool>?` callback.
+- Numeric key converters stay internal singletons; `JsonSerializerOptionsExtensions.GetCustomMemberConverter(options, memberType)` is the one public resolution entry to a member's key-type converter.
 
 [RAIL_LAW]:
 - Package: `Thinktecture.Runtime.Extensions.Json`
 - Owns: System.Text.Json converter selection, key codec, and validation-railed decode for Thinktecture-generated owners
 - Accept: one options-level factory registration, the three converter families it binds, `JsonNumberHandling`-aware numeric key codecs, and a caller-supplied `IUtf8JsonFactory` struct on the UTF-8 path
-- Reject: a hand-written converter for a generated owner, key pre-conversion at the call site, and a second options owner for the same wire
+- Reject: a hand-written converter for a generated owner, key pre-conversion at the call site, a second options owner for the same wire, and a parallel web DTO family for the same `[Union]` — the merged `JsonSerializerContext` is the cross-edge wire

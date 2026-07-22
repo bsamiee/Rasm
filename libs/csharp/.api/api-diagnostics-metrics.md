@@ -77,7 +77,7 @@
 - `ActivitySource`(`api-diagnostics-activity.md`): the sibling span surface in this assembly, so one scope name and version stamp the `Meter` and `ActivitySource` mints together.
 - `Microsoft.Extensions.Diagnostics`(`api-extensions-diagnostics.md`): `AddMetrics` registers the `IMeterFactory` every mint here resolves, and `InstrumentRule` rows gate instrument publication.
 - `Microsoft.Extensions.Diagnostics.Testing`(`tests/csharp/.api/diagnostics-testing.md`): `MetricCollector<T>` binds an `Instrument<T>` by handle or by meter-plus-name and drives `RecordObservableInstruments` over the observable binds.
-- `Rasm.AppUi`(`Rasm.AppUi/.api/api-diagnostics-metrics.md`): the folder overlay binds `InstrumentKind` delegates onto these create calls.
+- `Rasm.AppUi`: `TelemetryIdentity.Mint` is the only meter mint and `InstrumentRow.Bind` the delegate slot every create call lives in; `AppUiTelemetry.Mount` freezes contributions with duplicate-name collision at build, and `InstrumentKind` derives each `InstrumentSpec` row into its bind delegate — `Count`, `Distribution` over kernel `Buckets` advice, `Level` over scalar `LevelCells` readers, `Levels` over keyed families projected as tagged `Measurement<long>` batches — so the `Diagnostics/evidence.md` emitting pages declare `InstrumentSpec` rows and never spell a create or write call; `ProofLaw.InstrumentFold` is the `MetricCollector<T>` proof rail.
 - `Rasm` telemetry spine: `TelemetryIdentity.Mint` folds the `MeterOptions` mint, `Buckets.Advised` the advice-bearing histogram create, `InstrumentRow.Observable` the gauge callback, `InstrumentSet.Count`/`Record` the span writes, and `LevelCells.Reader` both the scalar and `Func<IEnumerable<Measurement<long>>>` families; every contributing package reaches the surface as a `TelemetryContributorPort` row.
 
 [LOCAL_ADMISSION]:
@@ -87,4 +87,4 @@
 - Package: `System.Diagnostics.Metrics` (BCL inbox)
 - Owns: library-tier instrument declaration and measurement writes behind every `rasm.*` meter
 - Accept: a factory-minted `Meter`, instrument rows bound through create delegates, tagged writes over a span or a built `TagList`, observable binds over cell readers
-- Reject: `new Meter(...)` at any site, an inline create call at an emitting page, a synchronous instrument polling state an observable bind reads
+- Reject: `new Meter(...)` at any site, an inline create call at an emitting page, a synchronous instrument polling state an observable bind reads, and an `UpDownCounter` where a level cell with its observable gauge states the fact

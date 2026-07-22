@@ -262,12 +262,14 @@
 - `NodaTime.Serialization.Protobuf`(`.api/api-nodatime-protobuf.md`): `Timestamp` and `Duration` fields project through `ToInstant` and `ToNodaDuration`, so the message clock and the `WithDeadline` budget share one time vocabulary.
 - `Grpc.Net.Client.Web`(`Rasm.Compute/.api/api-grpc-client-web.md`): `GrpcWebHandler` is a `DelegatingHandler` wrapping the `SocketsHttpHandler` handed to `GrpcChannelOptions.HttpHandler`, so gRPC-Web composes over the transport instead of replacing it.
 - `OpenTelemetry.Instrumentation.GrpcNetClient`(`.api/api-otel-instrumentation-grpcnetclient.md`): client RPC spans emit off the channel with zero interceptor code, and `SuppressDownstreamInstrumentation` collapses the HTTP-transport span so one call is one span.
+- `Microsoft.Extensions.ServiceDiscovery`(`Rasm.AppHost/.api/api-service-discovery.md`): balancing enters through the `AddServiceDiscovery` integration's `dns`/`static` factory config, so the `Resolver`/`LoadBalancer`/`Subchannel` extensibility surface stays that package's own — never a hand-subclassed resolver or balancer on the call path.
 - `LanguageExt.Core`(`.api/api-languageext.md`): a caught `RpcException` folds to `Fin<A>.Fail` keyed on `StatusCode`, and a fan-in over several calls accumulates through `Validation<Error, A>` where `Fin` short-circuits.
 - Within-library: one warm channel per endpoint — `ForAddress` with the full options record, `ConnectAsync` before the first deadline-bearing call, `CreateCallInvoker` wrapped once by `Intercept`, and `CallOptions.With*` threading deadline, cancellation, headers, and credentials per call.
+- `Rasm.AppHost`: dials two warm channels — a companion discovery-attach whose `SocketsHttpHandler.ConnectCallback` dials the Unix domain socket under a nominal `http://localhost` address, and a `ServiceDiscovery`-resolved cluster election-and-lock channel — with keepalive and reconnect backoff riding channel policy, never a second handler.
 
 [LOCAL_ADMISSION]:
 - Remote calls enter through client channels; server hosting stays outside this package graph.
-- `ServiceConfig` stays unset under `DisableResolverServiceConfig = true`, because the AppHost keyed pipeline owns hop retry and a second retry owner stacks budgets.
+- Retry and hedging stay data-driven `ServiceConfig` the channel applies under `DisableResolverServiceConfig = true`; the `Polly.Core` outbound hop owns cross-cutting resilience, so gRPC service config never becomes a second resilience owner stacking budgets.
 - `StaticResolverFactory` admits a DNS-free fixed-endpoint set; a custom `LoadBalancer` or `SubchannelPicker` is composition-root work, never a call-path decision.
 
 [RAIL_LAW]:

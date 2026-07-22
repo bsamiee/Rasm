@@ -180,3 +180,6 @@ Substrate libraries from the C# registry that this folder consumes directly. Ful
 
 [COLOR_SCIENCE]:
 - `Wacton.Unicolour` — perceptual color math for theme tokens and contrast proofs.
+
+[RUNTIME_INBOX]:
+- `System.Diagnostics.Metrics` — in-box instrument surface behind the `rasm.appui.*` telemetry spine.

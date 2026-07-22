@@ -177,7 +177,7 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
   `IConcreteSection`; one Materials Profiles rail owns both the elastic section properties and the RC capacity surface.
 - output seam: `Mesh` is the `IForceMomentMesh` floor (`api-vividorange-iforcemomentinteraction.md`), concrete
   `ForceMomentMesh` (`api-vividorange-forcemomentinteraction.md`) — a renderable `VividOrange.Geometry` `ICartesianMesh`
-  whose axes are `Force`/`Torque` `UnitsNet` quantities (`api-unitsnet.md`).
+  whose axes are `Force`/`Torque` `UnitsNet` quantities (`libs/csharp/.api/api-unitsnet.md`).
 - substrate seam: `Triangle` (Triangle.NET constrained-Delaunay) meshes the section into fibres and `MIConvexHull`
   closes the N-M-M points into the onion — both KERNEL-owned computational-geometry primitives consumed through the
   single central pin, encapsulated `internal` so the design page never touches them directly.

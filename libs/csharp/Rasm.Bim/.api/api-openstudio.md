@@ -160,7 +160,7 @@ Every load/get returning an `Optional<T>` gates on `is_initialized()` before `ge
 - IFC seam: a GeometryGym IFC building (`api-geometrygym-ifc`) exports gbXML, which `GbXMLReverseTranslator` ingests into a `Model` — IFC spaces/zones become OSM spaces/thermal zones at the `Exchange/import` boundary; the energy model is derived from the BIM model, never re-authored.
 - geometry-export seam: `GltfForwardTranslator`/`ThreeJSForwardTranslator` emit a model's geometry for web preview, joining the same `Exchange/export` delivery rail as the glTF/3D-Tiles legs (`api-sharpgltf-3dtiles`) — OpenStudio is the energy source, those are the delivery encodings.
 - results seam: after an EnergyPlus run, `SqlFile` reads the results SQLite; the typed outputs land in the Bim analysis receipts and, keyed by content hash, in the `Rasm.Persistence` artifact index.
-- identity seam: a saved `.osm`/IDF string (UTF-8 bytes) feeds `System.IO.Hashing` — `XxHash3` for the fast in-process fingerprint, `XxHash128` for the collision-resistant persisted content key (`api-hashing`) — the same content-identity rail (the `Rasm.Persistence` artifact index) as the other energy/IFC exports.
+- identity seam: a saved `.osm`/IDF string (UTF-8 bytes) feeds `System.IO.Hashing` — `XxHash3` for the fast in-process fingerprint, `XxHash128` for the collision-resistant persisted content key (`libs/csharp/.api/api-hashing.md`) — the same content-identity rail (the `Rasm.Persistence` artifact index) as the other energy/IFC exports.
 
 [LOCAL_ADMISSION]:
 - model read enters through `new VersionTranslator.loadModel(path)` (version-robust) returning an `OptionalModel` lowered to a `Fin<Model>`; model write enters through `model.save(path, overwrite)`.

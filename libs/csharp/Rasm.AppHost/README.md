@@ -121,13 +121,12 @@ AppHost-domain libraries admitted by this folder; versions centralize in the one
 - `Polly.RateLimiting`
 - `Microsoft.Extensions.ServiceDiscovery`
 - `Grpc.AspNetCore.HealthChecks`
+- `Grpc.HealthCheck` — transitive `grpc.health.v1` `HealthServiceImpl` serving-status surface under `Grpc.AspNetCore.HealthChecks`, never a direct reference.
 - `Grpc.AspNetCore.Web` — binds the `UseGrpcWeb` middleware at the composition root.
 - `Grpc.Core.Api`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
 [CAPABILITY_AGENT]:
-- `Microsoft.Extensions.AI.Abstractions`
-- `Microsoft.Extensions.AI`
 - `ModelContextProtocol`
 - `ModelContextProtocol.Core`
 - `ModelContextProtocol.AspNetCore`
@@ -174,6 +173,10 @@ Cross-cutting C# substrate AppHost consumes; the C# registry and its charters ow
 
 [NUMERIC_SUBSTRATE]:
 - `System.Numerics.Tensors`
+
+[AI_CONTRACTS]:
+- `Microsoft.Extensions.AI.Abstractions`
+- `Microsoft.Extensions.AI` — concrete builder and middleware owner behind the injected contracts.
 
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`

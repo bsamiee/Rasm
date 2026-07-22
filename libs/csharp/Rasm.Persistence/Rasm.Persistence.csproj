@@ -101,12 +101,15 @@
         <PackageReference Include="Azure.Storage.Blobs" />
         <PackageReference Include="Google.Cloud.Kms.V1" />
         <PackageReference Include="Google.Cloud.Storage.V1" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="Minio" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AWS" />
         <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" />
         <PackageReference Include="StackExchange.Redis" />
+    </ItemGroup>
+
+    <ItemGroup Label="Recency Cache">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 
     <ItemGroup Label="Code Generation">

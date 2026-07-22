@@ -284,6 +284,8 @@
 - `FrequencyScale(length, sampleRate)` returns the per-bin axis: positive bins over the first `⌊N/2⌋+1` entries then the wrapped negative bins, spaced `sampleRate/length`.
 - A paired taper's bare name is the symmetric filter-design form and its `*Periodic` twin the FFT-framing form; `Gauss` takes sigma relative to the half-width and `Tukey` the tapered fraction.
 - `*Scaled` forms hold large-argument stability and `*Prime` forms give the derivative across the Bessel, Hankel, Airy, and Kelvin families.
+- Dense least squares routes an overdetermined `m > n` system through `Matrix<double>.QR(QRMethod.Thin)` then `QR<double>.Solve(b)` — the `argmin‖Ax−b‖₂` minimizer — with `Svd(true)` the truncated pseudo-inverse conditioning fallback; the `A.TransposeThisAndMultiply(A)` Gram path (`Cholesky().Solve(Aᵀb)`, no explicit transpose allocation) squares the condition number and stays the SPD-only fallback.
+- A near-zero column norm divides through and fills `Q`/`R` with `NaN` while `IsFullRank` returns `true`, so admission gates the design matrix all-finite before factoring and probes the factor output all-finite after.
 
 [STACKING]:
 - `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the receipt path.
@@ -291,13 +293,15 @@
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
 - `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
 - Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
+- `Rasm.Materials`: `acquisition#ACQUISITION` `SolveGgx` runs the thin-QR Gauss-Newton step `Δp = Matrix.Build.Dense(m, 2, Jacobian).QR(QRMethod.Thin).Solve(−r)` over the log-residual, switches to `Svd(true).Solve` on a non-finite step, and witnesses `‖r‖/‖logMeasured‖` via `Vector.L2Norm` — the `bsdf#MICROFACET_KERNEL` GGX/Smith/Fresnel form stays the forward model, MathNet owning only the dense solve; the fitted `FitResidual` and the `Wacton.Unicolour` spectral-grounded scene-linear base colour pair on one `Provenance` receipt, never a fused colour-plus-numeric kernel, and MathNet is a direct Materials pin — the acyclic strata forbids a `Rasm.Compute` project reference to obtain it transitively.
 
 [LOCAL_ADMISSION]:
 - Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.
 - Wavelet filter banks and analog-prototype IIR design bind through their own scaling tables outside this package.
+- `Matrix<double>`/`Vector<double>` compose directly — never a package-local matrix wrapper — a residual witness recomputes `‖A·x − b‖₂ / ‖b‖₂` against the original operator in working precision, never the reconstructed factors, and `Control.UseManaged()` selects once at composition: the native MKL/OpenBLAS/CUDA providers are separate x64-only companion packages, so osx-arm64 always rides `ManagedLinearAlgebraProvider.Instance` and a per-call-site `Control.TryUseNativeMKL()` is the named defect.
 
 [RAIL_LAW]:
 - Package: `MathNet.Numerics`
 - Owns: provider-free analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, metric reduction, and descriptive statistics
 - Accept: `Func<double,double>` integrands and root targets, `double[]` sample and signal axes, the distribution seams, `IInterpolation` results, the no-throw `TryFindRoot` rail, in-place `Complex[]` and split `double[]` spectral buffers under a `FourierOptions` scaling
-- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it
+- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it, a hand-rolled Levenberg-Marquardt or normal-equations loop, and a Gram-plus-ridge squaring `κ` where thin-QR avoids it

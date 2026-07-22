@@ -218,9 +218,9 @@ siblings under the same xBIM lineage and license posture.
  COBie projection of the Pset properties — the same Pset vocabulary the `Xbim.Properties` template
  defines and the GeometryGym model carries, mapped onto `CobieAttribute` (name + `AttributeValue` +
  unit), never a re-typed property model
-- with `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`api-unitsnet`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values are stamped from the `NodaMoney` `Currency` and the `UnitsNet` SI units the cost/quantity owners hold, so the COBie register's units agree with the model's typed money/measures
+- with `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values are stamped from the `NodaMoney` `Currency` and the `UnitsNet` SI units the cost/quantity owners hold, so the COBie register's units agree with the model's typed money/measures
 - with `VividOrange.Stages` (`api-vividorange-stages`): the COBie `CobiePhase`/`CobieStageType`/ `CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy, so the design phase and the handover phase share one stage vocabulary
-- with `NodaTime` (`api-nodatime`): the `CobieCreatedInfo.CreatedOn` provenance instant is stamped from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
+- with `NodaTime` (`libs/csharp/.api/api-nodatime.md`): the `CobieCreatedInfo.CreatedOn` provenance instant is stamped from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
 
 [LOCAL_ADMISSION]:
 - the FM-handover asset register is the `CobieModel`, AUTHORED from the `BimModel`/`ElementSet` + properties through `Instances.New<T>()` in a transaction — a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel` is the rejected form

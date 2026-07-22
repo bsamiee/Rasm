@@ -226,7 +226,6 @@ Domain libraries admitted by this folder; versions centralize in the one Python 
 
 [COMPRESSION]:
 - `zstandard`
-- `lz4`
 - `brotli`
 - `zlib-ng` — accelerated gzip/zlib behind the GZIP codec
 - `py7zr`

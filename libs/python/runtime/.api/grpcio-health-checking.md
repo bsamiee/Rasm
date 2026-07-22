@@ -75,7 +75,7 @@
 
 [LOCAL_ADMISSION]:
 - the serve leg admits `health.aio.HealthServicer`, `add_HealthServicer_to_server`, `set`, and `enter_graceful_shutdown`; the sync servicer and the `Watch` streaming handler ride the generated surface, never re-implemented.
-- the `grpc.aio.Server` lifecycle (`add_insecure_port`/`start`/`stop`) arrives settled from `.api/grpcio.md`; this page owns only the health servicer and its serving-status vocabulary.
+- the `grpc.aio.Server` lifecycle (`add_insecure_port`/`start`/`stop`) arrives settled from `libs/python/.api/grpcio.md`; this page owns only the health servicer and its serving-status vocabulary.
 
 [RAIL_LAW]:
 - Package: `grpcio-health-checking`

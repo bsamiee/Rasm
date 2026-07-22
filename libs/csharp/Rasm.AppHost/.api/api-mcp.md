@@ -212,8 +212,8 @@ Every `*ClientTransport` implements `IClientTransport`; `StreamClientTransport` 
 - `IMcpTaskStore`/`InMemoryMcpTaskStore` back the out-of-band task-result protocol.
 
 [STACKING]:
-- `api-extensions-ai.md`(`.api/api-extensions-ai.md`): `McpClientTool : AIFunction`, so server tools surface as MEAI `AIFunction` instances registered in `ChatOptions.Tools`; `AIFunctionMcpServerTool` wraps a MEAI `AIFunction` as a server-side tool, and `AIContentExtensions` bridges `AIContent` across the boundary.
-- `api-extensions-ai.md`(`.api/api-extensions-ai.md`): `McpServer.AsSamplingChatClient(JsonSerializerOptions?)` projects the server-sampling leg as an `IChatClient` the in-process reasoning loop reuses; it is declared on `McpServer` (host/Core), never an `Microsoft.Extensions.AI` member.
+- `Microsoft.Extensions.AI.Abstractions`(`libs/csharp/.api/api-extensions-ai.md`): `McpClientTool : AIFunction`, so server tools surface as MEAI `AIFunction` instances registered in `ChatOptions.Tools`; `AIFunctionMcpServerTool` wraps a MEAI `AIFunction` as a server-side tool, and `AIContentExtensions` bridges `AIContent` across the boundary.
+- `Microsoft.Extensions.AI.Abstractions`(`libs/csharp/.api/api-extensions-ai.md`): `McpServer.AsSamplingChatClient(JsonSerializerOptions?)` projects the server-sampling leg as an `IChatClient` the in-process reasoning loop reuses; it is declared on `McpServer` (host/Core), never an `Microsoft.Extensions.AI` member.
 - within-host DI: `AddMcpServer().WithTools(...)/WithHttpTransport(...)` folds server registration into the host `IServiceCollection`, and `McpJsonUtilities.DefaultOptions` supplies the canonical `JsonSerializerOptions` at every boundary.
 
 [LOCAL_ADMISSION]:

@@ -60,6 +60,7 @@ Shared substrate consumed from the C# registry; the registry and its charters ow
 - `System.IO.Hashing` — kernel seed-zero content-hash seed.
 - `NodaTime` — instant stamps on assessments, provenance, and headers.
 - `NodaTime.Serialization.Protobuf` — `Instant` wire crossing on the `Graph/wire` headers.
+- `TimeProvider` — in-box injected monotonic clock behind every timed seam decoration.
 
 [WIRE_TRANSCRIPTION]:
 - `Google.Protobuf` — `rasm.element.v1` message flow and payload-limit gate.

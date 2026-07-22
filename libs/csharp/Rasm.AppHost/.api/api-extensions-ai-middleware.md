@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_EXTENSIONS_AI_MIDDLEWARE]
 
-`Microsoft.Extensions.AI` mints the concrete middleware pipeline over the abstractions contracts: a `ChatClientBuilder`/`EmbeddingGeneratorBuilder` folds provider-agnostic decorators into one `DelegatingChatClient` chain the capability-agent governance fold composes once, so every model call is metered, content-cached, traced, and context-bounded without provider coupling. Abstractions — `IChatClient`, `IEmbeddingGenerator`, `AIFunction`, the modal contracts — live at `api-extensions-ai.md`; this catalog carries the concrete builder, decorator, reducer, and registration surface alone.
+`Microsoft.Extensions.AI` mints the concrete middleware pipeline over the abstractions contracts: a `ChatClientBuilder`/`EmbeddingGeneratorBuilder` folds provider-agnostic decorators into one `DelegatingChatClient` chain the capability-agent governance fold composes once, so every model call is metered, content-cached, traced, and context-bounded without provider coupling. Abstractions live at `libs/csharp/.api/api-extensions-ai.md`; this catalog carries the concrete builder, decorator, reducer, and registration surface alone.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -112,7 +112,7 @@ Every `Use*`/`ConfigureOptions`/`AsBuilder` returns its builder for chaining; a 
 - `SpeechToTextClientBuilder`, `TextToSpeechClientBuilder`, `ImageGeneratorBuilder`, `RealtimeClientBuilder`, and `HostedFileClientBuilder` repeat the same builder-decorator-`Add*` shape under `[Experimental("MEAI001")]`.
 
 [STACKING]:
-- `api-extensions-ai.md`(`.api/api-extensions-ai.md`): the abstractions tier owns `IChatClient`, `IEmbeddingGenerator`, `AIFunction`, `DelegatingChatClient`, `IChatReducer`, and `AIJsonUtilities`; every decorator subclasses `DelegatingChatClient`, `Build` emits an `IChatClient`, and structured output reads its schema from `AIJsonUtilities`.
+- `Microsoft.Extensions.AI.Abstractions`(`libs/csharp/.api/api-extensions-ai.md`): the abstractions tier owns `IChatClient`, `IEmbeddingGenerator`, `AIFunction`, `DelegatingChatClient`, `IChatReducer`, and `AIJsonUtilities`; every decorator subclasses `DelegatingChatClient`, `Build` emits an `IChatClient`, and structured output reads its schema from `AIJsonUtilities`.
 - `api-otel.md`(`.api/api-otel.md`): `UseOpenTelemetry(source)` emits the `gen_ai.*` GenAI span and metric conventions on the `ActivitySource`/`Meter` the OTel composition root admits through `AddSource`/`AddMeter`.
 - `api-hybrid-cache.md`(`libs/csharp/.api/api-hybrid-cache.md`): `UseDistributedCache` binds the resources-lane `HybridCache` surfaced as `IDistributedCache`, so the model response cache and the suite content cache share one store.
 - `api-mcp.md`(`.api/api-mcp.md`): `McpClientTool : AIFunction` registers in `ChatOptions.Tools`, and `FunctionInvokingChatClient` runs the tool-call loop over each, routing through the brokered `CommandAIFunction` the governance fold supplies.

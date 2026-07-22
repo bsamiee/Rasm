@@ -44,7 +44,7 @@
 [STACKING]:
 - `OpenTelemetry`(`api-opentelemetry.md`): `AddAWSInstrumentation` is the whole verb — a bare `AddSource("AWSSDK.*")` subscribes a source no unregistered customizer enriches, and the root's `Sdk.SetDefaultTextMapPropagator` composite governs every egress except the AWS leg this package propagates itself.
 - `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): `SuppressDownstreamInstrumentation` drops the `HttpClient` span the SDK transport nests inside each AWS operation span, leaving one span carrying the region, service, and operation attributes.
-- `Rasm.Persistence`: one root admission spans both held SDK clients — `IAmazonS3` object transfers and `IAmazonKeyManagementService` custody calls — off the `AWSSDK.Core` pipeline they share, never a per-client bind.
+- `Rasm.Persistence`: one root admission spans both held SDK clients off the shared `AWSSDK.Core` pipeline, never a per-client bind — `Store/blobstore#OBJECT_STORE` `ObjectClient.S3` (`IAmazonS3`) multipart and `TransferUtility` hops carry `Client`-kind spans continuing the parent commit-drain activity, the `ObjectEncryption` SSE-KMS write stance and `ObjectLock` WORM edge riding the same span, and the `Element/identity#KMS_CUSTODY` `SigningKeyring` and `Store/blobstore#BLOB_GC` envelope calls (`GenerateDataKey`/`Encrypt`/`Decrypt`/`ReEncrypt`, `Sign`/`Verify`) span through the same customizer with no separate instrumentation row.
 
 [LOCAL_ADMISSION]:
 - Composition-root-only: both registries are process-global, so the first admitted options govern every app co-hosted in the process.
@@ -54,4 +54,4 @@
 - Package: `OpenTelemetry.Instrumentation.AWS`
 - Owns: aws-semconv enrichment and `AWSSDK.*` source and meter admission for every SDK client in the process
 - Accept: `AddAWSInstrumentation` on the tracer and meter builders at the composition root, ahead of client construction
-- Reject: per-client or per-app customizer registration; hand-rolled aws-semconv tagging over SDK operations; a bare `AddSource`/`AddMeter` standing in for admission
+- Reject: per-client or per-app customizer registration; hand-rolled aws-semconv tagging over SDK operations; a bare `AddSource`/`AddMeter` standing in for admission; customizer registration inside a store or keyring fold

@@ -2,7 +2,7 @@
 
 `VividOrange.Profiles.Catalogue` supplies the published structural-section database as a typed catalogue of generated profile classes: 2299 American sections from the AISC Shapes Database and 558 European sections from EN 10365:2017. Each profile is a sealed CRTP singleton (`SingletonAmericanBase<T>` or `SingletonEuropeanBase<T>`) carrying cross-section geometry as `UnitsNet.Length` dimensions through the `VividOrange.IProfiles` family contracts: `II` and `IIParallelFlange` for I-sections, `IChannel`, `ITee`, `IAngle` and `IDoubleAngle`, and `IRectangularHollow` or `ICircularHollow` with `IHollowStructuralSection` for HSS and Pipe.
 
-`CatalogueFactory.CreateAmerican` and `CatalogueFactory.CreateEuropean` map section-identity enum values to `ICatalogue` and `IProfile` instances. The catalogue owns the data half of the Materials Profiles section-property seam; `VividOrange.Sections.SectionProperties` (`api-vividorange-sections-sectionproperties.md`) consumes each produced `IProfile` as its computation half. Registered published data grounds the Profiles steel and EN section-geometry seed, replacing hand-keyed section literals while composing the in-folder `UnitsNet` quantity owner (`api-unitsnet.md`).
+`CatalogueFactory.CreateAmerican` and `CatalogueFactory.CreateEuropean` map section-identity enum values to `ICatalogue` and `IProfile` instances. The catalogue owns the data half of the Materials Profiles section-property seam; `VividOrange.Sections.SectionProperties` (`api-vividorange-sections-sectionproperties.md`) consumes each produced `IProfile` as its computation half. Registered published data grounds the Profiles steel and EN section-geometry seed, replacing hand-keyed section literals while composing the in-folder `UnitsNet` quantity owner (`libs/csharp/.api/api-unitsnet.md`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -130,7 +130,7 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 - Dimensions are `UnitsNet.Length`, NOT raw `double`, and are carried in their NATIVE published unit — AISC
   data is `LengthUnit.Inch` (`new Length(, Inch)`), EN 10365 data is `LengthUnit.Millimeter`. Neither is the SI
   base unit; the value travels WITH its unit, so a consumer reads `.Millimeters`/`.Inches`/`.Meters` and `UnitsNet`
-  owns the conversion — the `UnitsNet` family-gate (`api-unitsnet.md`) applies, and no millimetre literal is re-keyed.
+  owns the conversion — the `UnitsNet` family-gate (`libs/csharp/.api/api-unitsnet.md`) applies, and no millimetre literal is re-keyed.
 - Shape is a typed discriminant (`AmericanShape.W`, `EuropeanShape.IPE`) and ALSO selects the geometry interface to
   cast to, so a Profiles `[SmartEnum]` family axis maps directly onto it — the AISC/EN family taxonomy IS the
   section discriminant (13 American / 25 European families), not a parallel enum.
@@ -139,7 +139,7 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 - The factory is admitted ONLY through the Materials Profiles boundary that seeds the steel/EN section families;
   the `American`/`European` enum and the `ICatalogue` instance map onto the canonical Profile owner at the edge.
 - Geometry is read as `UnitsNet.Length` and never converted inside an interior signature — the `MaterialUnits`
-  boundary (`api-unitsnet.md`) owns any rescale; the catalogue's published values pass through in their native
+  boundary (`libs/csharp/.api/api-unitsnet.md`) owns any rescale; the catalogue's published values pass through in their native
   unit (AISC=`Inch`, EN=`Millimeter`), the unit travelling with the quantity rather than being normalized at read.
 - The published data REPLACES per-family hand-keyed section literals; a Profiles family that needs an AISC/EN
   section reads it from the catalogue, never from an inline dimension table.
@@ -149,7 +149,7 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
   `new SectionProperties(IProfile)` (`api-vividorange-sections-sectionproperties.md`) consumes to compute
   `Area`/`MomentOfInertiaYy`/`ElasticSectionModulusZz` — the DATA package and the COMPUTATION package meet at
   the `IProfile` contract, so one solver runs over every catalogued section with no per-family literal.
-- units seam: every dimension is `UnitsNet.Length` carried in its native published unit (`api-unitsnet.md`), so a
+- units seam: every dimension is `UnitsNet.Length` carried in its native published unit (`libs/csharp/.api/api-unitsnet.md`), so a
   catalogued AISC section (`Inch`), a catalogued EN section (`Millimeter`), and a measured/parametric section are
   the SAME quantity type regardless of unit — the Profiles family axis folds them through one `UnitsNet`-typed
   surface, `UnitsNet` owns the cross-unit conversion, and the family-membership gate

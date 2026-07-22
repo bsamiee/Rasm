@@ -172,6 +172,7 @@
 - `PermuteRows(int[])` mutates the receiver where `PermuteColumns(int[])` returns a new matrix.
 - `NonZerosCount` is the fill receipt: `L` for Cholesky and LDL', `L + U − n` for LU, `Q + R − m` for QR.
 - `ColumnPointers` runs `cols + 1` long and every solver reads its columns as sorted unique rows.
+- `ParallelMultiply` falls back to serial for small problems or one processor, and `ParallelOptions.MaxDegreeOfParallelism` caps the fan.
 
 [STACKING]:
 - `MathNet.Numerics`(`Rasm.Compute/.api/api-mathnet-providers.md`): CSR storage, dense factorization, and Krylov iteration are the peer lanes; matrix density and factor reuse select among the three, and all exit on one solve receipt.
@@ -179,12 +180,14 @@
 - `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds over the same `Span<double>` GEMV and `Solve` write, so residual, axpy, and norm passes vectorize on the solve buffers with no copy.
 - `QuikGraph`(`.api/api-quikgraph.md`): pattern-graph work stays on `SymbolicColumnStorage` — `DulmageMendelsohn` and `StronglyConnectedComponents` decompose the CSC directly, so a matrix never round-trips through a vertex-and-edge container.
 - `MatrixKernel` threads the whole lane: a scatter accumulates shared parameters into `CoordinateStorage<double>`, `OfIndexed` finalizes once, the standing factorization is held behind `ISolver<double>` so LU, LDL', and Cholesky swap by problem class, and `NonZerosCount` lands in the emitted receipt.
+- `Rasm.Compute`: `Tensor/factor` `SparseOps.ToCsc`/`SparseOps.Diagonal` are the canonical `CoordinateStorage<double>` -> `CompressedColumnStorage<double>` finalization owners every assembled operator reaches a factorization through, never page-local `Converter` calls; the owned frame `ShapeFamily.Frame`/`Beam2Euler`/`Beam2Timoshenko` kernels assemble reduced global stiffness through `CoordinateStorage<double>.At` and factor behind the `Solver/contract` `SolveLane`, continuum and frame problems sharing one `ISparseFactorization<double>` seam; `.mtx` exchange rides `MatrixMarketReader`/`MatrixMarketWriter` with large reads routed through `Microsoft.IO.RecyclableMemoryStream`.
 
 [LOCAL_ADMISSION]:
 - `CompressedColumnStorage<double>` is the numeric lane's entry shape; COO accumulation and the `Of*` finalize complete before the factorization call, and `At(int, int)` stays a diagnostic read.
 - `Solve` overwrites a caller-owned buffer, so an iterate reuses one result array across every step and `AutoTrimStorage = false` holds the factor buffers with it.
 - `IProgress<double>` reports the symbolic and numeric phases of `Create`; `Refactorize` carries none, its symbolic phase already cached.
 - `Helper.ValidateStorage` gates any CSC assembled by direct buffer surgery, and `Helper.SortIndices` restores the row invariant it checks.
+- `CSparse` stays a referenced assembly under its LGPL-2.1-only license — never IL-merged, statically embedded, or source-vendored into a Rasm assembly.
 
 [RAIL_LAW]:
 - Package: `CSparse`

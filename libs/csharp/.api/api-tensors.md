@@ -72,6 +72,7 @@
 |  [14]   | `Split(ReadOnlyTensorSpan<T>, int, nint) -> Tensor<T>[]`               | static  | partition one axis evenly           |
 |  [15]   | `SetSlice(TensorSpan<T>, ReadOnlyTensorSpan<T>, ReadOnlySpan<NRange>)` | static  | write values into a ranged window   |
 |  [16]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, T)`           | static  | write where the mask holds          |
+|  [17]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, ReadOnlyTensorSpan<T>)` | static | write source values where the mask holds |
 
 [ENTRYPOINT_SCOPE]: `Tensor<T>` and span-view members
 - `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>` carry one member set through `ITensor<TSelf,T>` and `IReadOnlyTensor<TSelf,T>`, so an algorithm generic over `TSelf` binds the heap owner and either borrowed window; the mutating half rides `ITensor<TSelf,T>` alone.
@@ -184,6 +185,8 @@
 - `CommunityToolkit.HighPerformance`(`.api/api-highperformance.md`): `MemoryOwner<T>.Span` feeds a primitive directly and `MemoryOwner<T>.DangerousGetReference()` feeds `TensorMarshal.CreateTensorSpan`, so one pooled rental backs the whole vectorized chain.
 - `NetTopologySuite`(`.api/api-nettopologysuite.md`): crossing and containment signs resolve on its robust predicate floor, and this rail carries only the metric and transform passes downstream of that decision.
 - Within-library fold: `CreateFromShapeUninitialized` mints the destination, the extension operator set composes the expression, `GetDimensionSpan` walks the reduced rank, and `Tensor<T>.GetPinnedHandle` holds the buffer across a native call — one allocation spanning the whole pipeline.
+- `Rasm.AppHost`: `Agent/reasoning` discovery freezes governed `Embedding<float>.Vector` embeddings into a `FrozenDictionary<string, ReadOnlyMemory<float>>` index and ranks every candidate through the `float` `TensorPrimitives.CosineSimilarity` overload — the one AppHost tensor seam, with no `Tensor<T>` or `ref struct` view crossing a domain signature.
+- `Rasm.Compute`: every `Tensor/dispatch#KERNEL_DISPATCH` span row binds the `TensorPrimitives` member matching its Pascal-cased `TensorOpFamily` key into a `FrozenDictionary<TensorOpFamily, …Kernel<T>>` delegate table — kernel selection a table read, never a per-call switch — and the `Activations<T>` author-folds (`ReLU`/`Gelu`/`SiLU`/`LogSoftMax`) compose `Clamp`/`Sigmoid`/`Multiply`/`MultiplyAdd`/`Tanh`/`Max`/`Exp`/`Sum`/`Subtract`, never a fabricated `TensorPrimitives.Relu` phantom; the matrix family (`MatMul`, `Conv1D`/`2D`/`3D`) holds no `TensorPrimitives` member and resolves through the GEMM/im2col lowering or the WGSL `ComputePipeline`, `Tensor<T>.GetPinnableReference`/`TensorMarshal.GetReference` rooting the ORT crossing (`OrtValue.CreateTensorValueFromSystemNumericsTensorObject<T>`), so one `Tensor<T>` crosses the CPU, WebGPU, and ONNX boundaries with no parallel tensor type; `FillGaussianNormalDistribution`/`FillUniformDistribution` seed the `EquivalenceLaw.Prove` samplers.
 
 [LOCAL_ADMISSION]:
 - Compute tensor lanes admit these shapes and primitives as first-class execution material, and a consuming model or vector rail takes the span without re-declaring tensor ownership.
@@ -192,4 +195,4 @@
 - Package: `System.Numerics.Tensors`
 - Owns: strided tensor owners and views, native-sized indexing and ranges, raw-memory marshalling, and the vectorized span operator set
 - Accept: a fused vectorized chain over caller-owned spans whose measured BenchmarkDotNet receipt beats the scalar baseline on the hot lane
-- Reject: a package-local numeric loop over a span this surface already vectorizes, a bespoke tensor wrapper, and an exact-predicate decision routed through a floating reduction
+- Reject: a package-local numeric loop over a span this surface already vectorizes, a bespoke tensor wrapper or `DeviceTensor`/`GpuTensor` parallel type — device-ness is a residency discriminant — a single-call `TensorPrimitives.Normalize` row (no such member; compose `Norm` then `Divide`), and an exact-predicate decision routed through a floating reduction

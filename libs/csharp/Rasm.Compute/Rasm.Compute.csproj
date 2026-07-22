@@ -33,9 +33,12 @@
         <PackageReference Include="Microsoft.Z3" />
     </ItemGroup>
 
+    <ItemGroup Label="Recency Cache">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    </ItemGroup>
+
     <ItemGroup Label="Model Runtime">
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />

@@ -115,14 +115,14 @@
   not this concrete class — the engine returns the floor type. This catalog's concrete surface is read when the
   owner MUTATES the mesh for rendering (brush/opacity, `ReverseFaceDirections`, `GetMeshOutlines`) or builds a hull
   directly from supplied vertices via `AddVertex`/`SetIndices`.
-- The `Force`/`Torque` coordinates are `UnitsNet` quantities (`api-unitsnet.md`) and never reduced to `double` in an
+- The `Force`/`Torque` coordinates are `UnitsNet` quantities (`libs/csharp/.api/api-unitsnet.md`) and never reduced to `double` in an
   interior signature; the facet `Area` `Ratio` is a meshing weight, not a structural quantity.
 
 [STACK]:
 - engine seam: `InteractionDiagram` (`api-vividorange-interactiondiagram.md`) constructs `new ForceMomentVertex(N, My, Mz, ForceUnit.Kilonewton, TorqueUnit.KilonewtonMeter)` per strain-plane sample and `new ForceMomentMesh(vertices, faces)` from the MIConvexHull result — this package is the engine's output DATA, the engine is the producer.
 - contract seam: every class implements its `api-vividorange-iforcemomentinteraction.md` floor interface, so a
   consumer depends on the floor and this concrete is swappable (a decimated/clipped hull can re-implement it).
-- units seam: `Force`/`Torque` are the in-folder `UnitsNet` quantities (`api-unitsnet.md`) — a capacity vertex and a
+- units seam: `Force`/`Torque` are the in-folder `UnitsNet` quantities (`libs/csharp/.api/api-unitsnet.md`) — a capacity vertex and a
   measured applied-load demand are the SAME types, so a utilisation check is one unit-typed comparison and a fold
   over the hull's coordinates uses `UnitMath.Max<…>`/`Min<…>`, never a raw `double` reduce.
 - geometry seam: `ForceMomentMesh` is a `VividOrange.Geometry` `ICartesianMesh`/`IGeometryBase` carrying an `IBrush`

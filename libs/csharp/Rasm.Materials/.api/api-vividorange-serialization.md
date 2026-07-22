@@ -98,7 +98,7 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
 - taxonomy seam: `ToJson<T>` and `FromJson<T>` form one round-trip for every `ITaxonomySerializable`.
 - admitted taxonomy: material grade records, reinforced sections and bars, section-property carriers, standards, catalogued profiles, and the N-M-M capacity mesh all use the same pair.
 - quantity seam: the `UnitsNetIQuantityJsonConverter` ([TRANSITIVE_UNITSNET_JSONNET]) serializes every
-  `UnitsNet.IQuantity` field (`Pressure`/`Area`/`Length`/`Ratio`/`Force`/`Torque`, `api-unitsnet.md`) as SI scalar +
+  `UnitsNet.IQuantity` field (`Pressure`/`Area`/`Length`/`Ratio`/`Force`/`Torque`, `libs/csharp/.api/api-unitsnet.md`) as SI scalar +
   unit token — so a serialized material strength or section modulus carries its dimension across the round-trip.
 - firebreak seam: distinct from the Materials canonical Thinktecture STJ/MessagePack wire ([WIRE_FIREBREAK]) — this is
   the C#-internal VividOrange round-trip, the canonical cross-language shape is the Thinktecture-generated codec.
@@ -123,7 +123,7 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   `UnitAbbreviationsCache.Default` (culture-sensitive via `CurrentCulture`). For deterministic Materials wire the
   boundary INJECTS an invariant-configured abbreviations cache through the 3-arg ctor so the same JSON byte parses
   identically regardless of the host's ambient culture or loaded `UnitsNet` satellites (the determinism law of
-  `api-unitsnet.md` extends to the wire).
+  `libs/csharp/.api/api-unitsnet.md` extends to the wire).
 - The object `{ Value, Unit }` form encodes the unit as the `"<QuantityType>.<Unit>"` enum path
   (`UnitsNet.Units.<enum>`), so it is culture-independent on the unit token but verbose; the value is a raw `double`
   except for `decimal` quantities, which carry `ValueString`/`ValueType` to preserve precision.
@@ -139,7 +139,7 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   `api-vividorange-forcemomentinteraction.md`) carries `IForceMomentVertex.X:Force`, `.Y/.Z:Torque` — this converter
   is what writes those vertex coordinates to JSON and reads them back, so a computed capacity surface persists/round-
   trips with its units intact.
-- units seam: the converter is the wire side of the in-folder `UnitsNet` owner (`api-unitsnet.md`) — the SAME
+- units seam: the converter is the wire side of the in-folder `UnitsNet` owner (`libs/csharp/.api/api-unitsnet.md`) — the SAME
   invariant-culture determinism the `MaterialUnits` boundary enforces on parse/abbreviation applies here via the
   injected `UnitAbbreviationsCache`, so a measured row and a serialized quantity agree across hosts.
 - interchange seam: the Materials `interchange#MATERIAL_WIRE` projection registers `AbbreviatedUnitsConverter` so a

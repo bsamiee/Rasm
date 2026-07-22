@@ -88,7 +88,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Shape: schemas and folds hold in `libs/csharp/Rasm.Materials/.planning/Projection/analytics.md`.
 - Unlocks: catalogue analytics for costing, carbon, and coverage reads over the durable plane.
 - Anchors: `Projection/analytics.md` `[02]-[COLUMN_VOCABULARY]`, `[03]-[SCHEMA_ROWS]`, `[04]-[PROJECTION_FOLDS]`.
-- Arms: `libs/csharp/Rasm.Materials/.api/api-unitsnet.md` or `libs/csharp/.api/api-unitsnet.md` admits every dimensioned selector named by `[UNITSNET_ANALYTICS_SELECTORS]`.
+- Arms: `libs/csharp/.api/api-unitsnet.md` admits every dimensioned selector named by `[UNITSNET_ANALYTICS_SELECTORS]`.
 
 ## [02]-[CLOSED]
 

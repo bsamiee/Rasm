@@ -22,6 +22,12 @@
 - namespace: `Grpc.AspNetCore.HealthChecks`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
 - rail: remote-server
 
+[PACKAGE_SURFACE]: `Grpc.HealthCheck`
+- package: `Grpc.HealthCheck` (Apache-2.0, The gRPC Authors) — transitive under `Grpc.AspNetCore.HealthChecks`, never a direct reference
+- assembly: `Grpc.HealthCheck`
+- namespace: `Grpc.HealthCheck`, `Grpc.Health.V1`
+- rail: remote-server
+
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: server hosting, policy, and service model — `Grpc.AspNetCore`
@@ -62,6 +68,15 @@
 |  [02]   | `ServiceMappingCollection` | class         | `ICollection<ServiceMapping>` keyed by name |
 |  [03]   | `ServiceMapping`           | class         | one service name bound to a check predicate |
 |  [04]   | `HealthCheckMapContext`    | class         | predicate input: a check's name and tags    |
+
+[PUBLIC_TYPE_SCOPE]: reference wire-health service — `Grpc.HealthCheck`
+
+`HealthServiceImpl` extends `Grpc.Health.V1.Health.HealthBase`; `Check` and `Watch` carry the generated `HealthCheckRequest` and `HealthCheckResponse` proto messages.
+
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :---------------------------------------- | :------------ | :------------------------------------------------ |
+|  [01]   | `HealthServiceImpl`                       | class         | reference `grpc.health.v1` serving-status service |
+|  [02]   | `HealthCheckResponse.Types.ServingStatus` | enum          | proto serving-status vocabulary                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -161,6 +176,21 @@ Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; 
 |  [13]   | `HealthCheckMapContext.Name -> string`                                      | property | the check's registered name      |
 |  [14]   | `HealthCheckMapContext.Tags -> IEnumerable<string>`                         | property | the check's tags                 |
 
+[ENTRYPOINT_SCOPE]: `HealthServiceImpl` serving-status operations
+
+Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthCheckResponse.Types.ServingStatus`.
+
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `new HealthServiceImpl()`                                    | ctor     | empty per-service status map, bound as singleton |
+|  [02]   | `SetStatus(string, ServingStatus)`                           | instance | set or update one service, notifying `Watch`     |
+|  [03]   | `ClearStatus(string)`                                        | instance | drop one service to `ServiceUnknown`             |
+|  [04]   | `ClearAll()`                                                 | instance | drop every service to `ServiceUnknown`           |
+|  [05]   | `Check(HealthCheckRequest, ServerCallContext) -> Task<Resp>` | instance | unary health RPC                                 |
+|  [06]   | `Watch(HealthCheckRequest, IServerStreamWriter<Resp>, ...)`  | instance | server-streaming health RPC                      |
+
+- `Check`, `Watch`: override `Grpc.Health.V1.Health.HealthBase`, served by the `MapGrpcHealthChecksService` endpoint; `Resp` is `HealthCheckResponse`, and `Watch` takes a trailing `ServerCallContext` returning `Task`.
+
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOPOLOGY]:
@@ -169,6 +199,8 @@ Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; 
 - One `ICompressionProvider` row set registers on both `GrpcServiceOptions.CompressionProviders` and the client `GrpcChannelOptions.CompressionProviders`, so `grpc-encoding`/`grpc-accept-encoding` negotiates one axis end to end.
 - `UseGrpcWeb` resolves `IGrpcWebEnabledMetadata` off the matched endpoint, so it runs after routing and falls back to `GrpcWebOptions.DefaultEnabled` for an endpoint carrying none; a translated request enters the pipeline as HTTP/2 `application/grpc` and its response reframes on start.
 - `AddGrpcHealthChecks` maps the empty service name to every registered check; `Check` runs only the checks a mapping's predicate selects, while `Watch` runs every check and filters its results.
+- `HealthServiceImpl` holds one `Dictionary<string, ServingStatus>`; `SetStatus` mutates it and pushes to live `Watch` streams, so capability-health projection writes serving status directly.
+- `ServingStatus` proto values `Unknown=0` `Serving=1` `NotServing=2` `ServiceUnknown=3` are the wire contract; the canonical projection maps healthy and degraded to `Serving`, unhealthy to `NotServing`.
 
 [STACKING]:
 - `Grpc.Tools`(`.api/api-grpc-tools.md`): `GrpcServices=Server` emits the service base class `MapGrpcService<TService>` binds, and `Access` fixes that type's visibility.
@@ -186,9 +218,10 @@ Every `MapGrpcService` overload returns `GrpcServiceEndpointConventionBuilder`; 
 - Server interceptors register through `GrpcServiceOptions.Interceptors.Add<TInterceptor>()`.
 - grpc-web is server policy: `app.UseGrpcWeb()` with per-endpoint `EnableGrpcWeb()`/`DisableGrpcWeb()`, or `GrpcWebOptions.DefaultEnabled` for a host-wide default.
 - Health status derives from the `Microsoft.Extensions.Diagnostics.HealthChecks` registrations, narrowed per service by `GrpcHealthChecksOptions.Services.Map` over `HealthCheckMapContext`.
+- AppHost binds `HealthServiceImpl` as the `grpc.health.v1` singleton; every health contributor projects its result into `HealthServiceImpl.SetStatus` through the tag-predicate mapping, so broker, store, and system readiness reach one serving-status surface.
 
 [RAIL_LAW]:
-- Package: `Grpc.AspNetCore`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`
-- Owns: gRPC service registration, endpoint mapping, server policy with its interceptor pipeline, server-side grpc-web translation, and the `grpc.health.v1.Health` service
+- Package: `Grpc.AspNetCore`, `Grpc.AspNetCore.Web`, `Grpc.AspNetCore.HealthChecks`, `Grpc.HealthCheck`
+- Owns: gRPC service registration, endpoint mapping, server policy with its interceptor pipeline, server-side grpc-web translation, and the `grpc.health.v1.Health` service with its reference `HealthServiceImpl` serving-status map
 - Accept: server-terminated calls under `GrpcServiceOptions` policy, browser-framed calls through `UseGrpcWeb`, and health probes projected from the registered checks
-- Reject: a hand-rolled health proto, a second server compression list, or a per-service options bag beside `GrpcServiceOptions<TService>`
+- Reject: a hand-rolled health proto or serving-status map beside `HealthServiceImpl`, a second server compression list, or a per-service options bag beside `GrpcServiceOptions<TService>`

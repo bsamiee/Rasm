@@ -102,7 +102,7 @@
 - rail: numeric
 
 [PACKAGE_SURFACE]: `CSparse`
-- package: `CSparse` (full direct-sparse surface in `api-csparse`)
+- package: `CSparse` (full direct-sparse surface in `libs/csharp/.api/api-csparse.md`)
 - assembly: `CSparse`
 - namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
 - asset: runtime library (pure managed direct sparse solvers; LGPL-2.1-only)
