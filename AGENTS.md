@@ -1,5 +1,7 @@
 # [ROOT_AGENTS]
 
+Read and follow `CLAUDE.md` fully.
+
 ## [01]-[LOAD_ORDER]
 
 [REQUIRED]:

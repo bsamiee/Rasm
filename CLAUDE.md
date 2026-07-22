@@ -3,14 +3,14 @@
 MUST READ: `libs/.planning/RULINGS.md` + `libs/.planning/ARCHITECTURE.md`
 
 Rasm is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
-- All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesitate to do considerable rebuilding of content within `libs/` while all content is still being planned.
-- Each `lib/<language>/` has an `.api/` folder, each sub-folder within a language lib has one as well; all work MUST fully stack as much external lib capabilities from BOTH altitudes where possible. External libs reduce handrolling, they ALSO enable new functionality, capabilities, as well as extending existing code capabilities, use them as guidance for ideation on new code features.
+- All `libs/` spec docs are the rebuild surface: rebuilt ground-up each pass, freely and considerably, ahead of code implementation.
+- Each `lib/<language>/` and each sub-folder carries an `.api/` folder; all work stacks external-lib capability from BOTH altitudes, mining them as the ideation source for new features.
 
 ## [01]-[REQUIRED]
 
-- Work in `libs/<language>/` requires a FULL reading of `libs/<kanguage>/.planning/RULINGS.md` + `libs/<kanguage>/.planning/ARCHITECTURE.md`
+- Work in `libs/<language>/` requires a FULL reading of `libs/<language>/.planning/RULINGS.md` + `libs/<language>/.planning/ARCHITECTURE.md`
 - Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
-- Durable infra docs — README/ARCHITECTURE registries, IDEAS/TASKLOG card pools, RULINGS decision registries, `.api` catalogues, system pages — follow the maintenance law in `libs/.planning/campaign-method.md` (catalog-alignment, card-marker, research-section, and rulings disciplines live there).
+- Durable infra docs — README/ARCHITECTURE registries, IDEAS/TASKLOG card pools, RULINGS decision registries, `.api` catalogues, system pages — follow the maintenance law in `libs/.planning/campaign-method.md`.
 - `docs/laws/` is the repo-wide maintenance-law corpus; a durable lesson lands ONLY at the end of a large-work session and only where refute-first proves no reviewer surface owns the fact.
 
 [STANDARDS_ROUTING]: Use the route-owned standard for the file being edited; an HTML artifact routes durable to `docs/atlas/`, temp to `.claude/scratch`:
