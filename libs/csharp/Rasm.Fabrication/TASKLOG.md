@@ -146,7 +146,6 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Anchors: `Toolpath/partition.md`, IDEAS `[PARTITION_DENSITY_CLOSURE]`.
 - Atomic: one derivation fold on the partition page.
 
-
 [QUANTITY_ARROW_COLLAPSE]-[QUEUED]: Collapse folder-local length parsers onto the atoms quantity arrow.
 - Capability: one caller-fault-parameterized arrow converts unit-bearing text to canonical machining scalars, and the wire, link, and bevel parser sites collapse onto it.
 - Shape: one atom owner and three call-site collapses.

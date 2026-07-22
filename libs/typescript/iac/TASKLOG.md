@@ -39,30 +39,35 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [BOARD_MEMBER_CATALOGS] — full Grafana delivery depth.
 - Anchors: `operate/observe.md` `[08]-[RESEARCH]`; `libs/typescript/iac/.api/pulumiverse-grafana.md`.
 - Arms: `libs/typescript/iac/.api/pulumiverse-grafana.md` catalogs the exact `NotificationPolicyArgs` grouping field and input shape.
+
 [LEASE_CUSTODY_CELLS]-[BLOCKED]: Lease custody cells decode from the security-encoded `LeaseSpec`.
 - Capability: the app-root fold realizes each lease as a Doppler token and namespace custody cell; drives from IDEAS `[LEASE_REALIZATION]`.
 - Shape: the custody-cell fold answering `kube/workload.md` `[06]-[RESEARCH]`.
 - Unlocks: IDEAS.md [LEASE_REALIZATION] — lease-bounded credential custody across workloads.
 - Anchors: `kube/workload.md` `[06]-[RESEARCH]`; security `crypt/secret.md` custody rows.
 - Arms: security's encoded `LeaseSpec` owner lands at `libs/typescript/security/.planning/crypt/secret.md` under security IDEAS `[LEASE_SPEC_CONTRACT]` and TASKLOG `[LEASE_SPEC_SCHEMA]`.
+
 [FOUNDATION_PANEL_ROWS]-[BLOCKED]: Advanced panel fields compile over cataloged Foundation-SDK builder rows.
 - Capability: panel-link, Geomap, Table, and Timeseries fields restore into the board compile; drives from IDEAS `[BOARD_MEMBER_CATALOGS]`.
 - Shape: the restored panel-field arms on `operate/observe.md`, routed by its `[08]-[RESEARCH]` row.
 - Unlocks: IDEAS.md [BOARD_MEMBER_CATALOGS] — full panel depth on the compiled boards.
 - Anchors: `operate/observe.md` `[08]-[RESEARCH]`; `libs/typescript/iac/.api/grafana-grafana-foundation-sdk.md`.
 - Arms: `libs/typescript/iac/.api/grafana-grafana-foundation-sdk.md` catalogs the exact panel-link, Geomap, Table, and Timeseries builder rows.
+
 [PULSE_PACK_PROJECTION]-[BLOCKED]: The `runtime.pulse` pack row decodes a real `Pulse.Board` projection.
 - Capability: the pack ingest consumes the runtime-owned `DashboardModel` and `Alert.Spec` projection instead of tagging pre-encoded rows; drives from IDEAS `[PULSE_BOARD_DECODER]`.
 - Shape: the `runtime.pulse` decode arm on `operate/observe.md` `_PACKS`.
 - Unlocks: IDEAS.md [PULSE_BOARD_DECODER] — runtime evidence compiles onto the shared board plane.
 - Anchors: `libs/typescript/runtime/.planning/otel/meter.md` board law; `operate/observe.md` `_PACKS`.
 - Arms: `libs/typescript/runtime/.planning/otel/meter.md` lands the executable core `DashboardModel` and `Alert.Spec` projection its board law assigns to the app.
+
 [UI_ASSET_IDENTITY_TYPES]-[BLOCKED]: `Source.distribute` consumes typed UI asset identity.
 - Capability: `Source.AssetRow` is replaced by the UI-owned encoded roster type, so `Source.distribute` and `_addressed` — already standing — serve typed identity; drives from IDEAS `[UI_ASSET_ROSTER_SEAM]`.
 - Shape: the typed-identity swap on `program/source.md`, routed by its `[04]-[RESEARCH]` row.
 - Unlocks: IDEAS.md [UI_ASSET_ROSTER_SEAM] — caller-typed asset serving end to end.
 - Anchors: `program/source.md` `[04]-[RESEARCH]`; `Source.distribute` and `_addressed`.
 - Arms: UI IDEAS `[ASSET_IDENTITY]` and TASKLOG `[ASSET_IDENTITY_ROSTER]` land the encoded roster.
+
 [PACK_DESCRIPTOR_INGEST]-[BLOCKED]: The `_PACKS` descriptor ingest decodes every producer projection.
 - Capability: the claimed descriptor ingest lands over real producer projections instead of the closed provenance vocabulary alone; drives from IDEAS `[PRODUCER_PACK_DESCRIPTORS]`.
 - Shape: the descriptor ingest arm on `operate/observe.md` `_PACKS`.

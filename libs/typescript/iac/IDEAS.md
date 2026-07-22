@@ -26,18 +26,21 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `libs/typescript/security/.planning/crypt/secret.md` `LeaseSpec` owner (carded); `kube/workload.md` `[06]-[RESEARCH]`.
 - Arms: `libs/typescript/security/.planning/crypt/secret.md` carries the encoded `LeaseSpec` owner required by security IDEAS `[LEASE_SPEC_CONTRACT]` and TASKLOG `[LEASE_SPEC_SCHEMA]`.
 - Ripple: `security` `[LEASE_SPEC_CONTRACT]`.
+
 [BOARD_MEMBER_CATALOGS]-[BLOCKED]: Board compilation and delivery grouping compile over cataloged builder members.
 - Capability: panel-link, Geomap, Table, Timeseries, and `NotificationPolicyArgs` members carry the full board and delivery depth through verified rows.
 - Shape: the restored `_compiled`/`_minted` arms on `operate/observe.md`, routed by its `[08]-[RESEARCH]` rows.
 - Unlocks: full-depth board and alert delivery on the observe plane.
 - Anchors: `operate/observe.md` `[08]-[RESEARCH]`; the Foundation-SDK and Grafana catalogs.
 - Arms: the exact rows named by `operate/observe.md` `[08]-[RESEARCH]` enter the Foundation-SDK and Grafana catalogs.
+
 [PULSE_BOARD_DECODER]-[BLOCKED]: `runtime.pulse` becomes a decoded producer pack, not a bare provenance key.
 - Capability: the runtime-owned projection from `Pulse.Board` into core-encoded boards and alerts decodes through the shared pack ingest.
 - Shape: the `_PACKS` decode arm on `operate/observe.md` consuming the runtime-owned projection.
 - Unlocks: runtime work-plane evidence compiles onto the shared board plane.
 - Anchors: `libs/typescript/runtime/.planning/otel/meter.md` `Pulse.Board`; `Boards.Pack`.
 - Arms: `libs/typescript/runtime/.planning/otel/meter.md` carries the executable projection from `Pulse.Board` into core-encoded boards and alerts that `Boards.Pack` accepts.
+
 [UI_ASSET_ROSTER_SEAM]-[BLOCKED]: Served-asset identity types from the UI-owned roster.
 - Capability: static distribution and `served` outputs — already standing — gain typed asset identity from the encoded UI roster, closing the cross-folder identity seam.
 - Shape: the identity seam on `program/source.md`, routed by its `[04]-[RESEARCH]` row.
@@ -45,6 +48,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card; statuse
 - Anchors: `program/source.md` `[04]-[RESEARCH]`; ui `viewer/scene.md` codec-injection law.
 - Arms: `libs/typescript/ui/IDEAS.md` `[ASSET_IDENTITY]` and `libs/typescript/ui/TASKLOG.md` `[ASSET_IDENTITY_ROSTER]` land the encoded roster cited by `program/source.md` `[04]-[RESEARCH]`.
 - Ripple: `ui` `[ASSET_IDENTITY]`.
+
 [PRODUCER_PACK_DESCRIPTORS]-[BLOCKED]: `_PACKS` decodes executable producer descriptors from every producer route.
 - Capability: each producer endpoint carries or routes an executable `{ boards, alerts }` projection the pack ingest decodes, cross-language dashboards compiling without deploy-side re-authoring.
 - Shape: the descriptor ingest arm over the `_PACKS` provenance vocabulary on `operate/observe.md`.

@@ -1,9 +1,9 @@
 export const meta = {
     name: 'docgen-pass',
     whenToUse:
-        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
+        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, and a terminal deterministic format sweep re-pads every touched surface to the canonical table render and re-runs the gate, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
     description:
-        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), then transcribes the survivors into the owning registries. Every phase gates the files it writes, so the run ends on the collector. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
+        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. Every phase gates the files it writes, and a terminal deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
     phases: [
         {
             title: 'Route',
@@ -27,7 +27,11 @@ export const meta = {
         },
         {
             title: 'Collect',
-            detail: 'a single collector for every owner that got extractions, grounded in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md: the whole candidate set adjudicated at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, wider-scoped rulings deferred to their tier), survivors transcribed into the owning registries, gate run — fires only when a planning page extracted a folder-wide ruling',
+            detail: 'a single collector for every owner that got extractions, grounded in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md: the whole candidate set adjudicated at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, wider-scoped rulings deferred to their tier), each survivor reconciled to current standing policy before it lands, survivors transcribed into the owning registries, gate run — fires only when a planning page extracted a folder-wide ruling',
+        },
+        {
+            title: 'Format',
+            detail: 'one deterministic sweep re-pads every touched page and every written RULINGS.md to the canonical table render and re-runs the width/anchor gate, closing the run with every table proven within the 150-column cap',
         },
     ],
 };
@@ -326,6 +330,17 @@ const COLLECT_SCHEMA = {
                 properties: { row: S, tier: { type: 'string', enum: ['branch', 'cross-libs'] } }, // scoped wider than any one owner; surfaced, never mis-homed
             },
         },
+    },
+};
+
+// the terminal deterministic format sweep receipt — no content judgment, only the canonical table re-pad + width/anchor gate over every touched surface
+const FORMAT_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['formatted', 'unclean'],
+    properties: {
+        formatted: I, // files the fix pass rewrote
+        unclean: { type: 'array', items: S }, // files the check still fails after the fix pass (judgment-tier rows), reported not hand-forced
     },
 };
 
@@ -684,18 +699,16 @@ const fixMandate = (f, seed) => {
               '-passing folder-wide ruling THIS page ORIGINATES that RULINGS does NOT already carry: (1) REMOVE it from the page — the page then composes the ruling ' +
               'silently, no restatement and no pointer that re-narrates it (a page restating a ruling RULINGS ALREADY homes is a plain deletion demoted to the existing ' +
               'owner, never a dossier candidate — no duplication). (2) Author the transcribe-ready RULINGS row in exact template grammar. (3) Record it as a demotion ' +
-              'whose owner is the dossier + section, verified true, setWidth exact, so the grader reads the removal as a PROVEN move never a loss. WRITE the dossier: ' +
-              '`mkdir -p ' +
+              'whose owner is the dossier + section, verified true, setWidth exact, so the grader reads the removal as a PROVEN move never a loss. WRITE THE DOSSIER ONLY ' +
+              'when this page originates at least one such ruling: `mkdir -p ' +
               DOSSIER_DIR +
               '` then write ' +
               dossier +
               ' — per candidate a `## [SECTION]` line (the target RULINGS section), the row line beneath it, and a `<!-- source: ' +
               f.path +
               '#<anchor> | tier: package|branch|cross-libs | dedup: <short-key> -->` metadata comment for the collector. A page with NO folder-wide homeless ruling ' +
-              'writes ' +
-              dossier +
-              ' containing exactly `(none applicable)` on one line — extraction is NEVER forced. Set rulingsExtracted to the row count (0 for none applicable), ' +
-              'rulingsDossier to ' +
+              'writes NO dossier file at all — extraction is NEVER forced and an empty stub is dead noise the collector must sift, so leave the path unwritten, set ' +
+              "rulingsExtracted 0 and rulingsDossier \"\". When you DO extract, set rulingsExtracted to the row count and rulingsDossier to " +
               dossier +
               '.'
             : '\n\nRULINGS: this file is not under a `.planning/` tree and owns no RULINGS.md — set rulingsExtracted -1 and rulingsDossier "".') +
@@ -784,8 +797,11 @@ const redteamMandate = (group) => {
                 (planning
                     ? ' PLANNING: if the predecessor wrote ' +
                       dossier +
-                      ', HARDEN every row to guard-grade anatomy; if it MISSED a genuine admission-bar folder-wide ruling still on the page, extract it now (remove from page, add ' +
-                      'the row, record the demotion); NEVER duplicate a row the dossier or the folder RULINGS.md already holds.'
+                      ', HARDEN every row to guard-grade anatomy; if it MISSED a genuine admission-bar folder-wide ruling still on the page, extract it now — remove from page, ' +
+                      'record the demotion, and WRITE ' +
+                      dossier +
+                      ' with the row when no dossier exists yet. A page that originates NO folder-wide ruling leaves the path unwritten (no empty stub), rulingsExtracted 0, ' +
+                      'rulingsDossier ""; NEVER duplicate a row the dossier or the folder RULINGS.md already holds.'
                     : ' RULINGS: not under `.planning/` — rulingsExtracted -1, rulingsDossier "".')
             );
         })
@@ -956,7 +972,7 @@ const collectMandate = (targets) =>
     '\n\nTARGETS — each owner with its candidate RULINGS.md paths (nearest EXISTING wins, package tier before branch tier; if neither exists, mint the first from the ' +
     'template — charter lead plus the closed sections each marked `(none)` — and set created true) and the dossiers its pages wrote: ' +
     JSON.stringify(targets) +
-    '. Read every dossier; skip any whose sole content is `(none applicable)`.' +
+    '. Read every dossier listed — each exists only because a page originated at least one real ruling, so there are no empty stubs to sift.' +
     '\n\nADJUDICATE the WHOLE candidate set at once — holding every owner`s dossiers together is your one lever, and it decides two things a per-owner pass cannot. ' +
     '(a) CROSS-OWNER DEDUP — the same ruling extracted from two pages, or from two different owners, is ONE row merged to the single strongest guard-grade spelling ' +
     '(reason=merged-with-sibling for each dropped copy); near-similar candidates fold into one higher-resolution row where every distinct clause survives, never a ' +
@@ -966,6 +982,12 @@ const collectMandate = (targets) =>
     'minted, so no duplication. (d) CONTRADICTION — a candidate that conflicts with a ruling already standing in any registry you read is rejected ' +
     '(reason=contradicts-standing-law), never silently written beside the rule it contradicts. (e) GUARD-GRADE — a row missing its wrong-move, route, or reopen predicate, ' +
     'or carrying two decisions, is repaired to anatomy or split into siblings; an irreparably non-guard candidate is rejected (reason=not-guard-grade).' +
+    '\n\nRECONCILE TO CURRENT STANDING POLICY — a candidate extracted from a design page can carry a RATIONALE or discriminant that predates the current libs/.planning ' +
+    'policy: a stale license framing, a superseded owner-choice, an admission reason the standing law has since replaced. Before admitting, reconcile its framing against the ' +
+    'policy you read and admit the CORRECTED form aligned to current standing law — NEVER transcribe the source page`s outdated framing verbatim. State every admitted rule as ' +
+    'standing FACT in owning voice with NO meta-reference to the policy behind it (no `per the license policy`, no `as documented in`, no doc pointer); the guard names the wrong ' +
+    'move and the correct route, and the policy stands behind it silently. Where the candidate`s DECISION itself — not merely its framing — conflicts with current standing ' +
+    'policy, reject it (reason=contradicts-standing-law) rather than admit a corrected contradiction.' +
     '\n\nTRANSCRIBE the survivors into each resolved RULINGS.md: append each at its section`s tail in arrival order (adjacency is arrival, never taxonomy), replace a ' +
     'section`s `(none)` when you first populate it, keep the closed section order, and renumber headings contiguously. Subjects and members are code spans in verified ' +
     'spelling; slugs UPPERCASE_SNAKE; paths repo-relative. Write ONLY inside the owners listed above, and do NOT re-open or edit the source design pages — they are ' +
@@ -976,6 +998,20 @@ const collectMandate = (targets) =>
     'file`s gateClean is its check exiting clean.' +
     '\n\nRETURN {owners:[{owner, rulingsFile, created, admitted:[{section, row}], gateClean}], rejected:[{row, reason}], deferred:[{row, tier}]} — one owners entry per ' +
     'registry you touched (omit an owner whose every candidate was rejected or deferred), with rejected and deferred adjudicated once across the whole set.';
+
+// the terminal format sweep — one deterministic pass, no prose judgment: re-pad every touched surface to the canonical table render and re-run the width/anchor gate so the run closes proven clean under the 150-column cap
+const formatMandate = (paths) =>
+    'WORKING ROOT: ' +
+    ROOT +
+    '. DETERMINISTIC FORMAT SWEEP — no prose judgment, no content edits, no fence or table-cell rewriting by hand: run the docgen gate`s canonical table re-pad and ' +
+    'width/anchor check over every path below, so the run closes with every table rendered within the 150-column cap. PER FILE in ' +
+    JSON.stringify(paths) +
+    ': `cd ' +
+    ROOT +
+    ' && uv run .claude/skills/docgen/scripts/prose_gate.py fix --write <file>` then `uv run .claude/skills/docgen/scripts/prose_gate.py <file>`. The fix pass applies the ' +
+    'deterministic repairs its Repair vocabulary owns (table re-pad the load-bearing one here) and is idempotent; the check reports the verdict. A file the check STILL fails ' +
+    'after the fix pass carries a judgment-tier row — report its path in unclean, NEVER hand-force it. Return {formatted: <count of files the fix pass rewrote>, unclean: ' +
+    '[<path of every file the check still fails>]}.';
 
 const pool = async (thunks, cap, retries = 1) => {
     const results = new Array(thunks.length);
@@ -1135,25 +1171,36 @@ const receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
 // Collect fires ONLY when a .planning/ page actually extracted a folder-wide ruling; a .api/ tier, a tools/ target, or any folder with no .planning/ files skips it
 // whole — no phase, no dossier collection, no wasted agent. ONE collector takes every owner: cross-owner dedup and tier placement are only decidable with the whole
 // candidate set in one context, and a single writer across disjoint registries cannot collide with itself.
-const owners = [...new Set(receipts.filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => ownerOf(r.file)))].filter(Boolean);
+// only a receipt that actually extracted (rulingsExtracted > 0) has a written dossier on disk; an empty page writes none, so the collector is handed filled dossiers alone
+const extractedPaths = new Set(receipts.filter((r) => r.ok && r.rulingsExtracted > 0).map((r) => r.file));
+const owners = [...new Set([...extractedPaths].map((p) => ownerOf(p)))].filter(Boolean);
 let collected = null;
 if (owners.length) {
     phase('Collect');
     const collectTargets = owners.map((owner) => ({
         owner,
         rulings: rulingsCandidates(owner),
-        dossiers: files.filter((f) => underPlanning(f.path) && ownerOf(f.path) === owner).map((f) => dossierPath(f.path)),
+        dossiers: files.filter((f) => extractedPaths.has(f.path) && ownerOf(f.path) === owner).map((f) => dossierPath(f.path)),
     }));
     collected = await agent(collectMandate(collectTargets), {
         label: 'rulings:' + owners.length,
         phase: 'Collect',
-        model: 'opus',
+        model: 'fable',
         effort: 'high',
         schema: COLLECT_SCHEMA,
     });
     if (collected) log(collected.owners.length + ' RULINGS.md file(s) written across ' + owners.length + ' owner(s) with extractions');
 }
 const collectedOwners = collected ? collected.owners : [];
+
+// Format: one deterministic sweep re-pads every touched page AND every written RULINGS.md to the canonical table render and re-runs the width/anchor gate, so the run closes
+// with every table proven within the 150-column cap — the single integrity floor after the writing passes, mechanical and idempotent (no content judgment).
+phase('Format');
+const touched = [...new Set([...receipts.map((r) => r.file), ...collectedOwners.map((c) => c.rulingsFile)])].filter(Boolean);
+const formatted = touched.length
+    ? await agent(formatMandate(touched), { label: 'format:' + touched.length, phase: 'Format', model: 'opus', effort: 'low', schema: FORMAT_SCHEMA })
+    : null;
+if (formatted && formatted.unclean.length) log('Gate unclean after format sweep: ' + formatted.unclean.join(', '));
 
 const beforeProseT = receipts.reduce((a, r) => a + r.beforeProse, 0);
 const afterProseT = receipts.reduce((a, r) => a + r.afterProse, 0);
@@ -1178,6 +1225,7 @@ return {
     ),
     indexMissing: receipts.filter((r) => r.indexLanded === 'no').map((r) => r.file),
     gateUnclean: receipts.filter((r) => !r.gateClean).map((r) => r.file),
+    formatSweep: formatted ? { formatted: formatted.formatted, unclean: formatted.unclean } : undefined,
     // rulings summary appears ONLY for a run that scoped in .planning/ files; a pure .api/, tools/, or non-libs cleanup returns none of it
     ...(files.some((f) => underPlanning(f.path))
         ? {

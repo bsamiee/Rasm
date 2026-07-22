@@ -63,24 +63,28 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 - Unlocks: IDEAS.md [WIRE_CARRIER_ADAPTERS] — bidirectional MQTT crossings under the one carrier law.
 - Anchors: the settled generic carrier continuation and MQTT publish arms; `libs/csharp/Rasm.AppHost/.api/api-mqtt.md`; `libs/csharp/.api/`.
 - Arms: either catalog carries the exact user-property collection and entry accessors.
+
 [OFFLINE_RETRY_BINDING]-[BLOCKED]: Per-signal disk-retry binding lands on the exporter owners.
 - Capability: an `OfflineQueue`-backed retry binding holds each signal through disconnection; drives from IDEAS `[TELEMETRY_OFFLINE_SPINE]`.
 - Shape: the retry binding rows on the AppHost telemetry exporter owners.
 - Unlocks: IDEAS.md [TELEMETRY_OFFLINE_SPINE] — lossless telemetry from disconnected sites.
 - Anchors: `libs/csharp/Rasm.AppHost/.api/api-otel-exporter.md`; `libs/csharp/.api/api-opentelemetry-exporter-otlp.md`.
 - Arms: either catalog carries an exact per-signal disk-retry member or environment binding and its `FileBlobProvider` composition law.
+
 [CLAIM_FAMILY_PROJECTIONS]-[BLOCKED]: Materials and Grasshopper claim projections complete the corpus-gate set.
 - Capability: the two remaining producers project claims through the gate the settled kernel, Bim, Persistence, and Rhino projections ride; drives from IDEAS `[CORPUS_GATE_INGEST]`.
 - Shape: the Materials and Grasshopper projections routed by `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
 - Unlocks: IDEAS.md [CORPUS_GATE_INGEST] — estate-wide claims grade through one corpus gate.
 - Anchors: the settled kernel, Bim, Persistence, and Rhino projections; `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]`.
 - Arms: both owner routes in `Observability/benchmarks.md#[CLAIM_FAMILY_ADMISSION]` close.
+
 [PROFILE_SAMPLE_CAPTURE_ARM]-[BLOCKED]: Profile sample capture lands over exact SampleProfiler members.
 - Capability: the capture arm joins the settled feed and registration rows, completing the profile-sample pipeline.
 - Shape: the capture rows routed by `Observability/benchmarks.md#[PROFILE_SAMPLE_CAPTURE]`.
 - Unlocks: span-correlated sample profiles on the benchmark evidence rail.
 - Anchors: the settled feed and registration rows; `libs/csharp/Rasm.AppHost/.api/api-traceevent.md`; `libs/csharp/.api/`.
 - Arms: either catalog carries the exact SampleProfiler subscription and stack/frame accessors routed by `Observability/benchmarks.md#[PROFILE_SAMPLE_CAPTURE]`.
+
 [HLC_HEADER_KEY_MINT]-[QUEUED]: Correlation spine mints the HLC carrier-header key contract every cross-runtime decoder proves against.
 - Capability: one host-owned spelling authority for the causal-stamp carrier keys — the wire's header vocabulary becomes a minted contract row set, so a decoder proves its mirror at boot instead of hand-mirroring spellings a host rename silently defaults to zeroed stamps.
 - Shape: `libs/csharp/Rasm.AppHost/.planning/Observability/telemetry.md` `[03]-[CORRELATION_SPINE]` — the HLC stamp's carrier header keys spelled as contract rows beside the `TraceContext` `traceparent`/`tracestate` fold.
