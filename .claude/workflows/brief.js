@@ -383,7 +383,7 @@ const preOf = (t, corpus, reg) => {
         L.doctrine +
         ' governs every fence; ' +
         L.law +
-        '; libs/.planning/architecture.md governs ' +
+        '; libs/.planning/ARCHITECTURE.md governs ' +
         'the cross-branch map. Both .api tiers are member truth: ' +
         L.tiers +
         '. Manifest: ' +

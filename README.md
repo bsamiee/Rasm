@@ -2,7 +2,7 @@
 
 Rasm is a RhinoWIP and Grasshopper2 monorepo for product-neutral AEC libraries, host-boundary packages, agent-operated tooling, and downstream Rhino/GH2 products. Apps and plugins are consumers; shared capability lands first in libraries that absorb geometry, host, runtime, UI, compute, persistence, packaging, and evidence concerns behind canonical owners.
 
-Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. All three branches couple only at the wire. `libs/.planning/architecture.md` owns the canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow.
+Rasm is a polyglot AEC platform organized into strict strata: the C# branch is the Rhino9(WIP)/GH2-aware producer (the geometry kernel, the host-neutral AEC-domain, the app-platform, and the host boundaries); Python is the host-free science/compute/data/geometry/IFC companion; TypeScript is the host-free web/edge platform. All three branches couple only at the wire. `libs/.planning/ARCHITECTURE.md` owns the canonical hierarchy — the strata, the dependency direction, the universal-vs-Rhino-capture rule, and the geometry/mesh/IFC flow.
 
 All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP and GH2, standalone, remote, and web. Libraries own the core logic and expose it agent-first: host, GH2, and external-package APIs are fully captured and internalized behind higher-order abstractions, so an agent composes parameterized, polymorphic capability instead of learning hundreds of provider calls, and builds feature-rich apps with minimal code, boilerplate, or ceremony. Every folder is designed around its entry points and envisioned downstream usage — no knob or ceremony spam; intelligence is internalized, multi-modal, and automatic so consumers have minimal room to hand-roll or misuse `libs/` capability.
 
@@ -39,7 +39,7 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 ## [04]-[LIBRARY_OWNERS]
 
-`libs/.planning/architecture.md` owns the package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule; `libs/.planning/README.md` introduces the branch roles and the planning corpus.
+`libs/.planning/ARCHITECTURE.md` owns the package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule; `libs/.planning/README.md` introduces the branch roles and the planning corpus.
 
 ## [05]-[HOST_RUNTIME]
 
@@ -64,7 +64,7 @@ Every root, tool, and library routes generated output through an owned store: `.
 
 ## [07]-[PLANNING_AND_EVIDENCE]
 
-New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `architecture.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
+New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. Planning law lives in `libs/.planning/` — `ARCHITECTURE.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
 ## [08]-[DEVELOPMENT_MODEL]
 

@@ -1,339 +1,183 @@
 # [RASM_API_TENSORS]
 
-`System.Numerics.Tensors` supplies tensor owners, tensor spans, dimension spans, native-sized indexing, marshalling, and a hardware-accelerated `TensorPrimitives` vectorized-numeric surface for measured Compute execution. Its value: `TensorPrimitives` JIT-lowers each elementwise/reduction operator to the widest available SIMD ISA (AVX-512 / AVX2 / NEON via `System.Runtime.Intrinsics`) over a caller-supplied span, so the kernel composes one vectorized primitive against its existing `ReadOnlySpan<float>`/`ReadOnlySpan<double>` coordinate buffers rather than authoring a hand-rolled element loop the JIT cannot vectorize. The dense rail stacks: a `Tensor<T>` strided owner (or a raw coordinate span) feeds a `TensorPrimitives` fused operator whose `Span<T>` destination is the next stage's input, the whole pipeline gated by a BenchmarkDotNet receipt that proves the vectorized path beats the scalar baseline on the hot lane.
+`System.Numerics.Tensors` owns two composable numeric planes: `Tensor<T>` and its span views carry `nint`-indexed strided data under one operator algebra, and `TensorPrimitives` folds every elementwise, reduction, and predicate operator over flat caller-owned spans. Both planes write into a caller-supplied destination and allocate nothing, so a fused chain threads one buffer through every stage.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Numerics.Tensors`
-- package: `System.Numerics.Tensors`
+- package: `System.Numerics.Tensors` (MIT, .NET Foundation)
 - assembly: `System.Numerics.Tensors`
-- license: MIT (.NET runtime library)
 - namespaces: `System.Numerics.Tensors`, `System.Buffers`, `System.Runtime.InteropServices`
-- asset: runtime library (managed; `TensorPrimitives` lowers to `System.Runtime.Intrinsics` SIMD, falling back to a scalar loop where no ISA is available — the operator is correct on every target, accelerated where the hardware admits)
-- abi: `Tensor<T>`/`TensorSpan<T>`/`ReadOnlyTensorSpan<T>` are `ref struct`-adjacent strided views over `nint`-indexed memory; `TensorPrimitives` operators are `static` generic-math methods constrained over the BCL numeric interfaces — no instance state, no allocation, the destination span is caller-owned
+- abi: strided `nint`-indexed views over caller-owned memory; span and dimension-span types are `ref struct` and `Tensor<T>` the array-backed heap owner
 - rail: tensor
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: tensor shapes
-- rail: tensor
+[PUBLIC_TYPE_SCOPE]: strided owners, borrowed views, native indexing, and the two operator roots
 
-| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]  | [CAPABILITY]           |
-| :-----: | :------------------------------- | :-------------- | :--------------------- |
-|  [01]   | `Tensor`                         | algebra root    | owns tensor algebra    |
-|  [02]   | `Tensor<T>`                      | tensor owner    | owns tensor data       |
-|  [03]   | `ITensor`                        | tensor contract | defines mutable tensor |
-|  [04]   | `ITensor<TSelf,T>`               | tensor contract | types mutable tensor   |
-|  [05]   | `IReadOnlyTensor`                | tensor contract | defines read tensor    |
-|  [06]   | `IReadOnlyTensor<TSelf,T>`       | tensor contract | types read tensor      |
-|  [07]   | `TensorSpan<T>`                  | span view       | addresses tensor data  |
-|  [08]   | `ReadOnlyTensorSpan<T>`          | span view       | reads tensor data      |
-|  [09]   | `TensorDimensionSpan<T>`         | dimension view  | addresses dimensions   |
-|  [10]   | `ReadOnlyTensorDimensionSpan<T>` | dimension view  | reads dimensions       |
-
-[PUBLIC_TYPE_SCOPE]: indexing and marshalling
-- rail: tensor
-
-| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]              |
-| :-----: | :----------------- | :------------------------------- | :------------------------ |
-|  [01]   | `NIndex`           | `System.Buffers`                 | indexes native dimensions |
-|  [02]   | `NRange`           | `System.Buffers`                 | slices native dimensions  |
-|  [03]   | `TensorShape`      | `System.Numerics.Tensors`        | describes strided layout  |
-|  [04]   | `TensorFlags`      | `System.Numerics.Tensors`        | marks tensor layout       |
-|  [05]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw references    |
-|  [06]   | `TensorPrimitives` | `System.Numerics.Tensors`        | runs SIMD span operators  |
-
-[PUBLIC_MEMBER_SCOPE]: native indexing and layout
-- rail: tensor
-
-| [INDEX] | [OWNER]       | [SURFACE]                | [CAPABILITY]              |
-| :-----: | :------------ | :----------------------- | :------------------------ |
-|  [01]   | `NIndex`      | `FromStart`              | creates start index       |
-|  [02]   | `NIndex`      | `FromEnd`                | creates end index         |
-|  [03]   | `NIndex`      | `Start`                  | addresses first element   |
-|  [04]   | `NIndex`      | `End`                    | addresses terminal bound  |
-|  [05]   | `NIndex`      | `GetOffset`              | resolves dimension offset |
-|  [06]   | `NIndex`      | `Index` conversion       | bridges BCL indexing      |
-|  [07]   | `NRange`      | `NRange(NIndex, NIndex)` | constructs bounded range  |
-|  [08]   | `NRange`      | `StartAt`                | creates open-ended range  |
-|  [09]   | `NRange`      | `EndAt`                  | creates prefix range      |
-|  [10]   | `NRange`      | `All`                    | spans full dimension      |
-|  [11]   | `NRange`      | `GetOffsetAndLength`     | resolves range bounds     |
-|  [12]   | `NRange`      | `Range` conversion       | bridges BCL ranges        |
-|  [13]   | `TensorShape` | `Rank`                   | reads dimension count     |
-|  [14]   | `TensorShape` | `Lengths`                | reads dimension lengths   |
-|  [15]   | `TensorShape` | `Strides`                | reads dimension strides   |
-|  [16]   | `TensorShape` | `IsDense`                | tests dense layout        |
-|  [17]   | `TensorShape` | `HasAnyDenseDimensions`  | tests partial density     |
-|  [18]   | `TensorShape` | `FlattenedLength`        | reads flattened length    |
-|  [19]   | `TensorFlags` | `None`                   | marks no layout state     |
-|  [20]   | `TensorFlags` | `IsDense`                | marks dense layout        |
-|  [21]   | `TensorFlags` | `IsPinned`               | marks pinned layout       |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]   | [CAPABILITY]                              |
+| :-----: | :------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `Tensor`                         | static class    | strided operator algebra and shape edits  |
+|  [02]   | `Tensor<T>`                      | sealed class    | array-backed strided heap owner           |
+|  [03]   | `TensorSpan<T>`                  | ref struct      | mutable borrowed strided window           |
+|  [04]   | `ReadOnlyTensorSpan<T>`          | ref struct      | read-only borrowed strided window         |
+|  [05]   | `TensorDimensionSpan<T>`         | ref struct      | one rank walked as mutable sub-spans      |
+|  [06]   | `ReadOnlyTensorDimensionSpan<T>` | ref struct      | one rank walked as read-only sub-spans    |
+|  [07]   | `ITensor<TSelf,T>`               | interface       | static-abstract construction and mutation |
+|  [08]   | `IReadOnlyTensor<TSelf,T>`       | interface       | typed read conformance over `TSelf`       |
+|  [09]   | `ITensor`                        | interface       | untyped mutation facade                   |
+|  [10]   | `IReadOnlyTensor`                | interface       | untyped rank and layout facade            |
+|  [11]   | `TensorPrimitives`               | static class    | vectorized operators over flat spans      |
+|  [12]   | `NIndex`                         | readonly struct | native-sized index with end-relative form |
+|  [13]   | `NRange`                         | readonly struct | native-sized half-open range              |
+|  [14]   | `TensorMarshal`                  | static class    | raw reference to strided view bridge      |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: tensor construction and shape
-- rail: tensor
+[ENTRYPOINT_SCOPE]: `Tensor` construction and `TensorMarshal` raw-memory admission
+- Each `TensorMarshal` factory takes `(ref T data, nint dataLength, ReadOnlySpan<nint> lengths, ReadOnlySpan<nint> strides, bool pinned)` over memory the caller already owns.
 
-| [INDEX] | [SURFACE]                        | [KIND]        | [CAPABILITY]             |
-| :-----: | :------------------------------- | :------------ | :----------------------- |
-|  [01]   | `Tensor.Create`                  | factory       | wraps array as tensor    |
-|  [02]   | `CreateFromShape`                | factory       | allocates shaped tensor  |
-|  [03]   | `CreateFromShapeUninitialized`   | factory       | allocates raw tensor     |
-|  [04]   | `FillGaussianNormalDistribution` | fill          | fills Gaussian values    |
-|  [05]   | `FillUniformDistribution`        | fill          | fills uniform values     |
-|  [06]   | `AsTensorSpan`                   | projection    | projects mutable view    |
-|  [07]   | `AsReadOnlyTensorSpan`           | projection    | projects read view       |
-|  [08]   | `Reshape`                        | shape         | changes dimensions       |
-|  [09]   | `Squeeze`                        | shape         | removes unit dimensions  |
-|  [10]   | `Unsqueeze`                      | shape         | inserts unit dimension   |
-|  [11]   | `PermuteDimensions`              | shape         | reorders dimensions      |
-|  [12]   | `Transpose`                      | shape         | swaps dimensions         |
-|  [13]   | `Broadcast`                      | shape         | expands into tensor      |
-|  [14]   | `BroadcastTo`                    | shape         | expands into destination |
-|  [15]   | `Concatenate`                    | composition   | joins tensors            |
-|  [16]   | `Stack`                          | composition   | stacks tensors           |
-|  [17]   | `Split`                          | composition   | partitions tensor        |
-|  [18]   | `SetSlice`                       | update        | writes tensor slice      |
-|  [19]   | `FilteredUpdate`                 | update        | writes filtered values   |
-|  [20]   | `Tensor<T>.Slice`                | tensor member | slices tensor data       |
-|  [21]   | `Tensor<T>.GetDimensionSpan`     | tensor member | addresses dimension      |
-|  [22]   | `Tensor<T>.FlattenTo`            | tensor member | flattens to span         |
-|  [23]   | `Tensor<T>.ToDenseTensor`        | tensor member | densifies strided data   |
-|  [24]   | `Tensor<T>.GetPinnableReference` | tensor member | exposes pinned ref       |
+| [INDEX] | [SURFACE]                                                                           | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :---------------------------------------------------------------------------------- | :------ | :-------------------------------- |
+|  [01]   | `Tensor.Create(T[], int, ReadOnlySpan<nint>, ReadOnlySpan<nint>) -> Tensor<T>`      | factory | wrap an array at an offset        |
+|  [02]   | `Tensor.CreateFromShape(ReadOnlySpan<nint>, ReadOnlySpan<nint>, bool)`              | factory | allocate cleared under a pin flag |
+|  [03]   | `Tensor.CreateFromShapeUninitialized(ReadOnlySpan<nint>, ReadOnlySpan<nint>, bool)` | factory | allocate without clearing         |
+|  [04]   | `Tensor.AsTensorSpan(T[], ReadOnlySpan<nint>, ReadOnlySpan<nint>)`                  | static  | borrow an array mutably           |
+|  [05]   | `Tensor.AsReadOnlyTensorSpan(T[], ReadOnlySpan<nint>, ReadOnlySpan<nint>)`          | static  | borrow an array read-only         |
+|  [06]   | `Tensor.FillUniformDistribution(TensorSpan<T>, Random)`                             | static  | fill uniform samples in place     |
+|  [07]   | `Tensor.FillGaussianNormalDistribution(TensorSpan<T>, Random)`                      | static  | fill normal samples in place      |
+|  [08]   | `TensorMarshal.CreateTensorSpan -> TensorSpan<T>`                                   | factory | wrap caller memory mutably        |
+|  [09]   | `TensorMarshal.CreateReadOnlyTensorSpan -> ReadOnlyTensorSpan<T>`                   | factory | wrap caller memory read-only      |
+|  [10]   | `TensorMarshal.GetReference(TensorSpan<T>) -> ref T`                                | static  | recover the backing reference     |
 
-[ENTRYPOINT_SCOPE]: shape-edit and remap operations
-- rail: tensor
+[ENTRYPOINT_SCOPE]: `Tensor` shape, remap, and composition
+- Each op mints a `Tensor<T>`; `Reshape`, `Squeeze`, `SqueezeDimension`, and `Unsqueeze` also re-window a span view with no allocation, and the composition family mirrors a `ref readonly TensorSpan<T>` destination overload.
+- A bare form acts on the default axis where its axis twin takes the `int` dimension — [AXIS_TWIN]: `SqueezeDimension` `ReverseDimension` `ConcatenateOnDimension` `StackAlongDimension`.
 
-| [INDEX] | [SURFACE]                | [KIND] | [CAPABILITY]                |
-| :-----: | :----------------------- | :----- | :-------------------------- |
-|  [01]   | `SqueezeDimension`       | shape  | removes one unit dimension  |
-|  [02]   | `StackAlongDimension`    | shape  | stacks on chosen axis       |
-|  [03]   | `ConcatenateOnDimension` | shape  | joins on chosen axis        |
-|  [04]   | `Reverse`                | remap  | reverses element order      |
-|  [05]   | `ReverseDimension`       | remap  | reverses one dimension      |
-|  [06]   | `Resize`                 | remap  | allocates resized tensor    |
-|  [07]   | `ResizeTo`               | remap  | writes resized destination  |
-|  [08]   | `TryBroadcastTo`         | shape  | broadcasts into destination |
+| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `Reshape(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                  | static  | re-length under one flattened count |
+|  [02]   | `Squeeze(Tensor<T>) -> Tensor<T>`                                      | static  | drop every unit dimension           |
+|  [03]   | `Unsqueeze(Tensor<T>, int) -> Tensor<T>`                               | static  | insert a unit dimension             |
+|  [04]   | `PermuteDimensions(Tensor<T>, ReadOnlySpan<int>) -> Tensor<T>`         | static  | reorder ranks by index vector       |
+|  [05]   | `Transpose(Tensor<T>) -> Tensor<T>`                                    | static  | swap the final two dimensions       |
+|  [06]   | `Broadcast(ReadOnlyTensorSpan<T>, ReadOnlySpan<nint>)`                 | static  | expand to a broadcast shape         |
+|  [07]   | `BroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                    | static  | expand into a caller destination    |
+|  [08]   | `TryBroadcastTo(ReadOnlyTensorSpan<T>, TensorSpan<T>) -> bool`         | static  | probe destination shape fit         |
+|  [09]   | `Resize(Tensor<T>, ReadOnlySpan<nint>) -> Tensor<T>`                   | static  | re-allocate at a new element count  |
+|  [10]   | `ResizeTo(ReadOnlyTensorSpan<T>, TensorSpan<T>)`                       | static  | truncate or zero-pad into a window  |
+|  [11]   | `Reverse(ReadOnlyTensorSpan<T>) -> Tensor<T>`                          | static  | reorder elements at one shape       |
+|  [12]   | `Concatenate(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                    | static  | join along an existing axis         |
+|  [13]   | `Stack(ReadOnlySpan<Tensor<T>>) -> Tensor<T>`                          | static  | stack into a new leading axis       |
+|  [14]   | `Split(ReadOnlyTensorSpan<T>, int, nint) -> Tensor<T>[]`               | static  | partition one axis evenly           |
+|  [15]   | `SetSlice(TensorSpan<T>, ReadOnlyTensorSpan<T>, ReadOnlySpan<NRange>)` | static  | write values into a ranged window   |
+|  [16]   | `FilteredUpdate(TensorSpan<T>, ReadOnlyTensorSpan<bool>, T)`           | static  | write where the mask holds          |
 
-`TryBroadcastTo` returns `false` when the destination shape is not broadcast-compatible.
+[ENTRYPOINT_SCOPE]: `Tensor<T>` and span-view members
+- `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>` carry one member set through `ITensor<TSelf,T>` and `IReadOnlyTensor<TSelf,T>`, so an algorithm generic over `TSelf` binds the heap owner and either borrowed window; the mutating half rides `ITensor<TSelf,T>` alone.
+- [LAYOUT]: `Rank` `Lengths` `Strides` `FlattenedLength` `IsDense` `HasAnyDenseDimensions` `IsEmpty` `IsPinned`
+- Implicit conversions lift `T[]` to `Tensor<T>` and `TensorSpan<T>`, widen `Tensor<T>` to both span views, and narrow `TensorSpan<T>` to `ReadOnlyTensorSpan<T>`.
 
-[ENTRYPOINT_SCOPE]: tensor-level comparison and equality
-- rail: tensor
-- relational families return `Tensor<bool>` masks or write `TensorSpan<bool>` destinations and own `All` and `Any` aggregate companions
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `this[ReadOnlySpan<nint>] -> ref T`                        | property | address one element by native index |
+|  [02]   | `this[ReadOnlySpan<NIndex>] -> ref T`                      | property | address one element end-relative    |
+|  [03]   | `this[ReadOnlySpan<NRange>] -> TSelf`                      | property | window a sub-tensor by ranges       |
+|  [04]   | `Slice(ReadOnlySpan<NRange>) -> TSelf`                     | instance | window a sub-tensor                 |
+|  [05]   | `GetDimensionSpan(int) -> TensorDimensionSpan<T>`          | instance | walk one dimension as sub-spans     |
+|  [06]   | `GetSpan(ReadOnlySpan<nint>, int) -> Span<T>`              | instance | flat span over a contiguous run     |
+|  [07]   | `TryGetSpan(ReadOnlySpan<nint>, int, out Span<T>) -> bool` | instance | probe contiguity before reading     |
+|  [08]   | `FlattenTo(Span<T>)`                                       | instance | copy strided data flattened         |
+|  [09]   | `TryFlattenTo(Span<T>) -> bool`                            | instance | flatten when the destination fits   |
+|  [10]   | `CopyTo(TensorSpan<T>)`                                    | instance | copy into a shaped destination      |
+|  [11]   | `TryCopyTo(TensorSpan<T>) -> bool`                         | instance | copy when the shapes match          |
+|  [12]   | `ToDenseTensor() -> TSelf`                                 | instance | materialize dense from strided      |
+|  [13]   | `Fill(T)`                                                  | instance | write one value across the window   |
+|  [14]   | `Clear()`                                                  | instance | zero the window                     |
+|  [15]   | `GetPinnableReference() -> ref T`                          | instance | pin the backing storage             |
+|  [16]   | `Tensor<T>.GetPinnedHandle() -> MemoryHandle`              | instance | hold a pin across native calls      |
+|  [17]   | `Tensor<T>.GetEnumerator() -> Enumerator`                  | instance | walk elements in flattened order    |
 
-| [INDEX] | [SURFACE]            | [FORM]      | [CAPABILITY]              |
-| :-----: | :------------------- | :---------- | :------------------------ |
-|  [01]   | `Equals`             | mask family | compares equality         |
-|  [02]   | `GreaterThan`        | mask family | compares strict greater   |
-|  [03]   | `GreaterThanOrEqual` | mask family | compares greater or equal |
-|  [04]   | `LessThan`           | mask family | compares strict less      |
-|  [05]   | `LessThanOrEqual`    | mask family | compares less or equal    |
-|  [06]   | `SequenceEqual`      | aggregate   | tests structural equality |
+[ENTRYPOINT_SCOPE]: `Tensor` comparison and mask families
+- Each relational op takes `(ReadOnlyTensorSpan<T> x, ReadOnlyTensorSpan<T>|T y, TensorSpan<bool> destination)`, returns the mask by `ref readonly`, and mints `<Name>All` and `<Name>Any` `bool` reducers over the same operands.
+- [RELATIONAL]: `Equals` `GreaterThan` `GreaterThanOrEqual` `LessThan` `LessThanOrEqual`
+- `SequenceEqual(ReadOnlyTensorSpan<T>, ReadOnlyTensorSpan<T>) -> bool` compares shape and elements in one call.
 
-[ENTRYPOINT_SCOPE]: arithmetic and fused primitive operations
-- rail: tensor
+[ENTRYPOINT_SCOPE]: `TensorPrimitives` unary elementwise operators
+- Each operator takes `(ReadOnlySpan<T> x, Span<T> destination)` under the generic-math constraint its family names, and `destination` may alias `x` for an in-place pass.
+- [TRIGONOMETRY]: `Sin` `Cos` `Tan` `SinPi` `CosPi` `TanPi` `Asin` `Acos` `Atan` `AsinPi` `AcosPi` `AtanPi` `Sinh` `Cosh` `Tanh` `Asinh` `Acosh` `Atanh` `DegreesToRadians` `RadiansToDegrees`
+- [EXPONENTIAL]: `Exp` `Exp2` `Exp10` `ExpM1` `Exp2M1` `Exp10M1` `Log` `Log2` `Log10` `LogP1` `Log2P1` `Log10P1` `Sqrt` `Cbrt` `Reciprocal` `ReciprocalEstimate` `ReciprocalSqrt` `ReciprocalSqrtEstimate` `Sigmoid` `SoftMax`
+- [ARITHMETIC]: `Abs` `Negate` `Increment` `Decrement` `Round` `Floor` `Ceiling` `Truncate` `BitIncrement` `BitDecrement`
+- [BITWISE]: `OnesComplement` `PopCount` `LeadingZeroCount` `TrailingZeroCount`
 
-| [INDEX] | [SURFACE]              | [KIND]      | [CAPABILITY]            |
-| :-----: | :--------------------- | :---------- | :---------------------- |
-|  [01]   | `TensorPrimitives.Add` | primitive   | computes elementwise op |
-|  [02]   | `Subtract`             | primitive   | computes elementwise op |
-|  [03]   | `Multiply`             | primitive   | computes elementwise op |
-|  [04]   | `Divide`               | primitive   | computes elementwise op |
-|  [05]   | `MultiplyAdd`          | primitive   | computes fused op       |
-|  [06]   | `FusedMultiplyAdd`     | primitive   | computes fused op       |
-|  [07]   | `Dot`                  | reduction   | computes inner product  |
-|  [08]   | `CosineSimilarity`     | reduction   | computes similarity     |
-|  [09]   | `Sum`                  | aggregation | reduces values          |
+[ENTRYPOINT_SCOPE]: `TensorPrimitives` binary, ternary, and shaped operators
+- A binary operator takes `(ReadOnlySpan<T> x, ReadOnlySpan<T>|T y, Span<T> destination)` and a ternary operator admits a span or a scalar in every operand slot.
+- [BINARY]: `Add` `Subtract` `Multiply` `Divide` `Remainder` `Pow` `Log` `Atan2` `Atan2Pi` `Ieee754Remainder` `CopySign` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber` `BitwiseAnd` `BitwiseOr` `Xor`
+- [TERNARY]: `MultiplyAdd` `MultiplyAddEstimate` `FusedMultiplyAdd` `AddMultiply` `Lerp` `Clamp`
+- An integer-parameter operator takes `(ReadOnlySpan<T> x, int, Span<T> destination)` — [INT_PARAM]: `RootN` `ScaleB` `ShiftLeft` `ShiftRightArithmetic` `ShiftRightLogical` `RotateLeft` `RotateRight`; `ShiftRightArithmetic` extends the sign bit where `ShiftRightLogical` fills with zero.
 
-[ENTRYPOINT_SCOPE]: aggregation, activation, transcendental, and conversion primitives
-- rail: tensor
+| [INDEX] | [SURFACE]                                                | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `Hypot(ReadOnlySpan<T>, ReadOnlySpan<T>, Span<T>)`       | static  | overflow-safe magnitude of two spans  |
+|  [02]   | `DivRem(ReadOnlySpan<T>, T, Span<T>, Span<T>)`           | static  | write quotient and remainder together |
+|  [03]   | `SinCos(ReadOnlySpan<T>, Span<T>, Span<T>)`              | static  | write sine and cosine together        |
+|  [04]   | `SinCosPi(ReadOnlySpan<T>, Span<T>, Span<T>)`            | static  | write the pi-scaled trig pair         |
+|  [05]   | `Round(ReadOnlySpan<T>, int, MidpointRounding, Span<T>)` | static  | round at digits under a mode          |
+|  [06]   | `Sign(ReadOnlySpan<T>, Span<int>)`                       | static  | write the per-element sign            |
+|  [07]   | `ILogB(ReadOnlySpan<T>, Span<int>)`                      | static  | write the binary exponent             |
 
-| [INDEX] | [SURFACE]           | [KIND]         | [CAPABILITY]            |
-| :-----: | :------------------ | :------------- | :---------------------- |
-|  [01]   | `Product`           | aggregation    | reduces values          |
-|  [02]   | `Max`               | aggregation    | reduces values          |
-|  [03]   | `Min`               | aggregation    | reduces values          |
-|  [04]   | `IndexOfMax`        | search         | finds extrema index     |
-|  [05]   | `SoftMax`           | activation     | normalizes exponentials |
-|  [06]   | `Sigmoid`           | activation     | computes logistic map   |
-|  [07]   | `Cos`               | transcendental | computes trig op        |
-|  [08]   | `Exp`               | transcendental | computes exponential op |
-|  [09]   | `Log`               | transcendental | computes logarithm op   |
-|  [10]   | `ConvertChecked`    | conversion     | converts values         |
-|  [11]   | `ConvertSaturating` | conversion     | converts values         |
+[ENTRYPOINT_SCOPE]: `TensorPrimitives` reductions and searches
+- A reduction returns a scalar over caller-owned spans: the single-span family takes `(ReadOnlySpan<T>) -> T`, the paired family `(ReadOnlySpan<T>, ReadOnlySpan<T>) -> T`, and the search family `(ReadOnlySpan<T>) -> int`.
+- [SPAN_REDUCE]: `Sum` `SumOfSquares` `SumOfMagnitudes` `Product` `Average` `StdDev` `Norm` `Max` `Min` `MaxNumber` `MinNumber` `MaxMagnitude` `MinMagnitude` `MaxMagnitudeNumber` `MinMagnitudeNumber`
+- [PAIR_REDUCE]: `Dot` `CosineSimilarity` `Distance` `ProductOfSums` `ProductOfDifferences`
+- [INDEX_SEARCH]: `IndexOfMax` `IndexOfMin` `IndexOfMaxMagnitude` `IndexOfMinMagnitude`
 
-[ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
-- rail: tensor
+| [INDEX] | [SURFACE]                                                      | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------- | :------ | :----------------------------- |
+|  [01]   | `PopCount(ReadOnlySpan<T>) -> long`                            | static  | total set bits across the span |
+|  [02]   | `HammingDistance(ReadOnlySpan<T>, ReadOnlySpan<T>) -> int`     | static  | count differing elements       |
+|  [03]   | `HammingBitDistance(ReadOnlySpan<T>, ReadOnlySpan<T>) -> long` | static  | count differing bits           |
 
-| [INDEX] | [SURFACE]          | [KIND]         | [CAPABILITY]               |
-| :-----: | :----------------- | :------------- | :------------------------- |
-|  [01]   | `Negate`           | primitive      | computes elementwise op    |
-|  [02]   | `Abs`              | primitive      | computes elementwise op    |
-|  [03]   | `CopySign`         | primitive      | transfers sign elementwise |
-|  [04]   | `AddMultiply`      | primitive      | computes fused op          |
-|  [05]   | `Clamp`            | primitive      | bounds values elementwise  |
-|  [06]   | `Round`            | rounding       | rounds values              |
-|  [07]   | `Floor`            | rounding       | rounds values down         |
-|  [08]   | `Ceiling`          | rounding       | rounds values up           |
-|  [09]   | `Sin`              | transcendental | computes trig op           |
-|  [10]   | `Tanh`             | transcendental | computes hyperbolic op     |
-|  [11]   | `Sqrt`             | transcendental | computes square root       |
-|  [12]   | `Cbrt`             | transcendental | computes cube root         |
-|  [13]   | `DegreesToRadians` | transcendental | converts angle units       |
-|  [14]   | `RadiansToDegrees` | transcendental | converts angle units       |
-|  [15]   | `Pow`              | transcendental | computes power op          |
-|  [16]   | `Atan2`            | transcendental | computes arctangent op     |
+[ENTRYPOINT_SCOPE]: `TensorPrimitives` predicate masks
+- Each predicate writes `(ReadOnlySpan<T>, Span<bool> destination)` and mints `<Name>All` and `<Name>Any` `(ReadOnlySpan<T>) -> bool` reducers; an empty span answers `false` from both reducers.
+- [PREDICATE]: `IsCanonical` `IsComplexNumber` `IsEvenInteger` `IsFinite` `IsImaginaryNumber` `IsInfinity` `IsInteger` `IsNaN` `IsNegative` `IsNegativeInfinity` `IsNormal` `IsOddInteger` `IsPositive` `IsPositiveInfinity` `IsRealNumber` `IsSubnormal` `IsZero`
+- `IsPow2` binds `IBinaryNumber<T>` where every other predicate binds `INumberBase<T>`.
 
-[ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
-- rail: tensor
+[ENTRYPOINT_SCOPE]: `TensorPrimitives` element-type conversion
 
-| [INDEX] | [SURFACE]              | [KIND]     | [CAPABILITY]                 |
-| :-----: | :--------------------- | :--------- | :--------------------------- |
-|  [01]   | `Norm`                 | reduction  | computes Euclidean norm      |
-|  [02]   | `MaxMagnitude`         | reduction  | reduces by absolute extremum |
-|  [03]   | `Average`              | statistics | computes mean                |
-|  [04]   | `StdDev`               | statistics | computes standard deviation  |
-|  [05]   | `Distance`             | similarity | computes Euclidean distance  |
-|  [06]   | `HammingDistance`      | similarity | counts differing elements    |
-|  [07]   | `BitwiseAnd`           | bitwise    | computes bitwise op          |
-|  [08]   | `ShiftLeft`            | bitwise    | shifts integer values        |
-|  [09]   | `ShiftRightArithmetic` | bitwise    | shifts with sign extension   |
-|  [10]   | `ConvertTruncating`    | conversion | converts values              |
-
-[ENTRYPOINT_SCOPE]: interpolation, reciprocal, hypot, and half-conversion primitives
-- rail: tensor
-- `Lerp` accepts span or scalar `amount` operands and writes into the caller destination
-
-| [INDEX] | [SURFACE]                | [KIND]         | [CAPABILITY]                     |
-| :-----: | :----------------------- | :------------- | :------------------------------- |
-|  [01]   | `Lerp`                   | interpolation  | interpolates elements            |
-|  [02]   | `Hypot`                  | primitive      | computes overflow-safe magnitude |
-|  [03]   | `Reciprocal`             | primitive      | computes reciprocal              |
-|  [04]   | `ReciprocalEstimate`     | primitive      | estimates reciprocal             |
-|  [05]   | `ReciprocalSqrt`         | primitive      | computes reciprocal root         |
-|  [06]   | `ReciprocalSqrtEstimate` | primitive      | estimates reciprocal root        |
-|  [07]   | `RootN`                  | transcendental | computes nth roots               |
-|  [08]   | `ScaleB`                 | transcendental | scales by binary exponent        |
-|  [09]   | `SinCos`                 | transcendental | writes paired trig outputs       |
-|  [10]   | `Ieee754Remainder`       | transcendental | computes IEEE remainder          |
-|  [11]   | `ConvertToHalf`          | conversion     | narrows singles to halves        |
-|  [12]   | `ConvertToSingle`        | conversion     | widens halves to singles         |
-|  [13]   | `ConvertToInteger`       | conversion     | saturates integer overflow       |
-|  [14]   | `ConvertToIntegerNative` | conversion     | uses platform overflow behavior  |
-|  [15]   | `Truncate`               | rounding       | truncates toward zero            |
-
-[ENTRYPOINT_SCOPE]: bitwise, population, and rotation primitives
-- rail: tensor
-- `BitwiseOr` and `Xor` accept span or scalar right operands; `PopCount` writes per-element counts or reduces to `long`
-
-| [INDEX] | [SURFACE]           | [KIND]  | [CAPABILITY]             |
-| :-----: | :------------------ | :------ | :----------------------- |
-|  [01]   | `PopCount`          | bitwise | counts set bits          |
-|  [02]   | `LeadingZeroCount`  | bitwise | counts leading zeros     |
-|  [03]   | `TrailingZeroCount` | bitwise | counts trailing zeros    |
-|  [04]   | `BitwiseOr`         | bitwise | computes bitwise or      |
-|  [05]   | `Xor`               | bitwise | computes bitwise xor     |
-|  [06]   | `OnesComplement`    | bitwise | complements element bits |
-|  [07]   | `ShiftRightLogical` | bitwise | shifts without sign      |
-|  [08]   | `RotateLeft`        | bitwise | rotates bits left        |
-|  [09]   | `RotateRight`       | bitwise | rotates bits right       |
-
-[ENTRYPOINT_SCOPE]: reduction, search, sign, and similarity primitives
-- rail: tensor
-- `MinNumber` and `MaxNumber` bind `INumber<T>`; each reduces one span or maps a span/scalar right operand into a destination
-
-| [INDEX] | [SURFACE]                      | [KIND]      | [CAPABILITY]                    |
-| :-----: | :----------------------------- | :---------- | :------------------------------ |
-|  [01]   | `SumOfSquares`                 | reduction   | sums squared elements           |
-|  [02]   | `SumOfMagnitudes`              | reduction   | sums absolute values            |
-|  [03]   | `ProductOfSums`                | reduction   | multiplies pairwise sums        |
-|  [04]   | `ProductOfDifferences`         | reduction   | multiplies pairwise differences |
-|  [05]   | `IndexOfMaxMagnitude`          | search      | finds maximum magnitude         |
-|  [06]   | `IndexOfMin`                   | search      | finds minimum value             |
-|  [07]   | `IndexOfMinMagnitude`          | search      | finds minimum magnitude         |
-|  [08]   | `Sign`                         | projection  | writes element signs            |
-|  [09]   | `HammingBitDistance`           | similarity  | counts differing bits           |
-|  [10]   | `MinNumber(x)`                 | reduction   | finds NaN-skipping minimum      |
-|  [11]   | `MinNumber(x, y, destination)` | elementwise | maps NaN-skipping minimum       |
-|  [12]   | `MaxNumber(x)`                 | reduction   | finds NaN-skipping maximum      |
-|  [13]   | `MaxNumber(x, y, destination)` | elementwise | maps NaN-skipping maximum       |
-
-`Sign` writes `-1`, `0`, or `1` to a `Span<int>` destination. `HammingBitDistance` returns the `long` bit-difference count across integral spans.
-
-[ENTRYPOINT_SCOPE]: predicate-mask primitives
-- rail: tensor
-- every predicate writes a `Span<bool>` mask and owns `All` and `Any` aggregate companions
-
-| [INDEX] | [SURFACE]            | [DOMAIN]           |
-| :-----: | :------------------- | :----------------- |
-|  [01]   | `IsCanonical`        | `INumberBase<T>`   |
-|  [02]   | `IsComplexNumber`    | `INumberBase<T>`   |
-|  [03]   | `IsEvenInteger`      | `INumberBase<T>`   |
-|  [04]   | `IsFinite`           | `INumberBase<T>`   |
-|  [05]   | `IsImaginaryNumber`  | `INumberBase<T>`   |
-|  [06]   | `IsInfinity`         | `INumberBase<T>`   |
-|  [07]   | `IsInteger`          | `INumberBase<T>`   |
-|  [08]   | `IsNaN`              | `INumberBase<T>`   |
-|  [09]   | `IsNegative`         | `INumberBase<T>`   |
-|  [10]   | `IsNegativeInfinity` | `INumberBase<T>`   |
-|  [11]   | `IsNormal`           | `INumberBase<T>`   |
-|  [12]   | `IsOddInteger`       | `INumberBase<T>`   |
-|  [13]   | `IsPositive`         | `INumberBase<T>`   |
-|  [14]   | `IsPositiveInfinity` | `INumberBase<T>`   |
-|  [15]   | `IsPow2`             | `IBinaryNumber<T>` |
-|  [16]   | `IsRealNumber`       | `INumberBase<T>`   |
-|  [17]   | `IsSubnormal`        | `INumberBase<T>`   |
-|  [18]   | `IsZero`             | `INumberBase<T>`   |
-|  [19]   | `IsFiniteAll`        | `INumberBase<T>`   |
-
-`IsFiniteAll<T>(ReadOnlySpan<T>)` returns one `bool` and returns `false` for an empty span.
-
-[ENTRYPOINT_SCOPE]: marshalling operations
-- rail: tensor
-
-| [INDEX] | [SURFACE]                                | [KIND]  | [CAPABILITY]          |
-| :-----: | :--------------------------------------- | :------ | :-------------------- |
-|  [01]   | `TensorMarshal.CreateTensorSpan`         | factory | wraps raw memory      |
-|  [02]   | `TensorMarshal.CreateReadOnlyTensorSpan` | factory | wraps raw read memory |
-|  [03]   | `TensorMarshal.GetReference`             | ref     | exposes span data ref |
+| [INDEX] | [SURFACE]                                                           | [SHAPE] | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------ | :------ | :----------------------------- |
+|  [01]   | `ConvertChecked<TFrom,TTo>(ReadOnlySpan<TFrom>, Span<TTo>)`         | static  | convert and raise on overflow  |
+|  [02]   | `ConvertSaturating<TFrom,TTo>(ReadOnlySpan<TFrom>, Span<TTo>)`      | static  | clamp overflow to the bound    |
+|  [03]   | `ConvertTruncating<TFrom,TTo>(ReadOnlySpan<TFrom>, Span<TTo>)`      | static  | drop high bits on overflow     |
+|  [04]   | `ConvertToInteger<TFrom,TTo>(ReadOnlySpan<TFrom>, Span<TTo>)`       | static  | saturate float to integer      |
+|  [05]   | `ConvertToIntegerNative<TFrom,TTo>(ReadOnlySpan<TFrom>, Span<TTo>)` | static  | use platform overflow behavior |
+|  [06]   | `ConvertToHalf(ReadOnlySpan<float>, Span<Half>)`                    | static  | narrow singles to halves       |
+|  [07]   | `ConvertToSingle(ReadOnlySpan<Half>, Span<float>)`                  | static  | widen halves to singles        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[TENSOR_SHAPES]:
-- namespace: `System.Numerics.Tensors`
-- tensor root: `Tensor<T>` with `Tensor` as the static factory and operation surface
-- span root: tensor spans and dimension spans
-- index root: `NIndex` and `NRange` in `System.Buffers`
-- marshal root: `TensorMarshal` in `System.Runtime.InteropServices`
+[TOPOLOGY]:
+- Each `TensorPrimitives` operator lowers to the widest `System.Runtime.Intrinsics` ISA the target carries and falls back to a scalar loop, so the operator is correct on every target and vectorized wherever the hardware admits.
+- An elementwise operator writes into a caller-owned destination that may alias its input, so a fused chain reuses one buffer across every stage; a reduction returns a scalar and a predicate family writes `Span<bool>`.
+- Generic-math constraints select the admitted element type per family — `INumberBase<T>`, `IFloatingPointIeee754<T>`, `IRootFunctions<T>`, `IBinaryInteger<T>`, `IBitwiseOperators<T,T,T>`, `IShiftOperators<T,int,T>` — so an integer-only family rejects a floating element at the constraint.
+- `Tensor<T>` and both span views conform to `ITensor<TSelf,T>`, so one algorithm generic over `TSelf` binds the heap owner and either borrowed window without an overload family.
+- `Tensor` carries the arithmetic, bitwise, and shift operator set (`+` `-` `*` `/` `&` `|` `^` `~` `<<` `>>` `>>>`) as C# extension blocks over `Tensor<T>`, `TensorSpan<T>`, and `ReadOnlyTensorSpan<T>`, each operator constrained on its matching generic-math interface and minting a fresh `Tensor<T>`.
+- `GetDimensionSpan(int)` walks one rank as `TensorSpan<T>` slices, so a rank reduction chains over the same buffer with no intermediate tensor.
+- Vector normalization folds `Norm` into `Divide` against the reduced magnitude over one destination span.
 
-[NUMERIC_PRIMITIVES]:
-- operation root: `TensorPrimitives`
-- operation families: arithmetic, fused, interpolation, reciprocal, reduction, aggregation, extrema, sign, activation, conversion, trigonometric, exponential, logarithmic, bitwise, population-count, rotation, predicate-mask
-- generic-math constraints: operators are generic over `T` bound by `INumberBase`, `IFloatingPointIeee754`, `IRootFunctions`, `IBinaryInteger`, `IBitwiseOperators`, or `IShiftOperators` as the family requires; integer-only families reject floating element types at the constraint
-- destination rule: elementwise operators write into a caller-supplied `Span<T>` destination; reductions return a scalar `T`; predicate masks write `Span<bool>` with `*All` / `*Any` aggregate forms
-- memory rule: primitives operate over spans and tensor spans before package-local wrappers; in-place is admitted (`destination` may overlap `x`) so a fused pipeline reuses one buffer across stages
-- simd rule: each operator JIT-lowers to the widest available `System.Runtime.Intrinsics` ISA (AVX-512/AVX2/SSE on x64, AdvSimd on ARM64) with a scalar tail and a scalar fallback where no ISA is present — the primitive is the vectorized form a hand-rolled element loop cannot match, which is precisely why a package-local numeric loop over the same span is the rejected reinvention
-- benchmark rule: primitive selection requires measured BenchmarkDotNet receipts for hot paths — the vectorized-vs-scalar speedup is proven per lane, never assumed
-
-[ABSENT_OPERATORS]:
-- `TensorPrimitives` exposes no `Normalize` operator; vector normalization composes from `Norm` (or `SumOfSquares` + `Sqrt`) followed by `Divide` against the reduced magnitude
-- a normalization owner row that names a single `TensorPrimitives.Normalize` call is unresolvable and stays SPIKE until expressed as the `Norm`/`Divide` composition
+[STACKING]:
+- `MathNet.Numerics`(`.api/api-mathnet-numerics.md`): the split `double[] real, double[] imaginary` spectral buffers and the `Generate`/`Window` axes enter as `ReadOnlySpan<double>`, so magnitude, phase, and taper passes vectorize with no `Complex` marshalling.
+- `CSparse`(`.api/api-csparse.md`): the `Span<double>` a GEMV or `ISolver<double>.Solve` writes is the operand of the residual, axpy, and `Norm` passes, so a solve loop measures convergence with no copy.
+- `CommunityToolkit.HighPerformance`(`.api/api-highperformance.md`): `MemoryOwner<T>.Span` feeds a primitive directly and `MemoryOwner<T>.DangerousGetReference()` feeds `TensorMarshal.CreateTensorSpan`, so one pooled rental backs the whole vectorized chain.
+- `NetTopologySuite`(`.api/api-nettopologysuite.md`): crossing and containment signs resolve on its robust predicate floor, and this rail carries only the metric and transform passes downstream of that decision.
+- Within-library fold: `CreateFromShapeUninitialized` mints the destination, the extension operator set composes the expression, `GetDimensionSpan` walks the reduced rank, and `Tensor<T>.GetPinnedHandle` holds the buffer across a native call — one allocation spanning the whole pipeline.
 
 [LOCAL_ADMISSION]:
-- Compute tensor lanes use package tensor shapes and primitives as first-class execution material.
-- Tensor operations stay rail-owned and cannot become loose numeric helpers.
-- Shape, rank, stride, slicing, and conversion rules are explicit execution policy.
-- Model and vector rails can consume tensor spans without redefining tensor ownership.
-
-[INTEGRATION_STACKING]:
-- Span feed: Existing coordinate buffers feed `TensorPrimitives` as `ReadOnlySpan<T>`, and `TensorMarshal.CreateTensorSpan` projects pinned raw buffers without copying. The buffer owner retains the only layout.
-- Fused rail: Destination aliasing chains vectorized stages in one buffer; fused primitives collapse multi-step arithmetic into one pass, and tensor-level mirrors carry the same operations over strided owners.
-- Receipt: A BenchmarkDotNet receipt admits a tensor primitive to a hot path only after measuring its win.
-- Predicate boundary: `TensorPrimitives` owns floating SIMD transforms, while exact geometric decisions stay on the exact-arithmetic predicate floor. Crossing and containment signs never route through floating reductions.
+- Compute tensor lanes admit these shapes and primitives as first-class execution material, and a consuming model or vector rail takes the span without re-declaring tensor ownership.
 
 [RAIL_LAW]:
 - Package: `System.Numerics.Tensors`
-- Owns: tensors, tensor spans, dimension spans, native-sized indexing, marshalling, and SIMD numeric primitives
-- Accept: measured tensor execution composing the kernel's existing span buffers through one fused vectorized rail
-- Reject: bespoke tensor wrappers; a package-local numeric loop over a span `TensorPrimitives` already vectorizes; an exact-predicate decision routed through a floating SIMD reduction
+- Owns: strided tensor owners and views, native-sized indexing and ranges, raw-memory marshalling, and the vectorized span operator set
+- Accept: a fused vectorized chain over caller-owned spans whose measured BenchmarkDotNet receipt beats the scalar baseline on the hot lane
+- Reject: a package-local numeric loop over a span this surface already vectorizes, a bespoke tensor wrapper, and an exact-predicate decision routed through a floating reduction

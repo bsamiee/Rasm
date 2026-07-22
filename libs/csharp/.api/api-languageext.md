@@ -1,178 +1,345 @@
 # [RASM_API_LANGUAGEEXT]
 
-`LanguageExt.Core` is THE functional substrate — every C# folder's typed error rail, optionality, accumulating validation, effect boundary, and immutable collection vocabulary is this one assembly. `Fin<A>` (`Succ`/`Fail(Error)`) is the corpus result rail; `Validation<F, A>` is the fan-in that ACCUMULATES failures applicatively where `Fin` short-circuits; `Option<A>` is presence; `Try<A>`/`Eff<A>`/`IO<A>` are the deferred/effectful tiers — `Try.Run()` and `Eff.Run()` land back on `Fin<A>`, while `IO.Run()`/`RunAsync()` execute throwing, so an `IO` lane lands on `Fin` by carrying `IO<Fin<A>>` or lifting through `Eff`; `Error` is the monoidal failure vocabulary every rail carries. `Seq`/`Arr`/`HashMap` are the immutable collection carriers and `Atom<A>` the lock-free mutable cell. The v5 trait system (`K<F, A>`, `Applicative<F>`, `Monad<M>`, `Monoid<A>`) is what lets one tuple `.Apply(...)` fan-in and one `.Traverse(...)` work across every rail — a `K<F, A>` result downcasts to its concrete carrier through the per-family `.As()`.
+`LanguageExt.Core` is the branch functional substrate: `Fin<A>` is the rail every domain operation returns, and every other carrier — presence, accumulation, deferral, collection, cell, optic — names its conversion onto that rail. Its higher-kinded trait system makes one `Apply` fan-in, one `Traverse` inversion, and one operator set work across every carrier, so a new rail is a trait conformance rather than a new combinator family.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LanguageExt.Core`
-- package: `LanguageExt.Core` (; license MIT)
+- package: `LanguageExt.Core` (MIT, © Paul Louth)
 - assembly: `LanguageExt.Core` (`lib/net10.0`)
-- namespace: `LanguageExt`, `LanguageExt.Common` (`Error`), `LanguageExt.Traits` (`K<F, A>` + type classes)
-- asset: runtime library (pure managed; `Prelude` is the `using static LanguageExt.Prelude;` constructor vocabulary)
-- abi: `Option`/`Seq`/`Arr`/`HashMap`/`Guard` are `readonly struct`; `Fin<A>` and `Validation<F, A>` are abstract class/record hierarchies with sealed case types; `Error` is an abstract record `Monoid<Error>`; every carrier implements `K<Self, A>` so trait extensions apply uniformly
+- namespace: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`
+- asset: pure managed library; `using static LanguageExt.Prelude;` carries the constructor vocabulary
+- abi: every carrier implements `K<Self, A>`, so one trait extension binds uniformly across rails, collections, and transformers
 - rail: functional substrate
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result, validation, and effect rails
-- rail: functional substrate
 
-| [INDEX] | [SYMBOL]                       | [SHAPE]                         | [CAPABILITY]                                   |
-| :-----: | :----------------------------- | :------------------------------ | :--------------------------------------------- |
-|  [01]   | `Fin<A>`                       | abstract `K<Fin, A>`            | short-circuiting `Succ`/`Fail` result          |
-|  [02]   | `Validation<F, A>`             | abstract `K<Validation<F>, A>`  | accumulating `Success`/`Fail` validation       |
-|  [03]   | `Option<A>`                    | readonly `K<Option, A>` monoid  | `None`/`Some` presence and nullable lift       |
-|  [04]   | `Either<L, R>`                 | disjoint-union rail             | `Fin` conversion and `Either<Error, A>` lift   |
-|  [05]   | `Try<A>`                       | `Func<Fin<A>>`, `K<Try, A>`     | deferred exception trap forced by `Run`        |
-|  [06]   | `Eff<A>` / `Eff<RT, A>`        | effect monad                    | runtime-free or reader-runtime deferred effect |
-|  [07]   | `IO<A>`                        | terminal effect                 | run, fork, timeout, repeat, and retry          |
-|  [08]   | `Error` (`LanguageExt.Common`) | abstract `Monoid<Error>` record | composable typed-failure vocabulary            |
-|  [09]   | `Expected`                     | `Error` record                  | typed expected failure via `(Message, Code)`   |
-|  [10]   | `Guard<E, A>`                  | readonly predicate gate         | lazy refusal lifted through `ToFin`            |
-|  [11]   | `Pure<A>` / `Fail<E>`          | polymorphic lift carriers       | rail-agnostic success and failure literals     |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                              |
+| :-----: | :----------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `Fin<A>`           | abstract class  | short-circuiting `Succ`/`Fail` result     |
+|  [02]   | `Validation<F, A>` | abstract record | accumulating verdict over `F : Monoid<F>` |
+|  [03]   | `Option<A>`        | readonly struct | presence with nullable lift               |
+|  [04]   | `Either<L, R>`     | abstract record | disjoint union crossing to `Fin`          |
+|  [05]   | `Try<A>`           | record          | `Func<Fin<A>>` exception trap             |
+|  [06]   | `Eff<A>`           | record          | runtime-free deferred effect              |
+|  [07]   | `Eff<RT, A>`       | record          | reader-runtime deferred effect            |
+|  [08]   | `IO<A>`            | abstract record | terminal effect with bracket and schedule |
+|  [09]   | `Error`            | abstract record | `Monoid<Error>` failure vocabulary        |
+|  [10]   | `Expected`         | record          | expected failure keyed by `Code`          |
+|  [11]   | `Exceptional`      | record          | exception-derived failure                 |
+|  [12]   | `ManyErrors`       | sealed record   | accumulated failure carrier               |
+|  [13]   | `Guard<E, A>`      | readonly struct | predicate gate composing in a LINQ body   |
+|  [14]   | `Pure<A>`          | record struct   | rail-agnostic success literal             |
+|  [15]   | `Fail<E>`          | record struct   | rail-agnostic failure literal             |
+|  [16]   | `CatchM<E, M, A>`  | record struct   | predicate-selected recovery handler       |
 
-[PUBLIC_TYPE_SCOPE]: collections and state
-- rail: functional substrate
+[PUBLIC_TYPE_SCOPE]: immutable carriers, state, and optics
 
-| [INDEX] | [SYMBOL]                                   | [SHAPE]                         | [CAPABILITY]                        |
-| :-----: | :----------------------------------------- | :------------------------------ | :---------------------------------- |
-|  [01]   | `Seq<A>`                                   | readonly `K<Seq, A>`            | default immutable ordered carrier   |
-|  [02]   | `Arr<A>`                                   | readonly collection-built array | indexed immutable carrier           |
-|  [03]   | `HashMap<K, V>`                            | readonly dictionary             | `Find → Option<V>` lookup rail      |
-|  [04]   | `HashSet` / `Set` / `Lst` / `Map` / `Stck` | immutable collections           | direct `Seq.Concat` sources         |
-|  [05]   | `Iterable<A>`                              | lazy `K<Iterable, A>`           | sync or async enumerable lift       |
-|  [06]   | `Atom<A>`                                  | lock-free CAS cell              | `Value`, `Swap`, `SwapIO`, `Change` |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                             |
+| :-----: | :---------------------- | :-------------- | :--------------------------------------- |
+|  [01]   | `Seq<A>`                | readonly struct | default ordered carrier with `AsSpan`    |
+|  [02]   | `Arr<A>`                | readonly struct | indexed immutable array                  |
+|  [03]   | `Lst<A>`                | readonly struct | persistent linked list                   |
+|  [04]   | `HashMap<K, V>`         | readonly struct | hashed persistent map                    |
+|  [05]   | `Map<K, V>`             | readonly struct | ordered persistent map                   |
+|  [06]   | `TrackingHashMap<K, V>` | readonly struct | map carrying its own change log          |
+|  [07]   | `HashSet<A>`            | readonly struct | hashed persistent set                    |
+|  [08]   | `Set<A>`                | readonly struct | ordered persistent set                   |
+|  [09]   | `Stck<A>`               | readonly struct | persistent LIFO stack                    |
+|  [10]   | `Que<A>`                | readonly struct | persistent FIFO queue                    |
+|  [11]   | `Iterable<A>`           | abstract class  | lazy sync or async sequence              |
+|  [12]   | `Atom<A>`               | sealed class    | lock-free CAS cell with `Change`         |
+|  [13]   | `Atom<M, A>`            | sealed class    | CAS cell threading construction metadata |
+|  [14]   | `Ref<A>`                | sealed class    | transactional cell `atomic` commits      |
+|  [15]   | `Memo<A>`               | class           | resettable memoized thunk                |
+|  [16]   | `Lens<A, B>`            | readonly struct | composable get and immutable set         |
+|  [17]   | `Range<A>`              | record          | generated bounded sequence               |
 
-[PUBLIC_TYPE_SCOPE]: trait system (`LanguageExt.Traits`)
-- rail: functional substrate
+[PUBLIC_TYPE_SCOPE]: traits and monad transformers (`LanguageExt.Traits`)
 
-| [INDEX] | [SYMBOL]                      | [KIND]      | [CAPABILITY]                             |
-| :-----: | :---------------------------- | :---------- | :--------------------------------------- |
-|  [01]   | `K<F, A>`                     | kind marker | common rail and collection seam          |
-|  [02]   | `Applicative<F>` / `Monad<M>` | type class  | `Apply`, `Bind`, and traversal           |
-|  [03]   | `Monoid<A>` / `Semigroup<A>`  | type class  | validation and failure accumulation      |
-|  [04]   | `Fallible<E, F>`              | type class  | typed-failure recovery                   |
-|  [05]   | `*Extensions.As()`            | downcast    | family-specific concrete-carrier landing |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                |
+| :-----: | :--------------------- | :-------------- | :------------------------------------------ |
+|  [01]   | `K<F, A>`              | interface       | higher-kinded seam every carrier implements |
+|  [02]   | `Functor<F>`           | interface       | `Map` conformance                           |
+|  [03]   | `Applicative<F>`       | interface       | `Apply` fan-in conformance                  |
+|  [04]   | `Monad<M>`             | interface       | `Bind` and tail-recursive `Recur`           |
+|  [05]   | `MonadIO<M>`           | interface       | `IO` lifting into a carrier                 |
+|  [06]   | `Semigroup<A>`         | interface       | associative `Combine`                       |
+|  [07]   | `Monoid<A>`            | interface       | `Combine` with an identity                  |
+|  [08]   | `Foldable<T>`          | interface       | fold, search, and aggregate conformance     |
+|  [09]   | `Traversable<T>`       | interface       | effect and shape inversion                  |
+|  [10]   | `Alternative<F>`       | interface       | first-success choice                        |
+|  [11]   | `Fallible<E, F>`       | interface       | typed failure raise and recover             |
+|  [12]   | `Readable<M, Env>`     | interface       | ambient-environment reads                   |
+|  [13]   | `Stateful<M, S>`       | interface       | threaded-state reads and writes             |
+|  [14]   | `ReaderT<Env, M, A>`   | record          | environment threaded over any `M`           |
+|  [15]   | `StateT<S, M, A>`      | record          | state threaded over any `M`                 |
+|  [16]   | `WriterT<W, M, A>`     | record          | monoidal output over any `M`                |
+|  [17]   | `RWST<R, W, S, M, A>`  | record          | reader, writer, and state in one pass       |
+|  [18]   | `FinT<M, A>`           | record          | `Fin` stacked over any `M`                  |
+|  [19]   | `OptionT<M, A>`        | record          | `Option` stacked over any `M`               |
+|  [20]   | `EitherT<L, M, A>`     | record          | `Either` stacked over any `M`               |
+|  [21]   | `ValidationT<F, M, A>` | record          | `Validation` stacked over any `M`           |
+|  [22]   | `Free<F, A>`           | abstract record | open interpreter over a functor             |
+|  [23]   | `Schedule`             | abstract record | composable repeat and retry policy          |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `Fin` construction, matching, and conversion
-- rail: functional substrate
+[ENTRYPOINT_SCOPE]: `Fin<A>` construction, fold, and egress
 
-| [INDEX] | [SURFACE]                                          | [SHAPE]    | [CAPABILITY]                  |
-| :-----: | :------------------------------------------------- | :--------- | :---------------------------- |
-|  [01]   | `Fin.Succ<A>` / `Fin.Fail<A>` / `Fail<A>(string)`  | factory    | canonical result construction |
-|  [02]   | `Match<B>(Succ, Fail)` / `Match(Action, Action)`   | instance   | total value or effect fold    |
-|  [03]   | `Map<B>` / `MapFail`                               | instance   | success or failure projection |
-|  [04]   | `Bind<B>` / `BindFail`                             | instance   | monadic chain or recovery     |
-|  [05]   | `IfFail` / `IfSucc` / `Iter`                       | instance   | escape and effect taps        |
-|  [06]   | `Fold<S>` / `Exists` / `ForAll`                    | instance   | result fold and predicates    |
-|  [07]   | `Traverse<F, B>` / `TraverseM<M, B>`               | instance   | effect distribution           |
-|  [08]   | `ToOption` / `ToEither` / `ToValidation` / `ToEff` | instance   | rail conversion               |
-|  [09]   | implicit lifts / `operator \|`                     | conversion | first-success alternative     |
+| [INDEX] | [SURFACE]                                        | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :----------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Fin.Succ(A)`                                    | static   | success construction               |
+|  [02]   | `Fin.Fail(Error)`                                | static   | failure construction               |
+|  [03]   | `Fin.Match(Func<A,B>, Func<Error,B>)`            | instance | total value fold, `Succ` first     |
+|  [04]   | `Fin.Match(Action<A>, Action<Error>)`            | instance | total effect fold                  |
+|  [05]   | `Fin.Map(Func<A,B>)`                             | instance | success projection                 |
+|  [06]   | `Fin.MapFail(Func<Error,Error>)`                 | instance | failure projection                 |
+|  [07]   | `Fin.BiMap(Func<A,B>, Func<Error,Error>)`        | instance | both-branch projection             |
+|  [08]   | `Fin.Bind(Func<A,Fin<B>>)`                       | instance | monadic chain                      |
+|  [09]   | `Fin.BindFail(Func<Error,Fin<A>>)`               | instance | failure-branch recovery chain      |
+|  [10]   | `Fin.BiBind(Func<A,Fin<B>>, Func<Error,Fin<B>>)` | instance | both-branch chain                  |
+|  [11]   | `Fin.SelectMany(Func<A,Guard<Error,Unit>>)`      | instance | `guard` admission inside LINQ      |
+|  [12]   | `Fin.IfFail(Func<Error,A>)`                      | instance | failure escape to a value          |
+|  [13]   | `Fin.IfSucc(Action<A>)`                          | instance | success effect tap                 |
+|  [14]   | `Fin.Iter(Action<A>)`                            | instance | success iteration                  |
+|  [15]   | `Fin.Fold(S, Func<S,A,S>)`                       | fold     | success state fold                 |
+|  [16]   | `Fin.BiFold(S, Func<S,A,S>, Func<S,Error,S>)`    | fold     | both-branch state fold             |
+|  [17]   | `Fin.Exists(Func<A,bool>)`                       | instance | success predicate                  |
+|  [18]   | `Fin.ForAll(Func<A,bool>)`                       | instance | total predicate                    |
+|  [19]   | `Fin.Traverse(Func<A,K<F,B>>)`                   | instance | applicative effect distribution    |
+|  [20]   | `Fin.TraverseM(Func<A,K<M,B>>)`                  | instance | monadic effect distribution        |
+|  [21]   | `Fin.ToOption()`                                 | instance | presence egress                    |
+|  [22]   | `Fin.ToEither()`                                 | instance | disjoint-union egress              |
+|  [23]   | `Fin.ToValidation()`                             | instance | accumulation ingress               |
+|  [24]   | `Fin.ToEff()`                                    | instance | effect-tier ingress                |
+|  [25]   | `Fin.ToSeq()`                                    | instance | collection egress                  |
+|  [26]   | `Fin.ThrowIfFail()`                              | instance | host-boundary unwrap               |
+|  [27]   | `FinExtensions.As(K<Fin,A>)`                     | static   | trait-value re-anchor              |
+|  [28]   | `FinExtensions.ToFin(Either<Error,A>)`           | static   | `Either` ingress                   |
+|  [29]   | `FinExtensions.Partition()`                      | static   | split a `Fin` foldable, no exit    |
+|  [30]   | `FinExtensions.Succs()`                          | static   | success branch of a `Fin` foldable |
+|  [31]   | `FinExtensions.Fails()`                          | static   | failure branch of a `Fin` foldable |
+|  [32]   | `Fin operator \|`                                | operator | first-success alternative          |
+|  [33]   | `Fin operator \|` over `CatchM<Error,Fin,A>`     | operator | predicate-selected recovery        |
+|  [34]   | `Fin unary operator +`                           | operator | terse `K<Fin, A>` re-anchor        |
+|  [35]   | `Fin operator *`                                 | operator | applicative apply                  |
+|  [36]   | `Fin operator >>`                                | operator | monadic bind and sequence          |
 
-[ENTRYPOINT_SCOPE]: `Option`, `Validation`, and `Error`
-- rail: functional substrate
+[ENTRYPOINT_SCOPE]: `Option<A>` presence and `Guard` admission
 
-`Validation.Match` binds `Fail` FIRST (`Match<B>(Func<F, B> Fail, Func<A, B> Succ)`) — the mirror image of `Fin.Match`; positional lambdas that assume success-first are the named defect.
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `Prelude.Some(A)`                                  | static   | present-value construction      |
+|  [02]   | `Prelude.Optional(A?)`                             | static   | nullable-aware admission        |
+|  [03]   | `Option<A>.None`                                   | property | absent literal                  |
+|  [04]   | `Option.Match(Func<A,B>, Func<B>)`                 | instance | total presence fold             |
+|  [05]   | `Option.IfNone(A)`                                 | instance | default escape                  |
+|  [06]   | `Option.Filter(Func<A,bool>)`                      | instance | predicate narrowing             |
+|  [07]   | `Option.Bind(Func<A,Option<B>>)`                   | instance | monadic chain                   |
+|  [08]   | `Option.ToFin(Error)`                              | instance | rail ingress                    |
+|  [09]   | `Option.ToValidation(L)`                           | instance | accumulation ingress            |
+|  [10]   | `Option.ToSeq()`                                   | instance | collection egress               |
+|  [11]   | `Option.ToEither(L)`                               | instance | disjoint-union egress           |
+|  [12]   | `OptionExtensions.Somes(Seq<Option<A>>)`           | static   | drop absent members in one pass |
+|  [13]   | `Prelude.guard(bool, Error)`                       | static   | predicate refusal literal       |
+|  [14]   | `FinGuardExtensions.ToFin(Guard<Error,Unit>)`      | static   | standalone gate to the rail     |
+|  [15]   | `FinGuardExtensions.SelectMany(Func<Unit,Fin<B>>)` | static   | gate as a LINQ `from` clause    |
 
-| [INDEX] | [SURFACE]                                             | [SHAPE]    | [CAPABILITY]                 |
-| :-----: | :---------------------------------------------------- | :--------- | :--------------------------- |
-|  [01]   | `Some` / `Optional` / `Option<A>.None`                | factory    | nullable-aware presence      |
-|  [02]   | `Option.Match` / `IfNone` / `Filter`                  | instance   | fold, default, and narrowing |
-|  [03]   | `Option.ToFin` / `ToSeq` / `ToArray` / `ToEither`     | instance   | presence egress              |
-|  [04]   | `Validation.Success` / `Validation.Fail`              | factory    | monoidal validation creation |
-|  [05]   | `Validation.Map` / `MapFail` / `Bind` / `operator \|` | instance   | projection and accumulation  |
-|  [06]   | `Validation.ToEither` / `ToOption` / `ToFin`          | conversion | short-circuit egress         |
-|  [07]   | `Error.New` overload family / `Error.Many`            | factory    | typed-failure construction   |
-|  [08]   | `Error.Combine` / `+` / `Head` / `Tail` / `Count`     | instance   | accumulation and enumeration |
-|  [09]   | `Error.Is` / `IsType` / `HasCode` / `Filter`          | instance   | classification and egress    |
-|  [10]   | `Error.Exception`                                     | instance   | exceptional payload option   |
+[ENTRYPOINT_SCOPE]: `Validation<F, A>` accumulation and the `Error` vocabulary
+
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------ |
+|  [01]   | `Validation.Success(A)`                           | static   | accepted-verdict construction   |
+|  [02]   | `Validation.Fail(F)`                              | static   | refused-verdict construction    |
+|  [03]   | `Validation.Match(Func<F,B>, Func<A,B>)`          | instance | total fold, `Fail` first        |
+|  [04]   | `Validation.Map(Func<A,B>)`                       | instance | success projection              |
+|  [05]   | `Validation.MapFail(Func<F,F1>)`                  | instance | failure projection              |
+|  [06]   | `Validation.Bind(Func<A,Validation<F,B>>)`        | instance | monadic chain                   |
+|  [07]   | `Validation.BiFold(S, Func<S,F,S>, Func<S,A,S>)`  | fold     | both-branch state fold          |
+|  [08]   | `Validation.ToOption()`                           | instance | presence egress                 |
+|  [09]   | `Validation.ToEither()`                           | instance | disjoint-union egress           |
+|  [10]   | `Validation.ToSeq()`                              | instance | collection egress               |
+|  [11]   | `ValidationExtensions.ToFin(Validation<Error,A>)` | static   | short-circuit rail egress       |
+|  [12]   | `ValidationExtensions.As(K<Validation<F>,A>)`     | static   | trait-value re-anchor           |
+|  [13]   | `ValidationExtensions.Successes()`                | static   | accepted branch of a roster     |
+|  [14]   | `ValidationExtensions.Fails()`                    | static   | refused branch of a roster      |
+|  [15]   | `Validation operator \|`                          | operator | failure-accumulating choice     |
+|  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | static   | K-kinded fan-in, arities 2–10   |
+|  [17]   | `Error.New(int, string)`                          | static   | typed-failure construction      |
+|  [18]   | `Error.Many(Seq<Error>)`                          | static   | accumulated-failure carrier     |
+|  [19]   | `Error.Combine(Error)`                            | instance | monoidal failure join           |
+|  [20]   | `Error operator +`                                | operator | terse monoidal failure join     |
+|  [21]   | `Error.Head`                                      | property | first accumulated failure       |
+|  [22]   | `Error.Tail`                                      | property | remaining accumulated failures  |
+|  [23]   | `Error.Count`                                     | property | accumulated-failure cardinality |
+|  [24]   | `Error.AsIterable()`                              | instance | accumulated-failure enumeration |
+|  [25]   | `Error.Is(Error)`                                 | instance | failure identity test           |
+|  [26]   | `Error.IsType<E>()`                               | instance | failure type test               |
+|  [27]   | `Error.HasCode(int)`                              | instance | failure code test               |
+|  [28]   | `Error.Filter<E>()`                               | instance | failure-subset selection        |
+|  [29]   | `Error.Exception`                                 | property | optional exceptional payload    |
+|  [30]   | `Error.Inner`                                     | property | optional cause chain            |
+|  [31]   | `Error.ToException()`                             | instance | host-boundary projection        |
+|  [32]   | `Error.Throw<R>()`                                | instance | host-boundary escape            |
 
 [ENTRYPOINT_SCOPE]: `Try`, `Eff`, `IO` — the deferred tiers
-- rail: functional substrate
 
-| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                    |
-| :-----: | :--------------------------------------------------- | :-------- | :------------------------------ |
-|  [01]   | `Try.lift` / `Try.Succ` / `Try.Fail`                 | factory   | exception-trapping thunk        |
-|  [02]   | `TryExtensions.Run`                                  | extension | force thunk to `Fin`            |
-|  [03]   | `Eff.lift` / `Prelude.liftEff`                       | factory   | sync or async effect admission  |
-|  [04]   | `Eff<RT, RT> Eff.runtime<RT>()`                      | factory   | supplied-runtime reader effect  |
-|  [05]   | `EffExtensions.Run` / `RunUnsafe`                    | extension | typed or throwing execution     |
-|  [06]   | `Eff.Map` / `MapFail` / `MapIO` / `Bind`             | instance  | effect composition and recovery |
-|  [07]   | `IO.pure` / `IO.fail` / `IO.lift`                    | factory   | terminal-effect construction    |
-|  [08]   | `IO.Run` / `RunAsync`                                | instance  | sync or `ValueTask` execution   |
-|  [09]   | `IO.Fork` / `Timeout` / `RepeatUntil` / `RetryUntil` | instance  | structured scheduled execution  |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------ | :------- | :----------------------------------- |
+|  [01]   | `Try.lift(Func<A>)`                                           | static   | exception-trapping thunk             |
+|  [02]   | `TryExtensions.Run(K<Try,A>)`                                 | static   | force the thunk to `Fin<A>`          |
+|  [03]   | `Try.ToFin()`                                                 | instance | rail conversion                      |
+|  [04]   | `Try.ToIO()`                                                  | instance | terminal-tier conversion             |
+|  [05]   | `Eff.lift(Func<A>)`                                           | static   | effect admission                     |
+|  [06]   | `Prelude.liftEff(Func<Task<Fin<A>>>)`                         | static   | async fallible effect admission      |
+|  [07]   | `Eff.runtime<RT>() -> Eff<RT, RT>`                            | static   | supplied-runtime reader effect       |
+|  [08]   | `Eff.getState<RT>()`                                          | static   | runtime and `EnvIO` read             |
+|  [09]   | `Eff.local(Func<OuterRT,InnerRT>, Eff<InnerRT,A>)`            | static   | scoped runtime override              |
+|  [10]   | `Eff.localCancel(Eff<RT,A>)`                                  | static   | scoped cancellation source           |
+|  [11]   | `EffExtensions.Run(K<Eff,A>)`                                 | static   | typed execution to `Fin<A>`          |
+|  [12]   | `EffExtensions.RunAsync(K<Eff,A>)`                            | static   | `Task<Fin<A>>` execution             |
+|  [13]   | `EffExtensions.RunIO(K<Eff,A>)`                               | static   | lower to the terminal `IO` tier      |
+|  [14]   | `Eff.MapFail(Func<Error,Error>)`                              | instance | failure projection                   |
+|  [15]   | `Eff.MapIO(Func<IO<A>,IO<B>>)`                                | instance | inner-effect projection              |
+|  [16]   | `Eff.IfFailEff(Func<Error,Eff<A>>)`                           | instance | effectful recovery                   |
+|  [17]   | `IO.pure(A)`                                                  | static   | lifted-value construction            |
+|  [18]   | `IO.fail(Error)`                                              | static   | failed-effect construction           |
+|  [19]   | `IO.lift(Func<A>)`                                            | static   | thunk admission                      |
+|  [20]   | `IO.Run()`                                                    | instance | synchronous execution                |
+|  [21]   | `IO.RunAsync()`                                               | instance | `ValueTask` execution                |
+|  [22]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                    | instance | acquire-use-release scope            |
+|  [23]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)` | instance | scope with a failure arm             |
+|  [24]   | `IO.Finally(K<IO,X>)`                                         | instance | unconditional release                |
+|  [25]   | `IO.Repeat(Schedule)`                                         | instance | policy-driven repetition             |
+|  [26]   | `IO.RepeatUntil(Func<A,bool>)`                                | instance | predicate-bounded repetition         |
+|  [27]   | `IO.Retry(Schedule)`                                          | instance | policy-driven retry                  |
+|  [28]   | `IO.RetryUntil(Func<Error,bool>)`                             | instance | predicate-bounded retry              |
+|  [29]   | `IO.Fork(Option<TimeSpan>)`                                   | instance | concurrent execution handle          |
+|  [30]   | `IO.Timeout(TimeSpan)`                                        | instance | bounded execution                    |
+|  [31]   | `IO.Catch(Func<Error,bool>, Func<Error,K<IO,A>>)`             | instance | predicate-selected recovery          |
+|  [32]   | `IO.Uninterruptible()`                                        | instance | cancellation masking                 |
+|  [33]   | `Prelude.@catch(Func<Error,bool>, K<M,A>)`                    | static   | rail-generic recovery handler        |
+|  [34]   | `Prelude.use(Func<A>, Action<A>)`                             | static   | resource-scoped acquisition          |
+|  [35]   | `Prelude.tail(IO<A>)`                                         | static   | tail-recursion marker for deep binds |
 
-[ENTRYPOINT_SCOPE]: `Seq` — construction, transform, and the INDEXED-MAP argument-order law
-- rail: functional substrate
+[ENTRYPOINT_SCOPE]: `Seq`, `Arr`, `HashMap`, `Set` — immutable carriers
 
-The instance and module indexed maps take their lambda arguments in OPPOSITE order: `Seq<A>.Map<B>(Func<A, int, B> f)` is `(value, index)`; the module `Seq.map<A, B>(Seq<A> list, Func<int, A, B> map)` is `(index, value)`. Kernel pages compose the INSTANCE form — `points.Map((p, i) =>...)` — so a mechanical rewrite to the module spelling silently transposes the arguments.
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `Prelude.Seq(A, A)`                                              | static   | ordered-carrier construction        |
+|  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                  | static   | enumerable admission                |
+|  [03]   | `Seq.Map(Func<A,B>)`                                             | instance | element projection                  |
+|  [04]   | `Seq.Map(Func<A,int,B>)`                                         | instance | indexed `(value, index)` projection |
+|  [05]   | `Seq.map(Seq<A>, Func<int,A,B>)`                                 | static   | indexed `(index, value)` twin       |
+|  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                       | instance | monadic expansion                   |
+|  [07]   | `Seq.Filter(Func<A,bool>)`                                       | instance | predicate narrowing                 |
+|  [08]   | `Seq.Partition(Func<A,bool>)`                                    | instance | one-pass two-way split              |
+|  [09]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                        | static   | one-pass filter-map                 |
+|  [10]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                    | static   | indexed one-pass filter-map         |
+|  [11]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                         | static   | projected pairwise join             |
+|  [12]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                             | static   | running-state projection            |
+|  [13]   | `Seq.Head`                                                       | property | `Option<A>` first read              |
+|  [14]   | `Seq.Last`                                                       | property | `Option<A>` final read              |
+|  [15]   | `Seq.Tail`                                                       | property | all but the first member            |
+|  [16]   | `Seq.Init`                                                       | property | all but the final member            |
+|  [17]   | `Seq.Tails`                                                      | property | every suffix                        |
+|  [18]   | `Seq.Inits`                                                      | property | every prefix                        |
+|  [19]   | `Seq.Add(A)`                                                     | instance | append one member                   |
+|  [20]   | `Seq.Concat(Seq<A>)`                                             | instance | cross-collection join               |
+|  [21]   | `Seq.Intersperse(A)`                                             | instance | separator weave                     |
+|  [22]   | `Seq.Strict()`                                                   | instance | force a lazily-built sequence       |
+|  [23]   | `Seq.AsSpan()`                                                   | instance | zero-copy contiguous read           |
+|  [24]   | `Seq.AsIterable()`                                               | instance | lazy-seam lift                      |
+|  [25]   | `Seq.Traverse(Func<A,K<F,B>>)`                                   | instance | applicative shape inversion         |
+|  [26]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                  | instance | short-circuiting shape inversion    |
+|  [27]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                        | fold     | carrier-generic state fold          |
+|  [28]   | `FoldableExtensions.FoldM(S, Func<S,A,K<M,S>>)`                  | fold     | monadic state fold                  |
+|  [29]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)` | fold     | predicate-bounded fold              |
+|  [30]   | `FoldableExtensions.FoldMap(Func<A,B>)`                          | fold     | monoidal aggregation                |
+|  [31]   | `FoldableExtensions.Find(Func<A,bool>)`                          | static   | `Option`-shaped search              |
+|  [32]   | `FoldableExtensions.FindAll(Func<A,bool>)`                       | static   | every match as a `Seq`              |
+|  [33]   | `Arr.create(A[])`                                                | static   | immutable-array construction        |
+|  [34]   | `Arr.createRange(IEnumerable<A>)`                                | static   | immutable-array admission           |
+|  [35]   | `HashMap.Find(K)`                                                | instance | `Option<V>` lookup                  |
+|  [36]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                            | instance | matched lookup fold                 |
+|  [37]   | `HashMap.FindOrAdd(K, Func<V>)`                                  | instance | lookup with insert-on-miss          |
+|  [38]   | `HashMap.Add(K, V)`                                              | instance | persistent insert                   |
+|  [39]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                     | instance | persistent matched upsert           |
+|  [40]   | `HashMap.SetItem(K, V)`                                          | instance | persistent replace                  |
+|  [41]   | `HashMap.Remove(K)`                                              | instance | persistent delete                   |
+|  [42]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`        | instance | merge with a collision rule         |
+|  [43]   | `HashMap.ContainsKey(K)`                                         | instance | total key membership                |
+|  [44]   | `HashMap.ToTrackingHashMap()`                                    | instance | change-logged map lift              |
+|  [45]   | `Set.Add(A)`                                                     | instance | persistent set insertion            |
+|  [46]   | `Set.TryAdd(A)`                                                  | instance | insertion tolerating a duplicate    |
+|  [47]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                  | static   | lazy sync lift                      |
+|  [48]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`             | static   | lazy async lift                     |
 
-| [INDEX] | [SURFACE]                                         | [SHAPE]   | [CAPABILITY]                        |
-| :-----: | :------------------------------------------------ | :-------- | :---------------------------------- |
-|  [01]   | `Prelude.Seq` / `Seq(span\|enumerable)` / `toSeq` | factory   | ordered-carrier construction        |
-|  [02]   | `Seq.Map(Func<A, B>)`                             | instance  | element projection                  |
-|  [03]   | `Seq.Map(Func<A, int, B>)`                        | instance  | indexed `(value, index)` projection |
-|  [04]   | `Seq.map` module overloads                        | module    | indexed `(index, value)` twin       |
-|  [05]   | `Add` / `Concat`                                  | instance  | cross-collection append             |
-|  [06]   | `Head` / `Last` / `Tail` / `Init` / `Count`       | instance  | structural reads                    |
-|  [07]   | `Bind` / `Filter` / `Fold` / `Traverse`           | instance  | monadic and predicate composition   |
-|  [08]   | `FoldM<M, S>`                                     | extension | monadic state fold                  |
-|  [09]   | `Choose<B>`                                       | instance  | one-pass filter-map                 |
-|  [10]   | `Zip` / `SeqExtensions.Zip`                       | instance  | tuple or projected pairwise join    |
-|  [11]   | no `FindIndex`                                    | absence   | compose indexed `Map` and `Choose`  |
+[ENTRYPOINT_SCOPE]: state, optics, and the prelude vocabulary
 
-[ENTRYPOINT_SCOPE]: `Arr`, `HashMap`, `Atom`, `Iterable`, prelude gates, and the applicative fan-in
-- rail: functional substrate
-
-| [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                     |
-| :-----: | :--------------------------------------------------- | :-------- | :------------------------------- |
-|  [01]   | `Arr.create` / `createRange` / `empty` / `singleton` | factory   | immutable-array construction     |
-|  [02]   | `HashMap.Find`                                       | instance  | optional lookup                  |
-|  [03]   | `HashMap.Add` / `AddOrUpdate` / `SetItem` / `Remove` | instance  | persistent map edits             |
-|  [04]   | `HashMap.ContainsKey`                                | instance  | total key membership             |
-|  [05]   | `Set.Add`                                            | instance  | persistent set insertion         |
-|  [06]   | `Prelude.Atom` / `Atom.Swap` / `SwapIO`              | instance  | lock-free shared state           |
-|  [07]   | `AsIterable`                                         | extension | lazy sync or async lift          |
-|  [08]   | `Prelude.guard` / `Guard.ToFin`                      | prelude   | predicate admission              |
-|  [09]   | tuple `Apply`                                        | extension | applicative fan-in, arities 2–10 |
-|  [10]   | `Some` / `None` / `unit` / `identity`                | prelude   | literal vocabulary               |
+| [INDEX] | [SURFACE]                                | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :--------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `Prelude.Atom(A, Func<A,bool>)`          | static   | validated lock-free cell         |
+|  [02]   | `Atom.Swap(Func<A,A>)`                   | instance | CAS update                       |
+|  [03]   | `Atom.SwapMaybe(Func<A,Option<A>>)`      | instance | CAS update with refusal          |
+|  [04]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update on the effect rail    |
+|  [05]   | `Atom.Change`                            | property | accepted-swap notification       |
+|  [06]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | lock-free keyed cell             |
+|  [07]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | transactional cell construction  |
+|  [08]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | multi-`Ref` transaction          |
+|  [09]   | `Prelude.swap(Ref<A>, Func<A,A>)`        | static   | in-transaction update            |
+|  [10]   | `Prelude.commute(Ref<A>, Func<A,A>)`     | static   | order-free in-transaction update |
+|  [11]   | `Lens.New(Func<A,B>, Func<B,Func<A,A>>)` | static   | optic construction               |
+|  [12]   | `Lens.Set(B, A)`                         | instance | immutable focused write          |
+|  [13]   | `Lens.Update(Func<B,B>, A)`              | instance | immutable focused edit           |
+|  [14]   | `Lens.fst<A,B>()`                        | static   | first-slot tuple optic           |
+|  [15]   | `Lens.snd<A,B>()`                        | static   | second-slot tuple optic          |
+|  [16]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | static   | composed tuple optic             |
+|  [17]   | `Seq<A>.headOrNone`                      | property | first-slot optic over a `Seq`    |
+|  [18]   | `Seq<A>.lastOrNone`                      | property | final-slot optic over a `Seq`    |
+|  [19]   | `Prelude.memo(Func<A,B>)`                | static   | memoized pure function           |
+|  [20]   | `Memo.Reset()`                           | instance | drop a memoized value            |
+|  [21]   | `Range.fromMinMax(A, A, A)`              | static   | generated bounded sequence       |
+|  [22]   | `Prelude.unit`                           | property | the `Unit` literal               |
+|  [23]   | `Prelude.identity(A)`                    | static   | the identity projection          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RAIL_TOPOLOGY]:
-- one result rail: domain operations return `Fin<A>`; `Fin.Succ`/`Fin.Fail` are the only success/failure spellings, and `Error` (usually a domain `Fault` record deriving it) is the only failure payload
-- accumulation is a mode switch, not a second rail: independent gates lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin` — `Validation<Error, A>` exists exactly between those two conversions; every tuple leg must be K-KINDED (`K<Validation<Error>, A>`) because the tuple `Apply` extensions bind only on `(K<F,A>, …)` receivers — a concrete-`Validation` tuple neither infers nor converts at the extension receiver, so gate helpers declare the K return and `.As()` re-anchors after the join
-- deferral tiers: `Try.lift(...).Run()` traps a throwing boundary into `Fin<A>` synchronously; `Eff`/`IO` defer the same shape for composed/async execution and land on `Fin<A>` at `Run()` — the tier is chosen by WHEN the effect runs, never by which failure type it carries; `Eff.runtime<RT>()` is the exact reader constructor and returns `Eff<RT, RT>`
-- `Guard<Error, Unit>` is the predicate form: `guard(condition, error).ToFin()` replaces `condition ? Succ: Fail` ternaries at admission gates
-- `Match` argument order is per-rail law: `Fin.Match(Succ, Fail)` but `Validation.Match(Fail, Succ)` — named lambdas (`Succ:`, `Fail:`) make the transposition impossible
+[TOPOLOGY]:
+- Domain operations return `Fin<A>`; `Fin.Succ` and `Fin.Fail` are the construction spellings, and an `Error`-derived domain fault record is the failure payload.
+- Accumulation is a mode, not a second rail: independent gates lift into `Validation<Error, A>`, fan in through the tuple `Apply`, and exit `ToFin` — `Validation` lives exactly between those two conversions.
+- Tuple `Apply` binds on `(K<F, A>, …)` receivers across arities 2–10, so each gate slot declares a `K<Validation<Error>, A>` return and the join re-anchors through `As()` or the unary `+`.
+- `Fin.Match(Succ, Fail)` against `Validation.Match(Fail, Succ)`: named lambda arguments (`Succ:`, `Fail:`) bind by name, so the argument order stops deciding the fold.
+- Tier choice is when the effect runs, never which failure type it carries — `Try` traps a throwing boundary synchronously through `Run`, `Eff` defers the same shape for composed and async execution, and `IO` is terminal, carrying bracket, schedule, fork, and timeout. All three land on `Fin<A>`.
+- `guard(condition, error)` is the admission form: it composes inside a `Fin` or `Validation` LINQ body through the `SelectMany` overload over `Guard<E, Unit>`, and stands alone through `ToFin`.
+- `Seq<A>` crosses rail seams as `Fin<Seq<A>>`, and `AsSpan` is its zero-copy contiguous read.
+- `Arr<A>` is the indexed carrier collection expressions build; `Iterable<A>` is the lazy sync-or-async seam materializing through `ToSeq`.
+- Lookups return `Option`: `HashMap.Find`, `Seq.Head`, `Seq.Last`.
+- Indexed enumeration is the instance `Map((value, index) => …)`; the module `Seq.map(seq, (index, value) => …)` transposes, so a mechanical rewrite between the two silently swaps the lambda arguments.
+- `Traverse` inverts effect and shape applicatively (`Seq<Fin<A>>` to `Fin<Seq<A>>`); `TraverseM` inverts monadically and short-circuits on the first failure; `Partition` inverts without exiting, keeping both branches.
+- `Error : Monoid<Error>` is why `Validation<Error, A>` accumulates: `Combine` and `+` join failures into one carrier that `Head`, `Tail`, `Count`, and `AsIterable` re-enumerate.
+- `Atom<A>.Swap` owns lock-free shared state and publishes each accepted swap on `Change`; `Ref<A>` owns the transactional cell that `atomic` commits across several refs in one isolation scope.
 
-[COLLECTION_TOPOLOGY]:
-- `Seq<A>` is the default ordered carrier crossing rail seams (`Fin<Seq<A>>`); `Arr<A>` is the indexed/random-access carrier built by collection expressions; `Iterable<A>` is the lazy LINQ seam that materializes via `ToSeq()`
-- lookups are `Option`-shaped: `HashMap.Find`, `Seq.Head`/`Last` — an indexer or `First()` that can throw is the deleted form
-- the indexed enumerate is the INSTANCE `Map((value, index) =>...)`; module `Seq.map` transposes to `(index, value)` and is not interchangeable
-- `Atom<A>.Swap` owns shared mutable state — a `lock` block around an immutable-collection swap re-implements it
-
-[TRAIT_TOPOLOGY]:
-- `K<F, A>` is the seam that makes `Apply`/`Traverse`/`Bind` rail-generic; concrete code re-lands with the family `.As()` immediately — trait-shaped values do not travel through domain signatures
-- `Traverse` inverts effect and shape (`Seq<Fin<A>> → Fin<Seq<A>>` via `Traverse(identity)`-shaped calls); a hand-rolled loop that folds a result list with early-exit re-implements it
-- `Error: Monoid<Error>` is why `Validation<Error, A>` accumulates: `+`/`Combine` join failures into one carrier that `Head`/`Tail`/`Count` re-enumerate
-
-[STACK]:
-- boundary trap → rail: `Try.lift(() => hostCall()).Run()` is the one spelling that moves a throwing host/native call onto `Fin<A>`; catching and re-wrapping by hand is the deleted form
-- null-gate: `Optional(candidate).ToFin(error)` admits a nullable in one expression — `candidate is null ? Fin.Fail...: Fin.Succ...` is its re-derivation
-- accumulate-then-exit: K-kinded slots (`static K<Validation<Error>, A> GateA(...)`) fan in through `(GateA(...), GateB(...)).Apply(static (a, b) => shape(a, b)).As().ToFin()`, reporting every failed gate in one verdict before rejoining the short-circuit rail — a `(x.ToValidation(), y.ToValidation())` concrete tuple does not bind the receiver, so the `.ToValidation()` lift lands inside the K-returning slot helper
-- enumerate-and-lift: `source.AsIterable().ToSeq().Traverse(item => Gate(item)).As()` gates every element and inverts to `Fin<Seq<A>>` — index-aware bodies use the instance `Map((value, index) =>...)` before the traverse
-- alternatives: `Fin`'s `operator \|` takes the first success (fallback chains); `Validation`'s `operator \|` accumulates — pick by whether the failures must survive
+[STACKING]:
+- `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions.md`): a generated `IObjectFactory.Validate` returns its `TValidationError`, which the admission gate maps to `Error` and lands on `Fin<A>`, or on `Validation<Error, A>` when several value objects admit at once; `ISmartEnum.TryGet` lifts to `Option<T>`.
+- `Riok.Mapperly`(`.api/api-mapperly.md`): a generated mapper method returns the bare target and throws per its null policy, so the seam traps the call through `Try.lift(...).Run()` and keeps the rail outside the generated body.
+- `CSparse`(`.api/api-csparse.md`): `Create` and `Solve` trap a singular or indefinite factorization through `Try.lift(...).Run()` onto `Fin<A>` carrying a domain `Error`.
+- `System.Threading.Channels`(`.api/api-bcl-channels.md`): a rejected `TryWrite` and the `itemDropped` delegate fold into one `Atom<A>.Swap` receipt cell, and a `ReadAllAsync` drain body lands on `Fin<A>` or `Eff<A>`.
+- `System.Runtime.InteropServices`(`.api/api-bcl-interop.md`): throwing `Create`, `Load`, and `GetExport` enter `Try` or `Eff` and land on `Fin<A>`; registered handles collect in an `Atom<Seq<IDisposable>>` released in reverse-registration order.
+- Within-library composition runs at operator depth: `+ma` re-anchors a `K<F, A>`, `ma | mb` chooses, `mf * ma` applies, `ma >> f` binds, and `ma | @catch(pred, recover)` recovers by predicate.
+- Lifetime and cadence are values: a resource acquires through `use` or `IO.Bracket`, and a repeat or retry composes an `IO` with a `Schedule`.
+- A rail stacks over another carrier through `FinT<M, A>` or `ReaderT<Env, M, A>`, so a nested generic never needs a hand fold.
 
 [LOCAL_ADMISSION]:
-- Rails, collections, and traits are composed directly — no local `Result<T>`/`Maybe<T>`/`Either` re-mints, no wrapper that renames `Fin` members
-- Domain failure types derive `Error` (record inheritance) so they ride `Fin`/`Validation` natively; a parallel exception hierarchy beside the rail is the deleted form
-- `using static LanguageExt.Prelude;` is assumed in rail code — `Some`/`None`/`Optional`/`guard`/`Seq`/`toSeq`/`unit`/`Atom` are unqualified vocabulary
+- Rails, collections, traits, and transformers compose directly; a domain failure type derives `Error` so it rides `Fin` and `Validation` natively.
+- `using static LanguageExt.Prelude;` is in force in rail code: `Some`, `None`, `Optional`, `guard`, `Seq`, `toSeq`, `unit`, `Atom`, `Ref`, `atomic`, `memo`, and `use` are unqualified vocabulary.
+- Every public signature carries the concrete carrier; a `K<F, A>` and the trait interfaces stay inside one composition body.
 
 [RAIL_LAW]:
 - Package: `LanguageExt.Core`
-- Owns: the typed error rail (`Fin`), accumulating validation (`Validation`), presence (`Option`), deferred/effectful execution (`Try`/`Eff`/`IO`), failure vocabulary (`Error`), immutable collections (`Seq`/`Arr`/`HashMap`/`Set`/`Lst`/`Iterable`), lock-free state (`Atom`), and the trait system that unifies them
-- Accept: `Fin<A>`-returning domain operations, `Validation` fan-ins that exit `.ToFin()`, `Try.lift(...).Run()` boundary traps, `Seq`/`Arr` carriers across seams, `Option`-shaped lookups, `guard(...).ToFin()` admission gates
-- Reject: a local result/option/either re-mint, exception-style domain control flow beside the rail, a throwing lookup where `Find`/`Head` give `Option`, a `lock`ed mutable cell beside `Atom.Swap`, a phantom single-type-argument trait call where the family `.As()` is required, the module `Seq.map` spelling where the instance indexed `Map((value, index) =>...)` is composed
+- Owns: result, accumulation, presence, deferral, failure vocabulary, immutable carriers, lock-free and transactional state, optics, memoization, and the higher-kinded trait system that unifies them.
+- Accept: `Fin<A>`-returning domain operations; `Validation` fan-ins exiting `ToFin`; `Try`/`Eff`/`IO` boundary traps; `Seq` and `Arr` seam carriers; `Option`-shaped lookups; `guard` admission gates; `Atom` and `Ref` shared state; `Schedule`-driven repeat and retry.
+- Reject: a local result, option, or either re-mint; exception control flow in domain logic; a throwing lookup where `Find` or `Head` returns `Option`; a `lock`ed cell beside `Atom.Swap`; a hand-rolled early-exit loop where `Traverse` or `TraverseM` inverts the shape; a wrapper renaming a rail member.

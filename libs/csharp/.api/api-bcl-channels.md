@@ -1,62 +1,88 @@
 # [RASM_API_BCL_CHANNELS]
 
-`System.Threading.Channels` is the BCL inbox owner for asynchronous producer-consumer transport — no package pin, shared-framework surface (`System.Threading.Channels.dll`, net10.0, trimmable + AOT-compatible). One `Channel<T>` splits into a `ChannelReader<T>` observation half and a `ChannelWriter<T>` publication half, so a host callback publishes non-blocking while a reactive consumer drains at its own pace. Bounded capacity plus an explicit full-mode policy is the back-pressure contract; the drop-observer callback is the loss-evidence seam. Rhino viewport-interaction leases, Compute work lanes, and AppHost protocol subscriptions each own their channel and expose only the reader.
+`System.Threading.Channels` owns asynchronous producer-consumer transport: one channel splits into a `ChannelReader<T>` observation half and a `ChannelWriter<T>` publication half, so a host or native callback publishes without blocking while a consumer drains at its own cadence. Each half reaches only its own direction, so the type separates publication ownership from observation ownership.
 
-## [01]-[FACTORY]
+## [01]-[PACKAGE_SURFACE]
 
-`Channel` is the static construction owner. Capacity presence chooses bounded versus unbounded, the options overload carries the policy, and the prioritized family orders draining by a comparer instead of arrival.
+[PACKAGE_SURFACE]: `System.Threading.Channels`
+- package: `System.Threading.Channels` (MIT, Microsoft)
+- assembly: `System.Threading.Channels.dll` (shared framework)
+- namespace: `System.Threading.Channels`
+- rail: producer-consumer transport
 
-- `Channel.CreateBounded<T>(int capacity) -> Channel<T>` constructs a bounded channel at fixed capacity under the default `Wait` full mode; `Channel.CreateBounded<T>(BoundedChannelOptions options) -> Channel<T>` binds the full policy record.
-- `Channel.CreateBounded<T>(BoundedChannelOptions options, Action<T>? itemDropped) -> Channel<T>` observes every element evicted or rejected by a drop full mode — `itemDropped` is the loss-evidence seam because `TryWrite` can return `true` while the configured policy silently discards a different element.
-- `Channel.CreateUnbounded<T>() -> Channel<T>` constructs an unbounded channel usable by any reader/writer count; `Channel.CreateUnbounded<T>(UnboundedChannelOptions options) -> Channel<T>` binds the single-reader/single-writer optimization flags.
-- `Channel.CreateUnboundedPrioritized<T>() -> Channel<T>` drains by natural `Comparer<T>.Default` order; `Channel.CreateUnboundedPrioritized<T>(UnboundedPrioritizedChannelOptions<T> options) -> Channel<T>` drains by the options' supplied comparer — priority ordering costs the FIFO guarantee an ordinary channel keeps.
+## [02]-[PUBLIC_TYPES]
 
-## [02]-[OPTIONS]
+[PUBLIC_TYPE_SCOPE]: transport roots, halves, policy records, and the closed fault
 
-`ChannelOptions` is the abstract policy root; `BoundedChannelOptions`, `UnboundedChannelOptions`, and `UnboundedPrioritizedChannelOptions<T>` are its sealed refinements, and `BoundedChannelFullMode` closes the full-buffer policy.
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]   | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------------- | :-------------- | :-------------------------------------------------------------- |
+|  [01]   | `Channel<TWrite, TRead>`                | abstract class  | asymmetric transport root owning both halves                    |
+|  [02]   | `Channel<T>`                            | abstract class  | symmetric refinement of the root                                |
+|  [03]   | `ChannelReader<T>`                      | abstract class  | observation half                                                |
+|  [04]   | `ChannelWriter<T>`                      | abstract class  | publication half                                                |
+|  [05]   | `Channel`                               | static class    | construction owner                                              |
+|  [06]   | `ChannelOptions`                        | abstract class  | `SingleReader`, `SingleWriter`, `AllowSynchronousContinuations` |
+|  [07]   | `BoundedChannelOptions`                 | sealed class    | `Capacity` and `FullMode` over the inherited flags              |
+|  [08]   | `UnboundedChannelOptions`               | sealed class    | inherited flags alone                                           |
+|  [09]   | `UnboundedPrioritizedChannelOptions<T>` | sealed class    | `Comparer` — the drain order                                    |
+|  [10]   | `BoundedChannelFullMode`                | enum            | `Wait`, `DropNewest`, `DropOldest`, `DropWrite`                 |
+|  [11]   | `ChannelClosedException`                | exception class | closed-channel fault over `InvalidOperationException`           |
 
-- `ChannelOptions.SingleReader` / `ChannelOptions.SingleWriter -> bool` promise at-most-one concurrent read/write so the runtime selects a lock-free specialized implementation; a false promise under real concurrency corrupts state, so each flag is set only when the lease structurally guarantees it.
-- `ChannelOptions.AllowSynchronousContinuations -> bool` defaults `false` so a completed await never runs its continuation inline on the producing thread — a host callback that writes must not execute a consumer continuation on the UI or native thread.
-- `new BoundedChannelOptions(int capacity)` admits a positive capacity and carries `Capacity` and `FullMode` atop the inherited flags; capacity is the buffered-element ceiling the full mode arbitrates.
-- `BoundedChannelOptions.FullMode -> BoundedChannelFullMode` selects behavior once the buffer is full: `Wait` parks the writer until space frees, `DropNewest` evicts the newest buffered element, `DropOldest` evicts the head, and `DropWrite` discards the incoming element — a non-blocking callback path admits only the three drop modes because it never waits.
-- `UnboundedPrioritizedChannelOptions<T>.Comparer -> IComparer<T>?` supplies the priority order; a null comparer falls back to `Comparer<T>.Default`.
+## [03]-[ENTRYPOINTS]
 
-## [03]-[CHANNEL]
+[ENTRYPOINT_SCOPE]: construction, half hand-out, and both halves' members — every `Channel` static returns `Channel<T>` and every `CancellationToken` parameter defaults to `default`
 
-`Channel<T>` is the single-element-type channel (`Channel<T> : Channel<T, T>`); `Channel<TWrite, TRead>` is the read/write-asymmetric base the transform channels extend. Both own the two halves and never expose a combined read-write method.
+| [INDEX] | [SURFACE]                                                                      | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `Channel.CreateBounded<T>(int)`                                                | static   | fixed capacity under the `Wait` default     |
+|  [02]   | `Channel.CreateBounded<T>(BoundedChannelOptions)`                              | static   | binds the full policy record                |
+|  [03]   | `Channel.CreateBounded<T>(BoundedChannelOptions, Action<T>?)`                  | static   | binds the drop observer                     |
+|  [04]   | `Channel.CreateUnbounded<T>()`                                                 | static   | any reader and writer count                 |
+|  [05]   | `Channel.CreateUnbounded<T>(UnboundedChannelOptions)`                          | static   | binds the arity flags                       |
+|  [06]   | `Channel.CreateUnboundedPrioritized<T>()`                                      | static   | drains by `Comparer<T>.Default`             |
+|  [07]   | `Channel.CreateUnboundedPrioritized<T>(UnboundedPrioritizedChannelOptions<T>)` | static   | drains by the supplied comparer             |
+|  [08]   | `BoundedChannelOptions(int)`                                                   | ctor     | admits the capacity ceiling                 |
+|  [09]   | `Channel<TWrite, TRead>.Reader -> ChannelReader<TRead>`                        | property | hands out the observation half              |
+|  [10]   | `Channel<TWrite, TRead>.Writer -> ChannelWriter<TWrite>`                       | property | hands out the publication half              |
+|  [11]   | `implicit operator ChannelReader<TRead>(Channel<TWrite, TRead>)`               | operator | channel binds a reader-typed slot           |
+|  [12]   | `implicit operator ChannelWriter<TWrite>(Channel<TWrite, TRead>)`              | operator | channel binds a writer-typed slot           |
+|  [13]   | `ChannelReader<T>.TryRead(out T) -> bool`                                      | instance | non-blocking dequeue                        |
+|  [14]   | `ChannelReader<T>.WaitToReadAsync(CancellationToken) -> ValueTask<bool>`       | instance | `false` once no data will arrive            |
+|  [15]   | `ChannelReader<T>.ReadAsync(CancellationToken) -> ValueTask<T>`                | instance | awaits and dequeues one element             |
+|  [16]   | `ChannelReader<T>.ReadAllAsync(CancellationToken) -> IAsyncEnumerable<T>`      | instance | drains to channel completion                |
+|  [17]   | `ChannelReader<T>.TryPeek(out T) -> bool`                                      | instance | inspects the head without dequeue           |
+|  [18]   | `ChannelReader<T>.Completion -> Task`                                          | property | terminal await over the whole channel       |
+|  [19]   | `ChannelReader<T>.Count -> int`                                                | property | buffered count; throws unless `CanCount`    |
+|  [20]   | `ChannelReader<T>.CanCount -> bool`                                            | property | gates `Count`                               |
+|  [21]   | `ChannelReader<T>.CanPeek -> bool`                                             | property | gates `TryPeek`                             |
+|  [22]   | `ChannelWriter<T>.TryWrite(T) -> bool`                                         | instance | non-blocking publish                        |
+|  [23]   | `ChannelWriter<T>.WaitToWriteAsync(CancellationToken) -> ValueTask<bool>`      | instance | space-available gate                        |
+|  [24]   | `ChannelWriter<T>.WriteAsync(T, CancellationToken) -> ValueTask`               | instance | awaits capacity, then writes                |
+|  [25]   | `ChannelWriter<T>.Complete(Exception?) -> void`                                | instance | throws `ChannelClosedException` if complete |
+|  [26]   | `ChannelWriter<T>.TryComplete(Exception?) -> bool`                             | instance | idempotent form returning `false`           |
 
-- `Channel<TWrite, TRead>.Reader -> ChannelReader<TRead>` and `Channel<TWrite, TRead>.Writer -> ChannelWriter<TWrite>` split observation from publication while the channel stays the lifecycle owner; a consumer receives only `Reader` and a producer only `Writer`.
-- `implicit operator ChannelReader<TRead>(Channel<TWrite, TRead>)` and `implicit operator ChannelWriter<TWrite>(Channel<TWrite, TRead>)` let a channel pass directly where a half is expected, so a field typed as the whole channel binds a reader-typed parameter without an explicit `.Reader` hop.
+- `ChannelReader<T>.TryRead` / `TryPeek`: the `out` element carries `[MaybeNullWhen(false)]`.
 
-## [04]-[READER]
+## [04]-[IMPLEMENTATION_LAW]
 
-`ChannelReader<T>` is the abstract read half. `TryRead` and `WaitToReadAsync` are the abstract core; the drain loop, single-item await, peek, and metrics are virtual over it.
+[TOPOLOGY]:
+- `Channel<TWrite, TRead>` owns the lifecycle and assigns both halves through protected setters; `Channel<T>` refines it symmetrically, so an asymmetric lane and a same-type lane share one root and one completion.
+- `TryRead` and `WaitToReadAsync` on the reader and `TryWrite` and `WaitToWriteAsync` on the writer are the abstract members; every other member is virtual over them, so a custom channel binds those four and inherits the drain, peek, count, and completion surface.
+- Construction consumes the options record once and the constructed channel exposes no policy member, so capacity, full mode, arity, and continuation inlining are fixed for the channel's life and a policy change mints a new channel.
+- `ChannelClosedException` derives `InvalidOperationException` and carries every closed-channel fault; `Completion` instead faults with the writer's supplied error directly, so one terminal await separates producer failure from graceful drain.
 
-Every cancellation-token parameter defaults to `default(CancellationToken)`.
+[STACKING]:
+- `LanguageExt.Core`(`.api/api-languageext.md`): the `itemDropped` delegate and a rejected `TryWrite` fold into one `Atom<A>.Swap` receipt cell, and a `ReadAllAsync` drain body lands on `Fin<A>`/`Eff<A>` so a consumer fault is a typed row.
+- `System.Diagnostics.Metrics`(`.api/api-diagnostics-metrics.md`): `ChannelReader<T>.Count` is the level reader `Meter.CreateObservableGauge<T>` pulls at collection cadence, bound only where `CanCount` holds.
+- `Rasm.Rhino` `Display/interaction`, `Rasm.Compute` `Runtime/scheduling`, `Rasm.AppHost` `Wire/livewire`: each owns one channel per lease, lane, or binding, publishes through a callback-local `TryWrite`, and hands consumers the `ChannelReader<T>` alone.
+- Richest composition: `ReadAllAsync` feeds `Parallel.ForEachAsync` under a declared degree, `Channel<TWrite, TRead>` carries a decode-on-read transform lane, and `UnboundedPrioritizedChannelOptions<T>.Comparer` re-orders a drain by rank instead of arrival.
 
-| [INDEX] | [SURFACE]                                 | [KIND]           | [CAPABILITY]                                 |
-| :-----: | :---------------------------------------- | :--------------- | :------------------------------------------- |
-|  [01]   | `TryRead(out T item) -> bool`             | abstract         | non-blocking dequeue; `false` when empty     |
-|  [02]   | `WaitToReadAsync(ct) -> ValueTask<bool>`  | abstract         | `true` when readable, `false` at completion  |
-|  [03]   | `ReadAsync(ct) -> ValueTask<T>`           | virtual          | awaits and dequeues one element              |
-|  [04]   | `ReadAllAsync(ct) -> IAsyncEnumerable<T>` | virtual          | `await foreach` drain to channel completion  |
-|  [05]   | `TryPeek(out T item) -> bool`             | virtual          | inspects the head without dequeue            |
-|  [06]   | `Completion -> Task`                      | virtual property | completes when no further data will arrive   |
-|  [07]   | `Count -> int`                            | virtual property | buffered-element count when `CanCount`       |
-|  [08]   | `CanCount` / `CanPeek -> bool`            | virtual property | capability probes gating `Count` / `TryPeek` |
+[LOCAL_ADMISSION]:
+- A producer-consumer hand-off composes this surface; the owner retains the `ChannelWriter<T>` and publishes only the `ChannelReader<T>`, so a consumer cannot write or complete the lane it drains.
+- A custom transport subclasses `Channel<TWrite, TRead>`; the implicit half operators foreclose a wrapper type that re-exposes reader members.
 
-- `TryRead` and `TryPeek` carry `[MaybeNullWhen(false)]` on the `out` element; `WaitToReadAsync`-then-`TryRead` is the canonical non-allocating drain pair (`while (await reader.WaitToReadAsync(ct)) while (reader.TryRead(out var item)) …`); `ReadAllAsync` is the equivalent `IAsyncEnumerable<T>` form threading the same `CancellationToken` an anyio/Task scope carries.
-- `Completion` faults with the writer's completion exception when one was supplied, so a consumer distinguishes graceful drain from a producer failure at the single terminal await.
-
-## [05]-[WRITER]
-
-`ChannelWriter<T>` is the abstract write half. `TryWrite` and `WaitToWriteAsync` are the abstract core; the awaiting write and the two completion forms layer over it.
-
-- `ChannelWriter<T>.TryWrite(T item) -> bool` is the non-blocking publish — the callback-local write. A `false` result records a closed channel or a `Wait`-mode full buffer; a drop-mode loss instead surfaces through the factory `itemDropped` observer, never as a `false` here.
-- `ChannelWriter<T>.WaitToWriteAsync(CancellationToken = default) -> ValueTask<bool>` completes `true` when space is available and `false` once writing is permanently disallowed — the awaiting producer's back-pressure gate.
-- `ChannelWriter<T>.WriteAsync(T item, CancellationToken = default) -> ValueTask` awaits capacity then writes; it is the blocking-producer counterpart to `TryWrite` for a path that must not drop.
-- `ChannelWriter<T>.Complete(Exception? error = null) -> void` marks the channel complete and throws `InvalidOperationException` (a `ChannelClosedException` on read-after-close) if already completed; `ChannelWriter<T>.TryComplete(Exception? error = null) -> bool` is the idempotent form returning `false` instead of throwing — buffered elements stay readable after either, and a supplied `error` propagates through `Reader.Completion`.
-
-## [06]-[STACK]
-
-`PointerLease`/`PointerHook` and `WidgetHost` (`Rasm.Rhino` `Display/interaction`) own their `Channel<PointerFact>`/`Channel<WidgetFact>`, expose only the `ChannelReader<T>`, publish through one callback-local `TryWrite`, and map the `PointerOverflow` `[SmartEnum]` rows onto `BoundedChannelFullMode.DropOldest`/`DropNewest`/`DropWrite` so a Rhino input callback never blocks, awaits, or retains a host event argument; a `TryWrite` rejection increments an `Atom<long>` count and drop-mode loss counts through `itemDropped`. `Rasm.Compute` `Runtime/scheduling` constructs one bounded `Channel<WorkItem>` per `WorkLane` — the drop-lane form passes the `item => pressure(row, item, None)` observer so every eviction lands as a correlated `Backpressure` receipt, reads queue depth off `ChannelReader<WorkItem>.Count`, and drains through `ReadAllAsync(env.Token)`; `Model/inference` runs the `SingleReader = true` `FullMode = Wait` bounded queue under a `WaitToReadAsync`-then-`TryRead` loop. `Rasm.AppHost` `Wire/livewire` feeds one bounded `Channel<ExternalValue>` per binding under `DropOldest` from foreign OPC-UA/MQTT/serial/PubSub callback threads, draining each lane's head through `ReadAllAsync`, with the held client living in a token-gated `Atom<Gate>` cell. Every consumer threads `AllowSynchronousContinuations = false` so a native or UI callback never runs a downstream continuation inline, and the reader halves feed LanguageExt reactive rails without the channel owner leaking its `Writer`.
+[RAIL_LAW]:
+- Package: `System.Threading.Channels`
+- Owns: asynchronous producer-consumer transport — buffered hand-off, capacity and full-mode policy, drop observation, priority drain, and the reader/writer split
+- Accept: bounded, rendezvous, unbounded, and prioritized construction; callback-local `TryWrite`; the `WaitToReadAsync`/`TryRead` and `ReadAllAsync` drains; `Complete`/`TryComplete` shutdown
+- Reject: a lock-and-semaphore queue, `BlockingCollection<T>` on an async path, a caller-side drop counter where `itemDropped` observes eviction

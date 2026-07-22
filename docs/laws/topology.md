@@ -9,7 +9,7 @@ Reviewer configs are `.coderabbit.yaml`, `.greptile/`, and `.macroscope/`; each 
 | [INDEX] | [SURFACE]                             | [OBLIGATES]                           | [WHY]                                 |
 | :-----: | :------------------------------------ | :------------------------------------ | :------------------------------------ |
 |  [01]   | `docs/stacks/<language>/` page        | every reviewer config                 | reviewer prose derives from doctrine  |
-|  [02]   | `libs/.planning/architecture.md` edge | `tests/csharp/_architecture` specs    | strata law lands at both ends         |
+|  [02]   | `libs/.planning/ARCHITECTURE.md` edge | `tests/csharp/_architecture` specs    | strata law lands at both ends         |
 |  [03]   | repo root file census                 | `test_policy.py` allowlist            | root residency is a closed allowlist  |
 |  [04]   | `.claude/skills/` master trees        | sibling-repo skill copies             | propagation is byte-identical copy    |
 |  [05]   | `CLAUDE.md` fact                      | `AGENTS.md` cross-reference           | one fact serves its acting reader     |

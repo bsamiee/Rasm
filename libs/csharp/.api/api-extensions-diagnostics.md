@@ -1,66 +1,72 @@
 # [RASM_API_EXTENSIONS_DIAGNOSTICS]
 
-`Microsoft.Extensions.Diagnostics` is the dependency-injection companion to the in-box metric surface: `AddMetrics` registers the default `IMeterFactory` into an `IServiceCollection`, so every `Meter` a composition mints reaches the process through a provider-owned factory rather than a raw `new Meter(...)`. The factory registration is provider-scoped, so one `ServiceProvider` built per host or per plugin `AssemblyLoadContext` owns one factory and the meters it mints; the contract assembly `Microsoft.Extensions.Diagnostics.Abstractions` carries the instrument-enablement grammar — `IMetricsBuilder`, `IMetricsListener`, `InstrumentRule`, `MeterScope`, `MetricsOptions` — so a listener subscribes and rule rows enable or disable instrument publication without an emitting library ever naming the DI seam.
+`Microsoft.Extensions.Diagnostics` mints the provider-owned `IMeterFactory` at a composition root and folds instrument publication through rule rows an `IMetricsListener` consumes.
 
 ## [01]-[PACKAGE_SURFACE]
 
-- Package: `Microsoft.Extensions.Diagnostics`
-- License: MIT
-- Namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Metrics`
-- Asset: `Microsoft.Extensions.Diagnostics.dll` + the `Microsoft.Extensions.Diagnostics.Abstractions` contract assembly carrying the enablement grammar
-- Rail: composition-root `IMeterFactory` mint behind every provider-owned meter
+[PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics`
+- package: `Microsoft.Extensions.Diagnostics` (MIT, .NET Foundation)
+- assembly: `Microsoft.Extensions.Diagnostics.dll`
+- contract assembly: `Microsoft.Extensions.Diagnostics.Abstractions`
+- namespace: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Diagnostics.Metrics`
+- rail: composition-root meter mint and instrument enablement
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                       | [KIND]     | [CAPABILITY]                                                           |
-| :-----: | :----------------------------- | :--------- | :--------------------------------------------------------------------- |
-|  [01]   | `MetricsServiceExtensions`     | static     | `AddMetrics` DI registration of `IMeterFactory` and the listener graph |
-|  [02]   | `IMetricsBuilder`              | contract   | `Services` accessor the enablement and listener rows extend            |
-|  [03]   | `IMetricsListener`             | contract   | consumes published instruments; `Name` keys rule targeting             |
-|  [04]   | `IObservableInstrumentsSource` | contract   | `RecordObservableInstruments()` pull a listener drives                 |
-|  [05]   | `InstrumentRule`               | rule       | `(meterName, instrumentName, listenerName, MeterScope, enable)` row    |
-|  [06]   | `MeterScope`                   | flags enum | `None`/`Global`/`Local` publication selector on a rule                 |
-|  [07]   | `MetricsOptions`               | options    | `Rules` — the ordered `InstrumentRule` list                            |
-|  [08]   | `MeasurementHandlers`          | callbacks  | per-numeric-type `MeasurementCallback<T>` slots a listener binds       |
-|  [09]   | `ConsoleMetrics`               | constants  | `DebugListenerName` the debug listener registers under                 |
+[PUBLIC_TYPE_SCOPE]: enablement grammar and listener contracts, carried by the contract assembly
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :----------------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `IMetricsBuilder`              | interface     | `Services` seat every enablement row extends   |
+|  [02]   | `IMetricsListener`             | interface     | named consumer of published instruments        |
+|  [03]   | `IObservableInstrumentsSource` | interface     | pull handle a listener drives                  |
+|  [04]   | `InstrumentRule`               | class         | one meter/instrument/listener/scope match row  |
+|  [05]   | `MetricsOptions`               | class         | ordered `Rules` match list                     |
+|  [06]   | `MeasurementHandlers`          | class         | per-numeric-type `MeasurementCallback<T>` slot |
+|  [07]   | `MeterScope`                   | flags enum    | ctor-built vs factory-built meter selector     |
+
+[IMetricsListener]: `Name` `Initialize` `InstrumentPublished` `MeasurementsCompleted` `GetMeasurementHandlers`
 
 ## [03]-[ENTRYPOINTS]
 
-`MetricsBuilderExtensions.EnableMetrics`/`DisableMetrics` take `(IMetricsBuilder, meterName, instrumentName?, listenerName?, MeterScope)`; `MetricsBuilderConfigurationExtensions.AddConfiguration` takes `(IMetricsBuilder, IConfiguration)`; `AddListener` carries a generic `AddListener<T>` beside an `AddListener(IMetricsListener)` overload, and `ClearListeners` resets the listener set.
+[ENTRYPOINT_SCOPE]: composition-root registration and the builder rows it configures
 
-| [INDEX] | [SURFACE]                                                          | [KIND]    | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------------------- | :-------- | :---------------------------------------------------- |
-|  [01]   | `AddMetrics(IServiceCollection)`                                   | mint      | `TryAddSingleton<IMeterFactory, DefaultMeterFactory>` |
-|  [02]   | `AddMetrics(IServiceCollection, Action<IMetricsBuilder>)`          | configure | the mint plus builder-scoped enablement rows          |
-|  [03]   | `MetricsBuilderExtensions.EnableMetrics`                           | rule      | appends an enable `InstrumentRule`                    |
-|  [04]   | `MetricsBuilderExtensions.DisableMetrics`                          | rule      | appends a disable `InstrumentRule`                    |
-|  [05]   | `MetricsBuilderExtensions.AddListener<T>`                          | listener  | registers a listener                                  |
-|  [06]   | `MetricsBuilderConfigurationExtensions.AddConfiguration`           | binding   | binds `MetricsOptions.Rules` from a config section    |
-|  [07]   | `MetricsBuilderConsoleExtensions.AddDebugConsole(IMetricsBuilder)` | debug     | registers the debug-only console listener             |
+| [INDEX] | [SURFACE]                                                                                      | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `MetricsServiceExtensions.AddMetrics(IServiceCollection)`                                      | static   | provider-scoped factory mint |
+|  [02]   | `MetricsServiceExtensions.AddMetrics(IServiceCollection, Action<IMetricsBuilder>)`             | static   | mint with builder rows       |
+|  [03]   | `MetricsBuilderExtensions.EnableMetrics(IMetricsBuilder, string, string, string, MeterScope)`  | static   | appends an enable rule row   |
+|  [04]   | `MetricsBuilderExtensions.DisableMetrics(IMetricsBuilder, string, string, string, MeterScope)` | static   | appends a disable rule row   |
+|  [05]   | `MetricsBuilderExtensions.AddListener<T>(IMetricsBuilder)`                                     | static   | listener type from DI        |
+|  [06]   | `MetricsBuilderExtensions.AddListener(IMetricsBuilder, IMetricsListener)`                      | static   | listener instance row        |
+|  [07]   | `MetricsBuilderExtensions.ClearListeners(IMetricsBuilder)`                                     | static   | drops every listener row     |
+|  [08]   | `MetricsBuilderConfigurationExtensions.AddConfiguration(IMetricsBuilder, IConfiguration)`      | static   | rule rows from configuration |
+|  [09]   | `MetricsBuilderConsoleExtensions.AddDebugConsole(IMetricsBuilder)`                             | static   | debug console listener row   |
+|  [10]   | `ConsoleMetrics.DebugListenerName`                                                             | property | name a debug rule targets    |
+
+- `EnableMetrics`/`DisableMetrics`: each carries a `MetricsOptions` receiver overload for the options-configure path.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MINT_TOPOLOGY]:
-- `AddMetrics` registers `IMeterFactory` through `TryAddSingleton<IMeterFactory, DefaultMeterFactory>` — the factory is provider-scoped, one instance per built `ServiceProvider`, and idempotent under a repeated call.
-- `DefaultMeterFactory` caches minted meters by name in instance state; `Dispose` disposes every cached meter and clears the map, so provider disposal is the authoritative meter release — never a `Meter.Dispose` at an emitting site.
-- Instrument enablement rides `InstrumentRule` rows on `MetricsOptions`: `EnableMetrics`/`DisableMetrics` append rows, `MeterScope` flags select `Global`/`Local` publication, and an `IMetricsListener` consumes the instruments a rule set publishes.
-
-[ISOLATION]:
-- The mint is per-instance: a distinct `ServiceProvider` built per `AssemblyLoadContext` resolves a distinct `DefaultMeterFactory` with a disjoint meter cache, so two co-resident plugin ALCs minting identically-named meters stay isolated by provider scope.
-- The `ServiceProvider` is the per-instance handle and the lifetime owner — disposing it disposes the factory and every meter minted through it; no static or process-global factory participates.
+[TOPOLOGY]:
+- `AddMetrics` registers `IMeterFactory` through `TryAddSingleton`, so one built `ServiceProvider` owns one factory and every meter it mints.
+- A factory resolves one meter per name, version, and tag triple, so a repeated mint under one identity returns the held `Meter`.
+- A provider built per `AssemblyLoadContext` keeps co-resident plugins naming one meter identically on disjoint instruments.
+- `MeterScope.Local` selects factory-minted meters and `Global` ctor-constructed ones, so an `InstrumentRule` targets the dependency-injected population alone.
+- Rule match resolves most-specific-first: meter name exact, else longest prefix, then instrument name, listener name, and scope.
+- `AddConfiguration` binds `MetricsOptions.Rules` to a configuration section under a change token, so a rule edit re-subscribes every listener live.
 
 [STACKING]:
-- `System.Diagnostics.Metrics` (`api-diagnostics-metrics.md`): this package mints the `IMeterFactory` that catalog names as the sole meter path; `IMeterFactory.Create(MeterOptions)` and the `Meter.Create*` instrument binds ride the provider-owned factory.
-- `Rasm.AppHost` `Observability/instruments#PROVIDER_LIFETIME`: `PluginTelemetryHost.Open` builds `new ServiceCollection().AddMetrics().BuildServiceProvider()` per ALC and exposes `Meters => GetRequiredService<IMeterFactory>()`; `AssemblyLoadContext.Unloading` disposes the provider so the factory releases its meters after the final `ForceFlush`.
-- `Rasm.Grasshopper` `Shell/telemetry#CUSTODY` and `Rasm.Rhino` `HostUi/shell#TELEMETRY_ROOT`: `GhTelemetry.Of(IMeterFactory, …)` and `ShellTelemetry` consume the injected per-ALC factory; the emitting boundary never registers or constructs it.
-- `Microsoft.Extensions.Diagnostics.Testing` (`tests/csharp/.api/diagnostics-testing.md`): `MetricCollector<T>(factory, …)` observes one instrument's stream over a test-scoped factory built the same way.
+- `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): this mint supplies the `IMeterFactory` that catalog names as the sole meter path, so `Create(MeterOptions)` and every instrument bind ride a provider-owned factory.
+- `Microsoft.Extensions.Diagnostics.Testing`(`tests/csharp/.api/diagnostics-testing.md`): `MetricCollector<T>` observes one instrument's stream over a test-scoped factory this mint builds.
+- `Rasm.AppHost` `Observability/instruments#PROVIDER_LIFETIME`: one provider per plugin load context carries the mint, and unload disposes it after the final flush.
+- Within-lib: one `AddMetrics(IServiceCollection, Action<IMetricsBuilder>)` call folds configuration binding, enable and disable rows, and listener registration onto one `IMetricsBuilder`, so composition binds the whole graph in one pass.
 
 [LOCAL_ADMISSION]:
-- The DI mint is composition-root surface — a host or per-ALC capsule calls `AddMetrics`; a library takes `IMeterFactory` by injection and never registers the graph.
-- Reject: a static or process-global meter factory beside the provider-scoped registration; a raw `MeterListener` hand-wired where an `IMetricsListener` rule fits; `AddDebugConsole` in a shipped composition, since it is debug-only by declaration.
+- A host or per-ALC capsule calls `AddMetrics`; a library takes `IMeterFactory` by injection and composes its rule rows through `IMetricsBuilder`.
 
 [RAIL_LAW]:
-- Package: `Microsoft.Extensions.Diagnostics` (+ `Microsoft.Extensions.Diagnostics.Abstractions` contracts)
-- Owns: the composition-root `IMeterFactory` mint and the instrument-enablement rule and listener grammar
-- Accept: a per-provider `AddMetrics` registration, `InstrumentRule` enable/disable rows, an `IMetricsListener` over published instruments
-- Reject: a library-level `AddMetrics`; a static factory; a debug console listener in production composition
+- Package: `Microsoft.Extensions.Diagnostics`
+- Owns: composition-root `IMeterFactory` mint with the instrument-enablement rule and listener grammar
+- Accept: one `AddMetrics` per provider, `InstrumentRule` enable and disable rows, an `IMetricsListener` over published instruments
+- Reject: a library-level `AddMetrics`, a process-static meter factory, a hand-wired `MeterListener` where a rule row fits

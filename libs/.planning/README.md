@@ -1,12 +1,12 @@
 # [PLANNING_STANDARD]
 
-Authoring standard for the `libs/` planning corpus: it owns the doc-set per tier, the four index-doc templates, and the design-page grammar. Form — containers, tables, markers, prose — follows `docs/standards/information-structure.md`, `formatting.md`, and `style-guide.md`; the monorepo topology follows `architecture.md`. Neither is restated here.
+Authoring standard for the `libs/` planning corpus: it owns the doc-set per tier, the four index-doc templates, and the design-page grammar. Form — containers, tables, markers, prose — follows `docs/standards/information-structure.md`, `formatting.md`, and `style-guide.md`; the monorepo topology follows `ARCHITECTURE.md`. Neither is restated here.
 
 ## [01]-[DOC_SET]
 
 This planning corpus widens by scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
 
-- Cross-`libs/` core (`libs/.planning/`): `architecture.md`, `campaign-method.md`, `README.md`, `planning-targets.md`, `IDEAS.md`, `TASKLOG.md`.
+- Cross-`libs/` core (`libs/.planning/`): `ARCHITECTURE.md`, `campaign-method.md`, `README.md`, `planning-targets.md`, `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`.
 - Folder (`<pkg>/`): the branch index-doc set at the package root and design pages under one `<pkg>/.planning/<sub-domain>/<page>.md`.
 - A folder `.api/` carries generated catalogues for folder-specific libraries and overlays; no `FEATURES.md`, no `.planning/README.md`.
@@ -14,7 +14,7 @@ This planning corpus widens by scope: a folder owns one package's planning, a br
 - A folder consuming a substrate package reads the branch catalogue and lists it in its README `## [3]-[SUBSTRATE_PACKAGES]` section.
 - A folder `.api/` overlay for the same package exists only when a folder design page records additional seam facts.
 
-`architecture.md` owns the `.planning/` lifecycle — the transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, and the dissolution once a folder lands code; the cross-`libs/` core and each branch `<lang>/.planning/` are the standing exceptions that persist for the campaign duration. This standard owns only the doc-set, the templates, and the page grammar those folders carry.
+`ARCHITECTURE.md` owns the `.planning/` lifecycle — the transient greenfield scaffold, the single-`.planning/`-per-package nesting rule, and the dissolution once a folder lands code; the cross-`libs/` core and each branch `<lang>/.planning/` are the standing exceptions that persist for the campaign duration. This standard owns only the doc-set, the templates, and the page grammar those folders carry.
 
 ## [02]-[INDEX_DOCS]
 

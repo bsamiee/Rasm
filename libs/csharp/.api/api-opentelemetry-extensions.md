@@ -1,71 +1,72 @@
 # [RASM_API_OPENTELEMETRY_EXTENSIONS]
 
-`OpenTelemetry.Extensions` carries the contrib processors and sampler that the SDK core omits: `BaggageActivityProcessor` promotes selected `Baggage` entries onto every span as tags at start, the canonical owner of tenant/cost baggage-to-span promotion the wire law names; `RateLimitingSampler` caps recorded traces per second as a head sampler; the logging bridge attaches log records onto the ambient activity as events and copies baggage onto log records. Provider builders alone reference this assembly; a library never does, and each processor's lifetime is the provider that admits it.
+`OpenTelemetry.Extensions` owns the span and log processors the SDK core omits: predicate-scoped `Baggage` promotion onto spans and log records, a per-second head cap on recorded traces, and log-record attachment as activity events.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Extensions`
 - package: `OpenTelemetry.Extensions`
 - assembly: `OpenTelemetry.Extensions`
-- contract assembly: `OpenTelemetry.Api` — `Baggage`, the propagation surface the baggage processors read
-- namespace: `OpenTelemetry.Trace`, `OpenTelemetry`, `OpenTelemetry.Logs`, `Microsoft.Extensions.Logging`
-- asset: runtime library
+- contract assembly: `OpenTelemetry.Api`
+- namespace: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Logs`, `Microsoft.Extensions.Logging`
 - rail: telemetry composition
 
 ## [02]-[PUBLIC_TYPES]
 
-[PROCESSOR_TYPES]: span-side baggage promotion and flush
-- rail: telemetry composition
+[PUBLIC_TYPE_SCOPE]: baggage promotion, head sampling, and log-to-event conversion
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                           |
-| :-----: | :-------------------------------- | :----------------- | :--------------------------------------------------------------------- |
-|  [01]   | `TracerProviderBuilderExtensions` | trace registration | `AddBaggageActivityProcessor` / `AddAutoFlushActivityProcessor` verbs  |
-|  [02]   | `BaggageActivityProcessor`        | span processor     | copies predicate-selected baggage onto each span at `OnStart`          |
-|  [03]   | `RateLimitingSampler`             | head sampler       | per-second recorded-trace cap emitting a rate-limited `SamplingResult` |
-
-`BaggageActivityProcessor` is a sealed `BaseProcessor<Activity>` exposing the static `AllowAllBaggageKeys` `Predicate<string>` seat and overriding `OnStart(Activity)` — construction rides `AddBaggageActivityProcessor`, never a direct new. `RateLimitingSampler` derives `Sampler`, constructs from `RateLimitingSampler(int maxTracesPerSecond)`, and overrides `ShouldSample(in SamplingParameters)`. `AddAutoFlushActivityProcessor` backs an internal auto-flush processor; that registration verb is its only surface.
-
-[LOG_CORRELATION_TYPES]: log-to-span attachment and log-side baggage
-- rail: telemetry composition
-
-| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]   | [CAPABILITY]                                                           |
-| :-----: | :------------------------------------ | :--------------- | :--------------------------------------------------------------------- |
-|  [01]   | `OpenTelemetryLoggingExtensions`      | log registration | `AttachLogsToActivityEvent` / `AddBaggageProcessor` verbs              |
-|  [02]   | `LogToActivityEventConversionOptions` | conversion knobs | state, scope, and filter delegates shaping the log-to-event projection |
-
-`LogToActivityEventConversionOptions` carries the mutable `StateConverter` (`Action<ActivityTagsCollection, IReadOnlyList<KeyValuePair<string, object?>>>`), `ScopeConverter` (`Action<ActivityTagsCollection, int, LogRecordScope>`), and optional `Filter` (`Func<LogRecord, bool>?`) that govern which log records attach and how their state projects onto the activity event.
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------ |
+|  [01]   | `TracerProviderBuilderExtensions`     | static class  | span-side registration verbs                            |
+|  [02]   | `OpenTelemetryLoggingExtensions`      | static class  | log-side registration verbs                             |
+|  [03]   | `BaggageActivityProcessor`            | sealed class  | `BaseProcessor<Activity>` stamping baggage as span tags |
+|  [04]   | `RateLimitingSampler`                 | class         | `Sampler` capping recorded traces per second            |
+|  [05]   | `LogToActivityEventConversionOptions` | class         | delegate seats shaping the log-to-event projection      |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: builder registration verbs
-- rail: telemetry composition
+[ENTRYPOINT_SCOPE]: span-side registration and the seats it takes
 
-| [INDEX] | [SURFACE]                       | [KIND]           | [CAPABILITY]                                                                     |
-| :-----: | :------------------------------ | :--------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `AddBaggageActivityProcessor`   | trace processor  | `(TracerProviderBuilder, Predicate<string>)` seats baggage-to-span promotion     |
-|  [02]   | `AddAutoFlushActivityProcessor` | trace processor  | `(TracerProviderBuilder, Func<Activity, bool>, int timeoutMilliseconds = 10000)` |
-|  [03]   | `AddBaggageProcessor`           | log processor    | `OpenTelemetryLoggerOptions` and `LoggerProviderBuilder` overloads, key-filtered |
-|  [04]   | `AttachLogsToActivityEvent`     | log-event bridge | `(OpenTelemetryLoggerOptions, Action<LogToActivityEventConversionOptions>?)`     |
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------- | :------- | :-------------------------------------------------- |
+|  [01]   | `AddBaggageActivityProcessor(Predicate<string>)`           | static   | seat baggage-to-span promotion                      |
+|  [02]   | `AddAutoFlushActivityProcessor(Func<Activity, bool>, int)` | static   | flush the provider on a matched activity            |
+|  [03]   | `BaggageActivityProcessor.AllowAllBaggageKeys`             | property | promote-everything key predicate                    |
+|  [04]   | `RateLimitingSampler(int)`                                 | ctor     | mint the per-second head cap                        |
+|  [05]   | `RateLimitingSampler.ShouldSample(in SamplingParameters)`  | instance | verdict carrying `sampler.type` and `sampler.param` |
 
-`AllowAllBaggageKeys` is the promote-everything predicate; a narrower `Predicate<string>` scopes promotion to the tenant and cost keys the wire law propagates, keeping unrelated baggage off spans.
+- `AddAutoFlushActivityProcessor`: registers after every exporter-bound processor.
+- Predicate seats read a throw as false: the baggage key drops and the flush is skipped.
+
+[ENTRYPOINT_SCOPE]: log-side registration and the conversion seats it configures
+
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :------------------------ |
+|  [01]   | `AttachLogsToActivityEvent(Action<LogToActivityEventConversionOptions>)`                         | static   | attach records as events  |
+|  [02]   | `AddBaggageProcessor(Predicate<string>)`                                                         | static   | copy baggage onto records |
+|  [03]   | `StateConverter -> Action<ActivityTagsCollection, IReadOnlyList<KeyValuePair<string, object?>>>` | property | record state onto tags    |
+|  [04]   | `ScopeConverter -> Action<ActivityTagsCollection, int, LogRecordScope>`                          | property | each scope onto tags      |
+|  [05]   | `Filter -> Func<LogRecord, bool>?`                                                               | property | admit a record            |
+
+- `AddBaggageProcessor`: overloads ride `OpenTelemetryLoggerOptions` and `LoggerProviderBuilder`; each predicate-free overload copies every entry.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PROMOTION_TOPOLOGY]:
-- span: `AddBaggageActivityProcessor` runs inside the `WithTracing` delegate; the processor reads ambient `Baggage` at each span start and stamps predicate-selected entries as span tags — the tenant/cost attribution path off one propagated context
-- predicate: promotion is opt-in per key; `AllowAllBaggageKeys` promotes all, a custom `Predicate<string>` narrows to the propagated tenant and cost keys, and an unmatched key never reaches a span
-- sampler: `RateLimitingSampler` seats as the `TracerProviderBuilder` sampler root or a `ParentBasedSampler` delegate, capping head volume before processors run
+[TOPOLOGY]:
+- Promotion is opt-in per key: `AllowAllBaggageKeys` admits every entry, a narrower `Predicate<string>` admits the propagated tenant and correlation keys alone, and an unmatched key reaches neither span nor log record.
+- `RateLimitingSampler` caps head volume before any processor runs, and a `ParentBasedSampler` root carries its verdict to every child span.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): supplies `BaseProcessor<Activity>`, `Sampler`, `SamplingParameters`, and the `TracerProviderBuilder`/`LoggerProviderBuilder` these verbs extend; the contract assembly `OpenTelemetry.Api` supplies the `Baggage` the processors read.
+- `OpenTelemetry`(`api-opentelemetry.md`): supplies `BaseProcessor<Activity>`, `Sampler`, `SamplingParameters`, and the `TracerProviderBuilder`/`LoggerProviderBuilder` these verbs extend; `OpenTelemetry.Api` carries the `Baggage` both processors read.
 - `OpenTelemetry.Extensions.Hosting`(`api-opentelemetry-hosting.md`): the `WithTracing`/`WithLogging` delegates receive the builders these verbs register against.
+- `SignalGovernance.PromotedBaggage`: `AddBaggageActivityProcessor` chains it inside `WithTracing` ahead of the batch export processor, `AddBaggageProcessor` seats it on the log leg, `SetSampler` nests `RateLimitingSampler` under a `ParentBasedSampler` root, and `AttachLogsToActivityEvent` shapes the projection through the three conversion seats.
 
 [LOCAL_ADMISSION]:
-- Baggage promotion is composition-root-only; no library references this assembly, and the key predicate names the tenant and cost keys explicitly rather than promoting all.
-- `RateLimitingSampler` is a head cap, not a delivery guarantee — pair it with the parent-based composite when child spans must follow the root verdict.
+- One `Predicate<string>` serves both promotion legs, so span tags and log attributes never carry divergent allowlists.
+- `AttachLogsToActivityEvent` projects each admitted record onto the ambient span, so its `Filter` seat narrows attachment to the records a trace view reads.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Extensions`
-- Owns: baggage-to-span and baggage-to-log promotion, rate-limiting head sampling, and log-to-activity-event attachment
-- Accept: predicate-scoped baggage promotion and a per-second trace cap seated at the provider builders
-- Reject: direct processor construction bypassing the registration verbs; unfiltered promotion leaking non-tenant baggage onto spans
+- Owns: predicate-scoped baggage promotion onto spans and log records, rate-limiting head sampling, and log-to-activity-event attachment
+- Accept: promotion, head sampling, and attachment seated through the registration verbs on the provider builders
+- Reject: a hand-rolled `BaseProcessor<Activity>` re-reading `Baggage.Current` at span start; per-call-site tag writes standing in for promotion

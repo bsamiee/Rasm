@@ -1,75 +1,400 @@
 # [RASM_API_BCL_XML]
 
-`System.Xml` (LINQ-to-XML, reader/writer, XPath, schema, XSLT, serialization) is the BCL inbox XML surface — no package pin, shared-framework assemblies (`System.Xml.XDocument.dll`, `System.Xml.ReaderWriter.dll`, `System.Private.Xml`, net10.0). `System.Xml.Linq` `XDocument`/`XElement` is the owned-document surface a consumer builds and queries; `XmlReader`/`XmlWriter` is the streaming pull/push edge for large or async payloads; `XPathNavigator` evaluates expressions; `XmlSchemaSet` validates; `XslCompiledTransform` transforms. `System.Xml.XmlDocument` survives only as the RhinoCommon interop carrier, and file/stream egress stays an explicit boundary operation. MaterialX `.mtlx` rendering, BCF `.bcfzip` markup, and viewport SVG capture bind this surface.
+`System.Xml` owns every XML ingress and egress the branch crosses: an owned in-memory document, a streaming byte edge, XPath evaluation, XSD validation, XSLT transformation, and object-graph serialization. `XDocument` is the shape a consumer builds, queries, and mutates; `XmlReader`/`XmlWriter` hold the edge a payload too large or too async for a materialized tree crosses, and file or stream egress stays an explicit boundary act.
 
-## [01]-[LINQ_XML]
+## [01]-[PACKAGE_SURFACE]
 
-`System.Xml.Linq` is the owned-document family — `XDocument`/`XElement`/`XAttribute`/`XName`/`XNamespace` over the `XNode`/`XContainer`/`XObject` hierarchy. Construction takes functional `params object?[] content`, load/save carry sync + async forms, and query methods project axis sequences.
+[PACKAGE_SURFACE]: `System.Xml`
+- package: `System.Xml` (MIT, .NET Foundation)
+- assembly: `System.Xml.ReaderWriter.dll`, `System.Xml.XDocument.dll`, `System.Xml.XPath.dll`, `System.Xml.XPath.XDocument.dll`, `System.Xml.XmlSerializer.dll`, `System.Runtime.Serialization.Xml.dll`
+- namespace: `System.Xml`, `System.Xml.Linq`, `System.Xml.Schema`, `System.Xml.XPath`, `System.Xml.Xsl`, `System.Xml.Serialization`, `System.Runtime.Serialization`
+- rail: document, stream, and object-graph XML codec behind every markup boundary
 
-- `XDocument.Load(Stream)` / `Load(TextReader)` / `Load(string uri)` / `Load(XmlReader)` each take an optional `LoadOptions` (preserve whitespace, set base URI, set line info); `XDocument.Parse(string text, LoadOptions = …)` parses in-memory text; `XDocument.LoadAsync(Stream, LoadOptions, CancellationToken)` (and `TextReader`/`XmlReader` mirrors) is the async ingress. `XElement` exposes the identical `Load`/`Parse`/`LoadAsync` family for a subtree root.
-- `XDocument.Save(Stream)` / `Save(TextWriter)` / `Save(string fileName)` / `Save(XmlWriter)` each take an optional `SaveOptions` (`DisableFormatting`, `OmitDuplicateNamespaces`); `XDocument.SaveAsync(Stream, SaveOptions, CancellationToken)` (and `TextWriter`/`XmlWriter` mirrors) is the async egress; `XNode.WriteTo(XmlWriter)` / `WriteToAsync(XmlWriter, CancellationToken)` push a node into an existing writer.
-- `new XElement(XName name, object? content)` / `new XElement(XName name, params object?[] content)` build a tree from nested `XElement`/`XAttribute`/text/sequence content; `XStreamingElement(XName, params object?[])` defers materialization so a large projection streams straight to `Save` without a full in-memory tree.
-- `XName.Get(string expandedName)` / `Get(string localName, string namespaceName)` mint names, and `implicit operator XName(string)` admits a literal; `XNamespace.Get(string)` plus `operator +(XNamespace, string localName)` compose a namespaced name (`ns + "Element"`); `XNamespace.None`/`Xml`/`Xmlns` are the reserved anchors.
-- `XContainer.Element(XName) -> XElement?`, `Elements(XName?)`, `Descendants(XName?)`, and `Nodes()` are the child/descendant axes; `XElement.Attribute(XName) -> XAttribute?`, `Attributes(XName?)`, `AncestorsAndSelf(XName?)`, `DescendantsAndSelf(XName?)`, and `XNode.ElementsAfterSelf`/`ElementsBeforeSelf`/`NodesAfterSelf`/`NodesBeforeSelf` complete the navigation family.
-- `XElement.SetAttributeValue(XName, object?)` / `SetElementValue(XName, object?)` upsert-or-remove by null value; `SetValue(object)`, `ReplaceAttributes(params object?[])`, `ReplaceWith(params object?[])`, and the `IEnumerable<XNode>.Remove()` / `IEnumerable<XAttribute>.Remove()` extensions are the in-place mutation surface.
-- `explicit operator int/long/double/decimal/bool/Guid/DateTime/DateTimeOffset/TimeSpan(XElement)` (and the `?`-nullable + `XAttribute` mirrors) parse element/attribute text in the invariant culture — the typed-read path that skips manual `XmlConvert` calls.
-- `XNode.CreateReader(ReaderOptions = …) -> XmlReader` and `XContainer.CreateWriter() -> XmlWriter` bridge an owned tree to the streaming surface; `XNode.ReadFrom(XmlReader) -> XNode` / `ReadFromAsync(XmlReader, CancellationToken)` build a node from a positioned reader; `XNode.DeepEquals(XNode?, XNode?)`, `CompareDocumentOrder`, and the `XNodeEqualityComparer`/`XNodeDocumentOrderComparer` statics are the structural comparison rails.
-- `XElement.GetDefaultNamespace()`, `GetNamespaceOfPrefix(string)`, and `GetPrefixOfNamespace(XNamespace)` resolve prefixes against the live tree; `XDocument.Declaration -> XDeclaration?`, `Root -> XElement?`, and `DocumentType -> XDocumentType?` expose the document prologue.
+## [02]-[LINQ_XML]
 
-## [02]-[READER]
+[LINQ_XML_TYPE_SCOPE]: owned-document family a consumer builds from functional content and queries by axis
 
-`XmlReader` is the abstract forward-only pull parser; `XmlReader.Create` is the sole non-obsolete construction path (the `XmlTextReader` constructors are legacy), and `XmlReaderSettings.Async = true` unlocks the `*Async` member family.
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                           |
+| :-----: | :--------------------------- | :------------ | :------------------------------------- |
+|  [01]   | `XObject`                    | class         | annotation and change-event root       |
+|  [02]   | `XNode`                      | class         | orderable tree node                    |
+|  [03]   | `XContainer`                 | class         | child-bearing node                     |
+|  [04]   | `XDocument`                  | class         | document root carrying the prologue    |
+|  [05]   | `XElement`                   | class         | the queried and mutated element        |
+|  [06]   | `XAttribute`                 | class         | name-value pair on an element          |
+|  [07]   | `XName`                      | class         | interned expanded name                 |
+|  [08]   | `XNamespace`                 | class         | interned namespace composing names     |
+|  [09]   | `XStreamingElement`          | class         | deferred-materialization projection    |
+|  [10]   | `LoadOptions`                | enum          | whitespace, base-URI, line-info policy |
+|  [11]   | `SaveOptions`                | enum          | formatting and duplicate-prefix policy |
+|  [12]   | `ReaderOptions`              | enum          | duplicate-prefix policy on the bridge  |
+|  [13]   | `XObjectChange`              | enum          | mutation kind on the change event      |
+|  [14]   | `XObjectChangeEventArgs`     | class         | mutation payload                       |
+|  [15]   | `XNodeEqualityComparer`      | class         | value equality over nodes              |
+|  [16]   | `XNodeDocumentOrderComparer` | class         | document-order comparison              |
 
-- `XmlReader.Create(Stream input, XmlReaderSettings? settings, …)` / `Create(TextReader, XmlReaderSettings?, …)` / `Create(string inputUri, XmlReaderSettings?)` / `Create(XmlReader, XmlReaderSettings?)` construct over a byte, text, URI, or wrapping source, the wrapping form layering validation or conformance onto an existing reader; the optional `XmlParserContext` supplies namespaces/DTD context.
-- `bool Read()` / `Task<bool> ReadAsync()` advance one node; `XmlNodeType MoveToContent()` / `Task<XmlNodeType> MoveToContentAsync()` skip to the next element/text; `bool IsStartElement(string localname, string ns)`, `bool ReadAttributeValue()`, `MoveToFirstAttribute`/`MoveToNextAttribute`/`MoveToElement`, and `GetAttribute(string name, string? ns)` are the positioning surface.
-- `ReadElementContentAs(Type, IXmlNamespaceResolver, …)`, `ReadContentAs(Type, IXmlNamespaceResolver)`, the typed `ReadContentAsInt`/`ReadContentAsDouble`/`ReadContentAsDateTimeOffset`/`ReadContentAsBoolean` family, and their `*Async` mirrors read strongly-typed content; `ReadContentAsBase64(byte[], int, int)` / `ReadContentAsBase64Async(…)` stream inline binary without a full-string decode.
-- `XmlReaderSettings` carries `Async`, `ConformanceLevel`, `DtdProcessing` (default `Prohibit` — the XXE/entity-expansion guard), `IgnoreWhitespace`, `IgnoreComments`, `IgnoreProcessingInstructions`, `MaxCharactersInDocument`, `MaxCharactersFromEntities`, `CloseInput`, and `XmlResolver?` (null disables external-entity resolution).
-- `XmlReaderSettings.Schemas -> XmlSchemaSet`, `ValidationType`, `ValidationFlags -> XmlSchemaValidationFlags`, and the `ValidationEventHandler` event turn a reader into a validating reader — see `[05]`.
+[LINQ_XML_LEAF_NODE]: `XText` `XCData` `XComment` `XProcessingInstruction` `XDocumentType` `XDeclaration`
 
-## [03]-[WRITER]
+[LINQ_XML_ENTRY_SCOPE]: construction, ingress and egress, mutation, the streaming bridge, and the annotation rail
 
-`XmlWriter` is the abstract forward-only push writer (`IAsyncDisposable`, `IDisposable`); `XmlWriter.Create` is the construction path, and `XmlWriterSettings.Async = true` unlocks the `*Async` members.
+`XElement` mirrors the whole `XDocument` `Load`/`LoadAsync`/`Parse`/`Save`/`SaveAsync` family rooted at a subtree.
 
-- `XmlWriter.Create(Stream, XmlWriterSettings?)` / `Create(TextWriter, XmlWriterSettings?)` / `Create(StringBuilder, XmlWriterSettings?)` / `Create(string outputFileName, XmlWriterSettings?)` / `Create(XmlWriter, XmlWriterSettings?)` construct over each sink, the wrapping form composing settings onto an existing writer.
-- `WriteStartElement(prefix, localName, ns)` / `WriteEndElement()` / `WriteFullEndElement()`, `WriteElementString(prefix, localName, ns, value)`, `WriteAttributeString(prefix, localName, ns, value)`, `WriteStartDocument`/`WriteEndDocument`, `WriteCData`, `WriteComment`, and `WriteProcessingInstruction` are the emit surface; `WriteStartElementAsync`/`WriteEndElementAsync`/`WriteElementStringAsync`/`WriteAttributeStringAsync`/`WriteEndDocumentAsync`/`FlushAsync` are the async mirrors.
-- `WriteNode(XmlReader, bool defattr)` / `WriteNodeAsync(XmlReader, bool)` and `WriteNodeAsync(XPathNavigator, bool)` copy a positioned subtree straight from a reader/navigator into the writer — the reader-to-writer transcode without an intermediate tree.
-- `XmlWriterSettings` carries `Async`, `Indent`, `IndentChars`, `NewLineChars`, `NewLineHandling`, `NewLineOnAttributes`, `Encoding`, `OmitXmlDeclaration`, `ConformanceLevel`, `NamespaceHandling` (`OmitDuplicates`), `CheckCharacters`, `CloseOutput`, and `WriteEndDocumentOnClose`; `XmlWriterSettings.Clone()` forks a settings baseline per sink.
+| [INDEX] | [SURFACE]                                                     | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------ | :------- | :---------------------------------- |
+|  [01]   | `XDocument.Load(Stream, LoadOptions)`                         | static   | parse under load policy             |
+|  [02]   | `XDocument.LoadAsync(Stream, LoadOptions, CancellationToken)` | static   | async document ingress              |
+|  [03]   | `XDocument.Parse(string, LoadOptions)`                        | static   | parse in-memory markup text         |
+|  [04]   | `XDocument.Save(Stream, SaveOptions)`                         | instance | write under formatting policy       |
+|  [05]   | `XDocument.SaveAsync(Stream, SaveOptions, CancellationToken)` | instance | async document egress               |
+|  [06]   | `XNode.WriteTo(XmlWriter)`                                    | instance | push a node into a writer           |
+|  [07]   | `XNode.WriteToAsync(XmlWriter, CancellationToken)`            | instance | async push into a writer            |
+|  [08]   | `new XElement(XName, params object?[])`                       | ctor     | build a tree from nested content    |
+|  [09]   | `new XStreamingElement(XName, params object?[])`              | ctor     | stream a projection without a tree  |
+|  [10]   | `XName.Get(string, string)`                                   | static   | mint a namespaced name              |
+|  [11]   | `implicit operator XName(string)`                             | operator | admit an expanded-name literal      |
+|  [12]   | `XNamespace.Get(string)`                                      | static   | intern a namespace                  |
+|  [13]   | `operator +(XNamespace, string)`                              | operator | compose a namespaced name           |
+|  [14]   | `XContainer.Element(XName) -> XElement?`                      | instance | first matching child element        |
+|  [15]   | `XElement.Attribute(XName) -> XAttribute?`                    | instance | matching attribute or null          |
+|  [16]   | `XElement.SetAttributeValue(XName, object?)`                  | instance | upsert an attribute; null removes   |
+|  [17]   | `XElement.SetElementValue(XName, object?)`                    | instance | upsert a child; null removes        |
+|  [18]   | `XNode.Remove()`                                              | instance | detach a node from its parent       |
+|  [19]   | `Extensions.Remove(IEnumerable<XNode?>)`                      | static   | detach a whole axis result          |
+|  [20]   | `Extensions.InDocumentOrder<T>(IEnumerable<T>)`               | static   | restore document order              |
+|  [21]   | `XNode.CreateReader(ReaderOptions) -> XmlReader`              | instance | read an owned tree as a stream      |
+|  [22]   | `XContainer.CreateWriter() -> XmlWriter`                      | instance | write into an owned tree            |
+|  [23]   | `XNode.ReadFrom(XmlReader) -> XNode`                          | static   | build a node at a reader position   |
+|  [24]   | `XNode.ReadFromAsync(XmlReader, CancellationToken)`           | static   | async node build                    |
+|  [25]   | `XNode.DeepEquals(XNode?, XNode?) -> bool`                    | static   | structural equality                 |
+|  [26]   | `XNode.CompareDocumentOrder(XNode?, XNode?) -> int`           | static   | relative document position          |
+|  [27]   | `XObject.AddAnnotation(object)`                               | instance | attach out-of-band node state       |
+|  [28]   | `XObject.Annotation<T>() -> T?`                               | instance | recover attached state              |
+|  [29]   | `XObject.RemoveAnnotations<T>()`                              | instance | drop attached state                 |
+|  [30]   | `XObject.Changing` / `XObject.Changed`                        | event    | pre- and post-mutation notification |
+|  [31]   | `XElement.GetNamespaceOfPrefix(string) -> XNamespace?`        | instance | resolve a prefix on the live tree   |
+|  [32]   | `XElement.GetPrefixOfNamespace(XNamespace) -> string?`        | instance | resolve the prefix inverse          |
 
-## [04]-[XPATH]
+[LINQ_XML_AXIS]: `Elements` `Descendants` `DescendantNodes` `Nodes` `Ancestors` `AncestorsAndSelf` `DescendantsAndSelf` `Attributes` `ElementsAfterSelf` `ElementsBeforeSelf` `NodesAfterSelf` `NodesBeforeSelf`
 
-`System.Xml.XPath` evaluates expressions over both the owned tree (through the `XNode` extension family) and a navigator abstraction; `XPathDocument` is the read-only high-performance store.
+Every axis takes an optional `XName?` filter and carries an `IEnumerable<T>` sequence-level extension mirror on `Extensions`.
 
-- `XNode.XPathSelectElement(string) -> XElement?`, `XPathSelectElements(string) -> IEnumerable<XElement>`, and `XPathEvaluate(string) -> object` (each with an `IXmlNamespaceResolver?` overload for prefix binding) are the LINQ-to-XML XPath surface; `XPathEvaluate` returns a `bool`/`double`/`string` or an `IEnumerable` per the expression's result type.
-- `XNode.CreateNavigator(XmlNameTable?) -> XPathNavigator` and `XDocumentExtensions.ToXPathNavigable(this XNode) -> IXPathNavigable` bridge an owned tree into the navigator surface without a document copy.
-- `XPathNavigator.Compile(string xpath) -> XPathExpression` pre-compiles a reused expression; `Evaluate(string)` / `Evaluate(XPathExpression, XPathNodeIterator?)`, `Select(…) -> XPathNodeIterator`, and `Matches(string)` / `Matches(XPathExpression)` are the evaluation family; `ValueAsInt`/`ValueAsDouble`/`ValueAsBoolean`/`ValueAsDateTime` read typed atomic values.
-- `new XPathDocument(XmlReader)` (and `Stream`/`TextReader`/`string` forms) builds the immutable, navigator-optimized store; `XPathDocument.CreateNavigator()` yields the cursor an XSLT `Transform` input or a repeated-query path binds instead of a mutable `XDocument`.
+[LINQ_XML_MUTATION]: `XElement.SetValue` `XElement.ReplaceAll` `XElement.ReplaceAttributes` `XContainer.ReplaceNodes` `XNode.ReplaceWith`
 
-## [05]-[SCHEMA]
+[LINQ_XML_TYPED_READ]: `bool` `int` `long` `uint` `ulong` `float` `double` `decimal` `Guid` `DateTime` `DateTimeOffset` `TimeSpan` `string`
 
-`System.Xml.Schema` validates against XSD through `XmlSchemaSet`, wired into a reader by `XmlReaderSettings` or invoked in-place over an owned tree by the `Validate` extensions.
+`explicit operator T(XElement)` parses element text in the invariant culture; each conversion carries a nullable and an `XAttribute` mirror.
 
-- `XmlSchemaSet.Add(string? targetNamespace, string schemaUri)` / `Add(string?, XmlReader)` / `Add(XmlSchema)` / `Add(XmlSchemaSet)` register schemas; `Compile()` compiles the set; `Contains`, `Remove(XmlSchema)`, `RemoveRecursive`, `Reprocess`, `Schemas()` / `Schemas(string? targetNamespace)`, `Count`, and `IsCompiled` manage it; the `ValidationEventHandler` event and `XmlResolver?` control error routing and include/import resolution.
-- Streaming validation binds `XmlReaderSettings.Schemas = set`, `ValidationType = ValidationType.Schema`, and `ValidationFlags` (`ReportValidationWarnings`, `ProcessSchemaLocation`, `ProcessInlineSchema`, `AllowXmlAttributes`), then subscribes `settings.ValidationEventHandler` — a `ValidationEventArgs` carries `XmlSeverityType` and the `XmlSchemaException`.
-- `XDocument.Validate(XmlSchemaSet, ValidationEventHandler?, bool addSchemaInfo)` and `XElement.Validate(XmlSchemaObject partialValidationType, XmlSchemaSet, ValidationEventHandler?, …)` validate an owned tree in place, optionally annotating each node with post-schema-validation info readable through `GetSchemaInfo()`.
+[LINQ_XML_PROLOGUE]: `XDocument.Root` `XDocument.Declaration` `XDocument.DocumentType` `XObject.Document` `XObject.Parent` `XObject.BaseUri`
 
-## [06]-[XSLT]
+[LINQ_XML_RESERVED]: `XNamespace.None` `XNamespace.Xml` `XNamespace.Xmlns`
 
-`System.Xml.Xsl` compiles and runs XSLT 1.0 through `XslCompiledTransform`; `XsltArgumentList` binds parameters and extension objects, and `XsltSettings` gates the trusted features.
+## [03]-[READER]
 
-- `XslCompiledTransform.Load(XmlReader stylesheet, XsltSettings?, XmlResolver?)` / `Load(IXPathNavigable, XsltSettings?, XmlResolver?)` / `Load(string stylesheetUri, XsltSettings?, XmlResolver?)` / `Load(Type compiledStylesheet)` compile a stylesheet, the `Type` form loading a pre-compiled assembly.
-- `Transform(XmlReader input, XsltArgumentList?, XmlWriter results)` / `Transform(IXPathNavigable, XsltArgumentList?, Stream|TextWriter|XmlWriter)` / `Transform(string inputUri, XsltArgumentList?, XmlWriter, …)` run the transform; `XslCompiledTransform.OutputSettings -> XmlWriterSettings?` yields the stylesheet-declared output settings to build the result `XmlWriter`.
-- `XsltArgumentList.AddParam(string name, string namespaceUri, object parameter)` and `AddExtensionObject(string namespaceUri, object extension)` bind stylesheet parameters and callable extension objects; `GetParam`/`RemoveParam`/`GetExtensionObject`/`RemoveExtensionObject`/`Clear` manage the list; the `XsltMessageEncountered` event captures `<xsl:message>` output.
-- `XsltSettings.Default` disables script and the document function; `XsltSettings.TrustedXslt` and the `EnableScript`/`EnableDocumentFunction` flags admit them only for a trusted stylesheet — the untrusted-input default stays locked.
+[READER_TYPE_SCOPE]: forward-only pull edge and the settings record fixing its conformance and entity posture
 
-## [07]-[SERIALIZATION]
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :-------------------- | :------------ | :------------------------------------ |
+|  [01]   | `XmlReader`           | class         | abstract forward-only pull parser     |
+|  [02]   | `XmlReaderSettings`   | class         | conformance, entity, and quota policy |
+|  [03]   | `XmlParserContext`    | class         | namespace and DTD context on ingress  |
+|  [04]   | `XmlNameTable`        | class         | atomized-name store shared per parse  |
+|  [05]   | `XmlNamespaceManager` | class         | prefix scope stack for query binding  |
+|  [06]   | `XmlResolver`         | class         | external-entity resolution seam       |
+|  [07]   | `XmlNodeType`         | enum          | positioned-node discriminant          |
+|  [08]   | `ConformanceLevel`    | enum          | fragment or document conformance      |
+|  [09]   | `DtdProcessing`       | enum          | DTD posture; `Prohibit` is the guard  |
+|  [10]   | `XmlConvert`          | class         | invariant lexical-to-CLR conversion   |
+|  [11]   | `XmlQualifiedName`    | class         | namespace-qualified name value        |
+|  [12]   | `XmlException`        | class         | positioned well-formedness fault      |
 
-Object-graph boundaries cross through `XmlSerializer` (attribute-driven, public members), `DataContractSerializer` (opt-in contract, `System.Runtime.Serialization`), or the `XmlDictionaryReader`/`XmlDictionaryWriter` binary-XML wire.
+[READER_ENTRY_SCOPE]: construction over each source, positioning, typed content reads, and subtree scoping
 
-- `new XmlSerializer(Type)` / `XmlSerializer(Type, XmlRootAttribute?)` / `XmlSerializer(Type, Type[]? extraTypes)` / `XmlSerializer(Type, XmlAttributeOverrides?)` build a serializer; `Serialize(XmlWriter, object?, XmlSerializerNamespaces?)` (plus `Stream`/`TextWriter` sinks) writes, `Deserialize(XmlReader, XmlDeserializationEvents)` (plus `Stream`/`TextReader`) reads, and `CanDeserialize(XmlReader)` probes before commit — a serializer instance is cached per `Type` because construction emits an assembly.
-- `new DataContractSerializer(Type, DataContractSerializerSettings?)` / `DataContractSerializer(Type, IEnumerable<Type>? knownTypes)` build the contract serializer; `WriteObject(XmlWriter, object?)` / `WriteObject(XmlDictionaryWriter, object?, DataContractResolver?)`, `ReadObject(XmlReader, bool verifyObjectName)` / `ReadObject(XmlDictionaryReader, bool, DataContractResolver?)`, and `IsStartObject` are the graph surface, the resolver overloads handling polymorphic type resolution.
-- `XmlDictionaryWriter.CreateBinaryWriter(Stream, IXmlDictionary?, XmlBinaryWriterSession?, bool ownsStream)` / `XmlDictionaryWriter.CreateTextWriter(Stream, Encoding, bool)` and `XmlDictionaryReader.CreateBinaryReader(byte[], int, int, IXmlDictionary?, XmlDictionaryReaderQuotas, …)` / `CreateDictionaryReader(XmlReader)` produce the compact binary-XML wire a `DataContractSerializer` writes into, `XmlDictionaryReaderQuotas` capping depth/array/string sizes on untrusted input.
-- `System.Xml.XmlDocument` (mutable DOM) is the interop-only carrier — `XmlDocument.Save(string filename)` writes and preserves the first-`XmlDeclaration` encoding; an owned document is an `XDocument`, so `XmlDocument` enters only where a host API hands one back.
+| [INDEX] | [SURFACE]                                                       | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :-------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `XmlReader.Create(Stream, XmlReaderSettings, XmlParserContext)` | static   | construct over bytes with context |
+|  [02]   | `XmlReader.Create(TextReader, XmlReaderSettings)`               | static   | construct over decoded text       |
+|  [03]   | `XmlReader.Create(string, XmlReaderSettings)`                   | static   | construct over a URI              |
+|  [04]   | `XmlReader.Create(XmlReader, XmlReaderSettings)`                | static   | layer validation onto a reader    |
+|  [05]   | `XmlReader.Read() -> bool`                                      | instance | advance one node                  |
+|  [06]   | `XmlReader.ReadAsync() -> Task<bool>`                           | instance | async advance                     |
+|  [07]   | `XmlReader.MoveToContent() -> XmlNodeType`                      | instance | skip to element or text           |
+|  [08]   | `XmlReader.IsStartElement(string, string)`                      | instance | probe the positioned element      |
+|  [09]   | `XmlReader.GetAttribute(string, string?)`                       | instance | read an attribute by name         |
+|  [10]   | `XmlReader.ReadAttributeValue() -> bool`                        | instance | walk attribute value nodes        |
+|  [11]   | `XmlReader.ReadSubtree() -> XmlReader`                          | instance | scope a reader to one element     |
+|  [12]   | `XmlReader.ReadToFollowing(string, string)`                     | instance | seek the next named element       |
+|  [13]   | `XmlReader.ReadToDescendant(string, string)`                    | instance | seek a named child                |
+|  [14]   | `XmlReader.ReadToNextSibling(string, string)`                   | instance | seek a named sibling              |
+|  [15]   | `XmlReader.Skip()`                                              | instance | discard the current subtree       |
+|  [16]   | `XmlReader.ReadContentAs(Type, IXmlNamespaceResolver?)`         | instance | typed content read                |
+|  [17]   | `XmlReader.ReadElementContentAs(Type, IXmlNamespaceResolver)`   | instance | typed element read                |
+|  [18]   | `XmlReader.ReadContentAsBase64(byte[], int, int)`               | instance | stream inline binary              |
+|  [19]   | `XmlReader.ReadValueChunk(char[], int, int)`                    | instance | stream a large text value         |
+|  [20]   | `XmlReader.ReadInnerXml() -> string`                            | instance | markup of the current subtree     |
+|  [21]   | `XmlReader.ReadOuterXml() -> string`                            | instance | markup including the current node |
+|  [22]   | `XmlReader.Settings -> XmlReaderSettings?`                      | property | settings the reader was built on  |
+|  [23]   | `XmlReaderSettings.Clone() -> XmlReaderSettings`                | instance | fork a settings baseline          |
 
-## [08]-[STACK]
+[READER_TYPED_READ]: `ReadContentAsBoolean` `ReadContentAsInt` `ReadContentAsLong` `ReadContentAsFloat` `ReadContentAsDouble` `ReadContentAsDecimal` `ReadContentAsDateTime` `ReadContentAsDateTimeOffset` `ReadContentAsString` `ReadContentAsObject`
 
-`Rasm.Materials` `Appearance/interchange` renders `MtlxDocument` (its `Seq<MtlxNode>`/`Option<string>` members) to `.mtlx` text through `System.Xml.Linq` at the host edge only — the structured `MaterialWire` rides `WireCodec` (System.Text.Json / MessagePack), so no XML reader/writer sits at an interior signature and the `MaterialX 1.39 <materialx version="1.39">` root's `float`/`color3` attribute text uses `ToString("R", CultureInfo.InvariantCulture)`; MaterialX schema validation is the host `MaterialX` runtime's concern, never a managed `XmlSchemaSet` bound here. `Rasm.Persistence` `Ingest/issue` decodes the BCF `.bcfzip` container through `System.IO.Compression.ZipArchive` and reads each `markup.bcf`/`*.bcfv` through `System.Xml.Linq` `XDocument`/`XElement`/`XAttribute` — the whole BCF wire is zip+XML, zero foreign packages. `Rasm.Rhino` `Viewport/capture` receives a `System.Xml.XmlDocument` from RhinoCommon `ViewCapture.CaptureToSvg`, the host-owned interop carrier the vector `CaptureArtifact` holds, and `Exchange/publish` invokes `XmlDocument.Save(string)` only inside the atomic output-staging boundary. `Rasm.Bim` `Review/validation` deliberately does NOT hand-roll XML: a `XmlReaderSettings.Schemas`/`XDocument` IDS parser or writer is the retired form — IDS ingress/egress routes through the `Xbim.InformationSpecifications` `Xids` (`LoadBuildingSmartIDS`/`ExportBuildingSmartIDS`) and `ids-lib` `Audit.Run` owners, this surface owning only the codec boundary. Parsing untrusted foreign bytes keeps `XmlReaderSettings.DtdProcessing = Prohibit` and a null `XmlResolver` so no external entity resolves, and every async ingress/egress threads the surrounding scope's `CancellationToken`.
+Each typed read carries a `ReadElementContentAs*` element form and an async mirror; `CanReadBinaryContent` and `CanReadValueChunk` gate the streaming pair.
+
+[READER_POSITION]: `MoveToElement` `MoveToFirstAttribute` `MoveToNextAttribute` `MoveToAttribute`
+
+[READER_SETTINGS]: `Async` `ConformanceLevel` `DtdProcessing` `XmlResolver` `IgnoreWhitespace` `IgnoreComments` `IgnoreProcessingInstructions` `CheckCharacters` `CloseInput` `MaxCharactersInDocument` `MaxCharactersFromEntities` `LineNumberOffset` `LinePositionOffset` `NameTable` `Schemas` `ValidationType` `ValidationFlags`
+
+## [04]-[WRITER]
+
+[WRITER_TYPE_SCOPE]: forward-only push edge and its formatting record
+
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                             |
+| :-----: | :------------------ | :------------ | :--------------------------------------- |
+|  [01]   | `XmlWriter`         | class         | abstract push writer; `IAsyncDisposable` |
+|  [02]   | `XmlWriterSettings` | class         | indent, newline, encoding policy         |
+|  [03]   | `NewLineHandling`   | enum          | replace, entitize, or pass newlines      |
+|  [04]   | `NamespaceHandling` | enum          | duplicate-declaration suppression        |
+|  [05]   | `XmlOutputMethod`   | enum          | XML, HTML, or text serialization         |
+
+[WRITER_ENTRY_SCOPE]: construction over each sink, the emit surface, and reader-to-writer transcode
+
+| [INDEX] | [SURFACE]                                                           | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------ | :------- | :-------------------------------- |
+|  [01]   | `XmlWriter.Create(Stream, XmlWriterSettings)`                       | static   | byte sink under encoding policy   |
+|  [02]   | `XmlWriter.Create(TextWriter, XmlWriterSettings)`                   | static   | text sink                         |
+|  [03]   | `XmlWriter.Create(StringBuilder, XmlWriterSettings)`                | static   | in-memory sink                    |
+|  [04]   | `XmlWriter.Create(string, XmlWriterSettings)`                       | static   | file sink                         |
+|  [05]   | `XmlWriter.Create(XmlWriter, XmlWriterSettings)`                    | static   | layer settings onto a writer      |
+|  [06]   | `XmlWriter.WriteStartElement(string?, string, string?)`             | instance | open a prefixed element           |
+|  [07]   | `XmlWriter.WriteEndElement()`                                       | instance | close with the shortest form      |
+|  [08]   | `XmlWriter.WriteFullEndElement()`                                   | instance | force a non-empty close tag       |
+|  [09]   | `XmlWriter.WriteElementString(string?, string, string?, string?)`   | instance | open, write text, close           |
+|  [10]   | `XmlWriter.WriteAttributeString(string?, string, string?, string?)` | instance | emit one attribute                |
+|  [11]   | `XmlWriter.WriteStartDocument(bool)`                                | instance | emit the declaration              |
+|  [12]   | `XmlWriter.WriteEndDocument()`                                      | instance | close every open element          |
+|  [13]   | `XmlWriter.WriteCData(string?)`                                     | instance | emit a CDATA section              |
+|  [14]   | `XmlWriter.WriteComment(string?)`                                   | instance | emit a comment                    |
+|  [15]   | `XmlWriter.WriteProcessingInstruction(string, string?)`             | instance | emit a processing instruction     |
+|  [16]   | `XmlWriter.WriteDocType(string, string?, string?, string?)`         | instance | emit the DTD declaration          |
+|  [17]   | `XmlWriter.WriteRaw(string)`                                        | instance | emit unescaped markup             |
+|  [18]   | `XmlWriter.WriteBase64(byte[], int, int)`                           | instance | inline binary egress              |
+|  [19]   | `XmlWriter.WriteValue(object)`                                      | instance | typed value egress                |
+|  [20]   | `XmlWriter.WriteNode(XmlReader, bool)`                              | instance | copy a positioned reader subtree  |
+|  [21]   | `XmlWriter.WriteNode(XPathNavigator, bool)`                         | instance | copy a navigator subtree          |
+|  [22]   | `XmlWriter.WriteAttributes(XmlReader, bool)`                        | instance | copy the positioned attributes    |
+|  [23]   | `XmlWriter.Flush()`                                                 | instance | drain buffered output             |
+|  [24]   | `XmlWriterSettings.Clone() -> XmlWriterSettings`                    | instance | fork a settings baseline per sink |
+
+Every emit member carries a `*Async` mirror, `WriteNodeAsync` included.
+
+[WRITER_SETTINGS]: `Async` `Indent` `IndentChars` `NewLineChars` `NewLineHandling` `NewLineOnAttributes` `Encoding` `OmitXmlDeclaration` `ConformanceLevel` `NamespaceHandling` `CheckCharacters` `CloseOutput` `WriteEndDocumentOnClose` `DoNotEscapeUriAttributes` `OutputMethod`
+
+## [05]-[XPATH]
+
+[XPATH_TYPE_SCOPE]: expression evaluation over an owned tree and over the immutable navigator store
+
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :------------------ | :------------ | :---------------------------------- |
+|  [01]   | `XPathNavigator`    | class         | editable read cursor over a tree    |
+|  [02]   | `XPathDocument`     | class         | immutable navigator-optimized store |
+|  [03]   | `XPathExpression`   | class         | pre-compiled expression             |
+|  [04]   | `XPathNodeIterator` | class         | lazy node-set cursor                |
+|  [05]   | `IXPathNavigable`   | interface     | navigator-source seam               |
+|  [06]   | `XPathNodeType`     | enum          | navigator node discriminant         |
+|  [07]   | `XmlNodeOrder`      | enum          | relative-position verdict           |
+|  [08]   | `XPathException`    | class         | expression compile or eval fault    |
+
+[XPATH_ENTRY_SCOPE]: LINQ-to-XML extension family, the navigator bridge, and compiled evaluation
+
+| [INDEX] | [SURFACE]                                                            | [SHAPE]  | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------- | :------- | :-------------------------------- |
+|  [01]   | `XNode.XPathSelectElement(string, IXmlNamespaceResolver?)`           | static   | one element by expression         |
+|  [02]   | `XNode.XPathSelectElements(string, IXmlNamespaceResolver?)`          | static   | element sequence by expression    |
+|  [03]   | `XNode.XPathEvaluate(string, IXmlNamespaceResolver?) -> object`      | static   | bool, double, string, or sequence |
+|  [04]   | `XNode.CreateNavigator(XmlNameTable?) -> XPathNavigator`             | static   | navigator over an owned tree      |
+|  [05]   | `XDocumentExtensions.ToXPathNavigable(XNode)`                        | static   | navigable adapter without a copy  |
+|  [06]   | `new XPathDocument(XmlReader, XmlSpace)`                             | ctor     | build the immutable store         |
+|  [07]   | `XPathDocument.CreateNavigator() -> XPathNavigator`                  | instance | cursor over the immutable store   |
+|  [08]   | `XPathNavigator.Compile(string) -> XPathExpression`                  | instance | pre-compile a reused expression   |
+|  [09]   | `XPathNavigator.Evaluate(XPathExpression, XPathNodeIterator?)`       | instance | evaluate a compiled expression    |
+|  [10]   | `XPathNavigator.Select(XPathExpression) -> XPathNodeIterator`        | instance | iterate a node-set                |
+|  [11]   | `XPathNavigator.SelectSingleNode(XPathExpression)`                   | instance | first node of a node-set          |
+|  [12]   | `XPathNavigator.Matches(XPathExpression) -> bool`                    | instance | pattern test at the cursor        |
+|  [13]   | `XPathNavigator.CheckValidity(XmlSchemaSet, ValidationEventHandler)` | instance | validate at the cursor            |
+|  [14]   | `XPathNavigator.ReadSubtree() -> XmlReader`                          | instance | read the cursor subtree           |
+|  [15]   | `XPathNavigator.WriteSubtree(XmlWriter)`                             | instance | copy the cursor subtree           |
+|  [16]   | `XPathNavigator.UnderlyingObject -> object?`                         | property | recover the backing node          |
+
+[XPATH_TYPED_VALUE]: `ValueAsBoolean` `ValueAsInt` `ValueAsLong` `ValueAsDouble` `ValueAsDateTime` `TypedValue` `ValueType` `XmlType`
+
+[XPATH_SELECT_AXIS]: `SelectChildren` `SelectAncestors` `SelectDescendants`
+
+## [06]-[SCHEMA]
+
+[SCHEMA_TYPE_SCOPE]: XSD registration, compilation, and the validation-event rail
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :----------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `XmlSchemaSet`                 | class         | the compiled schema registry       |
+|  [02]   | `XmlSchema`                    | class         | one parsed schema document         |
+|  [03]   | `XmlSchemaObject`              | class         | partial-validation anchor          |
+|  [04]   | `XmlSchemaObjectTable`         | class         | compiled global declaration table  |
+|  [05]   | `XmlSchemaCompilationSettings` | class         | UPA-check posture                  |
+|  [06]   | `XmlSchemaValidationFlags`     | enum          | inline schema and location posture |
+|  [07]   | `ValidationType`               | enum          | validation mode on a reader        |
+|  [08]   | `ValidationEventHandler`       | delegate      | the error and warning sink         |
+|  [09]   | `ValidationEventArgs`          | class         | severity and the raised exception  |
+|  [10]   | `XmlSeverityType`              | enum          | error or warning verdict           |
+|  [11]   | `XmlSchemaException`           | class         | positioned schema fault            |
+|  [12]   | `IXmlSchemaInfo`               | interface     | post-schema-validation annotation  |
+
+[SCHEMA_ENTRY_SCOPE]: set management, streaming validation on a reader, and in-place validation of an owned tree
+
+| [INDEX] | [SURFACE]                                                                               | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :-------------------------------------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `XmlSchemaSet.Add(string?, XmlReader) -> XmlSchema?`                                    | instance | register a schema from a reader |
+|  [02]   | `XmlSchemaSet.Add(XmlSchemaSet)`                                                        | instance | merge another set               |
+|  [03]   | `XmlSchemaSet.Compile()`                                                                | instance | compile the registered set      |
+|  [04]   | `XmlSchemaSet.Reprocess(XmlSchema) -> XmlSchema`                                        | instance | recompile one member            |
+|  [05]   | `XmlSchemaSet.RemoveRecursive(XmlSchema) -> bool`                                       | instance | drop a schema with its imports  |
+|  [06]   | `XmlSchemaSet.Schemas(string?) -> ICollection`                                          | instance | enumerate by target namespace   |
+|  [07]   | `XmlSchemaSet.CompilationSettings`                                                      | property | UPA-check posture               |
+|  [08]   | `XmlSchemaSet.GlobalElements -> XmlSchemaObjectTable`                                   | property | compiled global element table   |
+|  [09]   | `XmlSchemaSet.XmlResolver`                                                              | property | include and import resolution   |
+|  [10]   | `XmlSchemaSet.ValidationEventHandler`                                                   | event    | load and validation errors      |
+|  [11]   | `Extensions.Validate(XDocument, XmlSchemaSet, ValidationEventHandler?, bool)`           | static   | validate an owned tree in place |
+|  [12]   | `Extensions.Validate(XElement, XmlSchemaObject, XmlSchemaSet, ValidationEventHandler?)` | static   | partial validation of a subtree |
+|  [13]   | `Extensions.GetSchemaInfo(XElement) -> IXmlSchemaInfo?`                                 | static   | read post-validation annotation |
+
+- `Extensions.Validate`: `addSchemaInfo` is what makes `GetSchemaInfo` return an annotation.
+
+[SCHEMA_READER_BINDING]: `XmlReaderSettings.Schemas` `ValidationType.Schema` `XmlReaderSettings.ValidationFlags` `XmlReaderSettings.ValidationEventHandler`
+
+[SCHEMA_VALIDATION_FLAG]: `ReportValidationWarnings` `ProcessSchemaLocation` `ProcessInlineSchema` `ProcessIdentityConstraints` `AllowXmlAttributes`
+
+## [07]-[XSLT]
+
+[XSLT_TYPE_SCOPE]: XSLT 1.0 compilation, argument binding, and the trusted-feature gate
+
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                    |
+| :-----: | :-------------------------------- | :------------ | :------------------------------ |
+|  [01]   | `XslCompiledTransform`            | class         | compiled stylesheet and its run |
+|  [02]   | `XsltArgumentList`                | class         | parameter and extension binding |
+|  [03]   | `XsltSettings`                    | class         | trusted-feature gate            |
+|  [04]   | `XsltMessageEncounteredEventArgs` | class         | `xsl:message` payload           |
+|  [05]   | `XsltCompileException`            | class         | stylesheet compile fault        |
+|  [06]   | `XsltException`                   | class         | transform-time fault            |
+
+[XSLT_ENTRY_SCOPE]: stylesheet compilation, transform invocation, and output-settings recovery
+
+| [INDEX] | [SURFACE]                                                                                     | [SHAPE]  | [CAPABILITY]                 |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `XslCompiledTransform.Load(XmlReader, XsltSettings?, XmlResolver?)`                           | instance | compile from a reader        |
+|  [02]   | `XslCompiledTransform.Load(IXPathNavigable, XsltSettings?, XmlResolver?)`                     | instance | compile from a navigable     |
+|  [03]   | `XslCompiledTransform.Load(string, XsltSettings?, XmlResolver?)`                              | instance | compile from a URI           |
+|  [04]   | `XslCompiledTransform.Transform(XmlReader, XsltArgumentList?, XmlWriter)`                     | instance | run into a writer            |
+|  [05]   | `XslCompiledTransform.Transform(IXPathNavigable, XsltArgumentList?, XmlWriter, XmlResolver?)` | instance | run with a resolver          |
+|  [06]   | `XslCompiledTransform.OutputSettings -> XmlWriterSettings?`                                   | property | declared output settings     |
+|  [07]   | `XsltArgumentList.AddParam(string, string, object)`                                           | instance | bind a stylesheet parameter  |
+|  [08]   | `XsltArgumentList.AddExtensionObject(string, object)`                                         | instance | bind an extension object     |
+|  [09]   | `XsltArgumentList.XsltMessageEncountered`                                                     | event    | capture `xsl:message` output |
+|  [10]   | `XsltSettings.Default -> XsltSettings`                                                        | property | document function locked     |
+|  [11]   | `XsltSettings.TrustedXslt -> XsltSettings`                                                    | property | trusted-stylesheet posture   |
+|  [12]   | `XsltSettings.EnableDocumentFunction -> bool`                                                 | property | admit the document function  |
+
+- `XslCompiledTransform.Transform`: build the result `XmlWriter` from `OutputSettings` so the stylesheet's own `xsl:output` binds.
+
+## [08]-[SERIALIZATION]
+
+[SERIALIZATION_TYPE_SCOPE]: object-graph boundaries — attribute-driven public members, opt-in contracts, and the binary-XML wire
+
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :------------------------------- | :------------ | :----------------------------------- |
+|  [01]   | `XmlSerializer`                  | class         | attribute-driven public-member codec |
+|  [02]   | `XmlSerializerNamespaces`        | class         | emitted prefix control               |
+|  [03]   | `XmlAttributeOverrides`          | class         | out-of-band attribute remapping      |
+|  [04]   | `XmlRootAttribute`               | attribute     | root name and namespace override     |
+|  [05]   | `XmlDeserializationEvents`       | struct        | unknown-member callback set          |
+|  [06]   | `DataContractSerializer`         | class         | opt-in contract codec                |
+|  [07]   | `DataContractSerializerSettings` | class         | root, known types, graph caps        |
+|  [08]   | `DataContractResolver`           | class         | polymorphic type resolution seam     |
+|  [09]   | `XmlDictionaryWriter`            | class         | binary and text dictionary egress    |
+|  [10]   | `XmlDictionaryReader`            | class         | binary and text dictionary ingress   |
+|  [11]   | `XmlDictionaryReaderQuotas`      | class         | untrusted-input size caps            |
+|  [12]   | `IXmlDictionary`                 | interface     | shared string table for the wire     |
+
+[SERIALIZATION_ENTRY_SCOPE]: serializer construction, the read and write pair, and the compact binary wire
+
+| [INDEX] | [SURFACE]                                                                                        | [SHAPE]  | [CAPABILITY]             |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------- | :----------------------- |
+|  [01]   | `new XmlSerializer(Type, XmlRootAttribute?)`                                                     | ctor     | root-overridden codec    |
+|  [02]   | `new XmlSerializer(Type, Type[]?)`                                                               | ctor     | admit polymorphic types  |
+|  [03]   | `XmlSerializer.Serialize(XmlWriter, object?, XmlSerializerNamespaces?)`                          | instance | write with prefixes      |
+|  [04]   | `XmlSerializer.Deserialize(XmlReader, XmlDeserializationEvents)`                                 | instance | read with callbacks      |
+|  [05]   | `XmlSerializer.CanDeserialize(XmlReader) -> bool`                                                | instance | probe the root           |
+|  [06]   | `new DataContractSerializer(Type, DataContractSerializerSettings?)`                              | ctor     | contract codec with caps |
+|  [07]   | `DataContractSerializer.WriteObject(XmlDictionaryWriter, object?, DataContractResolver?)`        | instance | write with resolution    |
+|  [08]   | `DataContractSerializer.ReadObject(XmlDictionaryReader, bool, DataContractResolver?)`            | instance | read with resolution     |
+|  [09]   | `DataContractSerializer.IsStartObject(XmlReader) -> bool`                                        | instance | probe the contract root  |
+|  [10]   | `XmlDictionaryWriter.CreateBinaryWriter(Stream, IXmlDictionary?, XmlBinaryWriterSession?, bool)` | static   | compact binary egress    |
+|  [11]   | `XmlDictionaryReader.CreateBinaryReader(Stream, IXmlDictionary?, XmlDictionaryReaderQuotas)`     | static   | compact binary ingress   |
+|  [12]   | `XmlDictionaryWriter.CreateTextWriter(Stream, Encoding, bool)`                                   | static   | text egress on the rail  |
+|  [13]   | `XmlDictionaryReader.CreateDictionaryReader(XmlReader)`                                          | static   | lift onto the rail       |
+
+- `new XmlSerializer(Type)`: construction emits an assembly, so one instance caches per `Type`.
+
+[SERIALIZATION_QUOTA]: `MaxDepth` `MaxStringContentLength` `MaxArrayLength` `MaxBytesPerRead` `MaxNameTableCharCount`
+
+## [09]-[DOM_INTEROP]
+
+[DOM_INTEROP_TYPE_SCOPE]: mutable DOM a host API hands back
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :------------------------ | :------------ | :----------------------------- |
+|  [01]   | `XmlDocument`             | class         | mutable DOM root               |
+|  [02]   | `XmlNode`                 | class         | DOM node with XPath query      |
+|  [03]   | `XmlElement`              | class         | DOM element                    |
+|  [04]   | `XmlAttribute`            | class         | DOM attribute                  |
+|  [05]   | `XmlNodeList`             | class         | DOM query result               |
+|  [06]   | `XmlNodeReader`           | class         | pull reader over a DOM subtree |
+|  [07]   | `XmlNodeChangedEventArgs` | class         | DOM mutation payload           |
+
+[DOM_INTEROP_ENTRY_SCOPE]: egress, query, and bridges onto the owned and streaming surfaces
+
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------ | :------- | :------------------------------- |
+|  [01]   | `XmlDocument.Save(string)`                              | instance | write the DOM to a file          |
+|  [02]   | `XmlDocument.Save(XmlWriter)`                           | instance | write the DOM into a writer      |
+|  [03]   | `XmlDocument.Load(XmlReader)`                           | instance | build the DOM from a reader      |
+|  [04]   | `XmlNode.SelectSingleNode(string, XmlNamespaceManager)` | instance | XPath query with prefix bindings |
+|  [05]   | `XmlNode.SelectNodes(string, XmlNamespaceManager)`      | instance | XPath node-list query            |
+|  [06]   | `XmlNode.CreateNavigator() -> XPathNavigator?`          | instance | navigator over a DOM node        |
+|  [07]   | `XmlNode.WriteTo(XmlWriter)`                            | instance | push a DOM node into a writer    |
+|  [08]   | `new XmlNodeReader(XmlNode)`                            | ctor     | read a DOM subtree as a stream   |
+
+- `XmlDocument.Save(string)`: encoding carries from the first `XmlDeclaration`.
+
+## [10]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- An owned document is an `XDocument`; `XmlDocument` enters only where a host API hands one back, and `XmlNodeReader` returns it to the owned surface.
+- Untrusted foreign bytes parse under `XmlReaderSettings.DtdProcessing = Prohibit` with a null `XmlResolver`, so no external entity resolves.
+- `XmlReaderSettings.Async` and `XmlWriterSettings.Async` admit the `*Async` member family; a reader or writer built without them carries the sync surface alone.
+- File and stream egress is an explicit boundary act — an interior signature carries the owned tree, never a reader, writer, or file name.
+- Attribute text crosses in the invariant culture: the typed `explicit operator` on the read side, `ToString("R", CultureInfo.InvariantCulture)` on the write side.
+
+[STACKING]:
+- `Xbim.InformationSpecifications`(`Rasm.Bim/.api/api-xbim-informationspecifications.md`): `Xids.LoadBuildingSmartIDS(XElement)` admits an owned tree with no byte round-trip, and `Xids.ExportBuildingSmartIDS` owns the inverse — `Rasm.Bim` `Review/validation` holds both ends of the IDS document lifecycle.
+- `RhinoCommon`(`Rasm.Rhino/.api/api-rhinocommon-display.md`): `ViewCapture.CaptureToSvg(ViewCaptureSettings)` hands back an `XmlDocument`, which the vector `CaptureArtifact` carries until `Rasm.Rhino` `Exchange/publish` writes it through `XmlDocument.Save(string)` inside the atomic output-staging boundary.
+- `Rasm.Materials` `Appearance/interchange`: renders `MtlxDocument` to `.mtlx` text through `System.Xml.Linq` at the host edge; the structured `MaterialWire` rides `WireCodec`, so no reader or writer reaches an interior signature.
+- `Rasm.Persistence` `Ingest/issue`: reads each BCF `markup.bcf` and `*.bcfv` entry through `XDocument` over a `System.IO.Compression` `ZipArchive` container, the whole wire being zip and XML.
+- `System.Xml.Linq` composes its own streaming half both directions: `XNode.CreateReader` and `XContainer.CreateWriter` bridge a tree onto the edge, `XNode.ReadFrom` builds a subtree at a reader position, `XmlWriter.WriteNode` transcodes reader to writer with no intermediate tree, and `XStreamingElement` emits a large projection straight to a sink.
+- `XObject.AddAnnotation` carries out-of-band per-node state across a load-save round trip, and the `Changing`/`Changed` events fold a mutation stream over an owned tree without a diff pass.
+
+[LOCAL_ADMISSION]:
+- Every XML wire this branch defines admits through `System.Xml.Linq`; a foreign package enters only where it owns the format's own schema, as `Xbim.InformationSpecifications` owns IDS and the host `MaterialX` runtime owns `.mtlx` schema validation.
+
+[RAIL_LAW]:
+- Package: `System.Xml`
+- Owns: every XML document, stream, and object-graph codec the branch crosses
+- Accept: `XDocument` trees, `XmlReader`/`XmlWriter` edges under an explicit settings record, `XmlSchemaSet` validation, `XslCompiledTransform` transforms, attribute and contract serializers
+- Reject: a hand-rolled XML tokenizer or emitter beside this surface

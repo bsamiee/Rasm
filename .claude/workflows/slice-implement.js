@@ -813,7 +813,7 @@ const doctrineOf = (f) =>
         ? REPO +
           '/libs/.planning/README.md, ' +
           REPO +
-          '/libs/.planning/architecture.md, and ' +
+          '/libs/.planning/ARCHITECTURE.md, and ' +
           REPO +
           '/libs/.planning/campaign-method.md (the cross-libs law), plus for every fence you touch the owning language doctrine — the root ' +
           'files of ' +
@@ -1037,7 +1037,7 @@ const planPrompt = (f) =>
     f.path +
     '/README.md (registry) and ' +
     f.path +
-    (f.language === 'cross' ? '/architecture.md' : '/ARCHITECTURE.md') +
+    (f.language === 'cross' ? '/ARCHITECTURE.md' : '/ARCHITECTURE.md') +
     ' ([SEAMS]) for the packages and seams units compose. (4) Research debt: sweep the terminal [RESEARCH] section of every ' +
     'design page under ' +
     planningRootOf(f) +

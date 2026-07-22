@@ -144,19 +144,13 @@ scripts/codex-lane.sh --task <task-file> --dir <lane-dir> [--law <law-file>] [--
 
 ## [04]-[MODEL_AND_EFFORT]
 
-- Default model carries roughly 80% of dispatch — every non-trivial write, deep design, hard reviews, whole fix/critique fleets, second perspectives — and needs no flag.
-- Default at `medium` covers menial file writes — api catalogs and their kin — over terra at any tier.
-- Default at `low` covers volume extraction and classification.
-- Terra at `medium` carries navigation, exploration, and research.
-- Sol (`gpt-5.6-sol`) carries the estate workflow relay lanes — recon maps, censuses, write-review legs — pinned explicitly per call by the dispatching workflow.
+Default model carries roughly 80% of dispatch — every non-trivial write, deep design, hard reviews, whole fix/critique fleets, second perspectives — and needs no flag.
 
 | [INDEX] | [TIER] | [SELECT]          | [USE]                                                                                |
 | :-----: | :----- | :---------------- | :----------------------------------------------------------------------------------- |
 |  [01]   | low    | `--effort low`    | trivial glue: probes, extraction, classification, relabels                           |
 |  [02]   | medium | `--effort medium` | menial writes and fan-out legs where throughput beats depth                          |
 |  [03]   | xhigh  | `--effort xhigh`  | deeper single-agent reasoning for the hardest investigation, design, and review legs |
-
-- Deviate surgically, one axis at a time: xhigh deepens the single hardest leg, low/medium serve throughput; latency tracks task shape, NOT tier.
 
 ## [05]-[FAN_OUT]
 

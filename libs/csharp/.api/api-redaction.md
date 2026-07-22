@@ -1,104 +1,130 @@
 # [RASM_API_REDACTION]
 
-`Microsoft.Extensions.Compliance.Redaction` supplies redactors, providers, builders, HMAC options, erasing redaction, the `DataClassification` taxonomy, and dependency-injection registration that binds each classification to its redactor at every exporter seam, with `StringBuilder` redaction for the logging pipeline.
+`Microsoft.Extensions.Compliance.Redaction` owns classification-keyed redactor resolution: a `DataClassificationSet` selects one `Redactor` at every egress seam, and a set no row claims falls to the erasing fallback. Redaction writes into a caller-sized span, so a classified value crosses the seam with no intermediate string on the sized path. Its contract assembly carries the taxonomy, the redactor base, and the provider and builder contracts an instrumented library binds without the registration fold.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
-- package: `Microsoft.Extensions.Compliance.Redaction`
+- package: `Microsoft.Extensions.Compliance.Redaction` (MIT, Microsoft)
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
-- contract assembly: `Microsoft.Extensions.Compliance.Abstractions` — redactor base, builder and provider contracts, the null redactor/provider pair, the `DataClassification` taxonomy, the `StringBuilder` redaction egress
-- namespace: `Microsoft.Extensions.Compliance.Redaction`
-- namespace classification: `Microsoft.Extensions.Compliance.Classification`
+- contract assembly: `Microsoft.Extensions.Compliance.Abstractions`
+- namespace: `Microsoft.Extensions.Compliance.Redaction`, `Microsoft.Extensions.Compliance.Classification`, `Microsoft.Extensions.DependencyInjection`, `System.Text`
 - asset: runtime library
 - rail: redaction
-- ruled gate: `EXTEXP0002` on `DataClassificationTypeConverter` string round-tripping
+- ruled gate: `EXTEXP0002` on `DataClassificationTypeConverter`
 
 ## [02]-[PUBLIC_TYPES]
 
-[REDACTION_TYPES]: redactor and provider surfaces
-- rail: redaction
+[REDACTION_TYPES]: redactor, provider, and builder surfaces
 
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]    | [CAPABILITY]                                  |
-| :-----: | :--------------------------------- | :---------------- | :-------------------------------------------- |
-|  [01]   | `Redactor`                         | redactor contract | redacts values into spans                     |
-|  [02]   | `IRedactorProvider`                | provider contract | resolves redactors                            |
-|  [03]   | `IRedactionBuilder`                | builder contract  | configures redaction                          |
-|  [04]   | `ErasingRedactor`                  | redactor          | erases sensitive values; `Instance` singleton |
-|  [05]   | `HmacRedactor`                     | redactor          | hashes sensitive values                       |
-|  [06]   | `HmacRedactorOptions`              | redactor options  | HMAC key id and base64 key                    |
-|  [07]   | `NullRedactor`                     | redactor          | passes values unchanged; `Instance` singleton |
-|  [08]   | `NullRedactorProvider`             | provider          | resolves `NullRedactor`; `Instance` singleton |
-|  [09]   | `RedactionExtensions`              | builder extension | `SetHmacRedactor` registration                |
-|  [10]   | `RedactionStringBuilderExtensions` | builder extension | `AppendRedacted` into a `StringBuilder`       |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]  | [CAPABILITY]                                      |
+| :-----: | :------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `Redactor`                             | abstract class | span-write redaction base, two abstract overrides |
+|  [02]   | `IRedactorProvider`                    | interface      | resolves one redactor per classification set      |
+|  [03]   | `IRedactionBuilder`                    | interface      | classification-to-redactor mapping seam           |
+|  [04]   | `ErasingRedactor`                      | sealed class   | erases to zero length; `Instance` singleton       |
+|  [05]   | `HmacRedactor`                         | sealed class   | keyed HMAC-SHA256 pseudonym at constant width     |
+|  [06]   | `HmacRedactorOptions`                  | options        | key identity, validated at start                  |
+|  [07]   | `NullRedactor`                         | sealed class   | copies through unchanged; `Instance` singleton    |
+|  [08]   | `NullRedactorProvider`                 | sealed class   | pass-through provider; `Instance` singleton       |
+|  [09]   | `RedactionServiceCollectionExtensions` | static class   | `AddRedaction` registration                       |
+|  [10]   | `RedactionExtensions`                  | static class   | HMAC mapping rows on the builder                  |
+|  [11]   | `RedactionStringBuilderExtensions`     | static class   | `StringBuilder` redaction egress                  |
 
-`Redactor` (abstract, contract assembly) — overrides supply `Redact(ReadOnlySpan<char>, Span<char>) → int` and `GetRedactedLength(ReadOnlySpan<char>) → int`; the base implements `string Redact(ReadOnlySpan<char>)`, virtual `string Redact(string?)`, `int Redact(string?, Span<char>)`, the generic `string Redact<T>(T value, string? format = null, IFormatProvider? provider = null)`, `int Redact<T>(T value, Span<char> destination, string? format = null, IFormatProvider? provider = null)`, `bool TryRedact<T>(T value, Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider = null)`, and `int GetRedactedLength(string?)`. A typed classified value redacts at its value (not stringified first) on the span path. `ErasingRedactor`/`NullRedactor` are the two settled terminal redactors reachable as static `Instance` outside DI, and `NullRedactorProvider.Instance` is the matching pass-through provider.
+- `HmacRedactor`: every non-empty input redacts to a constant width — an optional key-id prefix ahead of 24 base64 characters over 16 hash bytes.
 
 [CLASSIFICATION_TYPES]: classification taxonomy (contract assembly)
-- rail: redaction
 
-| [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]     | [CAPABILITY]                                           |
-| :-----: | :----------------------------------- | :----------------- | :----------------------------------------------------- |
-|  [01]   | `DataClassification`                 | classification key | taxonomy-plus-value key; static `None`/`Unknown`       |
-|  [02]   | `DataClassificationSet`              | classification set | keys redactor selection                                |
-|  [03]   | `DataClassificationAttribute`        | annotation base    | annotates classified members; `Notes` audit text       |
-|  [04]   | `NoDataClassificationAttribute`      | annotation         | marks `None`-classified members                        |
-|  [05]   | `UnknownDataClassificationAttribute` | annotation         | marks `Unknown`-classified members                     |
-|  [06]   | `DataClassificationTypeConverter`    | converter          | string round-trips `DataClassification` (`EXTEXP0002`) |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]   | [CAPABILITY]                                       |
+| :-----: | :----------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `DataClassification`                 | readonly struct | taxonomy-scoped key; `None`/`Unknown` statics      |
+|  [02]   | `DataClassificationSet`              | sealed class    | equatable key set the redactor lookup binds        |
+|  [03]   | `DataClassificationAttribute`        | attribute       | repeatable definition-time key; `Notes` audit text |
+|  [04]   | `NoDataClassificationAttribute`      | attribute       | seals a member `None`                              |
+|  [05]   | `UnknownDataClassificationAttribute` | attribute       | seals a member `Unknown`                           |
+|  [06]   | `DataClassificationTypeConverter`    | type converter  | string round-trip for configuration binding        |
 
-`DataClassification` pairs a `TaxonomyName` with a `Value` (ctor `(taxonomyName, value)`), renders `Taxonomy:Value`, and exposes static `None`/`Unknown` keys; `DataClassificationTypeConverter` round-trips that string form for configuration binding under `EXTEXP0002`. `DataClassificationSet` constructs from a single `DataClassification`, an `IEnumerable<DataClassification>`, or `params DataClassification[]`; `implicit operator DataClassificationSet(DataClassification)` and `FromDataClassification` lift a bare key, and `Union(DataClassificationSet)` composes sets — so a multi-class field keys one redactor lookup.
+- `DataClassification`: carries its own `[TypeConverter]`, so a configuration-bound value round-trips `Taxonomy:Value` with no converter registration.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration and policy operations
-- rail: redaction
+[ENTRYPOINT_SCOPE]: registration on `IServiceCollection`, mapping on `IRedactionBuilder`, resolution on `IRedactorProvider`
 
-Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor calls use span inputs and return the redacted length or resolved `Redactor`.
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `AddRedaction()`                                                        | static   | seats the provider with the fallback alone     |
+|  [02]   | `AddRedaction(Action<IRedactionBuilder>)`                               | static   | seats the provider and folds every mapping row |
+|  [03]   | `SetRedactor<T>(DataClassificationSet[])`                               | instance | binds one redactor type per exact set          |
+|  [04]   | `SetFallbackRedactor<T>()`                                              | instance | replaces the unmapped-set redactor             |
+|  [05]   | `SetHmacRedactor(Action<HmacRedactorOptions>, DataClassificationSet[])` | static   | HMAC rows over inline options                  |
+|  [06]   | `SetHmacRedactor(IConfigurationSection, DataClassificationSet[])`       | static   | HMAC rows bound from configuration             |
+|  [07]   | `Services`                                                              | property | collection each mapped redactor registers into |
+|  [08]   | `GetRedactor(DataClassificationSet) -> Redactor`                        | instance | resolves the egress redactor                   |
 
-| [INDEX] | [SURFACE]                                            | [KIND]             | [CAPABILITY]                                 |
-| :-----: | :--------------------------------------------------- | :----------------- | :------------------------------------------- |
-|  [01]   | `AddRedaction`                                       | registration       | registers redaction                          |
-|  [02]   | `AddRedaction`                                       | configured         | registers configured policy                  |
-|  [03]   | `SetRedactor<T>`                                     | mapping            | maps classes to redactors                    |
-|  [04]   | `SetHmacRedactor`                                    | options            | HMAC via `Action<HmacRedactorOptions>`       |
-|  [05]   | `SetHmacRedactor`                                    | section            | HMAC via `IConfigurationSection`             |
-|  [06]   | `SetFallbackRedactor<T>`                             | fallback           | sets fail-closed redaction                   |
-|  [07]   | `GetRedactor`                                        | provider           | resolves classified sets                     |
-|  [08]   | `Redact<T>`                                          | typed value        | redacts formatted values                     |
-|  [09]   | `TryRedact<T>`                                       | typed value        | writes redaction into spans                  |
-|  [10]   | `Redact`                                             | span               | redacts character spans                      |
-|  [11]   | `GetRedactedLength`                                  | sizing             | sizes the destination                        |
-|  [12]   | `AppendRedacted`                                     | string builder     | appends a redacted span to a `StringBuilder` |
-|  [13]   | `ErasingRedactor.Instance` / `NullRedactor.Instance` | singleton          | selects terminal redaction                   |
-|  [14]   | `NullRedactorProvider.Instance`                      | provider singleton | DI-free pass-through provider                |
+- `SetHmacRedactor`: both rows delegate to `SetRedactor<HmacRedactor>` and validate the key at start, so malformed key material fails boot rather than the first redaction.
 
-[ENTRYPOINT_SCOPE]: HMAC options
-- rail: redaction
-- call shape: `HmacRedactorOptions` property
+[ENTRYPOINT_SCOPE]: `Redactor` redaction, sizing, and `StringBuilder` egress
 
-| [INDEX] | [SURFACE]                   | [CAPABILITY]                               |
-| :-----: | :-------------------------- | :----------------------------------------- |
-|  [01]   | `HmacRedactorOptions.KeyId` | optional key-version discriminator integer |
-|  [02]   | `HmacRedactorOptions.Key`   | base64 HMAC key material (44-char minimum) |
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :---------------------------------- |
+|  [01]   | `Redact(ReadOnlySpan<char>, Span<char>) -> int`                              | abstract | the write every redactor supplies   |
+|  [02]   | `GetRedactedLength(ReadOnlySpan<char>) -> int`                               | abstract | the sizer every redactor supplies   |
+|  [03]   | `Redact(ReadOnlySpan<char>) -> string`                                       | instance | sizes, then materializes one string |
+|  [04]   | `Redact(string?) -> string`                                                  | virtual  | string arm a redactor specializes   |
+|  [05]   | `Redact(string?, Span<char>) -> int`                                         | instance | string source into a caller span    |
+|  [06]   | `Redact<T>(T, string?, IFormatProvider?) -> string`                          | instance | formats a typed value, then redacts |
+|  [07]   | `Redact<T>(T, Span<char>, string?, IFormatProvider?) -> int`                 | instance | typed value into a caller span      |
+|  [08]   | `TryRedact<T>(T, Span<char>, out int, ReadOnlySpan<char>, IFormatProvider?)` | instance | non-throwing sized write            |
+|  [09]   | `GetRedactedLength(string?) -> int`                                          | instance | string-source sizer                 |
+|  [10]   | `AppendRedacted(Redactor, ReadOnlySpan<char>) -> StringBuilder`              | static   | appends off a rented buffer         |
+|  [11]   | `AppendRedacted(Redactor, string?) -> StringBuilder`                         | static   | string arm of the same append       |
+
+- `Redact<T>`: an `ISpanFormattable` value formats into a 256-char stack buffer and redacts at its rendered value; a longer rendering falls to the string path.
+- `TryRedact<T>`: returns `false` with `charsWritten` at zero when the destination is shorter than the redacted length.
+
+[ENTRYPOINT_SCOPE]: classification keys and set composition
+
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]                    |
+| :-----: | :----------------------------------------------------------------- | :------- | :------------------------------ |
+|  [01]   | `DataClassification(string, string)`                               | ctor     | mints a taxonomy-scoped key     |
+|  [02]   | `DataClassificationSet(DataClassification)`                        | ctor     | one-key set                     |
+|  [03]   | `DataClassificationSet(IEnumerable<DataClassification>)`           | ctor     | sequence-built set              |
+|  [04]   | `DataClassificationSet(DataClassification[])`                      | ctor     | params-built set                |
+|  [05]   | `DataClassificationSet.FromDataClassification(DataClassification)` | factory  | lifts one key to a set          |
+|  [06]   | `implicit operator DataClassificationSet(DataClassification)`      | operator | lifts a bare key at a call site |
+|  [07]   | `DataClassificationSet.Union(DataClassificationSet)`               | instance | mints a composed set from two   |
+
+[ENTRYPOINT_SCOPE]: `HmacRedactorOptions` policy
+
+| [INDEX] | [SURFACE] | [SHAPE]  | [CAPABILITY]                                        |
+| :-----: | :-------- | :------- | :-------------------------------------------------- |
+|  [01]   | `KeyId`   | property | `int?` key version prefixed to every redacted value |
+|  [02]   | `Key`     | property | base64 key material, 44-character floor             |
+
+- `KeyId`: values hashed under different key ids never correlate, so a key rotation cuts correlation at the rotation.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[REDACTION_POLICY]:
-- namespace: `Microsoft.Extensions.Compliance.Redaction`
-- provider root: `IRedactorProvider` resolves the redactor for a `DataClassificationSet`
-- builder root: `IRedactionBuilder` maps each classification set to its redactor via `SetRedactor<T>`; `SetHmacRedactor` rides `RedactionExtensions`
-- class root: `DataClassificationAttribute` subclasses annotate classified members at definition time
-- redactor root: erasing, HMAC, and null redactors with a fail-closed fallback; `GetRedactedLength` sizes the buffer, then `Redact`/`TryRedact` writes the redacted span
+[TOPOLOGY]:
+- `IRedactorProvider` resolves one `Redactor` per set from a frozen map built at registration, so an egress read costs a hash lookup.
+- Lookup keys on whole-set equality: a set composed through `Union` resolves against a row registered for that same composite, never against its member classifications.
+- `DataClassification.None` binds `NullRedactor` unless a row claims it, and `ErasingRedactor` is the shipped fallback for every other unclaimed set.
+- Sizing precedes writing on every span path: `GetRedactedLength` bounds the destination, then `Redact` writes and returns the count.
+- Provider construction throws when the fallback type resolves to no registered instance, so a fallback row and its redactor registration land together.
+
+[STACKING]:
+- `Microsoft.Extensions.Telemetry`(`api-extensions-telemetry.md`): `EnableRedaction` binds this provider onto the `ILogger` seam, and `LoggerRedactionOptions.ApplyDiscriminator` folds the tag name into the value before redaction, so one raw value yields a distinct token per tag name.
+- `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `[LogProperties]` and `[TagProvider]` generated methods carry each expanded member's `DataClassificationSet` to the provider before a sink observes the tag.
+- `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): the rosters partition at the value boundary — URL-query redaction rides that package's own environment row, annotated values ride this provider.
+- `Rasm.AppHost` `Observability/telemetry#REDACTION_TAXONOMY`: `RedactionRegistration.Bind` folds each taxonomy row's `RedactorKind` onto `SetHmacRedactor` or `SetRedactor<ErasingRedactor>` and closes on `SetFallbackRedactor<ErasingRedactor>()`; `DataClassification.Marker` mints the compliance key.
+- `Rasm.Persistence` `Element/codec#SNAPSHOT_SPINE`: a classification lands as a value field on the snapshot catalog row and the `Element/identity` ceiling, so retention policy ranks the stamp without resolving a redactor.
 
 [LOCAL_ADMISSION]:
-- `DataClassification` drives redactor selection through its `RedactorKind` column; `RedactionRegistration.Bind` folds each row to `SetRedactor` or `SetHmacRedactor`.
-- `SetFallbackRedactor<ErasingRedactor>()` is the fail-closed default for unmapped classifications, so an unclassified value erases rather than leaks.
-- `DataClassificationTypeConverter` carries `EXTEXP0002`; a string-bound classification acknowledges it as a declared policy value, never a suppression at the call site, and `SetHmacRedactor` itself is ungated.
-- HMAC redaction pseudonymizes while preserving cross-event correlation; erase destroys the value; credential and secret material never persists in any signal.
-- `GetRedactor` is the provider read seam that resolves a `Redactor` from a `DataClassificationSet` at every exporter/bundle egress; `DataClassification` crosses to Persistence as VALUE fields on landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`), never a guard symbol, and never registers a second redaction builder.
+- `GetRedactor` is the read seam at every exporter and bundle egress; a classified value reaches a sink through the redactor it resolves.
+- `DataClassificationTypeConverter` binds under `EXTEXP0002` acknowledged as a declared policy value at the owning project row.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Compliance.Redaction`
-- Owns: redaction provider and redactor surfaces
-- Accept: declared redaction classes and HMAC key identity
-- Reject: ad hoc string masking, unredacted classified values at any exporter seam
+- Owns: classification-keyed redactor resolution and the span-write redaction contract
+- Accept: declared classification sets mapped at one registration fold, HMAC key identity bound from configuration
+- Reject: ad hoc string masking at a call site; a second redaction builder beside the composition-root fold

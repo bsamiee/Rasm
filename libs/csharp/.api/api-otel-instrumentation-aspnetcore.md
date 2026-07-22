@@ -1,54 +1,70 @@
 # [RASM_API_OTEL_INSTRUMENTATION_ASPNETCORE]
 
-`OpenTelemetry.Instrumentation.AspNetCore` owns the inbound server leg where AppHost terminates HTTP and gRPC: request spans with filter/enrich/exception shaping on the trace verb, and the server request-duration meter on the metric verb. Server-side gRPC rides this package — the gRPC client package covers only outbound channels.
+`OpenTelemetry.Instrumentation.AspNetCore` owns the inbound server leg of a hosting root: request spans carrying filter, enrichment, and exception policy on the trace verb, and the ASP.NET Core server meter family on the metric verb. Every policy an options delegate reaches is a public slot; the gRPC-attribute and query-redaction switches bind from configuration alone.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.AspNetCore`
-- package: `OpenTelemetry.Instrumentation.AspNetCore`
+- package: `OpenTelemetry.Instrumentation.AspNetCore` (Apache-2.0, OpenTelemetry Authors)
 - assembly: `OpenTelemetry.Instrumentation.AspNetCore`
 - namespace: `OpenTelemetry.Instrumentation.AspNetCore`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
-- asset: runtime library
 - rail: transport instrumentation
 
 ## [02]-[PUBLIC_TYPES]
 
-[OPTION_TYPES]: trace shaping
-- rail: transport instrumentation
+[PUBLIC_TYPE_SCOPE]: one policy carrier and the two builder-extension owners that admit it
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                 |
-| :-----: | :-------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `AspNetCoreTraceInstrumentationOptions` | trace options  | inbound filter, enrichment, protocol toggles |
-
-Options members: `Filter`, `EnrichWithHttpRequest`, `EnrichWithHttpResponse`, `EnrichWithException`, `RecordException`, `DisableUrlQueryRedaction`, and the protocol toggles `EnableGrpcAspNetCoreSupport`, `EnableAspNetCoreSignalRSupport`, `EnableRazorComponentsSupport`.
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------------------- | :------------ | :------------------------------------------------ |
+|  [01]   | `AspNetCoreTraceInstrumentationOptions`                    | class         | per-request filter enrichment and protocol policy |
+|  [02]   | `AspNetCoreInstrumentationTracerProviderBuilderExtensions` | class         | trace-verb admission over `TracerProviderBuilder` |
+|  [03]   | `AspNetCoreInstrumentationMeterProviderBuilderExtensions`  | class         | metric-verb admission over `MeterProviderBuilder` |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: admission
-- rail: transport instrumentation
+[ENTRYPOINT_SCOPE]: `AddAspNetCoreInstrumentation` — one admission verb overloaded by receiver and argument shape, each overload returning its receiver
 
-| [INDEX] | [SURFACE]                      | [KIND]           | [CAPABILITY]                                                                      |
-| :-----: | :----------------------------- | :--------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `AddAspNetCoreInstrumentation` | trace admission  | `TracerProviderBuilder`, optional `Action<AspNetCoreTraceInstrumentationOptions>` |
-|  [02]   | `AddAspNetCoreInstrumentation` | metric admission | `MeterProviderBuilder`; subscribes the built-in server meters                     |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `(TracerProviderBuilder)`                                                        | static  | default-name admission at package policy |
+|  [02]   | `(TracerProviderBuilder, Action<AspNetCoreTraceInstrumentationOptions>)`         | static  | policy delegate on the default name      |
+|  [03]   | `(TracerProviderBuilder, string, Action<AspNetCoreTraceInstrumentationOptions>)` | static  | policy scoped to one registration name   |
+|  [04]   | `(MeterProviderBuilder)`                                                         | static  | subscribes the ASP.NET Core meter family |
+
+[ENTRYPOINT_SCOPE]: `AspNetCoreTraceInstrumentationOptions` policy slots the trace delegate writes
+
+| [INDEX] | [SURFACE]                                                   | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `Filter -> Func<HttpContext, bool>?`                        | property | per-request collection gate            |
+|  [02]   | `EnrichWithHttpRequest -> Action<Activity, HttpRequest>?`   | property | request-side span enrichment           |
+|  [03]   | `EnrichWithHttpResponse -> Action<Activity, HttpResponse>?` | property | response-side span enrichment          |
+|  [04]   | `EnrichWithException -> Action<Activity, Exception>?`       | property | exception-side span enrichment         |
+|  [05]   | `RecordException -> bool`                                   | property | projects exceptions as `ActivityEvent` |
+|  [06]   | `EnableAspNetCoreSignalRSupport -> bool`                    | property | SignalR hub activity recording         |
+|  [07]   | `EnableRazorComponentsSupport -> bool`                      | property | Razor component activity recording     |
+
+- `Filter`: a `false` return or a thrown delegate drops the request; SignalR and Razor recording start on, exception recording off.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SERVER_TOPOLOGY]:
-- trace root: `AddAspNetCoreInstrumentation` with `EnableGrpcAspNetCoreSupport = true` inside the AppHost `WithTracing` delegate — one registration covers HTTP and gRPC server spans
-- metric root: the built-in `Microsoft.AspNetCore.Hosting` request-duration meter, admitted by name or through the metric verb
+[TOPOLOGY]:
+- Trace admission subscribes the ASP.NET Core hosting diagnostic events and resolves options per registration name, so a named registration carries its own filter and enrich policy.
+- Metric admission subscribes the whole ASP.NET Core meter family and mints no instrument, so a hand-added `AddMeter` row under-subscribes what the verb already covers.
+- gRPC RPC attributes and URL-query redaction bind from `IConfiguration` at options construction through `OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_ENABLE_GRPC_INSTRUMENTATION` and `OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION`; the options delegate reaches neither.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): inbound extraction joins the W3C composite propagator the root registered; the request span is the parent every downstream client span nests under.
-- `Grpc.AspNetCore`(`api-grpc-aspnetcore.md`): measured-execution service endpoints gain server spans through this package, never a service-side interceptor shim.
-- `OpenTelemetry.Instrumentation.GrpcNetClient`(`api-otel-instrumentation-grpcnetclient.md`): the outbound counterpart — the two packages partition gRPC by direction.
+- `OpenTelemetry`(`api-opentelemetry.md`): inbound extraction reads the composite W3C propagator `Sdk.SetDefaultTextMapPropagator` seats at the root, and the request activity parents every span the trace opens downstream.
+- `OpenTelemetry.Instrumentation.Http`(`api-otel-instrumentation-http.md`): outbound client spans nest inside the request span, so one server-root sampler verdict decides the whole fan-out and neither leg doubles the other.
+- `Grpc.AspNetCore`(`api-grpc-aspnetcore.md`): server endpoints gain spans through this subscription, never a service-side interceptor shim.
+- `OpenTelemetry.Instrumentation.GrpcNetClient`(`api-otel-instrumentation-grpcnetclient.md`): the outbound counterpart partitions gRPC by direction, its `SuppressDownstreamInstrumentation` collapsing the client HTTP leg alone.
+- `SignalGovernance.Govern`: AppHost's service-root fold composes the trace verb inside its `WithTracing` delegate beside the baggage and profile processors, one registration covering HTTP and gRPC server spans.
 
 [LOCAL_ADMISSION]:
-- Admitted only in AppHost service roots that terminate HTTP/gRPC; plugin processes host no server surface and never load it.
-- `Filter` rejects health-probe and scrape-shaped paths at span-creation time, ahead of the sampler.
+- Service roots terminating HTTP or gRPC admit the package; a plugin or desktop profile hosts no server surface and never references it.
+- `Filter` rejects health-probe and scrape-shaped paths at span creation, ahead of the sampler.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Instrumentation.AspNetCore`
-- Owns: inbound request spans and server request metrics at the service root
-- Accept: one trace + one metric registration per hosting root
-- Reject: hand-written server-span middleware; loading in any process without a server surface
+- Owns: inbound request spans and the ASP.NET Core server meter family at the service root
+- Accept: one trace registration and one metric registration per hosting root, policy carried on options
+- Reject: hand-written server-span middleware; a `DiagnosticListener` subscription beside the verb

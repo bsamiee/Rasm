@@ -1,23 +1,78 @@
 # [RASM_API_JSON_SCHEMA]
 
-`System.Text.Json.Schema` BCL inbox — no package pin, shared-framework surface (`System.Text.Json.dll`, net9+). The JSON-schema exporter binds `SuiteContracts.Schema`, the SDK argument-schema digest, and solver operation self-description. The exporter, its options, and the transform context derive a schema from the same `JsonSerializerOptions` the STJ binder reads, never a hand-mirrored shape. JSON Patch and `JsonPatchError` remain a distinct package concern.
+`System.Text.Json.Schema` projects a JSON Schema document out of a live serializer contract: one `JsonSerializerOptions` instance decides naming policy, converter selection, resolver metadata, number handling, and nullability posture for the emitted schema exactly as it does for the wire, so a schema and the bytes it describes cannot drift apart. Export reads the contract and writes no value, returning a mutable `JsonNode` the caller post-annotates in hand.
 
-## [01]-[SCHEMA_EXPORTER]
+## [01]-[PACKAGE_SURFACE]
 
-`JsonSchemaExporter.GetJsonSchemaAsNode` is the whole export surface — two extension overloads discriminating on whether the caller holds resolved options or a pre-resolved contract. Both return a mutable `JsonNode` (Draft-2020-12 shape), so a consumer post-annotates the tree in-hand.
+[PACKAGE_SURFACE]: `System.Text.Json`
+- package: `System.Text.Json` (MIT, Microsoft)
+- assembly: `System.Text.Json.dll` (shared framework)
+- namespace: `System.Text.Json.Schema`
+- rail: contract projection
 
-- `JsonSchemaExporter.GetJsonSchemaAsNode(this JsonSerializerOptions options, Type type, JsonSchemaExporterOptions? exporterOptions = null) -> JsonNode` derives the schema of `type` under the merged wire options — the `SuiteContracts.Schema` path, so a descriptor's `CommandArguments` schema binds the exact naming policy, converters, and nullable posture the runtime serializer uses. Callable as an extension (`wire.GetJsonSchemaAsNode(record)`) or statically (`JsonSchemaExporter.GetJsonSchemaAsNode(wire, record,...)`).
-- `JsonSchemaExporter.GetJsonSchemaAsNode(this JsonTypeInfo typeInfo, JsonSchemaExporterOptions? exporterOptions = null) -> JsonNode` is the `JsonTypeInfo`-keyed overload — the source-generated / pre-resolved contract path, skipping the `Type`→`JsonTypeInfo` resolution when the codegen already holds the metadata.
+## [02]-[PUBLIC_TYPES]
 
-## [02]-[EXPORTER_OPTIONS]
+[PUBLIC_TYPE_SCOPE]: exporter, its knob owner, and the per-node transform payload
 
-`JsonSchemaExporterOptions` is the sealed init-only knob record; `JsonSchemaExporterContext` is the readonly-struct transform payload. The two knobs are the whole tuning surface — nullable posture and a node post-transform; everything else (naming, converters, number handling) rides the `JsonSerializerOptions` already, never a duplicate knob here.
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                  |
+| :-----: | :-------------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `JsonSchemaExporter`        | static class    | extension host for both export overloads      |
+|  [02]   | `JsonSchemaExporterOptions` | sealed class    | init-only nullability and transform knobs     |
+|  [03]   | `JsonSchemaExporterContext` | readonly struct | per-node addressing payload a transform reads |
 
-- `JsonSchemaExporterOptions.Default -> JsonSchemaExporterOptions` (static) is the zero-knob instance a caller passes when only the wire options matter.
-- `JsonSchemaExporterOptions.TreatNullObliviousAsNonNullable { get; init; }` (`bool`) — `true` treats a null-oblivious reference type as non-nullable, matching the `RespectNullableAnnotations = true` wire posture the `SuiteContracts.Wire` options carry, so a nullable-oblivious `record` field emits without a spurious `null` union.
-- `JsonSchemaExporterOptions.TransformSchemaNode { get; init; }` (`Func<JsonSchemaExporterContext, JsonNode, JsonNode>?`) — the per-node post-transform invoked bottom-up for every generated node; return the node (mutated) or a replacement. The codegen threads it to inject `description`/effect/cost annotations keyed off the reflected member.
-- `JsonSchemaExporterContext` (readonly struct) is the transform's addressing context: `ReadOnlySpan<string> Path { get; }` (the property path from the root, the node's location), `JsonTypeInfo TypeInfo { get; }` (the contract of the node's declared type), `JsonPropertyInfo? PropertyInfo { get; }` (the owning property when the node is a member, else `null`), and `JsonTypeInfo? BaseTypeInfo { get; }` (the polymorphic base when the node is a derived-type branch). A transform reads `PropertyInfo`/custom attributes to decide an annotation and `Path` to gate it to a subtree — the reason a transform can annotate `cost` on one argument and not another.
+## [03]-[ENTRYPOINTS]
 
-## [03]-[STACK]
+[ENTRYPOINT_SCOPE]: `JsonSchemaExporter` export — both overloads are extensions returning a mutable `JsonNode`, and a `null` exporter-options argument binds `JsonSchemaExporterOptions.Default`
 
-`SuiteContracts.Schema(JsonSerializerOptions wire, Type record)` composes `[01]` with `[02]`'s `TreatNullObliviousAsNonNullable = true`, deriving the schema from the same `wire` options (camelCase policy, combined `JsonTypeInfoResolver`, Thinktecture + NodaTime converters) the runtime binds — so the exported schema and the live wire are one contract, never two shapes drifting. The SDK codegen digests the exported `JsonNode` through the kernel `ContentHash.Of` (`api-hashing`) so the C#/TS/Python emitted methods bind one schema identity, `TransformSchemaNode` folds `Agent/capability` effect/cost annotations onto the argument nodes via `JsonSchemaExporterContext.PropertyInfo`/`Path`, and `ContractGuard.AdditiveOnly` gates schema evolution. The config structured-edit story pairs schema export (this inbox) with RFC-6902 patch application over the live `JsonObject` — the patch-apply rail and its `JsonPatchError` fold into `ConfigError` are owned by `api-jsonpatch.md`; this catalog owns only the schema projection, so the two halves stay one concern each with no split-brain.
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                    |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :------------------------------ |
+|  [01]   | `GetJsonSchemaAsNode(JsonSerializerOptions, Type, JsonSchemaExporterOptions)` | static  | resolves the type, then exports |
+|  [02]   | `GetJsonSchemaAsNode(JsonTypeInfo, JsonSchemaExporterOptions)`                | static  | exports a pre-resolved contract |
+
+[ENTRYPOINT_SCOPE]: `JsonSchemaExporterOptions` knobs — `Default` is the static zero-knob instance, the two settable members init-only
+
+| [INDEX] | [SURFACE]                                                                    | [SHAPE]  | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------------------------------- | :------- | :------------------------------------------ |
+|  [01]   | `Default -> JsonSchemaExporterOptions`                                       | property | zero-knob instance every `null` binds       |
+|  [02]   | `TreatNullObliviousAsNonNullable -> bool`                                    | property | null-oblivious reference reads non-nullable |
+|  [03]   | `TransformSchemaNode -> Func<JsonSchemaExporterContext, JsonNode, JsonNode>` | property | per-node post-transform seam                |
+
+[ENTRYPOINT_SCOPE]: `JsonSchemaExporterContext` addressing reads a transform folds over
+
+| [INDEX] | [SURFACE]                          | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Path -> ReadOnlySpan<string>`     | property | node location as pointer segments    |
+|  [02]   | `TypeInfo -> JsonTypeInfo`         | property | contract of the node's declared type |
+|  [03]   | `PropertyInfo -> JsonPropertyInfo` | property | owning property, `null` off a member |
+|  [04]   | `BaseTypeInfo -> JsonTypeInfo`     | property | polymorphic base at a derived branch |
+
+- `JsonSchemaExporter.GetJsonSchemaAsNode`: both overloads call `JsonSerializerOptions.MakeReadOnly()` before exporting, so export freezes the options instance against a later converter or resolver mutation.
+
+## [04]-[IMPLEMENTATION_LAW]
+
+[TOPOLOGY]:
+- `ReferenceHandler.Preserve` on the options rejects export with `NotSupportedException`; every other reference posture exports.
+- A repeated `(JsonTypeInfo, JsonPropertyInfo)` pair emits `{"$ref": "<json-pointer>"}` addressing its first occurrence inside the same document, so a recursive graph terminates and no subtree extracts standalone.
+- Nesting past `JsonSerializerOptions.MaxDepth` throws `InvalidOperationException`, bounding export at the ceiling the serializer already binds.
+- A converter-backed contract carrying no built-in schema mapping exports the unconstrained `true` node, so `TransformSchemaNode` is the sole route to a described shape for a custom-converter type.
+- `TransformSchemaNode` runs bottom-up during node materialization — every child completes before its parent — and its return value replaces the node, a different JSON kind included.
+- `TreatNullObliviousAsNonNullable` decides only where neither the property's get/set nullability nor the type's own nullability settles the node; a value type and an annotated reference ignore it.
+
+[STACKING]:
+- `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`): a generated `ThinktectureJsonConverter` describes no schema, so its owner exports as `true` until a `TransformSchemaNode` arm keyed on `JsonSchemaExporterContext.TypeInfo` writes the key or string form the converter emits.
+- `NodaTime.Serialization.SystemTextJson`(`.api/api-nodatime-stj.md`): `ConfigureForNodaTime` registers the pattern converters onto the same options export reads, so an `Instant` node takes one transform arm rather than a second date policy.
+- `System.IO.Hashing`(`.api/api-hashing.md`): the exported `JsonNode` serializes to the UTF-8 payload `ContentHash.Of` digests, minting the one schema identity every generated SDK binds.
+- `Microsoft.AspNetCore.JsonPatch.SystemTextJson`(`.api/api-jsonpatch.md`): export describes a config record and RFC 6902 application mutates its live `JsonObject`, splitting contract projection from structured edit across the two surfaces.
+- `Rasm.AppHost` `Runtime/ports`: `SuiteContracts.Schema` composes the suite wire options with `TreatNullObliviousAsNonNullable = true` and owns every call into export.
+- Richest composition: `JsonTypeInfoResolver.WithAddedModifier` seeds `JsonPropertyInfo.AttributeProvider` onto the resolved contract, `TransformSchemaNode` reads it back through `JsonSchemaExporterContext.PropertyInfo` and gates each annotation to a subtree by `Path`, so effect and cost metadata rides the resolver chain instead of a post-walk over the emitted tree.
+
+[LOCAL_ADMISSION]:
+- Export binds the options instance the runtime binder already holds, so one configuration serves the schema and the wire together.
+- A custom-converter owner declares its exported shape through a `TransformSchemaNode` arm keyed on its contract.
+- `SuiteContracts.Schema` is the repo's one call site; a descriptor, argument record, or config record reaches export through it.
+
+[RAIL_LAW]:
+- Package: `System.Text.Json`
+- Owns: JSON Schema projection of a live serializer contract — resolver-driven type mapping, nullability posture, recursion pointers, and the per-node transform seam
+- Accept: options-keyed and `JsonTypeInfo`-keyed export, `TreatNullObliviousAsNonNullable`, `TransformSchemaNode` annotation arms, resolver-modifier metadata threading
+- Reject: a hand-mirrored schema literal, a reflection walk over the CLR type, a second serializer configuration built for export

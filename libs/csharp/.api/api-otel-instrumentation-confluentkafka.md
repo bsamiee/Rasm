@@ -1,6 +1,6 @@
 # [RASM_API_OTEL_INSTRUMENTATION_CONFLUENTKAFKA]
 
-`OpenTelemetry.Instrumentation.ConfluentKafka` is the messaging-semconv owner for the Kafka wire: instrumented producer/consumer builders emit publish and receive spans with W3C context riding Kafka `Headers`, and the client meters carry operation-duration histograms and sent/consumed counters. Its `ActivitySource` and `Meter` share one name — `OpenTelemetry.Instrumentation.ConfluentKafka` — admitted at the root like every foreign source.
+`OpenTelemetry.Instrumentation.ConfluentKafka` owns messaging-semconv emission on the Kafka wire: instrumented builders subclass the Confluent builders so every client they mint spans and meters its own traffic, publish injects W3C context into Kafka `Headers`, and consume extracts it back. One name — `OpenTelemetry.Instrumentation.ConfluentKafka` — serves both its `ActivitySource` and its `Meter`.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,58 +8,73 @@
 - package: `OpenTelemetry.Instrumentation.ConfluentKafka`
 - assembly: `OpenTelemetry.Instrumentation.ConfluentKafka`
 - namespace: `Confluent.Kafka`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`
-- asset: runtime library
 - rail: transport instrumentation
 
 ## [02]-[PUBLIC_TYPES]
 
-[BUILDER_TYPES]: instrumented client builders (namespace `Confluent.Kafka`)
-- rail: transport instrumentation
+[PUBLIC_TYPE_SCOPE]: instrumented clients, their telemetry options, and the admission holders
 
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]   | [CAPABILITY]                                     |
-| :-----: | :---------------------------------------------------------- | :--------------- | :----------------------------------------------- |
-|  [01]   | `InstrumentedProducerBuilder<TKey,TValue>`                  | producer builder | span+meter-emitting `Build()`                    |
-|  [02]   | `InstrumentedConsumerBuilder<TKey,TValue>`                  | consumer builder | span+meter-emitting `Build()`                    |
-|  [03]   | `ConfluentKafkaInstrumentedProducerBuilderOptions`          | producer options | `EnableTraces` / `EnableMetrics`                 |
-|  [04]   | `ConfluentKafkaInstrumentedConsumerBuilderOptions`          | consumer options | `EnableTraces` / `EnableMetrics`                 |
-|  [05]   | `OpenTelemetryConsumeResultExtensions`                      | consume seam     | context extraction + processing-span wrapper     |
-|  [06]   | `OpenTelemetryConsumeAndProcessMessageHandler<TKey,TValue>` | handler delegate | typed processing callback under the receive span |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :---------------------------------------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `InstrumentedProducerBuilder<TKey,TValue>`                  | class         | `ProducerBuilder` subclass; span+meter `IProducer` mint |
+|  [02]   | `InstrumentedConsumerBuilder<TKey,TValue>`                  | class         | `ConsumerBuilder` subclass; span+meter `IConsumer` mint |
+|  [03]   | `ConfluentKafkaInstrumentedProducerBuilderOptions`          | class         | `EnableTraces`/`EnableMetrics` for a code-built lift    |
+|  [04]   | `ConfluentKafkaInstrumentedConsumerBuilderOptions`          | class         | `EnableTraces`/`EnableMetrics` for a code-built lift    |
+|  [05]   | `OpenTelemetryConsumeAndProcessMessageHandler<TKey,TValue>` | delegate      | `(ConsumeResult, Activity?, CancellationToken)` async   |
+|  [06]   | `OpenTelemetryProducerBuilderExtensions`                    | class         | producer lift off a live `ProducerBuilder`              |
+|  [07]   | `OpenTelemetryConsumerBuilderExtensions`                    | class         | consumer lift off a live `ConsumerBuilder`              |
+|  [08]   | `OpenTelemetryConsumeResultExtensions`                      | class         | header context join and the process-span wrapper        |
+|  [09]   | `TracerProviderBuilderExtensions`                           | class         | Kafka span admission on the tracer provider             |
+|  [10]   | `MeterProviderBuilderExtensions`                            | class         | Kafka meter admission on the meter provider             |
 
-`OpenTelemetryProducerBuilderExtensions.AsInstrumentedProducerBuilder<TKey,TValue>()` and `OpenTelemetryConsumerBuilderExtensions.AsInstrumentedConsumerBuilder<TKey,TValue>()` lift an existing `ProducerBuilder`/`ConsumerBuilder`, each with an options overload; outside DI both `Enable*` flags default off, so standalone lifts state them explicitly.
+[METER_ROSTER]: instruments on the shared meter name, every point tagged `messaging.system`, `messaging.operation.name`, `messaging.operation.type`, and the destination, partition, and consumer-group keys the operation resolves
 
-`OpenTelemetryConsumeResultExtensions` supplies `TryExtractPropagationContext(ConsumeResult<TKey,TValue>, out PropagationContext)` for manual join and `ConsumeAndProcessMessageAsync(IConsumer<TKey,TValue>, OpenTelemetryConsumeAndProcessMessageHandler<TKey,TValue>[, CancellationToken])` for the wrapped receive-process span pair.
+| [INDEX] | [INSTRUMENT]                          | [UNIT]      | [CAPABILITY]                                       |
+| :-----: | :------------------------------------ | :---------- | :------------------------------------------------- |
+|  [01]   | `messaging.client.operation.duration` | `s`         | histogram under an `InstrumentAdvice<double>` hint |
+|  [02]   | `messaging.client.sent.messages`      | `{message}` | producer send attempts                             |
+|  [03]   | `messaging.client.consumed.messages`  | `{message}` | messages delivered to the application              |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: admission and lift
-- rail: transport instrumentation
+[ENTRYPOINT_SCOPE]: client construction, root admission, and the consume seam; every verb closes on the `TKey,TValue` closure
 
-| [INDEX] | [SURFACE]                                      | [KIND]                   | [CAPABILITY]                                               |
-| :-----: | :--------------------------------------------- | :----------------------- | :--------------------------------------------------------- |
-|  [01]   | `AddKafkaProducerInstrumentation<TKey,TValue>` | trace + metric admission | bare, named, and builder-bound overloads on both providers |
-|  [02]   | `AddKafkaConsumerInstrumentation<TKey,TValue>` | trace + metric admission | same overload family on the consumer side                  |
-|  [03]   | `AsInstrumentedProducerBuilder`                | builder lift             | wraps an existing `ProducerBuilder`, optional options      |
-|  [04]   | `AsInstrumentedConsumerBuilder`                | builder lift             | wraps an existing `ConsumerBuilder`, optional options      |
-|  [05]   | `ConsumeAndProcessMessageAsync`                | consume wrapper          | receive + process spans over one typed handler             |
-|  [06]   | `TryExtractPropagationContext`                 | manual join              | W3C context off `ConsumeResult` headers                    |
+| [INDEX] | [SURFACE]                                                                                | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :--------------------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `InstrumentedProducerBuilder(IEnumerable<KeyValuePair<string,string>>)`                  | ctor     | trim-safe mint from config rows  |
+|  [02]   | `InstrumentedConsumerBuilder(IEnumerable<KeyValuePair<string,string>>)`                  | ctor     | trim-safe mint from config rows  |
+|  [03]   | `InstrumentedProducerBuilder.Build() -> IProducer`                                       | instance | instrumented producer mint       |
+|  [04]   | `InstrumentedConsumerBuilder.Build() -> IConsumer`                                       | instance | instrumented consumer mint       |
+|  [05]   | `AsInstrumentedProducerBuilder(ProducerBuilder) -> InstrumentedProducerBuilder`          | static   | reflection lift, live builder    |
+|  [06]   | `AsInstrumentedConsumerBuilder(ConsumerBuilder) -> InstrumentedConsumerBuilder`          | static   | reflection lift, live builder    |
+|  [07]   | `AddKafkaProducerInstrumentation<TKey,TValue>`                                           | static   | bare, named, and bound overloads |
+|  [08]   | `AddKafkaConsumerInstrumentation<TKey,TValue>`                                           | static   | consumer-side overload family    |
+|  [09]   | `ConsumeAndProcessMessageAsync(IConsumer, OpenTelemetryConsumeAndProcessMessageHandler)` | static   | process span over one handler    |
+|  [10]   | `TryExtractPropagationContext(ConsumeResult, out PropagationContext) -> bool`            | static   | W3C context off message headers  |
+
+- `ConsumeAndProcessMessageAsync`: binds only a consumer `InstrumentedConsumerBuilder.Build()` minted; any other instance faults at the call.
+- `AddKafkaProducerInstrumentation`: builder-less overloads resolve the instrumented builder from DI, keyed when the name argument rides, and set the matching flag on it.
+- `TryExtractPropagationContext`: a header-free message returns `true` on the default context, so callers discriminate on the extracted `ActivityContext`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[KAFKA_TOPOLOGY]:
-- build root: the wire owner constructs clients through the instrumented builders; the root registers `AddKafkaProducerInstrumentation`/`AddKafkaConsumerInstrumentation` per key/value closure on both providers
-- context root: publish injects W3C context into Kafka `Headers`; consume joins through `ConsumeAndProcessMessageAsync` or the manual `TryExtractPropagationContext` seam
+[TOPOLOGY]:
+- build root: `InstrumentedProducerBuilder` and `InstrumentedConsumerBuilder` are the client mints on this wire, so admission binds the builder instance the root registered or resolves.
+- context root: publish injects span context and current `Baggage` into Kafka `Headers` through `Propagators.DefaultTextMapPropagator`; consume extracts through the same propagator and hangs the producer context on the process span as a link, so each leg keeps its own trace id.
+- flag root: `EnableTraces` and `EnableMetrics` ride the two options classes; a root-registered admission verb sets its own flag on the builder it binds, and a code-built lift carries the options record.
 
 [STACKING]:
-- `Confluent.Kafka`: instrumented builders wrap the client library's own builders — producer/consumer configuration stays Confluent-owned rows, and instrumentation adds no config vocabulary.
-- `OpenTelemetry`(`api-opentelemetry.md`): source and meter admit by the shared instrumentation name; exemplars link Kafka operation histograms to the publishing span under the root's trace-based filter.
-- librdkafka `StatisticsHandler` JSON is the broker-ops lane, disjoint from these app-side signals; the two never merge into one instrument roster.
+- `OpenTelemetry`(`api-opentelemetry.md`): each admission verb folds `AddSource`/`AddMeter` on the shared name and registers the instrumentation object; both legs read `Propagators.DefaultTextMapPropagator`, so the root's propagator composite fixes the header format.
+- `System.Diagnostics.DiagnosticSource`(`api-diagnostics-activity.md`): the process span carries the extracted producer context as an `ActivityLink`, and a handler fault stamps `Activity.SetStatus(ActivityStatusCode.Error, …)` with an `error.type` tag before the throw resumes.
+- `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the duration histogram ships its own `InstrumentAdvice<double>` boundary hint, so a provider `AddView` row re-buckets only where a backend rejects the advised shape.
+- within-lib: one closure pair composes ctor -> `Build()` -> `ConsumeAndProcessMessageAsync`, the handler's `Activity` parameter carrying the process span the caller enriches and the `ConsumeResult` return driving the commit; a loop owning its own span joins through `TryExtractPropagationContext`.
 
 [LOCAL_ADMISSION]:
-- Composition-root-only, at the AppHost wire root that owns Kafka clients; a generic-closure pair registers once per message shape.
-- Standalone builder lifts spell `EnableTraces`/`EnableMetrics` explicitly — the off-by-default flags make an unconfigured lift a silent no-op.
+- Composition-root-only, at the AppHost wire root that owns Kafka clients; one closure pair registers per message shape across both providers.
+- librdkafka `StatisticsHandler` JSON stays the broker-ops lane on the Confluent config rows; these client instruments carry the app-side leg on the OTel providers.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Instrumentation.ConfluentKafka`
-- Owns: Kafka messaging spans, client meters, and header-borne context propagation
-- Accept: instrumented-builder construction with root-registered admission per closure
-- Reject: hand-rolled messaging-semconv spans over raw Confluent builders; header injection code beside the instrumented publish path
+- Owns: Kafka messaging spans, the client instrument roster, and header-borne context on both legs
+- Accept: instrumented-builder construction with per-closure admission at the root
+- Reject: hand-rolled messaging-semconv spans over plain Confluent builders

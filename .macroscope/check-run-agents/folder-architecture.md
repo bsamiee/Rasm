@@ -9,7 +9,7 @@ include:
 
 # [FOLDER_ARCHITECTURE]
 
-Folder-topology richness is this pass's one question: whether the sub-domain tree grows into real domain concepts or accretes thin, generically-named, or eponymous folders. Judge against `libs/.planning/architecture.md` (no weak-or-mini sibling, source-mirroring sub-domains, planning lifecycle) and `libs/.planning/README.md` (codemap law, doc-set, gap-fuelling `IDEAS`/`TASKLOG`), reading them before any finding. This owns the qualitative structure judgment; the mechanical checks — router-row and codemap 1:1, branch casing, the richness floor and eponymous-pair rows — belong to the correctness planning-corpus check and are not repeated here.
+Folder-topology richness is this pass's one question: whether the sub-domain tree grows into real domain concepts or accretes thin, generically-named, or eponymous folders. Judge against `libs/.planning/ARCHITECTURE.md` (no weak-or-mini sibling, source-mirroring sub-domains, planning lifecycle) and `libs/.planning/README.md` (codemap law, doc-set, gap-fuelling `IDEAS`/`TASKLOG`), reading them before any finding. This owns the qualitative structure judgment; the mechanical checks — router-row and codemap 1:1, branch casing, the richness floor and eponymous-pair rows — belong to the correctness planning-corpus check and are not repeated here.
 
 Hunt these classes, each finding naming the folder, the structural defect, and the stronger shape:
 - Eponymous restatement: a sub-domain folder whose single page only restates the folder name and adds no domain structure the folder concept implies — a thin concern that folds into the bigger concept it belongs to rather than standing as its own sub-tree. A legitimately atomic sub-domain is not a finding; the defect is thinness against an implied family.
@@ -19,4 +19,4 @@ Hunt these classes, each finding naming the folder, the structural defect, and t
 - Lifecycle breach: a `.planning/` scaffold nested inside a real source sub-folder, more than one `.planning/` per package, or design pages living outside the single package-root `.planning/`.
 - Richness deficit: a sub-domain carrying one shallow page where the domain concept implies a family of owners — the folder shaped for the instance in hand rather than the domain it names.
 
-Settled structure outranks intuition: a folder shape `architecture.md` or the folder `ARCHITECTURE.md` rules is never a finding. A clean cross-folder pass states that verdict plainly.
+Settled structure outranks intuition: a folder shape `ARCHITECTURE.md` or the folder `ARCHITECTURE.md` rules is never a finding. A clean cross-folder pass states that verdict plainly.

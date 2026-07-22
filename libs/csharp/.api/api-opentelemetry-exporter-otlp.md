@@ -1,6 +1,6 @@
 # [RASM_API_OPENTELEMETRY_EXPORTER_OTLP]
 
-`OpenTelemetry.Exporter.OpenTelemetryProtocol` is the estate's sole telemetry egress: one `UseOtlpExporter()` call claims traces, metrics, and logs together, pushing OTLP over `HttpProtobuf` to the collector gateway. Per-signal `AddOtlpExporter` overloads exist for the hostless plugin path where no cross-cutting builder is available; mixing the two registration styles in one root throws at build.
+`OpenTelemetry.Exporter.OpenTelemetryProtocol` pushes every signal to the collector gateway as OTLP frames: one `UseOtlpExporter()` claims traces, metrics, and logs on a hosted root, and per-signal `AddOtlpExporter` seats the same egress on hostless plugin builders.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,64 +8,56 @@
 - package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
 - assembly: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
 - namespace: `OpenTelemetry`, `OpenTelemetry.Exporter`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`
-- asset: runtime library
 - rail: telemetry egress
 
 ## [02]-[PUBLIC_TYPES]
 
-[EXPORTER_TYPES]: exporters, options, and the cross-cutting builder
-- rail: telemetry egress
+[PUBLIC_TYPE_SCOPE]: egress policy, wire vocabularies, and the three signal exporters
 
-| [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]      | [CAPABILITY]                                             |
-| :-----: | :----------------------------------- | :------------------ | :------------------------------------------------------- |
-|  [01]   | `OtlpTraceExporter`                  | span exporter       | OTLP trace frames                                        |
-|  [02]   | `OtlpMetricExporter`                 | metric exporter     | OTLP metric frames                                       |
-|  [03]   | `OtlpLogExporter`                    | log exporter        | OTLP log frames                                          |
-|  [04]   | `OtlpExporterOptions`                | egress options      | `Endpoint`, `Protocol`, `Headers`, `TimeoutMilliseconds` |
-|  [05]   | `OtlpExportProtocol`                 | protocol vocabulary | `Grpc` / `HttpProtobuf`                                  |
-|  [06]   | `OtlpExportCompression`              | compression axis    | payload compression selection                            |
-|  [07]   | `OtlpExporterBuilder`                | composite builder   | per-signal shaping inside `UseOtlpExporter`              |
-|  [08]   | `OtlpTlsOptions` / `OtlpMtlsOptions` | transport trust     | TLS and mutual-TLS material                              |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :---------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `OtlpExporterOptions`   | class         | one egress policy record per registration |
+|  [02]   | `OtlpExportProtocol`    | enum          | `Grpc` / `HttpProtobuf`                   |
+|  [03]   | `OtlpExportCompression` | enum          | `None` / `GZip`                           |
+|  [04]   | `OtlpTraceExporter`     | class         | `BaseExporter<Activity>` span frames      |
+|  [05]   | `OtlpMetricExporter`    | class         | `BaseExporter<Metric>` metric frames      |
+|  [06]   | `OtlpLogExporter`       | class         | `BaseExporter<LogRecord>` log frames      |
 
-`OtlpExporterOptions` carries `ExportProcessorType`, `BatchExportProcessorOptions`, `Compression`, `UserAgentProductIdentifier`, and `HttpClientFactory` beside the endpoint quartet; `IOtlpExporterOptions` is the read contract the composite builder shapes per signal.
+[OtlpExporterOptions]: `Endpoint` `Protocol` `Headers` `TimeoutMilliseconds` `Compression` `ExportProcessorType` `BatchExportProcessorOptions` `HttpClientFactory` `UserAgentProductIdentifier`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration
-- rail: telemetry egress
+[ENTRYPOINT_SCOPE]: egress registration; every `AddOtlpExporter` family carries a `string? name` prefix overload, and the metric and log families a second leg carrying `MetricReaderOptions` or `LogRecordExportProcessorOptions`.
 
-| [INDEX] | [SURFACE]                                      | [KIND]              | [CAPABILITY]                                        |
-| :-----: | :--------------------------------------------- | :------------------ | :-------------------------------------------------- |
-|  [01]   | `UseOtlpExporter()`                            | cross-cutting claim | all three signals on `IOpenTelemetryBuilder`, once  |
-|  [02]   | `UseOtlpExporter(OtlpExportProtocol, Uri)`     | configured claim    | protocol + endpoint inline                          |
-|  [03]   | `UseOtlpExporter(Action<OtlpExporterBuilder>)` | shaped claim        | per-signal option shaping                           |
-|  [04]   | `UseOtlpExporter(IConfiguration)`              | bound claim         | endpoint/headers/protocol from configuration        |
-|  [05]   | `AddOtlpExporter` (trace)                      | per-signal          | `TracerProviderBuilder`, optional named options     |
-|  [06]   | `AddOtlpExporter` (metric)                     | per-signal          | `MeterProviderBuilder`, optional reader-options leg |
-|  [07]   | `AddOtlpExporter` (log)                        | per-signal          | log seats, optional processor-options leg           |
-
-Log registration lands on both `LoggerProviderBuilder` and `OpenTelemetryLoggerOptions`; the `LogRecordExportProcessorOptions` and `MetricReaderOptions` legs shape the processor and reader per signal.
+| [INDEX] | [SURFACE]                                                                 | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------ | :------ | :--------------------------------------- |
+|  [01]   | `IOpenTelemetryBuilder.UseOtlpExporter()`                                 | static  | all three signals on one hosted root     |
+|  [02]   | `IOpenTelemetryBuilder.UseOtlpExporter(OtlpExportProtocol, Uri)`          | static  | protocol and base URL inline             |
+|  [03]   | `TracerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`      | static  | span egress on a hostless tracer root    |
+|  [04]   | `MeterProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`       | static  | metric egress on a hostless meter root   |
+|  [05]   | `LoggerProviderBuilder.AddOtlpExporter(Action<OtlpExporterOptions>)`      | static  | log egress on a hostless logger root     |
+|  [06]   | `OpenTelemetryLoggerOptions.AddOtlpExporter(Action<OtlpExporterOptions>)` | static  | log egress on the `ILogger` bridge seat  |
+|  [07]   | `OtlpTraceExporter(OtlpExporterOptions)`                                  | ctor    | exporter instance for a custom processor |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[EGRESS_TOPOLOGY]:
-- claim root: `UseOtlpExporter()` exactly once per hosted root — a second call, or mixing with per-signal `AddOtlpExporter`, throws at provider build
-- plugin root: per-signal `AddOtlpExporter` on each `Sdk.Create*ProviderBuilder`, since the hostless path carries no `IOpenTelemetryBuilder`
-- protocol row: `OtlpExporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf` — the one estate egress protocol
-- binding row: endpoint, headers, and protocol bind from `OTEL_EXPORTER_OTLP_*` configuration, never source literals
-- batch square: `BatchExportProcessorOptions` — peak rate times batch delay fits the queue, and the drain window is the provider `ForceFlush` timeout
+[TOPOLOGY]:
+- claim root: `UseOtlpExporter()` binds once per hosted root; a second call, or a per-signal `AddOtlpExporter` beside it, throws `NotSupportedException` at provider build.
+- plugin root: per-signal `AddOtlpExporter` seats each `Sdk.Create*ProviderBuilder`, the hostless path carrying no `IOpenTelemetryBuilder`.
+- protocol row: `OtlpExporterOptions.Protocol` pins `HttpProtobuf`, and each signal path appends to the base endpoint.
+- batch square: peak rate times batch delay fits the `BatchExportProcessorOptions<Activity>` queue, and the drain window is the provider `ForceFlush` timeout.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): exporter I/O runs inside `SuppressInstrumentationScope.Begin`; the batch processors this package registers drain through the provider `ForceFlush`/`Dispose` pair.
+- `OpenTelemetry`(`api-opentelemetry.md`): exporter I/O runs inside `SuppressInstrumentationScope.Begin`, and every processor this package registers joins the provider's own drain pair.
 - `OpenTelemetry.Extensions.Hosting`(`api-opentelemetry-hosting.md`): `UseOtlpExporter` extends the `IOpenTelemetryBuilder` that `AddOpenTelemetry()` mints.
+- AppHost observability root: one named `OtlpExporterOptions` serves every signal seat — the `string? name` prefix selects it per `AddOtlpExporter` family, and the metric and log second legs shape `MetricReaderOptions` and `LogRecordExportProcessorOptions` against that one policy.
 
 [LOCAL_ADMISSION]:
-- OTLP push is the only telemetry egress — no in-process scrape endpoint exists anywhere in the estate; the collector re-exposes Prometheus downstream.
-- Plugin unload forces the batch tail: `AssemblyLoadContext.Unloading` runs `ForceFlush` before `Dispose`, or the last batch drops with the context.
-- TLS material rides `OtlpTlsOptions`/`OtlpMtlsOptions` rows bound from configuration, never inline certificate handling.
+- Egress and trust bind from `OTEL_EXPORTER_OTLP_*` — the endpoint, headers, timeout, and compression keys, their `_TRACES_`/`_METRICS_`/`_LOGS_` per-signal overrides, and the `_CERTIFICATE`/`_CLIENT_CERTIFICATE`/`_CLIENT_KEY` triple; source literals carry neither.
+- Direct `OtlpTraceExporter`/`OtlpMetricExporter`/`OtlpLogExporter` construction rides a custom `BaseProcessor<T>` seat alone; every ordinary root registers through the extension verbs.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-- Owns: OTLP egress for all three signals, its protocol/endpoint/batch policy, and transport trust
+- Owns: OTLP egress for traces, metrics, and logs — protocol, endpoint, batch, compression, and transport trust
 - Accept: one `UseOtlpExporter` per hosted root; per-signal `AddOtlpExporter` on hostless plugin builders
 - Reject: Prometheus exporter packages and any second export registration beside the one claim

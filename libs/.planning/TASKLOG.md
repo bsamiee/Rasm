@@ -52,7 +52,7 @@ Capability, Shape, Unlocks, and Anchors are required on every open card, Atomic 
 [ID]-[COMPLETE|DROPPED]: <one-line disposition — a DROPPED row carries the rejection reason at ruling grain>; keep closed cards collapsed unless a second retained fact changes future routing.
 -->
 
-[WIRE_LAW_PARITY]-[COMPLETE]: canonical rows landed at `libs/.planning/architecture.md` `[08]-[TELEMETRY_WIRE_LAW]`; the three branch transcriptions proved row-identical with one repair — python `runtime/observability/metrics.md` `_attributed` now spells the metric attribute `rasm.tenant`.
+[WIRE_LAW_PARITY]-[COMPLETE]: canonical rows landed at `libs/.planning/ARCHITECTURE.md` `[08]-[TELEMETRY_WIRE_LAW]`; the three branch transcriptions proved row-identical with one repair — python `runtime/observability/metrics.md` `_attributed` now spells the metric attribute `rasm.tenant`.
 [FLEET_ROW_ARM_MAP]-[COMPLETE]: arm-coordinate rows landed as the `architecture.md` `[FLEET_ESCALATION]` table; every row OFF at estate scale, re-arming a coordinate flip.
-[TENANT_COST_JOIN]-[COMPLETE]: three-pin join landed as the `architecture.md` `[TENANT_COST_JOIN]` row — producer spend family, SDK-side `rasm.tenant` promotion, iac OpenCost read — cap overflow riding exemplar-sampled traces.
-[PROFILE_EXPORTER_SWAP_ROWS]-[COMPLETE]: swap-point rows landed as the `architecture.md` `[PROFILE_SWAP]` table naming the four composition-root rows; the swap itself stays armed on `[PROFILE_SIGNAL_OTLP]`.
+[TENANT_COST_JOIN]-[COMPLETE]: three-pin join landed as the `ARCHITECTURE.md` `[TENANT_COST_JOIN]` row — producer spend family, SDK-side `rasm.tenant` promotion, iac OpenCost read — cap overflow riding exemplar-sampled traces.
+[PROFILE_EXPORTER_SWAP_ROWS]-[COMPLETE]: swap-point rows landed as the `ARCHITECTURE.md` `[PROFILE_SWAP]` table naming the four composition-root rows; the swap itself stays armed on `[PROFILE_SIGNAL_OTLP]`.

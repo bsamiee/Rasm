@@ -1,6 +1,6 @@
 # [RASM_API_OTEL_INSTRUMENTATION_RUNTIME]
 
-`OpenTelemetry.Instrumentation.Runtime` admits the CLR's own health series — GC, JIT, thread pool, assembly, and exception counters — onto a meter provider through one registration verb. Process-level `process.*` series stay with `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, which feeds the health fold; this package owns the runtime-interior series only.
+`OpenTelemetry.Instrumentation.Runtime` admits the CLR's own health series onto a meter provider through one extension verb over `MeterProviderBuilder`. Runtime-owned instruments carry every identity, unit, and tag dimension, so this package mints nothing and exposes no knob; provider view rows are the whole shaping surface.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,42 +8,45 @@
 - package: `OpenTelemetry.Instrumentation.Runtime`
 - assembly: `OpenTelemetry.Instrumentation.Runtime`
 - namespace: `OpenTelemetry.Instrumentation.Runtime`, `OpenTelemetry.Metrics`
-- asset: runtime library
+- meter: `System.Runtime` — runtime-owned, admitted by name
 - rail: runtime instrumentation
 
 ## [02]-[PUBLIC_TYPES]
 
-[OPTION_TYPES]: registration surface
-- rail: runtime instrumentation
+[PUBLIC_TYPE_SCOPE]: admission seat, options carrier
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------ | :--------------- | :---------------------------------------- |
-|  [01]   | `RuntimeInstrumentationOptions` | options carrier  | knob-free on the modern runtime           |
-|  [02]   | `RuntimeMetrics`                | instrument owner | disposable holder behind the registration |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `MeterProviderBuilderExtensions` | class         | seats admission on `MeterProviderBuilder` |
+|  [02]   | `RuntimeInstrumentationOptions`  | class         | member-free carrier, no policy slot       |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: admission
-- rail: runtime instrumentation
+[ENTRYPOINT_SCOPE]: metric admission — both overloads extend `MeterProviderBuilder` and return it for chaining.
 
-| [INDEX] | [SURFACE]                   | [KIND]           | [CAPABILITY]                                                             |
-| :-----: | :-------------------------- | :--------------- | :----------------------------------------------------------------------- |
-|  [01]   | `AddRuntimeInstrumentation` | metric admission | `MeterProviderBuilder`, optional `Action<RuntimeInstrumentationOptions>` |
+| [INDEX] | [SURFACE]                                                          | [SHAPE] | [CAPABILITY]                               |
+| :-----: | :----------------------------------------------------------------- | :------ | :----------------------------------------- |
+|  [01]   | `AddRuntimeInstrumentation()`                                      | static  | subscribes the `System.Runtime` meter      |
+|  [02]   | `AddRuntimeInstrumentation(Action<RuntimeInstrumentationOptions>)` | static  | identical subscription, delegate discarded |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RUNTIME_TOPOLOGY]:
-- root: one `AddRuntimeInstrumentation()` per meter provider; the runtime itself also emits the in-box `System.Runtime` meter, admitted by name where the estate wants the semconv-native series without this package's shim names
+[TOPOLOGY]:
+- One registration per meter provider seats the whole CLR series, and `AddMeter("System.Runtime")` is that same admission spelled directly.
+- Every series but `dotnet.exceptions` is an observable read at collection cadence; `dotnet.exceptions` counts on the first-chance hook, so a caught-and-handled throw increments it.
+- Runtime-owned tags key the grain: `dotnet.gc.collections` carries `gc.heap.generation` over the closed generation set, `dotnet.exceptions` carries `error.type` unbounded — the one dimension a view row bounds.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): a builder row inside `WithMetrics`; view rows shape or drop individual runtime series.
-- `Microsoft.Extensions.Diagnostics.ResourceMonitoring`(`api-resourcemonitoring.md`): owns `process.*` utilization into the health rail — the two rosters partition at the process boundary, runtime-interior here, process-exterior there.
+- `OpenTelemetry`(`api-opentelemetry.md`): one builder row inside `WithMetrics`, where `AddView` shapes or drops a series by meter name or instrument name.
+- `System.Diagnostics.Metrics`(`api-diagnostics-metrics.md`): the runtime mints `System.Runtime` through that surface, so every series obeys its instrument-identity and observable-collection law.
+- `Microsoft.Extensions.Diagnostics.ResourceMonitoring`(`api-resourcemonitoring.md`): `dotnet.process.*` carries raw process CPU time, processor count, and working set; limit-relative container utilization rides that meter alone.
+- `Rasm.AppHost` telemetry spine: `TelemetrySource.SystemRuntime` holds `System.Runtime` as an unminted vocabulary row and the meter fold admits every row key in one `AddMeter` span, so the verb never enters the composition fence.
 
 [LOCAL_ADMISSION]:
-- Composition-root-only; each plugin load context that wants runtime series registers on its own provider.
+- Each provider wanting CLR series admits `System.Runtime` on its own vocabulary fold; a plugin load context minting its own provider carries its own row.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Instrumentation.Runtime`
-- Owns: CLR-interior metric admission at the composition root
-- Accept: one registration per meter provider
-- Reject: a process-metrics package beside ResourceMonitoring; per-library runtime-counter polling
+- Owns: CLR runtime-series admission onto a meter provider
+- Accept: one meter-name subscription per provider, shaped downstream by view rows
+- Reject: a hand-rolled GC, JIT, or thread-pool poller beside the runtime meter; an options delegate treated as a policy slot

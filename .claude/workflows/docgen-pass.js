@@ -1,9 +1,9 @@
 export const meta = {
     name: 'docgen-pass',
     whenToUse:
-        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, and a terminal deterministic format sweep re-pads every touched surface to the canonical table render and re-runs the gate, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
+        'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded on every kind but `.api`, whose red-team is terminal; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, and a terminal deterministic format sweep re-pads every touched surface to the canonical table render and re-runs the gate, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
     description:
-        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. Every phase gates the files it writes, and a terminal deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
+        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. An `.api` catalog never enters Verify — the red-team carries its truth, stacking, structure, and legacy law and is its terminal authority, so a pure `.api` run closes at Redteam and spends no verifier. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. Every phase gates the files it writes, and a terminal deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
     phases: [
         {
             title: 'Route',
@@ -19,11 +19,11 @@ export const meta = {
         },
         {
             title: 'Redteam',
-            detail: 'a red-team per batch of OK-fixed pages under the pooled cap: git-diffs HEAD to adjudicate every line the fixer removed (real law restored, narration left cut) and prove each demotion at its owner, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), re-verifies an .api catalog against the assembly and deepens its stacking law, hardens the rulings dossier, and drives a further reduction under silent-removal and token-trim discipline while holding the losslessness bar itself; its receipt supersedes the fixer',
+            detail: 'a red-team per batch of OK-fixed pages under the pooled cap: git-diffs HEAD to adjudicate every line the fixer removed (real law restored, narration left cut) and prove each demotion at its owner, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), re-verifies an .api catalog against the assembly and deepens its stacking law, hardens the rulings dossier, and drives a further reduction under silent-removal and token-trim discipline while holding the losslessness bar itself; its receipt supersedes the fixer, and on an `.api` catalog it is the terminal pass',
         },
         {
             title: 'Verify',
-            detail: 'a verifier per batch of rebuilt pages under the pooled cap, adversarial and WRITING: reads the cumulative HEAD->now diff and repairs in place what the aggressive passes compounded — lost law restored to the register, every claimed demotion re-proven at its owner across all candidates, a fresh twin left by a fold killed, a residual imported frame reframed, predecessor litter deleted, gate re-run; its receipt supersedes the red-team',
+            detail: 'every kind but `.api`, which closed at Redteam — a verifier per batch of rebuilt pages under the pooled cap, adversarial and WRITING: reads the cumulative HEAD->now diff and repairs in place what the aggressive passes compounded — lost law restored to the register, every claimed demotion re-proven at its owner across all candidates, a fresh twin left by a fold killed, a residual imported frame reframed, predecessor litter deleted, gate re-run; its receipt supersedes the red-team',
         },
         {
             title: 'Collect',
@@ -116,6 +116,9 @@ const TEMPLATE = {
     page: '',
 };
 const templatePath = (kind) => (TEMPLATE[kind] ? ROOT + '/.claude/skills/docgen/templates/' + TEMPLATE[kind] : '');
+// terminal stage by kind: an `.api` catalog closes at Redteam — its rows are a member contract the red-team already re-verifies against the assembly under the
+// API-TRUTH, ultra-stacking, structure, and legacy law, so a further diff-driven pass re-opens proven cells; every other kind runs Verify as its terminal authority.
+const verifies = (kind) => kind !== 'api';
 const chunk = (xs, n) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
 // RULINGS extraction routing — only files under a `.planning/` tree own a RULINGS.md; the owner is the path component above `.planning`
@@ -860,12 +863,12 @@ const redteamMandate = (group) => {
     );
 };
 
-// the verifier runs over a GROUP of rebuilt pages (up to BATCH) — the cumulative HEAD->now diff is its one lever, and it REPAIRS what it finds rather than reporting it
+// the verifier runs over a GROUP of rebuilt pages (up to BATCH) — the cumulative HEAD->now diff is its one lever, and it REPAIRS what it finds rather than reporting it.
+// The `verifies` row keeps `.api` catalogs out of this pass entirely, so no catalog law arms here.
 const verifyMandate = (group) => {
     const paths = group.map((g) => g.f.path);
     const anySpec = group.some((g) => g.f.kind === 'spec');
     const anyPlanning = group.some((g) => underPlanning(g.f.path));
-    const anyApi = group.some((g) => g.f.kind === 'api');
     const perFile = group
         .map((g, i) => {
             const f = g.f;
@@ -897,9 +900,6 @@ const verifyMandate = (group) => {
                 '. Template: ' +
                 (tpl || 'the docgen page-shape') +
                 '.' +
-                (f.kind === 'api'
-                    ? ' API CATALOG: a cut that dropped a verified member, its call shape, its capability, or a consumer trap is REAL LOSS — restore it.'
-                    : '') +
                 (underPlanning(f.path)
                     ? ' PLANNING: open ' + dossierPath(f.path) + ' and confirm every ruling removed from the page is present there in full.'
                     : '')
@@ -937,7 +937,6 @@ const verifyMandate = (group) => {
         're-bloat — you restore only law no other surface holds, in the fewest words that carry it, and you keep cutting any noise the predecessors left. A page that lost nothing and ' +
         'carries no litter is left alone and reported honestly; inventing work to look busy is its own defect.' +
         (anyPlanning ? rulingsLaw : '') +
-        (anyApi ? apiVerifyLaw + apiStackingLaw + apiStructureLaw + apiLegacyLaw : '') +
         '\n\nFILE BLOCKS:' +
         perFile +
         '\n\nPER FILE, after your repairs run `cd ' +
@@ -1140,33 +1139,39 @@ const redteamed = (
 const redByFile = new Map(redteamed.map((r) => [r.file, r]));
 const redteamReceipts = fixReceipts.map((r) => redByFile.get(r.file) || r);
 
-// Verify: the terminal WRITING pass, batched at BATCH like the red-team. It reads the cumulative HEAD->now diff adversarially and REPAIRS what two aggressive passes compounded —
-// lost law restored, every claimed demotion re-proven at its owner, a fresh twin killed, a residual frame reframed, predecessor litter deleted. Its receipt supersedes the red-team's.
-phase('Verify');
-const verifyGroups = chunk(
-    redteamReceipts.filter((r) => r.ok && fileByPath.has(r.file)).map((r) => ({ f: fileByPath.get(r.file), fix: r })),
-    BATCH,
-);
-const verified = (
-    await pool(
-        verifyGroups.map(
-            (grp) => () =>
-                agent(verifyMandate(grp), {
-                    label: 'verify:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
-                    phase: 'Verify',
-                    model: 'opus',
-                    effort: 'high',
-                    schema: BATCH_SCHEMA,
-                }),
-        ),
-        CAP,
+// Verify: the terminal WRITING pass for every kind that runs it, batched at BATCH like the red-team. It reads the cumulative HEAD->now diff adversarially and REPAIRS what two
+// aggressive passes compounded — lost law restored, every claimed demotion re-proven at its owner, a fresh twin killed, a residual frame reframed, predecessor litter deleted.
+// Its receipt supersedes the red-team's. A kind the `verifies` row excludes closes at Redteam and keeps that receipt, so a pure `.api` run skips the phase whole.
+const verifyPages = redteamReceipts
+    .filter((r) => r.ok && fileByPath.has(r.file) && verifies(fileByPath.get(r.file).kind))
+    .map((r) => ({ f: fileByPath.get(r.file), fix: r }));
+const redteamTerminal = redteamReceipts.filter((r) => r.ok && fileByPath.has(r.file) && !verifies(fileByPath.get(r.file).kind)).length;
+if (redteamTerminal) log(redteamTerminal + ' page(s) close at Redteam by kind; ' + verifyPages.length + ' enter Verify');
+let receipts = redteamReceipts;
+if (verifyPages.length) {
+    phase('Verify');
+    const verifyGroups = chunk(verifyPages, BATCH);
+    const verified = (
+        await pool(
+            verifyGroups.map(
+                (grp) => () =>
+                    agent(verifyMandate(grp), {
+                        label: 'verify:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
+                        phase: 'Verify',
+                        model: 'opus',
+                        effort: 'high',
+                        schema: BATCH_SCHEMA,
+                    }),
+            ),
+            CAP,
+        )
     )
-)
-    .filter(Boolean)
-    .flatMap((g) => g.files)
-    .filter(Boolean);
-const verByFile = new Map(verified.map((r) => [r.file, r]));
-const receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
+        .filter(Boolean)
+        .flatMap((g) => g.files)
+        .filter(Boolean);
+    const verByFile = new Map(verified.map((r) => [r.file, r]));
+    receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
+}
 
 // Collect fires ONLY when a .planning/ page actually extracted a folder-wide ruling; a .api/ tier, a tools/ target, or any folder with no .planning/ files skips it
 // whole — no phase, no dossier collection, no wasted agent. ONE collector takes every owner: cross-owner dedup and tier placement are only decidable with the whole

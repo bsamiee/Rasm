@@ -2,7 +2,7 @@
 
 One planning loop drives the three peer branches — `libs/csharp`, `libs/python`, `libs/typescript` — to a decision-complete, implementation-ready bar: one method, three language doctrines, aligned never coupled, run through workflows.
 
-Topology is `libs/.planning/architecture.md`; the authoring standard `libs/.planning/README.md`; form `docs/standards/`; the per-language code doctrine `docs/stacks/<lang>/`.
+Topology is `libs/.planning/ARCHITECTURE.md`; the authoring standard `libs/.planning/README.md`; form `docs/standards/`; the per-language code doctrine `docs/stacks/<lang>/`.
 
 ## [01]-[MODES_AND_CAMPAIGN_SCOPE]
 
@@ -72,7 +72,7 @@ VERIFY is adversarial and WRITING, never a friendly confirmation. It re-derives 
 - A fence that merely conforms is unfinished where a stronger form exists, and the expectation above the doctrine is the reviewer's own.
 - Doc-craft grades against the authoring standard's review law.
 - One campaign guard: fence-level rail-unification and density terms never surface as an `ARCHITECTURE` sub-domain name.
-- Boundary integrity at critique and red-team: grade every concern against the boundaries `architecture.md` owns, fixing or recording each defect.
+- Boundary integrity at critique and red-team: grade every concern against the boundaries `ARCHITECTURE.md` owns, fixing or recording each defect.
 - Defect archetypes: a concern owned twice within a runtime, a folder mixing unrelated concerns, a concern scattered across three or four folders.
 - A touchpoint coupled to a sibling's interior rather than an aligned seam in the folder `ARCHITECTURE.md` `[2]-[SEAMS]` map is a boundary defect.
 - Coverage audit (IDEATE): task every manager/README mismatch — a package claimed but absent, or present but unregistered.
@@ -96,9 +96,9 @@ VERIFY is adversarial and WRITING, never a friendly confirmation. It re-derives 
 
 ## [04]-[SIBLING_BRANCHES]
 
-Every campaign gives each branch its own concurrent allocation, additive never subtractive, never effort diverted from a sibling; branch peer-status and owner-set re-derivation are `architecture.md`'s.
+Every campaign gives each branch its own concurrent allocation, additive never subtractive, never effort diverted from a sibling; branch peer-status and owner-set re-derivation are `ARCHITECTURE.md`'s.
 
-Each branch runs its own aggressive ideation into its tiered `IDEAS.md`/`TASKLOG.md`, reading the sibling corpora for cross-pollination; the cross-language concert lands in the cross-`libs/` pool. Branch roles and the wire/companion seams bounding this cross-pollination are `architecture.md`.
+Each branch runs its own aggressive ideation into its tiered `IDEAS.md`/`TASKLOG.md`, reading the sibling corpora for cross-pollination; the cross-language concert lands in the cross-`libs/` pool. Branch roles and the wire/companion seams bounding this cross-pollination are `ARCHITECTURE.md`.
 
 ## [05]-[PLAN_MODE_DISCIPLINE]
 

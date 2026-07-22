@@ -1,6 +1,6 @@
 # [RASM_API_RESOURCEMONITORING]
 
-`Microsoft.Extensions.Diagnostics.ResourceMonitoring` owns the process/container utilization source: one registration mints the monitor, publishers consume snapshots on a declared cadence, and the package's meter carries the `process.*` and container series the health fold reads. It is a governed source, never a decision-maker — the runtime's health machines consume the signal, and no separate process-metrics package exists beside it.
+`Microsoft.Extensions.Diagnostics.ResourceMonitoring` sources process, container, disk, and network utilization as observable instruments on one meter: a single service-collection registration mints the platform snapshot source behind them, and metric shape rides an options policy the standard options rail binds. Windows and Linux carry the provider set, so the instrument roster a host publishes is a platform fact.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -8,53 +8,72 @@
 - package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - assembly: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, `Microsoft.Extensions.DependencyInjection`
-- meter: `Microsoft.Extensions.Diagnostics.ResourceMonitoring` — admitted by name at the signal root
+- meter: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - asset: runtime library
 - rail: resource signals
 
 ## [02]-[PUBLIC_TYPES]
 
-[MONITOR_TYPES]: monitor, snapshot, and policy
-- rail: resource signals
+[PUBLIC_TYPE_SCOPE]: registration owner and metric-shaping policy
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]   | [CAPABILITY]                                          |
-| :-----: | :-------------------------- | :--------------- | :---------------------------------------------------- |
-|  [01]   | `IResourceMonitor`          | monitor contract | `GetUtilization(TimeSpan window)` on-demand snapshot  |
-|  [02]   | `ResourceUtilization`       | snapshot value   | CPU/memory percentages, bytes, limits, and snapshot   |
-|  [03]   | `SystemResources`           | limits value     | guaranteed and maximum CPU/memory the host grants     |
-|  [04]   | `ResourceMonitoringOptions` | cadence policy   | cadence windows and posture toggles                   |
-|  [05]   | `IResourceMonitorBuilder`   | builder contract | `Services` + `AddPublisher<T>()` + `ConfigureMonitor` |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :---------------------------------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `ResourceMonitoringServiceCollectionExtensions` | class         | root registration verb                    |
+|  [02]   | `ResourceMonitoringOptions`                     | class         | range, calculation, and source-set policy |
 
-`ResourceUtilization` projects `CpuUsedPercentage`, `MemoryUsedPercentage`, `MemoryUsedInBytes`, `SystemResources`, and `Snapshot`. `ResourceMonitoringOptions` carries `CollectionWindow`, `SamplingInterval`, and `PublishingWindow` with `CpuConsumptionRefreshInterval`, `MemoryConsumptionRefreshInterval`, `UseZeroToOneRangeForMetrics`, `UseZeroToOneRangeForLinuxMetrics`, `UseLinuxCalculationV2`, `EnableSystemDiskIoMetrics`, and `SourceIpAddresses`.
+[METER_ROSTER]: instruments the platform snapshot source mints on the package meter through `IMeterFactory`
+
+| [INDEX] | [INSTRUMENT]                                | [KIND]                    | [CAPABILITY]                        |
+| :-----: | :------------------------------------------ | :------------------------ | :---------------------------------- |
+|  [01]   | `process.cpu.utilization`                   | `ObservableGauge`         | process CPU share                   |
+|  [02]   | `dotnet.process.memory.virtual.utilization` | `ObservableGauge`         | process virtual-memory share        |
+|  [03]   | `container.cpu.time`                        | `ObservableCounter`       | container CPU seconds, unit `s`     |
+|  [04]   | `container.cpu.limit.utilization`           | `ObservableGauge`         | consumption against the CPU limit   |
+|  [05]   | `container.cpu.request.utilization`         | `ObservableGauge`         | consumption against the CPU request |
+|  [06]   | `container.memory.limit.utilization`        | `ObservableGauge`         | consumption against the mem limit   |
+|  [07]   | `container.memory.request.utilization`      | `ObservableGauge`         | consumption against the mem request |
+|  [08]   | `container.memory.usage`                    | `ObservableUpDownCounter` | container memory bytes, unit `By`   |
+|  [09]   | `system.disk.io`                            | `ObservableCounter`       | disk bytes transferred              |
+|  [10]   | `system.disk.io_time`                       | `ObservableCounter`       | disk activated time                 |
+|  [11]   | `system.disk.operations`                    | `ObservableCounter`       | disk operations                     |
+|  [12]   | `system.network.connections`                | `ObservableUpDownCounter` | TCP connections by state            |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: registration
-- rail: resource signals
+[ENTRYPOINT_SCOPE]: root registration
 
-| [INDEX] | [SURFACE]               | [KIND]         | [CAPABILITY]                                                 |
-| :-----: | :---------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `AddResourceMonitoring` | registration   | bare and `Action<IResourceMonitorBuilder>` overloads         |
-|  [02]   | `AddPublisher<T>`       | publisher row  | cadence-coupled snapshot consumer                            |
-|  [03]   | `ConfigureMonitor`      | cadence policy | `Action<ResourceMonitoringOptions>` or configuration section |
-|  [04]   | `GetUtilization`        | snapshot read  | windowed utilization for gauge-style consumers               |
+| [INDEX] | [SURFACE]                                   | [SHAPE] | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------ | :------ | :-------------------------------------------- |
+|  [01]   | `AddResourceMonitoring(IServiceCollection)` | static  | platform provider, meter, and instrument mint |
+
+[OPTION_POLICY]: `ResourceMonitoringOptions` properties, bound at the composition root through the standard options rail
+
+| [INDEX] | [PROPERTY]                         | [TYPE]         | [DEFAULT] | [EFFECT]                                       |
+| :-----: | :--------------------------------- | :------------- | :-------- | :--------------------------------------------- |
+|  [01]   | `UseZeroToOneRangeForMetrics`      | `bool`         | `false`   | utilization emits in `[0, 1]`                  |
+|  [02]   | `UseZeroToOneRangeForLinuxMetrics` | `bool`         | `true`    | range switch over the Linux series             |
+|  [03]   | `UseLinuxCalculationV2`            | `bool`         | `false`   | cgroup v2 CPU-limit delta replaces host delta  |
+|  [04]   | `EnableSystemDiskIoMetrics`        | `bool`         | `false`   | admits the `system.disk.*` instruments         |
+|  [05]   | `SourceIpAddresses`                | `ISet<string>` | empty     | Windows source-IPv4 filter on connection count |
+
+- `EXTEXP0008` gates every option row but `SourceIpAddresses`; the consuming project admits that diagnostic id to compile them.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[RESOURCE_TOPOLOGY]:
-- source root: `AddResourceMonitoring()` registers the monitor; the signal root admits the meter by name and the health machines consume — signals owned here, machines there
-- publisher root: publishers record and return; the `SamplingInterval` bounds every derived signal's reaction time, and a publisher window wider than the consuming policy's period aliases
+[TOPOLOGY]:
+- registration root: `AddResourceMonitoring()` registers the monitor as an `IHostedService` ahead of its platform gate, so a host outside Windows and Linux faults at activation with no snapshot source behind it.
+- container root: a Windows process inside a job object and a Linux process under a cgroup pick the container snapshot source, minting the `container.*` series beside the process gauges; a bare process publishes the process gauges alone.
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): `AddMeter("Microsoft.Extensions.Diagnostics.ResourceMonitoring")` is the admission row; view rows shape cardinality like any foreign meter.
-- `OpenTelemetry.Instrumentation.Runtime`(`api-otel-instrumentation-runtime.md`): the rosters partition at the process boundary — CLR-interior series there, process/container utilization here.
+- `OpenTelemetry`(`api-opentelemetry.md`): `AddMeter("Microsoft.Extensions.Diagnostics.ResourceMonitoring")` admits the roster onto a meter provider, and view rows shape or drop an individual instrument like any foreign meter.
+- within-lib: the AppHost composition root registers the monitor once, and a `MeterListener` over the package meter projects the process and container gauges into the typed utilization samples the compute governor folds.
 
 [LOCAL_ADMISSION]:
-- Limit-utilization and request-utilization stay distinct alarms — throttling-imminent versus under-provisioned; one collapsed percentage loses the distinction the orchestrator acts on, so the range toggles pin explicitly.
-- Composition-root-only; the health fold consumes utilization as typed snapshot values, never raw counter polls.
+- Composition-root-only registration; every reader binds a `MeterListener` on the package meter.
+- Limit utilization and request utilization stay distinct alarms — throttling-imminent against under-provisioned — so the range toggles pin explicitly at the root and both container series ride.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
-- Owns: process and container utilization sourcing, cadence policy, and publisher fan-out
-- Accept: one monitor registration with declared cadence and publisher rows
-- Reject: a parallel process-metrics instrumentation package; counter polling loops beside the governed source
+- Owns: process and container utilization sourcing on one meter, platform snapshot source included
+- Accept: one root registration carrying an explicit range and calculation policy
+- Reject: hand-rolled `/proc`, cgroup, or job-object sampling beside the governed meter

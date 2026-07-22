@@ -1,349 +1,303 @@
 # [RASM_API_MATHNET_NUMERICS]
 
-`MathNet.Numerics` owns probability, approximation, quadrature, root finding, special functions, spectral transforms, and statistical distance for the numeric rail. Linear algebra, provider selection, and sparse solve remain outside the core assembly.
+`MathNet.Numerics` owns the branch's analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, and metric reduction — each a static owner folding plain `double[]`, `Func`, and `Complex[]` carriers. Every surface here runs on the managed provider; native-kernel selection and the dense factorization lane bind at their own owners, and `Vector<double>` enters only as the minimizer's carrier.
 
 ## [01]-[PACKAGE_SURFACE]
 
-- Package: `MathNet.Numerics`
-- License: MIT
-- Assembly: `MathNet.Numerics`
-- Namespace: `MathNet.Numerics`, `MathNet.Numerics.Distributions`, `MathNet.Numerics.Integration`, `MathNet.Numerics.IntegralTransforms`, `MathNet.Numerics.Interpolation`, `MathNet.Numerics.RootFinding`
-- Asset: Managed runtime library
-- Rail: Numeric
+[PACKAGE_SURFACE]: `MathNet.Numerics`
+- package: `MathNet.Numerics` (MIT, Math.NET Project)
+- assembly: `MathNet.Numerics`
+- namespace: `MathNet.Numerics`, `.Distributions`, `.Integration`, `.IntegralTransforms`, `.Interpolation`, `.RootFinding`, `.Optimization`, `.Differentiation`, `.Statistics`, `.OdeSolvers`, `.Random`, `.LinearAlgebra`
+- asset: managed runtime library; MKL and OpenBLAS kernels ride sibling provider packages
+- rail: numeric
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: distribution seams
+[PUBLIC_TYPE_SCOPE]: distribution seams and the univariate roster under its constructor parameterization
 
-Each interface owns one seam in the distribution hierarchy.
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------- | :------------ | :---------------------------------------- |
+|  [01]   | `IDistribution`                                    | interface     | `RandomSource` ownership every draw reads |
+|  [02]   | `IUnivariateDistribution`                          | interface     | moments and `CumulativeDistribution`      |
+|  [03]   | `IContinuousDistribution`                          | interface     | density, mode, and continuous sampling    |
+|  [04]   | `IDiscreteDistribution`                            | interface     | mass, mode, and integer sampling          |
+|  [05]   | `Normal(mean, stddev)`                             | class         | Gaussian                                  |
+|  [06]   | `LogNormal(mu, sigma)`                             | class         | log-Gaussian                              |
+|  [07]   | `Gamma(shape, rate)`                               | class         | Gamma, rate-parameterized                 |
+|  [08]   | `InverseGamma(shape, scale)`                       | class         | inverse Gamma                             |
+|  [09]   | `Erlang(shape, rate)`                              | class         | integer-shape Gamma                       |
+|  [10]   | `Beta(a, b)`                                       | class         | unit-interval Beta                        |
+|  [11]   | `BetaScaled(a, b, location, scale)`                | class         | affine-mapped Beta                        |
+|  [12]   | `ChiSquared(freedom)`                              | class         | chi-squared                               |
+|  [13]   | `Chi(freedom)`                                     | class         | chi                                       |
+|  [14]   | `StudentT(location, scale, freedom)`               | class         | Student t                                 |
+|  [15]   | `FisherSnedecor(d1, d2)`                           | class         | F ratio                                   |
+|  [16]   | `Exponential(rate)`                                | class         | exponential                               |
+|  [17]   | `Weibull(shape, scale)`                            | class         | Weibull                                   |
+|  [18]   | `Rayleigh(scale)`                                  | class         | Rayleigh                                  |
+|  [19]   | `Pareto(scale, shape)`                             | class         | Pareto                                    |
+|  [20]   | `Cauchy(location, scale)`                          | class         | Cauchy                                    |
+|  [21]   | `Laplace(location, scale)`                         | class         | Laplace                                   |
+|  [22]   | `Logistic(mean, scale)`                            | class         | logistic                                  |
+|  [23]   | `Stable(alpha, beta, scale, location)`             | class         | stable, heavy-tailed                      |
+|  [24]   | `SkewedGeneralizedT(location, scale, skew, p, q)`  | class         | skew and kurtosis-tunable t               |
+|  [25]   | `SkewedGeneralizedError(location, scale, skew, p)` | class         | skew-tunable error                        |
+|  [26]   | `Triangular(lower, upper, mode)`                   | class         | triangular                                |
+|  [27]   | `ContinuousUniform(lower, upper)`                  | class         | continuous uniform                        |
+|  [28]   | `Bernoulli(p)`                                     | class         | single trial                              |
+|  [29]   | `Binomial(p, n)`                                   | class         | successes in a trial count                |
+|  [30]   | `BetaBinomial(n, a, b)`                            | class         | over-dispersed binomial                   |
+|  [31]   | `NegativeBinomial(r, p)`                           | class         | failures before a success count           |
+|  [32]   | `Geometric(p)`                                     | class         | trials to first success                   |
+|  [33]   | `Poisson(lambda)`                                  | class         | Poisson count                             |
+|  [34]   | `ConwayMaxwellPoisson(lambda, nu)`                 | class         | dispersion-tuned Poisson                  |
+|  [35]   | `Hypergeometric(population, success, draws)`       | class         | draws without replacement                 |
+|  [36]   | `DiscreteUniform(lower, upper)`                    | class         | discrete uniform                          |
+|  [37]   | `Categorical(probabilityMass)`                     | class         | arbitrary mass vector                     |
+|  [38]   | `Zipf(s, n)`                                       | class         | power-law rank                            |
 
-| [INDEX] | [SYMBOL]                  | [KIND]    | [CAPABILITY]                   |
-| :-----: | :------------------------ | :-------- | :----------------------------- |
-|  [01]   | `IDistribution`           | interface | random source                  |
-|  [02]   | `IUnivariateDistribution` | interface | univariate statistics          |
-|  [03]   | `IContinuousDistribution` | interface | continuous density and samples |
-|  [04]   | `IDiscreteDistribution`   | interface | discrete mass and samples      |
+[MULTIVARIATE]: `Dirichlet` `Multinomial` `NormalGamma` `MeanPrecisionPair` `MatrixNormal` `Wishart` `InverseWishart`
 
-[INTERFACE_MEMBERS]:
-- `IDistribution`: `RandomSource`
-- `IUnivariateDistribution`: `Mean`, `Variance`, `StdDev`, `Entropy`, `Skewness`, `Median`, and `CumulativeDistribution(x)`
-- `IContinuousDistribution`: `Density`, `DensityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples(double[])`, and `Samples()`
-- `IDiscreteDistribution`: `Probability`, `ProbabilityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples(int[])`, and `Samples()`
+[PUBLIC_TYPE_SCOPE]: analytic, solver, and spectral carriers the entrypoints take and return
 
-[PUBLIC_TYPE_SCOPE]: continuous distributions
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]  | [CAPABILITY]                                           |
+| :-----: | :---------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `IInterpolation`              | interface      | fitted curve: evaluate, differentiate twice, integrate |
+|  [02]   | `Polynomial`                  | class          | dense polynomial algebra and root extraction           |
+|  [03]   | `Complex32`                   | struct         | single-precision complex carrier                       |
+|  [04]   | `FourierOptions`              | enum           | transform scaling and exponent convention              |
+|  [05]   | `HartleyOptions`              | enum           | Hartley scaling convention                             |
+|  [06]   | `SplineBoundaryCondition`     | enum           | cubic-spline end condition                             |
+|  [07]   | `StepType`                    | enum           | finite-difference step policy                          |
+|  [08]   | `DirectRegressionMethod`      | enum           | normal-equations or QR route every `Fit` member takes  |
+|  [09]   | `IObjectiveModel`             | interface      | residual model the least-squares minimizer folds       |
+|  [10]   | `IObjectiveFunction`          | interface      | value, gradient, and Hessian objective                 |
+|  [11]   | `NonlinearMinimizationResult` | class          | minimizing point, covariance, and exit condition       |
+|  [12]   | `MinimizationResult`          | class          | unconstrained-minimizer point and exit condition       |
+|  [13]   | `ExitCondition`               | enum           | minimizer stop reason                                  |
+|  [14]   | `NonConvergenceException`     | class          | failure the throwing iterative forms raise             |
+|  [15]   | `RandomSource`                | abstract class | seeded generator base every distribution binds         |
+|  [16]   | `NumericalDerivative`         | class          | reusable finite-difference derivative engine           |
+|  [17]   | `Matrix<T>`                   | abstract class | dense and sparse algebra carrier                       |
+|  [18]   | `Vector<T>`                   | abstract class | vector carrier the minimizer takes and returns         |
 
-Each continuous distribution binds its constructor parameter set.
-
-| [INDEX] | [SYMBOL]            | [PARAMETERS]               |
-| :-----: | :------------------ | :------------------------- |
-|  [01]   | `Normal`            | `mean, stdDev`             |
-|  [02]   | `LogNormal`         | `mu, sigma`                |
-|  [03]   | `Gamma`             | `shape, rate`              |
-|  [04]   | `Beta`              | `a, b`                     |
-|  [05]   | `ChiSquared`        | `freedom`                  |
-|  [06]   | `StudentT`          | `location, scale, freedom` |
-|  [07]   | `Exponential`       | `rate`                     |
-|  [08]   | `Weibull`           | `shape, scale`             |
-|  [09]   | `ContinuousUniform` | `lower, upper`             |
-|  [10]   | `Cauchy`            | `location, scale`          |
-|  [11]   | `Laplace`           | `location, scale`          |
-|  [12]   | `Rayleigh`          | `scale`                    |
-|  [13]   | `FisherSnedecor`    | `d1, d2`                   |
-|  [14]   | `Triangular`        | `lower, upper, mode`       |
-|  [15]   | `Pareto`            | `scale, shape`             |
-|  [16]   | `InverseGamma`      | `shape, scale`             |
-|  [17]   | `BetaScaled`        | `a, b, lower, upper`       |
-|  [18]   | `Logistic`          | `mean, scale`              |
-
-[PUBLIC_TYPE_SCOPE]: discrete distributions
-
-Each discrete distribution binds its constructor parameter set.
-
-| [INDEX] | [SYMBOL]           | [PARAMETERS]       |
-| :-----: | :----------------- | :----------------- |
-|  [01]   | `Binomial`         | `p, n`             |
-|  [02]   | `Poisson`          | `lambda`           |
-|  [03]   | `NegativeBinomial` | `r, p`             |
-|  [04]   | `Bernoulli`        | `p`                |
-|  [05]   | `DiscreteUniform`  | `lower, upper`     |
-|  [06]   | `Geometric`        | `p`                |
-|  [07]   | `Hypergeometric`   | `population, k, n` |
-|  [08]   | `Categorical`      | `probabilities[]`  |
+[RANDOM_SOURCE]: `SystemRandomSource` `MersenneTwister` `Xoshiro256StarStar` `Mrg32k3a` `Mcg31m1` `Mcg59` `Palf` `WH1982` `WH2006` `Xorshift` `CryptoRandomSource`
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: distribution construction and sampling
+[ENTRYPOINT_SCOPE]: distribution evaluation, sampling, and parameter admission
 
-Distribution surfaces own construction, probability evaluation, sampling, and sequence projection.
+| [INDEX] | [SURFACE]                                                  | [SHAPE]  | [CAPABILITY]                                 |
+| :-----: | :--------------------------------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `IContinuousDistribution.Density(double) -> double`        | instance | probability density                          |
+|  [02]   | `IContinuousDistribution.DensityLn(double) -> double`      | instance | log density                                  |
+|  [03]   | `IDiscreteDistribution.Probability(int) -> double`         | instance | probability mass                             |
+|  [04]   | `IDiscreteDistribution.ProbabilityLn(int) -> double`       | instance | log probability mass                         |
+|  [05]   | `IDiscreteDistribution.Sample() -> int`                    | instance | one integer draw                             |
+|  [06]   | `IUnivariateDistribution.CumulativeDistribution(double)`   | instance | cumulative probability                       |
+|  [07]   | `Normal.InverseCumulativeDistribution(double) -> double`   | instance | quantile, per concrete distribution          |
+|  [08]   | `IContinuousDistribution.Sample() -> double`               | instance | one draw                                     |
+|  [09]   | `IContinuousDistribution.Samples(double[])`                | instance | fill a caller-owned buffer                   |
+|  [10]   | `IContinuousDistribution.Samples() -> IEnumerable<double>` | instance | lazy unbounded draw stream                   |
+|  [11]   | `IDistribution.RandomSource`                               | property | swap the generator on a standing instance    |
+|  [12]   | `Normal.WithMeanVariance(double, double, Random)`          | factory  | admit an alternate parameterization          |
+|  [13]   | `Gamma.WithShapeScale(double, double, Random)`             | factory  | scale form beside the rate constructor       |
+|  [14]   | `Normal.Estimate(IEnumerable<double>, Random)`             | factory  | maximum-likelihood fit from samples          |
+|  [15]   | `Normal.CDF(double, double, double) -> double`             | static   | evaluation at a parameter tuple, no instance |
 
-| [INDEX] | [SURFACE]                                                        | [KIND]            | [CAPABILITY]           |
-| :-----: | :--------------------------------------------------------------- | :---------------- | :--------------------- |
-|  [01]   | `new Normal(mean, stdDev)`                                       | constructor       | Gaussian instance      |
-|  [02]   | `new Normal(mean, stdDev, randomSource)`                         | constructor       | explicit RNG           |
-|  [03]   | `IContinuousDistribution.Density(x)`                             | instance `double` | probability density    |
-|  [04]   | `IContinuousDistribution.DensityLn(x)`                           | instance `double` | log density            |
-|  [05]   | `IUnivariateDistribution.CumulativeDistribution(x)`              | instance `double` | cumulative probability |
-|  [06]   | `Normal.InverseCumulativeDistribution(p)`                        | instance `double` | quantile               |
-|  [07]   | `IContinuousDistribution.Sample()`                               | instance `double` | one sample             |
-|  [08]   | `IContinuousDistribution.Samples(double[])`                      | instance `void`   | fill caller buffer     |
-|  [09]   | `IContinuousDistribution.Samples()`                              | instance sequence | `IEnumerable<double>`  |
-|  [10]   | `IDiscreteDistribution.Probability(k)`                           | instance `double` | probability mass       |
-|  [11]   | `IDiscreteDistribution.ProbabilityLn(k)`                         | instance `double` | log probability mass   |
-|  [12]   | `IDiscreteDistribution.Sample()`                                 | instance `int`    | one sample             |
-|  [13]   | `Normal.RandomSource`                                            | instance property | RNG ownership          |
-|  [14]   | `Normal.CDF(mean, stdDev, x)`                                    | static `double`   | cumulative probability |
-|  [15]   | `StudentT.CDF(location, scale, freedom, x)`                      | static `double`   | cumulative probability |
-|  [16]   | `Normal.InvCDF(mean, stdDev, p)`                                 | static `double`   | quantile               |
-|  [17]   | `StudentT.InvCDF(location, scale, freedom, p)`                   | static `double`   | quantile               |
-|  [18]   | `Gamma.InvCDF(shape, rate, p)`                                   | static `double`   | quantile               |
-|  [19]   | `Generate.LinearRange(start, step, stop)`                        | static `double[]` | arithmetic progression |
-|  [20]   | `Generate.LinearSpaced(length, start, stop)`                     | static `double[]` | evenly spaced axis     |
-|  [21]   | `Generate.LinearRangeMap(start, step, stop, Func<double, T>)`    | static `T[]`      | fused range mapping    |
-|  [22]   | `Generate.LinearSpacedMap(length, start, stop, Func<double, T>)` | static `T[]`      | fused spacing mapping  |
-|  [23]   | `Generate.Map(double[], Func<double, T>)`                        | static `T[]`      | element projection     |
-|  [24]   | `Generate.Map2(a, b, Func<double, double, T>)`                   | static `T[]`      | pairwise projection    |
+[STATIC_FAMILY]: `PDF` `PDFLn` `PMF` `PMFLn` `CDF` `InvCDF` `Sample` `Samples` `IsValidParameterSet`
+[MOMENTS]: `Mean` `Variance` `StdDev` `Entropy` `Skewness` `Median` `Mode` `Minimum` `Maximum`
 
-[ENTRYPOINT_SCOPE]: integration via `Integrate`
+[ENTRYPOINT_SCOPE]: sequence and signal generation via `Generate`
 
-Every `Integrate` surface is static and returns `double`. Overload pairs separate default-policy calls from explicit error, order, or evidence inputs, and the `GaussKronrod` evidence overload shares the non-evidence defaults.
+[AXIS]: `LinearSpaced` `LogSpaced` `LinearRange` `LinearRangeInt32` `Periodic` `Sinusoidal` `Square` `Triangle` `Sawtooth` `Step` `Impulse` `PeriodicImpulse` `Repeat` `Unfold` `Fibonacci` `Map` `Map2`
 
-| [INDEX] | [SURFACE]                                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `Integrate.OnClosedInterval(f, a, b)`                                                              |
-|  [02]   | `Integrate.OnClosedInterval(f, a, b, targetAbsoluteError)`                                         |
-|  [03]   | `Integrate.GaussLegendre(f, a, b, order = 128)`                                                    |
-|  [04]   | `Integrate.GaussKronrod(f, a, b, targetRelativeError = 1e-8, maximumDepth = 15, order = 15)`       |
-|  [05]   | `Integrate.GaussKronrod(f, a, b, out error, out L1Norm, targetRelativeError, maximumDepth, order)` |
-|  [06]   | `Integrate.DoubleExponential(f, a, b, targetAbsoluteError = 1e-8)`                                 |
-|  [07]   | `Integrate.OnRectangle(f2d, aA, bA, aB, bB)`                                                       |
-|  [08]   | `Integrate.OnRectangle(f2d, aA, bA, aB, bB, order)`                                                |
-|  [09]   | `Integrate.OnCuboid(f3d, aA, bA, aB, bB, aC, bC, order = 32)`                                      |
+[ENTRYPOINT_SCOPE]: quadrature via `Integrate`
 
-[ENTRYPOINT_SCOPE]: root finding
+| [INDEX] | [SURFACE]                                                                     | [SHAPE] | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------------------- | :------ | :--------------------------------------------- |
+|  [01]   | `Integrate.OnClosedInterval(F1, double, double)`                              | static  | double-exponential at a `1e-8` absolute target |
+|  [02]   | `Integrate.OnClosedInterval(F1, double, double, double)`                      | static  | the same rule at a caller error target         |
+|  [03]   | `Integrate.DoubleExponential(F1, double, double, double)`                     | static  | the transformation named directly              |
+|  [04]   | `Integrate.GaussLegendre(F1, double, double, int)`                            | static  | fixed-order Legendre rule                      |
+|  [05]   | `Integrate.GaussKronrod(F1, double, double, double, int, int)`                | static  | adaptive rule at a relative-error target       |
+|  [06]   | `Integrate.GaussKronrod(F1, double, double, out double, out double)`          | static  | adds an error and L1-norm estimate             |
+|  [07]   | `Integrate.OnRectangle(F2, double, double, double, double)`                   | static  | 2-D Legendre product rule                      |
+|  [08]   | `Integrate.OnRectangle(F2, double, double, double, double, int)`              | static  | the same rule at a caller node order           |
+|  [09]   | `Integrate.OnCuboid(F3, double, double, double, double, double, double, int)` | static  | 3-D Legendre product rule                      |
 
-Each root-finding method owns one static class. Iterative classes expose `TryFindRoot`, whose `bool` return carries failure without throwing; `FindRoot` raises `NonConvergenceException`, and bracketing classes expose `FindRootExpand`.
+- `F1`, `F2`, and `F3` abbreviate `Func<double,double>`, `Func<double,double,double>`, and `Func<double,double,double,double>`; every surface returns `double`.
 
-| [INDEX] | [SURFACE]                                                                                         | [RETURNS]                     |
-| :-----: | :------------------------------------------------------------------------------------------------ | :---------------------------- |
-|  [01]   | `Brent.TryFindRoot(f, lower, upper, accuracy, maxIter, out root)`                                 | `bool`                        |
-|  [02]   | `Brent.FindRootExpand(f, guessLower, guessUpper, accuracy, maxIter, expandFactor, maxExpandIter)` | `double`                      |
-|  [03]   | `Bisection.FindRoot(f, lower, upper, accuracy = 1e-14, maxIter = 100)`                            | `double`                      |
-|  [04]   | `NewtonRaphson.FindRoot(f, df, lower, upper, accuracy = 1e-8, maxIter = 100)`                     | `double`                      |
-|  [05]   | `RobustNewtonRaphson.FindRoot(f, df, lower, upper, accuracy, maxIter, subdivision = 20)`          | `double`                      |
-|  [06]   | `Secant.FindRoot(f, guess, secondGuess, lower, upper, accuracy, maxIter)`                         | `double`                      |
-|  [07]   | `Broyden.FindRoot(Func<double[], double[]> f, double[] initialGuess, accuracy, maxIter)`          | `double[]`                    |
-|  [08]   | `Cubic.RealRoots(a0, a1, a2)`                                                                     | `(double, double, double)`    |
-|  [09]   | `Cubic.Roots(d, c, b, a)`                                                                         | `(Complex, Complex, Complex)` |
+[ENTRYPOINT_SCOPE]: root finding via `MathNet.Numerics.RootFinding`
 
-[ENTRYPOINT_SCOPE]: nonlinear least squares via `MathNet.Numerics.Optimization`
+| [INDEX] | [SURFACE]                                                                      | [SHAPE] | [CAPABILITY]                                 |
+| :-----: | :----------------------------------------------------------------------------- | :------ | :------------------------------------------- |
+|  [01]   | `Brent.TryFindRoot(F1, double, double, double, int, out double) -> bool`       | static  | bracketed inverse-quadratic solve, no throw  |
+|  [02]   | `Brent.FindRoot(F1, double, double, double, int) -> double`                    | static  | the same solve raising on non-convergence    |
+|  [03]   | `Brent.FindRootExpand(F1, double, double, double, int, double, int)`           | static  | grow the bracket onto a sign change          |
+|  [04]   | `Bisection.FindRoot(F1, double, double, double, int) -> double`                | static  | bisection on a guaranteed bracket            |
+|  [05]   | `NewtonRaphson.FindRoot(F1, F1, double, double, double, int) -> double`        | static  | derivative-driven solve inside a bracket     |
+|  [06]   | `NewtonRaphson.FindRootNearGuess(F1, F1, double, double, double, double, int)` | static  | the same solve seeded from one guess         |
+|  [07]   | `RobustNewtonRaphson.FindRoot(F1, F1, double, double, double, int, int)`       | static  | subdivided Newton recovering from a bad step |
+|  [08]   | `Secant.FindRoot(F1, double, double, double, double, double, int)`             | static  | derivative-free two-point solve              |
+|  [09]   | `Broyden.FindRoot(Func<double[],double[]>, double[], double, int, double)`     | static  | quasi-Newton solve of a square system        |
+|  [10]   | `Cubic.RealRoots(double, double, double) -> (double, double, double)`          | static  | closed-form real cubic roots                 |
+|  [11]   | `Cubic.Roots(double, double, double, double) -> (Complex, Complex, Complex)`   | static  | closed-form complex cubic roots              |
 
-`Broyden.FindRoot` solves only a SQUARE system — residual count must equal parameter count, and it carries no bounds. A rectangular residual (an over- or under-determined fit, a task-space pose against a chain of any joint count) is a least-squares minimization, not a root find; truncating the residual to the parameter count to force squareness selects an arbitrary basis-dependent subset and is the rejected form. `LevenbergMarquardtMinimizer` takes the full residual and per-parameter bound vectors natively.
+[ENTRYPOINT_SCOPE]: nonlinear least squares and unconstrained minimization via `MathNet.Numerics.Optimization`
 
-| [INDEX] | [SURFACE]                                     | [RETURNS]                     |
-| :-----: | :-------------------------------------------- | :---------------------------- |
-|  [01]   | `new LevenbergMarquardtMinimizer`             | `LevenbergMarquardtMinimizer` |
-|  [02]   | `LevenbergMarquardtMinimizer.FindMinimum`     | `NonlinearMinimizationResult` |
-|  [03]   | `ObjectiveFunction.NonlinearModel`            | `IObjectiveModel`             |
-|  [04]   | `NonlinearMinimizationResult.MinimizingPoint` | `Vector<double>`              |
-|  [05]   | `NonlinearMinimizationResult.ReasonForExit`   | `ExitCondition`               |
-|  [06]   | `NonlinearMinimizationResult.Iterations`      | `int`                         |
-|  [07]   | `CreateVector.Dense<double>`                  | `Vector<double>`              |
-|  [08]   | `CreateVector.DenseOfArray<double>`           | `Vector<double>`              |
+| [INDEX] | [SURFACE]                                                                          | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :--------------------------------------------------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `LevenbergMarquardtMinimizer(double, double, double, double, int)`                 | ctor     | damping and the four tolerances      |
+|  [02]   | `LevenbergMarquardtMinimizer.FindMinimum(IObjectiveModel, V, V, V, V, List<bool>)` | instance | bounded, scaled, partially-fixed fit |
+|  [03]   | `LevenbergMarquardtMinimizer.Minimum(IObjectiveModel, V, V, V, V, List<bool>)`     | static   | one-call solve holding no minimizer  |
+|  [04]   | `ObjectiveFunction.NonlinearModel(Func<V,V,V>, V, V, V, int)`                      | static   | residual model, differenced Jacobian |
+|  [05]   | `ObjectiveFunction.NonlinearModel(Func<V,V,V>, Func<V,V,M>, V, V, V)`              | static   | the same model, analytic Jacobian    |
+|  [06]   | `ObjectiveFunction.Value(Func<V,double>) -> IObjectiveFunction`                    | static   | value-only objective                 |
+|  [07]   | `ObjectiveFunction.Gradient(Func<V,double>, Func<V,V>)`                            | static   | value with an analytic gradient      |
+|  [08]   | `ObjectiveFunction.GradientHessian(Func<V,double>, Func<V,V>, Func<V,M>)`          | static   | value, gradient, and Hessian         |
+|  [09]   | `BfgsMinimizer.FindMinimum(IObjectiveFunction, V)`                                 | instance | quasi-Newton unconstrained minimum   |
+|  [10]   | `BfgsBMinimizer.FindMinimum(IObjectiveFunction, V, V, V)`                          | instance | box-bounded quasi-Newton minimum     |
+|  [11]   | `LimitedMemoryBfgsMinimizer.FindMinimum(IObjectiveFunction, V)`                    | instance | limited-memory BFGS for wide fits    |
+|  [12]   | `NelderMeadSimplex.Minimum(IObjectiveFunction, V, double, int)`                    | static   | derivative-free simplex search       |
+|  [13]   | `NonlinearMinimizationResult.MinimizingPoint -> V`                                 | property | fitted parameter vector              |
+|  [14]   | `NonlinearMinimizationResult.Covariance -> M`                                      | property | parameter covariance at the minimum  |
+|  [15]   | `NonlinearMinimizationResult.StandardErrors -> V`                                  | property | per-parameter standard error         |
+|  [16]   | `NonlinearMinimizationResult.ReasonForExit -> ExitCondition`                       | property | stop condition the run hit           |
+|  [17]   | `CreateVector.DenseOfArray<double>(double[]) -> V`                                 | static   | admit a `double[]` as the carrier    |
 
-[CALL_SIGNATURES]:
-- `new LevenbergMarquardtMinimizer(initialMu = 1e-3, gradientTolerance = 1e-15, stepTolerance = 1e-15, functionTolerance = 1e-15, maximumIterations = -1)`
-- `LevenbergMarquardtMinimizer.FindMinimum(IObjectiveModel objective, double[] initialGuess, double[]? lowerBound, double[]? upperBound, double[]? scales, bool[]? isFixed)`
-- `ObjectiveFunction.NonlinearModel(Func<Vector<double>, Vector<double>, Vector<double>> model, Vector<double> observedX, Vector<double> observedY, Vector<double>? weight, int accuracyOrder = 2)`
-- `CreateVector.Dense<double>(int length)`
-- `CreateVector.DenseOfArray<double>(double[] values)`
+- `V` and `M` abbreviate `Vector<double>` and `Matrix<double>`; `LevenbergMarquardtMinimizer.FindMinimum` mirrors its `V` arguments with a `double[]`/`bool[]` overload.
 
-[MODEL_LAW]:
-- The model is `f(parameters, observedX) -> predicted` fitted against `observedY`; a pure residual formulation passes a zero `observedY` of the residual's rank and returns the residual itself, so `MinimizingPoint` minimizes `||residual||²`.
-- `lowerBound`/`upperBound` are per-parameter and admitted directly, so a physical travel limit is a solver bound rather than a post-filter.
-- `ReasonForExit` reports the stop condition but never proves accuracy; a converged fit re-evaluates its own residual against the caller's tolerance before the point is trusted.
+[ENTRYPOINT_SCOPE]: interpolation via `Interpolate`, every factory taking `IEnumerable<double>` points and values
 
-[ENTRYPOINT_SCOPE]: interpolation via `Interpolate`
+| [INDEX] | [SURFACE]                                                                  | [SHAPE] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------- | :------ | :--------------------------------------- |
+|  [01]   | `Interpolate.CubicSpline(points, values)`                                  | factory | natural cubic spline                     |
+|  [02]   | `Interpolate.CubicSplineRobust(points, values)`                            | factory | Akima cubic, outlier-tolerant            |
+|  [03]   | `Interpolate.CubicSplineMonotone(points, values)`                          | factory | PCHIP monotone cubic                     |
+|  [04]   | `Interpolate.CubicSplineWithDerivatives(points, values, firstDerivatives)` | factory | Hermite cubic at prescribed slopes       |
+|  [05]   | `Interpolate.Common(points, values)`                                       | factory | Floater-Hormann barycentric rational     |
+|  [06]   | `Interpolate.RationalWithoutPoles(points, values)`                         | factory | the same pole-free rational scheme       |
+|  [07]   | `Interpolate.RationalWithPoles(points, values)`                            | factory | Bulirsch-Stoer rational, poles admitted  |
+|  [08]   | `Interpolate.Polynomial(points, values)`                                   | factory | Neville polynomial                       |
+|  [09]   | `Interpolate.PolynomialEquidistant(points, values)`                        | factory | barycentric polynomial on a uniform grid |
+|  [10]   | `Interpolate.Linear(points, values)`                                       | factory | piecewise linear spline                  |
+|  [11]   | `Interpolate.LogLinear(points, values)`                                    | factory | log-linear spline                        |
+|  [12]   | `Interpolate.Step(points, values)`                                         | factory | piecewise constant                       |
 
-Every factory returns an `IInterpolation` with `Interpolate(x)`, `Differentiate(x)`, and `Integrate(a, b)`. Cubic variants cover natural, robust, monotone, and prescribed-derivative schemes, while Floater-Hormann rational handles unsorted data without poles.
+[INTERPOLATION_SEAM]: `Interpolate` `Differentiate` `Differentiate2` `Integrate` `SupportsDifferentiation` `SupportsIntegration`
 
-| [INDEX] | [SURFACE]                                                                  | [SCHEME]                 |
-| :-----: | :------------------------------------------------------------------------- | :----------------------- |
-|  [01]   | `Interpolate.CubicSpline(points, values)`                                  | natural cubic            |
-|  [02]   | `Interpolate.CubicSplineRobust(points, values)`                            | Akima-style cubic        |
-|  [03]   | `Interpolate.CubicSplineMonotone(points, values)`                          | monotone cubic           |
-|  [04]   | `Interpolate.CubicSplineWithDerivatives(points, values, firstDerivatives)` | Hermite cubic            |
-|  [05]   | `Interpolate.Common(points, values)`                                       | Floater-Hormann rational |
-|  [06]   | `Interpolate.RationalWithoutPoles(points, values)`                         | pole-free rational       |
-|  [07]   | `Interpolate.Polynomial(points, values)`                                   | barycentric polynomial   |
-|  [08]   | `Interpolate.PolynomialEquidistant(points, values)`                        | equidistant polynomial   |
-|  [09]   | `Interpolate.Linear(points, values)`                                       | piecewise linear         |
-|  [10]   | `Interpolate.LogLinear(points, values)`                                    | log-linear               |
-|  [11]   | `Interpolate.Step(points, values)`                                         | step                     |
+[ENTRYPOINT_SCOPE]: regression and curve fitting via `Fit`, every surface static over `double[]` samples
 
-[ENTRYPOINT_SCOPE]: special functions via `SpecialFunctions`
+| [INDEX] | [SURFACE]                                                                    | [SHAPE] | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------------------------------- | :------ | :---------------------------------------------- |
+|  [01]   | `Fit.Line(double[], double[]) -> (double A, double B)`                       | static  | least-squares intercept and slope               |
+|  [02]   | `Fit.LineThroughOrigin(double[], double[]) -> double`                        | static  | slope with the intercept pinned to zero         |
+|  [03]   | `Fit.Polynomial(double[], double[], int, DirectRegressionMethod)`            | static  | polynomial coefficients at an order             |
+|  [04]   | `Fit.PolynomialWeighted(double[], double[], double[], int) -> double[]`      | static  | the same fit under per-sample weights           |
+|  [05]   | `Fit.Exponential(double[], double[], DirectRegressionMethod)`                | static  | `a·e^(r·x)` fit                                 |
+|  [06]   | `Fit.Logarithm(double[], double[], DirectRegressionMethod)`                  | static  | `a + b·ln(x)` fit                               |
+|  [07]   | `Fit.Power(double[], double[], DirectRegressionMethod)`                      | static  | `a·x^b` fit                                     |
+|  [08]   | `Fit.LinearCombination(double[], double[], params Func<double,double>[])`    | static  | arbitrary basis-function fit                    |
+|  [09]   | `Fit.MultiDim(double[][], double[], bool, DirectRegressionMethod)`           | static  | multivariate linear fit, intercept optional     |
+|  [10]   | `Fit.MultiDimWeighted(double[][], double[], double[]) -> double[]`           | static  | the same fit under per-sample weights           |
+|  [11]   | `Fit.LinearGeneric<T>(T[], double[], params Func<T,double>[]) -> double[]`   | static  | basis fit over an arbitrary sample carrier      |
+|  [12]   | `Fit.Curve(double[], double[], Func<double,double,double>, double)`          | static  | nonlinear curve fit, one fitted parameter       |
+|  [13]   | `GoodnessOfFit.RSquared(IEnumerable<double>, IEnumerable<double>)`           | static  | coefficient of determination over a fit         |
+|  [14]   | `GoodnessOfFit.StandardError(IEnumerable<double>, IEnumerable<double>, int)` | static  | residual standard error at a degrees-of-freedom |
 
-Each listed function is static and returns `double`.
+[ENTRYPOINT_SCOPE]: special functions via `SpecialFunctions`, every surface static
 
-| [INDEX] | [SURFACE]                                      | [CAPABILITY]                 |
-| :-----: | :--------------------------------------------- | :--------------------------- |
-|  [01]   | `SpecialFunctions.Gamma(x)`                    | Gamma                        |
-|  [02]   | `SpecialFunctions.GammaLn(x)`                  | log Gamma                    |
-|  [03]   | `SpecialFunctions.GammaLowerRegularized(a, x)` | regularized lower Gamma      |
-|  [04]   | `SpecialFunctions.GammaUpperRegularized(a, x)` | regularized upper Gamma      |
-|  [05]   | `SpecialFunctions.GammaLowerIncomplete(a, x)`  | incomplete lower Gamma       |
-|  [06]   | `SpecialFunctions.GammaUpperIncomplete(a, x)`  | incomplete upper Gamma       |
-|  [07]   | `SpecialFunctions.DiGamma(x)`                  | digamma                      |
-|  [08]   | `SpecialFunctions.DiGammaInv(p)`               | inverse digamma              |
-|  [09]   | `SpecialFunctions.Beta(a, b)`                  | Beta                         |
-|  [10]   | `SpecialFunctions.BetaLn(a, b)`                | log Beta                     |
-|  [11]   | `SpecialFunctions.BetaRegularized(a, b, x)`    | regularized incomplete Beta  |
-|  [12]   | `SpecialFunctions.BetaIncomplete(a, b, x)`     | incomplete Beta              |
-|  [13]   | `SpecialFunctions.Erf(x)`                      | error function               |
-|  [14]   | `SpecialFunctions.Erfc(x)`                     | complementary error function |
-|  [15]   | `SpecialFunctions.Logistic(x)`                 | logistic sigmoid             |
-|  [16]   | `SpecialFunctions.Logit(p)`                    | logit                        |
-|  [17]   | `SpecialFunctions.Harmonic(t)`                 | harmonic number              |
-|  [18]   | `SpecialFunctions.Factorial(n)`                | factorial                    |
-|  [19]   | `SpecialFunctions.FactorialLn(n)`              | log factorial                |
-|  [20]   | `SpecialFunctions.BesselJ(nu, x)`              | Bessel J                     |
-|  [21]   | `SpecialFunctions.BesselY(nu, x)`              | Bessel Y                     |
-|  [22]   | `SpecialFunctions.BesselI0(x)`                 | modified Bessel I0           |
-|  [23]   | `SpecialFunctions.BesselI1(x)`                 | modified Bessel I1           |
-|  [24]   | `SpecialFunctions.BesselK0(x)`                 | modified Bessel K0           |
-|  [25]   | `SpecialFunctions.BesselK1(x)`                 | modified Bessel K1           |
+[GAMMA]: `Gamma` `GammaLn` `GammaLowerIncomplete` `GammaUpperIncomplete` `GammaLowerRegularized` `GammaUpperRegularized` `GammaLowerRegularizedInv` `DiGamma` `DiGammaInv`
+[BETA]: `Beta` `BetaLn` `BetaIncomplete` `BetaRegularized`
+[ERROR_FUNCTION]: `Erf` `Erfc` `ErfInv` `ErfcInv`
+[COMBINATORIC]: `Factorial` `FactorialLn` `Binomial` `BinomialLn` `Multinomial` `RisingFactorial` `FallingFactorial` `Harmonic` `GeneralHarmonic`
+[BESSEL]: `BesselJ` `BesselY` `BesselI` `BesselK` `BesselI0` `BesselI1` `BesselK0` `BesselK1` `SphericalBesselJ` `SphericalBesselY` `HankelH1` `HankelH2`
+[AIRY_KELVIN_STRUVE]: `AiryAi` `AiryBi` `AiryAiPrime` `AiryBiPrime` `KelvinBer` `KelvinBei` `KelvinKer` `KelvinKei` `StruveL0` `StruveL1`
+[ELEMENTARY]: `Logistic` `Logit` `Log1p` `Expm1` `Hypotenuse` `ExponentialIntegral` `MarcumQ` `MittagLefflerE` `GeneralizedHypergeometric`
 
-[ENTRYPOINT_SCOPE]: distance metrics via `Distance`
+[ENTRYPOINT_SCOPE]: distance reduction via `Distance`, every surface a static reduction over one pair
 
-Every metric is a static reduction over a pair. A metric-dispatch delegate normalizes on arrays because the complete family shares only that carrier.
+| [INDEX] | [SURFACE]                                                    | [SHAPE] | [CAPABILITY]                      |
+| :-----: | :----------------------------------------------------------- | :------ | :-------------------------------- |
+|  [01]   | `Distance.Euclidean(Vector<T>, Vector<T>) -> double`         | static  | L2                                |
+|  [02]   | `Distance.Manhattan(Vector<T>, Vector<T>) -> double`         | static  | L1                                |
+|  [03]   | `Distance.Chebyshev(Vector<T>, Vector<T>) -> double`         | static  | L∞                                |
+|  [04]   | `Distance.Minkowski(double, Vector<T>, Vector<T>) -> double` | static  | order-`p`                         |
+|  [05]   | `Distance.SAD(Vector<T>, Vector<T>) -> double`               | static  | sum of absolute deviations        |
+|  [06]   | `Distance.MAE(Vector<T>, Vector<T>) -> double`               | static  | mean absolute deviation           |
+|  [07]   | `Distance.SSD(Vector<T>, Vector<T>) -> double`               | static  | sum of squared deviations         |
+|  [08]   | `Distance.MSE(Vector<T>, Vector<T>) -> double`               | static  | mean squared deviation            |
+|  [09]   | `Distance.Cosine(double[], double[]) -> double`              | static  | cosine, array carrier only        |
+|  [10]   | `Distance.Canberra(double[], double[]) -> double`            | static  | weighted L1, array carrier only   |
+|  [11]   | `Distance.Hamming(double[], double[]) -> double`             | static  | differing-value count, array only |
+|  [12]   | `Distance.Jaccard(double[], double[]) -> double`             | static  | set overlap, array only           |
+|  [13]   | `Distance.Pearson(IEnumerable<double>, IEnumerable<double>)` | static  | correlation distance              |
 
-| [INDEX] | [SURFACE]                                                        | [METRIC]                |
-| :-----: | :--------------------------------------------------------------- | :---------------------- |
-|  [01]   | `Distance.Euclidean(a, b)`                                       | L2                      |
-|  [02]   | `Distance.Manhattan(a, b)`                                       | L1                      |
-|  [03]   | `Distance.Chebyshev(a, b)`                                       | L∞                      |
-|  [04]   | `Distance.Minkowski(p, a, b)`                                    | order-`p`               |
-|  [05]   | `Distance.Cosine(double[] a, double[] b)`                        | cosine                  |
-|  [06]   | `Distance.Cosine(float[] a, float[] b)`                          | cosine                  |
-|  [07]   | `Distance.Canberra(a, b)`                                        | weighted L1             |
-|  [08]   | `Distance.Hamming(a, b)`                                         | differing-value count   |
-|  [09]   | `Distance.Jaccard(a, b)`                                         | set overlap             |
-|  [10]   | `Distance.SAD(a, b)`                                             | absolute sum            |
-|  [11]   | `Distance.MAE(a, b)`                                             | mean absolute deviation |
-|  [12]   | `Distance.SSD(a, b)`                                             | squared sum             |
-|  [13]   | `Distance.MSE(a, b)`                                             | mean squared deviation  |
-|  [14]   | `Distance.Pearson(IEnumerable<double> a, IEnumerable<double> b)` | correlation distance    |
+- Each array metric mirrors a `float[]` overload returning `float`, `Jaccard` excepted; the `Vector<T>` form constrains `T : struct, IEquatable<T>, IFormattable`.
 
-[DISTANCE_OVERLOADS]:
-- Vector and array carriers: `Euclidean`, `Manhattan`, `Chebyshev`, `Minkowski`, `SAD`, `MAE`, `SSD`, and `MSE`
-- Array-only carriers: `Cosine`, `Canberra`, `Hamming`, and `Jaccard`
-- Sequence carrier: `Pearson(IEnumerable<double>, IEnumerable<double>)`
-- Array returns: Carrier scalar except `Jaccard`, which returns `double`
-- Vector and sequence returns: `double`
+[ENTRYPOINT_SCOPE]: integral transforms via `Fourier` and `Hartley`
 
-[ENTRYPOINT_SCOPE]: least-squares fitting via `Fit`
+| [INDEX] | [SURFACE]                                                    | [SHAPE] | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------- | :------ | :---------------------------------- |
+|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                 | static  | in-place complex transform          |
+|  [02]   | `Fourier.Forward(double[], double[], FourierOptions)`        | static  | split real and imaginary spans      |
+|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`         | static  | packed conjugate-even half-spectrum |
+|  [04]   | `Fourier.ForwardMultiDim(Complex[], int[], FourierOptions)`  | static  | row-major N-dimensional transform   |
+|  [05]   | `Fourier.Forward2D(Complex[], int, int, FourierOptions)`     | static  | row-major matrix transform          |
+|  [06]   | `Fourier.Forward2D(Matrix<Complex>, FourierOptions)`         | static  | `Matrix<T>` carrier transform       |
+|  [07]   | `Fourier.FrequencyScale(int, double) -> double[]`            | static  | per-bin frequency axis              |
+|  [08]   | `Hartley.NaiveForward(double[], HartleyOptions) -> double[]` | static  | real-valued Hartley transform       |
 
-[FIT_LINE]:
-- Surface: `Fit.Line(double[] x, double[] y)`
-- Returns: `(double A, double B)`
-- Capability: Least-squares line `y = a + b·x`, with intercept `A` and slope `B`
+[ENTRYPOINT_SCOPE]: window tapers via `Window`, every factory returning a `double[]` of the requested width
 
-[ENTRYPOINT_SCOPE]: discrete Fourier transforms via `Fourier`
+[PAIRED_TAPER]: `Hann` `Hamming` `Cosine` `Lanczos`
+[SINGLE_TAPER]: `Blackman` `BlackmanHarris` `BlackmanNuttall` `Nuttall` `FlatTop` `Bartlett` `BartlettHann` `Triangular` `Dirichlet`
+[SHAPED_TAPER]: `Gauss(width, sigma)` `Tukey(width, r)`
 
-Every transform mutates the caller-owned buffer. `FourierOptions` selects scaling and exponent convention, split real and imaginary arrays preserve contiguous scalar spans, real transforms pack the conjugate-even half-spectrum, and `FrequencyScale` returns the bin axis.
+[ENTRYPOINT_SCOPE]: statistics, differentiation, and the numeric-utility owners
 
-| [INDEX] | [SURFACE]                                                                               | [RETURNS]  | [CARRIER]        |
-| :-----: | :-------------------------------------------------------------------------------------- | :--------- | :--------------- |
-|  [01]   | `Fourier.Forward(Complex[] samples[, FourierOptions])`                                  | `void`     | complex          |
-|  [02]   | `Fourier.Forward(Complex32[] samples[, FourierOptions])`                                | `void`     | complex32        |
-|  [03]   | `Fourier.Forward(double[] real, double[] imaginary[, FourierOptions = Default])`        | `void`     | split double     |
-|  [04]   | `Fourier.Forward(float[] real, float[] imaginary[, FourierOptions = Default])`          | `void`     | split float      |
-|  [05]   | `Fourier.Inverse(Complex[] spectrum[, FourierOptions])`                                 | `void`     | complex          |
-|  [06]   | `Fourier.Inverse(double[] real, double[] imaginary[, FourierOptions])`                  | `void`     | split double     |
-|  [07]   | `Fourier.ForwardReal(double[] data, int n[, FourierOptions = Default])`                 | `void`     | packed double    |
-|  [08]   | `Fourier.ForwardReal(float[] data, int n[, FourierOptions = Default])`                  | `void`     | packed float     |
-|  [09]   | `Fourier.InverseReal(double[] data, int n[, FourierOptions = Default])`                 | `void`     | packed double    |
-|  [10]   | `Fourier.InverseReal(float[] data, int n[, FourierOptions = Default])`                  | `void`     | packed float     |
-|  [11]   | `Fourier.ForwardMultiDim(Complex[] samples, int[] dimensions[, FourierOptions])`        | `void`     | multidimensional |
-|  [12]   | `Fourier.Forward2D(Complex[] samplesRowWise, int rows, int columns[, FourierOptions])`  | `void`     | row-major matrix |
-|  [13]   | `Fourier.Forward2D(Matrix<Complex> samples[, FourierOptions])`                          | `void`     | complex matrix   |
-|  [14]   | `Fourier.InverseMultiDim(Complex[] spectrum, int[] dimensions[, FourierOptions])`       | `void`     | multidimensional |
-|  [15]   | `Fourier.Inverse2D(Complex[] spectrumRowWise, int rows, int columns[, FourierOptions])` | `void`     | row-major matrix |
-|  [16]   | `Fourier.Inverse2D(Matrix<Complex> spectrum[, FourierOptions])`                         | `void`     | complex matrix   |
-|  [17]   | `Fourier.FrequencyScale(int length, double sampleRate)`                                 | `double[]` | frequency axis   |
-
-[ENTRYPOINT_SCOPE]: window tapers via `Window`
-
-Every factory is static and returns `double[]`. Paired rows distinguish symmetric filter-design tapers from periodic FFT-framing tapers.
-
-| [INDEX] | [SURFACE]                       | [TAPER]                     |
-| :-----: | :------------------------------ | :-------------------------- |
-|  [01]   | `Window.Hann(width)`            | symmetric Hann              |
-|  [02]   | `Window.HannPeriodic(width)`    | periodic Hann               |
-|  [03]   | `Window.Hamming(width)`         | symmetric Hamming           |
-|  [04]   | `Window.HammingPeriodic(width)` | periodic Hamming            |
-|  [05]   | `Window.Cosine(width)`          | symmetric cosine            |
-|  [06]   | `Window.CosinePeriodic(width)`  | periodic cosine             |
-|  [07]   | `Window.Lanczos(width)`         | symmetric Lanczos           |
-|  [08]   | `Window.LanczosPeriodic(width)` | periodic Lanczos            |
-|  [09]   | `Window.Blackman(width)`        | three-term Blackman         |
-|  [10]   | `Window.BlackmanHarris(width)`  | four-term Blackman-Harris   |
-|  [11]   | `Window.BlackmanNuttall(width)` | four-term Blackman-Nuttall  |
-|  [12]   | `Window.Nuttall(width)`         | four-term Nuttall           |
-|  [13]   | `Window.FlatTop(width)`         | five-term flat-top          |
-|  [14]   | `Window.Bartlett(width)`        | zero-endpoint triangular    |
-|  [15]   | `Window.BartlettHann(width)`    | Bartlett-Hann               |
-|  [16]   | `Window.Triangular(width)`      | nonzero-endpoint triangular |
-|  [17]   | `Window.Dirichlet(width)`       | rectangular                 |
-|  [18]   | `Window.Gauss(width, sigma)`    | Gaussian                    |
-|  [19]   | `Window.Tukey(width, r = 0.5)`  | tapered cosine              |
+[STATISTICS]: `Mean` `Variance` `StandardDeviation` `PopulationVariance` `Covariance` `Skewness` `Kurtosis` `Median` `Quantile` `QuantileCustom` `Percentile` `InterquartileRange` `FiveNumberSummary` `Ranks` `QuantileRank` `EmpiricalCDF` `EmpiricalInvCDF` `RootMeanSquare` `GeometricMean` `HarmonicMean` `Entropy` `MovingAverage` `OrderStatistic`
+[STATISTICS_OWNER]: `Statistics` `ArrayStatistics` `SortedArrayStatistics` `StreamingStatistics` `DescriptiveStatistics` `WeightedDescriptiveStatistics` `RunningStatistics` `RunningWeightedStatistics` `MovingStatistics` `Correlation` `Histogram` `KernelDensity` `GoodnessOfFit`
+[CORRELATION]: `Pearson` `WeightedPearson` `Spearman` `PearsonMatrix` `SpearmanMatrix` `Auto`
+[DIFFERENTIATE]: `FirstDerivative` `SecondDerivative` `Derivative` `PartialDerivative` `FirstPartialDerivative` `PartialDerivative2` `Points` `Order`
+[PRECISION]: `AlmostEqual` `AlmostEqualRelative` `AlmostEqualNumbersBetween` `CoerceZero` `EpsilonOf` `Increment` `Decrement` `Round` `RoundToMultiple` `RoundToPower` `Magnitude` `NumbersBetween`
+[EUCLID]: `GreatestCommonDivisor` `ExtendedGreatestCommonDivisor` `LeastCommonMultiple` `Modulus` `Remainder` `IsEven` `IsOdd` `IsPowerOfTwo` `CeilingToPowerOfTwo` `PowerOfTwo` `Log2` `IsPerfectSquare`
+[TRIG]: `Sinc` `Cot` `Sec` `Csc` `Acot` `Asec` `Acsc` `Sinh` `Cosh` `Tanh` `Asinh` `Acosh` `Atanh` `DegreeToRadian` `RadianToDegree` `DegreeToGrad` `GradToRadian`
+[COMBINATORICS]: `Combinations` `CombinationsWithRepetition` `Permutations` `Variations` `VariationsWithRepetition` `GeneratePermutation` `GenerateCombination` `GenerateVariation` `SelectPermutation` `SelectCombination` `SelectVariation`
+[POLYNOMIAL]: `Evaluate` `Fit` `Roots` `Differentiate` `Integrate` `Add` `Subtract` `Multiply` `Divide` `PointwiseMultiply` `PointwiseDivide` `EigenvalueMatrix`
+[ODE]: `RungeKutta.SecondOrder` `RungeKutta.FourthOrder`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DISTRIBUTION_TOPOLOGY]:
-- namespace: `MathNet.Numerics.Distributions`
-- seam hierarchy: `IDistribution` → `IUnivariateDistribution` → `IContinuousDistribution` or `IDiscreteDistribution`
-- construction: each distribution has a constructor per parameter set plus an optional `System.Random randomSource` overload; passing `null` or omitting assigns `SystemRandomSource.Default`
-- sampling: `Sample()` returns one value; `Samples(array)` fills the caller-owned buffer; `Samples()` returns a lazy `IEnumerable<T>` — none allocate an internal result store
-- `RandomSource` replaces `null` with the shared default. `CumulativeDistribution` lives on `IUnivariateDistribution`, while inverse CDF remains a concrete-distribution surface.
+[TOPOLOGY]:
+- `IDistribution` to `IUnivariateDistribution` to `IContinuousDistribution` or `IDiscreteDistribution` is the seam ladder: `CumulativeDistribution` rides the univariate seam and `InverseCumulativeDistribution` stays a concrete-distribution member.
+- Every distribution mints a parallel static family keyed on its constructor tuple, so a one-shot evaluation allocates no instance; an alternate parameterization arrives as a `With*` factory rather than a second constructor, and `Gamma`'s constructor takes a rate with `WithShapeScale` holding the scale form.
+- Omitting `System.Random` binds `SystemRandomSource.Default`; `Sample()` returns one value, `Samples(array)` fills the caller-owned buffer, and `Samples()` yields lazily, none allocating an internal store.
+- `Generate.*Map` fuses the projection into the axis walk and `Generate.*Sequence` yields it lazily, so neither materializes an intermediate array.
+- `OnClosedInterval` is the double-exponential rule at a `1e-8` absolute target; `GaussKronrod` is the adaptive rule whose `out error`/`out L1Norm` overload is the only quadrature carrying its own error estimate; `OnRectangle` and `OnCuboid` are fixed-order Legendre product rules whose `order` sets the per-axis node count.
+- Root finding is one static class per method with no aggregator: every iterative class mirrors `FindRoot` with `TryFindRoot`, whose `bool` return carries non-convergence where `FindRoot` raises `NonConvergenceException`.
+- `Broyden.FindRoot` solves a square system carrying no bounds; a rectangular residual or a per-parameter travel limit routes to `LevenbergMarquardtMinimizer.FindMinimum`, which takes the full residual and the bound vectors natively.
+- Least squares fits `f(parameters, observedX) -> predicted` against `observedY`, so a pure residual formulation passes a zero `observedY` of the residual's rank and `MinimizingPoint` minimizes the residual norm; `ReasonForExit` reports the stop condition while `Covariance` and `StandardErrors` carry the fit's uncertainty.
+- Every `Fourier` transform mutates the caller-owned buffer: `Default` applies symmetric scaling, `AsymmetricScaling` scales the inverse by `1/N`, and `NoScaling` omits it, so a forward-inverse round trip is identity under the first two and carries a factor of `N` under the third.
+- `Forward*` and `Inverse*` mirror at one signature across both transform owners, and each `Complex`/`double[]` carrier mirrors a `Complex32`/`float[]` twin: the split `double[] real, double[] imaginary` form keeps contiguous scalar spans for a vectorized magnitude-phase pass, and the packed `ForwardReal`/`InverseReal` form stores the conjugate-even half-spectrum in an `N+2` (even `N`) or `N+1` (odd `N`) buffer.
+- `FrequencyScale(length, sampleRate)` returns the per-bin axis: positive bins over the first `⌊N/2⌋+1` entries then the wrapped negative bins, spaced `sampleRate/length`.
+- A paired taper's bare name is the symmetric filter-design form and its `*Periodic` twin the FFT-framing form; `Gauss` takes sigma relative to the half-width and `Tukey` the tapered fraction.
+- `*Scaled` forms hold large-argument stability and `*Prime` forms give the derivative across the Bessel, Hankel, Airy, and Kelvin families.
 
-[INTEGRATION_TOPOLOGY]:
-- namespace: `MathNet.Numerics`; delegates to `MathNet.Numerics.Integration` (`DoubleExponentialTransformation`, `GaussLegendreRule`, `GaussKronrodRule`)
-- `OnClosedInterval` is double-exponential with a `1e-8` default absolute-error target — suitable for smooth analytic functions; `GaussKronrod` is the adaptive method with an explicit relative-error target, `maximumDepth`, and an `out error`/`out L1Norm` estimate, for functions where the error must be bounded
-- `OnRectangle`/`OnCuboid` use fixed-order Gauss-Legendre product rules over a box; the `order` argument selects the per-axis node count
-
-[ROOT_FINDING_TOPOLOGY]:
-- namespace: `MathNet.Numerics.RootFinding` — no `FindRoots` aggregator; the surface is one static class per method (`Brent`, `Bisection`, `NewtonRaphson`, `RobustNewtonRaphson`, `Secant`, `Broyden`, `Cubic`)
-- selection by available information: `Brent.TryFindRoot` (bracket, no derivative) is the canonical entry; `NewtonRaphson`/`RobustNewtonRaphson` when an analytic derivative `df` is available; `Secant` for derivative-free local convergence; `Broyden` for nonlinear systems; `Cubic` for closed-form cubic roots
-- `FindRoot` throws `NonConvergenceException` on failure, while `TryFindRoot` returns `false` for a `Fin` or `Option` rail. `FindRootExpand` adds automatic bracket expansion to bracketing methods.
-
-[SPECTRAL_TOPOLOGY]:
-- namespace: `MathNet.Numerics.IntegralTransforms` (`Fourier`, `FourierOptions`) plus root `MathNet.Numerics` (`Window`)
-- Every `Fourier` transform mutates the caller-owned buffer. `Default` applies symmetric scaling, `AsymmetricScaling` scales the inverse by `1/N`, and `NoScaling` omits scaling; a forward-inverse round trip is identity under `Default` or `AsymmetricScaling` and carries a factor of `N` under `NoScaling`.
-- three real-signal carriers: the `Complex[]`/`Complex32[]` form; the split `double[] real, double[] imaginary` form (a vectorized magnitude/phase reads the contiguous spans with no `Complex` marshalling — the preferred form); and the packed `ForwardReal`/`InverseReal` form that stores the conjugate-even half-spectrum in an `N+2` (even N) / `N+1` (odd N) buffer; `ForwardMultiDim`/`Forward2D` (and their inverses) cover row-major multi-dimensional and 2D data
-- `FrequencyScale(length, sampleRate)` returns the per-bin frequency axis — the positive bins `0, Δf, 2Δf, …` over the first `⌊N/2⌋+1` then the wrapped negative bins, `Δf = sampleRate/length` — never the meaningless `1/length`
-- `Hann`, `Hamming`, `Cosine`, and `Lanczos` pair symmetric filter-design tapers with `*Periodic` FFT-framing tapers. `Dirichlet` is rectangular, while `Gauss(width, sigma)` and `Tukey(width, r = 0.5)` carry shape parameters.
-
-[STACK]:
-- A root-find on a boundary rail composes the no-throw `Brent.TryFindRoot(f, lo, hi, acc, maxIter, out root)`: the `bool` maps to `Fin.Succ(root)`/`Fin.Fail(...)` (or `Option`) at the seam, so a non-convergence is a typed failure row, never a `NonConvergenceException` thrown through the receipt path
-- Parallel sampling assigns each worker a distribution instance with its own `RandomSource`, so the RNG never races
-- An `IInterpolation` composes `Interpolate(x)`, `Differentiate(x)`, and `Integrate(a, b)` through one scheme policy keyed by point order and pole constraints
-- `SpecialFunctions.GammaLn`, `SpecialFunctions.BetaRegularized`, and `SpecialFunctions.Erf` anchor analytic CDFs
-- A spectral pass widens the real signal to `double[]`, runs `Fourier.Forward(real, imaginary, FourierOptions.Default)`, and reads magnitude and phase through vectorized `Hypot` and `Atan2` operations over the contiguous spans
-- `FourierOptions.Default` makes the forward-inverse round trip identity through symmetric scaling
-- Bin spacing derives from `Fourier.FrequencyScale`
-- The analysis window selects a `Window.*` taper, using `*Periodic` for FFT framing and the symmetric variant for filter design
+[STACKING]:
+- `LanguageExt.Core`(`.api/api-languageext.md`): `Brent.TryFindRoot`'s `bool`/`out` pair and `NonlinearMinimizationResult.ReasonForExit` lift to `Fin<double>` and `Fin<Vector<double>>` at the seam, so non-convergence lands as a typed failure row instead of an exception crossing the receipt path.
+- `CSparse`(`.api/api-csparse.md`): a residual Jacobian assembled as `CompressedColumnStorage<double>` factors on the direct sparse lane and steps through `ISolver<double>.Solve`, while this package keeps the model, the tolerances, and the exit condition.
+- `System.Numerics.Tensors`(`.api/api-tensors.md`): `TensorPrimitives` folds the split `double[] real, double[] imaginary` spectral spans and the `Generate`/`Window` axes in place, so magnitude, phase, and taper application vectorize with no `Complex` marshalling.
+- `UnitsNet`(`.api/api-unitsnet.md`): a quantity-typed integrand or sample set enters through `IQuantity.As(Enum)` as a base-unit `double` and the returned scalar re-enters its quantity type, so dimensional identity rides the caller and never the kernel.
+- Numeric-rail fold: one `Generate.LinearSpaced` axis threads `Interpolate` fitting the sampled response, `IInterpolation.Differentiate` and `Differentiate` supplying the Jacobian column, `Integrate` reducing over the domain, and `Fourier` under a `Window` taper reading the spectrum.
 
 [LOCAL_ADMISSION]:
-- Parallel samplers own one distribution instance and `RandomSource` per worker
-- `Integrate.OnClosedInterval` integrates a real scalar `Func<double,double>`; `GaussKronrod` is the adaptive form when an error bound is required; the two-/three-dimensional overloads are `OnRectangle`/`OnCuboid`
-- Each root-finding method owns one static class, and `TryFindRoot` is the rail-composable failure form
-- `MathNet.Numerics.IntegralTransforms.Fourier` owns in-place transforms under `FourierOptions`, with split scalar arrays for contiguous spans and packed real transforms for Hermitian half-spectra
-- `MathNet.Numerics.Window` owns analysis tapers, and `FrequencyScale` owns the bin axis
-- Wavelet filter banks bind through their scaling tables outside this package
-- Linear algebra, provider selection, and sparse solve remain outside the core assembly
+- Every analytic kernel on the numeric rail enters through a `MathNet.Numerics` static owner; a parallel sampler owns one distribution instance and one `RandomSource` per worker.
+- Wavelet filter banks and analog-prototype IIR design bind through their own scaling tables outside this package.
 
 [RAIL_LAW]:
-- Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
-- Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), least-squares line fit (`Fit.Line`), the `Distance` metric catalog (Euclidean/Manhattan/Chebyshev/Minkowski over `Vector<T>`+arrays; Cosine/Canberra/Hamming/Jaccard array-only; Pearson), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), and the `Window` taper catalog
-- Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, in-place `Complex[]`/split `double[]` spectral buffers under a `FourierOptions` scaling, `Window` tapers as `double[]`
-- Reject: hand-rolled distribution PDF/CDF, custom quadrature when `Integrate` covers the interval shape, a phantom `FindRoots` aggregator, local reimplementations of Gamma/Beta/erf/Bessel, a hand-rolled least-squares line beside `Fit.Line`, a hand-rolled pairwise-metric loop beside the `Distance` catalog, a phantom `Distance.Cosine(Vector<T>, Vector<T>)` overload (cosine is array-only), a hand-rolled radix-2/Bluestein FFT, a hand-rolled cosine/rectangular taper, `1/N` bin spacing where `Fourier.FrequencyScale` gives the real axis
+- Package: `MathNet.Numerics`
+- Owns: provider-free analytic numeric kernel — probability, quadrature, interpolation, root finding, nonlinear least squares, special functions, spectral transform, metric reduction, and descriptive statistics
+- Accept: `Func<double,double>` integrands and root targets, `double[]` sample and signal axes, the distribution seams, `IInterpolation` results, the no-throw `TryFindRoot` rail, in-place `Complex[]` and split `double[]` spectral buffers under a `FourierOptions` scaling
+- Reject: a hand-rolled analytic kernel — quadrature, FFT, taper, CDF, or special-function series — beside the static owner already carrying it

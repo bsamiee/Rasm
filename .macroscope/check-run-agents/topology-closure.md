@@ -6,7 +6,7 @@ conclusion: neutral
 include:
   - "docs/stacks/**"
   - "docs/laws/**"
-  - "libs/.planning/architecture.md"
+  - "libs/.planning/ARCHITECTURE.md"
   - "tests/csharp/_architecture/**"
   - ".claude/skills/**"
   - ".claude/agents/**"
@@ -25,7 +25,7 @@ Cross-surface closure is this pass's one question: whether every surface `docs/l
 
 Hunt these classes, each finding naming the edited surface and the missing counterpart:
 - Reviewer-config drift: a `docs/stacks/<language>/` doctrine page edited without its derived reviewer rule updated across all three configs — `.coderabbit.yaml`, `.greptile/`, and `.macroscope/` move together; one updated and two stale is the finding.
-- Strata-spec drift: a `libs/.planning/architecture.md` strata edge edited without the `tests/csharp/_architecture` boundary specs that land the strata law at both ends.
+- Strata-spec drift: a `libs/.planning/ARCHITECTURE.md` strata edge edited without the `tests/csharp/_architecture` boundary specs that land the strata law at both ends.
 - Estate propagation: a `.claude/` steering surface — skills, agents, commands — edited where the sibling-repo copies are byte-identical propagation targets; when the copies lie outside the diff, record an explicit unreachable naming them rather than a silent pass. Workflow scripts stay repo-owned and never propagate.
 - Constitution split: a `CLAUDE.md` fact landed without its `AGENTS.md` cross-reference, or a fact duplicated into both where one acting reader owns it.
 - Tool-runtime coupling: a `.config/dotnet-tools.json` tool row edited without the `tools/assay` decompile rails that depend on it.

@@ -1,6 +1,6 @@
 # [RASM_API_OPENTELEMETRY_HOSTING]
 
-`OpenTelemetry.Extensions.Hosting` binds the SDK to the generic host: `AddOpenTelemetry()` on `IServiceCollection` mints one `OpenTelemetryBuilder` whose `WithTracing`/`WithMetrics`/`WithLogging` delegates configure the three providers, and the host owns provider construction, flush, and shutdown. AppHost's hosted root composes here; hostless plugin roots ride `Sdk.Create*ProviderBuilder` instead.
+`OpenTelemetry.Extensions.Hosting` seats provider ownership in the generic host: one builder over the application `IServiceCollection` carries all three signals through the DI graph, and construction, flush, and disposal ride host start and stop.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -13,46 +13,55 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[BUILDER_TYPES]: the DI composition builder
-- rail: telemetry composition
+[PUBLIC_TYPE_SCOPE]: DI composition builder and the extension verb minting it
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                                        |
-| :-----: | :-------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `OpenTelemetryBuilder`            | builder        | three-signal configuration over one `Services` seat |
-|  [02]   | `OpenTelemetryServicesExtensions` | registration   | `AddOpenTelemetry(IServiceCollection)`              |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :-------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `OpenTelemetryBuilder`            | sealed class  | three-signal configuration over one `Services` seat |
+|  [02]   | `OpenTelemetryServicesExtensions` | static class  | mints the builder onto an `IServiceCollection`      |
 
-`OpenTelemetryBuilder` carries `Services` and the fluent verbs `ConfigureResource(Action<ResourceBuilder>)`, `WithTracing([Action<TracerProviderBuilder>])`, `WithMetrics([Action<MeterProviderBuilder>])`, and `WithLogging([Action<LoggerProviderBuilder>][, Action<OpenTelemetryLoggerOptions>])`; it implements the `IOpenTelemetryBuilder` seam cross-cutting extensions such as `UseOtlpExporter` target.
+`OpenTelemetryBuilder` implements `IOpenTelemetryBuilder`; cross-cutting exporter and enrichment verbs extend that interface and chain off the instance the fluent verbs return.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: host composition
-- rail: telemetry composition
+[ENTRYPOINT_SCOPE]: host composition — every row past `AddOpenTelemetry` is an `OpenTelemetryBuilder` member returning that same builder.
 
-| [INDEX] | [SURFACE]           | [KIND]          | [CAPABILITY]                                         |
-| :-----: | :------------------ | :-------------- | :--------------------------------------------------- |
-|  [01]   | `AddOpenTelemetry`  | registration    | one builder per host; repeated calls return one seat |
-|  [02]   | `ConfigureResource` | identity verb   | augments all three providers together                |
-|  [03]   | `WithTracing`       | trace delegate  | receives the `TracerProviderBuilder`                 |
-|  [04]   | `WithMetrics`       | metric delegate | receives the `MeterProviderBuilder`                  |
-|  [05]   | `WithLogging`       | log delegate    | provider builder + `OpenTelemetryLoggerOptions` legs |
+| [INDEX] | [SURFACE]                                                                        | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `OpenTelemetryServicesExtensions.AddOpenTelemetry(IServiceCollection)`           | static   | mints the builder and hosted seat      |
+|  [02]   | `Services`                                                                       | property | service seat every verb registers onto |
+|  [03]   | `ConfigureResource(Action<ResourceBuilder>)`                                     | instance | one identity across all three signals  |
+|  [04]   | `WithTracing()`                                                                  | instance | admits tracing at SDK defaults         |
+|  [05]   | `WithTracing(Action<TracerProviderBuilder>)`                                     | instance | shapes the tracer provider inline      |
+|  [06]   | `WithMetrics()`                                                                  | instance | admits metrics at SDK defaults         |
+|  [07]   | `WithMetrics(Action<MeterProviderBuilder>)`                                      | instance | shapes the meter provider inline       |
+|  [08]   | `WithLogging()`                                                                  | instance | admits logging at SDK defaults         |
+|  [09]   | `WithLogging(Action<LoggerProviderBuilder>)`                                     | instance | shapes the logger provider inline      |
+|  [10]   | `WithLogging(Action<LoggerProviderBuilder>, Action<OpenTelemetryLoggerOptions>)` | instance | adds the log-bridge options leg        |
+
+- `OpenTelemetryServicesExtensions.AddOpenTelemetry`: mints a fresh builder per call over the same `IServiceCollection` and inserts the hosted seat once, so repeated calls converge on one provider set.
+- `OpenTelemetryBuilder.WithLogging`: only the two-delegate overload admits a null leg; the single-delegate overload faults on a null configure.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[HOSTING_TOPOLOGY]:
-- root: one `AddOpenTelemetry()` per process admits all three signals; `ConfigureResource` is the only resource verb reaching all three providers
-- lifetime: provider construction, flush, and shutdown ride the host — shutdown drains traces and metrics before the log provider, because logs evidence the drain
+[TOPOLOGY]:
+- root: one `AddOpenTelemetry()` per host, `ConfigureResource` the only verb stamping identity onto all three providers at once
+- materialization: host start builds every configured provider through the hosted seat; a signal left unconfigured stays disabled behind one `OpenTelemetry-Extensions-Hosting` EventSource warning
 
 [STACKING]:
-- `OpenTelemetry`(`api-opentelemetry.md`): the delegates receive that package's builders; sampler, view, exemplar, and processor rows compose inside them.
-- `OpenTelemetry.Exporter.OpenTelemetryProtocol`(`api-opentelemetry-exporter-otlp.md`): `UseOtlpExporter()` chains directly off this builder.
-- instrumentation packages (`api-otel-instrumentation-*.md`): their `Add*Instrumentation` verbs land inside the `WithTracing`/`WithMetrics` delegates.
+- `OpenTelemetry`(`api-opentelemetry.md`): each signal delegate receives that package's provider builder, so sampler, view, exemplar, and processor rows compose inside them.
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol`(`api-opentelemetry-exporter-otlp.md`): `UseOtlpExporter` extends `IOpenTelemetryBuilder`, claiming all three signals off this builder once, after every `With*` leg.
+- `OpenTelemetry.Extensions`(`api-opentelemetry-extensions.md`): `AddBaggageActivityProcessor` registers inside the `WithTracing` delegate, promoting propagated baggage onto every span at start.
+- `OpenTelemetry.Resources.*`(`api-otel-resources.md`): each `Add<X>Detector` chains inside the `ConfigureResource` delegate, folding host, OS, process, container, and runtime attributes into the one resource.
+- `Microsoft.Extensions.Logging.Abstractions`(`api-logging-abstractions.md`): `WithLogging` registers the `OpenTelemetry`-named `ILoggerProvider` onto the host logging builder, so every library's `ILogger` record reaches the log provider.
+- instrumentation packages (`api-otel-instrumentation-*.md`): each `Add*Instrumentation` verb lands inside the `WithTracing` or `WithMetrics` delegate.
+- `Rasm.AppHost`: its observability root threads one `AddOpenTelemetry()` chain — identity through `ConfigureResource`, instrumentation and view rows inside the three delegates, `UseOtlpExporter` last — folded as a state-threaded builder pass, so a new signal row lands as data.
 
 [LOCAL_ADMISSION]:
-- Hosted composition is AppHost-root-only; no library and no host-boundary plugin references this package.
-- `serviceInstanceId` pins from the suite boot mint inside `ConfigureResource` — auto-generation anonymizes restart lineage.
+- `serviceInstanceId` pins from the suite boot mint inside `ConfigureResource`; auto-generation anonymizes restart lineage.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Extensions.Hosting`
 - Owns: DI-hosted three-signal provider composition and host-bound provider lifetime
-- Accept: one builder per hosted process, configured through the three delegates
-- Reject: a second `AddOpenTelemetry` root fragmenting resource identity; hosted composition inside plugin load contexts
+- Accept: one builder per hosted process, configured through the resource verb and the three signal delegates
+- Reject: a second `AddOpenTelemetry` root fragmenting resource identity; hosted composition inside a plugin load context

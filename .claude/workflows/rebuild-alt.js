@@ -578,7 +578,7 @@ const LANG = {
         casing: 'PascalCase',
         corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
         strata:
-            '`libs/.planning/architecture.md` owns the strata law (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
+            '`libs/.planning/ARCHITECTURE.md` owns the strata law (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
             'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
         stackFloor:
             'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
@@ -639,7 +639,7 @@ const LANG = {
         ],
         casing: 'snake_case',
         corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
-        strata: '`libs/.planning/architecture.md` owns the branch topology law.',
+        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
         stackFloor:
             'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
         apiTiers:
@@ -702,7 +702,7 @@ const LANG = {
         ],
         casing: 'camelCase',
         corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
-        strata: '`libs/.planning/architecture.md` owns the branch topology law.',
+        strata: '`libs/.planning/ARCHITECTURE.md` owns the branch topology law.',
         stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
         apiTiers:
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
@@ -1568,7 +1568,7 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             'DECLARATION SURFACE — mine what a writer must MATCH to compile against these pages, as fact at its anchor: the ' +
             "namespace each page's owners declare and the exact spelling of every namespace its fences import; which " +
             'declarations are visible without an import versus reached through one; the alias, extern-alias, or ' +
-            'static-import a cited surface requires; and the stratum each page sits in per `libs/.planning/architecture.md` ' +
+            'static-import a cited surface requires; and the stratum each page sits in per `libs/.planning/ARCHITECTURE.md` ' +
             'with the DIRECTION its dependencies run — a page importing downward, or reaching a sibling interior where a ' +
             'recorded seam exists, is a named fact at both anchors. A writer that has to rediscover a namespace spells it ' +
             'wrong or invents a parallel one.\nGROUNDING DOSSIER: write `' +
@@ -1759,7 +1759,7 @@ const RT_READ = (L, pkg, dossiers, pack) =>
     '. (2) LAWS: `docs/laws/README.md` + `docs/laws/topology.md` + `docs/laws/patterns.md` IN FULL — a topology row whose ' +
     '[SURFACE] your edits touch binds its counterparts into this pass; the repo `.editorconfig` error-severity rules for ' +
     'your language are compile gates. ' +
-    '(3) STRATA: `libs/.planning/architecture.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ledger — mandate (D) judges ' +
+    '(3) STRATA: `libs/.planning/ARCHITECTURE.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ledger — mandate (D) judges ' +
     'against these read at source, never a summary. ' +
     '(4) `.api`: `ls` BOTH tiers — `' +
     L.root +
@@ -1955,7 +1955,7 @@ const redteamPrompt = (L, batch, sibling, half, dossiers, ideate, scopes, roster
                 L.exhaust +
                 '). (C) LONG-TAIL — empty/singular/plural/stream/malformed/concurrent/cancelled/partial-failure/version-skew; ' +
                 'accumulate-vs-abort correct for the real boundary; ingress AND egress parameterized. (D) BOUNDARY/STRATA — ' +
-                'grade every concern against `libs/.planning/architecture.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ' +
+                'grade every concern against `libs/.planning/ARCHITECTURE.md` and the branch ARCHITECTURE.md [02]-[SEAMS] ' +
                 'ledger (read the ledger, never a summary): a concern owned twice, a downward dependency, a host-type leak, or ' +
                 'coupling to a sibling interior is fixed both ends per RIPPLE LAW. (E) SPRAWL + PHANTOMS — hand-re-derived ' +
                 'package capability, flat code below the operator depth the packages reach, a phantom member (delete), a thin ' +

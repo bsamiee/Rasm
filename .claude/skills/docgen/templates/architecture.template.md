@@ -2,7 +2,7 @@
 
 <architecture-lead-2-3-sentences: the unit's charter in owning voice — what it owns, the one invariant band it lowers onto, and its boundary to the peers it aligns with by contract, never by reference.>
 
-<!-- source-only: scope — this template governs the branch `libs/<lang>/.planning/ARCHITECTURE.md` and folder `<package>/ARCHITECTURE.md` altitudes; Tier-0 `libs/.planning/architecture.md` keeps its prose-law form and takes no seam diagram and no [ROUTING]. Unused sections omit and survivors renumber, so canonical numbering here is the full-set numbering. Branch grain earns [04]-[INTERNAL] (one flowchart per subsystem spine) and [05]-[ROUTING] (the merged extension table); [03]-[SEAMS] stays the cross-runtime registry. Folder grain carries every section, and [05]-[ROUTING] is earned only where the folder owns 3+ extension classes, else its growth law stays on design pages. -->
+<!-- source-only: scope — this template governs the branch `libs/<lang>/.planning/ARCHITECTURE.md` and folder `<package>/ARCHITECTURE.md` altitudes; Tier-0 `libs/.planning/ARCHITECTURE.md` keeps its prose-law form and takes no seam diagram and no [ROUTING]. Unused sections omit and survivors renumber, so canonical numbering here is the full-set numbering. Branch grain earns [04]-[INTERNAL] (one flowchart per subsystem spine) and [05]-[ROUTING] (the merged extension table); [03]-[SEAMS] stays the cross-runtime registry. Folder grain carries every section, and [05]-[ROUTING] is earned only where the folder owns 3+ extension classes, else its growth law stays on design pages. -->
 
 <!-- source-only: diagram convention — every committed fence carries exactly one frontmatter `config:` block setting `layout: elk` and `flowchart: {curve: linear, padding: 25}`, nothing more. -->
 

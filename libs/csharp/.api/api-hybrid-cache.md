@@ -1,120 +1,104 @@
 # [RASM_API_HYBRID_CACHE]
 
-`Microsoft.Extensions.Caching.Hybrid` admits hybrid cache implementation, service registration, keyed registration, serializer registration, cache options, and tag-aware invalidation into the runtime rail.
+`Microsoft.Extensions.Caching.Hybrid` owns the two-tier read-through cache: an in-process L1 over a distributed L2, collapsed behind one entrypoint that serves every concurrent miss on a key from a single factory invocation. Its boundary is the payload codec — an L2 value crosses as `ReadOnlySequence<byte>` and `IBufferWriter<byte>`, so a caller's codec writes straight into the transport buffer.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
-- package: `Microsoft.Extensions.Caching.Hybrid`
-- contract assembly: `Microsoft.Extensions.Caching.Abstractions` — owns `HybridCache`, `HybridCacheEntryOptions`, `HybridCacheEntryFlags`, `IHybridCacheSerializer<T>`, `IHybridCacheSerializerFactory`, `IBufferDistributedCache`
-- implementation assembly: `Microsoft.Extensions.Caching.Hybrid` — owns `HybridCacheOptions`, `IHybridCacheBuilder`, `HybridCacheServiceExtensions`, `HybridCacheBuilderExtensions`
-- namespace: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed` (the L2 buffer contract)
-- runtime flags: `IsTrimmable=True`, `IsAotCompatible=True` — serializer admission carries `[DynamicallyAccessedMembers(PublicConstructors)]` trim annotations
-- asset: runtime library
+- package: `Microsoft.Extensions.Caching.Hybrid` (MIT, Microsoft)
+- assembly: `Microsoft.Extensions.Caching.Hybrid` (registration and the runtime cache); `Microsoft.Extensions.Caching.Abstractions` (the `HybridCache` contract, entry policy, and codec seam)
+- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed`
 - rail: runtime cache
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: cache contract and entry options
-- rail: runtime cache
+[PUBLIC_TYPE_SCOPE]: cache contract, policy values, and the codec and L2 seams
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                                                          |
-| :-----: | :------------------------------ | :------------------ | :-------------------------------------------------------------- |
-|  [01]   | `HybridCache`                   | abstract cache base | read/write/remove/tag root; resolved from DI, never constructed |
-|  [02]   | `HybridCacheEntryOptions`       | entry policy value  | sealed; `init`-only `Expiration`/`LocalCacheExpiration`/`Flags` |
-|  [03]   | `HybridCacheEntryFlags`         | `[Flags]` enum      | per-call L1/L2 read/write disable + compression-disable axis    |
-|  [04]   | `IHybridCacheSerializer<T>`     | serializer contract | `ReadOnlySequence<byte>`/`IBufferWriter<byte>` zero-copy codec  |
-|  [05]   | `IHybridCacheSerializerFactory` | serializer factory  | open-generic `TryCreateSerializer<T>` discovery                 |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY]                                |
+| :-----: | :------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `HybridCache`                   | abstract class | L1+L2 read, write, and tag eviction root    |
+|  [02]   | `HybridCacheEntryOptions`       | class          | sealed `init`-only per-call entry policy    |
+|  [03]   | `HybridCacheEntryFlags`         | enum           | per-call lane and compression bypass        |
+|  [04]   | `IHybridCacheSerializer<T>`     | interface      | zero-copy payload codec for one type        |
+|  [05]   | `IHybridCacheSerializerFactory` | interface      | open-generic codec discovery                |
+|  [06]   | `IBufferDistributedCache`       | interface      | zero-copy L2 storage contract               |
+|  [07]   | `HybridCacheOptions`            | class          | instance-wide policy and size guards        |
+|  [08]   | `IHybridCacheBuilder`           | interface      | codec admission over its `Services`         |
+|  [09]   | `HybridCacheServiceExtensions`  | static class   | cache registration on `IServiceCollection`  |
+|  [10]   | `HybridCacheBuilderExtensions`  | static class   | codec registration on `IHybridCacheBuilder` |
 
-`HybridCache` is an `abstract class`, not an interface — the polymorphic `GetOrCreateAsync` family collapses key shape (`string` / `ReadOnlySpan<char>` / `ref DefaultInterpolatedStringHandler`) and factory arity (stateful `TState` / stateless `Func<CancellationToken,...>`) onto two abstract roots, so one read entrypoint discriminates by overload:
-
-- `GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, HybridCacheEntryOptions? options = null, IEnumerable<string>? tags = null, CancellationToken ct = default): ValueTask<T>` — abstract stampede-protected read-through; `state` threads to the factory so it captures nothing.
-- `GetOrCreateAsync<T>(string key, Func<CancellationToken, ValueTask<T>> factory,...): ValueTask<T>` — stateless mirror.
-- `GetOrCreateAsync<…>(ReadOnlySpan<char> key, …)` — `virtual` span-key overloads (default materializes `key.ToString()`); an allocation-aware L2 overrides.
-- `GetOrCreateAsync<…>(ref DefaultInterpolatedStringHandler key, …)` — interpolated-handler overloads that build the key in-place then `Clear()`, so `$"model:{checksum}:{ep}"` keys never allocate an intermediate `string`.
-- `SetAsync<T>(string key, T value, HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default): ValueTask` — abstract explicit write with optional tag set.
-- `RemoveAsync(string key \| IEnumerable<string> keys, CancellationToken = default): ValueTask` — abstract single-key + `virtual` batch (singular fast-path on `ICollection` count 0/1).
-- `RemoveByTagAsync(string tag \| IEnumerable<string> tags, CancellationToken = default): ValueTask` — abstract single-tag + `virtual` batch group eviction.
-
-`HybridCacheEntryOptions` (sealed; all members `init`-only): `TimeSpan? Expiration` (absolute L1+L2 lifetime → `DistributedCacheEntryOptions.AbsoluteExpirationRelativeToNow`), `TimeSpan? LocalCacheExpiration` (shorter L1-only horizon; a hot key re-reads L2 without re-minting), `HybridCacheEntryFlags? Flags`.
-
-`HybridCacheEntryFlags` (`[Flags]`): `None = 0`; `DisableLocalCacheRead = 1`, `DisableLocalCacheWrite = 2`, `DisableLocalCache = 3`; `DisableDistributedCacheRead = 4`, `DisableDistributedCacheWrite = 8`, `DisableDistributedCache = 0xC`; `DisableUnderlyingData = 0x10` (cache-peek, factory skipped on miss); `DisableCompression = 0x20`.
-
-`IHybridCacheSerializer<T>` — `T Deserialize(ReadOnlySequence<byte> source)` / `void Serialize(T value, IBufferWriter<byte> target)`. `IHybridCacheSerializerFactory` — `bool TryCreateSerializer<T>(out IHybridCacheSerializer<T>? serializer)` (one factory yields a codec for every payload type; first registered factory that succeeds for `T` wins).
-
-[PUBLIC_TYPE_SCOPE]: registration and implementation options
-- rail: runtime cache
-
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                  |
-| :-----: | :----------------------------- | :----------------- | :---------------------- |
-|  [01]   | `HybridCacheOptions`           | cache option value | default cache policy    |
-|  [02]   | `IHybridCacheBuilder`          | builder contract   | serializer admission    |
-|  [03]   | `HybridCacheServiceExtensions` | service extension  | cache registration      |
-|  [04]   | `HybridCacheBuilderExtensions` | builder extension  | serializer registration |
+- `HybridCacheEntryFlags`: `None` `DisableLocalCacheRead` `DisableLocalCacheWrite` `DisableLocalCache` `DisableDistributedCacheRead` `DisableDistributedCacheWrite` `DisableDistributedCache` `DisableUnderlyingData` `DisableCompression`.
+- `DisableUnderlyingData` skips the factory on a miss, turning the read into a cache peek; each read/write pair ORs to its combined tier member.
+- A call-site `Flags` value replaces the instance default's flags outright and ORs only with the runtime's forced flags, so an override states every lane it wants disabled.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: cache operations
-- rail: runtime cache
+[ENTRYPOINT_SCOPE]: `HybridCache` operations, each closing on `(HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default)`
+- Each key shape carries the stateful `(key, TState, Func<TState, CancellationToken, ValueTask<T>>)` row below and a stateless `(key, Func<CancellationToken, ValueTask<T>>)` mirror; threading caller state through `TState` keeps the factory delegate static and closure-free.
+- A subclass overrides the `string`-key read, `SetAsync`, and the singular `RemoveAsync`/`RemoveByTagAsync`; the span-key read and both batch forms are virtual defaults folding onto them.
 
-| [INDEX] | [SURFACE]          | [ENTRY_FAMILY]   | [RAIL]                    |
-| :-----: | :----------------- | :--------------- | :------------------------ |
-|  [01]   | `GetOrCreateAsync` | cache read/write | stampede-aware population |
-|  [02]   | `SetAsync`         | cache write      | explicit value storage    |
-|  [03]   | `RemoveAsync`      | key invalidation | key eviction              |
-|  [04]   | `RemoveByTagAsync` | tag invalidation | grouped eviction          |
+| [INDEX] | [SURFACE]                                                                         | [SHAPE]  | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :------------------------------------- |
+|  [01]   | `HybridCache.GetOrCreateAsync<TState,T>(string, …) -> ValueTask<T>`               | instance | stampede-collapsed read-through root   |
+|  [02]   | `HybridCache.GetOrCreateAsync<TState,T>(ReadOnlySpan<char>, …)`                   | instance | materializes the key unless overridden |
+|  [03]   | `HybridCache.GetOrCreateAsync<TState,T>(ref DefaultInterpolatedStringHandler, …)` | instance | builds the key in place, then clears   |
+|  [04]   | `HybridCache.SetAsync<T>(string, T, …) -> ValueTask`                              | instance | writes one value with its tag set      |
+|  [05]   | `HybridCache.RemoveAsync(string \| IEnumerable<string>, …)`                       | instance | evicts one key or a batch              |
+|  [06]   | `HybridCache.RemoveByTagAsync(string \| IEnumerable<string>, …)`                  | instance | evicts one tag group or a batch        |
 
-[ENTRYPOINT_SCOPE]: registration and policy
-- rail: runtime cache
+- `HybridCache.RemoveByTagAsync`: `"*"` is the reserved wildcard evicting every entry, and a write carrying `"*"` in its tag set throws `ArgumentException`.
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                        |
-| :-----: | :--------------------------- | :------------------- | :---------------------------- |
-|  [01]   | `AddHybridCache`             | service registration | default cache service         |
-|  [02]   | `AddKeyedHybridCache`        | service registration | keyed cache service           |
-|  [03]   | `AddSerializer<T>`           | builder extension    | concrete serializer admission |
-|  [04]   | `AddSerializer<T,TImpl>`     | builder extension    | typed serializer admission    |
-|  [05]   | `AddSerializerFactory`       | builder extension    | serializer factory admission  |
-|  [06]   | `DefaultEntryOptions`        | option value         | default expiration and flags  |
-|  [07]   | `MaximumPayloadBytes`        | option value         | payload size guard            |
-|  [08]   | `MaximumKeyLength`           | option value         | key size guard                |
-|  [09]   | `DistributedCacheServiceKey` | option value         | distributed cache selection   |
+[ENTRYPOINT_SCOPE]: registration and codec admission — `HybridCacheServiceExtensions` extends `IServiceCollection`, `HybridCacheBuilderExtensions` extends `IHybridCacheBuilder`, and every row below returns `IHybridCacheBuilder`, so a registration and its codec chain land on one call
 
-`HybridCacheServiceExtensions` on `IServiceCollection` returns `IHybridCacheBuilder` so the serializer chain is admitted on the same call: `AddHybridCache([Action<HybridCacheOptions>])`, `AddKeyedHybridCache(object? serviceKey[, string optionsName][, Action<HybridCacheOptions>])` (keyed registration yields a distinct `HybridCache` resolvable by `[FromKeyedServices]`). `HybridCacheBuilderExtensions` on `IHybridCacheBuilder` (probe order is registration order, first match wins): `AddSerializer<T>(IHybridCacheSerializer<T>)`, `AddSerializer<T, TImplementation>()`, `AddSerializerFactory(IHybridCacheSerializerFactory)`, `AddSerializerFactory<TImplementation>()`. `IHybridCacheBuilder` carries `IServiceCollection Services { get; }`.
+| [INDEX] | [SURFACE]                                                              | [SHAPE]  | [CAPABILITY]                               |
+| :-----: | :--------------------------------------------------------------------- | :------- | :----------------------------------------- |
+|  [01]   | `AddHybridCache([Action<HybridCacheOptions>])`                         | static   | registers the default cache singleton      |
+|  [02]   | `AddKeyedHybridCache(object?[, string][, Action<HybridCacheOptions>])` | static   | registers a keyed cache over named options |
+|  [03]   | `AddSerializer<T>(IHybridCacheSerializer<T>)`                          | static   | admits a codec instance for one type       |
+|  [04]   | `AddSerializer<T,TImpl>()`                                             | static   | admits a DI-built codec for one type       |
+|  [05]   | `AddSerializerFactory(IHybridCacheSerializerFactory)`                  | static   | admits a factory instance for many types   |
+|  [06]   | `AddSerializerFactory<TImpl>()`                                        | static   | admits a DI-built factory                  |
+|  [07]   | `IHybridCacheBuilder.Services`                                         | property | collection the codec chain writes into     |
 
-`HybridCacheOptions`: `HybridCacheEntryOptions? DefaultEntryOptions`; `long MaximumPayloadBytes` (default `1048576` = 1 MiB; a larger payload is returned uncached, not faulted); `int MaximumKeyLength` (default `1024`; an over-length key bypasses the cache); `bool DisableCompression`; `bool ReportTagMetrics` (per-tag hit/miss on the `HybridCache` EventSource); `object? DistributedCacheServiceKey` (selects which keyed `IDistributedCache` backs L2).
+- `AddKeyedHybridCache` names its options `serviceKey?.ToString()` where the name is omitted, so the keyed cache and a same-named `HybridCacheOptions` registration bind together.
 
-[L2_BUFFER_CONTRACT]: `IBufferDistributedCache` zero-copy distributed backing (`*.Abstractions`, `Microsoft.Extensions.Caching.Distributed`)
-- rail: runtime cache
-- Selection: The runtime detects `IBufferDistributedCache` on its registered `IDistributedCache` and routes reads through `TryGetAsync(IBufferWriter<byte>)` plus writes through `ReadOnlySequence<byte>`.
-- Redis: `RedisCache` implements the buffer contract, preserving the zero-copy path through the redis tier.
-- Fallback: An L2 implementing only `IDistributedCache` remains valid but materializes intermediate arrays.
+[ENTRYPOINT_SCOPE]: `HybridCacheOptions` instance policy, set at registration
+- Properties: `DefaultEntryOptions` `MaximumPayloadBytes` `MaximumKeyLength` `DisableCompression` `ReportTagMetrics` `DistributedCacheServiceKey`; `DefaultEntryOptions.Expiration` seeds every entry's absolute lifetime and falls back to five minutes.
+- `MaximumPayloadBytes` and `MaximumKeyLength` are silent guards: an over-quota payload logs and returns uncached, and an empty, over-length, or control-character key routes straight to the factory.
+- `DistributedCacheServiceKey` selects the keyed `IDistributedCache` backing L2, so one process runs several cache profiles over distinct stores.
 
-`IBufferDistributedCache: IDistributedCache` adds `bool TryGet(string, IBufferWriter<byte>)`, `ValueTask<bool> TryGetAsync(string, IBufferWriter<byte>, CancellationToken = default)`, `void Set(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions)`, `ValueTask SetAsync(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions, CancellationToken = default)`. The inherited `IDistributedCache` array members remain, so one storage row satisfies both the array contract and the buffer contract.
+[ENTRYPOINT_SCOPE]: codec and L2 storage contracts — `IBufferDistributedCache` pairs each member with a `…Async` form, and the runtime sniffs the contract on its registered `IDistributedCache` at construction
+
+| [INDEX] | [SURFACE]                                                                                   | [SHAPE]  | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------------------ | :------- | :----------------------------- |
+|  [01]   | `IHybridCacheSerializer<T>.Serialize(T, IBufferWriter<byte>)`                               | instance | writes a payload to the buffer |
+|  [02]   | `IHybridCacheSerializer<T>.Deserialize(ReadOnlySequence<byte>) -> T`                        | instance | reads a payload from segments  |
+|  [03]   | `IHybridCacheSerializerFactory.TryCreateSerializer<T>(out IHybridCacheSerializer<T>?)`      | instance | yields a codec per probed type |
+|  [04]   | `IBufferDistributedCache.TryGet(string, IBufferWriter<byte>) -> bool`                       | instance | reads L2 bytes to the buffer   |
+|  [05]   | `IBufferDistributedCache.Set(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions)` | instance | writes L2 from segments        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CACHE_TOPOLOGY]:
-- namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed`
-- contract root: `HybridCache` abstract base from `*.Abstractions`; resolved from DI
-- read root: the polymorphic `GetOrCreateAsync` family — one abstract `(string key, TState, factory, …)` root with span and interpolated-handler key overloads and stateful/stateless factory mirrors; the `state` thread keeps the factory closure-free
-- write root: `SetAsync<T>` with optional tag set; `RemoveAsync`/`RemoveByTagAsync` each carry a singular and a batch (`IEnumerable<string>`) overload
-- policy surface: `HybridCacheOptions` (default entry options, payload guard, key guard, compression flag, tag metrics, keyed L2 selection)
-- entry policy: `HybridCacheEntryOptions` (absolute expiry + shorter L1-only horizon + the `HybridCacheEntryFlags` lane-disable axis)
-- serializer surface: `IHybridCacheSerializer<T>` (`ReadOnlySequence<byte>`/`IBufferWriter<byte>` zero-copy) discovered via `IHybridCacheSerializerFactory.TryCreateSerializer<T>`
-- L2 zero-copy root: `IBufferDistributedCache` — sniffed at registration; `TryGetAsync(IBufferWriter<byte>)` and `SetAsync(ReadOnlySequence<byte>)` move payload bytes with no intermediate array
-- invalidation surface: `RemoveAsync` (key) and `RemoveByTagAsync` (tag group), each singular and batched
+[TOPOLOGY]:
+- `HybridCache` resolves from DI as a singleton the registration mints; a caller binds the abstract contract and never constructs an implementation.
+- One `GetOrCreateAsync` call owns stampede collapse for its key, so concurrent misses share one factory invocation and a caller holds no population lock.
+- L1 always binds; L2 binds a registered `IDistributedCache`, and the runtime drops a plain `MemoryDistributedCache` sitting behind the default in-process L1, leaving an L1-only cache.
+- Tag eviction stamps the tag with a timestamp and an entry minted before its tag's stamp reads expired, so evicting a group costs one write regardless of the entries it covers.
+
+[STACKING]:
+- `CommunityToolkit.HighPerformance`(`.api/api-highperformance.md`): `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>.Serialize` target, and its `WrittenMemory` reads back as the `ReadOnlySequence<byte>` `Deserialize` consumes, so an L2 payload round-trips with no intermediate array.
+- `Thinktecture.Runtime.Extensions.Json`(`.api/api-thinktecture-json.md`) and `Thinktecture.Runtime.Extensions.MessagePack`(`.api/api-thinktecture-messagepack.md`): one `IHybridCacheSerializerFactory` wraps the generated-owner converter and formatter resolvers, so every Value Object, Smart Enum, and Union caches through the codec its wire rail already binds.
+- `System.IO.Hashing`(`.api/api-hashing.md`): `ContentHash.Of(ReadOnlySpan<byte>)` mints the content-addressed key, and the `ref DefaultInterpolatedStringHandler` overload composes it into the cache key with no intermediate `string`.
+- Within the branch, one `HybridCache` registers at the composition root and each lane binds its own policy per call through `HybridCacheEntryOptions`, a tag set, and flags; a lane needing its own store registers a keyed cache over `DistributedCacheServiceKey`.
 
 [LOCAL_ADMISSION]:
-- `HybridCache` is a runtime policy surface, not a domain repository; resolved from DI, never constructed (`DefaultHybridCache` is the internal implementation).
-- Cache keys, tags, entry options, flags, and serializer policy enter as values; the interpolated-handler key overloads keep key construction allocation-free.
-- Keyed cache registration (`AddKeyedHybridCache`) plus `DistributedCacheServiceKey` represent an admitted cache profile selecting its own L2, not ad hoc service lookup.
-- Stampede control stays behind `GetOrCreateAsync`; callers never duplicate population locks. The `state` parameter keeps the factory closure-free.
-- An L2 contribution implements `IBufferDistributedCache` (not bare `IDistributedCache`) so the zero-copy path is reached; bridging the array contract is contract totality, not a second storage row.
-- `MaximumPayloadBytes`/`MaximumKeyLength` are silent bypass guards (an over-limit entry is returned uncached, never faulted).
-- Tag invalidation is an explicit cache capability and never substitutes for durable store integrity; the singular and batch tag overloads are one capability, not two owners.
+- `HybridCache` enters as a resolved dependency, and cache keys, tags, entry options, and flags enter as call-site values.
+- A codec admits through `AddSerializer`/`AddSerializerFactory`; the runtime binds a directly registered `IHybridCacheSerializer<T>` first, then probes factories in reverse registration order, so the last factory admitted wins a contested type.
+- `AddHybridCache` seeds `TimeProvider.System`, an `IMemoryCache`, a JSON codec factory, and the inbuilt `string`/`byte[]` codecs through try-add, so a registration placed ahead of it displaces the seed.
+- An L2 contribution implements `IBufferDistributedCache` to reach the zero-copy path, and an admitted codec type keeps a public constructor for the trim and AOT annotation on the generic overloads.
 
 [RAIL_LAW]:
-- Package: `Microsoft.Extensions.Caching.Hybrid` (+ `Microsoft.Extensions.Caching.Abstractions` contracts)
-- Owns: L1+L2 hybrid cache registration, the abstract `HybridCache` read/write/tag contract, the zero-copy serializer chain, and the `IBufferDistributedCache` L2 seam
-- Accept: cache policy as runtime data — entry options, flags, tags, keyed L2 selection, and one serializer factory
-- Reject: static cache clients, hidden invalidation channels, per-type serializer proliferation, and an L2 store that implements only `IDistributedCache` where the zero-copy buffer contract is admitted
+- Package: `Microsoft.Extensions.Caching.Hybrid`
+- Owns: the two-tier read-through cache — stampede collapse, tag-grouped eviction, and the zero-copy payload codec chain between L1, L2, and the caller
+- Accept: cache policy as call-site and registration data — entry options, flags, tag sets, keyed profiles, and one codec factory
+- Reject: a caller-held population lock, a per-type codec service beside the factory, an L2 store stopping at `IDistributedCache`, and tag eviction standing in for durable-store integrity

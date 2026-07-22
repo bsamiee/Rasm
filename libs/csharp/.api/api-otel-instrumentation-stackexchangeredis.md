@@ -1,66 +1,78 @@
 # [RASM_API_OTEL_INSTRUMENTATION_STACKEXCHANGEREDIS]
 
-`OpenTelemetry.Instrumentation.StackExchangeRedis` is the db-semconv span owner for the Redis wire: it hooks StackExchange.Redis's command profiler on a registered `IConnectionMultiplexer` and converts each `IProfiledCommand` into a `Client`-kind span named `OpenTelemetry.Instrumentation.StackExchangeRedis.Execute`. Its single `ActivitySource` shares the package name, admitted at the root like every foreign source. This is a trace-only library — no `Meter` ships, so cache-hit ratios stay a downstream span-aggregation concern, never an instrument roster this package carries.
+`OpenTelemetry.Instrumentation.StackExchangeRedis` mints the Redis wire's db-semconv span: it registers a profiling-session factory on each bound `IConnectionMultiplexer` and folds every drained `IProfiledCommand` into a `Client`-kind span named for the Redis verb, backdated to the profiled command's creation. Its `ActivitySource` name matches the package on every semantic-convention arm, and no `Meter` ships — cache-op counts and hit ratios stay backend span aggregation.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- package: `OpenTelemetry.Instrumentation.StackExchangeRedis`
+- package: `OpenTelemetry.Instrumentation.StackExchangeRedis` (Apache-2.0, OpenTelemetry Authors)
 - assembly: `OpenTelemetry.Instrumentation.StackExchangeRedis`
 - namespace: `OpenTelemetry.Trace`, `OpenTelemetry.Instrumentation.StackExchangeRedis`
-- driver package: `StackExchange.Redis` — supplies the `IConnectionMultiplexer` profiler hook and the `IProfiledCommand` entry the converter reads
-- asset: runtime library
+- depends: `StackExchange.Redis` — the `RegisterProfiler` hook every bound multiplexer takes
 - rail: storage instrumentation
 
 ## [02]-[PUBLIC_TYPES]
 
-[INSTRUMENTATION_TYPES]: instrumentation handle, options, and enrichment carrier
-- rail: storage instrumentation
+[PUBLIC_TYPE_SCOPE]: instrumentation handle, its per-name options carrier, and the callback payload
 
-| [INDEX] | [SYMBOL]                                   | [KIND]                      | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------- | :-------------------------- | :---------------------------------------------- |
-|  [01]   | `StackExchangeRedisInstrumentation`        | sealed `IDisposable` handle | connection registry; add/remove any time        |
-|  [02]   | `StackExchangeRedisInstrumentationOptions` | options carrier             | flush, verbosity, filter, enrich, timing knobs  |
-|  [03]   | `RedisInstrumentationContext`              | readonly record struct      | `ParentActivity` + `ProfiledCommand` for enrich |
-
-`StackExchangeRedisInstrumentation` carries `IDisposable AddConnection(IConnectionMultiplexer)` and its keyed twin `AddConnection(string name, IConnectionMultiplexer)`; each returns the registration handle whose disposal unhooks the connection, so a multiplexer joins or leaves the instrumented set at runtime.
-
-`StackExchangeRedisInstrumentationOptions` exposes `TimeSpan FlushInterval` (10 s default — the profiled-command conversion cadence), `bool SetVerboseDatabaseStatements` (captures the key/script text into `db.statement`), `Func<RedisInstrumentationContext, bool>? Filter`, `Action<Activity, RedisInstrumentationContext>? Enrich`, and `bool EnrichActivityWithTimingEvents` (true default — queue/network span events off the profiled timings).
-
-`RedisInstrumentationContext` is `readonly record struct RedisInstrumentationContext(Activity? ParentActivity, IProfiledCommand ProfiledCommand)` — the filter reads it to drop a command before the span mints, the enrich callback reads its `ProfiledCommand` to tag the live span.
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [CAPABILITY]                   |
+| :-----: | :----------------------------------------- | :------------ | :----------------------------- |
+|  [01]   | `StackExchangeRedisInstrumentation`        | class         | disposable connection registry |
+|  [02]   | `StackExchangeRedisInstrumentationOptions` | class         | per-name span policy           |
+|  [03]   | `RedisInstrumentationContext`              | struct        | filter and enrich payload      |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: admission and connection binding (`TracerProviderBuilderExtensions`)
-- rail: storage instrumentation
+[ENTRYPOINT_SCOPE]: builder admission, connection binding, and the options slots each registration name carries; every shorthand folds to `AddRedisInstrumentation(string?, IConnectionMultiplexer?, object?, Action<StackExchangeRedisInstrumentationOptions>?)`, which resolves an absent connection from the application `IServiceProvider` and keys that lookup on `serviceKey`
 
-| [INDEX] | [SURFACE]                       | [KIND]          | [CAPABILITY]                                                                   |
-| :-----: | :------------------------------ | :-------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `AddRedisInstrumentation`       | trace admission | source subscribe + optional connection/options/service-key bind                |
-|  [02]   | `ConfigureRedisInstrumentation` | handle exposure | hands the `StackExchangeRedisInstrumentation` back for runtime `AddConnection` |
+| [INDEX] | [SURFACE]                                                                                           | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------- | :--------------------- |
+|  [01]   | `AddRedisInstrumentation()`                                                                         | static   | resolved from DI       |
+|  [02]   | `AddRedisInstrumentation(IConnectionMultiplexer)`                                                   | static   | one held multiplexer   |
+|  [03]   | `AddRedisInstrumentation(object)`                                                                   | static   | keyed DI multiplexer   |
+|  [04]   | `AddRedisInstrumentation(Action<StackExchangeRedisInstrumentationOptions>)`                         | static   | options, default name  |
+|  [05]   | `AddRedisInstrumentation(IConnectionMultiplexer, Action<StackExchangeRedisInstrumentationOptions>)` | static   | held with own options  |
+|  [06]   | `AddRedisInstrumentation(string?, object, Action<StackExchangeRedisInstrumentationOptions>)`        | static   | named options over key |
+|  [07]   | `ConfigureRedisInstrumentation(Action<StackExchangeRedisInstrumentation>)`                          | static   | handle for late bind   |
+|  [08]   | `ConfigureRedisInstrumentation(Action<IServiceProvider, StackExchangeRedisInstrumentation>)`        | static   | same handle, provider  |
+|  [09]   | `StackExchangeRedisInstrumentation.AddConnection(IConnectionMultiplexer)`                           | instance | bind, default name     |
+|  [10]   | `StackExchangeRedisInstrumentation.AddConnection(string, IConnectionMultiplexer)`                   | instance | bind under named slot  |
+|  [11]   | `StackExchangeRedisInstrumentationOptions.FlushInterval`                                            | property | profiled-drain cadence |
+|  [12]   | `StackExchangeRedisInstrumentationOptions.SetVerboseDatabaseStatements`                             | property | verbose command text   |
+|  [13]   | `StackExchangeRedisInstrumentationOptions.Filter`                                                   | property | drop before the span   |
+|  [14]   | `StackExchangeRedisInstrumentationOptions.Enrich`                                                   | property | tag the live span      |
+|  [15]   | `StackExchangeRedisInstrumentationOptions.EnrichActivityWithTimingEvents`                           | property | queue and wire events  |
 
-`AddRedisInstrumentation(TracerProviderBuilder)` subscribes the source alone; overloads bind an `IConnectionMultiplexer`, an `Action<StackExchangeRedisInstrumentationOptions>`, both together, or a DI `serviceKey`/`name` selector — `(TracerProviderBuilder, string? name, IConnectionMultiplexer?, object? serviceKey, Action<StackExchangeRedisInstrumentationOptions>?)` is the full-control overload. A bare admission with no connection resolves the multiplexer from the application `IServiceProvider`.
-
-`ConfigureRedisInstrumentation(TracerProviderBuilder, Action<StackExchangeRedisInstrumentation>)` and its `Action<IServiceProvider, StackExchangeRedisInstrumentation>` twin capture the instrumentation handle for `AddConnection` control beyond the builder — the multi-connection and late-binding path.
+- `StackExchangeRedisInstrumentationOptions`: `FlushInterval` defaults to ten seconds and `EnrichActivityWithTimingEvents` to on; every other slot arrives unset.
+- `StackExchangeRedisInstrumentation.AddConnection`: disposing the returned registration unhooks that one connection, and disposing the instrumentation handle unhooks every bound multiplexer.
+- `ConfigureRedisInstrumentation`: a builder outside `IDeferredTracerProviderBuilder` throws `NotSupportedException`.
+- `StackExchangeRedisInstrumentationOptions.Filter`: a `false` return and a thrown exception both drop the command.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[REDIS_TOPOLOGY]:
-- subscription root: `AddRedisInstrumentation` registers at the AppHost composition root; the `StackExchange.Redis` dependency stays with the connection owner, and the root reaches only the `OpenTelemetry.Instrumentation.StackExchangeRedis` source name
-- connection binding: instrumentation hooks the profiler on a specific `IConnectionMultiplexer` — only calls on that instance emit spans; a second unregistered multiplexer is dark until `AddConnection` binds it
-- span shape: `Client`-kind, name `OpenTelemetry.Instrumentation.StackExchangeRedis.Execute`, tags `db.system.name`/`db.operation.name`/`db.namespace`, backdated to the profiled `CommandCreated`
+[TOPOLOGY]:
+- profiler seat: each bound connection takes `RegisterProfiler` with a session factory keyed on `Activity.Current`'s trace and span ids; a null or non-W3C current activity routes its commands to that connection's default session, and those spans mint parentless.
+- drain loop: one background thread per bound connection wakes every `FlushInterval` and converts each session's finished commands; a cached entry survives until its parent activity's duration goes nonzero, and disposal drains once more before unhooking.
+- span shape: `Client` kind named after `IProfiledCommand.Command`, falling back to the source name suffixed `.Execute` for an empty verb, started at `CommandCreated` and ended at `CommandCreated + ElapsedTime`.
+- semconv posture: `OTEL_SEMCONV_STABILITY_OPT_IN` selects both the tag family and the `ActivitySource` instance stamping its schema URL — unset emits `db.system`, `db.redis.database_index`, and `db.statement`; `database` emits `db.system.name`, `db.operation.name`, `db.namespace`, and `db.query.text`; `database/dup` emits both families off a source stamping no schema URL.
+- statement shaping: `SetVerboseDatabaseStatements` reflects the driver's private command-and-key text and a script-eval body into `db.statement` on the old arm and `db.query.text` on the new; unset, both carry the bare verb.
+- endpoint tags: every arm tags `server.address` and `server.port` off `IProfiledCommand.EndPoint`, adding the `network.peer.address` and `network.peer.port` pair for an IP endpoint and `network.peer.address` alone for a Unix socket.
+- timing events: `EnrichActivityWithTimingEvents` appends `Enqueued`, `Sent`, and `ResponseReceived` events at the profiled creation, enqueue, and send offsets.
 
 [STACKING]:
-- `StackExchange.Redis`: instrumentation subscribes the client's own profiling session factory — connection configuration stays driver-owned rows, and the hook adds no client vocabulary.
-- `OpenTelemetry`(`api-opentelemetry.md`): `AddRedisInstrumentation` is the source subscription with a profiler hook; `AddSource("OpenTelemetry.Instrumentation.StackExchangeRedis")` alone subscribes the source but never installs the hook, so the convenience verb is the only complete path — never a bare `AddSource` shim.
-- trace-only: no `Meter` ships, so cache-op counts and hit ratios derive from span aggregation at the backend, disjoint from the driver-native instrument lanes the relational rows carry.
+- `OpenTelemetry`(`api-opentelemetry.md`): the admission verb calls `AddSource` on the package name and registers the handle through `AddInstrumentation<T>`, so provider disposal unhooks every bound connection after a final drain; that source name alone subscribes without installing the profiler.
+- `System.Diagnostics`(`api-diagnostics-activity.md`): tagging, timing events, and `Enrich` all run inside `Activity.IsAllDataRequested`, so a sampler-dropped command costs no tag build, and each timing entry is an ordinary `ActivityEvent` row.
+- `StackExchange.Redis`(`Rasm.Persistence/.api/api-redis.md`): `RegisterProfiler` is the driver's own hook, so endpoint, retry, and protocol policy stay driver-owned rows, and a `LuaScript` body reaches the span only under verbose statements.
+- `Microsoft.Extensions.Caching.Hybrid`(`api-hybrid-cache.md`): its L2 `IDistributedCache` reaches Redis through `RedisCacheOptions.ConnectionMultiplexerFactory`, so cache-tier hops emit spans exactly when that multiplexer instance is the one bound here.
+- Within-lib: `IOptionsMonitor` scoping makes the registration name the policy key, so one `ConfigureRedisInstrumentation` handle binds cache, backplane, and egress multiplexers under distinct cadence, verbosity, and `Filter` rows on a single subscription.
 
 [LOCAL_ADMISSION]:
-- Composition-root-only, at the AppHost root that owns Redis clients; `ConfigureRedisInstrumentation` carries the handle where connections bind after build.
-- `Filter` or `Enrich` forces every profiled command to buffer until the parent activity completes — a long-lived or high-volume parent thus pins memory, so both stay unset on hot high-fanout paths unless the drop/enrich earns the cost.
+- Registration binds at the AppHost root owning the Redis clients; that root reaches the source name alone, never the `StackExchange.Redis` assembly Persistence carries.
+- Setting `Filter` or `Enrich` holds every profiled command until its parent activity completes, so both stay unset on high-fanout cache paths unless the drop or tag earns the retained memory.
+- Every held multiplexer joins through `AddConnection`, or its hops leave the trace.
 
 [RAIL_LAW]:
 - Package: `OpenTelemetry.Instrumentation.StackExchangeRedis`
 - Owns: Redis command spans and the per-connection profiler hook at the composition root
-- Accept: `AddRedisInstrumentation` admission with connection binding; `ConfigureRedisInstrumentation` for runtime `AddConnection`
-- Reject: hand-rolled db-semconv spans over raw `IProfiledCommand`; a bare `AddSource` that subscribes the name without the profiler hook
+- Accept: `AddRedisInstrumentation` with its held or DI-keyed connection; `ConfigureRedisInstrumentation` for late `AddConnection` across several multiplexers
+- Reject: hand-rolled db-semconv spans over raw `IProfiledCommand`

@@ -24,7 +24,7 @@ Package versions live only in the central manifests — `Directory.Packages.prop
 - A version family ruled to move as a matched set — sibling packages riding one upstream release wave, twin release tracks, a channel choice a composed member requires — moves together or not at all: a single-member bump, a routine bump-to-newest against a ruled hold, and a unify-the-versions consistency demand against ruled twin tracks are the defect, the ruling riding the RULINGS registry or the pin comment.
 - An overlapping second package enters only as a bounded fast-path under a named split predicate deciding which surface serves a call — a per-page arbitrary choice between two overlapping surfaces is the defect, and a fast-path member never owns the concern it accelerates.
 - Vendored SDKs are defects everywhere except the ruled `vendor/` LFS natives; a new vendored binary demands the LFS row and the ruling in the same change.
-- A project reference breaching the strata edges the root `README.md` and `libs/.planning/architecture.md` declare — KERNEL to AEC-DOMAIN to APP-PLATFORM to HOST-BOUNDARY, strictly upward — is a strata defect.
+- A project reference breaching the strata edges the root `README.md` and `libs/.planning/ARCHITECTURE.md` declare — KERNEL to AEC-DOMAIN to APP-PLATFORM to HOST-BOUNDARY, strictly upward — is a strata defect.
 
 ## [02]-[GRAMMAR_AND_REGISTRIES]
 
