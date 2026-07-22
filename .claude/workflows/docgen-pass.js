@@ -1064,7 +1064,7 @@ const census = await agent(
         COMMENT_MEASURE +
         ' <file>. A target that does not exist or holds no .md files goes to missing. Return the flat file list across all targets; no analysis, no reading of ' +
         'page bodies.',
-    { label: 'census', phase: 'Route', model: 'opus', effort: 'low', schema: ROUTE_SCHEMA },
+    { label: 'census', phase: 'Route', model: 'sonnet', effort: 'low', schema: ROUTE_SCHEMA },
 );
 if (!census || !census.files.length) {
     log('Census returned no files' + (census && census.missing.length ? '; missing: ' + census.missing.join(', ') : ''));
