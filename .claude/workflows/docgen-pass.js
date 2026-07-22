@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Docgen conformance sweep over any folder of durable markdown: a finder per folder-group runs the cross-surface ownership interrogation and surfaces every prose/comment/structure defect against the live defects.md catalog; a per-file fixer rebuilds the page template-true at the register under silent-removal, token-trim, and proven-demotion discipline, and on a .planning/ page extracts each folder-wide ruling into a transcribe-ready RULINGS dossier; an adversarial red-team then git-diffs HEAD, adjudicates every line the fixer removed, proves each demotion at its owner, repairs the litter, hardens the dossier, and drives a further reduction; a writing verifier re-derives the cumulative diff and repairs what the aggressive passes compounded on every kind but `.api`, whose red-team is terminal; a per-owner collector adjudicates the dossiers and transcribes the survivors into RULINGS.md, and a terminal deterministic format sweep re-pads every touched surface to the canonical table render and re-runs the gate, closing the run. Prose falls across graded cuts, all subordinate to zero capability loss, non-load-bearing fence comments cut, spec pages carrying their [01]-[INDEX] and terminal [RESEARCH] marker, folder-wide law moved off design pages into the decision registry with no duplication, fence code bodies untouched, prose gate the mechanical floor.',
     description:
-        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. An `.api` catalog never enters Verify — the red-team carries its truth, stacking, structure, and legacy law and is its terminal authority, so a pure `.api` run closes at Redteam and spends no verifier. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. Every phase gates the files it writes, and a terminal deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
+        'Targets any folder (libs/csharp/Rasm/.planning, a single sub-folder, a .api tier, docs/standards — each a different workload). args = a folder path, an array of paths, or {targets}; empty = no-op. Route: a census lists every .md under the targets with total/prose/comment line counts, deduped by path. Analyze: a finder per folder-group reads the full docgen law plus the owner surfaces it forks against (global + project CLAUDE.md [02], the folder README/ARCHITECTURE/RULINGS registries), runs the ownership interrogation, hunts imported frames against each file-kind template, and returns per-file findings (class, anchor, problem, direction, move), cross-file duplication routed to the losing file, index/research status — no edits. Fix: a fixer per file rebuilds every prose surface and fence comment in place to the register, removal the default repair, spreads restructured not brute-deleted, every demotion proven by opening its target across all candidate owners, and returns a demotion ledger plus honest before/after counts. When a page is under a .planning/ tree the fixer also extracts folder-wide rulings mis-homed as page prose — removing each from the page (no duplication) and writing a transcribe-ready guard-grade row to a per-file dossier under .claude/scratch only when the page originates one, never an empty stub. Redteam: a red-team per batch of fixed pages git-diffs HEAD to see the fixer output, repairs its litter (tombstones, substitute negations, fresh twins, re-narrating pointers, package-version/install anchors), hardens the dossier, drives a further reduction under silent-removal and token-trim discipline with capability conserved, and re-verifies an .api catalog against the decompiled assembly; it also adjudicates every line the fixer removed (restoring real law, letting narration stay cut) and proves each claimed demotion by opening its owner; its receipt supersedes the fixer receipt. Verify: a verifier per batch, adversarial and WRITING — it reads the cumulative HEAD->now diff and REPAIRS in place what the aggressive passes compounded (lost law restored to the register, every demotion re-proven across all candidate owners, a fresh twin killed, a residual frame reframed, litter deleted), never grading or deferring a residual; its receipt supersedes the red-team. An `.api` catalog never enters Verify — the red-team carries its truth, stacking, structure, and legacy law and is its terminal authority, so a pure `.api` run closes at Redteam and spends no verifier. Collect: a single collector holds the dossiers of every owner in one context — grounded first in the instruction chain, the libs/.planning corpus law, the rulings template, and each target RULINGS.md — and adjudicates the whole candidate set at once (cross-owner dedup, already-homed and contradicting candidates rejected, guard-grade repair, a ruling spanning owners deferred to its branch or cross-libs tier rather than duplicated), reconciles each survivor to current standing policy so a stale spec-sheet framing never lands, then transcribes the survivors into the owning registries. The finder-groups stream through analyze, fix, redteam, and verify as independent chains with no inter-phase barrier — fixers in a group fire the instant its finder returns and the red-team the instant those fixers land — so wall-clock is the slowest single chain, never the sum of per-phase maxima; only the terminal Collect and Format gate on the whole set, and that deterministic Format sweep re-pads every touched page and RULINGS.md to the canonical table render and re-runs the gate, so the run closes proven clean under the 150-column cap. A version/install anchor is banned on every kind and a torn markdown table is rebuilt in place to docgen discipline (rows unbounded, rendered width the sole size law). An .api catalog is additionally rebuilt template-true against api-catalog.template.md — abbreviated in-cell signatures never fenced, torn tables and run-on member bullets repaired, the universal rail column dropped, columns and [04] labels renamed to the closed set — verified against ground truth (tools.assay api decompile, nuget MCP, context7) with its cross-.api and within-library ultra-stacking guidance deepened to operator depth per campaign-method.',
     phases: [
         {
             title: 'Route',
@@ -40,7 +40,7 @@ export const meta = {
 
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CHAIN = ['/Users/bardiasamiee/.claude/CLAUDE.md', ROOT + '/CLAUDE.md']; // always-loaded fork surfaces: global [02] + project [02]
-const CAP = 13; // concurrent agents per phase; one under the 14-slot harness ceiling (min(16, cores-2)) to leave headroom
+const CAP = 14; // max agents in flight across the streamed group-chains; the harness slot ceiling itself (min(16, cores-2)), saturated with no reserved headroom
 const GROUP = 4; // finder files per analyze agent
 const BATCH = 3; // pages per agent for both adversarial passes (Redteam, Verify); batching amortizes their shared cold-review law across a small file group
 const PROSE_LO = 45; // prose reduction band the receipt grades against, percent of baseline prose lines
@@ -1012,23 +1012,38 @@ const formatMandate = (paths) =>
     'after the fix pass carries a judgment-tier row — report its path in unclean, NEVER hand-force it. Return {formatted: <count of files the fix pass rewrote>, unclean: ' +
     '[<path of every file the check still fails>]}.';
 
-const pool = async (thunks, cap, retries = 1) => {
-    const results = new Array(thunks.length);
-    let next = 0;
-    const lane = async () => {
-        while (next < thunks.length) {
-            const i = next++;
-            for (let a = 0; a <= retries; a++) {
-                const r = await thunks[i]().catch(() => null);
-                if (r) {
-                    results[i] = r;
-                    break;
-                }
-            }
+// slot semaphore: caps the true in-flight agent count at CAP with work-conserving backfill, so a group-chain`s fan-fix burst never overshoots the cap (throughput [02]-[CONCURRENCY]).
+// Every acquire awaits a shared stagger gate, so a fresh run and a cache-replaying resume ramp to the cap identically. Group-chains launch via Promise.all and stream — a stage of one
+// group never gates on the whole corpus; only the terminal Collect and Format barriers hold every file at once.
+const makeSlots = (cap) => {
+    let active = 0;
+    let gate = Promise.resolve();
+    const waiters = [];
+    const stagger = () => {
+        gate = gate.then(() => new Promise((r) => setTimeout(r, 1500)));
+        return gate;
+    };
+    return async (fn) => {
+        if (active >= cap) await new Promise((res) => waiters.push(res));
+        active++;
+        await stagger();
+        try {
+            return await fn();
+        } finally {
+            active--;
+            const next = waiters.shift();
+            if (next) next();
         }
     };
-    await Promise.all(Array.from({ length: Math.min(cap, thunks.length) }, lane));
-    return results;
+};
+const slot = makeSlots(CAP);
+// one slotted agent call with retry-once — a throw or null-return retries once, then yields null so a single dead lane never rejects its group-chain`s Promise.all wave
+const run = async (fn) => {
+    for (let a = 0; a <= 1; a++) {
+        const r = await slot(fn).catch(() => null);
+        if (r) return r;
+    }
+    return null;
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -1073,105 +1088,102 @@ const baseProse = files.reduce((a, f) => a + f.prose, 0);
 const baseComments = files.reduce((a, f) => a + f.comments, 0);
 log(files.length + ' pages, ' + groups.length + ' finder group(s), ' + baseProse + ' prose + ' + baseComments + ' comment baseline lines');
 
-phase('Analyze');
-const analyses = (
-    await pool(
-        groups.map(
-            (g) => () =>
-                agent(analyzeMandate(g), {
-                    label: 'find:' + g[0].path.split('/').slice(-2)[0] + '+' + g.length,
-                    phase: 'Analyze',
-                    model: 'opus',
-                    effort: 'high',
-                    schema: ANALYZE_SCHEMA,
-                }),
-        ),
-        CAP,
-    )
-).filter(Boolean);
-const analysisByPath = new Map();
-for (const a of analyses) for (const fr of a.files) analysisByPath.set(fr.path, fr);
-log(analysisByPath.size + '/' + files.length + ' files analyzed');
+// Every finder-group is an INDEPENDENT streaming chain: analyze the group of GROUP, fan one fixer per file off that single analysis, batch the OK-fixed pages into the terminal
+// adversarial pass(es). A group`s fixers fire the instant its finder returns; its red-team fires the instant its own fixers land — no chain waits on a sibling group, so wall-clock is
+// the slowest single chain, never the sum of per-phase maxima. Each agent carries its own `phase` label for the progress tree; the streamed stages declare no global phase barrier.
+// The per-file receipt starts at the fixer, is superseded by the red-team, then by the verifier for a kind that runs it — an `.api` catalog closes at Redteam (`verifies` false), so an
+// all-`.api` group ends at its red-team and spends no verifier.
+let analyzed = 0;
+const chains = await Promise.all(
+    groups.map(async (g) => {
+        const analysis = await run(() =>
+            agent(analyzeMandate(g), {
+                label: 'find:' + g[0].path.split('/').slice(-2)[0] + '+' + g.length,
+                phase: 'Analyze',
+                model: 'opus',
+                effort: 'high',
+                schema: ANALYZE_SCHEMA,
+            }),
+        );
+        const byPath = new Map();
+        if (analysis) for (const fr of analysis.files) byPath.set(fr.path, fr);
+        analyzed += byPath.size;
 
-phase('Fix');
-const fixReceipts = (
-    await pool(
-        files.map(
-            (f) => () =>
-                agent(fixMandate(f, analysisByPath.get(f.path)), {
-                    label: 'fix:' + f.path.split('/').slice(-2).join('/'),
-                    phase: 'Fix',
-                    model: 'opus',
-                    effort: 'high',
-                    schema: FIX_SCHEMA,
-                }),
-        ),
-        CAP,
-    )
-).filter(Boolean);
+        // Fix: one fixer per file, all concurrent — each seeds off its own file`s finding; a dropped finder hands empty seeds and every fixer runs its own cold hostile hunt
+        const fixes = (
+            await Promise.all(
+                g.map((f) =>
+                    run(() =>
+                        agent(fixMandate(f, byPath.get(f.path)), {
+                            label: 'fix:' + f.path.split('/').slice(-2).join('/'),
+                            phase: 'Fix',
+                            model: 'opus',
+                            effort: 'high',
+                            schema: FIX_SCHEMA,
+                        }),
+                    ),
+                ),
+            )
+        ).filter(Boolean);
 
-// Redteam: adversarial cold second pass over every OK-fixed page — repairs the fixer's litter, hardens the rulings dossier, drives a further reduction. Its receipt
-// supersedes the fixer's; a file whose fix failed or whose red-team dropped keeps the fixer receipt so downstream Verify and the return still account for it.
-phase('Redteam');
-// batch BATCH OK-fixed pages per red-team agent; each agent returns {files:[receipt...]}, flattened back to per-file receipts that supersede the fixer's
-const redGroups = chunk(
-    fixReceipts.filter((r) => r.ok && fileByPath.has(r.file)).map((r) => ({ f: fileByPath.get(r.file), fix: r })),
-    BATCH,
-);
-const redteamed = (
-    await pool(
-        redGroups.map(
-            (grp) => () =>
-                agent(redteamMandate(grp), {
-                    label: 'redteam:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
-                    phase: 'Redteam',
-                    model: 'opus',
-                    effort: 'high',
-                    schema: BATCH_SCHEMA,
-                }),
-        ),
-        CAP,
-    )
-)
-    .filter(Boolean)
-    .flatMap((g) => g.files)
-    .filter(Boolean);
-const redByFile = new Map(redteamed.map((r) => [r.file, r]));
-const redteamReceipts = fixReceipts.map((r) => redByFile.get(r.file) || r);
-
-// Verify: the terminal WRITING pass for every kind that runs it, batched at BATCH like the red-team. It reads the cumulative HEAD->now diff adversarially and REPAIRS what two
-// aggressive passes compounded — lost law restored, every claimed demotion re-proven at its owner, a fresh twin killed, a residual frame reframed, predecessor litter deleted.
-// Its receipt supersedes the red-team's. A kind the `verifies` row excludes closes at Redteam and keeps that receipt, so a pure `.api` run skips the phase whole.
-const verifyPages = redteamReceipts
-    .filter((r) => r.ok && fileByPath.has(r.file) && verifies(fileByPath.get(r.file).kind))
-    .map((r) => ({ f: fileByPath.get(r.file), fix: r }));
-const redteamTerminal = redteamReceipts.filter((r) => r.ok && fileByPath.has(r.file) && !verifies(fileByPath.get(r.file).kind)).length;
-if (redteamTerminal) log(redteamTerminal + ' page(s) close at Redteam by kind; ' + verifyPages.length + ' enter Verify');
-let receipts = redteamReceipts;
-if (verifyPages.length) {
-    phase('Verify');
-    const verifyGroups = chunk(verifyPages, BATCH);
-    const verified = (
-        await pool(
-            verifyGroups.map(
-                (grp) => () =>
-                    agent(verifyMandate(grp), {
-                        label: 'verify:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
-                        phase: 'Verify',
-                        model: 'opus',
-                        effort: 'high',
-                        schema: BATCH_SCHEMA,
-                    }),
-            ),
-            CAP,
+        // Redteam: batch this group`s OK-fixed pages BATCH per agent — the batch amortizes the shared cold-review law read, never cross-file coherence (each page reads its own
+        // HEAD->now diff), so batching WITHIN the group is faithful. Its receipt supersedes the fixer`s; a fixer that failed or whose red-team dropped keeps the fixer receipt.
+        const okFixes = fixes.filter((r) => r.ok && fileByPath.has(r.file)).map((r) => ({ f: fileByPath.get(r.file), fix: r }));
+        const redteamed = (
+            await Promise.all(
+                chunk(okFixes, BATCH).map((grp) =>
+                    run(() =>
+                        agent(redteamMandate(grp), {
+                            label: 'redteam:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
+                            phase: 'Redteam',
+                            model: 'opus',
+                            effort: 'high',
+                            schema: BATCH_SCHEMA,
+                        }),
+                    ),
+                ),
+            )
         )
-    )
-        .filter(Boolean)
-        .flatMap((g) => g.files)
-        .filter(Boolean);
-    const verByFile = new Map(verified.map((r) => [r.file, r]));
-    receipts = redteamReceipts.map((r) => verByFile.get(r.file) || r);
-}
+            .filter(Boolean)
+            .flatMap((b) => b.files)
+            .filter(Boolean);
+        const redByFile = new Map(redteamed.map((r) => [r.file, r]));
+        const afterRed = fixes.map((r) => redByFile.get(r.file) || r);
+
+        // Verify: the terminal WRITING pass for every kind but `.api` (which closed at Redteam). Batch this group`s OK, verify-eligible pages; an all-`.api` group verifies nothing and
+        // returns at Redteam. Its receipt supersedes the red-team`s.
+        const verifyPages = afterRed
+            .filter((r) => r.ok && fileByPath.has(r.file) && verifies(fileByPath.get(r.file).kind))
+            .map((r) => ({ f: fileByPath.get(r.file), fix: r }));
+        if (!verifyPages.length) return afterRed;
+        const verified = (
+            await Promise.all(
+                chunk(verifyPages, BATCH).map((grp) =>
+                    run(() =>
+                        agent(verifyMandate(grp), {
+                            label: 'verify:' + grp[0].f.path.split('/').slice(-1)[0] + (grp.length > 1 ? '+' + (grp.length - 1) : ''),
+                            phase: 'Verify',
+                            model: 'opus',
+                            effort: 'high',
+                            schema: BATCH_SCHEMA,
+                        }),
+                    ),
+                ),
+            )
+        )
+            .filter(Boolean)
+            .flatMap((b) => b.files)
+            .filter(Boolean);
+        const verByFile = new Map(verified.map((r) => [r.file, r]));
+        return afterRed.map((r) => verByFile.get(r.file) || r);
+    }),
+);
+const receipts = chains.flat().filter(Boolean);
+const redteamTerminal = receipts.filter((r) => r.ok && fileByPath.has(r.file) && !verifies(fileByPath.get(r.file).kind)).length;
+log(
+    analyzed + '/' + files.length + ' files analyzed; ' + receipts.length + ' receipts streamed through the group chains' +
+        (redteamTerminal ? '; ' + redteamTerminal + ' closed at Redteam by kind' : ''),
+);
 
 // Collect fires ONLY when a .planning/ page actually extracted a folder-wide ruling; a .api/ tier, a tools/ target, or any folder with no .planning/ files skips it
 // whole — no phase, no dossier collection, no wasted agent. ONE collector takes every owner: cross-owner dedup and tier placement are only decidable with the whole
