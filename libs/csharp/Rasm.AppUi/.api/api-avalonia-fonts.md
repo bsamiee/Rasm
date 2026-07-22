@@ -1,43 +1,35 @@
 # [RASM_APPUI_API_AVALONIA_FONTS]
 
-`Avalonia.Fonts.Inter` is a one-type asset shim: it embeds the six Inter TTF faces as `avares://` resources and exposes a single `AppBuilder.WithInterFont()` sugar that registers an `InterFontCollection` (a thin `EmbeddedFontCollection` subclass) under the `fonts:Inter` family key. The entire font-collection machinery it composes against — `EmbeddedFontCollection`, `FontCollectionBase`, `IFontCollection`, `FontManager`, `ConfigureFonts` — lives in `Avalonia.Base`, not in this assembly; this catalog marks that seam explicitly so the Theme typography owner stacks onto the Avalonia font registry rather than re-deriving an asset loader.
+`Avalonia.Fonts.Inter` embeds the six Inter TTF faces as `avares://` resources and mints one `AppBuilder.WithInterFont()` that registers `InterFontCollection` — a sealed `EmbeddedFontCollection` — under the `fonts:Inter` family key. Every font-collection type it composes against lives in `Avalonia.Base`; this catalog marks that seam so the Theme typography owner stacks onto the Avalonia font registry rather than re-deriving an asset loader.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
-- package: `Avalonia.Fonts.Inter`
-- license: `MIT` (package); the embedded Inter faces ship under the SIL Open Font License 1.1
+- package: `Avalonia.Fonts.Inter` (`MIT`; embedded Inter faces under `OFL-1.1`)
 - assembly: `Avalonia.Fonts.Inter` (AnyCPU IL, managed-only)
-- build-floor: `net10.0` (consumer-bound asset; `net8.0` fallback present, not bound)
-- namespace: `Avalonia.Fonts.Inter` (`InterFontCollection`)
-- namespace: `Avalonia` (`AppBuilderExtension.WithInterFont`)
-- asset: runtime library plus `!AvaloniaResources` container holding `avares://Avalonia.Fonts.Inter/Assets/*.ttf`
+- namespace: `Avalonia.Fonts.Inter`, `Avalonia`
+- asset: runtime library and the `!AvaloniaResources` container holding `avares://Avalonia.Fonts.Inter/Assets/*.ttf`
 - rail: typography
 
 ## [02]-[PUBLIC_TYPES]
 
-[FONT_TYPES]: the only two types this assembly defines
-- rail: typography
+[FONT_TYPES]: the two types this assembly defines
 
-| [INDEX] | [SYMBOL]              | [SIGNATURE]                                                 | [RAIL]             |
-| :-----: | :-------------------- | :---------------------------------------------------------- | :----------------- |
-|  [01]   | `InterFontCollection` | `sealed class InterFontCollection : EmbeddedFontCollection` | Inter family owner |
-|  [02]   | `AppBuilderExtension` | `static class` (namespace `Avalonia`)                       | builder admission  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `InterFontCollection` | class         | sealed `EmbeddedFontCollection` owning the `fonts:Inter` family |
+|  [02]   | `AppBuilderExtension` | class         | static `WithInterFont` builder sugar (namespace `Avalonia`)     |
 
-`InterFontCollection()` is parameterless and hard-codes its two URIs to the base: `base(new Uri("fonts:Inter"), new Uri("avares://Avalonia.Fonts.Inter/Assets"))`. The first is the family key (`FontFamily = "fonts:Inter#Inter"` once loaded); the second is the asset root the base scans.
+[BOUNDARY_TYPES]: composed from `Avalonia.Base`, not defined here — the typography owner binds them directly
 
-[BOUNDARY_TYPES]: composed from `Avalonia.Base`, NOT defined here — the typography owner binds these directly
-- rail: typography
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                              |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------------ |
+|  [01]   | `EmbeddedFontCollection` | class         | `avares:`-scanning base of `InterFontCollection` (`Avalonia.Media.Fonts`) |
+|  [02]   | `IFontCollection`        | interface     | font-family collection contract `AddFontCollection` binds                 |
+|  [03]   | `FontManager`            | class         | process font registry (`FontManager.Current`)                             |
+|  [04]   | `FontFamily`             | class         | resolved family handle from `fonts:Inter#Inter`                           |
 
-| [INDEX] | [SYMBOL]                 | [SIGNATURE]                                                              | [BOUNDARY]               |
-| :-----: | :----------------------- | :----------------------------------------------------------------------- | :----------------------- |
-|  [01]   | `EmbeddedFontCollection` | `class EmbeddedFontCollection(Uri key, Uri source) : FontCollectionBase` | `avares:` scan base type |
-|  [02]   | `IFontCollection`        | `interface IFontCollection : IReadOnlyList<FontFamily>, IDisposable`     | collection contract      |
-|  [03]   | `FontManager`            | `sealed class FontManager` (`FontManager.Current`)                       | process font registry    |
-|  [04]   | `FontFamily`             | `class FontFamily` (constructed from `fonts:Inter#Inter`)                | resolved family handle   |
-
-[FONT_ASSETS]: the six embedded faces under `avares://Avalonia.Fonts.Inter/Assets/`
-- rail: typography
+[FONT_ASSETS]: the six embedded faces under `avares://Avalonia.Fonts.Inter/Assets/`, from which Avalonia's font-matching synthesizes intermediate weights and italics
 
 | [INDEX] | [ASSET]              | [WEIGHT]                    |
 | :-----: | :------------------- | :-------------------------- |
@@ -48,30 +40,34 @@
 |  [05]   | `Inter-SemiBold.ttf` | `FontWeight.SemiBold` (600) |
 |  [06]   | `Inter-Bold.ttf`     | `FontWeight.Bold` (700)     |
 
-The collection synthesizes intermediate weights/italics from these six faces through Avalonia's font-matching; only the listed files exist in the assembly.
-
 ## [03]-[ENTRYPOINTS]
 
-[FONT_ENTRYPOINTS]: the single owned operation plus the base-class operations it forwards to
-- rail: typography
+[FONT_ENTRYPOINTS]: `WithInterFont` and the constructor are owned; `ConfigureFonts` and `AddFontCollection` forward to `Avalonia.Base`
 
-| [INDEX] | [SURFACE]           | [SIGNATURE]                                                       | [CAPABILITY]       |
-| :-----: | :------------------ | :---------------------------------------------------------------- | :----------------- |
-|  [01]   | `WithInterFont`     | `static AppBuilder WithInterFont(this AppBuilder)`                | Inter admission    |
-|  [02]   | `ConfigureFonts`    | `AppBuilder ConfigureFonts(this AppBuilder, Action<FontManager>)` | font configuration |
-|  [03]   | `AddFontCollection` | `void AddFontCollection(IFontCollection)`                         | collection load    |
-|  [04]   | `.ctor`             | `InterFontCollection()`                                           | family owner       |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :------------------------------------------------ | :------- | :---------------------------- |
+|  [01]   | `WithInterFont(AppBuilder) -> AppBuilder`         | static   | Inter family admission        |
+|  [02]   | `ConfigureFonts(AppBuilder, Action<FontManager>)` | static   | font configuration pass       |
+|  [03]   | `AddFontCollection(IFontCollection)`              | instance | collection load onto registry |
+|  [04]   | `InterFontCollection()`                           | ctor     | family owner                  |
 
-[SURFACE_OWNERS]: `AppBuilderExtension` owns `WithInterFont`, Avalonia's boundary `AppBuilderExtensions` owns `ConfigureFonts`, `FontManager` owns `AddFontCollection`, and `InterFontCollection` owns its constructor.
+## [04]-[IMPLEMENTATION_LAW]
 
-`WithInterFont()` is exactly `appBuilder.ConfigureFonts(fm => fm.AddFontCollection(new InterFontCollection()))` — no more. A typography owner that needs additional families (icon fonts, monospace for the code editor) calls `ConfigureFonts` directly and `AddFontCollection`s several collections in one builder pass rather than chaining package-specific sugar.
+[TOPOLOGY]:
+- `InterFontCollection()` hard-codes `base(new Uri("fonts:Inter"), new Uri("avares://Avalonia.Fonts.Inter/Assets"))`, so the family resolves as `fonts:Inter#Inter` and the base scans the asset root.
+- `avares:` resources make Inter availability a compile-time fact, never a deployment probe.
+- `FontManager.Current.DefaultFontFamily` stays Avalonia's built-in default until the theme elevates `fonts:Inter`, so admitting this package never silently re-keys the default.
 
-## [04]-[INTEGRATION_LAW]
+[STACKING]:
+- `api-headless`(`.api/api-headless.md`): `WithInterFont()` chains into `BuildAvaloniaApp().UseHeadless(...).UseSkia().WithInterFont()`, binding the embedded `fonts:Inter` family so headless text metrics stay host-independent for golden-image capture.
+- within-lib: the Theme typography owner composes `WithInterFont` alongside `ConfigureFonts`-registered icon and monospace collections in one builder pass, then keys `Application.Resources` and control `FontFamily` to `fonts:Inter#Inter`.
 
-[TYPOGRAPHY_RAIL_LAW]:
-- Stack: `WithInterFont` is the default-family leg of the app-builder font pass; the Theme typography owner composes it alongside `ConfigureFonts`-registered icon/mono collections so every AppUi modality resolves type through one registry, then sets `Application.Resources` / control `FontFamily` to `fonts:Inter#Inter`.
-- Accept: typography roles bind to the embedded `fonts:Inter` family (or a sibling embedded collection) so render output is byte-identical across the macOS desktop and the headless raster backend — no host font probing.
-- Reject: system-font assumptions, per-host fallback families as public package behavior, or a hand-rolled `EmbeddedFontCollection` subclass when `InterFontCollection` already owns the Inter asset root.
+[LOCAL_ADMISSION]:
+- Typography roles bind the embedded `fonts:Inter` family or a sibling embedded collection, so render output is byte-identical across the macOS desktop and headless raster backends.
+- A second family (icon, monospace) registers through `ConfigureFonts` and `AddFontCollection` in the same builder pass, never package-specific chaining sugar.
 
-[DETERMINISM_LAW]:
-- The `avares:` resource family makes Inter availability a compile-time fact, not a deployment probe; this is the property the headless capture/evidence rail relies on for stable golden-image text metrics. `FontManager.Current.DefaultFontFamily` stays Avalonia's built-in default unless the theme explicitly elevates `fonts:Inter`, so admitting this package does not silently re-key the default — the elevation is the typography owner's deliberate act.
+[RAIL_LAW]:
+- Package: `Avalonia.Fonts.Inter`
+- Owns: the embedded `fonts:Inter` family and its `WithInterFont` builder admission
+- Accept: typography roles bound to `fonts:Inter#Inter`, elevated deliberately by the theme owner
+- Reject: system-font assumptions, per-host fallback families as public behavior, or a hand-rolled `EmbeddedFontCollection` subclass duplicating `InterFontCollection`

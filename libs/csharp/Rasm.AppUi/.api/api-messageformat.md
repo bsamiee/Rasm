@@ -1,177 +1,89 @@
 # [RASM_APPUI_API_MESSAGEFORMAT]
 
-`MessageFormat` (assembly `Jeffijoe.MessageFormat`) is the managed ICU MessageFormat engine — the CLDR-driven `plural` / `selectordinal` / `select` / variable-substitution pattern interpreter materializing `ResolvedLocale.Plural` over the Theme/locale resx pattern vocabulary. One `MessageFormatter` parses an ICU pattern string (with nested arguments, `#` plural-value substitution, and `{0, plural, one {...} other {...}}` / `{g, select, male {...} female {...} other {...}}` blocks) against an args map and a `CultureInfo`, picking the grammatically-correct branch from the per-locale CLDR plural rules. It retires any hand-rolled `count == 1 ? singular : plural` string-concatenation: the pattern is the localizable artifact, the formatter the one resolution authority. The whole surface is a small, deep formatter SPI — `IFormatter` arg-type handlers, `Pluralizer` per-locale rule delegates, and a `CustomValueFormatter` for date/time/number coercion.
+`MessageFormat` interprets ICU patterns — `plural`, `selectordinal`, `select`, and variable substitution — picking the correct branch from per-locale CLDR rules, and owns the Theme/locale resolution materializing `ResolvedLocale.Plural`. One `MessageFormatter` parses a pattern against an args map and a `CultureInfo`, retiring every `n == 1 ? singular : plural` concatenation: the pattern is the localizable artifact, the formatter the authority. Its SPI stays small, deep — `IFormatter` arg-type handlers, per-locale `Pluralizer` rules, and a `CustomValueFormatter` for date/time/number coercion.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessageFormat`
-- package: `MessageFormat` (NuGet id `MessageFormat`)
-- assembly: `Jeffijoe.MessageFormat` (the shipped assembly id differs from the package id)
-- namespace: `Jeffijoe.MessageFormat`, `Jeffijoe.MessageFormat.Formatting` (the `IFormatter`/`IFormatterLibrary` SPI), `Jeffijoe.MessageFormat.Formatting.Formatters` (the concrete `PluralFormatter`/`SelectFormatter`/`VariableFormatter` handlers), `Jeffijoe.MessageFormat.Parsing` (the pattern parser)
-- license: MIT (repo `github.com/jeffijoe/messageformat.net`; the nuspec ships `<authors>Jeff Hansen</authors>` with no `<license>` expression — MIT per the repository LICENSE)
-- build-floor: ships a real `lib/net10.0` asset (plus `net8.0`/`netstandard2.0`/`netstandard2.1`); the `net10.0` consumer binds `lib/net10.0` exactly — the documented surface, no forward-bind fallback
-- dependencies: zero — the `net10.0` dependency group is empty (pure-managed, BCL-only: `CultureInfo` + `StringBuilder`)
+- package: `MessageFormat` (MIT, © Jeff Hansen)
+- assembly: `Jeffijoe.MessageFormat`
+- namespace: `Jeffijoe.MessageFormat` (engine), `.Formatting` + `.Formatting.Formatters` (handler SPI), `.Parsing` (pattern parser)
+- depends: none — pure-managed over `CultureInfo` and `StringBuilder`
 - rail: locale
 
 ## [02]-[PUBLIC_TYPES]
 
-[ENGINE_TYPES]: the formatter contract resolves patterns through one engine, while extension and coercion surfaces adapt inputs and typed values.
-- rail: locale
+[ENGINE_TYPES]: one `MessageFormatter` interprets patterns; extension and coercion types adapt inputs and typed values.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]  | [ROLE]                 |
-| :-----: | :------------------------------------- | :------------- | :--------------------- |
-|  [01]   | `IMessageFormatter`                    | contract       | pattern resolution     |
-|  [02]   | `MessageFormatter : IMessageFormatter` | engine         | ICU interpretation     |
-|  [03]   | `MessageFormatterExtensions`           | static ext     | input adaptation       |
-|  [04]   | `CustomValueFormatter` (`abstract`)    | value coercion | typed rendering        |
-|  [05]   | `CustomValueFormatters`                | static factory | formatter construction |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :--------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `IMessageFormatter`          | interface     | pattern-resolution contract        |
+|  [02]   | `MessageFormatter`           | class         | ICU pattern engine                 |
+|  [03]   | `MessageFormatterExtensions` | static        | dictionary and POCO input adapter  |
+|  [04]   | `CustomValueFormatter`       | abstract      | typed date/time/number coercion    |
+|  [05]   | `CustomValueFormatters`      | sealed        | composite delegate-bound formatter |
 
-[IMessageFormatter]:
+- `MessageFormatterExtensions.FormatMessage`: its `object` overload reflects the POCO to a map, so it is trim-unsafe (`RequiresUnreferencedCode`).
 
-- Signature: `string FormatMessage(string pattern, IReadOnlyDictionary<string,object?> argsMap, CultureInfo? culture = null)`
+[FORMATTER_SPI]: the engine resolves each `{name, type, …}` argument by the first `IFormatter` whose `CanFormat(FormatterRequest)` accepts the type keyword; `MessageFormatter.Formatters` is the ordered mutable handler list.
 
-[MessageFormatterExtensions]:
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :-------------------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `IFormatter`                            | interface     | typed arg-handler contract         |
+|  [02]   | `IFormatterLibrary : IList<IFormatter>` | interface     | ordered handler registry           |
+|  [03]   | `FormatterLibrary : List<IFormatter>`   | class         | default handler set                |
+|  [04]   | `PluralFormatter : BaseFormatter`       | class         | `plural` and `selectordinal` modes |
+|  [05]   | `SelectFormatter : BaseFormatter`       | class         | `select` key dispatch              |
+|  [06]   | `VariableFormatter : IFormatter`        | class         | `{name}` variable render           |
+|  [07]   | `Pluralizer`                            | delegate      | locale CLDR category rule          |
 
-- Inputs: `IDictionary<string,object>` or a POCO `object` reflected to a map
-
-[CustomValueFormatter]:
-
-- Scope: Overrides `date`, `time`, and `number` argument rendering
-
-[CustomValueFormatters]:
-
-- Scope: Constructs the default and composite value formatters
-
-[FORMATTER_SPI]: the arg-type handler library — `Jeffijoe.MessageFormat.Formatting` + `.Formatting.Formatters`
-- rail: locale
-- the engine resolves each `{name, type, ...}` argument by the first `IFormatter` whose `CanFormat(FormatterRequest)` accepts the `type` keyword; the `IFormatterLibrary` is the ordered, mutable handler list exposed on `MessageFormatter.Formatters`
-
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]    | [KEYWORD]      |
-| :-----: | :---------------------------------------------------- | :--------------- | :------------- |
-|  [01]   | `IFormatter`                                          | handler contract | typed dispatch |
-|  [02]   | `IFormatterLibrary : IList<IFormatter>`               | handler list     | registry       |
-|  [03]   | `FormatterLibrary : List<IFormatter>`                 | handler list     | default        |
-|  [04]   | `PluralFormatter : BaseFormatter`                     | handler          | plural modes   |
-|  [05]   | `SelectFormatter : BaseFormatter`                     | handler          | `select`       |
-|  [06]   | `VariableFormatter : IFormatter`                      | handler          | variable       |
-|  [07]   | `Pluralizer` (`delegate string Pluralizer(double n)`) | locale rule      | category       |
-
-[IFormatter]:
-
-- Dispatch: `bool CanFormat(FormatterRequest)` selects the argument `type`, and `Format` renders the argument
-
-[IFormatterLibrary]:
-
-- Registry: `MessageFormatter.Formatters` exposes the ordered handler list
-
-[PluralFormatter]:
-
-- Dispatch: `CanFormat` maps `plural` to `CardinalPluralizers` and `selectordinal` to `OrdinalPluralizers`
-- Branches: `zero`, `one`, `two`, `few`, `many`, `other`, and exact `=n`, with `#` value substitution
-
-[SelectFormatter]:
-
-- Dispatch: Selects an arbitrary string key such as gender, status, or enum
-
-[VariableFormatter]:
-
-- Dispatch: Renders `{name}` through `CustomValueFormatter` for typed values
-
-[Pluralizer]:
-
-- Dispatch: Maps a number to its locale's CLDR plural category
+- `PluralFormatter`: branches `zero` `one` `two` `few` `many` `other` and exact `=n`, `#` substituting the plural value.
 
 ## [03]-[ENTRYPOINTS]
 
-[FORMAT]: the resolution surface
-- rail: locale
+[FORMAT]: every surface returns the resolved `string`; a map or reflected POCO supplies the arguments.
 
-| [INDEX] | [ENTRYPOINT]               | [MODE]   | [INPUT] |
-| :-----: | :------------------------- | :------- | :------ |
-|  [01]   | `MessageFormatter`         | reusable | map     |
-|  [02]   | `FormatMessage`            | instance | map     |
-|  [03]   | `Extensions.FormatMessage` | ext      | map     |
-|  [04]   | `Extensions.FormatMessage` | ext      | POCO    |
-|  [05]   | `MessageFormatter.Format`  | static   | map     |
-|  [06]   | `MessageFormatter.Format`  | static   | POCO    |
+| [INDEX] | [SURFACE]                                                                     | [SHAPE]  | [CAPABILITY]                     |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :------------------------------- |
+|  [01]   | `new MessageFormatter(bool, CultureInfo?, CustomValueFormatter?)`             | ctor     | reusable cached engine           |
+|  [02]   | `MessageFormatter.FormatMessage(string, IReadOnlyDictionary, CultureInfo?)`   | instance | resolve a pattern against a map  |
+|  [03]   | `MessageFormatterExtensions.FormatMessage(string, IDictionary, CultureInfo?)` | instance | resolve against a mutable map    |
+|  [04]   | `MessageFormatterExtensions.FormatMessage(string, object, CultureInfo?)`      | instance | resolve against a reflected POCO |
+|  [05]   | `MessageFormatter.Format(string, IReadOnlyDictionary, CultureInfo?)`          | static   | one-shot map resolution          |
+|  [06]   | `MessageFormatter.Format(string, object, CultureInfo?)`                       | static   | one-shot POCO resolution         |
 
-[MessageFormatter]:
+- `new MessageFormatter(useCache: true, …)`: compiles each pattern once and reuses it across calls under the default culture; a per-call `culture` overrides for a transient locale.
+- `MessageFormatter.Format`: one-shot through a shared default instance, no pattern-cache reuse.
 
-- Constructor: `new MessageFormatter(bool useCache = true, CultureInfo? culture = null, CustomValueFormatter? customValueFormatter = null)`
-- Lifecycle: Reuses cached compiled patterns under the default culture
+[SPI]: custom handlers, locale rules, and typed-value coercion mutate the resolved engine.
 
-[FormatMessage]:
+| [INDEX] | [SURFACE]                              | [SHAPE]  | [CAPABILITY]                                     |
+| :-----: | :------------------------------------- | :------- | :----------------------------------------------- |
+|  [01]   | `MessageFormatter.Formatters`          | property | register an `IFormatter` for a new type keyword  |
+|  [02]   | `MessageFormatter.CardinalPluralizers` | property | override a cardinal locale rule                  |
+|  [03]   | `MessageFormatter.OrdinalPluralizers`  | property | override an ordinal locale rule                  |
+|  [04]   | `CustomValueFormatters`                | ctor     | composite binding the date/time/number delegates |
 
-- Signature: `string FormatMessage(string pattern, IReadOnlyDictionary<string,object?> args, CultureInfo? culture = null)`
-- Culture: Accepts a per-call override
+- `MessageFormatter.CardinalPluralizers`: reads through the resolved `PluralFormatter` and is `null` until one is added.
+- `CustomValueFormatters`: settable `TryFormatDate`/`TryFormatTime`/`TryFormatNumber` delegates render forms such as `{d, date, short}` and `{n, number, percent}`.
 
-[Extensions.FormatMessage]:
+## [04]-[IMPLEMENTATION_LAW]
 
-- Overloads: `MessageFormatterExtensions.FormatMessage(pattern, IDictionary<string,object> args, culture?)` and `(pattern, object args, culture?)`
-
-[MessageFormatter.Format]:
-
-- Overloads: `static string MessageFormatter.Format(string pattern, IReadOnlyDictionary<string,object?> data, CultureInfo? culture = null)` and `(pattern, object data, culture?)`
-- Lifecycle: Performs one-shot resolution without cache reuse
-
-[SPI]: the customization surface
-- rail: locale
-
-| [INDEX] | [SURFACE]                     | [CAPABILITY]  |
-| :-----: | :---------------------------- | :------------ |
-|  [01]   | `MessageFormatter.Formatters` | handler list  |
-|  [02]   | `CardinalPluralizers`         | cardinal map  |
-|  [03]   | `OrdinalPluralizers`          | ordinal map   |
-|  [04]   | `CustomValueFormatter`        | typed values  |
-|  [05]   | `TryFormatDate`               | date delegate |
-|  [06]   | `TryFormatTime`               | time delegate |
-|  [07]   | `TryFormatNumber`             | number hook   |
-
-[MessageFormatter.Formatters]:
-
-- Signature: `IFormatterLibrary MessageFormatter.Formatters`
-- Mutation: Inserts a custom `IFormatter` for a new argument `type` keyword
-
-[Pluralizers]:
-
-- Signatures: `IDictionary<string,Pluralizer>? CardinalPluralizers` and `OrdinalPluralizers`
-- Mutation: Adds or replaces a locale rule on the resolved `PluralFormatter`
-
-[CustomValueFormatter]:
-
-- Hooks: `TryFormatDate(CultureInfo, object?, string? style, out string?)`, `TryFormatTime(...)`, and `TryFormatNumber(...)`
-- Patterns: Renders typed values for forms such as `{d, date, short}` and `{n, number, percent}`
-
-[TryFormatDelegates]:
-
-- Shape: `delegate bool(CultureInfo, object?, string?, out string?)`
-- Dispatch: A composite `CustomValueFormatter` binds the date, time, and number delegates
-
-## [04]-[ERROR_TAXONOMY]
-
-[BOUNDARY_FAULTS]: the failure surface lifted at the locale edge
-- rail: locale
-
-The parser reports unbalanced braces and invalid argument syntax, while handler resolution reports an argument `type` absent from the formatter library.
-
-| [INDEX] | [THROWN]                     | [CAUSE]               |
-| :-----: | :--------------------------- | :-------------------- |
-|  [01]   | `MessageFormatterException`  | malformed ICU pattern |
-|  [02]   | `FormatterNotFoundException` | unmatched formatter   |
-
-A pattern is authored content (resx), so a `MessageFormatterException` is a content-validation failure caught at build/load, not a runtime user fault; the Theme/locale rail validates patterns against their args before they ship.
-
-## [05]-[STACKING_AND_RAIL]
+[TOPOLOGY]:
+- `MessageFormatter` resolves `plural`/`selectordinal`/`select`/variable branches by the per-locale CLDR rule; the ICU pattern is the one localizable artifact, retiring every inline `n == 1 ? singular : plural` branch.
+- Typed faults lift at the locale edge: `MessageFormatterException` on a malformed pattern, `FormatterNotFoundException` on an argument type absent from the library. A pattern is authored resx content, so a malformed one is a content-validation failure caught at build/load, never a runtime user fault.
 
 [STACKING]:
-- resx pattern → resolved string: the Theme/locale `ResolvedLocale.Plural` is the `MessageFormatter` bound once per active `CultureInfo`; a resx entry holds the ICU pattern (`{count, plural, one {# item} other {# items}}`), and the localized string is `formatter.FormatMessage(pattern, args)` — the pattern is the only localizable artifact, retiring every inline `count == 1 ? ... : ...` branch.
-- one engine, cached, per culture: `new MessageFormatter(useCache: true, culture)` compiles each pattern once and reuses it; the formatter is a long-lived singleton in the locale rail, the per-call `culture` override handling a transient locale switch (preview a string in another language) without a second engine.
-- typed values through one coercion hook: a `CustomValueFormatter` (constructed via `CustomValueFormatters`) renders `date`/`time`/`number` arguments — the same hook the `UnitsNet` quantity display and `NodaTime` instant formatting flow through, so a `{when, date, long}` or `{qty, number}` argument respects the active culture's calendar/number format without a parallel formatting path.
-- CLDR rules are data, not code: `CardinalPluralizers`/`OrdinalPluralizers` are the per-locale `Pluralizer` delegate maps the engine ships from CLDR; a locale the app adds registers its rule by inserting a `Pluralizer` rather than branching in app code — the bounded plural-category vocabulary (`zero`/`one`/`two`/`few`/`many`/`other`) is the dispatch table.
-- presentation-token alignment: the formatter output feeds the Theme/tokens text pipeline (`Wacton.Unicolour` colour, `Avalonia.Fonts.Inter` typography) as a plain string — MessageFormat owns grammar/plurality only, never layout or styling, so a localized label and its styled token never diverge.
+- `NodaTime`(`.api/api-nodatime.md`): an instant or date argument coerces through the `CustomValueFormatter` date/time delegates, so `{when, date, long}` respects the active culture's calendar without a parallel format path.
+- `UnitsNet`(`.api/api-unitsnet.md`): a quantity renders through the same number delegate, so `{qty, number}` shares one culture-aware coercion hook.
+- `Wacton.Unicolour`(`.api/api-unicolour.md`) + `Avalonia.Fonts.Inter`(`api-avalonia-fonts.md`): the resolved string feeds the Theme/tokens text pipeline as a plain string — `MessageFormat` owns grammar and plurality only, never layout or styling.
+- Theme/locale rail: one cached `MessageFormatter` per active culture materializes `ResolvedLocale.Plural`, and `CardinalPluralizers`/`OrdinalPluralizers` are the CLDR `Pluralizer` data table a new locale extends by insertion.
+
+[LOCAL_ADMISSION]:
+- Theme/locale rail holds one cached `MessageFormatter` per active culture; a localized string resolves as `formatter.FormatMessage(pattern, args)` over a resx-carried ICU pattern.
 
 [RAIL_LAW]:
-- Packages: `MessageFormat` (assembly `Jeffijoe.MessageFormat`; zero deps, pure-managed)
-- Owns: the Theme/locale ICU-MessageFormat resolution — `plural`/`selectordinal`/`select`/variable pattern interpretation over the resx vocabulary, materializing `ResolvedLocale.Plural`
-- Accept: one cached `MessageFormatter` per active culture as a singleton; the resx ICU pattern as the localizable artifact; an args map (or POCO) per call; a per-call `culture` override for transient locale preview; a `CustomValueFormatter` as the single typed-value (date/time/number) coercion hook; a registered `Pluralizer` for a new locale's CLDR rule
-- Reject: an inline `n == 1 ? singular : plural` ternary anywhere outside an ICU pattern; a second formatting path for typed argument values beside `CustomValueFormatter`; a per-call engine construction (lose the pattern cache); a malformed pattern crossing build/load unvalidated (→ `MessageFormatterException` at content validation, not runtime)
+- Package: `MessageFormat`
+- Owns: the Theme/locale ICU-MessageFormat resolution — `plural`/`selectordinal`/`select`/variable interpretation over the resx vocabulary, materializing `ResolvedLocale.Plural`.
+- Accept: one cached `MessageFormatter` per culture; the resx pattern as the sole localizable artifact; a `CustomValueFormatter` for date/time/number; a registered `Pluralizer` per added locale.
+- Reject: an inline `n == 1 ? singular : plural` ternary outside a pattern; a second formatting path for typed values beside `CustomValueFormatter`; per-call engine construction losing the pattern cache.

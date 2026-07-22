@@ -1,38 +1,29 @@
 # [RASM_APPUI_API_MAPSUI]
 
-`Mapsui.Avalonia12` is the Avalonia 12 binding (assembly `Mapsui.UI.Avalonia`) of the Mapsui slippy-map engine — realizing `Charts/basemap.md` (`[V8]`b, the declared Bim NTS basemap seam): the interactive basemap / vector-overlay viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite`, so GDAL/OGR-sourced features draw as live overlays beside the `Wgpu` 3D viewport. The package ships ONLY the `MapControl` Avalonia control + its `RenderController`; the map model, layer/feature/style/widget/navigator vocabulary, the tile pipeline, and the NTS geometry bridge live in the transitive `Mapsui` core, `Mapsui.Tiling`, `Mapsui.Rendering.Skia`, and `Mapsui.Nts` assemblies — this catalog documents the whole stack `Charts/basemap.md` composes (`[V8]`b, the realized `ARCH:67` seam). Mapsui is the TILED-basemap owner; the LiveCharts `GeoMap`/`DrawnMap` chart-projection (`api-livecharts.md`, `Charts/dashboards.md`) is the disjoint CHART-projection row — separate charters. One `Map` owns an ordered `LayerCollection` and a `Navigator` (the camera); a `TileLayer` paints the basemap; a `MemoryLayer`/`Layer` over a `GeometryFeature` set (NTS `Geometry`) draws domain overlays; `SphericalMercator` reprojects WGS-84 into the EPSG:3857 web-mercator the basemap uses.
+`Mapsui.Avalonia12` binds the Mapsui slippy-map engine to Avalonia (assembly `Mapsui.UI.Avalonia`): one `MapControl` over a `Map` renders a tiled basemap with NTS vector overlays on the shared Skia surface. `Mapsui.UI.Avalonia` ships only `MapControl` and `RenderController`; this catalog documents the whole transitive stack it composes. A `Map` holds an ordered `LayerCollection` and a `Navigator` camera — a `TileLayer` paints the basemap, a `MemoryLayer` over `GeometryFeature` sets draws overlays, and `SphericalMercator` reprojects WGS-84 into EPSG:3857.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Mapsui.Avalonia12`
-- package: `Mapsui.Avalonia12`
-- assembly: `Mapsui.UI.Avalonia` (the shipped assembly id differs from the package id; `Avalonia12` is the package-name discriminant for the Avalonia-12 build)
-- namespace: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only)
-- license: MIT (`<license type="expression">MIT</license>`)
-- build-floor: ships `lib/net8.0` + `lib/net9.0` (top TFM `net9.0`, no `net10.0`); the `net10.0` consumer binds `lib/net9.0` — the documented surface, forward-compatible
-- transitive core (the real API): `Mapsui` (model/layers/styles/widgets/navigator/projection — `lib/net8.0`), `Mapsui.Tiling` (`TileLayer` + BruTile sources), `Mapsui.Rendering.Skia` (the Skia renderer), `Mapsui.Nts` (the NTS `Geometry` bridge + providers); all MIT, pure-managed
-- dependency: `Avalonia` / `Avalonia.Skia` ≥ 12 (consumer runs Avalonia 12); the Skia draw rides the central-pinned `SkiaSharp` family shared with `Avalonia.Skia`/`Svg.Skia`/`LiveCharts`
+- package: `Mapsui.Avalonia12` (MIT, Mapsui)
+- assembly: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only; the shipped assembly id differs from the package id)
+- namespace: `Mapsui.UI.Avalonia`
+- transitive: `Mapsui` (model, layers, styles, widgets, navigator, projection), `Mapsui.Tiling` (`TileLayer` + BruTile sources), `Mapsui.Rendering.Skia` (Skia renderer), `Mapsui.Nts` (NTS `Geometry` bridge + providers) — all MIT, pure-managed
+- depends: `Avalonia`, `Avalonia.Skia`, `SkiaSharp`
 - rail: map
 
 ## [02]-[PUBLIC_TYPES]
 
 [CONTROL_TYPES]: the Avalonia binding — `Mapsui.UI.Avalonia`
-- rail: map
-- `MapControl` derives from `UserControl` and implements `IMapControl`, `IDisposable`, and `INotifyPropertyChanged`.
-- `RenderController` implements `IDisposable`.
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]        |
 | :-----: | :----------------- | :------------ | :------------------ |
 |  [01]   | `MapControl`       | control       | slippy-map viewport |
 |  [02]   | `RenderController` | render driver | render-loop driver  |
 
-[CONTROL_DETAILS]:
-- [01]-[VIEWPORT]: `MapControl` hosts a `Map` and owns pointer, wheel, fling, and tap input.
-- [02]-[RENDERING]: `MapControl` renders through `MapsuiCustomDrawOperation` into the Avalonia Skia compositor.
-- [03]-[LOOP]: `RenderController` feeds the per-control Skia draw operation.
+- `MapControl` : `UserControl`, `IMapControl`, `IDisposable`, `INotifyPropertyChanged`; `RenderController` : `IDisposable`.
 
 [MODEL_TYPES]: the map model and camera — `Mapsui` core
-- rail: map
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]        |
 | :-----: | :---------------- | :------------ | :------------------ |
@@ -43,16 +34,10 @@
 |  [05]   | `MRect`           | geometry      | world rectangle     |
 |  [06]   | `MPoint`          | geometry      | world point         |
 
-[MODEL_DETAILS]:
-- [01]-[MAP]: `Map` implements `INotifyPropertyChanged` and `IDisposable`; it owns `Layers`, `Navigator`, `CRS`, `Extent`, `Widgets`, and `BackColor`.
-- [02]-[MAP_EVENTS]: `Map` publishes `Info`, `Tapped`, and `DataChanged`; its default `CRS` is `"EPSG:3857"`, and `Extent` is `MRect?`.
-- [03]-[NAVIGATOR]: `Navigator` owns `CenterOn`, `ZoomTo`, `ZoomToBox`, `FlyTo`, `RotateTo`, and `ZoomToLevel` with duration and `Easing` animation.
-- [04]-[LAYERS]: `LayerCollection` implements `IEnumerable<ILayer>` and keeps the basemap at index zero with overlays above it.
-- [05]-[RECT]: `MRect` exposes `Min`, `Max`, `Width`, and `Centroid`.
-- [06]-[POINT]: `MPoint(double x, double y)` constructs a world point.
+- `Map` : `INotifyPropertyChanged`, `IDisposable`; owns `Layers`, `Navigator`, `CRS`, `Extent`, `Widgets`, `BackColor`, and default `CRS` `"EPSG:3857"`.
+- `LayerCollection` : `IEnumerable<ILayer>`; the basemap sits at index zero, overlays draw above it.
 
 [LAYER_TYPES]: the layer family — `Mapsui.Layers`
-- rail: map
 - every layer is `BaseLayer : ILayer`; `ILayer` carries `Name`/`Enabled`/`Opacity`/`Style`/`Extent`/`MinVisible`/`MaxVisible` and `IEnumerable<IFeature> GetFeatures(MRect, double resolution)`
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]         |
@@ -66,35 +51,28 @@
 |  [07]   | `RasterizingLayer`   | specialized     | rasterized vectors   |
 |  [08]   | `AnimatedPointLayer` | specialized     | animated points      |
 
-[LAYER_DETAILS]:
-- [01]-[MEMORY]: `MemoryLayer(string)` derives from `BaseLayer`; its `IEnumerable<IFeature> Features` receives the GDAL/OGR-derived overlay.
-- [02]-[PROVIDER]: `Layer(string)` derives from `BaseLayer`; its `IProvider? DataSource` supplies an asynchronously fetched `ILayerDataSource<IProvider>`.
-- [03]-[TILES]: `TileLayer` derives from `BaseLayer` in `Mapsui.Tiling` and admits XYZ, WMTS, and MBTiles BruTile sources.
+- `MemoryLayer` and `Layer` derive from `BaseLayer`; `MemoryLayer.Features` holds a direct `IFeature` set, `Layer.DataSource` an async `IProvider?`.
+- `TileLayer` (`Mapsui.Tiling`) admits XYZ, WMTS, and MBTiles BruTile sources.
 
 [FEATURE_TYPES]: the feature model and the NTS bridge — `Mapsui` + `Mapsui.Nts`
-- rail: map
 
-| [INDEX] | [SYMBOL]                       | [OWNER_ASM]  | [CAPABILITY]        |
-| :-----: | :----------------------------- | :----------- | :------------------ |
-|  [01]   | `IFeature`                     | `Mapsui`     | feature contract    |
-|  [02]   | `BaseFeature`                  | `Mapsui`     | feature base        |
-|  [03]   | `PointFeature`                 | `Mapsui`     | located feature     |
-|  [04]   | `GeometryFeature`              | `Mapsui.Nts` | NTS bridge          |
-|  [05]   | `GeoJsonProvider`              | `Mapsui.Nts` | GeoJSON provider    |
-|  [06]   | `GeometrySimplifyProvider`     | `Mapsui.Nts` | viewport simplify   |
-|  [07]   | `GeometryIntersectionProvider` | `Mapsui.Nts` | viewport clip       |
-|  [08]   | `EditManager`                  | `Mapsui.Nts` | geometry editing    |
-|  [09]   | `EditingWidget`                | `Mapsui.Nts` | editing interaction |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [CAPABILITY]        |
+| :-----: | :----------------------------- | :--------------- | :------------------ |
+|  [01]   | `IFeature`                     | feature contract | feature contract    |
+|  [02]   | `BaseFeature`                  | feature base     | feature base        |
+|  [03]   | `PointFeature`                 | feature          | located feature     |
+|  [04]   | `GeometryFeature`              | NTS feature      | NTS bridge          |
+|  [05]   | `GeoJsonProvider`              | provider         | GeoJSON provider    |
+|  [06]   | `GeometrySimplifyProvider`     | provider         | viewport simplify   |
+|  [07]   | `GeometryIntersectionProvider` | provider         | viewport clip       |
+|  [08]   | `EditManager`                  | service          | geometry editing    |
+|  [09]   | `EditingWidget`                | widget           | editing interaction |
 
-[FEATURE_DETAILS]:
-- [01]-[BASE]: `IFeature` implements `ICloneable`; `BaseFeature` owns geometry, `Styles`, and per-feature fields.
-- [02]-[POINT]: `PointFeature` derives from `BaseFeature` and locates markers or labels at an `MPoint`.
-- [03]-[GEOMETRY]: `GeometryFeature` derives from `BaseFeature`; its `Geometry? Geometry` carries the NetTopologySuite geometry for GDAL/OGR and Bim overlays.
-- [04]-[GEOJSON]: `GeoJsonProvider(string)` implements `IProvider` and materializes NTS geometry from a GeoJSON string.
-- [05]-[EDITING]: `EditManager` and `EditingWidget` add, drag, and rotate vertices over NTS geometry.
+- `IFeature` : `ICloneable`; `BaseFeature` owns geometry, `Styles`, and per-feature fields; `PointFeature` locates markers or labels at an `MPoint`.
+- `GeometryFeature` (`Mapsui.Nts`) wraps a NetTopologySuite `Geometry?` as a drawable feature — the NTS bridge for GDAL/OGR and Bim overlays.
+- `GeoJsonProvider` materializes NTS geometry from a GeoJSON string; `EditManager`/`EditingWidget` add, drag, and rotate vertices over NTS geometry.
 
 [STYLE_AND_WIDGET_TYPES]: presentation — `Mapsui.Styles` / `Mapsui.Widgets`
-- rail: map
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]      |
 | :-----: | :---------------- | :-------------- | :---------------- |
@@ -116,131 +94,94 @@
 |  [16]   | `MapInfoWidget`   | widget          | information box   |
 |  [17]   | `ButtonWidget`    | widget          | button control    |
 
-[STYLE_DETAILS]:
-- [01]-[VECTOR]: `VectorStyle` composes `Pen` and `Brush` for vector stroke and fill.
-- [02]-[THEME]: `ThemeStyle` implements `IThemeStyle` and selects styles from feature data.
-- [03]-[WIDGETS]: Every widget is screen-anchored on `Map.Widgets`.
+- `VectorStyle` composes `Pen` and `Brush`; `ThemeStyle` : `IThemeStyle` selects styles from feature data.
 
 [PROJECTION_TYPES]: CRS reprojection — `Mapsui.Projections`
-- rail: map
 
-| [INDEX] | [SYMBOL]             | [CAPABILITY]        |
-| :-----: | :------------------- | :------------------ |
-|  [01]   | `SphericalMercator`  | web-mercator bridge |
-|  [02]   | `IProjection`        | projection contract |
-|  [03]   | `Projection`         | projection engine   |
-|  [04]   | `ProjectionDefaults` | default projection  |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]        |
+| :-----: | :------------------- | :------------------ | :------------------ |
+|  [01]   | `SphericalMercator`  | projection          | web-mercator bridge |
+|  [02]   | `IProjection`        | projection contract | projection contract |
+|  [03]   | `Projection`         | projection          | projection engine   |
+|  [04]   | `ProjectionDefaults` | static              | default projection  |
 
-[PROJECTION_DETAILS]:
-- [01]-[FORWARD]: `SphericalMercator.FromLonLat` accepts `MPoint` or `double lon, double lat` and returns EPSG:3857 coordinates.
-- [02]-[INVERSE]: `SphericalMercator.ToLonLat` returns WGS-84 coordinates from web-mercator input.
-- [03]-[PLUGGABLE]: `ProjectionDefaults.Projection` admits non-mercator reprojection through `IProjection`.
+- `SphericalMercator.FromLonLat`/`.ToLonLat` bridge WGS-84 and EPSG:3857; `ProjectionDefaults.Projection` admits non-mercator reprojection through `IProjection`.
 
 ## [03]-[ENTRYPOINTS]
 
 [CONTROL]: the `MapControl` binding surface — `Mapsui.UI.Avalonia`
-- rail: map
 
-| [INDEX] | [SURFACE]                          | [CAPABILITY]        |
-| :-----: | :--------------------------------- | :------------------ |
-|  [01]   | `Map`                              | model binding       |
-|  [02]   | `MapProperty`                      | Avalonia property   |
-|  [03]   | `Info`                             | feature pick event  |
-|  [04]   | `MapTapped`                        | tap event           |
-|  [05]   | `MapPointerPressed`                | pointer press       |
-|  [06]   | `MapPointerMoved`                  | pointer movement    |
-|  [07]   | `MapPointerReleased`               | pointer release     |
-|  [08]   | `GetMapInfo`                       | layer hit test      |
-|  [09]   | `GetSnapshot`                      | image capture       |
-|  [10]   | `Refresh`                          | redraw              |
-|  [11]   | `RefreshData`                      | data refetch        |
-|  [12]   | `RefreshGraphics`                  | canvas invalidation |
-|  [13]   | `ForceUpdate`                      | forced update       |
-|  [14]   | `UseContinuousMouseWheelZoom`      | wheel mode          |
-|  [15]   | `ContinuousMouseWheelZoomStepSize` | wheel step          |
-|  [16]   | `UseFling`                         | fling mode          |
-|  [17]   | `MaxTapGestureMovement`            | tap threshold       |
-
-[CONTROL_SIGNATURES]:
-- [01]-[MAP]: `Map Map { get; set; }` binds through `MapProperty`, a `DirectProperty<MapControl, Map>` for XAML and MVVM.
-- [02]-[INFO]: `Info` is an `EventHandler<MapInfoEventArgs>?`.
-- [03]-[HIT_TEST]: `MapInfo GetMapInfo(ScreenPosition, IEnumerable<ILayer>)` identifies the feature at a screen point.
-- [04]-[SNAPSHOT]: `byte[] GetSnapshot(IEnumerable<ILayer>? = null, RenderFormat = Png, int quality = 100)` renders the map or a layer subset.
-- [05]-[REFRESH]: `Refresh(ChangeType)` and `RefreshData(ChangeType)` carry the change classification; `RefreshGraphics()` and `ForceUpdate()` are parameterless.
+| [INDEX] | [SURFACE]                                                        | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :--------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `Map`                                                            | property | model binding, via `MapProperty`   |
+|  [02]   | `MapProperty`                                                    | static   | `DirectProperty<MapControl,Map>`   |
+|  [03]   | `Info`                                                           | event    | `EventHandler<MapInfoEventArgs>`   |
+|  [04]   | `MapTapped`                                                      | event    | `EventHandler<MapEventArgs>` tap   |
+|  [05]   | `MapPointerPressed`                                              | event    | pointer press                      |
+|  [06]   | `MapPointerMoved`                                                | event    | pointer movement                   |
+|  [07]   | `MapPointerReleased`                                             | event    | pointer release                    |
+|  [08]   | `GetMapInfo(ScreenPosition, IEnumerable<ILayer>) -> MapInfo`     | instance | feature hit test at a screen point |
+|  [09]   | `GetSnapshot(IEnumerable<ILayer>?, RenderFormat, int) -> byte[]` | instance | map or layer image capture         |
+|  [10]   | `Refresh(ChangeType)`                                            | instance | redraw                             |
+|  [11]   | `RefreshData(ChangeType)`                                        | instance | data refetch                       |
+|  [12]   | `RefreshGraphics()`                                              | instance | canvas invalidation                |
+|  [13]   | `ForceUpdate()`                                                  | instance | forced update                      |
+|  [14]   | `UseContinuousMouseWheelZoom`                                    | property | wheel-zoom mode (`bool`)           |
+|  [15]   | `ContinuousMouseWheelZoomStepSize`                               | property | wheel step (`double`)              |
+|  [16]   | `UseFling`                                                       | property | fling mode (`bool`)                |
+|  [17]   | `MaxTapGestureMovement`                                          | property | tap threshold (`int`)              |
 
 [MAP_AND_CAMERA]: the model + navigator surface — `Mapsui` core
-- rail: map
 
-| [INDEX] | [SURFACE]                     | [CAPABILITY]       |
-| :-----: | :---------------------------- | :----------------- |
-|  [01]   | `Map`                         | model construction |
-|  [02]   | `Map.CRS`                     | coordinate system  |
-|  [03]   | `Map.Extent`                  | full bounds        |
-|  [04]   | `Map.BackColor`               | backdrop           |
-|  [05]   | `Navigator.CenterOn`          | animated pan       |
-|  [06]   | `Navigator.ZoomTo`            | resolution zoom    |
-|  [07]   | `Navigator.ZoomToBox`         | box fit            |
-|  [08]   | `Navigator.ZoomToLevel`       | level zoom         |
-|  [09]   | `Navigator.ZoomIn`            | zoom increment     |
-|  [10]   | `Navigator.ZoomOut`           | zoom decrement     |
-|  [11]   | `Navigator.CenterOnAndZoomTo` | combined move      |
-|  [12]   | `Navigator.FlyTo`             | parabolic move     |
-|  [13]   | `Navigator.RotateTo`          | bearing rotation   |
-|  [14]   | `Map.RefreshDataAsync`        | data fetch         |
-|  [15]   | `Map.ClearCache`              | cache reset        |
+| [INDEX] | [SURFACE]                                                    | [SHAPE]  | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------------- | :------- | :--------------------------------------------------- |
+|  [01]   | `new Map()`                                                  | ctor     | model construction                                   |
+|  [02]   | `Map.CRS`                                                    | property | coordinate system (`string?`, default `"EPSG:3857"`) |
+|  [03]   | `Map.Extent`                                                 | property | full bounds (`MRect?`)                               |
+|  [04]   | `Map.BackColor`                                              | property | backdrop (`Brush?`)                                  |
+|  [05]   | `Navigator.CenterOn(MPoint, long, Easing?)`                  | instance | animated pan                                         |
+|  [06]   | `Navigator.ZoomTo(double, long, Easing?)`                    | instance | resolution zoom                                      |
+|  [07]   | `Navigator.ZoomToBox(MRect?, MBoxFit, long, Easing?)`        | instance | box fit                                              |
+|  [08]   | `Navigator.ZoomToLevel(int)`                                 | instance | level zoom                                           |
+|  [09]   | `Navigator.ZoomIn(long, Easing?)`                            | instance | zoom increment                                       |
+|  [10]   | `Navigator.ZoomOut(long, Easing?)`                           | instance | zoom decrement                                       |
+|  [11]   | `Navigator.CenterOnAndZoomTo(MPoint, double, long, Easing?)` | instance | combined pan and zoom                                |
+|  [12]   | `Navigator.FlyTo(MPoint, double, long)`                      | instance | parabolic move                                       |
+|  [13]   | `Navigator.RotateTo(double, long, Easing?)`                  | instance | bearing rotation                                     |
+|  [14]   | `Map.RefreshDataAsync(Viewport?) -> Task`                    | instance | data fetch                                           |
+|  [15]   | `Map.ClearCache()`                                           | instance | tile and feature cache reset                         |
 
-[MAP_SIGNATURES]:
-- [01]-[CONSTRUCTION]: `new Map()` creates the model, and `map.Layers.Add(layer)` pushes a layer onto the ordered draw stack.
-- [02]-[PAN]: `Navigator.CenterOn` accepts `MPoint` or `x, y` coordinates with duration and optional `Easing`.
-- [03]-[ZOOM]: `Navigator.ZoomTo` accepts a resolution; `ZoomToBox` accepts `MRect` and `MBoxFit`; `ZoomToLevel` accepts an integer level.
-- [04]-[FLIGHT]: `CenterOnAndZoomTo` accepts an `MPoint` and resolution; `FlyTo` accepts an `MPoint`, maximum resolution, and duration.
-- [05]-[ROTATION]: `Navigator.RotateTo` accepts a rotation and animation arguments.
-- [06]-[DATA]: `async Task Map.RefreshDataAsync(Viewport?)` fetches data, and `Map.ClearCache()` drops tile and feature caches.
+- `map.Layers.Add(layer)` pushes a layer onto the ordered draw stack; `CenterOn` also accepts `(double x, double y, ...)`.
 
 [BASEMAP_AND_OVERLAY]: the tile + NTS-feature layer construction
-- rail: map
 
-| [INDEX] | [SURFACE]                       | [CAPABILITY]      |
-| :-----: | :------------------------------ | :---------------- |
-|  [01]   | `OpenStreetMap.CreateTileLayer` | OSM XYZ basemap   |
-|  [02]   | `MemoryLayer`                   | in-memory overlay |
-|  [03]   | `GeometryFeature`               | NTS overlay       |
-|  [04]   | `SphericalMercator.FromLonLat`  | web reprojection  |
-|  [05]   | `Layer`                         | provider overlay  |
-
-[OVERLAY_SIGNATURES]:
-- [01]-[BASEMAP]: `Mapsui.Tiling.OpenStreetMap.CreateTileLayer(string? userAgent = null)` returns a ready `TileLayer`.
-- [02]-[MEMORY]: `new MemoryLayer(name) { Features = features, Style = style }` draws a GDAL/OGR-derived `IFeature` set.
-- [03]-[GEOMETRY]: `new GeometryFeature(Geometry)` in `Mapsui.Nts` wraps a NetTopologySuite geometry as a drawable feature.
-- [04]-[PROJECTION]: `SphericalMercator.FromLonLat(lon, lat)` returns world `(x, y)` coordinates in the basemap's EPSG:3857 CRS.
-- [05]-[PROVIDER]: `new Layer(name) { DataSource = provider, Style = style }` builds an asynchronously fetched vector layer.
+| [INDEX] | [SURFACE]                                             | [SHAPE] | [CAPABILITY]                              |
+| :-----: | :---------------------------------------------------- | :------ | :---------------------------------------- |
+|  [01]   | `OpenStreetMap.CreateTileLayer(string?) -> TileLayer` | static  | OSM XYZ basemap (`Mapsui.Tiling`)         |
+|  [02]   | `new MemoryLayer { Features, Style }`                 | ctor    | in-memory feature overlay                 |
+|  [03]   | `new GeometryFeature(Geometry?)`                      | ctor    | NTS geometry as a drawable feature        |
+|  [04]   | `SphericalMercator.FromLonLat(double, double)`        | static  | WGS-84 to EPSG:3857 (`.ToLonLat` inverse) |
+|  [05]   | `new Layer { DataSource, Style }`                     | ctor    | async provider-fed vector overlay         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[ASSEMBLY_TOPOLOGY]:
-- `Mapsui.UI.Avalonia` ships only `MapControl` and `RenderController` in the five-assembly stack.
-- `Mapsui` owns `Map`, `Navigator`, `LayerCollection`, `MRect`, `MPoint`, the layer, feature, style, and widget vocabulary, and the projection seam.
-- `Mapsui.Tiling` owns `TileLayer` and the BruTile tile sources.
-- `Mapsui.Rendering.Skia` owns the Skia renderer invoked by the control's draw operation.
-- `Mapsui.Nts` owns the `GeometryFeature` NTS bridge, the GeoJSON, simplify, and intersection providers, and `EditManager`.
-- Bind `MapControl.Map`, build the model from `Mapsui`, and paint through the transitive Skia renderer.
-- The control renders into the Avalonia Skia compositor via a `MapsuiCustomDrawOperation` (an `ICustomDrawOperation` Avalonia executes inside its render pass) — the same `SkiaSharp` `SKCanvas` surface `Avalonia.Skia` owns, so the map shares the central-pinned Skia family with the chart (`LiveCharts`), SVG (`Svg.Skia`), and text (`SkiaSharp.HarfBuzz`) stacks; no second graphics backend.
-
-## [05]-[STACKING_AND_RAIL]
+[TOPOLOGY]:
+- Every draw folds through one `Map`: its ordered `LayerCollection` painted by the transitive `Mapsui.Rendering.Skia` renderer, the control only binding and hosting.
+- `MapControl` renders through a `MapsuiCustomDrawOperation` (`ICustomDrawOperation`) into the Avalonia Skia compositor — the `SKCanvas` surface `Avalonia.Skia` owns; no second graphics backend.
 
 [STACKING]:
-- NTS overlay beside the 3D viewport: a Bim-owned `NetTopologySuite` `Geometry` (or a GDAL/OGR-decoded feature) becomes a `Mapsui.Nts.GeometryFeature`, dropped into a `MemoryLayer.Features`, drawn above an OSM `TileLayer` — the 2D georeferenced overlay rendering on the SAME Skia surface as, and laid out beside, the `Silk.NET.WebGPU` 3D viewport. The map and the 3D scene share the Avalonia compositor; Mapsui owns the 2D geo plane only.
-- one Skia family: the map draws through `Mapsui.Rendering.Skia` against the central-pinned `SkiaSharp` 3.119.x runtime shared with `Avalonia.Skia`/`Svg.Skia`/`LiveCharts`/`SkiaSharp.HarfBuzz` — theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush` the same way they flow into chart paints, never a hand-built second `SKPaint` path.
-- reprojection at the boundary: Bim owns geodesy, and features arrive with the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`.
-- `GeoFeature.Reproject` owns geodesy under the seam declared at `Rasm.Bim/ARCHITECTURE.md:25,80,82`.
-- AppUi reprojects WGS-84 input through `SphericalMercator.FromLonLat`, or through `ProjectionDefaults.Projection` for non-mercator input, into the EPSG:3857 `Map.CRS` at the layer-build edge.
-- The internal model carries one CRS, and the boundary owns the transform; `GeoFeature.Reproject` excludes a local geodesy kernel.
-- snapshot into the capture rail: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` is the capture leg for the map surface — a `byte[]` image the `Document/export.md` owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
-- interaction into the command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to a feature — the pick the Shell/Editing inspector binds (select a geo feature → show its fields); the `Mapsui.Nts.EditManager`/`EditingWidget` is the interactive geometry-edit surface for authoring overlay features.
-- widgets are screen-anchored, not features: `ScaleBarWidget`/`ZoomInOutWidget`/`MapInfoWidget` live on `Map.Widgets` (screen space), distinct from `ILayer` features (world space) — the chrome (scale bar, zoom buttons) never enters the feature/CRS pipeline.
+- `api-avalonia-skia.md`/`api-skiasharp.md`: `Mapsui.Rendering.Skia` draws the map on the shared `SkiaSharp` `SKCanvas` `Avalonia.Skia` owns; theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush`, the same paints `api-svg-skia.md`/`api-livecharts.md` consume, never a hand-built second `SKPaint` path.
+- `api-silk-webgpu-wgpu.md`: `Mapsui` renders the 2D georeferenced overlay on the same Avalonia compositor beside the `Silk.NET.WebGPU` 3D viewport, owning the 2D geo plane only.
+- Bim geodesy seam: features arrive carrying the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`; `GeoFeature.Reproject` owns geodesy at that Bim seam, and AppUi reprojects only presentation WGS-84 input through `SphericalMercator.FromLonLat` (or `ProjectionDefaults.Projection` for non-mercator) into the EPSG:3857 `Map.CRS` at the layer-build edge — the internal model carries one CRS, the boundary owns the transform.
+- capture rail: `MapControl.GetSnapshot(layers, RenderFormat.Png, quality)` yields the `byte[]` image the export owner (PDF/OOXML embed) consumes, the geo analogue of the 3D viewport capture.
+- command rail: `MapControl.Info`/`MapTapped` + `GetMapInfo(screenPos, layers)` hit-test a click to the feature the Shell/Editing inspector binds; `Mapsui.Nts.EditManager`/`EditingWidget` author overlay geometry.
+- within-lib: a Bim-owned or GDAL/OGR-decoded `Geometry` becomes a `Mapsui.Nts.GeometryFeature` in a `MemoryLayer.Features`, drawn above an OSM `TileLayer`; screen-anchored widgets (`ScaleBarWidget`/`ZoomInOutWidget`/`MapInfoWidget`) live on `Map.Widgets`, never entering the world-space feature/CRS pipeline.
+
+[LOCAL_ADMISSION]:
+- One `MapControl` over a `Map` is the Shell 2D geo viewport; the model builds from `Mapsui` core, and every camera move routes through `Navigator` under animation.
 
 [RAIL_LAW]:
-- Packages: `Mapsui.Avalonia12` (assembly `Mapsui.UI.Avalonia`) composing the transitive `Mapsui` / `Mapsui.Tiling` / `Mapsui.Rendering.Skia` / `Mapsui.Nts`
-- Owns: the Shell 2D slippy-map / basemap / vector-overlay viewport — one `MapControl` over a `Map` model with a tile basemap and NTS-feature overlays, rendered on the shared Skia surface
-- Accept: one `MapControl` bound to a `Map` via `MapProperty`; an OSM `TileLayer` (`OpenStreetMap.CreateTileLayer`) as the basemap; a `MemoryLayer` over `GeometryFeature` (NTS `Geometry`) for GDAL/OGR-derived overlays; `Navigator` for all camera moves (animated); `SphericalMercator`/`ProjectionDefaults` for CRS transforms at the boundary; `Mapsui.Styles` colours from the theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
-- Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling (use `Mapsui.Styles`); domain coordinates entering the model un-reprojected (transform at the layer-build edge); a widget modeled as a world-space feature; reaching past `Mapsui.UI.Avalonia` to reimplement the model the `Mapsui` core already owns
+- Package: `Mapsui.Avalonia12` composing the transitive `Mapsui`/`Mapsui.Tiling`/`Mapsui.Rendering.Skia`/`Mapsui.Nts`
+- Owns: the Shell 2D slippy-map, basemap, and vector-overlay viewport — one `MapControl` over a `Map` with a tile basemap and NTS-feature overlays on the shared Skia surface
+- Accept: `MapControl` bound to a `Map` via `MapProperty`; an OSM `TileLayer` basemap; a `MemoryLayer` over `GeometryFeature` for GDAL/OGR overlays; `Navigator` for every camera move; `SphericalMercator`/`ProjectionDefaults` for CRS at the boundary; `Mapsui.Styles` colours from theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick
+- Reject: a second graphics backend beside the shared `SkiaSharp` family; a hand-built `SKPaint` for map styling; domain coordinates entering the model un-reprojected; a widget modeled as a world-space feature; reimplementing the `Mapsui` core model behind `Mapsui.UI.Avalonia`

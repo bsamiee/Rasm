@@ -1,84 +1,75 @@
 # [RASM_APPUI_API_AVALONIA_SKIA]
 
-`Avalonia.Skia` is the Skia render backend for Avalonia 12: the `UseSkia` builder extension and `SkiaOptions` boot the SkiaSharp 3 subsystem, `ISkiaSharpApiLeaseFeature`/`ISkiaSharpApiLease` hand out the raw `SKCanvas`/`GRContext`/`SKSurface` under a disposable lease, `SkiaSharpExtensions` is the full Avalonia-to-SkiaSharp value-conversion surface, and `DrawingContextHelper`/`ImageSavingHelper`/`PixelFormatHelper` render visuals onto and encode raw canvases. The public boot/option types (`UseSkia`, `SkiaOptions`, `SkiaPlatform`) live in the `Avalonia` namespace; the lease, conversion, and helper types live in `Avalonia.Skia`/`Avalonia.Skia.Helpers`. Every render impl below the lease (`PlatformRenderInterface`, `DrawingContextImpl`, GPU render targets, bitmap impls, `ISkiaGpu`) is `internal` and reached only through Avalonia composition.
+`Avalonia.Skia` binds the Skia render backend Avalonia draws through: `UseSkia` selects the rendering subsystem, `SkiaOptions` sets the Ganesh GPU-resource policy, and `ISkiaSharpApiLeaseFeature` hands the live `SKCanvas`/`GRContext`/`SKSurface` to a custom control under a `using`-scoped lease. `SkiaSharpExtensions` bridges every Avalonia primitive to its SkiaSharp value, and `DrawingContextHelper`/`ImageSavingHelper` rasterize a visual and encode an `SKImage`, feeding the visuals rail. Every render impl below the lease is internal, reached only through Avalonia composition.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Skia`
 - package: `Avalonia.Skia` (MIT)
-- assembly: `Avalonia.Skia` (consumer-bound `lib/net8.0`; net10 binds this asset)
-- namespace: `Avalonia` (`UseSkia`, `SkiaOptions`, `SkiaPlatform`)
-- namespace: `Avalonia.Skia` (lease contracts, `SkiaSharpExtensions`, `ISkiaSurface`)
-- namespace: `Avalonia.Skia.Helpers` (`DrawingContextHelper`, `ImageSavingHelper`, `PixelFormatHelper`)
-- asset: runtime library (SkiaSharp + HarfBuzz natives are the centrally-pinned runtime family)
+- assembly: `Avalonia.Skia` (bound `lib/net10.0/Avalonia.Skia.dll`)
+- namespace: `Avalonia`, `Avalonia.Skia`, `Avalonia.Skia.Helpers`
 - rail: visuals
 
 ## [02]-[PUBLIC_TYPES]
 
 [BACKEND_TYPES]: backend boot and options (`Avalonia` namespace)
-- rail: visuals
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :-------------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `SkiaApplicationExtensions` | static class  | `UseSkia` rendering-subsystem registrar         |
-|  [02]   | `SkiaOptions`               | options class | `MaxGpuResourceSizeBytes`/`UseOpacitySaveLayer` |
-|  [03]   | `SkiaPlatform`              | static class  | manual `Initialize` + `DefaultDpi` anchor       |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                       |
+| :-----: | :-------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `SkiaApplicationExtensions` | static class  | `UseSkia` subsystem registrar      |
+|  [02]   | `SkiaOptions`               | class         | GPU-resource + opacity policy      |
+|  [03]   | `SkiaPlatform`              | static class  | manual `Initialize` + `DefaultDpi` |
 
-[LEASE_TYPES]: SkiaSharp API lease contracts (`Avalonia.Skia` namespace)
-- rail: visuals
+[LEASE_TYPES]: SkiaSharp lease contracts and the value-conversion surface (`Avalonia.Skia` namespace)
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]               | [RAIL]                                              |
-| :-----: | :----------------------------------- | :-------------------------- | :-------------------------------------------------- |
-|  [01]   | `ISkiaSharpApiLeaseFeature`          | render-interface feature    | `Lease()` open over a draw context                  |
-|  [02]   | `ISkiaSharpApiLease`                 | disposable canvas lease     | `SkCanvas`/`GrContext`/`SkSurface`/`CurrentOpacity` |
-|  [03]   | `ISkiaSharpPlatformGraphicsApiLease` | disposable GPU lease        | `Context` (`IPlatformGraphicsContext`)              |
-|  [04]   | `ISkiaSurface`                       | disposable surface contract | platform-render owned surface handle                |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :----------------------------------- | :------------ | :-------------------------------------------------- |
+|  [01]   | `ISkiaSharpApiLeaseFeature`          | interface     | `Lease()` over a draw context                       |
+|  [02]   | `ISkiaSharpApiLease`                 | interface     | `SkCanvas`/`GrContext`/`SkSurface`/`CurrentOpacity` |
+|  [03]   | `ISkiaSharpPlatformGraphicsApiLease` | interface     | host GPU `Context` handle                           |
+|  [04]   | `ISkiaSurface`                       | interface     | `Surface`/`CanBlit`/`Blit(SKCanvas)`                |
+|  [05]   | `SkiaSharpExtensions`                | static class  | Avalonia<->SkiaSharp value conversions              |
 
-[HELPER_TYPES]: conversion and render helpers (`Avalonia.Skia.Helpers` namespace)
-- rail: visuals
+[HELPER_TYPES]: render and encode helpers (`Avalonia.Skia.Helpers` namespace)
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                 |
-| :-----: | :--------------------- | :------------ | :----------------------------------------------------- |
-|  [01]   | `SkiaSharpExtensions`  | static class  | Avalonia<->SkiaSharp value conversions                 |
-|  [02]   | `DrawingContextHelper` | static class  | `RenderAsync` visual-to-canvas + `TryCreateDashEffect` |
-|  [03]   | `ImageSavingHelper`    | static class  | `SaveImage` `SKImage` encode (file/stream + quality)   |
-|  [04]   | `PixelFormatHelper`    | static class  | `ResolveColorType(PixelFormat?)` -> `SKColorType`      |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                          |
+| :-----: | :--------------------- | :------------ | :------------------------------------ |
+|  [01]   | `DrawingContextHelper` | static class  | `RenderAsync` + `TryCreateDashEffect` |
+|  [02]   | `ImageSavingHelper`    | static class  | `SaveImage` `SKImage` encode          |
+|  [03]   | `PixelFormatHelper`    | static class  | `ResolveColorType` -> `SKColorType`   |
 
 ## [03]-[ENTRYPOINTS]
 
 [BACKEND_ENTRYPOINTS]: backend boot and tuning
-- rail: visuals
 
-| [INDEX] | [SURFACE]                                               | [SURFACE_ROOT]              | [RAIL]                                     |
-| :-----: | :------------------------------------------------------ | :-------------------------- | :----------------------------------------- |
-|  [01]   | `UseSkia()`                                             | `SkiaApplicationExtensions` | `AppBuilder.UseRenderingSubsystem("Skia")` |
-|  [02]   | `MaxGpuResourceSizeBytes` (`long?`, default `29491200`) | `SkiaOptions`               | Ganesh GPU cache byte cap (~28 MiB)        |
-|  [03]   | `UseOpacitySaveLayer` (`bool`)                          | `SkiaOptions`               | opacity-group `SaveLayer` toggle           |
-|  [04]   | `Initialize()` / `Initialize(SkiaOptions)`              | `SkiaPlatform`              | manual subsystem boot (headless/test)      |
-|  [05]   | `DefaultDpi` (`Vector` 96×96)                           | `SkiaPlatform`              | DPI anchor for render helpers              |
+| [INDEX] | [SURFACE]                                               | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `SkiaApplicationExtensions.UseSkia() -> AppBuilder`     | static   | select the Skia rendering subsystem   |
+|  [02]   | `SkiaOptions.MaxGpuResourceSizeBytes` (`long?`)         | property | Ganesh GPU cache byte cap             |
+|  [03]   | `SkiaOptions.UseOpacitySaveLayer` (`bool`)              | property | opacity-group `SaveLayer` toggle      |
+|  [04]   | `SkiaPlatform.Initialize()` / `Initialize(SkiaOptions)` | static   | manual subsystem boot (headless/test) |
+|  [05]   | `SkiaPlatform.DefaultDpi` (`Vector`)                    | property | DPI anchor for render helpers         |
 
 [LEASE_ENTRYPOINTS]: raw SkiaSharp access through render-interface leases
-- rail: visuals
 
-| [INDEX] | [SURFACE]                              | [SURFACE_ROOT]                       | [RAIL]                                                   |
-| :-----: | :------------------------------------- | :----------------------------------- | :------------------------------------------------------- |
-|  [01]   | `Lease()`                              | `ISkiaSharpApiLeaseFeature`          | open a `using` canvas lease                              |
-|  [02]   | `SkCanvas` (`SKCanvas`)                | `ISkiaSharpApiLease`                 | raw immediate canvas                                     |
-|  [03]   | `GrContext` (`GRContext?`)             | `ISkiaSharpApiLease`                 | Ganesh GPU context (null on CPU)                         |
-|  [04]   | `SkSurface` (`SKSurface?`)             | `ISkiaSharpApiLease`                 | raw backing surface (null when none)                     |
-|  [05]   | `CurrentOpacity` (`double`)            | `ISkiaSharpApiLease`                 | composited opacity to multiply into paints               |
-|  [06]   | `TryLeasePlatformGraphicsApi()`        | `ISkiaSharpApiLease`                 | -> `ISkiaSharpPlatformGraphicsApiLease?` (GPU sub-lease) |
-|  [07]   | `Context` (`IPlatformGraphicsContext`) | `ISkiaSharpPlatformGraphicsApiLease` | host-shared GPU context handle                           |
+| [INDEX] | [SURFACE]                                          | [SHAPE]  | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `ISkiaSharpApiLeaseFeature.Lease()`                | instance | open a `using` canvas lease -> `ISkiaSharpApiLease`    |
+|  [02]   | `ISkiaSharpApiLease.SkCanvas` (`SKCanvas`)         | property | raw immediate canvas                                   |
+|  [03]   | `ISkiaSharpApiLease.GrContext` (`GRContext?`)      | property | Ganesh GPU context, null on CPU                        |
+|  [04]   | `ISkiaSharpApiLease.SkSurface` (`SKSurface?`)      | property | raw backing surface, null when none                    |
+|  [05]   | `ISkiaSharpApiLease.CurrentOpacity` (`double`)     | property | composited opacity for leased paints                   |
+|  [06]   | `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi()` | instance | GPU sub-lease -> `ISkiaSharpPlatformGraphicsApiLease?` |
+|  [07]   | `ISkiaSharpPlatformGraphicsApiLease.Context`       | property | host GPU handle -> `IPlatformGraphicsContext`          |
 
-[CONVERSION_ENTRYPOINTS]: Avalonia-to-SkiaSharp value bridges (`SkiaSharpExtensions`)
-- rail: visuals
+[CONVERSION_ENTRYPOINTS]: static `SkiaSharpExtensions` value bridges — Avalonia primitive <-> SkiaSharp
 
-| [INDEX] | [SURFACE]                                                                            | [RAIL]                     |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]               |
 | :-----: | :----------------------------------------------------------------------------------- | :------------------------- |
 |  [01]   | `ToSKPoint(Point)` / `ToSKPoint(Vector)`                                             | point/vector bridge        |
 |  [02]   | `ToSKRect(Rect)` / `ToSKRectI(PixelRect)` / `ToSKRoundRect(RoundedRect)`             | rect family bridge         |
 |  [03]   | `ToAvaloniaRect(SKRect)` / `ToAvaloniaPixelRect(SKRectI)`                            | reverse rect bridge        |
-|  [04]   | `ToSKMatrix(Matrix)` / `ToSKMatrix44(Matrix)`                                        | 2D/4×4 matrix bridge       |
+|  [04]   | `ToSKMatrix(Matrix)` / `ToSKMatrix44(Matrix)`                                        | 2D/4x4 matrix bridge       |
 |  [05]   | `ToSKColor(Color)`                                                                   | color bridge               |
 |  [06]   | `ToSkColorType(PixelFormat)` / `ToAvalonia(SKColorType)` -> `PixelFormat?`           | pixel-format round-trip    |
 |  [07]   | `ToSkAlphaType(AlphaFormat)` / `ToAlphaFormat(SKAlphaType)`                          | alpha-mode round-trip      |
@@ -89,36 +80,32 @@
 |  [12]   | `ToSkia(FontStyle)` -> `SKFontStyleSlant` / `ToAvalonia(SKFontStyleSlant)`           | font-slant round-trip      |
 |  [13]   | `Clone(SKPath?)` -> `SKPath?`                                                        | null-tolerant path copy    |
 
-[RENDER_ENTRYPOINTS]: visual rendering onto raw canvases (`Avalonia.Skia.Helpers`)
-- rail: visuals
+[RENDER_ENTRYPOINTS]: static render and encode helpers (`Avalonia.Skia.Helpers`)
 
-| [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]         | [RAIL]                                        |
-| :-----: | :--------------------------------------------------------- | :--------------------- | :-------------------------------------------- |
-|  [01]   | `RenderAsync(SKCanvas, Visual)`                            | `DrawingContextHelper` | immediate visual render (default DPI/bounds)  |
-|  [02]   | `RenderAsync(SKCanvas, Visual, Rect clipRect, Vector dpi)` | `DrawingContextHelper` | clipped/DPI-pinned visual render              |
-|  [03]   | `TryCreateDashEffect(IPen?, out SKPathEffect?)`            | `DrawingContextHelper` | pen dash-style -> `SKPathEffect`              |
-|  [04]   | `SaveImage(SKImage, string fileName, int? quality)`        | `ImageSavingHelper`    | encode to file (quality-aware)                |
-|  [05]   | `SaveImage(SKImage, Stream, int? quality)`                 | `ImageSavingHelper`    | encode to stream (quality-aware)              |
-|  [06]   | `ResolveColorType(PixelFormat?)`                           | `PixelFormatHelper`    | format -> `SKColorType`; null selects default |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                                     |
+| :-----: | :--------------------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `DrawingContextHelper.RenderAsync(SKCanvas, Visual, Rect?, Vector?)`   | render a visual onto a canvas, clip/DPI optional |
+|  [02]   | `DrawingContextHelper.TryCreateDashEffect(IPen?, out SKPathEffect?)`   | pen dash-style -> `SKPathEffect`                 |
+|  [03]   | `ImageSavingHelper.SaveImage(SKImage, string \| Stream, int? quality)` | encode to file or stream, quality-aware          |
+|  [04]   | `PixelFormatHelper.ResolveColorType(PixelFormat?)`                     | format -> `SKColorType`, null = default          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[BACKEND_LAW]:
-- Package: `Avalonia.Skia`
-- Owns: the Skia render-backend selection (`UseSkia`), the Ganesh GPU-resource policy (`SkiaOptions`), and the raw SkiaSharp lease surface
-- Stacks: `SkiaSharp` 3 is the drawing substrate (`.api/api-skiasharp.md`); the GPU pipeline leases the host-shared `GRContext` through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi()` rather than constructing `GRContext.CreateMetal`/`CreateVulkan`, the borrowed-draw path leases the in-flight canvas through `ISkiaSharpApiLeaseFeature.Lease()`, and `Avalonia.Headless` selects this backend with `UseHeadlessDrawing=false` so render-hash proof lanes hash real Skia pixels
-- Accept: raw `SKCanvas`/`GRContext`/`SKSurface` access flows only through the `using`-scoped `ISkiaSharpApiLease`, multiplying `CurrentOpacity` into leased paints
-- Reject: a parallel render backend beside Skia; out-of-lease canvas mutation; a pass body naming a backend `GRContext` factory at a call site (`Render/pipeline` PROHIBITION host-API-in-arm)
+[TOPOLOGY]:
+- Raw `SKCanvas`/`GRContext`/`SKSurface` access flows only through the `using`-scoped `ISkiaSharpApiLease`, and a draw multiplies `CurrentOpacity` into its leased paints.
+- `UseSkia` selects the one Skia backend; `SkiaOptions.MaxGpuResourceSizeBytes` caps the Ganesh GPU resource cache and `UseOpacitySaveLayer` routes opacity through `SaveLayer`.
+- Every render impl below the lease is internal, reached only through Avalonia composition; the public surface is `UseSkia` + `SkiaOptions` + `SkiaPlatform` + the lease/conversion/helper trio.
 
-[CONVERSION_LAW]:
-- Package: `Avalonia.Skia`
-- Owns: every Avalonia-primitive-to-SkiaSharp value conversion (`SkiaSharpExtensions`) and the visual-to-canvas/encode helpers
-- Stacks: a leased-canvas draw composes `ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` to translate Avalonia geometry/paint into Skia calls without a hand-rolled converter; `ToSkColorType`/`ToAvalonia(SKColorType)` and `PixelFormatHelper.ResolveColorType` own the pixel-format round-trip the offscreen color-managed encode rail keys on
-- Accept: visual capture rides `DrawingContextHelper.RenderAsync` and image encode rides `ImageSavingHelper.SaveImage` with the quality and stream overloads
-- Reject: re-deriving an Avalonia<->Skia value converter that `SkiaSharpExtensions` already owns; documenting `PenHelper`/`SKPathHelper` (both `internal`) as consumer surface
+[STACKING]:
+- `SkiaSharp`(`api-skiasharp.md`): `ISkiaSharpApiLease.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context; `TryLeasePlatformGraphicsApi()` borrows the host `GRContext` rather than constructing `GRContext.CreateMetal`/`CreateVulkan`, and interior geometry math stays `SKMatrix`/`SKPath`/`SKRect`.
+- `Avalonia.Headless`(`api-headless.md`): the headless backend selects Skia so render-hash proof lanes hash real Skia pixels rather than a stub surface.
+- within-lib: a leased-canvas draw composes `SkiaSharpExtensions.ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` to translate Avalonia geometry and paint into Skia calls at the boundary; `ToSkColorType`/`ToAvalonia(SKColorType)` and `PixelFormatHelper.ResolveColorType` own the pixel-format round-trip the offscreen color-managed encode keys on, and capture rides `DrawingContextHelper.RenderAsync` into `ImageSavingHelper.SaveImage`.
 
-[INTERNAL_SURFACE_LAW]:
+[LOCAL_ADMISSION]:
+- A custom visual draws through the leased `SKCanvas`, crosses Avalonia values through `SkiaSharpExtensions` at the boundary, and emits deterministic bytes through `DrawingContextHelper.RenderAsync` and `ImageSavingHelper.SaveImage`.
+
+[RAIL_LAW]:
 - Package: `Avalonia.Skia`
-- Owns: `PlatformRenderInterface`, `DrawingContextImpl`, the GPU render targets (`SurfaceRenderTarget`, `FramebufferRenderTarget`, `GlRenderTarget`, `SkiaGpuRenderTarget`), the bitmap impls (`ImmutableBitmap`, `WriteableBitmapImpl`, `RenderTargetBitmapImpl`), `SkiaContext`, `FontManagerImpl`, and `ISkiaGpu`/`IDrawableBitmapImpl` as internal types
-- Accept: render-interface behavior is reached through Avalonia composition and the public lease; the public surface is `UseSkia` + `SkiaOptions` + `SkiaPlatform` + the lease/conversion/helper trio
-- Reject: documenting any internal render impl, GPU target, or bitmap impl as a public managed type
+- Owns: the Skia render-backend selection (`UseSkia`), the Ganesh GPU-resource policy (`SkiaOptions`), the raw SkiaSharp lease surface, every Avalonia<->SkiaSharp value conversion, and the visual-render/encode helpers
+- Accept: raw `SKCanvas`/`GRContext`/`SKSurface` flows through the `using`-scoped `ISkiaSharpApiLease` with `CurrentOpacity` multiplied into leased paints; value crossing rides `SkiaSharpExtensions`; capture rides `DrawingContextHelper.RenderAsync` and `ImageSavingHelper.SaveImage`
+- Reject: a parallel render backend beside Skia; out-of-lease canvas mutation; a `GRContext` factory named at a draw call site; a hand-rolled Avalonia<->Skia value converter `SkiaSharpExtensions` already owns

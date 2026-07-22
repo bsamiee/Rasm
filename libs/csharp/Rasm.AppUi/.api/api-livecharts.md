@@ -1,198 +1,179 @@
 # [RASM_APPUI_API_LIVECHARTS]
 
-`LiveChartsCore.SkiaSharpView.Avalonia` supplies the Avalonia binding layer of LiveCharts2 — chart `UserControl`s, source-generated UI properties, XAML axes/series/gauges/sections/visual elements, and Skia paint `MarkupExtension`s. The chart math, series model, and Skia drawing runtime live in the transitive `LiveChartsCore` and `LiveChartsCore.SkiaSharpView` assemblies; this package is the thin Avalonia-control + XAML-markup wrapper over them.
+`LiveChartsCore.SkiaSharpView.Avalonia` binds LiveCharts2 to Avalonia: retained chart `UserControl`s, source-generated chart properties, and XAML axes, series, gauges, sections, and Skia paint markup extensions. Every `Xaml*` shell wraps a `LiveChartsCore` runtime type, so a chart is a data-driven projection over one series model, never a hand-drawn surface.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LiveChartsCore.SkiaSharpView.Avalonia`
-- package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- assembly: `LiveChartsCore.SkiaSharpView.Avalonia` (the single shipped assembly; `LiveChartsGeneratedCode` is a NAMESPACE inside it, not a separate assembly)
-- namespace: `LiveChartsCore.SkiaSharpView.Avalonia` — `Xaml*`, `*Collection`, `*Extension`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap`/`MotionCanvas`
-- namespace: `LiveChartsGeneratedCode` — the source-generated `SourceGen*` control bases the public charts derive from
-- asset: runtime library
-- build-floor: ships `lib/net8.0` (top TFM; no `net10.0`/`net9.0`), so the `net10.0` consumer binds `lib/net8.0` — the documented surface
-- dependency: transitively requires `LiveChartsCore.SkiaSharpView` (Skia draw + series model) and `Avalonia`/`Avalonia.Skia` ≥ (consumer runs Avalonia 12, forward-compatible)
+- package: `LiveChartsCore.SkiaSharpView.Avalonia` (MIT)
+- assembly: `LiveChartsCore.SkiaSharpView.Avalonia`
+- namespaces: `LiveChartsCore.SkiaSharpView.Avalonia` (public charts, `Xaml*`, `*Collection`, `*Extension`), `LiveChartsGeneratedCode` (source-generated `SourceGen*` bases)
+- target: `lib/net8.0`
+- depends: `LiveChartsCore.SkiaSharpView`, `Avalonia`, `Avalonia.Skia`
 - rail: charts
 
 ## [02]-[PUBLIC_TYPES]
 
 [CHART_CONTROLS]: chart and canvas controls
-- rail: charts
-- public charts (namespace `LiveChartsCore.SkiaSharpView.Avalonia`) derive from the source-generated `SourceGen*` bases (namespace `LiveChartsGeneratedCode`); bind to the public type and read the generated properties off the base
 
-| [INDEX] | [SYMBOL]                  | [ROLE]                   |
-| :-----: | :------------------------ | :----------------------- |
-|  [01]   | `CartesianChart`          | Cartesian chart          |
-|  [02]   | `PieChart`                | pie chart                |
-|  [03]   | `PolarChart`              | polar chart              |
-|  [04]   | `GeoMap`                  | map chart                |
-|  [05]   | `MotionCanvas`            | raw Skia drawing canvas  |
-|  [06]   | `SourceGenChart`          | abstract generated base  |
-|  [07]   | `SourceGenCartesianChart` | generated Cartesian base |
-|  [08]   | `SourceGenPieChart`       | generated pie base       |
-|  [09]   | `SourceGenPolarChart`     | generated polar base     |
-|  [10]   | `SourceGenMapChart`       | generated map base       |
-
-[CONTROL_BASES]: The public Avalonia controls derive respectively from `SourceGenCartesianChart`, `SourceGenPieChart`, `SourceGenPolarChart`, and `SourceGenMapChart`; `MotionCanvas` derives from `UserControl`. In `LiveChartsGeneratedCode`, `SourceGenChart` derives from `UserControl` and implements `IChartView` plus `ICustomHitTest`, while `SourceGenMapChart` implements `IGeoMapView`.
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :------------------------ | :------------ | :---------------------------------- |
+|  [01]   | `CartesianChart`          | class         | cartesian XY chart                  |
+|  [02]   | `PieChart`                | class         | pie / doughnut chart                |
+|  [03]   | `PolarChart`              | class         | polar chart                         |
+|  [04]   | `GeoMap`                  | class         | geographic map chart                |
+|  [05]   | `MotionCanvas`            | class         | raw Skia drawing canvas             |
+|  [06]   | `SourceGenChart`          | abstract      | generated chart base (`IChartView`) |
+|  [07]   | `SourceGenCartesianChart` | class         | generated cartesian base            |
+|  [08]   | `SourceGenPieChart`       | class         | generated pie base                  |
+|  [09]   | `SourceGenPolarChart`     | class         | generated polar base                |
+|  [10]   | `SourceGenMapChart`       | class         | generated map base (`IGeoMapView`)  |
 
 [AXIS_AND_SECTION_TYPES]: axes, sections, and visual collections
-- rail: charts
 
-| [INDEX] | [SYMBOL]              | [RAIL]                |
-| :-----: | :-------------------- | :-------------------- |
-|  [01]   | `BaseXamlAxis<T>`     | axis base             |
-|  [02]   | `XamlAxis`            | numeric axis          |
-|  [03]   | `XamlDateTimeAxis`    | date-time axis        |
-|  [04]   | `XamlTimeSpanAxis`    | time-span axis        |
-|  [05]   | `XamlLogarithmicAxis` | logarithmic axis      |
-|  [06]   | `XamlPolarAxis`       | polar axis            |
-|  [07]   | `AxesCollection`      | axis collection       |
-|  [08]   | `PolarAxesCollection` | polar axis collection |
-|  [09]   | `SectionsCollection`  | section collection    |
-|  [10]   | `VisualsCollection`   | visual collection     |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]              |
+| :-----: | :-------------------- | :------------ | :------------------------ |
+|  [01]   | `BaseXamlAxis<T>`     | abstract      | axis wrapper base         |
+|  [02]   | `XamlAxis`            | class         | numeric axis              |
+|  [03]   | `XamlDateTimeAxis`    | class         | date-time axis            |
+|  [04]   | `XamlTimeSpanAxis`    | class         | time-span axis            |
+|  [05]   | `XamlLogarithmicAxis` | class         | logarithmic axis          |
+|  [06]   | `XamlPolarAxis`       | class         | polar axis                |
+|  [07]   | `AxesCollection`      | collection    | cartesian axis collection |
+|  [08]   | `PolarAxesCollection` | collection    | polar axis collection     |
+|  [09]   | `SectionsCollection`  | collection    | section collection        |
+|  [10]   | `VisualsCollection`   | collection    | visual collection         |
 
-[SERIES_TYPES]: XAML series families
-- rail: charts
-- every `Xaml*Series` is generic `<TModel, TVisual, TLabel>` (`TVisual : *Geometry`, `TLabel : BaseLabelGeometry`) implementing `IXamlWrapper<…Series<…>>` over the `LiveChartsCore` runtime series; non-generic and single-arg convenience subclasses default `TVisual`/`TLabel` (e.g. `XamlColumnSeries<TModel>`)
+[SERIES_TYPES]: XAML series wrappers; every `Xaml<Kind>Series<TModel,TVisual,TLabel>` implements `IXamlWrapper<…Series<…>>` over the same-named `LiveChartsCore` runtime series, and single-arg subclasses default `TVisual`/`TLabel`.
 
-| [INDEX] | [SYMBOL]                    | [WRAPS_LIVECHARTSCORE]          | [RAIL]             |
-| :-----: | :-------------------------- | :------------------------------ | :----------------- |
-|  [01]   | `XamlSeries`                | `abstract Control` series base  | series base        |
-|  [02]   | `SeriesCollection`          | `ObservableCollection<ISeries>` | series list        |
-|  [03]   | `XamlColumnSeries`          | `ColumnSeries`                  | column series      |
-|  [04]   | `XamlRowSeries`             | `RowSeries`                     | row series         |
-|  [05]   | `XamlLineSeries`            | `LineSeries`                    | line series        |
-|  [06]   | `XamlStepLineSeries`        | `StepLineSeries`                | step series        |
-|  [07]   | `XamlScatterSeries`         | `ScatterSeries`                 | scatter series     |
-|  [08]   | `XamlCandlesticksSeries`    | `CandlesticksSeries`            | financial series   |
-|  [09]   | `XamlBoxSeries`             | `BoxSeries`                     | box/whisker series |
-|  [10]   | `XamlHeatSeries`            | `HeatSeries`                    | heat series        |
-|  [11]   | `XamlPieSeries`             | `PieSeries`                     | pie series         |
-|  [12]   | `XamlPolarLineSeries`       | `PolarLineSeries`               | polar series       |
-|  [13]   | `XamlStackedAreaSeries`     | `StackedAreaSeries`             | stacked area       |
-|  [14]   | `XamlStackedStepAreaSeries` | `StackedStepAreaSeries`         | stacked step area  |
-|  [15]   | `XamlStackedColumnSeries`   | `StackedColumnSeries`           | stacked column     |
-|  [16]   | `XamlStackedRowSeries`      | `StackedRowSeries`              | stacked row        |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]           |
+| :-----: | :-------------------------- | :------------ | :--------------------- |
+|  [01]   | `XamlSeries`                | abstract      | series wrapper base    |
+|  [02]   | `SeriesCollection`          | collection    | `ISeries` collection   |
+|  [03]   | `XamlColumnSeries`          | class         | column bars            |
+|  [04]   | `XamlRowSeries`             | class         | horizontal bars        |
+|  [05]   | `XamlLineSeries`            | class         | line series            |
+|  [06]   | `XamlStepLineSeries`        | class         | step-line series       |
+|  [07]   | `XamlScatterSeries`         | class         | scatter series         |
+|  [08]   | `XamlCandlesticksSeries`    | class         | financial candlesticks |
+|  [09]   | `XamlBoxSeries`             | class         | box / whisker series   |
+|  [10]   | `XamlHeatSeries`            | class         | heat series            |
+|  [11]   | `XamlPieSeries`             | class         | pie series             |
+|  [12]   | `XamlPolarLineSeries`       | class         | polar line series      |
+|  [13]   | `XamlStackedAreaSeries`     | class         | stacked area           |
+|  [14]   | `XamlStackedStepAreaSeries` | class         | stacked step area      |
+|  [15]   | `XamlStackedColumnSeries`   | class         | stacked column         |
+|  [16]   | `XamlStackedRowSeries`      | class         | stacked row            |
 
-[GAUGE_TYPES]: gauge series and visual elements
-- rail: charts
+[GAUGE_AND_VISUAL_TYPES]: gauge series and free visual elements; each wraps the drawn `LiveChartsCore` visual it names.
 
-| [INDEX] | [SYMBOL]                    | [WRAPS]                               | [RAIL]                |
-| :-----: | :-------------------------- | :------------------------------------ | :-------------------- |
-|  [01]   | `XamlGaugeSeries<TV,TL>`    | `PieSeries<ObservableValue,TV,TL>`    | gauge series base     |
-|  [02]   | `XamlGaugeBackgroundSeries` | `XamlGaugeSeries<DoughnutGeometry,…>` | gauge background ring |
-|  [03]   | `XamlAngularGaugeSeries`    | `XamlGaugeSeries<DoughnutGeometry,…>` | angular gauge         |
-|  [04]   | `XamlNeedle`                | `NeedleVisual`                        | gauge needle          |
-|  [05]   | `XamlAngularTicks`          | `AngularTicksVisual`                  | gauge ticks           |
-|  [06]   | `XamlDrawnLabelVisual`      | `DrawnLabelVisual`                    | free-floating label   |
-|  [07]   | `XamlRectangularSection`    | `RectangularSection`                  | axis band / threshold |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :-------------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `XamlGaugeSeries<TV,TL>`    | class         | gauge base over `PieSeries<ObservableValue,…>` |
+|  [02]   | `XamlGaugeBackgroundSeries` | class         | gauge background ring                          |
+|  [03]   | `XamlAngularGaugeSeries`    | class         | angular gauge                                  |
+|  [04]   | `XamlNeedle`                | class         | gauge needle (`NeedleVisual`)                  |
+|  [05]   | `XamlAngularTicks`          | class         | gauge ticks (`AngularTicksVisual`)             |
+|  [06]   | `XamlDrawnLabelVisual`      | class         | free label (`DrawnLabelVisual`)                |
+|  [07]   | `XamlRectangularSection`    | class         | axis band (`RectangularSection`)               |
 
-[EXTENSION_TYPES]: XAML `MarkupExtension` value providers (namespace `LiveChartsCore.SkiaSharpView.Avalonia`)
-- rail: charts
-- all derive from `BaseExtension : MarkupExtension`; the paint trio derives from `BaseSkiaPaintExtention`
+[EXTENSION_TYPES]: XAML `MarkupExtension` value providers; all derive from `BaseExtension : MarkupExtension`, the paint trio from `BaseSkiaPaintExtention`.
 
-| [INDEX] | [SYMBOL]                                 | [RAIL]                              |
-| :-----: | :--------------------------------------- | :---------------------------------- |
-|  [01]   | `SolidColorPaintExtension`               | solid `SolidColorPaint`             |
-|  [02]   | `LinearGradientPaintExtension`           | linear-gradient paint               |
-|  [03]   | `RadialGradientPaintExtension`           | radial-gradient paint               |
-|  [04]   | `DashedExtension`                        | dashed-stroke paint effect          |
-|  [05]   | `ShadowExtension`                        | drop-shadow paint effect            |
-|  [06]   | `FrameExtension`                         | `DrawMarginFrame` value             |
-|  [07]   | `FromSharedAxesExtension`                | shared-axis pairing (`PairElement`) |
-|  [08]   | `PaddingExtension` / `MarginExtension`   | `Padding` / margin value            |
-|  [09]   | `PointExtension`                         | `LvcPoint` value                    |
-|  [10]   | `ColorExtension` / `ColorArrayExtension` | `LvcColor` / color array            |
-|  [11]   | `ValuesExtension`                        | inline series-values literal        |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :----------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `SolidColorPaintExtension`     | class         | `SolidColorPaint` value             |
+|  [02]   | `LinearGradientPaintExtension` | class         | linear-gradient paint               |
+|  [03]   | `RadialGradientPaintExtension` | class         | radial-gradient paint               |
+|  [04]   | `DashedExtension`              | class         | dashed-stroke effect                |
+|  [05]   | `ShadowExtension`              | class         | drop-shadow effect                  |
+|  [06]   | `FrameExtension`               | class         | `DrawMarginFrame` value             |
+|  [07]   | `FromSharedAxesExtension`      | class         | shared-axis pairing (`PairElement`) |
+|  [08]   | `PaddingExtension`             | class         | `Padding` value                     |
+|  [09]   | `MarginExtension`              | class         | margin value                        |
+|  [10]   | `PointExtension`               | class         | `LvcPoint` value                    |
+|  [11]   | `ColorExtension`               | class         | `LvcColor` value                    |
+|  [12]   | `ColorArrayExtension`          | class         | `LvcColor` array                    |
+|  [13]   | `ValuesExtension`              | class         | inline series-values literal        |
 
-[GEO_TYPES]: map chart binding surfaces (defined in transitive `LiveChartsCore.Geo`, bound through `GeoMap`/`SourceGenMapChart`)
-- rail: charts
+[GEO_TYPES]: map binding surfaces in transitive `LiveChartsCore.Geo`, bound through `GeoMap`/`SourceGenMapChart`.
 
-| [INDEX] | [SYMBOL]        | [OWNER_ASSEMBLY] | [RAIL]                                             |
-| :-----: | :-------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `IGeoMapView`   | `LiveChartsCore` | map view contract (`SourceGenMapChart` implements) |
-|  [02]   | `DrawnMap`      | `LiveChartsCore` | active map record (`ActiveMap` property type)      |
-|  [03]   | `MapProjection` | `LiveChartsCore` | projection-mode enum                               |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                    |
+| :-----: | :-------------- | :------------ | :------------------------------ |
+|  [01]   | `IGeoMapView`   | interface     | map view contract               |
+|  [02]   | `DrawnMap`      | class         | active map record (`ActiveMap`) |
+|  [03]   | `MapProjection` | enum          | projection mode                 |
 
 ## [03]-[ENTRYPOINTS]
 
-[CHART_ENTRYPOINTS]: chart control properties
-- rail: charts
+[CHART_ENTRYPOINTS]: properties on `SourceGenChart`, exposed by every public chart
 
-| [INDEX] | [SURFACE]         | [SURFACE_ROOT]            | [RAIL]                               |
-| :-----: | :---------------- | :------------------------ | :----------------------------------- |
-|  [01]   | `Series`          | `SourceGenChart`          | series input                         |
-|  [02]   | `SeriesSource`    | `SourceGenChart`          | source input                         |
-|  [03]   | `SeriesTemplate`  | `SourceGenChart`          | series template                      |
-|  [04]   | `VisualElements`  | `SourceGenChart`          | overlay visuals                      |
-|  [05]   | `Title`           | `SourceGenChart`          | chart title visual                   |
-|  [06]   | `XAxes`           | `SourceGenCartesianChart` | X axes                               |
-|  [07]   | `YAxes`           | `SourceGenCartesianChart` | Y axes                               |
-|  [08]   | `Sections`        | `SourceGenCartesianChart` | chart sections                       |
-|  [09]   | `ZoomMode`        | `SourceGenCartesianChart` | zoom mode                            |
-|  [10]   | `FindingStrategy` | `SourceGenCartesianChart` | hover/hit-test point strategy        |
-|  [11]   | `SyncContext`     | generated charts          | cross-chart sync scope (shared lock) |
+| [INDEX] | [SURFACE]                   | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :-------------------------- | :------- | :---------------------- |
+|  [01]   | `Series`                    | property | series input            |
+|  [02]   | `SeriesSource`              | property | source-collection input |
+|  [03]   | `SeriesTemplate`            | property | series template         |
+|  [04]   | `VisualElements`            | property | overlay visuals         |
+|  [05]   | `Title`                     | property | chart title visual      |
+|  [06]   | `Legend`                    | property | legend object           |
+|  [07]   | `LegendPosition`            | property | legend position         |
+|  [08]   | `LegendTextPaint`           | property | legend text paint       |
+|  [09]   | `Tooltip`                   | property | tooltip object          |
+|  [10]   | `TooltipPosition`           | property | tooltip position        |
+|  [11]   | `TooltipTextPaint`          | property | tooltip text paint      |
+|  [12]   | `DrawMargin`                | property | draw bounds             |
+|  [13]   | `AnimationsSpeed`           | property | animation timing        |
+|  [14]   | `SyncContext`               | property | cross-chart sync lock   |
+|  [15]   | `VisualElementsPointerDown` | event    | visual pointer-down     |
 
-[PRESENTATION_ENTRYPOINTS]: legend, tooltip, paint, and animation properties
-- rail: charts
+[CARTESIAN_ENTRYPOINTS]: additional properties on `SourceGenCartesianChart`
 
-| [INDEX] | [SURFACE]                   | [SURFACE_ROOT]            | [RAIL]           |
-| :-----: | :-------------------------- | :------------------------ | :--------------- |
-|  [01]   | `Legend`                    | `SourceGenChart`          | legend object    |
-|  [02]   | `LegendPosition`            | `SourceGenChart`          | legend position  |
-|  [03]   | `LegendTextPaint`           | `SourceGenChart`          | legend text      |
-|  [04]   | `Tooltip`                   | `SourceGenChart`          | tooltip object   |
-|  [05]   | `TooltipPosition`           | `SourceGenChart`          | tooltip position |
-|  [06]   | `TooltipTextPaint`          | `SourceGenChart`          | tooltip text     |
-|  [07]   | `DrawMargin`                | `SourceGenChart`          | draw bounds      |
-|  [08]   | `DrawMarginFrame`           | `SourceGenCartesianChart` | draw frame       |
-|  [09]   | `AnimationsSpeed`           | `SourceGenChart`          | animation timing |
-|  [10]   | `VisualElementsPointerDown` | `SourceGenChart`          | visual event     |
+| [INDEX] | [SURFACE]         | [SHAPE]  | [CAPABILITY]                  |
+| :-----: | :---------------- | :------- | :---------------------------- |
+|  [01]   | `XAxes`           | property | X axes                        |
+|  [02]   | `YAxes`           | property | Y axes                        |
+|  [03]   | `Sections`        | property | chart sections                |
+|  [04]   | `ZoomMode`        | property | zoom mode                     |
+|  [05]   | `FindingStrategy` | property | hover/hit-test point strategy |
+|  [06]   | `DrawMarginFrame` | property | draw frame                    |
 
-[SERIES_ENTRYPOINTS]: series and gauge properties
-- rail: charts
+[SERIES_ENTRYPOINTS]: series and gauge members on `XamlSeries` and `XamlGaugeSeries`
 
-| [INDEX] | [SURFACE]                | [SURFACE_ROOT]    | [RAIL]           |
-| :-----: | :----------------------- | :---------------- | :--------------- |
-|  [01]   | `WrappedSeries`          | `XamlSeries`      | runtime series   |
-|  [02]   | `ValuesMap`              | `XamlSeries`      | value projection |
-|  [03]   | `AdditionalVisualStates` | `XamlSeries`      | visual states    |
-|  [04]   | `GaugeValue`             | `XamlGaugeSeries` | gauge value      |
-|  [05]   | `Invalidate`             | `XamlGaugeSeries` | series refresh   |
+| [INDEX] | [SURFACE]                           | [SHAPE]  | [CAPABILITY]              |
+| :-----: | :---------------------------------- | :------- | :------------------------ |
+|  [01]   | `XamlSeries.WrappedSeries`          | property | built runtime `ISeries`   |
+|  [02]   | `XamlSeries.ValuesMap`              | property | model-to-point projection |
+|  [03]   | `XamlSeries.AdditionalVisualStates` | property | extra visual states       |
+|  [04]   | `XamlGaugeSeries.GaugeValue`        | property | gauge value               |
+|  [05]   | `XamlGaugeSeries.Invalidate(Chart)` | method   | series refresh            |
 
-[GEO_ENTRYPOINTS]: map chart binding members
-- rail: charts
-- surface-root: `SourceGenMapChart`
+[GEO_ENTRYPOINTS]: properties on `SourceGenMapChart`
 
-| [INDEX] | [SURFACE]       | [RAIL]            |
-| :-----: | :-------------- | :---------------- |
-|  [01]   | `ActiveMap`     | active map source |
-|  [02]   | `MapProjection` | projection mode   |
-|  [03]   | `Series`        | geo series        |
-|  [04]   | `Stroke`        | land stroke paint |
-|  [05]   | `Fill`          | land fill paint   |
+| [INDEX] | [SURFACE]       | [SHAPE]  | [CAPABILITY]      |
+| :-----: | :-------------- | :------- | :---------------- |
+|  [01]   | `ActiveMap`     | property | active map source |
+|  [02]   | `MapProjection` | property | projection mode   |
+|  [03]   | `Series`        | property | geo series        |
+|  [04]   | `Stroke`        | property | land stroke paint |
+|  [05]   | `Fill`          | property | land fill paint   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[GENERATED_TOPOLOGY]:
-- The package is a three-assembly stack: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, and the Skia draw kernel (`MotionCanvas`, `DrawnMap`, `MapProjection` live here under `LiveChartsCore.Geo`); `LiveChartsCore.SkiaSharpView` owns the `SolidColorPaint`/`LinearGradientPaint` concretes; this package owns only the Avalonia `UserControl` + XAML-markup layer.
-- Chart controls are source-generated: `SourceGen*` bases (namespace `LiveChartsGeneratedCode`) carry every chart property as a `UIProperty`/`AvaloniaProperty`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap` (namespace `LiveChartsCore.SkiaSharpView.Avalonia`) derive from them — bind to the public type, read the property off the generated base. The chart owns no `IChartView` reimplementation; it is the generated control.
-- Series/axes are XAML wrappers over the core model: every `Xaml*Series<TModel,TVisual,TLabel>` implements `IXamlWrapper<…Series<…>>` and exposes its built runtime series via `WrappedSeries`; a code-path that needs the live `ISeries` reads `WrappedSeries`, while XAML declares the `Xaml*` shell. `ValuesMap`/`Values` projects the bound model collection into chart points.
-
-[CHART_LAW]:
-- Package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- Owns: retained Avalonia charts, source-generated chart properties, XAML axes/series/gauges/sections/visual elements, and Skia paint markup extensions
-- Accept: chart intent maps to explicit series, axes, sections, visuals, legends, tooltips, and animation state through the generated property surface; paints declared via the `*PaintExtension` markup extensions
-- Reject: hand-drawn chart controls; a reimplemented `IChartView`; mutating the bound values collection outside the live-data rail
-
-[VISUALIZATION_LAW]:
-- Package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- Owns: dense product charts for panels, companion windows, sidecars, diagnostics, support views, and downstream shells
-- Accept: chart state remains data-driven and composable through one chart rail
-- Reject: one-off drawing code for chart semantics
+[TOPOLOGY]:
+- Three assemblies stack behind one Avalonia surface: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, and the Skia draw kernel (`LiveChartsCore.Geo` carries `DrawnMap`/`MapProjection`/`IGeoMapView`); `LiveChartsCore.SkiaSharpView` owns the `SolidColorPaint`/`LinearGradientPaint` concretes; this package owns the `UserControl` and XAML-markup layer over them.
+- Chart controls are source-generated: each `SourceGen*` base carries every chart property as an `AvaloniaProperty`, and each public chart derives from its base (`MotionCanvas` derives from `UserControl` directly); bind the public control and read the property off the generated base, never reimplement `IChartView`.
+- Series and axes are XAML shells over the runtime model: every `Xaml*Series` exposes its built `ISeries` through `WrappedSeries`, and `ValuesMap`/`Values` projects the bound model collection into chart points; a code path needing the live series reads `WrappedSeries` while XAML declares the shell.
 
 [STACKING]:
-- Live data into series: a `DynamicData` `SourceCache.Connect().Transform(...).ToCollection()` (or a bound `ObservableCollectionExtended`) is the `ISeries.Values` source, so a chart redraws off the same change-set the grid and aggregate tiles read — the cache is the one source of truth, the chart a projection. `XamlSeries.ValuesMap`/`Values` binds that collection into chart points without a copy.
-- Aggregate tiles share the rail: `DynamicData.Aggregation` (`Count`/`Sum`/`Maximum`/`Minimum`/`StdDev`) feeds gauge `XamlGaugeSeries.GaugeValue` and KPI labels from the same cache, so a dashboard tile and its chart never diverge.
-- Skia stack alignment: this package binds against `SkiaSharp` 3.119.x (the central-pinned runtime family shared with `Avalonia.Skia`, `Svg.Skia`, and `SkiaSharp.HarfBuzz`); paints are declared as `*PaintExtension` markup, never hand-built `SKPaint`, so theme colour tokens flow through `ColorExtension`/`SolidColorPaintExtension` into one paint family.
-- Cross-chart sync: shared `SyncContext` (a common lock object) ties multiple charts' pointer/zoom/animation passes onto one frame so a synchronized dashboard pans together.
+- `api-dynamicdata.md` (`DynamicData`): a `SourceCache.Connect().Transform(…).ToCollection()` or a bound `ObservableCollectionExtended` is the `ISeries.Values` source, so a chart redraws off the same change-set the grid and tiles read, and `XamlSeries.ValuesMap`/`Values` binds that collection into chart points without a copy.
+- `api-dynamicdata.md` (`DynamicData.Aggregation`): `Count`/`Sum`/`Maximum`/`Minimum`/`StdDev` feed gauge `XamlGaugeSeries.GaugeValue` and KPI labels off the same cache, so a tile and its chart never diverge.
+- `api-skiasharp.md` (`SkiaSharp`): paints declare as `*PaintExtension` markup over the shared Skia paint family, so theme colour tokens flow through `ColorExtension`/`SolidColorPaintExtension` into one paint family, never a hand-built `SKPaint`.
+- within-lib: one shared `SyncContext` lock ties multiple charts' pointer, zoom, and animation passes onto one frame, so a synchronized dashboard pans together.
+
+[LOCAL_ADMISSION]:
+- A chart in the AppUi shell is admitted only as an `Xaml*` control whose `ISeries.Values` binds a `DynamicData` projection; a bespoke Skia surface drawing chart semantics is rejected.
+
+[RAIL_LAW]:
+- Package: `LiveChartsCore.SkiaSharpView.Avalonia`
+- Owns: the product chart rail — retained Avalonia charts, source-generated chart properties, XAML axes, series, gauges, sections, visual elements, and Skia paint markup extensions across panels, companion windows, sidecars, and diagnostics.
+- Accept: chart intent maps to explicit series, axes, sections, visuals, legends, tooltips, and animation state through the generated property surface, paints declared as `*PaintExtension` markup, and state stays data-driven off one chart rail.
+- Reject: hand-drawn chart controls, a reimplemented `IChartView`, one-off drawing code for chart semantics, and mutating the bound values collection outside the live-data rail.

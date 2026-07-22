@@ -1,22 +1,21 @@
 # [RASM_APPUI_API_SKIASHARP]
 
-`SkiaSharp` is the raster/2D-vector kernel the AppUi visual rails compose: canvases, paints, paths, paints, images, animated codecs, color-managed surfaces, shaders, runtime-SkSL effects, picture recording, text/typeface shaping seams, and GPU backends. Every render, capture, drafting, evidence, and chart-custom surface draws through Skia; the package is the single owner of pixel ownership and the `SKObject` native-lifecycle discipline.
+`SkiaSharp` owns the AppUi raster and 2D-vector drawing kernel: every render, capture, drafting, and evidence surface draws through a Skia canvas onto raster or GPU memory, and `SkiaSharp` holds pixel ownership and the `SKObject` native-lifecycle discipline where each managed binding is a P/Invoke shim over unmanaged pixels the `libSkiaSharp` payload backs. One paint and one canvas compose the whole shader, filter, runtime-SkSL, picture-recording, and paged-document pipeline, feeding the visuals rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp`
-- package: `SkiaSharp` `3.119.4`
-- assembly: `SkiaSharp` (bound asset `lib/net10.0/SkiaSharp.dll`; multi-target package also ships `net10.0-{macos26.2,ios26.2,maccatalyst26.2,tvos26.2,android36.0,tizen10.0,windows10.0.19041}` — `net10.0` is the AppUi-consumed surface)
-- license: MIT
+- package: `SkiaSharp` (MIT, Microsoft)
+- assembly: `SkiaSharp` (bound `lib/net10.0/SkiaSharp.dll`; managed P/Invoke binding, multi-targeted package)
 - namespace: `SkiaSharp`
-- runtime: managed P/Invoke over the per-platform `libSkiaSharp` native payload supplied by `SkiaSharp.NativeAssets.*` (see `api-skia-native.md`); every type below is a managed binding, the pixels live in unmanaged memory
+- runtime: managed shim over the per-platform `libSkiaSharp` native payload from `SkiaSharp.NativeAssets.*` (`api-skia-native.md`); pixels live in unmanaged memory
 - rail: visuals
 
 ## [02]-[PUBLIC_TYPES]
 
-[DRAWING_TYPES]: canvas, paint, path, and geometry value owners — rail: visuals
+[DRAWING_TYPES]: canvas, paint, path, and geometry value owners
 
-| [INDEX] | [SYMBOL]               | [KIND]                                               |
+| [INDEX] | [SYMBOL]               | [CAPABILITY]                                         |
 | :-----: | :--------------------- | :--------------------------------------------------- |
 |  [01]   | `SKCanvas`             | draw target + clip + matrix stack                    |
 |  [02]   | `SKPaint`              | composition state: shader/filter/effect/blend/stroke |
@@ -32,9 +31,9 @@
 |  [12]   | `SKCanvasSaveLayerRec` | layer-save record: bounds, paint, backdrop, flags    |
 |  [13]   | `SKSurfaceProperties`  | pixel-geometry + flags for surface allocation        |
 
-[SURFACE_AND_IMAGE_TYPES]: pixel ownership, recording, and document output — rail: visuals
+[SURFACE_AND_IMAGE_TYPES]: pixel ownership, recording, and document output
 
-| [INDEX] | [SYMBOL]                                     | [KIND]                                                   |
+| [INDEX] | [SYMBOL]                                     | [CAPABILITY]                                             |
 | :-----: | :------------------------------------------- | :------------------------------------------------------- |
 |  [01]   | `SKSurface`                                  | draw target backed by raster or GPU memory               |
 |  [02]   | `SKImage`                                    | immutable snapshot; raster<->texture transfer + encode   |
@@ -50,9 +49,9 @@
 |  [12]   | `SKVertices`                                 | triangle/strip mesh for `DrawVertices`                   |
 |  [13]   | `SKStream` / `SKWStream` / `SKManagedStream` | native I/O stream adapters                               |
 
-[TEXT_AND_FONT_TYPES]: typeface, font, and shaped-text seam — rail: visuals
+[TEXT_AND_FONT_TYPES]: typeface, font, and shaped-text seam
 
-| [INDEX] | [SYMBOL]            | [KIND]                                                |
+| [INDEX] | [SYMBOL]            | [CAPABILITY]                                          |
 | :-----: | :------------------ | :---------------------------------------------------- |
 |  [01]   | `SKFont`            | sized font: measure, glyph paths, positions, break    |
 |  [02]   | `SKTypeface`        | font face (file/stream/family resolved)               |
@@ -64,9 +63,9 @@
 |  [08]   | `SKTextBlobBuilder` | builds blobs via `AddRun`/`AllocateRun` glyph buffers |
 |  [09]   | `SKTextEncoding`    | UTF8/UTF16/UTF32/GlyphId encoding selector            |
 
-[PAINT_PIPELINE_TYPES]: color, shader, filter, effect, and runtime-SkSL surfaces — rail: visuals
+[PAINT_PIPELINE_TYPES]: color, shader, filter, effect, and runtime-SkSL surfaces
 
-| [INDEX] | [SYMBOL]                      | [KIND]                                          |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                    |
 | :-----: | :---------------------------- | :---------------------------------------------- |
 |  [01]   | `SKColor`                     | 8-bit ARGB; `Parse`/`FromHsl`/`FromHsv`/`With*` |
 |  [02]   | `SKColorF`                    | float RGBA color (wide-gamut/HDR)               |
@@ -86,9 +85,9 @@
 |  [16]   | `SKRuntimeColorFilterBuilder` | uniform/child binding for an SkSL color filter  |
 |  [17]   | `SKRuntimeBlenderBuilder`     | uniform/child binding for an SkSL blender       |
 
-[CODEC_AND_FORMAT_TYPES]: format, pixel layout, blend, and sampling enums — rail: visuals
+[CODEC_AND_FORMAT_TYPES]: format, pixel layout, blend, and sampling enums
 
-| [INDEX] | [SYMBOL]                          | [KIND]                                                |
+| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                          |
 | :-----: | :-------------------------------- | :---------------------------------------------------- |
 |  [01]   | `SKEncodedImageFormat`            | Png/Jpeg/Webp/Avif/Heif/Gif/Bmp/Ico/Dng/Ktx/Pkm/Astc  |
 |  [02]   | `SKColorType`                     | pixel layout (`PlatformColorType` for native default) |
@@ -104,9 +103,9 @@
 |  [12]   | `SKPathDirection`                 | `Clockwise` / `CounterClockwise` add-shape winding    |
 |  [13]   | `SKPathArcSize` / `SKPathAddMode` | arc large/small + `Append`/`Extend` path-append mode  |
 
-[GPU_TYPES]: GPU context and backend handles — rail: visuals
+[GPU_TYPES]: GPU context and backend handles
 
-| [INDEX] | [SYMBOL]                | [KIND]                                                |
+| [INDEX] | [SYMBOL]                | [CAPABILITY]                                          |
 | :-----: | :---------------------- | :---------------------------------------------------- |
 |  [01]   | `GRContext`             | GPU-backed resource context (GL/Vulkan/Metal/D3D)     |
 |  [02]   | `GRRecordingContext`    | base recording context (`SKSurface`/`SKImage` source) |
@@ -121,31 +120,32 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[CANVAS_ENTRYPOINTS]: draw, layer, clip, and transform — rail: visuals
+[CANVAS_ENTRYPOINTS]: draw, layer, clip, and transform
+- root: `SKCanvas`
 
-| [INDEX] | [SURFACE]                                  | [SURFACE_ROOT] | [CALL_SHAPE_NOTE]                                                   |
-| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `DrawPath`                                 | `SKCanvas`     | `(SKPath, SKPaint)` — fill/stroke per paint `Style`                 |
-|  [02]   | `DrawRoundRect`                            | `SKCanvas`     | `(SKRoundRect, SKPaint)` per-corner rounding                        |
-|  [03]   | `DrawRoundRectDifference`                  | `SKCanvas`     | `(outer, inner, SKPaint)` — frame/ring fill                         |
-|  [04]   | `DrawImage`                                | `SKCanvas`     | `(SKImage, SKRect src, SKRect dst, SKSamplingOptions, SKPaint)`     |
-|  [05]   | `DrawImageLattice`                         | `SKCanvas`     | `(SKImage, SKLattice, SKRect dst, SKFilterMode)` 9-slice            |
-|  [06]   | `DrawPicture`                              | `SKCanvas`     | `(SKPicture, in SKMatrix, SKPaint)` replay recorded ops             |
-|  [07]   | `DrawDrawable`                             | `SKCanvas`     | `(SKDrawable, in SKMatrix)` deferred custom draw                    |
-|  [08]   | `DrawVertices`                             | `SKCanvas`     | `(SKVertices, SKBlendMode, SKPaint)` mesh fill                      |
-|  [09]   | `DrawAtlas`                                | `SKCanvas`     | sprite batch with `SKRotationScaleMatrix[]` + `SKSamplingOptions`   |
-|  [10]   | `DrawTextBlob`                             | `SKCanvas`     | `(SKTextBlob, x, y, SKPaint)` shaped-glyph draw                     |
-|  [11]   | `DrawArc`                                  | `SKCanvas`     | `(oval, start, sweep, useCenter, SKPaint)`                          |
-|  [12]   | `DrawColor`                                | `SKCanvas`     | `(SKColor, SKBlendMode)` full-clip fill                             |
-|  [13]   | `SaveLayer`                                | `SKCanvas`     | `(in SKCanvasSaveLayerRec)` — backdrop-filter/offscreen group       |
-|  [14]   | `Save` / `Restore` / `RestoreToCount`      | `SKCanvas`     | matrix+clip stack; `SaveCount` reads depth                          |
-|  [15]   | `ClipPath` / `ClipRoundRect` / `ClipRect`  | `SKCanvas`     | `(geom, SKClipOperation, antialias)`                                |
-|  [16]   | `Concat` / `SetMatrix`                     | `SKCanvas`     | `(in SKMatrix)` or `(in SKMatrix44)` perspective                    |
-|  [17]   | `Translate`/`Scale`/`RotateDegrees`/`Skew` | `SKCanvas`     | matrix mutators                                                     |
-|  [18]   | `DrawAnnotation` / `DrawUrlAnnotation`     | `SKCanvas`     | PDF link/named-destination annotations                              |
-|  [19]   | `DrawLine`                                 | `SKCanvas`     | `(SKPoint, SKPoint, SKPaint)` / `(x0, y0, x1, y1, SKPaint)` segment |
+| [INDEX] | [SURFACE]                                  | [CALL]                                                              |
+| :-----: | :----------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | `DrawPath`                                 | `(SKPath, SKPaint)` — fill/stroke per paint `Style`                 |
+|  [02]   | `DrawRoundRect`                            | `(SKRoundRect, SKPaint)` per-corner rounding                        |
+|  [03]   | `DrawRoundRectDifference`                  | `(outer, inner, SKPaint)` — frame/ring fill                         |
+|  [04]   | `DrawImage`                                | `(SKImage, SKRect src, SKRect dst, SKSamplingOptions, SKPaint)`     |
+|  [05]   | `DrawImageLattice`                         | `(SKImage, SKLattice, SKRect dst, SKFilterMode)` 9-slice            |
+|  [06]   | `DrawPicture`                              | `(SKPicture, in SKMatrix, SKPaint)` replay recorded ops             |
+|  [07]   | `DrawDrawable`                             | `(SKDrawable, in SKMatrix)` deferred custom draw                    |
+|  [08]   | `DrawVertices`                             | `(SKVertices, SKBlendMode, SKPaint)` mesh fill                      |
+|  [09]   | `DrawAtlas`                                | sprite batch with `SKRotationScaleMatrix[]` + `SKSamplingOptions`   |
+|  [10]   | `DrawTextBlob`                             | `(SKTextBlob, x, y, SKPaint)` shaped-glyph draw                     |
+|  [11]   | `DrawArc`                                  | `(oval, start, sweep, useCenter, SKPaint)`                          |
+|  [12]   | `DrawColor`                                | `(SKColor, SKBlendMode)` full-clip fill                             |
+|  [13]   | `SaveLayer`                                | `(in SKCanvasSaveLayerRec)` — backdrop-filter/offscreen group       |
+|  [14]   | `Save` / `Restore` / `RestoreToCount`      | matrix+clip stack; `SaveCount` reads depth                          |
+|  [15]   | `ClipPath` / `ClipRoundRect` / `ClipRect`  | `(geom, SKClipOperation, antialias)`                                |
+|  [16]   | `Concat` / `SetMatrix`                     | `(in SKMatrix)` or `(in SKMatrix44)` perspective                    |
+|  [17]   | `Translate`/`Scale`/`RotateDegrees`/`Skew` | matrix mutators                                                     |
+|  [18]   | `DrawAnnotation` / `DrawUrlAnnotation`     | PDF link/named-destination annotations                              |
+|  [19]   | `DrawLine`                                 | `(SKPoint, SKPoint, SKPaint)` / `(x0, y0, x1, y1, SKPaint)` segment |
 
-[PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform — rail: visuals
+[PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform
 - surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
 
 | [INDEX] | [SURFACE]                           | [CALL]                                                                      |
@@ -165,7 +165,7 @@
 |  [13]   | `Offset`                            | `(SKPoint)` or `(dx, dy)` translation                                       |
 |  [14]   | `Reset` / `Rewind`                  | clears contours / clears while retaining allocation                         |
 
-[SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, snapshot, codec, and pixel transfer — rail: visuals
+[SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, snapshot, codec, and pixel transfer
 
 | [INDEX] | [SURFACE]                          | [ROOT]               | [CALL]                                                                 |
 | :-----: | :--------------------------------- | :------------------- | :--------------------------------------------------------------------- |
@@ -190,9 +190,9 @@
 |  [19]   | `GetFrameInfo`                     | `SKCodec`            | returns `SKCodecFrameInfo`                                             |
 |  [20]   | `StartIncrementalDecode`           | `SKCodec`            | starts progressive decode                                              |
 |  [21]   | `IncrementalDecode`                | `SKCodec`            | continues decode with `out int rowsDecoded`                            |
-|  [22]   | `Create`                           | `SKVertices`         | `CreateCopy(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`       |
+|  [22]   | `CreateCopy`                       | `SKVertices`         | `(SKVertexMode, SKPoint[], SKPoint[] texs, SKColor[])`                 |
 
-[DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged export and color-managed reproject — rail: visuals
+[DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged export and color-managed reproject
 
 | [INDEX] | [SURFACE]                         | [ROOT]                   | [CALL]                                                |
 | :-----: | :-------------------------------- | :----------------------- | :---------------------------------------------------- |
@@ -213,7 +213,7 @@
 |  [15]   | `Srgb` / `DisplayP3`              | `SKColorSpaceXyz`        | named primary matrices for `CreateRgb`                |
 |  [16]   | `Rec2020` / `AdobeRgb`            | `SKColorSpaceXyz`        | named primary matrices for `CreateRgb`                |
 
-[TEXT_AND_FONT_ENTRYPOINTS]: typeface resolution, measurement, and glyph geometry — rail: visuals
+[TEXT_AND_FONT_ENTRYPOINTS]: typeface resolution, measurement, and glyph geometry
 
 | [INDEX] | [SURFACE]                               | [ROOT]              | [CALL]                                                        |
 | :-----: | :-------------------------------------- | :------------------ | :------------------------------------------------------------ |
@@ -228,7 +228,7 @@
 |  [09]   | `AllocateRun` / `AllocatePositionedRun` | `SKTextBlobBuilder` | allocates glyph buffers                                       |
 |  [10]   | `AddRun` / `Build`                      | `SKTextBlobBuilder` | fills runs/builds an `SKTextBlob`                             |
 
-[PAINT_PIPELINE_ENTRYPOINTS]: shader, filter, effect, and runtime-SkSL construction — rail: visuals
+[PAINT_PIPELINE_ENTRYPOINTS]: shader, filter, effect, and runtime-SkSL construction
 
 | [INDEX] | [SURFACE]                                        | [ROOT]            | [CALL]                                            |
 | :-----: | :----------------------------------------------- | :---------------- | :------------------------------------------------ |
@@ -260,7 +260,7 @@
 |  [26]   | `BuildBlender`                                   | `SKRuntimeEffect` | returns a builder for uniform/child binding       |
 |  [27]   | `Uniforms` / `Children`                          | `SKRuntimeEffect` | declared names for binding                        |
 
-[GPU_ENTRYPOINTS]: backend context creation and frame submission — rail: visuals
+[GPU_ENTRYPOINTS]: backend context creation and frame submission
 
 | [INDEX] | [SURFACE]                         | [ROOT]          | [CALL]                                                         |
 | :-----: | :-------------------------------- | :-------------- | :------------------------------------------------------------- |
@@ -274,39 +274,27 @@
 |  [08]   | `PurgeResources` / `ResetContext` | `GRContext`     | purges cache/recovers a lost context                           |
 |  [09]   | `Dispose`                         | `SKObject`      | releases surface/image/codec/context/stream state              |
 
-## [04]-[INTEGRATION_STACKING]
+## [04]-[IMPLEMENTATION_LAW]
 
-[CUSTOM_VISUAL_RAIL]: the canonical AppUi draw rail composes Skia onto the Avalonia backend lease — never a parallel renderer.
-- `Avalonia.Skia` `ISkiaSharpApiLeaseFeature.Lease()` yields an `ISkiaSharpApiLease` exposing the live `SkCanvas` (`SKCanvas`), `GrContext` (`GRContext`), and `SkSurface` (`SKSurface`); custom controls draw through that leased canvas so they share Avalonia's GPU context and present in-airspace (`api-avalonia-skia.md`).
-- `Avalonia.Skia.SkiaSharpExtensions` bridges `Avalonia`->`SkiaSharp` value types (`ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions`); AppUi geometry crosses the boundary through those converters, then all interior math is `SKMatrix`/`SKPath`/`SKRect`.
-- Text in custom visuals shapes through `SkiaSharp.HarfBuzz` `SKShaper.Shape` (`api-skia-harfbuzz.md`) into an `SKTextBlob`, then draws via `SKCanvas.DrawTextBlob`; `SKFontManager.MatchCharacter` supplies font fallback before shaping. Direct `SKCanvas.DrawText` is reserved for diagnostics where shaping is not required.
+[TOPOLOGY]:
+- Every render, capture, drafting, and evidence op draws through an `SKCanvas` — leased from the Avalonia backend on the live path, allocated from a raster or GPU `SKSurface` off it.
+- Every `SKObject` (`SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream`) is one lifecycle-scoped disposable joining a managed binding to its unmanaged `libSkiaSharp` handle, freed by `using` or explicit `Dispose`.
+- One `SKPaint` composes the whole effect pipeline: a shadowed, tone-mapped, gradient-filled draw sets `Shader`/`MaskFilter`/`ColorFilter`/`BlendMode` on one paint and draws once through `SaveLayer(in SKCanvasSaveLayerRec)`.
 
-[OFFSCREEN_AND_CAPTURE_RAIL]: deterministic raster evidence stacks raster `SKSurface` + `SKImage.Encode` + `SKData`.
-- The capture/evidence rails (`Render/capture.md`, `Diagnostics/proof.md`) allocate a raster `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext` for compositor capture), draw, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, …)` to an `SKData` payload — the byte buffer is the diffable visual receipt the bridge/Verify lane asserts on.
-- `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make capture color-managed so cross-host evidence is reproducible regardless of platform default `PlatformColorType`.
-- Animated/sequence evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` (one decode per frame) rather than per-format branching.
+[STACKING]:
+- `Avalonia.Skia`(`api-avalonia-skia.md`): `ISkiaSharpApiLeaseFeature.Lease()` yields the live `SKCanvas`/`GRContext`/`SKSurface` a custom control draws through, sharing Avalonia's GPU context and presenting in-airspace; `SkiaSharpExtensions.ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` bridge Avalonia value types at the boundary, interior math staying `SKMatrix`/`SKPath`/`SKRect`.
+- `SkiaSharp.HarfBuzz`(`api-skia-harfbuzz.md`): custom-visual text shapes through `SKShaper.Shape` into an `SKTextBlob` drawn via `SKCanvas.DrawTextBlob`, with `SKFontManager.MatchCharacter` supplying fallback before shaping; `SKCanvas.DrawText` serves only shaping-free diagnostics.
+- `SkiaSharp.NativeAssets.*`(`api-skia-native.md`): `libSkiaSharp` backs every `SKObject` from a per-platform payload, faulting at first draw on a missing or wrong-RID asset rather than at compile.
+- `api-drafting-export.md`: `DWG`/`DXF` codecs consume the resolved `SKPath` outline from `SKPath.Op(SKPathOp)` and `ToSvgPathData`/`ParseSvgPathData`, never a private geometry kernel.
+- Capture rail: `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext`) draws, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, ...)` to an `SKData` byte buffer as the diffable receipt; `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make it color-managed, and animated evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` per frame.
+- Paged export: `SKDocument.CreatePdf(stream, SKDocumentPdfMetadata)` -> per-sheet `BeginPage`/draw/`EndPage` -> `Close`, sharing the live rail's paint/path stack so on-screen and exported geometry are byte-identical.
+- Runtime effects: `SKRuntimeEffect.CreateShader(sksl, out errors)` compiles once, `BuildShader()` yields an `SKRuntimeShaderBuilder`, and animation re-binds named `Uniforms`/`Children` per frame; `SKPictureRecorder`/`SKPicture` memoize a static draw-op list `SKCanvas.DrawPicture` replays N times, and `SKDrawable` defers a lazily re-rendering control.
 
-[DRAFTING_AND_DOC_RAIL]: paged export stacks `SKDocument` + `SKCanvas` + `SKPath` SVG codec.
-- Sheet/drafting export (`Render/drafting.md`) drives `SKDocument.CreatePdf(stream, SKDocumentPdfMetadata)` -> per-sheet `BeginPage` -> draw -> `EndPage` -> `Close`, sharing the same paint/path stack as the live visual rail so on-screen and exported geometry are byte-identical.
-- `SKPath.ToSvgPathData`/`ParseSvgPathData` and `SKPath.Op(SKPathOp)` (boolean union/difference/intersect) own vector interchange and clip-region math; the DWG/DXF codecs in `api-drafting-export.md` consume the resolved `SKPath` outline, never their own geometry kernel.
+[LOCAL_ADMISSION]:
+- A custom visual draws through the leased `SKCanvas`, composes every effect onto one `SKPaint`, and emits deterministic `SKImage`/`SKData` bytes as its visual evidence; color-managed capture retags through `SKImageInfo.WithColorSpace` so evidence reproduces across host color defaults.
 
-[RUNTIME_EFFECT_RAIL]: SkSL effects bind once and re-bind uniforms per frame.
-- Shading/theme surfaces (`Render/shading.md`, `Theme/motion.md`) compile an `SKRuntimeEffect.CreateShader(sksl, out errors)` once, then `BuildShader()` an `SKRuntimeShaderBuilder`, set named `Uniforms`/`Children`, and produce an `SKShader` assigned to `SKPaint.Shader` each frame — animation drives uniform values, not recompilation.
-- `SKPicture`/`SKPictureRecorder` memoize a static draw-op list once and replay via `SKCanvas.DrawPicture` so repeated overlays (grids, guides, watermarks) cost one record and N cheap replays; `SKDrawable` defers controls that must re-render lazily.
-
-[PAINT_AS_COMPOSITION_POINT]: one `SKPaint` is the single stacking surface for the whole effect pipeline.
-- A label-with-soft-shadow-under-a-color-managed-gradient is one paint: `Shader` = `SKShader.CreateLinearGradient(... SKColorF[], SKColorSpace ...)`, `MaskFilter` = `SKMaskFilter.CreateBlur(...)` for the glow, `ColorFilter` for tone, `BlendMode` for the layer, drawn via `SaveLayer(in SKCanvasSaveLayerRec)` for the offscreen group. AppUi composes effects onto the paint rather than fanning per-effect draw passes.
-
-## [05]-[IMPLEMENTATION_LAW]
-
-[VISUALS_LAW]:
+[RAIL_LAW]:
 - Package: `SkiaSharp`
-- Owns: raster + 2D-vector drawing, offscreen/GPU surfaces, animated codecs, picture recording, paged document export, color-managed spaces, the full shader/filter/effect/runtime-SkSL pipeline, and GPU backend contexts
-- Accept: custom visuals draw through a leased `SKCanvas` and emit deterministic `SKImage`/`SKData` evidence; effects compose onto one `SKPaint`; text shapes through HarfBuzz before it draws
-- Reject: GDI public vocabulary; parallel render backends bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; `SKFilterQuality` (deprecated — use `SKSamplingOptions`); phantom `SKImageFilter.CreateBlur` (mask blur is `SKMaskFilter.CreateBlur`)
-
-[ASSET_LAW]:
-- Package: `SkiaSharp`
-- Owns: managed bindings over native-backed disposable objects and explicit pixel ownership
-- Accept: every `SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream` is lifecycle-scoped (`using`/explicit `Dispose`); the native `libSkiaSharp` payload arrives from `SkiaSharp.NativeAssets.*`
-- Reject: ambient unmanaged ownership; documenting native payload identity here (it belongs to `api-skia-native.md`)
+- Owns: raster and 2D-vector drawing, offscreen and GPU surfaces, animated codecs, picture recording, paged-document export, color-managed spaces, the shader/filter/effect/runtime-SkSL pipeline, and the GPU backend contexts
+- Accept: custom visuals draw through a leased `SKCanvas`; effects compose onto one `SKPaint`; text shapes through HarfBuzz; capture emits deterministic `SKImage`/`SKData` evidence
+- Reject: GDI public vocabulary; a parallel render backend bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; resample quality via `SKFilterQuality` where `SKSamplingOptions` owns it

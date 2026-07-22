@@ -1,66 +1,62 @@
 # [RASM_APPUI_API_PROPERTYGRID]
 
-`bodong.Avalonia.PropertyGrid` supplies the Avalonia property inspector control, editor controls, the editor-factory registry, routed inspector events, and localization services. `bodong.PropertyModels` supplies the platform-neutral domain model layer: reactive base objects, the cancelable command/undo recorder, checked/selectable/checked-mask collections, localization contracts, editor-hint and data-annotation attributes, and descriptor extensions consumed by the grid and by application view models.
+`bodong.Avalonia.PropertyGrid` owns the Avalonia property-inspector control: the editor-factory registry, routed inspector events, and the cell and filter contracts that project a live object bound through `DataContext` as typed editor rows. `bodong.PropertyModels` owns the host-neutral model substrate the grid and every inspected view-model bind against — reactive bases, the cancelable command/undo recorder, the selection collections, the editor-hint and data-annotation attribute vocabulary, and the localization contracts. Both packages serve the inspector rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bodong.PropertyModels`
-- package: `bodong.PropertyModels`
-- license: MIT
-- floor: `net10.0` consumer (`lib/net10.0/PropertyModels.dll`); the package multi-targets net8.0 / net9.0 / net10.0
+- package: `bodong.PropertyModels` (MIT)
 - assembly: `PropertyModels`
-- namespace: `PropertyModels.Collections`, `PropertyModels.ComponentModel` (reactive base, command/undo, editor-hint attributes), `PropertyModels.ComponentModel.DataAnnotations` (validation/condition/enum-filter attributes), `PropertyModels.Extensions`, `PropertyModels.Localization`, `PropertyModels.Utils`
+- namespace: `PropertyModels.Collections`, `.ComponentModel`, `.ComponentModel.DataAnnotations`, `.Extensions`, `.Localization`, `.Utils`
+- target: `lib/net10.0`
+- asset: runtime library
 - rail: inspectors
 
 [PACKAGE_SURFACE]: `bodong.Avalonia.PropertyGrid`
-- package: `bodong.Avalonia.PropertyGrid` (floor-pinned over its open `>= 12.0.0` range)
-- license: MIT
-- floor: `net10.0` consumer (`lib/net10.0/Avalonia.PropertyGrid.dll`)
+- package: `bodong.Avalonia.PropertyGrid` (MIT)
 - assembly: `Avalonia.PropertyGrid`
-- namespace: `Avalonia.PropertyGrid.Controls` (`PropertyGrid`, `IPropertyGrid`, editor controls, cell context, factory base), `Avalonia.PropertyGrid.Controls.Factories` (`ICellEditFactory`, `AbstractCellEditFactory`), `Avalonia.PropertyGrid.Services` (factory + localization service registries), `Avalonia.PropertyGrid.ViewModels` (layout/order/visibility enums, list view models, converters)
+- namespace: `Avalonia.PropertyGrid.Controls`, `.Controls.Factories`, `.Services`, `.ViewModels`
+- target: `lib/net10.0`
+- asset: runtime library
 - rail: inspectors
 
 ## [02]-[PUBLIC_TYPES]
 
 [REACTIVE_TYPES]: reactive base objects — `PropertyModels.ComponentModel`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]             | [KIND]     | [RAIL]                                                              |
-| :-----: | :------------------- | :--------- | :------------------------------------------------------------------ |
-|  [01]   | `IReactiveObject`    | contract   | marker over `INotifyPropertyChanged` (batch/raise live on the base) |
-|  [02]   | `MiniReactiveObject` | base class | `IReactiveObject` + `SetProperty`/batch, no dependency tracking     |
-|  [03]   | `ReactiveObject`     | base class | `MiniReactiveObject` + `[DependsOnProperty]` dependency propagation |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `IReactiveObject`    | interface     | marker over `INotifyPropertyChanged`; batch and raise on the base   |
+|  [02]   | `MiniReactiveObject` | class         | `IReactiveObject` + `SetProperty`/batch, no dependency tracking     |
+|  [03]   | `ReactiveObject`     | class         | `MiniReactiveObject` + `[DependsOnProperty]` dependency propagation |
 
 [COMMAND_TYPES]: cancelable command and undo recorder — `PropertyModels.ComponentModel`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]                    | [KIND]           | [RAIL]                                                        |
-| :-----: | :-------------------------- | :--------------- | :------------------------------------------------------------ |
-|  [01]   | `IBaseCommand`              | contract         | `Name`, `CanExecute()`, `Execute()` (all `bool`)              |
-|  [02]   | `ICancelableCommand`        | contract         | `IBaseCommand` + `CanCancel()`, `Cancel()`                    |
-|  [03]   | `AbstractBaseCommand`       | abstract base    | `IBaseCommand` base                                           |
-|  [04]   | `AbstractCancelableCommand` | abstract base    | `AbstractBaseCommand` + `ICancelableCommand` base             |
-|  [05]   | `GenericCommand`            | concrete command | delegate-backed `AbstractBaseCommand`                         |
-|  [06]   | `GenericCancelableCommand`  | concrete command | two-delegate cancelable `AbstractCancelableCommand`           |
-|  [07]   | `ReactiveCommand`           | concrete command | `ICommand` with `ExecuteDelegate`/`CanExecuteDelegate` fields |
-|  [08]   | `CancelableCommandRecorder` | undo recorder    | undo/redo queue (`MaxCommand=20`) + lifecycle events          |
-|  [09]   | `CommandHistoryViewModel`   | undo view model  | `CanUndo`, `CanRedo`, queue views, bindable commands          |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]  | [CAPABILITY]                                                  |
+| :-----: | :-------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `IBaseCommand`              | interface      | `Name`, `CanExecute()`, `Execute()` (all `bool`)              |
+|  [02]   | `ICancelableCommand`        | interface      | `IBaseCommand` + `CanCancel()`, `Cancel()`                    |
+|  [03]   | `AbstractBaseCommand`       | abstract class | `IBaseCommand` base                                           |
+|  [04]   | `AbstractCancelableCommand` | abstract class | `AbstractBaseCommand` + `ICancelableCommand` base             |
+|  [05]   | `GenericCommand`            | class          | delegate-backed `AbstractBaseCommand`                         |
+|  [06]   | `GenericCancelableCommand`  | class          | two-delegate cancelable `AbstractCancelableCommand`           |
+|  [07]   | `ReactiveCommand`           | class          | `ICommand` with `ExecuteDelegate`/`CanExecuteDelegate` fields |
+|  [08]   | `CancelableCommandRecorder` | class          | undo/redo queue (`MaxCommand=20`) + lifecycle events          |
+|  [09]   | `CommandHistoryViewModel`   | class          | `CanUndo`, `CanRedo`, queue views, bindable commands          |
 
-[COLLECTION_TYPES]: checked, selectable, and checked-mask collections — `PropertyModels.Collections` / `PropertyModels.ComponentModel`
-- rail: inspectors
+[COLLECTION_TYPES]: checked, selectable, and checked-mask collections — `PropertyModels.Collections` / `.ComponentModel`
 
-| [INDEX] | [SYMBOL]           | [KIND]         | [RAIL]                                                                               |
-| :-----: | :----------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `ICheckedList`     | contract       | checked selection over `ICollection`                                                 |
-|  [02]   | `CheckedList`      | concrete list  | typed checked multi-select list                                                      |
-|  [03]   | `ISelectableList`  | contract       | single/multi selectable list                                                         |
-|  [04]   | `SelectableList`   | concrete list  | typed selectable list                                                                |
-|  [05]   | `CheckedMaskModel` | reactive model | `ICheckedMaskModel` over `MiniReactiveObject` (bit-mask multi-select editor backing) |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [CAPABILITY]                                                         |
+| :-----: | :----------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `ICheckedList`     | interface     | checked selection over `ICollection`                                 |
+|  [02]   | `CheckedList`      | class         | typed checked multi-select list                                      |
+|  [03]   | `ISelectableList`  | interface     | single/multi selectable list                                         |
+|  [04]   | `SelectableList`   | class         | typed selectable list                                                |
+|  [05]   | `CheckedMaskModel` | class         | `ICheckedMaskModel` over `MiniReactiveObject`; bit-mask multi-select |
 
 [ANNOTATION_TYPES]: editor-hint attributes — `PropertyModels.ComponentModel`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]                          | [RAIL]                                                  |
+| [INDEX] | [SYMBOL]                          | [CAPABILITY]                                            |
 | :-----: | :-------------------------------- | :------------------------------------------------------ |
 |  [01]   | `FloatPrecisionAttribute`         | float display precision                                 |
 |  [02]   | `IntegerIncrementAttribute`       | integer editor increment                                |
@@ -76,9 +72,8 @@
 |  [12]   | `ControlClassesAttribute`         | apply Avalonia style classes to the editor              |
 
 [ANNOTATION_TYPES]: validation, condition, path, and enum-filter attributes — `PropertyModels.ComponentModel.DataAnnotations`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]                                                     | [RAIL]                                                          |
+| [INDEX] | [SYMBOL]                                                     | [CAPABILITY]                                                    |
 | :-----: | :----------------------------------------------------------- | :-------------------------------------------------------------- |
 |  [01]   | `DependsOnPropertyAttribute`                                 | reactive dependency declaration                                 |
 |  [02]   | `ConditionTargetAttribute`                                   | marks a property as a visibility-condition target               |
@@ -92,36 +87,33 @@
 |  [10]   | `EnumProhibitNamesAttribute` / `EnumProhibitValuesAttribute` | enum deny-list by name / value                                  |
 
 [LOCALIZATION_TYPES]: localization contracts — `PropertyModels.Localization`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]               | [KIND]        | [RAIL]                                          |
-| :-----: | :--------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `ILocalizationService` | contract      | indexer lookup, culture roster + switch, extras |
-|  [02]   | `ICultureData`         | contract      | culture metadata                                |
-|  [03]   | `AbstractCultureData`  | abstract base | `ICultureData` base                             |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [CAPABILITY]                                    |
+| :-----: | :--------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `ILocalizationService` | interface      | indexer lookup, culture roster + switch, extras |
+|  [02]   | `ICultureData`         | interface      | culture metadata                                |
+|  [03]   | `AbstractCultureData`  | abstract class | `ICultureData` base                             |
 
-[INSPECTOR_TYPES]: grid, context, and filter surfaces — `Avalonia.PropertyGrid.Controls` / `…ViewModels`
-- rail: inspectors
+[INSPECTOR_TYPES]: grid, context, and filter surfaces — `Avalonia.PropertyGrid.Controls` / `.ViewModels`
 
-| [INDEX] | [SYMBOL]                     | [KIND]                                                     |
+| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                               |
 | :-----: | :--------------------------- | :--------------------------------------------------------- |
-|  [01]   | `PropertyGrid`               | inspector control (`Controls`)                             |
+|  [01]   | `PropertyGrid`               | inspector control                                          |
 |  [02]   | `IPropertyGrid`              | inspector contract (`INotifyPropertyChanged, IDisposable`) |
-|  [03]   | `PropertyCellContext`        | cell context (`Controls`)                                  |
+|  [03]   | `PropertyCellContext`        | cell context                                               |
 |  [04]   | `IPropertyGridCellInfo`      | cell info (`IPropertyGridCellInfoContainer`)               |
-|  [05]   | `IPropertyGridFilterContext` | filter context (`Controls`)                                |
-|  [06]   | `FilterCategory`             | filter-category enum (`Controls`)                          |
-|  [07]   | `ReferencePath`              | property path (`ViewModels`)                               |
-|  [08]   | `PropertyGridLayoutStyle`    | layout enum (`ViewModels`)                                 |
-|  [09]   | `PropertyGridOrderStyle`     | order enum (`ViewModels`)                                  |
-|  [10]   | `PropertyVisibility`         | visibility enum (`ViewModels`)                             |
-|  [11]   | `CellEditAlignmentType`      | alignment enum (`ViewModels`)                              |
-|  [12]   | `FilterChangedEventArgs`     | filter-change args (`ViewModels`)                          |
+|  [05]   | `IPropertyGridFilterContext` | filter context                                             |
+|  [06]   | `FilterCategory`             | filter-category enum                                       |
+|  [07]   | `ReferencePath`              | property path                                              |
+|  [08]   | `PropertyGridLayoutStyle`    | layout enum                                                |
+|  [09]   | `PropertyGridOrderStyle`     | order enum                                                 |
+|  [10]   | `PropertyVisibility`         | visibility enum                                            |
+|  [11]   | `CellEditAlignmentType`      | alignment enum                                             |
+|  [12]   | `FilterChangedEventArgs`     | filter-change args                                         |
 
-[EDITOR_TYPES]: editor controls and list view models — `Avalonia.PropertyGrid.Controls` / `…ViewModels`
-- rail: inspectors
+[EDITOR_TYPES]: editor controls and list view models — `Avalonia.PropertyGrid.Controls` / `.ViewModels`
 
-| [INDEX] | [SYMBOL]                                                      | [KIND]                                     |
+| [INDEX] | [SYMBOL]                                                      | [CAPABILITY]                               |
 | :-----: | :------------------------------------------------------------ | :----------------------------------------- |
 |  [01]   | `ButtonEdit`                                                  | button editor (`TemplatedControl`)         |
 |  [02]   | `ListEdit`                                                    | list editor (`TemplatedControl`)           |
@@ -132,25 +124,23 @@
 |  [07]   | `PreviewableSlider`                                           | numeric editor (`TemplatedControl`)        |
 |  [08]   | `TrackableEdit`                                               | trackable numeric editor (`RangeBase`)     |
 |  [09]   | `ListViewModel`                                               | list editor model (`ReactiveObject`)       |
-|  [10]   | `SingleSelectListViewModel` / `SingleSelectListItemViewModel` | single-select list models (`ViewModels`)   |
+|  [10]   | `SingleSelectListViewModel` / `SingleSelectListItemViewModel` | single-select list models                  |
 
-[FACTORY_AND_SERVICE_TYPES]: editor factory contract + service registries — `Avalonia.PropertyGrid.Controls.Factories` / `…Services`
-- rail: inspectors
+[FACTORY_AND_SERVICE_TYPES]: editor-factory contract + service registries — `Avalonia.PropertyGrid.Controls.Factories` / `.Services`
 
-| [INDEX] | [SYMBOL]                     | [KIND]                                                                                        |
-| :-----: | :--------------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `ICellEditFactory`           | editor-factory contract (`Controls`)                                                          |
-|  [02]   | `ICellEditFactoryCollection` | factory-set contract — `Factories`/`AddFactory`/`RemoveFactory`/`CloneFactories` (`Controls`) |
-|  [03]   | `AbstractCellEditFactory`    | editor-factory base (`Factories`); subclass per custom editor                                 |
-|  [04]   | `CellEditFactoryService`     | static registry exposing `Default : ICellEditFactoryCollection` (Services)                    |
-|  [05]   | `LocalizationService`        | static localization registry (Services)                                                       |
+| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                                                     |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `ICellEditFactory`           | editor-factory contract                                                          |
+|  [02]   | `ICellEditFactoryCollection` | factory-set contract — `Factories`/`AddFactory`/`RemoveFactory`/`CloneFactories` |
+|  [03]   | `AbstractCellEditFactory`    | editor-factory base; subclass per custom editor                                  |
+|  [04]   | `CellEditFactoryService`     | static registry exposing `Default : ICellEditFactoryCollection`                  |
+|  [05]   | `LocalizationService`        | static localization registry                                                     |
 
-The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`/`String`/`Path`/`Expandable` cell-edit factories), `CellEditFactoryCollection`, `PropertyGridViewModel`, and `AssemblyJsonAssetLocalizationService` are INTERNAL to the assembly — extend through a public `AbstractCellEditFactory` subclass registered with `CellEditFactoryService`, never by referencing an internal factory type.
+A custom editor extends the public `AbstractCellEditFactory` registered through `CellEditFactoryService`; the built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`/`String`/`Path`/`Expandable`), `CellEditFactoryCollection`, `PropertyGridViewModel`, and `AssemblyJsonAssetLocalizationService` are assembly-internal and never referenced.
 
 [EVENT_TYPES]: routed inspector event args — `Avalonia.PropertyGrid.Controls`
-- rail: inspectors
 
-| [INDEX] | [SYMBOL]                                                   | [KIND]                                |
+| [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                          |
 | :-----: | :--------------------------------------------------------- | :------------------------------------ |
 |  [01]   | `CustomPropertyDescriptorFilterEventArgs`                  | descriptor filter (`RoutedEventArgs`) |
 |  [02]   | `PropertyGotFocusEventArgs` / `PropertyLostFocusEventArgs` | focus events (`RoutedEventArgs`)      |
@@ -158,157 +148,135 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 
 ## [03]-[ENTRYPOINTS]
 
-[REACTIVE_ENTRYPOINTS]: `PropertyModels.ComponentModel` reactive + command surfaces
-- rail: inspectors
+[REACTIVE_ENTRYPOINTS]: reactive base, command, and recorder surfaces — `PropertyModels.ComponentModel`
 
-| [INDEX] | [SURFACE]                                                                | [SURFACE_ROOT]              | [RAIL]                          |
-| :-----: | :----------------------------------------------------------------------- | :-------------------------- | :------------------------------ |
-|  [01]   | `RaisePropertyChanged(string)`                                           | `MiniReactiveObject`        | property change notify          |
-|  [02]   | `SetProperty<T>(ref T, T, string?)`                                      | `MiniReactiveObject`        | set + notify helper             |
-|  [03]   | `BeginBatchUpdate()` / `EndBatchUpdate()`                                | `MiniReactiveObject`        | notification suppression        |
-|  [04]   | `Name` / `CanExecute()` / `Execute()`                                    | `IBaseCommand`              | command identity, gate, forward |
-|  [05]   | `Cancel()` / `CanCancel()`                                               | `ICancelableCommand`        | inverse gate and apply          |
-|  [06]   | `GenericCancelableCommand(...)`                                          | `GenericCancelableCommand`  | cancelable delegate binding     |
-|  [07]   | `PushCommand(ICancelableCommand)` / `ExecuteCommand(ICancelableCommand)` | `CancelableCommandRecorder` | enqueue / execute-and-enqueue   |
-|  [08]   | `Undo()` / `Redo()` / `Clear()`                                          | `CancelableCommandRecorder` | pop-and-apply inverse / forward |
-|  [09]   | `CanUndo` / `CanRedo` / `MaxCommand`                                     | `CancelableCommandRecorder` | undo/redo state + window bound  |
-|  [10]   | `GetUndoQueue() : ReadOnlyCollection<ICancelableCommand>`                | `CancelableCommandRecorder` | undo queue snapshot             |
-|  [11]   | `GetRedoQueue() : ReadOnlyCollection<ICancelableCommand>`                | `CancelableCommandRecorder` | redo queue snapshot             |
-|  [12]   | `OnNewCommandAdded`                                                      | `CancelableCommandRecorder` | enqueue event                   |
-|  [13]   | `OnCommandRedo`                                                          | `CancelableCommandRecorder` | redo event                      |
-|  [14]   | `OnCommandCanceled`                                                      | `CancelableCommandRecorder` | cancellation event              |
-|  [15]   | `OnCommandCleared`                                                       | `CancelableCommandRecorder` | clear event                     |
-|  [16]   | `UndoCommand`                                                            | `CommandHistoryViewModel`   | bindable undo                   |
-|  [17]   | `RedoCommand`                                                            | `CommandHistoryViewModel`   | bindable redo                   |
-|  [18]   | `ClearCommand`                                                           | `CommandHistoryViewModel`   | bindable clear                  |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                    |
+| :-----: | :--------------------------------------------------------------------- | :------------------------------ |
+|  [01]   | `MiniReactiveObject.RaisePropertyChanged(string)`                      | property change notify          |
+|  [02]   | `MiniReactiveObject.SetProperty<T>(ref T, T, string?)`                 | set + notify helper             |
+|  [03]   | `MiniReactiveObject.BeginBatchUpdate()` / `EndBatchUpdate()`           | notification suppression        |
+|  [04]   | `IBaseCommand.Name` / `CanExecute()` / `Execute()`                     | command identity, gate, forward |
+|  [05]   | `ICancelableCommand.Cancel()` / `CanCancel()`                          | inverse gate and apply          |
+|  [06]   | `GenericCancelableCommand(...)`                                        | cancelable delegate binding     |
+|  [07]   | `CancelableCommandRecorder.PushCommand` / `ExecuteCommand`             | enqueue / execute-and-enqueue   |
+|  [08]   | `CancelableCommandRecorder.Undo()` / `Redo()` / `Clear()`              | pop-and-apply inverse / forward |
+|  [09]   | `CancelableCommandRecorder.CanUndo` / `CanRedo` / `MaxCommand`         | undo/redo state + window bound  |
+|  [10]   | `CancelableCommandRecorder.GetUndoQueue() : ReadOnlyCollection<…>`     | undo queue snapshot             |
+|  [11]   | `CancelableCommandRecorder.GetRedoQueue() : ReadOnlyCollection<…>`     | redo queue snapshot             |
+|  [12]   | `CancelableCommandRecorder.OnNewCommandAdded`                          | enqueue event                   |
+|  [13]   | `CancelableCommandRecorder.OnCommandRedo`                              | redo event                      |
+|  [14]   | `CancelableCommandRecorder.OnCommandCanceled`                          | cancellation event              |
+|  [15]   | `CancelableCommandRecorder.OnCommandCleared`                           | clear event                     |
+|  [16]   | `CommandHistoryViewModel.UndoCommand` / `RedoCommand` / `ClearCommand` | bindable undo/redo/clear        |
 
-[COLLECTION_ENTRYPOINTS]: checked list operations — `PropertyModels.Collections`
-- rail: inspectors
+`GenericCancelableCommand(name, executeFunc, cancelFunc, canExecuteFunc?, canCancelFunc?)` binds forward and inverse as `Func<bool>?`.
 
-| [INDEX] | [SURFACE]                                    | [SURFACE_ROOT] | [RAIL]               |
-| :-----: | :------------------------------------------- | :------------- | :------------------- |
-|  [01]   | `IsChecked(object)`                          | `ICheckedList` | check state query    |
-|  [02]   | `SetChecked(object, bool)`                   | `ICheckedList` | check state write    |
-|  [03]   | `SetRangeChecked(IEnumerable<object>, bool)` | `ICheckedList` | batch check          |
-|  [04]   | `Select(object)` / `SelectRange(...)`        | `ICheckedList` | selection set        |
-|  [05]   | `SelectionChanged`                           | `ICheckedList` | change event         |
-|  [06]   | `Items` / `SourceItems`                      | `ICheckedList` | selected / all items |
+[COLLECTION_ENTRYPOINTS]: `ICheckedList` operations — `PropertyModels.Collections`
+
+| [INDEX] | [SURFACE]                                    | [CAPABILITY]         |
+| :-----: | :------------------------------------------- | :------------------- |
+|  [01]   | `IsChecked(object)`                          | check state query    |
+|  [02]   | `SetChecked(object, bool)`                   | check state write    |
+|  [03]   | `SetRangeChecked(IEnumerable<object>, bool)` | batch check          |
+|  [04]   | `Select(object)` / `SelectRange(...)`        | selection set        |
+|  [05]   | `SelectionChanged`                           | change event         |
+|  [06]   | `Items` / `SourceItems`                      | selected / all items |
 
 [LOCALIZATION_ENTRYPOINTS]: `ILocalizationService` culture management
-- rail: inspectors
 
-| [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]         | [RAIL]                   |
-| :-----: | :-------------------------------------------------------------- | :--------------------- | :----------------------- |
-|  [01]   | `this[string key]`                                              | `ILocalizationService` | key translation          |
-|  [02]   | `SelectCulture(string cultureName)`                             | `ILocalizationService` | culture switch           |
-|  [03]   | `GetCultures() : ICultureData[]`                                | `ILocalizationService` | available cultures       |
-|  [04]   | `CultureData`                                                   | `ILocalizationService` | current culture metadata |
-|  [05]   | `AddExtraService` / `RemoveExtraService` / `GetExtraServices()` | `ILocalizationService` | composite localization   |
-|  [06]   | `OnCultureChanged`                                              | `ILocalizationService` | culture change event     |
+| [INDEX] | [SURFACE]                                                       | [CAPABILITY]             |
+| :-----: | :-------------------------------------------------------------- | :----------------------- |
+|  [01]   | `this[string key]`                                              | key translation          |
+|  [02]   | `SelectCulture(string cultureName)`                             | culture switch           |
+|  [03]   | `GetCultures() : ICultureData[]`                                | available cultures       |
+|  [04]   | `CultureData`                                                   | current culture metadata |
+|  [05]   | `AddExtraService` / `RemoveExtraService` / `GetExtraServices()` | composite localization   |
+|  [06]   | `OnCultureChanged`                                              | culture change event     |
 
-[GRID_ENTRYPOINTS]: property grid state and layout — `Avalonia.PropertyGrid.Controls.PropertyGrid`
-- rail: inspectors
+[GRID_ENTRYPOINTS]: property-grid state and layout — `Avalonia.PropertyGrid.Controls.PropertyGrid`
 
-`PropertyGrid.DataContext` binds the inspected object; the control exposes no public `ViewModel` property.
+The inspected object binds through `DataContext`; no public `ViewModel` property exists.
 
-| [INDEX] | [SURFACE]                                     | [RAIL]                |
-| :-----: | :-------------------------------------------- | :-------------------- |
-|  [01]   | `DataContext`                                 | inspected object      |
-|  [02]   | `IsReadOnly`                                  | read-only state       |
-|  [03]   | `LayoutStyle` (`PropertyGridLayoutStyle`)     | layout mode           |
-|  [04]   | `CategoryOrderStyle`                          | category ordering     |
-|  [05]   | `PropertyOrderStyle`                          | property ordering     |
-|  [06]   | `IsCategoryVisible`                           | category display      |
-|  [07]   | `IsTitleVisible`                              | title display         |
-|  [08]   | `IsHeaderVisible`                             | header display        |
-|  [09]   | `IsQuickFilterVisible`                        | quick filter          |
-|  [10]   | `PropertyOperationVisibility`                 | operation display     |
-|  [11]   | `CellEditAlignment` (`CellEditAlignmentType`) | editor alignment      |
-|  [12]   | `IsAutoNameWidth`                             | automatic name width  |
-|  [13]   | `NameWidth`                                   | explicit name width   |
-|  [14]   | `AllCategoriesExpanded`                       | expansion state       |
-|  [15]   | `TopHeaderContent`                            | top chrome content    |
-|  [16]   | `MiddleContent`                               | middle chrome content |
-|  [17]   | `BottomContent`                               | bottom chrome content |
+| [INDEX] | [SURFACE]                                            | [CAPABILITY]          |
+| :-----: | :--------------------------------------------------- | :-------------------- |
+|  [01]   | `DataContext`                                        | inspected object      |
+|  [02]   | `IsReadOnly`                                         | read-only state       |
+|  [03]   | `LayoutStyle` (`PropertyGridLayoutStyle`)            | layout mode           |
+|  [04]   | `CategoryOrderStyle` (`PropertyGridOrderStyle`)      | category ordering     |
+|  [05]   | `PropertyOrderStyle` (`PropertyGridOrderStyle`)      | property ordering     |
+|  [06]   | `IsCategoryVisible`                                  | category display      |
+|  [07]   | `IsTitleVisible`                                     | title display         |
+|  [08]   | `IsHeaderVisible`                                    | header display        |
+|  [09]   | `IsQuickFilterVisible`                               | quick filter          |
+|  [10]   | `PropertyOperationVisibility` (`PropertyVisibility`) | operation display     |
+|  [11]   | `CellEditAlignment` (`CellEditAlignmentType`)        | editor alignment      |
+|  [12]   | `IsAutoNameWidth`                                    | automatic name width  |
+|  [13]   | `NameWidth`                                          | explicit name width   |
+|  [14]   | `AllCategoriesExpanded`                              | expansion state       |
+|  [15]   | `TopHeaderContent`                                   | top chrome content    |
+|  [16]   | `MiddleContent`                                      | middle chrome content |
+|  [17]   | `BottomContent`                                      | bottom chrome content |
 
-`CategoryOrderStyle` and `PropertyOrderStyle` carry `PropertyGridOrderStyle`; `PropertyOperationVisibility` carries the identically named enum.
+[FACTORY_ENTRYPOINTS]: editor-factory contract + registry operations; registry ops resolve through `CellEditFactoryService.Default`
 
-[FACTORY_ENTRYPOINTS]: editor factory contract + registry operations
-- rail: inspectors
-
-`ICellEditFactoryCollection` registry operations resolve through `CellEditFactoryService.Default`.
-
-| [INDEX] | [SURFACE]                                           | [SURFACE_ROOT]               | [RAIL]                   |
-| :-----: | :-------------------------------------------------- | :--------------------------- | :----------------------- |
-|  [01]   | `Accept(object accessToken) : bool`                 | `ICellEditFactory`           | editor match             |
-|  [02]   | `ImportPriority : int`                              | `ICellEditFactory`           | match priority           |
-|  [03]   | `HandleNewProperty(PropertyCellContext) : Control?` | `ICellEditFactory`           | editor creation          |
-|  [04]   | `HandlePropertyChanged(PropertyCellContext) : bool` | `ICellEditFactory`           | editor refresh           |
-|  [05]   | `HandleReadOnlyStateChanged(Control, bool)`         | `ICellEditFactory`           | read-only refresh        |
-|  [06]   | `HandlePropagateVisibility(...)`                    | `ICellEditFactory`           | filter-driven visibility |
-|  [07]   | `SetPropertyValue(PropertyCellContext, object?)`    | `ICellEditFactory`           | command-routed write     |
-|  [08]   | `GetPropertyValue(PropertyCellContext) : object?`   | `ICellEditFactory`           | value read               |
-|  [09]   | `Clone() : ICellEditFactory?`                       | `ICellEditFactory`           | per-cell factory clone   |
-|  [10]   | `Factories`                                         | `ICellEditFactoryCollection` | registered factories     |
-|  [11]   | `AddFactory(ICellEditFactory)`                      | `ICellEditFactoryCollection` | factory registration     |
-|  [12]   | `RemoveFactory(ICellEditFactory)`                   | `ICellEditFactoryCollection` | factory removal          |
-|  [13]   | `CloneFactories(object)`                            | `ICellEditFactoryCollection` | factory snapshot         |
-
-[HandlePropagateVisibility]:
-
-- Signature: `HandlePropagateVisibility(object?, PropertyCellContext, IPropertyGridFilterContext, …) : PropertyVisibility?`
+| [INDEX] | [SURFACE]                                                                                                                    | [CAPABILITY]             |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :----------------------- |
+|  [01]   | `ICellEditFactory.Accept(object accessToken) : bool`                                                                         | editor match             |
+|  [02]   | `ICellEditFactory.ImportPriority : int`                                                                                      | match priority           |
+|  [03]   | `ICellEditFactory.HandleNewProperty(PropertyCellContext) : Control?`                                                         | editor creation          |
+|  [04]   | `ICellEditFactory.HandlePropertyChanged(PropertyCellContext) : bool`                                                         | editor refresh           |
+|  [05]   | `ICellEditFactory.HandleReadOnlyStateChanged(Control, bool)`                                                                 | read-only refresh        |
+|  [06]   | `ICellEditFactory.HandlePropagateVisibility(object?, PropertyCellContext, IPropertyGridFilterContext) : PropertyVisibility?` | filter-driven visibility |
+|  [07]   | `ICellEditFactory.SetPropertyValue(PropertyCellContext, object?)`                                                            | command-routed write     |
+|  [08]   | `ICellEditFactory.GetPropertyValue(PropertyCellContext) : object?`                                                           | value read               |
+|  [09]   | `ICellEditFactory.Clone() : ICellEditFactory?`                                                                               | per-cell factory clone   |
+|  [10]   | `ICellEditFactoryCollection.Factories`                                                                                       | registered factories     |
+|  [11]   | `ICellEditFactoryCollection.AddFactory(ICellEditFactory)`                                                                    | factory registration     |
+|  [12]   | `ICellEditFactoryCollection.RemoveFactory(ICellEditFactory)`                                                                 | factory removal          |
+|  [13]   | `ICellEditFactoryCollection.CloneFactories(object)`                                                                          | factory snapshot         |
 
 [EVENT_ENTRYPOINTS]: routed inspector event surfaces — `PropertyGrid`
-- rail: inspectors
 
-| [INDEX] | [SURFACE]                                | [SURFACE_ROOT] | [RAIL]                                |
-| :-----: | :--------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `CustomPropertyDescriptorFilter`         | `PropertyGrid` | descriptor filter (`RoutedEventArgs`) |
-|  [02]   | `CustomNameBlock`                        | `PropertyGrid` | name rendering                        |
-|  [03]   | `CustomPropertyOperationControl`         | `PropertyGrid` | operation surface                     |
-|  [04]   | `CustomPropertyOperationMenuOpening`     | `PropertyGrid` | operation menu                        |
-|  [05]   | `CommandExecuting` / `CommandExecuted`   | `PropertyGrid` | command gate / receipt                |
-|  [06]   | `PropertyGotFocus` / `PropertyLostFocus` | `PropertyGrid` | focus receipts                        |
-|  [07]   | `NameWidthChanged`                       | `PropertyGrid` | name-column width change              |
+| [INDEX] | [SURFACE]                                | [CAPABILITY]                          |
+| :-----: | :--------------------------------------- | :------------------------------------ |
+|  [01]   | `CustomPropertyDescriptorFilter`         | descriptor filter (`RoutedEventArgs`) |
+|  [02]   | `CustomNameBlock`                        | name rendering                        |
+|  [03]   | `CustomPropertyOperationControl`         | operation surface                     |
+|  [04]   | `CustomPropertyOperationMenuOpening`     | operation menu                        |
+|  [05]   | `CommandExecuting` / `CommandExecuted`   | command gate / receipt                |
+|  [06]   | `PropertyGotFocus` / `PropertyLostFocus` | focus receipts                        |
+|  [07]   | `NameWidthChanged`                       | name-column width change              |
 
 [EDITOR_ENTRYPOINTS]: list, color, and slider editor operations
-- rail: inspectors
 
-| [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]           | [RAIL]                           |
-| :-----: | :----------------------------------------- | :----------------------- | :------------------------------- |
-|  [01]   | `NewElementCommand`                        | `ListEdit`               | list add                         |
-|  [02]   | `ClearElementsCommand`                     | `ListEdit`               | list clear                       |
-|  [03]   | `InsertCommand`                            | `ListViewModel`          | list insert                      |
-|  [04]   | `RemoveCommand`                            | `ListViewModel`          | list remove                      |
-|  [05]   | `ColorChanged` / `PreviewColorChanged`     | `PreviewableColorPicker` | committed / preview color        |
-|  [06]   | `RealValueChanged` / `PreviewValueChanged` | `PreviewableSlider`      | committed / preview slider value |
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                     |
+| :-----: | :------------------------------------------------------------ | :------------------------------- |
+|  [01]   | `ListEdit.NewElementCommand` / `ClearElementsCommand`         | list add / clear                 |
+|  [02]   | `ListViewModel.InsertCommand` / `RemoveCommand`               | list insert / remove             |
+|  [03]   | `PreviewableColorPicker.ColorChanged` / `PreviewColorChanged` | committed / preview color        |
+|  [04]   | `PreviewableSlider.RealValueChanged` / `PreviewValueChanged`  | committed / preview slider value |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MODELS_LAW]:
+[TOPOLOGY]:
+- `PropertyModels` is the host-neutral model substrate; `Avalonia.PropertyGrid` projects the object bound through `DataContext` as typed editor rows, selecting each editor by `ICellEditFactory.Accept(object accessToken)` match ranked by `ImportPriority` (higher first) through `CellEditFactoryService.Default : ICellEditFactoryCollection`.
+- Visibility, ordering, and editor presentation drive off data-annotation attributes on the model, never reflection-UI-as-model: `[ConditionTarget]` + `[PropertyVisibilityCondition]` + `[DependsOnProperty]` gate visibility and dependency without code-behind, `ReactiveObject` propagating `[DependsOnProperty]` automatically; `Accept` takes the `object` access token, `PropertyCellContext` arriving on `HandleNewProperty`/`HandlePropertyChanged`.
+
+[STACKING]:
+- `ReactiveUI`(`.api/api-reactiveui.md`): `PropertyModels.ReactiveObject`/`MiniReactiveObject` is the inspected-model base, distinct from ReactiveUI's `ReactiveObject` screen base — an inspected view-model derives from the PropertyModels base for `[DependsOnProperty]`/`SetProperty`, its hosting screen from the ReactiveUI base; `CancelableCommandRecorder` records undo/redo beside ReactiveUI `ReactiveCommand` execution, never replacing it.
+- `Dock.Avalonia`(`.api/api-dock.md`): `PropertyGrid` mounts as a `Tool`/`Document` `Content` in the `IDock` graph, its `DataContext` the inspected object marshaled onto the UI thread.
+- within-lib: application view-models inherit `ReactiveObject`/`MiniReactiveObject`; command pipelines compose `CancelableCommandRecorder` + `CommandHistoryViewModel`; multi-select editors back onto `CheckedList`/`CheckedMaskModel`.
+
+[LOCAL_ADMISSION]:
+- A custom editor is a public `AbstractCellEditFactory` subclass registered through `CellEditFactoryService.Default.AddFactory(factory)` with an `ImportPriority` above the built-in it overrides.
+- Editor-hint attributes live in `PropertyModels.ComponentModel`, validation/condition/enum-filter attributes in `PropertyModels.ComponentModel.DataAnnotations`; each attribute routes to its real namespace and is never re-declared locally.
+
+[RAIL_LAW]:
 - Package: `bodong.PropertyModels`
-- Owns: reactive base objects, the cancelable command/undo recorder, checked/selectable/checked-mask collections, editor-hint attributes (`PropertyModels.ComponentModel`), validation/condition/enum-filter attributes (`PropertyModels.ComponentModel.DataAnnotations`), localization contracts, and descriptor extensions.
-- Accept: application view models inherit `ReactiveObject` or `MiniReactiveObject`; command pipelines use `CancelableCommandRecorder` + `CommandHistoryViewModel`; multi-select editors back onto `CheckedList`/`CheckedMaskModel`.
-- Reject: hand-rolling `INotifyPropertyChanged`, per-screen undo stacks, or string-keyed property registries; declaring editor-hint attributes under `DataAnnotations` (they live in `PropertyModels.ComponentModel`).
-
-[RECORDER_LAW]:
-- `ICancelableCommand` is a two-delegate command: `Execute()` runs the forward and `Cancel()` runs the inverse, both `bool`, gated by `CanExecute()`/`CanCancel()`; `GenericCancelableCommand(name, executeFunc, cancelFunc, canExecuteFunc?, canCancelFunc?)` binds them as `Func<bool>?`.
-- `CancelableCommandRecorder` owns the queue lifecycle: `PushCommand` enqueues a command whose forward already applied (clearing the redo queue), `ExecuteCommand` runs the forward then enqueues, `Undo()` pops the head and runs its `Cancel`, `Redo()` re-runs its `Execute`, `Clear()` empties both queues; `CanUndo`/`CanRedo` read the head command's `CanCancel`/`CanExecute`, `MaxCommand` (default 20) bounds the window, and the `OnNewCommandAdded`/`OnCommandRedo`/`OnCommandCanceled`/`OnCommandCleared` events drive an `INotifyPropertyChanged`-free undo HUD (`CommandHistoryViewModel` wraps the recorder as bindable `UndoCommand`/`RedoCommand`/`ClearCommand`).
-- A revert that resolves an op without driving `Undo()`/`Redo()` leaves the inverse unapplied — the recorder, not a hand-rolled stack, owns pop-and-apply.
-
-[INSPECTOR_LAW]:
+- Owns: reactive base objects, the cancelable command/undo recorder, checked/selectable/checked-mask collections, editor-hint and data-annotation attributes, localization contracts, and descriptor extensions.
+- Accept: view-models inherit `ReactiveObject`/`MiniReactiveObject`; command pipelines route through `CancelableCommandRecorder`, which owns pop-and-apply — a revert resolving an op without driving `Undo()`/`Redo()` leaves the inverse unapplied.
+- Reject: hand-rolled `INotifyPropertyChanged`, per-screen undo stacks, string-keyed property registries.
 - Package: `bodong.Avalonia.PropertyGrid`
-- Owns: typed property inspection (`Avalonia.PropertyGrid.Controls.PropertyGrid`), the editor-factory registry, property operations, list editing, localization services, and routed inspector events.
-- Accept: the inspected object binds through the control's `DataContext`; inspectors project product state through typed rows, factories, filters, commands, and routed events; layout/order/visibility drive off the `PropertyGridLayoutStyle`/`PropertyGridOrderStyle`/`PropertyVisibility`/`CellEditAlignmentType` enums.
-- Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or internal concrete factories; assuming a public `ViewModel` property where the binding is `DataContext`.
-
-[EDITOR_LAW]:
-- Package: `bodong.Avalonia.PropertyGrid`
-- Owns: editor selection by `ICellEditFactory.Accept(object accessToken)` match ranked by `ImportPriority` (higher processed first) through the `CellEditFactoryService.Default : ICellEditFactoryCollection` registry.
-- Accept: a custom editor is a public `AbstractCellEditFactory` subclass registered through `CellEditFactoryService.Default.AddFactory(factory)` with an `ImportPriority` above the built-ins it overrides; panels, companion windows, sidecars, diagnostics, and support views share one inspector rail.
-- Reject: per-screen reflection editors; subclassing or referencing an internal built-in factory instead of `AbstractCellEditFactory`; assuming `Accept` takes a typed `PropertyCellContext` (it takes the `object` access token; the `PropertyCellContext` arrives on `HandleNewProperty`/`HandlePropertyChanged`).
-
-[ANNOTATION_LAW]:
-- `[ConditionTarget]` + `[PropertyVisibilityCondition]` + `[DependsOnProperty]` on model properties drive visibility and dependency without code-behind; `[DependsOnProperty]` is propagated automatically by `ReactiveObject`, no manual wiring required.
-- Editor presentation is attribute-driven: `[Watermark]`, `[Unit]`, `[Progress]`, `[Trackable]`, `[FloatPrecision]`, `[IntegerIncrement]`, `[MultilineText]`, `[ControlClasses]`, `[CustomPropertyOrder]`, `[EnumDisplayName]`/`[EnumExclude]` (in `PropertyModels.ComponentModel`) and `[PathBrowsable]`, `[EnumPermit*]`/`[EnumProhibit*]`, `[FileNameValidation]`, `[ImagePreviewMode]` (in `PropertyModels.ComponentModel.DataAnnotations`) select and shape the editor.
-- Attribute classes live in `PropertyModels`; do not re-declare annotation contracts locally, and route each attribute to its real namespace (editor-hint -> `ComponentModel`, validation/condition/enum-filter -> `ComponentModel.DataAnnotations`).
+- Owns: typed property inspection, the editor-factory registry, property operations, list editing, localization services, and routed inspector events.
+- Accept: every inspecting surface binds its object through the control's `DataContext` and projects state through typed rows, factories, filters, commands, and routed events; layout, order, and visibility drive off the `PropertyGridLayoutStyle`/`PropertyGridOrderStyle`/`PropertyVisibility`/`CellEditAlignmentType` enums.
+- Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or the built-in concrete factories instead of subclassing `AbstractCellEditFactory`; assuming a public `ViewModel` property where the binding is `DataContext`.

@@ -1,304 +1,150 @@
 # [RASM_APPUI_API_WHISPER_NET]
 
-`Whisper.net` is the offline speech-to-text owner for the LiveCaption rail — managed bindings over `whisper.cpp` (the ggml Whisper inference engine). It carries the transcription surface under `Whisper.net`: `WhisperFactory` loads a ggml model into a reusable inference handle; `WhisperProcessorBuilder` is the one polymorphic build fold (every task, language, sampling, threshold, timestamp, and event-handler knob is a `With*` row on one builder); `WhisperProcessor.ProcessAsync` streams `SegmentData` as an `IAsyncEnumerable` for live caption emission; the built-in translate-to-English task (`WithTranslate`) folds recognition + translation into one pass; and a separate Silero-VAD pipeline (`WhisperVadFactory`/`WhisperVadProcessor`) segments speech before transcription. The core package ships NO native inference library and NO model weights — the `whisper.cpp` runtime is provisioned by the separate `Whisper.net.Runtime*` packages, and ggml weights download separately through `WhisperGgmlDownloader`.
+`Whisper.net` owns offline speech-to-text for the LiveCaption rail: managed bindings over the native `whisper.cpp` ggml engine that load a model into a reusable `WhisperFactory`, configure one `WhisperProcessor` through a single polymorphic `With*` builder, and stream `SegmentData` as an `IAsyncEnumerable` for live emission. One in-model task translates recognition to English, and a separate Silero-VAD pipeline gates audio to speech spans before transcription.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Whisper.net`
-- package: `Whisper.net` (core; NO runtime, NO weights)
-- license: MIT (expression)
+- package: `Whisper.net` (MIT, Sandro Hanea)
 - assembly: `Whisper.net`
-- namespace: `Whisper.net` (factory/processor/builder/segment/VAD/client), `Whisper.net.Ggml` (downloader + `GgmlType`/`QuantizationType`/`SileroVadType`), `Whisper.net.LibraryLoader` (`RuntimeOptions`/`RuntimeLibrary`), `Whisper.net.Logger` (`LogProvider`/`WhisperLogLevel`), `Whisper.net.Wave` (`WaveParser`)
-- target: `lib/net10.0` (bound) + `net9.0`/`net8.0`/`netstandard2.0`; `LangVersion 13`, `AllowUnsafeBlocks`
-- depends: `Microsoft.Extensions.AI.Abstractions` (the `ISpeechToTextClient` surface); `netstandard2.0` adds `Microsoft.Bcl.AsyncInterfaces` + `System.Memory`
-- runtime: the native `whisper.cpp` library is resolved at load time by `NativeLibraryLoader` per `RuntimeOptions.RuntimeLibraryOrder` — shipped by a separate `Whisper.net.Runtime*` package, never this core
+- namespace: `Whisper.net`, `Whisper.net.Ggml`, `Whisper.net.LibraryLoader`, `Whisper.net.Logger`, `Whisper.net.Wave`
+- abi: managed bindings over the native `whisper.cpp` ggml engine; the native runtime and the ggml weights load out-of-package
+- depends: `Microsoft.Extensions.AI.Abstractions` (the `ISpeechToTextClient` seam)
 - rail: caption
 
 ## [02]-[PUBLIC_TYPES]
 
-[TRANSCRIPTION_CORE]: model handle + streaming processor — rail: caption
+[TRANSCRIPTION_CORE]: model handle, build fold, streaming processor, and typed failure rails.
 
-| [INDEX] | [SYMBOL]                     | [ROLE]             |
-| :-----: | :--------------------------- | :----------------- |
-|  [01]   | `WhisperFactory`             | loaded model       |
-|  [02]   | `WhisperFactoryOptions`      | factory options    |
-|  [03]   | `WhisperProcessorBuilder`    | build fold         |
-|  [04]   | `WhisperProcessor`           | processor          |
-|  [05]   | `WhisperSpeechToTextClient`  | speech client      |
-|  [06]   | `WhisperModelLoadException`  | load failure       |
-|  [07]   | `WhisperProcessingException` | processing failure |
-|  [08]   | `IStringPool`                | string pool        |
-|  [09]   | `IWhisperModelLoader`        | model loader       |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                             |
+| :-----: | :--------------------------- | :------------ | :--------------------------------------- |
+|  [01]   | `WhisperFactory`             | sealed class  | loaded ggml model handle (`IDisposable`) |
+|  [02]   | `WhisperFactoryOptions`      | struct        | GPU, DTW, and alignment load options     |
+|  [03]   | `WhisperProcessorBuilder`    | class         | the polymorphic `With*` build fold       |
+|  [04]   | `WhisperProcessor`           | sealed class  | streaming handle (`IAsyncDisposable`)    |
+|  [05]   | `WhisperSpeechToTextClient`  | sealed class  | `ISpeechToTextClient` caption seam       |
+|  [06]   | `WhisperModelLoadException`  | exception     | model-load failure rail                  |
+|  [07]   | `WhisperProcessingException` | exception     | processing failure rail                  |
+|  [08]   | `IStringPool`                | interface     | native-string pooling seam               |
 
-[WHISPER_FACTORY]:
-- Contract: `IDisposable`
-- Role: Loaded ggml model handle
-- Surface: `FromPath`, `FromBuffer`, `CreateBuilder`
+[SEGMENT_MODEL]: emitted caption rows, event delegates, and DTW alignment types.
 
-[WHISPER_FACTORY_OPTIONS]:
-- Defaults: `UseGpu` is `true`
-- Acceleration: `UseFlashAttention`, `UseDtwTimeStamps`, `GpuDevice`
-- Alignment: `HeadsPreset : WhisperAlignmentHeadsPreset`, `CustomAlignmentHeads`
-- DTW: `DtwMemSize`, `DtwNTop`
-- Lifecycle: `DelayInitialization`
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                        |
+| :-----: | :---------------------------- | :------------ | :---------------------------------- |
+|  [01]   | `SegmentData`                 | class         | emitted caption segment             |
+|  [02]   | `WhisperToken`                | class         | per-token detail                    |
+|  [03]   | `EncoderBeginData`            | class         | encoder-begin callback payload      |
+|  [04]   | `OnSegmentEventHandler`       | delegate      | segment callback                    |
+|  [05]   | `OnProgressHandler`           | delegate      | progress callback                   |
+|  [06]   | `OnEncoderBeginEventHandler`  | delegate      | encoder-begin gate returning `bool` |
+|  [07]   | `WhisperAbortEventHandler`    | delegate      | abort gate returning `bool`         |
+|  [08]   | `WhisperAlignmentHeadsPreset` | enum          | DTW alignment-head preset           |
+|  [09]   | `WhisperAlignmentHead`        | struct        | `(TextLayer, Head)` alignment pair  |
 
-[WHISPER_PROCESSOR_BUILDER]:
-- Role: One polymorphic build fold
-- Surface: Every task, language, sampling, threshold, timestamp, and handler knob is a `With*` row; `Build()` is terminal.
+[WHISPER_ALIGNMENT_HEADS_PRESET]: `None` `NTopMost` `Custom` `TinyEn` `Tiny` `BaseEn` `Base` `SmallEn` `Small` `MediumEn` `Medium` `LargeV1` `LargeV2` `LargeV3` `LargeV3Turbo`
 
-[WHISPER_PROCESSOR]:
-- Contract: `IAsyncDisposable`, `IDisposable`
-- Surface: `Process`, `ProcessAsync`, `DetectLanguage`, `ChangeLanguage`
-- Inputs: Stream and sample forms
+[VAD_PIPELINE]: Silero voice-activity detection, separate from transcription.
 
-[WHISPER_SPEECH_TO_TEXT_CLIENT]:
-- Contract: `ISpeechToTextClient` from Microsoft.Extensions.AI
-- Surface: `GetStreamingTextAsync`, `GetTextAsync`
-- Input: `WhisperFactory`
-- Role: LiveCaption streaming seam
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :--------------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `WhisperVadFactory`          | sealed class  | loaded Silero-VAD model handle (`IDisposable`) |
+|  [02]   | `WhisperVadProcessorBuilder` | sealed class  | threshold and window tuning fold               |
+|  [03]   | `WhisperVadProcessor`        | sealed class  | speech-span detector (`IAsyncDisposable`)      |
+|  [04]   | `VadSegmentData`             | sealed class  | detected speech span                           |
 
-[TRANSCRIPTION_SEAMS]:
-- Failure: `WhisperModelLoadException` and `WhisperProcessingException` type the load and processing rails.
-- Extension: `IStringPool` and `IWhisperModelLoader` expose the string-pool performance and model-loader seams.
+[ASSETS_AND_RUNTIME]: model download, native-backend selection, log subscription, and PCM decoding.
 
-[SEGMENT_MODEL]: emitted transcription rows + event delegates — rail: caption
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                         |
+| :-----: | :---------------------- | :------------ | :----------------------------------- |
+|  [01]   | `WhisperGgmlDownloader` | class         | ggml, VAD, and encoder model fetch   |
+|  [02]   | `GgmlType`              | enum          | model variant                        |
+|  [03]   | `QuantizationType`      | enum          | weight quantization                  |
+|  [04]   | `SileroVadType`         | enum          | VAD model version                    |
+|  [05]   | `RuntimeOptions`        | static class  | native-runtime selection             |
+|  [06]   | `RuntimeLibrary`        | enum          | native backend                       |
+|  [07]   | `LogProvider`           | static class  | native-log subscription              |
+|  [08]   | `WhisperLogLevel`       | enum          | log severity                         |
+|  [09]   | `WaveParser`            | sealed class  | 16 kHz PCM wave to `float[]` samples |
 
-| [INDEX] | [SYMBOL]                      | [ROLE]            |
-| :-----: | :---------------------------- | :---------------- |
-|  [01]   | `SegmentData`                 | caption segment   |
-|  [02]   | `WhisperToken`                | token detail      |
-|  [03]   | `OnSegmentEventHandler`       | segment delegate  |
-|  [04]   | `OnProgressHandler`           | progress delegate |
-|  [05]   | `OnEncoderBeginEventHandler`  | encoder delegate  |
-|  [06]   | `WhisperAbortEventHandler`    | abort delegate    |
-|  [07]   | `WhisperAlignmentHeadsPreset` | alignment preset  |
-|  [08]   | `WhisperAlignmentHead`        | alignment head    |
-
-[SEGMENT_DATA]:
-- Content: `Text`, `Language`, `Tokens : WhisperToken[]`
-- Timing: `Start : TimeSpan`, `End : TimeSpan`
-- Confidence: `Probability`, `MinProbability`, `MaxProbability`, `NoSpeechProbability`
-
-[WHISPER_TOKEN]:
-- Fields: `Id`, `Text`, `Probability`, `Start`, `End`, `DtwTimestamp`, `VoiceLen`, …
-
-[SEGMENT_EVENTS]:
-- `OnSegmentEventHandler`: Segment callback
-- `OnProgressHandler`: Progress callback
-- `OnEncoderBeginEventHandler`: Encoder-begin callback with cancellation
-- `WhisperAbortEventHandler`: Abort callback
-
-[ALIGNMENT_HEADS]:
-- `WhisperAlignmentHeadsPreset`: DTW token-timestamp alignment-head preset
-- `WhisperAlignmentHead`: `(textLayer, head)` value
-
-[VAD_PIPELINE]: Silero voice-activity detection (separate from transcription) — rail: caption
-
-| [INDEX] | [SYMBOL]                     | [ROLE]       |
-| :-----: | :--------------------------- | :----------- |
-|  [01]   | `WhisperVadFactory`          | model handle |
-|  [02]   | `WhisperVadProcessorBuilder` | tuning fold  |
-|  [03]   | `WhisperVadProcessor`        | processor    |
-|  [04]   | `VadSegmentData`             | speech span  |
-
-[WHISPER_VAD_FACTORY]:
-- Contract: `IDisposable`
-- Role: Loaded Silero-VAD model handle
-- Surface: `FromPath`, `CreateBuilder()`
-
-[WHISPER_VAD_PROCESSOR_BUILDER]:
-- Thresholds: `WithThreshold`, `WithMinSpeechDuration`, `WithMinSilenceDuration`, `WithMaxSpeechDuration`
-- Windows: `WithSpeechPadding`, `WithSamplesOverlap`
-- Execution: `WithThreads`, `WithUseGpu`, `WithGpuDevice`
-- Terminal: `Build()`
-
-[WHISPER_VAD_PROCESSOR]:
-- Contract: `IAsyncDisposable`, `IDisposable`
-- Detection: `DetectSpeech`, `DetectSpeechAsync`, and the `…NoReset` variants
-- State: `ResetState`
-
-[VAD_SEGMENT_DATA]:
-- Span: `Start : TimeSpan`, `End : TimeSpan`
-
-[GGML_RUNTIME_VOCABULARY]: model download + runtime selection — rail: caption
-
-| [INDEX] | [SYMBOL]                | [ROLE]           |
-| :-----: | :---------------------- | :--------------- |
-|  [01]   | `WhisperGgmlDownloader` | model downloader |
-|  [02]   | `GgmlType`              | model variant    |
-|  [03]   | `QuantizationType`      | quantization     |
-|  [04]   | `SileroVadType`         | VAD version      |
-|  [05]   | `RuntimeOptions`        | runtime options  |
-|  [06]   | `RuntimeLibrary`        | runtime selector |
-|  [07]   | `LogProvider`           | logging API      |
-|  [08]   | `WhisperLogLevel`       | log level        |
-
-[WHISPER_GGML_DOWNLOADER]:
-- Instance: `Default`
-- Models: `GetGgmlModelAsync`, `GetGgmlSileroVadModelAsync`
-- Encoders: `GetEncoderCoreMLModelAsync`, `GetEncoderOpenVinoModelAsync`
-- Source: HuggingFace
-
-[GGML_TYPE]:
-- Values: `Tiny`, `TinyEn`, `Base`, `BaseEn`, `Small`, `SmallEn`, `Medium`, `MediumEn`, `LargeV1`, `LargeV2`, `LargeV3`, `LargeV3Turbo`
-
-[QUANTIZATION_TYPE]:
-- Values: `NoQuantization`, `Q4_0`, `Q4_1`, `Q5_0`, `Q5_1`, `Q8_0`
-
-[SILERO_VAD_TYPE]:
-- Values: `V5_1_2`, `V6_2_0`
-- Default: `V6_2_0`
-
-[RUNTIME_SELECTION]:
-- Options: `RuntimeLibraryOrder`, `LibraryPath`, `LoadedLibrary`
-- Default order: `[Cuda, Cuda12, Vulkan, CoreML, OpenVino, Cpu, CpuNoAvx]`
-- Libraries: `Cpu`, `Cuda`, `Cuda12`, `Vulkan`, `CoreML`, `OpenVino`, `CpuNoAvx`
-
-[LOGGING]:
-- Surface: `AddConsoleLogging(minLevel)`, `AddLogger(Action<WhisperLogLevel,string?>)`
-- Levels: `None`, `Error`, `Warning`, `Info`, `Cont`, `Debug`
+[GGML_TYPE]: `Tiny` `TinyEn` `Base` `BaseEn` `Small` `SmallEn` `Medium` `MediumEn` `LargeV1` `LargeV2` `LargeV3` `LargeV3Turbo`
+[QUANTIZATION_TYPE]: `NoQuantization` `Q4_0` `Q4_1` `Q5_0` `Q5_1` `Q8_0`
+[SILERO_VAD_TYPE]: `V5_1_2` `V6_2_0` (default `V6_2_0`)
+[RUNTIME_LIBRARY]: `Cpu` `Cuda` `Cuda12` `Vulkan` `CoreML` `OpenVino` `CpuNoAvx`
+[WHISPER_LOG_LEVEL]: `None` `Error` `Warning` `Info` `Cont` `Debug`
 
 ## [03]-[ENTRYPOINTS]
 
-[LOAD_BUILD_PROCESS]: the factory → builder → processor fold
-- rail: caption
-- `WhisperFactory` loads once and is reused; each `CreateBuilder()` configures one `WhisperProcessor`. `ProcessAsync` streams `SegmentData` as they finalize — the live-caption emit point.
+[MODEL_AND_STREAM]: `WhisperFactory` loads one model and reuses it; each `CreateBuilder()` fold yields one `WhisperProcessor` whose `Process*` methods take `audio` as a `Stream`, `float[]`, `ReadOnlyMemory<float>`, or `ReadOnlySpan<float>`, and every async surface carries a trailing `CancellationToken`.
 
-| [INDEX] | [OPERATION] | [SURFACE_ROOT]     | [CAPABILITY]    |
-| :-----: | :---------- | :----------------- | :-------------- |
-|  [01]   | load        | `WhisperFactory`   | model load      |
-|  [02]   | inspect     | `WhisperFactory`   | runtime probes  |
-|  [03]   | stream      | `WhisperProcessor` | live segments   |
-|  [04]   | batch       | `WhisperProcessor` | transcription   |
-|  [05]   | language    | `WhisperProcessor` | language state  |
-|  [06]   | teardown    | `WhisperProcessor` | resource return |
+| [INDEX] | [SURFACE]                                                         | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `WhisperFactory.FromPath(string, WhisperFactoryOptions?)`         | factory  | load model from disk               |
+|  [02]   | `WhisperFactory.FromBuffer(Memory<byte>, WhisperFactoryOptions?)` | factory  | load model from memory             |
+|  [03]   | `WhisperFactory.CreateBuilder()`                                  | instance | open the builder fold              |
+|  [04]   | `WhisperFactory.GetSupportedLanguages()`                          | static   | supported-language roster          |
+|  [05]   | `WhisperFactory.GetRuntimeInfo()`                                 | static   | native SIMD and acceleration probe |
+|  [06]   | `WhisperProcessor.ProcessAsync(audio)`                            | instance | stream `SegmentData` live          |
+|  [07]   | `WhisperProcessor.Process(audio)`                                 | instance | batch transcription                |
+|  [08]   | `WhisperProcessor.DetectLanguage(float[])`                        | instance | detect language                    |
+|  [09]   | `WhisperProcessor.DetectLanguageWithProbability(float[])`         | instance | scored language detect             |
+|  [10]   | `WhisperProcessor.ChangeLanguage(string?)`                        | instance | mid-stream language switch         |
+|  [11]   | `WhisperProcessor.Return(SegmentData)`                            | instance | return pooled strings              |
+|  [12]   | `WhisperProcessor.DisposeAsync()`                                 | instance | async native teardown              |
 
-[MODEL_LOAD]:
-- Path: `FromPath(string)`, `FromPath(string, WhisperFactoryOptions)`
-- Memory: `FromBuffer(Memory<byte>)`, `FromBuffer(Memory<byte>, WhisperFactoryOptions)`
+- `WhisperProcessor.ProcessAsync`: returns `IAsyncEnumerable<SegmentData>`; `GetSupportedLanguages` returns `IEnumerable<string>` and `GetRuntimeInfo` a `string?`.
+- `WhisperProcessor.DetectLanguageWithProbability`: returns `(string? language, float probability)`; a `(ReadOnlySpan<float>, params ReadOnlySpan<string>)` overload constrains detection to candidate languages.
 
-[FACTORY_INSPECTION]:
-- Surface: `CreateBuilder()`, `GetSupportedLanguages()`, `GetRuntimeInfo()`
-- Role: Open a build fold, probe languages, or probe native SIMD and acceleration.
+[BUILDER_KNOBS]: every knob is a `With*` fold returning `WhisperProcessorBuilder`, `Build()` terminal; the LiveCaption path folds `WithLanguage("auto")` or `WithLanguageDetection()`, `WithTranslate()`, and `WithSegmentEventHandler`, tuned by the threshold and sampling rows.
 
-[STREAM_TRANSCRIPTION]:
-- Surface: `ProcessAsync(Stream, CancellationToken)`, `ProcessAsync(ReadOnlyMemory<float>, …)`, `ProcessAsync(float[], …)`
-- Result: `IAsyncEnumerable<SegmentData>`
+[TASK_LANGUAGE]: `WithLanguage` `WithLanguageDetection` `WithTranslate` `WithPrompt` `WithCarryInitialPrompt` `WithNoContext` `WithSingleSegment` `WithSuppressRegex` `WithoutSuppressBlank`
+[WINDOW]: `WithThreads` `WithOffset` `WithDuration` `WithMaxLastTextTokens` `WithAudioContextSize`
+[SEGMENTATION]: `WithMaxSegmentLength` `WithMaxTokensPerSegment` `SplitOnWord` `WithTokenTimestamps` `WithTokenTimestampsThreshold` `WithTokenTimestampsSumThreshold`
+[THRESHOLDS]: `WithTemperature` `WithTemperatureInc` `WithMaxInitialTs` `WithLengthPenalty` `WithEntropyThreshold` `WithLogProbThreshold` `WithNoSpeechThreshold` `WithProbabilities`
+[SAMPLING]: `WithGreedySamplingStrategy(Action<GreedySamplingStrategyBuilder>)` carries `WithBestOf(int)`; `WithBeamSearchSamplingStrategy(Action<BeamSearchSamplingStrategyBuilder>)` carries `WithBeamSize(int)` and `WithPatience(float)`
+[HANDLERS]: `WithSegmentEventHandler` `WithProgressHandler` `WithEncoderBeginHandler`
+[TRACING]: `WithStringPool` `WithoutStringPool` `WithOpenVinoEncoder` `WithPrintProgress` `WithPrintResults` `WithPrintTimestamps` `WithPrintSpecialTokens`
+[TERMINAL]: `Build() -> WhisperProcessor`
 
-[BATCH_TRANSCRIPTION]:
-- Surface: `Process(Stream)`, `Process(float[])`, `Process(ReadOnlySpan<float>)`
+[VAD_AND_ASSETS]: `WhisperVadProcessor.DetectSpeech*` returns `IReadOnlyList<VadSegmentData>` over the same `audio` union and every async surface carries a trailing `CancellationToken`; the `NoReset` variants keep detector state across calls, and `WhisperGgmlDownloader.Default` fetches every model from HuggingFace.
 
-[LANGUAGE_STATE]:
-- Surface: `DetectLanguage(float[])`, `DetectLanguageWithProbability(float[])`
-- Constrained probe: `DetectLanguageWithProbability(ReadOnlySpan<float>, params ReadOnlySpan<string>)`
-- Mutation: `ChangeLanguage(string?)`
+| [INDEX] | [SURFACE]                                                                       | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------------ | :------- | :----------------------------------- |
+|  [01]   | `WhisperVadFactory.FromPath(string, WhisperFactoryOptions?)`                    | factory  | load Silero-VAD model                |
+|  [02]   | `WhisperVadFactory.CreateBuilder()`                                             | instance | open the VAD tuning fold             |
+|  [03]   | `WhisperVadProcessor.DetectSpeech(audio)`                                       | instance | speech spans, resets state           |
+|  [04]   | `WhisperVadProcessor.DetectSpeechNoReset(audio)`                                | instance | speech spans, keeps state            |
+|  [05]   | `WhisperVadProcessor.DetectSpeechAsync(audio)`                                  | instance | async speech spans                   |
+|  [06]   | `WhisperVadProcessor.ResetState()`                                              | instance | clear detector state                 |
+|  [07]   | `WhisperGgmlDownloader.GetGgmlModelAsync(GgmlType, QuantizationType)`           | instance | fetch ggml weights                   |
+|  [08]   | `WhisperGgmlDownloader.GetGgmlSileroVadModelAsync(SileroVadType)`               | instance | fetch Silero-VAD model               |
+|  [09]   | `WhisperGgmlDownloader.GetEncoderCoreMLModelAsync(GgmlType)`                    | instance | fetch CoreML encoder                 |
+|  [10]   | `WhisperGgmlDownloader.GetEncoderOpenVinoModelAsync(GgmlType)`                  | instance | fetch OpenVINO encoder               |
+|  [11]   | `RuntimeOptions.RuntimeLibraryOrder`                                            | property | native-backend fallback order        |
+|  [12]   | `LogProvider.AddLogger(Action<WhisperLogLevel, string?>)`                       | static   | subscribe native logs                |
+|  [13]   | `WhisperSpeechToTextClient.GetStreamingTextAsync(Stream, SpeechToTextOptions?)` | instance | streaming `ISpeechToTextClient` seam |
 
-[PROCESSOR_TEARDOWN]:
-- Surface: `DisposeAsync()`, `Return(SegmentData)`
-- Role: Tear down asynchronously or return pooled strings.
+[VAD_KNOBS]: `WithThreshold` `WithMinSpeechDuration` `WithMinSilenceDuration` `WithMaxSpeechDuration` `WithSpeechPadding` `WithSamplesOverlap` `WithThreads` `WithUseGpu` `WithGpuDevice` `Build()`
 
-[BUILDER_KNOBS]: the polymorphic `With*` configuration surface on `WhisperProcessorBuilder`
-- rail: caption
-- One builder owns all variation; the LiveCaption path is `WithLanguage("auto")` (or `WithLanguageDetection()`) + `WithTranslate()` (recognize + translate-to-English in one pass) + `WithSegmentEventHandler`/streaming, tuned by the threshold and sampling rows.
-
-| [INDEX] | [FAMILY]                | [CAPABILITY]       |
-| :-----: | :---------------------- | :----------------- |
-|  [01]   | task and language       | prompt policy      |
-|  [02]   | threading and window    | audio window       |
-|  [03]   | segmentation and timing | caption chunks     |
-|  [04]   | decoding thresholds     | confidence gates   |
-|  [05]   | sampling strategy       | decoder selection  |
-|  [06]   | event handlers          | callback routing   |
-|  [07]   | performance and tracing | runtime tuning     |
-|  [08]   | terminal                | processor creation |
-
-[TASK_AND_LANGUAGE]:
-- Task: `WithLanguage(string)`, `WithLanguageDetection()`, `WithTranslate()`
-- Context: `WithNoContext()`, `WithSingleSegment()`, `WithPrompt(string)`, `WithCarryInitialPrompt(bool)`
-- Suppression: `WithSuppressRegex(string)`, `WithoutSuppressBlank()`
-
-[THREADING_AND_WINDOW]:
-- Surface: `WithThreads(int)`, `WithOffset(TimeSpan)`, `WithDuration(TimeSpan)`
-- Context: `WithMaxLastTextTokens(int)`, `WithAudioContextSize(int)`
-
-[SEGMENTATION_AND_TIMING]:
-- Segments: `WithMaxSegmentLength(int)`, `WithMaxTokensPerSegment(int)`, `SplitOnWord()`
-- Timestamps: `WithTokenTimestamps()`, `WithTokenTimestampsThreshold(float)`, `WithTokenTimestampsSumThreshold(float)`
-
-[DECODING_THRESHOLDS]:
-- Temperature: `WithTemperature(float)`, `WithTemperatureInc(float)`, `WithMaxInitialTs(float)`
-- Quality: `WithLengthPenalty(float)`, `WithEntropyThreshold(float)`, `WithLogProbThreshold(float)`, `WithNoSpeechThreshold(float)`
-- Output: `WithProbabilities()`
-
-[SAMPLING_STRATEGY]:
-- Greedy: `WithGreedySamplingStrategy(Action<GreedySamplingStrategyBuilder>)` with `WithBestOf(int)`
-- Beam: `WithBeamSearchSamplingStrategy(Action<BeamSearchSamplingStrategyBuilder>)` with `WithBeamSize(int)` and `WithPatience(float)`
-
-[EVENT_HANDLERS]:
-- Segment: `WithSegmentEventHandler(OnSegmentEventHandler)`
-- Progress: `WithProgressHandler(OnProgressHandler)`
-- Encoder: `WithEncoderBeginHandler(OnEncoderBeginEventHandler)`
-
-[PERFORMANCE_AND_TRACING]:
-- Pooling: `WithStringPool(IStringPool?)`, `WithoutStringPool()`
-- Encoder: `WithOpenVinoEncoder(string?, string?, string?)`
-- Tracing: `WithPrintProgress()`, `WithPrintResults()`, `WithPrintTimestamps(bool)`, `WithPrintSpecialTokens()`
-
-[BUILD_TERMINAL]:
-- Surface: `Build()`
-- Result: `WhisperProcessor`
-
-[VAD_AND_ASSETS]: Silero VAD pipeline + ggml download + runtime/log
-- rail: caption
-
-| [INDEX] | [OPERATION] | [SURFACE_ROOT]              | [CAPABILITY]    |
-| :-----: | :---------- | :-------------------------- | :-------------- |
-|  [01]   | configure   | `WhisperVadFactory`         | VAD load        |
-|  [02]   | detect      | `WhisperVadProcessor`       | speech spans    |
-|  [03]   | fetch       | `WhisperGgmlDownloader`     | model assets    |
-|  [04]   | select      | `RuntimeOptions`            | native runtime  |
-|  [05]   | log         | `LogProvider`               | native logs     |
-|  [06]   | transcribe  | `WhisperSpeechToTextClient` | caption streams |
-
-[VAD_CONFIGURATION]:
-- Surface: `FromPath(string)` → `CreateBuilder()` → `Build()`
-
-[SPEECH_DETECTION]:
-- Sync: `DetectSpeech(Stream/float[]/ReadOnlySpan<float>)`
-- Async: `DetectSpeechAsync(Stream/float[]/ReadOnlyMemory<float>, CancellationToken)`
-- State: `…NoReset`, `ResetState()`
-- Result: `VadSegmentData` spans before transcription
-
-[MODEL_ASSETS]:
-- Instance: `Default`
-- Model: `GetGgmlModelAsync(GgmlType, QuantizationType, CancellationToken)`
-- VAD: `GetGgmlSileroVadModelAsync(SileroVadType, CancellationToken)`
-- Source: HuggingFace
-
-[NATIVE_RUNTIME]:
-- Surface: `RuntimeLibraryOrder`, `LibraryPath`, `LoadedLibrary`
-
-[NATIVE_LOGGING]:
-- Surface: `AddConsoleLogging(WhisperLogLevel)`, `AddLogger(Action<WhisperLogLevel,string?>)`
-
-[SPEECH_TO_TEXT_CLIENT]:
-- Stream: `GetStreamingTextAsync(Stream, SpeechToTextOptions?, CancellationToken)`
-- Batch: `GetTextAsync(...)`
-- Role: Microsoft.Extensions.AI streaming-caption seam
+[CAPTION_RECEIPT]: the read surface a caption consumer projects off each emitted row.
+- SegmentData: `Text` `Language` `Tokens : WhisperToken[]`; `Start`/`End : TimeSpan`; `Probability` `MinProbability` `MaxProbability` `NoSpeechProbability : float`
+- WhisperToken: `Id` `TimestampId : int`; `Text : string?`; `Start`/`End`/`DtwTimestamp : long`; `VoiceLen` `Probability` `ProbabilityLog` `TimestampProbability` `TimestampProbabilitySum : float`
+- VadSegmentData: `Start`/`End : TimeSpan`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CAPTION_LAW]:
-- Package: `Whisper.net`
-- Owns: offline speech-to-text for LiveCaption — model load (`WhisperFactory.FromPath`/`FromBuffer`), the one polymorphic `WhisperProcessorBuilder` `With*` fold, streaming transcription (`WhisperProcessor.ProcessAsync` → `IAsyncEnumerable<SegmentData>`), the built-in translate-to-English task (`WithTranslate`), language auto-detect (`DetectLanguage`/`WithLanguageDetection`), token timestamps (DTW alignment heads), and the separate Silero-VAD segmentation pipeline.
-- Accept: the LiveCaption rail loads one `WhisperFactory` per session and streams captions through `ProcessAsync`, configured on the single builder (`WithLanguage`/`WithTranslate`/thresholds/sampling/`WithSegmentEventHandler`); `WhisperVadProcessor.DetectSpeech*` gates transcription to speech spans; `SegmentData.Start`/`End` `TimeSpan`s drive caption timing; the Microsoft.Extensions.AI `WhisperSpeechToTextClient.GetStreamingTextAsync` is the abstraction seam where the caption UI consumes an `ISpeechToTextClient`; runtime selection is `RuntimeOptions.RuntimeLibraryOrder` (CoreML on Apple silicon).
-- Reject: a cloud STT dependency where offline `whisper.cpp` inference is the mandate; a `Get`/`GetMany`/`Transcribe`/`Translate` operation family where the one builder + `ProcessAsync` discriminate task by `With*` row and input by overload; a hand-rolled VAD where the Silero pipeline owns it; a hand-rolled ICU/plural translation of caption text where `WithTranslate` performs recognition+translation in the model pass; leaking the `WhisperFactory`/`WhisperProcessor`/VAD handles where `IDisposable`/`IAsyncDisposable` teardown frees the native context.
-- Provisioning is honest: the ggml model file and the Silero-VAD model are fetched once through `WhisperGgmlDownloader` and cached on disk (never embedded), and the native `whisper.cpp` runtime is a separate `Whisper.net.Runtime*` package — a missing model or runtime is a host-provisioning fault surfaced through `WhisperModelLoadException` and the `LogProvider` rail.
+[TOPOLOGY]:
+- Every caption folds through one loaded `WhisperFactory`: `CreateBuilder()` configures one `WhisperProcessor` on the single `With*` builder, `ProcessAsync` streams `SegmentData` off one native context that `IDisposable`/`IAsyncDisposable` teardown frees, and optional Silero VAD gates audio to speech spans before the processor reads it.
 
 [STACKING]:
-- Complements `api-messageformat.md`: `Whisper.net.WithTranslate` produces English caption text; `MessageFormat` owns the CLDR plural/select localization of the surrounding UI chrome — recognition/translation versus message formatting is the seam, never overlapped.
-- Complements `api-libmpv.md` / `api-ffmpeg-autogen.md`: `libmpv` decodes the media whose audio track feeds captions; `Whisper.net` transcribes; `FFmpeg.AutoGen` encodes the deliverable — decode, transcribe, encode are three distinct owners over the media spine.
-- The `SegmentData` stream is a receipt row on the AppUi telemetry spine exactly as the wgpu/libmpv native log streams are — a low-confidence segment (`NoSpeechProbability`, `Probability` gates) is a counted caption-quality fact, not a swallowed print.
+- `api-messageformat`(`.api/api-messageformat.md`): `WithTranslate` emits English caption text while `MessageFormat` owns the CLDR plural/select formatting of the surrounding UI chrome — recognition and translation versus message formatting is the seam.
+- `api-libmpv`(`.api/api-libmpv.md`), `api-ffmpeg-autogen`(`.api/api-ffmpeg-autogen.md`): `libmpv` decodes the media audio track, `Whisper.net` transcribes it, `FFmpeg.AutoGen` encodes the deliverable — decode, transcribe, and encode are three owners over the media spine.
+- `WaveParser` converts a 16 kHz PCM `Stream` to the `float[]` samples `ProcessAsync` and `DetectSpeech` consume, and each `SegmentData` is a receipt row on the AppUi telemetry spine where a low-confidence segment (`NoSpeechProbability` and `Probability` gates) is a counted caption-quality fact.
 
-> [!IMPORTANT]
-> The core `Whisper.net` assembly ships NEITHER the native inference library NOR model weights. The native `whisper.cpp` runtime is provisioned by a separate `Whisper.net.Runtime*` package (`Whisper.net.Runtime.CoreML` on Apple silicon, `.Runtime.Cuda`/`.Runtime.Cuda12` on NVIDIA, `.Runtime.Vulkan`/`.Runtime.OpenVino`, `.Runtime` CPU, `.Runtime.NoAvx`) and selected at load time by `RuntimeOptions.RuntimeLibraryOrder`. The ggml model weights (and the Silero-VAD model) download separately at first use through `WhisperGgmlDownloader.Default` from the HuggingFace repository and are cached on disk — the app-host distribution layer owns both provisioning steps, exactly as the `FFmpeg`/`libmpv` natives are provisioned.
+[LOCAL_ADMISSION]:
+- Offline speech-to-text intent loads one `WhisperFactory` per session and streams through `ProcessAsync`; the native `whisper.cpp` runtime rides a separate `Whisper.net.Runtime*` package selected by `RuntimeOptions.RuntimeLibraryOrder` (`CoreML` on Apple silicon), and the ggml weights and the Silero-VAD model download once through `WhisperGgmlDownloader.Default` and cache on disk. A missing runtime or model surfaces through `WhisperModelLoadException` and the `LogProvider` rail.
+
+[RAIL_LAW]:
+- Package: `Whisper.net`
+- Owns: offline speech-to-text for LiveCaption — model load, the one `WhisperProcessorBuilder` `With*` fold, streaming `ProcessAsync` to `IAsyncEnumerable<SegmentData>`, in-model translate-to-English (`WithTranslate`), language auto-detect, DTW token timestamps, and Silero-VAD segmentation.
+- Accept: one `WhisperFactory` per session streaming through `ProcessAsync`; task and tuning on the single builder; `WhisperVadProcessor.DetectSpeech*` gating to speech spans; `SegmentData.Start`/`End` `TimeSpan`s driving caption timing; `WhisperSpeechToTextClient.GetStreamingTextAsync` as the `ISpeechToTextClient` seam.
+- Reject: a cloud STT dependency where offline `whisper.cpp` is the mandate; a `Get`/`Transcribe`/`Translate` operation family where the one builder plus `ProcessAsync` discriminate task by `With*` row and input by overload; a hand-rolled VAD beside the Silero pipeline; an inline translation of caption text beside `WithTranslate`; leaking the factory, processor, or VAD handles past their `IDisposable`/`IAsyncDisposable` teardown.

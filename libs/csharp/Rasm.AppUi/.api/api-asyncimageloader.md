@@ -1,141 +1,94 @@
 # [RASM_APPUI_API_ASYNCIMAGELOADER]
 
-`AsyncImageLoader.Avalonia` (MIT, `net8.0` lib bound under the net10 consumer) supplies the `AdvancedImage` content control, two attached-loading statics (`ImageLoader` on `Image`, `ImageBrushLoader` on `ImageBrush`), the `IAsyncImageLoader`/`IAdvancedAsyncImageLoader` loader contracts, and a three-level web-image-loader hierarchy (`BaseWebImageLoader` → `RamCachedWebImageLoader` → `DiskCachedWebImageLoader`) for asynchronous, cached bitmap sourcing off the UI thread. Cache policy belongs to the chosen loader instance; the loader takes an injectable `HttpClient`, so it composes with the AppHost networking stack rather than owning a private one.
+`AsyncImageLoader.Avalonia` sources bitmaps asynchronously off the UI thread, carrying load state, fallbacks, and loader-typed cache policy. `AdvancedImage` and the attached `ImageLoader`/`ImageBrushLoader` statics bind a URL or URI `Source` to a cached bitmap through an `IAsyncImageLoader`, and the web-image-loader hierarchy owns HTTP fetch with RAM and disk caching. Each loader takes an injected `HttpClient`, composing with the AppHost networking stack rather than owning a private one.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AsyncImageLoader.Avalonia`
-- package / license: `AsyncImageLoader.Avalonia` / MIT
+- package: `AsyncImageLoader.Avalonia` (MIT)
 - assembly: `AsyncImageLoader.Avalonia`
-- asset: `net8.0` (only lib; consumer-bound under net10)
 - namespace: `AsyncImageLoader`, `AsyncImageLoader.Loaders`
+- target: `net8.0` lib bound under the net10 consumer
 - rail: images
 
 ## [02]-[PUBLIC_TYPES]
 
-[CONTROL_TYPES]: image control and attached surfaces
-- rail: images
+[PUBLIC_TYPE_SCOPE]: image control, attached statics, loader contracts, and cache hierarchy
 
-`AdvancedImage` owns self-loading image control, and its internally constructed `ImageWrapper` wraps the resolved `IImage`. The static loaders own attached loading and their global loader instances for `Image` and `ImageBrush`.
-
-| [INDEX] | [SYMBOL]                     | [SHAPE]            | [RAIL]                  |
-| :-----: | :--------------------------- | :----------------- | :---------------------- |
-|  [01]   | `AdvancedImage`              | `: ContentControl` | async image control     |
-|  [02]   | `AdvancedImage.ImageWrapper` | `sealed : IImage`  | drawable wrapper        |
-|  [03]   | `ImageLoader`                | `static`           | `Image` attachment      |
-|  [04]   | `ImageBrushLoader`           | `static`           | `ImageBrush` attachment |
-
-[LOADER_TYPES]: loader contracts and cache hierarchy
-- rail: images
-
-The two interfaces extend `IDisposable`. `IAsyncImageLoader` declares `Task<Bitmap?> ProvideImageAsync(string url)`, and `IAdvancedAsyncImageLoader` declares `Task<Bitmap?> ProvideImageAsync(string url, IStorageProvider? = null)` for `avares:` and storage-scoped URIs. `BaseWebImageLoader` implements both interfaces as an HTTP loader with an injectable `HttpClient`. The concrete hierarchy is linear: `RamCachedWebImageLoader` adds an in-memory bitmap cache, and `DiskCachedWebImageLoader` inherits that cache while adding an on-disk cache folder.
-
-| [INDEX] | [SYMBOL]                    | [ROLE]                 |
-| :-----: | :-------------------------- | :--------------------- |
-|  [01]   | `IAsyncImageLoader`         | loader contract        |
-|  [02]   | `IAdvancedAsyncImageLoader` | storage-aware contract |
-|  [03]   | `BaseWebImageLoader`        | HTTP loader            |
-|  [04]   | `RamCachedWebImageLoader`   | memory cache           |
-|  [05]   | `DiskCachedWebImageLoader`  | disk cache             |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY]                             |
+| :-----: | :--------------------------- | :------------ | :--------------------------------------- |
+|  [01]   | `AdvancedImage`              | class         | self-loading `ContentControl` image      |
+|  [02]   | `AdvancedImage.ImageWrapper` | sealed class  | `IImage` wrapper over the resolved image |
+|  [03]   | `ImageLoader`                | static class  | attached loading on `Image`              |
+|  [04]   | `ImageBrushLoader`           | static class  | attached loading on `ImageBrush`         |
+|  [05]   | `IAsyncImageLoader`          | interface     | `IDisposable` URL-to-bitmap contract     |
+|  [06]   | `IAdvancedAsyncImageLoader`  | interface     | storage-aware URL-to-bitmap contract     |
+|  [07]   | `BaseWebImageLoader`         | class         | HTTP loader over injectable `HttpClient` |
+|  [08]   | `RamCachedWebImageLoader`    | class         | in-memory bitmap cache                   |
+|  [09]   | `DiskCachedWebImageLoader`   | class         | on-disk cache over the RAM cache         |
 
 ## [03]-[ENTRYPOINTS]
 
-[CONTROL_ENTRYPOINTS]: `AdvancedImage` construction + properties
-- rail: images
+[ENTRYPOINT_SCOPE]: control construction and properties, attached statics, loader construction, resolution, and protected extension points
 
-`AdvancedImage` has no parameterless constructor. `.ctor(Uri? baseUri)` constructs the control directly, and `baseUri` roots the relative `avares:` and `Source` references it resolves; `new AdvancedImage(new Uri(source))` is the direct form. `.ctor(IServiceProvider)` is the XAML/DI form and pulls `IUriContext.BaseUri`. `Source` accepts URL or URI input. `Loader`, `Source`, `FallbackImage`, `Stretch`, and `StretchDirection` are `StyledProperty` surfaces. `IsLoading`, `CurrentImage`, and `ShouldLoaderChangeTriggerUpdate` are read-projecting `DirectProperty` surfaces that bind one-way into view state.
+| [INDEX] | [SURFACE]                                                               | [SHAPE]  | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------------- | :------- | :--------------------------------- |
+|  [01]   | `AdvancedImage.ctor(Uri?)`                                              | ctor     | direct construction                |
+|  [02]   | `AdvancedImage.ctor(IServiceProvider)`                                  | ctor     | XAML/DI construction               |
+|  [03]   | `AdvancedImage.Source` (`string?`)                                      | property | URL or URI source input            |
+|  [04]   | `AdvancedImage.Loader` (`IAsyncImageLoader?`)                           | property | per-control loader override        |
+|  [05]   | `AdvancedImage.FallbackImage` (`Bitmap?`)                               | property | failure bitmap                     |
+|  [06]   | `AdvancedImage.Stretch` (`Stretch`)                                     | property | stretch policy                     |
+|  [07]   | `AdvancedImage.StretchDirection` (`StretchDirection`)                   | property | stretch direction                  |
+|  [08]   | `AdvancedImage.ShouldLoaderChangeTriggerUpdate` (`bool`)                | property | reload on loader swap              |
+|  [09]   | `AdvancedImage.CurrentImage` (`IImage?`)                                | property | resolved image projection          |
+|  [10]   | `AdvancedImage.IsLoading` (`bool`)                                      | property | read-only load state               |
+|  [11]   | `ImageLoader.SetSource(Image, string?)`                                 | static   | attach URL to `Image`              |
+|  [12]   | `ImageLoader.GetSource(Image)`                                          | static   | read attached URL                  |
+|  [13]   | `ImageLoader.GetIsLoading(Image)`                                       | static   | read attached load state           |
+|  [14]   | `ImageLoader.AsyncImageLoader` (`IAsyncImageLoader`)                    | property | global `Image` loader              |
+|  [15]   | `ImageLoader.AsyncImageLoaderLogArea` (`const string`)                  | static   | log-area key                       |
+|  [16]   | `ImageBrushLoader.SetSource(ImageBrush, string?)`                       | static   | attach URL to `ImageBrush`         |
+|  [17]   | `ImageBrushLoader.GetSource(ImageBrush)`                                | static   | read attached URL                  |
+|  [18]   | `ImageBrushLoader.SetFallbackImage(ImageBrush, Bitmap?)`                | static   | attach fallback bitmap             |
+|  [19]   | `ImageBrushLoader.GetFallbackImage(ImageBrush)`                         | static   | read attached fallback             |
+|  [20]   | `ImageBrushLoader.GetIsLoading(ImageBrush)`                             | static   | read attached load state           |
+|  [21]   | `ImageBrushLoader.AsyncImageLoader` (`IAsyncImageLoader`)               | property | global `ImageBrush` loader         |
+|  [22]   | `BaseWebImageLoader.ctor()`                                             | ctor     | owns and disposes a private client |
+|  [23]   | `BaseWebImageLoader.ctor(HttpClient, bool)`                             | ctor     | injected client with dispose flag  |
+|  [24]   | `RamCachedWebImageLoader.ctor()`                                        | ctor     | private client, RAM cache          |
+|  [25]   | `RamCachedWebImageLoader.ctor(HttpClient, bool)`                        | ctor     | injected client, RAM cache         |
+|  [26]   | `DiskCachedWebImageLoader.ctor(string)`                                 | ctor     | cache-folder construction          |
+|  [27]   | `DiskCachedWebImageLoader.ctor(HttpClient, bool, string)`               | ctor     | injected cache construction        |
+|  [28]   | `ProvideImageAsync(string) -> Task<Bitmap?>`                            | instance | bitmap resolution                  |
+|  [29]   | `ProvideImageAsync(string, IStorageProvider?) -> Task<Bitmap?>`         | instance | storage-scoped resolution          |
+|  [30]   | `RamCachedWebImageLoader.ClearRamCache()`                               | instance | evict the in-memory cache          |
+|  [31]   | `BaseWebImageLoader.HttpClient` (`protected`)                           | property | shared client handle               |
+|  [32]   | `BaseWebImageLoader.LoadAsync(string, IStorageProvider?)`               | instance | protected resolve override         |
+|  [33]   | `BaseWebImageLoader.LoadFromInternalAsync(string)`                      | instance | protected local/`avares:` resolve  |
+|  [34]   | `BaseWebImageLoader.LoadDataFromExternalAsync(string) -> Task<byte[]?>` | instance | protected HTTP fetch               |
+|  [35]   | `BaseWebImageLoader.LoadFromGlobalCache(string)`                        | instance | protected cache read               |
+|  [36]   | `BaseWebImageLoader.SaveToGlobalCache(string, byte[])`                  | instance | protected cache write              |
+|  [37]   | `BaseWebImageLoader.Dispose()`                                          | instance | HTTP and cache teardown            |
 
-Every surface in the table belongs to `AdvancedImage`.
+- `AdvancedImage`: no parameterless ctor; `Uri? baseUri` roots relative `avares:` and `Source` references, `.ctor(IServiceProvider)` pulls `IUriContext.BaseUri`.
+- `DiskCachedWebImageLoader`: overrides `LoadFromGlobalCache`/`SaveToGlobalCache` against the disk cache folder while inheriting the RAM cache.
 
-| [INDEX] | [SURFACE]                         | [TYPE]               | [RAIL]               |
-| :-----: | :-------------------------------- | :------------------- | :------------------- |
-|  [01]   | `Source`                          | `string?`            | source input         |
-|  [02]   | `Loader`                          | `IAsyncImageLoader?` | per-control override |
-|  [03]   | `FallbackImage`                   | `Bitmap?`            | failure bitmap       |
-|  [04]   | `CurrentImage`                    | `IImage?`            | resolved image       |
-|  [05]   | `IsLoading`                       | `bool`               | load state           |
-|  [06]   | `Stretch`                         | `Stretch`            | layout policy        |
-|  [07]   | `StretchDirection`                | `StretchDirection`   | layout policy        |
-|  [08]   | `ShouldLoaderChangeTriggerUpdate` | `bool`               | loader-change reload |
-|  [09]   | `.ctor(Uri? baseUri)`             | construction         | direct construction  |
-|  [10]   | `.ctor(IServiceProvider)`         | construction         | service construction |
+## [04]-[IMPLEMENTATION_LAW]
 
-[ATTACHED_ENTRYPOINTS]: attached loading on plain `Image` / `ImageBrush`
-- rail: images
+[TOPOLOGY]:
+- Every image resolves off the UI thread through the active `IAsyncImageLoader`, which owns cache policy, load state, and fallback; the concrete loaders form the linear `BaseWebImageLoader -> RamCachedWebImageLoader -> DiskCachedWebImageLoader` chain where each level composes the level below.
 
-`ImageLoader` targets `Image`; `ImageBrushLoader` targets `ImageBrush`. Both expose a settable static `AsyncImageLoader` of type `IAsyncImageLoader` whose default is a `RamCachedWebImageLoader`. The `Source` change handler dispatches to `IAdvancedAsyncImageLoader` with the host `TopLevel.StorageProvider` when the active loader implements it. `ImageBrushLoader.SourceProperty`, `FallbackImageProperty`, and `IsLoadingProperty` are attached properties.
+[STACKING]:
+- `api-avalonia`(`.api/api-avalonia.md`): a loader implementing `IAdvancedAsyncImageLoader` resolves `avares:` and storage URIs through the control's `TopLevel.StorageProvider` (`IStorageProvider`), so one `Source` string addresses both remote HTTP and app-scoped resources.
+- `api-reactiveui`(`.api/api-reactiveui.md`): the `AdvancedImage.IsLoading`/`CurrentImage` `DirectProperty` projections bind one-way to a `ReactiveObject` view-model flag for spinner and image state.
+- AppUi composition: `.ctor(HttpClient, false)` injects the AppHost-owned client so the loader rides the shared handler, auth, proxy, and resilience policy; the AppHost cache path roots `DiskCachedWebImageLoader(cacheFolder)` for restart-surviving assets while `RamCachedWebImageLoader` serves session thumbnails.
 
-| [INDEX] | [SURFACE]                   | [SURFACE_ROOT]     | [RAIL]              |
-| :-----: | :-------------------------- | :----------------- | :------------------ |
-|  [01]   | `SetSource(Image, string?)` | `ImageLoader`      | attached URL write  |
-|  [02]   | `GetSource(Image)`          | `ImageLoader`      | attached URL read   |
-|  [03]   | `GetIsLoading(Image)`       | `ImageLoader`      | attached load state |
-|  [04]   | `AsyncImageLoader`          | `ImageLoader`      | global loader       |
-|  [05]   | `AsyncImageLoaderLogArea`   | `ImageLoader`      | `const string` key  |
-|  [06]   | `SourceProperty`            | `ImageBrushLoader` | attached source     |
-|  [07]   | `FallbackImageProperty`     | `ImageBrushLoader` | attached fallback   |
-|  [08]   | `IsLoadingProperty`         | `ImageBrushLoader` | attached load state |
-|  [09]   | `AsyncImageLoader`          | `ImageBrushLoader` | global loader       |
+[LOCAL_ADMISSION]:
+- Remote or async image intent binds `AdvancedImage.Loader` or an attached `ImageLoader`/`ImageBrushLoader.AsyncImageLoader`; the loader instance selects RAM-only or RAM-plus-disk caching by type.
 
-[LOADER_ENTRYPOINTS]: loader construction and resolution
-- rail: images
-
-`BaseWebImageLoader` and `RamCachedWebImageLoader` expose both loader constructors. `DiskCachedWebImageLoader` exposes the two cache-folder constructors. Every `ProvideImageAsync` overload returns `Task<Bitmap?>`. `HttpClient` is protected, and the three load extension points are protected virtual members of `BaseWebImageLoader`. `Dispose()` tears down HTTP and cache resources.
-
-| [INDEX] | [SURFACE]                                      | [SURFACE_ROOT]                    | [RAIL]                      |
-| :-----: | :--------------------------------------------- | :-------------------------------- | :-------------------------- |
-|  [01]   | `.ctor()`                                      | `BaseWebImageLoader`              | default construction        |
-|  [02]   | `.ctor(HttpClient, bool disposeHttpClient)`    | `BaseWebImageLoader`              | injected construction       |
-|  [03]   | `.ctor()`                                      | `RamCachedWebImageLoader`         | default construction        |
-|  [04]   | `.ctor(HttpClient, bool disposeHttpClient)`    | `RamCachedWebImageLoader`         | injected construction       |
-|  [05]   | `.ctor(string cacheFolder = "Cache/Images/")`  | `DiskCachedWebImageLoader`        | cache construction          |
-|  [06]   | `.ctor(HttpClient, bool, string cacheFolder)`  | `DiskCachedWebImageLoader`        | injected cache construction |
-|  [07]   | `ProvideImageAsync(string)`                    | `IAsyncImageLoader` impls         | bitmap resolution           |
-|  [08]   | `ProvideImageAsync(string, IStorageProvider?)` | `IAdvancedAsyncImageLoader` impls | storage resolution          |
-|  [09]   | `HttpClient`                                   | `BaseWebImageLoader`              | protected client            |
-|  [10]   | `LoadAsync`                                    | `BaseWebImageLoader`              | protected extension         |
-|  [11]   | `LoadFromLocalAsync`                           | `BaseWebImageLoader`              | protected extension         |
-|  [12]   | `LoadFromGlobalCache`                          | `BaseWebImageLoader`              | protected extension         |
-|  [13]   | `Dispose()`                                    | `BaseWebImageLoader`              | loader teardown             |
-
-## [04]-[INTEGRATION]
-
-[STACK_HTTPCLIENT]:
-- The `BaseWebImageLoader(HttpClient, bool disposeHttpClient)` ctor is the integration
-  seam: inject the AppHost-owned `HttpClient` (shared handler, auth headers, proxy,
-  resilience policy) and pass `disposeHttpClient: false` so the loader rides the shared
-  connection pool instead of opening a private `HttpClient`. The parameterless ctor owns
-  and disposes its own client — use it only for isolated/throwaway loaders.
-
-[STACK_LOADER_SELECTION]:
-- Cache policy is loader-typed, never per-call: `RamCachedWebImageLoader` for
-  session-scoped thumbnails, `DiskCachedWebImageLoader(cacheFolder)` for assets that must
-  survive restart (root the cache folder under the AppHost cache path, not the default
-  relative `"Cache/Images/"`). Set the chosen loader once on `ImageLoader.AsyncImageLoader`
-  for the global default, or per-control on `AdvancedImage.Loader` to override.
-
-[STACK_STORAGE_PROVIDER]:
-- A loader implementing `IAdvancedAsyncImageLoader` resolves storage/`avares:` URIs via
-  the control's `TopLevel.StorageProvider` (`api-avalonia.md`) — the same `IStorageProvider`
-  the behavior-rail pickers (`api-behaviors.md`) use. This lets one URL string address both
-  remote HTTP images and app/storage-scoped resources through a single `Source` binding.
-
-[STACK_FALLBACK_STATE]:
-- `AdvancedImage.IsLoading`/`CurrentImage` are `DirectProperty` read projections; bind a
-  ReactiveUI view-model loading flag (`api-reactiveui.md`) to `IsLoading` for spinners, and
-  set `FallbackImage` to a themed placeholder `Bitmap` so failed loads degrade visibly
-  without a code-behind error path.
-
-## [05]-[IMPLEMENTATION_LAW]
-
-[IMAGE_LAW]:
-- Package: `AsyncImageLoader.Avalonia` (MIT, net8.0)
-- Owns: asynchronous off-UI-thread bitmap sourcing, load state, fallbacks, and cache policy
-- Accept: remote/async image intent maps to `AdvancedImage` or attached `ImageLoader`/`ImageBrushLoader`; loaders take an injected `HttpClient`
-- Reject: blocking bitmap loads on the UI thread; a private `HttpClient` when the AppHost networking stack exists
-
-[CACHE_LAW]:
+[RAIL_LAW]:
 - Package: `AsyncImageLoader.Avalonia`
-- Owns: RAM and disk caching through the linear `Base → RamCached → DiskCached` loader hierarchy
-- Accept: cache behavior selected by loader instance/type (RAM-only vs RAM+disk), not per-call flags; disk cache rooted at an explicit `cacheFolder`
-- Reject: bespoke image-cache layers beside the loader hierarchy; treating `DiskCachedWebImageLoader` as RAM-bypassing (it inherits RAM caching)
+- Owns: off-UI-thread bitmap sourcing with load state, fallback, and loader-typed cache policy across the `Base -> RamCached -> DiskCached` hierarchy
+- Accept: async image intent bound to `AdvancedImage` or an attached loader; cache behavior selected by loader type; an injected `HttpClient`; disk cache rooted at an explicit `cacheFolder`
+- Reject: blocking bitmap loads on the UI thread; a private `HttpClient` beside the AppHost networking stack; a bespoke image-cache layer beside the loader hierarchy

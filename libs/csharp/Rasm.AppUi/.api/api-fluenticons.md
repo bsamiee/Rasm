@@ -1,159 +1,131 @@
 # [RASM_APPUI_API_FLUENTICONS]
 
-`FluentIcons.Common` (MIT) supplies the platform-neutral icon vocabulary: the `Symbol` (2789 members, `int`-backed) and `Icon` enums, the `IconVariant` (byte, 4 cases) and `IconSize` (byte, 9 cases) axes, and their static enumeration helpers. `FluentIcons.Avalonia` (MIT) supplies the font-backed icon controls (`SymbolIcon`/`SymbolImage`/`FluentIcon`/`FluentImage`), the `Outline` attached-property accessor, and four XAML markup extensions. `Common` is multi-target (`netstandard2.1` primary, `netstandard2.0` fallback) and binds `netstandard2.1` under the net10 consumer; `Avalonia` ships a `net10.0` library alongside `net8.0` and binds `net10.0`. The vocabulary is the canonical icon-identity surface; controls render a glyph by enum member rather than by string key or bitmap path.
+`FluentIcons.Common` owns the platform-neutral icon vocabulary — the `Symbol` and `Icon` glyph enums with the `IconVariant` and `IconSize` axes — as enum-member identity any layer models without an Avalonia reference. `FluentIcons.Avalonia` renders that vocabulary through font-backed controls, image sources, the `Outline` attached accessor, and XAML markup extensions, binding a glyph by enum member rather than string key or bitmap path.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentIcons.Common`
-- package / license: `FluentIcons.Common` / MIT
+- package: `FluentIcons.Common` (MIT)
 - assembly: `FluentIcons.Common`
-- asset: `netstandard2.1` (consumer-bound) + `netstandard2.0` fallback
 - namespace: `FluentIcons.Common`
+- target: `netstandard2.1`
 - rail: icons
 
 [PACKAGE_SURFACE]: `FluentIcons.Avalonia`
-- package / license: `FluentIcons.Avalonia` / MIT
+- package: `FluentIcons.Avalonia` (MIT)
 - assembly: `FluentIcons.Avalonia`
-- asset: `net10.0` (consumer-bound) + `net8.0`
-- namespace: `FluentIcons.Avalonia`, `FluentIcons.Avalonia.Markup` (public); `FluentIcons.Avalonia.Internals` (bases/converters)
+- namespace: `FluentIcons.Avalonia`, `FluentIcons.Avalonia.Markup`; `FluentIcons.Avalonia.Internals` (bases, converters)
+- target: `net10.0`
+- depends: `Avalonia`, `FluentIcons.Common`, `FluentIcons.Resources.Avalonia` (glyph font)
 - rail: icons
 
 ## [02]-[PUBLIC_TYPES]
 
-[COMMON_TYPES]: shared vocabulary — `FluentIcons.Common`
-- rail: icons
+[COMMON_TYPES]: platform-neutral vocabulary — `FluentIcons.Common`
 
-`Symbol` and `Icon` are distinct glyph enums. `Symbol` is the full named-glyph set used by Avalonia controls; `Icon` is the smaller resizable-icon set whose non-resizable members carry the `[NonResizable]` attribute, such as `AppStore`, so size selection applies only to unattributed `Icon` members.
+`Symbol` is the full named-glyph set the Avalonia controls render; `Icon` is the smaller resizable set whose `[NonResizable]`-attributed members carry no resizable glyph, so `IconSize` selection binds only unattributed `Icon` members.
 
-| [INDEX] | [SYMBOL]            | [SHAPE]                                | [RAIL]                        |
-| :-----: | :------------------ | :------------------------------------- | :---------------------------- |
-|  [01]   | `Symbol`            | `int` enum; 2789 members               | Avalonia icon identity        |
-|  [02]   | `Icon`              | enum with `[NonResizable]` member tags | resizable-icon identity       |
-|  [03]   | `IconVariant`       | `byte` enum; 4 members                 | rendering-variant axis        |
-|  [04]   | `IconSize`          | `byte` enum; 9 members                 | pixel-size axis               |
-|  [05]   | `IconSizeValues`    | `static` `IEnumerable<IconSize>`       | size binding and iteration    |
-|  [06]   | `IconVariantValues` | `static` `IEnumerable<IconVariant>`    | variant binding and iteration |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------ | :------------ | :---------------------------------------------------- |
+|  [01]   | `Symbol`            | `int` enum    | named-glyph identity for controls                     |
+|  [02]   | `Icon`              | `int` enum    | resizable-icon identity, `[NonResizable]` member tags |
+|  [03]   | `IconVariant`       | `byte` enum   | rendering-variant axis                                |
+|  [04]   | `IconSize`          | `byte` enum   | pixel-size axis                                       |
+|  [05]   | `IconSizeValues`    | static class  | `IEnumerable<IconSize>` binding source                |
+|  [06]   | `IconVariantValues` | static class  | `IEnumerable<IconVariant>` binding source             |
 
-[ICON_VARIANT_MEMBERS]: `IconVariant` carries `Regular`, `Filled`, `Color`, and `Light`.
-
-[ICON_SIZE_MEMBERS]: `IconSize` carries `Resizable = 0`, `Size10 = 10`, `Size12`, `Size16`, `Size20`, `Size24`, `Size28`, `Size32`, and `Size48 = 48`; each `SizeNN` value equals its pixel size.
-
-[ENUMERATION_MEMBERS]: `IconSizeValues.Enumerable` exposes all 9 sizes, and `IconVariantValues.Enumerable` exposes all 4 variants.
+[ICON_VARIANT_MEMBERS]: `Regular` `Filled` `Color` `Light`
+[ICON_SIZE_MEMBERS]: `Resizable` `Size10` `Size12` `Size16` `Size20` `Size24` `Size28` `Size32` `Size48` — `Resizable` is `0`, every `SizeNN` equals its pixel size.
 
 [ICON_CONTROL_TYPES]: icon controls and image sources — `FluentIcons.Avalonia`
-- rail: icons
 
-Controls bind to the vocabulary through the internal `IValue<V>`/`GenericIcon` base; `IconVariant` and `FontSize` are inherited base properties, and `Symbol` is the leaf identity property.
+Each leaf implements `IValue<V>` over its identity enum and carries the identity property; the `GenericIcon`/`GenericImage` bases own the inherited `IconVariant` and `FontSize`.
 
-| [INDEX] | [SYMBOL]                     | [SHAPE]                          | [RAIL]                     |
-| :-----: | :--------------------------- | :------------------------------- | :------------------------- |
-|  [01]   | `SymbolIcon`                 | `GenericIcon`, `IValue<Symbol>`  | symbol control             |
-|  [02]   | `SymbolImage`                | `GenericImage`, `IValue<Symbol>` | symbol image               |
-|  [03]   | `FluentIcon`                 | `GenericIcon`, `IValue<Icon>`    | resizable-icon control     |
-|  [04]   | `FluentImage`                | `GenericImage`, `IValue<Icon>`   | resizable-icon image       |
-|  [05]   | `Outline`                    | `abstract` attached accessor     | outline-icon attachment    |
-|  [06]   | `GenericIcon`                | internal abstract base           | icon control base          |
-|  [07]   | `GenericImage`               | internal abstract base           | icon image base            |
-|  [08]   | `GenericIconConverter<V,T>`  | internal `TypeConverter` base    | string-to-icon conversion  |
-|  [09]   | `GenericImageConverter<V,T>` | internal `TypeConverter` base    | string-to-image conversion |
-
-[OUTLINE_MEMBERS]: `Outline` attaches `Symbol`, `Icon`, `IconVariant`, and `Foreground` properties to any `GenericIcon`.
-
-[INTERNAL_BASES]: `GenericIcon` and `GenericImage` live in `FluentIcons.Avalonia.Internals` and expose the inherited `IconVariant` and `FontSize` properties; consumers do not derive from these bases directly.
-
-[CONVERTER_BASES]: `GenericIconConverter<V,T>` and `GenericImageConverter<V,T>` live in `FluentIcons.Avalonia.Internals` and convert strings to enum-keyed controls and images for XAML.
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                       |
+| :-----: | :--------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `SymbolIcon`                 | class          | `Symbol` glyph control                             |
+|  [02]   | `SymbolImage`                | class          | `Symbol` glyph image source                        |
+|  [03]   | `FluentIcon`                 | class          | `Icon` resizable control                           |
+|  [04]   | `FluentImage`                | class          | `Icon` resizable image source                      |
+|  [05]   | `Outline`                    | abstract class | attached identity and brush accessor               |
+|  [06]   | `GenericIcon`                | abstract class | control base (Internals); `IconVariant`/`FontSize` |
+|  [07]   | `GenericImage`               | abstract class | image-source base (Internals)                      |
+|  [08]   | `GenericIconConverter<V,T>`  | class          | `TypeConverter` string-to-control (Internals)      |
+|  [09]   | `GenericImageConverter<V,T>` | class          | `TypeConverter` string-to-image (Internals)        |
 
 [MARKUP_TYPES]: XAML markup extensions — `FluentIcons.Avalonia.Markup`
-- rail: icons
 
-Each extension is `sealed` with nullable axis properties and a `(member)` constructor; `ProvideValue` returns the corresponding control instance.
+Each `sealed` extension carries nullable axis properties and a `(member)` constructor; `ProvideValue` returns the matching control instance.
 
-| [INDEX] | [SYMBOL]               | [PROVIDES]    | [RAIL]                        |
-| :-----: | :--------------------- | :------------ | :---------------------------- |
-|  [01]   | `SymbolIconExtension`  | `SymbolIcon`  | inline symbol control         |
-|  [02]   | `SymbolImageExtension` | `SymbolImage` | inline symbol image           |
-|  [03]   | `FluentIconExtension`  | `FluentIcon`  | inline resizable-icon control |
-|  [04]   | `FluentImageExtension` | `FluentImage` | inline resizable-icon image   |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]         |
+| :-----: | :--------------------- | :------------ | :------------------- |
+|  [01]   | `SymbolIconExtension`  | sealed class  | inline `SymbolIcon`  |
+|  [02]   | `SymbolImageExtension` | sealed class  | inline `SymbolImage` |
+|  [03]   | `FluentIconExtension`  | sealed class  | inline `FluentIcon`  |
+|  [04]   | `FluentImageExtension` | sealed class  | inline `FluentImage` |
 
 ## [03]-[ENTRYPOINTS]
 
-[COMMON_ENTRYPOINTS]: `FluentIcons.Common` vocabulary surfaces
-- rail: icons
+[COMMON_ENTRYPOINTS]: vocabulary selection — `FluentIcons.Common`
 
-| [INDEX] | [SURFACE]                      | [SURFACE_ROOT]      | [RAIL]                  |
-| :-----: | :----------------------------- | :------------------ | :---------------------- |
-|  [01]   | `Symbol.<member>`              | `Symbol`            | primary glyph identity  |
-|  [02]   | `Icon.<member>`                | `Icon`              | resizable-icon identity |
-|  [03]   | `IconVariant.<member>`         | `IconVariant`       | variant selection       |
-|  [04]   | `IconSize.<member>`            | `IconSize`          | pixel-size selection    |
-|  [05]   | `IconSizeValues.Enumerable`    | `IconSizeValues`    | all sizes               |
-|  [06]   | `IconVariantValues.Enumerable` | `IconVariantValues` | all variants            |
+Enum members select identity and axis value; the `*Values.Enumerable` fields feed picker `ItemsSource`.
+
+| [INDEX] | [SURFACE]                      | [SHAPE] | [CAPABILITY]                           |
+| :-----: | :----------------------------- | :------ | :------------------------------------- |
+|  [01]   | `Symbol.<member>`              | static  | named-glyph selection                  |
+|  [02]   | `Icon.<member>`                | static  | resizable-icon selection               |
+|  [03]   | `IconVariant.<member>`         | static  | variant selection                      |
+|  [04]   | `IconSize.<member>`            | static  | pixel-size selection                   |
+|  [05]   | `IconSizeValues.Enumerable`    | static  | `IEnumerable<IconSize>` for pickers    |
+|  [06]   | `IconVariantValues.Enumerable` | static  | `IEnumerable<IconVariant>` for pickers |
 
 [CONTROL_ENTRYPOINTS]: icon control properties — `FluentIcons.Avalonia`
-- rail: icons
 
-| [INDEX] | [SURFACE]                           | [SURFACE_ROOT]               | [RAIL]                      |
-| :-----: | :---------------------------------- | :--------------------------- | :-------------------------- |
-|  [01]   | `Symbol` (`StyledProperty<Symbol>`) | `SymbolIcon` / `SymbolImage` | glyph identity              |
-|  [02]   | `Icon` (`StyledProperty<Icon>`)     | `FluentIcon` / `FluentImage` | resizable-icon identity     |
-|  [03]   | `IconVariant`                       | `GenericIcon` base           | variant on any icon control |
-|  [04]   | `FontSize`                          | `GenericIcon` base           | glyph scale                 |
-|  [05]   | `Outline.{Get,Set}Foreground`       | `Outline.ForegroundProperty` | attached outline brush      |
-|  [06]   | `Outline.{Get,Set}Symbol`           | `Outline.SymbolProperty`     | attached symbol identity    |
-|  [07]   | `Outline.IconProperty`              | `Outline`                    | attached icon identity      |
-|  [08]   | `Outline.IconVariantProperty`       | `Outline`                    | attached rendering variant  |
+`SymbolImage` mirrors `SymbolIcon.Symbol` and `FluentImage` mirrors `FluentIcon.Icon`; every control inherits `IconVariant` and `FontSize` from `GenericIcon`, and `Outline` attaches the same axes onto a control instance.
 
-[CONTROL_PROPERTY_TYPES]: `IconVariant` is a `StyledProperty<IconVariant>`, and `FontSize` is a `StyledProperty<double>`.
+| [INDEX] | [SURFACE]                      | [SHAPE]  | [CAPABILITY]                              |
+| :-----: | :----------------------------- | :------- | :---------------------------------------- |
+|  [01]   | `SymbolIcon.Symbol`            | property | `StyledProperty<Symbol>` glyph identity   |
+|  [02]   | `FluentIcon.Icon`              | property | `StyledProperty<Icon>` resizable identity |
+|  [03]   | `GenericIcon.IconVariant`      | property | `StyledProperty<IconVariant>` variant     |
+|  [04]   | `GenericIcon.FontSize`         | property | `StyledProperty<double>` glyph scale      |
+|  [05]   | `Outline.{Get,Set}Foreground`  | static   | `AttachedProperty<IBrush?>` brush         |
+|  [06]   | `Outline.{Get,Set}Symbol`      | static   | `AttachedProperty<Symbol?>` symbol        |
+|  [07]   | `Outline.{Get,Set}Icon`        | static   | `AttachedProperty<Icon?>` icon            |
+|  [08]   | `Outline.{Get,Set}IconVariant` | static   | `AttachedProperty<IconVariant>` variant   |
 
-[MARKUP_ENTRYPOINTS]: inline XAML construction — `SymbolIconExtension` (representative)
-- rail: icons
+[MARKUP_ENTRYPOINTS]: inline XAML construction — `SymbolIconExtension` (representative; the other three mirror it over their identity enum)
 
-| [INDEX] | [SURFACE]                                      | [RAIL]           |
-| :-----: | :--------------------------------------------- | :--------------- |
-|  [01]   | `.ctor(Symbol)` / `.ctor()`                    | inline construct |
-|  [02]   | `Symbol` (`Symbol?`)                           | glyph select     |
-|  [03]   | `IconVariant` (`IconVariant?`)                 | variant select   |
-|  [04]   | `FontSize` (`double?`)                         | glyph scale      |
-|  [05]   | `Foreground` (`Brush?`)                        | glyph brush      |
-|  [06]   | `ProvideValue(IServiceProvider) -> SymbolIcon` | markup resolve   |
+| [INDEX] | [SURFACE]                                      | [SHAPE]  | [CAPABILITY]     |
+| :-----: | :--------------------------------------------- | :------- | :--------------- |
+|  [01]   | `.ctor(Symbol)` / `.ctor()`                    | ctor     | inline construct |
+|  [02]   | `Symbol` (`Symbol?`)                           | property | glyph select     |
+|  [03]   | `IconVariant` (`IconVariant?`)                 | property | variant select   |
+|  [04]   | `FontSize` (`double?`)                         | property | glyph scale      |
+|  [05]   | `Foreground` (`Brush?`)                        | property | glyph brush      |
+|  [06]   | `ProvideValue(IServiceProvider) -> SymbolIcon` | instance | markup resolve   |
 
-## [04]-[INTEGRATION]
+## [04]-[IMPLEMENTATION_LAW]
 
-[STACK_THEME_BRUSH]:
-- `SymbolIcon.Foreground` / `Outline.ForegroundProperty` accept any Avalonia `IBrush`,
-  so theme `DynamicResource` brushes (`api-avalonia-fluent.md`) drive icon colour;
-  `IconVariant.Color` selects the multi-colour glyph variant where the font ships one,
-  otherwise `Regular`/`Filled` honour the bound brush.
+[TOPOLOGY]:
+- Every icon binds one `Symbol`/`Icon` member and one `IconVariant`, and rendering resolves a font glyph by member — the leaf control carries identity, `GenericIcon` carries `IconVariant` and `FontSize`, and `Icon` sizing binds only members without the `[NonResizable]` tag.
 
-[STACK_NEUTRAL_VOCABULARY]:
-- `FluentIcons.Common` carries no Avalonia dependency, so AppHost/Compute/Persistence
-  model icon intent as a `Symbol` (or `Icon`) enum value end-to-end; only the AppUi view
-  layer references `FluentIcons.Avalonia` to render it. A view-model exposes the enum;
-  the view binds it to `SymbolIcon.Symbol`. `IconVariantValues.Enumerable` /
-  `IconSizeValues.Enumerable` feed `ItemsSource` for variant/size pickers without
-  re-listing the enum.
+[STACKING]:
+- `api-avalonia-fluent.md`: `SymbolIcon.Foreground` and `Outline.ForegroundProperty` bind any Avalonia `IBrush`, so theme `DynamicResource` brushes drive glyph colour; `IconVariant.Color` selects the multi-colour glyph where the font ships one, else `Regular`/`Filled` honour the bound brush.
+- AppHost, Compute, and Persistence model icon intent as a bare `Symbol`/`Icon` value end-to-end because `FluentIcons.Common` carries no Avalonia dependency; the AppUi view binds it to `SymbolIcon.Symbol`, and `IconVariantValues.Enumerable`/`IconSizeValues.Enumerable` feed picker `ItemsSource` without re-listing the enum.
+- `GenericIconConverter<V,T>` parses a string attribute (`Symbol="Save"`) into the enum-keyed control, so XAML authoring stays string-literal while the runtime model stays the typed enum.
 
-[STACK_TYPECONVERTER]:
-- `GenericIconConverter<V,T>` is the `TypeConverter` that parses a string attribute
-  (`Symbol="Save"`) into the enum-keyed control, so XAML authoring stays string-literal
-  while the runtime model stays the typed enum — no string-keyed icon registry is needed.
+[LOCAL_ADMISSION]:
+- Icon intent enters as a `Symbol`/`Icon` value in any layer; the AppUi view maps it to a `SymbolIcon`/`FluentIcon` with an `IconVariant` and binds colour through `Foreground` or `Outline`.
 
-## [05]-[IMPLEMENTATION_LAW]
-
-[COMMON_LAW]:
-- Package: `FluentIcons.Common` (MIT, netstandard2.1/2.0)
-- Owns: `Symbol`, `Icon`, `IconVariant`, `IconSize`, and the `*Values.Enumerable` helpers as the platform-neutral icon vocabulary
-- Accept: reference from any layer needing icon identity without Avalonia; icon intent is a `Symbol`/`Icon` enum value
+[RAIL_LAW]:
+- Package: `FluentIcons.Common`
+- Owns: the platform-neutral `Symbol`/`Icon`/`IconVariant`/`IconSize` vocabulary and the `*Values.Enumerable` binding sources
+- Accept: reference from any layer needing icon identity without Avalonia; icon intent is a `Symbol`/`Icon` value
 - Reject: string-keyed icon registries, parallel enum re-declarations, treating `Icon` as a `Symbol` alias
 
-[ICON_LAW]:
-- Package: `FluentIcons.Avalonia` (MIT, net10.0/net8.0)
-- Owns: font-backed `Symbol`/`Icon` rendering through controls, image sources, the `Outline` attached accessor, and markup extensions
-- Accept: icon intent maps to a `Symbol`/`Icon` member with an `IconVariant`; bind colour through `Foreground`/`Outline`
-- Reject: ad-hoc glyph bitmaps, path-drawn copies of Fluent symbols, deriving from the `Internals` `GenericIcon`/`GenericImage` bases (use `SymbolIcon`/`FluentIcon`)
-
-[VOCABULARY_LAW]:
-- `Symbol` (2789 members, `int`-backed) is the primary control surface; `Icon` is a distinct resizable-icon enum where `[NonResizable]` members have no resizable glyph
-- `IconVariant`: `Regular`, `Filled`, `Color`, `Light`
-- `IconSize`: `Resizable` (0), then `Size10`..`Size48` whose numeric value is the pixel size (`Size16` = 16)
-- `GenericIcon`/`GenericImage`/`GenericIconConverter` live in `FluentIcons.Avalonia.Internals` and are base/conversion infrastructure, not the public selection surface
+[RAIL_LAW]:
+- Package: `FluentIcons.Avalonia`
+- Owns: font-backed `Symbol`/`Icon` rendering through controls, image sources, the `Outline` attached accessor, and the markup extensions
+- Accept: a `Symbol`/`Icon` member with an `IconVariant`, colour bound through `Foreground`/`Outline`
+- Reject: ad-hoc glyph bitmaps, path-drawn copies of Fluent symbols, deriving from the `Internals` `GenericIcon`/`GenericImage` bases instead of `SymbolIcon`/`FluentIcon`

@@ -1,45 +1,35 @@
 # [RASM_APPUI_API_URSA]
 
-`Irihi.Ursa` is the extended-control suite (assembly `Ursa.dll`) that fills the families the curated Avalonia roster lacks — navigation (`NavMenu`/`Breadcrumb`/`Pagination`/`Anchor`), feedback (`Toast`/`Notification`/`Banner`/`MessageBox`/`Loading`/`Skeleton`), overlay (`OverlayDialogHost`/`Drawer`/`PopConfirm`), data entry (`Form`/`NumericUpDown`/`PinCode`/`IPv4Box`/`TimeBox`/`TagInput`/`KeyGestureInput`/the full date/time/range picker family), and display (`Timeline`/`Avatar`/`Badge`/`Rating`/`Marquee`/`Descriptions`/`Divider`/`QRCode`). The control _visuals_ live in the sibling `Irihi.Ursa.Themes.Semi` (assembly `Ursa.Themes.Semi.dll`, the `UrsaSemiTheme : Styles` control-theme dictionary added via `<semi:UrsaSemiTheme/>`, one compiled `.axaml` per control) layered under the `Semi.Avalonia` token system (`api-semi.md`) — both suites bind the SAME `https://irihi.tech/semi` (`semi:`) xmlns, so the canonical `Application.Styles` chain is `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins -> `<semi:UrsaSemiTheme/>`; `Irihi.Ursa.ReactiveUIExtension` (assembly `Ursa.ReactiveUIExtension.dll`) bridges the two view bases onto the admitted ReactiveUI rail. The overlay families (`OverlayDialog`/`Drawer`/`MessageBox.ShowOverlayAsync`/`WindowToastManager`/`WindowNotificationManager`) are the in-canvas counterpart to `DialogHost.Avalonia` (`api-dialoghost.md`): a view-model raises an overlay through a static dispatch helper against a host id, never by hand-building a popup.
+`Irihi.Ursa` is the extended-control suite (assembly `Ursa.dll`) filling the control families the curated Avalonia roster lacks. Control visuals live in the sibling `Irihi.Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`) under the `Semi.Avalonia` token system, and `Irihi.Ursa.ReactiveUIExtension` binds the Ursa view bases onto the admitted ReactiveUI rail. Every overlay — dialog, drawer, message box — is raised vm-first through a static dispatcher against a registered host id, the in-canvas counterpart to `DialogHost.Avalonia`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Irihi.Ursa`
-- package: `Irihi.Ursa`
-- license: MIT
-- floor: `net10.0` consumer (`lib/net10.0/Ursa.dll`); the package multi-targets net8.0 / net10.0 and the `net10.0` asset is bound
+- package: `Irihi.Ursa` (MIT, Irihi)
 - assembly: `Ursa`
-- namespace: `Ursa.Controls` (the full control roster — 244 control/option/event types), `Ursa.Common` (`Position`/`ItemAlignment`/`CornerPosition` placement vocabulary, `ObservableHelper`), `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
-- depends: `Avalonia` (12.x — its `>= 11.x` floor rises to the admitted line), `Irihi.Avalonia.Shared` + `Irihi.Avalonia.Shared.Contracts` (the shared primitive closure also floored by `Semi.Avalonia`); vendors `Gma.QrCodeNet` internally for the `QRCode` control (no QR dependency surfaces)
+- namespace: `Ursa.Controls`, `Ursa.Controls.Options`, `Ursa.Common`, `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
+- depends: `Avalonia`, `Irihi.Avalonia.Shared`, `Irihi.Avalonia.Shared.Contracts` (the shared primitive closure `Semi.Avalonia` also floors on); `QRCode` vendors `Gma.QrCodeNet` internally, so no QR dependency surfaces
 - rail: controls
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi`
-- package: `Irihi.Ursa.Themes.Semi`
-- license: MIT
-- floor: `net10.0` consumer (`lib/net10.0/Ursa.Themes.Semi.dll`)
+- package: `Irihi.Ursa.Themes.Semi` (MIT, Irihi)
 - assembly: `Ursa.Themes.Semi`
-- namespace: `Ursa.Themes.Semi` owns `UrsaSemiTheme : Styles`; its `https://irihi.tech/semi` xmlns and `semi` prefix are shared with `Semi.Avalonia`
-- converters: `Ursa.Themes.Semi.Converters` owns the public template converters
-- resources: `Ursa.Themes.Semi.Locale` and `Ursa.Themes.Semi.SizeAnimations` own the resource dictionaries
-- obsolete: `Ursa.Themes.Semi.Legacy.SemiTheme` uses the `https://irihi.tech/ursa/themes/semi` xmlns and `u-semi` prefix; `[Obsolete("…use UrsaSemiTheme instead")]` excludes it
-- surface: the `UrsaSemiTheme : Styles` control-theme dictionary added via `<semi:UrsaSemiTheme/>` — one compiled `.axaml` `ControlTheme` per `Ursa.Controls` type keyed onto the `Semi.Avalonia` `SemiTheme` tokens — plus a thin CODE surface MIRRORING `Semi.Avalonia.SemiTheme`: ctor `UrsaSemiTheme(IServiceProvider? provider = null)`, `Locale` (`CultureInfo?` property, defaults `zh-CN` on unknown), static `OverrideLocaleResources(Application, CultureInfo?)` / `OverrideLocaleResources(StyledElement, CultureInfo?)`, and the public `Ursa.Themes.Semi.Converters` set (`BooleansToOpacityConverter`, `BrushToColorConverter`, `ClockHandLengthConverter(double ratio)`, `FormContentHeightToAlignmentConverter`, `FormContentHeightToMarginConverter`, `NavMenuMarginConverter`, `TreeLevelToPaddingConverter`). Its built-in locale set (`zh_cn`/`en_us`/`de_de`/`fr_fr`/`ru_ru`/`pl_pl`/`cs_cz`) is NARROWER than `Semi.Avalonia`'s 16-culture set, so an unmatched culture falls back to `zh-CN` rather than the Semi default
-- rail: controls
+- namespace: `Ursa.Themes.Semi` (`UrsaSemiTheme : Styles`), `Ursa.Themes.Semi.Converters`, `Ursa.Themes.Semi.Locale`
+- depends: `Ursa`; publishes control themes under the `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` shares
+- rail: theme
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension`
-- package: `Irihi.Ursa.ReactiveUIExtension`
-- license: MIT
-- floor: `net10.0` consumer (`lib/net10.0/Ursa.ReactiveUIExtension.dll`); its `ReactiveUI.Avalonia >= 11.3.0` floor rises to the admitted 12.x line
+- package: `Irihi.Ursa.ReactiveUIExtension` (MIT, Irihi)
 - assembly: `Ursa.ReactiveUIExtension`
-- namespace: `Ursa.ReactiveUIExtension` — exactly two types: `ReactiveUrsaView` and `ReactiveUrsaWindow`
-- depends: `Ursa`, `reactiveui`
-- rail: controls
+- namespace: `Ursa.ReactiveUIExtension`
+- depends: `Ursa`, `ReactiveUI`
+- rail: mvvm-bridge
 
 ## [02]-[PUBLIC_TYPES]
 
-[NAVIGATION_CONTROLS]: navigation + wayfinding — `Ursa.Controls`
-- rail: controls
+[NAVIGATION_CONTROLS]: navigation and wayfinding — `Ursa.Controls`
 
-| [INDEX] | [SYMBOL]                                        | [KIND]                                                        |
+| [INDEX] | [SYMBOL]                                        | [CAPABILITY]                                                  |
 | :-----: | :---------------------------------------------- | :------------------------------------------------------------ |
 |  [01]   | `NavMenu` / `NavMenuItem`                       | hierarchical side/top navigation menu (`ItemsControl`) + item |
 |  [02]   | `Breadcrumb` / `BreadcrumbItem`                 | breadcrumb trail                                              |
@@ -50,11 +40,8 @@
 |  [07]   | `TitleBar`                                      | custom window title bar (chromeless host)                     |
 
 [FEEDBACK_CONTROLS]: toast, notification, banner, message, busy — `Ursa.Controls`
-- rail: controls
 
-The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `MessageBox` exposes `ShowAsync` and `ShowOverlayAsync`.
-
-| [INDEX] | [SYMBOL]                    | [KIND]                         |
+| [INDEX] | [SYMBOL]                    | [CAPABILITY]                   |
 | :-----: | :-------------------------- | :----------------------------- |
 |  [01]   | `WindowToastManager`        | transient toast queue manager  |
 |  [02]   | `Toast`                     | toast message                  |
@@ -80,43 +67,36 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 |  [22]   | `Skeleton`                  | shimmer loading placeholder    |
 |  [23]   | `PopConfirm`                | `PopConfirmTriggerMode` prompt |
 
-[OVERLAY_CONTROLS]: in-canvas dialog + drawer host layer — `Ursa.Controls`
-- rail: controls
+[OVERLAY_CONTROLS]: in-canvas dialog and drawer host layer — `Ursa.Controls`
 
-`OverlayDialogHost` is the registered-id target for `OverlayDialog`, `Drawer`, and `MessageBox.ShowOverlayAsync`. `OverlayDialogManager` owns `RegisterHost`, `UnregisterHost`, and `GetHost(id, hash)`.
+`OverlayDialogHost` is the registered-id target for `OverlayDialog`, `Drawer`, and `MessageBox.ShowOverlayAsync`; a consumer sets its `HostId` to register the host.
 
-| [INDEX] | [SYMBOL]                | [KIND]                     |
-| :-----: | :---------------------- | :------------------------- |
-|  [01]   | `OverlayDialogHost`     | in-canvas overlay host     |
-|  [02]   | `OverlayDialogManager`  | static host registry       |
-|  [03]   | `Dialog`                | windowed dialog dispatcher |
-|  [04]   | `DialogControlBase`     | dialog control base        |
-|  [05]   | `DialogOptions`         | windowed dialog options    |
-|  [06]   | `DialogResult`          | dialog result              |
-|  [07]   | `DialogButton`          | dialog button set          |
-|  [08]   | `DialogMode`            | dialog modality            |
-|  [09]   | `OverlayDialog`         | overlay dialog dispatcher  |
-|  [10]   | `OverlayDialogOptions`  | overlay dialog options     |
-|  [11]   | `Drawer`                | drawer dispatcher          |
-|  [12]   | `DrawerControlBase`     | drawer control base        |
-|  [13]   | `OverlayDrawer`         | slide-in drawer surface    |
-|  [14]   | `DialogResizer`         | edge-resize surface        |
-|  [15]   | `DrawerOptions`         | drawer options             |
-|  [16]   | `CustomDialogControl`   | custom dialog shell        |
-|  [17]   | `StandardDialogControl` | titled dialog shell        |
-|  [18]   | `CustomDrawerControl`   | custom drawer shell        |
-|  [19]   | `StandardDrawerControl` | titled drawer shell        |
-
-[DRAWER_OPTIONS]: `DrawerOptions` resides in `Ursa.Controls.Options`.
-
-[STANDARD_OVERLAY_SHELLS]: `StandardDialogControl` and `StandardDrawerControl` are titled, buttoned shells.
+| [INDEX] | [SYMBOL]                | [CAPABILITY]                  |
+| :-----: | :---------------------- | :---------------------------- |
+|  [01]   | `OverlayDialogHost`     | in-canvas overlay host        |
+|  [02]   | `Dialog`                | windowed dialog dispatcher    |
+|  [03]   | `DialogControlBase`     | dialog control base           |
+|  [04]   | `DialogOptions`         | windowed dialog options       |
+|  [05]   | `DialogResult`          | dialog result                 |
+|  [06]   | `DialogButton`          | dialog button set             |
+|  [07]   | `DialogMode`            | dialog modality               |
+|  [08]   | `OverlayDialog`         | overlay dialog dispatcher     |
+|  [09]   | `OverlayDialogOptions`  | overlay dialog options        |
+|  [10]   | `Drawer`                | drawer dispatcher             |
+|  [11]   | `DrawerControlBase`     | drawer control base           |
+|  [12]   | `OverlayDrawer`         | slide-in drawer surface       |
+|  [13]   | `DialogResizer`         | edge-resize surface           |
+|  [14]   | `DrawerOptions`         | drawer options                |
+|  [15]   | `CustomDialogControl`   | custom dialog shell           |
+|  [16]   | `StandardDialogControl` | titled, buttoned dialog shell |
+|  [17]   | `CustomDrawerControl`   | custom drawer shell           |
+|  [18]   | `StandardDrawerControl` | titled, buttoned drawer shell |
 
 [DATA_ENTRY_CONTROLS]: form, numeric, masked, gesture, tag entry — `Ursa.Controls`
-- rail: controls
 
-`Numeric<T>UpDown` admits `Byte`, `SByte`, `Short`, `UShort`, `Int`, `UInt`, `Long`, `ULong`, `Float`, `Double`, and `Decimal`. `<T>Displayer` admits `Double`, `Int32`, and `Int64`.
+`Numeric<T>UpDown` admits `Byte`, `SByte`, `Short`, `UShort`, `Int`, `UInt`, `Long`, `ULong`, `Float`, `Double`, and `Decimal`; `<T>Displayer` admits `Double`, `Int32`, and `Int64`.
 
-| [INDEX] | [SYMBOL]              | [KIND]                          |
+| [INDEX] | [SYMBOL]              | [CAPABILITY]                    |
 | :-----: | :-------------------- | :------------------------------ |
 |  [01]   | `Form`                | declarative form layout         |
 |  [02]   | `FormGroup`           | form field group                |
@@ -140,12 +120,9 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 |  [20]   | `ControlClassesInput` | Avalonia `StyleClass` editor    |
 |  [21]   | `PathPicker`          | file-or-folder field            |
 
-[TIME_BOX_MODES]: `TimeBoxInputMode` selects components, and `TimeBoxDragOrientation` selects drag direction.
-
 [SELECTION_CONTROLS]: multi-select, combo, rating, button-group — `Ursa.Controls`
-- rail: controls
 
-| [INDEX] | [SYMBOL]                            | [KIND]                      |
+| [INDEX] | [SYMBOL]                            | [CAPABILITY]                |
 | :-----: | :---------------------------------- | :-------------------------- |
 |  [01]   | `MultiComboBox`                     | multi-select combo          |
 |  [02]   | `MultiComboBoxItem`                 | combo item                  |
@@ -157,263 +134,217 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 |  [08]   | `MultiAutoCompleteSelectionAdapter` | multi-selection adapter     |
 |  [09]   | `SelectionList`                     | single-or-range list        |
 |  [10]   | `SelectionListItem`                 | selection-list item         |
-|  [11]   | `ButtonGroup`                       | mutually exclusive segments |
-|  [12]   | `Rating`                            | star-or-character input     |
-|  [13]   | `RatingCharacter`                   | rating glyph                |
-|  [14]   | `RangeSlider`                       | dual-thumb range input      |
-|  [15]   | `RangeTrack`                        | range track                 |
-|  [16]   | `RangeValueChangedEventArgs`        | range-change event          |
-|  [17]   | `ClosableTag`                       | dismissible tag chip        |
-
-[SELECTION_EVENT]: `SelectionChangingEventArgs` carries `SelectionList` changes.
+|  [11]   | `SelectionChangingEventArgs`        | selection-change event      |
+|  [12]   | `ButtonGroup`                       | mutually exclusive segments |
+|  [13]   | `Rating`                            | star-or-character input     |
+|  [14]   | `RatingCharacter`                   | rating glyph                |
+|  [15]   | `RangeSlider`                       | dual-thumb range input      |
+|  [16]   | `RangeTrack`                        | range track                 |
+|  [17]   | `RangeValueChangedEventArgs`        | range-change event          |
+|  [18]   | `ClosableTag`                       | dismissible tag chip        |
 
 [DISPLAY_CONTROLS]: timeline, avatar, badge, marquee, descriptions, QR — `Ursa.Controls`
-- rail: controls
 
-| [INDEX] | [SYMBOL]                | [KIND]                  |
-| :-----: | :---------------------- | :---------------------- |
-|  [01]   | `Timeline`              | event timeline          |
-|  [02]   | `TimelineItem`          | timeline event          |
-|  [03]   | `TimelinePanel`         | timeline layout panel   |
-|  [04]   | `Avatar`                | image-or-initial avatar |
-|  [05]   | `Badge`                 | count-or-dot badge      |
-|  [06]   | `DualBadge`             | dual-segment badge      |
-|  [07]   | `Marquee`               | scrolling-text ticker   |
-|  [08]   | `Descriptions`          | key-value grid          |
-|  [09]   | `DescriptionsItem`      | description entry       |
-|  [10]   | `Divider`               | titled divider          |
-|  [11]   | `ImageViewer`           | pan-zoom image viewer   |
-|  [12]   | `QRCode`                | QR renderer             |
-|  [13]   | `IconButton`            | icon-leading button     |
-|  [14]   | `IconToggleButton`      | icon toggle button      |
-|  [15]   | `IconSplitButton`       | icon split button       |
-|  [16]   | `IconToggleSplitButton` | icon toggle split       |
-|  [17]   | `IconDropDownButton`    | icon drop-down button   |
-|  [18]   | `IconRepeatButton`      | icon repeat button      |
-|  [19]   | `TwoTonePathIcon`       | two-tone glyph          |
-|  [20]   | `LabeledContentControl` | labeled container       |
-|  [21]   | `GroupBoxBorder`        | group border            |
-|  [22]   | `UrsaGroupBox`          | group container         |
+| [INDEX] | [SYMBOL]                | [CAPABILITY]             |
+| :-----: | :---------------------- | :----------------------- |
+|  [01]   | `Timeline`              | event timeline           |
+|  [02]   | `TimelineItem`          | timeline event           |
+|  [03]   | `TimelinePanel`         | timeline layout panel    |
+|  [04]   | `Avatar`                | image-or-initial avatar  |
+|  [05]   | `Badge`                 | count-or-dot badge       |
+|  [06]   | `DualBadge`             | dual-segment badge       |
+|  [07]   | `Marquee`               | scrolling-text ticker    |
+|  [08]   | `Descriptions`          | key-value grid           |
+|  [09]   | `DescriptionsItem`      | description entry        |
+|  [10]   | `Divider`               | titled divider           |
+|  [11]   | `ImageViewer`           | pan-zoom image viewer    |
+|  [12]   | `QRCode`                | QR renderer (`EccLevel`) |
+|  [13]   | `IconButton`            | icon-leading button      |
+|  [14]   | `IconToggleButton`      | icon toggle button       |
+|  [15]   | `IconSplitButton`       | icon split button        |
+|  [16]   | `IconToggleSplitButton` | icon toggle split        |
+|  [17]   | `IconDropDownButton`    | icon drop-down button    |
+|  [18]   | `IconRepeatButton`      | icon repeat button       |
+|  [19]   | `TwoTonePathIcon`       | two-tone glyph           |
+|  [20]   | `LabeledContentControl` | labeled container        |
+|  [21]   | `GroupBoxBorder`        | group border             |
+|  [22]   | `UrsaGroupBox`          | group container          |
 
-[TIMELINE_POLICY]: `TimelineDisplayMode`, `TimelineItemPosition`, and `TimelineItemType` govern vertical or horizontal timelines.
+[PICKER_CONTROLS]: date / time / range picker family — `Ursa.Controls`
 
-[QR_POLICY]: `QRCode` consumes `EccLevel` and vendors `Gma.QrCodeNet` internally.
+| [INDEX] | [SYMBOL]                       | [CAPABILITY]                                    |
+| :-----: | :----------------------------- | :---------------------------------------------- |
+|  [01]   | `DatePicker`                   | calendar date picker                            |
+|  [02]   | `DateRangePicker`              | calendar range picker                           |
+|  [03]   | `DateOnlyPicker`               | `DateOnly` picker                               |
+|  [04]   | `DateOnlyRangePicker`          | `DateOnly` range picker                         |
+|  [05]   | `DateTimePicker`               | date-time picker                                |
+|  [06]   | `DateTimeOffsetPicker`         | date-time-offset picker                         |
+|  [07]   | `DateOffsetPicker`             | date-offset picker                              |
+|  [08]   | `DateOffsetRangePicker`        | date-offset range picker                        |
+|  [09]   | `TimePicker`                   | time picker                                     |
+|  [10]   | `TimeRangePicker`              | time range picker                               |
+|  [11]   | `TimeOnlyPicker`               | `TimeOnly` picker                               |
+|  [12]   | `TimeOnlyRangePicker`          | `TimeOnly` range picker                         |
+|  [13]   | `TimePickerPresenter`          | time picker presenter                           |
+|  [14]   | `Clock`                        | analog clock                                    |
+|  [15]   | `ClockTicks`                   | clock tick face                                 |
+|  [16]   | `DatePickerCalendarView`       | calendar surface (`DatePickerCalendarViewMode`) |
+|  [17]   | `DatePickerCalendarDayButton`  | calendar day button                             |
+|  [18]   | `DatePickerCalendarYearButton` | calendar year button                            |
+|  [19]   | `DatePickerCalendarContext`    | calendar context                                |
+|  [20]   | `DateRange`                    | date-range value                                |
+|  [21]   | `DateRangeExtension`           | date-range extension                            |
+|  [22]   | `IDateSelector`                | date-selector contract                          |
+|  [23]   | `WeekendDateSelector`          | weekend selector                                |
 
-[PICKER_CONTROLS]: full date / time / range picker family — `Ursa.Controls`
-- rail: controls
+[SHELL_CONTROLS]: window and view bases — `Ursa.Controls` / `Ursa.ReactiveUIExtension`
 
-| [INDEX] | [SYMBOL]                       | [KIND]                   |
-| :-----: | :----------------------------- | :----------------------- |
-|  [01]   | `DatePicker`                   | calendar date picker     |
-|  [02]   | `DateRangePicker`              | calendar range picker    |
-|  [03]   | `DateOnlyPicker`               | `DateOnly` picker        |
-|  [04]   | `DateOnlyRangePicker`          | `DateOnly` range picker  |
-|  [05]   | `DateTimePicker`               | date-time picker         |
-|  [06]   | `DateTimeOffsetPicker`         | date-time-offset picker  |
-|  [07]   | `DateOffsetPicker`             | date-offset picker       |
-|  [08]   | `DateOffsetRangePicker`        | date-offset range picker |
-|  [09]   | `TimePicker`                   | time picker              |
-|  [10]   | `TimeRangePicker`              | time range picker        |
-|  [11]   | `TimeOnlyPicker`               | `TimeOnly` picker        |
-|  [12]   | `TimeOnlyRangePicker`          | `TimeOnly` range picker  |
-|  [13]   | `TimePickerPresenter`          | time picker presenter    |
-|  [14]   | `Clock`                        | analog clock             |
-|  [15]   | `ClockTicks`                   | clock tick face          |
-|  [16]   | `DatePickerCalendarView`       | calendar surface         |
-|  [17]   | `DatePickerCalendarDayButton`  | calendar day button      |
-|  [18]   | `DatePickerCalendarYearButton` | calendar year button     |
-|  [19]   | `DatePickerCalendarContext`    | calendar context         |
-|  [20]   | `DateRange`                    | date-range value         |
-|  [21]   | `DateRangeExtension`           | date-range extension     |
-|  [22]   | `IDateSelector`                | date-selector contract   |
-|  [23]   | `WeekendDateSelector`          | weekend selector         |
+| [INDEX] | [SYMBOL]                         | [CAPABILITY]                              |
+| :-----: | :------------------------------- | :---------------------------------------- |
+|  [01]   | `UrsaWindow`                     | themed chromeless top-level window        |
+|  [02]   | `UrsaView`                       | themed user-control base                  |
+|  [03]   | `SplashWindow`                   | startup splash window                     |
+|  [04]   | `ReactiveUrsaWindow<TViewModel>` | reactive window base                      |
+|  [05]   | `ReactiveUrsaView<TViewModel>`   | reactive view base                        |
+|  [06]   | `ThemeToggleButton`              | theme-variant toggle                      |
+|  [07]   | `ThemeSelectorBase`              | theme selector base (`ThemeSelectorMode`) |
+|  [08]   | `ThemeVariantMapper`             | theme-variant mapper                      |
+|  [09]   | `ThemeVariantMapping`            | theme-variant mapping                     |
+|  [10]   | `DisableContainer`               | content-disable overlay                   |
+|  [11]   | `DisabledAdorner`                | disabled-content adorner                  |
 
-[CALENDAR_POLICY]: `DatePickerCalendarViewMode` governs the calendar surface.
+[CONTROL_ENUMS]: `Ursa.Controls` / `Ursa.Common` policy vocabulary
 
-[SHELL_CONTROLS]: window + view bases — `Ursa.Controls` / `Ursa.ReactiveUIExtension`
-- rail: controls
+| [INDEX] | [SYMBOL]                     | [CAPABILITY]                                           |
+| :-----: | :--------------------------- | :----------------------------------------------------- |
+|  [01]   | `DialogButton`               | dialog button set                                      |
+|  [02]   | `DialogResult`               | dialog result                                          |
+|  [03]   | `DialogMode`                 | dialog modality                                        |
+|  [04]   | `DialogLayerChangeType`      | dialog layer change                                    |
+|  [05]   | `MessageBoxButton`           | message-box button set                                 |
+|  [06]   | `MessageBoxResult`           | message-box result                                     |
+|  [07]   | `MessageBoxIcon`             | message-box icon                                       |
+|  [08]   | `MessageCloseReason`         | message close cause                                    |
+|  [09]   | `Status`                     | feedback severity (`Info`/`Success`/`Warning`/`Error`) |
+|  [10]   | `PinCodeMode`                | PIN entry mode                                         |
+|  [11]   | `IPv4BoxInputMode`           | IPv4 entry mode                                        |
+|  [12]   | `TimeBoxInputMode`           | time entry mode                                        |
+|  [13]   | `TimeBoxDragOrientation`     | time drag direction                                    |
+|  [14]   | `TimelineDisplayMode`        | timeline layout                                        |
+|  [15]   | `TimelineItemPosition`       | timeline position                                      |
+|  [16]   | `TimelineItemType`           | timeline item kind                                     |
+|  [17]   | `OverflowMode`               | overflow policy                                        |
+|  [18]   | `LostFocusBehavior`          | commit policy                                          |
+|  [19]   | `PopConfirmTriggerMode`      | confirmation trigger                                   |
+|  [20]   | `ResizeDirection`            | resize policy                                          |
+|  [21]   | `Direction`                  | direction policy                                       |
+|  [22]   | `Position`                   | common placement                                       |
+|  [23]   | `ItemAlignment`              | common alignment                                       |
+|  [24]   | `CornerPosition`             | common corner placement                                |
+|  [25]   | `HorizontalPosition`         | horizontal placement                                   |
+|  [26]   | `VerticalPosition`           | vertical placement                                     |
+|  [27]   | `DatePickerCalendarViewMode` | calendar view mode                                     |
+|  [28]   | `UsePickerTypes`             | picker type policy                                     |
+|  [29]   | `ThemeSelectorMode`          | theme selector mode                                    |
+|  [30]   | `AspectRatioMode`            | aspect-ratio policy                                    |
+|  [31]   | `OffsetDefinitionKind`       | offset definition                                      |
+|  [32]   | `EccLevel`                   | QR correction level                                    |
 
-`Ursa.ReactiveUIExtension` binds `ReactiveUrsaWindow` and `ReactiveUrsaView` to `UrsaWindow` and `UrsaView` as the admitted MVVM bases.
+[THEME_TYPES]: control-theme bridge and template converters — `Ursa.Themes.Semi`
 
-| [INDEX] | [SYMBOL]              | [KIND]                   |
-| :-----: | :-------------------- | :----------------------- |
-|  [01]   | `UrsaWindow`          | themed top-level window  |
-|  [02]   | `UrsaView`            | themed user-control base |
-|  [03]   | `SplashWindow`        | startup splash window    |
-|  [04]   | `ReactiveUrsaWindow`  | reactive window base     |
-|  [05]   | `ReactiveUrsaView`    | reactive view base       |
-|  [06]   | `ThemeToggleButton`   | theme-variant toggle     |
-|  [07]   | `ThemeSelectorBase`   | theme selector base      |
-|  [08]   | `ThemeVariantMapper`  | theme-variant mapper     |
-|  [09]   | `ThemeVariantMapping` | theme-variant mapping    |
-|  [10]   | `DisableContainer`    | content-disable overlay  |
-|  [11]   | `DisabledAdorner`     | disabled-content adorner |
-
-[WINDOW_CHROME]: `UrsaWindow` composes a custom title bar with `WindowResizer` for its chromeless host.
-
-[THEME_SELECTOR_POLICY]: `ThemeSelectorMode` governs theme-variant selection.
-
-[CONTROL_ENUMS]: `Ursa.Controls` / `Ursa.Common` vocabulary
-- rail: controls
-
-| [INDEX] | [SYMBOL]                     | [RAIL]                  |
-| :-----: | :--------------------------- | :---------------------- |
-|  [01]   | `DialogButton`               | dialog button set       |
-|  [02]   | `DialogResult`               | dialog result           |
-|  [03]   | `DialogMode`                 | dialog modality         |
-|  [04]   | `DialogLayerChangeType`      | dialog layer change     |
-|  [05]   | `MessageBoxButton`           | message-box button set  |
-|  [06]   | `MessageBoxResult`           | message-box result      |
-|  [07]   | `MessageBoxIcon`             | message-box icon        |
-|  [08]   | `MessageCloseReason`         | message close cause     |
-|  [09]   | `Status`                     | feedback severity       |
-|  [10]   | `PinCodeMode`                | PIN entry mode          |
-|  [11]   | `IPv4BoxInputMode`           | IPv4 entry mode         |
-|  [12]   | `TimeBoxInputMode`           | time entry mode         |
-|  [13]   | `TimeBoxDragOrientation`     | time drag direction     |
-|  [14]   | `TimelineDisplayMode`        | timeline layout         |
-|  [15]   | `TimelineItemPosition`       | timeline position       |
-|  [16]   | `TimelineItemType`           | timeline item kind      |
-|  [17]   | `OverflowMode`               | overflow policy         |
-|  [18]   | `LostFocusBehavior`          | commit policy           |
-|  [19]   | `PopConfirmTriggerMode`      | confirmation trigger    |
-|  [20]   | `ResizeDirection`            | resize policy           |
-|  [21]   | `Direction`                  | direction policy        |
-|  [22]   | `Position`                   | common placement        |
-|  [23]   | `ItemAlignment`              | common alignment        |
-|  [24]   | `CornerPosition`             | common corner placement |
-|  [25]   | `HorizontalPosition`         | horizontal placement    |
-|  [26]   | `VerticalPosition`           | vertical placement      |
-|  [27]   | `DatePickerCalendarViewMode` | calendar view mode      |
-|  [28]   | `UsePickerTypes`             | picker type policy      |
-|  [29]   | `ThemeSelectorMode`          | theme selector mode     |
-|  [30]   | `AspectRatioMode`            | aspect-ratio policy     |
-|  [31]   | `OffsetDefinitionKind`       | offset definition       |
-|  [32]   | `EccLevel`                   | QR correction level     |
-
-[STATUS_VALUES]: `Status` admits `Info`, `Success`, `Warning`, and `Error`.
+| [INDEX] | [SYMBOL]                                | [CAPABILITY]                                                |
+| :-----: | :-------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `UrsaSemiTheme`                         | `Styles` control-theme dictionary (`<semi:UrsaSemiTheme/>`) |
+|  [02]   | `BooleansToOpacityConverter`            | booleans-to-opacity converter                               |
+|  [03]   | `BrushToColorConverter`                 | brush-to-color converter                                    |
+|  [04]   | `ClockHandLengthConverter`              | clock-hand-length converter (`double ratio`)                |
+|  [05]   | `FormContentHeightToAlignmentConverter` | form content-height to alignment                            |
+|  [06]   | `FormContentHeightToMarginConverter`    | form content-height to margin                               |
+|  [07]   | `NavMenuMarginConverter`                | nav-menu margin converter                                   |
+|  [08]   | `TreeLevelToPaddingConverter`           | tree-level to padding converter                             |
 
 ## [03]-[ENTRYPOINTS]
 
-[DIALOG_DISPATCH]: `Dialog` (windowed) + `OverlayDialog` (in-canvas) static dispatch — vm-first, owner/host-id targeted, sync + async mirrors
-- rail: controls
+[DIALOG_DISPATCH]: `Dialog` (windowed, owner `Window?`) and `OverlayDialog` (in-canvas, `string? hostId`, threading a `CancellationToken?`) dispatch vm-first through `<TView,TViewModel>` generic overloads (custom overloads add `,TResult>`); modal and awaited overloads return `Task<DialogResult>`, custom overloads `Task<TResult?>`, fire overloads void
 
-| [INDEX] | [MEMBER]                                    | [ROOT]                 | [MODE]             | [RESULT]             |
-| :-----: | :------------------------------------------ | :--------------------- | :----------------- | :------------------- |
-|  [01]   | `ShowModal<TView,TViewModel>`               | `Dialog`               | windowed modal     | `Task<DialogResult>` |
-|  [02]   | `ShowCustomModal<TView,TViewModel,TResult>` | `Dialog`               | windowed custom    | `Task<TResult?>`     |
-|  [03]   | `ShowStandard<TView,TViewModel>`            | `Dialog`               | windowed fire      | none                 |
-|  [04]   | `ShowStandardAsync`                         | `Dialog`               | windowed awaited   | `Task<DialogResult>` |
-|  [05]   | `ShowCustom<TView,TViewModel>`              | `Dialog`               | custom fire        | none                 |
-|  [06]   | `ShowCustomAsync<...,TResult>`              | `Dialog`               | custom awaited     | `Task<TResult?>`     |
-|  [07]   | `ShowModal<TView,TViewModel>`               | `OverlayDialog`        | overlay modal      | `Task<DialogResult>` |
-|  [08]   | `ShowCustomModal<TResult>`                  | `OverlayDialog`        | cancellable custom | `Task<TResult?>`     |
-|  [09]   | `ShowStandardAsync<TView,TViewModel>`       | `OverlayDialog`        | cancellable modal  | `Task<DialogResult>` |
-|  [10]   | `RegisterHost`                              | `OverlayDialogManager` | register host      | none                 |
-|  [11]   | `GetHost`                                   | `OverlayDialogManager` | resolve host       | host                 |
-|  [12]   | `UnregisterHost`                            | `OverlayDialogManager` | unregister host    | none                 |
+| [INDEX] | [SURFACE]                                                                                    | [CAPABILITY]               |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------------------- |
+|  [01]   | `Dialog.ShowModal(TVm, Window?, DialogOptions?)`                                             | windowed modal             |
+|  [02]   | `Dialog.ShowCustomModal(TVm, Window?, DialogOptions?)`                                       | windowed custom modal      |
+|  [03]   | `Dialog.ShowStandard(TVm, Window?, DialogOptions?)`                                          | windowed fire              |
+|  [04]   | `Dialog.ShowStandardAsync(TVm, Window?, DialogOptions?)`                                     | windowed awaited           |
+|  [05]   | `Dialog.ShowCustom(TVm, Window?, DialogOptions?)`                                            | custom fire                |
+|  [06]   | `Dialog.ShowCustomAsync(TVm, Window?, DialogOptions?)`                                       | custom awaited             |
+|  [07]   | `OverlayDialog.ShowModal(TVm, string?, OverlayDialogOptions?, CancellationToken?)`           | overlay modal              |
+|  [08]   | `OverlayDialog.ShowCustomModal(object?, string?, OverlayDialogOptions?, CancellationToken?)` | overlay cancellable custom |
+|  [09]   | `OverlayDialog.ShowStandardAsync(TVm, string?, OverlayDialogOptions?, CancellationToken?)`   | overlay awaited            |
+|  [10]   | `OverlayDialog.Show(TVm, string?, OverlayDialogOptions?)`                                    | overlay non-modal          |
 
-[DIALOG_SIGNATURE_01]: `ShowModal<TView,TViewModel>(vm, Window? owner, DialogOptions?) : Task<DialogResult>`.
+[DRAWER_DISPATCH]: `Drawer` slide-in panel static dispatch — vm-first `<TView,TViewModel>` overloads (custom adds `,TResult>`), `string? hostId` targeted; `ShowModal` returns `Task<DialogResult>`, `ShowCustomModal` `Task<TResult?>`, `Show` void
 
-[DIALOG_SIGNATURE_02]: `ShowCustomModal<TView,TViewModel,TResult>(vm, owner, DialogOptions?) : Task<TResult?>`.
+| [INDEX] | [SURFACE]                                              | [CAPABILITY] |
+| :-----: | :----------------------------------------------------- | :----------- |
+|  [01]   | `Drawer.Show(TVm, string?, DrawerOptions?)`            | non-modal    |
+|  [02]   | `Drawer.ShowModal(TVm, string?, DrawerOptions?)`       | modal        |
+|  [03]   | `Drawer.ShowCustomModal(TVm, string?, DrawerOptions?)` | custom modal |
 
-[DIALOG_SIGNATURE_03]: `ShowStandard<TView,TViewModel>(vm, owner, DialogOptions?)`.
+[MESSAGEBOX_DISPATCH]: `MessageBox` windowed and overlay confirmation — message/title/icon/button-first, each returning `Task<MessageBoxResult>`
 
-[DIALOG_SIGNATURE_04]: `ShowStandardAsync(...) : Task<DialogResult>`.
+| [INDEX] | [SURFACE]                                                                                                | [CAPABILITY]    |
+| :-----: | :------------------------------------------------------------------------------------------------------- | :-------------- |
+|  [01]   | `MessageBox.ShowAsync(string, string?, MessageBoxIcon, MessageBoxButton, string?)`                       | windowed        |
+|  [02]   | `MessageBox.ShowAsync(Window, string, string, MessageBoxIcon, MessageBoxButton, string?)`                | owner-anchored  |
+|  [03]   | `MessageBox.ShowOverlayAsync(string, string?, string?, MessageBoxIcon, MessageBoxButton, int?, string?)` | registered host |
 
-[DIALOG_SIGNATURE_05]: `ShowCustom<TView,TViewModel>(vm, owner, DialogOptions?)`.
-
-[DIALOG_SIGNATURE_06]: `ShowCustomAsync<...,TResult>(...) : Task<TResult?>`.
-
-[DIALOG_SIGNATURE_07]: `ShowModal<TView,TViewModel>(vm, string? hostId, OverlayDialogOptions?) : Task<DialogResult>`.
-
-[DIALOG_SIGNATURE_08]: `ShowCustomModal<TResult>(vm, hostId, OverlayDialogOptions?, CancellationToken?) : Task<TResult?>`.
-
-[DIALOG_SIGNATURE_09]: `ShowStandardAsync<TView,TViewModel>(vm, hostId, OverlayDialogOptions?, CancellationToken?) : Task<DialogResult>`.
-
-[DIALOG_SIGNATURE_10]: `RegisterHost(OverlayDialogHost, id, hash)`.
-
-[DIALOG_SIGNATURE_11]: `GetHost(id, hash)`.
-
-[DIALOG_SIGNATURE_12]: `UnregisterHost(id, hash)`.
-
-[DRAWER_DISPATCH]: `Drawer` slide-in panel dispatch — same vm-first shape, host-id targeted
-- rail: controls
-
-| [INDEX] | [MEMBER]                                    | [MODE]       | [RESULT]             |
-| :-----: | :------------------------------------------ | :----------- | :------------------- |
-|  [01]   | `Show<TView,TViewModel>`                    | non-modal    | none                 |
-|  [02]   | `ShowModal<TView,TViewModel>`               | modal        | `Task<DialogResult>` |
-|  [03]   | `ShowCustomModal<TView,TViewModel,TResult>` | custom modal | `Task<TResult?>`     |
-
-[DRAWER_SIGNATURE_01]: `Show<TView,TViewModel>(vm, string? hostId, DrawerOptions?)`.
-
-[DRAWER_SIGNATURE_02]: `ShowModal<TView,TViewModel>(vm, hostId, DrawerOptions?) : Task<DialogResult>`.
-
-[DRAWER_SIGNATURE_03]: `ShowCustomModal<TView,TViewModel,TResult>(vm, hostId, DrawerOptions?) : Task<TResult?>`.
-
-[MESSAGEBOX_DISPATCH]: `MessageBox` windowed + overlay confirmation — message/title/icon/button-first
-- rail: controls
-
-| [INDEX] | [MEMBER]           | [MODE]          | [RESULT]                 |
-| :-----: | :----------------- | :-------------- | :----------------------- |
-|  [01]   | `ShowAsync`        | windowed        | `Task<MessageBoxResult>` |
-|  [02]   | `ShowAsync`        | owner-anchored  | `Task<MessageBoxResult>` |
-|  [03]   | `ShowOverlayAsync` | registered host | `Task<MessageBoxResult>` |
-
-[MESSAGEBOX_SIGNATURE_01]: `ShowAsync(string message, string? title, MessageBoxIcon, MessageBoxButton, string? styleClass) : Task<MessageBoxResult>`.
-
-[MESSAGEBOX_SIGNATURE_02]: `ShowAsync(Window owner, string message, string title, MessageBoxIcon, MessageBoxButton, string?) : Task<MessageBoxResult>`.
-
-[MESSAGEBOX_SIGNATURE_03]: `ShowOverlayAsync(string message, string? title, string? hostId, MessageBoxIcon, MessageBoxButton, int? toplevelHashCode, string?) : Task<MessageBoxResult>`.
-
-[TOAST_NOTIFICATION_DISPATCH]: `IToastManager` / `INotificationManager` queue managers (installed onto a host visual, then `Show`)
-- rail: controls
+[TOAST_NOTIFICATION_DISPATCH]: `IToastManager` / `INotificationManager` queue managers — installed onto a host visual, then `Show`
 
 `WindowToastManager` implements `IToastManager`, `WindowNotificationManager` implements `INotificationManager`, and `IMessage` is the base of `IToast` and `INotification`.
 
-| [INDEX] | [MEMBER]                              | [ROOT]                 | [RAIL]               |
-| :-----: | :------------------------------------ | :--------------------- | :------------------- |
-|  [01]   | `Show(IToast)`                        | `IToastManager`        | enqueue toast        |
-|  [02]   | `Close(IToast)`                       | `IToastManager`        | dismiss toast        |
-|  [03]   | `CloseAll()`                          | `IToastManager`        | drain toast queue    |
-|  [04]   | `Show(INotification)`                 | `INotificationManager` | enqueue notification |
-|  [05]   | `Close(...)`                          | `INotificationManager` | dismiss notification |
-|  [06]   | `CloseAll()`                          | `INotificationManager` | drain notification   |
-|  [07]   | `Type : NotificationType`             | `IMessage`             | message severity     |
-|  [08]   | `Expiration`                          | `IMessage`             | message lifetime     |
-|  [09]   | `ShowIcon`                            | `IMessage`             | icon visibility      |
-|  [10]   | `ShowClose`                           | `IMessage`             | close visibility     |
-|  [11]   | `OnClick`                             | `IMessage`             | click callback       |
-|  [12]   | `OnClose(Action<MessageCloseReason>)` | `IMessage`             | close callback       |
+| [INDEX] | [SURFACE]                                      | [CAPABILITY]         |
+| :-----: | :--------------------------------------------- | :------------------- |
+|  [01]   | `IToastManager.Show(IToast)`                   | enqueue toast        |
+|  [02]   | `IToastManager.Close(IToast)`                  | dismiss toast        |
+|  [03]   | `IToastManager.CloseAll()`                     | drain toast queue    |
+|  [04]   | `INotificationManager.Show(INotification)`     | enqueue notification |
+|  [05]   | `INotificationManager.Close(...)`              | dismiss notification |
+|  [06]   | `INotificationManager.CloseAll()`              | drain notification   |
+|  [07]   | `IMessage.Type : NotificationType`             | message severity     |
+|  [08]   | `IMessage.Expiration`                          | message lifetime     |
+|  [09]   | `IMessage.ShowIcon`                            | icon visibility      |
+|  [10]   | `IMessage.ShowClose`                           | close visibility     |
+|  [11]   | `IMessage.OnClick`                             | click callback       |
+|  [12]   | `IMessage.OnClose(Action<MessageCloseReason>)` | close callback       |
 
-[MESSAGE_SEVERITY]: `IMessage.Type` uses `Avalonia.Controls.Notifications.NotificationType`.
+[THEME_INSTALL]: `UrsaSemiTheme` install and locale surface — `Ursa.Themes.Semi` (the only code surface; the rest is XAML resource lookup)
+
+| [INDEX] | [SURFACE]                                                            | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `<semi:UrsaSemiTheme/>`                                              | install Ursa control themes last in the chain           |
+|  [02]   | `UrsaSemiTheme(IServiceProvider?)`                                   | ctor                                                    |
+|  [03]   | `UrsaSemiTheme.Locale`                                               | select the culture (`CultureInfo?`, `zh-CN` on unknown) |
+|  [04]   | `UrsaSemiTheme.OverrideLocaleResources(Application, CultureInfo?)`   | app-scoped locale override                              |
+|  [05]   | `UrsaSemiTheme.OverrideLocaleResources(StyledElement, CultureInfo?)` | element-scoped locale override                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[CONTROLS_LAW]:
-- Package: `Irihi.Ursa`
-- Owns: the extended-control families the curated Avalonia + `bodong.PropertyGrid` + `Dock` + `DataGrid` roster does not — navigation (`NavMenu`/`Breadcrumb`/`Pagination`/`Anchor`/`ToolBar`), feedback (`Toast`/`Notification`/`Banner`/`MessageBox`/`Loading`/`Skeleton`/`PopConfirm`), overlay (`OverlayDialogHost`/`Drawer`), data entry (`Form`/the typed `NumericUpDown` family/`PinCode`/`IPv4Box`/`TimeBox`/`TagInput`/`KeyGestureInput`/`PathPicker`), selection (`MultiComboBox`/`TreeComboBox`/`SelectionList`/`Rating`/`RangeSlider`), display (`Timeline`/`Avatar`/`Badge`/`Marquee`/`Descriptions`/`QRCode`), and the full date/time/range picker family.
-- Accept: `Shell/Controls` composes Ursa controls for these families and reuses `Ursa.Common` placement (`Position`/`ItemAlignment`/`CornerPosition`) and the per-control enums as the policy vocabulary; the typed `Numeric<T>UpDown` variant matching the bound CLR type is used, never a string-parsed generic spinner.
-- Reject: hand-rolling a nav menu, timeline, OTP field, masked IP/time box, multi-select combo, or rating control that Ursa already owns; declaring a parallel placement enum where `Ursa.Common`/the control enum already names the axis.
+[TOPOLOGY]:
+- Every overlay — dialog, drawer, confirm — is raised vm-first through the static `OverlayDialog`/`Drawer`/`MessageBox.ShowOverlayAsync` dispatch against a registered host id; one `OverlayDialogHost` per shell region carries its `HostId`, and no code instantiates a popup or mutates the visual tree.
+- Transient feedback queues through one installed `WindowToastManager`/`WindowNotificationManager`/`WindowMessageManager`; product code resolves the matching `IToastManager`/`INotificationManager` and calls `Show`/`Close`/`CloseAll`, every message an `IMessage`.
+- Control visuals resolve the shared `semi:` OKLCH token system with `<semi:UrsaSemiTheme/>` last in the single `Application.Styles` chain.
 
-[OVERLAY_LAW]:
-- The overlay families are the in-canvas counterpart to `DialogHost.Avalonia` (`api-dialoghost.md`): one `OverlayDialogHost` registered per shell region (id via `OverlayDialogManager.RegisterHost`), and view-models raise dialogs/drawers/confirms through the static `OverlayDialog.*`/`Drawer.*`/`MessageBox.ShowOverlayAsync` dispatch against that id — never by instantiating a popup or mutating the visual tree.
-- Accept: the awaited `ShowModal`/`ShowCustomModal<TResult>`/`ShowStandardAsync` overloads return `Task<DialogResult>`/`Task<TResult?>` and bind into a LanguageExt `Eff`/`OptionT` rail at the boundary, threading the supplied `CancellationToken` through the overlay's lifetime; `DialogOptions`/`OverlayDialogOptions`/`DrawerOptions` carry button set, modality, placement, and resize policy.
-- Reject: a second overlay-host layer beside `OverlayDialogHost` (or beside `DialogHost`); blocking on `.Result` instead of awaiting the dispatch; constructing dialog views by hand instead of the `<TView,TViewModel>` vm-first generic overloads.
+[STACKING]:
+- `api-semi.md`: `UrsaSemiTheme` extends the `Semi.Avalonia` token system under the shared `https://irihi.tech/semi` (`semi:`) xmlns; the chain is `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins -> `<semi:UrsaSemiTheme/>`, every Ursa entry below `SemiTheme` so its tokens resolve, and `UrsaSemiTheme.OverrideLocaleResources` mirrors `SemiTheme.OverrideLocaleResources` so a culture swap drives both locale dictionaries.
+- `api-dialoghost.md`: `OverlayDialog`/`Drawer`/`MessageBox` mirror `DialogHost.Avalonia` in-canvas, sharing its vm-first-against-a-host-id dispatch shape.
+- `api-reactiveui-avalonia.md`: `ReactiveUrsaWindow<TViewModel>`/`ReactiveUrsaView<TViewModel>` bind `UrsaWindow`/`UrsaView` onto the `ReactiveUI.Avalonia` rail as the admitted MVVM view bases.
+- within-lib: the awaited `ShowModal`/`ShowCustomModal<TResult>`/`ShowStandardAsync` overloads return `Task<DialogResult>`/`Task<TResult?>` and bind into a LanguageExt `Eff`/`OptionT` rail at the boundary with the supplied `CancellationToken` threaded; notification severity maps the product `Status`/`ControlIntent` vocabulary onto `IMessage.Type`, and `OnClose(MessageCloseReason)` drives dismissal-cause follow-up.
 
-[FEEDBACK_LAW]:
-- `WindowToastManager`/`WindowNotificationManager`/`WindowMessageManager` are installed once onto a host visual; product code resolves the matching `IToastManager`/`INotificationManager` and calls `Show(IToast/INotification)`/`Close`/`CloseAll`. Each message implements `IMessage` (`Type` severity, `Expiration`, `OnClick`, `OnClose(Action<MessageCloseReason>)`), so transient feedback is queued through one manager rather than ad-hoc adorners.
-- Accept: notification severity maps from the product `Status`/`ControlIntent` vocabulary onto `IMessage.Type` (Avalonia's `NotificationType`); `OnClose` receives `MessageCloseReason` (user vs timeout vs programmatic) to drive analytics or follow-up.
-- Reject: per-screen toast stacks; raising a `Notification`/`Toast` control directly into the visual tree instead of through its manager; ignoring `MessageCloseReason` where dismissal cause is load-bearing.
+[LOCAL_ADMISSION]:
+- `Shell/Controls` composes Ursa for the families the curated Avalonia + `bodong.PropertyGrid` + `Dock` + `DataGrid` roster lacks, reusing `Ursa.Common` placement (`Position`/`ItemAlignment`/`CornerPosition`) and the per-control enums as policy vocabulary; the typed `Numeric<T>UpDown` matching the bound CLR type carries numeric entry, and shell views derive from the `ReactiveUrsa` bases.
+- `DialogOptions`/`OverlayDialogOptions`/`DrawerOptions` carry button set, modality, placement, and resize policy; `Irihi.Avalonia.Shared` stays the one shared primitive closure both suites floor on.
 
-[THEME_BRIDGE_LAW]:
-- Package: `Irihi.Ursa.Themes.Semi` + `Irihi.Ursa.ReactiveUIExtension`
-  [URSA_SEMI_THEME]:
-  `Irihi.Ursa.Themes.Semi` is the `UrsaSemiTheme: Styles` compiled-AXAML control-theme dictionary (`<semi:UrsaSemiTheme/>`, plus the thin `Locale`/`OverrideLocaleResources` code surface and the public `Ursa.Themes.Semi.Converters` set). It sits at the END of the single `Application.Styles` chain `FluentTheme floor -> <semi:SemiTheme/> -> the per-control Semi.Avalonia.* skins -> <semi:UrsaSemiTheme/>` so every Ursa control resolves the shared OKLCH token system the `Wacton.Unicolour` pipeline materializes into the `SemiTheme` slots.
-
-[URSA_SHARED_PRIMITIVES]:
-The theme binds the SAME `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` publishes; the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) is NOT used. `Irihi.Avalonia.Shared`/`Irihi.Avalonia.Shared.Contracts` is the shared primitive closure both suites floor on; its `UrsaSemiTheme.OverrideLocaleResources` mirrors `Semi.Avalonia.SemiTheme.OverrideLocaleResources`, so a culture swap must drive BOTH locale dictionaries.
-
-- `ReactiveUrsaWindow`/`ReactiveUrsaView` (`Irihi.Ursa.ReactiveUIExtension`) are the admitted MVVM view bases — they bind `UrsaWindow`/`UrsaView` onto the admitted `ReactiveUI`/`ReactiveUI.Avalonia` rail (`api-reactiveui-avalonia.md`); shell views derive from these, not from the plain `UrsaView` or a hand-wired `ReactiveUserControl`.
-- Reject: loading `UrsaSemiTheme` without `SemiTheme`, or ahead of the per-control Semi skins, instead of last in the chain (controls render unstyled or skin-shadowed); deriving shell views from the non-reactive bases when the ReactiveUI bridge is admitted; re-pinning `Irihi.Avalonia.Shared` to a divergent version from the Semi closure; using the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) in place of `UrsaSemiTheme`.
+[RAIL_LAW]:
+- Package: `Irihi.Ursa` + `Irihi.Ursa.Themes.Semi` + `Irihi.Ursa.ReactiveUIExtension`
+- Owns: the extended-control families (navigation, feedback, overlay, data entry, selection, display, the date/time/range pickers), in-canvas overlay/drawer/confirm dispatch, queued transient feedback, the `UrsaSemiTheme` control-theme bridge, and the `ReactiveUrsa` MVVM bases
+- Accept: vm-first static dispatch against a host id returning `Task<DialogResult>`/`Task<TResult?>` awaited into an `Eff`/`OptionT` rail with the `CancellationToken` threaded; one installed manager per feedback family; `<semi:UrsaSemiTheme/>` last in the `semi:` chain
+- Reject: hand-rolling a nav menu, timeline, OTP field, masked IP/time box, multi-select combo, or rating Ursa owns; a second overlay-host layer or per-screen feedback stack; blocking on `.Result` instead of awaiting the dispatch; declaring a parallel placement enum where `Ursa.Common` names the axis; loading `UrsaSemiTheme` without or ahead of `SemiTheme`; deriving shell views from the non-reactive bases when the ReactiveUI bridge is admitted; re-pinning `Irihi.Avalonia.Shared` divergent from the Semi closure

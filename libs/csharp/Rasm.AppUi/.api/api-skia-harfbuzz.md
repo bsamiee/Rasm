@@ -1,112 +1,103 @@
 # [RASM_APPUI_API_SKIA_HARFBUZZ]
 
-`SkiaSharp.HarfBuzz` supplies HarfBuzz-backed text shaping, shaped-text drawing, font-stream-to-blob conversion, and HarfBuzz font-scale interop for Skia visuals. It is a thin bridge assembly: it shapes through `HarfBuzzSharp` and renders through `SkiaSharp.SKTextBlob`, owning no glyph data of its own.
+`SkiaSharp.HarfBuzz` owns HarfBuzz-backed text shaping for Skia: `SKShaper` shapes a run through `HarfBuzzSharp`, then `CanvasExtensions` builds an `SKTextBlob` and draws it through `SkiaSharp`. A managed-only bridge holding no glyph data of its own, it feeds the typography rail across every AppUi text surface.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
-- package: `SkiaSharp.HarfBuzz`
-- license: `MIT`
+- package: `SkiaSharp.HarfBuzz` (MIT, Microsoft)
 - assembly: `SkiaSharp.HarfBuzz`
 - namespace: `SkiaSharp.HarfBuzz`
-- types: 5 public types in 1 namespace (`SKShaper`, `SKShaper.Result`, `CanvasExtensions`, `FontExtensions`, `BlobExtensions`)
-- dependency: `SkiaSharp` `3.119.4` (managed `SKCanvas`/`SKFont`/`SKTextBlobBuilder` surface)
-- dependency: `HarfBuzzSharp` `8.3.1.5` (managed `Blob`/`Buffer`/`Font` shaping surface)
-- native: `HarfBuzzSharp.NativeAssets.macOS` / `.Linux` carry `libHarfBuzzSharp`; `SkiaSharp.NativeAssets.*` carry `libSkiaSharp`. Shaping faults at runtime if the native HarfBuzz asset for the active RID is absent — this assembly is managed-only.
-- asset: runtime library
+- depends: `SkiaSharp` (`SKCanvas`/`SKFont`/`SKTextBlobBuilder`), `HarfBuzzSharp` (`Blob`/`Buffer`/`Font`)
+- native: managed-only bridge; `libHarfBuzzSharp` (`api-harfbuzz-native.md`) backs shaping and faults at first shape on a missing-RID asset
 - rail: typography
 
 ## [02]-[PUBLIC_TYPES]
 
-[SHAPING_TYPES]: shaping owner and its result record — rail: typography
+[SHAPING_TYPES]: shaping owner, its result record, and the draw and interop extension classes
 
-| [INDEX] | [SYMBOL]                 | [KIND]                  | [SHAPE]                                                              |
-| :-----: | :----------------------- | :---------------------- | :------------------------------------------------------------------- |
-|  [01]   | `SKShaper : IDisposable` | per-typeface shaper     | wraps one `HarfBuzzSharp.Font` + reusable `Buffer`; dispose-bound    |
-|  [02]   | `SKShaper.Result`        | shaped-run value record | parallel `Codepoints`/`Clusters`/`Points` arrays + total `Width`     |
-|  [03]   | `CanvasExtensions`       | shaped-draw extensions  | `SKCanvas.DrawShapedText` family (shape + build `SKTextBlob` + draw) |
-|  [04]   | `FontExtensions`         | HarfBuzz scale interop  | `HarfBuzzSharp.Font` scale get/set marshalled through `SKSizeI`      |
-|  [05]   | `BlobExtensions`         | stream-to-blob bridge   | `SKStreamAsset -> HarfBuzzSharp.Blob` with lifetime-bound release    |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                      |
+| :-----: | :----------------------- | :------------ | :-------------------------------- |
+|  [01]   | `SKShaper : IDisposable` | class         | dispose-bound per-typeface shaper |
+|  [02]   | `SKShaper.Result`        | value record  | shaped-run arrays with advance    |
+|  [03]   | `CanvasExtensions`       | static class  | canvas shaped-text draw           |
+|  [04]   | `FontExtensions`         | static class  | HarfBuzz scale interop            |
+|  [05]   | `BlobExtensions`         | static class  | typeface stream to HarfBuzz blob  |
 
-[SUBSTRATE_TYPES]: admitted shaping/render substrate consumed by the bridge (other assemblies) — rail: typography
+[SUBSTRATE_TYPES]: shaping and render substrate the bridge consumes
 
-| [INDEX] | [SYMBOL]                 | [ASSEMBLY]      | [ROLE]                                                           |
-| :-----: | :----------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `HarfBuzzSharp.Buffer`   | `HarfBuzzSharp` | accepts UTF-8/16/32 text, `GuessSegmentProperties`, glyph output |
-|  [02]   | `HarfBuzzSharp.Font`     | `HarfBuzzSharp` | shaping font; `Shape(buffer, features)` drives layout            |
-|  [03]   | `HarfBuzzSharp.Blob`     | `HarfBuzzSharp` | immutable font-face bytes backing the HarfBuzz `Face`            |
-|  [04]   | `SKTypeface`             | `SkiaSharp`     | `SKShaper` ctor input; `OpenStream` feeds `ToHarfBuzzBlob`       |
-|  [05]   | `SKFont`                 | `SkiaSharp`     | size/scale/typeface carrier for shape + draw                     |
-|  [06]   | `SKTextBlobBuilder`      | `SkiaSharp`     | `AllocateRawPositionedRun` consumes shaped glyphs+points         |
-|  [07]   | `SKRawRunBuffer<ushort>` | `SkiaSharp`     | positioned-run `Glyphs`/`Positions` spans filled per glyph       |
-|  [08]   | `SKTextBlob`             | `SkiaSharp`     | built shaped blob handed to `SKCanvas.DrawText`                  |
+| [INDEX] | [SYMBOL]                  | [ASSEMBLY]      | [CAPABILITY]                         |
+| :-----: | :------------------------ | :-------------- | :----------------------------------- |
+|  [01]   | `HarfBuzzSharp.Buffer`    | `HarfBuzzSharp` | text-to-glyph shaping buffer         |
+|  [02]   | `HarfBuzzSharp.Font`      | `HarfBuzzSharp` | shaping font driving layout          |
+|  [03]   | `HarfBuzzSharp.Blob`      | `HarfBuzzSharp` | immutable font-face bytes            |
+|  [04]   | `SKTypeface`              | `SkiaSharp`     | shaper ctor typeface source          |
+|  [05]   | `SKFont`                  | `SkiaSharp`     | size and typeface carrier            |
+|  [06]   | `SKTextBlobBuilder`       | `SkiaSharp`     | positioned-run blob builder          |
+|  [07]   | `SKRawRunBuffer<SKPoint>` | `SkiaSharp`     | per-glyph `Glyphs`/`Positions` spans |
+|  [08]   | `SKTextBlob`              | `SkiaSharp`     | built shaped blob to draw            |
 
 ## [03]-[ENTRYPOINTS]
 
-[SHAPING_ENTRYPOINTS]: shape and draw — the obsolete `SKPaint` overloads are superseded by the `SKFont`/`SKTextAlign` forms; bind the `SKFont` forms — rail: typography
+[SHAPING_ENTRYPOINTS]: shape a run from a transient string or a caller-prepared buffer, returning a `Result`
+- root: `SKShaper`
 
-`SKShaper` owns transient-string and caller-owned-buffer shaping from the origin or an explicit pen offset.
+| [INDEX] | [SURFACE] | [CALL]                                           |
+| :-----: | :-------- | :----------------------------------------------- |
+|  [01]   | `Shape`   | `(string, SKFont)` transient buffer from origin  |
+|  [02]   | `Shape`   | `(string, x, y, SKFont)` transient, explicit pen |
+|  [03]   | `Shape`   | `(Buffer, SKFont)` caller buffer from origin     |
+|  [04]   | `Shape`   | `(Buffer, x, y, SKFont)` caller, explicit pen    |
 
-| [INDEX] | [SURFACE]                                                      | [BUFFER]  | [ORIGIN] |
-| :-----: | :------------------------------------------------------------- | :-------- | :------- |
-|  [01]   | `Shape(string, SKFont) : Result`                               | transient | `(0,0)`  |
-|  [02]   | `Shape(string, float xOffset, float yOffset, SKFont) : Result` | transient | explicit |
-|  [03]   | `Shape(Buffer, SKFont) : Result`                               | caller    | `(0,0)`  |
-|  [04]   | `Shape(Buffer, float xOffset, float yOffset, SKFont) : Result` | caller    | explicit |
+[DRAW_ENTRYPOINTS]: shape, build an `SKTextBlob`, and draw it
+- root: `SKCanvas`
+- form: without `SKShaper` a transient shaper, without `SKTextAlign` the `paint.TextAlign`; each row's `(x, y)` origin has an `SKPoint` twin
 
-`CanvasExtensions` shapes, builds an `SKTextBlob`, and draws each run. Signatures without `SKShaper` create a transient shaper, and signatures without `SKTextAlign` bind `Left`.
+| [INDEX] | [SURFACE]        | [CALL]                                                                     |
+| :-----: | :--------------- | :------------------------------------------------------------------------- |
+|  [01]   | `DrawShapedText` | `(string, x, y, SKFont, SKPaint)` transient shaper, paint align            |
+|  [02]   | `DrawShapedText` | `(string, x, y, SKTextAlign, SKFont, SKPaint)` transient shaper, set align |
+|  [03]   | `DrawShapedText` | `(SKShaper, string, x, y, SKFont, SKPaint)` reused shaper, paint align     |
+|  [04]   | `DrawShapedText` | `(SKShaper, string, x, y, SKTextAlign, SKFont, SKPaint)` reused, set align |
 
-| [INDEX] | [SURFACE]                                                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `DrawShapedText(this SKCanvas, string, float x, float y, SKTextAlign, SKFont, SKPaint)`           |
-|  [02]   | `DrawShapedText(this SKCanvas, SKShaper, string, float x, float y, SKTextAlign, SKFont, SKPaint)` |
-|  [03]   | `DrawShapedText(this SKCanvas, string, SKPoint, SKTextAlign, SKFont, SKPaint)`                    |
-|  [04]   | `DrawShapedText(this SKCanvas, SKShaper, string, float x, float y, SKFont, SKPaint)`              |
+[INTEROP_ENTRYPOINTS]: font-stream-to-blob admission and HarfBuzz scale marshalling
 
-`BlobExtensions` binds stream release to asset disposal, and `FontExtensions` maps the HarfBuzz integer scale through `SKSizeI`.
+| [INDEX] | [SURFACE]        | [ROOT]           | [CALL]                                                        |
+| :-----: | :--------------- | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `ToHarfBuzzBlob` | `BlobExtensions` | `(this SKStreamAsset) -> Blob` release bound to asset dispose |
+|  [02]   | `GetScale`       | `FontExtensions` | `(this HarfBuzzSharp.Font) -> SKSizeI`                        |
+|  [03]   | `SetScale`       | `FontExtensions` | `(this HarfBuzzSharp.Font, SKSizeI)`                          |
 
-| [INDEX] | [SURFACE]                                                 | [SURFACE_ROOT]   |
-| :-----: | :-------------------------------------------------------- | :--------------- |
-|  [01]   | `ToHarfBuzzBlob(this SKStreamAsset) : HarfBuzzSharp.Blob` | `BlobExtensions` |
-|  [02]   | `GetScale(this HarfBuzzSharp.Font) : SKSizeI`             | `FontExtensions` |
-|  [03]   | `SetScale(this HarfBuzzSharp.Font, SKSizeI)`              | `FontExtensions` |
+[RESULT_ENTRYPOINTS]: parallel arrays index 1:1 by glyph; advance the flow with `Width`
+- root: `SKShaper.Result`
 
-[RESULT_ENTRYPOINTS]: `SKShaper.Result` members — parallel arrays index 1:1 by glyph; advance the flow with `Width` — rail: typography
-
-`Codepoints` casts to `ushort` for `SKTextBlobBuilder`, and `Clusters` maps source indices for hit testing and caret placement. `Width` supplies the total advance for line breaking, alignment, and column flow.
-
-| [INDEX] | [SURFACE]             | [SHAPE]                    |
-| :-----: | :-------------------- | :------------------------- |
-|  [01]   | `Codepoints : uint[]` | shaped glyph identifiers   |
-|  [02]   | `Clusters : uint[]`   | source UTF cluster indices |
-|  [03]   | `Points : SKPoint[]`  | absolute glyph origins     |
-|  [04]   | `Width : float`       | total advance              |
-
-[RESULT_CONSTRUCTOR]:
-- Surface: `Result(uint[] codepoints, uint[] clusters, SKPoint[] points, float width)`
-- Shape: synthesizes or transforms runs outside the shaper
+| [INDEX] | [SURFACE]    | [CALL]                                                                   |
+| :-----: | :----------- | :----------------------------------------------------------------------- |
+|  [01]   | `Codepoints` | `uint[]` shaped glyph ids, cast `ushort` for the blob builder            |
+|  [02]   | `Clusters`   | `uint[]` source UTF cluster indices for hit-test and caret               |
+|  [03]   | `Points`     | `SKPoint[]` absolute glyph origins                                       |
+|  [04]   | `Width`      | `float` total advance for line-break, align, column flow                 |
+|  [05]   | `Result`     | `(uint[], uint[], SKPoint[], float)` synthesize a run outside the shaper |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[SHAPING_PIPELINE]:
-- `SKShaper(SKTypeface)` opens the typeface stream, converts it via `ToHarfBuzzBlob`, builds a `HarfBuzzSharp.Face`/`Font`, sets the internal `FONT_SIZE_SCALE` (512) HarfBuzz scale, and selects OpenType functions — all face setup happens once per shaper.
-- `Shape(...)` runs `hbFont.Shape(buffer, Array.Empty<Feature>())`, then rescales HarfBuzz integer advances by `font.Size / 512 * font.ScaleX` into `Result.Points`/`Width`. The `string` overloads `AddUtf8` + `GuessSegmentProperties` on a transient buffer; the `Buffer` overloads trust caller-prepared script/direction/language.
-- `DrawShapedText` shapes the run, allocates a positioned run on `SKTextBlobBuilder.AllocateRawPositionedRun(font, count, null)`, copies `Codepoints`->`Glyphs` and `Points`->`Positions`, builds an `SKTextBlob`, applies the `SKTextAlign` offset (`Left`=0, `Center`=-Width/2, `Right`=-Width), and draws via `SKCanvas.DrawText`.
+[TOPOLOGY]:
+- `SKShaper(SKTypeface)` opens the typeface stream through `ToHarfBuzzBlob`, builds a `Face`/`Font`, sets the internal 512 HarfBuzz scale, and selects OpenType functions — face setup runs once per shaper.
+- `Shape` runs `hbFont.Shape(buffer, Array.Empty<Feature>())`, then rescales integer advances by `font.Size / 512 * font.ScaleX` into `Points`/`Width`; a `string` overload calls `AddUtf8` + `GuessSegmentProperties` on a transient buffer, a `Buffer` overload trusts caller-prepared script, direction, and language.
+- `DrawShapedText` shapes the run, allocates `SKTextBlobBuilder.AllocateRawPositionedRun(font, count, null)`, copies `Codepoints`->`Glyphs` and `Points`->`Positions`, builds the `SKTextBlob`, applies the `SKTextAlign` offset (`Left`=0, `Center`=-Width/2, `Right`=-Width), and draws `SKCanvas.DrawText`.
 
 [STACKING]:
-- One `SKShaper` per typeface is the reuse unit: a custom-control text rail, a chart-axis labeler, an SVG `<text>` flow, and a diagnostics overlay all hold a shaper per face and call the shaper-reuse `DrawShapedText` overload — the one-shot `string` overload reloads the face on every draw and is for incidental labels only.
-- For typeset layout (line breaking, bidi runs, ligature-aware caret hit-testing), drive `Shape(Buffer, SKFont)` with a caller-prepared `HarfBuzzSharp.Buffer` (explicit `Direction`/`Script`/`Language`, feature tags) and consume `Result.Clusters` for the source-index map; the `string` convenience path discards that control by calling `GuessSegmentProperties`.
-- The shaped `Result` is the seam between this rail and the GPU/raster render path: feed `Codepoints`+`Points` straight into `SKTextBlobBuilder` (or an Avalonia `GlyphRun`) rather than re-shaping, so shaping cost is paid once and the render backend (Skia GL/Vulkan via `Avalonia.Skia`) only rasterizes.
-- Font-stream-to-blob (`ToHarfBuzzBlob`) is the single admitted path from a Skia typeface to HarfBuzz face bytes; it binds the blob's release to the asset's `Dispose`, so the caller must keep the `SKStreamAsset` alive for the shaper's lifetime — `SKShaper` already owns this internally.
+- `SkiaSharp`(`api-skiasharp.md`): `SKShaper.Shape` feeds `Codepoints`+`Points` into `SKTextBlobBuilder.AllocateRawPositionedRun`, and the built `SKTextBlob` draws through `SKCanvas.DrawText`; `SKTypeface.OpenStream` and `SKFont` supply the shaper's face and scale.
+- `HarfBuzzSharp`(`api-harfbuzz-native.md`): `SKShaper` P/Invokes `libHarfBuzzSharp` through `HarfBuzzSharp.Font.Shape` over a `Buffer`; that catalog owns the native payload identity and RID fault.
+- `Avalonia.Skia`(`api-avalonia-skia.md`): a custom control draws the shaped `SKTextBlob` onto the leased live `SKCanvas`, sharing Avalonia's GPU context so shaping cost is paid once and the backend only rasterizes.
+- within-lib: one `SKShaper` per typeface is the reuse unit across the text rail — control labels, chart axes, SVG `<text>`, and diagnostics each hold a shaper per face and call the `SKShaper`-carrying `DrawShapedText`; typeset layout drives `Shape(Buffer, SKFont)` with a caller-prepared `Buffer` (explicit `Direction`/`Script`/`Language`, feature tags) and reads `Result.Clusters` for the source-index map.
 
-[TYPOGRAPHY_LAW]:
-- Package: `SkiaSharp.HarfBuzz`
-- Owns: HarfBuzz-backed shaping for Skia text, glyph runs, and rendered labels
-- Accept: typography roles shape through one `SKShaper` per face, reuse it across draws, and bind the `SKFont`/`SKTextAlign` overloads
-- Reject: the `[Obsolete]` `SKPaint` overloads; manual glyph placement; re-shaping a stable string per frame
+[LOCAL_ADMISSION]:
+- `ToHarfBuzzBlob` is the single admitted path from an `SKStreamAsset` to HarfBuzz face bytes, binding blob release to the asset `Dispose`; `SKShaper` owns this internally, so a caller keeps the `SKStreamAsset` alive for the shaper's lifetime.
+- One-shot `string` overloads reload the face per draw and admit only incidental labels; a reused per-face `SKShaper` is the admitted form for repeated text.
 
-[VISUAL_TEXT_LAW]:
+[RAIL_LAW]:
 - Package: `SkiaSharp.HarfBuzz`
-- Owns: shaped-text output for custom controls, chart labels, SVG text, diagnostics, and rendered evidence
-- Accept: text shaping is one typography rail across all AppUi modalities, with `Result` as the shared shaped-run record
-- Reject: per-control glyph positioning code; per-control face reloads
+- Owns: HarfBuzz-backed shaping and shaped-text draw for every AppUi typography surface — custom controls, chart labels, SVG text, diagnostics, rendered evidence
+- Accept: one `SKShaper` per typeface reused across draws, the `SKFont`/`SKTextAlign` overloads, `Result` as the shared shaped-run record
+- Reject: per-control glyph placement, per-control face reloads, re-shaping a stable string per frame

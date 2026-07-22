@@ -1,30 +1,23 @@
 # [RASM_APPUI_API_DRYWETMIDI]
 
-`Melanchall.DryWetMidi` supplies the MIDI file/chunk object model, the channel and meta event family, the timed-event/note/chord interaction layer, the high-level transform tools (quantize/split/merge/resize/repeat), and the multimedia device, recording, and playback rails driven by a high-precision native multimedia clock. AppUi Shell input composes the device + interaction subset into the InputFabric MIDI surface alongside the Silk.NET SDL2 (`api-silk-sdl`), Silk.NET.Input (`api-silk-input`), and HidSharp (`api-hidsharp`) device rails: device intake, event send, file read/write, and the `TempoMap`-anchored timed note model.
+`Melanchall.DryWetMidi` owns the AppUi MIDI surface: the Standard MIDI File and chunk object model, the channel and meta event family, the `TempoMap`-anchored timed note/chord interaction layer, the grid transform tools, and the device/recording/playback rails a native multimedia clock drives. Managed `Core`/`Interaction`/`Tools` bind on every host; the `Multimedia` device rails bind only where the native clock is present, so the headless-Linux path stays managed-only. `Midi` folds onto the single `InputFabric` edge every device rail shares.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Melanchall.DryWetMidi`
-- package: `Melanchall.DryWetMidi`
-- license: `MIT`
+- package: `Melanchall.DryWetMidi` (MIT)
 - assembly: `Melanchall.DryWetMidi`
-- consumer-tfm: `netstandard2.0` (package ships only `netstandard2.0`/`net45`; `net10.0` binds the `netstandard2.0` asset)
-- namespace: `Melanchall.DryWetMidi.Multimedia`
-- namespace: `Melanchall.DryWetMidi.Core`
-- namespace: `Melanchall.DryWetMidi.Interaction`
-- namespace: `Melanchall.DryWetMidi.Tools`
-- namespace: `Melanchall.DryWetMidi.Common`
-- asset: managed runtime library
-- asset: native multimedia clock interop (`Melanchall_DryWetMidi_Native32.dll`, `_Native64.dll`, `_Native64.dylib`) copied to output by the package `targets`
-- abi: native clock ships Windows x86/x64 and macOS x64 only — there is NO Linux `.so`; the multimedia `Playback`/`Recording`/`InputDevice`/`OutputDevice` rails are unavailable on the headless-Linux render path, where only the managed `Core`/`Interaction`/`Tools` (file, event, timed-model, transform) surface is usable
+- consumer-tfm: `netstandard2.0` (package ships `netstandard2.0`/`net45`; `net10.0` binds the `netstandard2.0` asset)
+- namespace: `Melanchall.DryWetMidi.Multimedia`, `.Core`, `.Interaction`, `.Tools`, `.Common`
+- asset: managed runtime library only; the package ships no native binary
+- abi: `Multimedia` rails P/Invoke the native clock `Melanchall_DryWetMidi_Native32`/`_Native64`, supplied out-of-band with no Linux build, so `Playback`/`Recording`/`InputDevice`/`OutputDevice` bind only on the native-clock desktop host and the headless-Linux path uses managed `Core`/`Interaction`/`Tools` alone
 - rail: input
 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: multimedia devices, clock, and rails
-- rail: input
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [RAIL]                     |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [CAPABILITY]               |
 | :-----: | :--------------------------------------------- | :--------------- | :------------------------- |
 |  [01]   | `InputDevice`                                  | input device     | event intake               |
 |  [02]   | `OutputDevice`                                 | output device    | event send                 |
@@ -43,9 +36,8 @@
 |  [15]   | `InputDeviceProperty` / `OutputDeviceProperty` | device property  | capability query           |
 
 [PUBLIC_TYPE_SCOPE]: file, chunk, and lazy-token model
-- rail: input
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [RAIL]                        |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [CAPABILITY]                  |
 | :-----: | :-------------------------------------- | :--------------- | :---------------------------- |
 |  [01]   | `MidiFile`                              | file root        | read/write surface            |
 |  [02]   | `MidiChunk`                             | chunk base       | chunk model                   |
@@ -60,9 +52,8 @@
 |  [11]   | `MidiTokensReader` / `MidiTokensWriter` | streaming token  | low-memory lazy IO            |
 
 [PUBLIC_TYPE_SCOPE]: event family
-- rail: input
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [RAIL]                |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [CAPABILITY]          |
 | :-----: | :----------------------- | :-------------- | :-------------------- |
 |  [01]   | `MidiEvent`              | event base      | abstract event root   |
 |  [02]   | `MidiEventType`          | event kind enum | event discriminant    |
@@ -81,9 +72,8 @@
 |  [15]   | `SysExEvent`             | sysex base      | system-exclusive data |
 
 [PUBLIC_TYPE_SCOPE]: interaction, note, and detection model
-- rail: input
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                        |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [CAPABILITY]                  |
 | :-----: | :--------------------------------- | :--------------- | :---------------------------- |
 |  [01]   | `TimedEvent`                       | timed event      | event plus tick time          |
 |  [02]   | `Note`                             | note object      | timed lengthed note           |
@@ -100,9 +90,8 @@
 |  [13]   | `FourBitNumber`                    | bounded value    | 0..15 channel index           |
 
 [PUBLIC_TYPE_SCOPE]: high-level transform tools
-- rail: input
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                       |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                 |
 | :-----: | :--------------------------------- | :------------ | :--------------------------- |
 |  [01]   | `Quantizer` / `QuantizerUtilities` | transform     | snap to grid                 |
 |  [02]   | `Splitter`                         | transform     | split notes/objects by grid  |
@@ -114,127 +103,118 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: device intake, send, and hot-plug
-- rail: input
 
-| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]     | [RAIL]                |
-| :-----: | :--------------------------------------------------- | :----------------- | :-------------------- |
-|  [01]   | `GetAll()` / `GetByName(name)` / `GetByIndex(index)` | `InputDevice`      | resolve input         |
-|  [02]   | `StartEventsListening()` / `StopEventsListening()`   | `InputDevice`      | intake lifecycle      |
-|  [03]   | `EventReceived` (`MidiEventReceivedEventArgs`)       | `InputDevice`      | received event signal |
-|  [04]   | `GetAll()` / `GetByName(name)`                       | `OutputDevice`     | resolve output        |
-|  [05]   | `SendEvent(midiEvent)` / `PrepareForEventsSending()` | `OutputDevice`     | emit/warm send        |
-|  [06]   | `TurnAllNotesOff()`                                  | `OutputDevice`     | panic note release    |
-|  [07]   | `EventSent` (`MidiEventSentEventArgs`)               | `OutputDevice`     | sent event signal     |
-|  [08]   | `DeviceAdded` / `DeviceRemoved`                      | `DevicesWatcher`   | hot-plug signals      |
-|  [09]   | `Connect()` (`InputDevice`->`OutputDevice`)          | `DevicesConnector` | hardware MIDI-thru    |
+| [INDEX] | [SURFACE]                                                          | [SHAPE]  | [CAPABILITY]          |
+| :-----: | :----------------------------------------------------------------- | :------- | :-------------------- |
+|  [01]   | `InputDevice.GetAll()` / `.GetByName(string)` / `.GetByIndex(int)` | static   | resolve input         |
+|  [02]   | `InputDevice.StartEventsListening()` / `.StopEventsListening()`    | instance | intake lifecycle      |
+|  [03]   | `InputDevice.EventReceived` (`MidiEventReceivedEventArgs`)         | event    | received event signal |
+|  [04]   | `OutputDevice.GetAll()` / `.GetByName(string)`                     | static   | resolve output        |
+|  [05]   | `OutputDevice.SendEvent(MidiEvent)` / `.PrepareForEventsSending()` | instance | emit/warm send        |
+|  [06]   | `OutputDevice.TurnAllNotesOff()`                                   | instance | panic note release    |
+|  [07]   | `OutputDevice.EventSent` (`MidiEventSentEventArgs`)                | event    | sent event signal     |
+|  [08]   | `DevicesWatcher.DeviceAdded` / `.DeviceRemoved`                    | event    | hot-plug signals      |
+|  [09]   | `DevicesConnector.Connect()`                                       | instance | hardware MIDI-thru    |
 
 [ENTRYPOINT_SCOPE]: file read, write, and lazy tokens
-- rail: input
 
-| [INDEX] | [SURFACE]                                                                     | [SURFACE_ROOT] | [RAIL]                |
-| :-----: | :---------------------------------------------------------------------------- | :------------- | :-------------------- |
-|  [01]   | `Read(string filePath, ReadingSettings)`                                      | `MidiFile`     | parse file path       |
-|  [02]   | `Read(Stream, ReadingSettings)`                                               | `MidiFile`     | parse stream          |
-|  [03]   | `ReadLazy(...)` -> `MidiTokensReader`                                         | `MidiFile`     | streaming token read  |
-|  [04]   | `Write(string filePath, bool overwriteFile, MidiFileFormat, WritingSettings)` | `MidiFile`     | serialize to path     |
-|  [05]   | `Write(Stream, MidiFileFormat, WritingSettings)`                              | `MidiFile`     | serialize to stream   |
-|  [06]   | `WriteLazy(...)` -> `MidiTokensWriter`                                        | `MidiFile`     | streaming token write |
-|  [07]   | `Chunks` / `TimeDivision` / `OriginalFormat`                                  | `MidiFile`     | model + read-format   |
-|  [08]   | `Clone()`                                                                     | `MidiFile`     | deep copy             |
-|  [09]   | `Equals(file1, file2, [settings,] out string message)`                        | `MidiFile`     | structural compare    |
+| [INDEX] | [SURFACE]                                                                   | [SHAPE]  | [CAPABILITY]          |
+| :-----: | :-------------------------------------------------------------------------- | :------- | :-------------------- |
+|  [01]   | `MidiFile.Read(string, ReadingSettings)`                                    | static   | parse file path       |
+|  [02]   | `MidiFile.Read(Stream, ReadingSettings)`                                    | static   | parse stream          |
+|  [03]   | `MidiFile.ReadLazy(string, ReadingSettings) -> MidiTokensReader`            | static   | streaming token read  |
+|  [04]   | `MidiFile.Write(string, bool, MidiFileFormat, WritingSettings)`             | instance | serialize to path     |
+|  [05]   | `MidiFile.Write(Stream, MidiFileFormat, WritingSettings)`                   | instance | serialize to stream   |
+|  [06]   | `MidiFile.WriteLazy(string, bool, MidiFileFormat, ...) -> MidiTokensWriter` | static   | streaming token write |
+|  [07]   | `MidiFile.Chunks` / `.TimeDivision` / `.OriginalFormat`                     | property | model + read-format   |
+|  [08]   | `MidiFile.Clone()`                                                          | instance | deep copy             |
+|  [09]   | `MidiFile.Equals(MidiFile, MidiFile, out string)`                           | static   | structural compare    |
 
 [ENTRYPOINT_SCOPE]: event construction and compare
-- rail: input
 
-| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]       | [RAIL]                      |
-| :-----: | :--------------------------------------------------- | :------------------- | :-------------------------- |
-|  [01]   | `NoteOnEvent(SevenBitNumber, SevenBitNumber)`        | `NoteOnEvent`        | note start build            |
-|  [02]   | `NoteOffEvent(SevenBitNumber, SevenBitNumber)`       | `NoteOffEvent`       | note stop build             |
-|  [03]   | `ControlChangeEvent(SevenBitNumber, SevenBitNumber)` | `ControlChangeEvent` | controller build            |
-|  [04]   | `ControlNumber` / `ControlValue` (`SevenBitNumber`)  | `ControlChangeEvent` | controller index/value read |
-|  [05]   | `NoteNumber` / `Velocity`                            | `NoteEvent`          | pitch/velocity byte         |
-|  [06]   | `Channel` (`FourBitNumber`)                          | `ChannelEvent`       | channel index               |
-|  [07]   | `EventType` / `Clone()`                              | `MidiEvent`          | kind/copy                   |
-|  [08]   | `Equals(event1, event2, out string message)`         | `MidiEvent`          | structural compare          |
+| [INDEX] | [SURFACE]                                            | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :--------------------------------------------------- | :------- | :--------------------- |
+|  [01]   | `NoteOnEvent(SevenBitNumber, SevenBitNumber)`        | ctor     | note start build       |
+|  [02]   | `NoteOffEvent(SevenBitNumber, SevenBitNumber)`       | ctor     | note stop build        |
+|  [03]   | `ControlChangeEvent(SevenBitNumber, SevenBitNumber)` | ctor     | controller build       |
+|  [04]   | `ControlChangeEvent.ControlNumber` / `.ControlValue` | property | controller index/value |
+|  [05]   | `NoteEvent.NoteNumber` / `.Velocity`                 | property | pitch/velocity byte    |
+|  [06]   | `ChannelEvent.Channel` (`FourBitNumber`)             | property | channel index          |
+|  [07]   | `MidiEvent.EventType` / `.Clone()`                   | instance | kind/copy              |
+|  [08]   | `MidiEvent.Equals(MidiEvent, MidiEvent, out string)` | static   | structural compare     |
 
 [ENTRYPOINT_SCOPE]: interaction extraction and timed model
-- rail: input
 
-| [INDEX] | [SURFACE]                                                 | [SURFACE_ROOT]                 | [RAIL]                 |
-| :-----: | :-------------------------------------------------------- | :----------------------------- | :--------------------- |
-|  [01]   | `GetObjects(ObjectType, ObjectDetectionSettings)`         | `GetObjectsUtilities`          | polymorphic extract    |
-|  [02]   | `GetTimedEvents(...)`                                     | `TimedEventsManagingUtilities` | timed event extract    |
-|  [03]   | `GetNotes(...)`                                           | `NotesManagingUtilities`       | note extract           |
-|  [04]   | `new TimedObjectsManager<TObject>(EventsCollection, ...)` | `TimedObjectsManager`          | mutable edit view      |
-|  [05]   | `TimedEvent(midiEvent, long time)`                        | `TimedEvent`                   | event plus tick build  |
-|  [06]   | `Event` / `Time`                                          | `TimedEvent`                   | event/tick read        |
-|  [07]   | `Note(SevenBitNumber, long length, long time)`            | `Note`                         | timed note build       |
-|  [08]   | `GetTimedNoteOnEvent()` / `GetTimedNoteOffEvent()`        | `Note`                         | note on/off projection |
-|  [09]   | `NoteName` / `Octave` / `OffVelocity`                     | `Note`                         | pitch projection       |
-|  [10]   | `GetTempoMap()`                                           | `MidiFile`                     | tempo-map source       |
+| [INDEX] | [SURFACE]                                                             | [SHAPE]  | [CAPABILITY]           |
+| :-----: | :-------------------------------------------------------------------- | :------- | :--------------------- |
+|  [01]   | `GetObjectsUtilities.GetObjects(ObjectType, ObjectDetectionSettings)` | static   | polymorphic extract    |
+|  [02]   | `TimedEventsManagingUtilities.GetTimedEvents(...)`                    | static   | timed event extract    |
+|  [03]   | `NotesManagingUtilities.GetNotes(...)`                                | static   | note extract           |
+|  [04]   | `new TimedObjectsManager<TObject>(EventsCollection, ...)`             | ctor     | mutable edit view      |
+|  [05]   | `TimedEvent(MidiEvent, long)`                                         | ctor     | event plus tick build  |
+|  [06]   | `TimedEvent.Event` / `.Time`                                          | property | event/tick read        |
+|  [07]   | `Note(SevenBitNumber, long, long)`                                    | ctor     | timed note build       |
+|  [08]   | `Note.GetTimedNoteOnEvent()` / `.GetTimedNoteOffEvent()`              | instance | note on/off projection |
+|  [09]   | `Note.NoteName` / `.Octave` / `.OffVelocity`                          | property | pitch projection       |
+|  [10]   | `TempoMapManagingUtilities.GetTempoMap(MidiFile)`                     | static   | tempo-map source       |
 
 [ENTRYPOINT_SCOPE]: transform tools
-- rail: input
 
-| [INDEX] | [SURFACE]                                               | [SURFACE_ROOT]       | [RAIL]          |
-| :-----: | :------------------------------------------------------ | :------------------- | :-------------- |
-|  [01]   | `QuantizeObjects(objectType, grid, tempoMap, settings)` | `QuantizerUtilities` | snap to grid    |
-|  [02]   | `SplitObjectsByGrid(...)`                               | `Splitter`           | grid split      |
-|  [03]   | `SplitObjectsAtDistance(...)`                           | `Splitter`           | distance split  |
-|  [04]   | `SplitObjectsByStep(...)`                               | `Splitter`           | step split      |
-|  [05]   | `SplitObjectsByPartsNumber(...)`                        | `Splitter`           | partition split |
-|  [06]   | `MergeObjects(...)`                                     | `Merger`             | object merge    |
-|  [07]   | `MergeSequentially(...)`                                | `Merger`             | file sequence   |
-|  [08]   | `MergeSimultaneously(...)`                              | `Merger`             | file overlay    |
-|  [09]   | `Resize(...)`                                           | `Resizer`            | duration scale  |
-|  [10]   | `ResizeObjectsGroup(...)`                               | `Resizer`            | group scale     |
-|  [11]   | `Repeat(...)`                                           | `RepeaterUtilities`  | range repeat    |
+| [INDEX] | [SURFACE]                                                              | [SHAPE] | [CAPABILITY]    |
+| :-----: | :--------------------------------------------------------------------- | :------ | :-------------- |
+|  [01]   | `QuantizerUtilities.QuantizeObjects(ObjectType, IGrid, TempoMap, ...)` | static  | snap to grid    |
+|  [02]   | `Splitter.SplitObjectsByGrid(ObjectType, IGrid, TempoMap, ...)`        | static  | grid split      |
+|  [03]   | `Splitter.SplitObjectsAtDistance(...)`                                 | static  | distance split  |
+|  [04]   | `Splitter.SplitObjectsByStep(...)`                                     | static  | step split      |
+|  [05]   | `Splitter.SplitObjectsByPartsNumber(...)`                              | static  | partition split |
+|  [06]   | `Merger.MergeObjects(ObjectType, TempoMap, ...)`                       | static  | object merge    |
+|  [07]   | `Merger.MergeSequentially(IEnumerable<MidiFile>, ...)`                 | static  | file sequence   |
+|  [08]   | `Merger.MergeSimultaneously(IEnumerable<MidiFile>, ...)`               | static  | file overlay    |
+|  [09]   | `Resizer.Resize(ITimeSpan, TempoMap)`                                  | static  | duration scale  |
+|  [10]   | `Resizer.ResizeObjectsGroup(...)`                                      | static  | group scale     |
+|  [11]   | `RepeaterUtilities.Repeat(int, ...)`                                   | static  | range repeat    |
 
 [ENTRYPOINT_SCOPE]: playback scheduling and capture
-- rail: input
 
-| [INDEX] | [SURFACE]                                                                              | [SURFACE_ROOT] | [RAIL]                  |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :---------------------- |
-|  [01]   | `Playback(IEnumerable<ITimedObject>, TempoMap, IOutputDevice, PlaybackSettings)`       | `Playback`     | construct scheduler     |
-|  [02]   | `Start()` / `Stop()` / `MoveToStart()`                                                 | `Playback`     | transport               |
-|  [03]   | `MoveToTime(ITimeSpan)` / `MoveForward(...)` / `MoveBack(...)`                         | `Playback`     | seek                    |
-|  [04]   | `GetCurrentTime<TTimeSpan>()` / `GetDuration<TTimeSpan>()`                             | `Playback`     | position/length read    |
-|  [05]   | `Loop` / `Speed` / `InterruptNotesOnStop`                                              | `Playback`     | transport policy        |
-|  [06]   | `TrackNotes` / `TrackProgram` / `TrackPitchValue` / `TrackControlValue`                | `Playback`     | state-tracking on seek  |
-|  [07]   | `NoteCallback` (`NoteCallback`) / `EventCallback` (`EventCallback`)                    | `Playback`     | live note/event rewrite |
-|  [08]   | `IsSnappingEnabled` / `SnapToEvents(Predicate<MidiEvent>)` -> `SnapPointsGroup`        | `Playback`     | snap navigation         |
-|  [09]   | `MoveToNextSnapPoint(...)` / `MoveToPreviousSnapPoint(...)` / `MoveToFirstSnapPoint()` | `Playback`     | snap seek               |
-|  [10]   | `NotesPlaybackStarted` / `EventPlayed` / `Finished`                                    | `Playback`     | playback signals        |
-|  [11]   | `Recording(TempoMap, IInputDevice)` / `Start()` / `Stop()`                             | `Recording`    | capture lifecycle       |
-|  [12]   | `GetEvents()` (`ICollection<TimedEvent>`) / `GetDuration<TTimeSpan>()`                 | `Recording`    | capture extraction      |
-|  [13]   | `EventRecorded` (`MidiEventRecordedEventArgs`)                                         | `Recording`    | capture signal          |
+| [INDEX] | [SURFACE]                                                                                         | [SHAPE]  | [CAPABILITY]            |
+| :-----: | :------------------------------------------------------------------------------------------------ | :------- | :---------------------- |
+|  [01]   | `Playback(IEnumerable<ITimedObject>, TempoMap, IOutputDevice, PlaybackSettings)`                  | ctor     | construct scheduler     |
+|  [02]   | `Playback.Start()` / `.Stop()` / `.MoveToStart()`                                                 | instance | transport               |
+|  [03]   | `Playback.MoveToTime(ITimeSpan)` / `.MoveForward(...)` / `.MoveBack(...)`                         | instance | seek                    |
+|  [04]   | `Playback.GetCurrentTime<TTimeSpan>()` / `.GetDuration<TTimeSpan>()`                              | instance | position/length read    |
+|  [05]   | `Playback.Loop` / `.Speed` / `.InterruptNotesOnStop`                                              | property | transport policy        |
+|  [06]   | `Playback.TrackNotes` / `.TrackProgram` / `.TrackPitchValue` / `.TrackControlValue`               | property | state-tracking on seek  |
+|  [07]   | `Playback.NoteCallback` / `.EventCallback`                                                        | property | live note/event rewrite |
+|  [08]   | `Playback.IsSnappingEnabled` / `.SnapToEvents(Predicate<MidiEvent>) -> SnapPointsGroup`           | instance | snap navigation         |
+|  [09]   | `Playback.MoveToNextSnapPoint(...)` / `.MoveToPreviousSnapPoint(...)` / `.MoveToFirstSnapPoint()` | instance | snap seek               |
+|  [10]   | `Playback.NotesPlaybackStarted` / `.EventPlayed` / `.Finished`                                    | event    | playback signals        |
+|  [11]   | `Recording(TempoMap, IInputDevice)` / `.Start()` / `.Stop()`                                      | ctor     | capture lifecycle       |
+|  [12]   | `Recording.GetEvents() -> ICollection<TimedEvent>` / `.GetDuration<TTimeSpan>()`                  | instance | capture extraction      |
+|  [13]   | `Recording.EventRecorded` (`MidiEventRecordedEventArgs`)                                          | event    | capture signal          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[MIDI_TOPOLOGY]:
-- namespaces: `Multimedia` (devices, playback, recording, clock), `Core` (file, chunk, event model, lazy tokens), `Interaction` (timed/note/chord lens, `TimedObjectsManager`), `Tools` (quantize/split/merge/resize/repeat), `Common` (`SevenBitNumber`, `FourBitNumber` bounded bytes)
-- file model: `MidiFile` owns `TimeDivision` + `OriginalFormat` + a `ChunksCollection`; each `TrackChunk` owns an `EventsCollection` of raw `MidiEvent`. `ReadLazy`/`WriteLazy` stream through `MidiTokensReader`/`MidiTokensWriter` for files too large to hold in memory.
-- event hierarchy: `MidiEvent` -> `ChannelEvent` -> `NoteEvent` -> `NoteOnEvent`/`NoteOffEvent`, with `ControlChangeEvent`, `ProgramChangeEvent`, `PitchBendEvent`, `ChannelAftertouchEvent`, `NoteAftertouchEvent` as sibling channel events; `MetaEvent` and `SysExEvent` are non-channel branches.
-- byte discipline: pitch, velocity, controller, and program fields are `SevenBitNumber` (0..127); `Channel` is `FourBitNumber` (0..15); out-of-range construction throws before an event forms.
-- interaction layer: `GetObjectsUtilities.GetObjects(ObjectType, ObjectDetectionSettings)` is the polymorphic extraction entry — `ObjectType` is a `[Flags]` discriminant (`TimedEvent | Note | Chord`) so one call extracts a mixed timed-object stream; `TimedEventsManagingUtilities`/`NotesManagingUtilities` are the typed lenses; `TimedObjectsManager<T>` gives a mutable edit-in-place view over an `EventsCollection`.
-- note model: `Note` carries `NoteNumber`, `Velocity`, `OffVelocity`, `Channel`, `Time`, `Length`, and derived `NoteName`/`Octave`; it decomposes to a `NoteOn`/`NoteOff` `TimedEvent` pair via `GetTimedNoteOnEvent`/`GetTimedNoteOffEvent`.
-- transform tools: `Quantizer`, `Splitter`, `Merger`, `Resizer`, `Repeater` operate over `ObjectType` selections against a `TempoMap` and a musical/metric grid — the canonical home for grid-snap, length-scale, split, and repeat instead of hand-rolled tick math; `Merger` also folds whole files (`MergeSequentially`/`MergeSimultaneously`).
-- device intake: `InputDevice` raises `EventReceived` with `MidiEventReceivedEventArgs.Event` between `StartEventsListening`/`StopEventsListening`; `OutputDevice.SendEvent` emits one `MidiEvent` and raises `EventSent`; `DevicesWatcher` raises `DeviceAdded`/`DeviceRemoved` for hot-plug.
-- playback model: `Playback(IEnumerable<ITimedObject>, TempoMap, IOutputDevice, PlaybackSettings)` schedules against the native `MidiClock` (configured via `PlaybackSettings.ClockSettings`/`MidiClockSettings`); `NoteCallback`/`EventCallback` rewrite or suppress events live; `SnapToEvents` builds a `SnapPointsGroup` for transport navigation; `TrackNotes`/`TrackProgram`/`TrackPitchValue`/`TrackControlValue` replay accumulated controller state after a seek so the synth never desyncs.
-- time units: raw event positions are tick `long` values; metric, musical, and bar/beat projections route through `TempoMap` and `ITimeSpan`/`TimeSpanType` converters — `GetCurrentTime<MetricTimeSpan>()` etc.
+[TOPOLOGY]:
+- Five namespaces partition the surface: `Multimedia` (device/playback/recording/clock), `Core` (file/chunk/event/lazy-token), `Interaction` (timed/note/chord lens, `TempoMap`), `Tools` (transforms), `Common` (bounded bytes).
+- `MidiFile` owns `TimeDivision`, `OriginalFormat`, and a `ChunksCollection`; each `TrackChunk` owns an `EventsCollection` of raw `MidiEvent`; the lazy-token pair streams files too large to hold in memory.
+- Every data byte is `SevenBitNumber` (0..127) or `Channel` `FourBitNumber` (0..15); out-of-range construction throws before an event forms.
+- One tick timeline underlies every position; metric, musical, and bar/beat views project only through `TempoMap` and `ITimeSpan`, never ad hoc tick math.
+- `GetObjectsUtilities.GetObjects` is the one polymorphic extraction entry; `ObjectType` is a `[Flags]` discriminant, so one call yields a mixed timed-object stream and every transform tool operates over the same selection against a `TempoMap` grid.
+- `Playback` schedules against the native `MidiClock`; `Track`-prefixed state replays accumulated controller/program/pitch state after a seek so the synth never desyncs, and `NoteCallback`/`EventCallback` rewrite or suppress events live.
+
+[STACKING]:
+- `api-silk-input.md` / `api-silk-sdl.md` / `api-hidsharp.md`: the `Midi` case joins `Gamepad`/`Haptic`/`Hid` in the `DeviceDriver` `[Union]`; all four capsules bind delegate columns on the single `InputFabric` edge that folds every device onto the one `CommandIntent` table, so a MIDI control surface raises the existing parameter intents through that shared fold, never a parallel MIDI device->intent edge.
+- DryWetMidi carries its own native multimedia clock and no SDL2 dependency, so the `Midi` capsule shares no native bundle with the SDL2 `Gamepad`/`Haptic` pair; its only shared surface is the canonical fold at the edge.
+- within-lib: `MidiFile.Read` -> `GetObjects(ObjectType.Note, ...)` -> `TempoMapManagingUtilities.GetTempoMap` chains file bytes into a timed note model, and the `Quantizer`/`Splitter`/`Merger`/`Resizer`/`Repeater` tools fold over one `ObjectType` selection against that `TempoMap`, so grid-snap, length-scale, split, merge, and repeat replace hand-rolled tick math.
 
 [LOCAL_ADMISSION]:
-- Native ABI gate: the high-precision multimedia clock has no Linux native, so the InputFabric arms the `Multimedia` device/playback/recording rails only on the macOS desktop host; the headless-Linux render path consumes only the managed `Core`/`Interaction`/`Tools` surface (file read/write, event model, timed projection, transforms) and never opens an `InputDevice`/`Playback`.
-- Device handles are lifecycle-scoped; the InputFabric disposes every `InputDevice`, `OutputDevice`, `DevicesWatcher`, `Recording`, and `Playback` it opens in a scoped fold (all are `IDisposable`).
-- Boundary intake reads `MidiEventReceivedEventArgs.Event` and maps it to the canonical InputFabric event shape at the edge.
-- The `Midi` arm joins `Gamepad` and `Haptic` SDL2 (`api-silk-input`, `api-silk-sdl`) with `Hid` HidSharp (`api-hidsharp`) SpaceMouse streams on the single `InputFabric` edge, and every device folds onto the one `CommandIntent` table.
-- A MIDI control surface raises existing parameter intents through the shared fold, never through a parallel MIDI device→intent edge.
-- DryWetMidi carries its own native multimedia clock and no SDL2 dependency, so the `Midi` capsule shares no native bundle with its SDL2 peers, and raw `MidiEvent` types stop at the boundary.
-- File intake uses `MidiFile.Read` (or `ReadLazy` for large files); note and timed-event projection runs through the `Interaction`/`Tools` lenses against an explicit `TempoMap`, never ad hoc tick math.
-- Data-byte fields cross the boundary as `SevenBitNumber`/`FourBitNumber`; raw `int` velocity, pitch, channel, or program values are rejected before event construction.
+- Native-clock gate: the InputFabric arms `Playback`/`Recording`/`InputDevice`/`OutputDevice` only on the native-clock desktop host; the headless-Linux path consumes only managed `Core`/`Interaction`/`Tools`.
+- Every opened device, `DevicesWatcher`, `Recording`, and `Playback` (`IDisposable`) disposes in a scoped fold; boundary intake reads `MidiEventReceivedEventArgs.Event` and maps to the canonical input shape at the edge, raw `MidiEvent` types stopping there.
+- File intake uses `MidiFile.Read`/`ReadLazy`; note and timed projection run through the `Interaction`/`Tools` lenses against an explicit `TempoMap`.
+- Data-byte fields cross as `SevenBitNumber`/`FourBitNumber`; raw `int` pitch, velocity, channel, or program is rejected before event construction.
 
 [RAIL_LAW]:
 - Package: `Melanchall.DryWetMidi`
-- Owns: MIDI device intake/send/hot-plug, file/chunk read/write (eager and lazy-token), the channel/meta event family, the timed note/event/chord interaction model, the quantize/split/merge/resize/repeat transform tools, and clock-driven playback/recording
-- Accept: lifecycle-scoped devices, `TempoMap`-anchored time projection, bounded-byte event fields, transform-tool grid operations, the macOS-only native-clock gate for the multimedia rails, and composition as the `Midi` case on the single `InputFabric` edge beside the `Gamepad`/`Haptic`/`Hid` peers (`api-silk-input.md`, `api-silk-sdl.md`, `api-hidsharp.md`), folding onto the one `CommandIntent` table
-- Reject: hand-rolled MIDI parsing or tick math, ambient device ownership, raw integer pitch/velocity/channel values, opening the multimedia rails on a host with no native clock, or a parallel MIDI device→intent edge beside the single `InputFabric` fold the other three device rails share
+- Owns: MIDI device intake/send/hot-plug, file/chunk read/write eager and lazy-token, the channel/meta event family, the timed note/event/chord interaction model, the transform tools, and native-clock playback/recording.
+- Accept: lifecycle-scoped devices, `TempoMap`-anchored time projection, bounded-byte event fields, transform-tool grid operations, the native-clock gate for the `Multimedia` rails, and the `Midi` case on the single `InputFabric` edge.
+- Reject: hand-rolled MIDI parsing or tick math, ambient device ownership, raw integer pitch/velocity/channel values, opening the `Multimedia` rails with no native clock, and a parallel MIDI device->intent edge beside the shared `InputFabric` fold.

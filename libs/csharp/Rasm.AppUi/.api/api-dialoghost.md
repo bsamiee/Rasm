@@ -1,138 +1,118 @@
 # [RASM_APPUI_API_DIALOGHOST]
 
-`DialogHost.Avalonia` is a retained modal-dialog host for Avalonia 12: a `DialogHost` control marks an overlay region keyed by `Identifier`, and the static `DialogHost.Show`/`Close`/`Pop`/`IsDialogOpen`/`GetDialogSession` surface drives that region from anywhere by identifier with no control reference. `Show` returns `Task<object?>` whose awaited result is the close parameter — dismissal-as-a-value: a confirm dialog awaits to the chosen result, a cancelled dialog to `null`. Each open dialog is a `DialogSession` (`UpdateContent`/`Close`); `DialogOpened`/`DialogClosing` routed events plus the `DialogOpenedCallback`/`DialogClosingCallback` direct-property handler delegates gate the lifecycle, and `DialogClosingEventArgs.Cancel()` vetoes a close (`CanBeCancelled`/`IsCancelled`) so a dirty form blocks dismissal. `IsMultipleDialogsEnabled` turns the host into a session stack (`CurrentSession`/`CurrentSessions`, `Pop` retreats one). Overlay (`OverlayBackground`, `BlurBackground`/`BlurBackgroundRadius`), margin, popup positioning (`IDialogPopupPositioner`), and per-host chrome (`DialogHostStyle` attached `CornerRadius`/`BorderBrush`/`BoxShadow`) are all styled. AppUi resolves this through one ReactiveUI `Interaction` seam: a `DialogIntent` union maps to `DialogHost.Show(request, identifier)` per `DialogTopology` row, the awaited `object?` re-types onto the `Fin` rail.
+`DialogHost.Avalonia` owns retained modal orchestration over an Avalonia overlay region: a `DialogHost` control marks the region and a static identifier-keyed surface drives it by `Identifier`, no control reference held. `Show` returns `Task<object?>` whose awaited value is the close parameter — dismissal-as-a-value, a confirm to its chosen result and a cancel to `null`. `DialogClosingEventArgs.Cancel()` vetoes a dismissal, `IsMultipleDialogsEnabled` stacks sessions, and AppUi binds every surface through one ReactiveUI `Interaction` seam that re-types the erased parameter onto the `Fin` rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DialogHost.Avalonia`
-- package: `DialogHost.Avalonia`
+- package: `DialogHost.Avalonia` (MIT, © AvaloniaUtils/SKProCH)
 - assembly: `DialogHost.Avalonia`
-- namespace: `DialogHostAvalonia`
-- namespace: `DialogHostAvalonia.Positioners`
-- namespace: `DialogHostAvalonia.Utilities` (vendored `BehaviorSubject<T>` backing the session stack — internal mechanism, not a consumer surface)
-- asset: managed runtime library + embedded `avares://` XAML (`DialogHostStyles` resources)
-- tfm: `net8.0` (sole shipped asset; consumed by the `net10.0` workspace)
-- license: `MIT`
+- namespace: `DialogHostAvalonia`, `DialogHostAvalonia.Positioners`
+- asset: managed library + embedded `avares://` XAML (`DialogHostStyles` theme resources); `lib/net8.0` is the sole shipped asset, bound by the `net10.0` workspace
 - rail: dialogs
 
 ## [02]-[PUBLIC_TYPES]
 
-[DIALOG_TYPES]: host control, session handle, event args, and handler delegates
-- rail: dialogs
+[DIALOG_TYPES]: host control, session handle, event args, handler delegates, and style holders
 
-| [INDEX] | [SYMBOL]                    | [KIND]              | [RAIL]                                              |
-| :-----: | :-------------------------- | :------------------ | :-------------------------------------------------- |
-|  [01]   | `DialogHost`                | `ContentControl`    | host control + static show/close/query surface      |
-|  [02]   | `DialogSession`             | session handle      | one open dialog — `UpdateContent`/`Close`/`IsEnded` |
-|  [03]   | `DialogOpenedEventArgs`     | routed event args   | carries the opened `Session`                        |
-|  [04]   | `DialogClosingEventArgs`    | routed event args   | `Session`/`Parameter`, `Cancel()` veto              |
-|  [05]   | `DialogOpenedEventHandler`  | delegate            | open handler bound to `DialogOpenedCallback`        |
-|  [06]   | `DialogClosingEventHandler` | delegate            | close handler bound to `DialogClosingCallback`      |
-|  [07]   | `DialogHostStyle`           | static style holder | attached chrome properties (radius/border/shadow)   |
-|  [08]   | `DialogHostStyles`          | `Styles` resource   | the included default theme `ResourceDictionary`     |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `DialogHost`                                             | class         | `ContentControl` host + static show/close/query surface       |
+|  [02]   | `DialogSession`                                          | class         | one open dialog — `UpdateContent`/`Close`/`IsEnded`/`Content` |
+|  [03]   | `DialogOpenedEventArgs`                                  | class         | routed args carrying the opened `Session`                     |
+|  [04]   | `DialogClosingEventArgs`                                 | class         | routed args — `Parameter`, `Cancel()` veto, `CanBeCancelled`  |
+|  [05]   | `DialogOpenedEventHandler` / `DialogClosingEventHandler` | delegate      | open/close handlers bound to the `*Callback` properties       |
+|  [06]   | `DialogHostStyle`                                        | class         | static holder of the attached chrome properties               |
+|  [07]   | `DialogHostStyles`                                       | class         | `Styles` resource — the default theme dictionary              |
 
-[POSITIONER_TYPES]: popup placement contracts
-- rail: dialogs
+[POSITIONER_TYPES]: popup placement contracts and their implementations
 
-| [INDEX] | [SYMBOL]                              | [KIND]              | [RAIL]                                             |
-| :-----: | :------------------------------------ | :------------------ | :------------------------------------------------- |
-|  [01]   | `IDialogPopupPositioner`              | positioner contract | `Update(Size, Size) -> Rect` placement             |
-|  [02]   | `IDialogPopupPositionerConstrainable` | constrainable popup | `Constrain(Size) -> Size` bounds                   |
-|  [03]   | `CenteredDialogPopupPositioner`       | centered positioner | singleton `Instance`, centers in the host          |
-|  [04]   | `AlignmentDialogPopupPositioner`      | aligned positioner  | `HorizontalAlignment`/`VerticalAlignment`/`Margin` |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                             |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------- |
+|  [01]   | `IDialogPopupPositioner`              | interface     | `Update(Size, Size) -> Rect` placement contract          |
+|  [02]   | `IDialogPopupPositionerConstrainable` | interface     | adds `Constrain(Size) -> Size` bounds                    |
+|  [03]   | `CenteredDialogPopupPositioner`       | class         | centers in the host; singleton `Instance`                |
+|  [04]   | `AlignmentDialogPopupPositioner`      | class         | `HorizontalAlignment`/`VerticalAlignment`/`Margin` align |
 
 ## [03]-[ENTRYPOINTS]
 
-[STATIC_DIALOG_OPS]: identifier-keyed show/close/query — no control reference required, `Show` is the awaitable result rail
-- rail: dialogs
+[STATIC_DIALOG_OPS]: static `DialogHost` surface, identifier-keyed, no control reference; `Show` is the awaitable result rail
 
-All operations are static `DialogHost` surfaces.
+| [INDEX] | [SURFACE]                                                 | [CAPABILITY]            |
+| :-----: | :-------------------------------------------------------- | :---------------------- |
+|  [01]   | `Show(object?) -> Task<object?>`                          | sole-host result        |
+|  [02]   | `Show(object?, string?) -> Task<object?>`                 | identifier-keyed result |
+|  [03]   | `Show(object?, string? \| DialogHost, opened?, closing?)` | handler-bound overloads |
+|  [04]   | `Close(string?, object?, object?)`                        | result-bearing close    |
+|  [05]   | `Pop(string?, object?)`                                   | stacked-session pop     |
+|  [06]   | `IsDialogOpen(string?, object?) -> bool`                  | open-state probe        |
+|  [07]   | `GetDialogSession(string?) -> DialogSession?`             | session resolution      |
 
-| [INDEX] | [SURFACE]                                                                    | [CAPABILITY]         |
-| :-----: | :--------------------------------------------------------------------------- | :------------------- |
-|  [01]   | `Show(object? content) -> Task<object?>`                                     | sole-host result     |
-|  [02]   | `Show(object? content, string? dialogIdentifier) -> Task<object?>`           | identified result    |
-|  [03]   | `Show(content, [string? id \| DialogHost instance], opened?, closing?)`      | lifecycle handlers   |
-|  [04]   | `Close(string? dialogIdentifier, object? parameter = null, object? content)` | result-bearing close |
-|  [05]   | `Pop(string? dialogIdentifier, object? content)`                             | stacked-session pop  |
-|  [06]   | `IsDialogOpen(string? dialogIdentifier, object? content)`                    | open-state probe     |
-|  [07]   | `GetDialogSession(string? dialogIdentifier) -> DialogSession?`               | session resolution   |
+[SESSION_OPS]: methods and read-only properties on the resolved `DialogSession` and the routed event args
 
-[SESSION_OPS]: per-session lifecycle on the resolved `DialogSession`
-- rail: dialogs
+| [INDEX] | [SURFACE]                                               | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------ | :-------------------------------------- |
+|  [01]   | `DialogSession.UpdateContent(object)`                   | swap the live dialog content            |
+|  [02]   | `DialogSession.Close([object?])`                        | end the session with an optional result |
+|  [03]   | `DialogSession.IsEnded` / `Content`                     | terminal flag; current host content     |
+|  [04]   | `DialogClosingEventArgs.Cancel()`                       | veto the in-flight close                |
+|  [05]   | `DialogClosingEventArgs.IsCancelled` / `CanBeCancelled` | veto state; whether the veto is honored |
+|  [06]   | `DialogClosingEventArgs.Parameter`                      | the close parameter being returned      |
+|  [07]   | `DialogOpenedEventArgs.Session`                         | the session that opened                 |
 
-| [INDEX] | [SURFACE]                        | [SURFACE_ROOT]           | [RAIL]                               |
-| :-----: | :------------------------------- | :----------------------- | :----------------------------------- |
-|  [01]   | `UpdateContent(object content)`  | `DialogSession`          | swap the live dialog content         |
-|  [02]   | `Close()` / `Close(object?)`     | `DialogSession`          | end the session, optional result     |
-|  [03]   | `IsEnded`                        | `DialogSession`          | session terminal flag                |
-|  [04]   | `Content`                        | `DialogSession`          | current content (reads host content) |
-|  [05]   | `Cancel()`                       | `DialogClosingEventArgs` | veto the in-flight close             |
-|  [06]   | `IsCancelled` / `CanBeCancelled` | `DialogClosingEventArgs` | veto state of the closing event      |
-|  [07]   | `Parameter`                      | `DialogClosingEventArgs` | the close parameter being returned   |
-|  [08]   | `Session`                        | `DialogOpenedEventArgs`  | the session that opened              |
+[HOST_PROPERTIES]: styled and direct properties on `DialogHost`; the `*DialogCommand` pair are `ICommand` relays and `CurrentSession(s)` are computed
 
-[HOST_PROPERTIES]: styled/direct properties on the `DialogHost` control
-- rail: dialogs
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------- | :------------------------------------------ |
+|  [01]   | `Identifier`                                     | host key for the static identifier surface  |
+|  [02]   | `IsOpen`                                         | open state of the host                      |
+|  [03]   | `IsMultipleDialogsEnabled`                       | enable the session stack                    |
+|  [04]   | `CurrentSession` / `CurrentSessions`             | top session; the stacked-session set        |
+|  [05]   | `DialogContent` / `DialogContentTemplate`        | single-dialog content and its data template |
+|  [06]   | `DialogMargin`                                   | margin around the dialog                    |
+|  [07]   | `OpenDialogCommand` / `CloseDialogCommand`       | `ICommand` open/close from XAML             |
+|  [08]   | `CloseOnClickAway` / `CloseOnClickAwayParameter` | overlay-click dismiss and its result        |
+|  [09]   | `DisableOpeningAnimation`                        | suppress the open transition                |
 
-| [INDEX] | [SURFACE]                   | [PROPERTY_KIND]  | [RAIL]                                 |
-| :-----: | :-------------------------- | :--------------- | :------------------------------------- |
-|  [01]   | `Identifier`                | direct           | host key for the static identifier API |
-|  [02]   | `IsOpen`                    | direct           | open state of the host                 |
-|  [03]   | `IsMultipleDialogsEnabled`  | direct           | enable the session stack               |
-|  [04]   | `CurrentSession`            | computed         | top session of the stack               |
-|  [05]   | `CurrentSessions`           | direct           | the stacked-session collection         |
-|  [06]   | `DialogContent`             | styled           | content of the (single) dialog         |
-|  [07]   | `DialogContentTemplate`     | styled           | data template for `DialogContent`      |
-|  [08]   | `DialogMargin`              | styled           | margin around the dialog               |
-|  [09]   | `OpenDialogCommand`         | direct (command) | `ICommand` to open from XAML           |
-|  [10]   | `CloseDialogCommand`        | direct (command) | `ICommand` to close from XAML          |
-|  [11]   | `CloseOnClickAway`          | direct           | dismiss on overlay click               |
-|  [12]   | `CloseOnClickAwayParameter` | direct           | result passed by a click-away dismiss  |
-|  [13]   | `DisableOpeningAnimation`   | direct           | suppress the open transition           |
+[CHROME_AND_PLACEMENT]: overlay/blur/positioner properties on `DialogHost`, the `DialogHostStyle` attached per-host chrome, and the positioner placement methods
 
-[VISUAL_PROPERTIES]: overlay, blur, positioning, and per-host chrome
-- rail: dialogs
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------------ | :------------------------------------------------------ |
+|  [01]   | `OverlayBackground`                                           | scrim brush behind the dialog                           |
+|  [02]   | `BlurBackground` / `BlurBackgroundRadius`                     | backdrop blur toggle and radius                         |
+|  [03]   | `PopupPositioner` / `PopupTemplate`                           | `IDialogPopupPositioner` placement; popup-root template |
+|  [04]   | `DialogHostStyle.GetCornerRadius`/`SetCornerRadius`           | attached per-host corner radius                         |
+|  [05]   | `DialogHostStyle.SetBorderBrush` / `SetBorderThickness`       | attached per-host border (set-only)                     |
+|  [06]   | `DialogHostStyle.GetBoxShadow`/`SetBoxShadow`                 | attached per-host box shadow                            |
+|  [07]   | `DialogHostStyle.GetClipToBounds`/`SetClipToBounds`           | attached per-host clip flag                             |
+|  [08]   | `IDialogPopupPositioner.Update(Size, Size) -> Rect`           | compute the popup rect                                  |
+|  [09]   | `IDialogPopupPositionerConstrainable.Constrain(Size) -> Size` | clamp the popup to bounds                               |
 
-| [INDEX] | [SURFACE]                                 | [SURFACE_ROOT]                        | [RAIL]                                |
-| :-----: | :---------------------------------------- | :------------------------------------ | :------------------------------------ |
-|  [01]   | `OverlayBackground`                       | `DialogHost`                          | scrim brush behind the dialog         |
-|  [02]   | `BlurBackground` / `BlurBackgroundRadius` | `DialogHost`                          | toggle + radius for the backdrop blur |
-|  [03]   | `PopupPositioner`                         | `DialogHost`                          | `IDialogPopupPositioner` placement    |
-|  [04]   | `PopupTemplate`                           | `DialogHost`                          | control template for the popup root   |
-|  [05]   | `GetCornerRadius` / `SetCornerRadius`     | `DialogHostStyle`                     | attached per-host corner radius       |
-|  [06]   | `GetBorderBrush` / `SetBorderBrush`       | `DialogHostStyle`                     | attached per-host border brush        |
-|  [07]   | `GetBorderThickness`/`SetBorderThickness` | `DialogHostStyle`                     | attached per-host border thickness    |
-|  [08]   | `GetBoxShadow` / `SetBoxShadow`           | `DialogHostStyle`                     | attached per-host box shadow          |
-|  [09]   | `GetClipToBounds` / `SetClipToBounds`     | `DialogHostStyle`                     | attached per-host clip flag           |
-|  [10]   | `Update(Size anchor, Size size) -> Rect`  | `IDialogPopupPositioner`              | compute the popup rect                |
-|  [11]   | `Constrain(Size available) -> Size`       | `IDialogPopupPositionerConstrainable` | clamp the popup to bounds             |
+[EVENTS]: routed events and their handler-property delegates on `DialogHost`
 
-[EVENTS]: routed events and handler-property delegates
-- rail: dialogs
-
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [RAIL]                                       |
-| :-----: | :---------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `DialogOpened`          | `DialogHost`   | `RoutedEvent` raised on open                 |
-|  [02]   | `DialogClosing`         | `DialogHost`   | `RoutedEvent` raised before close (vetoable) |
-|  [03]   | `DialogOpenedCallback`  | `DialogHost`   | `DialogOpenedEventHandler` direct property   |
-|  [04]   | `DialogClosingCallback` | `DialogHost`   | `DialogClosingEventHandler` direct property  |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                       |
+| :-----: | :----------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `DialogOpened` / `DialogClosing`                 | `RoutedEvent` on open; vetoable event before close |
+|  [02]   | `DialogOpenedCallback` / `DialogClosingCallback` | `*EventHandler` direct-property handlers           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[DIALOG_LAW]:
-- `Show(content, identifier)` returns `Task<object?>`; the awaited value is the close `Parameter`, so the dialog result is a value on the async rail — a confirm awaits to its chosen result, a click-away or cancel to `null`. This is the dismissal-as-a-value contract the AppUi `Fin`-railed `DialogIntent` re-types onto.
-- The static identifier-keyed surface (`Show`/`Close`/`Pop`/`IsDialogOpen`/`GetDialogSession`) is the addressing model: a session is reached by `Identifier`, never by holding the control, so the intent dispatcher closes/queries a session it never constructed.
-- `DialogClosing` + `DialogClosingEventArgs.Cancel()` is the veto seam: a dirty-form session arms `Cancel` through `DialogClosingCallback` so dismissal blocks until the form resolves (`CanBeCancelled` gates whether the veto is honored).
-- `IsMultipleDialogsEnabled` promotes the host to a session stack: `CurrentSessions` is the stacked set a `Retreat` veto consults, `Pop` retreats one, and a `Show` on a non-stacked host that already holds an open session folds onto the existing session (probed via `IsDialogOpen(Identifier)`) rather than minting a parallel root.
+[TOPOLOGY]:
+- `Show(content, identifier)` returns `Task<object?>` whose awaited value is the close `Parameter`, and a session is reached by `Identifier` rather than by holding the control, so the dispatcher closes and queries a session it never constructed.
+- `DialogClosing` arms `DialogClosingEventArgs.Cancel()` through `DialogClosingCallback`, blocking dismissal until a dirty form resolves; `CanBeCancelled` gates whether the veto is honored.
+- `IsMultipleDialogsEnabled` promotes the host to a session stack — `CurrentSessions` is the set a retreat consults and `Pop` retreats one; a `Show` on a non-stacked host holding an open session folds onto it, probed via `IsDialogOpen(Identifier)`, rather than minting a parallel root.
+- `UpdateContent` swaps a resolved session's content in place (progress -> result) without closing, so the awaited `Show` task stays the single result handle across content phases.
 
-[STACKING_LAW]:
-- AppUi binds DialogHost through one ReactiveUI `Interaction<TInput, TOutput>` seam, not call-site `Show`: a `DialogIntent` union case maps to `DialogHost.Show(request, state.Identifier)` per `DialogTopology` row, and the awaited `object?` close parameter projects onto the `Fin` rail at one boundary capsule (`DialogSurface.Project`) — the erased close parameter is re-typed once, never per call site.
-- Per-host chrome composes from theme token keys, not literals: `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle.CornerRadius` resolve through the Fluent token rail so a dialog host inherits the app theme rather than carrying inline brushes.
-- `UpdateContent` stacks with the progress/toast rail: a long-running session resolves its `DialogSession` by `GetDialogSession(Identifier)` and swaps content (progress -> result) without closing and reopening, so the awaited `Show` task stays the single result handle across content phases.
+[STACKING]:
+- `api-reactiveui`(`.api/api-reactiveui.md`): each `DialogIntent` case maps to `Show(request, Identifier)` through one per-root `Interaction<DialogIntent, object?>`, and the erased `object?` close parameter re-types onto the `Fin` rail once at `DialogSurface.Project`, never per call site.
+- `api-avalonia-fluent`(`.api/api-avalonia-fluent.md`): `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle.CornerRadius` resolve through Fluent theme token keys, so a host inherits the app theme rather than carrying inline brushes.
+- within-lib `DialogTopology`: one row binds identifier, stacking, close policy, and styling tokens per admitted surface, and `DialogSurface` folds `UpdateContent` with the toast/progress rail so a long-running session advances through content phases on one `Show` handle.
 
-[MODALITY_LAW]:
+[LOCAL_ADMISSION]:
+- Every modal, transient, and pick surface binds one `DialogTopology` row and reaches DialogHost only through the `Interaction` seam; the static identifier surface addresses every session, and overlay, blur, and chrome resolve through theme tokens.
+
+[RAIL_LAW]:
 - Package: `DialogHost.Avalonia`
-- Owns: retained modal orchestration — identifier-addressed sessions, the awaitable result rail, the vetoable closing seam, the session stack, and per-host overlay/blur/positioner/chrome — for panel, companion, sidecar, diagnostic, and downstream app dialog surfaces through one dialog rail.
-- Accept: modal state stays host-addressable and command/identifier-driven; `Show` results flow as `Task<object?>` close parameters onto the `Fin` rail; the `Interaction` seam owns the per-surface binding.
-- Reject: free-floating modal logic; host-specific modal service families; a control-reference show path where the static identifier API addresses the session; inline overlay/chrome literals where theme tokens resolve; re-typing the erased close parameter at every call site instead of one boundary capsule.
+- Owns: retained modal orchestration — identifier-addressed sessions, the awaitable close-parameter result rail, the vetoable `DialogClosing` seam, the session stack, and per-host overlay/blur/positioner/chrome.
+- Accept: modal state as host-addressable, command- and identifier-driven surfaces; `Show` results as `Task<object?>` close parameters onto the `Fin` rail; the `Interaction` seam owning each per-surface binding.
+- Reject: a control-reference show path where the static identifier surface addresses the session; host-specific modal service families; inline overlay/chrome literals where theme tokens resolve; re-typing the erased close parameter at each call site instead of one boundary capsule.

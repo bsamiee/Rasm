@@ -1,121 +1,70 @@
 # [RASM_APPUI_API_HARFBUZZ_NATIVE]
 
-`HarfBuzzSharp.NativeAssets.macOS` and `HarfBuzzSharp.NativeAssets.Linux` are the two AppUi-admitted per-platform HarfBuzz native-asset packages: they ship no managed assembly, only the per-RID shared library, the lib compile placeholders, and the `buildTransitive` MSBuild targets that surface the native into the build output. The managed shaping API lives entirely in `HarfBuzzSharp` and `SkiaSharp.HarfBuzz` (`.api/api-skia-harfbuzz.md`); these packages exist to make `libHarfBuzzSharp` load-resolvable on every admitted profile — live macOS desktop (`osx-arm64`) and headless/server Linux — and to emit the load-identity (version, path, RID) the typography evidence stream records. `HarfBuzzSharp.NativeAssets.Win32` and `HarfBuzzSharp.NativeAssets.WebAssembly` are NOT AppUi references; they arrive only transitively in the restore graph (the `SkiaSharp.HarfBuzz` / Avalonia closure) and are documented here as the restore-floor only, never as copy-local AppUi runtime assets.
+`HarfBuzzSharp.NativeAssets.macOS` and `HarfBuzzSharp.NativeAssets.Linux` place the per-platform `libHarfBuzzSharp` payload that `HarfBuzzSharp` and `SkiaSharp.HarfBuzz` P/Invoke, and the `buildTransitive` targets that copy the RID-matched library into build output. Neither ships a managed assembly, so these packages own only the native shaping load identity the typography evidence stream records across the live-macOS (`osx-arm64`) and headless-Linux profiles. Managed shaping API facts live in `api-skia-harfbuzz.md`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.macOS`
-- package: `HarfBuzzSharp.NativeAssets.macOS` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.macOS` (MIT, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
-- asset: `runtimes/osx/native/libHarfBuzzSharp.dylib` (single fat RID payload)
-- asset: `buildTransitive` targets (the `net462`/`net48` group carries the copy logic; the `net9.0-macos15.0`/`net10.0-macos26.2` groups are empty no-ops)
-- asset: `lib/<tfm>/_._` compile placeholders (no managed API)
+- asset: `runtimes/osx/native/libHarfBuzzSharp.dylib` (fat arm64+x64) + buildTransitive `.targets`
 - rail: typography
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.Linux`
-- package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
-- asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across 14 Linux RIDs (glibc + musl + bionic + riscv/loongarch)
-- asset: `buildTransitive/net462` + `buildTransitive/net48` targets (copy logic)
-- asset: `lib/<tfm>/_._` compile placeholders (no managed API)
+- asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across 14 Linux RIDs + buildTransitive `.targets`
 - rail: typography
-
-[RESTORE_FLOOR]: `HarfBuzzSharp.NativeAssets.Win32`, `HarfBuzzSharp.NativeAssets.WebAssembly`
-- not an AppUi `PackageReference`: present only in the transitive restore graph, never copy-local for the macOS/headless-Linux AppUi posture
-- Win32 (MIT): `runtimes/win-{x64,x86,arm64}/native/libHarfBuzzSharp.dll`, `buildTransitive/{net462,net48}` copy targets, `lib/<tfm>/_._` markers
-- WebAssembly (MIT): no `runtimes/<rid>/native` payload — static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`, plus `.props` + `.targets`
-- rail: typography (out-of-posture; only the macOS/Linux pair is the AppUi text-native line)
 
 ## [02]-[PACKAGE_ASSETS]
 
-[MACOS_NATIVE_ASSETS]: macOS HarfBuzz payload (`runtimes/osx/native`)
-- rail: typography
+[MACOS_NATIVE]: fat `libHarfBuzzSharp.dylib`; buildTransitive `.targets` carry copy logic on `net462`/`net48` only, the macOS-TFM groups empty.
 
-| [INDEX] | [ASSET]                                                                               | [RAIL]                        |
-| :-----: | :------------------------------------------------------------------------------------ | :---------------------------- |
-|  [01]   | `runtimes/osx/native/libHarfBuzzSharp.dylib`                                          | fat native (arm64+x64)        |
-|  [02]   | `buildTransitive/net462/*.targets`                                                    | copy logic (full-fw)          |
-|  [03]   | `buildTransitive/net48/*.targets`                                                     | copy logic (full-fw)          |
-|  [04]   | `buildTransitive/net9.0-macos15.0/*.targets`                                          | empty no-op                   |
-|  [05]   | `buildTransitive/net10.0-macos26.2/*.targets`                                         | empty no-op                   |
-|  [06]   | `lib/net10.0/_._` + `lib/net10.0-macos26.2/_._`                                       | compile marker (consumer TFM) |
-|  [07]   | `lib/{net9.0,net9.0-macos15.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._` | compile markers               |
+| [INDEX] | [ASSET]                                                                                                         | [ROLE]             |
+| :-----: | :-------------------------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `runtimes/osx/native/libHarfBuzzSharp.dylib`                                                                    | fat arm64+x64      |
+|  [02]   | `buildTransitive/{net462,net48}/*.targets`                                                                      | full-fw copy logic |
+|  [03]   | `buildTransitive/{net9.0-macos15.0,net10.0-macos26.2}/*.targets`                                                | empty no-op        |
+|  [04]   | `lib/{net10.0,net10.0-macos26.2,net9.0,net9.0-macos15.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._` | compile markers    |
 
-[LINUX_NATIVE_ASSETS]: Linux HarfBuzz payload (14 RIDs)
-- rail: typography
+[LINUX_NATIVE]: `libHarfBuzzSharp.so` across 14 RIDs; buildTransitive `.targets` carry copy logic on `net462`/`net48` only, `net10.0` resolves the RID payload through the SDK graph.
 
-| [INDEX] | [ASSET]                                                                              | [RAIL]                       |
-| :-----: | :----------------------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `runtimes/linux-{x64,x86,arm,arm64}/native/libHarfBuzzSharp.so`                      | glibc payload                |
-|  [02]   | `runtimes/linux-{riscv64,loongarch64}/native/libHarfBuzzSharp.so`                    | glibc payload                |
-|  [03]   | `runtimes/linux-musl-{x64,arm,arm64,riscv64,loongarch64}/native/libHarfBuzzSharp.so` | musl payload                 |
-|  [04]   | `runtimes/linux-bionic-{x64,arm64}/native/libHarfBuzzSharp.so`                       | Android-bionic payload       |
-|  [05]   | `buildTransitive/net462/*.targets` + `buildTransitive/net48/*.targets`               | copy logic (no macos groups) |
-|  [06]   | `lib/{net10.0,net9.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._`         | compile markers              |
-
-[WASM_RESTORE_FLOOR]: WebAssembly Emscripten static-archive floor (out-of-posture)
-- rail: typography
-- no `runtimes/<rid>/native` payload; static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`
-
-| [INDEX] | [ASSET]                                                                         | [RAIL]                |
-| :-----: | :------------------------------------------------------------------------------ | :-------------------- |
-|  [01]   | `libHarfBuzzSharp.a/2.0.23/libHarfBuzzSharp.a`                                  | static archive (flat) |
-|  [02]   | `libHarfBuzzSharp.a/3.1.7/libHarfBuzzSharp.a`                                   | static archive (flat) |
-|  [03]   | `libHarfBuzzSharp.a/3.1.12/{st\|mt\|st,simd\|mt,simd}/libHarfBuzzSharp.a`       | flavored archives     |
-|  [04]   | `libHarfBuzzSharp.a/3.1.34/{st\|mt\|st,simd\|mt,simd}/libHarfBuzzSharp.a`       | flavored archives     |
-|  [05]   | `libHarfBuzzSharp.a/3.1.56/{st\|mt\|st,simd\|mt,simd}/libHarfBuzzSharp.a`       | flavored archives     |
-|  [06]   | `buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.props`   | props import          |
-|  [07]   | `buildTransitive/netstandard1.0/HarfBuzzSharp.NativeAssets.WebAssembly.targets` | target import         |
+| [INDEX] | [ASSET]                                                                              | [ROLE]          |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------- |
+|  [01]   | `runtimes/linux-{x64,x86,arm,arm64,riscv64,loongarch64}/native/libHarfBuzzSharp.so`  | glibc RID       |
+|  [02]   | `runtimes/linux-musl-{x64,arm,arm64,riscv64,loongarch64}/native/libHarfBuzzSharp.so` | musl RID        |
+|  [03]   | `runtimes/linux-bionic-{x64,arm64}/native/libHarfBuzzSharp.so`                       | bionic RID      |
+|  [04]   | `buildTransitive/{net462,net48}/*.targets`                                           | full-fw copy    |
+|  [05]   | `lib/{net10.0,net9.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._`         | compile markers |
 
 ## [03]-[ASSET_ENTRYPOINTS]
 
-[LOAD_MECHANISM]: Native entrypoints bind build placement, RID selection, and typography evidence.
-- rail: typography
+[ASSET_ENTRYPOINTS]: RID selection and build-time output copy — no managed call surface.
 
-| [INDEX] | [SURFACE]                          | [ROOT]                    | [ROLE]         |
-| :-----: | :--------------------------------- | :------------------------ | :------------- |
-|  [01]   | `ShouldIncludeNativeHarfBuzzSharp` | `buildTransitive`         | opt-out        |
-|  [02]   | `_NativeHarfBuzzSharpFile`         | `runtimes/<rid>/native`   | framework copy |
-|  [03]   | RID asset graph                    | `runtimes/<rid>/native`   | SDK copy       |
-|  [04]   | macOS RID payload                  | `runtimes/osx/native`     | RID selection  |
-|  [05]   | Linux RID payload                  | `runtimes/linux-*/native` | RID selection  |
-|  [06]   | load-identity probe                | loaded library handle     | evidence       |
-
-[OPT_OUT_PROPERTY]: `ShouldIncludeNativeHarfBuzzSharp` defaults to `True` across the `buildTransitive/net462` and `buildTransitive/net48` targets.
-
-[FRAMEWORK_COPY]: `_NativeHarfBuzzSharpFile` selects `runtimes/<rid>/native/libHarfBuzzSharp.{dylib,so}` as `None` items with `CopyToOutputDirectory=PreserveNewest`.
-
-[SDK_COPY]: `net10.0` resolves `runtimes/<rid>/native` through the SDK RID asset graph while its targets file remains empty.
-
-[RID_SELECTION]: `osx-arm64` binds live macOS, and `linux-*` binds headless Linux.
-
-[LOAD_IDENTITY]: The loaded `libHarfBuzzSharp` handle supplies version, path, and RID to typography evidence.
+| [INDEX] | [SURFACE]                          | [ROOT]                           | [ROLE]                       |
+| :-----: | :--------------------------------- | :------------------------------- | :--------------------------- |
+|  [01]   | `ShouldIncludeNativeHarfBuzzSharp` | `buildTransitive/{net462,net48}` | copy opt-out, default `True` |
+|  [02]   | RID asset graph                    | `runtimes/<rid>/native`          | SDK copy on `net10.0`        |
+|  [03]   | `libHarfBuzzSharp.{dylib,so}`      | `runtimes/<rid>/native`          | dlopen target, RID selection |
+|  [04]   | load-identity probe                | loaded library handle            | version/path/RID evidence    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[NATIVE_ASSET_LAW]:
-- Package: `HarfBuzzSharp.NativeAssets.macOS` + `HarfBuzzSharp.NativeAssets.Linux` (the two AppUi-admitted text natives)
-- Owns: per-platform HarfBuzz load identity, the `buildTransitive` copy targets, and per-RID output asset presence for the live-macOS + headless-Linux posture
-- Stacks: `SkiaSharp.HarfBuzz` (`.api/api-skia-harfbuzz.md`) is the managed shaper that P/Invokes the native these packages place; one resolved `libHarfBuzzSharp` serves both the retained Avalonia text stack and the `SKShaper`/`Font.Shape` shaped rail; the first shaped draw folds the native version, path, and RID into the typography evidence stream alongside the `libSkiaSharp` identity
-- Accept: the native arrives through the package `runtimes/<rid>/native` payload + RID-asset/targets copy; the typography evidence records it as part of typography proof
-- Reject: a system HarfBuzz dependency; documenting any native asset as a public managed type; treating Win32/WebAssembly as AppUi copy-local assets
+[TOPOLOGY]:
+- `libHarfBuzzSharp` reaches build output at the RID-correct path for every admitted profile, or the first `HarfBuzzSharp`/`SKShaper` shape faults at load time with `DllNotFoundException`, never a compile error.
+- Full-framework consumers (`net462`/`net48`) copy the native through the `_NativeHarfBuzzSharpFile` glob gated on `ShouldIncludeNativeHarfBuzzSharp`; `net10.0` resolves the same payload through the SDK RID-asset graph, so the matching `buildTransitive/net10.0-*`/`net9.0-*` targets stay empty.
 
-[LOAD_MECHANISM_LAW]:
-- Package: `HarfBuzzSharp.NativeAssets.macOS` + `HarfBuzzSharp.NativeAssets.Linux`
-- Owns: the divergence between full-framework copy (`net462`/`net48` targets run the `_NativeHarfBuzzSharpFile` glob under `ShouldIncludeNativeHarfBuzzSharp`) and SDK-managed copy (`net10.0` resolves the native through the SDK RID-asset graph; the matching `buildTransitive/net10.0-*`/`net9.0-*` targets are deliberately empty)
-- Accept: the AppUi `net10.0` consumer binds the RID-asset path; `ShouldIncludeNativeHarfBuzzSharp=False` is the supported opt-out when a higher layer (app-host distribution) owns native placement
-- Reject: assuming the macOS/Linux `buildTransitive` targets file carries copy logic on net10 (it does not); hand-copying the dylib/so beside the RID-asset graph
+[STACKING]:
+- `api-skia-harfbuzz.md`: `SKShaper`/`HarfBuzzSharp.Font.Shape` P/Invoke the `libHarfBuzzSharp` these packages place; one resolved native serves both the retained Avalonia text stack and the shaped-draw rail, and the first shaped draw folds its version, path, and RID into the typography evidence stream beside the `libSkiaSharp` identity.
+- `api-skia-native.md`: `libSkiaSharp` rides the same RID graph from the parallel Skia native-asset pair, so one RID-correct output tree carries both text natives for a profile.
 
-[WASM_FLOOR_LAW]:
-- Package: `HarfBuzzSharp.NativeAssets.WebAssembly` (restore-floor only, not AppUi-referenced)
-- Owns: the Emscripten static-archive floor — no shared library, no RID payload, archives selected by Emscripten version (`2.0.23`/`3.1.7`/`3.1.12`/`3.1.34`/`3.1.56`) and `st`/`mt`/`,simd` flavor through the package `.props`/`.targets`
-- Accept: a Blazor/wasm consumer links the flavor-matched `.a` at AOT publish through the package props and targets
-- Reject: treating wasm `.a` archives as copy-local runtime libraries; admitting this package into the AppUi macOS/Linux posture
+[LOCAL_ADMISSION]:
+- `HarfBuzzSharp.NativeAssets.macOS` and `.Linux` are the admitted per-platform text natives for the live-macOS (`osx-arm64`) and headless-Linux profiles; `HarfBuzzSharp.NativeAssets.Win32` and `.WebAssembly` reach the restore graph only transitively through the `SkiaSharp.HarfBuzz`/Avalonia closure and never copy-local into AppUi output.
 
-[API_BOUNDARY_LAW]:
-- Package: all four `HarfBuzzSharp.NativeAssets.*` packages
-- Owns: native payload, copy targets, and lib compile placeholders only
-- Accept: every managed shaping API fact (`HarfBuzzSharp.Blob`/`Face`/`Font`/`Buffer`/`Feature`, `SkiaSharp.HarfBuzz.SKShaper`) stays in `.api/api-skia-harfbuzz.md`
-- Reject: documenting native assets as public managed types
+[RAIL_LAW]:
+- Package: `HarfBuzzSharp.NativeAssets.macOS`, `HarfBuzzSharp.NativeAssets.Linux`
+- Owns: the per-platform HarfBuzz native load identity, the `buildTransitive` copy targets, and per-RID output-asset presence
+- Accept: the native arrives through the package `runtimes/<rid>/native` payload and the RID-asset/targets copy, recorded into typography evidence at the first shaped draw; `ShouldIncludeNativeHarfBuzzSharp=False` cedes placement to a higher app-host distribution layer
+- Reject: a system HarfBuzz dependency, hand-copying the dylib/so beside the RID-asset graph, or documenting any native asset as a public managed type — managed shaping API facts stay in `api-skia-harfbuzz.md`

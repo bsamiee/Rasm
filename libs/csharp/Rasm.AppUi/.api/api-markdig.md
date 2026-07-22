@@ -1,185 +1,150 @@
 # [RASM_APPUI_API_MARKDIG]
 
-`Markdig` supplies the Markdown pipeline builder, parse/render entrypoints, and the block/inline AST with typed descendant traversal for document folding.
+`Markdig` owns Markdown-to-AST parsing, extension-configured rendering, and the block/inline syntax tree with typed descendant traversal, all through one immutable pipeline. A single `MarkdownPipeline` builds once and drives every `Parse`, `ToHtml`, and `Normalize`; `Descendants<T>` projections carrying `Span` source-mapping evidence fold the tree onto the document-outline and editor-integration rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Markdig`
-- package: `Markdig`
+- package: `Markdig` (BSD-2-Clause, Alexandre Mutel)
 - assembly: `Markdig`
-- namespace: `Markdig`
-- namespace: `Markdig.Syntax`
-- namespace: `Markdig.Syntax.Inlines`
-- namespace: `Markdig.Parsers`
-- namespace: `Markdig.Renderers`
-- namespace: `Markdig.Renderers.Normalize` (canonical-markdown renderer)
-- namespace: `Markdig.Renderers.Html` (`HtmlAttributes` attach surface + `TryGetAttributes`)
-- namespace: `Markdig.Extensions.Tables` (pipe/grid table block AST)
-- namespace: `Markdig.Extensions.TaskLists` (task-list checkbox inline)
-- asset: runtime library
-- build-floor: ships `lib/net10.0`; the `net10.0` consumer binds it directly
+- namespace: `Markdig`, `Markdig.Syntax`, `Markdig.Syntax.Inlines`, `Markdig.Parsers`, `Markdig.Renderers`, `Markdig.Renderers.Normalize`, `Markdig.Renderers.Html`, `Markdig.Extensions.Tables`, `Markdig.Extensions.TaskLists`
+- asset: runtime library (managed)
 - rail: markdown
 
 ## [02]-[PUBLIC_TYPES]
 
-[PIPELINE_TYPES]: pipeline and parser surfaces
-- rail: markdown
+[PIPELINE_TYPES]: pipeline, parser, and renderer surfaces.
 
-| [INDEX] | [SYMBOL]                  | [RAIL]               |
-| :-----: | :------------------------ | :------------------- |
-|  [01]   | `Markdown`                | static entrypoint    |
-|  [02]   | `MarkdownPipeline`        | built pipeline       |
-|  [03]   | `MarkdownPipelineBuilder` | pipeline builder     |
-|  [04]   | `MarkdownExtensions`      | `Use*` configuration |
-|  [05]   | `MarkdownParserContext`   | parse context        |
-|  [06]   | `MarkdownParser`          | parser core          |
-|  [07]   | `HtmlRenderer`            | HTML renderer        |
-|  [08]   | `RendererBase`            | renderer base        |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [CAPABILITY]                    |
+| :-----: | :------------------------ | :------------- | :------------------------------ |
+|  [01]   | `Markdown`                | static class   | parse and render entrypoint     |
+|  [02]   | `MarkdownPipeline`        | sealed class   | built immutable pipeline        |
+|  [03]   | `MarkdownPipelineBuilder` | class          | pipeline and parser-state build |
+|  [04]   | `MarkdownExtensions`      | static class   | `Use*` feature configuration    |
+|  [05]   | `MarkdownParserContext`   | class          | cross-parse context state       |
+|  [06]   | `MarkdownParser`          | static class   | parser core                     |
+|  [07]   | `HtmlRenderer`            | class          | HTML renderer                   |
+|  [08]   | `RendererBase`            | abstract class | renderer base                   |
 
-[BLOCK_TYPES]: block AST family
-- rail: markdown
+[BLOCK_TYPES]: block AST family.
 
-| [INDEX] | [SYMBOL]                                           | [RAIL]                                            |
-| :-----: | :------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `MarkdownObject`                                   | AST root base                                     |
-|  [02]   | `MarkdownDocument`                                 | document root                                     |
-|  [03]   | `Block`                                            | block base                                        |
-|  [04]   | `ContainerBlock`                                   | child-bearing                                     |
-|  [05]   | `LeafBlock`                                        | inline-bearing                                    |
-|  [06]   | `ParagraphBlock`                                   | paragraph                                         |
-|  [07]   | `HeadingBlock`                                     | heading                                           |
-|  [08]   | `FencedCodeBlock`                                  | fenced code                                       |
-|  [09]   | `CodeBlock`                                        | indented code                                     |
-|  [10]   | `QuoteBlock`                                       | block quote                                       |
-|  [11]   | `ListBlock`                                        | list                                              |
-|  [12]   | `ListItemBlock`                                    | list item                                         |
-|  [13]   | `ThematicBreakBlock`                               | rule                                              |
-|  [14]   | `HtmlBlock`                                        | raw HTML                                          |
-|  [15]   | `LinkReferenceDefinition`                          | link definition                                   |
-|  [16]   | `Extensions.Tables.Table` (`: ContainerBlock`)     | pipe/grid table                                   |
-|  [17]   | `Extensions.Tables.TableRow` (`: ContainerBlock`)  | table row (`IsHeader`)                            |
-|  [18]   | `Extensions.Tables.TableCell` (`: ContainerBlock`) | table cell (`ColumnIndex`/`ColumnSpan`/`RowSpan`) |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]            | [CAPABILITY]                 |
+| :-----: | :------------------------ | :----------------------- | :--------------------------- |
+|  [01]   | `MarkdownObject`          | abstract class           | AST root base                |
+|  [02]   | `MarkdownDocument`        | class : `ContainerBlock` | document root                |
+|  [03]   | `Block`                   | abstract class           | block base                   |
+|  [04]   | `ContainerBlock`          | abstract class           | child-bearing block          |
+|  [05]   | `LeafBlock`               | abstract class           | inline-bearing block         |
+|  [06]   | `ParagraphBlock`          | class                    | paragraph                    |
+|  [07]   | `HeadingBlock`            | class                    | heading                      |
+|  [08]   | `FencedCodeBlock`         | class                    | fenced code                  |
+|  [09]   | `CodeBlock`               | class                    | indented code                |
+|  [10]   | `QuoteBlock`              | class                    | block quote                  |
+|  [11]   | `ListBlock`               | class                    | list                         |
+|  [12]   | `ListItemBlock`           | class                    | list item                    |
+|  [13]   | `ThematicBreakBlock`      | class                    | rule                         |
+|  [14]   | `HtmlBlock`               | class                    | raw HTML block               |
+|  [15]   | `LinkReferenceDefinition` | class                    | link definition              |
+|  [16]   | `Table`                   | class : `ContainerBlock` | pipe/grid table              |
+|  [17]   | `TableRow`                | class : `ContainerBlock` | table row, `IsHeader`        |
+|  [18]   | `TableCell`               | class : `ContainerBlock` | table cell, column/span geom |
 
-[INLINE_TYPES]: inline AST family
-- rail: markdown
+[INLINE_TYPES]: inline AST family.
 
-| [INDEX] | [SYMBOL]                                         | [RAIL]                         |
-| :-----: | :----------------------------------------------- | :----------------------------- |
-|  [01]   | `Inline`                                         | inline base                    |
-|  [02]   | `ContainerInline`                                | child-bearing                  |
-|  [03]   | `LeafInline`                                     | terminal inline                |
-|  [04]   | `LiteralInline`                                  | text run                       |
-|  [05]   | `EmphasisInline`                                 | emphasis                       |
-|  [06]   | `LinkInline`                                     | link / image                   |
-|  [07]   | `CodeInline`                                     | code span                      |
-|  [08]   | `AutolinkInline`                                 | autolink                       |
-|  [09]   | `LineBreakInline`                                | line break                     |
-|  [10]   | `HtmlInline`                                     | raw HTML inline                |
-|  [11]   | `Extensions.TaskLists.TaskList` (`: LeafInline`) | task-list checkbox (`Checked`) |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]             | [CAPABILITY]         |
+| :-----: | :---------------- | :------------------------ | :------------------- |
+|  [01]   | `Inline`          | abstract class            | inline base          |
+|  [02]   | `ContainerInline` | class                     | child-bearing inline |
+|  [03]   | `LeafInline`      | abstract class            | terminal inline      |
+|  [04]   | `LiteralInline`   | class                     | text run             |
+|  [05]   | `EmphasisInline`  | class : `ContainerInline` | emphasis             |
+|  [06]   | `LinkInline`      | class                     | link / image         |
+|  [07]   | `CodeInline`      | class                     | code span            |
+|  [08]   | `AutolinkInline`  | class                     | autolink             |
+|  [09]   | `LineBreakInline` | class                     | line break           |
+|  [10]   | `HtmlInline`      | class                     | raw HTML inline      |
+|  [11]   | `TaskList`        | class : `LeafInline`      | task-list checkbox   |
 
 ## [03]-[ENTRYPOINTS]
 
-[PARSE_ENTRYPOINTS]: parse and render operations
-- rail: markdown
-- surface-root: `Markdown`
+[PARSE_ENTRYPOINTS]: `Markdown` owns parse and render, each overload defaulting to the built-in pipeline.
 
-| [INDEX] | [SURFACE]          | [RAIL]                                                                                                       |
-| :-----: | :----------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Parse`            | `Parse(string, pipeline?, context?)` / `Parse(string, bool trackTrivia)` to `MarkdownDocument`               |
-|  [02]   | `ToHtml`           | `ToHtml(string, pipeline?, context?)` to string, plus `MarkdownDocument.ToHtml(writer, pipeline?)` extension |
-|  [03]   | `ToPlainText`      | plain-text render to string or `TextWriter`                                                                  |
-|  [04]   | `Normalize`        | canonical-markdown render (`NormalizeOptions`) to string or `TextWriter`                                     |
-|  [05]   | `Convert`          | `Convert(string, IMarkdownRenderer, pipeline?, context?)` for a custom renderer                              |
-|  [06]   | `Markdown.Version` | assembly file-version string (`"1.3.2"`)                                                                     |
+| [INDEX] | [SURFACE]                                         | [SHAPE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------ | :------- | :------------------------------------ |
+|  [01]   | `Parse(string, pipeline?, context?)`              | static   | parse to `MarkdownDocument`           |
+|  [02]   | `Parse(string, bool)`                             | static   | parse with trivia tracking            |
+|  [03]   | `ToHtml(string, pipeline?, context?)`             | static   | markdown or document to HTML string   |
+|  [04]   | `ToPlainText(string, pipeline?)`                  | static   | plain-text render to string or writer |
+|  [05]   | `Normalize(string, NormalizeOptions?, pipeline?)` | static   | canonical-markdown render             |
+|  [06]   | `Convert(string, IMarkdownRenderer, pipeline?)`   | static   | render through a custom renderer      |
+|  [07]   | `Version`                                         | property | assembly file-version string          |
 
-[BUILDER_ENTRYPOINTS]: pipeline configuration
-- rail: markdown
+[BUILDER_ENTRYPOINTS]: `MarkdownPipelineBuilder` folds parser lists, extensions, and parse policy into one sealed pipeline.
 
-`MarkdownPipelineBuilder` owns pipeline construction and parser state.
+| [INDEX] | [SURFACE]                               | [SHAPE]  | [CAPABILITY]                         |
+| :-----: | :-------------------------------------- | :------- | :----------------------------------- |
+|  [01]   | `Build()`                               | instance | seal to immutable `MarkdownPipeline` |
+|  [02]   | `BlockParsers` / `InlineParsers`        | property | typed ordered parser lists           |
+|  [03]   | `Extensions`                            | property | `OrderedList<IMarkdownExtension>`    |
+|  [04]   | `TrackTrivia` / `PreciseSourceLocation` | property | roundtrip trivia and span fidelity   |
+|  [05]   | `MaximumNestingDepth` / `DebugLog`      | property | recursion guard and debug writer     |
+|  [06]   | `DocumentProcessed`                     | event    | `ProcessDocumentDelegate` post-parse |
 
-| [INDEX] | [SURFACE]                               | [RAIL]                                      |
-| :-----: | :-------------------------------------- | :------------------------------------------ |
-|  [01]   | `Build`                                 | seal to immutable `MarkdownPipeline`        |
-|  [02]   | `BlockParsers` / `InlineParsers`        | typed ordered parser lists                  |
-|  [03]   | `Extensions`                            | `OrderedList<IMarkdownExtension>` mutations |
-|  [04]   | `TrackTrivia` / `PreciseSourceLocation` | roundtrip trivia and span fidelity          |
-|  [05]   | `MaximumNestingDepth` / `DebugLog`      | recursion guard and debug writer            |
-|  [06]   | `DocumentProcessed`                     | `ProcessDocumentDelegate` post-parse event  |
+[EXTENSION_ENTRYPOINTS]: `MarkdownExtensions` folds each feature onto the builder as one chainable `Use*` call.
 
-`MarkdownExtensions` owns the pipeline configuration extensions.
+| [INDEX] | [SURFACE]                                                   | [SHAPE] | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------- | :------ | :------------------------------------ |
+|  [01]   | `UseAdvancedExtensions`                                     | static  | full extension bundle                 |
+|  [02]   | `UsePipeTables` / `UseGridTables`                           | static  | tables                                |
+|  [03]   | `UseTaskLists` / `UseListExtras`                            | static  | task lists and ordered-list extras    |
+|  [04]   | `UseAutoIdentifiers` / `UseAutoLinks`                       | static  | heading ids and bare-URL links        |
+|  [05]   | `UseYamlFrontMatter`                                        | static  | front matter                          |
+|  [06]   | `UseEmphasisExtras` / `UseFootnotes` / `UseDefinitionLists` | static  | inline forms and definition lists     |
+|  [07]   | `UseMathematics` / `UseDiagrams`                            | static  | math and diagram fences               |
+|  [08]   | `UseCustomContainers` / `UseGenericAttributes`              | static  | containers and generic attributes     |
+|  [09]   | `UseAlertBlocks` / `UseCitations` / `UseAbbreviations`      | static  | alerts, citations, abbreviations      |
+|  [10]   | `UseEmojiAndSmiley` / `UseSmartyPants` / `UseMediaLinks`    | static  | emoji, typography, embedded media     |
+|  [11]   | `UsePreciseSourceLocation` / `UsePragmaLines`               | static  | precise spans and line-number pragmas |
+|  [12]   | `Use<TExtension>` / `UseSelfPipeline` / `Configure(string)` | static  | custom, self-configuring, and named   |
 
-| [INDEX] | [SURFACE]                                                   | [RAIL]                                |
-| :-----: | :---------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `UseAdvancedExtensions`                                     | full extension bundle                 |
-|  [02]   | `UsePipeTables` / `UseGridTables`                           | tables                                |
-|  [03]   | `UseTaskLists` / `UseListExtras`                            | task lists and ordered-list extras    |
-|  [04]   | `UseAutoIdentifiers` / `UseAutoLinks`                       | heading ids and bare-URL links        |
-|  [05]   | `UseYamlFrontMatter`                                        | front matter                          |
-|  [06]   | `UseEmphasisExtras` / `UseFootnotes` / `UseDefinitionLists` | inline forms and definition lists     |
-|  [07]   | `UseMathematics` / `UseDiagrams`                            | math and diagram fences               |
-|  [08]   | `UseCustomContainers` / `UseGenericAttributes`              | containers and generic attributes     |
-|  [09]   | `UseAlertBlocks` / `UseCitations` / `UseAbbreviations`      | alerts, citations, and abbreviations  |
-|  [10]   | `UseEmojiAndSmiley` / `UseSmartyPants` / `UseMediaLinks`    | emoji, typography, and embedded media |
-|  [11]   | `UsePreciseSourceLocation` / `UsePragmaLines`               | precise spans and line-number pragmas |
-|  [12]   | `Use<TExtension>` / `Configure(string)`                     | custom and string-named configuration |
+[AST_ENTRYPOINTS]: `Descendants<T>` traversal and the node-typed evidence document folds read.
 
-[AST_ENTRYPOINTS]: AST traversal and node evidence for folding
-- rail: markdown
-
-| [INDEX] | [SURFACE]                                             | [SURFACE_ROOT]                                  |
-| :-----: | :---------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Descendants()`                                       | `MarkdownObjectExtensions`                      |
-|  [02]   | `Descendants<T>()`                                    | `MarkdownObjectExtensions`                      |
-|  [03]   | `Span` / `ToPositionText()`                           | `MarkdownObject`                                |
-|  [04]   | `Line` / `Column`                                     | `MarkdownObject`                                |
-|  [05]   | `SetData` / `GetData` / `ContainsData` / `RemoveData` | `MarkdownObject`                                |
-|  [06]   | `Inline`                                              | `LeafBlock`                                     |
-|  [07]   | `Level` / `HeaderChar`                                | `HeadingBlock`                                  |
-|  [08]   | `Info` / `Arguments`                                  | `FencedCodeBlock`                               |
-|  [09]   | `IsOrdered` / `BulletType` / `Order`                  | `ListBlock`                                     |
-|  [10]   | `Url` / `Title` / `IsImage`                           | `LinkInline`                                    |
-|  [11]   | `LineCount` / `LineStartIndexes`                      | `MarkdownDocument`                              |
-|  [12]   | `Lines`                                               | `LeafBlock`                                     |
-|  [13]   | `Content`                                             | `CodeInline` / `LiteralInline`                  |
-|  [14]   | `DelimiterCount` / `DelimiterChar`                    | `EmphasisInline`                                |
-|  [15]   | `Parent`                                              | `Inline`                                        |
-|  [16]   | `Checked`                                             | `Extensions.TaskLists.TaskList`                 |
-|  [17]   | `TryGetAttributes() -> HtmlAttributes?`               | `HtmlAttributesExtensions` on `IMarkdownObject` |
-
-[AST_EVIDENCE]:
-- [01]-[WALK]: Full pre-order `IEnumerable<MarkdownObject>` walk.
-- [02]-[TYPED_WALK]: Typed walk with start-node narrowing through the `ContainerBlock` and `ContainerInline` overloads.
-- [03]-[SPAN]: `Span` is a `SourceSpan` field, and `ToPositionText()` renders its diagnostic position.
-- [04]-[POSITION]: Zero-based source position.
-- [05]-[DATA]: Per-node `object`-keyed data bag for fold annotation.
-- [06]-[INLINE]: Nullable `ContainerInline` child run of a paragraph or heading.
-- [07]-[HEADING]: Outline depth and the `#` or setext marker.
-- [08]-[FENCE]: Code-fence language tag and raw arguments for the syntax-highlight key.
-- [09]-[LIST]: List ordering and marker.
-- [10]-[LINK]: Link target, title, and image-versus-link discriminant.
-- [11]-[LINES]: Line count and per-line absolute offset mapping.
-- [12]-[RAW_TEXT]: Raw accumulated line text through `StringLineGroup.ToString()` for code-fence or indented-code bodies.
-- [13]-[CONTENT]: `string` code content or `StringSlice` literal text.
-- [14]-[EMPHASIS]: Emphasis run depth, with `1` for italic and `>= 2` for bold, plus the marker character.
-- [15]-[ANCESTRY]: Nullable doubly-linked parent with `PreviousSibling` and `NextSibling` ancestry hops.
-- [16]-[TASK]: Boolean task-list checkbox state.
-- [17]-[ATTRIBUTES]: Attached `HtmlAttributes` with `Id`, `Classes`, and `Properties` for the heading-anchor slug.
+| [INDEX] | [SURFACE]                                         | [SHAPE]   | [CAPABILITY]                                               |
+| :-----: | :------------------------------------------------ | :-------- | :--------------------------------------------------------- |
+|  [01]   | `MarkdownObjectExtensions.Descendants()`          | extension | pre-order `IEnumerable<MarkdownObject>` walk               |
+|  [02]   | `MarkdownObjectExtensions.Descendants<T>()`       | extension | typed walk, start-node narrowing on container overloads    |
+|  [03]   | `MarkdownObject.Span` / `ToPositionText()`        | member    | `SourceSpan` field and diagnostic position render          |
+|  [04]   | `MarkdownObject.Line` / `Column`                  | property  | zero-based source position                                 |
+|  [05]   | `MarkdownObject.SetData` / `GetData`              | method    | per-node keyed data bag, `ContainsData` / `RemoveData`     |
+|  [06]   | `LeafBlock.Inline`                                | property  | nullable `ContainerInline` child run                       |
+|  [07]   | `HeadingBlock.Level` / `HeaderChar`               | property  | outline depth and `#` or setext marker                     |
+|  [08]   | `FencedCodeBlock.Info` / `Arguments`              | property  | fence language tag and raw args for the highlight key      |
+|  [09]   | `ListBlock.IsOrdered` / `BulletType` / `Order`    | property  | list ordering and marker                                   |
+|  [10]   | `LinkInline.Url` / `Title` / `IsImage`            | property  | link target, title, image-versus-link discriminant         |
+|  [11]   | `MarkdownDocument.LineCount` / `LineStartIndexes` | property  | line count and per-line absolute offset mapping            |
+|  [12]   | `LeafBlock.Lines`                                 | property  | raw accumulated line text via `StringLineGroup.ToString()` |
+|  [13]   | `CodeInline.Content` / `LiteralInline.Content`    | property  | code `string` content or `StringSlice` literal text        |
+|  [14]   | `EmphasisInline.DelimiterCount` / `DelimiterChar` | property  | run depth (`1` italic, `>= 2` bold) and marker char        |
+|  [15]   | `Inline.Parent`                                   | property  | nullable parent with `PreviousSibling` / `NextSibling`     |
+|  [16]   | `TaskList.Checked`                                | property  | boolean checkbox state                                     |
+|  [17]   | `HtmlAttributesExtensions.TryGetAttributes()`     | extension | attached `HtmlAttributes` (`Id`, `Classes`, `Properties`)  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
-[PIPELINE_LAW]:
-- Package: `Markdig`
-- Owns: Markdown parsing, extension configuration, and rendering through one immutable pipeline
-- Accept: a `MarkdownPipeline` is built once and reused across parses
-- Reject: regex or line-split Markdown handling beside the pipeline
-
-[AST_LAW]:
-- Package: `Markdig`
-- Owns: the block/inline AST as the only Markdown document model
-- Accept: document folds drive off `Descendants<T>` projections with `Span` evidence; the fold reads node-typed evidence (`HeadingBlock.Level`, `FencedCodeBlock.Info`, `LinkInline.Url`/`IsImage`) and annotates via `SetData`/`GetData`
-- Reject: parallel Markdown node models duplicating the syntax tree; regex extraction of headings/links the AST already exposes
+[TOPOLOGY]:
+- One `MarkdownPipeline` builds once at composition and threads as the `pipeline` argument to every `Parse`, `ToHtml`, and `Normalize`; `MarkdownParserContext.Properties` carries cross-document state and `DocumentProcessed` hooks post-parse AST rewrites onto the same pipeline.
+- Block and inline nodes form the sole Markdown document model; folds project through `Descendants<T>` with `Span` evidence and annotate via `SetData`/`GetData`, reading node-typed evidence (`HeadingBlock.Level`, `FencedCodeBlock.Info`, `LinkInline.Url`/`IsImage`) directly off each node.
 
 [STACKING]:
-- Outline into the live-data rail: `document.Descendants<HeadingBlock>()` projects to `(Level, text, Span)` rows that seed a `DynamicData` `SourceCache` keyed by `Span.Start`; `TransformToTree` (using `Level` as the parent-depth key) folds the flat heading stream into a collapsible document-outline `Node` tree bound to a `TreeDataGrid` — the outline shares the one change-set rail with every other panel.
-- Editor integration: `MarkdownObject.Span`/`Line`/`Column` map fold nodes back to source offsets in the `Avalonia.AvaloniaEdit` document, so an outline-row click scrolls the editor and an editor caret resolves to the enclosing block via the span; `FencedCodeBlock.Info` selects the `AvaloniaEdit.TextMate` grammar for the fence body.
-- One built pipeline, reused: a single `MarkdownPipelineBuilder.UseAdvancedExtensions()....Build()` is constructed once at composition and threaded as the `pipeline` argument to every `Parse`/`ToHtml`; `MarkdownParserContext.Properties` carries cross-document state (link-reference resolution, asset rewrites) without a second parse pass, and `DocumentProcessed` hooks post-parse AST rewrites onto the same pipeline.
+- `api-dynamicdata`(`.api/api-dynamicdata.md`): `Descendants<HeadingBlock>()` projects `(Level, text, Span)` rows seeding a `SourceCache` keyed by `Span.Start`; `TransformToTree` on `Level` folds the flat heading stream into the collapsible outline `Node` tree bound to a `TreeDataGrid`, sharing the one change-set rail with every other panel.
+- `api-avaloniaedit`(`.api/api-avaloniaedit.md`): `Span`/`Line`/`Column` map fold nodes to editor-document offsets, so an outline-row click scrolls the editor and a caret resolves to its enclosing block; `FencedCodeBlock.Info` selects the `api-textmatesharp` grammar for the fence body.
+- Within-lib: one `MarkdownPipelineBuilder.UseAdvancedExtensions()…Build()` constructed at composition, threaded to every parse, resolving link references and asset rewrites through `MarkdownParserContext.Properties` without a second pass.
+
+[LOCAL_ADMISSION]:
+- `Markdig` is the branch's sole Markdown parser, renderer, and AST; one pipeline builds once and is reused across every parse.
+
+[RAIL_LAW]:
+- Package: `Markdig`
+- Owns: Markdown parsing, extension configuration, rendering, and the block/inline AST as the only document model.
+- Accept: one immutable pipeline reused across parses; document folds over `Descendants<T>` with `Span` evidence and `SetData`/`GetData` annotation, driven by node-typed evidence.
+- Reject: regex or line-split Markdown handling beside the pipeline; a parallel node model duplicating the syntax tree; regex extraction of headings or links the AST already exposes.
